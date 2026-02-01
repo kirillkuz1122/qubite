@@ -490,47 +490,101 @@
                 }
             }
 
-            /* ======================== 2. CRACKS ======================== */
+            /* ======================== 2. REALISTIC SHATTERED GLASS ======================== */
             let activeCracks = [];
             let crackCount = 0;
             const MAX_CLICKS = 6;
 
-            class CrackBranch {
-                constructor(x, y, angle, width, speed) {
+            class GlassShatter {
+                constructor(x, y) {
                     this.x = x;
                     this.y = y;
-                    this.angle = angle;
-                    this.width = width;
-                    this.speed = speed;
-                    this.history = [{ x, y }];
+                    this.rays = [];
+                    this.subCracks = [];
+                    this.life = 1.0;
+                    this.generate();
                 }
-                update() {
-                    this.angle += (Math.random() - 0.5) * 1.5;
-                    this.x += Math.cos(this.angle) * this.speed;
-                    this.y += Math.sin(this.angle) * this.speed;
-                    this.history.push({ x: this.x, y: this.y });
-                    this.width *= 0.96;
-                    if (this.width > 1 && Math.random() < 0.15) {
-                        const newAngle = this.angle + (Math.random() - 0.5) * 2;
-                        activeCracks.push(
-                            new CrackBranch(
-                                this.x,
-                                this.y,
-                                newAngle,
-                                this.width * 0.7,
-                                this.speed * 0.9,
-                            ),
+
+                generate() {
+                    const numRays = 12 + Math.random() * 8;
+                    // Создаем основные лучи
+                    for (let i = 0; i < numRays; i++) {
+                        const angle =
+                            (Math.PI * 2 * i) / numRays +
+                            (Math.random() - 0.5) * 0.5;
+                        const len = Math.max(cw, ch);
+                        this.rays.push(
+                            this.createJaygedLine(this.x, this.y, angle, len),
                         );
                     }
+
+                    // Создаем перемычки (Cross Links)
+                    for (let i = 0; i < numRays; i++) {
+                        if (Math.random() > 0.4) continue;
+                        const r1 = this.rays[i];
+                        const r2 = this.rays[(i + 1) % numRays];
+                        const steps = 3 + Math.floor(Math.random() * 3);
+                        for (let s = 1; s < steps; s++) {
+                            // Берем точку на луче 1 и соединяем с лучом 2
+                            const p1 =
+                                r1[Math.floor((r1.length - 1) * (s / steps))];
+                            const p2 =
+                                r2[Math.floor((r2.length - 1) * (s / steps))];
+                            if (p1 && p2) {
+                                this.subCracks.push([p1, p2]);
+                            }
+                        }
+                    }
                 }
+
+                createJaygedLine(hx, hy, angle, maxDist) {
+                    const points = [{ x: hx, y: hy }];
+                    let cx = hx,
+                        cy = hy;
+                    let dist = 0;
+                    while (dist < maxDist) {
+                        const step = 20 + Math.random() * 40;
+                        const dev = (Math.random() - 0.5) * 0.8;
+                        cx += Math.cos(angle + dev) * step;
+                        cy += Math.sin(angle + dev) * step;
+                        points.push({ x: cx, y: cy });
+                        dist += step;
+                    }
+                    return points;
+                }
+
                 draw(ctx) {
-                    if (this.history.length < 2) return;
-                    ctx.beginPath();
-                    ctx.strokeStyle = `rgba(255, 255, 255, 0.8)`;
-                    ctx.lineWidth = Math.max(0.5, this.width);
-                    ctx.moveTo(this.history[0].x, this.history[0].y);
-                    for (let p of this.history) ctx.lineTo(p.x, p.y);
-                    ctx.stroke();
+                    ctx.save();
+                    ctx.shadowColor = "rgba(200, 230, 255, 0.5)";
+                    ctx.shadowBlur = 5;
+                    ctx.strokeStyle = `rgba(240, 250, 255, ${0.8 * this.life})`;
+                    ctx.lineWidth = 2;
+                    ctx.lineJoin = "bevel";
+
+                    // Рисуем лучи
+                    this.rays.forEach((ray) => {
+                        ctx.beginPath();
+                        ctx.moveTo(ray[0].x, ray[0].y);
+                        for (let i = 1; i < ray.length; i++)
+                            ctx.lineTo(ray[i].x, ray[i].y);
+                        ctx.stroke();
+                    });
+
+                    // Рисуем перемычки
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = `rgba(200, 240, 255, ${0.5 * this.life})`;
+                    this.subCracks.forEach((pair) => {
+                        ctx.beginPath();
+                        ctx.moveTo(pair[0].x, pair[0].y);
+                        ctx.lineTo(pair[1].x, pair[1].y);
+                        ctx.stroke();
+                    });
+
+                    ctx.restore();
+                }
+
+                update() {
+                    // Static
                 }
             }
 
@@ -541,22 +595,9 @@
                     200,
                 );
                 Sound.crack();
-                const cx = cw / 2;
-                const cy = ch / 2;
-                const branches = 8 + Math.random() * 5;
-                for (let i = 0; i < branches; i++) {
-                    const angle =
-                        ((Math.PI * 2) / branches) * i + (Math.random() - 0.5);
-                    activeCracks.push(
-                        new CrackBranch(
-                            cx,
-                            cy,
-                            angle,
-                            6,
-                            25 + Math.random() * 15,
-                        ),
-                    );
-                }
+
+                // Add new shatter instance at center
+                activeCracks.push(new GlassShatter(cw / 2, ch / 2));
             }
 
             /* ======================== 3. GAME LOGIC ======================== */
@@ -864,7 +905,9 @@
                 Sound.init();
 
                 if (currentState === STATE.COUNTDOWN && e.target === btnChaos) {
-                    location.reload();
+                    // TROLL MODE: Click does nothing but move it
+                    moveChaosBtn();
+                    Sound.playTone("sawtooth", 400, 0.1);
                     return;
                 }
 
@@ -903,10 +946,10 @@
                 drawMatrix();
                 gCtx.lineCap = "round";
                 for (let crack of activeCracks) {
-                    if (crack.width > 0.1) {
-                        crack.update();
-                        crack.draw(gCtx);
-                    }
+                    // if (crack.width > 0.1) { ALWAYS DRAW
+                    crack.update();
+                    crack.draw(gCtx);
+                    // }
                 }
 
                 if (
