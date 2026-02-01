@@ -1362,7 +1362,7 @@ function renderDashboard() {
                         <div class="card__title">Профиль</div>
                     </div>
                     <div class="profile-summary">
-                        <img src="img/avatar.png" alt="Avatar" class="profile-avatar" onerror="this.src='https://ui-avatars.com/api/?name=AP&background=random'"/>
+                        <img src="img/avatar.svg" alt="Avatar" class="profile-avatar" onerror="this.src='https://ui-avatars.com/api/?name=AP&background=random'"/>
                         <div>
                             <div class="profile-name">Алексей Петров</div>
                             <div class="profile-tag">@alexpetrov</div>
@@ -1385,7 +1385,7 @@ function renderDashboard() {
                 </div>
 
                 <!-- Daily Task -->
-                <a href="#" class="card dash-card task-card" data-view-anim style="transition-delay: 0.3s">
+                <a href="javascript:void(0)" class="card dash-card task-card" data-view-anim style="transition-delay: 0.3s">
                     <div class="card__head">
                         <div class="card__sub" style="margin:0">Ежедневное задание</div>
                         <div class="task-title-large">Поиск в глубину</div>
@@ -1513,7 +1513,7 @@ function renderTeam() {
                 </div>
                 <div class="invite-content">
                     <div class="invite-title">Вас пригласили в команду "CosmoCoders"</div>
-                    <div class="invite-desc">Приглашение от пользователя <a href="#" class="text-accent-link">@cosmo_leader</a></div>
+                    <div class="invite-desc">Приглашение от пользователя <a href="javascript:void(0)"               class="text-accent-link">@cosmo_leader</a></div>
                 </div>
                 <div class="invite-actions">
                     <button class="btn btn--muted btn--sm">Отклонить</button>
@@ -1820,8 +1820,7 @@ function initTournamentsInteractions(container) {
         else popover.classList.add("tour-popover--left");
 
         popover.innerHTML = popoverHtml;
-        btn.style.position = "relative"; // Anchor to the button itself
-        btn.appendChild(popover);
+        btn.parentElement.appendChild(popover);
 
         btn.addEventListener("click", (e) => {
             e.stopPropagation();

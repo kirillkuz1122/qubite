@@ -1,36 +1,938 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
     <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
         <title>404 - Страница не найдена | Qubit</title>
-        <link rel="stylesheet" href="./css/styles.css" />
-        <link rel="icon" href="img/icon.svg" type="image/x-icon" />
+        <link rel="icon" href="./front/img/icon.svg" type="image/x-icon" />
+        <style>
+            :root {
+                --bg-color: #050505;
+                --accent-start: #f43f5e;
+                --accent-end: #f59e0b;
+            }
+
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: var(--bg-color);
+                font-family: "Segoe UI", "Roboto", sans-serif;
+                user-select: none;
+                touch-action: none;
+                cursor: crosshair; /* Курсор виден */
+            }
+
+            #matrix-canvas,
+            #game-canvas,
+            #ui-layer,
+            #white-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+            }
+
+            #matrix-canvas {
+                z-index: 1;
+                opacity: 0.3;
+            }
+            #game-canvas {
+                z-index: 5;
+            }
+
+            #ui-layer {
+                z-index: 10;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                transition: opacity 0.5s;
+                pointer-events: none;
+            }
+
+            .ui-element {
+                position: relative;
+                text-align: center;
+                transition: transform 0.1s;
+                pointer-events: auto;
+            }
+
+            #block-404 {
+                font-size: clamp(80px, 15vw, 150px);
+                font-weight: 900;
+                background: linear-gradient(
+                    135deg,
+                    var(--accent-start),
+                    var(--accent-end)
+                );
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                margin-bottom: 20px;
+                filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.5));
+            }
+
+            #text-title {
+                color: white;
+                font-size: clamp(24px, 5vw, 40px);
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+
+            #text-desc {
+                color: #aaa;
+                font-size: clamp(14px, 3vw, 18px);
+                max-width: 600px;
+                line-height: 1.6;
+                padding: 0 20px;
+            }
+
+            /* Кнопка с градиентом */
+            .gradient-btn {
+                margin-top: 40px;
+                padding: 16px 40px;
+                background: linear-gradient(
+                    135deg,
+                    var(--accent-start),
+                    var(--accent-end)
+                );
+                color: #050505;
+                border: none;
+                border-radius: 16px;
+                font-size: 18px;
+                font-weight: 800;
+                cursor: pointer;
+                box-shadow: 0 10px 30px rgba(244, 63, 94, 0.4);
+                transition:
+                    transform 0.2s,
+                    box-shadow 0.2s,
+                    opacity 0.3s;
+                text-decoration: none;
+                display: inline-block;
+            }
+            .gradient-btn:hover {
+                transform: scale(1.05);
+                box-shadow: 0 15px 40px rgba(244, 63, 94, 0.6);
+                color: white;
+            }
+
+            #btn-back.hidden {
+                pointer-events: none;
+                opacity: 0;
+            }
+
+            /* Кнопка Хаоса */
+            #btn-chaos {
+                position: fixed;
+                padding: 15px 30px;
+                background: #f43f5e;
+                color: white;
+                font-weight: 900;
+                border: 2px solid white;
+                border-radius: 12px;
+                z-index: 2000;
+                box-shadow: 0 0 30px #f43f5e;
+                pointer-events: auto;
+                display: none;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            /* Таймер самоуничтожения */
+            #timer-container {
+                display: none;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                z-index: 100;
+            }
+            #timer-val {
+                font-size: 150px;
+                font-weight: 900;
+                color: #f43f5e;
+                text-shadow: 5px 5px 0px #000;
+                font-family: monospace;
+            }
+            #timer-label {
+                color: white;
+                font-size: 24px;
+                text-transform: uppercase;
+                letter-spacing: 4px;
+                margin-bottom: 10px;
+            }
+
+            /* Белое пространство */
+            #white-overlay {
+                background: radial-gradient(
+                    circle at center,
+                    #fff 0%,
+                    #eef 100%
+                );
+                z-index: 200;
+                opacity: 0;
+                /* Эффект будет через JS */
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                pointer-events: none;
+            }
+
+            #void-content {
+                opacity: 0;
+                transition: opacity 1s ease 2s; /* Появляется позже */
+                text-align: center;
+                color: #333;
+                pointer-events: auto;
+                z-index: 201; /* Поверх белого фона */
+            }
+
+            #void-title {
+                font-size: 40px;
+                font-weight: 300;
+                margin-bottom: 30px;
+                letter-spacing: 2px;
+                color: #444;
+            }
+
+            /* Анимации */
+            @keyframes shake {
+                0% {
+                    transform: translate(2px, 2px);
+                }
+                10% {
+                    transform: translate(-2px, -3px);
+                }
+                20% {
+                    transform: translate(-4px, 0px);
+                }
+                30% {
+                    transform: translate(4px, 3px);
+                }
+                40% {
+                    transform: translate(2px, -2px);
+                }
+                50% {
+                    transform: translate(-2px, 3px);
+                }
+                60% {
+                    transform: translate(-4px, 1px);
+                }
+                70% {
+                    transform: translate(4px, 2px);
+                }
+                80% {
+                    transform: translate(-2px, -2px);
+                }
+                90% {
+                    transform: translate(2px, 3px);
+                }
+                100% {
+                    transform: translate(2px, -3px);
+                }
+            }
+
+            .shake-hard {
+                animation: shake 0.1s infinite;
+            }
+
+            .shake-extreme {
+                animation: shake 0.05s infinite;
+                filter: blur(1px) contrast(1.2);
+            }
+        </style>
     </head>
-    <body class="error-page">
-        <div class="grid" aria-hidden="true"></div>
+    <body>
+        <canvas id="matrix-canvas"></canvas>
+        <canvas id="game-canvas"></canvas>
 
-        <div class="error-content">
-            <div class="error-cube-container">
-                <div class="error-cube">404</div>
-            </div>
-
-            <h1 class="error-title">Уппс! Глюк в системе.</h1>
-            <p class="error-subtitle">
+        <!-- Начальный UI -->
+        <div id="ui-layer">
+            <div id="block-404" class="ui-element">404</div>
+            <div id="text-title" class="ui-element">Уппс! Глюк в системе.</div>
+            <div id="text-desc" class="ui-element">
                 Кажется, этот блок кода отсутствует или был перемещен в другое
                 измерение.
-            </p>
+            </div>
+            <a id="btn-back" href="index.html" class="gradient-btn ui-element"
+                >Вернуться назад</a
+            >
+        </div>
 
-            <div class="error-actions">
-                <a href="index.html" class="btn btn--accent">
-                    Вернуться назад
-                </a>
+        <!-- Кнопка Хаоса (Восстановить) -->
+        <button id="btn-chaos">ВОССТАНОВИТЬ</button>
+
+        <!-- Таймер Хаоса -->
+        <div id="timer-container">
+            <div id="timer-label">CRITICAL FAILURE</div>
+            <div id="timer-val">05.00</div>
+        </div>
+
+        <!-- Финальный экран (Белая пустота) -->
+        <div id="white-overlay">
+            <div id="void-content">
+                <div id="void-title">Сигнал потерян...</div>
+                <a href="index.html" class="gradient-btn"
+                    >Перезагрузить систему</a
+                >
             </div>
         </div>
 
-        <!-- Small decorative cubes -->
-        <div class="decor-cube decor-1"></div>
-        <div class="decor-cube decor-2"></div>
-        <div class="decor-cube decor-3"></div>
+        <!-- Спрайты -->
+        <img
+            id="sprites-img"
+            src="front/img/sprites.png"
+            style="display: none"
+        />
+
+        <script>
+            /* ======================== SOUND ENGINE ======================== */
+            const Sound = {
+                ctx: null,
+                oscList: [],
+                init() {
+                    if (!this.ctx) {
+                        this.ctx = new (
+                            window.AudioContext || window.webkitAudioContext
+                        )();
+                    }
+                },
+                playTone(type, freq, dur, vol = 0.1) {
+                    if (!this.ctx) this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(
+                        0.001,
+                        this.ctx.currentTime + dur,
+                    );
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + dur);
+                },
+                crack() {
+                    if (!this.ctx) this.init();
+                    this.playTone(
+                        "triangle",
+                        2000 + Math.random() * 2000,
+                        0.1,
+                        0.3,
+                    );
+                    this.playTone(
+                        "sawtooth",
+                        50 + Math.random() * 100,
+                        0.2,
+                        0.4,
+                    );
+                },
+                shoot() {
+                    if (!this.ctx) this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = "square";
+                    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(
+                        150,
+                        this.ctx.currentTime + 0.15,
+                    );
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(
+                        0,
+                        this.ctx.currentTime + 0.15,
+                    );
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                },
+                explosion() {
+                    if (!this.ctx) this.init();
+                    const bufferSize = this.ctx.sampleRate * 0.5;
+                    const buffer = this.ctx.createBuffer(
+                        1,
+                        bufferSize,
+                        this.ctx.sampleRate,
+                    );
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++)
+                        data[i] = Math.random() * 2 - 1;
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const gain = this.ctx.createGain();
+                    const filter = this.ctx.createBiquadFilter();
+
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(
+                        100,
+                        this.ctx.currentTime + 0.4,
+                    );
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(
+                        0.01,
+                        this.ctx.currentTime + 0.4,
+                    );
+                    noise.start();
+                },
+                tick(freq) {
+                    if (!this.ctx) this.init();
+                    this.playTone("square", freq, 0.05, 0.3);
+                },
+                startAmbient() {
+                    if (!this.ctx) this.init();
+                    const freqs = [220, 277.18, 329.63, 440];
+                    freqs.forEach((f) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.frequency.value = f;
+                        gain.gain.value = 0;
+                        gain.gain.linearRampToValueAtTime(
+                            0.05,
+                            this.ctx.currentTime + 2,
+                        );
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        this.oscList.push({ osc, gain });
+                    });
+                },
+                stopAmbient() {
+                    this.oscList.forEach((o) => {
+                        o.gain.gain.linearRampToValueAtTime(
+                            0,
+                            this.ctx.currentTime + 1,
+                        );
+                        o.osc.stop(this.ctx.currentTime + 1);
+                    });
+                    this.oscList = [];
+                },
+            };
+
+            /* ======================== INIT UI ======================== */
+            const matrixCanvas = document.getElementById("matrix-canvas");
+            const gameCanvas = document.getElementById("game-canvas");
+            const mCtx = matrixCanvas.getContext("2d");
+            const gCtx = gameCanvas.getContext("2d");
+            const uiLayer = document.getElementById("ui-layer");
+            const btnBack = document.getElementById("btn-back");
+            const btnChaos = document.getElementById("btn-chaos");
+            const spritesImg = document.getElementById("sprites-img");
+            const timerContainer = document.getElementById("timer-container");
+            const timerVal = document.getElementById("timer-val");
+            const whiteOverlay = document.getElementById("white-overlay");
+            const voidContent = document.getElementById("void-content");
+
+            let cw, ch;
+            function resize() {
+                cw = window.innerWidth;
+                ch = window.innerHeight;
+                matrixCanvas.width = cw;
+                matrixCanvas.height = ch;
+                gameCanvas.width = cw;
+                gameCanvas.height = ch;
+            }
+            window.addEventListener("resize", resize);
+            resize();
+
+            const STATE = {
+                NORMAL: 0,
+                CRACKING: 1,
+                TRANSITION: 2,
+                GAME: 3,
+                COUNTDOWN: 4,
+                VOID: 5,
+            };
+            let currentState = STATE.NORMAL;
+
+            /* ======================== 1. MATRIX ======================== */
+            const chars = "ﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃﾏｹﾒｴｶｷﾑﾕﾗｾﾈｽﾀﾇﾍ0123456789";
+            const drops = [];
+            const fontSize = 16;
+            function initMatrix() {
+                const cols = Math.ceil(cw / fontSize);
+                for (let i = 0; i < cols; i++) drops[i] = Math.random() * -50;
+            }
+            initMatrix();
+
+            function drawMatrix() {
+                mCtx.fillStyle = "rgba(5, 5, 5, 0.1)";
+                mCtx.fillRect(0, 0, cw, ch);
+                mCtx.fillStyle =
+                    currentState === STATE.COUNTDOWN ? "#f43f5e" : "#0F0";
+                mCtx.font = fontSize + "px monospace";
+                for (let i = 0; i < drops.length; i++) {
+                    const text =
+                        chars[Math.floor(Math.random() * chars.length)];
+                    mCtx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    if (drops[i] * fontSize > ch && Math.random() > 0.975)
+                        drops[i] = 0;
+                    drops[i]++;
+                }
+            }
+
+            /* ======================== 2. CRACKS ======================== */
+            let activeCracks = [];
+            let crackCount = 0;
+            const MAX_CLICKS = 6;
+
+            class CrackBranch {
+                constructor(x, y, angle, width, speed) {
+                    this.x = x;
+                    this.y = y;
+                    this.angle = angle;
+                    this.width = width;
+                    this.speed = speed;
+                    this.history = [{ x, y }];
+                }
+                update() {
+                    this.angle += (Math.random() - 0.5) * 1.5;
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    this.history.push({ x: this.x, y: this.y });
+                    this.width *= 0.96;
+                    if (this.width > 1 && Math.random() < 0.15) {
+                        const newAngle = this.angle + (Math.random() - 0.5) * 2;
+                        activeCracks.push(
+                            new CrackBranch(
+                                this.x,
+                                this.y,
+                                newAngle,
+                                this.width * 0.7,
+                                this.speed * 0.9,
+                            ),
+                        );
+                    }
+                }
+                draw(ctx) {
+                    if (this.history.length < 2) return;
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(255, 255, 255, 0.8)`;
+                    ctx.lineWidth = Math.max(0.5, this.width);
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for (let p of this.history) ctx.lineTo(p.x, p.y);
+                    ctx.stroke();
+                }
+            }
+
+            function spawnCenterCracks() {
+                document.body.classList.add("shake-hard");
+                setTimeout(
+                    () => document.body.classList.remove("shake-hard"),
+                    200,
+                );
+                Sound.crack();
+                const cx = cw / 2;
+                const cy = ch / 2;
+                const branches = 8 + Math.random() * 5;
+                for (let i = 0; i < branches; i++) {
+                    const angle =
+                        ((Math.PI * 2) / branches) * i + (Math.random() - 0.5);
+                    activeCracks.push(
+                        new CrackBranch(
+                            cx,
+                            cy,
+                            angle,
+                            6,
+                            25 + Math.random() * 15,
+                        ),
+                    );
+                }
+            }
+
+            /* ======================== 3. GAME LOGIC ======================== */
+            let ship = { x: cw / 2, y: ch - 100 };
+            let meteors = [];
+            let bullets = [];
+            let particles = [];
+            let gameFrame = 0;
+            let difficultyLevel = 1;
+
+            function drawSprite(ctx, idx, x, y, size) {
+                if (!spritesImg.complete || spritesImg.naturalWidth === 0) {
+                    ctx.fillStyle = "#666";
+                    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+                    return;
+                }
+                const cols = 3,
+                    rows = 3;
+                const sw = spritesImg.naturalWidth / cols;
+                const sh = spritesImg.naturalHeight / rows;
+                const sx = (idx % cols) * sw;
+                const sy = Math.floor(idx / cols) * sh;
+                ctx.drawImage(
+                    spritesImg,
+                    sx,
+                    sy,
+                    sw,
+                    sh,
+                    x - size / 2,
+                    y - size / 2,
+                    size,
+                    size,
+                );
+            }
+
+            function updateGame() {
+                if (
+                    currentState === STATE.GAME ||
+                    currentState === STATE.COUNTDOWN
+                ) {
+                    if (lastMouseX) ship.x += (lastMouseX - ship.x) * 0.2;
+                    if (lastMouseY) ship.y += (lastMouseY - ship.y) * 0.2;
+                }
+
+                ship.x = Math.max(30, Math.min(cw - 30, ship.x));
+                ship.y = Math.max(30, Math.min(ch - 30, ship.y));
+
+                gCtx.save();
+                gCtx.translate(ship.x, ship.y);
+                gCtx.shadowBlur = 20;
+                gCtx.shadowColor = "#f43f5e";
+                gCtx.fillStyle = "#f43f5e";
+                gCtx.beginPath();
+                gCtx.moveTo(0, -40);
+                gCtx.lineTo(25, 25);
+                gCtx.lineTo(0, 10);
+                gCtx.lineTo(-25, 25);
+                gCtx.fill();
+                gCtx.fillStyle = "#f59e0b";
+                gCtx.beginPath();
+                gCtx.arc(0, 35 + Math.random() * 10, 8, 0, Math.PI * 2);
+                gCtx.fill();
+                gCtx.restore();
+
+                if (
+                    gameFrame % 10 === 0 &&
+                    (currentState === STATE.GAME ||
+                        currentState === STATE.COUNTDOWN)
+                ) {
+                    Sound.shoot();
+                    bullets.push({ x: ship.x, y: ship.y - 45, vy: -20 });
+                }
+
+                if (gameFrame % 300 === 0) difficultyLevel += 0.2;
+
+                let spawnRate = Math.max(
+                    5,
+                    Math.floor(40 - difficultyLevel * 5),
+                );
+                if (currentState === STATE.COUNTDOWN) spawnRate = 2; // SPAM!
+
+                if (
+                    gameFrame % spawnRate === 0 &&
+                    (currentState === STATE.GAME ||
+                        currentState === STATE.COUNTDOWN)
+                ) {
+                    const idx =
+                        currentState === STATE.COUNTDOWN
+                            ? 5 + Math.floor(Math.random() * 3)
+                            : Math.floor(Math.random() * 5);
+                    const size = 50 + Math.random() * 50;
+                    meteors.push({
+                        x: Math.random() * cw,
+                        y: -100,
+                        size: size,
+                        spriteIdx: idx,
+                        vy:
+                            (3 + Math.random() * 3) *
+                            difficultyLevel *
+                            (currentState === STATE.COUNTDOWN ? 2 : 1),
+                        vx: (Math.random() - 0.5) * 5,
+                        rot: Math.random(),
+                        vRot: (Math.random() - 0.5) * 0.1,
+                        hp: 2 + Math.floor(difficultyLevel),
+                    });
+                }
+
+                gCtx.fillStyle = "#0ff";
+                bullets.forEach((b, i) => {
+                    b.y += b.vy;
+                    gCtx.fillRect(b.x - 3, b.y, 6, 20);
+                    if (b.y < -50) bullets.splice(i, 1);
+                });
+
+                for (let i = meteors.length - 1; i >= 0; i--) {
+                    let m = meteors[i];
+                    m.x += m.vx;
+                    m.y += m.vy;
+                    m.rot += m.vRot;
+
+                    gCtx.save();
+                    gCtx.translate(m.x, m.y);
+                    gCtx.rotate(m.rot);
+                    drawSprite(gCtx, m.spriteIdx, 0, 0, m.size);
+                    gCtx.restore();
+
+                    for (let j = bullets.length - 1; j >= 0; j--) {
+                        let b = bullets[j];
+                        if (
+                            Math.abs(b.x - m.x) < m.size / 2 &&
+                            Math.abs(b.y - m.y) < m.size / 2
+                        ) {
+                            m.hp--;
+                            bullets.splice(j, 1);
+                            createParticles(b.x, b.y, 3, "#fff");
+                            if (m.hp <= 0) {
+                                Sound.explosion();
+                                createParticles(m.x, m.y, 15, "#fa0");
+                                meteors.splice(i, 1);
+                            }
+                            break;
+                        }
+                    }
+
+                    // --- LOGIC CHAOS ---
+                    if (currentState === STATE.COUNTDOWN) {
+                        if (m.x < 0 || m.x > cw) m.vx *= -1;
+                        if (m.y < -150) m.vy = Math.abs(m.vy);
+                        if (m.y > ch) {
+                            m.y = ch;
+                            m.vy *= -1;
+                        }
+                    } else {
+                        if (m.y > ch && currentState === STATE.GAME)
+                            startCountdown();
+                        if (m.y > ch + 100) meteors.splice(i, 1);
+                    }
+                }
+
+                // Allow update particles in VOID for explosion
+                particles.forEach((p, i) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.life -= 0.02;
+                    gCtx.fillStyle = p.color;
+                    gCtx.globalAlpha = Math.max(0, p.life);
+                    gCtx.fillRect(p.x, p.y, p.size || 5, p.size || 5);
+                    gCtx.globalAlpha = 1;
+                    if (p.life <= 0) particles.splice(i, 1);
+                });
+            }
+
+            function createParticles(x, y, count, color) {
+                for (let k = 0; k < count; k++)
+                    particles.push({
+                        x: x,
+                        y: y,
+                        vx: (Math.random() - 0.5) * 30,
+                        vy: (Math.random() - 0.5) * 30,
+                        life: 1 + Math.random(),
+                        color: color,
+                        size: 2 + Math.random() * 8,
+                    });
+            }
+
+            /* ======================== 4. COUNTDOWN (CHAOS) ======================== */
+            let countdownTime = 5.0;
+            let explosionRadius = 0;
+
+            function startCountdown() {
+                if (currentState === STATE.COUNTDOWN) return;
+                currentState = STATE.COUNTDOWN;
+                countdownTime = 5.0;
+
+                document.body.classList.add("shake-extreme"); // Violent shake
+                timerContainer.style.display = "block";
+
+                btnChaos.style.display = "block";
+                btnChaos.textContent = "ВОССТАНОВИТЬ";
+                moveChaosBtn();
+
+                // Glitch existing meteors and make them bounce
+                meteors.forEach((m) => {
+                    m.spriteIdx = 5 + Math.floor(Math.random() * 3);
+                    m.vx *= 3;
+                    m.vy *= 2;
+                });
+                Sound.tick(200);
+            }
+
+            function updateCountdown() {
+                countdownTime -= 1 / 60;
+
+                updateGame();
+
+                if (lastMouseX && lastMouseY)
+                    checkChaosButton(lastMouseX, lastMouseY);
+
+                if (
+                    Math.floor(countdownTime) <
+                    Math.floor(countdownTime + 1 / 60)
+                ) {
+                    Sound.tick(800 + (5 - countdownTime) * 100);
+                }
+
+                timerVal.textContent = Math.max(0, countdownTime).toFixed(2);
+
+                if (Math.random() > 0.8) {
+                    timerContainer.style.left =
+                        50 + (Math.random() - 0.5) * 5 + "%";
+                    timerContainer.style.top =
+                        50 + (Math.random() - 0.5) * 5 + "%";
+                }
+
+                if (countdownTime <= 0) {
+                    startVoid();
+                }
+            }
+
+            function moveChaosBtn() {
+                const maxX = cw - 200;
+                const maxY = ch - 60;
+                btnChaos.style.left = Math.max(0, Math.random() * maxX) + "px";
+                btnChaos.style.top = Math.max(0, Math.random() * maxY) + "px";
+            }
+
+            function checkChaosButton(mouseX, mouseY) {
+                const rect = btnChaos.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dist = Math.hypot(mouseX - cx, mouseY - cy);
+                if (dist < 150) {
+                    moveChaosBtn();
+                    Sound.playTone("sawtooth", 300, 0.1);
+                }
+            }
+
+            function startVoid() {
+                currentState = STATE.VOID;
+                document.body.classList.remove("shake-extreme");
+                timerContainer.style.display = "none";
+                btnChaos.style.display = "none";
+
+                // EXPLOSION FX
+                explosionRadius = 1;
+                Sound.explosion();
+                // Boom
+                Sound.playTone("sawtooth", 50, 1, 0.5);
+
+                createParticles(cw / 2, ch / 2, 400, "#fff");
+                createParticles(cw / 2, ch / 2, 200, "#f43f5e");
+
+                // UI Fade
+                whiteOverlay.style.transition = "opacity 0.2s ease-in";
+                whiteOverlay.style.opacity = "1";
+                whiteOverlay.style.pointerEvents = "auto";
+
+                setTimeout(() => {
+                    voidContent.style.opacity = "1";
+                }, 2000);
+
+                Sound.stopAmbient();
+                setTimeout(() => Sound.startAmbient(), 1500);
+            }
+
+            /* ======================== INPUT ======================== */
+            let lastMouseX, lastMouseY;
+            document.addEventListener("mousemove", (e) => {
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            });
+            document.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    if (e.touches.length > 0) {
+                        lastMouseX = e.touches[0].clientX;
+                        lastMouseY = e.touches[0].clientY;
+                    }
+                },
+                { passive: false },
+            );
+
+            document.addEventListener("click", (e) => {
+                Sound.init();
+
+                if (currentState === STATE.COUNTDOWN && e.target === btnChaos) {
+                    location.reload();
+                    return;
+                }
+
+                if (
+                    currentState === STATE.NORMAL ||
+                    currentState === STATE.CRACKING
+                ) {
+                    currentState = STATE.CRACKING;
+                    crackCount++;
+                    spawnCenterCracks();
+                    if (crackCount >= MAX_CLICKS) {
+                        startTransitionGame();
+                    }
+                }
+            });
+
+            function startTransitionGame() {
+                currentState = STATE.TRANSITION;
+                const els = uiLayer.children;
+                for (let i = 0; i < els.length; i++) {
+                    els[i].style.transition = `all 1s ease ${i * 0.1}s`;
+                    els[i].style.transform =
+                        `translateY(${ch}px) rotate(${Math.random() * 90 - 45}deg)`;
+                    els[i].style.opacity = "0";
+                }
+                setTimeout(() => {
+                    currentState = STATE.GAME;
+                    activeCracks = [];
+                    btnBack.classList.add("hidden");
+                }, 1500);
+            }
+
+            /* ======================== LOOP ======================== */
+            function loop() {
+                gCtx.clearRect(0, 0, cw, ch);
+                drawMatrix();
+                gCtx.lineCap = "round";
+                for (let crack of activeCracks) {
+                    if (crack.width > 0.1) {
+                        crack.update();
+                        crack.draw(gCtx);
+                    }
+                }
+
+                if (
+                    currentState === STATE.GAME ||
+                    currentState === STATE.COUNTDOWN ||
+                    currentState === STATE.VOID
+                )
+                    updateGame();
+
+                if (currentState === STATE.COUNTDOWN) {
+                    updateCountdown();
+                }
+
+                // Explosion Shockwave
+                if (explosionRadius > 0) {
+                    explosionRadius += 50;
+                    gCtx.beginPath();
+                    gCtx.arc(cw / 2, ch / 2, explosionRadius, 0, Math.PI * 2);
+                    gCtx.fillStyle = "#fff";
+                    gCtx.fill();
+                }
+
+                gameFrame++;
+                requestAnimationFrame(loop);
+            }
+            loop();
+        </script>
     </body>
 </html>
