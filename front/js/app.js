@@ -315,6 +315,35 @@ setTheme(getPreferredTheme());
     if (btn) btn.addEventListener("click", toggleTheme);
 });
 
+// --- Сворачивание боковой панели ---
+const sidebar = document.querySelector(".sidebar");
+const sidebarCollapseBtn = document.getElementById("sidebarCollapse");
+
+function setSidebarState(isCollapsed) {
+    if (!sidebar) return;
+    if (isCollapsed) {
+        sidebar.classList.add("sidebar--collapsed");
+    } else {
+        sidebar.classList.remove("sidebar--collapsed");
+    }
+    localStorage.setItem("sidebarCollapsed", isCollapsed);
+    // Вызываем resize, чтобы графики и другие элементы подстроились
+    window.dispatchEvent(new Event("resize"));
+}
+
+if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener("click", () => {
+        const isCollapsed = sidebar.classList.contains("sidebar--collapsed");
+        setSidebarState(!isCollapsed);
+    });
+}
+
+// Инициализация состояния
+const savedSidebarState = localStorage.getItem("sidebarCollapsed") === "true";
+if (savedSidebarState) {
+    setSidebarState(true);
+}
+
 // Слушаем системную тему, если пользователь не выбрал вручную
 if (!localStorage.getItem("theme") && window.matchMedia) {
     window
@@ -1362,10 +1391,14 @@ function renderDashboard() {
                         <div class="card__title">Профиль</div>
                     </div>
                     <div class="profile-summary">
-                        <img src="img/avatar.svg" alt="Avatar" class="profile-avatar" onerror="this.src='https://ui-avatars.com/api/?name=AP&background=random'"/>
+                        <div class="profile-avatar">
+                            <div class="avatar-inner">
+                                <span class="avatar-letter">КК</span>
+                            </div>
+                        </div>
                         <div>
-                            <div class="profile-name">Алексей Петров</div>
-                            <div class="profile-tag">@alexpetrov</div>
+                            <div class="profile-name">Кирилл Кузмичев</div>
+                            <div class="profile-tag">@Kkuzya3</div>
                         </div>
                     </div>
                     <div class="profile-metrics">

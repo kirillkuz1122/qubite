@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Jura:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
 :root {
     --bg-1: #0b1220;
     --bg-2: #020617;
@@ -13,11 +13,26 @@
     --card-border: rgba(255, 255, 255, 0.1);
     --accent-from: #f43f5e;
     --accent-to: #f59e0b;
+    --accent-grad: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    --accent-grad-vert: linear-gradient(
+        176.35deg,
+        var(--accent-from),
+        var(--accent-to)
+    );
     --green: #22c55e;
     --green-2: #16a34a;
     --container: 80rem;
     --header-h: 56px;
+
+    /* Updated Radius */
     --radius: 16px;
+    --radius-btn: 12px;
+    --radius-input: 12px;
+
+    /* Fonts */
+    --font-head: "Jura", sans-serif;
+    --font-body: "Manrope", sans-serif;
+
     --grid-o: 0.05; /* прозрачность сетки */
     color-scheme: dark;
     --formula-o: 0.1;
@@ -115,16 +130,7 @@ body {
 }
 body {
     margin: 0;
-    font-family:
-        system-ui,
-        -apple-system,
-        Segoe UI,
-        Roboto,
-        Ubuntu,
-        Cantarell,
-        Noto Sans,
-        Helvetica,
-        Arial;
+    font-family: var(--font-body);
     background:
         radial-gradient(
             ellipse at top,
@@ -226,7 +232,7 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    border-radius: 12px;
+    border-radius: var(--radius-btn);
     padding: 10px 18px; /* Чуть шире */
     font-size: 15px;
     border: 1px solid transparent;
@@ -252,6 +258,7 @@ a {
     display: inline-flex; /* Fix flex alignment */
     justify-content: center;
     box-shadow: 0 4px 12px rgba(244, 63, 94, 0.4);
+    font-family: var(--font-body);
 }
 
 .btn--icon-only {
@@ -466,6 +473,16 @@ a {
 }
 
 .word {
+    font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        Ubuntu,
+        Cantarell,
+        "Noto Sans",
+        Helvetica,
+        Arial;
     font-weight: 1000;
     line-height: 1;
     letter-spacing: -0.02em;
@@ -615,7 +632,8 @@ a {
 .section__title {
     font-size: clamp(22px, 3vw, 36px);
     color: var(--fg-strong);
-    font-weight: 900;
+    font-weight: 700;
+    font-family: var(--font-head);
     margin: 8px 0;
 }
 .accent-bar {
@@ -638,6 +656,7 @@ a {
 
 /* WHAT */
 .what__title {
+    font-family: var(--font-head);
     font-size: clamp(26px, 4.6vw, 40px);
     font-weight: 900;
     color: var(--fg-strong);
@@ -666,8 +685,9 @@ a {
     );
 }
 .feature-card__title {
-    font-weight: 800;
+    font-weight: 700;
     color: var(--fg-strong);
+    font-family: var(--font-head);
 }
 .feature-card__sub {
     font-size: 14px;
@@ -718,9 +738,12 @@ a {
 .card {
     position: relative;
     overflow: hidden;
-    border-radius: 16px;
-    border: 1px solid var(--card-border);
-    background: var(--card);
+    border-radius: var(--radius);
+
+    /* Glass Effect */
+    background: color-mix(in oklab, var(--bg-1) 85%, transparent);
+    border: 1px solid var(--border);
+
     padding: 16px;
 }
 .card__topbar {
@@ -784,6 +807,7 @@ a {
     font-weight: 800;
     font-size: 18px;
     margin: 0;
+    font-family: var(--font-head);
 }
 .card__sub {
     margin: 4px 0 0;
@@ -1638,7 +1662,7 @@ a {
 /* Updated Brand Text */
 /* Brand Text - Global */
 .brand__text {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 20px;
     font-weight: 300;
     line-height: 28px;
@@ -1742,7 +1766,6 @@ a {
     place-items: center;
     background: var(--muted);
     border: 1px solid var(--border);
-    border-radius: 14px;
     color: var(--fg-muted);
     cursor: pointer;
     transition: all 0.2s;
@@ -1856,9 +1879,8 @@ a {
 .profile-avatar {
     width: 48px;
     height: 48px;
-    border-radius: 50%;
+    border-radius: 16px;
     object-fit: cover;
-    border: 2px solid var(--border);
 }
 .profile-name {
     font-size: 16px;
@@ -2485,7 +2507,7 @@ a {
     margin: 0 auto;
 }
 .dash-header {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 32px;
     font-weight: 300;
     color: var(--fg-strong);
@@ -2505,7 +2527,7 @@ a {
 .dash-card {
     background: #11141d; /* Deep Dark */
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 24px;
+    border-radius: var(--radius);
     padding: 24px;
     display: flex;
     flex-direction: column;
@@ -2523,7 +2545,7 @@ a {
     gap: 0;
 }
 .tour-card .card__title {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 18px; /* Smaller, cleaner */
     font-weight: 400;
     color: white;
@@ -2598,7 +2620,7 @@ a {
     margin-bottom: 8px;
 }
 .stat-box__val {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 32px;
     font-weight: 500;
     color: var(--fg-strong);
@@ -2665,7 +2687,7 @@ a {
     font-size: 20px;
     color: var(--fg-strong);
     font-weight: 500;
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
 }
 .profile-actions {
     display: grid;
@@ -2702,7 +2724,7 @@ a {
 }
 
 .task-title-large {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 24px;
     color: var(--fg-strong);
     font-weight: 400;
@@ -2734,7 +2756,7 @@ a {
 :root[data-theme="light"] .task-circle {
     background: linear-gradient(
         135deg,
-        ortend rgba(244, 63, 94, 0.2),
+        rgba(244, 63, 94, 0.2),
         rgba(245, 158, 11, 0.2)
     );
     box-shadow: 0 10px 40px rgba(244, 63, 94, 0.15);
@@ -2843,7 +2865,7 @@ a {
 .bar-val {
     font-size: 13px;
     font-weight: 800;
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     opacity: 0;
     transform: translateY(10px);
@@ -2981,6 +3003,8 @@ a {
     display: flex;
     flex-direction: column;
     gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .tour-head-row {
@@ -2999,8 +3023,8 @@ a {
 
 .search-input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: color-mix(in oklab, var(--bg-1) 85%, transparent);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 10px 16px 10px 40px;
     color: var(--fg-strong);
@@ -3346,7 +3370,7 @@ a {
 }
 
 .tour-card__title {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-head);
     font-size: 22px;
     font-weight: 400;
     color: var(--fg-strong);
@@ -4580,19 +4604,14 @@ body.loading {
         left: 0 !important;
         right: auto !important;
     }
-    .sidebar {
+    /* .sidebar {
         width: 80px;
-    }
+    } */
     .sidebar__brand .brand__text,
     .sidebar__nav span:last-child {
         display: none;
     }
-    .sidebar__nav .nav-item {
-        justify-content: center;
-        padding: 12px;
-    }
     .workspace__content {
-        margin-left: 80px;
         width: calc(100% - 80px);
     }
     .dash-grid {
@@ -4622,17 +4641,7 @@ body.loading {
     }
 
     .workspace__content {
-        margin-left: 80px;
         padding: 24px;
-    }
-    .sidebar__nav {
-        padding: 0 13.6px;
-    }
-    .sidebar__brand {
-        flex-direction: column;
-    }
-    .sidebar__brand .brand {
-        margin-bottom: 12px;
     }
 }
 @media (max-width: 420px) {
@@ -4723,8 +4732,6 @@ body.loading {
         font-size: 12px !important;
     }
     .btn--icon-only {
-        width: 36px !important;
-        height: 36px !important;
         padding: 0 !important;
         justify-content: center;
     }
@@ -4983,6 +4990,8 @@ body.loading {
 .team-view {
     padding-bottom: 40px;
     padding-top: 0;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .team-tabs {
@@ -5052,16 +5061,7 @@ body.loading {
         rgba(244, 63, 94, 0.1) 0%,
         rgba(245, 158, 11, 0.1) 100%
     );
-    border: 1.5px solid transparent;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-}
-
-:root[data-theme="light"] .team-invite-card {
-    background: linear-gradient(
-        90deg,
-        rgba(244, 63, 94, 0.2) 0%,
-        rgba(245, 158, 11, 0.2) 100%
-    );
+    border: none;
 }
 
 .team-invite-card::before {
@@ -5070,14 +5070,25 @@ body.loading {
     inset: -1px;
     border-radius: 24px;
     padding: 1px;
-    background: linear-gradient(176.35deg, #f43f5e, #f59e0b);
+    background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
     -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask:
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
-    z-index: -1;
+    z-index: 1;
+}
+
+:root[data-theme="light"] .team-invite-card {
+    background: linear-gradient(
+        90deg,
+        rgba(244, 63, 94, 0.2) 0%,
+        rgba(245, 158, 11, 0.2) 100%
+    );
 }
 
 .invite-icon-box {
@@ -5192,8 +5203,7 @@ body.loading {
     gap: 20px;
     height: 100%;
     align-items: flex-start;
-    text-align: left;
-    background: transparent; /* Let grid show? Or card bg */
+    text-align: left; /* Let grid show? Or card bg */
     border: 1px solid var(--border);
     border-radius: 24px;
 }
@@ -5270,4 +5280,302 @@ body.loading {
     ); /* Сбрасываем прозрачность заливки */
     color: var(--fg-strong);
     transform: translateY(calc(-1 * var(--btn-float)));
+}
+
+/* SIDEBAR COLLAPSE SYSTEM */
+@media (min-width: 769px) {
+    .sidebar {
+        transition: width 0.4s cubic-bezier(0.2, 0, 0, 1);
+        overflow: hidden; /* Важно: скрываем всё, что не влезает */
+        will-change: width;
+    }
+
+    /* Анимация контента внутри сайдбара */
+    .sidebar .brand__text,
+    .sidebar .nav-item span:not(.material-symbols-outlined) {
+        transition:
+            opacity 0.2s ease,
+            transform 0.2s ease,
+            max-width 0.4s cubic-bezier(0.2, 0, 0, 1);
+
+        opacity: 1;
+        transform: translateX(0);
+        white-space: nowrap; /* Чтобы текст не прыгал на новую строку */
+        display: inline-block;
+        max-width: 200px; /* Достаточно для текста */
+        overflow: hidden;
+    }
+
+    .sidebar--collapsed {
+        width: 80px !important;
+    }
+
+    /* Плавное скрытие текста при сворачивании */
+    .sidebar--collapsed .brand__text,
+    .sidebar--collapsed .nav-item span:not(.material-symbols-outlined) {
+        opacity: 0;
+        transform: translateX(-10px);
+        pointer-events: none;
+        max-width: 0;
+        /* Ускоряем исчезновение, чтобы текст пропал до сужения панели */
+        transition:
+            opacity 0.15s ease,
+            transform 0.15s ease,
+            max-width 0.3s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .sidebar--collapsed .sidebar__brand {
+        flex-direction: column;
+        gap: 12px;
+        padding: 24px 0;
+        align-items: center;
+    }
+
+    /* Важный момент: чтобы логотип не дергался при смене flex-direction */
+    .sidebar .sidebar__brand {
+        transition:
+            gap 0.3s ease,
+            padding 0.3s ease;
+    }
+
+    /* Расположение элементов меню */
+    .sidebar .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 16px;
+        transition:
+            padding 0.3s ease,
+            justify-content 0.3s ease;
+    }
+
+    .sidebar--collapsed .nav-item {
+        justify-content: center;
+        padding: 12px 0; /* Уменьшаем паддинги */
+    }
+
+    .sidebar--collapsed .nav-item .material-symbols-outlined {
+        margin: 0; /* Убираем возможные отступы у иконки */
+    }
+
+    .sidebar--collapsed .sidebar__nav {
+        padding: 0 12px;
+    }
+
+    .sidebar--collapsed .sidebar__collapse-btn {
+        transform: rotate(180deg);
+        margin-left: 0; /* Центрируем кнопку */
+    }
+
+    .sidebar__collapse-btn {
+        transition:
+            transform 0.4s cubic-bezier(0.2, 0, 0, 1),
+            margin 0.3s ease;
+    }
+
+    /* Adjust main content when sidebar is collapsed */
+    .workspace__content {
+        transition:
+            margin-left 0.4s cubic-bezier(0.2, 0, 0, 1),
+            width 0.4s cubic-bezier(0.2, 0, 0, 1);
+        will-change: margin-left, width;
+    }
+
+    .sidebar--collapsed + .workspace-mobile-header + .workspace__content,
+    body:has(.sidebar--collapsed) .workspace__content {
+        margin-left: 80px !important;
+        width: calc(100% - 80px) !important;
+    }
+}
+
+.sidebar__collapse-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--fg-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    width: 44px;
+    height: 44px;
+}
+
+.sidebar__collapse-btn:hover {
+    opacity: 1;
+    background: var(--muted-2);
+}
+
+@media (max-width: 768px) {
+    .sidebar__collapse-btn {
+        display: none; /* Hide on mobile */
+    }
+}
+
+#workspace-view > aside.sidebar--collapsed > nav > a.nav-item {
+    gap: 0;
+}
+
+#workspace-view > aside > div > div {
+    margin-right: 10px;
+}
+
+#workspace-view > aside.sidebar--collapsed > div > div {
+    gap: 0;
+    margin-bottom: 12px;
+    margin-right: 0;
+}
+
+#workspace-view > aside.sidebar--collapsed > nav > a {
+    width: 52px;
+}
+
+#workspace-content
+    > div.dash-view
+    > div
+    > div.card.dash-card.profile-card.in
+    > div.card__head {
+    margin-bottom: 22px;
+}
+
+#workspace-content
+    > div.dash-view
+    > div
+    > div.card.dash-card.profile-card.in
+    > div.profile-summary {
+    margin-bottom: 22px;
+}
+
+/* Sidebar Footer & Profile Section */
+.sidebar__footer {
+    margin-top: auto;
+    padding: 32px 24px calc(33px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--bg-1);
+    transition: all 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sidebar__profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    transition: all 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.profile-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    position: relative;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2);
+}
+
+.avatar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+    background: var(--bg-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatar-letter {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--fg-strong);
+}
+
+.profile-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease,
+        max-width 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.profile-name {
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fg-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-uid {
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: var(--fg-muted);
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.btn-notif {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.btn-notif:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--fg-strong);
+    border-color: var(--border-2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-notif:active {
+    transform: translateY(0);
+}
+
+.btn-notif .material-symbols-outlined {
+    font-size: 22px;
+}
+
+/* Collapsed state adjustments for Footer */
+.sidebar--collapsed .sidebar__footer {
+    flex-direction: column-reverse;
+    padding: 24px 0 calc(33px + env(safe-area-inset-bottom, 0px));
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar--collapsed .profile-meta {
+    opacity: 0;
+    max-width: 0;
+    transform: translateX(-10px);
+    pointer-events: none;
+    margin: 0;
+}
+
+.sidebar--collapsed .sidebar__profile {
+    gap: 0;
+    justify-content: center;
+}
+
+.sidebar--collapsed .btn-notif {
+    margin: 0 auto;
 }
