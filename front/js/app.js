@@ -471,7 +471,7 @@ const DYNAMIC_MODALS_HTML = `
         </button></div>
       <form class="modal__form" id="regForm" novalidate>
         <div class="field"><label>Логин</label><input class="input" name="login" placeholder="Alexander" data-required minlength="2"><div class="error" data-error-for="login"></div></div>
-        <div class="field"><label>Почта</label><input class="input" type="email" name="email" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
+        <div class="field"><label>Почта</label><input class="input" type="text" inputmode="email" name="email" placeholder="mail@example.com" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
         <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" placeholder="********" minlength="8" data-required data-type="passrule"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
         <div class="field input-group"><label>Повторите пароль</label><input class="input" type="password" name="pass2" placeholder="********" data-required data-type="match:pass"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass2"></div></div>
         <label class="checkbox"><input type="checkbox" name="agree" data-required-check><span>Принимаю <a href="#" class="reg-link">условия соглашения</a></span></label>
@@ -559,7 +559,7 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="forgotForm" novalidate>
-        <div class="field"><label>Почта</label><input class="input" type="email" name="email" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
+        <div class="field"><label>Почта</label><input class="input" type="text" inputmode="email" name="email" placeholder="mail@example.com" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сбросить пароль</button>
       </form>
     </div>
@@ -610,6 +610,180 @@ const DYNAMIC_MODALS_HTML = `
       </form>
     </div>
   </div>
+
+  <!-- Создать команду -->
+  <div id="createTeamModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="createTeamModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="createTeamTitle">
+      <div class="modal__head">
+        <div id="createTeamTitle" class="modal__title">Создать команду</div>
+        <button class="modal__close" data-close="createTeamModal" aria-label="Закрыть">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button></div>
+      <form class="modal__form" id="createTeamForm" novalidate>
+        <div class="field"><label>Название команды</label><input class="input" name="teamName" placeholder="Super Coders" data-required minlength="3" maxlength="32" autocomplete="off"><div class="error" data-error-for="teamName"></div></div>
+        <div class="field">
+          <label>Описание (необязательно)</label>
+          <textarea class="textarea" name="teamDesc" placeholder="Расскажите о вашей команде..." maxlength="500" style="min-height: 100px; padding: 12px; resize: none; overflow: hidden; display: block; width: 100%;"></textarea>
+          <div class="char-counter" style="text-align: right; margin-top: 6px; font-weight: 500;">0 / 500</div>
+        </div>
+        <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Создать</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Присоединиться к команде -->
+  <div id="joinTeamModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="joinTeamModal"></div>
+    <div class="modal__panel modal__panel--code" role="dialog" aria-modal="true" aria-labelledby="joinTeamTitle">
+      <div class="modal__head">
+        <div id="joinTeamTitle" class="modal__title">Присоединиться к команде</div>
+        <button class="modal__close" data-close="joinTeamModal" aria-label="Закрыть">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button></div>
+      <form class="modal__form" id="joinTeamForm" novalidate>
+        <div class="code-grid team-code-grid">
+          <div class="code-cell code-cell--prefix">T</div>
+          <div class="code-sep">—</div>
+          ${Array(8)
+              .fill(
+                  '<input class="input code-cell" maxlength="1" autocomplete="off">',
+              )
+              .join("")}
+        </div>
+        <input type="hidden" name="teamCode" value="">
+        <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Присоединиться</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Передача прав администратора -->
+  <div id="transferAdminModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="transferAdminModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <div class="modal__title">Выбор участника</div>
+        <button class="modal__close" data-close="transferAdminModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal__form">
+         <p style="margin-bottom: 16px; color: var(--fg-muted); font-size: 14px;">Выберите участника, которому хотите передать права администратора.</p>
+         <div id="transferMembersList" class="team-members-list" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
+             <!-- Список участников -->
+         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Пригласить в команду -->
+  <div id="inviteMemberModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="inviteMemberModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <div class="modal__title">Пригласить игрока</div>
+        <button class="modal__close" data-close="inviteMemberModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form class="modal__form" id="inviteMemberForm" novalidate>
+        <div class="field">
+          <label>Никнейм игрока</label>
+          <input class="input" name="username" placeholder="@nickname" data-required minlength="2">
+          <div class="error" data-error-for="username"></div>
+        </div>
+        <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Отправить приглашение</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Черный список -->
+  <div id="blacklistModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="blacklistModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <div class="modal__title">Черный список</div>
+        <button class="modal__close" data-close="blacklistModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal__form">
+         <div id="blacklistContent" class="team-members-list" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
+             <div style="text-align: center; color: var(--fg-muted); padding: 40px 20px;">
+                <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.2; margin-bottom: 12px;">block</span>
+                <p style="margin:0">Список пуст</p>
+             </div>
+         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Универсальное подтверждение -->
+  <div id="confirmModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="confirmModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" style="max-width: 400px;">
+      <div class="modal__head">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="confirmIcon" class="material-symbols-outlined" style="display: none;">report</span>
+            <div id="confirmTitle" class="modal__title">Подтверждение</div>
+        </div>
+        <button class="modal__close" data-close="confirmModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal__form">
+         <p id="confirmDesc" style="margin-bottom: 20px; color: var(--fg-muted); line-height: 1.5; font-size: 14px;"></p>
+         <div id="confirmExtra" style="margin-bottom: 24px;"></div>
+         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <button class="btn btn--muted btn--block" data-close="confirmModal">Отмена</button>
+            <button id="confirmBtn" class="btn btn--accent btn--block">Подтвердить</button>
+         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Жалоба -->
+  <div id="reportModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="reportModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" style="max-width: 440px;">
+      <div class="modal__head">
+        <div style="display: flex; align-items: center; gap: 10px;">
+           <span class="material-symbols-outlined" style="color: var(--accent-from)">flag</span>
+           <div class="modal__title">Подать жалобу</div>
+        </div>
+        <button class="modal__close" data-close="reportModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form class="modal__form" id="reportForm" novalidate>
+        <div class="field">
+          <label>Причина жалобы</label>
+          <div class="reason-grid" id="reasonSelector">
+            <button type="button" class="reason-btn" data-value="spam">Спам / Назойливость</button>
+            <button type="button" class="reason-btn" data-value="offensive">Оскорбления</button>
+            <button type="button" class="reason-btn" data-value="fake">Обман / Фейк</button>
+            <button type="button" class="reason-btn" data-value="other">Прочее</button>
+          </div>
+          <input type="hidden" name="reason" id="reportReasonInput" value="">
+        </div>
+        
+        <div class="field" id="reportOtherField" style="display: none;">
+          <label>Опишите причину</label>
+          <textarea class="textarea" name="other_text" placeholder="Укажите подробности..." style="min-height: 80px;"></textarea>
+        </div>
+
+        <label class="checkbox" style="margin: 8px 0 16px;">
+          <input type="checkbox" name="blacklist" id="reportBlacklistCheck" checked>
+          <span>Добавить пользователя в черный список</span>
+        </label>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+           <button type="button" class="btn btn--muted btn--block" data-close="reportModal">Отмена</button>
+           <button type="submit" class="btn btn--accent btn--block is-disabled" id="reportSubmitBtn" disabled>Отправить</button>
+        </div>
+      </form>
+    </div>
+  </div>
 `;
 
 // Храним, откуда пришли на Verify (чтобы знать, куда редиректить)
@@ -620,6 +794,9 @@ function mountModals() {
     const wrap = document.createElement("div");
     wrap.innerHTML = DYNAMIC_MODALS_HTML;
     document.body.appendChild(wrap);
+
+    // Инициализируем валидацию для всех новых форм
+    wrap.querySelectorAll("form").forEach((f) => setupForm(f));
 }
 
 // Timer Logic
@@ -683,6 +860,25 @@ function resetForm(form) {
 function openModal(id) {
     const el = document.getElementById(id);
     if (!el) return;
+
+    // Сброс формы жалобы при открытии
+    if (id === "reportModal") {
+        const form = el.querySelector("#reportForm");
+        if (form) {
+            form.reset();
+            form.querySelector("#reportReasonInput").value = "";
+            form.querySelector("#reportOtherField").style.display = "none";
+            form.querySelectorAll(".reason-btn").forEach((b) =>
+                b.classList.remove("active"),
+            );
+            // Дергаем валидацию, чтобы заблочить кнопку
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add("is-disabled");
+            }
+        }
+    }
 
     // Если уже открыта другая - меняем
     if (activeModal && activeModal !== el) {
@@ -838,6 +1034,16 @@ function setupForm(form) {
     const validate = () => {
         let isFormValid = true;
 
+        // Санитайзер для названия команды (убираем лишние пробелы)
+        if (form.id === "createTeamForm") {
+            const nameInput = form.elements["teamName"];
+            if (nameInput) {
+                // Убираем двойные пробелы и пробелы в начале/конце
+                // Но делаем это аккуратно, чтобы не мешать печатать
+                // (только при blur или проверке, либо позволяем один пробел в конце)
+            }
+        }
+
         // Определяем валидность конкретного поля (для подсветки)
         // Правила: не пустое, проходит свои проверки.
         // Если поле необязательное и пустое – оно "ок", но не "выполнено", поэтому не светится.
@@ -939,14 +1145,29 @@ function setupForm(form) {
             if (!el.checked) isFormValid = false;
         });
 
-        // 8-значный код (Login Code или Verify)
-        if (form.id === "codeForm" || form.id === "verifyForm") {
+        // 8-значный код (Login Code или Verify) или 10-значный для Команды
+        if (
+            form.id === "codeForm" ||
+            form.id === "verifyForm" ||
+            form.id === "joinTeamForm"
+        ) {
             const codeCells = Array.from(form.querySelectorAll(".code-cell"));
             const fullCode = codeCells.map((c) => c.value).join("");
-            if (fullCode.length < 8) isFormValid = false;
+            const requiredLen = form.id === "joinTeamForm" ? 9 : 8;
+
+            if (fullCode.length < requiredLen) isFormValid = false;
+
             // Записываем в скрытое поле
-            const hidden = form.querySelector('input[name="code"]');
+            const hiddenName = form.id === "joinTeamForm" ? "teamCode" : "code";
+            const hidden = form.querySelector(`input[name="${hiddenName}"]`);
             if (hidden) hidden.value = fullCode.toUpperCase();
+        }
+
+        if (form.id === "reportForm") {
+            const reason = form.elements["reason"].value;
+            const otherText = form.elements["other_text"].value.trim();
+            if (!reason) isFormValid = false;
+            if (reason === "other" && otherText.length < 5) isFormValid = false;
         }
 
         if (submitBtn) {
@@ -991,6 +1212,71 @@ function setupForm(form) {
             e.preventDefault();
             // Simulate login
             switchToWorkspace();
+        } else if (form.id === "createTeamForm") {
+            e.preventDefault();
+            // Имитация создания команды
+            userTeamState.inTeam = true;
+            closeAnyModal();
+
+            // Если мы сейчас во вкладке настроек команды, перерисовываем ее
+            const subview = document.getElementById("team-subview-container");
+            if (subview) {
+                subview.style.opacity = "0";
+                setTimeout(() => {
+                    subview.innerHTML = renderTeamSettings();
+                    // setupInviteListeners вызывается внутри или снаружи? Нам нужны новые слушатели
+                    // В initTeamInteractions мы вешаем слушатели на вкладки.
+                    // Здесь нам нужно вручную дернуть setupInviteListeners для нового контента
+                    const container = document.querySelector(".team-view");
+                    if (container) initTeamInteractions(container);
+
+                    subview.style.opacity = "1";
+                    subview
+                        .querySelectorAll("[data-view-anim]")
+                        .forEach((el) => el.classList.add("in"));
+                }, 300);
+            }
+        } else if (form.id === "inviteMemberForm") {
+            e.preventDefault();
+            console.log(
+                "Приглашение отправлено пользователю:",
+                form.elements["username"].value,
+            );
+            closeAnyModal();
+        } else if (form.id === "reportForm") {
+            e.preventDefault();
+            const data = {
+                reason: form.elements["reason"].value,
+                other: form.elements["other_text"].value,
+                blacklist: form.elements["blacklist"].checked,
+            };
+            console.log("Жалоба отправлена:", data);
+
+            // Если есть контекст (карточка), удаляем её с анимацией
+            if (currentReportContext && currentReportContext.card) {
+                const { card, id, type, subview } = currentReportContext;
+                card.style.transition = "all 0.4s ease";
+                card.style.opacity = "0";
+                card.style.transform = "scale(0.9) translateY(-10px)";
+
+                setTimeout(() => {
+                    if (type === "invite") removeInvitation(id);
+                    else if (type === "app") removeApplication(id);
+
+                    if (subview) {
+                        subview.innerHTML = renderTeamSettings();
+                        initTeamInteractions(
+                            document.querySelector(".team-view"),
+                        );
+                        subview
+                            .querySelectorAll("[data-view-anim]")
+                            .forEach((el) => el.classList.add("in"));
+                    }
+                }, 400);
+            }
+
+            closeAnyModal();
+            currentReportContext = null;
         }
     });
 
@@ -999,30 +1285,104 @@ function setupForm(form) {
     const loginInput = form.querySelector('input[name="login"]');
     if (loginInput) {
         loginInput.addEventListener("input", (e) => {
-            // Убираем все кроме a-z, A-Z, 0-9, _
-            e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+            const start = e.target.selectionStart;
+            // Убираем все кроме a-z, A-Z, 0-9, _ и пробелы
+            let val = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+            if (e.target.value !== val) {
+                e.target.value = val;
+                // Если был введен запрещенный символ (в т.ч. пробел), возвращаем курсор
+                const pos = Math.max(0, start - 1);
+                e.target.setSelectionRange(pos, pos);
+            }
             validate();
         });
     }
-    // Для пароля (латиница + символы)
+
+    // Обработка названия команды (пробелы)
+    if (form.id === "createTeamForm") {
+        const teamNameInput = form.elements["teamName"];
+        teamNameInput?.addEventListener("input", (e) => {
+            // Запрещаем только множественные пробелы и пробелы в начале
+            let val = e.target.value;
+            val = val.replace(/^\s+/, ""); // Нет пробелам в начале
+            val = val.replace(/\s\s+/g, " "); // Нет двойным пробелам
+            if (e.target.value !== val) e.target.value = val;
+        });
+        teamNameInput?.addEventListener("blur", (e) => {
+            e.target.value = e.target.value.trim();
+            validate();
+        });
+
+        const teamDesc = form.elements["teamDesc"];
+        const counter = form.querySelector(".char-counter");
+        if (teamDesc && counter) {
+            const adjustHeight = () => {
+                teamDesc.style.height = "auto";
+                teamDesc.style.height = teamDesc.scrollHeight + "px";
+            };
+            teamDesc.addEventListener("input", () => {
+                const len = teamDesc.value.length;
+                counter.textContent = `${len} / 500`;
+                counter.classList.toggle("limit", len >= 500);
+                adjustHeight();
+            });
+            // Базовый вызов для инициализации
+            setTimeout(adjustHeight, 0);
+        }
+    }
+
+    // Для пароля (латиница + символы, БЕЗ ПРОБЕЛОВ)
     const passInputs = form.querySelectorAll('input[type="password"]');
     passInputs.forEach((p) => {
         p.addEventListener("input", (e) => {
-            // Убираем кириллицу [а-яА-ЯёЁ]
-            // Можно жестче: replace(/[^a-zA-Z0-9!@#$%^&*()]/g, "") - но пока только блок ру
-            e.target.value = e.target.value.replace(/[а-яА-ЯёЁ]/g, "");
+            const start = e.target.selectionStart;
+            let val = e.target.value.replace(/[а-яА-ЯёЁ\s]/g, "");
+            if (e.target.value !== val) {
+                e.target.value = val;
+                const pos = Math.max(0, start - 1);
+                e.target.setSelectionRange(pos, pos);
+            }
             validate();
         });
     });
 
-    // --- 4. Код (8 ячеек) ---
-    if (form.id === "codeForm" || form.id === "verifyForm") {
+    // Для почты (разрешаем кириллицу, но ЖЕСТКО БЛОКИРУЕМ ПРОБЕЛЫ)
+    // Используем [data-type="email"], так как мы сменили type на text
+    const emailInputs = form.querySelectorAll('[data-type="email"]');
+    emailInputs.forEach((em) => {
+        em.addEventListener("input", (e) => {
+            const start = e.target.selectionStart;
+            // Разрешаем: буквы (лат/кир), цифры, @, точки, подчеркивания, тире
+            let val = e.target.value.replace(/[^a-zA-Z0-9_@.а-яА-ЯёЁ\-]/g, "");
+            if (e.target.value !== val) {
+                e.target.value = val;
+                const pos = Math.max(0, start - 1);
+                e.target.setSelectionRange(pos, pos);
+            }
+            validate();
+        });
+    });
+
+    // --- 4. Код (8 ячеек или 10 ячеек для команды) ---
+    if (
+        form.id === "codeForm" ||
+        form.id === "verifyForm" ||
+        form.id === "joinTeamForm"
+    ) {
         const cells = form.querySelectorAll(".code-cell");
         cells.forEach((cell, idx) => {
             cell.addEventListener("input", (e) => {
-                let val = e.target.value
-                    .toUpperCase()
-                    .replace(/[^A-Z0-9]/g, "");
+                let val = e.target.value.toUpperCase();
+
+                // Специальные правила для кода команды (joinTeamForm)
+                if (form.id === "joinTeamForm") {
+                    if (idx === 0) return; // "T" field is readonly
+                    val = val.replace(/[^A-Z0-9]/g, "");
+                } else {
+                    // Обычные коды - буквенно-цифровые
+                    val = val.replace(/[^A-Z0-9]/g, "");
+                }
+
                 e.target.value = val;
                 if (val && idx < cells.length - 1) cells[idx + 1].focus();
                 validate();
@@ -1034,10 +1394,19 @@ function setupForm(form) {
             });
             cell.addEventListener("paste", (e) => {
                 e.preventDefault();
-                const text = (e.clipboardData.getData("text") || "")
-                    .toUpperCase()
-                    .replace(/[^A-Z0-9]/g, "");
+                let text = (e.clipboardData.getData("text") || "")
+                    .trim()
+                    .toUpperCase();
+
+                // Для кода команды убираем тире, если оно есть в скопированном тексте
+                if (form.id === "joinTeamForm") {
+                    text = text.replace(/-/g, "").replace(/^T/, ""); // Remove T prefix if pasted
+                } else text = text.replace(/[^A-Z0-9]/g, "");
+
                 let cur = idx;
+                // If we are on T field, skip to next
+                if (form.id === "joinTeamForm" && cur === 0) cur = 1;
+
                 for (let char of text) {
                     if (cur < cells.length) {
                         cells[cur].value = char;
@@ -1049,7 +1418,39 @@ function setupForm(form) {
             });
         });
     }
+
+    // Логика модалки жалобы (кнопки выбора)
+    if (form.id === "reportForm") {
+        const btns = form.querySelectorAll(".reason-btn");
+        const input = form.querySelector("#reportReasonInput");
+        const otherField = form.querySelector("#reportOtherField");
+        const otherText = form.querySelector('textarea[name="other_text"]');
+
+        btns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                btns.forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+                const val = btn.dataset.value;
+                if (input) input.value = val;
+
+                if (otherField) {
+                    otherField.style.display =
+                        val === "other" ? "block" : "none";
+                }
+                validate(); // Trigger validation manually
+            });
+        });
+
+        // Validation override for report form
+        otherText?.addEventListener("input", validate);
+
+        // Initial validation trigger
+        validate();
+    }
 }
+
+// Глобальные переменные для трекинга текущей жалобы (чтобы удалить карточку после отправки)
+let currentReportContext = null;
 
 /* =========================================
    5. FEATURE: DRAG SCROLL (Турниры)
@@ -1329,6 +1730,7 @@ const ViewManager = {
             initTournamentsInteractions(this.content);
         } else if (viewName === "team") {
             this.content.innerHTML = renderTeam();
+            initTeamInteractions(this.content);
         } else {
             this.content.innerHTML = `<div class="section__title" data-view-anim>Раздел ${viewName} в разработке</div>`;
         }
@@ -1521,6 +1923,60 @@ function renderDashboard() {
 /* =========================================
    8.5 TEAMS RENDERER
    ========================================= */
+// --- ДАННЫЕ И ЛОГИКА КОМАНДЫ ---
+let teamInvitations = [
+    {
+        id: 101,
+        teamName: "FutureDevs",
+        leader: "@future_king",
+        icon: "mail",
+    },
+];
+
+// Состояние текущей команды
+let userTeamState = {
+    inTeam: false,
+    role: "owner",
+    name: "Авангард",
+    id: "T-3U8R12Y7",
+    description: "Добавьте краткое описание вашей команды...",
+    members: [
+        {
+            id: 1,
+            name: "Кузмичев Кирилл Павлович",
+            uid: "123-456-789",
+            role: "owner",
+            sub: true,
+            me: true,
+        },
+        {
+            id: 2,
+            name: "Петров Петр Петрович",
+            uid: "243-152-439",
+            role: "member",
+            sub: false,
+        },
+    ],
+    applications: [
+        { id: 3, name: "@new_candidate", teamName: null, type: "join_request" },
+    ],
+};
+
+function fetchTeamData() {
+    // Симуляция API
+    return userTeamState;
+}
+
+function removeInvitation(id) {
+    teamInvitations = teamInvitations.filter((inv) => inv.id !== id);
+}
+
+function removeApplication(id) {
+    userTeamState.applications = userTeamState.applications.filter(
+        (app) => app.id !== id,
+    );
+}
+
 function renderTeam() {
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
@@ -1530,32 +1986,57 @@ function renderTeam() {
             </div>
 
             <div class="tabs-nav" data-view-anim style="transition-delay: 0.05s">
-                <div class="tab-item active">
+                <div class="tab-item active" data-tab="settings">
                     <span class="material-symbols-outlined icon">settings</span>
                     <span class="tab-text">Настройки</span>
                 </div>
-                <div class="tab-item">
+                <div class="tab-item" data-tab="analytics">
                     <span class="material-symbols-outlined icon">analytics</span>
                     <span class="tab-text">Аналитика</span>
                 </div>
             </div>
             
-            <div class="team-invite-card" data-view-anim style="transition-delay: 0.1s">
+            <div id="team-subview-container">
+                ${renderTeamSettings()}
+            </div>
+        </div>
+    `;
+}
+
+function renderTeamSettings() {
+    // ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ В КОМАНДЕ
+    if (!userTeamState.inTeam) {
+        const invites = teamInvitations
+            .map(
+                (inv, idx) => `
+            <div class="team-invite-card" data-invite-id="${inv.id}" data-view-anim style="transition-delay: ${0.1 + idx * 0.05}s">
                 <div class="invite-icon-box">
-                    <span class="material-symbols-outlined">mail</span>
+                    <span class="material-symbols-outlined">${inv.icon}</span>
                 </div>
                 <div class="invite-content">
-                    <div class="invite-title">Вас пригласили в команду "CosmoCoders"</div>
-                    <div class="invite-desc">Приглашение от пользователя <a href="javascript:void(0)"               class="text-accent-link">@cosmo_leader</a></div>
+                    <div class="invite-title">Вас пригласили в команду "${inv.teamName}"</div>
+                    <div class="invite-desc">Приглашение от пользователя <a href="javascript:void(0)" class="text-accent-link">${inv.leader}</a></div>
                 </div>
                 <div class="invite-actions">
-                    <button class="btn btn--muted btn--sm">Отклонить</button>
-                    <button class="btn btn--accent btn--sm">Принять</button>
+                    <button class="btn btn--muted btn--sm action-report" title="Пожаловаться">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">flag</span>
+                    </button>
+                    <button class="btn btn--muted btn--sm action-reject">Отклонить</button>
+                    <button class="btn btn--accent btn--sm action-accept">Принять</button>
                 </div>
             </div>
+        `,
+            )
+            .join("");
 
-            <div class="team-separator" data-view-anim style="transition-delay: 0.15s"></div>
+        const separator =
+            teamInvitations.length > 0
+                ? '<div class="team-separator" data-view-anim style="transition-delay: 0.15s"></div>'
+                : "";
 
+        return `
+            ${invites}
+            ${separator}
             <div class="team-manage-section" data-view-anim style="transition-delay: 0.2s">
                 <div class="team-section-head">
                     <h2 class="team-section-title">Управление командой</h2>
@@ -1571,7 +2052,7 @@ function renderTeam() {
                         <div class="action-card-content">
                             <h3 class="action-title">Создать команду</h3>
                             <p class="action-desc">Создайте свою команду и пригласите в нее участников.</p>
-                            <button class="btn btn--accent btn--wide">Создать</button>
+                            <button class="btn btn--accent btn--wide" data-open="createTeamModal">Создать</button>
                         </div>
                      </div>
 
@@ -1583,13 +2064,471 @@ function renderTeam() {
                         <div class="action-card-content">
                             <h3 class="action-title">Присоединиться к команде</h3>
                             <p class="action-desc">Войдите в состав команды по приглашению или коду.</p>
-                            <button class="btn btn--muted btn--wide">Присоединиться</button>
+                            <button class="btn btn--muted btn--wide" data-open="joinTeamModal">Присоединиться</button>
                         </div>
                      </div>
                 </div>
             </div>
+        `;
+    }
+
+    // ЕСЛИ ПОЛЬЗОВАТЕЛЬ В КОМАНДЕ (АДМИН)
+    const apps = userTeamState.applications
+        .map(
+            (app, idx) => `
+        <div class="team-invite-card" data-app-id="${app.id}" data-view-anim>
+            <div class="invite-icon-box">
+                <span class="material-symbols-outlined">mail</span>
+            </div>
+            <div class="invite-content">
+                <div class="invite-title">Заявка на вступление</div>
+                <div class="invite-desc">Пользователь <a href="javascript:void(0)" class="text-accent-link">${app.name}</a> хочет присоединиться к команде.</div>
+            </div>
+            <div class="invite-actions">
+                <button class="btn btn--muted btn--sm app-report" title="Пожаловаться">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">flag</span>
+                </button>
+                <button class="btn btn--muted btn--sm app-reject">Отклонить</button>
+                <button class="btn btn--accent btn--sm app-accept">Принять</button>
+            </div>
+        </div>
+    `,
+        )
+        .join("");
+
+    const members = userTeamState.members
+        .map(
+            (m) => `
+        <div class="member-card">
+            <div class="member-avatar-wrap">
+                <div class="profile-avatar ${m.sub === true ? "has-sub" : ""}">
+                    <div class="avatar-inner ">
+                        <span class="avatar-letter">${m.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="member-info">
+                <div class="member-name">
+                    ${m.name}
+                    <span class="member-me">${m.me === true ? " (Вы)" : ""}</span>
+                    ${m.role === "owner" ? '<span class="material-symbols-outlined role-icon" title="Лидер">military_tech</span>' : ""}
+                </div>
+                <div class="member-uid">UID: ${m.uid}</div>
+            </div>
+            <div class="member-actions">
+                <button class="btn-icon-sm btn" aria-label="Настройки"><span class="material-symbols-outlined">settings</span></button>
+                ${m.role !== "owner" ? '<button class="btn-icon-sm btn-icon-sm--danger" aria-label="Удалить"><span class="material-symbols-outlined">person_remove</span></button>' : ""}
+            </div>
+        </div>
+    `,
+        )
+        .join("");
+
+    const separator =
+        userTeamState.applications.length > 0
+            ? '<div class="team-separator" data-view-anim style="transition-delay: 0.15s"></div>'
+            : "";
+
+    return `
+        ${apps}
+        ${separator}
+        <div class="team-info-grid" data-view-anim>
+            <div class="field">
+                <label>Название команды</label>
+                <input class="input" name="teamName" value="${userTeamState.name}">
+            </div>
+            <div class="field">
+                <label>ID команды</label>
+                <div style="display: flex; gap: 8px;">
+                    <input class="input" id="team-id-input" readonly value="${userTeamState.id}" style="flex:1">
+                    <button class="copy-btn" id="copy-team-id" title="Копировать"><span class="material-symbols-outlined">content_copy</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px;" data-view-anim>
+            <div class="field">
+                <label>Описание команды</label>
+                <textarea class="textarea" style="min-height: 120px;" placeholder="Добавьте краткое описание вашей команды...">${userTeamState.description === "Добавьте краткое описание вашей команды..." ? "" : userTeamState.description}</textarea>
+            </div>
+            <div class="admin-transfer-card">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="material-symbols-outlined" style="color: var(--accent-from)">security</span>
+                    <h3 style="margin:0; font-size:16px;">Передача прав администратора</h3>
+                </div>
+                <p style="font-size: 13px; color: var(--fg-muted); margin:0;">Вы можете передать права администратора другому участнику команды. Это действие необратимо.</p>
+                <button class="btn btn--accent" style="margin-top:auto">Передать администратора</button>
+            </div>
+        </div>
+
+        <div class="team-section-head" data-view-anim style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <h2 class="team-section-title" style="font-size: 18px; margin:0">Состав команды</h2>
+            <button class="btn btn--muted btn--sm" data-open="blacklistModal" style="padding: 6px 12px; font-size: 13px;">
+                <span class="material-symbols-outlined" style="font-size: 18px;">block</span>
+                Черный список
+            </button>
+        </div>
+
+        <div class="team-members-list" data-view-anim>
+            ${members}
+            <button class="add-member-btn" data-open="inviteMemberModal">
+                <span class="material-symbols-outlined">add</span>
+                Пригласить в команду
+            </button>
+        </div>
+
+        <div class="team-footer" data-view-anim>
+            <a href="javascript:void(0)" class="btn-leave" id="team-leave-btn">Выйти</a>
+            <button class="btn btn--accent" style="min-width: 200px;">Сохранить изменения</button>
         </div>
     `;
+}
+
+function renderTeamAnalytics() {
+    if (!userTeamState.inTeam) {
+        return `
+            <div class="team-analytics-empty no-team" data-view-anim>
+                <div class="empty-state-visual">
+                    <div class="pulse-ring"></div>
+                    <div class="icon-circle">
+                        <span class="material-symbols-outlined">group_off</span>
+                    </div>
+                </div>
+                <h2 class="empty-title">Вы не в команде</h2>
+                <p class="empty-desc">
+                    Аналитика доступна только для участников команд. Создайте свою команду или присоединитесь к существующей, чтобы отслеживать общий прогресс.
+                </p>
+                <div class="empty-actions">
+                    <button class="btn btn--accent" onclick="document.querySelector('[data-tab=\\'settings\\']').click()">
+                        Создать команду
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="team-analytics-empty" data-view-anim>
+            <div class="empty-state-visual">
+                <div class="pulse-ring"></div>
+                <div class="icon-circle">
+                    <span class="material-symbols-outlined">query_stats</span>
+                </div>
+            </div>
+            <h2 class="empty-title">Аналитика пока не доступна</h2>
+            <p class="empty-desc">
+                Здесь появятся подробные отчеты об успехах вашей команды, как только вы проведете свои первые совместные турниры.
+            </p>
+            <div class="empty-actions">
+                <button class="btn btn--accent" onclick="ViewManager.open('tournaments')">
+                    Найти турнир
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function initTeamInteractions(container) {
+    if (!container) return;
+    const tabs = container.querySelectorAll(".tab-item");
+    const subviewContainer = container.querySelector("#team-subview-container");
+
+    const setupInviteListeners = () => {
+        // Слушатели для приглашений (когда НЕТ команды)
+        subviewContainer
+            .querySelectorAll(".team-invite-card[data-invite-id]")
+            .forEach((card) => {
+                const id = parseInt(card.dataset.inviteId);
+                const rejectBtn = card.querySelector(".action-reject");
+                const acceptBtn = card.querySelector(".action-accept");
+                const reportBtn = card.querySelector(".action-report");
+
+                if (reportBtn) {
+                    reportBtn.addEventListener("click", () => {
+                        currentReportContext = {
+                            id: id,
+                            type: "invite",
+                            card: card,
+                            subview: subviewContainer,
+                        };
+                        openModal("reportModal");
+                    });
+                }
+
+                const handleInviteAction = (action) => {
+                    card.style.transition = "all 0.4s ease";
+                    card.style.opacity = "0";
+                    card.style.transform = "translateX(20px)";
+
+                    if (teamInvitations.length === 1) {
+                        const sep =
+                            subviewContainer.querySelector(".team-separator");
+                        if (sep) {
+                            sep.style.transition = "all 0.4s ease";
+                            sep.style.opacity = "0";
+                        }
+                    }
+
+                    setTimeout(() => {
+                        removeInvitation(id);
+                        if (action === "accept") {
+                            userTeamState.inTeam = true;
+                            ViewManager.open("team");
+                        } else {
+                            subviewContainer.innerHTML = renderTeamSettings();
+                            setupInviteListeners();
+                            subviewContainer
+                                .querySelectorAll("[data-view-anim]")
+                                .forEach((el) => el.classList.add("in"));
+                        }
+                    }, 400);
+                };
+
+                rejectBtn?.addEventListener("click", () =>
+                    handleInviteAction("reject"),
+                );
+                acceptBtn?.addEventListener("click", () =>
+                    handleInviteAction("accept"),
+                );
+            });
+
+        // Слушатели для заявок (когда команда ЕСТЬ)
+        subviewContainer
+            .querySelectorAll(".team-invite-card[data-app-id]")
+            .forEach((card) => {
+                const id = parseInt(card.dataset.appId);
+                const rejectBtn = card.querySelector(".app-reject");
+                const acceptBtn = card.querySelector(".app-accept");
+                const reportBtn = card.querySelector(".app-report");
+
+                const handleAppAction = () => {
+                    card.style.transition = "all 0.4s ease";
+                    card.style.opacity = "0";
+                    card.style.transform = "translateY(-10px)";
+
+                    if (userTeamState.applications.length === 1) {
+                        const sep =
+                            subviewContainer.querySelector(".team-separator");
+                        if (sep) {
+                            sep.style.transition = "all 0.4s ease";
+                            sep.style.opacity = "0";
+                        }
+                    }
+
+                    setTimeout(() => {
+                        removeApplication(id);
+                        subviewContainer.innerHTML = renderTeamSettings();
+                        setupInviteListeners();
+                        subviewContainer
+                            .querySelectorAll("[data-view-anim]")
+                            .forEach((el) => el.classList.add("in"));
+                    }, 400);
+                };
+
+                if (reportBtn) {
+                    reportBtn.addEventListener("click", () => {
+                        currentReportContext = {
+                            id: id,
+                            type: "app",
+                            card: card,
+                            subview: subviewContainer,
+                        };
+                        openModal("reportModal");
+                    });
+                }
+
+                rejectBtn?.addEventListener("click", handleAppAction);
+                acceptBtn?.addEventListener("click", handleAppAction);
+            });
+
+        // Кнопка копирования ID
+        const copyBtn = subviewContainer.querySelector("#copy-team-id");
+        if (copyBtn) {
+            copyBtn.addEventListener("click", () => {
+                const input = subviewContainer.querySelector("#team-id-input");
+                if (input) {
+                    input.select();
+                    navigator.clipboard.writeText(input.value).then(() => {
+                        const icon = copyBtn.querySelector(
+                            ".material-symbols-outlined",
+                        );
+                        const original = icon.textContent;
+                        icon.textContent = "check";
+                        setTimeout(() => (icon.textContent = original), 2000);
+                    });
+                }
+            });
+        }
+
+        // Кнопка ВЫЙТИ
+        const leaveBtn = subviewContainer.querySelector("#team-leave-btn");
+        if (leaveBtn) {
+            leaveBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                initConfirmModal({
+                    title: "Выход из команды",
+                    desc: "Вы уверены, что хотите покинуть команду? Если вы единственный владелец, команда будет удалена или права перейдут другому.",
+                    isDanger: true,
+                    onConfirm: () => {
+                        userTeamState.inTeam = false;
+                        // Используем ViewManager для полного перерендера (скрытия табов)
+                        ViewManager.open("team");
+                    },
+                });
+            });
+        }
+
+        // Кнопка Передать админку
+        const transferBtn = subviewContainer.querySelector(
+            ".admin-transfer-card .btn--accent",
+        );
+        if (transferBtn) {
+            transferBtn.addEventListener("click", () => {
+                const modal = document.getElementById("transferAdminModal");
+                const list = modal.querySelector("#transferMembersList");
+                // Рендерим список участников (кроме себя)
+                list.innerHTML =
+                    userTeamState.members
+                        .filter((m) => m.role !== "owner")
+                        .map(
+                            (m) => `
+                        <div class="member-card" style="cursor: pointer; border-style: dashed;" onclick="this.parentElement.dispatchEvent(new CustomEvent('select', {detail: '${m.name}'}))">
+                            <div class="member-avatar-wrap">
+                                <div class="profile-avatar ${m.sub ? "has-sub" : ""}">
+                                    <div class="avatar-inner"><span class="avatar-letter">${m.name[0]}</span></div>
+                                </div>
+                            </div>
+                            <div class="member-info">
+                                <div class="member-name">${m.name}</div>
+                                <div class="member-uid">UID: ${m.uid}</div>
+                            </div>
+                        </div>
+                    `,
+                        )
+                        .join("") ||
+                    '<p style="text-align:center; padding: 20px; color: var(--fg-muted);">Нет доступных участников</p>';
+
+                const onSelect = (e) => {
+                    const name = e.detail;
+                    initConfirmModal({
+                        title: "Передача прав",
+                        desc: `Вы действительно хотите передать права администратора участнику <b>${name}</b>? Вы потеряете статус владельца.`,
+                        isDanger: true,
+                        onConfirm: () => {
+                            // Симуляция передачи (пока ничего не делаем)
+                            closeAnyModal();
+                        },
+                    });
+                    list.removeEventListener("select", onSelect);
+                };
+                list.addEventListener("select", onSelect);
+                openModal("transferAdminModal");
+            });
+        }
+
+        // Кнопки удаления участников
+        subviewContainer
+            .querySelectorAll(".btn-icon-sm--danger")
+            .forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const card = btn.closest(".member-card");
+                    const name = card
+                        .querySelector(".member-name")
+                        .textContent.trim()
+                        .replace(" (Вы)", "");
+                    initConfirmModal({
+                        title: "Удаление",
+                        desc: `Вы уверены, что хотите удалить <b>${name}</b> из команды?`,
+                        isDanger: true,
+                        extra: `
+                        <label class="checkbox" style="margin: 0">
+                            <input type="checkbox" id="block-user-check">
+                            <span style="font-size: 13px">Добавить в черный список</span>
+                        </label>
+                    `,
+                        onConfirm: () => {
+                            const blocked =
+                                document.getElementById(
+                                    "block-user-check",
+                                )?.checked;
+                            console.log("Удаление:", name, "В бан:", blocked);
+                            closeAnyModal();
+                        },
+                    });
+                });
+            });
+
+        // Модалка откроется через [data-open] автоматически
+    };
+
+    function initConfirmModal({
+        title,
+        desc,
+        extra = "",
+        isDanger = false,
+        onConfirm,
+    }) {
+        const modal = document.getElementById("confirmModal");
+        if (!modal) return;
+
+        modal.classList.toggle("modal--danger", isDanger);
+        const icon = modal.querySelector("#confirmIcon");
+        if (icon) icon.style.display = isDanger ? "block" : "none";
+
+        modal.querySelector("#confirmTitle").textContent = title;
+        modal.querySelector("#confirmDesc").innerHTML = desc;
+        modal.querySelector("#confirmExtra").innerHTML = extra;
+
+        const confirmBtn = modal.querySelector("#confirmBtn");
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+        newConfirmBtn.addEventListener("click", () => {
+            onConfirm();
+            closeAnyModal();
+        });
+
+        openModal("confirmModal");
+    }
+
+    // Первичная настройка слушателей (для дефолтной вкладки)
+    setupInviteListeners();
+
+    tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const tabName = tab.dataset.tab;
+            if (tab.classList.contains("active")) return;
+
+            tabs.forEach((t) => t.classList.remove("active"));
+            tab.classList.add("active");
+
+            // Плавная смена контента
+            subviewContainer.style.opacity = "0";
+            subviewContainer.style.transform = "translateY(10px)";
+
+            setTimeout(() => {
+                if (tabName === "settings") {
+                    subviewContainer.innerHTML = renderTeamSettings();
+                    setupInviteListeners(); // Вешаем слушатели на новые карточки
+                } else if (tabName === "analytics") {
+                    subviewContainer.innerHTML = renderTeamAnalytics();
+                }
+
+                // Анимация появления
+                subviewContainer.style.transition = "all 0.4s ease";
+                subviewContainer.style.opacity = "1";
+                subviewContainer.style.transform = "translateY(0)";
+
+                // Re-observe new elements
+                const newAnims =
+                    subviewContainer.querySelectorAll("[data-view-anim]");
+                newAnims.forEach((el) => {
+                    if (typeof revealObserver !== "undefined")
+                        revealObserver.observe(el);
+                });
+            }, 200);
+        });
+    });
 }
 
 /* =========================================
