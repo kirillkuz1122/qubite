@@ -37,6 +37,10 @@ const Loader = {
     },
 };
 
+function switchToTournaments() {
+    ViewManager.open("tournaments");
+}
+
 // Авто-лоадер на старте убран. Используйте Loader.show() / Loader.hide() для ручного управления.
 const Toast = {
     getContainer() {
@@ -1098,6 +1102,27 @@ function setupForm(form) {
             }
         });
 
+        // 8-значный код (Login Code или Verify) или 9-значный для Команды
+        if (
+            form.id === "codeForm" ||
+            form.id === "verifyForm" ||
+            form.id === "joinTeamForm"
+        ) {
+            const codeCells = Array.from(form.querySelectorAll(".code-cell"));
+            const fullCode = codeCells
+                .map((c) => (c.tagName === "INPUT" ? c.value : c.textContent))
+                .join("");
+            const requiredLen = form.id === "joinTeamForm" ? 9 : 8;
+
+            // Записываем в скрытое поле ДО проверки data-required
+            const hiddenName = form.id === "joinTeamForm" ? "teamCode" : "code";
+            const hidden = form.querySelector(`input[name="${hiddenName}"]`);
+            if (hidden) hidden.value = fullCode.toUpperCase();
+
+            // Если длина не совпадает - форма не валидна
+            if (fullCode.length < requiredLen) isFormValid = false;
+        }
+
         // Глобальная проверка формы (блокировка кнопки)
         // Обязательные поля
         form.querySelectorAll("[data-required]").forEach((el) => {
@@ -1144,24 +1169,6 @@ function setupForm(form) {
         form.querySelectorAll("[data-required-check]").forEach((el) => {
             if (!el.checked) isFormValid = false;
         });
-
-        // 8-значный код (Login Code или Verify) или 10-значный для Команды
-        if (
-            form.id === "codeForm" ||
-            form.id === "verifyForm" ||
-            form.id === "joinTeamForm"
-        ) {
-            const codeCells = Array.from(form.querySelectorAll(".code-cell"));
-            const fullCode = codeCells.map((c) => c.value).join("");
-            const requiredLen = form.id === "joinTeamForm" ? 9 : 8;
-
-            if (fullCode.length < requiredLen) isFormValid = false;
-
-            // Записываем в скрытое поле
-            const hiddenName = form.id === "joinTeamForm" ? "teamCode" : "code";
-            const hidden = form.querySelector(`input[name="${hiddenName}"]`);
-            if (hidden) hidden.value = fullCode.toUpperCase();
-        }
 
         if (form.id === "reportForm") {
             const reason = form.elements["reason"].value;
@@ -1212,24 +1219,36 @@ function setupForm(form) {
             e.preventDefault();
             // Simulate login
             switchToWorkspace();
-        } else if (form.id === "createTeamForm") {
+        } else if (form.id === "joinTeamForm") {
             e.preventDefault();
-            // Имитация создания команды
-            userTeamState.inTeam = true;
+            // ПЕРЕКЛЮЧАЕМ НА СОСТОЯНИЕ УЧАСТНИКА
+            userTeamState = MOCK_TEAM_MEMBER;
             closeAnyModal();
-
-            // Если мы сейчас во вкладке настроек команды, перерисовываем ее
             const subview = document.getElementById("team-subview-container");
             if (subview) {
                 subview.style.opacity = "0";
                 setTimeout(() => {
                     subview.innerHTML = renderTeamSettings();
-                    // setupInviteListeners вызывается внутри или снаружи? Нам нужны новые слушатели
-                    // В initTeamInteractions мы вешаем слушатели на вкладки.
-                    // Здесь нам нужно вручную дернуть setupInviteListeners для нового контента
                     const container = document.querySelector(".team-view");
                     if (container) initTeamInteractions(container);
-
+                    subview.style.opacity = "1";
+                    subview
+                        .querySelectorAll("[data-view-anim]")
+                        .forEach((el) => el.classList.add("in"));
+                }, 300);
+            }
+        } else if (form.id === "createTeamForm") {
+            e.preventDefault();
+            // ПЕРЕКЛЮЧАЕМ НА СОСТОЯНИЕ ГЛАВНОГО
+            userTeamState = MOCK_TEAM_OWNER;
+            closeAnyModal();
+            const subview = document.getElementById("team-subview-container");
+            if (subview) {
+                subview.style.opacity = "0";
+                setTimeout(() => {
+                    subview.innerHTML = renderTeamSettings();
+                    const container = document.querySelector(".team-view");
+                    if (container) initTeamInteractions(container);
                     subview.style.opacity = "1";
                     subview
                         .querySelectorAll("[data-view-anim]")
@@ -1933,13 +1952,13 @@ let teamInvitations = [
     },
 ];
 
-// Состояние текущей команды
-let userTeamState = {
-    inTeam: false,
-    role: "owner",
+// --- ДАННЫЕ И ЛОГИКА КОМАНДЫ (Разделенные состояния для теста) ---
+const MOCK_TEAM_OWNER = {
+    inTeam: true,
+    role: "owner", // ТЫ — ГЛАВНЫЙ
     name: "Авангард",
-    id: "T-3U8R12Y7",
-    description: "Добавьте краткое описание вашей команды...",
+    id: "T-DIUENMDF",
+    description: "Мы команда энтузиастов, которые любят создавать крутые проекты и делиться ими с миром. Мы верим, что каждый может внести свой вклад в развитие технологий и сделать мир лучше.",
     members: [
         {
             id: 1,
@@ -1956,11 +1975,55 @@ let userTeamState = {
             role: "member",
             sub: false,
         },
+        {
+            id: 4,
+            name: "Сидоров Алексей",
+            uid: "555-666-777",
+            role: "member",
+            sub: false,
+        },
     ],
-    applications: [
-        { id: 3, name: "@new_candidate", teamName: null, type: "join_request" },
-    ],
+    applications: [{ id: 3, name: "@new_candidate", type: "join_request" }],
 };
+
+const MOCK_TEAM_MEMBER = {
+    inTeam: true,
+    role: "member", // ТЫ — УЧАСТНИК
+    name: "Авангард",
+    id: "T-3U8R12Y7",
+    description: "Добавьте краткое описание вашей команды...",
+    members: [
+        {
+            id: 2,
+            name: "Петров Петр Петрович",
+            uid: "243-152-439",
+            role: "owner",
+            sub: false,
+        },
+        {
+            id: 1,
+            name: "Кузмичев Кирилл Павлович",
+            uid: "123-456-789",
+            role: "member",
+            sub: true,
+            me: true,
+        },
+    ],
+    applications: [],
+};
+
+const MOCK_NO_TEAM = {
+    inTeam: false,
+    role: "member",
+    name: "",
+    id: "",
+    description: "",
+    members: [],
+    applications: [],
+};
+
+// ТЕПЕРЬ ВСЁ ДИНАМИЧЕСКИ: Начнем с пустого состояния
+let userTeamState = MOCK_NO_TEAM;
 
 function fetchTeamData() {
     // Симуляция API
@@ -2058,7 +2121,7 @@ function renderTeamSettings() {
 
                     <!-- Join Team -->
                      <div class="card dash-card team-action-card">
-                        <div class="action-icon-box bg-orange-soft">
+                        <div class="action-icon-box">
                              <span class="material-symbols-outlined text-orange-icon">login</span>
                         </div>
                         <div class="action-card-content">
@@ -2072,10 +2135,13 @@ function renderTeamSettings() {
         `;
     }
 
-    // ЕСЛИ ПОЛЬЗОВАТЕЛЬ В КОМАНДЕ (АДМИН)
-    const apps = userTeamState.applications
-        .map(
-            (app, idx) => `
+    const isOwner = userTeamState.role === "owner";
+
+    // ЕСЛИ ПОЛЬЗОВАТЕЛЬ В КОМАНДЕ
+    const apps = isOwner
+        ? userTeamState.applications
+              .map(
+                  (app, idx) => `
         <div class="team-invite-card" data-app-id="${app.id}" data-view-anim>
             <div class="invite-icon-box">
                 <span class="material-symbols-outlined">mail</span>
@@ -2093,12 +2159,13 @@ function renderTeamSettings() {
             </div>
         </div>
     `,
-        )
-        .join("");
+              )
+              .join("")
+        : "";
 
     const members = userTeamState.members
         .map(
-            (m) => `
+            (m, idx) => `
         <div class="member-card">
             <div class="member-avatar-wrap">
                 <div class="profile-avatar ${m.sub === true ? "has-sub" : ""}">
@@ -2111,13 +2178,19 @@ function renderTeamSettings() {
                 <div class="member-name">
                     ${m.name}
                     <span class="member-me">${m.me === true ? " (Вы)" : ""}</span>
-                    ${m.role === "owner" ? '<span class="material-symbols-outlined role-icon" title="Лидер">military_tech</span>' : ""}
+                    ${m.role === "owner" ? '<span class="material-symbols-outlined role-icon" title="Лидер" style="color: var(--accent-to); font-size: 18px; margin-left: 4px;">military_tech</span>' : ""}
                 </div>
                 <div class="member-uid">UID: ${m.uid}</div>
             </div>
             <div class="member-actions">
+                ${
+                    isOwner
+                        ? `
                 <button class="btn-icon-sm btn" aria-label="Настройки"><span class="material-symbols-outlined">settings</span></button>
-                ${m.role !== "owner" ? '<button class="btn-icon-sm btn-icon-sm--danger" aria-label="Удалить"><span class="material-symbols-outlined">person_remove</span></button>' : ""}
+                ${!m.me ? '<button class="btn-icon-sm btn-icon-sm--danger" aria-label="Удалить"><span class="material-symbols-outlined">person_remove</span></button>' : ""}
+                `
+                        : ""
+                }
             </div>
         </div>
     `,
@@ -2125,7 +2198,7 @@ function renderTeamSettings() {
         .join("");
 
     const separator =
-        userTeamState.applications.length > 0
+        isOwner && userTeamState.applications.length > 0
             ? '<div class="team-separator" data-view-anim style="transition-delay: 0.15s"></div>'
             : "";
 
@@ -2135,7 +2208,7 @@ function renderTeamSettings() {
         <div class="team-info-grid" data-view-anim>
             <div class="field">
                 <label>Название команды</label>
-                <input class="input" name="teamName" value="${userTeamState.name}">
+                <input class="input" name="teamName" value="${userTeamState.name}" ${!isOwner ? "readonly" : ""}>
             </div>
             <div class="field">
                 <label>ID команды</label>
@@ -2146,6 +2219,9 @@ function renderTeamSettings() {
             </div>
         </div>
 
+        ${
+            isOwner
+                ? `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px;" data-view-anim>
             <div class="field">
                 <label>Описание команды</label>
@@ -2160,37 +2236,69 @@ function renderTeamSettings() {
                 <button class="btn btn--accent" style="margin-top:auto">Передать администратора</button>
             </div>
         </div>
+        `
+                : ""
+        }
+
+        <div class="team-separator" data-view-anim style="margin: 24px 0;"></div>
 
         <div class="team-section-head" data-view-anim style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
             <h2 class="team-section-title" style="font-size: 18px; margin:0">Состав команды</h2>
+            ${
+                isOwner
+                    ? `
             <button class="btn btn--muted btn--sm" data-open="blacklistModal" style="padding: 6px 12px; font-size: 13px;">
                 <span class="material-symbols-outlined" style="font-size: 18px;">block</span>
                 Черный список
             </button>
+            `
+                    : ""
+            }
         </div>
 
         <div class="team-members-list" data-view-anim>
             ${members}
+            ${
+                isOwner
+                    ? `
             <button class="add-member-btn" data-open="inviteMemberModal">
                 <span class="material-symbols-outlined">add</span>
                 Пригласить в команду
             </button>
+            `
+                    : ""
+            }
         </div>
 
-        <div class="team-footer" data-view-anim>
-            <a href="javascript:void(0)" class="btn-leave" id="team-leave-btn">Выйти</a>
+        ${
+            !isOwner
+                ? `
+        <div class="team-leave-wrap" data-view-anim style="margin-top: 24px;">
+            <div class="team-separator" style="margin-bottom: 24px;"></div>
+            <a href="javascript:void(0)" id="team-leave-btn" class="leave-link">Выйти</a>
+        </div>
+        `
+                : `
+        <div class="team-footer" data-view-anim style="margin-top: 32px; display: flex; justify-content: space-between; align-items: center;">
+            <a href="javascript:void(0)" id="team-leave-btn" class="leave-link">Выйти</a>
             <button class="btn btn--accent" style="min-width: 200px;">Сохранить изменения</button>
         </div>
+        `
+        }
     `;
 }
 
 function renderTeamAnalytics() {
-    if (!userTeamState.inTeam) {
+    const isInTeam = userTeamState.inTeam;
+    const isOwner = userTeamState.role === "owner";
+
+    // 1. СОСТОЯНИЕ: ВООБЩЕ НЕТ КОМАНДЫ (если вкладка видна, но команды нет)
+    if (!isInTeam) {
         return `
             <div class="team-analytics-empty no-team" data-view-anim>
                 <div class="empty-state-visual">
                     <div class="pulse-ring"></div>
-                    <div class="icon-circle">
+                    <div class="icon-circle" style="background: var(--accent-grad-vert); box-shadow: 0 15px 35px rgba(244, 63, 94, 0.3);">
                         <span class="material-symbols-outlined">group_off</span>
                     </div>
                 </div>
@@ -2207,22 +2315,248 @@ function renderTeamAnalytics() {
         `;
     }
 
-    return `
-        <div class="team-analytics-empty" data-view-anim>
-            <div class="empty-state-visual">
-                <div class="pulse-ring"></div>
-                <div class="icon-circle">
-                    <span class="material-symbols-outlined">query_stats</span>
+    // 2. СОСТОЯНИЕ: ТЫ ГЛАВНЫЙ (но данных нет, т.к. команда новая и нигде не участвовала)
+    if (isOwner) {
+        return `
+            <div class="team-analytics-empty" data-view-anim>
+                <div class="empty-state-visual">
+                    <div class="pulse-ring"></div>
+                    <div class="icon-circle" style="background: var(--accent-grad-vert); box-shadow: 0 15px 35px rgba(244, 63, 94, 0.3);">
+                        <span class="material-symbols-outlined">analytics</span>
+                    </div>
+                </div>
+                <h2 class="empty-title">Нет данных аналитики</h2>
+                <p class="empty-desc">
+                    Чтобы увидеть общую статистику и графики производительности, ваша команда должна принять участие хотя бы в одном активном турнире.
+                </p>
+                <div class="empty-actions">
+                    <button class="btn btn--accent" onclick="switchToTournaments()">
+                        Перейти к турнирам
+                    </button>
                 </div>
             </div>
-            <h2 class="empty-title">Аналитика пока не доступна</h2>
-            <p class="empty-desc">
-                Здесь появятся подробные отчеты об успехах вашей команды, как только вы проведете свои первые совместные турниры.
-            </p>
-            <div class="empty-actions">
-                <button class="btn btn--accent" onclick="ViewManager.open('tournaments')">
-                    Найти турнир
-                </button>
+        `;
+    }
+
+    return `
+        <div class="analytics-layout" data-view-anim>
+            <!-- TOP STATS ROW: 4 CARDS -->
+            <div class="analytics-grid-4">
+                <!-- CARD 1: TOURNAMENTS -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-orange-soft">
+                            <span class="material-symbols-outlined text-orange-icon">emoji_events</span>
+                        </div>
+                        <div class="stat-label">Всего турниров</div>
+                        <div class="stat-value">42</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                        <div class="glow-progress">
+                            <div class="glow-fill" style="width: 75%;"></div>
+                        </div>
+                        <div class="stat-hint">Участие в 75% всех турниров сезона</div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: POINTS -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-pink-soft">
+                            <span class="material-symbols-outlined text-pink-icon">functions</span>
+                        </div>
+                        <div class="stat-label">Общее кол-во очков</div>
+                        <div class="stat-value">12,840</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                        <div class="trend-pill trend-up">
+                            <span class="material-symbols-outlined">north</span>
+                            <span>+370 очков за неделю</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 3: TOP 3 -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-green-soft">
+                            <span class="material-symbols-outlined text-green-icon">military_tech</span>
+                        </div>
+                        <div class="stat-label">Вхождений в Топ 3</div>
+                        <div class="stat-value">7</div>
+                    </div>
+                    <div class="stat-footer-alt bar-rows">
+                        <div class="bar-row">
+                            <span class="r">#1</span>
+                            <div class="b"><div class="f gold" style="width: 55%"></div></div>
+                        </div>
+                        <div class="bar-row">
+                            <span class="r">#2</span>
+                            <div class="b"><div class="f silver" style="width: 35%"></div></div>
+                        </div>
+                        <div class="bar-row">
+                            <span class="r">#3</span>
+                            <div class="b"><div class="f bronze" style="width: 15%"></div></div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- CARD 4: AVG RANK -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-blue-soft">
+                            <span class="material-symbols-outlined text-blue-icon">bar_chart</span>
+                        </div>
+                        <div class="stat-label">Среднее место</div>
+                        <div class="stat-value">#8.4</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                         <div class="split-stats">
+                            <div class="s-item">
+                                <span class="v text-green">#3</span>
+                                <span class="l">Лучшее</span>
+                            </div>
+                            <div class="s-divider"></div>
+                            <div class="s-item">
+                                <span class="v text-danger">#23</span>
+                                <span class="l">Худшее</span>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECOND ROW: 3 CARDS -->
+            <div class="analytics-grid-3">
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-blue-soft">
+                            <span class="material-symbols-outlined text-blue-icon">percent</span>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Процент побед</div>
+                            <div class="value">28.5%</div>
+                        </div>
+                    </div>
+                    <div class="trend trend-up">
+                        <span class="material-symbols-outlined">north</span>
+                        5%
+                    </div>
+                </div>
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-green-soft">
+                            <span class="material-symbols-outlined text-green-icon">task_alt</span>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Решено задач</div>
+                            <div class="value">216</div>
+                        </div>
+                    </div>
+                    <div class="trend trend-up">
+                        <span class="material-symbols-outlined">north</span>
+                        5
+                    </div>
+                </div>
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-blue-soft">
+                            <span class="material-symbols-outlined text-blue-icon">schedule</span>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Среднее время</div>
+                            <div class="value">21:34</div>
+                        </div>
+                    </div>
+                    <!-- Здесь уменьшение времени - это прогресс (trend-up) -->
+                    <div class="trend trend-up">
+                        <span class="material-symbols-outlined">south</span>
+                        -1:05
+                    </div>
+                </div>
+            </div>
+
+            <!-- THIRD ROW: CHART & BEST TOUR -->
+            <div class="analytics-main-grid">
+                <div class="analytics-card chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">График производительности</h3>
+                        <div class="chart-periods">
+                            <button class="period-btn active" data-period="week">Неделя</button>
+                            <button class="period-btn" data-period="month">Месяц</button>
+                            <button class="period-btn" data-period="6months">6 мес</button>
+                            <button class="period-btn" data-period="year">Год</button>
+                        </div>
+                    </div>
+                    <div class="chart-box" style="height: 300px; position: relative;">
+                         <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="analytics-card best-tour-card">
+                     <div class="card-glow"></div>
+                     <h3 class="card-title">Самый успешный турнир</h3>
+                     <div class="tour-visual">
+                         <div class="tour-medal">
+                             <span class="material-symbols-outlined">emoji_events</span>
+                         </div>
+                         <div class="tour-name">Марафон алгоритмов</div>
+                         <div class="tour-date">08.07.2024</div>
+                     </div>
+                     <div class="tour-stats-list">
+                         <div class="t-stat">
+                             <span>Ранг</span>
+                             <span class="val">#5</span>
+                         </div>
+                         <div class="t-stat">
+                             <span>Получено очков</span>
+                             <span class="val text-green">+250</span>
+                         </div>
+                         <div class="t-stat">
+                             <span>Решено задач</span>
+                             <span class="val">5/5</span>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            <!-- FOURTH ROW: TABLE -->
+            <div class="analytics-card table-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Последние результаты</h3>
+                </div>
+                <div class="results-table-wrap">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>ТУРНИР</th>
+                                <th>ДАТА</th>
+                                <th>РАНГ</th>
+                                <th style="text-align: right;">ОЧКИ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="tour-name-cell">Еженедельный спринт #21</td>
+                                <td class="date-cell">15.07.2024</td>
+                                <td class="rank-cell">#12</td>
+                                <td class="points-cell text-green">+120</td>
+                            </tr>
+                            <tr>
+                                <td class="tour-name-cell">Марафон алгоритмов</td>
+                                <td class="date-cell">08.07.2024</td>
+                                <td class="rank-cell">#5</td>
+                                <td class="points-cell text-green">+250</td>
+                            </tr>
+                            <tr>
+                                <td class="tour-name-cell">Быстрый код: Июль</td>
+                                <td class="date-cell">01.07.2024</td>
+                                <td class="rank-cell">#23</td>
+                                <td class="points-cell text-danger">-50</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -2272,7 +2606,8 @@ function initTeamInteractions(container) {
                     setTimeout(() => {
                         removeInvitation(id);
                         if (action === "accept") {
-                            userTeamState.inTeam = true;
+                            // ПЕРЕКЛЮЧАЕМ НА СОСТОЯНИЕ УЧАСТНИКА ПРИ ПРИНЯТИИ ИНВАЙТА
+                            userTeamState = MOCK_TEAM_MEMBER;
                             ViewManager.open("team");
                         } else {
                             subviewContainer.innerHTML = renderTeamSettings();
@@ -2512,6 +2847,20 @@ function initTeamInteractions(container) {
                     setupInviteListeners(); // Вешаем слушатели на новые карточки
                 } else if (tabName === "analytics") {
                     subviewContainer.innerHTML = renderTeamAnalytics();
+                    initTeamAnalyticsChart();
+
+                    // Add listeners for period buttons
+                    const periodBtns =
+                        subviewContainer.querySelectorAll(".period-btn");
+                    periodBtns.forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            periodBtns.forEach((b) =>
+                                b.classList.remove("active"),
+                            );
+                            btn.classList.add("active");
+                            initTeamAnalyticsChart(btn.dataset.period);
+                        });
+                    });
                 }
 
                 // Анимация появления
@@ -2530,6 +2879,22 @@ function initTeamInteractions(container) {
         });
     });
 }
+
+/* =========================================
+   8.5 ANALYTICS MOCK DATA (Simulating Backend)
+   ========================================= */
+const TEAM_ANALYTICS_DATA = {
+    week: [1520, 1580, 1540, 1610, 1680, 1650, 1720],
+    month: [
+        1400, 1420, 1410, 1450, 1480, 1460, 1490, 1520, 1510, 1550, 1580, 1570,
+        1610, 1630, 1620, 1650, 1680, 1670, 1700, 1720, 1710, 1740, 1760, 1750,
+        1780, 1810, 1800, 1830, 1850, 1840,
+    ],
+    "6months": [1200, 1350, 1420, 1580, 1750, 1840],
+    year: [
+        900, 1050, 1120, 1200, 1280, 1350, 1420, 1510, 1580, 1690, 1750, 1840,
+    ],
+};
 
 /* =========================================
    9. TOURNAMENTS RENDERER
@@ -3247,3 +3612,167 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
+function initTeamAnalyticsChart(period = "week") {
+    const canvas = document.getElementById("performanceChart");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    const labels = [];
+    const now = new Date();
+
+    // Берем готовые данные из "бэкенда"
+    const dataPoints = TEAM_ANALYTICS_DATA[period] || [];
+    const stepCount = dataPoints.length;
+
+    let timeUnit = period === "week" || period === "month" ? "day" : "month";
+    const monthNames = [
+        "Янв",
+        "Фев",
+        "Мар",
+        "Апр",
+        "Май",
+        "Июн",
+        "Июл",
+        "Авг",
+        "Сен",
+        "Окт",
+        "Ноя",
+        "Дек",
+    ];
+
+    for (let i = stepCount - 1; i >= 0; i--) {
+        if (timeUnit === "day") {
+            const d = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate() - i,
+            );
+            labels.push(
+                d.getDate().toString().padStart(2, "0") +
+                    "." +
+                    (d.getMonth() + 1).toString().padStart(2, "0"),
+            );
+        } else {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            labels.push(monthNames[d.getMonth()]);
+        }
+    }
+
+    const style = getComputedStyle(document.documentElement);
+    const accentFrom =
+        style.getPropertyValue("--accent-from").trim() || "#f43f5e";
+    const accentTo = style.getPropertyValue("--accent-to").trim() || "#fbbf24";
+    const isLight =
+        document.documentElement.getAttribute("data-theme") === "light";
+
+    // Горизонтальный градиент для линии (Stroke)
+    const lineGradient = ctx.createLinearGradient(0, 0, canvas.width || 800, 0);
+    lineGradient.addColorStop(0, accentFrom);
+    lineGradient.addColorStop(1, accentTo);
+
+    // Вертикальный градиент для заливки (Fill)
+    const fillAlpha = isLight ? "33" : "1A";
+    const fillGradient = ctx.createLinearGradient(0, 0, 0, 400);
+    fillGradient.addColorStop(0, accentFrom + fillAlpha);
+    fillGradient.addColorStop(1, accentFrom + "00");
+
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+
+    new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    data: dataPoints,
+                    borderColor: lineGradient,
+                    borderWidth: 3,
+                    fill: true,
+                    backgroundColor: fillGradient,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: accentFrom,
+                    pointHoverBorderColor: "#fff",
+                    pointHoverBorderWidth: 2,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: "#11141d",
+                    titleFont: { size: 12, family: "Jura" },
+                    bodyFont: { size: 14, family: "Manrope", weight: "bold" },
+                    padding: 12,
+                    displayColors: false,
+                    borderColor: "rgba(255,255,255,0.1)",
+                    borderWidth: 1,
+                    callbacks: {
+                        title: (items) =>
+                            timeUnit === "day"
+                                ? `Дата: ${items[0].label}`
+                                : `Месяц: ${items[0].label}`,
+                        label: (context) =>
+                            `Рейтинг: ${context.parsed.y} очков`,
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: "#64748b",
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: timeUnit === "day" ? 7 : 12,
+                        font: { family: "Jura", size: 10 },
+                    },
+                },
+                y: {
+                    grid: {
+                        color: isLight
+                            ? "rgba(0,0,0,0.12)"
+                            : "rgba(255,255,255,0.15)",
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: "#64748b",
+                        font: { family: "Jura", size: 10 },
+                    },
+                },
+            },
+            hover: { mode: "index", intersect: false },
+        },
+        plugins: [
+            {
+                id: "crosshair",
+                afterDraw: (chart) => {
+                    if (chart.tooltip?._active?.length) {
+                        const x = chart.tooltip._active[0].element.x;
+                        const yAxis = chart.scales.y;
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, yAxis.top);
+                        ctx.lineTo(x, yAxis.bottom);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = isLight
+                            ? "rgba(0, 0, 0, 0.2)"
+                            : "rgba(255, 255, 255, 0.2)";
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                },
+            },
+        ],
+    });
+}
