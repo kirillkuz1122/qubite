@@ -1,4 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Jura:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
+/* Fonts Local Hosting (Variable Fonts) */
+@font-face {
+    font-family: "Jura";
+    src: url("../fonts/Jura/Jura-VariableFont_wght.ttf") format("truetype");
+    font-weight: 300 700;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Manrope";
+    src: url("../fonts/Manrope/Manrope-VariableFont_wght.ttf")
+        format("truetype");
+    font-weight: 200 800;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Space Grotesk";
+    src: url("../fonts/SpaceGrotesk/SpaceGrotesk-VariableFont_wght.ttf")
+        format("truetype");
+    font-weight: 300 700;
+    font-display: swap;
+}
 :root {
     --bg-1: #0b1220;
     --bg-2: #020617;
@@ -31,8 +53,13 @@
     --radius-input: 12px;
 
     /* Fonts */
-    --font-head: "Jura", sans-serif;
-    --font-body: "Manrope", sans-serif;
+    --font-head:
+        "Jura", "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji";
+    --font-body:
+        "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+        sans-serif;
 
     --grid-o: 0.05; /* прозрачность сетки */
     color-scheme: dark;
@@ -498,16 +525,7 @@ a {
 }
 
 .word {
-    font-family:
-        system-ui,
-        -apple-system,
-        "Segoe UI",
-        Roboto,
-        Ubuntu,
-        Cantarell,
-        "Noto Sans",
-        Helvetica,
-        Arial;
+    font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
     font-weight: 1000;
     line-height: 1;
     letter-spacing: -0.02em;
@@ -5222,10 +5240,24 @@ body.loading {
 
 @media (max-width: 400px) {
     .invite-actions {
-        flex-direction: column-reverse;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
-    .invite-actions .btn {
-        width: 100%;
+    .invite-actions .action-reject,
+    .invite-actions .app-reject {
+        order: 2;
+        flex: 1;
+    }
+    .invite-actions .action-accept,
+    .invite-actions .app-accept {
+        order: 1;
+        flex: 1;
+    }
+    .invite-actions .action-report,
+    .invite-actions .app-report {
+        order: 3;
+        flex: 0;
+        width: auto;
     }
 }
 
@@ -6942,4 +6974,1338 @@ body.loading {
     .stat-card.centered .stat-value {
         font-size: 28px;
     }
+}
+
+/* ==========================================================================
+   TEAM SECTION — RESPONSIVE ADAPTATION (down to 320px)
+   ========================================================================== */
+
+/* ——— 900px: medium tablets ——— */
+@media (max-width: 900px) {
+    /* Owner description + admin-transfer grid (inline style override) */
+    #team-subview-container > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ——— 768px: tablets / mobile sidebar ——— */
+@media (max-width: 768px) {
+    .team-view {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .tabs-nav {
+        gap: 0;
+    }
+
+    .tab-item {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 8px;
+    }
+
+    .tab-text {
+        font-size: 13px;
+    }
+
+    /* Team action cards (create / join) */
+    .team-actions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .team-action-card {
+        padding: 24px;
+    }
+
+    /* Team section head */
+    .team-section-title {
+        font-size: 20px;
+    }
+
+    .team-section-desc {
+        font-size: 14px;
+    }
+
+    /* Member card */
+    .member-card {
+        padding: 12px 16px;
+        gap: 12px;
+    }
+
+    .member-name {
+        font-size: 15px;
+        flex-wrap: wrap;
+    }
+
+    /* Team footer (owner) — inline style override */
+    .team-footer {
+        flex-direction: column !important;
+        gap: 16px !important;
+        align-items: stretch !important;
+    }
+
+    .team-footer .btn--accent {
+        min-width: unset !important;
+        width: 100%;
+    }
+
+    .team-footer .leave-link {
+        text-align: center;
+        order: 2;
+    }
+
+    .team-footer .btn--accent {
+        order: 1;
+    }
+
+    /* Admin transfer card */
+    .admin-transfer-card {
+        padding: 20px;
+    }
+
+    /* Chart periods (analytics) */
+    .chart-periods {
+        flex-wrap: wrap;
+    }
+
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Best tour card */
+    .tour-medal {
+        width: 80px;
+        height: 80px;
+    }
+
+    .tour-medal .material-symbols-outlined {
+        font-size: 40px;
+    }
+
+    .best-tour-card .tour-name {
+        font-size: 18px;
+    }
+}
+
+/* ——— 600px: large phones ——— */
+@media (max-width: 600px) {
+    .team-view {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .dash-header {
+        font-size: 24px;
+    }
+
+    .team-action-card {
+        padding: 20px;
+        gap: 16px;
+        border-radius: 20px;
+    }
+
+    .action-title {
+        font-size: 16px;
+    }
+
+    .action-desc {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .btn--wide {
+        max-width: 100%;
+    }
+
+    /* Member card responsive */
+    .member-card {
+        padding: 12px;
+        border-radius: 14px;
+        gap: 10px;
+    }
+
+    .member-name {
+        font-size: 14px;
+        gap: 4px;
+    }
+
+    .member-uid {
+        font-size: 10px;
+    }
+
+    .member-actions {
+        gap: 8px;
+    }
+
+    .btn-icon-sm {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+    }
+
+    .btn-icon-sm .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    /* Add member button */
+    .add-member-btn {
+        padding: 16px;
+        font-size: 14px;
+        border-radius: 14px;
+    }
+
+    /* Compose (owner in-team) roster heading */
+    .team-section-head[data-view-anim] {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px;
+    }
+
+    /* Team info inputs */
+    .team-info-grid .field label {
+        font-size: 13px;
+    }
+
+    .team-info-grid .input {
+        font-size: 14px;
+    }
+
+    /* Results table */
+    .results-table th,
+    .results-table td {
+        padding: 12px 10px;
+        font-size: 12px;
+    }
+
+    .results-table .tour-name-cell {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Stat card adjustments */
+    .stat-card.centered {
+        min-height: 220px;
+        padding: 20px 16px;
+    }
+
+    .stat-icon-box {
+        width: 42px;
+        height: 42px;
+    }
+
+    .stat-label {
+        font-size: 11px;
+    }
+
+    /* Small stat cards */
+    .small-stat {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding-right: 0;
+    }
+
+    .small-stat .trend {
+        align-self: flex-end;
+    }
+
+    /* Chart container height */
+    .chart-container {
+        min-height: 300px;
+    }
+
+    .chart-box {
+        height: 220px !important;
+    }
+}
+
+/* ——— 480px: small phones ——— */
+@media (max-width: 480px) {
+    .team-view {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .team-invite-card {
+        padding: 16px;
+        border-radius: 18px;
+        margin: 20px 0 10px 0;
+    }
+
+    .invite-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+    }
+
+    .invite-icon-box .material-symbols-outlined {
+        font-size: 22px;
+    }
+
+    .invite-title {
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .invite-desc {
+        font-size: 12px;
+    }
+
+    /* Owner description + admin-transfer */
+    .admin-transfer-card {
+        padding: 16px;
+        border-radius: 14px;
+        gap: 12px;
+    }
+
+    .admin-transfer-card h3 {
+        font-size: 14px !important;
+    }
+
+    .admin-transfer-card p {
+        font-size: 12px !important;
+    }
+
+    /* Team footer */
+    .team-footer .btn--accent {
+        padding: 12px !important;
+        font-size: 14px;
+    }
+
+    /* Member avatar  */
+    .profile-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    .avatar-letter {
+        font-size: 15px;
+    }
+
+    /* Tab text */
+    .tab-item .icon {
+        font-size: 18px;
+    }
+
+    .tab-text {
+        font-size: 12px;
+    }
+
+    /* Analytics */
+    .stat-card.centered {
+        min-height: 200px;
+    }
+
+    .stat-value {
+        font-size: 30px;
+        margin-bottom: 16px;
+    }
+
+    .stat-card.centered .stat-icon-box {
+        transform: scale(1);
+        margin-bottom: 14px;
+    }
+
+    .glow-progress {
+        width: 100%;
+    }
+
+    /* Bar rows */
+    .bar-row {
+        padding: 0 8px;
+    }
+
+    /* Best tour card */
+    .best-tour-card {
+        padding: 20px 16px;
+    }
+
+    .tour-visual {
+        margin: 20px 0;
+    }
+
+    .tour-medal {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+    }
+
+    .tour-medal .material-symbols-outlined {
+        font-size: 36px;
+    }
+
+    .best-tour-card .tour-name {
+        font-size: 16px;
+    }
+
+    /* Period buttons */
+    .period-btn {
+        padding: 5px 10px;
+        font-size: 10px;
+    }
+
+    /* Split stats (card 4) */
+    .s-item .v {
+        font-size: 16px;
+    }
+
+    .s-item .l {
+        font-size: 9px;
+    }
+
+    /* Table adjustments */
+    .results-table .date-cell {
+        display: none;
+    }
+}
+
+/* ——— 380px: very narrow screens ——— */
+@media (max-width: 380px) {
+    .team-action-card {
+        padding: 16px;
+        gap: 12px;
+        border-radius: 16px;
+    }
+
+    .action-icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .action-icon-box span {
+        font-size: 20px;
+    }
+
+    .action-title {
+        font-size: 15px;
+    }
+
+    .action-desc {
+        font-size: 12px;
+        margin-bottom: 16px;
+    }
+
+    .team-section-title {
+        font-size: 18px;
+    }
+
+    .team-section-desc {
+        font-size: 13px;
+    }
+
+    .member-card {
+        padding: 10px;
+        border-radius: 12px;
+        gap: 8px;
+    }
+
+    .member-name {
+        font-size: 13px;
+    }
+
+    .member-me {
+        font-size: 11px;
+    }
+
+    .member-uid {
+        font-size: 9px;
+    }
+
+    .member-actions {
+        gap: 6px;
+    }
+
+    .btn-icon-sm {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+    }
+
+    .btn-icon-sm .material-symbols-outlined {
+        font-size: 16px;
+    }
+
+    .add-member-btn {
+        padding: 14px;
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    /* Team info grid fields */
+    .team-info-grid {
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .copy-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .copy-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    /* Tabs */
+    .tabs-nav {
+        margin-bottom: 8px;
+    }
+
+    /* Empty state */
+    .empty-title {
+        font-size: 20px;
+    }
+
+    .empty-desc {
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    .icon-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 24px;
+    }
+
+    .icon-circle .material-symbols-outlined {
+        font-size: 40px;
+    }
+
+    .pulse-ring {
+        width: 120px;
+        height: 120px;
+    }
+
+    /* Analytics cards */
+    .stat-card.centered .stat-value {
+        font-size: 26px;
+    }
+
+    .trend-pill {
+        padding: 4px 10px;
+        font-size: 10px;
+    }
+
+    .stat-hint {
+        font-size: 10px;
+    }
+
+    /* Small stats */
+    .small-stat-content .label {
+        font-size: 11px;
+    }
+
+    .small-stat-content .value {
+        font-size: 16px;
+    }
+
+    .small-stat-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+    }
+
+    .small-stat-icon .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    /* Tour stats list */
+    .tour-stats-list {
+        padding: 10px;
+    }
+
+    .t-stat {
+        font-size: 12px;
+    }
+
+    .t-stat .val {
+        font-size: 13px;
+    }
+}
+
+/* ——— 320px: minimum supported width ——— */
+@media (max-width: 320px) {
+    .team-view {
+        padding-left: 4px;
+        padding-right: 4px;
+        padding-bottom: 24px;
+    }
+
+    .team-invite-card {
+        padding: 12px;
+        border-radius: 14px;
+        gap: 12px;
+        margin: 16px 0 8px 0;
+    }
+
+    .invite-icon-box {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+    }
+
+    .invite-icon-box .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .invite-title {
+        font-size: 13px;
+        line-height: 18px;
+    }
+
+    .invite-desc {
+        font-size: 11px;
+        line-height: 16px;
+    }
+
+    .invite-actions .btn {
+        padding: 8px 12px !important;
+        font-size: 12px;
+    }
+
+    .team-action-card {
+        padding: 14px;
+        gap: 10px;
+        border-radius: 14px;
+    }
+
+    .action-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .action-icon-box span {
+        font-size: 18px;
+    }
+
+    .action-title {
+        font-size: 14px;
+    }
+
+    .action-desc {
+        font-size: 11px;
+        margin-bottom: 12px;
+        line-height: 1.5;
+    }
+
+    .btn--wide {
+        height: 40px;
+        font-size: 13px;
+    }
+
+    .team-section-title {
+        font-size: 16px;
+    }
+
+    .team-section-desc {
+        font-size: 12px;
+    }
+
+    .team-section-head {
+        margin-bottom: 16px;
+    }
+
+    .member-card {
+        padding: 8px;
+        border-radius: 10px;
+        gap: 6px;
+    }
+
+    .member-name {
+        font-size: 12px;
+        flex-wrap: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+    }
+
+    .member-me {
+        font-size: 10px;
+    }
+
+    .member-uid {
+        font-size: 8px;
+    }
+
+    .member-info {
+        overflow: hidden;
+    }
+
+    .profile-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 12px;
+    }
+
+    .avatar-inner {
+        border-radius: 11px;
+    }
+
+    .avatar-letter {
+        font-size: 13px;
+    }
+
+    /* Team code grid in modal */
+    .team-code-grid {
+        grid-template-columns: repeat(10, 28px);
+        gap: 3px;
+    }
+
+    .team-code-grid .code-cell {
+        width: 28px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: 8px;
+    }
+
+    .team-code-grid .code-cell--prefix {
+        border-radius: 8px;
+    }
+
+    .add-member-btn {
+        padding: 12px;
+        font-size: 12px;
+        gap: 6px;
+        border-radius: 10px;
+    }
+
+    .team-info-grid {
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .copy-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .admin-transfer-card {
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .tab-item {
+        padding: 8px 4px;
+    }
+
+    .tab-text {
+        font-size: 11px;
+    }
+
+    .tab-item .icon {
+        font-size: 16px;
+    }
+
+    /* Analytics at 320px */
+    .analytics-layout {
+        gap: 12px;
+    }
+
+    .analytics-card {
+        padding: 16px 12px;
+        border-radius: 18px;
+    }
+
+    .stat-card.centered {
+        min-height: 180px;
+        padding: 16px 12px;
+    }
+
+    .stat-card.centered .stat-value {
+        font-size: 24px;
+    }
+
+    .stat-label {
+        font-size: 10px;
+    }
+
+    .stat-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .stat-icon-box .material-symbols-outlined {
+        font-size: 20px;
+    }
+
+    .stat-footer-alt {
+        padding-top: 14px;
+        gap: 8px;
+    }
+
+    .chart-container {
+        min-height: 260px;
+    }
+
+    .chart-box {
+        height: 180px !important;
+    }
+
+    .chart-title {
+        font-size: 15px;
+    }
+
+    .period-btn {
+        padding: 4px 8px;
+        font-size: 9px;
+    }
+
+    .chart-periods {
+        padding: 2px;
+        gap: 2px;
+    }
+
+    .best-tour-card {
+        padding: 16px 12px;
+    }
+
+    .tour-visual {
+        margin: 16px 0;
+    }
+
+    .tour-medal {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+    }
+
+    .tour-medal .material-symbols-outlined {
+        font-size: 32px;
+    }
+
+    .best-tour-card .tour-name {
+        font-size: 15px;
+    }
+
+    .best-tour-card .tour-date {
+        font-size: 12px;
+    }
+
+    .results-table th {
+        font-size: 9px;
+        padding: 8px 6px;
+    }
+
+    .results-table td {
+        font-size: 11px;
+        padding: 10px 6px;
+    }
+
+    .results-table .tour-name-cell {
+        max-width: 90px;
+    }
+
+    /* Empty state */
+    .team-analytics-empty {
+        padding: 30px 8px;
+        min-height: 40vh;
+    }
+
+    .empty-state-visual {
+        margin-bottom: 24px;
+    }
+
+    .empty-title {
+        font-size: 18px;
+    }
+
+    .empty-desc {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .empty-actions .btn {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+}
+
+/* PROFILE SECTION - NEW DESIGN */
+.profile-view {
+    padding-bottom: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.profile-head-header {
+    font-size: 32px;
+    font-weight: 300;
+    margin-bottom: 32px;
+    margin-top: 0;
+    color: var(--fg-strong);
+    font-family: var(--font-head);
+}
+
+.profile-nav-tabs {
+    display: flex;
+    gap: 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 48px;
+    padding-bottom: 2px;
+}
+
+.profile-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px;
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.profile-nav-item .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.profile-nav-item:hover {
+    color: var(--fg);
+}
+
+.profile-nav-item.active {
+    color: var(--accent-from);
+    border-bottom-color: var(--accent-from);
+}
+
+/* User Info Bar */
+.profile-user-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 48px;
+}
+
+.profile-avatar-large {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(
+        135deg,
+        rgba(244, 63, 94, 0.3),
+        rgba(245, 158, 11, 0.3)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.profile-avatar-large .avatar-visual {
+    width: 70px;
+    height: 70px;
+    background: #e2e2e2;
+    clip-path: circle(50% at 50% 50%); /* Simplified avatar shape from SVG */
+    mask: url("data:image/svg+xml,%3Csvg width='70' height='70' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0zm0 15c8.3 0 15 6.7 15 15s-6.7 15-15 15-15-6.7-15-15 6.7-15 15-15zm0 75c-11.8 0-22.5-4.8-30.2-12.6 2.3-10.4 11.6-18.4 22.7-18.4h14.9c11.1 0 20.4 8 22.7 18.4-7.7 7.8-18.4 12.6-30.1 12.6z'/%3E%3C/svg%3E")
+        no-repeat center;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg width='70' height='70' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 0C22.4 0 0 22.4 0 50s22.4 50 50 50 50-22.4 50-50S77.6 0 50 0zm0 15c8.3 0 15 6.7 15 15s-6.7 15-15 15-15-6.7-15-15 6.7-15 15-15zm0 75c-11.8 0-22.5-4.8-30.2-12.6 2.3-10.4 11.6-18.4 22.7-18.4h14.9c11.1 0 20.4 8 22.7 18.4-7.7 7.8-18.4 12.6-30.1 12.6z'/%3E%3C/svg%3E")
+        no-repeat center;
+}
+
+/* Fallback letter if no image */
+.profile-avatar-large .avatar-placeholder {
+    width: 60px;
+    height: 60px;
+    background: #d1d5db;
+    border-radius: 18px 18px 4px 4px;
+    position: relative;
+}
+
+.profile-user-meta {
+    flex: 1;
+}
+
+.profile-fullname {
+    font-size: 28px;
+    font-weight: 500;
+    margin: 0;
+    color: var(--fg-strong);
+}
+
+.profile-uid-label {
+    color: var(--fg-muted);
+    font-size: 16px;
+    margin-top: 4px;
+}
+
+.btn-upload-photo {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--fg-muted);
+    padding: 12px 24px;
+    /* border-radius: 99px; */
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-upload-photo:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--fg);
+}
+
+/* Form Container */
+.profile-form-container {
+    background: #11141d;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 32px;
+    margin-bottom: 48px;
+}
+
+.profile-new-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px 24px;
+}
+
+.profile-new-grid .field {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-new-grid label {
+    font-size: 14px;
+    color: var(--fg-muted);
+    font-weight: 500;
+}
+
+.profile-new-grid .input {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--fg);
+    font-size: 15px;
+    transition: all 0.2s ease;
+}
+
+.profile-new-grid .input:focus {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent-from);
+    outline: none;
+}
+
+/* Footer Actions */
+.profile-footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 48px;
+}
+
+.btn-logout-link {
+    color: #f43f5e;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: opacity 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.btn-logout-link:hover {
+    opacity: 0.8;
+}
+
+.btn-save-large {
+    background: linear-gradient(90deg, #f43f5e 0%, #f59e0b 100%);
+    color: #000;
+    border: none;
+    padding: 16px 40px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+}
+
+.btn-save-large:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(244, 63, 94, 0.4);
+}
+
+.btn-save-large:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 900px) {
+    .profile-new-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .profile-new-grid {
+        grid-template-columns: 1fr;
+    }
+    .profile-user-bar {
+        flex-direction: column;
+        text-align: center;
+    }
+    .profile-footer-row {
+        flex-direction: column;
+        gap: 24px;
+    }
+    .btn-save-large {
+        width: 100%;
+    }
+}
+
+.profile-avatar.large {
+    width: 100px;
+    height: 100px;
+}
+
+.profile-avatar.large .avatar-inner {
+    width: 98px;
+    height: 98px;
+}
+
+.profile-avatar.large .avatar-letter {
+    font-size: 48px;
+}
+/* Input Changed State (Gradient Border) */
+.input.is-changed {
+    border-color: transparent;
+    background-image:
+        linear-gradient(var(--bg-dark), var(--bg-dark)),
+        linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.15);
+}
+
+/* Autocomplete Dropdown */
+.autocomplete-wrap {
+    position: relative;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+.autocomplete-dropdown.visible {
+    display: block;
+}
+
+.autocomplete-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--fg);
+    transition: background 0.2s;
+}
+
+.autocomplete-item:hover {
+    background: var(--muted);
+}
+
+.autocomplete-item strong {
+    color: var(--accent-from);
+}
+
+/* Button Disabled State (Explicit) */
+.btn.is-disabled {
+    background: var(--muted);
+    color: var(--fg-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+/* =========================================
+   VALIDATION & AUTOCOMPLETE UI
+   ========================================= */
+
+#profile-detailed-form .field {
+    position: relative;
+    margin-bottom: 28px;
+}
+
+#profile-detailed-form .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg-muted);
+    margin-bottom: 8px;
+    transition: color 0.2s ease;
+}
+
+.input {
+    width: 100%;
+    font-family: var(--font-body);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Стилизация инпутов только в профиле */
+#profile-detailed-form .input {
+    padding: 12px 16px;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-input);
+    color: var(--fg);
+    font-size: 16px;
+    font-family: var(--font-body);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent-from);
+    background: var(--muted-2);
+}
+
+/* Красивый фокус только в профиле */
+#profile-detailed-form .input:focus {
+    box-shadow: 0 0 0 4px
+        color-mix(in oklab, var(--accent-from) 15%, transparent);
+}
+
+#profile-detailed-form .input.is-changed {
+    border-color: transparent !important;
+    background-origin: border-box;
+    background-clip: padding-box, border-box !important;
+    background-image:
+        linear-gradient(var(--bg-1), var(--bg-1)), var(--accent-grad);
+    border: 1px solid transparent;
+}
+
+#profile-detailed-form .input.is-invalid {
+    border-color: #ff4757 !important;
+    background: color-mix(in oklab, #ff4757 5%, transparent);
+}
+
+#profile-detailed-form .field-error {
+    position: absolute;
+    bottom: -18px;
+    left: 4px;
+    font-size: 11px;
+    color: #ff4757;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+#profile-detailed-form .field:has(.is-invalid) .field-error {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Autocomplete Premium Look */
+.autocomplete-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: color-mix(in oklab, var(--bg-1) 95%, #fff);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    max-height: 240px;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(12px);
+}
+
+.autocomplete-dropdown.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.autocomplete-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--fg);
+    transition: all 0.2s ease;
+    border-bottom: 1px solid var(--border);
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.focused {
+    background: var(--accent-grad) !important;
+    color: #fff !important;
+    font-weight: 800;
+    padding-left: 20px;
+}
+
+.autocomplete-item strong {
+    color: var(--accent-from);
+    font-weight: 700;
+}
+
+/* Phone Mask Hint */
+.input-hints {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.hint-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--muted);
+    border-radius: 4px;
+    color: var(--fg-muted);
+}
+
+.autocomplete-item.focused {
+    background: var(--accent-grad) !important;
+    color: #0b1220 !important;
+    font-weight: 800;
+    padding-left: 20px;
+}
+
+.autocomplete-item.focused strong,
+.autocomplete-item:hover strong {
+    color: #fff !important;
 }

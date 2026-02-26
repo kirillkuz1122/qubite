@@ -382,7 +382,7 @@ function fitWord() {
     const parent = el.parentElement;
     const maxW = Math.min(parent.clientWidth, window.innerWidth) - 24;
     const minPx = 48,
-        maxPx = 240;
+        maxPx = 1000;
 
     el.style.fontSize = maxPx + "px";
     el.style.whiteSpace = "nowrap";
@@ -990,6 +990,37 @@ document.getElementById("openLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
     openModal("loginModal");
 });
+
+// Глобальная модалка подтверждения
+function initConfirmModal({
+    title,
+    desc,
+    extra = "",
+    isDanger = false,
+    onConfirm,
+}) {
+    const modal = document.getElementById("confirmModal");
+    if (!modal) return;
+
+    modal.classList.toggle("modal--danger", isDanger);
+    const icon = modal.querySelector("#confirmIcon");
+    if (icon) icon.style.display = isDanger ? "block" : "none";
+
+    modal.querySelector("#confirmTitle").textContent = title;
+    modal.querySelector("#confirmDesc").innerHTML = desc;
+    modal.querySelector("#confirmExtra").innerHTML = extra;
+
+    const confirmBtn = modal.querySelector("#confirmBtn");
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener("click", () => {
+        onConfirm();
+        closeAnyModal();
+    });
+
+    openModal("confirmModal");
+}
 
 /* =========================================
    4. ВАЛИДАЦИЯ ФОРМ И UI
@@ -1708,6 +1739,498 @@ function switchToLanding() {
     document.getElementById("workspace-view").hidden = true;
 }
 
+/**
+ * Рендерит секцию профиля пользователя.
+ */
+function renderProfile() {
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="profile-view">
+            <h1 class="profile-head-header" data-view-anim>Профиль</h1>
+
+            <nav class="tabs-nav in" data-view-anim style="transition-delay: 0.1s">
+                <div class="tab-item active" data-profile-tab="personal">
+                    <span class="material-symbols-outlined">person</span>
+                    <span>Личные данные</span>
+                </div>
+                <div class="tab-item" data-profile-tab="security">
+                    <span class="material-symbols-outlined">shield</span>
+                    <span>Безопасность</span>
+                </div>
+                <div class="tab-item" data-profile-tab="analytics">
+                    <span class="material-symbols-outlined">analytics</span>
+                    <span>Аналитика</span>
+                </div>
+            </nav>
+
+            <div id="profile-tab-content">
+                <div class="profile-user-bar" data-view-anim style="transition-delay: 0.2s">
+                    <div class="profile-avatar has-sub large">
+                        <div class="avatar-inner">
+                            <span class="avatar-letter">КК</span>
+                        </div>
+                    </div>
+                    <div class="profile-user-meta">
+                        <h2 class="profile-fullname">Кузмичев Кирилл Александрович</h2>
+                        <div class="profile-uid-label">UID: 12345</div>
+                    </div>
+                    <button class="btn btn-upload-photo">
+                        <span>Загрузить фото</span>
+                    </button>
+                </div>
+
+                <div class="profile-form-container" data-view-anim style="transition-delay: 0.3s">
+                    <form id="profile-detailed-form">
+                        <div class="profile-new-grid">
+                            <div class="field">
+                                <label>Фамилия</label>
+                                <input type="text" class="input" value="Кузмичев" placeholder="Введите фамилию">
+                            </div>
+                            <div class="field">
+                                <label>Имя</label>
+                                <input type="text" class="input" value="Кирилл" placeholder="Введите имя">
+                            </div>
+                            <div class="field">
+                                <label>Отчество</label>
+                                <input type="text" class="input" value="Александрович" placeholder="Введите отчество">
+                            </div>
+
+                            <div class="field">
+                                <label>Никнейм</label>
+                                <input type="text" class="input" value="Kkuzya3" placeholder="Введите никнейм">
+                            </div>
+                            <div class="field">
+                                <label>E-mail</label>
+                                <input type="email" class="input" value="kuzmichev@qubit.com" placeholder="email@example.com">
+                            </div>
+                            <div class="field">
+                                <label>Телефон</label>
+                                <input type="tel" class="input" value="+7 (999) 000-00-00" placeholder="+7 (___) ___-__-__">
+                            </div>
+
+                            <div class="field">
+                                <label>Город</label>
+                                <input type="text" class="input" value="Москва" placeholder="Введите город">
+                            </div>
+                            <div class="field">
+                                <label>Место обучения</label>
+                                <input type="text" class="input" value="НИУ ВШЭ" placeholder="Укажите учебное заведение">
+                            </div>
+                            <div class="field">
+                                <label>Класс / Группа / Курс</label>
+                                <input type="text" class="input" value="2 курс" placeholder="Например: 11А или ПИ-22">
+                            </div>
+                        </div>
+
+                        <div class="profile-footer-row">
+                            <button type="button" class="btn-logout-link" id="profile-logout-btn">Выйти</button>
+                            <button type="submit" class="btn btn-save-large">Сохранить изменения</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Инициализирует интерактивность в секции профиля.
+ */
+/**
+ * Инициализирует интерактивность в секции профиля.
+ */
+
+function initProfileInteractions(container) {
+    const form = container.querySelector("#profile-detailed-form");
+    if (!form) return;
+
+    const saveBtn = form.querySelector('button[type="submit"]');
+    const inputs = form.querySelectorAll(".input");
+
+    const AUTOCOMPLETE_DATA = {
+        city: [
+            "Москва",
+            "Московская обл.",
+            "Санкт-Петербург",
+            "Новосибирск",
+            "Екатеринбург",
+            "Казань",
+            "Нижний Новгород",
+            "Челябинск",
+            "Самара",
+            "Омск",
+            "Ростов-на-Дону",
+            "Уфа",
+            "Красноярск",
+            "Воронеж",
+            "Пермь",
+            "Волгоград",
+        ],
+        place: [
+            "МГУ",
+            "НИУ ВШЭ",
+            "МФТИ",
+            "СПбГУ",
+            "ИТМО",
+            "МГТУ им. Баумана",
+            "УрФУ",
+            "КФУ",
+            "НГУ",
+            "ТПУ",
+        ],
+        grade: [
+            "8 класс",
+            "9 класс",
+            "10 класс",
+            "11 класс",
+            "1 курс",
+            "2 курс",
+            "3 курс",
+            "4 курс",
+            "5 курс",
+            "Магистратура",
+            "Выпускник",
+        ],
+    };
+
+    // Подготовка инпутов
+    inputs.forEach((input) => {
+        const field = input.closest(".field");
+        if (!field) return;
+
+        if (!field.querySelector(".field-error")) {
+            const err = document.createElement("div");
+            err.className = "field-error";
+            field.appendChild(err);
+        }
+
+        const labelText = field.querySelector("label")?.textContent.trim();
+        const acMap = {
+            Город: "city",
+            "Место обучения": "place",
+            "Класс / Группа / Курс": "grade",
+        };
+
+        if (acMap[labelText]) {
+            const wrap = document.createElement("div");
+            wrap.className = "autocomplete-wrap";
+            input.parentNode.insertBefore(wrap, input);
+            wrap.appendChild(input);
+
+            const drop = document.createElement("div");
+            drop.className = "autocomplete-dropdown";
+            wrap.appendChild(drop);
+
+            input.dataset.autocompleteType = acMap[labelText];
+            input.style.cursor = "text";
+        }
+        input.dataset.initial = input.value;
+    });
+
+    const validateInput = (input) => {
+        const field = input.closest(".field");
+        const label = field?.querySelector("label")?.innerText.trim();
+        const errorEl = field?.querySelector(".field-error");
+        const val = input.value.trim();
+        let isValid = true;
+        let errorMsg = "";
+
+        if (label === "E-mail") {
+            isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+            errorMsg = "Некорректный формат почты";
+        } else if (label === "Телефон") {
+            const numbers = input.value.replace(/\D/g, "");
+            isValid = numbers.length === 11;
+            errorMsg = "Введите полный номер";
+        } else if (["Фамилия", "Имя", "Отчество"].includes(label)) {
+            isValid = /^[а-яёА-ЯЁ-]+$/.test(val) && !val.includes(" ");
+            errorMsg = "Только буквы, без пробелов";
+        } else if (input.dataset.autocompleteType) {
+            const type = input.dataset.autocompleteType;
+            isValid = AUTOCOMPLETE_DATA[type].includes(input.value);
+            errorMsg = "Выберите вариант из списка";
+        }
+
+        if (!isValid && val.length > 0) {
+            input.classList.add("is-invalid");
+            if (errorEl) errorEl.innerText = errorMsg;
+        } else {
+            input.classList.remove("is-invalid");
+        }
+        return isValid;
+    };
+
+    const handlePhoneInput = (e) => {
+        let el = e.target;
+        let clearVal = el.value.replace(/\D/g, "");
+        if (clearVal.length < 1) clearVal = "7";
+        if (clearVal[0] !== "7") clearVal = "7" + clearVal;
+
+        let matrix = "+7 (___) ___-__-__";
+        let i = 0;
+        let def = matrix.replace(/\D/g, "");
+        let val = clearVal.replace(/\D/g, "");
+        if (def.length >= val.length) val = def;
+
+        el.value = matrix.replace(/./g, (a) => {
+            return /[_\d]/.test(a) && i < val.length
+                ? val.charAt(i++)
+                : i >= val.length
+                  ? ""
+                  : a;
+        });
+    };
+
+    const checkFormState = () => {
+        let hasChanges = false;
+        let allValid = true;
+        inputs.forEach((input) => {
+            const changed = input.value !== input.dataset.initial;
+            input.classList.toggle("is-changed", changed); // Вовращаем градиент!
+            if (changed) hasChanges = true;
+            if (input.classList.contains("is-invalid")) allValid = false;
+            // Проверка на пустоту (кроме телефона, там маска)
+            if (input.value.trim() === "" && input.type !== "tel")
+                allValid = false;
+        });
+
+        const canSave = hasChanges && allValid;
+        saveBtn.disabled = !canSave;
+        saveBtn.classList.toggle("is-disabled", !canSave);
+        saveBtn.style.opacity = canSave ? "1" : "0.5";
+        saveBtn.style.background = canSave
+            ? "var(--accent-grad)"
+            : "var(--muted)";
+        saveBtn.style.pointerEvents = canSave ? "auto" : "none";
+    };
+
+    const handleAutocomplete = (input) => {
+        const type = input.dataset.autocompleteType;
+        const val = input.value.toLowerCase().trim();
+        const drop = input.parentNode.querySelector(".autocomplete-dropdown");
+        if (!drop) return;
+
+        const options = AUTOCOMPLETE_DATA[type];
+        const filtered = options.filter((o) => o.toLowerCase().includes(val));
+
+        if (filtered.length > 0 && val.length > 0) {
+            drop.innerHTML = filtered
+                .map((o) => {
+                    const highlight = o.replace(
+                        new RegExp(`(${val})`, "gi"),
+                        "<strong>$1</strong>",
+                    );
+                    return `<div class="autocomplete-item" data-value="${o}">${highlight}</div>`;
+                })
+                .join("");
+            drop.classList.add("visible");
+
+            drop.querySelectorAll(".autocomplete-item").forEach((item) => {
+                const selectThis = () => {
+                    input.value = item.dataset.value;
+                    drop.classList.remove("visible");
+                    validateInput(input);
+                    checkFormState();
+                };
+
+                item.addEventListener("mousedown", (e) => {
+                    e.preventDefault();
+                    selectThis();
+                });
+            });
+        } else {
+            drop.classList.remove("visible");
+        }
+    };
+
+    // Слушатели событий
+    inputs.forEach((input) => {
+        const field = input.closest(".field");
+        const label = field?.querySelector("label")?.innerText.trim();
+
+        input.addEventListener("input", (e) => {
+            // ФИО - блокируем пробелы сразу
+            if (["Фамилия", "Имя", "Отчество"].includes(label)) {
+                input.value = input.value.replace(/\s/g, "");
+            }
+
+            if (label === "Телефон") {
+                handlePhoneInput(e);
+            }
+
+            if (input.dataset.autocompleteType) {
+                handleAutocomplete(input);
+            }
+
+            validateInput(input);
+            checkFormState();
+        });
+
+        input.addEventListener("keydown", (e) => {
+            const drop = input.parentNode.querySelector(
+                ".autocomplete-dropdown",
+            );
+            if (!drop || !drop.classList.contains("visible")) return;
+
+            const items = Array.from(
+                drop.querySelectorAll(".autocomplete-item"),
+            );
+            let activeIdx = items.findIndex((item) =>
+                item.classList.contains("focused"),
+            );
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                activeIdx = (activeIdx + 1) % items.length;
+                items.forEach((it, idx) =>
+                    it.classList.toggle("focused", idx === activeIdx),
+                );
+                items[activeIdx].scrollIntoView({ block: "nearest" });
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                activeIdx = (activeIdx - 1 + items.length) % items.length;
+                items.forEach((it, idx) =>
+                    it.classList.toggle("focused", idx === activeIdx),
+                );
+                items[activeIdx].scrollIntoView({ block: "nearest" });
+            } else if (e.key === "Enter" && activeIdx >= 0) {
+                e.preventDefault();
+                input.value = items[activeIdx].dataset.value;
+                drop.classList.remove("visible");
+                validateInput(input);
+                checkFormState();
+            } else if (e.key === "Escape") {
+                drop.classList.remove("visible");
+            }
+        });
+
+        input.addEventListener("blur", () => {
+            // Если фокус ушел с автокомплита и значение не из списка - очищаем или кидаем ошибку
+            if (input.dataset.autocompleteType) {
+                setTimeout(() => {
+                    const drop = input.parentNode.querySelector(
+                        ".autocomplete-dropdown",
+                    );
+                    drop?.classList.remove("visible");
+                    validateInput(input);
+                    checkFormState();
+                }, 200);
+            }
+        });
+
+        input.addEventListener("focus", () => {
+            if (label === "Телефон" && !input.value) {
+                input.value = "+7 ";
+                handlePhoneInput({ target: input, type: "focus" });
+            }
+            if (input.dataset.autocompleteType) {
+                handleAutocomplete(input);
+            }
+
+            // Надежное выделение всего текста при фокусе
+            const selectAll = () => {
+                const len = input.value.length;
+                input.setSelectionRange(0, len, "forward"); // Выделяет всё, курсор в конце
+            };
+
+            setTimeout(selectAll, 20);
+
+            // Предотвращаем сброс выделения браузером при завершении клика
+            const oneTimeMouseUp = (e) => {
+                e.preventDefault();
+                input.removeEventListener("mouseup", oneTimeMouseUp);
+            };
+            input.addEventListener("mouseup", oneTimeMouseUp);
+        });
+    });
+
+    // Закрытие при клике мимо
+    document.addEventListener("mousedown", (e) => {
+        if (!e.target.closest(".autocomplete-wrap")) {
+            container
+                .querySelectorAll(".autocomplete-dropdown")
+                .forEach((d) => d.classList.remove("visible"));
+        }
+    });
+
+    // Инициализация начального состояния (проверка валидности текущих данных)
+    inputs.forEach((input) => validateInput(input));
+    checkFormState();
+
+    // Обработка отправки
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        let isAllOk = true;
+        inputs.forEach((input) => {
+            if (!validateInput(input)) isAllOk = false;
+        });
+
+        if (!isAllOk) {
+            Toast.show(
+                "Ошибка",
+                "Пожалуйста, исправьте ошибки в полях",
+                "error",
+            );
+            return;
+        }
+
+        Toast.show("Профиль", "Данные успешно обновлены!", "success");
+        inputs.forEach((input) => (input.dataset.initial = input.value));
+        checkFormState();
+    });
+
+    const logoutBtn = container.querySelector("#profile-logout-btn");
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            if (typeof initConfirmModal === "function") {
+                initConfirmModal({
+                    title: "Выход",
+                    desc: "Вы уверены, что хотите выйти из аккаунта?",
+                    isDanger: true,
+                    onConfirm: () => {
+                        Toast.show("Аккаунт", "Выход из системы...", "info");
+                        setTimeout(() => {
+                            // Assuming switchToLanding exists globally or reload page
+                            if (typeof switchToLanding === "function")
+                                switchToLanding();
+                            else location.reload();
+                        }, 1000);
+                    },
+                });
+            } else {
+                if (confirm("Выйти из аккаунта?")) location.reload();
+            }
+        });
+    }
+
+    const tabItems = container.querySelectorAll(".profile-nav-item");
+    tabItems.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const tabName = tab.dataset.profileTab;
+            if (tab.classList.contains("active")) return;
+
+            tabItems.forEach((item) => item.classList.remove("active"));
+            tab.classList.add("active");
+
+            if (tabName !== "personal") {
+                Toast.show(
+                    "Раздел",
+                    `Секция "${tab.innerText.trim()}" в разработке`,
+                    "info",
+                );
+            }
+        });
+    });
+
+    const uploadBtn = container.querySelector(".btn-upload-photo");
+    if (uploadBtn) {
+        uploadBtn.addEventListener("click", () => {
+            Toast.show("Загрузка", "Выбор файла...", "info");
+        });
+    }
+}
+
 const ViewManager = {
     content: null,
     navItems: null,
@@ -1750,6 +2273,9 @@ const ViewManager = {
         } else if (viewName === "team") {
             this.content.innerHTML = renderTeam();
             initTeamInteractions(this.content);
+        } else if (viewName === "profile") {
+            this.content.innerHTML = renderProfile();
+            initProfileInteractions(this.content);
         } else {
             this.content.innerHTML = `<div class="section__title" data-view-anim>Раздел ${viewName} в разработке</div>`;
         }
@@ -1958,7 +2484,8 @@ const MOCK_TEAM_OWNER = {
     role: "owner", // ТЫ — ГЛАВНЫЙ
     name: "Авангард",
     id: "T-DIUENMDF",
-    description: "Мы команда энтузиастов, которые любят создавать крутые проекты и делиться ими с миром. Мы верим, что каждый может внести свой вклад в развитие технологий и сделать мир лучше.",
+    description:
+        "Мы команда энтузиастов, которые любят создавать крутые проекты и делиться ими с миром. Мы верим, что каждый может внести свой вклад в развитие технологий и сделать мир лучше.",
     members: [
         {
             id: 1,
@@ -2795,36 +3322,6 @@ function initTeamInteractions(container) {
 
         // Модалка откроется через [data-open] автоматически
     };
-
-    function initConfirmModal({
-        title,
-        desc,
-        extra = "",
-        isDanger = false,
-        onConfirm,
-    }) {
-        const modal = document.getElementById("confirmModal");
-        if (!modal) return;
-
-        modal.classList.toggle("modal--danger", isDanger);
-        const icon = modal.querySelector("#confirmIcon");
-        if (icon) icon.style.display = isDanger ? "block" : "none";
-
-        modal.querySelector("#confirmTitle").textContent = title;
-        modal.querySelector("#confirmDesc").innerHTML = desc;
-        modal.querySelector("#confirmExtra").innerHTML = extra;
-
-        const confirmBtn = modal.querySelector("#confirmBtn");
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-        newConfirmBtn.addEventListener("click", () => {
-            onConfirm();
-            closeAnyModal();
-        });
-
-        openModal("confirmModal");
-    }
 
     // Первичная настройка слушателей (для дефолтной вкладки)
     setupInviteListeners();
