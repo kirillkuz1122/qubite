@@ -1784,7 +1784,7 @@ a {
 /* Active Text & Icon Gradient */
 .nav-item.active span,
 .nav-item.active i,
-.nav-item.active .material-symbols-outlined {
+.nav-item.active .icon-svg {
     background: linear-gradient(176.35deg, #f43f5e, #f59e0b);
     -webkit-background-clip: text;
     background-clip: text;
@@ -1792,12 +1792,12 @@ a {
     color: transparent; /* Fallback */
 }
 
-.nav-item.active .material-symbols-outlined {
-    font-variation-settings:
-        "FILL" 0,
-        "wght" 300,
-        "GRAD" 0,
-        "opsz" 24;
+.nav-item.active .icon-svg {
+    fill: url(#navGradient) !important;
+    background: none;
+    background-clip: border-box;
+    -webkit-text-fill-color: initial;
+    color: initial;
 }
 
 /* Theme toggle */
@@ -2629,7 +2629,7 @@ a {
 .tour-card .card__title {
     font-family: var(--font-head);
     font-size: 18px; /* Smaller, cleaner */
-    font-weight: 400;
+    font-weight: 800;
     color: white;
 }
 
@@ -2641,6 +2641,10 @@ a {
     font-size: 14px;
     color: var(--fg-muted);
     margin-top: 0px;
+}
+.text-accent-icon {
+    fill: url(#navGradient) !important;
+    color: transparent;
 }
 .text-accent {
     color: #fff;
@@ -2809,7 +2813,7 @@ a {
     font-family: var(--font-head);
     font-size: 24px;
     color: var(--fg-strong);
-    font-weight: 400;
+    font-weight: 800;
     margin-top: 8px;
     line-height: 1.2;
 }
@@ -2860,17 +2864,11 @@ a {
     display: none;
 }
 .task-code-icon {
-    background: linear-gradient(
-        135deg,
-        rgba(244, 63, 94, 1),
-        rgba(245, 158, 11, 1)
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-size: 60px;
+    font-size: 60px !important;
     font-weight: 300;
-    line-height: 60px;
+    line-height: 60px !important;
     transition: all 0.3s ease;
+    fill: url(#navGradient) !important;
 }
 
 /* Hover effects for Task Card */
@@ -2885,8 +2883,7 @@ a {
 }
 
 .task-card:hover .task-code-icon {
-    -webkit-text-fill-color: #fff;
-    color: #fff;
+    fill: #fff !important;
     transform: scale(1.1);
 }
 
@@ -3202,21 +3199,19 @@ a {
 }
 
 .tab-item.active {
-    background: linear-gradient(176.35deg, #f43f5e, #f59e0b);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent; /* Main text is white, but we can use gradient for icon */
+    color: transparent;
 }
 
-.tab-item.active .icon {
-    background: linear-gradient(135deg, #f43f5e, #f59e0b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.tab-item.active .icon,
+.tab-item.active .icon-svg {
+    fill: url(#navGradient) !important;
+    color: transparent;
 }
 
 .tab-item.active .tab-text {
     background: linear-gradient(90deg, #f43f5e, #f59e0b);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -3484,7 +3479,7 @@ a {
     font-size: 13px;
 }
 
-.tour-meta-item .material-symbols-outlined {
+.tour-meta-item .icon-svg {
     font-size: 18px;
 }
 
@@ -3528,7 +3523,7 @@ a {
     background: #d97706;
 }
 
-.btn--outline-tour .material-symbols-outlined {
+.btn--outline-tour .icon-svg {
     font-size: 22px;
 }
 
@@ -3862,7 +3857,7 @@ a {
     transform: scale(0.9);
 }
 
-.cal-nav .material-symbols-outlined {
+.cal-nav .icon-svg {
     font-size: 20px;
 }
 
@@ -3914,20 +3909,18 @@ a {
     letter-spacing: 0px;
 }
 .card__foot .icon-text .fire {
-    color: transparent;
-    background: linear-gradient(
-        176.35deg,
-        rgba(244, 63, 94, 1),
-        rgba(245, 158, 11, 1)
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-style: Regular;
-    font-size: 20px;
+    fill: url(#navGradient) !important;
+    background: none !important;
+    color: transparent !important;
+    -webkit-text-fill-color: initial !important;
+    background-clip: border-box !important;
+    font-style: normal;
+    font-size: 24px !important;
     font-weight: 300;
     line-height: 28px;
     letter-spacing: 0px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 /* =========================================
@@ -4454,7 +4447,7 @@ body.loading {
         box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
         border-color: transparent;
     }
-    .nav-item:hover:not(.active) .material-symbols-outlined {
+    .nav-item:hover:not(.active) .icon-svg {
         color: #fff;
         font-variation-settings:
             "FILL" 1,
@@ -5050,7 +5043,7 @@ body.loading {
         align-items: center !important;
     }
 
-    .cal-nav .material-symbols-outlined {
+    .cal-nav .icon-svg {
         font-size: 18px !important;
     }
 
@@ -5185,7 +5178,7 @@ body.loading {
     box-shadow: 0 8px 20px rgba(244, 63, 94, 0.4);
 }
 
-.invite-icon-box .material-symbols-outlined {
+.invite-icon-box .icon-svg {
     font-size: 26px;
     font-variation-settings:
         "FILL" 0,
@@ -5363,7 +5356,8 @@ body.loading {
     box-shadow: 0 8px 16px rgba(244, 63, 94, 0.2);
 }
 
-.action-icon-box span {
+.action-icon-box span,
+.action-icon-box .icon-svg {
     font-size: 24px;
     color: #000 !important;
     font-variation-settings:
@@ -5413,7 +5407,7 @@ body.loading {
 
     /* Анимация контента внутри сайдбара */
     .sidebar .brand__text,
-    .sidebar .nav-item span:not(.material-symbols-outlined) {
+    .sidebar .nav-item span:not(.icon-svg) {
         transition:
             opacity 0.2s ease,
             transform 0.2s ease,
@@ -5433,7 +5427,7 @@ body.loading {
 
     /* Плавное скрытие текста при сворачивании */
     .sidebar--collapsed .brand__text,
-    .sidebar--collapsed .nav-item span:not(.material-symbols-outlined) {
+    .sidebar--collapsed .nav-item span:not(.icon-svg) {
         opacity: 0;
         transform: translateX(-10px);
         pointer-events: none;
@@ -5476,7 +5470,7 @@ body.loading {
         padding: 12px 0; /* Уменьшаем паддинги */
     }
 
-    .sidebar--collapsed .nav-item .material-symbols-outlined {
+    .sidebar--collapsed .nav-item .icon-svg {
         margin: 0; /* Убираем возможные отступы у иконки */
     }
 
@@ -5657,7 +5651,7 @@ body.loading {
     flex-shrink: 0;
 }
 
-.btn-notif:hover {
+/* .btn-notif:hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--fg-strong);
     border-color: var(--border-2);
@@ -5667,9 +5661,9 @@ body.loading {
 
 .btn-notif:active {
     transform: translateY(0);
-}
+} */
 
-.btn-notif .material-symbols-outlined {
+.btn-notif .icon-svg {
     font-size: 22px;
 }
 
@@ -5738,7 +5732,7 @@ body.loading {
     transform: rotate(0deg) scale(1.05);
 }
 
-.icon-circle .material-symbols-outlined {
+.icon-circle .icon-svg {
     font-size: 48px;
     color: #fff;
 }
@@ -6469,7 +6463,7 @@ body.loading {
     color: var(--accent-from);
 }
 
-.trend-pill .material-symbols-outlined {
+.trend-pill .icon-svg {
     font-size: 14px;
 }
 
@@ -6580,7 +6574,7 @@ body.loading {
     color: var(--accent-from);
 }
 
-.trend .material-symbols-outlined {
+.trend .icon-svg {
     font-size: 14px;
 }
 
@@ -6826,7 +6820,7 @@ body.loading {
     z-index: -1;
 }
 
-.tour-medal .material-symbols-outlined {
+.tour-medal .icon-svg {
     font-size: 48px;
     color: var(--accent-to);
     filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.5));
@@ -7080,7 +7074,7 @@ body.loading {
         height: 80px;
     }
 
-    .tour-medal .material-symbols-outlined {
+    .tour-medal .icon-svg {
         font-size: 40px;
     }
 
@@ -7145,7 +7139,7 @@ body.loading {
         border-radius: 10px;
     }
 
-    .btn-icon-sm .material-symbols-outlined {
+    .btn-icon-sm .icon-svg {
         font-size: 18px;
     }
 
@@ -7242,7 +7236,7 @@ body.loading {
         border-radius: 12px;
     }
 
-    .invite-icon-box .material-symbols-outlined {
+    .invite-icon-box .icon-svg {
         font-size: 22px;
     }
 
@@ -7334,7 +7328,7 @@ body.loading {
         border-radius: 20px;
     }
 
-    .tour-medal .material-symbols-outlined {
+    .tour-medal .icon-svg {
         font-size: 36px;
     }
 
@@ -7377,7 +7371,8 @@ body.loading {
         border-radius: 12px;
     }
 
-    .action-icon-box span {
+    .action-icon-box span,
+    .action-icon-box .icon-svg {
         font-size: 20px;
     }
 
@@ -7426,7 +7421,7 @@ body.loading {
         border-radius: 8px;
     }
 
-    .btn-icon-sm .material-symbols-outlined {
+    .btn-icon-sm .icon-svg {
         font-size: 16px;
     }
 
@@ -7448,7 +7443,7 @@ body.loading {
         border-radius: 10px;
     }
 
-    .copy-btn .material-symbols-outlined {
+    .copy-btn .icon-svg {
         font-size: 18px;
     }
 
@@ -7473,7 +7468,7 @@ body.loading {
         border-radius: 24px;
     }
 
-    .icon-circle .material-symbols-outlined {
+    .icon-circle .icon-svg {
         font-size: 40px;
     }
 
@@ -7511,7 +7506,7 @@ body.loading {
         border-radius: 8px;
     }
 
-    .small-stat-icon .material-symbols-outlined {
+    .small-stat-icon .icon-svg {
         font-size: 18px;
     }
 
@@ -7550,7 +7545,7 @@ body.loading {
         border-radius: 10px;
     }
 
-    .invite-icon-box .material-symbols-outlined {
+    .invite-icon-box .icon-svg {
         font-size: 18px;
     }
 
@@ -7581,7 +7576,8 @@ body.loading {
         border-radius: 10px;
     }
 
-    .action-icon-box span {
+    .action-icon-box span,
+    .action-icon-box .icon-svg {
         font-size: 18px;
     }
 
@@ -7733,7 +7729,7 @@ body.loading {
         border-radius: 10px;
     }
 
-    .stat-icon-box .material-symbols-outlined {
+    .stat-icon-box .icon-svg {
         font-size: 20px;
     }
 
@@ -7779,7 +7775,7 @@ body.loading {
         margin-bottom: 16px;
     }
 
-    .tour-medal .material-symbols-outlined {
+    .tour-medal .icon-svg {
         font-size: 32px;
     }
 
@@ -7869,7 +7865,7 @@ body.loading {
     margin-bottom: -2px;
 }
 
-.profile-nav-item .material-symbols-outlined {
+.profile-nav-item .icon-svg {
     font-size: 20px;
 }
 
@@ -7878,8 +7874,16 @@ body.loading {
 }
 
 .profile-nav-item.active {
-    color: var(--accent-from);
+    background: linear-gradient(90deg, #f43f5e, #f59e0b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
     border-bottom-color: var(--accent-from);
+}
+
+.profile-nav-item.active .icon-svg {
+    fill: url(#navGradient) !important;
+    color: transparent;
 }
 
 /* User Info Bar */
@@ -8308,4 +8312,61 @@ body.loading {
 .autocomplete-item.focused strong,
 .autocomplete-item:hover strong {
     color: #fff !important;
+}
+
+/* --- SVG Icons --- */
+.icon-svg {
+    font-size: 24px;
+    line-height: 1;
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: -0.125em; /* Compensate for descender just like text */
+    fill: currentColor;
+    flex-shrink: 0;
+    transition:
+        color 0.2s ease,
+        fill 0.2s ease;
+}
+
+/* SVG Fill Toggles (Replacing Font FILL property) */
+.nav-item:hover:not(.active) .icon-svg .svg-outline,
+.card-icon .svg-outline,
+.icon-svg.fill-active .svg-outline,
+.nav-item.active .icon-svg .svg-outline {
+    display: none !important;
+}
+
+.nav-item:hover:not(.active) .icon-svg .svg-filled,
+.card-icon .svg-filled,
+.icon-svg.fill-active .svg-filled,
+.nav-item.active .icon-svg .svg-filled {
+    display: unset !important;
+}
+
+.text-black {
+    color: #000 !important;
+    fill: #000 !important;
+    -webkit-text-fill-color: initial !important;
+    background-clip: border-box !important;
+}
+
+.tab-item.active .icon-svg {
+    fill: url(#navGradient) !important;
+    background: none !important;
+    color: transparent !important;
+    -webkit-text-fill-color: initial !important;
+    background-clip: border-box !important;
+}
+
+.tab-item .icon-svg {
+    color: inherit;
+    transition: inherit;
+    fill: currentColor;
+}
+
+.action-icon-box svg {
+    color: #000 !important;
+    fill: #000 !important;
+    stroke: #000 !important;
 }

@@ -65,7 +65,7 @@ const Toast = {
 
         toast.innerHTML = `
             <div class="toast__icon">
-                <span class="material-symbols-outlined">${icons[type]}</span>
+                ${window.getSVGIcon(icons[type], ` class="icon-svg icon-svg-${icons[type]}"`)}
             </div>
             <div class="toast__content">
                 <div class="toast__title">${title}</div>
@@ -714,7 +714,7 @@ const DYNAMIC_MODALS_HTML = `
       <div class="modal__form">
          <div id="blacklistContent" class="team-members-list" style="margin-bottom: 20px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
              <div style="text-align: center; color: var(--fg-muted); padding: 40px 20px;">
-                <span class="material-symbols-outlined" style="font-size: 48px; opacity: 0.2; margin-bottom: 12px;">block</span>
+                <svg class="icon-svg icon-svg-block" style="font-size: 48px; opacity: 0.2; margin-bottom: 12px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM480-160q54 0 104-17.5t92-50.5L228-676q-33 42-50.5 92T160-480q0 134 93 227t227 93Zm252-124q33-42 50.5-92T800-480q0-134-93-227t-227-93q-54 0-104 17.5T284-732l448 448ZM480-480Z"/></g><g class="svg-filled" style="display:none"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM677-227q16-12 30-26t26-30L283-733q-16 12-30 26t-26 30l450 450Z"/></g></svg>
                 <p style="margin:0">Список пуст</p>
              </div>
          </div>
@@ -728,7 +728,7 @@ const DYNAMIC_MODALS_HTML = `
     <div class="modal__panel" role="dialog" aria-modal="true" style="max-width: 400px;">
       <div class="modal__head">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <span id="confirmIcon" class="material-symbols-outlined" style="display: none;">report</span>
+            <svg id="confirmIcon" class="icon-svg icon-svg-report" style="display: none;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240ZM330-120 120-330v-300l210-210h300l210 210v300L630-120H330Zm34-80h232l164-164v-232L596-760H364L200-596v232l164 164Zm116-280Z"/></g><g class="svg-filled" style="display:none"><path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240ZM330-120 120-330v-300l210-210h300l210 210v300L630-120H330Z"/></g></svg>
             <div id="confirmTitle" class="modal__title">Подтверждение</div>
         </div>
         <button class="modal__close" data-close="confirmModal">
@@ -752,7 +752,7 @@ const DYNAMIC_MODALS_HTML = `
     <div class="modal__panel" role="dialog" aria-modal="true" style="max-width: 440px;">
       <div class="modal__head">
         <div style="display: flex; align-items: center; gap: 10px;">
-           <span class="material-symbols-outlined" style="color: var(--accent-from)">flag</span>
+           <svg class="icon-svg icon-svg-flag" style="color: var(--accent-from)" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Zm300-440Zm86 160h134v-240H510l-16-80H280v240h290l16 80Z"/></g><g class="svg-filled" style="display:none"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Z"/></g></svg>
            <div class="modal__title">Подать жалобу</div>
         </div>
         <button class="modal__close" data-close="reportModal">
@@ -1750,15 +1750,15 @@ function renderProfile() {
 
             <nav class="tabs-nav in" data-view-anim style="transition-delay: 0.1s">
                 <div class="tab-item active" data-profile-tab="personal">
-                    <span class="material-symbols-outlined">person</span>
+                    <svg class="icon-svg icon-svg-person" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M367-527q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Zm80-80h480v-32q0-11-5.5-20T700-306q-54-27-109-40.5T480-360q-56 0-111 13.5T260-306q-9 5-14.5 14t-5.5 20v32Zm296.5-343.5Q560-607 560-640t-23.5-56.5Q513-720 480-720t-56.5 23.5Q400-673 400-640t23.5 56.5Q447-560 480-560t56.5-23.5ZM480-640Zm0 400Z"/></g><g class="svg-filled" style="display:none"><path d="M367-527q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"/></g></svg>
                     <span>Личные данные</span>
                 </div>
                 <div class="tab-item" data-profile-tab="security">
-                    <span class="material-symbols-outlined">shield</span>
+                    <svg class="icon-svg icon-svg-shield" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Z"/></g></svg>
                     <span>Безопасность</span>
                 </div>
                 <div class="tab-item" data-profile-tab="analytics">
-                    <span class="material-symbols-outlined">analytics</span>
+                    <svg class="icon-svg icon-svg-analytics" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/></g><g class="svg-filled" style="display:none"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"/></g></svg>
                     <span>Аналитика</span>
                 </div>
             </nav>
@@ -2372,13 +2372,13 @@ function renderDashboard() {
                     </div>
                     <div class="task-circle-wrap">
                         <div class="task-circle">
-                            <span class="material-symbols-outlined task-code-icon">code</span>
+                            <svg class="task-code-icon icon-svg icon-svg-code" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M320-240 80-480l240-240 57 57-184 184 183 183-56 56Zm320 0-57-57 184-184-183-183 56-56 240 240-240 240Z"/></g><g class="svg-filled" style="display:none"><path d="M320-240 80-480l240-240 57 57-184 184 183 183-56 56Zm320 0-57-57 184-184-183-183 56-56 240 240-240 240Z"/></g></svg>
                         </div>
                     </div>
                     <div class="card__foot">
                         <span class="chip-dark">Сложно</span>
                         <div class="icon-text">
-                            <span class="material-symbols-outlined fire">local_fire_department</span>
+                            <svg class="fire icon-svg icon-svg-local_fire_department" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z"/></g><g class="svg-filled" style="display:none"><path d="M160-400q0-105 50-187t110-138q60-56 110-85.5l50-29.5v132q0 37 25 58.5t56 21.5q17 0 32.5-7t28.5-23l18-22q72 42 116 116.5T800-400q0 88-43 160.5T644-125q17-24 26.5-52.5T680-238q0-40-15-75.5T622-377L480-516 339-377q-29 29-44 64t-15 75q0 32 9.5 60.5T316-125q-70-42-113-114.5T160-400Zm320-4 85 83q17 17 26 38t9 45q0 49-35 83.5T480-120q-50 0-85-34.5T360-238q0-23 9-44.5t26-38.5l85-83Z"/></g></svg>
                             <span>12</span>
                         </div>
                     </div>
@@ -2577,11 +2577,11 @@ function renderTeam() {
 
             <div class="tabs-nav" data-view-anim style="transition-delay: 0.05s">
                 <div class="tab-item active" data-tab="settings">
-                    <span class="material-symbols-outlined icon">settings</span>
+                    <svg class="icon icon-svg icon-svg-settings" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></g><g class="svg-filled" style="display:none"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/></g></svg>
                     <span class="tab-text">Настройки</span>
                 </div>
                 <div class="tab-item" data-tab="analytics">
-                    <span class="material-symbols-outlined icon">analytics</span>
+                    <svg class="icon icon-svg icon-svg-analytics" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/></g><g class="svg-filled" style="display:none"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"/></g></svg>
                     <span class="tab-text">Аналитика</span>
                 </div>
             </div>
@@ -2601,7 +2601,7 @@ function renderTeamSettings() {
                 (inv, idx) => `
             <div class="team-invite-card" data-invite-id="${inv.id}" data-view-anim style="transition-delay: ${0.1 + idx * 0.05}s">
                 <div class="invite-icon-box">
-                    <span class="material-symbols-outlined">${inv.icon}</span>
+                    ${window.getSVGIcon(inv.icon, ` class="icon-svg icon-svg-${inv.icon}"`)}
                 </div>
                 <div class="invite-content">
                     <div class="invite-title">Вас пригласили в команду "${inv.teamName}"</div>
@@ -2609,7 +2609,7 @@ function renderTeamSettings() {
                 </div>
                 <div class="invite-actions">
                     <button class="btn btn--muted btn--sm action-report" title="Пожаловаться">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">flag</span>
+                        <svg class="icon-svg icon-svg-flag" style="font-size: 18px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Zm300-440Zm86 160h134v-240H510l-16-80H280v240h290l16 80Z"/></g><g class="svg-filled" style="display:none"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Z"/></g></svg>
                     </button>
                     <button class="btn btn--muted btn--sm action-reject">Отклонить</button>
                     <button class="btn btn--accent btn--sm action-accept">Принять</button>
@@ -2636,8 +2636,8 @@ function renderTeamSettings() {
                 <div class="team-actions-grid">
                     <!-- Create Team -->
                      <div class="card dash-card team-action-card">
-                        <div class="action-icon-box bg-accent-soft">
-                             <span class="material-symbols-outlined text-accent-icon">group_add</span>
+                        <div class="action-icon-box">
+                             <svg class="text-accent-icon icon-svg icon-svg-group_add" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M500-482q29-32 44.5-73t15.5-85q0-44-15.5-85T500-798q60 8 100 53t40 105q0 60-40 105t-100 53Zm220 322v-120q0-36-16-68.5T662-406q51 18 94.5 46.5T800-280v120h-80Zm80-280v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Zm-593-87q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM0-160v-112q0-34 17.5-62.5T64-378q62-31 126-46.5T320-440q66 0 130 15.5T576-378q29 15 46.5 43.5T640-272v112H0Zm320-400q33 0 56.5-23.5T400-640q0-33-23.5-56.5T320-720q-33 0-56.5 23.5T240-640q0 33 23.5 56.5T320-560ZM80-240h480v-32q0-11-5.5-20T540-306q-54-27-109-40.5T320-360q-56 0-111 13.5T100-306q-9 5-14.5 14T80-272v32Zm240-400Zm0 400Z"/></g><g class="svg-filled" style="display:none"><path d="M500-482q29-32 44.5-73t15.5-85q0-44-15.5-85T500-798q60 8 100 53t40 105q0 60-40 105t-100 53Zm220 322v-120q0-36-16-68.5T662-406q51 18 94.5 46.5T800-280v120h-80Zm80-280v-80h-80v-80h80v-80h80v80h80v80h-80v80h-80Zm-593-87q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM0-160v-112q0-34 17.5-62.5T64-378q62-31 126-46.5T320-440q66 0 130 15.5T576-378q29 15 46.5 43.5T640-272v112H0Z"/></g></svg>
                         </div>
                         <div class="action-card-content">
                             <h3 class="action-title">Создать команду</h3>
@@ -2649,7 +2649,7 @@ function renderTeamSettings() {
                     <!-- Join Team -->
                      <div class="card dash-card team-action-card">
                         <div class="action-icon-box">
-                             <span class="material-symbols-outlined text-orange-icon">login</span>
+                             <svg class="text-orange-icon icon-svg icon-svg-login" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H480Zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200-200 200Z"/></g><g class="svg-filled" style="display:none"><path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H480Zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200-200 200Z"/></g></svg>
                         </div>
                         <div class="action-card-content">
                             <h3 class="action-title">Присоединиться к команде</h3>
@@ -2671,7 +2671,7 @@ function renderTeamSettings() {
                   (app, idx) => `
         <div class="team-invite-card" data-app-id="${app.id}" data-view-anim>
             <div class="invite-icon-box">
-                <span class="material-symbols-outlined">mail</span>
+                <svg class="icon-svg icon-svg-mail" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280L160-640v400h640v-400L480-440Zm0-80 320-200H160l320 200ZM160-640v-80 480-400Z"/></g><g class="svg-filled" style="display:none"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280 320-200v-80L480-520 160-720v80l320 200Z"/></g></svg>
             </div>
             <div class="invite-content">
                 <div class="invite-title">Заявка на вступление</div>
@@ -2679,7 +2679,7 @@ function renderTeamSettings() {
             </div>
             <div class="invite-actions">
                 <button class="btn btn--muted btn--sm app-report" title="Пожаловаться">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">flag</span>
+                    <svg class="icon-svg icon-svg-flag" style="font-size: 18px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Zm300-440Zm86 160h134v-240H510l-16-80H280v240h290l16 80Z"/></g><g class="svg-filled" style="display:none"><path d="M200-120v-680h360l16 80h224v400H520l-16-80H280v280h-80Z"/></g></svg>
                 </button>
                 <button class="btn btn--muted btn--sm app-reject">Отклонить</button>
                 <button class="btn btn--accent btn--sm app-accept">Принять</button>
@@ -2705,7 +2705,7 @@ function renderTeamSettings() {
                 <div class="member-name">
                     ${m.name}
                     <span class="member-me">${m.me === true ? " (Вы)" : ""}</span>
-                    ${m.role === "owner" ? '<span class="material-symbols-outlined role-icon" title="Лидер" style="color: var(--accent-to); font-size: 18px; margin-left: 4px;">military_tech</span>' : ""}
+                    ${m.role === "owner" ? '<svg class="role-icon icon-svg icon-svg-military_tech" title="Лидер" style="color: var(--accent-to); font-size: 18px; margin-left: 4px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm80 80v234l80 48v-282h-80Zm240 0h-80v282l80-48v-234ZM480-647Zm-40-12Zm80 0Z"/></g><g class="svg-filled" style="display:none"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm160 80v282l40 24 40-24v-282h-80Z"/></g></svg>' : ""}
                 </div>
                 <div class="member-uid">UID: ${m.uid}</div>
             </div>
@@ -2713,8 +2713,8 @@ function renderTeamSettings() {
                 ${
                     isOwner
                         ? `
-                <button class="btn-icon-sm btn" aria-label="Настройки"><span class="material-symbols-outlined">settings</span></button>
-                ${!m.me ? '<button class="btn-icon-sm btn-icon-sm--danger" aria-label="Удалить"><span class="material-symbols-outlined">person_remove</span></button>' : ""}
+                <button class="btn-icon-sm btn" aria-label="Настройки"><svg class="icon-svg icon-svg-settings" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></g><g class="svg-filled" style="display:none"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/></g></svg></button>
+                ${!m.me ? '<button class="btn-icon-sm btn-icon-sm--danger" aria-label="Удалить"><svg class="icon-svg icon-svg-person_remove" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M640-520v-80h240v80H640Zm-393-7q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q66 0 130 15.5T616-378q29 15 46.5 43.5T680-272v112H40Zm80-80h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360q-56 0-111 13.5T140-306q-9 5-14.5 14t-5.5 20v32Zm296.5-343.5Q440-607 440-640t-23.5-56.5Q393-720 360-720t-56.5 23.5Q280-673 280-640t23.5 56.5Q327-560 360-560t56.5-23.5ZM360-640Zm0 400Z"/></g><g class="svg-filled" style="display:none"><path d="M640-520v-80h240v80H640Zm-393-7q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q66 0 130 15.5T616-378q29 15 46.5 43.5T680-272v112H40Z"/></g></svg></button>' : ""}
                 `
                         : ""
                 }
@@ -2741,7 +2741,7 @@ function renderTeamSettings() {
                 <label>ID команды</label>
                 <div style="display: flex; gap: 8px;">
                     <input class="input" id="team-id-input" readonly value="${userTeamState.id}" style="flex:1">
-                    <button class="copy-btn" id="copy-team-id" title="Копировать"><span class="material-symbols-outlined">content_copy</span></button>
+                    <button class="copy-btn" id="copy-team-id" title="Копировать"><svg class="icon-svg icon-svg-content_copy" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></g><g class="svg-filled" style="display:none"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/></g></svg></button>
                 </div>
             </div>
         </div>
@@ -2756,7 +2756,7 @@ function renderTeamSettings() {
             </div>
             <div class="admin-transfer-card">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <span class="material-symbols-outlined" style="color: var(--accent-from)">security</span>
+                    <svg class="icon-svg icon-svg-security" style="color: var(--accent-from)" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q97-30 162-118.5T718-480H480v-315l-240 90v207q0 7 2 18h238v316Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q97-30 162-118.5T718-480H480v-315l-240 90v207q0 7 2 18h238v316Z"/></g></svg>
                     <h3 style="margin:0; font-size:16px;">Передача прав администратора</h3>
                 </div>
                 <p style="font-size: 13px; color: var(--fg-muted); margin:0;">Вы можете передать права администратора другому участнику команды. Это действие необратимо.</p>
@@ -2775,7 +2775,7 @@ function renderTeamSettings() {
                 isOwner
                     ? `
             <button class="btn btn--muted btn--sm" data-open="blacklistModal" style="padding: 6px 12px; font-size: 13px;">
-                <span class="material-symbols-outlined" style="font-size: 18px;">block</span>
+                <svg class="icon-svg icon-svg-block" style="font-size: 18px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM480-160q54 0 104-17.5t92-50.5L228-676q-33 42-50.5 92T160-480q0 134 93 227t227 93Zm252-124q33-42 50.5-92T800-480q0-134-93-227t-227-93q-54 0-104 17.5T284-732l448 448ZM480-480Z"/></g><g class="svg-filled" style="display:none"><path d="M324-111.5Q251-143 197-197t-85.5-127Q80-397 80-480t31.5-156Q143-709 197-763t127-85.5Q397-880 480-880t156 31.5Q709-817 763-763t85.5 127Q880-563 880-480t-31.5 156Q817-251 763-197t-127 85.5Q563-80 480-80t-156-31.5ZM677-227q16-12 30-26t26-30L283-733q-16 12-30 26t-26 30l450 450Z"/></g></svg>
                 Черный список
             </button>
             `
@@ -2789,7 +2789,7 @@ function renderTeamSettings() {
                 isOwner
                     ? `
             <button class="add-member-btn" data-open="inviteMemberModal">
-                <span class="material-symbols-outlined">add</span>
+                <svg class="icon-svg icon-svg-add" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></g><g class="svg-filled" style="display:none"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></g></svg>
                 Пригласить в команду
             </button>
             `
@@ -2826,7 +2826,7 @@ function renderTeamAnalytics() {
                 <div class="empty-state-visual">
                     <div class="pulse-ring"></div>
                     <div class="icon-circle" style="background: var(--accent-grad-vert); box-shadow: 0 15px 35px rgba(244, 63, 94, 0.3);">
-                        <span class="material-symbols-outlined">group_off</span>
+                        <svg class="icon-svg icon-svg-group_off" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M819-28 680-167v7H40v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q12 0 24.5.5T409-438l-42-42h-7q-66 0-113-47t-47-113v-7L27-820l57-57L876-85l-57 57ZM666-434q51 6 96 20.5t84 35.5q36 20 55 44.5t19 53.5v120h-5L755-320q-9-33-31.5-62.5T666-434Zm-306 74q-56 0-111 13.5T140-306q-9 5-14.5 14t-5.5 20v32h480v-7l-87-87q-38-13-76.5-19.5T360-360Zm202-153q19-28 28.5-60t9.5-67q0-42-14.5-81T544-792q14-5 28-6.5t28-1.5q66 0 113 47t47 113q0 66-49.5 113T595-480l-33-33Zm-58-58-64-64v-5q0-33-23.5-56.5T360-720h-5l-64-64q16-8 33-12t36-4q66 0 113 47t47 113q0 19-4 36t-12 33ZM365-240Zm33-438Z"/></g><g class="svg-filled" style="display:none"><path d="M819-28 680-167v7H40v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440q12 0 24.5.5T409-438l-42-42h-7q-66 0-113-47t-47-113v-7L27-820l57-57L876-85l-57 57ZM666-434q51 6 96 20.5t84 35.5q36 20 55 44.5t19 53.5v120h-5L755-320q-9-33-31.5-62.5T666-434Zm-104-79q19-28 28.5-60t9.5-67q0-42-14.5-81T544-792q14-5 28-6.5t28-1.5q66 0 113 47t47 113q0 66-49.5 113T595-480l-33-33Zm-58-58L291-784q16-8 33-12t36-4q66 0 113 47t47 113q0 19-4 36t-12 33Z"/></g></svg>
                     </div>
                 </div>
                 <h2 class="empty-title">Вы не в команде</h2>
@@ -2849,7 +2849,7 @@ function renderTeamAnalytics() {
                 <div class="empty-state-visual">
                     <div class="pulse-ring"></div>
                     <div class="icon-circle" style="background: var(--accent-grad-vert); box-shadow: 0 15px 35px rgba(244, 63, 94, 0.3);">
-                        <span class="material-symbols-outlined">analytics</span>
+                        <svg class="icon-svg icon-svg-analytics" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/></g><g class="svg-filled" style="display:none"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"/></g></svg>
                     </div>
                 </div>
                 <h2 class="empty-title">Нет данных аналитики</h2>
@@ -2873,7 +2873,7 @@ function renderTeamAnalytics() {
                 <div class="analytics-card stat-card centered no-hover">
                     <div class="stat-top-content">
                         <div class="stat-icon-box bg-orange-soft">
-                            <span class="material-symbols-outlined text-orange-icon">emoji_events</span>
+                            <svg class="text-orange-icon icon-svg icon-svg-emoji_events" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35q50 0 85-35Zm115-93q36-13 58-43.5t22-68.5v-40h-80v152Zm-200-52Z"/></g><g class="svg-filled" style="display:none"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm400 0q36-13 58-43.5t22-68.5v-40h-80v152Z"/></g></svg>
                         </div>
                         <div class="stat-label">Всего турниров</div>
                         <div class="stat-value">42</div>
@@ -2890,14 +2890,14 @@ function renderTeamAnalytics() {
                 <div class="analytics-card stat-card centered no-hover">
                     <div class="stat-top-content">
                         <div class="stat-icon-box bg-pink-soft">
-                            <span class="material-symbols-outlined text-pink-icon">functions</span>
+                            <svg class="text-pink-icon icon-svg icon-svg-functions" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M240-160v-80l260-240-260-240v-80h480v120H431l215 200-215 200h289v120H240Z"/></g><g class="svg-filled" style="display:none"><path d="M240-160v-80l260-240-260-240v-80h480v120H431l215 200-215 200h289v120H240Z"/></g></svg>
                         </div>
                         <div class="stat-label">Общее кол-во очков</div>
                         <div class="stat-value">12,840</div>
                     </div>
                     <div class="stat-footer-alt">
                         <div class="trend-pill trend-up">
-                            <span class="material-symbols-outlined">north</span>
+                            <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
                             <span>+370 очков за неделю</span>
                         </div>
                     </div>
@@ -2907,7 +2907,7 @@ function renderTeamAnalytics() {
                 <div class="analytics-card stat-card centered no-hover">
                     <div class="stat-top-content">
                         <div class="stat-icon-box bg-green-soft">
-                            <span class="material-symbols-outlined text-green-icon">military_tech</span>
+                            <svg class="text-green-icon icon-svg icon-svg-military_tech" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm80 80v234l80 48v-282h-80Zm240 0h-80v282l80-48v-234ZM480-647Zm-40-12Zm80 0Z"/></g><g class="svg-filled" style="display:none"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm160 80v282l40 24 40-24v-282h-80Z"/></g></svg>
                         </div>
                         <div class="stat-label">Вхождений в Топ 3</div>
                         <div class="stat-value">7</div>
@@ -2932,7 +2932,7 @@ function renderTeamAnalytics() {
                 <div class="analytics-card stat-card centered no-hover">
                     <div class="stat-top-content">
                         <div class="stat-icon-box bg-blue-soft">
-                            <span class="material-symbols-outlined text-blue-icon">bar_chart</span>
+                            <svg class="text-blue-icon icon-svg icon-svg-bar_chart" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g><g class="svg-filled" style="display:none"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g></svg>
                         </div>
                         <div class="stat-label">Среднее место</div>
                         <div class="stat-value">#8.4</div>
@@ -2958,7 +2958,7 @@ function renderTeamAnalytics() {
                 <div class="analytics-card small-stat">
                     <div class="small-stat-left">
                         <div class="small-stat-icon bg-blue-soft">
-                            <span class="material-symbols-outlined text-blue-icon">percent</span>
+                            <svg class="text-blue-icon icon-svg icon-svg-percent" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M300-520q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm0-80q25 0 42.5-17.5T360-660q0-25-17.5-42.5T300-720q-25 0-42.5 17.5T240-660q0 25 17.5 42.5T300-600Zm360 440q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm42.5-97.5Q720-275 720-300t-17.5-42.5Q685-360 660-360t-42.5 17.5Q600-325 600-300t17.5 42.5Q635-240 660-240t42.5-17.5ZM216-160l-56-56 584-584 56 56-584 584Z"/></g><g class="svg-filled" style="display:none"><path d="M300-520q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm0-80q25 0 42.5-17.5T360-660q0-25-17.5-42.5T300-720q-25 0-42.5 17.5T240-660q0 25 17.5 42.5T300-600Zm360 440q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm42.5-97.5Q720-275 720-300t-17.5-42.5Q685-360 660-360t-42.5 17.5Q600-325 600-300t17.5 42.5Q635-240 660-240t42.5-17.5ZM216-160l-56-56 584-584 56 56-584 584Z"/></g></svg>
                         </div>
                         <div class="small-stat-content">
                             <div class="label">Процент побед</div>
@@ -2966,14 +2966,14 @@ function renderTeamAnalytics() {
                         </div>
                     </div>
                     <div class="trend trend-up">
-                        <span class="material-symbols-outlined">north</span>
+                        <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
                         5%
                     </div>
                 </div>
                 <div class="analytics-card small-stat">
                     <div class="small-stat-left">
                         <div class="small-stat-icon bg-green-soft">
-                            <span class="material-symbols-outlined text-green-icon">task_alt</span>
+                            <svg class="text-green-icon icon-svg icon-svg-task_alt" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q65 0 123 19t107 53l-58 59q-38-24-81-37.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160q133 0 226.5-93.5T800-480q0-18-2-36t-6-35l65-65q11 32 17 66t6 70q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-56-216L254-466l56-56 114 114 400-401 56 56-456 457Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q65 0 123 19t107 53l-58 59q-38-24-81-37.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160q133 0 226.5-93.5T800-480q0-18-2-36t-6-35l65-65q11 32 17 66t6 70q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-56-216L254-466l56-56 114 114 400-401 56 56-456 457Z"/></g></svg>
                         </div>
                         <div class="small-stat-content">
                             <div class="label">Решено задач</div>
@@ -2981,14 +2981,14 @@ function renderTeamAnalytics() {
                         </div>
                     </div>
                     <div class="trend trend-up">
-                        <span class="material-symbols-outlined">north</span>
+                        <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
                         5
                     </div>
                 </div>
                 <div class="analytics-card small-stat">
                     <div class="small-stat-left">
                         <div class="small-stat-icon bg-blue-soft">
-                            <span class="material-symbols-outlined text-blue-icon">schedule</span>
+                            <svg class="text-blue-icon icon-svg icon-svg-schedule" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-400Zm0 320q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Z"/></g><g class="svg-filled" style="display:none"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></g></svg>
                         </div>
                         <div class="small-stat-content">
                             <div class="label">Среднее время</div>
@@ -2997,7 +2997,7 @@ function renderTeamAnalytics() {
                     </div>
                     <!-- Здесь уменьшение времени - это прогресс (trend-up) -->
                     <div class="trend trend-up">
-                        <span class="material-symbols-outlined">south</span>
+                        <svg class="icon-svg icon-svg-south" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80 200-360l56-56 184 183v-647h80v647l184-184 56 57L480-80Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80 200-360l56-56 184 183v-647h80v647l184-184 56 57L480-80Z"/></g></svg>
                         -1:05
                     </div>
                 </div>
@@ -3025,7 +3025,7 @@ function renderTeamAnalytics() {
                      <h3 class="card-title">Самый успешный турнир</h3>
                      <div class="tour-visual">
                          <div class="tour-medal">
-                             <span class="material-symbols-outlined">emoji_events</span>
+                             <svg class="icon-svg icon-svg-emoji_events" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35q50 0 85-35Zm115-93q36-13 58-43.5t22-68.5v-40h-80v152Zm-200-52Z"/></g><g class="svg-filled" style="display:none"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm400 0q36-13 58-43.5t22-68.5v-40h-80v152Z"/></g></svg>
                          </div>
                          <div class="tour-name">Марафон алгоритмов</div>
                          <div class="tour-date">08.07.2024</div>
@@ -3211,9 +3211,7 @@ function initTeamInteractions(container) {
                 if (input) {
                     input.select();
                     navigator.clipboard.writeText(input.value).then(() => {
-                        const icon = copyBtn.querySelector(
-                            ".material-symbols-outlined",
-                        );
+                        const icon = copyBtn.querySelector(".icon-svg");
                         const original = icon.textContent;
                         icon.textContent = "check";
                         setTimeout(() => (icon.textContent = original), 2000);
@@ -3482,7 +3480,7 @@ function renderTournaments() {
             <div class="tour-head-row" data-view-anim>
                 <h1 class="dash-header" style="margin:0">Турниры</h1>
                 <div class="search-wrap">
-                    <span class="material-symbols-outlined search-icon">search</span>
+                    <svg class="search-icon icon-svg icon-svg-search" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></g><g class="svg-filled" style="display:none"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></g></svg>
                     <input type="text" class="search-input" placeholder="Поиск турниров...">
                 </div>
             </div>
@@ -3506,10 +3504,10 @@ function renderTournaments() {
                     </div>
                     <div class="action-btns" style="position: relative; display: flex; gap: 8px; margin-left: auto;">
                         <button class="btn btn--icon-only" data-slug="sort" title="Сортировка">
-                            <span class="material-symbols-outlined">swap_vert</span>
+                            <svg class="icon-svg icon-svg-swap_vert" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M320-440v-287L217-624l-57-56 200-200 200 200-57 56-103-103v287h-80ZM600-80 400-280l57-56 103 103v-287h80v287l103-103 57 56L600-80Z"/></g><g class="svg-filled" style="display:none"><path d="M320-440v-287L217-624l-57-56 200-200 200 200-57 56-103-103v287h-80ZM600-80 400-280l57-56 103 103v-287h80v287l103-103 57 56L600-80Z"/></g></svg>
                         </button>
                         <button class="btn btn--icon-only" data-slug="date" title="Календарь">
-                            <span class="material-symbols-outlined">calendar_month</span>
+                            <svg class="icon-svg icon-svg-calendar_month" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z"/></g><g class="svg-filled" style="display:none"><path d="M480-400q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240ZM200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Z"/></g></svg>
                         </button>
                     </div>
                 </div>
@@ -3555,7 +3553,7 @@ function renderTournamentList(data) {
             <div class="tour-card__divider"></div>
             <div class="tour-card__bottom">
                 <div class="tour-meta-item">
-                    <span class="material-symbols-outlined">${t.icon}</span>
+                    ${window.getSVGIcon(t.icon, ` class="icon-svg icon-svg-${t.icon}"`)}
                     <span>${t.time}</span>
                 </div>
                 <button class="btn ${
@@ -3568,10 +3566,10 @@ function renderTournamentList(data) {
                     <span>${t.action}</span>
                     ${
                         t.actionType === "join"
-                            ? '<span class="material-symbols-outlined">logout</span>'
+                            ? '<svg class="icon-svg icon-svg-logout" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></g><g class="svg-filled" style="display:none"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></g></svg>'
                             : t.actionType === "outline"
-                              ? '<span class="material-symbols-outlined">chevron_right</span>'
-                              : '<span class="material-symbols-outlined">bar_chart</span>'
+                              ? '<svg class="icon-svg icon-svg-chevron_right" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g><g class="svg-filled" style="display:none"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g></svg>'
+                              : '<svg class="icon-svg icon-svg-bar_chart" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g><g class="svg-filled" style="display:none"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g></svg>'
                     }
                 </button>
             </div>
@@ -3734,13 +3732,13 @@ function initTournamentsInteractions(container) {
             <div class="calendar-popover" style="display:block; border:none; box-shadow:none; padding:0; position:static;">
                 <div class="cal-header">
                     <button class="cal-nav" data-cal-nav="prev">
-                        <span class="material-symbols-outlined">chevron_left</span>
+                        <svg class="icon-svg icon-svg-chevron_left" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></g><g class="svg-filled" style="display:none"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></g></svg>
                     </button>
                     <div class="cal-title">${
                         monthNames[viewMonth]
                     } ${viewYear}</div>
                     <button class="cal-nav" data-cal-nav="next">
-                        <span class="material-symbols-outlined">chevron_right</span>
+                        <svg class="icon-svg icon-svg-chevron_right" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g><g class="svg-filled" style="display:none"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g></svg>
                     </button>
                 </div>
                 <div class="cal-grid">
