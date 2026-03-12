@@ -1045,11 +1045,10 @@ function setupForm(form) {
 
         const updateEye = () => {
             const isPass = input.type === "password";
-            // isPass (скрыто) -> visibility_off (перечеркнутый)
-            // !isPass (видно) -> visibility (глаз)
-            btn.innerHTML = `<span>${
-                isPass ? "visibility_off" : "visibility"
-            }</span>`;
+            btn.innerHTML = `<span>${window.getSVGIcon(
+                isPass ? "visibility_off" : "visibility",
+                'class="icon-svg" style="font-size: 20px; width: 20px; height: 20px;"',
+            )}</span>`;
             btn.setAttribute(
                 "aria-label",
                 isPass ? "Показать пароль" : "Скрыть пароль",
@@ -1750,83 +1749,429 @@ function renderProfile() {
 
             <nav class="tabs-nav in" data-view-anim style="transition-delay: 0.1s">
                 <div class="tab-item active" data-profile-tab="personal">
-                    <svg class="icon-svg icon-svg-person" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M367-527q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Zm80-80h480v-32q0-11-5.5-20T700-306q-54-27-109-40.5T480-360q-56 0-111 13.5T260-306q-9 5-14.5 14t-5.5 20v32Zm296.5-343.5Q560-607 560-640t-23.5-56.5Q513-720 480-720t-56.5 23.5Q400-673 400-640t23.5 56.5Q447-560 480-560t56.5-23.5ZM480-640Zm0 400Z"/></g><g class="svg-filled" style="display:none"><path d="M367-527q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"/></g></svg>
+                    <svg class="icon-svg icon-svg-person" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M367-527q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Zm80-80h480v-32q0-11-5.5-20T700-306q-54-27-109-40.5T480-360q-56 0-111 13.5T260-306q-9 5-14.5 14t-5.5 20v32Zm296.5-343.5Q560-607 560-640t-23.5-56.5Q513-720 480-720t-56.5 23.5Q400-673 400-640t23.5 56.5Q447-560 480-560t56.5-23.5ZM480-640Zm0 400Z"/></g></svg>
                     <span>Личные данные</span>
                 </div>
                 <div class="tab-item" data-profile-tab="security">
-                    <svg class="icon-svg icon-svg-shield" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Z"/></g></svg>
+                    <svg class="icon-svg icon-svg-shield" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z"/></g></svg>
                     <span>Безопасность</span>
                 </div>
                 <div class="tab-item" data-profile-tab="analytics">
-                    <svg class="icon-svg icon-svg-analytics" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/></g><g class="svg-filled" style="display:none"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"/></g></svg>
+                    <svg class="icon-svg icon-svg-analytics" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-280h80v-200h-80v200Zm320 0h80v-400h-80v400Zm-160 0h80v-120h-80v120Zm0-200h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/></g></svg>
                     <span>Аналитика</span>
                 </div>
             </nav>
 
-            <div id="profile-tab-content">
-                <div class="profile-user-bar" data-view-anim style="transition-delay: 0.2s">
-                    <div class="profile-avatar has-sub large">
-                        <div class="avatar-inner">
-                            <span class="avatar-letter">КК</span>
-                        </div>
+            <div id="profile-subview-container"></div>
+        </div>
+    `;
+}
+
+function renderProfilePersonal() {
+    return `
+        <div class="profile-user-bar" data-view-anim style="transition-delay: 0.2s">
+            <div class="profile-avatar has-sub large">
+                <div class="avatar-inner">
+                    <span class="avatar-letter">КК</span>
+                </div>
+            </div>
+            <div class="profile-user-meta">
+                <h2 class="profile-fullname">Кузмичев Кирилл Александрович</h2>
+                <div class="profile-uid-label">UID: 12345</div>
+            </div>
+            <button class="btn btn-upload-photo">
+                <span>Загрузить фото</span>
+            </button>
+        </div>
+
+        <div class="profile-form-container" data-view-anim style="transition-delay: 0.3s">
+            <form id="profile-detailed-form">
+                <div class="profile-new-grid">
+                    <div class="field">
+                        <label>Фамилия</label>
+                        <input type="text" class="input" value="Кузмичев" placeholder="Введите фамилию">
                     </div>
-                    <div class="profile-user-meta">
-                        <h2 class="profile-fullname">Кузмичев Кирилл Александрович</h2>
-                        <div class="profile-uid-label">UID: 12345</div>
+                    <div class="field">
+                        <label>Имя</label>
+                        <input type="text" class="input" value="Кирилл" placeholder="Введите имя">
                     </div>
-                    <button class="btn btn-upload-photo">
-                        <span>Загрузить фото</span>
-                    </button>
+                    <div class="field">
+                        <label>Отчество</label>
+                        <input type="text" class="input" value="Александрович" placeholder="Введите отчество">
+                    </div>
+
+                    <div class="field">
+                        <label>Никнейм</label>
+                        <input type="text" class="input" value="Kkuzya3" placeholder="Введите никнейм">
+                    </div>
+                    <div class="field">
+                        <label>E-mail</label>
+                        <input type="email" class="input" value="kuzmichev@qubit.com" placeholder="email@example.com">
+                    </div>
+                    <div class="field">
+                        <label>Телефон</label>
+                        <input type="tel" class="input" value="+7 (999) 000-00-00" placeholder="+7 (___) ___-__-__">
+                    </div>
+
+                    <div class="field">
+                        <label>Город</label>
+                        <input type="text" class="input" value="Москва" placeholder="Введите город">
+                    </div>
+                    <div class="field">
+                        <label>Место обучения</label>
+                        <input type="text" class="input" value="НИУ ВШЭ" placeholder="Укажите учебное заведение">
+                    </div>
+                    <div class="field">
+                        <label>Класс / Группа / Курс</label>
+                        <input type="text" class="input" value="2 курс" placeholder="Например: 11А или ПИ-22">
+                    </div>
                 </div>
 
-                <div class="profile-form-container" data-view-anim style="transition-delay: 0.3s">
-                    <form id="profile-detailed-form">
-                        <div class="profile-new-grid">
-                            <div class="field">
-                                <label>Фамилия</label>
-                                <input type="text" class="input" value="Кузмичев" placeholder="Введите фамилию">
-                            </div>
-                            <div class="field">
-                                <label>Имя</label>
-                                <input type="text" class="input" value="Кирилл" placeholder="Введите имя">
-                            </div>
-                            <div class="field">
-                                <label>Отчество</label>
-                                <input type="text" class="input" value="Александрович" placeholder="Введите отчество">
-                            </div>
+                <div class="profile-footer-row">
+                    <button type="button" class="btn-logout-link" id="profile-logout-btn">Выйти</button>
+                    <button type="submit" class="btn btn-save-large">Сохранить изменения</button>
+                </div>
+            </form>
+        </div>
+    `;
+}
 
-                            <div class="field">
-                                <label>Никнейм</label>
-                                <input type="text" class="input" value="Kkuzya3" placeholder="Введите никнейм">
-                            </div>
-                            <div class="field">
-                                <label>E-mail</label>
-                                <input type="email" class="input" value="kuzmichev@qubit.com" placeholder="email@example.com">
-                            </div>
-                            <div class="field">
-                                <label>Телефон</label>
-                                <input type="tel" class="input" value="+7 (999) 000-00-00" placeholder="+7 (___) ___-__-__">
-                            </div>
+function renderProfileSecurity() {
+    return `
+        <div class="security-layout" data-view-anim style="transition-delay: 0.2s">
+            
+            <!-- Пароль -->
+            <div class="security-card-full">
+                <div class="sec-header sec-header-border">
+                    <h3 class="sec-title">Пароль</h3>
+                    <p class="sec-desc">Рекомендуется использовать надежный пароль, который вы нигде больше не используете.</p>
+                </div>
+                <form id="profile-password-form" novalidate>
+                    <div class="sec-pass-row-new">
+                        <div class="field input-group pass-group-col">
+                            <label>Текущий пароль</label>
+                            <input class="input" type="password" name="old_pass" placeholder="********" data-required>
+                            <button type="button" class="input-toggle" aria-label="Показать пароль"></button>
+                            <div class="error" data-error-for="old_pass"></div>
+                        </div>
+                        <div class="field input-group pass-group-col">
+                            <label>Новый пароль</label>
+                            <input class="input" type="password" name="new_pass" placeholder="********" data-required minlength="8" data-type="passrule">
+                            <button type="button" class="input-toggle" aria-label="Показать пароль"></button>
+                            <div class="error" data-error-for="new_pass"></div>
+                        </div>
+                        <div class="field input-group pass-group-col">
+                            <label>Подтверждение нового пароля</label>
+                            <input class="input" type="password" name="new_pass2" placeholder="********" data-required data-type="match:new_pass">
+                            <button type="button" class="input-toggle" aria-label="Показать пароль"></button>
+                            <div class="error" data-error-for="new_pass2"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="sec-pass-footer-new">
+                        <a href="#" class="sec-link" data-open="forgotModal">Забыли пароль?</a>
+                        <button type="submit" class="btn btn--accent is-disabled" disabled style="border-radius: 12px; padding: 10px 24px;">Изменить пароль</button>
+                    </div>
+                </form>
+            </div>
 
-                            <div class="field">
-                                <label>Город</label>
-                                <input type="text" class="input" value="Москва" placeholder="Введите город">
+            <div class="security-grid-bot">
+                <!-- 2FA -->
+                <div class="security-card-full">
+                    <div class="sec-header">
+                        <h3 class="sec-title">Двухфакторная аутентификация</h3>
+                        <p class="sec-desc">Добавьте дополнительный уровень безопасности</p>
+                    </div>
+                    <div class="sec-list">
+                        <div class="sec-list-item">
+                            <div class="sec-info">
+                                <div class="s-title">Телефон</div>
+                                <div class="s-sub">Коды подтверждения по SMS</div>
                             </div>
-                            <div class="field">
-                                <label>Место обучения</label>
-                                <input type="text" class="input" value="НИУ ВШЭ" placeholder="Укажите учебное заведение">
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sec-list-item">
+                            <div class="sec-info">
+                                <div class="s-title">E-mail</div>
+                                <div class="s-sub">Коды подтверждения на почту</div>
                             </div>
-                            <div class="field">
-                                <label>Класс / Группа / Курс</label>
-                                <input type="text" class="input" value="2 курс" placeholder="Например: 11А или ПИ-22">
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="sec-list-item">
+                            <div class="sec-info">
+                                <div class="s-title">Приложение</div>
+                                <div class="s-sub">Google Authenticator, Authy и др.</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Активность аккаунта -->
+                <div class="security-card-full">
+                    <div class="sec-header">
+                        <h3 class="sec-title">Активные сессии</h3>
+                        <p class="sec-desc">Здесь показаны устройства, на которых выполнен вход.</p>
+                    </div>
+                    <div class="sec-list">
+                        <div class="sec-list-item session-item">
+                            <div class="session-left">
+                                <svg class="session-icon icon-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7v2H8v2h8v-2h-2v-2h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z"/></svg>
+                                <div class="sec-info">
+                                    <div class="s-title">Windows • Chrome <span class="text-warning" style="font-size:12px; margin-left:8px; font-weight: 400;">Текущая сессия</span></div>
+                                    <div class="s-sub">192.168.1.1 • Россия, Москва • Только что</div>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="profile-footer-row">
-                            <button type="button" class="btn-logout-link" id="profile-logout-btn">Выйти</button>
-                            <button type="submit" class="btn btn-save-large">Сохранить изменения</button>
+                        <div class="sec-list-item session-item">
+                            <div class="session-left">
+                                <svg class="session-icon icon-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 5c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2H0c0 1.1.9 2 2 2h20c1.1 0 2-.9 2-2h-4zM4 5h16v11H4V5zm8 14c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>
+                                <div class="sec-info">
+                                    <div class="s-title">Mac OS • Safari</div>
+                                    <div class="s-sub">10.0.0.5 • Россия, СПБ • 2 часа назад</div>
+                                </div>
+                            </div>
+                            <button class="btn-text">Выйти</button>
                         </div>
-                    </form>
+                    </div>
+                    <div class="sec-footer">
+                        <button class="btn btn--muted btn-logout-all" style="width: 100%;">Выйти со всех устройств</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    `;
+}
+
+function renderProfileAnalytics() {
+    return `
+        <div class="analytics-layout" data-view-anim>
+            <!-- TOP STATS ROW: 4 CARDS -->
+            <div class="analytics-grid-4">
+                <!-- CARD 1: TOURNAMENTS -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-orange-soft">
+                            <svg class="text-orange-icon icon-svg icon-svg-emoji_events" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35q50 0 85-35Zm115-93q36-13 58-43.5t22-68.5v-40h-80v152Zm-200-52Z"/></g><g class="svg-filled" style="display:none"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm400 0q36-13 58-43.5t22-68.5v-40h-80v152Z"/></g></svg>
+                        </div>
+                        <div class="stat-label">Всего турниров</div>
+                        <div class="stat-value">42</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                        <div class="glow-progress">
+                            <div class="glow-fill" style="width: 75%;"></div>
+                        </div>
+                        <div class="stat-hint">Участие в 75% всех турниров сезона</div>
+                    </div>
+                </div>
+
+                <!-- CARD 2: POINTS -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-pink-soft">
+                            <svg class="text-pink-icon icon-svg icon-svg-functions" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M240-160v-80l260-240-260-240v-80h480v120H431l215 200-215 200h289v120H240Z"/></g><g class="svg-filled" style="display:none"><path d="M240-160v-80l260-240-260-240v-80h480v120H431l215 200-215 200h289v120H240Z"/></g></svg>
+                        </div>
+                        <div class="stat-label">Общее кол-во очков</div>
+                        <div class="stat-value">12,840</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                        <div class="trend-pill trend-up">
+                            <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
+                            <span>+370 очков за неделю</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD 3: TOP 3 -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-green-soft">
+                            <svg class="text-green-icon icon-svg icon-svg-military_tech" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm80 80v234l80 48v-282h-80Zm240 0h-80v282l80-48v-234ZM480-647Zm-40-12Zm80 0Z"/></g><g class="svg-filled" style="display:none"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm160 80v282l40 24 40-24v-282h-80Z"/></g></svg>
+                        </div>
+                        <div class="stat-label">Вхождений в Топ 3</div>
+                        <div class="stat-value">7</div>
+                    </div>
+                    <div class="stat-footer-alt bar-rows">
+                        <div class="bar-row">
+                            <span class="r">#1</span>
+                            <div class="b"><div class="f gold" style="width: 55%"></div></div>
+                        </div>
+                        <div class="bar-row">
+                            <span class="r">#2</span>
+                            <div class="b"><div class="f silver" style="width: 35%"></div></div>
+                        </div>
+                        <div class="bar-row">
+                            <span class="r">#3</span>
+                            <div class="b"><div class="f bronze" style="width: 15%"></div></div>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- CARD 4: AVG RANK -->
+                <div class="analytics-card stat-card centered no-hover">
+                    <div class="stat-top-content">
+                        <div class="stat-icon-box bg-blue-soft">
+                            <svg class="text-blue-icon icon-svg icon-svg-bar_chart" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g><g class="svg-filled" style="display:none"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g></svg>
+                        </div>
+                        <div class="stat-label">Среднее место</div>
+                        <div class="stat-value">#8.4</div>
+                    </div>
+                    <div class="stat-footer-alt">
+                         <div class="split-stats">
+                            <div class="s-item">
+                                <span class="v text-green">#3</span>
+                                <span class="l">Лучшее</span>
+                            </div>
+                            <div class="s-divider"></div>
+                            <div class="s-item">
+                                <span class="v text-danger">#23</span>
+                                <span class="l">Худшее</span>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECOND ROW: 3 CARDS -->
+            <div class="analytics-grid-3">
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-blue-soft">
+                            <svg class="text-blue-icon icon-svg icon-svg-percent" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M300-520q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm0-80q25 0 42.5-17.5T360-660q0-25-17.5-42.5T300-720q-25 0-42.5 17.5T240-660q0 25 17.5 42.5T300-600Zm360 440q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm42.5-97.5Q720-275 720-300t-17.5-42.5Q685-360 660-360t-42.5 17.5Q600-325 600-300t17.5 42.5Q635-240 660-240t42.5-17.5ZM216-160l-56-56 584-584 56 56-584 584Z"/></g><g class="svg-filled" style="display:none"><path d="M300-520q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm0-80q25 0 42.5-17.5T360-660q0-25-17.5-42.5T300-720q-25 0-42.5 17.5T240-660q0 25 17.5 42.5T300-600Zm360 440q-58 0-99-41t-41-99q0-58 41-99t99-41q58 0 99 41t41 99q0 58-41 99t-99 41Zm42.5-97.5Q720-275 720-300t-17.5-42.5Q685-360 660-360t-42.5 17.5Q600-325 600-300t17.5 42.5Q635-240 660-240t42.5-17.5ZM216-160l-56-56 584-584 56 56-584 584Z"/></g></svg>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Процент побед</div>
+                            <div class="value">28.5%</div>
+                        </div>
+                    </div>
+                    <div class="trend trend-up">
+                        <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
+                        5%
+                    </div>
+                </div>
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-green-soft">
+                            <svg class="text-green-icon icon-svg icon-svg-task_alt" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q65 0 123 19t107 53l-58 59q-38-24-81-37.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160q133 0 226.5-93.5T800-480q0-18-2-36t-6-35l65-65q11 32 17 66t6 70q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-56-216L254-466l56-56 114 114 400-401 56 56-456 457Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q65 0 123 19t107 53l-58 59q-38-24-81-37.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160q133 0 226.5-93.5T800-480q0-18-2-36t-6-35l65-65q11 32 17 66t6 70q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-56-216L254-466l56-56 114 114 400-401 56 56-456 457Z"/></g></svg>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Решено задач</div>
+                            <div class="value">216</div>
+                        </div>
+                    </div>
+                    <div class="trend trend-up">
+                        <svg class="icon-svg icon-svg-north" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g><g class="svg-filled" style="display:none"><path d="M440-80v-647L256-544l-56-56 280-280 280 280-56 57-184-184v647h-80Z"/></g></svg>
+                        5
+                    </div>
+                </div>
+                <div class="analytics-card small-stat">
+                    <div class="small-stat-left">
+                        <div class="small-stat-icon bg-blue-soft">
+                            <svg class="text-blue-icon icon-svg icon-svg-schedule" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-400Zm0 320q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Z"/></g><g class="svg-filled" style="display:none"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></g></svg>
+                        </div>
+                        <div class="small-stat-content">
+                            <div class="label">Среднее время</div>
+                            <div class="value">21:34</div>
+                        </div>
+                    </div>
+                    <!-- Здесь уменьшение времени - это прогресс (trend-up) -->
+                    <div class="trend trend-up">
+                        <svg class="icon-svg icon-svg-south" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M480-80 200-360l56-56 184 183v-647h80v647l184-184 56 57L480-80Z"/></g><g class="svg-filled" style="display:none"><path d="M480-80 200-360l56-56 184 183v-647h80v647l184-184 56 57L480-80Z"/></g></svg>
+                        -1:05
+                    </div>
+                </div>
+            </div>
+
+            <!-- THIRD ROW: CHART & BEST TOUR -->
+            <div class="analytics-main-grid">
+                <div class="analytics-card chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">График производительности</h3>
+                        <div class="chart-periods">
+                            <button class="period-btn active" data-period="week">Неделя</button>
+                            <button class="period-btn" data-period="month">Месяц</button>
+                            <button class="period-btn" data-period="6months">6 мес</button>
+                            <button class="period-btn" data-period="year">Год</button>
+                        </div>
+                    </div>
+                    <div class="chart-box" style="height: 300px; position: relative;">
+                         <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="analytics-card best-tour-card">
+                     <div class="card-glow"></div>
+                     <h3 class="card-title">Самый успешный турнир</h3>
+                     <div class="tour-visual">
+                         <div class="tour-medal">
+                             <svg class="icon-svg icon-svg-emoji_events" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35q50 0 85-35Zm115-93q36-13 58-43.5t22-68.5v-40h-80v152Zm-200-52Z"/></g><g class="svg-filled" style="display:none"><path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Zm0-408v-152h-80v40q0 38 22 68.5t58 43.5Zm400 0q36-13 58-43.5t22-68.5v-40h-80v152Z"/></g></svg>
+                         </div>
+                         <div class="tour-name">Марафон алгоритмов</div>
+                         <div class="tour-date">08.07.2024</div>
+                     </div>
+                     <div class="tour-stats-list">
+                         <div class="t-stat">
+                             <span>Ранг</span>
+                             <span class="val">#5</span>
+                         </div>
+                         <div class="t-stat">
+                             <span>Получено очков</span>
+                             <span class="val text-green">+250</span>
+                         </div>
+                         <div class="t-stat">
+                             <span>Решено задач</span>
+                             <span class="val">5/5</span>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            <!-- FOURTH ROW: TABLE -->
+            <div class="analytics-card table-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Последние результаты</h3>
+                </div>
+                <div class="results-table-wrap">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>ТУРНИР</th>
+                                <th>ДАТА</th>
+                                <th>РАНГ</th>
+                                <th style="text-align: right;">ОЧКИ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="tour-name-cell">Еженедельный спринт #21</td>
+                                <td class="date-cell">15.07.2024</td>
+                                <td class="rank-cell">#12</td>
+                                <td class="points-cell text-green">+120</td>
+                            </tr>
+                            <tr>
+                                <td class="tour-name-cell">Марафон алгоритмов</td>
+                                <td class="date-cell">08.07.2024</td>
+                                <td class="rank-cell">#5</td>
+                                <td class="points-cell text-green">+250</td>
+                            </tr>
+                            <tr>
+                                <td class="tour-name-cell">Быстрый код: Июль</td>
+                                <td class="date-cell">01.07.2024</td>
+                                <td class="rank-cell">#23</td>
+                                <td class="points-cell text-danger">-50</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1840,344 +2185,35 @@ function renderProfile() {
  * Инициализирует интерактивность в секции профиля.
  */
 
-function initProfileInteractions(container) {
+function initProfilePersonalInteractions(container) {
     const form = container.querySelector("#profile-detailed-form");
     if (!form) return;
 
     const saveBtn = form.querySelector('button[type="submit"]');
     const inputs = form.querySelectorAll(".input");
 
-    const AUTOCOMPLETE_DATA = {
-        city: [
-            "Москва",
-            "Московская обл.",
-            "Санкт-Петербург",
-            "Новосибирск",
-            "Екатеринбург",
-            "Казань",
-            "Нижний Новгород",
-            "Челябинск",
-            "Самара",
-            "Омск",
-            "Ростов-на-Дону",
-            "Уфа",
-            "Красноярск",
-            "Воронеж",
-            "Пермь",
-            "Волгоград",
-        ],
-        place: [
-            "МГУ",
-            "НИУ ВШЭ",
-            "МФТИ",
-            "СПбГУ",
-            "ИТМО",
-            "МГТУ им. Баумана",
-            "УрФУ",
-            "КФУ",
-            "НГУ",
-            "ТПУ",
-        ],
-        grade: [
-            "8 класс",
-            "9 класс",
-            "10 класс",
-            "11 класс",
-            "1 курс",
-            "2 курс",
-            "3 курс",
-            "4 курс",
-            "5 курс",
-            "Магистратура",
-            "Выпускник",
-        ],
-    };
-
-    // Подготовка инпутов
     inputs.forEach((input) => {
-        const field = input.closest(".field");
-        if (!field) return;
-
-        if (!field.querySelector(".field-error")) {
-            const err = document.createElement("div");
-            err.className = "field-error";
-            field.appendChild(err);
-        }
-
-        const labelText = field.querySelector("label")?.textContent.trim();
-        const acMap = {
-            Город: "city",
-            "Место обучения": "place",
-            "Класс / Группа / Курс": "grade",
-        };
-
-        if (acMap[labelText]) {
-            const wrap = document.createElement("div");
-            wrap.className = "autocomplete-wrap";
-            input.parentNode.insertBefore(wrap, input);
-            wrap.appendChild(input);
-
-            const drop = document.createElement("div");
-            drop.className = "autocomplete-dropdown";
-            wrap.appendChild(drop);
-
-            input.dataset.autocompleteType = acMap[labelText];
-            input.style.cursor = "text";
-        }
         input.dataset.initial = input.value;
-    });
-
-    const validateInput = (input) => {
-        const field = input.closest(".field");
-        const label = field?.querySelector("label")?.innerText.trim();
-        const errorEl = field?.querySelector(".field-error");
-        const val = input.value.trim();
-        let isValid = true;
-        let errorMsg = "";
-
-        if (label === "E-mail") {
-            isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-            errorMsg = "Некорректный формат почты";
-        } else if (label === "Телефон") {
-            const numbers = input.value.replace(/\D/g, "");
-            isValid = numbers.length === 11;
-            errorMsg = "Введите полный номер";
-        } else if (["Фамилия", "Имя", "Отчество"].includes(label)) {
-            isValid = /^[а-яёА-ЯЁ-]+$/.test(val) && !val.includes(" ");
-            errorMsg = "Только буквы, без пробелов";
-        } else if (input.dataset.autocompleteType) {
-            const type = input.dataset.autocompleteType;
-            isValid = AUTOCOMPLETE_DATA[type].includes(input.value);
-            errorMsg = "Выберите вариант из списка";
-        }
-
-        if (!isValid && val.length > 0) {
-            input.classList.add("is-invalid");
-            if (errorEl) errorEl.innerText = errorMsg;
-        } else {
-            input.classList.remove("is-invalid");
-        }
-        return isValid;
-    };
-
-    const handlePhoneInput = (e) => {
-        let el = e.target;
-        let clearVal = el.value.replace(/\D/g, "");
-        if (clearVal.length < 1) clearVal = "7";
-        if (clearVal[0] !== "7") clearVal = "7" + clearVal;
-
-        let matrix = "+7 (___) ___-__-__";
-        let i = 0;
-        let def = matrix.replace(/\D/g, "");
-        let val = clearVal.replace(/\D/g, "");
-        if (def.length >= val.length) val = def;
-
-        el.value = matrix.replace(/./g, (a) => {
-            return /[_\d]/.test(a) && i < val.length
-                ? val.charAt(i++)
-                : i >= val.length
-                  ? ""
-                  : a;
-        });
-    };
-
-    const checkFormState = () => {
-        let hasChanges = false;
-        let allValid = true;
-        inputs.forEach((input) => {
-            const changed = input.value !== input.dataset.initial;
-            input.classList.toggle("is-changed", changed); // Вовращаем градиент!
-            if (changed) hasChanges = true;
-            if (input.classList.contains("is-invalid")) allValid = false;
-            // Проверка на пустоту (кроме телефона, там маска)
-            if (input.value.trim() === "" && input.type !== "tel")
-                allValid = false;
-        });
-
-        const canSave = hasChanges && allValid;
-        saveBtn.disabled = !canSave;
-        saveBtn.classList.toggle("is-disabled", !canSave);
-        saveBtn.style.opacity = canSave ? "1" : "0.5";
-        saveBtn.style.background = canSave
-            ? "var(--accent-grad)"
-            : "var(--muted)";
-        saveBtn.style.pointerEvents = canSave ? "auto" : "none";
-    };
-
-    const handleAutocomplete = (input) => {
-        const type = input.dataset.autocompleteType;
-        const val = input.value.toLowerCase().trim();
-        const drop = input.parentNode.querySelector(".autocomplete-dropdown");
-        if (!drop) return;
-
-        const options = AUTOCOMPLETE_DATA[type];
-        const filtered = options.filter((o) => o.toLowerCase().includes(val));
-
-        if (filtered.length > 0 && val.length > 0) {
-            drop.innerHTML = filtered
-                .map((o) => {
-                    const highlight = o.replace(
-                        new RegExp(`(${val})`, "gi"),
-                        "<strong>$1</strong>",
-                    );
-                    return `<div class="autocomplete-item" data-value="${o}">${highlight}</div>`;
-                })
-                .join("");
-            drop.classList.add("visible");
-
-            drop.querySelectorAll(".autocomplete-item").forEach((item) => {
-                const selectThis = () => {
-                    input.value = item.dataset.value;
-                    drop.classList.remove("visible");
-                    validateInput(input);
-                    checkFormState();
-                };
-
-                item.addEventListener("mousedown", (e) => {
-                    e.preventDefault();
-                    selectThis();
-                });
+        input.addEventListener("input", () => {
+            let hasChanges = false;
+            inputs.forEach((i) => {
+                if (i.value !== i.dataset.initial) hasChanges = true;
             });
-        } else {
-            drop.classList.remove("visible");
-        }
-    };
-
-    // Слушатели событий
-    inputs.forEach((input) => {
-        const field = input.closest(".field");
-        const label = field?.querySelector("label")?.innerText.trim();
-
-        input.addEventListener("input", (e) => {
-            // ФИО - блокируем пробелы сразу
-            if (["Фамилия", "Имя", "Отчество"].includes(label)) {
-                input.value = input.value.replace(/\s/g, "");
-            }
-
-            if (label === "Телефон") {
-                handlePhoneInput(e);
-            }
-
-            if (input.dataset.autocompleteType) {
-                handleAutocomplete(input);
-            }
-
-            validateInput(input);
-            checkFormState();
-        });
-
-        input.addEventListener("keydown", (e) => {
-            const drop = input.parentNode.querySelector(
-                ".autocomplete-dropdown",
-            );
-            if (!drop || !drop.classList.contains("visible")) return;
-
-            const items = Array.from(
-                drop.querySelectorAll(".autocomplete-item"),
-            );
-            let activeIdx = items.findIndex((item) =>
-                item.classList.contains("focused"),
-            );
-
-            if (e.key === "ArrowDown") {
-                e.preventDefault();
-                activeIdx = (activeIdx + 1) % items.length;
-                items.forEach((it, idx) =>
-                    it.classList.toggle("focused", idx === activeIdx),
-                );
-                items[activeIdx].scrollIntoView({ block: "nearest" });
-            } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                activeIdx = (activeIdx - 1 + items.length) % items.length;
-                items.forEach((it, idx) =>
-                    it.classList.toggle("focused", idx === activeIdx),
-                );
-                items[activeIdx].scrollIntoView({ block: "nearest" });
-            } else if (e.key === "Enter" && activeIdx >= 0) {
-                e.preventDefault();
-                input.value = items[activeIdx].dataset.value;
-                drop.classList.remove("visible");
-                validateInput(input);
-                checkFormState();
-            } else if (e.key === "Escape") {
-                drop.classList.remove("visible");
-            }
-        });
-
-        input.addEventListener("blur", () => {
-            // Если фокус ушел с автокомплита и значение не из списка - очищаем или кидаем ошибку
-            if (input.dataset.autocompleteType) {
-                setTimeout(() => {
-                    const drop = input.parentNode.querySelector(
-                        ".autocomplete-dropdown",
-                    );
-                    drop?.classList.remove("visible");
-                    validateInput(input);
-                    checkFormState();
-                }, 200);
-            }
-        });
-
-        input.addEventListener("focus", () => {
-            if (label === "Телефон" && !input.value) {
-                input.value = "+7 ";
-                handlePhoneInput({ target: input, type: "focus" });
-            }
-            if (input.dataset.autocompleteType) {
-                handleAutocomplete(input);
-            }
-
-            // Надежное выделение всего текста при фокусе
-            const selectAll = () => {
-                const len = input.value.length;
-                input.setSelectionRange(0, len, "forward"); // Выделяет всё, курсор в конце
-            };
-
-            setTimeout(selectAll, 20);
-
-            // Предотвращаем сброс выделения браузером при завершении клика
-            const oneTimeMouseUp = (e) => {
-                e.preventDefault();
-                input.removeEventListener("mouseup", oneTimeMouseUp);
-            };
-            input.addEventListener("mouseup", oneTimeMouseUp);
+            saveBtn.disabled = !hasChanges;
+            saveBtn.style.opacity = hasChanges ? "1" : "0.5";
+            saveBtn.style.background = hasChanges
+                ? "var(--accent-grad)"
+                : "var(--muted)";
         });
     });
 
-    // Закрытие при клике мимо
-    document.addEventListener("mousedown", (e) => {
-        if (!e.target.closest(".autocomplete-wrap")) {
-            container
-                .querySelectorAll(".autocomplete-dropdown")
-                .forEach((d) => d.classList.remove("visible"));
-        }
-    });
-
-    // Инициализация начального состояния (проверка валидности текущих данных)
-    inputs.forEach((input) => validateInput(input));
-    checkFormState();
-
-    // Обработка отправки
     form.addEventListener("submit", (e) => {
         e.preventDefault();
-
-        let isAllOk = true;
-        inputs.forEach((input) => {
-            if (!validateInput(input)) isAllOk = false;
-        });
-
-        if (!isAllOk) {
-            Toast.show(
-                "Ошибка",
-                "Пожалуйста, исправьте ошибки в полях",
-                "error",
-            );
-            return;
-        }
-
         Toast.show("Профиль", "Данные успешно обновлены!", "success");
         inputs.forEach((input) => (input.dataset.initial = input.value));
-        checkFormState();
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = "0.5";
+        saveBtn.style.background = "var(--muted)";
     });
 
     const logoutBtn = container.querySelector("#profile-logout-btn");
@@ -2190,12 +2226,7 @@ function initProfileInteractions(container) {
                     isDanger: true,
                     onConfirm: () => {
                         Toast.show("Аккаунт", "Выход из системы...", "info");
-                        setTimeout(() => {
-                            // Assuming switchToLanding exists globally or reload page
-                            if (typeof switchToLanding === "function")
-                                switchToLanding();
-                            else location.reload();
-                        }, 1000);
+                        setTimeout(() => location.reload(), 1000);
                     },
                 });
             } else {
@@ -2203,32 +2234,122 @@ function initProfileInteractions(container) {
             }
         });
     }
+}
 
-    const tabItems = container.querySelectorAll(".profile-nav-item");
-    tabItems.forEach((tab) => {
+function initProfileSecurityInteractions(container) {
+    const form = container.querySelector("#profile-password-form");
+    if (form) {
+        if (typeof setupForm === "function") {
+            setupForm(form);
+        }
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            // Optional: Check if form contains error before proceeding
+            // setupForm adds .is-invalid, so we can check for it
+            if (form.querySelectorAll(".is-invalid").length > 0) return;
+
+            Toast.show("Безопасность", "Пароль успешно обновлен", "success");
+
+            // Reset fields
+            form.reset();
+
+            // Re-hide passwords and reset the toggles correctly
+            const toggles = form.querySelectorAll(".input-toggle");
+            toggles.forEach((btn) => {
+                const input = btn.previousElementSibling;
+                if (input) {
+                    input.type = "password";
+                }
+                btn.innerHTML = `<span>visibility_off</span>`;
+                btn.classList.add("is-active"); // is-active means hidden/blurred?
+                // Wait, in updateEye: isPass ? "visibility_off" : "visibility"
+                // and btn.classList.toggle("is-active", !isPass);
+                // "is-active" means VISIBLE (password shown). So when hidden we want !is-active.
+                btn.classList.remove("is-active");
+                btn.setAttribute("aria-label", "Показать пароль");
+            });
+        });
+    }
+
+    const logoutAllBtn = container.querySelector(".btn-logout-all");
+    if (logoutAllBtn) {
+        logoutAllBtn.addEventListener("click", () => {
+            Toast.show(
+                "Безопасность",
+                "Выполнен выход со всех остальных устройств",
+                "info",
+            );
+        });
+    }
+}
+
+function initProfileInteractions(container) {
+    if (!container) return;
+    const tabs = container.querySelectorAll(".tab-item");
+    const subviewContainer = container.querySelector(
+        "#profile-subview-container",
+    );
+
+    const renderMap = {
+        personal: renderProfilePersonal,
+        security: renderProfileSecurity,
+        analytics: renderProfileAnalytics,
+    };
+
+    const initMap = {
+        personal: initProfilePersonalInteractions,
+        security: initProfileSecurityInteractions,
+        analytics: (el) => {
+            if (typeof Chart !== "undefined") {
+                initTeamAnalyticsChart("week");
+            }
+            const btns = el.querySelectorAll(".period-btn");
+            btns.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    btns.forEach((b) => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    initTeamAnalyticsChart(btn.dataset.period);
+                });
+            });
+        },
+    };
+
+    const loadTab = (tabName) => {
+        tabs.forEach((item) => item.classList.remove("active"));
+        const activeTab = container.querySelector(
+            `.tab-item[data-profile-tab="${tabName}"]`,
+        );
+        if (activeTab) activeTab.classList.add("active");
+
+        const renderFn = renderMap[tabName];
+        if (renderFn && subviewContainer) {
+            subviewContainer.innerHTML = renderFn();
+            const initFn = initMap[tabName];
+            if (initFn) initFn(subviewContainer);
+
+            // Re-trigger animations
+            requestAnimationFrame(() => {
+                const anims =
+                    subviewContainer.querySelectorAll("[data-view-anim]");
+                anims.forEach((el) => {
+                    if (typeof revealObserver !== "undefined")
+                        revealObserver.observe(el);
+                });
+            });
+        }
+    };
+
+    tabs.forEach((tab) => {
         tab.addEventListener("click", () => {
             const tabName = tab.dataset.profileTab;
             if (tab.classList.contains("active")) return;
-
-            tabItems.forEach((item) => item.classList.remove("active"));
-            tab.classList.add("active");
-
-            if (tabName !== "personal") {
-                Toast.show(
-                    "Раздел",
-                    `Секция "${tab.innerText.trim()}" в разработке`,
-                    "info",
-                );
-            }
+            loadTab(tabName);
         });
     });
 
-    const uploadBtn = container.querySelector(".btn-upload-photo");
-    if (uploadBtn) {
-        uploadBtn.addEventListener("click", () => {
-            Toast.show("Загрузка", "Выбор файла...", "info");
-        });
-    }
+    // Load default tab
+    loadTab("personal");
 }
 
 const ViewManager = {
