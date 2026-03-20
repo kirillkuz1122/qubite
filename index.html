@@ -1040,7 +1040,7 @@
                             </svg>
                             <span>Турниры</span>
                         </a>
-                        <a href="#" class="nav-item" data-view="team">
+                        <a href="#" class="nav-item" data-view="team" id="teamNavItem">
                             <svg
                                 class="icon-svg icon-svg-groups"
                                 viewBox="0 -960 960 960"
@@ -1058,6 +1058,84 @@
                                 </g>
                             </svg>
                             <span>Команда</span>
+                        </a>
+
+                        <a
+                            href="#"
+                            class="nav-item"
+                            data-view="task-bank"
+                            id="taskBankNavItem"
+                            hidden
+                        >
+                            <svg
+                                class="icon-svg icon-svg-task_alt"
+                                viewBox="0 -960 960 960"
+                                fill="currentColor"
+                            >
+                                <g class="svg-outline">
+                                    <path
+                                        d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80Zm-80 320q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h312q16 0 30.5 6t25.5 17l176 176q11 11 17 25.5t6 30.5v465q0 33-23.5 56.5T728-80H240Zm280-520v-200H240v640h480v-440H520Zm-280-200v200-200 640-640Z"
+                                    />
+                                </g>
+                                <g class="svg-filled" style="display: none">
+                                    <path
+                                        d="M240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h312q16 0 30.5 6t25.5 17l176 176q11 11 17 25.5t6 30.5v465q0 33-23.5 56.5T728-80H240Zm240-520v-200H240v640h480v-440H480Z"
+                                    />
+                                </g>
+                            </svg>
+                            <span>Банк заданий</span>
+                        </a>
+
+                        <a
+                            href="#"
+                            class="nav-item"
+                            data-view="moderation"
+                            id="moderationNavItem"
+                            hidden
+                        >
+                            <svg
+                                class="icon-svg icon-svg-fact_check"
+                                viewBox="0 -960 960 960"
+                                fill="currentColor"
+                            >
+                                <g class="svg-outline">
+                                    <path
+                                        d="M680-120q-83 0-141.5-58.5T480-320q0-83 58.5-141.5T680-520q83 0 141.5 58.5T880-320q0 83-58.5 141.5T680-120Zm-64-104 168-168-56-56-112 112-56-56-56 56 112 112ZM160-200v-80h240v80H160Zm0-160v-80h240v80H160Zm0-160v-80h400v80H160Zm0-160v-80h400v80H160Zm0 600q-33 0-56.5-23.5T80-160v-640q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v223q-35-31-78-49t-90-18q-105 0-178.5 73.5T460-392q0 47 18 90t49 78H160Z"
+                                    />
+                                </g>
+                                <g class="svg-filled" style="display: none">
+                                    <path
+                                        d="M680-120q-83 0-141.5-58.5T480-320q0-83 58.5-141.5T680-520q83 0 141.5 58.5T880-320q0 83-58.5 141.5T680-120ZM616-224l224-224-56-56-168 168-56-56-56 56 112 112ZM160-80q-33 0-56.5-23.5T80-160v-640q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v223q-35-31-78-49t-90-18q-105 0-178.5 73.5T460-392q0 47 18 90t49 78H160Z"
+                                    />
+                                </g>
+                            </svg>
+                            <span>Модерация</span>
+                        </a>
+
+                        <a
+                            href="#"
+                            class="nav-item"
+                            data-view="admin"
+                            id="adminNavItem"
+                            hidden
+                        >
+                            <svg
+                                class="icon-svg icon-svg-admin_panel_settings"
+                                viewBox="0 -960 960 960"
+                                fill="currentColor"
+                            >
+                                <g class="svg-outline">
+                                    <path
+                                        d="M480-80 280-280v-280l200-320 200 320v280L480-80Zm0-145 120-120v-191L480-728 360-536v191l120 120Zm0-135q33 0 56.5-23.5T560-440q0-33-23.5-56.5T480-520q-33 0-56.5 23.5T400-440q0 33 23.5 56.5T480-360Zm0-80Z"
+                                    />
+                                </g>
+                                <g class="svg-filled" style="display: none">
+                                    <path
+                                        d="M480-80 280-280v-280l200-320 200 320v280L480-80Zm0-280q33 0 56.5-23.5T560-440q0-33-23.5-56.5T480-520q-33 0-56.5 23.5T400-440q0 33 23.5 56.5T480-360Z"
+                                    />
+                                </g>
+                            </svg>
+                            <span>Админка</span>
                         </a>
 
                         <a href="#" class="nav-item" data-view="profile">
@@ -1290,6 +1368,7 @@
         </div>
 
         <script src="./front/js/icons.js"></script>
+        <script src="./front/js/api.js"></script>
         <script src="./front/js/app.js" defer></script>
     </body>
 </html>

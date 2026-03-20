@@ -1,40 +1,3990 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
+const path = require("path");
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 
-// Настройка сервера
+const {
+    ROOT_DIR,
+    FRONT_DIR,
+    HOST,
+    PORT,
+    APP_BASE_URL,
+    IS_PRODUCTION,
+    SESSION_COOKIE_NAME,
+    SESSION_TTL_MS,
+    AUTH_CHALLENGE_TTL_MS,
+    PASSWORD_RESET_TTL_MS,
+    OAUTH_STATE_TTL_MS,
+    EMAIL_DELIVERY_MODE,
+} = require("./src/config");
+const {
+    blockEmail,
+    bootstrapAdminUsers,
+    buildTournamentAction,
+    buildTournamentTimeLabel,
+    cleanupExpiredArtifacts,
+    createAuditLog,
+    consumeAuthChallenge,
+    consumeOAuthState,
+    consumePasswordResetTicket,
+    createAuthChallenge,
+    createOrganizerApplication,
+    createOAuthState,
+    createPasswordResetTicket,
+    createSession,
+    createTaskRevision,
+    createTask,
+    createTeam,
+    createTournament,
+    createUser,
+    deleteAdminTask,
+    deleteAdminTeam,
+    deleteAdminTournament,
+    deleteOrganizerTournament,
+    findActiveAuthChallengeByFlowToken,
+    findActiveOAuthState,
+    findActivePasswordResetTicket,
+    findBlockedEmail,
+    findSessionWithUserByTokenHash,
+    findUserByEmailNormalized,
+    findUserByLoginOrEmail,
+    findUserByOAuthSubject,
+    findNextUniqueLogin,
+    getAdminOverview,
+    getAuthChallengeById,
+    getMembershipByUserId,
+    getOrganizerOverview,
+    getPlatformMetrics,
+    getPrimaryTournament,
+    getSessionByUserAndId,
+    getTaskById,
+    getTeamForUser,
+    getTournamentById,
+    getTournamentRosterEntryForUser,
+    getTournaments,
+    getUserById,
+    hasPendingOrganizerApplication,
+    incrementAuthChallengeAttempts,
+    initializeDatabase,
+    isIpBlocked,
+    joinTeamByCode,
+    joinTournament,
+    linkOAuthProviderToUser,
+    listAuditLog,
+    listAdminTasks,
+    listAdminTeams,
+    listAdminTournaments,
+    listAdminUsers,
+    listLeaderboardForTournament,
+    listModeratorTaskQueue,
+    listModerationUsers,
+    listOrganizerApplications,
+    listOrganizerTaskBank,
+    listOrganizerTournaments,
+    listSessionsForUser,
+    listTaskBank,
+    listTasksByIds,
+    listTeamTournamentResults,
+    listTournamentRosterEntries,
+    listTournamentTasks,
+    listUsersByIdentifiers,
+    listUserTournamentResults,
+    markUserEmailVerified,
+    refreshTournamentParticipantsCount,
+    removeTournamentRosterEntry,
+    removeTeamMember,
+    replaceTournamentRosterEntries,
+    replaceTournamentTasks,
+    reviewOrganizerApplication,
+    reviewTaskModeration,
+    revokeActiveAuthChallengesForUser,
+    revokeSessionById,
+    revokeSessionsForUser,
+    setUserLastLogin,
+    setUserStatus,
+    touchSession,
+    transferTeamOwnership,
+    unblockEmail,
+    updateOrganizerTournament,
+    updateAdminTournament,
+    updateAuthChallenge,
+    updateTaskDraft,
+    updateTeam,
+    updateUserBasic,
+    updateUserPassword,
+    updateUserProfile,
+    setUserRole,
+    submitTaskForModeration,
+    upsertTournamentRosterEntry,
+    updateUserSecuritySettings,
+    leaveTeam,
+} = require("./src/db");
+const { buildCodeEmail, sendEmail } = require("./src/email");
+const {
+    buildRosterTemplateBuffer,
+    buildTaskTemplateBuffer,
+    parseRosterWorkbook,
+    parseTaskWorkbook,
+} = require("./src/imports");
+const {
+    buildOAuthAuthorizeUrl,
+    exchangeOAuthCode,
+    fetchOAuthProfile,
+    getProvider,
+    isProviderConfigured,
+    listOAuthProviders,
+} = require("./src/oauth");
+const {
+    buildDisplayName,
+    buildInitials,
+    describeUserAgent,
+    formatRelativeTime,
+    generateNumericCode,
+    generateRandomToken,
+    generateSessionToken,
+    hashOpaqueToken,
+    hashPassword,
+    hashSessionToken,
+    isStrongPassword,
+    makeUid,
+    maskEmail,
+    normalizeEmail,
+    normalizeLogin,
+    parseCookies,
+    slugify,
+    verifyPassword,
+} = require("./src/security");
+
 const app = express();
-app.use(cors());
-app.use(express.json());
-
 const server = http.createServer(app);
+const io = new Server(server);
 
-// Настройка Socket.io для связи в реальном времени
-const io = new Server(server, {
-    cors: {
-        origin: "*", // Позже здесь нужно будет указать адрес твоего фронтенда
-        methods: ["GET", "POST"]
+const ROLE_USER = "user";
+const ROLE_ORGANIZER = "organizer";
+const ROLE_MODERATOR = "moderator";
+const ROLE_ADMIN = "admin";
+const ACTIVE_USER_STATUSES = new Set(["active"]);
+
+app.disable("x-powered-by");
+app.use(express.json({ limit: "128kb" }));
+
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "same-origin");
+    res.setHeader(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=()",
+    );
+    next();
+});
+
+const authRateLimits = new Map();
+
+function isAdminRole(role) {
+    return role === ROLE_ADMIN;
+}
+
+function canModerate(role) {
+    return role === ROLE_ADMIN || role === ROLE_MODERATOR;
+}
+
+function isOrganizerRole(role) {
+    return role === ROLE_ORGANIZER;
+}
+
+function isParticipantRole(role) {
+    return role === ROLE_USER;
+}
+
+function getRequestIp(req) {
+    const forwarded = req.headers["x-forwarded-for"];
+    const raw = Array.isArray(forwarded)
+        ? forwarded[0]
+        : String(forwarded || req.socket.remoteAddress || "");
+
+    return raw.replace("::ffff:", "") || "127.0.0.1";
+}
+
+function cleanText(value, maxLength = 255) {
+    return String(value || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, maxLength);
+}
+
+function cleanPhone(value) {
+    return String(value || "")
+        .replace(/[^0-9+\-() ]/g, "")
+        .trim()
+        .slice(0, 32);
+}
+
+function isValidLogin(value) {
+    return /^[A-Za-z0-9_.-]{2,32}$/.test(value);
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidDate(value) {
+    return !Number.isNaN(new Date(value).getTime());
+}
+
+function sendError(res, status, error, field = null, extra = {}) {
+    res.status(status).json({ error, field, ...extra });
+}
+
+function authRateLimiter(req, res, next) {
+    const key = `${getRequestIp(req)}:${req.path}`;
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const maxAttempts = 16;
+    const entry = authRateLimits.get(key);
+
+    if (!entry || entry.expiresAt <= now) {
+        authRateLimits.set(key, {
+            count: 1,
+            expiresAt: now + windowMs,
+        });
+        next();
+        return;
+    }
+
+    if (entry.count >= maxAttempts) {
+        sendError(
+            res,
+            429,
+            "Слишком много попыток. Попробуйте снова через несколько минут.",
+        );
+        return;
+    }
+
+    entry.count += 1;
+    next();
+}
+
+function formatDateLabel(isoString) {
+    if (!isoString) {
+        return "Дата не указана";
+    }
+
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+        return "Дата не указана";
+    }
+
+    return date.toLocaleDateString("ru-RU");
+}
+
+function formatDurationLabel(seconds) {
+    const safeValue = Math.max(Number(seconds || 0), 0);
+    const minutes = Math.floor(safeValue / 60);
+    const restSeconds = safeValue % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(restSeconds).padStart(2, "0")}`;
+}
+
+function buildSeries(length, base, seedValues = []) {
+    if (length <= 0) {
+        return [];
+    }
+
+    const values = [];
+    for (let index = 0; index < length; index += 1) {
+        const seed = Number(seedValues[index % Math.max(seedValues.length, 1)] || 0);
+        const wobble = ((index % 3) - 1) * 6;
+        values.push(Math.max(0, Math.round(base + seed + index * 4 + wobble)));
+    }
+
+    return values;
+}
+
+function buildAnalyticsPayload(entries, fallbackBase) {
+    if (!entries || entries.length === 0) {
+        return {
+            hasData: false,
+            overview: {
+                totalTournaments: 0,
+                totalPoints: 0,
+                topThreeCount: 0,
+                averageRank: null,
+                participationPercent: 0,
+                weeklyPointsDelta: 0,
+                bestRank: null,
+                worstRank: null,
+                winRate: 0,
+                winRateDelta: 0,
+                solvedTasks: 0,
+                solvedTasksDelta: 0,
+                averageTimeSeconds: 0,
+                averageTimeDeltaSeconds: 0,
+            },
+            bestTournament: null,
+            recentResults: [],
+            series: {
+                week: buildSeries(7, fallbackBase, [0]),
+                month: buildSeries(30, fallbackBase, [0]),
+                "6months": buildSeries(6, fallbackBase, [0]),
+                year: buildSeries(12, fallbackBase, [0]),
+            },
+        };
+    }
+
+    const totalPoints = entries.reduce(
+        (sum, item) => sum + Number(item.score || 0),
+        0,
+    );
+    const totalSolved = entries.reduce(
+        (sum, item) => sum + Number(item.solved_count || 0),
+        0,
+    );
+    const ranks = entries
+        .map((item) => Number(item.rank_position || 0))
+        .filter((value) => value > 0);
+    const averageRank = ranks.length
+        ? ranks.reduce((sum, value) => sum + value, 0) / ranks.length
+        : null;
+    const bestRank = ranks.length ? Math.min(...ranks) : null;
+    const worstRank = ranks.length ? Math.max(...ranks) : null;
+    const topThreeCount = ranks.filter((rank) => rank <= 3).length;
+    const winsCount = ranks.filter((rank) => rank === 1).length;
+    const winRate = ranks.length ? (winsCount / ranks.length) * 100 : 0;
+    const avgTimeSeconds =
+        entries.reduce(
+            (sum, item) => sum + Number(item.average_time_seconds || 0),
+            0,
+        ) / Math.max(entries.length, 1);
+
+    const recentPoints = entries
+        .slice(0, 7)
+        .reduce((sum, item) => sum + Number(item.points_delta || 0), 0);
+    const solvedDelta = entries
+        .slice(0, 7)
+        .reduce((sum, item) => sum + Number(item.solved_count || 0), 0);
+    const averageTimeDelta =
+        entries.length > 1
+            ? Number(entries[0].average_time_seconds || 0) -
+              Number(entries[1].average_time_seconds || 0)
+            : 0;
+
+    const bestTournament = [...entries].sort(
+        (left, right) => Number(right.score || 0) - Number(left.score || 0),
+    )[0];
+
+    const seedValues = entries.map((item) => Number(item.points_delta || 0));
+    const seriesBase = Math.max(fallbackBase, 1200);
+
+    return {
+        hasData: true,
+        overview: {
+            totalTournaments: entries.length,
+            totalPoints,
+            topThreeCount,
+            averageRank,
+            participationPercent: Math.min(
+                100,
+                Math.round((entries.length / Math.max(entries.length + 2, 1)) * 100),
+            ),
+            weeklyPointsDelta: recentPoints,
+            bestRank,
+            worstRank,
+            winRate,
+            winRateDelta: entries.length > 1 ? Math.round(winRate / 8) : 0,
+            solvedTasks: totalSolved,
+            solvedTasksDelta: solvedDelta,
+            averageTimeSeconds: Math.round(avgTimeSeconds || 0),
+            averageTimeDeltaSeconds: Math.round(averageTimeDelta || 0),
+        },
+        bestTournament: bestTournament
+            ? {
+                  title: bestTournament.tournament_title,
+                  dateLabel: formatDateLabel(
+                      bestTournament.end_at || bestTournament.start_at,
+                  ),
+                  rank: Number(bestTournament.rank_position || 0) || null,
+                  points: Number(bestTournament.score || 0),
+                  solvedLabel: `${bestTournament.solved_count || 0}/${bestTournament.total_tasks || 0}`,
+              }
+            : null,
+        recentResults: entries.slice(0, 6).map((item) => ({
+            title: item.tournament_title,
+            dateLabel: formatDateLabel(item.end_at || item.start_at),
+            rank: Number(item.rank_position || 0) || null,
+            pointsDelta: Number(item.points_delta || 0),
+        })),
+        series: {
+            week: buildSeries(7, seriesBase, seedValues),
+            month: buildSeries(30, seriesBase, seedValues),
+            "6months": buildSeries(6, seriesBase, seedValues),
+            year: buildSeries(12, seriesBase, seedValues),
+        },
+    };
+}
+
+function serializeUser(user) {
+    return {
+        id: user.id,
+        uid: user.uid,
+        login: user.login,
+        email: user.email,
+        role: user.role || ROLE_USER,
+        status: user.status || "active",
+        isAdmin: isAdminRole(user.role || ROLE_USER),
+        canModerate: canModerate(user.role || ROLE_USER),
+        isOrganizer: isOrganizerRole(user.role || ROLE_USER),
+        firstName: user.first_name,
+        lastName: user.last_name,
+        middleName: user.middle_name,
+        city: user.city,
+        place: user.place,
+        studyGroup: user.study_group,
+        phone: user.phone,
+        avatarUrl: user.avatar_url,
+        rating: user.rating,
+        rankTitle: user.rank_title,
+        rankPosition: user.rank_position,
+        rankDelta: user.rank_delta,
+        solvedTasks: user.solved_tasks,
+        totalTasks: user.total_tasks,
+        taskDifficulty: user.task_difficulty,
+        dailyTaskTitle: user.daily_task_title,
+        dailyTaskDifficulty: user.daily_task_difficulty,
+        dailyTaskStreak: user.daily_task_streak,
+        displayName: buildDisplayName(user),
+        initials: buildInitials(user),
+        emailVerified: Boolean(user.email_verified_at),
+        security: {
+            email2faEnabled: Boolean(user.email_2fa_enabled),
+            phone2faEnabled: Boolean(user.phone_2fa_enabled),
+            app2faEnabled: Boolean(user.app_2fa_enabled),
+        },
+        authProviders: {
+            google: Boolean(user.google_oauth_sub),
+            yandex: Boolean(user.yandex_oauth_sub),
+        },
+    };
+}
+
+function sessionCookieOptions() {
+    return {
+        httpOnly: true,
+        sameSite: "strict",
+        secure: IS_PRODUCTION,
+        path: "/",
+        maxAge: SESSION_TTL_MS,
+    };
+}
+
+function serializeTournament(row, currentUserId = null) {
+    const joined = Boolean(row.joined_individual || row.joined_team);
+    const action = buildTournamentAction(row.status, joined);
+    const date = new Date(row.start_at);
+    const statusTextMap = {
+        draft: "Черновик",
+        published: "Опубликован",
+        live: "Идет сейчас",
+        upcoming: "Скоро начнется",
+        ended: "Завершен",
+        archived: "Архив",
+    };
+
+    return {
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        desc: row.description,
+        status:
+            row.status === "published"
+                ? "upcoming"
+                : row.status === "draft"
+                  ? "upcoming"
+                  : row.status,
+        rawStatus: row.status,
+        statusText: statusTextMap[row.status] || "Неизвестно",
+        participants: row.participants_count,
+        time: row.time_label || buildTournamentTimeLabel(row.status, row.start_at, row.end_at),
+        icon: action.icon,
+        action: action.label,
+        actionType: action.type,
+        category: row.category,
+        date: Number.isNaN(date.getTime()) ? null : date.getDate(),
+        format: row.format,
+        joined,
+        taskCount: Number(row.task_count || 0),
+        difficultyLabel: row.difficulty_label || "Mixed",
+        ownedByMe:
+            currentUserId !== null &&
+            Number(row.owner_user_id || 0) === Number(currentUserId),
+        accessScope:
+            row.access_scope === "public" ? "open" : row.access_scope || "open",
+        accessCode: row.access_code || "",
+        leaderboardVisible: Boolean(row.leaderboard_visible),
+        resultsVisible: Boolean(row.results_visible),
+        rosterCount: Number(row.roster_count || 0),
+        ownerUserId: row.owner_user_id || null,
+        startAt: row.start_at,
+        endAt: row.end_at,
+        registrationStartAt: row.registration_start_at || null,
+        registrationEndAt: row.registration_end_at || null,
+    };
+}
+
+function serializeAdminUser(user) {
+    return {
+        id: user.id,
+        uid: user.uid,
+        login: user.login,
+        email: user.email,
+        role: user.role || ROLE_USER,
+        status: user.status || "active",
+        blockedReason: user.blocked_reason || "",
+        displayName: buildDisplayName(user),
+        createdAt: user.created_at,
+        lastLoginAt: user.last_login_at,
+        activeSessions: Number(user.active_sessions || 0),
+        teamName: user.team_name || "",
+        emailVerified: Boolean(user.email_verified_at),
+    };
+}
+
+function serializeAdminTeam(team) {
+    return {
+        id: team.id,
+        teamCode: team.team_code,
+        name: team.name,
+        description: team.description || "",
+        ownerLogin: team.owner_login || "unknown",
+        membersCount: Number(team.members_count || 0),
+        createdAt: team.created_at,
+        updatedAt: team.updated_at,
+    };
+}
+
+function serializeAdminTask(task) {
+    return {
+        id: task.id,
+        title: task.title,
+        category: task.category,
+        difficulty: task.difficulty,
+        estimatedMinutes: Number(task.estimated_minutes || 0),
+        ownerLabel: task.owner_login ? `@${task.owner_login}` : "system",
+        tournamentLinks: Number(task.tournament_links || 0),
+        bankScope: task.bank_scope || "shared",
+        moderationStatus: task.moderation_status || "approved_shared",
+        sourceTaskId: task.source_task_id || null,
+        sourceTitle: task.source_title || "",
+        reviewerNote: task.reviewer_note || "",
+        version: Number(task.version || 1),
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+    };
+}
+
+function serializeAdminTournament(tournament) {
+    return {
+        ...serializeTournament(tournament),
+        ownerLogin: tournament.owner_login || "unknown",
+        createdAt: tournament.created_at,
+        updatedAt: tournament.updated_at,
+        startAt: tournament.start_at,
+        endAt: tournament.end_at,
+    };
+}
+
+function buildRatingSeries(user) {
+    const labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+    const current = Number(user.rating || 1450);
+    const delta = Math.max(12, Number(user.rank_delta || 12) * 4);
+    const values = [
+        current - 140,
+        current - 95,
+        current - 110,
+        current - 60,
+        current - 20,
+        current,
+    ];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = Math.max(max - min, 1);
+
+    return labels.map((label, index) => {
+        const value = values[index];
+        const height = Math.round(((value - min) / range) * 70) + 30;
+        const isActive = index === values.length - 1;
+
+        return {
+            v: value,
+            h: height,
+            l: label,
+            a: isActive,
+            d: isActive ? `+${delta}` : undefined,
+        };
+    });
+}
+
+function buildPulseSeries(metrics) {
+    const base = Math.max(120, Math.round(metrics.participants / 8) || 180);
+    const values = [
+        Math.round(base * 0.6),
+        Math.round(base * 0.82),
+        Math.round(base * 0.5),
+        Math.round(base * 0.68),
+        base,
+        Math.round(base * 0.8),
+        Math.round(base * 0.58),
+        Math.round(base * 0.92),
+    ];
+    const labels = ["00", "04", "08", "12", "16", "18", "20", "22"];
+    const max = Math.max(...values);
+
+    return labels.map((label, index) => ({
+        v: values[index],
+        h: Math.round((values[index] / max) * 75) + 25,
+        l: label,
+        a: index === 1 || index === 4 || index === 7,
+    }));
+}
+
+function buildDashboard(user, tournament, metrics) {
+    const activeTournament = tournament || {
+        title: "Подходящий турнир появится скоро",
+        time_label: "Следите за обновлениями",
+    };
+
+    return {
+        activeTournament: {
+            title: activeTournament.title,
+            rankPosition: `#${user.rank_position || 120}`,
+            rankDeltaLabel: `${user.rank_delta >= 0 ? "+" : ""}${user.rank_delta || 0} позиции`,
+            timeLabel: activeTournament.time_label,
+            solvedLabel: `${user.solved_tasks || 0}/${user.total_tasks || 5}`,
+            difficultyLabel: `Сложность: ${user.task_difficulty || "Medium"}`,
+        },
+        profile: {
+            fullName: buildDisplayName(user),
+            initials: buildInitials(user),
+            loginTag: `@${user.login}`,
+            rating: Number(user.rating || 1450).toLocaleString("ru-RU"),
+            rankTitle: user.rank_title || "Новичок",
+        },
+        dailyTask: {
+            title: user.daily_task_title || "Поиск в глубину",
+            difficulty: user.daily_task_difficulty || "Сложно",
+            streak: user.daily_task_streak || 0,
+        },
+        ratingDeltaLabel: `+${Math.max(12, Number(user.rank_delta || 0) * 4)} за неделю`,
+        ratingSeries: buildRatingSeries(user),
+        platformPulse: {
+            activeParticipants:
+                metrics.participants + metrics.activeSessions * 14 + metrics.usersCount * 3,
+            series: buildPulseSeries(metrics),
+        },
+    };
+}
+
+function serializeSession(session, currentSessionId) {
+    return {
+        id: session.id,
+        isCurrent: session.id === currentSessionId,
+        deviceLabel: describeUserAgent(session.user_agent),
+        detailsLabel: `${session.ip_address || "127.0.0.1"} • ${formatRelativeTime(
+            session.updated_at,
+        )}`,
+        lastSeen: session.updated_at,
+    };
+}
+
+function serializeTask(task) {
+    return {
+        id: task.id,
+        title: task.title,
+        category: task.category,
+        difficulty: task.difficulty,
+        statement: task.statement,
+        estimatedMinutes: task.estimated_minutes,
+        ownerLabel:
+            task.owner_login && task.owner_login !== "system"
+                ? `@${task.owner_login}`
+                : "Qubite",
+        bankScope: task.bank_scope || "shared",
+        moderationStatus: task.moderation_status || "approved_shared",
+        sourceTaskId: task.source_task_id || null,
+        sourceTitle: task.source_title || "",
+        reviewerNote: task.reviewer_note || "",
+        version: Number(task.version || 1),
+    };
+}
+
+function serializeTeam(bundle, currentUserId) {
+    if (!bundle || !bundle.team) {
+        return {
+            inTeam: false,
+            role: "member",
+            name: "",
+            id: "",
+            description: "",
+            members: [],
+            applications: [],
+        };
+    }
+
+    return {
+        inTeam: true,
+        role: bundle.membership.role,
+        name: bundle.team.name,
+        id: bundle.team.team_code,
+        description: bundle.team.description || "",
+        members: bundle.members.map((member) => ({
+            id: member.user_id,
+            userId: member.user_id,
+            name:
+                buildDisplayName({
+                    login: member.login,
+                    first_name: member.first_name,
+                    last_name: member.last_name,
+                    middle_name: member.middle_name,
+                }) || member.login,
+            uid: member.uid,
+            role: member.role,
+            me: member.user_id === currentUserId,
+            sub: false,
+        })),
+        applications: [],
+    };
+}
+
+function serializeOrganizerApplication(item) {
+    return {
+        id: item.id,
+        userId: item.user_id,
+        applicantLogin: item.applicant_login || "",
+        applicantEmail: item.applicant_email || "",
+        applicantUid: item.applicant_uid || "",
+        organizationName: item.organization_name,
+        organizationType: item.organization_type || "",
+        website: item.website || "",
+        note: item.note || "",
+        status: item.status,
+        reviewerNote: item.reviewer_note || "",
+        reviewerLogin: item.reviewer_login || "",
+        createdAt: item.created_at,
+        reviewedAt: item.reviewed_at,
+    };
+}
+
+function serializeAuditEntry(entry) {
+    return {
+        id: entry.id,
+        action: entry.action,
+        entityType: entry.entity_type,
+        entityId: entry.entity_id,
+        summary: entry.summary || "",
+        actorLogin: entry.actor_login || "system",
+        createdAt: entry.created_at,
+    };
+}
+
+function serializeRosterEntry(entry) {
+    return {
+        id: entry.id,
+        userId: entry.user_id,
+        uid: entry.uid || "",
+        login: entry.login || entry.current_login || "",
+        email: entry.email || entry.current_email || "",
+        fullName:
+            entry.full_name ||
+            buildDisplayName({
+                login: entry.current_login,
+                first_name: entry.first_name,
+                last_name: entry.last_name,
+                middle_name: entry.middle_name,
+            }),
+        teamName: entry.team_name || "",
+        classGroup: entry.class_group || "",
+        externalId: entry.external_id || "",
+        userStatus: entry.user_status || "active",
+        createdAt: entry.created_at,
+        updatedAt: entry.updated_at,
+    };
+}
+
+async function serializeOrganizerTournament(row, currentUserId = null) {
+    const tasks = await listTournamentTasks(row.id);
+    return {
+        ...serializeTournament(row, currentUserId),
+        taskIds: tasks.map((task) => task.id),
+    };
+}
+
+function serializeLeaderboard(tournament, tasks, entries, auth) {
+    return {
+        tournament: {
+            id: tournament.id,
+            title: tournament.title,
+            status: tournament.status,
+            format: tournament.format,
+            category: tournament.category,
+            participants: tournament.participants_count,
+            tasks: tasks.map((task) => ({
+                id: task.id,
+                title: task.title,
+                difficulty: task.difficulty,
+                points: task.points,
+            })),
+        },
+        rows: entries.map((entry) => ({
+            id: entry.id,
+            rank: entry.rank_position,
+            name: entry.display_name,
+            score: entry.score,
+            solvedLabel: `${entry.solved_count}/${entry.total_tasks}`,
+            pointsDelta: entry.points_delta,
+            averageTimeLabel: formatDurationLabel(entry.average_time_seconds),
+            isCurrent: Boolean(
+                (entry.user_id && entry.user_id === auth.user.id) ||
+                (entry.team_id &&
+                    auth.teamMembership &&
+                    entry.team_id === auth.teamMembership.team_id) ||
+                (!entry.team_id &&
+                    auth.rosterEntry &&
+                    auth.rosterEntry.team_name &&
+                    entry.entry_type === "team" &&
+                    entry.display_name === auth.rosterEntry.team_name),
+            ),
+        })),
+    };
+}
+
+async function attachAuth(req, res, next) {
+    try {
+        if (await isIpBlocked(getRequestIp(req))) {
+            sendError(
+                res,
+                403,
+                "Доступ ограничен. Обратитесь в поддержку, если это ошибка.",
+            );
+            return;
+        }
+    } catch (error) {
+        next(error);
+        return;
+    }
+
+    const cookies = parseCookies(req.headers.cookie || "");
+    const rawToken = cookies[SESSION_COOKIE_NAME];
+
+    if (!rawToken) {
+        req.auth = { user: null, session: null, teamMembership: null };
+        next();
+        return;
+    }
+
+    try {
+        const sessionBundle = await findSessionWithUserByTokenHash(
+            hashSessionToken(rawToken),
+        );
+
+        if (!sessionBundle) {
+            res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+            req.auth = { user: null, session: null, teamMembership: null };
+            next();
+            return;
+        }
+
+        if (new Date(sessionBundle.session.expires_at).getTime() <= Date.now()) {
+            await revokeSessionById(sessionBundle.session.id);
+            res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+            req.auth = { user: null, session: null, teamMembership: null };
+            next();
+            return;
+        }
+
+        const teamMembership = await getMembershipByUserId(sessionBundle.user.id);
+        if (!ACTIVE_USER_STATUSES.has(sessionBundle.user.status || "active")) {
+            await revokeSessionById(sessionBundle.session.id);
+            res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+            req.auth = { user: null, session: null, teamMembership: null };
+            next();
+            return;
+        }
+
+        req.auth = {
+            user: sessionBundle.user,
+            session: sessionBundle.session,
+            teamMembership,
+        };
+
+        if (Date.now() - new Date(sessionBundle.session.updated_at).getTime() > 60 * 1000) {
+            touchSession(sessionBundle.session.id).catch(() => {});
+        }
+
+        next();
+    } catch (error) {
+        next(error);
+    }
+}
+
+function requireAuth(req, res, next) {
+    if (!req.auth || !req.auth.user) {
+        sendError(res, 401, "Требуется авторизация.");
+        return;
+    }
+
+    next();
+}
+
+function requireRoles(allowedRoles) {
+    return (req, res, next) => {
+        if (!req.auth || !req.auth.user) {
+            sendError(res, 401, "Требуется авторизация.");
+            return;
+        }
+
+        const role = req.auth.user.role || ROLE_USER;
+        if (!allowedRoles.includes(role)) {
+            sendError(res, 403, "Недостаточно прав для этого действия.");
+            return;
+        }
+
+        next();
+    };
+}
+
+function requireAdmin(req, res, next) {
+    if (!req.auth || !req.auth.user) {
+        sendError(res, 401, "Требуется авторизация.");
+        return;
+    }
+
+    if (!isAdminRole(req.auth.user.role || ROLE_USER)) {
+        sendError(res, 403, "Это действие доступно только администратору.");
+        return;
+    }
+
+    next();
+}
+
+const requireOrganizer = requireRoles([ROLE_ORGANIZER, ROLE_ADMIN]);
+const requireModerator = requireRoles([ROLE_MODERATOR, ROLE_ADMIN]);
+
+function requireParticipant(req, res, next) {
+    if (!req.auth || !req.auth.user) {
+        sendError(res, 401, "Требуется авторизация.");
+        return;
+    }
+
+    if (!isParticipantRole(req.auth.user.role || ROLE_USER)) {
+        sendError(
+            res,
+            403,
+            "Этот раздел доступен только пользователям-участникам.",
+        );
+        return;
+    }
+
+    next();
+}
+
+function buildDevCodeResponse(code) {
+    return !IS_PRODUCTION && EMAIL_DELIVERY_MODE === "log" && code
+        ? { devCode: code }
+        : {};
+}
+
+async function createAndSendChallenge({
+    userId,
+    email,
+    purpose,
+    payload,
+    title,
+    subtitle,
+    hint,
+}) {
+    const flowToken = generateRandomToken(24);
+    const code = generateNumericCode(8);
+    const expiresAt = new Date(Date.now() + AUTH_CHALLENGE_TTL_MS).toISOString();
+    const { hash, salt } = await hashPassword(code);
+
+    if (userId) {
+        await revokeActiveAuthChallengesForUser(userId, purpose);
+    }
+
+    await createAuthChallenge({
+        userId,
+        email,
+        purpose,
+        flowTokenHash: hashOpaqueToken(flowToken),
+        codeHash: hash,
+        codeSalt: salt,
+        payload,
+        expiresAt,
+    });
+
+    if (email) {
+        const emailBody = buildCodeEmail({
+            code,
+            title,
+            subtitle,
+            hint,
+        });
+
+        await sendEmail({
+            to: email,
+            ...emailBody,
+        });
+    }
+
+    return {
+        flowToken,
+        delivery: {
+            channel: "email",
+            maskedTarget: maskEmail(email),
+        },
+        expiresAt,
+        ...buildDevCodeResponse(code),
+    };
+}
+
+async function resendChallenge(challenge) {
+    const code = generateNumericCode(8);
+    const expiresAt = new Date(Date.now() + AUTH_CHALLENGE_TTL_MS).toISOString();
+    const { hash, salt } = await hashPassword(code);
+
+    await updateAuthChallenge(challenge.id, {
+        codeHash: hash,
+        codeSalt: salt,
+        expiresAt,
+        payload: challenge.payload || {},
+    });
+
+    if (challenge.email) {
+        const emailBody = buildCodeEmail({
+            code,
+            title: "Qubite",
+            subtitle: "Повторный код подтверждения",
+            hint: "Новый код заменил предыдущий.",
+        });
+
+        await sendEmail({
+            to: challenge.email,
+            ...emailBody,
+        });
+    }
+
+    return {
+        flowToken: challenge.flowToken,
+        delivery: {
+            channel: "email",
+            maskedTarget: maskEmail(challenge.email),
+        },
+        expiresAt,
+        ...buildDevCodeResponse(code),
+    };
+}
+
+async function verifyChallenge(flowToken, expectedPurpose, code) {
+    const challenge = await findActiveAuthChallengeByFlowToken(
+        hashOpaqueToken(flowToken),
+    );
+
+    if (!challenge || challenge.purpose !== expectedPurpose) {
+        return { ok: false, error: "Код подтверждения недействителен или истек." };
+    }
+
+    if (challenge.attempts >= 7) {
+        await consumeAuthChallenge(challenge.id);
+        return { ok: false, error: "Превышено число попыток. Запросите новый код." };
+    }
+
+    await incrementAuthChallengeAttempts(challenge.id);
+
+    const isValid = await verifyPassword(
+        String(code || ""),
+        challenge.code_hash,
+        challenge.code_salt,
+    );
+
+    if (!isValid) {
+        return { ok: false, error: "Код подтверждения неверный." };
+    }
+
+    return { ok: true, challenge };
+}
+
+async function ensureOAuthUser(profile) {
+    let user = await findUserByOAuthSubject(profile.provider, profile.subject);
+
+    if (!user && profile.email) {
+        user = await findUserByEmailNormalized(normalizeEmail(profile.email));
+    }
+
+    if (user) {
+        if ((user.status || "active") !== "active") {
+            const error = new Error(
+                user.blocked_reason ||
+                    "Аккаунт ограничен. Обратитесь в поддержку.",
+            );
+            error.code = "ACCOUNT_BLOCKED";
+            throw error;
+        }
+
+        await linkOAuthProviderToUser(user.id, profile.provider, profile);
+
+        if (
+            (!user.first_name && profile.firstName) ||
+            (!user.last_name && profile.lastName) ||
+            (!user.avatar_url && profile.avatarUrl)
+        ) {
+            await updateUserBasic(user.id, {
+                firstName: user.first_name || profile.firstName,
+                lastName: user.last_name || profile.lastName,
+                middleName: user.middle_name || "",
+                city: user.city || "",
+                place: user.place || "",
+                studyGroup: user.study_group || "",
+                phone: user.phone || "",
+                avatarUrl: user.avatar_url || profile.avatarUrl || "",
+            });
+        }
+
+        await bootstrapAdminUsers();
+        return getUserById(user.id);
+    }
+
+    const login = await findNextUniqueLogin(profile.loginHint || "oauth-user");
+    const generatedPassword = generateRandomToken(24);
+    const { hash, salt } = await hashPassword(generatedPassword);
+
+    user = await createUser({
+        uid: makeUid(),
+        login,
+        loginNormalized: normalizeLogin(login),
+        email: profile.email,
+        emailNormalized: normalizeEmail(profile.email),
+        passwordHash: hash,
+        passwordSalt: salt,
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        avatarUrl: profile.avatarUrl || "",
+        emailVerifiedAt: profile.emailVerified ? new Date().toISOString() : null,
+        preferredAuthProvider: profile.provider,
+    });
+
+    await linkOAuthProviderToUser(user.id, profile.provider, profile);
+    await bootstrapAdminUsers();
+    return getUserById(user.id);
+}
+
+function redirectToApp(res, params) {
+    const url = new URL(APP_BASE_URL);
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+            url.searchParams.set(key, String(value));
+        }
+    });
+    res.redirect(url.toString());
+}
+
+function normalizeTournamentStatusInput(value) {
+    const normalized = cleanText(value, 24).toLowerCase() || "draft";
+    if (
+        ["draft", "published", "live", "ended", "archived", "upcoming"].includes(
+            normalized,
+        )
+    ) {
+        return normalized;
+    }
+
+    return "draft";
+}
+
+function normalizeTournamentAccessScope(value) {
+    const normalized = cleanText(value, 24).toLowerCase() || "open";
+    if (["open", "registration", "closed", "code", "public"].includes(normalized)) {
+        return normalized === "public" ? "open" : normalized;
+    }
+
+    return "open";
+}
+
+function normalizeUserRole(value) {
+    const normalized = cleanText(value, 24).toLowerCase();
+    if (
+        [ROLE_USER, ROLE_ORGANIZER, ROLE_MODERATOR, ROLE_ADMIN].includes(
+            normalized,
+        )
+    ) {
+        return normalized;
+    }
+
+    return "";
+}
+
+function normalizeUserStatus(value) {
+    const normalized = cleanText(value, 24).toLowerCase();
+    if (["active", "blocked", "deleted"].includes(normalized)) {
+        return normalized;
+    }
+
+    return "";
+}
+
+async function buildRosterPreview(base64File, format = "individual") {
+    const parsed = parseRosterWorkbook(base64File, format);
+    const matchedUsers = await listUsersByIdentifiers(parsed.items);
+    const rows = parsed.items.map((item, index) => {
+        const user = matchedUsers[index];
+        if (!user) {
+            return {
+                rowNumber: item.rowNumber,
+                login: item.login,
+                email: item.email,
+                fullName: item.fullName,
+                teamName: item.teamName,
+                classGroup: item.classGroup,
+                externalId: item.externalId,
+                matched: false,
+                error: "Пользователь с таким login/email не найден.",
+            };
+        }
+
+        return {
+            rowNumber: item.rowNumber,
+            userId: user.id,
+            uid: user.uid,
+            login: user.login,
+            email: user.email,
+            fullName: item.fullName || buildDisplayName(user),
+            teamName: item.teamName || "",
+            classGroup: item.classGroup || "",
+            externalId: item.externalId || "",
+            matched: true,
+            error: "",
+        };
+    });
+
+    const validRows = rows.filter((item) => item.matched);
+    const skippedRows = rows.filter((item) => !item.matched);
+
+    return {
+        format,
+        totalRows: rows.length,
+        validRowsCount: validRows.length,
+        skippedRowsCount: skippedRows.length + parsed.errors.length,
+        rows,
+        errors: [
+            ...parsed.errors,
+            ...skippedRows.map((item) => ({
+                rowNumber: item.rowNumber,
+                code: "user_not_found",
+                message: item.error,
+            })),
+        ],
+        validRows,
+    };
+}
+
+function cleanTaskPayload(body) {
+    return {
+        title: cleanText(body.title, 100),
+        category: cleanText(body.category, 32).toLowerCase() || "other",
+        difficulty: cleanText(body.difficulty, 16) || "Medium",
+        statement: cleanText(body.statement, 2000),
+        estimatedMinutes: Math.min(
+            Math.max(Number(body.estimatedMinutes || 30), 10),
+            240,
+        ),
+    };
+}
+
+function validateTaskPayload(res, payload) {
+    if (!payload.title || payload.title.length < 3) {
+        sendError(
+            res,
+            400,
+            "Название задачи должно быть не короче 3 символов.",
+            "title",
+        );
+        return false;
+    }
+
+    if (!payload.statement || payload.statement.length < 16) {
+        sendError(res, 400, "Добавьте полноценное условие задачи.", "statement");
+        return false;
+    }
+
+    return true;
+}
+
+app.use(attachAuth);
+
+app.get("/api/status", async (req, res, next) => {
+    try {
+        const metrics = await getPlatformMetrics();
+        res.json({
+            status: "ok",
+            version: "3.0.0",
+            metrics,
+        });
+    } catch (error) {
+        next(error);
     }
 });
 
-// Простой маршрут для проверки работы сервера
-app.get('/api/status', (req, res) => {
-    res.json({ status: 'Server is running', version: '1.0.0' });
+app.get("/api/auth/me", (req, res) => {
+    if (!req.auth || !req.auth.user) {
+        res.json({ authenticated: false, user: null });
+        return;
+    }
+
+    res.json({
+        authenticated: true,
+        user: serializeUser(req.auth.user),
+    });
 });
 
-// Логика реального времени (Socket.io)
-io.on('connection', (socket) => {
+app.get("/api/auth/oauth/providers", (req, res) => {
+    res.json({
+        providers: listOAuthProviders(),
+    });
+});
+
+app.get("/api/auth/oauth/:provider/start", async (req, res, next) => {
+    try {
+        const providerSlug = String(req.params.provider || "");
+        const provider = getProvider(providerSlug);
+        if (!provider) {
+            sendError(res, 404, "OAuth provider not found.");
+            return;
+        }
+
+        if (!isProviderConfigured(providerSlug)) {
+            sendError(
+                res,
+                503,
+                `${provider.label} OAuth пока не настроен. Добавьте client id и secret в .env.`,
+            );
+            return;
+        }
+
+        const state = generateRandomToken(24);
+        await createOAuthState({
+            provider: providerSlug,
+            stateHash: hashOpaqueToken(state),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString(),
+        });
+
+        res.redirect(
+            buildOAuthAuthorizeUrl(providerSlug, {
+                state,
+            }),
+        );
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
+    try {
+        const providerSlug = String(req.params.provider || "");
+        const provider = getProvider(providerSlug);
+        if (!provider || !isProviderConfigured(providerSlug)) {
+            redirectToApp(res, {
+                oauthError: "provider_not_configured",
+            });
+            return;
+        }
+
+        const code = String(req.query.code || "");
+        const state = String(req.query.state || "");
+        if (!code || !state) {
+            redirectToApp(res, {
+                oauthError: "missing_code_or_state",
+            });
+            return;
+        }
+
+        const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
+        if (!oauthState || oauthState.provider !== providerSlug) {
+            redirectToApp(res, {
+                oauthError: "invalid_state",
+            });
+            return;
+        }
+
+        await consumeOAuthState(oauthState.id);
+        const tokenPayload = await exchangeOAuthCode(providerSlug, code);
+        const accessToken = tokenPayload.access_token;
+        if (!accessToken) {
+            redirectToApp(res, {
+                oauthError: "missing_access_token",
+            });
+            return;
+        }
+
+        const profile = await fetchOAuthProfile(providerSlug, accessToken);
+        if (!profile.email || !isValidEmail(profile.email)) {
+            redirectToApp(res, {
+                oauthError: "email_required",
+            });
+            return;
+        }
+
+        const user = await ensureOAuthUser(profile);
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        redirectToApp(res, {
+            oauth: "success",
+            provider: providerSlug,
+        });
+    } catch (error) {
+        console.error(error);
+        redirectToApp(res, {
+            oauthError: "callback_failed",
+        });
+    }
+});
+
+app.post("/api/auth/register", authRateLimiter, async (req, res, next) => {
+    try {
+        const login = cleanText(req.body.login, 32);
+        const email = cleanText(req.body.email, 120);
+        const password = String(req.body.password || "");
+
+        if (!isValidLogin(login)) {
+            sendError(
+                res,
+                400,
+                "Логин должен быть длиной 2-32 символа и содержать только латиницу, цифры, '.', '_' или '-'.",
+                "login",
+            );
+            return;
+        }
+
+        if (!isValidEmail(email)) {
+            sendError(res, 400, "Укажи корректный e-mail.", "email");
+            return;
+        }
+
+        if (!isStrongPassword(password)) {
+            sendError(
+                res,
+                400,
+                "Пароль должен содержать минимум 8 символов, латинские буквы и цифры.",
+                "password",
+            );
+            return;
+        }
+
+        const loginNormalized = normalizeLogin(login);
+        const emailNormalized = normalizeEmail(email);
+        const blockedEmail = await findBlockedEmail(emailNormalized);
+        if (blockedEmail) {
+            sendError(
+                res,
+                403,
+                blockedEmail.reason ||
+                    "Регистрация для этого e-mail ограничена. Обратитесь в поддержку.",
+                "email",
+            );
+            return;
+        }
+
+        const { hash, salt } = await hashPassword(password);
+
+        let user;
+        try {
+            user = await createUser({
+                uid: makeUid(),
+                login,
+                loginNormalized,
+                email,
+                emailNormalized,
+                passwordHash: hash,
+                passwordSalt: salt,
+            });
+        } catch (error) {
+            if (error.code === "SQLITE_CONSTRAINT") {
+                if (String(error.message).includes("login_normalized")) {
+                    sendError(res, 409, "Этот логин уже занят.", "login");
+                    return;
+                }
+
+                if (String(error.message).includes("email_normalized")) {
+                    sendError(res, 409, "Этот e-mail уже используется.", "email");
+                    return;
+                }
+            }
+
+            throw error;
+        }
+
+        await bootstrapAdminUsers();
+        user = await getUserById(user.id);
+
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.status(201).json({
+            user: serializeUser(user),
+            emailVerificationRequired: true,
+        });
+
+        await createAuditLog({
+            actorUserId: user.id,
+            action: "auth.register",
+            entityType: "user",
+            entityId: user.id,
+            summary: "Новый пользователь зарегистрировался",
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/login", authRateLimiter, async (req, res, next) => {
+    try {
+        const identifier = cleanText(req.body.login, 120);
+        const password = String(req.body.password || "");
+
+        if (!identifier || !password) {
+            sendError(res, 400, "Заполни логин и пароль.");
+            return;
+        }
+
+        const normalizedIdentifier = identifier.includes("@")
+            ? normalizeEmail(identifier)
+            : normalizeLogin(identifier);
+
+        const user = await findUserByLoginOrEmail(normalizedIdentifier);
+        if (!user) {
+            sendError(res, 401, "Неверный логин или пароль.");
+            return;
+        }
+
+        if ((user.status || "active") !== "active") {
+            sendError(
+                res,
+                403,
+                user.blocked_reason ||
+                    "Аккаунт ограничен. Обратитесь в поддержку.",
+            );
+            return;
+        }
+
+        const isValid = await verifyPassword(
+            password,
+            user.password_hash,
+            user.password_salt,
+        );
+        if (!isValid) {
+            sendError(res, 401, "Неверный логин или пароль.");
+            return;
+        }
+
+        if (user.email_2fa_enabled) {
+            const challenge = await createAndSendChallenge({
+                userId: user.id,
+                email: user.email,
+                purpose: "login_email_2fa",
+                payload: {
+                    ipAddress: getRequestIp(req),
+                    userAgent: req.headers["user-agent"] || "",
+                },
+                title: "Qubite",
+                subtitle: "Код входа",
+                hint: "Введите код, чтобы завершить вход в аккаунт.",
+            });
+
+            res.json({
+                requiresTwoFactor: true,
+                flowToken: challenge.flowToken,
+                delivery: challenge.delivery,
+                ...buildDevCodeResponse(challenge.devCode),
+            });
+            return;
+        }
+
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.json({
+            user: serializeUser(user),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/2fa/login/verify", authRateLimiter, async (req, res, next) => {
+    try {
+        const flowToken = String(req.body.flowToken || "");
+        const code = String(req.body.code || "");
+        if (!flowToken || !code) {
+            sendError(res, 400, "Введите код подтверждения.");
+            return;
+        }
+
+        const result = await verifyChallenge(flowToken, "login_email_2fa", code);
+        if (!result.ok) {
+            sendError(res, 400, result.error);
+            return;
+        }
+
+        const user = await getUserById(result.challenge.user_id);
+        if (!user) {
+            sendError(res, 404, "Пользователь не найден.");
+            return;
+        }
+
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress:
+                result.challenge.payload.ipAddress || getRequestIp(req),
+            userAgent:
+                result.challenge.payload.userAgent || req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await consumeAuthChallenge(result.challenge.id);
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.json({
+            user: serializeUser(user),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/challenges/resend", authRateLimiter, async (req, res, next) => {
+    try {
+        const flowToken = String(req.body.flowToken || "");
+        if (!flowToken) {
+            sendError(res, 400, "Challenge token is required.");
+            return;
+        }
+
+        const challenge = await findActiveAuthChallengeByFlowToken(
+            hashOpaqueToken(flowToken),
+        );
+        if (!challenge) {
+            sendError(res, 404, "Код не найден или уже истек.");
+            return;
+        }
+
+        challenge.flowToken = flowToken;
+        const resent = await resendChallenge(challenge);
+        res.json(resent);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/password/forgot", authRateLimiter, async (req, res, next) => {
+    try {
+        const email = cleanText(req.body.email, 120);
+        if (!isValidEmail(email)) {
+            sendError(res, 400, "Укажи корректный e-mail.", "email");
+            return;
+        }
+
+        const user = await findUserByEmailNormalized(normalizeEmail(email));
+        const challenge = await createAndSendChallenge({
+            userId: user ? user.id : null,
+            email,
+            purpose: "password_reset",
+            payload: {
+                hasUser: Boolean(user),
+            },
+            title: "Qubite",
+            subtitle: "Код для восстановления пароля",
+            hint: "Код нужен для перехода к установке нового пароля.",
+        });
+
+        res.json({
+            success: true,
+            flowToken: challenge.flowToken,
+            delivery: challenge.delivery,
+            ...buildDevCodeResponse(challenge.devCode),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post(
+    "/api/auth/password/forgot/verify",
+    authRateLimiter,
+    async (req, res, next) => {
+        try {
+            const flowToken = String(req.body.flowToken || "");
+            const code = String(req.body.code || "");
+            if (!flowToken || !code) {
+                sendError(res, 400, "Введите код подтверждения.");
+                return;
+            }
+
+            const result = await verifyChallenge(flowToken, "password_reset", code);
+            if (!result.ok) {
+                sendError(res, 400, result.error);
+                return;
+            }
+
+            if (!result.challenge.user_id || !result.challenge.payload.hasUser) {
+                sendError(res, 400, "Не удалось подтвердить восстановление пароля.");
+                return;
+            }
+
+            const resetToken = generateRandomToken(24);
+            await createPasswordResetTicket({
+                userId: result.challenge.user_id,
+                tokenHash: hashOpaqueToken(resetToken),
+                expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS).toISOString(),
+            });
+            await consumeAuthChallenge(result.challenge.id);
+
+            res.json({
+                success: true,
+                resetToken,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post("/api/auth/password/reset", authRateLimiter, async (req, res, next) => {
+    try {
+        const resetToken = String(req.body.resetToken || "");
+        const newPassword = String(req.body.newPassword || "");
+
+        if (!resetToken || !newPassword) {
+            sendError(res, 400, "Нужен токен сброса и новый пароль.");
+            return;
+        }
+
+        if (!isStrongPassword(newPassword)) {
+            sendError(
+                res,
+                400,
+                "Новый пароль должен содержать минимум 8 символов, латинские буквы и цифры.",
+                "password",
+            );
+            return;
+        }
+
+        const ticket = await findActivePasswordResetTicket(
+            hashOpaqueToken(resetToken),
+        );
+        if (!ticket) {
+            sendError(res, 400, "Ссылка на сброс недействительна или истекла.");
+            return;
+        }
+
+        const { hash, salt } = await hashPassword(newPassword);
+        await updateUserPassword(ticket.user_id, hash, salt);
+        await revokeSessionsForUser(ticket.user_id);
+        await consumePasswordResetTicket(ticket.id);
+
+        res.json({
+            success: true,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post(
+    "/api/auth/email/verification/send",
+    requireAuth,
+    authRateLimiter,
+    async (req, res, next) => {
+        try {
+            const user = await getUserById(req.auth.user.id);
+            if (user.email_verified_at) {
+                res.json({
+                    success: true,
+                    alreadyVerified: true,
+                });
+                return;
+            }
+
+            const challenge = await createAndSendChallenge({
+                userId: user.id,
+                email: user.email,
+                purpose: "email_verification",
+                payload: {},
+                title: "Qubite",
+                subtitle: "Подтвердите ваш e-mail",
+                hint: "После подтверждения вы сможете использовать защищённые сценарии входа.",
+            });
+
+            res.json({
+                success: true,
+                flowToken: challenge.flowToken,
+                delivery: challenge.delivery,
+                ...buildDevCodeResponse(challenge.devCode),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/auth/email/verification/verify",
+    requireAuth,
+    authRateLimiter,
+    async (req, res, next) => {
+        try {
+            const flowToken = String(req.body.flowToken || "");
+            const code = String(req.body.code || "");
+            if (!flowToken || !code) {
+                sendError(res, 400, "Введите код подтверждения.");
+                return;
+            }
+
+            const result = await verifyChallenge(
+                flowToken,
+                "email_verification",
+                code,
+            );
+            if (!result.ok) {
+                sendError(res, 400, result.error);
+                return;
+            }
+
+            if (result.challenge.user_id !== req.auth.user.id) {
+                sendError(res, 403, "Код относится к другому аккаунту.");
+                return;
+            }
+
+            await consumeAuthChallenge(result.challenge.id);
+            const user = await markUserEmailVerified(req.auth.user.id);
+
+            res.json({
+                success: true,
+                user: serializeUser(user),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post("/api/auth/2fa/email/send", requireAuth, authRateLimiter, async (req, res, next) => {
+    try {
+        const user = await getUserById(req.auth.user.id);
+        if (!user.email_verified_at) {
+            sendError(
+                res,
+                409,
+                "Сначала подтвердите e-mail, а затем включайте e-mail 2FA.",
+            );
+            return;
+        }
+
+        const challenge = await createAndSendChallenge({
+            userId: user.id,
+            email: user.email,
+            purpose: "enable_email_2fa",
+            payload: {},
+            title: "Qubite",
+            subtitle: "Подтверждение включения e-mail 2FA",
+            hint: "Введите код, чтобы включить подтверждение входа по почте.",
+        });
+
+        res.json({
+            success: true,
+            flowToken: challenge.flowToken,
+            delivery: challenge.delivery,
+            ...buildDevCodeResponse(challenge.devCode),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/2fa/email/verify", requireAuth, authRateLimiter, async (req, res, next) => {
+    try {
+        const flowToken = String(req.body.flowToken || "");
+        const code = String(req.body.code || "");
+        if (!flowToken || !code) {
+            sendError(res, 400, "Введите код подтверждения.");
+            return;
+        }
+
+        const result = await verifyChallenge(flowToken, "enable_email_2fa", code);
+        if (!result.ok) {
+            sendError(res, 400, result.error);
+            return;
+        }
+
+        if (result.challenge.user_id !== req.auth.user.id) {
+            sendError(res, 403, "Код относится к другому аккаунту.");
+            return;
+        }
+
+        await consumeAuthChallenge(result.challenge.id);
+        const user = await updateUserSecuritySettings(req.auth.user.id, {
+            email2faEnabled: true,
+            phone2faEnabled: Boolean(req.auth.user.phone_2fa_enabled),
+            app2faEnabled: Boolean(req.auth.user.app_2fa_enabled),
+        });
+
+        res.json({
+            success: true,
+            user: serializeUser(user),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/auth/2fa/email", requireAuth, async (req, res, next) => {
+    try {
+        const user = await updateUserSecuritySettings(req.auth.user.id, {
+            email2faEnabled: false,
+            phone2faEnabled: Boolean(req.auth.user.phone_2fa_enabled),
+            app2faEnabled: Boolean(req.auth.user.app_2fa_enabled),
+        });
+
+        res.json({
+            success: true,
+            user: serializeUser(user),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/logout", requireAuth, async (req, res, next) => {
+    try {
+        await revokeSessionById(req.auth.session.id);
+        res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/logout-all", requireAuth, async (req, res, next) => {
+    try {
+        await revokeSessionsForUser(req.auth.user.id, req.auth.session.id);
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/auth/sessions/:sessionId", requireAuth, async (req, res, next) => {
+    try {
+        const sessionId = Number(req.params.sessionId);
+        if (!Number.isInteger(sessionId) || sessionId <= 0) {
+            sendError(res, 400, "Некорректная сессия.");
+            return;
+        }
+
+        const session = await getSessionByUserAndId(req.auth.user.id, sessionId);
+        if (!session) {
+            sendError(res, 404, "Сессия не найдена.");
+            return;
+        }
+
+        await revokeSessionById(sessionId);
+
+        if (sessionId === req.auth.session.id) {
+            res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/dashboard", requireAuth, async (req, res, next) => {
+    try {
+        const [user, primaryTournament, metrics] = await Promise.all([
+            getUserById(req.auth.user.id),
+            getPrimaryTournament(
+                req.auth.user.id,
+                req.auth.teamMembership?.team_id || null,
+            ),
+            getPlatformMetrics(),
+        ]);
+
+        res.json(buildDashboard(user, primaryTournament, metrics));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/profile", requireAuth, async (req, res, next) => {
+    try {
+        const [user, sessions] = await Promise.all([
+            getUserById(req.auth.user.id),
+            listSessionsForUser(req.auth.user.id),
+        ]);
+
+        res.json({
+            ...serializeUser(user),
+            sessions: sessions.map((session) =>
+                serializeSession(session, req.auth.session.id),
+            ),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.put("/api/profile", requireAuth, async (req, res, next) => {
+    try {
+        const payload = {
+            lastName: cleanText(req.body.lastName, 80),
+            firstName: cleanText(req.body.firstName, 80),
+            middleName: cleanText(req.body.middleName, 80),
+            login: cleanText(req.body.login, 32),
+            email: cleanText(req.body.email, 120),
+            phone: cleanPhone(req.body.phone),
+            city: cleanText(req.body.city, 80),
+            place: cleanText(req.body.place, 120),
+            studyGroup: cleanText(req.body.studyGroup, 80),
+        };
+
+        if (!payload.firstName || !payload.lastName) {
+            sendError(res, 400, "Имя и фамилия обязательны.");
+            return;
+        }
+
+        if (!isValidLogin(payload.login)) {
+            sendError(res, 400, "Некорректный никнейм.", "login");
+            return;
+        }
+
+        if (!isValidEmail(payload.email)) {
+            sendError(res, 400, "Некорректный e-mail.", "email");
+            return;
+        }
+
+        let user;
+        try {
+            user = await updateUserProfile(req.auth.user.id, {
+                ...payload,
+                loginNormalized: normalizeLogin(payload.login),
+                emailNormalized: normalizeEmail(payload.email),
+            });
+        } catch (error) {
+            if (error.code === "SQLITE_CONSTRAINT") {
+                if (String(error.message).includes("login_normalized")) {
+                    sendError(res, 409, "Этот никнейм уже используется.", "login");
+                    return;
+                }
+
+                if (String(error.message).includes("email_normalized")) {
+                    sendError(res, 409, "Этот e-mail уже используется.", "email");
+                    return;
+                }
+            }
+
+            throw error;
+        }
+
+        res.json({
+            user: serializeUser(user),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.put("/api/profile/password", requireAuth, async (req, res, next) => {
+    try {
+        const oldPassword = String(req.body.oldPassword || "");
+        const newPassword = String(req.body.newPassword || "");
+
+        if (!oldPassword || !newPassword) {
+            sendError(res, 400, "Заполни текущий и новый пароль.");
+            return;
+        }
+
+        if (!isStrongPassword(newPassword)) {
+            sendError(
+                res,
+                400,
+                "Новый пароль должен содержать минимум 8 символов, латинские буквы и цифры.",
+            );
+            return;
+        }
+
+        const user = await getUserById(req.auth.user.id);
+        const matches = await verifyPassword(
+            oldPassword,
+            user.password_hash,
+            user.password_salt,
+        );
+        if (!matches) {
+            sendError(res, 400, "Текущий пароль введен неверно.");
+            return;
+        }
+
+        const { hash, salt } = await hashPassword(newPassword);
+        await updateUserPassword(req.auth.user.id, hash, salt);
+        await revokeSessionsForUser(req.auth.user.id, req.auth.session.id);
+
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/organizer-applications/mine", requireAuth, async (req, res, next) => {
+    try {
+        const items = await listOrganizerApplications({
+            userId: req.auth.user.id,
+        });
+        res.json({
+            items: items.map(serializeOrganizerApplication),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/organizer-applications", requireParticipant, async (req, res, next) => {
+    try {
+        if (await hasPendingOrganizerApplication(req.auth.user.id)) {
+            sendError(
+                res,
+                409,
+                "У вас уже есть активная заявка на роль организатора.",
+            );
+            return;
+        }
+
+        const organizationName = cleanText(req.body.organizationName, 160);
+        const organizationType = cleanText(req.body.organizationType, 80);
+        const website = cleanText(req.body.website, 160);
+        const note = cleanText(req.body.note, 1000);
+
+        if (organizationName.length < 3) {
+            sendError(
+                res,
+                400,
+                "Укажите организацию или площадку, от имени которой подаётся заявка.",
+                "organizationName",
+            );
+            return;
+        }
+
+        const application = await createOrganizerApplication({
+            userId: req.auth.user.id,
+            organizationName,
+            organizationType,
+            website,
+            note,
+        });
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "organizer_application.create",
+            entityType: "organizer_application",
+            entityId: application.id,
+            summary: "Подана заявка на роль организатора",
+        });
+
+        const [enriched] = await listOrganizerApplications({
+            userId: req.auth.user.id,
+        });
+
+        res.status(201).json({
+            item: serializeOrganizerApplication(enriched || application),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/team", requireParticipant, async (req, res, next) => {
+    try {
+        const bundle = await getTeamForUser(req.auth.user.id);
+        res.json(serializeTeam(bundle, req.auth.user.id));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/team", requireParticipant, async (req, res, next) => {
+    try {
+        const name = cleanText(req.body.name, 64);
+        const description = cleanText(req.body.description, 500);
+
+        if (name.length < 3) {
+            sendError(res, 400, "Название команды должно быть не короче 3 символов.", "teamName");
+            return;
+        }
+
+        const bundle = await createTeam({
+            ownerUserId: req.auth.user.id,
+            teamCode: makeUid("T"),
+            name,
+            description,
+        });
+
+        res.status(201).json({
+            team: serializeTeam(bundle, req.auth.user.id),
+        });
+    } catch (error) {
+        if (error.code === "TEAM_ALREADY_EXISTS") {
+            sendError(res, 409, "Вы уже состоите в команде.");
+            return;
+        }
+        next(error);
+    }
+});
+
+app.post("/api/team/join", requireParticipant, async (req, res, next) => {
+    try {
+        const teamCode = cleanText(req.body.teamCode, 32).toUpperCase();
+        if (!/^T-[A-Z0-9]{8}$/.test(teamCode)) {
+            sendError(res, 400, "Некорректный код команды.", "teamCode");
+            return;
+        }
+
+        const bundle = await joinTeamByCode({
+            userId: req.auth.user.id,
+            teamCode,
+        });
+
+        res.json({
+            team: serializeTeam(bundle, req.auth.user.id),
+        });
+    } catch (error) {
+        if (error.code === "TEAM_MEMBER_EXISTS") {
+            sendError(res, 409, "Вы уже состоите в команде.");
+            return;
+        }
+
+        if (error.code === "TEAM_NOT_FOUND") {
+            sendError(res, 404, "Команда с таким кодом не найдена.");
+            return;
+        }
+
+        next(error);
+    }
+});
+
+app.put("/api/team", requireParticipant, async (req, res, next) => {
+    try {
+        const bundle = await getTeamForUser(req.auth.user.id);
+        if (!bundle) {
+            sendError(res, 404, "Команда не найдена.");
+            return;
+        }
+
+        if (bundle.membership.role !== "owner") {
+            sendError(res, 403, "Редактировать команду может только владелец.");
+            return;
+        }
+
+        const name = cleanText(req.body.name, 64);
+        const description = cleanText(req.body.description, 500);
+
+        const updated = await updateTeam(bundle.team.id, req.auth.user.id, {
+            name,
+            description,
+        });
+
+        res.json({
+            team: serializeTeam(updated, req.auth.user.id),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/team/leave", requireParticipant, async (req, res, next) => {
+    try {
+        const success = await leaveTeam(req.auth.user.id);
+        res.json({ success });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/team/transfer", requireParticipant, async (req, res, next) => {
+    try {
+        const bundle = await getTeamForUser(req.auth.user.id);
+        if (!bundle) {
+            sendError(res, 404, "Команда не найдена.");
+            return;
+        }
+
+        if (bundle.membership.role !== "owner") {
+            sendError(res, 403, "Передавать права может только владелец.");
+            return;
+        }
+
+        const nextOwnerUserId = Number(req.body.userId);
+        if (!Number.isInteger(nextOwnerUserId) || nextOwnerUserId <= 0) {
+            sendError(res, 400, "Некорректный участник.");
+            return;
+        }
+
+        const updated = await transferTeamOwnership(
+            bundle.team.id,
+            req.auth.user.id,
+            nextOwnerUserId,
+        );
+
+        if (!updated) {
+            sendError(res, 404, "Участник не найден в вашей команде.");
+            return;
+        }
+
+        res.json({
+            team: serializeTeam(updated, req.auth.user.id),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/team/members/:userId", requireParticipant, async (req, res, next) => {
+    try {
+        const bundle = await getTeamForUser(req.auth.user.id);
+        if (!bundle) {
+            sendError(res, 404, "Команда не найдена.");
+            return;
+        }
+
+        if (bundle.membership.role !== "owner") {
+            sendError(res, 403, "Удалять участников может только владелец.");
+            return;
+        }
+
+        const memberUserId = Number(req.params.userId);
+        const updated = await removeTeamMember(
+            bundle.team.id,
+            req.auth.user.id,
+            memberUserId,
+        );
+
+        if (!updated) {
+            sendError(res, 404, "Участник не найден.");
+            return;
+        }
+
+        res.json({
+            team: serializeTeam(updated, req.auth.user.id),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/task-bank", requireAuth, async (req, res, next) => {
+    try {
+        const tasks = await listTaskBank(
+            req.auth.user.id,
+            (req.auth.user.role || "user") === "admin",
+        );
+        res.json({
+            items: tasks.map(serializeTask),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/task-bank", requireAdmin, async (req, res, next) => {
+    try {
+        const title = cleanText(req.body.title, 100);
+        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
+        const difficulty = cleanText(req.body.difficulty, 16) || "Medium";
+        const statement = cleanText(req.body.statement, 1200);
+        const estimatedMinutes = Math.min(
+            Math.max(Number(req.body.estimatedMinutes || 30), 10),
+            240,
+        );
+
+        if (!title || title.length < 3) {
+            sendError(res, 400, "Название задачи должно быть не короче 3 символов.", "title");
+            return;
+        }
+
+        if (!statement || statement.length < 16) {
+            sendError(res, 400, "Добавьте полноценное условие задачи.", "statement");
+            return;
+        }
+
+        const task = await createTask({
+            ownerUserId: req.auth.user.id,
+            title,
+            category,
+            difficulty,
+            statement,
+            estimatedMinutes,
+        });
+
+        res.status(201).json({
+            item: serializeTask({
+                ...task,
+                owner_login: req.auth.user.login,
+            }),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/organizer/overview", requireOrganizer, async (req, res, next) => {
+    try {
+        const overview = await getOrganizerOverview(req.auth.user.id);
+        res.json({
+            ...overview,
+            recentActions: overview.recentActions.map(serializeAuditEntry),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/organizer/tasks", requireOrganizer, async (req, res, next) => {
+    try {
+        const groups = await listOrganizerTaskBank(req.auth.user.id);
+        res.json({
+            personal: groups.personal.map(serializeTask),
+            shared: groups.shared.map(serializeTask),
+            pending: groups.pending.map(serializeTask),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/organizer/tasks", requireOrganizer, async (req, res, next) => {
+    try {
+        const payload = cleanTaskPayload(req.body);
+        if (!validateTaskPayload(res, payload)) {
+            return;
+        }
+
+        const task = await createTask({
+            ownerUserId: req.auth.user.id,
+            ...payload,
+            bankScope: "personal",
+            moderationStatus: "draft",
+        });
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "organizer_task.create",
+            entityType: "task",
+            entityId: task.id,
+            summary: "Организатор создал задачу в личном банке",
+        });
+
+        res.status(201).json({
+            item: serializeTask(task),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch("/api/organizer/tasks/:id", requireOrganizer, async (req, res, next) => {
+    try {
+        const taskId = Number(req.params.id);
+        if (!Number.isInteger(taskId) || taskId <= 0) {
+            sendError(res, 400, "Некорректная задача.");
+            return;
+        }
+
+        const existingTask = await getTaskById(taskId);
+        if (!existingTask) {
+            sendError(res, 404, "Задача не найдена.");
+            return;
+        }
+
+        const payload = cleanTaskPayload(req.body);
+        if (!validateTaskPayload(res, payload)) {
+            return;
+        }
+
+        let task;
+        if (
+            existingTask.bank_scope === "shared" &&
+            existingTask.moderation_status === "approved_shared"
+        ) {
+            task = await createTaskRevision(taskId, req.auth.user.id, payload);
+        } else {
+            if (existingTask.owner_user_id !== req.auth.user.id) {
+                sendError(
+                    res,
+                    403,
+                    "Редактировать можно только свои задачи или ревизии.",
+                );
+                return;
+            }
+            task = await updateTaskDraft(taskId, payload);
+        }
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "organizer_task.update",
+            entityType: "task",
+            entityId: task.id,
+            summary:
+                existingTask.bank_scope === "shared"
+                    ? "Создана ревизия общей задачи"
+                    : "Обновлена задача организатора",
+        });
+
+        res.json({
+            item: serializeTask(task),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post(
+    "/api/organizer/tasks/:id/submit-review",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const taskId = Number(req.params.id);
+            if (!Number.isInteger(taskId) || taskId <= 0) {
+                sendError(res, 400, "Некорректная задача.");
+                return;
+            }
+
+            const task = await submitTaskForModeration(taskId, req.auth.user.id);
+            if (!task) {
+                sendError(res, 404, "Задача не найдена.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_task.submit_review",
+                entityType: "task",
+                entityId: task.id,
+                summary: "Задача отправлена на модерацию",
+            });
+
+            res.json({
+                item: serializeTask(task),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tasks/template",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const buffer = buildTaskTemplateBuffer();
+            res.setHeader(
+                "Content-Type",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            );
+            res.setHeader(
+                "Content-Disposition",
+                'attachment; filename="qubite-task-template.xlsx"',
+            );
+            res.send(buffer);
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tasks/import/preview",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const parsed = parseTaskWorkbook(String(req.body.base64File || ""));
+            res.json({
+                totalRows: parsed.items.length,
+                validRowsCount: parsed.items.length,
+                skippedRowsCount: parsed.errors.length,
+                rows: parsed.items,
+                errors: parsed.errors,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tasks/import/confirm",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const parsed = parseTaskWorkbook(String(req.body.base64File || ""));
+            const created = [];
+
+            for (const row of parsed.items) {
+                const task = await createTask({
+                    ownerUserId: req.auth.user.id,
+                    title: row.title,
+                    category: row.category,
+                    difficulty: row.difficulty,
+                    statement: row.statement,
+                    estimatedMinutes: row.estimatedMinutes,
+                    bankScope: "personal",
+                    moderationStatus: "draft",
+                });
+                created.push(serializeTask(task));
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_task.import",
+                entityType: "task_import",
+                entityId: req.auth.user.id,
+                summary: `Импортировано задач: ${created.length}`,
+                payload: { importedCount: created.length },
+            });
+
+            res.status(201).json({
+                items: created,
+                importedCount: created.length,
+                skippedCount: parsed.errors.length,
+                errors: parsed.errors,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get("/api/organizer/tournaments", requireOrganizer, async (req, res, next) => {
+    try {
+        const tournaments = await listOrganizerTournaments(req.auth.user.id);
+        res.json({
+            items: await Promise.all(
+                tournaments.map((item) =>
+                    serializeOrganizerTournament(item, req.auth.user.id),
+                ),
+            ),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) => {
+    try {
+        const title = cleanText(req.body.title, 120);
+        const description = cleanText(req.body.description, 1200);
+        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
+        const format = cleanText(req.body.format, 16).toLowerCase() || "individual";
+        const status = normalizeTournamentStatusInput(req.body.status);
+        const accessScope = normalizeTournamentAccessScope(req.body.accessScope);
+        const rawStartAt = String(req.body.startAt || "");
+        const rawEndAt = String(req.body.endAt || "");
+        const taskIds = Array.isArray(req.body.taskIds)
+            ? req.body.taskIds
+                  .map((value) => Number(value))
+                  .filter((value) => Number.isInteger(value) && value > 0)
+            : [];
+
+        if (title.length < 4) {
+            sendError(res, 400, "Название соревнования должно быть не короче 4 символов.", "title");
+            return;
+        }
+
+        if (!["individual", "team"].includes(format)) {
+            sendError(res, 400, "Неизвестный формат соревнования.");
+            return;
+        }
+
+        const now = new Date();
+        const fallbackStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const fallbackEnd = new Date(fallbackStart.getTime() + 2 * 60 * 60 * 1000);
+        const startAt = isValidDate(rawStartAt)
+            ? new Date(rawStartAt).toISOString()
+            : fallbackStart.toISOString();
+        const endAt = isValidDate(rawEndAt)
+            ? new Date(rawEndAt).toISOString()
+            : fallbackEnd.toISOString();
+
+        if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+            sendError(res, 400, "Дата окончания должна быть позже даты начала.");
+            return;
+        }
+
+        if (taskIds.length > 0) {
+            const tasks = await listTasksByIds(taskIds, req.auth.user.id, false);
+            if (tasks.length !== taskIds.length) {
+                sendError(res, 400, "Не все выбранные задачи доступны организатору.");
+                return;
+            }
+        }
+
+        const tournament = await createTournament({
+            ownerUserId: req.auth.user.id,
+            title,
+            description,
+            category,
+            format,
+            status,
+            startAt,
+            endAt,
+            taskIds,
+            accessScope,
+            accessCode:
+                accessScope === "code"
+                    ? cleanText(req.body.accessCode, 48)
+                    : null,
+            difficultyLabel: taskIds.length > 1 ? "Mixed" : req.body.difficultyLabel || "Mixed",
+            leaderboardVisible: req.body.leaderboardVisible !== false,
+            resultsVisible: req.body.resultsVisible !== false,
+            registrationStartAt: isValidDate(req.body.registrationStartAt)
+                ? new Date(req.body.registrationStartAt).toISOString()
+                : null,
+            registrationEndAt: isValidDate(req.body.registrationEndAt)
+                ? new Date(req.body.registrationEndAt).toISOString()
+                : null,
+        });
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "organizer_tournament.create",
+            entityType: "tournament",
+            entityId: tournament.id,
+            summary: "Организатор создал соревнование",
+        });
+
+        res.status(201).json({
+            item: await serializeOrganizerTournament(tournament, req.auth.user.id),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch(
+    "/api/organizer/tournaments/:id",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+                sendError(res, 400, "Некорректное соревнование.");
+                return;
+            }
+
+            const taskIds = Array.isArray(req.body.taskIds)
+                ? req.body.taskIds
+                      .map((value) => Number(value))
+                      .filter((value) => Number.isInteger(value) && value > 0)
+                : undefined;
+
+            if (Array.isArray(taskIds) && taskIds.length > 0) {
+                const tasks = await listTasksByIds(taskIds, req.auth.user.id, false);
+                if (tasks.length !== taskIds.length) {
+                    sendError(res, 400, "Не все выбранные задачи доступны организатору.");
+                    return;
+                }
+            }
+
+            const updated = await updateOrganizerTournament(
+                tournamentId,
+                req.auth.user.id,
+                {
+                    title: req.body.title ? cleanText(req.body.title, 120) : undefined,
+                    description:
+                        req.body.description !== undefined
+                            ? cleanText(req.body.description, 1200)
+                            : undefined,
+                    category: req.body.category
+                        ? cleanText(req.body.category, 32).toLowerCase()
+                        : undefined,
+                    format: req.body.format
+                        ? cleanText(req.body.format, 16).toLowerCase()
+                        : undefined,
+                    status: req.body.status
+                        ? normalizeTournamentStatusInput(req.body.status)
+                        : undefined,
+                    startAt: req.body.startAt && isValidDate(req.body.startAt)
+                        ? new Date(req.body.startAt).toISOString()
+                        : undefined,
+                    endAt:
+                        req.body.endAt === null
+                            ? null
+                            : req.body.endAt && isValidDate(req.body.endAt)
+                              ? new Date(req.body.endAt).toISOString()
+                              : undefined,
+                    taskIds,
+                    accessScope: req.body.accessScope
+                        ? normalizeTournamentAccessScope(req.body.accessScope)
+                        : undefined,
+                    accessCode:
+                        req.body.accessCode !== undefined
+                            ? cleanText(req.body.accessCode, 48)
+                            : undefined,
+                    leaderboardVisible:
+                        req.body.leaderboardVisible !== undefined
+                            ? Boolean(req.body.leaderboardVisible)
+                            : undefined,
+                    resultsVisible:
+                        req.body.resultsVisible !== undefined
+                            ? Boolean(req.body.resultsVisible)
+                            : undefined,
+                    registrationStartAt:
+                        req.body.registrationStartAt && isValidDate(req.body.registrationStartAt)
+                            ? new Date(req.body.registrationStartAt).toISOString()
+                            : req.body.registrationStartAt === null
+                              ? null
+                              : undefined,
+                    registrationEndAt:
+                        req.body.registrationEndAt && isValidDate(req.body.registrationEndAt)
+                            ? new Date(req.body.registrationEndAt).toISOString()
+                            : req.body.registrationEndAt === null
+                              ? null
+                              : undefined,
+                    difficultyLabel: req.body.difficultyLabel
+                        ? cleanText(req.body.difficultyLabel, 32)
+                        : undefined,
+                },
+            );
+
+            if (!updated) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_tournament.update",
+                entityType: "tournament",
+                entityId: updated.id,
+                summary: "Организатор обновил соревнование",
+            });
+
+            res.json({
+                item: await serializeOrganizerTournament(updated, req.auth.user.id),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.delete(
+    "/api/organizer/tournaments/:id",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+                sendError(res, 400, "Некорректное соревнование.");
+                return;
+            }
+
+            const deleted = await deleteOrganizerTournament(
+                tournamentId,
+                req.auth.user.id,
+            );
+            if (!deleted) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_tournament.delete",
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary: "Организатор удалил соревнование",
+            });
+
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/roster",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const roster = await listTournamentRosterEntries(tournamentId);
+            res.json({
+                items: roster.map(serializeRosterEntry),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/roster/template",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const buffer = buildRosterTemplateBuffer(tournament.format);
+            res.setHeader(
+                "Content-Type",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            );
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="qubite-${tournament.format}-roster-template.xlsx"`,
+            );
+            res.send(buffer);
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tournaments/:id/roster/preview",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const preview = await buildRosterPreview(
+                String(req.body.base64File || ""),
+                tournament.format,
+            );
+            res.json(preview);
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tournaments/:id/roster/confirm",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const preview = await buildRosterPreview(
+                String(req.body.base64File || ""),
+                tournament.format,
+            );
+            const roster = await replaceTournamentRosterEntries(
+                tournamentId,
+                req.auth.user.id,
+                preview.validRows.map((row) => ({
+                    userId: row.userId,
+                    login: row.login,
+                    email: row.email,
+                    fullName: row.fullName,
+                    teamName: row.teamName,
+                    classGroup: row.classGroup,
+                    externalId: row.externalId,
+                })),
+            );
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_roster.import",
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary: `Импортировано участников: ${preview.validRows.length}`,
+                payload: {
+                    importedCount: preview.validRows.length,
+                    skippedCount: preview.errors.length,
+                },
+            });
+
+            res.json({
+                items: roster.map(serializeRosterEntry),
+                importedCount: preview.validRows.length,
+                skippedCount: preview.errors.length,
+                errors: preview.errors,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tournaments/:id/roster/manual",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const identifier = cleanText(req.body.identifier, 120);
+            if (!identifier) {
+                sendError(res, 400, "Укажите login или email пользователя.", "identifier");
+                return;
+            }
+
+            const [user] = await listUsersByIdentifiers([
+                {
+                    login: identifier,
+                    email: identifier,
+                },
+            ]);
+            if (!user) {
+                sendError(res, 404, "Пользователь не найден.");
+                return;
+            }
+
+            const entry = await upsertTournamentRosterEntry(
+                tournamentId,
+                req.auth.user.id,
+                {
+                    userId: user.id,
+                    login: user.login,
+                    email: user.email,
+                    fullName: buildDisplayName(user),
+                    teamName:
+                        tournament.format === "team"
+                            ? cleanText(req.body.teamName, 120)
+                            : "",
+                    classGroup: cleanText(req.body.classGroup, 80),
+                    externalId: cleanText(req.body.externalId, 80),
+                },
+            );
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_roster.upsert",
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary: "Организатор обновил список участников вручную",
+            });
+
+            res.status(201).json({
+                item: serializeRosterEntry({
+                    ...entry,
+                    uid: user.uid,
+                    current_login: user.login,
+                    current_email: user.email,
+                    user_status: user.status,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    middle_name: user.middle_name,
+                }),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.delete(
+    "/api/organizer/tournaments/:id/roster/:rosterEntryId",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const rosterEntryId = Number(req.params.rosterEntryId);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            if (!Number.isInteger(rosterEntryId) || rosterEntryId <= 0) {
+                sendError(res, 400, "Некорректная запись списка участников.");
+                return;
+            }
+
+            const deleted = await removeTournamentRosterEntry(
+                tournamentId,
+                rosterEntryId,
+            );
+            if (!deleted) {
+                sendError(res, 404, "Запись списка участников не найдена.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_roster.delete",
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary: "Организатор удалил участника из списка допуска",
+            });
+
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get("/api/tournaments", requireParticipant, async (req, res, next) => {
+    try {
+        const tournaments = await getTournaments(
+            req.auth.user.id,
+            req.auth.teamMembership?.team_id || null,
+        );
+        res.json({
+            items: tournaments.map((item) =>
+                serializeTournament(item, req.auth.user.id),
+            ),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
+    try {
+        const title = cleanText(req.body.title, 120);
+        const description = cleanText(req.body.description, 600);
+        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
+        const format = cleanText(req.body.format, 16).toLowerCase() || "individual";
+        const status = cleanText(req.body.status, 16).toLowerCase() || "upcoming";
+        const startAt = String(req.body.startAt || "");
+        const endAt = String(req.body.endAt || "");
+        const taskIds = Array.isArray(req.body.taskIds)
+            ? req.body.taskIds
+                  .map((value) => Number(value))
+                  .filter((value) => Number.isInteger(value) && value > 0)
+            : [];
+
+        if (title.length < 4) {
+            sendError(res, 400, "Название турнира должно быть не короче 4 символов.", "title");
+            return;
+        }
+
+        if (!isValidDate(startAt) || !isValidDate(endAt)) {
+            sendError(res, 400, "Укажите корректные даты турнира.");
+            return;
+        }
+
+        if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+            sendError(res, 400, "Дата окончания должна быть позже даты начала.");
+            return;
+        }
+
+        if (!["individual", "team"].includes(format)) {
+            sendError(res, 400, "Неизвестный формат турнира.");
+            return;
+        }
+
+        if (!["live", "upcoming", "ended"].includes(status)) {
+            sendError(res, 400, "Неизвестный статус турнира.");
+            return;
+        }
+
+        if (taskIds.length === 0) {
+            sendError(res, 400, "Добавьте хотя бы одну задачу в турнир.", "taskIds");
+            return;
+        }
+
+        const tasks = await listTasksByIds(taskIds, req.auth.user.id, true);
+        if (tasks.length !== taskIds.length) {
+            sendError(res, 400, "Не все выбранные задачи доступны для турнира.");
+            return;
+        }
+
+        const tournament = await createTournament({
+            ownerUserId: req.auth.user.id,
+            title,
+            description,
+            category,
+            format,
+            status,
+            startAt,
+            endAt,
+            taskIds,
+            accessScope: "public",
+            difficultyLabel:
+                tasks.length > 1
+                    ? "Mixed"
+                    : tasks[0].difficulty || "Mixed",
+        });
+
+        res.status(201).json({
+            item: serializeTournament({
+                ...tournament,
+                joined_individual: 0,
+                joined_team: 0,
+            }, req.auth.user.id),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/tournaments/:id/join", requireParticipant, async (req, res, next) => {
+    try {
+        const tournamentId = Number(req.params.id);
+        if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+            sendError(res, 400, "Некорректный турнир.");
+            return;
+        }
+
+        const tournament = await getTournamentById(tournamentId);
+        if (!tournament) {
+            sendError(res, 404, "Турнир не найден.");
+            return;
+        }
+
+        if (tournament.status === "ended") {
+            sendError(res, 409, "Турнир уже завершён.");
+            return;
+        }
+
+        const accessScope =
+            tournament.access_scope === "public"
+                ? "open"
+                : tournament.access_scope || "open";
+        const rosterEntry = await getTournamentRosterEntryForUser(
+            tournamentId,
+            req.auth.user.id,
+        );
+
+        if (accessScope === "closed" && !rosterEntry) {
+            sendError(
+                res,
+                403,
+                "Вы не входите в список участников этого соревнования.",
+            );
+            return;
+        }
+
+        if (
+            accessScope === "code" &&
+            String(req.body.accessCode || "").trim() !==
+                String(tournament.access_code || "").trim()
+        ) {
+            sendError(
+                res,
+                403,
+                "Неверный код доступа к соревнованию.",
+                "accessCode",
+            );
+            return;
+        }
+
+        const tasks = await listTournamentTasks(tournamentId);
+        const organizerManaged = Boolean(tournament.owner_user_id);
+        const entryType = tournament.format === "team" ? "team" : "user";
+        let teamBundle = null;
+        let displayName = buildDisplayName(req.auth.user);
+
+        if (entryType === "team") {
+            if (organizerManaged && rosterEntry?.team_name) {
+                displayName = rosterEntry.team_name;
+            } else {
+                teamBundle = await getTeamForUser(req.auth.user.id);
+                if (!teamBundle) {
+                    sendError(
+                        res,
+                        409,
+                        "Для командного турнира нужно вступить в команду.",
+                    );
+                    return;
+                }
+                displayName = teamBundle.team.name;
+            }
+        }
+
+        await joinTournament({
+            tournamentId,
+            userId: req.auth.user.id,
+            teamId: teamBundle?.team?.id || null,
+            entryType,
+            displayName,
+            totalTasks: tasks.length,
+        });
+
+        await refreshTournamentParticipantsCount(tournamentId);
+        const [updatedTournament, leaderboard] = await Promise.all([
+            getTournamentById(tournamentId),
+            listLeaderboardForTournament(tournamentId),
+        ]);
+
+        res.json({
+            success: true,
+            leaderboard: serializeLeaderboard(
+                updatedTournament,
+                tasks,
+                leaderboard,
+                {
+                    user: req.auth.user,
+                    teamMembership: req.auth.teamMembership,
+                    rosterEntry,
+                },
+            ),
+        });
+    } catch (error) {
+        if (error.code === "TEAM_REQUIRED") {
+            sendError(res, 409, "Для командного турнира нужна команда.");
+            return;
+        }
+        next(error);
+    }
+});
+
+app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res, next) => {
+    try {
+        const tournamentId = Number(req.params.id);
+        if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+            sendError(res, 400, "Некорректный турнир.");
+            return;
+        }
+
+        const tournament = await getTournamentById(tournamentId);
+        if (!tournament) {
+            sendError(res, 404, "Турнир не найден.");
+            return;
+        }
+
+        const accessScope =
+            tournament.access_scope === "public"
+                ? "open"
+                : tournament.access_scope || "open";
+        const rosterEntry = await getTournamentRosterEntryForUser(
+            tournamentId,
+            req.auth.user.id,
+        );
+
+        if (accessScope === "closed" && !rosterEntry) {
+            sendError(
+                res,
+                403,
+                "Вы не входите в список участников этого соревнования.",
+            );
+            return;
+        }
+
+        const [tasks, leaderboard] = await Promise.all([
+            listTournamentTasks(tournamentId),
+            listLeaderboardForTournament(tournamentId),
+        ]);
+
+        res.json(
+            serializeLeaderboard(tournament, tasks, leaderboard, {
+                user: req.auth.user,
+                teamMembership: req.auth.teamMembership,
+                rosterEntry,
+            }),
+        );
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/analytics/profile", requireParticipant, async (req, res, next) => {
+    try {
+        const [user, entries] = await Promise.all([
+            getUserById(req.auth.user.id),
+            listUserTournamentResults(req.auth.user.id),
+        ]);
+
+        res.json(buildAnalyticsPayload(entries, Number(user.rating || 1450)));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/analytics/team", requireParticipant, async (req, res, next) => {
+    try {
+        const teamBundle = await getTeamForUser(req.auth.user.id);
+        if (!teamBundle) {
+            res.json(
+                buildAnalyticsPayload([], 1450),
+            );
+            return;
+        }
+
+        const entries = await listTeamTournamentResults(teamBundle.team.id);
+        res.json(buildAnalyticsPayload(entries, 1520));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/moderation/overview", requireModerator, async (req, res, next) => {
+    try {
+        const overview = await getAdminOverview();
+        res.json({
+            pendingTasksCount: overview.pendingTaskModerationCount,
+            pendingOrganizerApplicationsCount:
+                overview.pendingOrganizerApplicationsCount,
+            blockedUsersCount: overview.blockedUsersCount,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/moderation/tasks", requireModerator, async (req, res, next) => {
+    try {
+        const tasks = await listModeratorTaskQueue();
+        res.json({
+            items: tasks.map(serializeTask),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post(
+    "/api/moderation/tasks/:id/review",
+    requireModerator,
+    async (req, res, next) => {
+        try {
+            const taskId = Number(req.params.id);
+            const decision = cleanText(req.body.decision, 16).toLowerCase();
+            const reviewerNote = cleanText(req.body.reviewerNote, 1000);
+
+            if (!Number.isInteger(taskId) || taskId <= 0) {
+                sendError(res, 400, "Некорректная задача.");
+                return;
+            }
+
+            if (!["approve", "reject"].includes(decision)) {
+                sendError(res, 400, "Неизвестное решение по модерации.");
+                return;
+            }
+
+            const task = await reviewTaskModeration(
+                taskId,
+                req.auth.user.id,
+                decision,
+                reviewerNote,
+            );
+            if (!task) {
+                sendError(res, 404, "Задача не найдена или уже обработана.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: `moderation.task.${decision}`,
+                entityType: "task",
+                entityId: taskId,
+                summary:
+                    decision === "approve"
+                        ? "Задача одобрена модератором"
+                        : "Задача отклонена модератором",
+                payload: { reviewerNote },
+            });
+
+            res.json({
+                item: serializeTask(task),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/moderation/applications",
+    requireModerator,
+    async (req, res, next) => {
+        try {
+            const items = await listOrganizerApplications();
+            res.json({
+                items: items.map(serializeOrganizerApplication),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/moderation/applications/:id/review",
+    requireModerator,
+    async (req, res, next) => {
+        try {
+            const applicationId = Number(req.params.id);
+            const decision = cleanText(req.body.decision, 16).toLowerCase();
+            const reviewerNote = cleanText(req.body.reviewerNote, 1000);
+
+            if (!Number.isInteger(applicationId) || applicationId <= 0) {
+                sendError(res, 400, "Некорректная заявка.");
+                return;
+            }
+
+            if (!["approve", "reject"].includes(decision)) {
+                sendError(res, 400, "Неизвестное решение по заявке.");
+                return;
+            }
+
+            const application = await reviewOrganizerApplication(
+                applicationId,
+                req.auth.user.id,
+                decision,
+                reviewerNote,
+            );
+            if (!application) {
+                sendError(res, 404, "Заявка не найдена или уже обработана.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: `moderation.organizer_application.${decision}`,
+                entityType: "organizer_application",
+                entityId: applicationId,
+                summary:
+                    decision === "approve"
+                        ? "Заявка на роль организатора одобрена"
+                        : "Заявка на роль организатора отклонена",
+                payload: { reviewerNote },
+            });
+
+            const items = await listOrganizerApplications();
+            const current = items.find((item) => item.id === applicationId);
+
+            res.json({
+                item: serializeOrganizerApplication(current || application),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get("/api/moderation/users", requireModerator, async (req, res, next) => {
+    try {
+        const users = await listModerationUsers();
+        res.json({
+            items: users.map(serializeAdminUser),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch(
+    "/api/moderation/users/:id/status",
+    requireModerator,
+    async (req, res, next) => {
+        try {
+            const userId = Number(req.params.id);
+            const status = normalizeUserStatus(req.body.status);
+            const reason = cleanText(req.body.reason, 600);
+
+            if (!Number.isInteger(userId) || userId <= 0) {
+                sendError(res, 400, "Некорректный пользователь.");
+                return;
+            }
+
+            if (!status) {
+                sendError(res, 400, "Неизвестный статус пользователя.");
+                return;
+            }
+
+            const targetUser = await getUserById(userId);
+            if (!targetUser) {
+                sendError(res, 404, "Пользователь не найден.");
+                return;
+            }
+
+            if (
+                isAdminRole(targetUser.role || ROLE_USER) &&
+                targetUser.status === "active" &&
+                status !== "active"
+            ) {
+                const overview = await getAdminOverview();
+                if (overview.adminsCount <= 1) {
+                    sendError(
+                        res,
+                        409,
+                        "В системе должен оставаться хотя бы один активный администратор.",
+                    );
+                    return;
+                }
+            }
+
+            const updatedUser = await setUserStatus(userId, status, {
+                reason,
+                blockedByUserId: req.auth.user.id,
+            });
+
+            if (status === "active") {
+                await unblockEmail(updatedUser.email_normalized);
+            } else {
+                await blockEmail(updatedUser.email_normalized, reason, req.auth.user.id);
+                await revokeSessionsForUser(updatedUser.id);
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: `user.status.${status}`,
+                entityType: "user",
+                entityId: updatedUser.id,
+                summary: `Изменен статус пользователя на ${status}`,
+                payload: { reason },
+            });
+
+            res.json({
+                item: serializeAdminUser(updatedUser),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
+    try {
+        const [overview, metrics] = await Promise.all([
+            getAdminOverview(),
+            getPlatformMetrics(),
+        ]);
+
+        res.json({
+            overview,
+            metrics,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+    try {
+        const users = await listAdminUsers();
+        res.json({
+            items: users.map(serializeAdminUser),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/applications", requireAdmin, async (req, res, next) => {
+    try {
+        const items = await listOrganizerApplications();
+        res.json({
+            items: items.map(serializeOrganizerApplication),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/audit", requireAdmin, async (req, res, next) => {
+    try {
+        const items = await listAuditLog(80);
+        res.json({
+            items: items.map(serializeAuditEntry),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch("/api/admin/users/:id/role", requireAdmin, async (req, res, next) => {
+    try {
+        const userId = Number(req.params.id);
+        const role = normalizeUserRole(req.body.role);
+
+        if (!Number.isInteger(userId) || userId <= 0) {
+            sendError(res, 400, "Некорректный пользователь.");
+            return;
+        }
+
+        if (!role) {
+            sendError(res, 400, "Неизвестная роль.");
+            return;
+        }
+
+        const targetUser = await getUserById(userId);
+        if (!targetUser) {
+            sendError(res, 404, "Пользователь не найден.");
+            return;
+        }
+
+        if (
+            isAdminRole(targetUser.role || ROLE_USER) &&
+            targetUser.status === "active" &&
+            !isAdminRole(role)
+        ) {
+            const overview = await getAdminOverview();
+            if (overview.adminsCount <= 1) {
+                sendError(
+                    res,
+                    409,
+                    "В системе должен оставаться хотя бы один администратор.",
+                );
+                return;
+            }
+        }
+
+        const updatedUser = await setUserRole(userId, role);
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "admin.user.role",
+            entityType: "user",
+            entityId: userId,
+            summary: `Назначена роль ${role}`,
+            payload: {
+                previousRole: targetUser.role,
+                nextRole: role,
+            },
+        });
+        res.json({
+            item: serializeAdminUser(updatedUser),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/teams", requireAdmin, async (req, res, next) => {
+    try {
+        const teams = await listAdminTeams();
+        res.json({
+            items: teams.map(serializeAdminTeam),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/admin/teams/:id", requireAdmin, async (req, res, next) => {
+    try {
+        const teamId = Number(req.params.id);
+        if (!Number.isInteger(teamId) || teamId <= 0) {
+            sendError(res, 400, "Некорректная команда.");
+            return;
+        }
+
+        const deleted = await deleteAdminTeam(teamId);
+        if (!deleted) {
+            sendError(res, 404, "Команда не найдена.");
+            return;
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/tasks", requireAdmin, async (req, res, next) => {
+    try {
+        const tasks = await listAdminTasks();
+        res.json({
+            items: tasks.map(serializeAdminTask),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/admin/tasks/:id", requireAdmin, async (req, res, next) => {
+    try {
+        const taskId = Number(req.params.id);
+        if (!Number.isInteger(taskId) || taskId <= 0) {
+            sendError(res, 400, "Некорректная задача.");
+            return;
+        }
+
+        const deleted = await deleteAdminTask(taskId);
+        if (!deleted) {
+            sendError(res, 404, "Задача не найдена.");
+            return;
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/tournaments", requireAdmin, async (req, res, next) => {
+    try {
+        const tournaments = await listAdminTournaments();
+        res.json({
+            items: tournaments.map(serializeAdminTournament),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch("/api/admin/tournaments/:id", requireAdmin, async (req, res, next) => {
+    try {
+        const tournamentId = Number(req.params.id);
+        const status = cleanText(req.body.status, 16).toLowerCase();
+
+        if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+            sendError(res, 400, "Некорректный турнир.");
+            return;
+        }
+
+        if (status && !["live", "upcoming", "ended"].includes(status)) {
+            sendError(res, 400, "Неизвестный статус турнира.");
+            return;
+        }
+
+        const updatedTournament = await updateAdminTournament(tournamentId, {
+            status,
+        });
+        if (!updatedTournament) {
+            sendError(res, 404, "Турнир не найден.");
+            return;
+        }
+
+        res.json({
+            item: serializeAdminTournament(updatedTournament),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete(
+    "/api/admin/tournaments/:id",
+    requireAdmin,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+                sendError(res, 400, "Некорректный турнир.");
+                return;
+            }
+
+            const deleted = await deleteAdminTournament(tournamentId);
+            if (!deleted) {
+                sendError(res, 404, "Турнир не найден.");
+                return;
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.use("/front", express.static(FRONT_DIR, { index: false }));
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(ROOT_DIR, "index.html"));
+});
+
+app.get("/404.html", (req, res) => {
+    res.sendFile(path.join(ROOT_DIR, "404.html"));
+});
+
+app.get("/4041.html", (req, res) => {
+    res.sendFile(path.join(ROOT_DIR, "4041.html"));
+});
+
+app.use("/api", (req, res) => {
+    sendError(res, 404, "Маршрут API не найден.");
+});
+
+app.use((req, res) => {
+    res.status(404).sendFile(path.join(ROOT_DIR, "4041.html"));
+});
+
+app.use((error, req, res, next) => {
+    console.error(error);
+    sendError(res, 500, "Внутренняя ошибка сервера.");
+});
+
+io.on("connection", (socket) => {
     console.log(`Пользователь подключился: ${socket.id}`);
 
-    // Обработка отключения
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
         console.log(`Пользователь отключился: ${socket.id}`);
     });
 });
 
-// Запуск сервера на порту 3000
-const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+async function start() {
+    await initializeDatabase();
+    await bootstrapAdminUsers();
+
+    setInterval(() => {
+        cleanupExpiredArtifacts().catch((error) => {
+            console.error("Не удалось очистить истекшие данные:", error);
+        });
+    }, 60 * 60 * 1000).unref();
+
+    server.listen(PORT, HOST, () => {
+        console.log(`Сервер запущен на ${HOST}:${PORT}`);
+    });
+}
+
+start().catch((error) => {
+    console.error("Не удалось запустить сервер:", error);
+    process.exitCode = 1;
 });

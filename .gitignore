@@ -4,3 +4,5 @@ source/
 .agent/
 miro/
 desing/
+back/data/*.sqlite
+back/data/*.sqlite-*

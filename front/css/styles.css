@@ -34,6 +34,7 @@
     --border-2: rgba(255, 255, 255, 0.2);
     --card: rgba(255, 255, 255, 0.06);
     --card-border: rgba(255, 255, 255, 0.1);
+    --line: rgba(255, 255, 255, 0.08);
     --accent-from: #f43f5e;
     --accent-to: #f59e0b;
     --accent-grad: linear-gradient(90deg, var(--accent-from), var(--accent-to));
@@ -44,6 +45,9 @@
     );
     --green: #22c55e;
     --green-2: #16a34a;
+    --ok: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
     --container: 80rem;
     --header-h: 56px;
 
@@ -90,6 +94,7 @@
     --border-2: rgba(0, 0, 0, 0.2);
     --card: rgba(0, 0, 0, 0.04);
     --card-border: rgba(0, 0, 0, 0.08);
+    --line: rgba(2, 6, 23, 0.08);
     --grid-o: 0.08;
     color-scheme: light;
     --formula-o: 0.16; /* чуть заметнее на светлом фоне */
@@ -8679,4 +8684,856 @@ body.loading {
 }
 .gap-24 {
     gap: 24px;
+}
+
+/* Role workspaces */
+.ops-view {
+    display: grid;
+    gap: 24px;
+    padding-bottom: 40px;
+}
+
+.ops-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.ops-header__copy {
+    display: grid;
+    gap: 10px;
+}
+
+.ops-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.ops-metric-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.ops-metric-grid--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ops-metric-grid--four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ops-metric-grid--six {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.ops-metric-card {
+    gap: 18px;
+    min-height: 148px;
+}
+
+.ops-metric-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.ops-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 72%, transparent);
+    color: var(--fg);
+    flex-shrink: 0;
+}
+
+.ops-icon .icon-svg {
+    width: 22px;
+    height: 22px;
+}
+
+.ops-icon--accent {
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-from) 24%, transparent),
+        color-mix(in oklab, var(--accent-to) 20%, transparent)
+    );
+    color: var(--accent-to);
+}
+
+.ops-icon--warning {
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-to) 24%, transparent),
+        color-mix(in oklab, #fbbf24 16%, transparent)
+    );
+    color: var(--warning);
+}
+
+.ops-icon--danger {
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-from) 24%, transparent),
+        color-mix(in oklab, #ef4444 16%, transparent)
+    );
+    color: var(--danger);
+}
+
+.ops-icon--muted {
+    color: var(--fg-muted);
+}
+
+.ops-metric-card__copy {
+    display: grid;
+    gap: 8px;
+}
+
+.ops-metric-card__label {
+    color: var(--fg-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.ops-metric-card__value {
+    font-family: var(--font-head);
+    font-size: clamp(30px, 4vw, 42px);
+    line-height: 1;
+    color: var(--fg-strong);
+}
+
+.ops-metric-card__meta {
+    color: var(--fg-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-top: auto;
+}
+
+.ops-shell {
+    display: grid;
+    gap: 18px;
+}
+
+.ops-shell--aside {
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.8fr);
+    align-items: start;
+}
+
+.ops-shell--editor {
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    align-items: start;
+}
+
+.ops-shell--composer {
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    align-items: start;
+}
+
+.ops-stack {
+    display: grid;
+    gap: 18px;
+}
+
+.ops-panel {
+    gap: 18px;
+}
+
+.ops-panel--primary {
+    padding: 28px;
+}
+
+.ops-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.ops-panel__copy {
+    display: grid;
+    gap: 8px;
+}
+
+.ops-panel__title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--fg-strong);
+}
+
+.ops-panel__desc {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.ops-panel__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ops-panel__body {
+    display: grid;
+    gap: 16px;
+}
+
+.ops-action-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.ops-action-card {
+    display: grid;
+    gap: 10px;
+    align-items: start;
+    justify-items: start;
+    text-align: left;
+    width: 100%;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+    color: var(--fg);
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.ops-action-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--accent-to) 40%, var(--line));
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+}
+
+.ops-action-card__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-action-card__desc {
+    font-size: 13px;
+    color: var(--fg-muted);
+    line-height: 1.5;
+}
+
+.ops-flow-list {
+    display: grid;
+    gap: 16px;
+}
+
+.ops-flow-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+}
+
+.ops-flow-item__step {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--line);
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-from) 18%, transparent),
+        color-mix(in oklab, var(--accent-to) 14%, transparent)
+    );
+}
+
+.ops-sidebar {
+    padding: 20px;
+    max-height: calc(100vh - 210px);
+    overflow: hidden;
+}
+
+.ops-sidebar__head {
+    margin-bottom: 14px;
+}
+
+.ops-sidebar__body {
+    display: grid;
+    gap: 10px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.ops-list-card {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        background 0.2s ease;
+}
+
+.ops-list-card:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--accent-from) 45%, var(--line));
+}
+
+.ops-list-card.is-active {
+    border-color: color-mix(in oklab, var(--accent-to) 45%, var(--line));
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-from) 10%, var(--bg-1)),
+        color-mix(in oklab, var(--accent-to) 8%, var(--bg-1))
+    );
+}
+
+.ops-list-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ops-list-card__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-list-card__meta {
+    color: var(--fg-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ops-main {
+    display: grid;
+    gap: 18px;
+}
+
+.ops-editor-shell {
+    padding: 26px;
+    gap: 20px;
+}
+
+.ops-record-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.ops-record-head__copy {
+    display: grid;
+    gap: 8px;
+}
+
+.ops-record-head__eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--fg-muted);
+}
+
+.ops-record-head__title {
+    font-family: var(--font-head);
+    font-size: clamp(26px, 4vw, 34px);
+    line-height: 1.05;
+    color: var(--fg-strong);
+}
+
+.ops-record-head__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ops-record-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ops-record-meta__item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: color-mix(in oklab, var(--bg-1) 74%, transparent);
+    display: grid;
+    gap: 6px;
+}
+
+.ops-record-meta__label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+}
+
+.ops-record-meta__value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-editor-content {
+    display: grid;
+    gap: 18px;
+}
+
+.ops-tabs {
+    margin-bottom: 0;
+}
+
+.ops-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--fg-muted);
+    font-size: 12px;
+    background: color-mix(in oklab, var(--bg-1) 74%, transparent);
+}
+
+.tab-item.active .ops-tab-count {
+    color: var(--fg);
+    border-color: color-mix(in oklab, var(--accent-to) 45%, var(--line));
+}
+
+.ops-form-stack {
+    display: grid;
+    gap: 18px;
+}
+
+.ops-form-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.ops-form-grid--full,
+.ops-form-grid--double,
+.ops-form-grid--triple,
+.ops-form-grid--quad {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.ops-form-grid--full > * {
+    grid-column: span 12;
+}
+
+.ops-form-grid--double > * {
+    grid-column: span 6;
+}
+
+.ops-form-grid--triple > * {
+    grid-column: span 4;
+}
+
+.ops-form-grid--quad > * {
+    grid-column: span 3;
+}
+
+.ops-field-wide {
+    grid-column: span 12;
+}
+
+.ops-form-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+
+.ops-form-submit-wrap {
+    display: flex;
+    align-items: end;
+}
+
+.ops-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.ops-toggle-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+    cursor: pointer;
+}
+
+.ops-toggle-card input {
+    margin-top: 4px;
+}
+
+.ops-toggle-card__copy {
+    display: grid;
+    gap: 6px;
+}
+
+.ops-toggle-card__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-toggle-card__desc {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg-muted);
+}
+
+.ops-checklist {
+    display: grid;
+    gap: 12px;
+    max-height: 430px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.ops-check-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.ops-check-item:hover {
+    transform: translateY(-1px);
+}
+
+.ops-check-item.is-selected {
+    border-color: color-mix(in oklab, var(--accent-to) 46%, var(--line));
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--accent-from) 10%, var(--bg-1)),
+        color-mix(in oklab, var(--accent-to) 8%, var(--bg-1))
+    );
+}
+
+.ops-check-item__body {
+    display: grid;
+    gap: 6px;
+}
+
+.ops-check-item__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-participants-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.05fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.ops-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ops-preview-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+}
+
+.ops-preview-card__summary,
+.ops-preview-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.ops-preview-card__errors {
+    display: grid;
+    gap: 6px;
+    max-height: 170px;
+    overflow: auto;
+}
+
+.ops-entity-list {
+    display: grid;
+    gap: 10px;
+}
+
+.ops-entity-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+}
+
+.ops-entity-row.is-selected {
+    border-color: color-mix(in oklab, var(--accent-to) 45%, var(--line));
+}
+
+.ops-entity-row__main {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ops-entity-row__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-entity-row__meta {
+    font-size: 13px;
+    color: var(--fg-muted);
+    line-height: 1.5;
+}
+
+.ops-entity-row__note {
+    font-size: 13px;
+    color: var(--fg);
+    line-height: 1.5;
+}
+
+.ops-entity-row__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ops-empty-state {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.ops-empty-state__visual .ops-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+}
+
+.ops-empty-state__title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-empty-state__desc {
+    font-size: 14px;
+    color: var(--fg-muted);
+    line-height: 1.6;
+    max-width: 52ch;
+}
+
+.ops-empty-state__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ops-divider {
+    height: 1px;
+    background: var(--line);
+}
+
+.ops-import-box {
+    display: grid;
+    gap: 12px;
+}
+
+.ops-import-box__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.ops-import-box__desc {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--fg-muted);
+}
+
+.ops-admin-list {
+    display: grid;
+    gap: 12px;
+}
+
+.ops-admin-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+}
+
+.ops-admin-row__main {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ops-admin-row__controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ops-admin-row__controls .input {
+    min-width: 148px;
+}
+
+.ops-timeline .sec-list-item {
+    padding-inline: 0;
+}
+
+@media (max-width: 1280px) {
+    .ops-metric-grid--six {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .ops-shell--editor,
+    .ops-shell--composer,
+    .ops-shell--aside,
+    .ops-participants-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .ops-sidebar {
+        max-height: none;
+    }
+}
+
+@media (max-width: 960px) {
+    .ops-metric-grid--three,
+    .ops-metric-grid--four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ops-record-meta,
+    .ops-toggle-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ops-form-grid--double > *,
+    .ops-form-grid--triple > *,
+    .ops-form-grid--quad > * {
+        grid-column: span 6;
+    }
+
+    .ops-admin-row {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .ops-admin-row__controls {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 720px) {
+    .ops-header,
+    .ops-record-head {
+        flex-direction: column;
+    }
+
+    .ops-header__actions,
+    .ops-record-head__actions,
+    .ops-panel__actions {
+        justify-content: flex-start;
+    }
+
+    .ops-metric-grid--three,
+    .ops-metric-grid--four,
+    .ops-metric-grid--six,
+    .ops-record-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .ops-form-grid--double > *,
+    .ops-form-grid--triple > *,
+    .ops-form-grid--quad > * {
+        grid-column: span 12;
+    }
+
+    .ops-form-submit-wrap {
+        align-items: stretch;
+    }
+
+    .ops-form-submit-wrap .btn {
+        width: 100%;
+    }
+
+    .ops-entity-row,
+    .ops-panel__head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ops-entity-row__actions {
+        justify-content: flex-start;
+    }
+
+    .ops-tabs {
+        gap: 18px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+
+    .ops-tab-count {
+        min-width: 20px;
+        height: 20px;
+    }
 }
