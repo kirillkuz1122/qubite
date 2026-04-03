@@ -60,7 +60,9 @@ const {
     getTaskById,
     getTeamForUser,
     getTournamentById,
+    getTournamentEntryForContext,
     getTournamentRosterEntryForUser,
+    getTournamentTaskLink,
     getTournaments,
     getUserById,
     hasPendingOrganizerApplication,
@@ -86,10 +88,13 @@ const {
     listTasksByIds,
     listTeamTournamentResults,
     listTournamentRosterEntries,
+    listTournamentRuntimeTasks,
+    listTournamentSubmissionsForEntry,
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,
     markUserEmailVerified,
+    recalculateTournamentEntryStats,
     refreshTournamentParticipantsCount,
     removeTournamentRosterEntry,
     removeTeamMember,
@@ -115,6 +120,8 @@ const {
     updateUserProfile,
     setUserRole,
     submitTaskForModeration,
+    submitTournamentTaskAnswer,
+    upsertTournamentTaskDraft,
     upsertTournamentRosterEntry,
     updateUserSecuritySettings,
     leaveTeam,
@@ -154,6 +161,14 @@ const {
     slugify,
     verifyPassword,
 } = require("./src/security");
+const {
+    judgeSubmission,
+    normalizeSubmissionAnswer,
+    parseJson: parseTaskRuntimeJson,
+    sanitizeTaskRuntime,
+    stripTaskSnapshotForParticipant,
+    validateTaskRuntime,
+} = require("./src/task-runtime");
 
 const app = express();
 const server = http.createServer(app);
@@ -180,6 +195,7 @@ app.use((req, res, next) => {
 });
 
 const authRateLimits = new Map();
+const submissionRateLimits = new Map();
 
 function isAdminRole(role) {
     return role === ROLE_ADMIN;
@@ -263,6 +279,26 @@ function authRateLimiter(req, res, next) {
 
     entry.count += 1;
     next();
+}
+
+function hitSimpleRateLimit(bucket, key, windowMs, maxAttempts) {
+    const now = Date.now();
+    const entry = bucket.get(key);
+
+    if (!entry || entry.expiresAt <= now) {
+        bucket.set(key, {
+            count: 1,
+            expiresAt: now + windowMs,
+        });
+        return false;
+    }
+
+    if (entry.count >= maxAttempts) {
+        return true;
+    }
+
+    entry.count += 1;
+    return false;
 }
 
 function formatDateLabel(isoString) {
@@ -478,7 +514,8 @@ function sessionCookieOptions() {
 
 function serializeTournament(row, currentUserId = null) {
     const joined = Boolean(row.joined_individual || row.joined_team);
-    const action = buildTournamentAction(row.status, joined);
+    const effectiveStatus = getTournamentEffectiveStatus(row);
+    const action = buildTournamentAction(effectiveStatus, joined);
     const date = new Date(row.start_at);
     const statusTextMap = {
         draft: "Черновик",
@@ -495,15 +532,15 @@ function serializeTournament(row, currentUserId = null) {
         title: row.title,
         desc: row.description,
         status:
-            row.status === "published"
+            effectiveStatus === "published"
                 ? "upcoming"
-                : row.status === "draft"
+                : effectiveStatus === "draft"
                   ? "upcoming"
-                  : row.status,
+                  : effectiveStatus,
         rawStatus: row.status,
-        statusText: statusTextMap[row.status] || "Неизвестно",
+        statusText: statusTextMap[effectiveStatus] || "Неизвестно",
         participants: row.participants_count,
-        time: row.time_label || buildTournamentTimeLabel(row.status, row.start_at, row.end_at),
+        time: buildTournamentTimeLabel(effectiveStatus, row.start_at, row.end_at),
         icon: action.icon,
         action: action.label,
         actionType: action.type,
@@ -521,6 +558,11 @@ function serializeTournament(row, currentUserId = null) {
         accessCode: row.access_code || "",
         leaderboardVisible: Boolean(row.leaderboard_visible),
         resultsVisible: Boolean(row.results_visible),
+        runtimeMode: row.runtime_mode || "competition",
+        allowLiveTaskAdd: Boolean(row.allow_live_task_add),
+        wrongAttemptPenaltySeconds: Number(
+            row.wrong_attempt_penalty_seconds || 1200,
+        ),
         rosterCount: Number(row.roster_count || 0),
         ownerUserId: row.owner_user_id || null,
         startAt: row.start_at,
@@ -576,6 +618,9 @@ function serializeAdminTask(task) {
         sourceTitle: task.source_title || "",
         reviewerNote: task.reviewer_note || "",
         version: Number(task.version || 1),
+        taskType: task.task_type || "short_text",
+        taskContent: parseTaskRuntimeJson(task.task_content_json, {}),
+        answerConfig: parseTaskRuntimeJson(task.answer_config_json, {}),
         createdAt: task.created_at,
         updatedAt: task.updated_at,
     };
@@ -713,6 +758,9 @@ function serializeTask(task) {
         sourceTitle: task.source_title || "",
         reviewerNote: task.reviewer_note || "",
         version: Number(task.version || 1),
+        taskType: task.task_type || "short_text",
+        taskContent: parseTaskRuntimeJson(task.task_content_json, {}),
+        answerConfig: parseTaskRuntimeJson(task.answer_config_json, {}),
     };
 }
 
@@ -840,7 +888,10 @@ function serializeLeaderboard(tournament, tasks, entries, auth) {
             score: entry.score,
             solvedLabel: `${entry.solved_count}/${entry.total_tasks}`,
             pointsDelta: entry.points_delta,
-            averageTimeLabel: formatDurationLabel(entry.average_time_seconds),
+            averageTimeLabel: formatDurationLabel(
+                entry.penalty_seconds || entry.average_time_seconds,
+            ),
+            penaltySeconds: Number(entry.penalty_seconds || 0),
             isCurrent: Boolean(
                 (entry.user_id && entry.user_id === auth.user.id) ||
                 (entry.team_id &&
@@ -853,6 +904,172 @@ function serializeLeaderboard(tournament, tasks, entries, auth) {
                     entry.display_name === auth.rosterEntry.team_name),
             ),
         })),
+    };
+}
+
+function groupSubmissionsByTournamentTask(submissions) {
+    const map = new Map();
+    submissions.forEach((item) => {
+        const key = Number(item.tournament_task_id);
+        if (!map.has(key)) {
+            map.set(key, []);
+        }
+        map.get(key).push(item);
+    });
+    return map;
+}
+
+function buildRuntimeTaskCard(taskRow, submissionsByTask = new Map()) {
+    const snapshot = parseTaskRuntimeJson(taskRow.task_snapshot_json, null);
+    const participantTask = stripTaskSnapshotForParticipant(
+        snapshot || {
+            taskId: taskRow.id,
+            title: taskRow.title,
+            category: taskRow.category,
+            difficulty: taskRow.difficulty,
+            statement: taskRow.statement,
+            estimatedMinutes: Number(taskRow.estimated_minutes || 0),
+            taskType: taskRow.task_type || "short_text",
+            taskContent: parseTaskRuntimeJson(taskRow.task_content_json, {}),
+            version: Number(taskRow.version || 1),
+            points: Number(taskRow.points || 100),
+        },
+    );
+    const recentSubmissions = (submissionsByTask.get(
+        Number(taskRow.tournament_task_id),
+    ) || [])
+        .slice(0, 5)
+        .map((submission) => ({
+            id: submission.id,
+            verdict: submission.verdict,
+            scoreDelta: Number(submission.score_delta || 0),
+            penaltyDeltaSeconds: Number(submission.penalty_delta_seconds || 0),
+            answerSummary: submission.answer_summary || "",
+            submittedAt: submission.submitted_at,
+        }));
+
+    return {
+        id: Number(taskRow.tournament_task_id),
+        tournamentTaskId: Number(taskRow.tournament_task_id),
+        taskId: participantTask.taskId,
+        title: participantTask.title,
+        category: participantTask.category,
+        difficulty: participantTask.difficulty,
+        statement: participantTask.statement,
+        estimatedMinutes: participantTask.estimatedMinutes,
+        taskType: participantTask.taskType,
+        taskContent: participantTask.taskContent || {},
+        version: Number(participantTask.version || 1),
+        points: Number(participantTask.points || taskRow.points || 100),
+        status: taskRow.progress_status || "not_started",
+        solved: Boolean(taskRow.is_solved),
+        attemptsCount: Number(taskRow.attempts_count || 0),
+        wrongAttempts: Number(taskRow.wrong_attempts || 0),
+        scoreAwarded: Number(taskRow.score_awarded || 0),
+        penaltySeconds: Number(taskRow.penalty_seconds || 0),
+        acceptedAt: taskRow.accepted_at || null,
+        liveAddedAt: taskRow.live_added_at || null,
+        draft: parseTaskRuntimeJson(taskRow.draft_payload_json, {}),
+        draftUpdatedAt: taskRow.draft_updated_at || null,
+        recentSubmissions,
+    };
+}
+
+async function resolveTournamentEntryContext(tournament, auth, rosterEntry) {
+    if (tournament.format === "team") {
+        if (rosterEntry?.team_name) {
+            const entry = await getTournamentEntryForContext({
+                tournamentId: tournament.id,
+                teamDisplayName: rosterEntry.team_name,
+            });
+            return {
+                entry,
+                entryType: "team",
+                participantLabel: rosterEntry.team_name,
+            };
+        }
+
+        if (auth.teamMembership?.team_id) {
+            const entry = await getTournamentEntryForContext({
+                tournamentId: tournament.id,
+                teamId: auth.teamMembership.team_id,
+            });
+            return {
+                entry,
+                entryType: "team",
+                participantLabel: auth.teamMembership.team_name || "",
+            };
+        }
+
+        return {
+            entry: null,
+            entryType: "team",
+            participantLabel: "",
+        };
+    }
+
+    return {
+        entry: await getTournamentEntryForContext({
+            tournamentId: tournament.id,
+            userId: auth.user.id,
+        }),
+        entryType: "user",
+        participantLabel: buildDisplayName(auth.user),
+    };
+}
+
+async function buildTournamentRuntimePayload(tournament, entry, auth) {
+    const [taskRows, submissions] = await Promise.all([
+        listTournamentRuntimeTasks(tournament.id, entry.id),
+        listTournamentSubmissionsForEntry(tournament.id, entry.id),
+    ]);
+    const submissionsByTask = groupSubmissionsByTournamentTask(submissions);
+    const tasks = taskRows.map((row) => buildRuntimeTaskCard(row, submissionsByTask));
+    const effectiveStatus = getTournamentEffectiveStatus(tournament);
+
+    return {
+        tournament: {
+            id: tournament.id,
+            title: tournament.title,
+            description: tournament.description,
+            status: effectiveStatus,
+            format: tournament.format,
+            accessScope:
+                tournament.access_scope === "public"
+                    ? "open"
+                    : tournament.access_scope || "open",
+            runtimeMode: tournament.runtime_mode || "competition",
+            allowLiveTaskAdd: Boolean(tournament.allow_live_task_add),
+            wrongAttemptPenaltySeconds: Number(
+                tournament.wrong_attempt_penalty_seconds || 1200,
+            ),
+            leaderboardVisible: Boolean(tournament.leaderboard_visible),
+            resultsVisible: Boolean(tournament.results_visible),
+            canTasksChange:
+                effectiveStatus === "live" &&
+                tournament.runtime_mode === "lesson" &&
+                Boolean(tournament.allow_live_task_add),
+            startAt: tournament.start_at,
+            endAt: tournament.end_at,
+            joinedAt: entry.joined_at,
+            entryType: entry.entry_type,
+            participantLabel: entry.display_name,
+            taskCount: tasks.length,
+        },
+        summary: {
+            entryId: entry.id,
+            rankPosition: entry.rank_position,
+            score: Number(entry.score || 0),
+            solvedCount: Number(entry.solved_count || 0),
+            totalTasks: Number(entry.total_tasks || tasks.length),
+            penaltySeconds: Number(entry.penalty_seconds || 0),
+            lastSubmissionAt: entry.last_submission_at || null,
+        },
+        tasks,
+        viewer: {
+            userId: auth.user.id,
+            role: auth.user.role,
+        },
     };
 }
 
@@ -1208,6 +1425,24 @@ function normalizeTournamentAccessScope(value) {
     return "open";
 }
 
+function normalizeTournamentRuntimeMode(value) {
+    const normalized = cleanText(value, 24).toLowerCase() || "competition";
+    if (["competition", "lesson"].includes(normalized)) {
+        return normalized;
+    }
+
+    return "competition";
+}
+
+function normalizePenaltySeconds(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return 20 * 60;
+    }
+
+    return Math.max(0, Math.min(Math.round(numeric), 12 * 60 * 60));
+}
+
 function normalizeUserRole(value) {
     const normalized = cleanText(value, 24).toLowerCase();
     if (
@@ -1228,6 +1463,84 @@ function normalizeUserStatus(value) {
     }
 
     return "";
+}
+
+function parseTournamentDateMs(value) {
+    const timestamp = Date.parse(String(value || ""));
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getTournamentEffectiveStatus(tournament, nowMs = Date.now()) {
+    const rawStatus = normalizeTournamentStatusInput(
+        tournament?.status || tournament?.rawStatus,
+    );
+    const startMs = parseTournamentDateMs(
+        tournament?.start_at || tournament?.startAt,
+    );
+    const endMs = parseTournamentDateMs(tournament?.end_at || tournament?.endAt);
+
+    if (rawStatus === "draft" || rawStatus === "archived" || rawStatus === "ended") {
+        return rawStatus;
+    }
+
+    if (endMs !== null && nowMs > endMs) {
+        return "ended";
+    }
+
+    if (rawStatus === "live" && startMs !== null && nowMs < startMs) {
+        return "upcoming";
+    }
+
+    if (
+        (rawStatus === "published" || rawStatus === "upcoming") &&
+        startMs !== null &&
+        nowMs >= startMs &&
+        (endMs === null || nowMs <= endMs)
+    ) {
+        return "live";
+    }
+
+    return rawStatus === "published" ? "upcoming" : rawStatus;
+}
+
+function isTournamentRuntimeOpen(tournament, nowMs = Date.now()) {
+    return getTournamentEffectiveStatus(tournament, nowMs) === "live";
+}
+
+function canParticipantViewLeaderboard(tournament, nowMs = Date.now()) {
+    const effectiveStatus = getTournamentEffectiveStatus(tournament, nowMs);
+
+    if (effectiveStatus === "live") {
+        return Boolean(tournament?.leaderboard_visible);
+    }
+
+    if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+        return Boolean(tournament?.results_visible);
+    }
+
+    return false;
+}
+
+function getTournamentRuntimeClosedMessage(tournament) {
+    const effectiveStatus = getTournamentEffectiveStatus(tournament);
+    if (effectiveStatus === "upcoming") {
+        return "Турнир ещё не начался. Дождитесь времени старта.";
+    }
+
+    if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+        return "Турнир уже завершён. Отправка ответов закрыта.";
+    }
+
+    return "Отправка ответов сейчас недоступна.";
+}
+
+function getLeaderboardVisibilityErrorMessage(tournament) {
+    const effectiveStatus = getTournamentEffectiveStatus(tournament);
+    if (effectiveStatus === "live") {
+        return "Организатор скрыл лидерборд на время турнира.";
+    }
+
+    return "Результаты этого соревнования пока скрыты организатором.";
 }
 
 async function buildRosterPreview(base64File, format = "individual") {
@@ -1286,6 +1599,7 @@ async function buildRosterPreview(base64File, format = "individual") {
 }
 
 function cleanTaskPayload(body) {
+    const runtime = sanitizeTaskRuntime(body);
     return {
         title: cleanText(body.title, 100),
         category: cleanText(body.category, 32).toLowerCase() || "other",
@@ -1295,6 +1609,9 @@ function cleanTaskPayload(body) {
             Math.max(Number(body.estimatedMinutes || 30), 10),
             240,
         ),
+        taskType: runtime.taskType,
+        taskContent: runtime.taskContent,
+        answerConfig: runtime.answerConfig,
     };
 }
 
@@ -1311,6 +1628,16 @@ function validateTaskPayload(res, payload) {
 
     if (!payload.statement || payload.statement.length < 16) {
         sendError(res, 400, "Добавьте полноценное условие задачи.", "statement");
+        return false;
+    }
+
+    const runtimeValidation = validateTaskRuntime(
+        payload.taskType,
+        payload.taskContent,
+        payload.answerConfig,
+    );
+    if (!runtimeValidation.ok) {
+        sendError(res, 400, runtimeValidation.error, runtimeValidation.field);
         return false;
     }
 
@@ -2430,32 +2757,14 @@ app.get("/api/task-bank", requireAuth, async (req, res, next) => {
 
 app.post("/api/task-bank", requireAdmin, async (req, res, next) => {
     try {
-        const title = cleanText(req.body.title, 100);
-        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
-        const difficulty = cleanText(req.body.difficulty, 16) || "Medium";
-        const statement = cleanText(req.body.statement, 1200);
-        const estimatedMinutes = Math.min(
-            Math.max(Number(req.body.estimatedMinutes || 30), 10),
-            240,
-        );
-
-        if (!title || title.length < 3) {
-            sendError(res, 400, "Название задачи должно быть не короче 3 символов.", "title");
-            return;
-        }
-
-        if (!statement || statement.length < 16) {
-            sendError(res, 400, "Добавьте полноценное условие задачи.", "statement");
+        const payload = cleanTaskPayload(req.body);
+        if (!validateTaskPayload(res, payload)) {
             return;
         }
 
         const task = await createTask({
             ownerUserId: req.auth.user.id,
-            title,
-            category,
-            difficulty,
-            statement,
-            estimatedMinutes,
+            ...payload,
         });
 
         res.status(201).json({
@@ -2670,6 +2979,9 @@ app.post(
                     difficulty: row.difficulty,
                     statement: row.statement,
                     estimatedMinutes: row.estimatedMinutes,
+                    taskType: row.taskType,
+                    taskContent: row.taskContent,
+                    answerConfig: row.answerConfig,
                     bankScope: "personal",
                     moderationStatus: "draft",
                 });
@@ -2720,6 +3032,7 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
         const format = cleanText(req.body.format, 16).toLowerCase() || "individual";
         const status = normalizeTournamentStatusInput(req.body.status);
         const accessScope = normalizeTournamentAccessScope(req.body.accessScope);
+        const runtimeMode = normalizeTournamentRuntimeMode(req.body.runtimeMode);
         const rawStartAt = String(req.body.startAt || "");
         const rawEndAt = String(req.body.endAt || "");
         const taskIds = Array.isArray(req.body.taskIds)
@@ -2777,6 +3090,12 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
                     ? cleanText(req.body.accessCode, 48)
                     : null,
             difficultyLabel: taskIds.length > 1 ? "Mixed" : req.body.difficultyLabel || "Mixed",
+            runtimeMode,
+            allowLiveTaskAdd:
+                runtimeMode === "lesson" && req.body.allowLiveTaskAdd !== false,
+            wrongAttemptPenaltySeconds: normalizePenaltySeconds(
+                req.body.wrongAttemptPenaltySeconds,
+            ),
             leaderboardVisible: req.body.leaderboardVisible !== false,
             resultsVisible: req.body.resultsVisible !== false,
             registrationStartAt: isValidDate(req.body.registrationStartAt)
@@ -2819,11 +3138,40 @@ app.patch(
                       .map((value) => Number(value))
                       .filter((value) => Number.isInteger(value) && value > 0)
                 : undefined;
+            const currentTournament = await getTournamentById(tournamentId);
+            if (!currentTournament || currentTournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
 
             if (Array.isArray(taskIds) && taskIds.length > 0) {
                 const tasks = await listTasksByIds(taskIds, req.auth.user.id, false);
                 if (tasks.length !== taskIds.length) {
                     sendError(res, 400, "Не все выбранные задачи доступны организатору.");
+                    return;
+                }
+            }
+
+            if (
+                currentTournament.status === "live" &&
+                Array.isArray(taskIds)
+            ) {
+                const currentTaskIds = (await listTournamentTasks(tournamentId)).map((item) =>
+                    Number(item.id),
+                );
+                const nextTaskSet = new Set(taskIds);
+                const removedExisting = currentTaskIds.some(
+                    (taskId) => !nextTaskSet.has(taskId),
+                );
+                const lessonDynamic =
+                    currentTournament.runtime_mode === "lesson" &&
+                    Boolean(currentTournament.allow_live_task_add);
+                if (removedExisting || !lessonDynamic) {
+                    sendError(
+                        res,
+                        409,
+                        "Во время активного турнира можно только добавлять новые задачи в режиме lesson.",
+                    );
                     return;
                 }
             }
@@ -2862,6 +3210,20 @@ app.patch(
                     accessCode:
                         req.body.accessCode !== undefined
                             ? cleanText(req.body.accessCode, 48)
+                            : undefined,
+                    runtimeMode:
+                        req.body.runtimeMode !== undefined
+                            ? normalizeTournamentRuntimeMode(req.body.runtimeMode)
+                            : undefined,
+                    allowLiveTaskAdd:
+                        req.body.allowLiveTaskAdd !== undefined
+                            ? Boolean(req.body.allowLiveTaskAdd)
+                            : undefined,
+                    wrongAttemptPenaltySeconds:
+                        req.body.wrongAttemptPenaltySeconds !== undefined
+                            ? normalizePenaltySeconds(
+                                  req.body.wrongAttemptPenaltySeconds,
+                              )
                             : undefined,
                     leaderboardVisible:
                         req.body.leaderboardVisible !== undefined
@@ -3297,7 +3659,8 @@ app.post("/api/tournaments/:id/join", requireParticipant, async (req, res, next)
             return;
         }
 
-        if (tournament.status === "ended") {
+        const effectiveStatus = getTournamentEffectiveStatus(tournament);
+        if (effectiveStatus === "ended" || effectiveStatus === "archived") {
             sendError(res, 409, "Турнир уже завершён.");
             return;
         }
@@ -3371,19 +3734,40 @@ app.post("/api/tournaments/:id/join", requireParticipant, async (req, res, next)
             getTournamentById(tournamentId),
             listLeaderboardForTournament(tournamentId),
         ]);
+        const runtimeOpen = isTournamentRuntimeOpen(updatedTournament);
+        const joinedContext =
+            runtimeOpen
+                ? await resolveTournamentEntryContext(
+                      updatedTournament,
+                      req.auth,
+                      rosterEntry,
+                  )
+                : null;
+        const runtimePayload =
+            runtimeOpen && joinedContext?.entry
+                ? await buildTournamentRuntimePayload(
+                      updatedTournament,
+                      joinedContext.entry,
+                      req.auth,
+                  )
+                : null;
+        const leaderboardPayload = canParticipantViewLeaderboard(updatedTournament)
+            ? serializeLeaderboard(
+                  updatedTournament,
+                  tasks,
+                  leaderboard,
+                  {
+                      user: req.auth.user,
+                      teamMembership: req.auth.teamMembership,
+                      rosterEntry,
+                  },
+              )
+            : null;
 
         res.json({
             success: true,
-            leaderboard: serializeLeaderboard(
-                updatedTournament,
-                tasks,
-                leaderboard,
-                {
-                    user: req.auth.user,
-                    teamMembership: req.auth.teamMembership,
-                    rosterEntry,
-                },
-            ),
+            leaderboard: leaderboardPayload,
+            runtime: runtimePayload,
         });
     } catch (error) {
         if (error.code === "TEAM_REQUIRED") {
@@ -3393,6 +3777,284 @@ app.post("/api/tournaments/:id/join", requireParticipant, async (req, res, next)
         next(error);
     }
 });
+
+app.get("/api/tournaments/:id/runtime", requireParticipant, async (req, res, next) => {
+    try {
+        const tournamentId = Number(req.params.id);
+        if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+            sendError(res, 400, "Некорректный турнир.");
+            return;
+        }
+
+        const tournament = await getTournamentById(tournamentId);
+        if (!tournament) {
+            sendError(res, 404, "Турнир не найден.");
+            return;
+        }
+
+        const accessScope =
+            tournament.access_scope === "public"
+                ? "open"
+                : tournament.access_scope || "open";
+        const rosterEntry = await getTournamentRosterEntryForUser(
+            tournamentId,
+            req.auth.user.id,
+        );
+
+        if (accessScope === "closed" && !rosterEntry) {
+            sendError(
+                res,
+                403,
+                "Вы не входите в список участников этого соревнования.",
+            );
+            return;
+        }
+
+        const { entry } = await resolveTournamentEntryContext(
+            tournament,
+            req.auth,
+            rosterEntry,
+        );
+        if (!entry) {
+            sendError(
+                res,
+                409,
+                "Сначала присоединитесь к соревнованию, чтобы открыть его runtime.",
+            );
+            return;
+        }
+
+        res.json(await buildTournamentRuntimePayload(tournament, entry, req.auth));
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post(
+    "/api/tournaments/:id/tasks/:taskId/draft",
+    requireParticipant,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournamentTaskId = Number(req.params.taskId);
+            if (
+                !Number.isInteger(tournamentId) ||
+                tournamentId <= 0 ||
+                !Number.isInteger(tournamentTaskId) ||
+                tournamentTaskId <= 0
+            ) {
+                sendError(res, 400, "Некорректная задача турнира.");
+                return;
+            }
+
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament) {
+                sendError(res, 404, "Турнир не найден.");
+                return;
+            }
+
+            if (!isTournamentRuntimeOpen(tournament)) {
+                sendError(
+                    res,
+                    409,
+                    getTournamentRuntimeClosedMessage(tournament),
+                );
+                return;
+            }
+
+            const accessScope =
+                tournament.access_scope === "public"
+                    ? "open"
+                    : tournament.access_scope || "open";
+            const rosterEntry = await getTournamentRosterEntryForUser(
+                tournamentId,
+                req.auth.user.id,
+            );
+            if (accessScope === "closed" && !rosterEntry) {
+                sendError(
+                    res,
+                    403,
+                    "Вы не входите в список участников этого соревнования.",
+                );
+                return;
+            }
+            const { entry } = await resolveTournamentEntryContext(
+                tournament,
+                req.auth,
+                rosterEntry,
+            );
+            if (!entry) {
+                sendError(res, 409, "Сначала присоединитесь к соревнованию.");
+                return;
+            }
+
+            const taskRow = await getTournamentTaskLink(tournamentId, tournamentTaskId);
+            if (!taskRow) {
+                sendError(res, 404, "Задача турнира не найдена.");
+                return;
+            }
+
+            const snapshot = parseTaskRuntimeJson(taskRow.task_snapshot_json, null) || {
+                taskType: taskRow.task_type || "short_text",
+            };
+            const draftPayload = normalizeSubmissionAnswer(snapshot.taskType, req.body);
+            const draft = await upsertTournamentTaskDraft({
+                tournamentId,
+                entryId: entry.id,
+                tournamentTaskId,
+                draftPayload,
+            });
+
+            res.json({
+                success: true,
+                draft: parseTaskRuntimeJson(draft.draft_payload_json, {}),
+                updatedAt: draft.updated_at,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/tournaments/:id/tasks/:taskId/submit",
+    requireParticipant,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournamentTaskId = Number(req.params.taskId);
+            if (
+                !Number.isInteger(tournamentId) ||
+                tournamentId <= 0 ||
+                !Number.isInteger(tournamentTaskId) ||
+                tournamentTaskId <= 0
+            ) {
+                sendError(res, 400, "Некорректная задача турнира.");
+                return;
+            }
+
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament) {
+                sendError(res, 404, "Турнир не найден.");
+                return;
+            }
+
+            if (!isTournamentRuntimeOpen(tournament)) {
+                sendError(
+                    res,
+                    409,
+                    getTournamentRuntimeClosedMessage(tournament),
+                );
+                return;
+            }
+
+            const accessScope =
+                tournament.access_scope === "public"
+                    ? "open"
+                    : tournament.access_scope || "open";
+            const rosterEntry = await getTournamentRosterEntryForUser(
+                tournamentId,
+                req.auth.user.id,
+            );
+            if (accessScope === "closed" && !rosterEntry) {
+                sendError(
+                    res,
+                    403,
+                    "Вы не входите в список участников этого соревнования.",
+                );
+                return;
+            }
+            const { entry } = await resolveTournamentEntryContext(
+                tournament,
+                req.auth,
+                rosterEntry,
+            );
+            if (!entry) {
+                sendError(res, 409, "Сначала присоединитесь к соревнованию.");
+                return;
+            }
+
+            const rateLimitKey = `${req.auth.user.id}:${tournamentId}:${tournamentTaskId}`;
+            if (
+                hitSimpleRateLimit(
+                    submissionRateLimits,
+                    rateLimitKey,
+                    15 * 1000,
+                    8,
+                )
+            ) {
+                sendError(
+                    res,
+                    429,
+                    "Слишком много отправок подряд. Подождите несколько секунд.",
+                );
+                return;
+            }
+
+            const taskRow = await getTournamentTaskLink(tournamentId, tournamentTaskId);
+            if (!taskRow) {
+                sendError(res, 404, "Задача турнира не найдена.");
+                return;
+            }
+
+            const snapshot = parseTaskRuntimeJson(taskRow.task_snapshot_json, null) || {
+                taskType: taskRow.task_type || "short_text",
+                answerConfig: parseTaskRuntimeJson(taskRow.answer_config_json, {}),
+            };
+            const normalizedAnswer = normalizeSubmissionAnswer(
+                snapshot.taskType,
+                req.body,
+            );
+            const judged = judgeSubmission(snapshot, normalizedAnswer);
+            const result = await submitTournamentTaskAnswer({
+                tournamentId,
+                entryId: entry.id,
+                tournamentTaskId,
+                submittedByUserId: req.auth.user.id,
+                rawAnswer: normalizedAnswer,
+                normalizedAnswer: judged.normalizedAnswer,
+                answerSummary: judged.answerSummary,
+                verdict: judged.verdict,
+                wrongAttemptPenaltySeconds:
+                    tournament.wrong_attempt_penalty_seconds || 1200,
+            });
+            if (!result) {
+                sendError(res, 404, "Не удалось сохранить отправку.");
+                return;
+            }
+
+            const updatedEntry = await getTournamentEntryForContext({
+                tournamentId,
+                userId: tournament.format === "team" ? null : req.auth.user.id,
+                teamId: entry.team_id || null,
+                teamDisplayName:
+                    tournament.format === "team" && !entry.team_id
+                        ? entry.display_name
+                        : "",
+            });
+
+            res.json({
+                success: true,
+                result: {
+                    verdict: result.submission.verdict,
+                    scoreDelta: Number(result.submission.score_delta || 0),
+                    penaltyDeltaSeconds: Number(
+                        result.submission.penalty_delta_seconds || 0,
+                    ),
+                    answerSummary: result.submission.answer_summary || "",
+                    submittedAt: result.submission.submitted_at,
+                },
+                runtime: await buildTournamentRuntimePayload(
+                    tournament,
+                    updatedEntry || entry,
+                    req.auth,
+                ),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
 
 app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res, next) => {
     try {
@@ -3423,6 +4085,11 @@ app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res,
                 403,
                 "Вы не входите в список участников этого соревнования.",
             );
+            return;
+        }
+
+        if (!canParticipantViewLeaderboard(tournament)) {
+            sendError(res, 403, getLeaderboardVisibilityErrorMessage(tournament));
             return;
         }
 

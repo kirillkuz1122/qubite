@@ -10,6 +10,7 @@ const {
     normalizeLogin,
     slugify,
 } = require("./security");
+const { buildTaskSnapshot } = require("./task-runtime");
 
 fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
 
@@ -262,7 +263,7 @@ function buildTournamentTimeLabel(status, startAt, endAt) {
 function buildTournamentAction(status, joined) {
     if (status === "live") {
         return joined
-            ? { label: "Лидерборд", type: "outline", icon: "bar_chart" }
+            ? { label: "Решать", type: "solve", icon: "play_circle" }
             : { label: "Присоединиться", type: "join", icon: "timer" };
     }
 
@@ -361,6 +362,9 @@ async function initializeDatabase() {
             access_scope TEXT NOT NULL DEFAULT 'public',
             access_code TEXT DEFAULT NULL,
             difficulty_label TEXT NOT NULL DEFAULT 'Mixed',
+            runtime_mode TEXT NOT NULL DEFAULT 'competition',
+            allow_live_task_add INTEGER NOT NULL DEFAULT 0,
+            wrong_attempt_penalty_seconds INTEGER NOT NULL DEFAULT 1200,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE SET NULL
@@ -397,6 +401,9 @@ async function initializeDatabase() {
             difficulty TEXT NOT NULL,
             statement TEXT NOT NULL,
             estimated_minutes INTEGER NOT NULL DEFAULT 30,
+            task_type TEXT NOT NULL DEFAULT 'short_text',
+            task_content_json TEXT NOT NULL DEFAULT '{}',
+            answer_config_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE SET NULL
@@ -408,6 +415,8 @@ async function initializeDatabase() {
             task_id INTEGER NOT NULL,
             points INTEGER NOT NULL DEFAULT 100,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            task_snapshot_json TEXT NOT NULL DEFAULT '{}',
+            live_added_at TEXT DEFAULT NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
             FOREIGN KEY (task_id) REFERENCES task_bank (id) ON DELETE CASCADE,
@@ -427,6 +436,9 @@ async function initializeDatabase() {
             rank_position INTEGER DEFAULT NULL,
             points_delta INTEGER NOT NULL DEFAULT 0,
             average_time_seconds INTEGER NOT NULL DEFAULT 0,
+            penalty_seconds INTEGER NOT NULL DEFAULT 0,
+            joined_at TEXT DEFAULT NULL,
+            last_submission_at TEXT DEFAULT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
@@ -546,6 +558,66 @@ async function initializeDatabase() {
             UNIQUE (tournament_id, user_id)
         );
 
+        CREATE TABLE IF NOT EXISTS tournament_task_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'not_started',
+            is_solved INTEGER NOT NULL DEFAULT 0,
+            attempts_count INTEGER NOT NULL DEFAULT 0,
+            wrong_attempts INTEGER NOT NULL DEFAULT 0,
+            score_awarded INTEGER NOT NULL DEFAULT 0,
+            penalty_seconds INTEGER NOT NULL DEFAULT 0,
+            accepted_submission_id INTEGER DEFAULT NULL,
+            first_attempt_at TEXT DEFAULT NULL,
+            accepted_at TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES task_bank (id) ON DELETE CASCADE,
+            UNIQUE (entry_id, tournament_task_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_task_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            draft_payload_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            UNIQUE (entry_id, tournament_task_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            submitted_by_user_id INTEGER DEFAULT NULL,
+            attempt_number INTEGER NOT NULL DEFAULT 1,
+            verdict TEXT NOT NULL,
+            score_delta INTEGER NOT NULL DEFAULT 0,
+            penalty_delta_seconds INTEGER NOT NULL DEFAULT 0,
+            raw_answer_json TEXT NOT NULL DEFAULT '{}',
+            normalized_answer_json TEXT NOT NULL DEFAULT '{}',
+            answer_summary TEXT NOT NULL DEFAULT '',
+            submitted_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES task_bank (id) ON DELETE CASCADE,
+            FOREIGN KEY (submitted_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash);
         CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status);
@@ -563,6 +635,12 @@ async function initializeDatabase() {
         CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_tournament ON tournament_roster_entries (tournament_id);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_user ON tournament_roster_entries (user_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_tasks_tournament_sort ON tournament_tasks (tournament_id, sort_order, id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_progress_entry_task ON tournament_task_progress (entry_id, tournament_task_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_progress_tournament ON tournament_task_progress (tournament_id, entry_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_drafts_entry_task ON tournament_task_drafts (entry_id, tournament_task_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_entry_time ON tournament_submissions (entry_id, submitted_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_task_time ON tournament_submissions (tournament_task_id, submitted_at DESC);
     `);
 
     await ensureColumn("users", "avatar_url", "TEXT NOT NULL DEFAULT ''");
@@ -598,6 +676,21 @@ async function initializeDatabase() {
         "tournaments",
         "difficulty_label",
         "TEXT NOT NULL DEFAULT 'Mixed'",
+    );
+    await ensureColumn(
+        "tournaments",
+        "runtime_mode",
+        "TEXT NOT NULL DEFAULT 'competition'",
+    );
+    await ensureColumn(
+        "tournaments",
+        "allow_live_task_add",
+        "INTEGER NOT NULL DEFAULT 0",
+    );
+    await ensureColumn(
+        "tournaments",
+        "wrong_attempt_penalty_seconds",
+        "INTEGER NOT NULL DEFAULT 1200",
     );
     await ensureColumn(
         "tournaments",
@@ -665,6 +758,46 @@ async function initializeDatabase() {
         "version",
         "INTEGER NOT NULL DEFAULT 1",
     );
+    await ensureColumn(
+        "task_bank",
+        "task_type",
+        "TEXT NOT NULL DEFAULT 'short_text'",
+    );
+    await ensureColumn(
+        "task_bank",
+        "task_content_json",
+        "TEXT NOT NULL DEFAULT '{}'",
+    );
+    await ensureColumn(
+        "task_bank",
+        "answer_config_json",
+        "TEXT NOT NULL DEFAULT '{}'",
+    );
+    await ensureColumn(
+        "tournament_tasks",
+        "task_snapshot_json",
+        "TEXT NOT NULL DEFAULT '{}'",
+    );
+    await ensureColumn(
+        "tournament_tasks",
+        "live_added_at",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournament_entries",
+        "penalty_seconds",
+        "INTEGER NOT NULL DEFAULT 0",
+    );
+    await ensureColumn(
+        "tournament_entries",
+        "joined_at",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournament_entries",
+        "last_submission_at",
+        "TEXT DEFAULT NULL",
+    );
 
     await exec(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_oauth_sub
@@ -683,6 +816,92 @@ async function initializeDatabase() {
 
         CREATE INDEX IF NOT EXISTS idx_task_bank_source
         ON task_bank (source_task_id);
+
+        CREATE INDEX IF NOT EXISTS idx_tournaments_runtime_mode
+        ON tournaments (runtime_mode);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_entries_rank
+        ON tournament_entries (tournament_id, score DESC, penalty_seconds ASC, last_submission_at ASC);
+    `);
+
+    await exec(`
+        CREATE TABLE IF NOT EXISTS tournament_task_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'not_started',
+            is_solved INTEGER NOT NULL DEFAULT 0,
+            attempts_count INTEGER NOT NULL DEFAULT 0,
+            wrong_attempts INTEGER NOT NULL DEFAULT 0,
+            score_awarded INTEGER NOT NULL DEFAULT 0,
+            penalty_seconds INTEGER NOT NULL DEFAULT 0,
+            accepted_submission_id INTEGER DEFAULT NULL,
+            first_attempt_at TEXT DEFAULT NULL,
+            accepted_at TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES task_bank (id) ON DELETE CASCADE,
+            UNIQUE (entry_id, tournament_task_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_task_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            draft_payload_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            UNIQUE (entry_id, tournament_task_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            entry_id INTEGER NOT NULL,
+            tournament_task_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            submitted_by_user_id INTEGER DEFAULT NULL,
+            attempt_number INTEGER NOT NULL DEFAULT 1,
+            verdict TEXT NOT NULL,
+            score_delta INTEGER NOT NULL DEFAULT 0,
+            penalty_delta_seconds INTEGER NOT NULL DEFAULT 0,
+            raw_answer_json TEXT NOT NULL DEFAULT '{}',
+            normalized_answer_json TEXT NOT NULL DEFAULT '{}',
+            answer_summary TEXT NOT NULL DEFAULT '',
+            submitted_at TEXT NOT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (entry_id) REFERENCES tournament_entries (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_task_id) REFERENCES tournament_tasks (id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES task_bank (id) ON DELETE CASCADE,
+            FOREIGN KEY (submitted_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_tasks_tournament_sort
+        ON tournament_tasks (tournament_id, sort_order, id);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_progress_entry_task
+        ON tournament_task_progress (entry_id, tournament_task_id);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_progress_tournament
+        ON tournament_task_progress (tournament_id, entry_id);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_drafts_entry_task
+        ON tournament_task_drafts (entry_id, tournament_task_id);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_entry_time
+        ON tournament_submissions (entry_id, submitted_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_task_time
+        ON tournament_submissions (tournament_task_id, submitted_at DESC);
     `);
 
     await run(
@@ -715,14 +934,54 @@ async function initializeDatabase() {
                 moderation_status = CASE
                     WHEN moderation_status IS NULL OR moderation_status = '' THEN 'approved_shared'
                     ELSE moderation_status
+                END,
+                task_type = CASE
+                    WHEN task_type IS NULL OR task_type = '' THEN 'short_text'
+                    ELSE task_type
+                END,
+                task_content_json = CASE
+                    WHEN task_content_json IS NULL OR task_content_json = '' THEN '{}'
+                    ELSE task_content_json
+                END,
+                answer_config_json = CASE
+                    WHEN answer_config_json IS NULL OR answer_config_json = '' THEN '{}'
+                    ELSE answer_config_json
                 END
+        `,
+    );
+    await run(
+        `
+            UPDATE tournaments
+            SET
+                runtime_mode = CASE
+                    WHEN runtime_mode IS NULL OR runtime_mode = '' THEN 'competition'
+                    ELSE runtime_mode
+                END,
+                allow_live_task_add = COALESCE(allow_live_task_add, 0),
+                wrong_attempt_penalty_seconds = CASE
+                    WHEN wrong_attempt_penalty_seconds IS NULL OR wrong_attempt_penalty_seconds < 0
+                        THEN 1200
+                    ELSE wrong_attempt_penalty_seconds
+                END
+        `,
+    );
+    await run(
+        `
+            UPDATE tournament_tasks
+            SET task_snapshot_json = CASE
+                WHEN task_snapshot_json IS NULL OR task_snapshot_json = '' THEN '{}'
+                ELSE task_snapshot_json
+            END
         `,
     );
 
     await seedSystemTasks();
     await seedTournaments();
     await normalizeLegacyTournamentRows();
+    await backfillLegacyTaskRuntimeConfigs();
     await seedTournamentTasks();
+    await rebuildTournamentTaskSnapshots();
+    await syncAllTournamentEntryTotals();
     await seedTournamentEntries();
     await cleanupExpiredArtifacts();
 }
@@ -742,6 +1001,14 @@ async function seedSystemTasks() {
             statement:
                 "Найдите минимальное число пересадок и время пути между двумя станциями в ориентированном графе.",
             estimatedMinutes: 35,
+            taskType: "number",
+            taskContent: {
+                placeholder: "Введите минимальное число пересадок",
+            },
+            answerConfig: {
+                acceptedNumber: 7,
+                tolerance: 0,
+            },
         },
         {
             title: "Анализ логов сервера",
@@ -750,6 +1017,19 @@ async function seedSystemTasks() {
             statement:
                 "По потоку событий вычислите пиковую нагрузку и количество ошибок по минутам.",
             estimatedMinutes: 20,
+            taskType: "single_choice",
+            taskContent: {
+                options: [
+                    { id: "A", label: "14 ошибок" },
+                    { id: "B", label: "18 ошибок" },
+                    { id: "C", label: "21 ошибка" },
+                    { id: "D", label: "27 ошибок" },
+                ],
+                instructions: "",
+            },
+            answerConfig: {
+                correctOptionIds: ["B"],
+            },
         },
         {
             title: "Марафон строк",
@@ -758,6 +1038,15 @@ async function seedSystemTasks() {
             statement:
                 "Обработайте до миллиона строк и найдите максимальную общую подстроку в наборе запросов.",
             estimatedMinutes: 45,
+            taskType: "short_text",
+            taskContent: {
+                placeholder: "Введите название алгоритма или структуры",
+            },
+            answerConfig: {
+                acceptedAnswers: ["suffix automaton", "suffix automata"],
+                ignoreCase: true,
+                trimWhitespace: true,
+            },
         },
         {
             title: "Прогноз трафика",
@@ -766,6 +1055,19 @@ async function seedSystemTasks() {
             statement:
                 "Подготовьте признаки и оцените качество прогноза для временного ряда посещаемости.",
             estimatedMinutes: 50,
+            taskType: "multiple_choice",
+            taskContent: {
+                options: [
+                    { id: "A", label: "Лаговые признаки" },
+                    { id: "B", label: "Случайное удаление строк" },
+                    { id: "C", label: "Сезонные признаки" },
+                    { id: "D", label: "Target leakage" },
+                ],
+                instructions: "Выберите все полезные признаки для временного ряда.",
+            },
+            answerConfig: {
+                correctOptionIds: ["A", "C"],
+            },
         },
         {
             title: "Синхронизация команды",
@@ -774,6 +1076,15 @@ async function seedSystemTasks() {
             statement:
                 "Разделите подзадачи между участниками и минимизируйте общее время решения.",
             estimatedMinutes: 30,
+            taskType: "short_text",
+            taskContent: {
+                placeholder: "Введите стратегию",
+            },
+            answerConfig: {
+                acceptedAnswers: ["critical path", "critical-path"],
+                ignoreCase: true,
+                trimWhitespace: true,
+            },
         },
     ];
 
@@ -787,10 +1098,13 @@ async function seedSystemTasks() {
                     difficulty,
                     statement,
                     estimated_minutes,
+                    task_type,
+                    task_content_json,
+                    answer_config_json,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 null,
@@ -799,8 +1113,94 @@ async function seedSystemTasks() {
                 task.difficulty,
                 task.statement,
                 task.estimatedMinutes,
+                task.taskType,
+                toJsonString(task.taskContent),
+                toJsonString(task.answerConfig),
                 timestamp,
                 timestamp,
+            ],
+        );
+    }
+}
+
+async function backfillLegacyTaskRuntimeConfigs() {
+    const defaults = [
+        {
+            title: "Кратчайший путь в метро",
+            taskType: "number",
+            taskContent: { placeholder: "Введите минимальное число пересадок" },
+            answerConfig: { acceptedNumber: 7, tolerance: 0 },
+        },
+        {
+            title: "Анализ логов сервера",
+            taskType: "single_choice",
+            taskContent: {
+                options: [
+                    { id: "A", label: "14 ошибок" },
+                    { id: "B", label: "18 ошибок" },
+                    { id: "C", label: "21 ошибка" },
+                    { id: "D", label: "27 ошибок" },
+                ],
+                instructions: "",
+            },
+            answerConfig: { correctOptionIds: ["B"] },
+        },
+        {
+            title: "Марафон строк",
+            taskType: "short_text",
+            taskContent: { placeholder: "Введите название алгоритма или структуры" },
+            answerConfig: {
+                acceptedAnswers: ["suffix automaton", "suffix automata"],
+                ignoreCase: true,
+                trimWhitespace: true,
+            },
+        },
+        {
+            title: "Прогноз трафика",
+            taskType: "multiple_choice",
+            taskContent: {
+                options: [
+                    { id: "A", label: "Лаговые признаки" },
+                    { id: "B", label: "Случайное удаление строк" },
+                    { id: "C", label: "Сезонные признаки" },
+                    { id: "D", label: "Target leakage" },
+                ],
+                instructions: "Выберите все полезные признаки для временного ряда.",
+            },
+            answerConfig: { correctOptionIds: ["A", "C"] },
+        },
+        {
+            title: "Синхронизация команды",
+            taskType: "short_text",
+            taskContent: { placeholder: "Введите стратегию" },
+            answerConfig: {
+                acceptedAnswers: ["critical path", "critical-path"],
+                ignoreCase: true,
+                trimWhitespace: true,
+            },
+        },
+    ];
+
+    for (const item of defaults) {
+        await run(
+            `
+                UPDATE task_bank
+                SET
+                    task_type = ?,
+                    task_content_json = ?,
+                    answer_config_json = ?
+                WHERE title = ?
+                  AND (
+                    answer_config_json IS NULL
+                    OR answer_config_json = ''
+                    OR answer_config_json = '{}'
+                  )
+            `,
+            [
+                item.taskType,
+                toJsonString(item.taskContent),
+                toJsonString(item.answerConfig),
+                item.title,
             ],
         );
     }
@@ -994,20 +1394,55 @@ async function seedTournamentTasks() {
                 continue;
             }
 
-            await run(
-                `
-                    INSERT INTO tournament_tasks (
-                        tournament_id,
-                        task_id,
-                        points,
-                        sort_order,
-                        created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                `,
-                [tournamentId, taskId, 100, index, createdAt],
-            );
+            await upsertTournamentTaskRow({
+                tournamentId,
+                taskId,
+                points: 100,
+                sortOrder: index,
+                preserveExistingCreatedAt: createdAt,
+            });
         }
+    }
+}
+
+async function rebuildTournamentTaskSnapshots() {
+    const links = await all(
+        `
+            SELECT
+                tt.id,
+                tt.task_id,
+                tt.points,
+                tt.task_snapshot_json,
+                tb.*
+            FROM tournament_tasks tt
+            JOIN task_bank tb ON tb.id = tt.task_id
+        `,
+    );
+
+    for (const link of links) {
+        const currentSnapshot = parseJson(link.task_snapshot_json, null);
+        if (currentSnapshot?.taskType && currentSnapshot?.answerConfig) {
+            continue;
+        }
+
+        const snapshot = buildTaskSnapshot(link, {
+            points: Number(link.points || 100),
+        });
+        await run(
+            `
+                UPDATE tournament_tasks
+                SET task_snapshot_json = ?
+                WHERE id = ?
+            `,
+            [toJsonString(snapshot), link.id],
+        );
+    }
+}
+
+async function syncAllTournamentEntryTotals() {
+    const tournaments = await all("SELECT id FROM tournaments");
+    for (const tournament of tournaments) {
+        await syncTournamentEntryTotals(tournament.id);
     }
 }
 
@@ -1090,10 +1525,13 @@ async function seedTournamentEntries() {
                         rank_position,
                         points_delta,
                         average_time_seconds,
+                        penalty_seconds,
+                        joined_at,
+                        last_submission_at,
                         created_at,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     tournament.id,
@@ -1107,6 +1545,9 @@ async function seedTournamentEntries() {
                     rankPosition,
                     pointsDelta,
                     averageTimeSeconds,
+                    averageTimeSeconds,
+                    createdAt,
+                    createdAt,
                     createdAt,
                     createdAt,
                 ],
@@ -2371,6 +2812,116 @@ async function listTasksByIds(taskIds, userId, includeAll = false) {
     );
 }
 
+function toJsonString(value, fallback = {}) {
+    return JSON.stringify(value || fallback);
+}
+
+async function buildTournamentTaskSnapshotById(taskId, points = 100) {
+    const task = await getTaskById(taskId);
+    if (!task) {
+        return null;
+    }
+
+    return buildTaskSnapshot(task, { points });
+}
+
+async function upsertTournamentTaskRow({
+    tournamentId,
+    taskId,
+    points = 100,
+    sortOrder = 0,
+    liveAddedAt = null,
+    preserveExistingCreatedAt = null,
+}) {
+    const existing = await get(
+        `
+            SELECT *
+            FROM tournament_tasks
+            WHERE tournament_id = ?
+              AND task_id = ?
+        `,
+        [tournamentId, taskId],
+    );
+    const timestamp = nowIso();
+    const snapshot = await buildTournamentTaskSnapshotById(taskId, points);
+    if (!snapshot) {
+        return null;
+    }
+
+    if (existing) {
+        await run(
+            `
+                UPDATE tournament_tasks
+                SET
+                    points = ?,
+                    sort_order = ?,
+                    task_snapshot_json = ?,
+                    live_added_at = CASE
+                        WHEN ? IS NOT NULL AND live_added_at IS NULL THEN ?
+                        ELSE live_added_at
+                    END
+                WHERE id = ?
+            `,
+            [
+                points,
+                sortOrder,
+                toJsonString(snapshot),
+                liveAddedAt,
+                liveAddedAt,
+                existing.id,
+            ],
+        );
+        return get(
+            "SELECT * FROM tournament_tasks WHERE id = ?",
+            [existing.id],
+        );
+    }
+
+    const result = await run(
+        `
+            INSERT INTO tournament_tasks (
+                tournament_id,
+                task_id,
+                points,
+                sort_order,
+                task_snapshot_json,
+                live_added_at,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            tournamentId,
+            taskId,
+            points,
+            sortOrder,
+            toJsonString(snapshot),
+            liveAddedAt || null,
+            preserveExistingCreatedAt || timestamp,
+        ],
+    );
+
+    return get("SELECT * FROM tournament_tasks WHERE id = ?", [result.lastID]);
+}
+
+async function syncTournamentEntryTotals(tournamentId) {
+    const row = await get(
+        "SELECT COUNT(*) AS count FROM tournament_tasks WHERE tournament_id = ?",
+        [tournamentId],
+    );
+
+    await run(
+        `
+            UPDATE tournament_entries
+            SET
+                total_tasks = ?,
+                updated_at = ?
+            WHERE tournament_id = ?
+        `,
+        [Number(row?.count || 0), nowIso(), tournamentId],
+    );
+}
+
 async function createTask(payload) {
     const timestamp = nowIso();
     const result = await run(
@@ -2382,6 +2933,9 @@ async function createTask(payload) {
                 difficulty,
                 statement,
                 estimated_minutes,
+                task_type,
+                task_content_json,
+                answer_config_json,
                 bank_scope,
                 moderation_status,
                 source_task_id,
@@ -2393,7 +2947,7 @@ async function createTask(payload) {
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             payload.ownerUserId,
@@ -2402,6 +2956,9 @@ async function createTask(payload) {
             payload.difficulty,
             payload.statement,
             payload.estimatedMinutes,
+            payload.taskType || "short_text",
+            toJsonString(payload.taskContent),
+            toJsonString(payload.answerConfig),
             payload.bankScope || "shared",
             payload.moderationStatus || "approved_shared",
             payload.sourceTaskId || null,
@@ -2428,6 +2985,9 @@ async function updateTaskDraft(taskId, payload) {
                 difficulty = ?,
                 statement = ?,
                 estimated_minutes = ?,
+                task_type = ?,
+                task_content_json = ?,
+                answer_config_json = ?,
                 updated_at = ?
             WHERE id = ?
         `,
@@ -2437,6 +2997,9 @@ async function updateTaskDraft(taskId, payload) {
             payload.difficulty,
             payload.statement,
             payload.estimatedMinutes,
+            payload.taskType || "short_text",
+            toJsonString(payload.taskContent),
+            toJsonString(payload.answerConfig),
             nowIso(),
             taskId,
         ],
@@ -2485,6 +3048,9 @@ async function createTaskRevision(sourceTaskId, userId, payload) {
                 difficulty,
                 statement,
                 estimated_minutes,
+                task_type,
+                task_content_json,
+                answer_config_json,
                 bank_scope,
                 moderation_status,
                 source_task_id,
@@ -2496,7 +3062,7 @@ async function createTaskRevision(sourceTaskId, userId, payload) {
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, 'revision', 'pending_review', ?, ?, NULL, NULL, '', ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             userId,
@@ -2505,8 +3071,22 @@ async function createTaskRevision(sourceTaskId, userId, payload) {
             payload.difficulty,
             payload.statement,
             payload.estimatedMinutes,
+            payload.taskType || source.task_type || "short_text",
+            toJsonString(
+                payload.taskContent,
+                parseJson(source.task_content_json, {}),
+            ),
+            toJsonString(
+                payload.answerConfig,
+                parseJson(source.answer_config_json, {}),
+            ),
+            "revision",
+            "pending_review",
             sourceTaskId,
             timestamp,
+            null,
+            null,
+            "",
             Number(source.version || 1) + 1,
             timestamp,
             timestamp,
@@ -2540,6 +3120,9 @@ async function reviewTaskModeration(taskId, reviewerUserId, decision, reviewerNo
                             difficulty = ?,
                             statement = ?,
                             estimated_minutes = ?,
+                            task_type = ?,
+                            task_content_json = ?,
+                            answer_config_json = ?,
                             version = ?,
                             updated_at = ?,
                             reviewed_at = ?,
@@ -2553,6 +3136,9 @@ async function reviewTaskModeration(taskId, reviewerUserId, decision, reviewerNo
                         task.difficulty,
                         task.statement,
                         task.estimated_minutes,
+                        task.task_type || source.task_type || "short_text",
+                        task.task_content_json || source.task_content_json || "{}",
+                        task.answer_config_json || source.answer_config_json || "{}",
                         Number(task.version || source.version || 1),
                         timestamp,
                         timestamp,
@@ -2662,6 +3248,9 @@ async function createTournament(payload) {
                     access_scope,
                     access_code,
                     difficulty_label,
+                    runtime_mode,
+                    allow_live_task_add,
+                    wrong_attempt_penalty_seconds,
                     leaderboard_visible,
                     results_visible,
                     registration_start_at,
@@ -2670,7 +3259,7 @@ async function createTournament(payload) {
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 slug,
@@ -2694,6 +3283,11 @@ async function createTournament(payload) {
                 payload.accessScope || "open",
                 payload.accessCode || null,
                 payload.difficultyLabel || "Mixed",
+                payload.runtimeMode || "competition",
+                payload.allowLiveTaskAdd ? 1 : 0,
+                Number.isFinite(Number(payload.wrongAttemptPenaltySeconds))
+                    ? Math.max(Number(payload.wrongAttemptPenaltySeconds), 0)
+                    : 1200,
                 payload.leaderboardVisible === false ? 0 : 1,
                 payload.resultsVisible === false ? 0 : 1,
                 payload.registrationStartAt || null,
@@ -2705,19 +3299,13 @@ async function createTournament(payload) {
         );
 
         for (const [index, taskId] of (payload.taskIds || []).entries()) {
-            await run(
-                `
-                    INSERT INTO tournament_tasks (
-                        tournament_id,
-                        task_id,
-                        points,
-                        sort_order,
-                        created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                `,
-                [result.lastID, taskId, 100, index, timestamp],
-            );
+            await upsertTournamentTaskRow({
+                tournamentId: result.lastID,
+                taskId,
+                points: 100,
+                sortOrder: index,
+                preserveExistingCreatedAt: timestamp,
+            });
         }
 
         return getTournamentById(result.lastID);
@@ -2734,7 +3322,12 @@ async function getTournamentById(tournamentId) {
                     SELECT COUNT(*)
                     FROM tournament_roster_entries tre
                     WHERE tre.tournament_id = t.id
-                ) AS roster_count
+                ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_submissions ts
+                    WHERE ts.tournament_id = t.id
+                ) AS submissions_count
             FROM tournaments t
             WHERE t.id = ?
         `,
@@ -2743,24 +3336,32 @@ async function getTournamentById(tournamentId) {
 }
 
 async function replaceTournamentTasks(tournamentId, taskIds = []) {
-    const timestamp = nowIso();
-    await run("DELETE FROM tournament_tasks WHERE tournament_id = ?", [tournamentId]);
+    const existingRows = await all(
+        `
+            SELECT *
+            FROM tournament_tasks
+            WHERE tournament_id = ?
+        `,
+        [tournamentId],
+    );
+    const nextTaskIdSet = new Set(taskIds);
+
+    for (const row of existingRows) {
+        if (!nextTaskIdSet.has(Number(row.task_id))) {
+            await run("DELETE FROM tournament_tasks WHERE id = ?", [row.id]);
+        }
+    }
 
     for (const [index, taskId] of taskIds.entries()) {
-        await run(
-            `
-                INSERT INTO tournament_tasks (
-                    tournament_id,
-                    task_id,
-                    points,
-                    sort_order,
-                    created_at
-                )
-                VALUES (?, ?, 100, ?, ?)
-            `,
-            [tournamentId, taskId, index, timestamp],
-        );
+        await upsertTournamentTaskRow({
+            tournamentId,
+            taskId,
+            points: 100,
+            sortOrder: index,
+        });
     }
+
+    await syncTournamentEntryTotals(tournamentId);
 }
 
 async function getTournaments(userId, teamId = null) {
@@ -2769,6 +3370,9 @@ async function getTournaments(userId, teamId = null) {
             SELECT
                 t.*,
                 (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                COALESCE(t.runtime_mode, 'competition') AS runtime_mode,
+                COALESCE(t.allow_live_task_add, 0) AS allow_live_task_add,
+                COALESCE(t.wrong_attempt_penalty_seconds, 1200) AS wrong_attempt_penalty_seconds,
                 EXISTS(
                     SELECT 1
                     FROM tournament_entries te
@@ -2859,6 +3463,9 @@ async function listOrganizerTournaments(ownerUserId) {
             SELECT
                 t.*,
                 (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                COALESCE(t.runtime_mode, 'competition') AS runtime_mode,
+                COALESCE(t.allow_live_task_add, 0) AS allow_live_task_add,
+                COALESCE(t.wrong_attempt_penalty_seconds, 1200) AS wrong_attempt_penalty_seconds,
                 (
                     SELECT COUNT(*)
                     FROM tournament_roster_entries tre
@@ -2957,6 +3564,9 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                     access_scope = ?,
                     access_code = ?,
                     difficulty_label = ?,
+                    runtime_mode = ?,
+                    allow_live_task_add = ?,
+                    wrong_attempt_penalty_seconds = ?,
                     leaderboard_visible = ?,
                     results_visible = ?,
                     registration_start_at = ?,
@@ -2984,6 +3594,15 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                     ? payload.accessCode || null
                     : current.access_code,
                 payload.difficultyLabel || current.difficulty_label || "Mixed",
+                payload.runtimeMode || current.runtime_mode || "competition",
+                payload.allowLiveTaskAdd !== undefined
+                    ? payload.allowLiveTaskAdd
+                        ? 1
+                        : 0
+                    : current.allow_live_task_add,
+                payload.wrongAttemptPenaltySeconds !== undefined
+                    ? Math.max(Number(payload.wrongAttemptPenaltySeconds) || 0, 0)
+                    : current.wrong_attempt_penalty_seconds,
                 payload.leaderboardVisible !== undefined
                     ? payload.leaderboardVisible
                         ? 1
@@ -3026,8 +3645,11 @@ async function listTournamentTasks(tournamentId) {
     return all(
         `
             SELECT
+                tt.id AS tournament_task_id,
                 tt.points,
                 tt.sort_order,
+                tt.task_snapshot_json,
+                tt.live_added_at,
                 tb.*
             FROM tournament_tasks tt
             JOIN task_bank tb ON tb.id = tt.task_id
@@ -3239,8 +3861,10 @@ async function recalculateTournamentRanks(tournamentId) {
             ORDER BY
                 score DESC,
                 solved_count DESC,
-                CASE WHEN average_time_seconds <= 0 THEN 999999 ELSE average_time_seconds END ASC,
-                updated_at ASC
+                penalty_seconds ASC,
+                CASE WHEN last_submission_at IS NULL THEN '9999-12-31T23:59:59.999Z' ELSE last_submission_at END ASC,
+                updated_at ASC,
+                id ASC
         `,
         [tournamentId],
     );
@@ -3315,10 +3939,13 @@ async function joinTournament(payload) {
                     rank_position,
                     points_delta,
                     average_time_seconds,
+                    penalty_seconds,
+                    joined_at,
+                    last_submission_at,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 payload.tournamentId,
@@ -3331,6 +3958,9 @@ async function joinTournament(payload) {
                 payload.totalTasks || 0,
                 payload.pointsDelta || 0,
                 payload.averageTimeSeconds || 0,
+                payload.penaltySeconds || 0,
+                payload.joinedAt || timestamp,
+                payload.lastSubmissionAt || null,
                 timestamp,
                 timestamp,
             ],
@@ -3360,10 +3990,439 @@ async function listLeaderboardForTournament(tournamentId) {
                 CASE WHEN te.rank_position IS NULL THEN 999999 ELSE te.rank_position END ASC,
                 te.score DESC,
                 te.solved_count DESC,
-                CASE WHEN te.average_time_seconds <= 0 THEN 999999 ELSE te.average_time_seconds END ASC
+                te.penalty_seconds ASC,
+                CASE WHEN te.last_submission_at IS NULL THEN '9999-12-31T23:59:59.999Z' ELSE te.last_submission_at END ASC
         `,
         [tournamentId],
     );
+}
+
+async function getTournamentEntryById(entryId) {
+    return get(
+        `
+            SELECT *
+            FROM tournament_entries
+            WHERE id = ?
+        `,
+        [entryId],
+    );
+}
+
+async function getTournamentEntryForContext({
+    tournamentId,
+    userId = null,
+    teamId = null,
+    teamDisplayName = "",
+}) {
+    if (teamId) {
+        return get(
+            `
+                SELECT *
+                FROM tournament_entries
+                WHERE tournament_id = ?
+                  AND team_id = ?
+            `,
+            [tournamentId, teamId],
+        );
+    }
+
+    if (teamDisplayName) {
+        return get(
+            `
+                SELECT *
+                FROM tournament_entries
+                WHERE tournament_id = ?
+                  AND entry_type = 'team'
+                  AND display_name = ?
+            `,
+            [tournamentId, teamDisplayName],
+        );
+    }
+
+    if (!userId) {
+        return null;
+    }
+
+    return get(
+        `
+            SELECT *
+            FROM tournament_entries
+            WHERE tournament_id = ?
+              AND user_id = ?
+        `,
+        [tournamentId, userId],
+    );
+}
+
+async function getTournamentTaskLink(tournamentId, tournamentTaskId) {
+    return get(
+        `
+            SELECT
+                tt.id AS tournament_task_id,
+                tt.task_id AS linked_task_id,
+                tt.points,
+                tt.sort_order,
+                tt.task_snapshot_json,
+                tt.live_added_at,
+                tb.*
+            FROM tournament_tasks tt
+            JOIN task_bank tb ON tb.id = tt.task_id
+            WHERE tt.tournament_id = ?
+              AND tt.id = ?
+        `,
+        [tournamentId, tournamentTaskId],
+    );
+}
+
+async function getTournamentTaskProgress(entryId, tournamentTaskId) {
+    return get(
+        `
+            SELECT *
+            FROM tournament_task_progress
+            WHERE entry_id = ?
+              AND tournament_task_id = ?
+        `,
+        [entryId, tournamentTaskId],
+    );
+}
+
+async function ensureTournamentTaskProgress(entryId, tournamentId, tournamentTask) {
+    const existing = await getTournamentTaskProgress(
+        entryId,
+        tournamentTask.tournament_task_id,
+    );
+    if (existing) {
+        return existing;
+    }
+
+    const timestamp = nowIso();
+    const result = await run(
+        `
+            INSERT INTO tournament_task_progress (
+                tournament_id,
+                entry_id,
+                tournament_task_id,
+                task_id,
+                status,
+                is_solved,
+                attempts_count,
+                wrong_attempts,
+                score_awarded,
+                penalty_seconds,
+                accepted_submission_id,
+                first_attempt_at,
+                accepted_at,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, 'not_started', 0, 0, 0, 0, 0, NULL, NULL, NULL, ?, ?)
+        `,
+        [
+            tournamentId,
+            entryId,
+            tournamentTask.tournament_task_id,
+            tournamentTask.id,
+            timestamp,
+            timestamp,
+        ],
+    );
+
+    return get(
+        "SELECT * FROM tournament_task_progress WHERE id = ?",
+        [result.lastID],
+    );
+}
+
+async function listTournamentRuntimeTasks(tournamentId, entryId) {
+    return all(
+        `
+            SELECT
+                tt.id AS tournament_task_id,
+                tt.task_id AS linked_task_id,
+                tt.points,
+                tt.sort_order,
+                tt.task_snapshot_json,
+                tt.live_added_at,
+                tb.*,
+                tp.status AS progress_status,
+                tp.is_solved,
+                tp.attempts_count,
+                tp.wrong_attempts,
+                tp.score_awarded,
+                tp.penalty_seconds,
+                tp.accepted_at,
+                td.draft_payload_json,
+                td.updated_at AS draft_updated_at
+            FROM tournament_tasks tt
+            JOIN task_bank tb ON tb.id = tt.task_id
+            LEFT JOIN tournament_task_progress tp
+                ON tp.entry_id = ?
+               AND tp.tournament_task_id = tt.id
+            LEFT JOIN tournament_task_drafts td
+                ON td.entry_id = ?
+               AND td.tournament_task_id = tt.id
+            WHERE tt.tournament_id = ?
+            ORDER BY tt.sort_order ASC, tt.id ASC
+        `,
+        [entryId, entryId, tournamentId],
+    );
+}
+
+async function listTournamentSubmissionsForEntry(tournamentId, entryId, limit = 120) {
+    return all(
+        `
+            SELECT *
+            FROM tournament_submissions
+            WHERE tournament_id = ?
+              AND entry_id = ?
+            ORDER BY submitted_at DESC, id DESC
+            LIMIT ?
+        `,
+        [tournamentId, entryId, limit],
+    );
+}
+
+async function upsertTournamentTaskDraft({
+    tournamentId,
+    entryId,
+    tournamentTaskId,
+    draftPayload,
+}) {
+    const timestamp = nowIso();
+    await run(
+        `
+            INSERT INTO tournament_task_drafts (
+                tournament_id,
+                entry_id,
+                tournament_task_id,
+                draft_payload_json,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(entry_id, tournament_task_id)
+            DO UPDATE SET
+                draft_payload_json = excluded.draft_payload_json,
+                updated_at = excluded.updated_at
+        `,
+        [
+            tournamentId,
+            entryId,
+            tournamentTaskId,
+            toJsonString(draftPayload),
+            timestamp,
+            timestamp,
+        ],
+    );
+
+    return get(
+        `
+            SELECT *
+            FROM tournament_task_drafts
+            WHERE entry_id = ?
+              AND tournament_task_id = ?
+        `,
+        [entryId, tournamentTaskId],
+    );
+}
+
+async function recalculateTournamentEntryStats(entryId) {
+    const entry = await getTournamentEntryById(entryId);
+    if (!entry) {
+        return null;
+    }
+
+    const [progressStats, totalTasksRow] = await Promise.all([
+        get(
+            `
+                SELECT
+                    COALESCE(SUM(score_awarded), 0) AS score,
+                    COALESCE(SUM(CASE WHEN is_solved = 1 THEN 1 ELSE 0 END), 0) AS solved_count,
+                    COALESCE(SUM(penalty_seconds), 0) AS penalty_seconds
+                FROM tournament_task_progress
+                WHERE entry_id = ?
+            `,
+            [entryId],
+        ),
+        get(
+            "SELECT COUNT(*) AS count FROM tournament_tasks WHERE tournament_id = ?",
+            [entry.tournament_id],
+        ),
+    ]);
+
+    const score = Number(progressStats?.score || 0);
+    const solvedCount = Number(progressStats?.solved_count || 0);
+    const penaltySeconds = Number(progressStats?.penalty_seconds || 0);
+    const totalTasks = Number(totalTasksRow?.count || 0);
+
+    await run(
+        `
+            UPDATE tournament_entries
+            SET
+                score = ?,
+                solved_count = ?,
+                total_tasks = ?,
+                penalty_seconds = ?,
+                average_time_seconds = ?,
+                updated_at = ?
+            WHERE id = ?
+        `,
+        [
+            score,
+            solvedCount,
+            totalTasks,
+            penaltySeconds,
+            penaltySeconds,
+            nowIso(),
+            entryId,
+        ],
+    );
+
+    return getTournamentEntryById(entryId);
+}
+
+async function submitTournamentTaskAnswer({
+    tournamentId,
+    entryId,
+    tournamentTaskId,
+    submittedByUserId = null,
+    rawAnswer,
+    normalizedAnswer,
+    answerSummary = "",
+    verdict,
+    wrongAttemptPenaltySeconds = 0,
+}) {
+    return withTransaction(async () => {
+        const [entry, tournamentTask] = await Promise.all([
+            getTournamentEntryById(entryId),
+            getTournamentTaskLink(tournamentId, tournamentTaskId),
+        ]);
+        if (!entry || !tournamentTask || entry.tournament_id !== tournamentId) {
+            return null;
+        }
+
+        const currentProgress = await ensureTournamentTaskProgress(
+            entryId,
+            tournamentId,
+            tournamentTask,
+        );
+        const timestamp = nowIso();
+        const alreadySolved = Boolean(currentProgress.is_solved);
+        const acceptedNow = verdict === "accepted" && !alreadySolved;
+        const rejectedNow = verdict !== "accepted" && !alreadySolved;
+        const scoreDelta = acceptedNow ? Number(tournamentTask.points || 100) : 0;
+        const penaltyDeltaSeconds = rejectedNow
+            ? Math.max(Number(wrongAttemptPenaltySeconds || 0), 0)
+            : 0;
+
+        const submissionInsert = await run(
+            `
+                INSERT INTO tournament_submissions (
+                    tournament_id,
+                    entry_id,
+                    tournament_task_id,
+                    task_id,
+                    submitted_by_user_id,
+                    attempt_number,
+                    verdict,
+                    score_delta,
+                    penalty_delta_seconds,
+                    raw_answer_json,
+                    normalized_answer_json,
+                    answer_summary,
+                    submitted_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+                tournamentId,
+                entryId,
+                tournamentTaskId,
+                tournamentTask.id,
+                submittedByUserId || null,
+                Number(currentProgress.attempts_count || 0) + 1,
+                verdict,
+                scoreDelta,
+                penaltyDeltaSeconds,
+                toJsonString(rawAnswer),
+                toJsonString(normalizedAnswer),
+                String(answerSummary || "").slice(0, 240),
+                timestamp,
+            ],
+        );
+
+        await run(
+            `
+                UPDATE tournament_task_progress
+                SET
+                    status = ?,
+                    is_solved = ?,
+                    attempts_count = attempts_count + 1,
+                    wrong_attempts = wrong_attempts + ?,
+                    score_awarded = score_awarded + ?,
+                    penalty_seconds = penalty_seconds + ?,
+                    accepted_submission_id = CASE
+                        WHEN ? = 1 THEN ?
+                        ELSE accepted_submission_id
+                    END,
+                    first_attempt_at = COALESCE(first_attempt_at, ?),
+                    accepted_at = CASE
+                        WHEN ? = 1 THEN ?
+                        ELSE accepted_at
+                    END,
+                    updated_at = ?
+                WHERE id = ?
+            `,
+            [
+                acceptedNow || alreadySolved
+                    ? "accepted"
+                    : verdict === "accepted"
+                      ? "accepted"
+                      : "wrong_answer",
+                acceptedNow || alreadySolved ? 1 : 0,
+                rejectedNow ? 1 : 0,
+                scoreDelta,
+                penaltyDeltaSeconds,
+                acceptedNow ? 1 : 0,
+                acceptedNow ? submissionInsert.lastID : null,
+                timestamp,
+                acceptedNow ? 1 : 0,
+                acceptedNow ? timestamp : null,
+                timestamp,
+                currentProgress.id,
+            ],
+        );
+
+        await upsertTournamentTaskDraft({
+            tournamentId,
+            entryId,
+            tournamentTaskId,
+            draftPayload: rawAnswer,
+        });
+
+        await run(
+            `
+                UPDATE tournament_entries
+                SET
+                    last_submission_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+            `,
+            [timestamp, timestamp, entryId],
+        );
+
+        const updatedEntry = await recalculateTournamentEntryStats(entryId);
+        await recalculateTournamentRanks(tournamentId);
+
+        return {
+            submission: await get(
+                "SELECT * FROM tournament_submissions WHERE id = ?",
+                [submissionInsert.lastID],
+            ),
+            progress: await getTournamentTaskProgress(entryId, tournamentTaskId),
+            entry: updatedEntry ? await getTournamentEntryById(updatedEntry.id) : null,
+        };
+    });
 }
 
 async function getPlatformMetrics() {
@@ -3897,7 +4956,9 @@ module.exports = {
     getTeamById,
     getTeamForUser,
     getTournamentById,
+    getTournamentEntryForContext,
     getTournamentRosterEntryForUser,
+    getTournamentTaskLink,
     getTournaments,
     getUserById,
     hasPendingOrganizerApplication,
@@ -3926,11 +4987,14 @@ module.exports = {
     listTeamTournamentResults,
     listTournamentEntries,
     listTournamentRosterEntries,
+    listTournamentRuntimeTasks,
+    listTournamentSubmissionsForEntry,
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,
     markUserEmailVerified,
     recalculateTournamentRanks,
+    recalculateTournamentEntryStats,
     refreshTournamentParticipantsCount,
     removeTournamentRosterEntry,
     removeTeamMember,
@@ -3957,6 +5021,8 @@ module.exports = {
     setUserRole,
     updateUserSecuritySettings,
     submitTaskForModeration,
+    submitTournamentTaskAnswer,
+    upsertTournamentTaskDraft,
     upsertTournamentRosterEntry,
     leaveTeam,
 };

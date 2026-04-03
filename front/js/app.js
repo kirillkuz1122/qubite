@@ -150,6 +150,16 @@ let adminUiState = {
     activeTab: "users",
 };
 
+let tournamentRuntimeUiState = {
+    selectedTaskId: null,
+    autosaveTimer: null,
+    autosaveTaskId: null,
+    refreshInFlight: false,
+};
+
+let runtimeClockInterval = null;
+let runtimeRefreshInterval = null;
+
 const ROLE_PREVIEW_STORAGE_KEY = "qubite.rolePreview";
 
 function escapeHtml(value) {
@@ -233,6 +243,316 @@ function getOrganizerRosterState(tournamentId) {
 
 function getOrganizerApplicationsState() {
     return apiClient?.state?.organizerApplications || [];
+}
+
+function getTournamentRuntimeState() {
+    return apiClient?.state?.tournamentRuntime || null;
+}
+
+function getSelectedRuntimeTask(runtime = getTournamentRuntimeState()) {
+    if (!runtime?.tasks?.length) {
+        return null;
+    }
+
+    const selected =
+        runtime.tasks.find(
+            (item) => item.tournamentTaskId === tournamentRuntimeUiState.selectedTaskId,
+        ) ||
+        runtime.tasks.find((item) => !item.solved) ||
+        runtime.tasks[0];
+
+    if (selected) {
+        tournamentRuntimeUiState.selectedTaskId = selected.tournamentTaskId;
+    }
+
+    return selected;
+}
+
+function getTaskTypeMeta(taskType) {
+    const normalized = String(taskType || "short_text").toLowerCase();
+    const dictionary = {
+        single_choice: {
+            label: "Single choice",
+            ruLabel: "Один вариант",
+            icon: "radio_button_checked",
+        },
+        multiple_choice: {
+            label: "Multiple choice",
+            ruLabel: "Несколько вариантов",
+            icon: "checklist",
+        },
+        short_text: {
+            label: "Short text",
+            ruLabel: "Короткий ответ",
+            icon: "edit_note",
+        },
+        number: {
+            label: "Number",
+            ruLabel: "Число",
+            icon: "pin",
+        },
+    };
+
+    return dictionary[normalized] || dictionary.short_text;
+}
+
+function formatDurationDetailedLabel(value) {
+    const total = Math.max(Number(value || 0), 0);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+
+    if (hours > 0) {
+        return `${hours}ч ${String(minutes).padStart(2, "0")}м`;
+    }
+
+    if (minutes > 0) {
+        return `${minutes}м ${String(seconds).padStart(2, "0")}с`;
+    }
+
+    return `${seconds}с`;
+}
+
+function formatRuntimeCountdown(endAt) {
+    if (!endAt) {
+        return "Без лимита";
+    }
+
+    const target = new Date(endAt);
+    if (Number.isNaN(target.getTime())) {
+        return "—";
+    }
+
+    const deltaSeconds = Math.floor((target.getTime() - Date.now()) / 1000);
+    if (deltaSeconds <= 0) {
+        return "Завершён";
+    }
+
+    return formatDurationDetailedLabel(deltaSeconds);
+}
+
+function isTournamentRuntimeEditable(tournament) {
+    if (!tournament || tournament.status !== "live") {
+        return false;
+    }
+
+    const now = Date.now();
+    const startAt = tournament.startAt ? new Date(tournament.startAt).getTime() : null;
+    const endAt = tournament.endAt ? new Date(tournament.endAt).getTime() : null;
+
+    if (startAt && !Number.isNaN(startAt) && now < startAt) {
+        return false;
+    }
+
+    if (endAt && !Number.isNaN(endAt) && now > endAt) {
+        return false;
+    }
+
+    return true;
+}
+
+function getTournamentRuntimeLockMessage(tournament) {
+    if (!tournament) {
+        return "Отправка ответов временно недоступна.";
+    }
+
+    if (tournament.status === "upcoming") {
+        return "Турнир ещё не начался. Ответы откроются в момент старта.";
+    }
+
+    if (tournament.status === "ended" || tournament.status === "archived") {
+        return "Турнир уже завершён. Решения сохранены, но новые ответы больше не принимаются.";
+    }
+
+    return "Отправка ответов временно недоступна.";
+}
+
+function formatSubmissionVerdictLabel(verdict) {
+    return verdict === "accepted" ? "Принято" : "Неверно";
+}
+
+function getRuntimeTaskStatusKey(task) {
+    if (!task) {
+        return "not_started";
+    }
+
+    if (task.solved) {
+        return "accepted";
+    }
+
+    if (Number(task.wrongAttempts || 0) > 0) {
+        return "wrong_answer";
+    }
+
+    if (task.draft) {
+        if (
+            Array.isArray(task.draft.selectedOptionIds) &&
+            task.draft.selectedOptionIds.length > 0
+        ) {
+            return "draft";
+        }
+
+        if (
+            task.draft.textAnswer &&
+            String(task.draft.textAnswer).trim().length > 0
+        ) {
+            return "draft";
+        }
+
+        if (
+            task.draft.numberAnswer !== null &&
+            task.draft.numberAnswer !== undefined &&
+            task.draft.numberAnswer !== ""
+        ) {
+            return "draft";
+        }
+    }
+
+    return "not_started";
+}
+
+function getRuntimeTaskStatusLabel(task) {
+    const status = getRuntimeTaskStatusKey(task);
+    const labels = {
+        accepted: "Решена",
+        wrong_answer: "Есть ошибки",
+        draft: "Есть черновик",
+        not_started: "Не начата",
+    };
+
+    return labels[status] || labels.not_started;
+}
+
+function getRuntimeTaskStatusTone(task) {
+    const status = getRuntimeTaskStatusKey(task);
+    const tones = {
+        accepted: "approved_shared",
+        wrong_answer: "rejected",
+        draft: "pending_review",
+        not_started: "draft",
+    };
+
+    return tones[status] || "draft";
+}
+
+function clearTournamentRuntimeDraftTimer() {
+    if (tournamentRuntimeUiState.autosaveTimer) {
+        clearTimeout(tournamentRuntimeUiState.autosaveTimer);
+        tournamentRuntimeUiState.autosaveTimer = null;
+    }
+}
+
+function stopTournamentRuntimeTimers() {
+    clearTournamentRuntimeDraftTimer();
+    if (runtimeClockInterval) {
+        clearInterval(runtimeClockInterval);
+        runtimeClockInterval = null;
+    }
+    if (runtimeRefreshInterval) {
+        clearInterval(runtimeRefreshInterval);
+        runtimeRefreshInterval = null;
+    }
+}
+
+function readRuntimeAnswerPayload(form, taskType) {
+    if (!form) {
+        return {};
+    }
+
+    if (taskType === "single_choice") {
+        const selected = form.querySelector('input[name="selectedOptionId"]:checked');
+        return {
+            selectedOptionId: selected ? selected.value : "",
+        };
+    }
+
+    if (taskType === "multiple_choice") {
+        return {
+            selectedOptionIds: Array.from(
+                form.querySelectorAll('input[name="selectedOptionIds"]:checked'),
+            ).map((node) => node.value),
+        };
+    }
+
+    if (taskType === "number") {
+        const rawValue = form.elements.numberAnswer?.value ?? "";
+        return {
+            numberAnswer: rawValue === "" ? null : Number(rawValue),
+        };
+    }
+
+    return {
+        textAnswer: String(form.elements.textAnswer?.value || ""),
+    };
+}
+
+function normalizeRuntimeDraftPayloadForCompare(taskType, payload = {}) {
+    if (taskType === "single_choice") {
+        const value = payload.selectedOptionId || payload.selectedOptionIds?.[0] || "";
+        return {
+            selectedOptionIds: value ? [String(value).toUpperCase()] : [],
+        };
+    }
+
+    if (taskType === "multiple_choice") {
+        return {
+            selectedOptionIds: Array.isArray(payload.selectedOptionIds)
+                ? payload.selectedOptionIds.map((item) => String(item).toUpperCase()).sort()
+                : [],
+        };
+    }
+
+    if (taskType === "number") {
+        return {
+            numberAnswer:
+                payload.numberAnswer === "" || payload.numberAnswer === undefined
+                    ? null
+                    : payload.numberAnswer === null
+                      ? null
+                      : Number(payload.numberAnswer),
+        };
+    }
+
+    return {
+        textAnswer: String(payload.textAnswer || ""),
+    };
+}
+
+function getRuntimeTaskDraftValue(task) {
+    if (!task || !task.draft) {
+        return {};
+    }
+
+    return task.draft;
+}
+
+function pickNextRuntimeTaskId(runtime, currentTaskId) {
+    if (!runtime?.tasks?.length) {
+        return null;
+    }
+
+    const currentIndex = runtime.tasks.findIndex(
+        (item) => item.tournamentTaskId === currentTaskId,
+    );
+    if (currentIndex < 0) {
+        return getSelectedRuntimeTask(runtime)?.tournamentTaskId || null;
+    }
+
+    const afterCurrent = runtime.tasks
+        .slice(currentIndex + 1)
+        .find((item) => !item.solved);
+    if (afterCurrent) {
+        return afterCurrent.tournamentTaskId;
+    }
+
+    const beforeCurrent = runtime.tasks
+        .slice(0, currentIndex)
+        .find((item) => !item.solved);
+    if (beforeCurrent) {
+        return beforeCurrent.tournamentTaskId;
+    }
+
+    return runtime.tasks[currentIndex]?.tournamentTaskId || null;
 }
 
 function getModerationOverviewState() {
@@ -1332,6 +1652,13 @@ const DYNAMIC_MODALS_HTML = `
     </div>
   </div>
 
+  <div id="tournamentRuntimeModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="tournamentRuntimeModal"></div>
+    <div class="modal__panel modal__panel--runtime" role="dialog" aria-modal="true" aria-labelledby="tournamentRuntimeTitle">
+      <div id="tournamentRuntimeContent"></div>
+    </div>
+  </div>
+
   <!-- Создать команду -->
   <div id="createTeamModal" class="modal" hidden>
     <div class="modal__backdrop" data-close="createTeamModal"></div>
@@ -1687,6 +2014,9 @@ function closeModal(id, immediate = false) {
         if (activeModal === el) activeModal = null;
         if (el.id === "verifyModal") {
             clearInterval(timerInterval);
+        }
+        if (el.id === "tournamentRuntimeModal") {
+            stopTournamentRuntimeTimers();
         }
         if (el.id === "newPassModal" && !pendingResetToken) {
             verifySource = null;
@@ -3903,6 +4233,94 @@ function renderOpsEmptyState({
     `;
 }
 
+function getOrganizerTaskEditingState() {
+    const groups = getOrganizerTasksState();
+    return [...groups.personal, ...groups.pending, ...groups.shared].find(
+        (item) => item.id === organizerUiState.selectedTaskId,
+    );
+}
+
+function renderOrganizerTaskRuntimeFields(editingTask) {
+    const taskType = editingTask?.taskType || "short_text";
+    const taskMeta = getTaskTypeMeta(taskType);
+    const taskContent = editingTask?.taskContent || {};
+    const answerConfig = editingTask?.answerConfig || {};
+    const optionsText = Array.isArray(taskContent.options)
+        ? taskContent.options.map((item) => item.label).join("\n")
+        : "";
+    const correctAnswersText = Array.isArray(answerConfig.correctOptionIds)
+        ? answerConfig.correctOptionIds.join("\n")
+        : "";
+    const acceptedAnswersText = Array.isArray(answerConfig.acceptedAnswers)
+        ? answerConfig.acceptedAnswers.join("\n")
+        : "";
+
+    return `
+        <div class="ops-form-grid ops-form-grid--double">
+            <div class="field">
+                <label>Тип задачи</label>
+                <select class="input" name="taskType" data-organizer-task-type>
+                    <option value="single_choice" ${taskType === "single_choice" ? "selected" : ""}>Single choice</option>
+                    <option value="multiple_choice" ${taskType === "multiple_choice" ? "selected" : ""}>Multiple choice</option>
+                    <option value="short_text" ${taskType === "short_text" ? "selected" : ""}>Short text</option>
+                    <option value="number" ${taskType === "number" ? "selected" : ""}>Number</option>
+                </select>
+                <div class="s-sub">Сейчас выбран режим: ${escapeHtml(taskMeta.ruLabel)}</div>
+            </div>
+            <div class="field" data-organizer-task-config="textual">
+                <label>Плейсхолдер ответа</label>
+                <input class="input" name="answerPlaceholder" value="${escapeHtml(taskContent.placeholder || "")}" placeholder="Например: Введите ответ">
+            </div>
+            <div class="field ops-field-wide" data-organizer-task-config="choice">
+                <label>Варианты ответа</label>
+                <textarea class="textarea input" name="optionsText" style="min-height: 140px;" placeholder="Каждый вариант с новой строки">${escapeHtml(optionsText)}</textarea>
+                <div class="s-sub">Будут автоматически размечены как A, B, C и так далее.</div>
+            </div>
+            <div class="field" data-organizer-task-config="choice">
+                <label>Правильные варианты</label>
+                <textarea class="textarea input" name="correctAnswersText" style="min-height: 96px;" placeholder="A&#10;B">${escapeHtml(correctAnswersText)}</textarea>
+                <div class="s-sub">Для single choice оставьте один ID. Для multiple choice можно указать несколько.</div>
+            </div>
+            <div class="field" data-organizer-task-config="choice">
+                <label>Подсказка для участника</label>
+                <input class="input" name="taskInstructions" value="${escapeHtml(taskContent.instructions || "")}" placeholder="Выберите один или несколько вариантов">
+            </div>
+            <div class="field ops-field-wide" data-organizer-task-config="short_text">
+                <label>Допустимые ответы</label>
+                <textarea class="textarea input" name="acceptedAnswersText" style="min-height: 140px;" placeholder="Каждый допустимый ответ с новой строки">${escapeHtml(acceptedAnswersText)}</textarea>
+                <div class="s-sub">Подходит для слов, терминов, формул и коротких фраз.</div>
+            </div>
+            <div class="ops-form-grid ops-form-grid--double ops-field-wide" data-organizer-task-config="number">
+                <div class="field">
+                    <label>Правильное число</label>
+                    <input class="input" type="number" step="any" name="acceptedNumber" value="${answerConfig.acceptedNumber ?? ""}" placeholder="42">
+                </div>
+                <div class="field">
+                    <label>Допуск</label>
+                    <input class="input" type="number" step="any" min="0" name="numberTolerance" value="${answerConfig.tolerance ?? 0}" placeholder="0">
+                    <div class="s-sub">Например, 0.01 для допуска ±0.01.</div>
+                </div>
+            </div>
+            <div class="ops-toggle-grid ops-field-wide" data-organizer-task-config="short_text">
+                <label class="ops-toggle-card">
+                    <input type="checkbox" name="ignoreCase" ${answerConfig.ignoreCase !== false ? "checked" : ""}>
+                    <span class="ops-toggle-card__copy">
+                        <span class="ops-toggle-card__title">Игнорировать регистр</span>
+                        <span class="ops-toggle-card__desc">tcp и TCP будут считаться одинаковыми ответами.</span>
+                    </span>
+                </label>
+                <label class="ops-toggle-card">
+                    <input type="checkbox" name="trimWhitespace" ${answerConfig.trimWhitespace !== false ? "checked" : ""}>
+                    <span class="ops-toggle-card__copy">
+                        <span class="ops-toggle-card__title">Сжимать пробелы</span>
+                        <span class="ops-toggle-card__desc">Лишние пробелы в начале, конце и внутри ответа не сломают проверку.</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    `;
+}
+
 function humanizeUserRole(role) {
     const map = {
         user: "Участник",
@@ -4094,7 +4512,7 @@ function renderOrganizerTournamentTasksChecklist(selectedTaskIds) {
                     <input type="checkbox" name="taskIds" value="${escapeHtml(task.id)}" ${selectedTaskIds.includes(task.id) ? "checked" : ""}>
                     <div class="ops-check-item__body">
                         <div class="ops-check-item__title">${escapeHtml(task.title)}</div>
-                        <div class="s-sub">${escapeHtml(task.category)} • ${escapeHtml(task.difficulty)} • ${escapeHtml(task.bankScope === "shared" ? "Общий банк" : "Личный банк")}</div>
+                        <div class="s-sub">${escapeHtml(task.category)} • ${escapeHtml(task.difficulty)} • ${escapeHtml(getTaskTypeMeta(task.taskType).ruLabel)} • ${escapeHtml(task.bankScope === "shared" ? "Общий банк" : "Личный банк")}</div>
                     </div>
                 </label>
             `,
@@ -4177,11 +4595,13 @@ function renderOrganizerTournamentEditor(selected) {
     `;
     const manageForm = `
         <form id="organizerTournamentManageForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-stack">
-            <div class="ops-form-grid ops-form-grid--double">
+            <div class="ops-form-grid ops-form-grid--triple">
                 <div class="field"><label>Режим доступа</label><select class="input" name="accessScope"><option value="open" ${selected.accessScope === "open" ? "selected" : ""}>Открытый</option><option value="registration" ${selected.accessScope === "registration" ? "selected" : ""}>Регистрация</option><option value="closed" ${selected.accessScope === "closed" ? "selected" : ""}>Закрытый список</option><option value="code" ${selected.accessScope === "code" ? "selected" : ""}>По коду</option></select></div>
                 <div class="field"><label>Код доступа</label><input class="input" name="accessCode" value="${escapeHtml(selected.accessCode || "")}" placeholder="Если режим по коду"></div>
+                <div class="field"><label>Режим турнира</label><select class="input" name="runtimeMode"><option value="competition" ${selected.runtimeMode === "competition" ? "selected" : ""}>Competition</option><option value="lesson" ${selected.runtimeMode === "lesson" ? "selected" : ""}>Lesson</option></select></div>
                 <div class="field"><label>Старт регистрации</label><input class="input" type="datetime-local" name="registrationStartAt" value="${selected.registrationStartAt ? new Date(selected.registrationStartAt).toISOString().slice(0, 16) : ""}"></div>
                 <div class="field"><label>Финиш регистрации</label><input class="input" type="datetime-local" name="registrationEndAt" value="${selected.registrationEndAt ? new Date(selected.registrationEndAt).toISOString().slice(0, 16) : ""}"></div>
+                <div class="field"><label>Штраф за неверную попытку, сек</label><input class="input" type="number" min="0" step="60" name="wrongAttemptPenaltySeconds" value="${escapeHtml(selected.wrongAttemptPenaltySeconds ?? 1200)}"></div>
             </div>
             <div class="ops-toggle-grid">
                 <label class="ops-toggle-card">
@@ -4198,7 +4618,15 @@ function renderOrganizerTournamentEditor(selected) {
                         <span class="ops-toggle-card__desc">После завершения можно открыть подробные итоги и баллы.</span>
                     </span>
                 </label>
+                <label class="ops-toggle-card">
+                    <input type="checkbox" name="allowLiveTaskAdd" ${selected.allowLiveTaskAdd ? "checked" : ""}>
+                    <span class="ops-toggle-card__copy">
+                        <span class="ops-toggle-card__title">Разрешить добавление задач во время live</span>
+                        <span class="ops-toggle-card__desc">Подходит для режима lesson, если список заданий может расширяться прямо на занятии.</span>
+                    </span>
+                </label>
             </div>
+            <div class="s-sub">Участники увидят, можно ли менять набор задач во время турнира. В режиме competition после старта лучше не менять состав заданий.</div>
             <div class="ops-form-actions">
                 <button class="btn btn--accent" type="submit">Сохранить параметры</button>
             </div>
@@ -4457,11 +4885,12 @@ function renderOrganizerTournaments() {
 }
 
 function renderOrganizerTaskCard(task, kind) {
+    const taskMeta = getTaskTypeMeta(task.taskType);
     return `
         <div class="ops-entity-row ${organizerUiState.selectedTaskId === task.id ? "is-selected" : ""}">
             <div class="ops-entity-row__main">
                 <div class="ops-entity-row__title">${escapeHtml(task.title)}</div>
-                <div class="ops-entity-row__meta">${escapeHtml(task.category)} • ${escapeHtml(task.difficulty)} • ${escapeHtml(task.bankScope === "shared" ? "Общий банк" : "Личный банк")} • v${escapeHtml(task.version)}</div>
+                <div class="ops-entity-row__meta">${escapeHtml(task.category)} • ${escapeHtml(task.difficulty)} • ${escapeHtml(taskMeta.ruLabel)} • ${escapeHtml(task.bankScope === "shared" ? "Общий банк" : "Личный банк")} • v${escapeHtml(task.version)}</div>
                 ${task.reviewerNote ? `<div class="ops-entity-row__note">Комментарий: ${escapeHtml(task.reviewerNote)}</div>` : ""}
             </div>
             <div class="ops-entity-row__actions">
@@ -4474,9 +4903,7 @@ function renderOrganizerTaskCard(task, kind) {
 
 function renderOrganizerTaskBank() {
     const groups = getOrganizerTasksState();
-    const editingTask = [...groups.personal, ...groups.pending, ...groups.shared].find(
-        (item) => item.id === organizerUiState.selectedTaskId,
-    );
+    const editingTask = getOrganizerTaskEditingState();
     const importState = organizerUiState.taskImport;
 
     return `
@@ -4527,6 +4954,7 @@ function renderOrganizerTaskBank() {
                                 <div class="field"><label>Минуты</label><input class="input" type="number" min="10" max="240" name="estimatedMinutes" value="${escapeHtml(editingTask?.estimatedMinutes || 30)}"></div>
                             </div>
                             <div class="field"><label>Условие</label><textarea class="textarea input" name="statement" style="min-height: 180px;">${escapeHtml(editingTask?.statement || "")}</textarea></div>
+                            ${renderOrganizerTaskRuntimeFields(editingTask)}
                             <div class="ops-form-actions">
                                 <button class="btn btn--accent" type="submit">${editingTask ? "Сохранить изменения" : "Создать задачу"}</button>
                                 ${editingTask ? '<button class="btn btn--muted" type="button" id="organizerTaskResetBtn">Сбросить выбор</button>' : ""}
@@ -4548,6 +4976,16 @@ function renderOrganizerTaskBank() {
                                 <button class="btn btn--accent" id="organizerTaskImportConfirmBtn" ${!importState?.preview ? "disabled" : ""}>Импортировать</button>
                             </div>
                             <div class="s-sub">${importState?.preview ? `Подходят: ${escapeHtml(importState.preview.validRowsCount)} • Ошибки: ${escapeHtml(importState.preview.skippedRowsCount)}` : "Файл можно загрузить и предварительно провалидировать."}</div>
+                            ${
+                                importState?.preview?.errors?.length
+                                    ? `<div class="ops-preview-card__errors">${importState.preview.errors
+                                          .slice(0, 8)
+                                          .map(
+                                              (error) => `<div class="s-sub">Строка ${escapeHtml(error.rowNumber)}: ${escapeHtml(error.message)}</div>`,
+                                          )
+                                          .join("")}</div>`
+                                    : ""
+                            }
                         </div>
                     `,
                 })}
@@ -5309,6 +5747,9 @@ async function initOrganizerTournamentsInteractions(container) {
             await apiClient.updateOrganizerTournament(Number(form.dataset.tournamentId), {
                 accessScope: form.elements.accessScope.value,
                 accessCode: form.elements.accessCode.value.trim(),
+                runtimeMode: form.elements.runtimeMode.value,
+                allowLiveTaskAdd: form.elements.allowLiveTaskAdd.checked,
+                wrongAttemptPenaltySeconds: Number(form.elements.wrongAttemptPenaltySeconds.value || 0),
                 leaderboardVisible: form.elements.leaderboardVisible.checked,
                 resultsVisible: form.elements.resultsVisible.checked,
                 registrationStartAt: form.elements.registrationStartAt.value ? new Date(form.elements.registrationStartAt.value).toISOString() : null,
@@ -5436,7 +5877,30 @@ async function initOrganizerTournamentsInteractions(container) {
 }
 
 function initOrganizerTaskBankInteractions(container) {
-    container.querySelector("#organizerTaskForm")?.addEventListener("submit", async (event) => {
+    const taskForm = container.querySelector("#organizerTaskForm");
+    const syncTaskConfigVisibility = () => {
+        if (!taskForm) return;
+        const taskType = taskForm.elements.taskType?.value || "short_text";
+        taskForm.querySelectorAll("[data-organizer-task-config]").forEach((node) => {
+            const mode = node.dataset.organizerTaskConfig;
+            const visible =
+                mode === "choice"
+                    ? taskType === "single_choice" || taskType === "multiple_choice"
+                    : mode === "number"
+                      ? taskType === "number"
+                      : mode === "short_text"
+                        ? taskType === "short_text"
+                        : mode === "textual"
+                          ? taskType === "short_text" || taskType === "number"
+                          : true;
+            node.hidden = !visible;
+        });
+    };
+
+    taskForm?.elements.taskType?.addEventListener("change", syncTaskConfigVisibility);
+    syncTaskConfigVisibility();
+
+    taskForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         const form = event.currentTarget;
         const taskId = Number(form.dataset.taskId || 0);
@@ -5446,6 +5910,16 @@ function initOrganizerTaskBankInteractions(container) {
             difficulty: form.elements.difficulty.value.trim(),
             estimatedMinutes: Number(form.elements.estimatedMinutes.value || 30),
             statement: form.elements.statement.value.trim(),
+            taskType: form.elements.taskType.value,
+            optionsText: form.elements.optionsText?.value || "",
+            correctAnswersText: form.elements.correctAnswersText?.value || "",
+            taskInstructions: form.elements.taskInstructions?.value || "",
+            answerPlaceholder: form.elements.answerPlaceholder?.value || "",
+            acceptedAnswersText: form.elements.acceptedAnswersText?.value || "",
+            acceptedNumber: form.elements.acceptedNumber?.value || "",
+            numberTolerance: form.elements.numberTolerance?.value || 0,
+            ignoreCase: form.elements.ignoreCase?.checked,
+            trimWhitespace: form.elements.trimWhitespace?.checked,
         };
         Loader.show();
         try {
@@ -7410,6 +7884,598 @@ async function openLeaderboardModal(tournamentId, mode = "view") {
     }
 }
 
+function formatRuntimeStatement(value) {
+    return escapeHtml(String(value || "")).replace(/\n/g, "<br>");
+}
+
+function renderRuntimeTaskOption(option, checked, inputType, inputName, disabled = false) {
+    return `
+        <label class="runtime-choice">
+            <input type="${inputType}" name="${inputName}" value="${escapeHtml(option.id)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
+            <span class="runtime-choice__marker">${escapeHtml(option.id)}</span>
+            <span class="runtime-choice__label">${escapeHtml(option.label)}</span>
+        </label>
+    `;
+}
+
+function renderRuntimeAnswerForm(task, tournament) {
+    const draft = getRuntimeTaskDraftValue(task);
+    const taskTypeMeta = getTaskTypeMeta(task.taskType);
+    const taskContent = task.taskContent || {};
+    const isEditable = isTournamentRuntimeEditable(tournament);
+    const disabledAttr = isEditable ? "" : "disabled";
+    let answerMarkup = "";
+
+    if (task.taskType === "single_choice") {
+        const selectedId = draft.selectedOptionIds?.[0] || "";
+        answerMarkup = `
+            <div class="runtime-choices">
+                ${(taskContent.options || [])
+                    .map((option) =>
+                        renderRuntimeTaskOption(
+                            option,
+                            selectedId === option.id,
+                            "radio",
+                            "selectedOptionId",
+                            !isEditable,
+                        ),
+                    )
+                    .join("")}
+            </div>
+            ${
+                taskContent.instructions
+                    ? `<div class="runtime-answer-hint">${escapeHtml(taskContent.instructions)}</div>`
+                    : ""
+            }
+        `;
+    } else if (task.taskType === "multiple_choice") {
+        const selectedIds = Array.isArray(draft.selectedOptionIds)
+            ? draft.selectedOptionIds
+            : [];
+        answerMarkup = `
+            <div class="runtime-choices">
+                ${(taskContent.options || [])
+                    .map((option) =>
+                        renderRuntimeTaskOption(
+                            option,
+                            selectedIds.includes(option.id),
+                            "checkbox",
+                            "selectedOptionIds",
+                            !isEditable,
+                        ),
+                    )
+                    .join("")}
+            </div>
+            ${
+                taskContent.instructions
+                    ? `<div class="runtime-answer-hint">${escapeHtml(taskContent.instructions)}</div>`
+                    : ""
+            }
+        `;
+    } else if (task.taskType === "number") {
+        answerMarkup = `
+            <div class="runtime-text-answer">
+                <input class="input" type="number" step="any" name="numberAnswer" placeholder="${escapeHtml(taskContent.placeholder || "Введите число")}" value="${draft.numberAnswer ?? ""}" ${disabledAttr}>
+                <div class="runtime-answer-hint">Поддерживаются целые и дробные числа.</div>
+            </div>
+        `;
+    } else {
+        answerMarkup = `
+            <div class="runtime-text-answer">
+                <textarea class="textarea input runtime-textarea" name="textAnswer" placeholder="${escapeHtml(taskContent.placeholder || "Введите ответ")}" ${disabledAttr}>${escapeHtml(draft.textAnswer || "")}</textarea>
+                <div class="runtime-answer-hint">Подходит для коротких слов, терминов и формул.</div>
+            </div>
+        `;
+    }
+
+    if (!isEditable) {
+        answerMarkup += `
+            <div class="runtime-answer-hint">
+                ${escapeHtml(getTournamentRuntimeLockMessage(tournament))}
+            </div>
+        `;
+    }
+
+    return `
+        <div class="runtime-answer-card">
+            <div class="runtime-answer-card__head">
+                <div>
+                    <div class="runtime-answer-card__title">Ответ участника</div>
+                    <div class="runtime-answer-card__meta">${escapeHtml(taskTypeMeta.ruLabel)} • Черновик сохраняется автоматически</div>
+                </div>
+                ${renderInlineBadge(getRuntimeTaskStatusLabel(task), getRuntimeTaskStatusTone(task))}
+            </div>
+            <form id="tournamentRuntimeAnswerForm" class="runtime-answer-form" data-runtime-task-id="${escapeHtml(task.tournamentTaskId)}">
+                ${answerMarkup}
+                <div class="runtime-answer-form__foot">
+                    <div id="runtimeDraftState" class="runtime-draft-state">Последнее сохранение: ${task.draftUpdatedAt ? escapeHtml(formatDateTimeLabel(task.draftUpdatedAt)) : "ещё не было"}</div>
+                    <div class="runtime-answer-form__actions">
+                        <button class="btn btn--muted" type="button" data-runtime-refresh>Обновить</button>
+                        <button class="btn btn--accent" type="submit" ${disabledAttr}>Отправить ответ</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+function renderRuntimeSubmissionHistory(task) {
+    const rows = Array.isArray(task.recentSubmissions) ? task.recentSubmissions : [];
+    if (!rows.length) {
+        return `
+            <div class="runtime-history-empty">
+                Попыток ещё не было. После первой отправки здесь появится короткая история проверок.
+            </div>
+        `;
+    }
+
+    return `
+        <div class="runtime-history-list">
+            ${rows
+                .map(
+                    (submission) => `
+                        <div class="runtime-history-item">
+                            <div class="runtime-history-item__top">
+                                ${renderInlineBadge(
+                                    formatSubmissionVerdictLabel(submission.verdict),
+                                    submission.verdict === "accepted"
+                                        ? "approved_shared"
+                                        : "rejected",
+                                )}
+                                <span class="runtime-history-item__time">${escapeHtml(formatDateTimeLabel(submission.submittedAt))}</span>
+                            </div>
+                            <div class="runtime-history-item__summary">${escapeHtml(submission.answerSummary || "Ответ отправлен")}</div>
+                            <div class="runtime-history-item__meta">
+                                ${submission.scoreDelta > 0 ? `+${formatNumberRu(submission.scoreDelta)} очк.` : "0 очк."}
+                                • штраф ${formatDurationDetailedLabel(submission.penaltyDeltaSeconds || 0)}
+                            </div>
+                        </div>
+                    `,
+                )
+                .join("")}
+        </div>
+    `;
+}
+
+function renderTournamentRuntimeContent(runtime) {
+    const tournament = runtime?.tournament || {};
+    const summary = runtime?.summary || {};
+    const selectedTask = getSelectedRuntimeTask(runtime);
+    const tasks = Array.isArray(runtime?.tasks) ? runtime.tasks : [];
+
+    if (!selectedTask) {
+        return `
+            <div class="runtime-shell">
+                <div class="runtime-head">
+                    <div class="runtime-head__copy">
+                        <div id="tournamentRuntimeTitle" class="runtime-head__title">${escapeHtml(tournament.title || "Соревнование")}</div>
+                    </div>
+                    <button class="modal__close" data-close="tournamentRuntimeModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div class="runtime-empty">В этом турнире пока нет задач для решения.</div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="runtime-shell">
+            <div class="runtime-head">
+                <div class="runtime-head__copy">
+                    <div class="runtime-head__eyebrow">Активное соревнование</div>
+                    <div id="tournamentRuntimeTitle" class="runtime-head__title">${escapeHtml(tournament.title || "Соревнование")}</div>
+                    <div class="runtime-head__meta">
+                        <span>${escapeHtml(tournament.participantLabel || "Участник")}</span>
+                        <span>${escapeHtml(tournament.format === "team" ? "Командный формат" : "Личный формат")}</span>
+                        <span>${escapeHtml(tournament.runtimeMode === "lesson" ? "Lesson mode" : "Competition mode")}</span>
+                        <span>${escapeHtml(tournament.accessScope === "closed" ? "Закрытый roster" : tournament.accessScope === "code" ? "Вход по коду" : "Свободный вход")}</span>
+                    </div>
+                </div>
+                <div class="runtime-head__actions">
+                    ${
+                        tournament.leaderboardVisible
+                            ? '<button class="btn btn--muted" type="button" data-runtime-open-leaderboard>Лидерборд</button>'
+                            : ""
+                    }
+                    <button class="btn btn--muted" type="button" data-runtime-refresh>Обновить</button>
+                    <button class="modal__close" data-close="tournamentRuntimeModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="runtime-summary-grid">
+                <div class="runtime-summary-card">
+                    <span class="runtime-summary-card__label">Очки</span>
+                    <span class="runtime-summary-card__value">${formatNumberRu(summary.score)}</span>
+                </div>
+                <div class="runtime-summary-card">
+                    <span class="runtime-summary-card__label">Решено</span>
+                    <span class="runtime-summary-card__value">${formatNumberRu(summary.solvedCount)} / ${formatNumberRu(summary.totalTasks)}</span>
+                </div>
+                <div class="runtime-summary-card">
+                    <span class="runtime-summary-card__label">Штраф</span>
+                    <span class="runtime-summary-card__value">${escapeHtml(formatDurationDetailedLabel(summary.penaltySeconds))}</span>
+                </div>
+                <div class="runtime-summary-card">
+                    <span class="runtime-summary-card__label">До конца</span>
+                    <span class="runtime-summary-card__value" id="runtimeCountdown">${escapeHtml(formatRuntimeCountdown(tournament.endAt))}</span>
+                </div>
+            </div>
+
+            ${
+                tournament.canTasksChange
+                    ? `
+                        <div class="runtime-banner runtime-banner--warning">
+                            ${renderOpsIcon("schedule", "warning")}
+                            <div>
+                                <div class="runtime-banner__title">Список задач может меняться</div>
+                                <div class="runtime-banner__desc">Организатор включил lesson-режим. Во время занятия в турнир могут добавляться новые задания.</div>
+                            </div>
+                        </div>
+                    `
+                    : ""
+            }
+
+            <div class="runtime-layout">
+                <aside class="runtime-sidebar">
+                    <div class="runtime-sidebar__head">
+                        <div class="runtime-sidebar__title">Задачи</div>
+                        <div class="runtime-sidebar__meta">${formatNumberRu(tasks.length)} шт.</div>
+                    </div>
+                    <div class="runtime-task-list">
+                        ${tasks
+                            .map(
+                                (task, index) => `
+                                    <button class="runtime-task-tile ${task.tournamentTaskId === selectedTask.tournamentTaskId ? "is-active" : ""}" type="button" data-runtime-select-task="${escapeHtml(task.tournamentTaskId)}">
+                                        <div class="runtime-task-tile__top">
+                                            <span class="runtime-task-tile__index">Задача ${index + 1}</span>
+                                            ${renderInlineBadge(getRuntimeTaskStatusLabel(task), getRuntimeTaskStatusTone(task))}
+                                        </div>
+                                        <div class="runtime-task-tile__title">${escapeHtml(task.title)}</div>
+                                        <div class="runtime-task-tile__meta">${escapeHtml(getTaskTypeMeta(task.taskType).ruLabel)} • ${escapeHtml(task.difficulty)} • ${formatNumberRu(task.points)} очк.</div>
+                                    </button>
+                                `,
+                            )
+                            .join("")}
+                    </div>
+                </aside>
+
+                <section class="runtime-main">
+                    <div class="card dash-card runtime-task-panel">
+                        <div class="runtime-task-panel__head">
+                            <div>
+                                <div class="runtime-task-panel__eyebrow">Текущая задача</div>
+                                <h2 class="runtime-task-panel__title">${escapeHtml(selectedTask.title)}</h2>
+                                <div class="runtime-task-panel__meta">
+                                    <span>${escapeHtml(selectedTask.category)}</span>
+                                    <span>${escapeHtml(selectedTask.difficulty)}</span>
+                                    <span>${escapeHtml(getTaskTypeMeta(selectedTask.taskType).ruLabel)}</span>
+                                    <span>${escapeHtml(formatDurationDetailedLabel((selectedTask.estimatedMinutes || 0) * 60))}</span>
+                                </div>
+                            </div>
+                            <div class="runtime-task-panel__stats">
+                                ${renderInlineBadge(`${formatNumberRu(selectedTask.points)} очков`, "published")}
+                                ${renderInlineBadge(`${formatNumberRu(selectedTask.attemptsCount)} попыток`, "draft")}
+                            </div>
+                        </div>
+
+                        <div class="runtime-statement">
+                            ${formatRuntimeStatement(selectedTask.statement)}
+                        </div>
+
+                        ${renderRuntimeAnswerForm(selectedTask, tournament)}
+
+                        <div class="runtime-bottom-grid">
+                            <div class="runtime-side-card">
+                                <div class="runtime-side-card__title">Последние проверки</div>
+                                ${renderRuntimeSubmissionHistory(selectedTask)}
+                            </div>
+                            <div class="runtime-side-card">
+                                <div class="runtime-side-card__title">Правила проверки</div>
+                                <div class="runtime-rules">
+                                    <div class="runtime-rules__item">Баллы начисляются только за первое принятое решение.</div>
+                                    <div class="runtime-rules__item">За неверную попытку добавляется штраф ${escapeHtml(formatDurationDetailedLabel(tournament.wrongAttemptPenaltySeconds || 0))}.</div>
+                                    <div class="runtime-rules__item">В командном формате ответ может отправить любой участник команды, но результат идёт в общий зачёт команды.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function updateRuntimeDraftState(text, isSuccess = false) {
+    const node = document.getElementById("runtimeDraftState");
+    if (!node) {
+        return;
+    }
+
+    node.textContent = text;
+    node.classList.toggle("is-success", isSuccess);
+}
+
+async function saveCurrentTournamentDraft({ silent = false } = {}) {
+    const runtime = getTournamentRuntimeState();
+    const selectedTask = getSelectedRuntimeTask(runtime);
+    const form = document.getElementById("tournamentRuntimeAnswerForm");
+    if (!runtime || !selectedTask || !form) {
+        return;
+    }
+
+    const rawPayload = readRuntimeAnswerPayload(form, selectedTask.taskType);
+    const nextDraft = normalizeRuntimeDraftPayloadForCompare(
+        selectedTask.taskType,
+        rawPayload,
+    );
+    const currentDraft = normalizeRuntimeDraftPayloadForCompare(
+        selectedTask.taskType,
+        selectedTask.draft || {},
+    );
+    if (JSON.stringify(nextDraft) === JSON.stringify(currentDraft)) {
+        if (!silent) {
+            updateRuntimeDraftState("Черновик уже сохранён", true);
+        }
+        return;
+    }
+
+    try {
+        await apiClient.saveTournamentTaskDraft(
+            runtime.tournament.id,
+            selectedTask.tournamentTaskId,
+            rawPayload,
+        );
+        updateRuntimeDraftState(
+            `Черновик сохранён: ${formatDateTimeLabel(new Date().toISOString())}`,
+            true,
+        );
+    } catch (error) {
+        if (!silent) {
+            showRequestError("Черновик", error);
+        }
+        throw error;
+    }
+}
+
+function scheduleTournamentDraftSave() {
+    clearTournamentRuntimeDraftTimer();
+    updateRuntimeDraftState("Сохраняем черновик...");
+    tournamentRuntimeUiState.autosaveTimer = window.setTimeout(async () => {
+        try {
+            await saveCurrentTournamentDraft({ silent: true });
+        } catch (error) {
+            updateRuntimeDraftState("Не удалось сохранить черновик");
+        } finally {
+            tournamentRuntimeUiState.autosaveTimer = null;
+        }
+    }, 1100);
+}
+
+async function refreshTournamentRuntimeSilently({
+    showLoader = false,
+    showToast = false,
+} = {}) {
+    const currentRuntime = getTournamentRuntimeState();
+    if (!currentRuntime?.tournament?.id) {
+        return null;
+    }
+
+    if (tournamentRuntimeUiState.refreshInFlight) {
+        return currentRuntime;
+    }
+
+    tournamentRuntimeUiState.refreshInFlight = true;
+    if (showLoader) {
+        Loader.show();
+    }
+
+    try {
+        if (isTournamentRuntimeEditable(currentRuntime.tournament)) {
+            try {
+                await saveCurrentTournamentDraft({ silent: true });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        const freshRuntime = await apiClient.loadTournamentRuntime(
+            currentRuntime.tournament.id,
+        );
+        await renderTournamentRuntimeModal(freshRuntime);
+
+        if (showToast) {
+            Toast.show("Турнир", "Данные турнира обновлены.", "success");
+        }
+
+        return freshRuntime;
+    } catch (error) {
+        if (showLoader || showToast) {
+            showRequestError("Турнир", error);
+        } else {
+            console.error(error);
+        }
+        return currentRuntime;
+    } finally {
+        tournamentRuntimeUiState.refreshInFlight = false;
+        if (showLoader) {
+            Loader.hide(300);
+        }
+    }
+}
+
+function startTournamentRuntimeRefresh(runtime) {
+    if (!runtime?.tournament?.canTasksChange) {
+        return;
+    }
+
+    runtimeRefreshInterval = window.setInterval(async () => {
+        const runtimeState = getTournamentRuntimeState();
+        if (!runtimeState?.tournament) {
+            stopTournamentRuntimeTimers();
+            return;
+        }
+
+        await refreshTournamentRuntimeSilently();
+    }, 15000);
+}
+
+function startTournamentRuntimeClock(runtime) {
+    if (!runtime?.tournament) {
+        return;
+    }
+
+    const node = document.getElementById("runtimeCountdown");
+    if (!node) {
+        return;
+    }
+
+    stopTournamentRuntimeTimers();
+    node.textContent = formatRuntimeCountdown(runtime.tournament.endAt);
+    runtimeClockInterval = window.setInterval(() => {
+        const runtimeState = getTournamentRuntimeState();
+        if (!runtimeState?.tournament) {
+            stopTournamentRuntimeTimers();
+            return;
+        }
+
+        node.textContent = formatRuntimeCountdown(runtimeState.tournament.endAt);
+        if (
+            runtimeState.tournament.status === "live" &&
+            !isTournamentRuntimeEditable(runtimeState.tournament)
+        ) {
+            refreshTournamentRuntimeSilently();
+        }
+    }, 1000);
+}
+
+async function renderTournamentRuntimeModal(runtime) {
+    const contentNode = document.getElementById("tournamentRuntimeContent");
+    if (!contentNode) {
+        return;
+    }
+
+    contentNode.innerHTML = renderTournamentRuntimeContent(runtime);
+    startTournamentRuntimeClock(runtime);
+    startTournamentRuntimeRefresh(runtime);
+    bindTournamentRuntimeInteractions();
+}
+
+async function openTournamentRuntimeModal(tournamentId, runtimePayload = null) {
+    const shouldManageLoader = !runtimePayload;
+    if (shouldManageLoader) {
+        Loader.show();
+    }
+    try {
+        const runtime =
+            runtimePayload ||
+            (getTournamentRuntimeState()?.tournament?.id === tournamentId
+                ? getTournamentRuntimeState()
+                : await apiClient.loadTournamentRuntime(tournamentId));
+
+        if (!runtime) {
+            throw new Error("Не удалось загрузить турнирный runtime.");
+        }
+
+        if (
+            !tournamentRuntimeUiState.selectedTaskId ||
+            !runtime.tasks?.some(
+                (task) => task.tournamentTaskId === tournamentRuntimeUiState.selectedTaskId,
+            )
+        ) {
+            tournamentRuntimeUiState.selectedTaskId =
+                getSelectedRuntimeTask(runtime)?.tournamentTaskId || null;
+        }
+
+        await renderTournamentRuntimeModal(runtime);
+        openModal("tournamentRuntimeModal");
+    } catch (error) {
+        showRequestError("Турнир", error);
+    } finally {
+        if (shouldManageLoader) {
+            Loader.hide(300);
+        }
+    }
+}
+
+function bindTournamentRuntimeInteractions() {
+    const modal = document.getElementById("tournamentRuntimeModal");
+    const runtime = getTournamentRuntimeState();
+    const selectedTask = getSelectedRuntimeTask(runtime);
+    if (!modal || !runtime || !selectedTask) {
+        return;
+    }
+
+    modal.querySelectorAll("[data-runtime-select-task]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            try {
+                await saveCurrentTournamentDraft({ silent: true });
+            } catch (error) {
+                console.error(error);
+            }
+            tournamentRuntimeUiState.selectedTaskId = Number(button.dataset.runtimeSelectTask);
+            await renderTournamentRuntimeModal(getTournamentRuntimeState());
+        });
+    });
+
+    modal.querySelectorAll("[data-runtime-refresh]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            await refreshTournamentRuntimeSilently({
+                showLoader: true,
+                showToast: true,
+            });
+        });
+    });
+
+    modal.querySelector("[data-runtime-open-leaderboard]")?.addEventListener("click", () => {
+        openLeaderboardModal(runtime.tournament.id, "view");
+    });
+
+    const answerForm = modal.querySelector("#tournamentRuntimeAnswerForm");
+    answerForm?.addEventListener("input", scheduleTournamentDraftSave);
+    answerForm?.addEventListener("change", scheduleTournamentDraftSave);
+    answerForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearTournamentRuntimeDraftTimer();
+        const currentRuntime = getTournamentRuntimeState();
+        const currentTask = getSelectedRuntimeTask(currentRuntime);
+        if (!currentRuntime || !currentTask) {
+            return;
+        }
+
+        Loader.show();
+        try {
+            const payload = readRuntimeAnswerPayload(answerForm, currentTask.taskType);
+            const response = await apiClient.submitTournamentTaskAnswer(
+                currentRuntime.tournament.id,
+                currentTask.tournamentTaskId,
+                payload,
+            );
+            const nextRuntime = getTournamentRuntimeState();
+            if (response.result?.verdict === "accepted" && nextRuntime) {
+                tournamentRuntimeUiState.selectedTaskId = pickNextRuntimeTaskId(
+                    nextRuntime,
+                    currentTask.tournamentTaskId,
+                );
+            }
+            await renderTournamentRuntimeModal(nextRuntime || currentRuntime);
+            Toast.show(
+                "Турнир",
+                response.result?.verdict === "accepted"
+                    ? `Ответ принят. +${formatNumberRu(response.result.scoreDelta)} очк.`
+                    : "Ответ пока неверный. Проверьте решение и попробуйте ещё раз.",
+                response.result?.verdict === "accepted" ? "success" : "info",
+            );
+        } catch (error) {
+            showRequestError("Турнир", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+}
+
 function renderTournaments() {
     const adminActions = isAdminUser()
         ? `
@@ -7505,7 +8571,7 @@ function renderTournamentList(data) {
                     <span>${t.time}</span>
                 </div>
                 <button class="btn ${
-                    t.actionType === "join"
+                    t.actionType === "join" || t.actionType === "solve"
                         ? "btn--join"
                         : t.actionType === "outline"
                           ? "btn--outline-tour"
@@ -7517,6 +8583,8 @@ function renderTournamentList(data) {
                     ${
                         t.actionType === "join"
                             ? '<svg class="icon-svg icon-svg-logout" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></g><g class="svg-filled" style="display:none"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></g></svg>'
+                            : t.actionType === "solve"
+                              ? '<svg class="icon-svg icon-svg-play_circle" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M380-300v-360l280 180-280 180Zm100-180Zm0 0 160-100-160-100v200ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></g><g class="svg-filled" style="display:none"><path d="M380-300v-360l280 180-280 180Zm100-180Zm0 0 160-100-160-100v200ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></g></svg>'
                             : t.actionType === "outline"
                               ? '<svg class="icon-svg icon-svg-chevron_right" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g><g class="svg-filled" style="display:none"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></g></svg>'
                               : '<svg class="icon-svg icon-svg-bar_chart" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g><g class="svg-filled" style="display:none"><path d="M640-160v-280h160v280H640Zm-240 0v-640h160v640H400Zm-240 0v-440h160v440H160Z"/></g></svg>'
@@ -7541,17 +8609,67 @@ function initTournamentsInteractions(container) {
     const filters = ViewManager.tourFilters;
 
     const bindTournamentCardActions = () => {
+        const tournamentsById = new Map(
+            getTournamentsData().map((item) => [Number(item.id), item]),
+        );
         listContainer
             .querySelectorAll("[data-tournament-action]")
             .forEach((button) => {
-                button.addEventListener("click", () => {
+                button.addEventListener("click", async () => {
                     const tournamentId = Number(button.dataset.tournamentId);
                     if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
                         return;
                     }
 
-                    if (button.dataset.tournamentAction === "join") {
-                        openLeaderboardModal(tournamentId, "join");
+                    const tournament = tournamentsById.get(tournamentId) || null;
+                    const actionType = button.dataset.tournamentAction;
+
+                    if (actionType === "join") {
+                        Loader.show();
+                        try {
+                            const payload = {};
+                            if (tournament?.accessScope === "code" && !tournament?.joined) {
+                                const accessCode = window.prompt(
+                                    "Введите код доступа к турниру:",
+                                    "",
+                                );
+                                if (!accessCode) {
+                                    Loader.hide(300);
+                                    return;
+                                }
+                                payload.accessCode = accessCode.trim();
+                            }
+
+                            const response = await apiClient.joinTournament(
+                                tournamentId,
+                                payload,
+                            );
+                            await Promise.all([
+                                apiClient.loadTournaments(),
+                                apiClient.loadProfileAnalytics(),
+                            ]);
+                            if (response.runtime) {
+                                await openTournamentRuntimeModal(
+                                    tournamentId,
+                                    response.runtime,
+                                );
+                            } else if (response.leaderboard) {
+                                renderLeaderboard(response.leaderboard);
+                                openModal("leaderboardModal");
+                            } else {
+                                Toast.show(
+                                    "Турнир",
+                                    "Вы присоединились к соревнованию. Лидерборд пока скрыт организатором.",
+                                    "success",
+                                );
+                            }
+                        } catch (error) {
+                            showRequestError("Турниры", error);
+                        } finally {
+                            Loader.hide(300);
+                        }
+                    } else if (actionType === "solve") {
+                        await openTournamentRuntimeModal(tournamentId);
                     } else {
                         openLeaderboardModal(tournamentId, "view");
                     }

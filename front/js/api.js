@@ -5,6 +5,7 @@
         profile: null,
         dashboard: null,
         tournaments: [],
+        tournamentRuntime: null,
         team: null,
         profileAnalytics: null,
         teamAnalytics: null,
@@ -51,6 +52,7 @@
         state.profile = null;
         state.dashboard = null;
         state.tournaments = [];
+        state.tournamentRuntime = null;
         state.team = null;
         state.profileAnalytics = null;
         state.teamAnalytics = null;
@@ -108,6 +110,11 @@
     function syncTaskBank(items) {
         state.taskBank = Array.isArray(items) ? [...items] : [];
         return state.taskBank;
+    }
+
+    function syncTournamentRuntime(payload) {
+        state.tournamentRuntime = payload ? { ...payload } : null;
+        return state.tournamentRuntime;
     }
 
     function syncOAuthProviders(items) {
@@ -771,14 +778,60 @@
         return data.item;
     }
 
-    async function joinTournamentRequest(tournamentId) {
-        return request(`/api/tournaments/${tournamentId}/join`, {
+    async function joinTournamentRequest(tournamentId, payload = {}) {
+        const data = await request(`/api/tournaments/${tournamentId}/join`, {
             method: "POST",
+            body: JSON.stringify(payload),
         });
+        if (data.runtime) {
+            syncTournamentRuntime(data.runtime);
+        }
+        return data;
     }
 
     async function loadTournamentLeaderboard(tournamentId) {
         return request(`/api/tournaments/${tournamentId}/leaderboard`);
+    }
+
+    async function loadTournamentRuntime(tournamentId) {
+        const data = await request(`/api/tournaments/${tournamentId}/runtime`);
+        syncTournamentRuntime(data);
+        return data;
+    }
+
+    async function saveTournamentTaskDraft(tournamentId, tournamentTaskId, payload) {
+        const data = await request(
+            `/api/tournaments/${tournamentId}/tasks/${tournamentTaskId}/draft`,
+            {
+                method: "POST",
+                body: JSON.stringify(payload),
+            },
+        );
+        if (state.tournamentRuntime?.tasks) {
+            state.tournamentRuntime = {
+                ...state.tournamentRuntime,
+                tasks: state.tournamentRuntime.tasks.map((task) =>
+                    task.tournamentTaskId === tournamentTaskId
+                        ? { ...task, draft: data.draft || {}, draftUpdatedAt: data.updatedAt }
+                        : task,
+                ),
+            };
+        }
+        return data;
+    }
+
+    async function submitTournamentTaskAnswer(tournamentId, tournamentTaskId, payload) {
+        const data = await request(
+            `/api/tournaments/${tournamentId}/tasks/${tournamentTaskId}/submit`,
+            {
+                method: "POST",
+                body: JSON.stringify(payload),
+            },
+        );
+        if (data.runtime) {
+            syncTournamentRuntime(data.runtime);
+        }
+        return data;
     }
 
     async function createOrganizerTaskRequest(payload) {
@@ -1080,6 +1133,7 @@
         loadTeam,
         loadTeamAnalytics,
         loadTournamentLeaderboard,
+        loadTournamentRuntime,
         loadTournaments,
         loadWorkspaceData,
         login,
@@ -1098,8 +1152,10 @@
         revokeSession,
         sendEmailTwoFactorSetup,
         sendEmailVerification,
+        saveTournamentTaskDraft,
         submitOrganizerApplication: submitOrganizerApplicationRequest,
         submitOrganizerTaskForReview: submitOrganizerTaskForReviewRequest,
+        submitTournamentTaskAnswer,
         state,
         transferTeam: transferTeamRequest,
         updateModerationUserStatus,

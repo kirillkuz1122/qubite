@@ -1,4 +1,8 @@
 const XLSX = require("xlsx");
+const {
+    sanitizeTaskRuntime,
+    validateTaskRuntime,
+} = require("./task-runtime");
 
 function cleanCell(value) {
     return String(value ?? "")
@@ -178,6 +182,28 @@ function parseTaskWorkbook(base64Payload) {
     const difficultyAliases = ["difficulty", "сложность"];
     const statementAliases = ["statement", "условие", "description"];
     const minutesAliases = ["estimated_minutes", "minutes", "time_minutes", "время"];
+    const taskTypeAliases = ["task_type", "type", "тип"];
+    const optionsAliases = ["options", "варианты", "options_text"];
+    const correctAnswersAliases = [
+        "correct_answers",
+        "correct_options",
+        "правильные_ответы",
+        "верные_варианты",
+    ];
+    const acceptedAnswersAliases = [
+        "accepted_answers",
+        "answers",
+        "допустимые_ответы",
+    ];
+    const acceptedNumberAliases = [
+        "accepted_number",
+        "number_answer",
+        "число",
+    ];
+    const toleranceAliases = ["tolerance", "delta", "допуск"];
+    const placeholderAliases = ["answer_placeholder", "placeholder", "подсказка"];
+    const ignoreCaseAliases = ["ignore_case", "case_insensitive"];
+    const trimWhitespaceAliases = ["trim_whitespace", "trim"];
 
     if (!titleAliases.some((alias) => headerMap.has(alias))) {
         const error = new Error("В шаблоне задач нужна колонка title.");
@@ -199,6 +225,15 @@ function parseTaskWorkbook(base64Payload) {
         const difficulty = pickValue(row, headerMap, difficultyAliases) || "Medium";
         const estimatedMinutesRaw = pickValue(row, headerMap, minutesAliases) || "30";
         const estimatedMinutes = Number(estimatedMinutesRaw);
+        const taskType = pickValue(row, headerMap, taskTypeAliases) || "short_text";
+        const optionsText = pickValue(row, headerMap, optionsAliases);
+        const correctAnswersText = pickValue(row, headerMap, correctAnswersAliases);
+        const acceptedAnswersText = pickValue(row, headerMap, acceptedAnswersAliases);
+        const acceptedNumber = pickValue(row, headerMap, acceptedNumberAliases);
+        const numberTolerance = pickValue(row, headerMap, toleranceAliases);
+        const answerPlaceholder = pickValue(row, headerMap, placeholderAliases);
+        const ignoreCase = pickValue(row, headerMap, ignoreCaseAliases);
+        const trimWhitespace = pickValue(row, headerMap, trimWhitespaceAliases);
 
         if (!title && !statement) {
             return;
@@ -222,6 +257,31 @@ function parseTaskWorkbook(base64Payload) {
             return;
         }
 
+        const runtime = sanitizeTaskRuntime({
+            taskType,
+            optionsText,
+            correctAnswersText,
+            acceptedAnswersText,
+            acceptedNumber,
+            numberTolerance,
+            answerPlaceholder,
+            ignoreCase,
+            trimWhitespace,
+        });
+        const runtimeValidation = validateTaskRuntime(
+            runtime.taskType,
+            runtime.taskContent,
+            runtime.answerConfig,
+        );
+        if (!runtimeValidation.ok) {
+            errors.push({
+                rowNumber,
+                code: "task_runtime_invalid",
+                message: runtimeValidation.error,
+            });
+            return;
+        }
+
         items.push({
             rowNumber,
             title,
@@ -231,6 +291,9 @@ function parseTaskWorkbook(base64Payload) {
             estimatedMinutes: Number.isFinite(estimatedMinutes)
                 ? estimatedMinutes
                 : 30,
+            taskType: runtime.taskType,
+            taskContent: runtime.taskContent,
+            answerConfig: runtime.answerConfig,
         });
     });
 
@@ -314,6 +377,15 @@ function buildTaskTemplateBuffer() {
                 "difficulty",
                 "statement",
                 "estimated_minutes",
+                "task_type",
+                "options",
+                "correct_answers",
+                "accepted_answers",
+                "accepted_number",
+                "tolerance",
+                "answer_placeholder",
+                "ignore_case",
+                "trim_whitespace",
             ],
             [
                 "Кратчайший путь",
@@ -321,6 +393,15 @@ function buildTaskTemplateBuffer() {
                 "Medium",
                 "Найдите кратчайшее расстояние между двумя вершинами графа.",
                 35,
+                "number",
+                "",
+                "",
+                "",
+                7,
+                0,
+                "Введите число",
+                "",
+                "",
             ],
             [
                 "Анализ логов",
@@ -328,6 +409,31 @@ function buildTaskTemplateBuffer() {
                 "Easy",
                 "По журналу событий вычислите пиковую нагрузку по минутам.",
                 20,
+                "single_choice",
+                "14 ошибок;18 ошибок;21 ошибка;27 ошибок",
+                "B",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ],
+            [
+                "Марафон строк",
+                "marathon",
+                "Medium",
+                "Назовите структуру данных, которая позволяет эффективно искать подстроки во множестве строк.",
+                30,
+                "short_text",
+                "",
+                "",
+                "suffix automaton;suffix automata",
+                "",
+                "",
+                "Введите ответ",
+                "true",
+                "true",
             ],
         ],
         "tasks",
