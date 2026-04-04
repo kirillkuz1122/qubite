@@ -87,6 +87,124 @@ function addDays(date, days) {
     return new Date(date.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function padDatePart(value) {
+    return String(value).padStart(2, "0");
+}
+
+function getLocalDateKey(date = new Date()) {
+    return [
+        date.getFullYear(),
+        padDatePart(date.getMonth() + 1),
+        padDatePart(date.getDate()),
+    ].join("-");
+}
+
+function getLocalDateBounds(date = new Date()) {
+    const start = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0,
+        0,
+    );
+    const end = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59,
+        999,
+    );
+
+    return {
+        key: getLocalDateKey(date),
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+    };
+}
+
+function formatDailyTournamentTitle(date = new Date()) {
+    return `Ежедневный турнир • ${padDatePart(date.getDate())}.${padDatePart(
+        date.getMonth() + 1,
+    )}`;
+}
+
+function hashSeed(value) {
+    let hash = 0;
+    for (const char of String(value || "")) {
+        hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    }
+    return hash;
+}
+
+function buildRankTitle(rating) {
+    if (rating >= 2400) {
+        return "Гроссмейстер";
+    }
+    if (rating >= 2100) {
+        return "Мастер";
+    }
+    if (rating >= 1850) {
+        return "Эксперт";
+    }
+    if (rating >= 1650) {
+        return "Продвинутый";
+    }
+    if (rating >= 1500) {
+        return "Уверенный";
+    }
+    return "Новичок";
+}
+
+function pickUniqueDailyTasks(tasks, dailyKey, limit = 3) {
+    const pool = Array.isArray(tasks) ? [...tasks] : [];
+    const picked = [];
+    let seed = hashSeed(dailyKey || "daily");
+
+    while (pool.length > 0 && picked.length < limit) {
+        const index = Math.abs(seed) % pool.length;
+        picked.push(pool.splice(index, 1)[0]);
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+    }
+
+    return picked;
+}
+
+function computeDailyStreak(keys, todayKey) {
+    const uniqueKeys = Array.from(
+        new Set(
+            (Array.isArray(keys) ? keys : [])
+                .map((value) => String(value || ""))
+                .filter(Boolean),
+        ),
+    ).sort();
+    if (uniqueKeys.length === 0 || !uniqueKeys.includes(todayKey)) {
+        return 0;
+    }
+
+    let cursor = new Date(
+        Number(todayKey.slice(0, 4)),
+        Number(todayKey.slice(5, 7)) - 1,
+        Number(todayKey.slice(8, 10)),
+    );
+    let streak = 0;
+    const keysSet = new Set(uniqueKeys);
+
+    while (true) {
+        const key = getLocalDateKey(cursor);
+        if (!keysSet.has(key)) {
+            break;
+        }
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return streak;
+}
+
 async function withTransaction(work) {
     await exec("BEGIN IMMEDIATE TRANSACTION");
     try {
@@ -717,6 +835,16 @@ async function initializeDatabase() {
         "archived_at",
         "TEXT DEFAULT NULL",
     );
+    await ensureColumn(
+        "tournaments",
+        "is_daily",
+        "INTEGER NOT NULL DEFAULT 0",
+    );
+    await ensureColumn(
+        "tournaments",
+        "daily_key",
+        "TEXT DEFAULT NULL",
+    );
 
     await ensureColumn(
         "task_bank",
@@ -819,6 +947,10 @@ async function initializeDatabase() {
 
         CREATE INDEX IF NOT EXISTS idx_tournaments_runtime_mode
         ON tournaments (runtime_mode);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_daily_key
+        ON tournaments (daily_key)
+        WHERE daily_key IS NOT NULL;
 
         CREATE INDEX IF NOT EXISTS idx_tournament_entries_rank
         ON tournament_entries (tournament_id, score DESC, penalty_seconds ASC, last_submission_at ASC);
@@ -957,6 +1089,7 @@ async function initializeDatabase() {
                     WHEN runtime_mode IS NULL OR runtime_mode = '' THEN 'competition'
                     ELSE runtime_mode
                 END,
+                is_daily = COALESCE(is_daily, 0),
                 allow_live_task_add = COALESCE(allow_live_task_add, 0),
                 wrong_attempt_penalty_seconds = CASE
                     WHEN wrong_attempt_penalty_seconds IS NULL OR wrong_attempt_penalty_seconds < 0
@@ -983,6 +1116,7 @@ async function initializeDatabase() {
     await rebuildTournamentTaskSnapshots();
     await syncAllTournamentEntryTotals();
     await seedTournamentEntries();
+    await ensureDailyTournamentForDate();
     await cleanupExpiredArtifacts();
 }
 
@@ -3312,6 +3446,153 @@ async function createTournament(payload) {
     });
 }
 
+async function listDailyTaskCandidates(limit = 12) {
+    return all(
+        `
+            SELECT *
+            FROM task_bank
+            WHERE bank_scope = 'shared'
+              AND moderation_status = 'approved_shared'
+            ORDER BY id ASC
+            LIMIT ?
+        `,
+        [Math.max(1, Math.min(Number(limit || 12), 100))],
+    );
+}
+
+async function getDailyTournamentByKey(dailyKey) {
+    if (!dailyKey) {
+        return null;
+    }
+
+    return get(
+        `
+            SELECT
+                t.*,
+                (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_submissions ts
+                    WHERE ts.tournament_id = t.id
+                ) AS submissions_count
+            FROM tournaments t
+            WHERE t.daily_key = ?
+            LIMIT 1
+        `,
+        [dailyKey],
+    );
+}
+
+async function ensureDailyTournamentForDate(date = new Date()) {
+    const bounds = getLocalDateBounds(date);
+    const existing = await getDailyTournamentByKey(bounds.key);
+    if (existing) {
+        return existing;
+    }
+
+    const candidates = await listDailyTaskCandidates(24);
+    const selectedTasks = pickUniqueDailyTasks(candidates, bounds.key, 3);
+    if (selectedTasks.length === 0) {
+        return null;
+    }
+
+    const distinctDifficulties = Array.from(
+        new Set(selectedTasks.map((task) => cleanDifficultyLabel(task.difficulty))),
+    );
+
+    try {
+        return await withTransaction(async () => {
+            const timestamp = nowIso();
+            const title = formatDailyTournamentTitle(date);
+            const slug = await buildUniqueTournamentSlug(`${title} ${bounds.key}`);
+            const action = buildTournamentAction("published", false);
+            const insert = await run(
+                `
+                    INSERT INTO tournaments (
+                        slug,
+                        title,
+                        description,
+                        status,
+                        participants_count,
+                        time_label,
+                        icon,
+                        action_label,
+                        action_type,
+                        category,
+                        start_at,
+                        end_at,
+                        owner_user_id,
+                        format,
+                        access_scope,
+                        access_code,
+                        difficulty_label,
+                        runtime_mode,
+                        allow_live_task_add,
+                        wrong_attempt_penalty_seconds,
+                        leaderboard_visible,
+                        results_visible,
+                        registration_start_at,
+                        registration_end_at,
+                        archived_at,
+                        is_daily,
+                        daily_key,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'individual', 'open', NULL, ?, 'competition', 0, 900, 1, 1, NULL, NULL, NULL, 1, ?, ?, ?)
+                `,
+                [
+                    slug,
+                    title,
+                    "Ежедневный открытый турнир с автоматически подобранными задачами из общего банка.",
+                    "published",
+                    0,
+                    buildTournamentTimeLabel("published", bounds.startAt, bounds.endAt),
+                    action.icon,
+                    action.label,
+                    action.type,
+                    "daily",
+                    bounds.startAt,
+                    bounds.endAt,
+                    distinctDifficulties.length === 1
+                        ? distinctDifficulties[0]
+                        : "Mixed",
+                    bounds.key,
+                    timestamp,
+                    timestamp,
+                ],
+            );
+
+            for (const [index, task] of selectedTasks.entries()) {
+                await upsertTournamentTaskRow({
+                    tournamentId: insert.lastID,
+                    taskId: task.id,
+                    points: 100,
+                    sortOrder: index,
+                    preserveExistingCreatedAt: timestamp,
+                });
+            }
+
+            return getTournamentById(insert.lastID);
+        });
+    } catch (error) {
+        if (/daily_key/i.test(String(error.message || ""))) {
+            return getDailyTournamentByKey(bounds.key);
+        }
+        throw error;
+    }
+}
+
+function cleanDifficultyLabel(value) {
+    const label = String(value || "").trim();
+    return label || "Mixed";
+}
+
 async function getTournamentById(tournamentId) {
     return get(
         `
@@ -4262,6 +4543,7 @@ async function recalculateTournamentEntryStats(entryId) {
                 score = ?,
                 solved_count = ?,
                 total_tasks = ?,
+                points_delta = ?,
                 penalty_seconds = ?,
                 average_time_seconds = ?,
                 updated_at = ?
@@ -4271,6 +4553,7 @@ async function recalculateTournamentEntryStats(entryId) {
             score,
             solvedCount,
             totalTasks,
+            score,
             penaltySeconds,
             penaltySeconds,
             nowIso(),
@@ -4483,6 +4766,118 @@ async function listTeamTournamentResults(teamId) {
         `,
         [teamId],
     );
+}
+
+async function refreshUserCompetitionStats(userId) {
+    const todayBounds = getLocalDateBounds();
+    const [aggregateRow, latestRows, dailyCompletions, currentDaily] = await Promise.all([
+        get(
+            `
+                SELECT
+                    COUNT(*) AS entries_count,
+                    COALESCE(SUM(te.score), 0) AS total_score,
+                    COALESCE(SUM(te.solved_count), 0) AS total_solved,
+                    COALESCE(SUM(te.total_tasks), 0) AS total_tasks,
+                    COALESCE(SUM(CASE WHEN te.rank_position = 1 THEN 1 ELSE 0 END), 0) AS wins_count,
+                    COALESCE(SUM(CASE WHEN te.rank_position BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0) AS top_three_count
+                FROM tournament_entries te
+                JOIN tournaments t ON t.id = te.tournament_id
+                WHERE te.user_id = ?
+                  AND t.status != 'archived'
+            `,
+            [userId],
+        ),
+        all(
+            `
+                SELECT
+                    te.rank_position,
+                    te.score,
+                    te.solved_count,
+                    te.total_tasks,
+                    t.difficulty_label,
+                    t.title,
+                    t.start_at,
+                    t.end_at
+                FROM tournament_entries te
+                JOIN tournaments t ON t.id = te.tournament_id
+                WHERE te.user_id = ?
+                  AND t.status != 'archived'
+                ORDER BY COALESCE(t.end_at, t.start_at) DESC
+                LIMIT 2
+            `,
+            [userId],
+        ),
+        all(
+            `
+                SELECT DISTINCT t.daily_key
+                FROM tournament_entries te
+                JOIN tournaments t ON t.id = te.tournament_id
+                WHERE te.user_id = ?
+                  AND t.is_daily = 1
+                  AND t.daily_key IS NOT NULL
+                  AND te.solved_count > 0
+                ORDER BY t.daily_key DESC
+            `,
+            [userId],
+        ),
+        getDailyTournamentByKey(todayBounds.key),
+    ]);
+
+    const totalScore = Number(aggregateRow?.total_score || 0);
+    const totalSolved = Number(aggregateRow?.total_solved || 0);
+    const totalTasks = Number(aggregateRow?.total_tasks || 0);
+    const winsCount = Number(aggregateRow?.wins_count || 0);
+    const topThreeCount = Number(aggregateRow?.top_three_count || 0);
+    const latestRank = Number(latestRows?.[0]?.rank_position || 0) || 120;
+    const previousRank = Number(latestRows?.[1]?.rank_position || 0) || latestRank;
+    const rankDelta = previousRank > 0 ? previousRank - latestRank : 0;
+    const rating = Math.max(
+        1200,
+        Math.round(1450 + totalScore * 0.45 + totalSolved * 8 + winsCount * 40 + topThreeCount * 18),
+    );
+    const streak = computeDailyStreak(
+        dailyCompletions.map((item) => item.daily_key),
+        todayBounds.key,
+    );
+    const latestDifficulty =
+        latestRows?.[0]?.difficulty_label ||
+        currentDaily?.difficulty_label ||
+        "Medium";
+
+    await run(
+        `
+            UPDATE users
+            SET
+                rating = ?,
+                rank_title = ?,
+                rank_position = ?,
+                rank_delta = ?,
+                solved_tasks = ?,
+                total_tasks = ?,
+                task_difficulty = ?,
+                daily_task_title = ?,
+                daily_task_difficulty = ?,
+                daily_task_streak = ?,
+                updated_at = ?
+            WHERE id = ?
+        `,
+        [
+            rating,
+            buildRankTitle(rating),
+            latestRank,
+            rankDelta,
+            totalSolved,
+            totalTasks,
+            latestDifficulty,
+            currentDaily?.title || "Ежедневный турнир появится скоро",
+            currentDaily?.difficulty_label || "Mixed",
+            streak,
+            nowIso(),
+            userId,
+        ],
+    );
+
+    return getUserById(userId);
 }
 
 async function createAuditLog(payload) {
@@ -4936,6 +5331,7 @@ module.exports = {
     deleteAdminTeam,
     deleteAdminTournament,
     deleteOrganizerTournament,
+    ensureDailyTournamentForDate,
     findActiveAuthChallengeByFlowToken,
     findActiveOAuthState,
     findActivePasswordResetTicket,
@@ -4996,6 +5392,7 @@ module.exports = {
     recalculateTournamentRanks,
     recalculateTournamentEntryStats,
     refreshTournamentParticipantsCount,
+    refreshUserCompetitionStats,
     removeTournamentRosterEntry,
     removeTeamMember,
     replaceTournamentRosterEntries,

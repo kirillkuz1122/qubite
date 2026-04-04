@@ -41,6 +41,7 @@ const {
     deleteAdminTeam,
     deleteAdminTournament,
     deleteOrganizerTournament,
+    ensureDailyTournamentForDate,
     findActiveAuthChallengeByFlowToken,
     findActiveOAuthState,
     findActivePasswordResetTicket,
@@ -96,6 +97,7 @@ const {
     markUserEmailVerified,
     recalculateTournamentEntryStats,
     refreshTournamentParticipantsCount,
+    refreshUserCompetitionStats,
     removeTournamentRosterEntry,
     removeTeamMember,
     replaceTournamentRosterEntries,
@@ -394,7 +396,10 @@ function buildAnalyticsPayload(entries, fallbackBase) {
 
     const recentPoints = entries
         .slice(0, 7)
-        .reduce((sum, item) => sum + Number(item.points_delta || 0), 0);
+        .reduce(
+            (sum, item) => sum + Number(item.score || item.points_delta || 0),
+            0,
+        );
     const solvedDelta = entries
         .slice(0, 7)
         .reduce((sum, item) => sum + Number(item.solved_count || 0), 0);
@@ -408,7 +413,9 @@ function buildAnalyticsPayload(entries, fallbackBase) {
         (left, right) => Number(right.score || 0) - Number(left.score || 0),
     )[0];
 
-    const seedValues = entries.map((item) => Number(item.points_delta || 0));
+    const seedValues = entries.map((item) =>
+        Number(item.score || item.points_delta || 0),
+    );
     const seriesBase = Math.max(fallbackBase, 1200);
 
     return {
@@ -447,7 +454,7 @@ function buildAnalyticsPayload(entries, fallbackBase) {
             title: item.tournament_title,
             dateLabel: formatDateLabel(item.end_at || item.start_at),
             rank: Number(item.rank_position || 0) || null,
-            pointsDelta: Number(item.points_delta || 0),
+            pointsDelta: Number(item.score || item.points_delta || 0),
         })),
         series: {
             week: buildSeries(7, seriesBase, seedValues),
@@ -563,6 +570,8 @@ function serializeTournament(row, currentUserId = null) {
         wrongAttemptPenaltySeconds: Number(
             row.wrong_attempt_penalty_seconds || 1200,
         ),
+        isDaily: Boolean(row.is_daily),
+        dailyKey: row.daily_key || null,
         rosterCount: Number(row.roster_count || 0),
         ownerUserId: row.owner_user_id || null,
         startAt: row.start_at,
@@ -691,7 +700,7 @@ function buildPulseSeries(metrics) {
     }));
 }
 
-function buildDashboard(user, tournament, metrics) {
+function buildDashboard(user, tournament, metrics, dailyTournament = null) {
     const activeTournament = tournament || {
         title: "Подходящий турнир появится скоро",
         time_label: "Следите за обновлениями",
@@ -714,8 +723,14 @@ function buildDashboard(user, tournament, metrics) {
             rankTitle: user.rank_title || "Новичок",
         },
         dailyTask: {
-            title: user.daily_task_title || "Поиск в глубину",
-            difficulty: user.daily_task_difficulty || "Сложно",
+            title:
+                dailyTournament?.title ||
+                user.daily_task_title ||
+                "Ежедневный турнир появится скоро",
+            difficulty:
+                dailyTournament?.difficulty_label ||
+                user.daily_task_difficulty ||
+                "Mixed",
             streak: user.daily_task_streak || 0,
         },
         ratingDeltaLabel: `+${Math.max(12, Number(user.rank_delta || 0) * 4)} за неделю`,
@@ -2363,8 +2378,13 @@ app.delete("/api/auth/sessions/:sessionId", requireAuth, async (req, res, next) 
 
 app.get("/api/dashboard", requireAuth, async (req, res, next) => {
     try {
+        const dailyTournament = isParticipantRole(req.auth.user.role)
+            ? await ensureDailyTournamentForDate()
+            : null;
         const [user, primaryTournament, metrics] = await Promise.all([
-            getUserById(req.auth.user.id),
+            isParticipantRole(req.auth.user.role)
+                ? refreshUserCompetitionStats(req.auth.user.id)
+                : getUserById(req.auth.user.id),
             getPrimaryTournament(
                 req.auth.user.id,
                 req.auth.teamMembership?.team_id || null,
@@ -2372,7 +2392,7 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
             getPlatformMetrics(),
         ]);
 
-        res.json(buildDashboard(user, primaryTournament, metrics));
+        res.json(buildDashboard(user, primaryTournament, metrics, dailyTournament));
     } catch (error) {
         next(error);
     }
@@ -2380,8 +2400,13 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
 
 app.get("/api/profile", requireAuth, async (req, res, next) => {
     try {
+        if (isParticipantRole(req.auth.user.role)) {
+            await ensureDailyTournamentForDate();
+        }
         const [user, sessions] = await Promise.all([
-            getUserById(req.auth.user.id),
+            isParticipantRole(req.auth.user.role)
+                ? refreshUserCompetitionStats(req.auth.user.id)
+                : getUserById(req.auth.user.id),
             listSessionsForUser(req.auth.user.id),
         ]);
 
@@ -3551,6 +3576,7 @@ app.delete(
 
 app.get("/api/tournaments", requireParticipant, async (req, res, next) => {
     try {
+        await ensureDailyTournamentForDate();
         const tournaments = await getTournaments(
             req.auth.user.id,
             req.auth.teamMembership?.team_id || null,
@@ -4022,6 +4048,8 @@ app.post(
                 sendError(res, 404, "Не удалось сохранить отправку.");
                 return;
             }
+
+            await refreshUserCompetitionStats(req.auth.user.id);
 
             const updatedEntry = await getTournamentEntryForContext({
                 tournamentId,
@@ -4639,10 +4667,14 @@ io.on("connection", (socket) => {
 async function start() {
     await initializeDatabase();
     await bootstrapAdminUsers();
+    await ensureDailyTournamentForDate();
 
     setInterval(() => {
         cleanupExpiredArtifacts().catch((error) => {
             console.error("Не удалось очистить истекшие данные:", error);
+        });
+        ensureDailyTournamentForDate().catch((error) => {
+            console.error("Не удалось подготовить ежедневный турнир:", error);
         });
     }, 60 * 60 * 1000).unref();
 

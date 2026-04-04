@@ -167,6 +167,95 @@ let runtimeRefreshInterval = null;
 
 const ROLE_PREVIEW_STORAGE_KEY = "qubite.rolePreview";
 const ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY = "qubite.activeTournamentRuntime";
+const WORKSPACE_HISTORY_STATE_KEY = "__qubiteWorkspaceState";
+let workspaceHistoryApplying = false;
+
+function readWorkspaceLocationSnapshot() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("view") && !params.has("tournament")) {
+        return null;
+    }
+
+    const tournamentId = Number(params.get("tournament"));
+    return {
+        viewName: params.get("view") || "dashboard",
+        tournamentId:
+            Number.isInteger(tournamentId) && tournamentId > 0
+                ? tournamentId
+                : null,
+    };
+}
+
+function buildWorkspaceLocationSnapshot(viewName = ViewManager?.currentView || "dashboard") {
+    return {
+        viewName: viewName || "dashboard",
+        tournamentId:
+            viewName === "tournaments" && hasActiveTournamentRuntimeView()
+                ? getActiveTournamentRuntimeId()
+                : null,
+    };
+}
+
+function syncWorkspaceHistory(mode = "push", viewName = ViewManager?.currentView || "dashboard") {
+    if (workspaceHistoryApplying) {
+        return;
+    }
+
+    const workspaceView = document.getElementById("workspace-view");
+    if (!workspaceView || workspaceView.hidden) {
+        return;
+    }
+
+    const snapshot = buildWorkspaceLocationSnapshot(viewName);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("oauth");
+    url.searchParams.delete("provider");
+    url.searchParams.delete("oauthError");
+    url.searchParams.set("view", snapshot.viewName);
+    if (snapshot.tournamentId) {
+        url.searchParams.set("tournament", String(snapshot.tournamentId));
+    } else {
+        url.searchParams.delete("tournament");
+    }
+
+    const method = mode === "replace" ? "replaceState" : "pushState";
+    window.history[method](
+        {
+            ...(window.history.state || {}),
+            [WORKSPACE_HISTORY_STATE_KEY]: true,
+            viewName: snapshot.viewName,
+            tournamentId: snapshot.tournamentId,
+        },
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+    );
+}
+
+function applyWorkspaceLocationSnapshot(snapshot) {
+    if (!snapshot) {
+        if (hasActiveTournamentRuntimeView()) {
+            clearActiveTournamentRuntimeView();
+        }
+        ViewManager.open("dashboard", { historyMode: "none" });
+        return;
+    }
+
+    if (
+        snapshot.viewName === "tournaments" &&
+        snapshot.tournamentId &&
+        isParticipantUser()
+    ) {
+        setActiveTournamentRuntimeView(snapshot.tournamentId);
+        ViewManager.open("tournaments", { historyMode: "none" });
+        return;
+    }
+
+    if (hasActiveTournamentRuntimeView()) {
+        clearActiveTournamentRuntimeView();
+    }
+
+    ViewManager.open(snapshot.viewName || "dashboard", { historyMode: "none" });
+}
 
 function getRuntimeOwnerKey(user = getUserState()) {
     return String(user?.uid || user?.email || user?.login || "");
@@ -3387,6 +3476,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 8. Init Workspace
     ViewManager.init();
+    window.addEventListener("popstate", () => {
+        const workspaceView = document.getElementById("workspace-view");
+        if (!workspaceView || workspaceView.hidden) {
+            return;
+        }
+
+        workspaceHistoryApplying = true;
+        try {
+            applyWorkspaceLocationSnapshot(readWorkspaceLocationSnapshot());
+        } finally {
+            workspaceHistoryApplying = false;
+        }
+    });
     void bootstrapAuthSession();
 });
 
@@ -3406,7 +3508,23 @@ function switchToWorkspace() {
     document.body.style.paddingTop = "0";
     updateWorkspaceIdentity();
     hydrateTournamentRuntimeUiState();
-    ViewManager.open(hasActiveTournamentRuntimeView() ? "tournaments" : "dashboard");
+    const locationSnapshot = readWorkspaceLocationSnapshot();
+    if (locationSnapshot) {
+        if (
+            locationSnapshot.viewName === "tournaments" &&
+            locationSnapshot.tournamentId &&
+            isParticipantUser()
+        ) {
+            setActiveTournamentRuntimeView(locationSnapshot.tournamentId);
+        } else if (hasActiveTournamentRuntimeView()) {
+            clearActiveTournamentRuntimeView();
+        }
+    }
+    ViewManager.open(
+        locationSnapshot?.viewName ||
+            (hasActiveTournamentRuntimeView() ? "tournaments" : "dashboard"),
+        { historyMode: "replace" },
+    );
     closeAnyModal();
     void applyRolePreviewScenario();
 }
@@ -6938,15 +7056,15 @@ const ViewManager = {
                     hasActiveTournamentRuntimeView()
                 ) {
                     clearActiveTournamentRuntimeView();
-                    this.open("tournaments");
+                    this.open("tournaments", { historyMode: "replace" });
                     return;
                 }
-                this.open(view);
+                this.open(view, { historyMode: "push" });
             });
         });
     },
 
-    open(viewName) {
+    open(viewName, options = {}) {
         if (viewName === "admin" && !isAdminUser()) {
             Toast.show("Админка", "Раздел доступен только администраторам.", "error");
             viewName = "dashboard";
@@ -7031,6 +7149,11 @@ const ViewManager = {
         requestAnimationFrame(() => {
             observeRenderedWorkspaceContent(this.content);
         });
+
+        const historyMode = options.historyMode ?? "push";
+        if (historyMode !== "none") {
+            syncWorkspaceHistory(historyMode, viewName);
+        }
     },
 };
 
@@ -8717,7 +8840,7 @@ function bindTournamentRuntimeInteractions(container) {
     container.querySelectorAll("[data-runtime-back]").forEach((button) => {
         button.addEventListener("click", () => {
             clearActiveTournamentRuntimeView();
-            ViewManager.open("tournaments");
+            ViewManager.open("tournaments", { historyMode: "replace" });
         });
     });
 
@@ -8793,6 +8916,13 @@ function bindTournamentRuntimeInteractions(container) {
                     ),
                 );
             }
+            await Promise.all([
+                apiClient.loadDashboard().catch(() => null),
+                apiClient.loadProfileAnalytics().catch(() => null),
+                getTeamState()?.inTeam
+                    ? apiClient.loadTeamAnalytics().catch(() => null)
+                    : Promise.resolve(null),
+            ]);
             rerenderActiveWorkspaceContent();
             Toast.show(
                 "Турнир",
@@ -9022,6 +9152,7 @@ function initTournamentsInteractions(container) {
                                 payload,
                             );
                             await Promise.all([
+                                apiClient.loadDashboard(),
                                 apiClient.loadTournaments(),
                                 apiClient.loadProfileAnalytics(),
                             ]);
