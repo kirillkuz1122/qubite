@@ -117,6 +117,11 @@
         return state.tournamentRuntime;
     }
 
+    function clearTournamentRuntime() {
+        state.tournamentRuntime = null;
+        return state.tournamentRuntime;
+    }
+
     function syncOAuthProviders(items) {
         state.oauthProviders = Array.isArray(items) ? [...items] : [];
         return state.oauthProviders;
@@ -1098,6 +1103,7 @@
         createOrganizerTournament: createOrganizerTournamentRequest,
         createTeam: createTeamRequest,
         createTournament: createTournamentRequest,
+        clearTournamentRuntime,
         deleteAdminTask,
         deleteAdminTeam,
         deleteAdminTournament,

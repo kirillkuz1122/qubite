@@ -151,16 +151,257 @@ let adminUiState = {
 };
 
 let tournamentRuntimeUiState = {
+    activeTournamentId: null,
     selectedTaskId: null,
     autosaveTimer: null,
     autosaveTaskId: null,
     refreshInFlight: false,
+    loadPromise: null,
+    loadError: "",
+    sidebarForced: false,
+    sidebarRestoreCollapsed: null,
 };
 
 let runtimeClockInterval = null;
 let runtimeRefreshInterval = null;
 
 const ROLE_PREVIEW_STORAGE_KEY = "qubite.rolePreview";
+const ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY = "qubite.activeTournamentRuntime";
+
+function getRuntimeOwnerKey(user = getUserState()) {
+    return String(user?.uid || user?.email || user?.login || "");
+}
+
+function readPersistedTournamentRuntimeState() {
+    const ownerKey = getRuntimeOwnerKey();
+    if (!ownerKey) {
+        return null;
+    }
+
+    try {
+        const rawValue = localStorage.getItem(ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY);
+        if (!rawValue) {
+            return null;
+        }
+
+        const parsed = JSON.parse(rawValue);
+        if (!parsed || parsed.ownerKey !== ownerKey) {
+            return null;
+        }
+
+        const tournamentId = Number(parsed.tournamentId);
+        const selectedTaskId = Number(parsed.selectedTaskId);
+        if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+            return null;
+        }
+
+        return {
+            ownerKey,
+            tournamentId,
+            selectedTaskId:
+                Number.isInteger(selectedTaskId) && selectedTaskId > 0
+                    ? selectedTaskId
+                    : null,
+        };
+    } catch (error) {
+        console.error(error);
+        localStorage.removeItem(ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY);
+        return null;
+    }
+}
+
+function persistTournamentRuntimeState() {
+    const ownerKey = getRuntimeOwnerKey();
+    const tournamentId = Number(tournamentRuntimeUiState.activeTournamentId || 0);
+    if (!ownerKey || !Number.isInteger(tournamentId) || tournamentId <= 0) {
+        localStorage.removeItem(ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY);
+        return;
+    }
+
+    const selectedTaskId = Number(tournamentRuntimeUiState.selectedTaskId || 0);
+    localStorage.setItem(
+        ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY,
+        JSON.stringify({
+            ownerKey,
+            tournamentId,
+            selectedTaskId:
+                Number.isInteger(selectedTaskId) && selectedTaskId > 0
+                    ? selectedTaskId
+                    : null,
+        }),
+    );
+}
+
+function hydrateTournamentRuntimeUiState() {
+    const persisted = readPersistedTournamentRuntimeState();
+    tournamentRuntimeUiState.activeTournamentId = persisted?.tournamentId || null;
+    tournamentRuntimeUiState.selectedTaskId = persisted?.selectedTaskId || null;
+    tournamentRuntimeUiState.loadError = "";
+}
+
+function hasActiveTournamentRuntimeView() {
+    const tournamentId = Number(tournamentRuntimeUiState.activeTournamentId || 0);
+    return isParticipantUser() && Number.isInteger(tournamentId) && tournamentId > 0;
+}
+
+function getActiveTournamentRuntimeId() {
+    return hasActiveTournamentRuntimeView()
+        ? Number(tournamentRuntimeUiState.activeTournamentId)
+        : null;
+}
+
+function setSelectedRuntimeTaskId(taskId) {
+    const normalizedTaskId = Number(taskId || 0);
+    tournamentRuntimeUiState.selectedTaskId =
+        Number.isInteger(normalizedTaskId) && normalizedTaskId > 0
+            ? normalizedTaskId
+            : null;
+    persistTournamentRuntimeState();
+}
+
+function setActiveTournamentRuntimeView(tournamentId, selectedTaskId = null) {
+    const normalizedId = Number(tournamentId || 0);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+        return;
+    }
+
+    tournamentRuntimeUiState.activeTournamentId = normalizedId;
+    tournamentRuntimeUiState.loadError = "";
+    if (selectedTaskId) {
+        setSelectedRuntimeTaskId(selectedTaskId);
+    } else {
+        persistTournamentRuntimeState();
+    }
+}
+
+function clearActiveTournamentRuntimeView({ clearRuntimeState = true } = {}) {
+    stopTournamentRuntimeTimers();
+    tournamentRuntimeUiState.activeTournamentId = null;
+    tournamentRuntimeUiState.selectedTaskId = null;
+    tournamentRuntimeUiState.loadError = "";
+    persistTournamentRuntimeState();
+    if (clearRuntimeState) {
+        apiClient?.clearTournamentRuntime?.();
+    }
+    restoreSidebarAfterTournamentRuntime();
+}
+
+function isDesktopViewport() {
+    return window.matchMedia("(min-width: 769px)").matches;
+}
+
+function collapseSidebarForTournamentRuntime() {
+    if (!isDesktopViewport() || !sidebar) {
+        return;
+    }
+
+    if (!tournamentRuntimeUiState.sidebarForced) {
+        tournamentRuntimeUiState.sidebarRestoreCollapsed =
+            sidebar.classList.contains("sidebar--collapsed");
+        tournamentRuntimeUiState.sidebarForced = true;
+    }
+
+    setSidebarState(true, { persist: false });
+}
+
+function restoreSidebarAfterTournamentRuntime() {
+    if (!sidebar) {
+        return;
+    }
+
+    if (!tournamentRuntimeUiState.sidebarForced) {
+        return;
+    }
+
+    const shouldCollapse =
+        tournamentRuntimeUiState.sidebarRestoreCollapsed !== null
+            ? tournamentRuntimeUiState.sidebarRestoreCollapsed
+            : localStorage.getItem("sidebarCollapsed") === "true";
+    setSidebarState(Boolean(shouldCollapse), { persist: false });
+    tournamentRuntimeUiState.sidebarForced = false;
+    tournamentRuntimeUiState.sidebarRestoreCollapsed = null;
+}
+
+function observeRenderedWorkspaceContent(container) {
+    requestAnimationFrame(() => {
+        const newBobs = container?.querySelectorAll?.("[data-view-anim]") || [];
+        newBobs.forEach((el) => {
+            if (typeof revealObserver !== "undefined") {
+                revealObserver.observe(el);
+            }
+        });
+    });
+}
+
+function rerenderActiveWorkspaceContent() {
+    const container = ViewManager.content || document.getElementById("workspace-content");
+    if (!container || !ViewManager.currentView) {
+        return;
+    }
+
+    if (ViewManager.currentView === "tournaments") {
+        container.innerHTML = renderTournaments();
+        initTournamentsInteractions(container);
+        observeRenderedWorkspaceContent(container);
+    }
+}
+
+async function ensureActiveTournamentRuntimeLoaded({ showLoader = false } = {}) {
+    const tournamentId = getActiveTournamentRuntimeId();
+    if (!tournamentId) {
+        return null;
+    }
+
+    const currentRuntime = getTournamentRuntimeState();
+    if (currentRuntime?.tournament?.id === tournamentId) {
+        tournamentRuntimeUiState.loadError = "";
+        getSelectedRuntimeTask(currentRuntime);
+        return currentRuntime;
+    }
+
+    if (tournamentRuntimeUiState.loadPromise) {
+        return tournamentRuntimeUiState.loadPromise;
+    }
+
+    tournamentRuntimeUiState.loadPromise = (async () => {
+        tournamentRuntimeUiState.loadError = "";
+        if (showLoader) {
+            Loader.show();
+        }
+
+        try {
+            const runtime = await apiClient.loadTournamentRuntime(tournamentId);
+            tournamentRuntimeUiState.loadError = "";
+            getSelectedRuntimeTask(runtime);
+            if (
+                ViewManager.currentView === "tournaments" &&
+                getActiveTournamentRuntimeId() === tournamentId
+            ) {
+                rerenderActiveWorkspaceContent();
+            }
+            return runtime;
+        } catch (error) {
+            tournamentRuntimeUiState.loadError =
+                error.message || "Не удалось загрузить турнир.";
+            if (error.status === 403 || error.status === 404) {
+                clearActiveTournamentRuntimeView();
+                if (ViewManager.currentView === "tournaments") {
+                    rerenderActiveWorkspaceContent();
+                }
+            } else if (ViewManager.currentView === "tournaments") {
+                rerenderActiveWorkspaceContent();
+            }
+            throw error;
+        } finally {
+            tournamentRuntimeUiState.loadPromise = null;
+            if (showLoader) {
+                Loader.hide(300);
+            }
+        }
+    })();
+
+    return tournamentRuntimeUiState.loadPromise;
+}
 
 function escapeHtml(value) {
     if (apiClient && typeof apiClient.escapeHtml === "function") {
@@ -262,7 +503,7 @@ function getSelectedRuntimeTask(runtime = getTournamentRuntimeState()) {
         runtime.tasks[0];
 
     if (selected) {
-        tournamentRuntimeUiState.selectedTaskId = selected.tournamentTaskId;
+        setSelectedRuntimeTaskId(selected.tournamentTaskId);
     }
 
     return selected;
@@ -1222,20 +1463,29 @@ setTheme(getPreferredTheme());
 const sidebar = document.querySelector(".sidebar");
 const sidebarCollapseBtn = document.getElementById("sidebarCollapse");
 
-function setSidebarState(isCollapsed) {
+function setSidebarState(isCollapsed, { persist = true } = {}) {
     if (!sidebar) return;
     if (isCollapsed) {
         sidebar.classList.add("sidebar--collapsed");
     } else {
         sidebar.classList.remove("sidebar--collapsed");
     }
-    localStorage.setItem("sidebarCollapsed", isCollapsed);
+    if (persist) {
+        localStorage.setItem("sidebarCollapsed", isCollapsed);
+    }
     // Вызываем resize, чтобы графики и другие элементы подстроились
     window.dispatchEvent(new Event("resize"));
 }
 
 if (sidebarCollapseBtn) {
     sidebarCollapseBtn.addEventListener("click", () => {
+        if (
+            hasActiveTournamentRuntimeView() &&
+            ViewManager.currentView === "tournaments"
+        ) {
+            setSidebarState(true, { persist: false });
+            return;
+        }
         const isCollapsed = sidebar.classList.contains("sidebar--collapsed");
         setSidebarState(!isCollapsed);
     });
@@ -3155,7 +3405,8 @@ function switchToWorkspace() {
     document.body.style.overflow = "auto";
     document.body.style.paddingTop = "0";
     updateWorkspaceIdentity();
-    ViewManager.open("dashboard");
+    hydrateTournamentRuntimeUiState();
+    ViewManager.open(hasActiveTournamentRuntimeView() ? "tournaments" : "dashboard");
     closeAnyModal();
     void applyRolePreviewScenario();
 }
@@ -6670,6 +6921,8 @@ function initAdminInteractions(container) {
 const ViewManager = {
     content: null,
     navItems: null,
+    currentView: null,
+    tourFilters: null,
 
     init() {
         this.content = document.getElementById("workspace-content");
@@ -6679,6 +6932,15 @@ const ViewManager = {
             item.addEventListener("click", (e) => {
                 e.preventDefault();
                 const view = item.dataset.view;
+                if (
+                    view === "tournaments" &&
+                    this.currentView === "tournaments" &&
+                    hasActiveTournamentRuntimeView()
+                ) {
+                    clearActiveTournamentRuntimeView();
+                    this.open("tournaments");
+                    return;
+                }
                 this.open(view);
             });
         });
@@ -6701,6 +6963,17 @@ const ViewManager = {
             Toast.show("Модерация", "Раздел доступен только модераторам.", "error");
             viewName = "dashboard";
         }
+
+        if (
+            this.currentView === "tournaments" &&
+            viewName !== "tournaments" &&
+            hasActiveTournamentRuntimeView()
+        ) {
+            stopTournamentRuntimeTimers();
+            restoreSidebarAfterTournamentRuntime();
+        }
+
+        this.currentView = viewName;
 
         // Update Nav
         this.navItems.forEach((el) => {
@@ -6734,16 +7007,7 @@ const ViewManager = {
             this.content.innerHTML = renderOrganizerProfile();
             initOrganizerProfileInteractions(this.content);
         } else if (viewName === "tournaments") {
-            // Начальное состояние фильтров
-            this.tourFilters = {
-                status: "all",
-                categories: [],
-                search: "",
-                sort: "none",
-                selectedDate: null,
-                viewMonth: new Date().getMonth(), // Текущий месяц (0-11)
-                viewYear: new Date().getFullYear(), // Текущий год (2026)
-            };
+            this.tourFilters = this.tourFilters || createDefaultTournamentFilters();
             this.content.innerHTML = renderTournaments();
             initTournamentsInteractions(this.content);
         } else if (viewName === "team") {
@@ -6765,12 +7029,7 @@ const ViewManager = {
         document.body.scrollTop = 0;
 
         requestAnimationFrame(() => {
-            const newBobs = this.content.querySelectorAll("[data-view-anim]");
-            newBobs.forEach((el) => {
-                if (typeof revealObserver !== "undefined") {
-                    revealObserver.observe(el);
-                }
-            });
+            observeRenderedWorkspaceContent(this.content);
         });
     },
 };
@@ -8037,7 +8296,52 @@ function renderRuntimeSubmissionHistory(task) {
     `;
 }
 
-function renderTournamentRuntimeContent(runtime) {
+function renderTournamentRuntimeLoadingView() {
+    const tournamentId = getActiveTournamentRuntimeId();
+    const loadError = tournamentRuntimeUiState.loadError;
+
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="tour-view tour-runtime-view">
+            <div class="tour-runtime-head" data-view-anim>
+                <div class="tour-runtime-head__main">
+                    <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
+                        <span>Назад к турнирам</span>
+                    </button>
+                    <div class="tour-runtime-head__copy">
+                        <div class="runtime-head__eyebrow">Активное соревнование</div>
+                        <h1 class="dash-header" style="margin:0">Турнир #${escapeHtml(tournamentId || "—")}</h1>
+                        <div class="tour-runtime-head__meta">
+                            <span>Подготавливаем среду решения</span>
+                            <span>Восстанавливаем прогресс после обновления</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tour-runtime-head__actions">
+                    <button class="btn btn--muted-tour" type="button" data-runtime-refresh>Обновить</button>
+                </div>
+            </div>
+
+            <div class="card dash-card tour-runtime-loading" data-view-anim style="transition-delay: 0.08s">
+                <div class="tour-runtime-loading__icon">
+                    ${renderOpsIcon(loadError ? "warning" : "progress_activity", loadError ? "warning" : "draft")}
+                </div>
+                <div class="tour-runtime-loading__copy">
+                    <div class="tour-runtime-loading__title">${escapeHtml(loadError ? "Не удалось загрузить турнир" : "Загружаем турнир" )}</div>
+                    <div class="tour-runtime-loading__desc">
+                        ${escapeHtml(loadError || "Подтягиваем задачи, историю отправок и текущее состояние участника.")}
+                    </div>
+                </div>
+                <div class="tour-runtime-loading__actions">
+                    <button class="btn btn--accent" type="button" data-runtime-refresh>${loadError ? "Повторить" : "Обновить сейчас"}</button>
+                    <button class="btn btn--muted" type="button" data-runtime-back>Выйти из турнира</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTournamentRuntimePage(runtime) {
     const tournament = runtime?.tournament || {};
     const summary = runtime?.summary || {};
     const selectedTask = getSelectedRuntimeTask(runtime);
@@ -8045,60 +8349,75 @@ function renderTournamentRuntimeContent(runtime) {
 
     if (!selectedTask) {
         return `
-            <div class="runtime-shell">
-                <div class="runtime-head">
-                    <div class="runtime-head__copy">
-                        <div id="tournamentRuntimeTitle" class="runtime-head__title">${escapeHtml(tournament.title || "Соревнование")}</div>
+            <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+            <div class="tour-view tour-runtime-view">
+                <div class="tour-runtime-head" data-view-anim>
+                    <div class="tour-runtime-head__main">
+                        <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
+                            <span>Назад к турнирам</span>
+                        </button>
+                        <div class="tour-runtime-head__copy">
+                            <div class="runtime-head__eyebrow">Активное соревнование</div>
+                            <h1 class="dash-header" style="margin:0">${escapeHtml(tournament.title || "Соревнование")}</h1>
+                        </div>
                     </div>
-                    <button class="modal__close" data-close="tournamentRuntimeModal" aria-label="Закрыть">
-                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    </button>
                 </div>
-                <div class="runtime-empty">В этом турнире пока нет задач для решения.</div>
+
+                <div class="card dash-card tour-runtime-empty" data-view-anim style="transition-delay: 0.08s">
+                    <div class="tour-runtime-empty__title">В этом турнире пока нет задач</div>
+                    <div class="tour-runtime-empty__desc">Организатор ещё не добавил задания или временно скрыл их для участников.</div>
+                    <div class="tour-runtime-empty__actions">
+                        <button class="btn btn--muted" type="button" data-runtime-refresh>Проверить снова</button>
+                        <button class="btn btn--muted-tour" type="button" data-runtime-back>Вернуться</button>
+                    </div>
+                </div>
             </div>
         `;
     }
 
     return `
-        <div class="runtime-shell">
-            <div class="runtime-head">
-                <div class="runtime-head__copy">
-                    <div class="runtime-head__eyebrow">Активное соревнование</div>
-                    <div id="tournamentRuntimeTitle" class="runtime-head__title">${escapeHtml(tournament.title || "Соревнование")}</div>
-                    <div class="runtime-head__meta">
-                        <span>${escapeHtml(tournament.participantLabel || "Участник")}</span>
-                        <span>${escapeHtml(tournament.format === "team" ? "Командный формат" : "Личный формат")}</span>
-                        <span>${escapeHtml(tournament.runtimeMode === "lesson" ? "Lesson mode" : "Competition mode")}</span>
-                        <span>${escapeHtml(tournament.accessScope === "closed" ? "Закрытый roster" : tournament.accessScope === "code" ? "Вход по коду" : "Свободный вход")}</span>
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="tour-view tour-runtime-view">
+            <div class="tour-runtime-head" data-view-anim>
+                <div class="tour-runtime-head__main">
+                    <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
+                        <span>Назад к турнирам</span>
+                    </button>
+                    <div class="tour-runtime-head__copy">
+                        <div class="runtime-head__eyebrow">Активное соревнование</div>
+                        <h1 id="tournamentRuntimeTitle" class="dash-header" style="margin:0">${escapeHtml(tournament.title || "Соревнование")}</h1>
+                        <div class="tour-runtime-head__meta">
+                            <span>${escapeHtml(tournament.participantLabel || "Участник")}</span>
+                            <span>${escapeHtml(tournament.format === "team" ? "Командный формат" : "Личный формат")}</span>
+                            <span>${escapeHtml(tournament.runtimeMode === "lesson" ? "Lesson mode" : "Competition mode")}</span>
+                            <span>${escapeHtml(tournament.accessScope === "closed" ? "Закрытый roster" : tournament.accessScope === "code" ? "Вход по коду" : "Свободный вход")}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="runtime-head__actions">
+                <div class="tour-runtime-head__actions">
                     ${
                         tournament.leaderboardVisible
-                            ? '<button class="btn btn--muted" type="button" data-runtime-open-leaderboard>Лидерборд</button>'
+                            ? '<button class="btn btn--muted-tour" type="button" data-runtime-open-leaderboard>Лидерборд</button>'
                             : ""
                     }
-                    <button class="btn btn--muted" type="button" data-runtime-refresh>Обновить</button>
-                    <button class="modal__close" data-close="tournamentRuntimeModal" aria-label="Закрыть">
-                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    </button>
+                    <button class="btn btn--muted-tour" type="button" data-runtime-refresh>Обновить</button>
                 </div>
             </div>
 
-            <div class="runtime-summary-grid">
-                <div class="runtime-summary-card">
+            <div class="tour-runtime-summary" data-view-anim style="transition-delay: 0.05s">
+                <div class="card dash-card tour-runtime-summary-card">
                     <span class="runtime-summary-card__label">Очки</span>
                     <span class="runtime-summary-card__value">${formatNumberRu(summary.score)}</span>
                 </div>
-                <div class="runtime-summary-card">
+                <div class="card dash-card tour-runtime-summary-card">
                     <span class="runtime-summary-card__label">Решено</span>
                     <span class="runtime-summary-card__value">${formatNumberRu(summary.solvedCount)} / ${formatNumberRu(summary.totalTasks)}</span>
                 </div>
-                <div class="runtime-summary-card">
+                <div class="card dash-card tour-runtime-summary-card">
                     <span class="runtime-summary-card__label">Штраф</span>
                     <span class="runtime-summary-card__value">${escapeHtml(formatDurationDetailedLabel(summary.penaltySeconds))}</span>
                 </div>
-                <div class="runtime-summary-card">
+                <div class="card dash-card tour-runtime-summary-card">
                     <span class="runtime-summary-card__label">До конца</span>
                     <span class="runtime-summary-card__value" id="runtimeCountdown">${escapeHtml(formatRuntimeCountdown(tournament.endAt))}</span>
                 </div>
@@ -8107,34 +8426,37 @@ function renderTournamentRuntimeContent(runtime) {
             ${
                 tournament.canTasksChange
                     ? `
-                        <div class="runtime-banner runtime-banner--warning">
+                        <div class="card dash-card runtime-banner runtime-banner--warning" data-view-anim style="transition-delay: 0.08s">
                             ${renderOpsIcon("schedule", "warning")}
                             <div>
-                                <div class="runtime-banner__title">Список задач может меняться</div>
-                                <div class="runtime-banner__desc">Организатор включил lesson-режим. Во время занятия в турнир могут добавляться новые задания.</div>
+                                <div class="runtime-banner__title">Организатор может добавлять новые задачи во время тура</div>
+                                <div class="runtime-banner__desc">Для этого соревнования включён lesson-режим. Список задач может дополняться, и вы будете видеть это прямо в текущем окне.</div>
                             </div>
                         </div>
                     `
                     : ""
             }
 
-            <div class="runtime-layout">
-                <aside class="runtime-sidebar">
-                    <div class="runtime-sidebar__head">
-                        <div class="runtime-sidebar__title">Задачи</div>
-                        <div class="runtime-sidebar__meta">${formatNumberRu(tasks.length)} шт.</div>
+            <div class="tour-runtime-layout" data-view-anim style="transition-delay: 0.12s">
+                <aside class="card dash-card tour-runtime-sidebar">
+                    <div class="tour-runtime-sidebar__head">
+                        <div>
+                            <div class="card__title">Задачи</div>
+                            <div class="card__sub">${formatNumberRu(tasks.length)} активных карточек</div>
+                        </div>
+                        ${renderInlineBadge(`${formatNumberRu(summary.solvedCount)} решено`, summary.solvedCount > 0 ? "approved_shared" : "draft")}
                     </div>
-                    <div class="runtime-task-list">
+                    <div class="tour-runtime-sidebar__list">
                         ${tasks
                             .map(
                                 (task, index) => `
-                                    <button class="runtime-task-tile ${task.tournamentTaskId === selectedTask.tournamentTaskId ? "is-active" : ""}" type="button" data-runtime-select-task="${escapeHtml(task.tournamentTaskId)}">
-                                        <div class="runtime-task-tile__top">
-                                            <span class="runtime-task-tile__index">Задача ${index + 1}</span>
+                                    <button class="tour-runtime-task ${task.tournamentTaskId === selectedTask.tournamentTaskId ? "is-active" : ""}" type="button" data-runtime-select-task="${escapeHtml(task.tournamentTaskId)}">
+                                        <div class="tour-runtime-task__top">
+                                            <span class="tour-runtime-task__index">Задача ${index + 1}</span>
                                             ${renderInlineBadge(getRuntimeTaskStatusLabel(task), getRuntimeTaskStatusTone(task))}
                                         </div>
-                                        <div class="runtime-task-tile__title">${escapeHtml(task.title)}</div>
-                                        <div class="runtime-task-tile__meta">${escapeHtml(getTaskTypeMeta(task.taskType).ruLabel)} • ${escapeHtml(task.difficulty)} • ${formatNumberRu(task.points)} очк.</div>
+                                        <div class="tour-runtime-task__title">${escapeHtml(task.title)}</div>
+                                        <div class="tour-runtime-task__meta">${escapeHtml(getTaskTypeMeta(task.taskType).ruLabel)} • ${escapeHtml(task.difficulty)} • ${formatNumberRu(task.points)} очк.</div>
                                     </button>
                                 `,
                             )
@@ -8142,7 +8464,7 @@ function renderTournamentRuntimeContent(runtime) {
                     </div>
                 </aside>
 
-                <section class="runtime-main">
+                <section class="tour-runtime-main">
                     <div class="card dash-card runtime-task-panel">
                         <div class="runtime-task-panel__head">
                             <div>
@@ -8164,22 +8486,23 @@ function renderTournamentRuntimeContent(runtime) {
                         <div class="runtime-statement">
                             ${formatRuntimeStatement(selectedTask.statement)}
                         </div>
+                    </div>
 
+                    <div class="tour-runtime-main-grid">
                         ${renderRuntimeAnswerForm(selectedTask, tournament)}
+                        <div class="card dash-card">
+                            <div class="runtime-side-card__title">Последние проверки</div>
+                            ${renderRuntimeSubmissionHistory(selectedTask)}
+                        </div>
+                    </div>
 
-                        <div class="runtime-bottom-grid">
-                            <div class="runtime-side-card">
-                                <div class="runtime-side-card__title">Последние проверки</div>
-                                ${renderRuntimeSubmissionHistory(selectedTask)}
-                            </div>
-                            <div class="runtime-side-card">
-                                <div class="runtime-side-card__title">Правила проверки</div>
-                                <div class="runtime-rules">
-                                    <div class="runtime-rules__item">Баллы начисляются только за первое принятое решение.</div>
-                                    <div class="runtime-rules__item">За неверную попытку добавляется штраф ${escapeHtml(formatDurationDetailedLabel(tournament.wrongAttemptPenaltySeconds || 0))}.</div>
-                                    <div class="runtime-rules__item">В командном формате ответ может отправить любой участник команды, но результат идёт в общий зачёт команды.</div>
-                                </div>
-                            </div>
+                    <div class="card dash-card runtime-rules-card">
+                        <div class="runtime-side-card__title">Правила проверки</div>
+                        <div class="runtime-rules">
+                            <div class="runtime-rules__item">Баллы начисляются только за первое принятое решение.</div>
+                            <div class="runtime-rules__item">За неверную попытку добавляется штраф ${escapeHtml(formatDurationDetailedLabel(tournament.wrongAttemptPenaltySeconds || 0))}.</div>
+                            <div class="runtime-rules__item">В командном формате ответ может отправить любой участник команды, но результат идёт в общий зачёт команды.</div>
+                            <div class="runtime-rules__item">${escapeHtml(tournament.canTasksChange ? "Организатор может менять набор задач по ходу занятия." : "Набор задач зафиксирован и не меняется во время тура.")}</div>
                         </div>
                     </div>
                 </section>
@@ -8284,7 +8607,11 @@ async function refreshTournamentRuntimeSilently({
         const freshRuntime = await apiClient.loadTournamentRuntime(
             currentRuntime.tournament.id,
         );
-        await renderTournamentRuntimeModal(freshRuntime);
+        tournamentRuntimeUiState.loadError = "";
+        getSelectedRuntimeTask(freshRuntime);
+        if (ViewManager.currentView === "tournaments") {
+            rerenderActiveWorkspaceContent();
+        }
 
         if (showToast) {
             Toast.show("Турнир", "Данные турнира обновлены.", "success");
@@ -8352,76 +8679,60 @@ function startTournamentRuntimeClock(runtime) {
 }
 
 async function renderTournamentRuntimeModal(runtime) {
-    const contentNode = document.getElementById("tournamentRuntimeContent");
-    if (!contentNode) {
-        return;
+    tournamentRuntimeUiState.loadError = "";
+    if (runtime?.tournament?.id) {
+        setActiveTournamentRuntimeView(
+            runtime.tournament.id,
+            getSelectedRuntimeTask(runtime)?.tournamentTaskId || tournamentRuntimeUiState.selectedTaskId,
+        );
     }
-
-    contentNode.innerHTML = renderTournamentRuntimeContent(runtime);
-    startTournamentRuntimeClock(runtime);
-    startTournamentRuntimeRefresh(runtime);
-    bindTournamentRuntimeInteractions();
+    if (ViewManager.currentView === "tournaments") {
+        rerenderActiveWorkspaceContent();
+    }
 }
 
 async function openTournamentRuntimeModal(tournamentId, runtimePayload = null) {
-    const shouldManageLoader = !runtimePayload;
-    if (shouldManageLoader) {
-        Loader.show();
-    }
-    try {
-        const runtime =
-            runtimePayload ||
-            (getTournamentRuntimeState()?.tournament?.id === tournamentId
-                ? getTournamentRuntimeState()
-                : await apiClient.loadTournamentRuntime(tournamentId));
-
-        if (!runtime) {
-            throw new Error("Не удалось загрузить турнирный runtime.");
-        }
-
-        if (
-            !tournamentRuntimeUiState.selectedTaskId ||
-            !runtime.tasks?.some(
-                (task) => task.tournamentTaskId === tournamentRuntimeUiState.selectedTaskId,
-            )
-        ) {
-            tournamentRuntimeUiState.selectedTaskId =
-                getSelectedRuntimeTask(runtime)?.tournamentTaskId || null;
-        }
-
-        await renderTournamentRuntimeModal(runtime);
-        openModal("tournamentRuntimeModal");
-    } catch (error) {
-        showRequestError("Турнир", error);
-    } finally {
-        if (shouldManageLoader) {
-            Loader.hide(300);
-        }
-    }
-}
-
-function bindTournamentRuntimeInteractions() {
-    const modal = document.getElementById("tournamentRuntimeModal");
-    const runtime = getTournamentRuntimeState();
-    const selectedTask = getSelectedRuntimeTask(runtime);
-    if (!modal || !runtime || !selectedTask) {
+    if (!Number.isInteger(Number(tournamentId)) || Number(tournamentId) <= 0) {
         return;
     }
 
-    modal.querySelectorAll("[data-runtime-select-task]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            try {
-                await saveCurrentTournamentDraft({ silent: true });
-            } catch (error) {
-                console.error(error);
-            }
-            tournamentRuntimeUiState.selectedTaskId = Number(button.dataset.runtimeSelectTask);
-            await renderTournamentRuntimeModal(getTournamentRuntimeState());
+    if (runtimePayload?.tournament?.id) {
+        getSelectedRuntimeTask(runtimePayload);
+    }
+
+    setActiveTournamentRuntimeView(
+        Number(tournamentId),
+        runtimePayload ? getSelectedRuntimeTask(runtimePayload)?.tournamentTaskId : null,
+    );
+    ViewManager.open("tournaments");
+}
+
+function bindTournamentRuntimeInteractions(container) {
+    const runtime = getTournamentRuntimeState();
+    const selectedTask = getSelectedRuntimeTask(runtime);
+    if (!container) {
+        return;
+    }
+
+    container.querySelectorAll("[data-runtime-back]").forEach((button) => {
+        button.addEventListener("click", () => {
+            clearActiveTournamentRuntimeView();
+            ViewManager.open("tournaments");
         });
     });
 
-    modal.querySelectorAll("[data-runtime-refresh]").forEach((button) => {
+    container.querySelectorAll("[data-runtime-refresh]").forEach((button) => {
         button.addEventListener("click", async () => {
+            const activeTournamentId = getActiveTournamentRuntimeId();
+            if (activeTournamentId && !runtime?.tournament?.id) {
+                try {
+                    await ensureActiveTournamentRuntimeLoaded({ showLoader: true });
+                } catch (error) {
+                    showRequestError("Турнир", error);
+                }
+                return;
+            }
+
             await refreshTournamentRuntimeSilently({
                 showLoader: true,
                 showToast: true,
@@ -8429,11 +8740,31 @@ function bindTournamentRuntimeInteractions() {
         });
     });
 
-    modal.querySelector("[data-runtime-open-leaderboard]")?.addEventListener("click", () => {
+    if (!runtime || !selectedTask) {
+        return;
+    }
+
+    collapseSidebarForTournamentRuntime();
+    startTournamentRuntimeClock(runtime);
+    startTournamentRuntimeRefresh(runtime);
+
+    container.querySelectorAll("[data-runtime-select-task]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            try {
+                await saveCurrentTournamentDraft({ silent: true });
+            } catch (error) {
+                console.error(error);
+            }
+            setSelectedRuntimeTaskId(Number(button.dataset.runtimeSelectTask));
+            rerenderActiveWorkspaceContent();
+        });
+    });
+
+    container.querySelector("[data-runtime-open-leaderboard]")?.addEventListener("click", () => {
         openLeaderboardModal(runtime.tournament.id, "view");
     });
 
-    const answerForm = modal.querySelector("#tournamentRuntimeAnswerForm");
+    const answerForm = container.querySelector("#tournamentRuntimeAnswerForm");
     answerForm?.addEventListener("input", scheduleTournamentDraftSave);
     answerForm?.addEventListener("change", scheduleTournamentDraftSave);
     answerForm?.addEventListener("submit", async (event) => {
@@ -8455,12 +8786,14 @@ function bindTournamentRuntimeInteractions() {
             );
             const nextRuntime = getTournamentRuntimeState();
             if (response.result?.verdict === "accepted" && nextRuntime) {
-                tournamentRuntimeUiState.selectedTaskId = pickNextRuntimeTaskId(
+                setSelectedRuntimeTaskId(
+                    pickNextRuntimeTaskId(
                     nextRuntime,
                     currentTask.tournamentTaskId,
+                    ),
                 );
             }
-            await renderTournamentRuntimeModal(nextRuntime || currentRuntime);
+            rerenderActiveWorkspaceContent();
             Toast.show(
                 "Турнир",
                 response.result?.verdict === "accepted"
@@ -8476,7 +8809,27 @@ function bindTournamentRuntimeInteractions() {
     });
 }
 
+function createDefaultTournamentFilters() {
+    return {
+        status: "all",
+        categories: [],
+        search: "",
+        sort: "none",
+        selectedDate: null,
+        viewMonth: new Date().getMonth(),
+        viewYear: new Date().getFullYear(),
+    };
+}
+
 function renderTournaments() {
+    if (isParticipantUser() && hasActiveTournamentRuntimeView()) {
+        const runtime = getTournamentRuntimeState();
+        if (runtime?.tournament?.id === getActiveTournamentRuntimeId()) {
+            return renderTournamentRuntimePage(runtime);
+        }
+        return renderTournamentRuntimeLoadingView();
+    }
+
     const adminActions = isAdminUser()
         ? `
             <div data-view-anim style="transition-delay: 0.05s; display:flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px;">
@@ -8600,8 +8953,32 @@ function renderTournamentList(data) {
 /**
  * Инициализация интерактивности раздела турниров
  */
+function initParticipantTournamentRuntimeView(container) {
+    collapseSidebarForTournamentRuntime();
+    bindTournamentRuntimeInteractions(container);
+
+    const activeTournamentId = getActiveTournamentRuntimeId();
+    const runtime = getTournamentRuntimeState();
+    if (
+        activeTournamentId &&
+        runtime?.tournament?.id !== activeTournamentId &&
+        !tournamentRuntimeUiState.loadError
+    ) {
+        void ensureActiveTournamentRuntimeLoaded().catch((error) => {
+            if (error?.status !== 403 && error?.status !== 404) {
+                showRequestError("Турнир", error);
+            }
+        });
+    }
+}
+
 function initTournamentsInteractions(container) {
     if (!container) return;
+
+    if (isParticipantUser() && hasActiveTournamentRuntimeView()) {
+        initParticipantTournamentRuntimeView(container);
+        return;
+    }
 
     const listContainer = container.querySelector(
         "#tournaments-list-container",

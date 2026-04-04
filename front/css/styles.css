@@ -9439,6 +9439,204 @@ body.loading {
     padding-inline: 0;
 }
 
+.tour-runtime-view {
+    max-width: 1360px;
+    gap: 24px;
+}
+
+.tour-runtime-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.tour-runtime-head__main,
+.tour-runtime-head__copy {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+}
+
+.tour-runtime-back {
+    width: fit-content;
+}
+
+.tour-runtime-head__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: var(--fg-muted);
+    font-size: 13px;
+}
+
+.tour-runtime-head__meta span {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--line) 88%, transparent);
+    background: color-mix(in oklab, var(--bg-1) 74%, transparent);
+}
+
+.tour-runtime-head__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.tour-runtime-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.tour-runtime-summary-card {
+    display: grid;
+    gap: 8px;
+    min-height: 132px;
+}
+
+.tour-runtime-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.tour-runtime-sidebar {
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    position: sticky;
+    top: calc(var(--header-h) + 18px);
+    max-height: calc(100vh - var(--header-h) - 36px);
+    overflow: hidden;
+}
+
+.tour-runtime-sidebar__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tour-runtime-sidebar__list {
+    display: grid;
+    gap: 10px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.tour-runtime-task {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    padding: 15px 16px;
+    border-radius: 18px;
+    border: 1px solid color-mix(in oklab, var(--line) 92%, transparent);
+    background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+    color: var(--fg);
+    text-align: left;
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.tour-runtime-task:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--accent-from) 46%, var(--line));
+    box-shadow: 0 10px 24px rgba(6, 10, 20, 0.12);
+}
+
+.tour-runtime-task.is-active {
+    border-color: color-mix(in oklab, var(--accent-to) 48%, var(--line));
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--accent-from) 11%, var(--bg-1)),
+            color-mix(in oklab, var(--accent-to) 8%, var(--bg-1))
+        ),
+        color-mix(in oklab, var(--bg-1) 78%, transparent);
+    box-shadow: 0 16px 34px rgba(244, 63, 94, 0.12);
+}
+
+.tour-runtime-task__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tour-runtime-task__index {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+}
+
+.tour-runtime-task__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.tour-runtime-task__meta {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg-muted);
+}
+
+.tour-runtime-main {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.tour-runtime-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.tour-runtime-loading,
+.tour-runtime-empty {
+    display: grid;
+    gap: 18px;
+    align-items: start;
+    padding: 28px;
+}
+
+.tour-runtime-loading__icon .ops-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+}
+
+.tour-runtime-loading__title,
+.tour-runtime-empty__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--fg-strong);
+}
+
+.tour-runtime-loading__desc,
+.tour-runtime-empty__desc {
+    color: var(--fg-muted);
+    font-size: 14px;
+    line-height: 1.7;
+    max-width: 60ch;
+}
+
+.tour-runtime-loading__actions,
+.tour-runtime-empty__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .modal__panel--runtime {
     max-width: min(1240px, calc(100vw - 40px));
     width: 100%;
@@ -9915,12 +10113,16 @@ body.loading {
     }
 
     .runtime-layout,
-    .runtime-bottom-grid {
+    .runtime-bottom-grid,
+    .tour-runtime-layout,
+    .tour-runtime-main-grid {
         grid-template-columns: 1fr;
     }
 
-    .runtime-sidebar {
+    .runtime-sidebar,
+    .tour-runtime-sidebar {
         max-height: none;
+        position: static;
     }
 }
 
@@ -9935,7 +10137,8 @@ body.loading {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .runtime-summary-grid {
+    .runtime-summary-grid,
+    .tour-runtime-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -9956,7 +10159,8 @@ body.loading {
 
     .runtime-head,
     .runtime-task-panel__head,
-    .runtime-answer-card__head {
+    .runtime-answer-card__head,
+    .tour-runtime-head {
         display: grid;
         grid-template-columns: 1fr;
     }
@@ -9967,12 +10171,14 @@ body.loading {
 
     .runtime-answer-form__actions,
     .runtime-head__actions,
-    .runtime-task-panel__stats {
+    .runtime-task-panel__stats,
+    .tour-runtime-head__actions {
         justify-content: stretch;
     }
 
     .runtime-answer-form__actions .btn,
-    .runtime-head__actions .btn {
+    .runtime-head__actions .btn,
+    .tour-runtime-head__actions .btn {
         width: 100%;
     }
 }
@@ -10031,7 +10237,8 @@ body.loading {
         height: 20px;
     }
 
-    .runtime-summary-grid {
+    .runtime-summary-grid,
+    .tour-runtime-summary {
         grid-template-columns: 1fr;
     }
 
@@ -10039,8 +10246,15 @@ body.loading {
         padding: 18px;
     }
 
+    .tour-runtime-loading,
+    .tour-runtime-empty {
+        padding: 20px;
+    }
+
     .runtime-task-tile__top,
-    .runtime-history-item__top {
+    .runtime-history-item__top,
+    .tour-runtime-task__top,
+    .tour-runtime-sidebar__head {
         flex-direction: column;
         align-items: flex-start;
     }
