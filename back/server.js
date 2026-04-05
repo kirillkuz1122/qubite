@@ -84,10 +84,12 @@ const {
     listOrganizerApplications,
     listOrganizerTaskBank,
     listOrganizerTournaments,
+    listPublicLandingTournaments,
     listSessionsForUser,
     listTaskBank,
     listTasksByIds,
     listTeamTournamentResults,
+    listTopPlayers,
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,
     listTournamentSubmissionsForEntry,
@@ -181,6 +183,7 @@ const ROLE_ORGANIZER = "organizer";
 const ROLE_MODERATOR = "moderator";
 const ROLE_ADMIN = "admin";
 const ACTIVE_USER_STATUSES = new Set(["active"]);
+const ROLE_PREVIEW_HEADER = "x-qubite-role-preview";
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "128kb" }));
@@ -213,6 +216,31 @@ function isOrganizerRole(role) {
 
 function isParticipantRole(role) {
     return role === ROLE_USER;
+}
+
+function resolveEffectiveRole(actualRole, previewValue) {
+    if (!isAdminRole(actualRole)) {
+        return {
+            actualRole,
+            effectiveRole: actualRole,
+            previewRole: null,
+        };
+    }
+
+    const requestedPreview = normalizeUserRole(previewValue);
+    if (!requestedPreview) {
+        return {
+            actualRole,
+            effectiveRole: actualRole,
+            previewRole: null,
+        };
+    }
+
+    return {
+        actualRole,
+        effectiveRole: requestedPreview,
+        previewRole: requestedPreview === actualRole ? null : requestedPreview,
+    };
 }
 
 function getRequestIp(req) {
@@ -323,31 +351,132 @@ function formatDurationLabel(seconds) {
     return `${String(minutes).padStart(2, "0")}:${String(restSeconds).padStart(2, "0")}`;
 }
 
-function buildSeries(length, base, seedValues = []) {
-    if (length <= 0) {
-        return [];
+function getEntryEventTimeMs(entry) {
+    const timestamp = Date.parse(String(entry?.end_at || entry?.start_at || ""));
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function averageOfNumbers(values) {
+    const numeric = (Array.isArray(values) ? values : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value >= 0);
+    if (numeric.length === 0) {
+        return 0;
     }
 
-    const values = [];
-    for (let index = 0; index < length; index += 1) {
-        const seed = Number(seedValues[index % Math.max(seedValues.length, 1)] || 0);
-        const wobble = ((index % 3) - 1) * 6;
-        values.push(Math.max(0, Math.round(base + seed + index * 4 + wobble)));
+    return numeric.reduce((sum, value) => sum + value, 0) / numeric.length;
+}
+
+function calculateProgressiveRatings(entries) {
+    const sorted = [...entries].sort(
+        (left, right) => getEntryEventTimeMs(left) - getEntryEventTimeMs(right),
+    );
+    let totalScore = 0;
+    let totalSolved = 0;
+    let winsCount = 0;
+    let topThreeCount = 0;
+
+    return sorted.map((entry) => {
+        const rank = Number(entry.rank_position || 0);
+        totalScore += Number(entry.score || 0);
+        totalSolved += Number(entry.solved_count || 0);
+        if (rank === 1) {
+            winsCount += 1;
+        }
+        if (rank > 0 && rank <= 3) {
+            topThreeCount += 1;
+        }
+
+        const rating = Math.max(
+            1200,
+            Math.round(
+                1450 +
+                    totalScore * 0.45 +
+                    totalSolved * 8 +
+                    winsCount * 40 +
+                    topThreeCount * 18,
+            ),
+        );
+
+        return {
+            timeMs: getEntryEventTimeMs(entry),
+            rating,
+        };
+    });
+}
+
+function buildDailyRatingSeries(days, ratingHistory, fallbackBase, now = new Date()) {
+    const baseline = Math.max(Number(fallbackBase || 1450), 1200);
+    const history = Array.isArray(ratingHistory) ? ratingHistory : [];
+    const series = [];
+    let cursor = 0;
+    let current = baseline;
+
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+        const bucketDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - offset,
+            23,
+            59,
+            59,
+            999,
+        );
+        while (cursor < history.length && history[cursor].timeMs <= bucketDate.getTime()) {
+            current = history[cursor].rating;
+            cursor += 1;
+        }
+        series.push(current);
     }
 
-    return values;
+    return series;
+}
+
+function buildMonthlyRatingSeries(months, ratingHistory, fallbackBase, now = new Date()) {
+    const baseline = Math.max(Number(fallbackBase || 1450), 1200);
+    const history = Array.isArray(ratingHistory) ? ratingHistory : [];
+    const series = [];
+    let cursor = 0;
+    let current = baseline;
+
+    for (let offset = months - 1; offset >= 0; offset -= 1) {
+        const bucketEnd = new Date(
+            now.getFullYear(),
+            now.getMonth() - offset + 1,
+            0,
+            23,
+            59,
+            59,
+            999,
+        );
+        while (cursor < history.length && history[cursor].timeMs <= bucketEnd.getTime()) {
+            current = history[cursor].rating;
+            cursor += 1;
+        }
+        series.push(current);
+    }
+
+    return series;
 }
 
 function buildAnalyticsPayload(entries, fallbackBase) {
-    if (!entries || entries.length === 0) {
+    const competitionEntries = Array.isArray(entries)
+        ? entries.filter((item) => !Number(item.is_daily || 0))
+        : [];
+
+    if (competitionEntries.length === 0) {
         return {
             hasData: false,
             overview: {
                 totalTournaments: 0,
                 totalPoints: 0,
                 topThreeCount: 0,
+                firstPlaceCount: 0,
+                secondPlaceCount: 0,
+                thirdPlaceCount: 0,
                 averageRank: null,
                 participationPercent: 0,
+                totalTasks: 0,
                 weeklyPointsDelta: 0,
                 bestRank: null,
                 worstRank: null,
@@ -361,23 +490,38 @@ function buildAnalyticsPayload(entries, fallbackBase) {
             bestTournament: null,
             recentResults: [],
             series: {
-                week: buildSeries(7, fallbackBase, [0]),
-                month: buildSeries(30, fallbackBase, [0]),
-                "6months": buildSeries(6, fallbackBase, [0]),
-                year: buildSeries(12, fallbackBase, [0]),
+                week: Array.from({ length: 7 }, () =>
+                    Math.max(Number(fallbackBase || 1450), 1200),
+                ),
+                month: Array.from({ length: 30 }, () =>
+                    Math.max(Number(fallbackBase || 1450), 1200),
+                ),
+                "6months": Array.from({ length: 6 }, () =>
+                    Math.max(Number(fallbackBase || 1450), 1200),
+                ),
+                year: Array.from({ length: 12 }, () =>
+                    Math.max(Number(fallbackBase || 1450), 1200),
+                ),
             },
         };
     }
 
-    const totalPoints = entries.reduce(
+    const nowMs = Date.now();
+    const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+    const twoWeeksAgoMs = nowMs - 14 * 24 * 60 * 60 * 1000;
+    const totalPoints = competitionEntries.reduce(
         (sum, item) => sum + Number(item.score || 0),
         0,
     );
-    const totalSolved = entries.reduce(
+    const totalSolved = competitionEntries.reduce(
         (sum, item) => sum + Number(item.solved_count || 0),
         0,
     );
-    const ranks = entries
+    const totalTasks = competitionEntries.reduce(
+        (sum, item) => sum + Number(item.total_tasks || 0),
+        0,
+    );
+    const ranks = competitionEntries
         .map((item) => Number(item.rank_position || 0))
         .filter((value) => value > 0);
     const averageRank = ranks.length
@@ -386,54 +530,75 @@ function buildAnalyticsPayload(entries, fallbackBase) {
     const bestRank = ranks.length ? Math.min(...ranks) : null;
     const worstRank = ranks.length ? Math.max(...ranks) : null;
     const topThreeCount = ranks.filter((rank) => rank <= 3).length;
+    const firstPlaceCount = ranks.filter((rank) => rank === 1).length;
+    const secondPlaceCount = ranks.filter((rank) => rank === 2).length;
+    const thirdPlaceCount = ranks.filter((rank) => rank === 3).length;
     const winsCount = ranks.filter((rank) => rank === 1).length;
     const winRate = ranks.length ? (winsCount / ranks.length) * 100 : 0;
-    const avgTimeSeconds =
-        entries.reduce(
-            (sum, item) => sum + Number(item.average_time_seconds || 0),
-            0,
-        ) / Math.max(entries.length, 1);
+    const avgTimeSeconds = averageOfNumbers(
+        competitionEntries.map((item) => item.average_time_seconds),
+    );
+    const recentEntries = competitionEntries.filter(
+        (item) => getEntryEventTimeMs(item) >= weekAgoMs,
+    );
+    const previousEntries = competitionEntries.filter((item) => {
+        const eventMs = getEntryEventTimeMs(item);
+        return eventMs >= twoWeeksAgoMs && eventMs < weekAgoMs;
+    });
 
-    const recentPoints = entries
-        .slice(0, 7)
-        .reduce(
-            (sum, item) => sum + Number(item.score || item.points_delta || 0),
-            0,
-        );
-    const solvedDelta = entries
-        .slice(0, 7)
-        .reduce((sum, item) => sum + Number(item.solved_count || 0), 0);
-    const averageTimeDelta =
-        entries.length > 1
-            ? Number(entries[0].average_time_seconds || 0) -
-              Number(entries[1].average_time_seconds || 0)
-            : 0;
+    const recentPoints = recentEntries.reduce(
+        (sum, item) => sum + Number(item.score || item.points_delta || 0),
+        0,
+    );
+    const solvedDelta = recentEntries.reduce(
+        (sum, item) => sum + Number(item.solved_count || 0),
+        0,
+    );
+    const recentAverageTime = averageOfNumbers(
+        recentEntries.map((item) => item.average_time_seconds),
+    );
+    const previousAverageTime = averageOfNumbers(
+        previousEntries.map((item) => item.average_time_seconds),
+    );
+    const recentWinRate = recentEntries.length
+        ? (recentEntries.filter((item) => Number(item.rank_position || 0) === 1).length /
+              recentEntries.length) *
+          100
+        : 0;
+    const previousWinRate = previousEntries.length
+        ? (previousEntries.filter((item) => Number(item.rank_position || 0) === 1).length /
+              previousEntries.length) *
+          100
+        : 0;
 
-    const bestTournament = [...entries].sort(
+    const averageTimeDelta = recentAverageTime - previousAverageTime;
+
+    const bestTournament = [...competitionEntries].sort(
         (left, right) => Number(right.score || 0) - Number(left.score || 0),
     )[0];
-
-    const seedValues = entries.map((item) =>
-        Number(item.score || item.points_delta || 0),
-    );
-    const seriesBase = Math.max(fallbackBase, 1200);
+    const ratingHistory = calculateProgressiveRatings(competitionEntries);
+    const seriesBase = Math.max(Number(fallbackBase || 1450), 1200);
 
     return {
         hasData: true,
         overview: {
-            totalTournaments: entries.length,
+            totalTournaments: competitionEntries.length,
             totalPoints,
             topThreeCount,
+            firstPlaceCount,
+            secondPlaceCount,
+            thirdPlaceCount,
             averageRank,
-            participationPercent: Math.min(
-                100,
-                Math.round((entries.length / Math.max(entries.length + 2, 1)) * 100),
-            ),
+            participationPercent:
+                totalTasks > 0
+                    ? Math.min(100, Math.round((totalSolved / totalTasks) * 100))
+                    : 0,
+            totalTasks,
             weeklyPointsDelta: recentPoints,
             bestRank,
             worstRank,
             winRate,
-            winRateDelta: entries.length > 1 ? Math.round(winRate / 8) : 0,
+            winRateDelta: recentWinRate - previousWinRate,
             solvedTasks: totalSolved,
             solvedTasksDelta: solvedDelta,
             averageTimeSeconds: Math.round(avgTimeSeconds || 0),
@@ -450,32 +615,37 @@ function buildAnalyticsPayload(entries, fallbackBase) {
                   solvedLabel: `${bestTournament.solved_count || 0}/${bestTournament.total_tasks || 0}`,
               }
             : null,
-        recentResults: entries.slice(0, 6).map((item) => ({
+        recentResults: competitionEntries.slice(0, 6).map((item) => ({
             title: item.tournament_title,
             dateLabel: formatDateLabel(item.end_at || item.start_at),
             rank: Number(item.rank_position || 0) || null,
             pointsDelta: Number(item.score || item.points_delta || 0),
         })),
         series: {
-            week: buildSeries(7, seriesBase, seedValues),
-            month: buildSeries(30, seriesBase, seedValues),
-            "6months": buildSeries(6, seriesBase, seedValues),
-            year: buildSeries(12, seriesBase, seedValues),
+            week: buildDailyRatingSeries(7, ratingHistory, seriesBase),
+            month: buildDailyRatingSeries(30, ratingHistory, seriesBase),
+            "6months": buildMonthlyRatingSeries(6, ratingHistory, seriesBase),
+            year: buildMonthlyRatingSeries(12, ratingHistory, seriesBase),
         },
     };
 }
 
 function serializeUser(user) {
+    const effectiveRole = user.role || ROLE_USER;
+    const actualRole = user.actual_role || user.role || ROLE_USER;
     return {
         id: user.id,
         uid: user.uid,
         login: user.login,
         email: user.email,
-        role: user.role || ROLE_USER,
+        role: effectiveRole,
+        actualRole,
+        previewRole: user.preview_role || null,
         status: user.status || "active",
-        isAdmin: isAdminRole(user.role || ROLE_USER),
-        canModerate: canModerate(user.role || ROLE_USER),
-        isOrganizer: isOrganizerRole(user.role || ROLE_USER),
+        isAdmin: isAdminRole(effectiveRole),
+        isSuperAdmin: isAdminRole(actualRole),
+        canModerate: canModerate(effectiveRole),
+        isOrganizer: isOrganizerRole(effectiveRole),
         firstName: user.first_name,
         lastName: user.last_name,
         middleName: user.middle_name,
@@ -506,6 +676,22 @@ function serializeUser(user) {
             google: Boolean(user.google_oauth_sub),
             yandex: Boolean(user.yandex_oauth_sub),
         },
+    };
+}
+
+function serializeTopPlayer(player, index, currentUserId = null) {
+    return {
+        id: player.id,
+        rank: index + 1,
+        name: buildDisplayName(player),
+        initials: buildInitials(player),
+        rating: Number(player.rating || 0),
+        rankTitle: player.rank_title || "Игрок",
+        winsCount: Number(player.wins_count || 0),
+        streakCount: Number(player.streak_count || 0),
+        podiumCount: Number(player.podium_count || 0),
+        isCurrentUser:
+            currentUserId !== null && Number(player.id) === Number(currentUserId),
     };
 }
 
@@ -646,75 +832,84 @@ function serializeAdminTournament(tournament) {
     };
 }
 
-function buildRatingSeries(user) {
-    const labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-    const current = Number(user.rating || 1450);
-    const delta = Math.max(12, Number(user.rank_delta || 12) * 4);
-    const values = [
-        current - 140,
-        current - 95,
-        current - 110,
-        current - 60,
-        current - 20,
-        current,
-    ];
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = Math.max(max - min, 1);
-
-    return labels.map((label, index) => {
-        const value = values[index];
-        const height = Math.round(((value - min) / range) * 70) + 30;
-        const isActive = index === values.length - 1;
-
-        return {
-            v: value,
-            h: height,
-            l: label,
-            a: isActive,
-            d: isActive ? `+${delta}` : undefined,
-        };
-    });
-}
-
-function buildPulseSeries(metrics) {
-    const base = Math.max(120, Math.round(metrics.participants / 8) || 180);
-    const values = [
-        Math.round(base * 0.6),
-        Math.round(base * 0.82),
-        Math.round(base * 0.5),
-        Math.round(base * 0.68),
-        base,
-        Math.round(base * 0.8),
-        Math.round(base * 0.58),
-        Math.round(base * 0.92),
-    ];
-    const labels = ["00", "04", "08", "12", "16", "18", "20", "22"];
-    const max = Math.max(...values);
-
-    return labels.map((label, index) => ({
-        v: values[index],
-        h: Math.round((values[index] / max) * 75) + 25,
-        l: label,
-        a: index === 1 || index === 4 || index === 7,
-    }));
-}
-
-function buildDashboard(user, tournament, metrics, dailyTournament = null) {
-    const activeTournament = tournament || {
-        title: "Подходящий турнир появится скоро",
-        time_label: "Следите за обновлениями",
-    };
+function buildDashboard({
+    user,
+    tournament,
+    metrics,
+    dailyTournament = null,
+    analytics = null,
+    topPlayers = [],
+    activeEntry = null,
+    dailyEntry = null,
+}) {
+    const activeTournamentMeta = tournament
+        ? serializeTournament(tournament, user?.id || null)
+        : null;
+    const dailyMeta = dailyTournament
+        ? serializeTournament(dailyTournament, user?.id || null)
+        : null;
+    const ratingSeries = Array.isArray(analytics?.series?.week)
+        ? analytics.series.week
+        : [];
+    const platformSeries = Array.isArray(metrics?.activitySeries)
+        ? metrics.activitySeries
+        : [];
+    const activeSolvedCount = Number(activeEntry?.solved_count || 0);
+    const activeTotalTasks = Number(
+        activeEntry?.total_tasks ||
+            tournament?.task_count ||
+            activeTournamentMeta?.taskCount ||
+            0,
+    );
+    const activeTournament =
+        activeTournamentMeta && tournament
+            ? {
+                  id: Number(tournament.id),
+                  title: tournament.title,
+                  statusText:
+                      activeTournamentMeta.statusText || "Скоро начнется",
+                  timeLabel:
+                      activeTournamentMeta.time || "Следите за обновлениями",
+                  rankPosition:
+                      Number(activeEntry?.rank_position || 0) > 0
+                          ? `#${Number(activeEntry.rank_position)}`
+                          : "—",
+                  rankDeltaLabel: activeEntry
+                      ? `${Number(activeEntry.score || 0) >= 0 ? "+" : ""}${Number(
+                            activeEntry.score || 0,
+                        )} очков`
+                      : "Присоединяйтесь к соревнованию",
+                  solvedLabel: activeTotalTasks
+                      ? `${activeSolvedCount}/${activeTotalTasks}`
+                      : "0/0",
+                  difficultyLabel: `Сложность: ${tournament.difficulty_label || user.task_difficulty || "Mixed"}`,
+                  ctaLabel:
+                      activeTournamentMeta.actionType === "solve"
+                          ? "Перейти к задачам"
+                          : activeTournamentMeta.actionType === "join"
+                            ? "Присоединиться"
+                            : "Открыть турнир",
+                  actionType: activeTournamentMeta.actionType || "outline",
+                  accessScope: activeTournamentMeta.accessScope || "open",
+                  joined: Boolean(activeTournamentMeta.joined),
+              }
+            : {
+                  id: null,
+                  title: "Подходящий турнир появится скоро",
+                  statusText: "Рекомендация",
+                  timeLabel: "Следите за обновлениями",
+                  rankPosition: "—",
+                  rankDeltaLabel: "Новые турниры появятся в списке ниже",
+                  solvedLabel: "0/0",
+                  difficultyLabel: "Сложность: Mixed",
+                  ctaLabel: "К турнирам",
+                  actionType: "outline",
+                  accessScope: "open",
+                  joined: false,
+              };
 
     return {
-        activeTournament: {
-            title: activeTournament.title,
-            rankPosition: `#${user.rank_position || 120}`,
-            rankDeltaLabel: `${user.rank_delta >= 0 ? "+" : ""}${user.rank_delta || 0} позиции`,
-            timeLabel: activeTournament.time_label,
-            solvedLabel: `${user.solved_tasks || 0}/${user.total_tasks || 5}`,
-            difficultyLabel: `Сложность: ${user.task_difficulty || "Medium"}`,
-        },
+        activeTournament,
         profile: {
             fullName: buildDisplayName(user),
             initials: buildInitials(user),
@@ -723,23 +918,31 @@ function buildDashboard(user, tournament, metrics, dailyTournament = null) {
             rankTitle: user.rank_title || "Новичок",
         },
         dailyTask: {
+            id: dailyTournament ? Number(dailyTournament.id) : null,
             title:
                 dailyTournament?.title ||
                 user.daily_task_title ||
-                "Ежедневный турнир появится скоро",
+                "Ежедневное задание появится скоро",
             difficulty:
                 dailyTournament?.difficulty_label ||
                 user.daily_task_difficulty ||
                 "Mixed",
-            streak: user.daily_task_streak || 0,
+            streak: Number(user.daily_task_streak || 0),
+            solved: Boolean(Number(dailyEntry?.solved_count || 0) > 0),
+            statusText: dailyMeta?.statusText || "Сегодня",
+            timeLabel: dailyMeta?.time || "Один челлендж на день",
+            ctaLabel:
+                Number(dailyEntry?.solved_count || 0) > 0
+                    ? "Открыть решение"
+                    : "Перейти к заданию",
         },
-        ratingDeltaLabel: `+${Math.max(12, Number(user.rank_delta || 0) * 4)} за неделю`,
-        ratingSeries: buildRatingSeries(user),
+        ratingDeltaLabel: `${Number(analytics?.overview?.weeklyPointsDelta || 0) >= 0 ? "+" : ""}${Number(analytics?.overview?.weeklyPointsDelta || 0)} за неделю`,
+        ratingSeries,
         platformPulse: {
-            activeParticipants:
-                metrics.participants + metrics.activeSessions * 14 + metrics.usersCount * 3,
-            series: buildPulseSeries(metrics),
+            activeParticipants: Number(metrics?.activeSessions || 0),
+            series: platformSeries,
         },
+        topPlayers: Array.isArray(topPlayers) ? topPlayers : [],
     };
 }
 
@@ -1064,6 +1267,7 @@ async function buildTournamentRuntimePayload(tournament, entry, auth) {
                 effectiveStatus === "live" &&
                 tournament.runtime_mode === "lesson" &&
                 Boolean(tournament.allow_live_task_add),
+            isDaily: Boolean(tournament.is_daily),
             startAt: tournament.start_at,
             endAt: tournament.end_at,
             joinedAt: entry.joined_at,
@@ -1141,8 +1345,18 @@ async function attachAuth(req, res, next) {
             return;
         }
 
+        const resolvedRole = resolveEffectiveRole(
+            sessionBundle.user.role || ROLE_USER,
+            req.headers[ROLE_PREVIEW_HEADER],
+        );
+
         req.auth = {
-            user: sessionBundle.user,
+            user: {
+                ...sessionBundle.user,
+                actual_role: resolvedRole.actualRole,
+                preview_role: resolvedRole.previewRole,
+                role: resolvedRole.effectiveRole,
+            },
             session: sessionBundle.session,
             teamMembership,
         };
@@ -2245,6 +2459,24 @@ app.post(
     },
 );
 
+app.get("/api/public/landing", async (req, res, next) => {
+    try {
+        const [tournaments, topPlayers] = await Promise.all([
+            listPublicLandingTournaments(4),
+            listTopPlayers(5),
+        ]);
+
+        res.json({
+            tournaments: tournaments.map((item) => serializeTournament(item)),
+            topPlayers: topPlayers.map((item, index) =>
+                serializeTopPlayer(item, index, req.auth?.user?.id || null),
+            ),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post("/api/auth/2fa/email/send", requireAuth, authRateLimiter, async (req, res, next) => {
     try {
         const user = await getUserById(req.auth.user.id);
@@ -2381,7 +2613,8 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
         const dailyTournament = isParticipantRole(req.auth.user.role)
             ? await ensureDailyTournamentForDate()
             : null;
-        const [user, primaryTournament, metrics] = await Promise.all([
+        const [user, primaryTournament, metrics, topPlayers, analyticsEntries] =
+            await Promise.all([
             isParticipantRole(req.auth.user.role)
                 ? refreshUserCompetitionStats(req.auth.user.id)
                 : getUserById(req.auth.user.id),
@@ -2390,9 +2623,56 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
                 req.auth.teamMembership?.team_id || null,
             ),
             getPlatformMetrics(),
+            isParticipantRole(req.auth.user.role) ? listTopPlayers(5) : [],
+            isParticipantRole(req.auth.user.role)
+                ? listUserTournamentResults(req.auth.user.id)
+                : [],
         ]);
+        const analytics = isParticipantRole(req.auth.user.role)
+            ? buildAnalyticsPayload(analyticsEntries, Number(user.rating || 1450))
+            : null;
 
-        res.json(buildDashboard(user, primaryTournament, metrics, dailyTournament));
+        let activeEntry = null;
+        if (isParticipantRole(req.auth.user.role) && primaryTournament) {
+            const rosterEntry =
+                primaryTournament.format === "team"
+                    ? await getTournamentRosterEntryForUser(
+                          primaryTournament.id,
+                          req.auth.user.id,
+                      )
+                    : null;
+            const context = await resolveTournamentEntryContext(
+                primaryTournament,
+                req.auth,
+                rosterEntry,
+            );
+            activeEntry = context.entry || null;
+        }
+
+        let dailyEntry = null;
+        if (isParticipantRole(req.auth.user.role) && dailyTournament) {
+            const dailyContext = await resolveTournamentEntryContext(
+                dailyTournament,
+                req.auth,
+                null,
+            );
+            dailyEntry = dailyContext.entry || null;
+        }
+
+        res.json(
+            buildDashboard({
+                user,
+                tournament: primaryTournament,
+                metrics,
+                dailyTournament,
+                analytics,
+                topPlayers: topPlayers.map((item, index) =>
+                    serializeTopPlayer(item, index, req.auth.user.id),
+                ),
+                activeEntry,
+                dailyEntry,
+            }),
+        );
     } catch (error) {
         next(error);
     }

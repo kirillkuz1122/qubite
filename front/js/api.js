@@ -1,8 +1,10 @@
 (function initQubiteApi(windowObject) {
+    const ROLE_PREVIEW_ACTIVE_STORAGE_KEY = "qubite.rolePreviewActive";
     const state = {
         bootstrapped: false,
         user: null,
         profile: null,
+        publicLanding: null,
         dashboard: null,
         tournaments: [],
         tournamentRuntime: null,
@@ -50,6 +52,7 @@
     function resetState() {
         state.user = null;
         state.profile = null;
+        state.publicLanding = null;
         state.dashboard = null;
         state.tournaments = [];
         state.tournamentRuntime = null;
@@ -90,6 +93,20 @@
             syncUser(profile);
         }
         return state.profile;
+    }
+
+    function syncPublicLanding(payload) {
+        state.publicLanding = payload
+            ? {
+                  tournaments: Array.isArray(payload.tournaments)
+                      ? [...payload.tournaments]
+                      : [],
+                  topPlayers: Array.isArray(payload.topPlayers)
+                      ? [...payload.topPlayers]
+                      : [],
+              }
+            : null;
+        return state.publicLanding;
     }
 
     function syncTeam(team) {
@@ -225,6 +242,18 @@
         if (options.body && !headers.has("Content-Type")) {
             headers.set("Content-Type", "application/json");
         }
+        try {
+            const previewRole = windowObject.localStorage.getItem(
+                ROLE_PREVIEW_ACTIVE_STORAGE_KEY,
+            );
+            if (previewRole) {
+                headers.set("X-Qubite-Role-Preview", previewRole);
+            } else {
+                headers.delete("X-Qubite-Role-Preview");
+            }
+        } catch (error) {
+            console.error(error);
+        }
 
         let response;
         try {
@@ -320,6 +349,11 @@
     async function loadDashboard() {
         state.dashboard = await request("/api/dashboard");
         return state.dashboard;
+    }
+
+    async function loadPublicLanding() {
+        const data = await request("/api/public/landing");
+        return syncPublicLanding(data);
     }
 
     async function loadTournaments() {
@@ -1123,6 +1157,7 @@
         loadAdminTournaments,
         loadAdminUsers,
         loadDashboard,
+        loadPublicLanding,
         loadModerationApplications,
         loadModerationOverview,
         loadModerationTasks,

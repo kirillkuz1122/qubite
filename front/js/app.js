@@ -61,8 +61,12 @@ const DEFAULT_PROFILE_ANALYTICS = {
         totalTournaments: 0,
         totalPoints: 0,
         topThreeCount: 0,
+        firstPlaceCount: 0,
+        secondPlaceCount: 0,
+        thirdPlaceCount: 0,
         averageRank: null,
         participationPercent: 0,
+        totalTasks: 0,
         weeklyPointsDelta: 0,
         bestRank: null,
         worstRank: null,
@@ -165,7 +169,8 @@ let tournamentRuntimeUiState = {
 let runtimeClockInterval = null;
 let runtimeRefreshInterval = null;
 
-const ROLE_PREVIEW_STORAGE_KEY = "qubite.rolePreview";
+const ROLE_PREVIEW_SCENARIO_STORAGE_KEY = "qubite.rolePreview";
+const ROLE_PREVIEW_ACTIVE_STORAGE_KEY = "qubite.rolePreviewActive";
 const ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY = "qubite.activeTournamentRuntime";
 const WORKSPACE_HISTORY_STATE_KEY = "__qubiteWorkspaceState";
 let workspaceHistoryApplying = false;
@@ -510,6 +515,19 @@ function getTeamState() {
 
 function getProfileAnalyticsState() {
     return apiClient?.state?.profileAnalytics || DEFAULT_PROFILE_ANALYTICS;
+}
+
+function getDashboardState() {
+    return apiClient?.state?.dashboard || DEFAULT_DASHBOARD_DATA;
+}
+
+function getPublicLandingState() {
+    return (
+        apiClient?.state?.publicLanding || {
+            tournaments: [],
+            topPlayers: [],
+        }
+    );
 }
 
 function getTeamAnalyticsState() {
@@ -907,17 +925,39 @@ function readRolePreviewScenario() {
     }
 
     try {
-        const raw = window.localStorage.getItem(ROLE_PREVIEW_STORAGE_KEY);
+        const raw = window.localStorage.getItem(ROLE_PREVIEW_SCENARIO_STORAGE_KEY);
         if (!raw) {
             return null;
         }
 
         const parsed = JSON.parse(raw);
-        window.localStorage.removeItem(ROLE_PREVIEW_STORAGE_KEY);
+        window.localStorage.removeItem(ROLE_PREVIEW_SCENARIO_STORAGE_KEY);
         return parsed && typeof parsed === "object" ? parsed : null;
     } catch (error) {
         console.error(error);
         return null;
+    }
+}
+
+function getActiveRolePreview() {
+    try {
+        const value = window.localStorage.getItem(ROLE_PREVIEW_ACTIVE_STORAGE_KEY);
+        return value || null;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+}
+
+function setActiveRolePreview(role) {
+    try {
+        if (!role) {
+            window.localStorage.removeItem(ROLE_PREVIEW_ACTIVE_STORAGE_KEY);
+            return;
+        }
+        window.localStorage.setItem(ROLE_PREVIEW_ACTIVE_STORAGE_KEY, role);
+    } catch (error) {
+        console.error(error);
     }
 }
 
@@ -1033,6 +1073,94 @@ function formatDateTimeLabel(value) {
         hour: "2-digit",
         minute: "2-digit",
     });
+}
+
+function getRecentWeekdayLabels(length = 7) {
+    const formatter = new Intl.DateTimeFormat("ru-RU", {
+        weekday: "short",
+    });
+    return Array.from({ length }, (_, index) => {
+        const offset = length - index - 1;
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() - offset);
+        const label = formatter.format(date);
+        return label.slice(0, 2).toUpperCase();
+    });
+}
+
+function buildDashboardRatingColumns(series, deltaLabel = "") {
+    const values = Array.isArray(series)
+        ? series.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+        : [];
+    const fallbackValues =
+        values.length > 0
+            ? values
+            : DEFAULT_DASHBOARD_DATA.ratingSeries.map((item) =>
+                  Number(typeof item === "number" ? item : item?.v || 0),
+              );
+    const labels = getRecentWeekdayLabels(fallbackValues.length || 7);
+    const min = Math.min(...fallbackValues);
+    const max = Math.max(...fallbackValues);
+    const range = Math.max(max - min, 1);
+
+    return fallbackValues.map((value, index) => {
+        const isActive = index === fallbackValues.length - 1;
+        return {
+            v: value,
+            h: Math.round(((value - min) / range) * 70) + 30,
+            l: labels[index] || "",
+            a: isActive,
+            d: isActive ? deltaLabel : undefined,
+        };
+    });
+}
+
+function buildDashboardPulseColumns(series) {
+    const items = Array.isArray(series)
+        ? series.map((item) => ({
+              label: String(item?.label || ""),
+              value: Number(item?.value || 0),
+          }))
+        : [];
+    const fallback =
+        items.length > 0
+            ? items
+            : DEFAULT_DASHBOARD_DATA.platformPulse.series.map((item) => ({
+                  label: String(item.l || ""),
+                  value: Number(item.v || 0),
+              }));
+    const max = Math.max(...fallback.map((item) => item.value), 1);
+    return fallback.map((item, index) => ({
+        v: item.value,
+        h: Math.round((item.value / max) * 75) + 25,
+        l: item.label,
+        a: item.value === max || index === fallback.length - 1,
+    }));
+}
+
+function formatTournamentRoundsLabel(taskCount) {
+    const count = Math.max(Number(taskCount || 0), 0);
+    if (!count) {
+        return "Скоро анонс";
+    }
+    return `${count} ${count === 1 ? "раунд" : count < 5 ? "раунда" : "раундов"}`;
+}
+
+function getLandingTournamentStatusClass(status) {
+    if (status === "live") return "status--live";
+    if (status === "ended") return "status--ended";
+    return "status--soon";
+}
+
+function getLandingTournamentButtonLabel(item) {
+    if (item?.actionType === "join") {
+        return "Присоединиться";
+    }
+    if (item?.actionType === "solve") {
+        return "Решать";
+    }
+    return "Открыть";
 }
 
 function badgeTone(status) {
@@ -1180,6 +1308,7 @@ async function bootstrapAuthSession() {
             await loadWorkspaceData();
             switchToWorkspace();
         } else {
+            await refreshLandingPublicData();
             await apiClient.loadOAuthProviders();
             hydrateOAuthButtons();
         }
@@ -3357,6 +3486,167 @@ function initDragScroll() {
     );
 }
 
+function renderLandingTournamentCards(items) {
+    const tournaments =
+        Array.isArray(items) && items.length > 0
+            ? items
+            : [
+                  {
+                      id: 1,
+                      title: "Скоро здесь появятся реальные турниры",
+                      desc: "Следите за обновлениями платформы",
+                      statusText: "Скоро",
+                      status: "upcoming",
+                      time: "Новые анонсы уже в пути",
+                      participants: 0,
+                      taskCount: 0,
+                  },
+              ];
+
+    const tournamentCards = tournaments.map(
+        (item) => `
+            <article class="card">
+                <div class="card__topbar"></div>
+                <div class="card__head">
+                    <span class="status ${getLandingTournamentStatusClass(item.status)}"><span class="dot"></span>${escapeHtml(item.statusText || "Скоро")}</span>
+                    <span class="meta">${escapeHtml(item.time || "Скоро")}</span>
+                </div>
+                <h3 class="card__title">${escapeHtml(item.title)}</h3>
+                <p class="card__sub">${escapeHtml(item.desc || item.category || "Смешанный формат")}</p>
+                <div class="card__meta">
+                    <span class="meta">${formatNumberRu(item.participants || 0)} игроков</span>
+                    <span class="meta">${escapeHtml(formatTournamentRoundsLabel(item.taskCount))}</span>
+                </div>
+                <div class="card__actions">
+                    <button type="button" class="btn btn--muted" data-landing-cta="tournaments">Открыть</button>
+                    <button type="button" class="btn btn--accent" data-landing-cta="register">${escapeHtml(getLandingTournamentButtonLabel(item))}</button>
+                </div>
+            </article>
+        `,
+    );
+
+    tournamentCards.push(`
+        <button class="card card--all" type="button" data-landing-cta="register" aria-label="Все турниры">
+            <div class="card__topbar"></div>
+            <span class="label">Все турниры</span>
+            <span class="arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+        </button>
+    `);
+
+    return tournamentCards.join("");
+}
+
+function renderLandingTopPlayersRows(items) {
+    const players =
+        Array.isArray(items) && items.length > 0
+            ? items
+            : DEFAULT_DASHBOARD_DATA.topPlayers;
+
+    const rows = players.slice(0, 5).map(
+        (player) => `
+            <div class="row ${player.isCurrentUser ? "row--active" : ""}">
+                <div class="rankchip ${player.rank === 1 ? "rankchip--1" : player.rank === 2 ? "rankchip--2" : player.rank === 3 ? "rankchip--3" : "rankchip--n"}">${escapeHtml(player.rank)}</div>
+                <div class="badge">${escapeHtml(player.initials || "Q")}</div>
+                <div class="row__mid">
+                    <div class="row__name">${escapeHtml(player.name)}</div>
+                    <div class="row__sub">Серия: ${escapeHtml(player.streakCount || 0)}</div>
+                </div>
+                <div class="row__right">
+                    <div class="score">${formatNumberRu(player.rating || 0)} RP</div>
+                    <div class="wins">Побед: ${formatNumberRu(player.winsCount || 0)}</div>
+                </div>
+            </div>
+        `,
+    );
+
+    rows.push(`
+        <button class="row row--cta" type="button" data-landing-cta="register" aria-label="Полный рейтинг">
+            <span class="chip">
+                <span class="label">Полный рейтинг</span>
+                <span class="arrow" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24">
+                        <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
+            </span>
+        </button>
+    `);
+
+    return rows.join("");
+}
+
+function bindLandingActionLinks() {
+    document
+        .querySelector("#top .topbar-btn")
+        ?.setAttribute("data-landing-cta", "rating");
+    const tournamentsRoot = document.getElementById("hscroll");
+    const ratingRoot = document.querySelector("#top .board");
+    const ctaButtons = [
+        ...document.querySelectorAll("[data-landing-cta]"),
+        ...(tournamentsRoot ? [...tournamentsRoot.querySelectorAll("[data-landing-cta]")] : []),
+        ...(ratingRoot ? [...ratingRoot.querySelectorAll("[data-landing-cta]")] : []),
+    ];
+
+    ctaButtons.forEach((button) => {
+        if (button.dataset.boundLandingCta === "1") {
+            return;
+        }
+        button.dataset.boundLandingCta = "1";
+        button.addEventListener("click", async (event) => {
+            event.preventDefault();
+            const action = button.dataset.landingCta || "register";
+            const user = getUserState();
+
+            if (!user) {
+                if (action === "tournaments") {
+                    openModal("regModal");
+                    return;
+                }
+                openModal("regModal");
+                return;
+            }
+
+            switchToWorkspace();
+            if (action === "tournaments") {
+                ViewManager.open("tournaments");
+                return;
+            }
+            if (action === "rating") {
+                openProfileAnalyticsView();
+                return;
+            }
+            ViewManager.open("tournaments");
+        });
+    });
+}
+
+async function refreshLandingPublicData({ silent = true } = {}) {
+    if (!apiClient || window.location.protocol === "file:") {
+        return;
+    }
+
+    try {
+        const data = await apiClient.loadPublicLanding();
+        const hscroll = document.getElementById("hscroll");
+        const board = document.querySelector("#top .board");
+        if (hscroll) {
+            hscroll.innerHTML = renderLandingTournamentCards(data?.tournaments || []);
+        }
+        if (board) {
+            board.innerHTML = renderLandingTopPlayersRows(data?.topPlayers || []);
+        }
+        bindLandingActionLinks();
+    } catch (error) {
+        if (!silent) {
+            showRequestError("Лендинг", error);
+        }
+    }
+}
+
 /* =========================================
    6. OBSERVERS (Скролл анимации + точки)
    ========================================= */
@@ -3475,6 +3765,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // 7. Scroll Logic fix - Moved to initDragScroll to avoid Duplication
 
     // 8. Init Workspace
+    void refreshLandingPublicData();
+    bindLandingActionLinks();
     ViewManager.init();
     window.addEventListener("popstate", () => {
         const workspaceView = document.getElementById("workspace-view");
@@ -3536,6 +3828,7 @@ function switchToLanding() {
 
     document.getElementById("landing-view").hidden = false;
     document.getElementById("workspace-view").hidden = true;
+    void refreshLandingPublicData();
 }
 
 /**
@@ -3586,6 +3879,38 @@ function renderProfilePersonal() {
                         : '<div class="s-sub" style="margin-bottom:12px;">Активных заявок пока нет.</div>'
                 }
                 <button class="btn btn--accent" type="button" id="applyOrganizerRoleBtn" ${latestOrganizerApplication?.status === "pending" ? "disabled" : ""}>Подать заявку</button>
+            </div>
+        `
+        : "";
+    const rolePreviewBlock = user.isSuperAdmin
+        ? `
+            <div class="card dash-card role-preview-card" style="padding:20px; margin-top:20px;">
+                <div class="modal__title" style="font-size:18px; margin-bottom:8px;">Режим ролей</div>
+                <div class="tour-sub" style="margin-bottom:12px;">Можно быстро переключать интерфейс между ролями без выхода из админского аккаунта.</div>
+                <div class="s-sub" style="margin-bottom:16px;">Сейчас: ${escapeHtml(user.previewRole || user.role || "admin")} · Реальная роль: ${escapeHtml(user.actualRole || "admin")}</div>
+                <div class="role-preview-buttons">
+                    ${["admin", "moderator", "organizer", "user"]
+                        .map(
+                            (role) => `
+                                <button
+                                    type="button"
+                                    class="btn ${String(user.previewRole || user.role || "admin") === role ? "btn--accent" : "btn--muted"}"
+                                    data-role-preview-switch="${escapeHtml(role)}"
+                                >
+                                    ${escapeHtml(role)}
+                                </button>
+                            `,
+                        )
+                        .join("")}
+                    <button
+                        type="button"
+                        class="btn btn--subtle"
+                        data-role-preview-clear
+                        ${user.previewRole ? "" : "disabled"}
+                    >
+                        Сбросить
+                    </button>
+                </div>
             </div>
         `
         : "";
@@ -3656,6 +3981,7 @@ function renderProfilePersonal() {
             </form>
         </div>
         ${organizerApplicationBlock}
+        ${rolePreviewBlock}
     `;
 }
 
@@ -3864,21 +4190,19 @@ function renderAnalyticsLayout(analytics, scope) {
         8,
         Math.min(100, Number(overview.participationPercent || 0)),
     );
-    const topOneWidth = analytics.hasData
-        ? Math.max(
-              10,
-              Math.min(
-                  100,
-                  Math.round(
-                      (Number(overview.topThreeCount || 0) /
-                          Math.max(Number(overview.totalTournaments || 1), 1)) *
-                          100,
-                  ),
-              ),
-          )
-        : 12;
-    const topTwoWidth = Math.max(8, Math.round(topOneWidth * 0.66));
-    const topThreeWidth = Math.max(8, Math.round(topOneWidth * 0.4));
+    const podiumCounts = [
+        Number(overview.firstPlaceCount || 0),
+        Number(overview.secondPlaceCount || 0),
+        Number(overview.thirdPlaceCount || 0),
+    ];
+    const maxPodiumCount = Math.max(...podiumCounts, 1);
+    const [topOneWidth, topTwoWidth, topThreeWidth] = podiumCounts.map((count) =>
+        analytics.hasData
+            ? count <= 0
+                ? 0
+                : Math.max(10, Math.round((count / maxPodiumCount) * 100))
+            : 0,
+    );
 
     return `
         <div class="analytics-layout" data-view-anim data-analytics-scope="${escapeHtml(scope)}">
@@ -3895,7 +4219,7 @@ function renderAnalyticsLayout(analytics, scope) {
                         <div class="glow-progress">
                             <div class="glow-fill" style="width: ${participationWidth}%;"></div>
                         </div>
-                        <div class="stat-hint">Активность в ${participationWidth}% сезонов и спринтов</div>
+                        <div class="stat-hint">Решено ${formatNumberRu(overview.solvedTasks)} из ${formatNumberRu(overview.totalTasks || 0)} задач в турнирных попытках</div>
                     </div>
                 </div>
 
@@ -3927,14 +4251,17 @@ function renderAnalyticsLayout(analytics, scope) {
                         <div class="bar-row">
                             <span class="r">#1</span>
                             <div class="b"><div class="f gold" style="width: ${topOneWidth}%"></div></div>
+                            <span class="bar-row__value">${formatNumberRu(overview.firstPlaceCount || 0)}</span>
                         </div>
                         <div class="bar-row">
                             <span class="r">#2</span>
                             <div class="b"><div class="f silver" style="width: ${topTwoWidth}%"></div></div>
+                            <span class="bar-row__value">${formatNumberRu(overview.secondPlaceCount || 0)}</span>
                         </div>
                         <div class="bar-row">
                             <span class="r">#3</span>
                             <div class="b"><div class="f bronze" style="width: ${topThreeWidth}%"></div></div>
+                            <span class="bar-row__value">${formatNumberRu(overview.thirdPlaceCount || 0)}</span>
                         </div>
                     </div>
                 </div>
@@ -4000,7 +4327,7 @@ function renderAnalyticsLayout(analytics, scope) {
                             <svg class="text-blue-icon icon-svg icon-svg-schedule" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></g></svg>
                         </div>
                         <div class="small-stat-content">
-                            <div class="label">Среднее время</div>
+                            <div class="label">Среднее время решения</div>
                             <div class="value">${formatSecondsLabel(overview.averageTimeSeconds)}</div>
                         </div>
                     </div>
@@ -4223,6 +4550,44 @@ function initProfilePersonalInteractions(container) {
             }
         });
     }
+
+    container.querySelectorAll("[data-role-preview-switch]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const role = button.dataset.rolePreviewSwitch;
+            if (!role) return;
+
+            Loader.show();
+            try {
+                setActiveRolePreview(role);
+                await apiClient.restoreSession();
+                await loadWorkspaceData();
+                ViewManager.open("dashboard", { historyMode: "replace" });
+                Toast.show("Роли", `Интерфейс переключен на ${role}.`, "success");
+            } catch (error) {
+                showRequestError("Роли", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelector("[data-role-preview-clear]")?.addEventListener(
+        "click",
+        async () => {
+            Loader.show();
+            try {
+                setActiveRolePreview(null);
+                await apiClient.restoreSession();
+                await loadWorkspaceData();
+                ViewManager.open("dashboard", { historyMode: "replace" });
+                Toast.show("Роли", "Возврат к реальной роли администратора.", "success");
+            } catch (error) {
+                showRequestError("Роли", error);
+            } finally {
+                Loader.hide(300);
+            }
+        },
+    );
 }
 
 function initProfileSecurityInteractions(container) {
@@ -7111,6 +7476,7 @@ const ViewManager = {
                 initAdminControlInteractions(this.content);
             } else {
                 this.content.innerHTML = renderDashboard();
+                initDashboardInteractions(this.content);
             }
         } else if (viewName === "task-bank") {
             this.content.innerHTML = renderOrganizerTaskBank();
@@ -7162,12 +7528,17 @@ const ViewManager = {
    ========================================= */
 const DEFAULT_DASHBOARD_DATA = {
     activeTournament: {
+        id: 1,
         title: "Qubit Open: Весна 2024",
+        statusText: "Идет сейчас",
         rankPosition: "#12",
         rankDeltaLabel: "+3 позиции",
         timeLabel: "4ч 32м",
         solvedLabel: "3/5",
         difficultyLabel: "Сложность: Hard",
+        ctaLabel: "Перейти к задачам",
+        actionType: "solve",
+        joined: true,
     },
     profile: {
         fullName: "Кирилл Кузмичев",
@@ -7177,36 +7548,76 @@ const DEFAULT_DASHBOARD_DATA = {
         rankTitle: "Мастер",
     },
     dailyTask: {
-        title: "Поиск в глубину",
-        difficulty: "Сложно",
+        id: 99,
+        title: "Ежедневное задание • 05.04",
+        difficulty: "Mixed",
         streak: 12,
+        solved: false,
+        statusText: "Сегодня",
+        timeLabel: "Один челлендж на день",
+        ctaLabel: "Перейти к заданию",
     },
     ratingDeltaLabel: "+12 за неделю",
-    ratingSeries: [
-        { v: 1650, h: 30, l: "Пн" },
-        { v: 1720, h: 55, l: "Вт" },
-        { v: 1680, h: 42, l: "Ср" },
-        { v: 1890, h: 72, l: "Чт" },
-        { v: 1980, h: 100, l: "Пт", a: true, d: "+45" },
-        { v: 1910, h: 80, l: "Сб" },
-    ],
+    ratingSeries: [1650, 1720, 1680, 1890, 1980, 1910, 2005],
     platformPulse: {
-        activeParticipants: 3120,
+        activeParticipants: 246,
         series: [
-            { v: 210, h: 35, l: "00" },
-            { v: 350, h: 75, l: "04", a: true },
-            { v: 180, h: 25, l: "08" },
-            { v: 290, h: 45, l: "12" },
-            { v: 520, h: 100, l: "16", a: true },
-            { v: 410, h: 65, l: "18" },
-            { v: 300, h: 40, l: "20" },
-            { v: 480, h: 92, l: "22", a: true },
+            { label: "00", value: 52 },
+            { label: "04", value: 98 },
+            { label: "08", value: 64 },
+            { label: "12", value: 91 },
+            { label: "16", value: 120 },
+            { label: "20", value: 110 },
         ],
     },
+    topPlayers: [
+        {
+            id: 1,
+            rank: 1,
+            initials: "N",
+            name: "Neo",
+            rating: 1980,
+            winsCount: 12,
+            streakCount: 4,
+        },
+        {
+            id: 2,
+            rank: 2,
+            initials: "A",
+            name: "Astra",
+            rating: 1765,
+            winsCount: 9,
+            streakCount: 2,
+        },
+        {
+            id: 3,
+            rank: 3,
+            initials: "Z",
+            name: "Zed",
+            rating: 1702,
+            winsCount: 8,
+            streakCount: 1,
+        },
+    ],
 };
 
 function renderDashboard() {
-    const dashboard = apiClient?.state?.dashboard || DEFAULT_DASHBOARD_DATA;
+    const dashboard = getDashboardState();
+    const activeTournament = dashboard.activeTournament || DEFAULT_DASHBOARD_DATA.activeTournament;
+    const dailyTask = dashboard.dailyTask || DEFAULT_DASHBOARD_DATA.dailyTask;
+    const platformPulse =
+        dashboard.platformPulse || DEFAULT_DASHBOARD_DATA.platformPulse;
+    const ratingColumns = buildDashboardRatingColumns(
+        dashboard.ratingSeries,
+        dashboard.ratingDeltaLabel,
+    );
+    const platformSeries = buildDashboardPulseColumns(
+        platformPulse.series,
+    );
+    const topPlayers =
+        Array.isArray(dashboard.topPlayers) && dashboard.topPlayers.length > 0
+            ? dashboard.topPlayers
+            : DEFAULT_DASHBOARD_DATA.topPlayers;
 
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
@@ -7218,26 +7629,26 @@ function renderDashboard() {
                 <div class="card dash-card tour-card" data-view-anim style="transition-delay: 0.1s">
                     <div class="card__head">
                         <div class="card__title">Активный турнир</div>
-                        <div class="card__sub">${escapeHtml(dashboard.activeTournament.title)}</div>
+                        <div class="card__sub">${escapeHtml(activeTournament.title)}</div>
                     </div>
                     <div class="tour-stats">
                         <div class="stat-box">
                             <div class="stat-box__label">Ваш ранг</div>
-                            <div class="stat-box__val">${escapeHtml(dashboard.activeTournament.rankPosition)}</div>
-                            <div class="stat-box__sub text-green">${escapeHtml(dashboard.activeTournament.rankDeltaLabel)}</div>
+                            <div class="stat-box__val">${escapeHtml(activeTournament.rankPosition)}</div>
+                            <div class="stat-box__sub text-green">${escapeHtml(activeTournament.rankDeltaLabel)}</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-box__label">Осталось времени</div>
-                            <div class="stat-box__val">${escapeHtml(dashboard.activeTournament.timeLabel)}</div>
-                            <div class="stat-box__sub">до конца раунда</div>
+                            <div class="stat-box__label">${escapeHtml(activeTournament.statusText || "Статус")}</div>
+                            <div class="stat-box__val">${escapeHtml(activeTournament.timeLabel)}</div>
+                            <div class="stat-box__sub">текущее состояние</div>
                         </div>
                         <div class="stat-box">
                             <div class="stat-box__label">Задач решено</div>
-                            <div class="stat-box__val">${escapeHtml(dashboard.activeTournament.solvedLabel)}</div>
-                            <div class="stat-box__sub">${escapeHtml(dashboard.activeTournament.difficultyLabel)}</div>
+                            <div class="stat-box__val">${escapeHtml(activeTournament.solvedLabel)}</div>
+                            <div class="stat-box__sub">${escapeHtml(activeTournament.difficultyLabel)}</div>
                         </div>
                     </div>
-                    <button class="btn--gradient-block">Перейти к задачам</button>
+                    <button class="btn--gradient-block" type="button" data-dashboard-active-tournament="${escapeHtml(activeTournament.id || "")}">${escapeHtml(activeTournament.ctaLabel || "К турнирам")}</button>
                 </div>
 
                 <!-- Profile -->
@@ -7267,16 +7678,16 @@ function renderDashboard() {
                         </div>
                     </div>
                     <div class="profile-actions">
-                        <button class="btn--gradient-block" style="padding: 14px;">Аналитика</button>
-                        <button class="btn btn--subtle">Профиль</button>
+                        <button class="btn--gradient-block" style="padding: 14px;" type="button" data-dashboard-open-analytics>Аналитика</button>
+                        <button class="btn btn--subtle" type="button" data-dashboard-open-profile>Профиль</button>
                     </div>
                 </div>
 
                 <!-- Daily Task -->
-                <a href="javascript:void(0)" class="card dash-card task-card" data-view-anim style="transition-delay: 0.3s">
+                <button type="button" class="card dash-card task-card dash-card-button" data-dashboard-daily-task="${escapeHtml(dailyTask.id || "")}" data-view-anim style="transition-delay: 0.3s">
                     <div class="card__head">
                         <div class="card__sub" style="margin:0">Ежедневное задание</div>
-                        <div class="task-title-large">${escapeHtml(dashboard.dailyTask.title)}</div>
+                        <div class="task-title-large">${escapeHtml(dailyTask.title)}</div>
                     </div>
                     <div class="task-circle-wrap">
                         <div class="task-circle">
@@ -7284,13 +7695,13 @@ function renderDashboard() {
                         </div>
                     </div>
                     <div class="card__foot">
-                        <span class="chip-dark">${escapeHtml(dashboard.dailyTask.difficulty)}</span>
+                        <span class="chip-dark">${escapeHtml(dailyTask.difficulty)}</span>
                         <div class="icon-text">
                             <svg class="fire icon-svg icon-svg-local_fire_department" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z"/></g><g class="svg-filled" style="display:none"><path d="M160-400q0-105 50-187t110-138q60-56 110-85.5l50-29.5v132q0 37 25 58.5t56 21.5q17 0 32.5-7t28.5-23l18-22q72 42 116 116.5T800-400q0 88-43 160.5T644-125q17-24 26.5-52.5T680-238q0-40-15-75.5T622-377L480-516 339-377q-29 29-44 64t-15 75q0 32 9.5 60.5T316-125q-70-42-113-114.5T160-400Zm320-4 85 83q17 17 26 38t9 45q0 49-35 83.5T480-120q-50 0-85-34.5T360-238q0-23 9-44.5t26-38.5l85-83Z"/></g></svg>
-                            <span>${escapeHtml(dashboard.dailyTask.streak)}</span>
+                            <span>${escapeHtml(dailyTask.streak)}</span>
                         </div>
                     </div>
-                </a>
+                </button>
 
                 <!-- Rating Chart -->
                 <div class="card dash-card chart-card" data-view-anim style="transition-delay: 0.4s">
@@ -7299,7 +7710,7 @@ function renderDashboard() {
                         <div class="card__sub text-green" style="margin:0;">${escapeHtml(dashboard.ratingDeltaLabel)}</div>
                     </div>
                     <div class="chart-area">
-                        ${dashboard.ratingSeries
+                        ${ratingColumns
                             .map(
                                 (i) => `
                             <div class="chart-col ${i.a ? "is-active" : ""}">
@@ -7331,7 +7742,7 @@ function renderDashboard() {
                         <div class="card__title">Пульс Платформы</div>
                     </div>
                     <div class="chart-area metric-chart">
-                         ${dashboard.platformPulse.series
+                         ${platformSeries
                              .map(
                                  (i) => `
                             <div class="chart-col ${i.a ? "is-active" : ""}">
@@ -7351,14 +7762,166 @@ function renderDashboard() {
                     <div class="pulse-foot">
                         <span class="text-accent">${escapeHtml(
                             Number(
-                                dashboard.platformPulse.activeParticipants || 0,
+                                platformPulse.activeParticipants || 0,
                             ).toLocaleString("ru-RU"),
                         )}</span> активных участников
                     </div>
                 </div>
             </div>
+
+            <div class="dash-board-section card dash-card" data-view-anim style="transition-delay: 0.6s">
+                <div class="chart-header">
+                    <h3 class="chart-title">Топ игроков</h3>
+                    <button class="topbar-btn" type="button" data-dashboard-open-rating>Полный рейтинг</button>
+                </div>
+                <div class="board board--dashboard">
+                    ${topPlayers
+                        .map(
+                            (player) => `
+                                <div class="row ${player.isCurrentUser ? "row--active" : ""}">
+                                    <div class="rankchip ${player.rank === 1 ? "rankchip--1" : player.rank === 2 ? "rankchip--2" : player.rank === 3 ? "rankchip--3" : "rankchip--n"}">${escapeHtml(player.rank)}</div>
+                                    <div class="badge">${escapeHtml(player.initials || "Q")}</div>
+                                    <div class="row__mid">
+                                        <div class="row__name">${escapeHtml(player.name)}</div>
+                                        <div class="row__sub">Серия: ${escapeHtml(player.streakCount || 0)}</div>
+                                    </div>
+                                    <div class="row__right">
+                                        <div class="score">${escapeHtml(formatNumberRu(player.rating))} RP</div>
+                                        <div class="wins">Побед: ${escapeHtml(player.winsCount || 0)}</div>
+                                    </div>
+                                </div>
+                            `,
+                        )
+                        .join("")}
+                </div>
+            </div>
         </div>
     `;
+}
+
+async function openDashboardActiveTournament() {
+    const dashboard = getDashboardState();
+    const tournament = dashboard?.activeTournament;
+    const tournamentId = Number(tournament?.id || 0);
+    if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+        ViewManager.open("tournaments");
+        return;
+    }
+
+    if (tournament.actionType === "solve") {
+        await openTournamentRuntimeModal(tournamentId);
+        return;
+    }
+
+    if (tournament.actionType === "join") {
+        Loader.show();
+        try {
+            const payload = {};
+            if (tournament.accessScope === "code") {
+                const accessCode = window.prompt(
+                    "Введите код доступа к турниру:",
+                    "",
+                );
+                if (!accessCode) {
+                    Loader.hide(300);
+                    return;
+                }
+                payload.accessCode = accessCode.trim();
+            }
+            const response = await apiClient.joinTournament(tournamentId, payload);
+            await Promise.all([
+                apiClient.loadDashboard().catch(() => null),
+                apiClient.loadTournaments().catch(() => null),
+                apiClient.loadProfileAnalytics().catch(() => null),
+            ]);
+            if (response.runtime) {
+                await openTournamentRuntimeModal(tournamentId, response.runtime);
+            } else {
+                ViewManager.open("tournaments");
+            }
+        } catch (error) {
+            showRequestError("Турнир", error);
+        } finally {
+            Loader.hide(300);
+        }
+        return;
+    }
+
+    ViewManager.open("tournaments");
+}
+
+async function openDailyChallengeFromDashboard() {
+    const dailyTask = getDashboardState()?.dailyTask || {};
+    const tournamentId = Number(dailyTask.id || 0);
+    if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+        Toast.show(
+            "Ежедневное задание",
+            "Сегодняшнее задание ещё готовится.",
+            "info",
+        );
+        return;
+    }
+
+    Loader.show();
+    try {
+        const response = await apiClient.joinTournament(tournamentId, {});
+        await Promise.all([
+            apiClient.loadDashboard().catch(() => null),
+            apiClient.loadProfileAnalytics().catch(() => null),
+        ]);
+        if (response.runtime) {
+            await openTournamentRuntimeModal(tournamentId, response.runtime);
+        } else {
+            await openTournamentRuntimeModal(tournamentId);
+        }
+    } catch (error) {
+        showRequestError("Ежедневное задание", error);
+    } finally {
+        Loader.hide(300);
+    }
+}
+
+function openProfileAnalyticsView() {
+    ViewManager.open("profile");
+    requestAnimationFrame(() => {
+        document
+            .querySelector('[data-profile-tab="analytics"]')
+            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+}
+
+function initDashboardInteractions(container) {
+    if (!container) return;
+
+    container
+        .querySelector("[data-dashboard-active-tournament]")
+        ?.addEventListener("click", async () => {
+            await openDashboardActiveTournament();
+        });
+
+    container
+        .querySelector("[data-dashboard-open-analytics]")
+        ?.addEventListener("click", () => {
+            openProfileAnalyticsView();
+        });
+
+    container
+        .querySelector("[data-dashboard-open-profile]")
+        ?.addEventListener("click", () => {
+            ViewManager.open("profile");
+        });
+
+    container
+        .querySelector("[data-dashboard-open-rating]")
+        ?.addEventListener("click", () => {
+            openProfileAnalyticsView();
+        });
+
+    container
+        .querySelector("[data-dashboard-daily-task]")
+        ?.addEventListener("click", async () => {
+            await openDailyChallengeFromDashboard();
+        });
 }
 
 /* =========================================
@@ -8422,6 +8985,10 @@ function renderRuntimeSubmissionHistory(task) {
 function renderTournamentRuntimeLoadingView() {
     const tournamentId = getActiveTournamentRuntimeId();
     const loadError = tournamentRuntimeUiState.loadError;
+    const runtime = getTournamentRuntimeState();
+    const isDaily = Boolean(runtime?.tournament?.isDaily);
+    const backLabel = isDaily ? "Назад на главную" : "Назад к турнирам";
+    const eyebrow = isDaily ? "Ежедневное задание" : "Активное соревнование";
 
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
@@ -8429,10 +8996,10 @@ function renderTournamentRuntimeLoadingView() {
             <div class="tour-runtime-head" data-view-anim>
                 <div class="tour-runtime-head__main">
                     <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
-                        <span>Назад к турнирам</span>
+                        <span>${backLabel}</span>
                     </button>
                     <div class="tour-runtime-head__copy">
-                        <div class="runtime-head__eyebrow">Активное соревнование</div>
+                        <div class="runtime-head__eyebrow">${eyebrow}</div>
                         <h1 class="dash-header" style="margin:0">Турнир #${escapeHtml(tournamentId || "—")}</h1>
                         <div class="tour-runtime-head__meta">
                             <span>Подготавливаем среду решения</span>
@@ -8469,6 +9036,9 @@ function renderTournamentRuntimePage(runtime) {
     const summary = runtime?.summary || {};
     const selectedTask = getSelectedRuntimeTask(runtime);
     const tasks = Array.isArray(runtime?.tasks) ? runtime.tasks : [];
+    const isDaily = Boolean(tournament.isDaily);
+    const backLabel = isDaily ? "Назад на главную" : "Назад к турнирам";
+    const eyebrow = isDaily ? "Ежедневное задание" : "Активное соревнование";
 
     if (!selectedTask) {
         return `
@@ -8477,10 +9047,10 @@ function renderTournamentRuntimePage(runtime) {
                 <div class="tour-runtime-head" data-view-anim>
                     <div class="tour-runtime-head__main">
                         <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
-                            <span>Назад к турнирам</span>
+                            <span>${backLabel}</span>
                         </button>
                         <div class="tour-runtime-head__copy">
-                            <div class="runtime-head__eyebrow">Активное соревнование</div>
+                            <div class="runtime-head__eyebrow">${eyebrow}</div>
                             <h1 class="dash-header" style="margin:0">${escapeHtml(tournament.title || "Соревнование")}</h1>
                         </div>
                     </div>
@@ -8504,10 +9074,10 @@ function renderTournamentRuntimePage(runtime) {
             <div class="tour-runtime-head" data-view-anim>
                 <div class="tour-runtime-head__main">
                     <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
-                        <span>Назад к турнирам</span>
+                        <span>${backLabel}</span>
                     </button>
                     <div class="tour-runtime-head__copy">
-                        <div class="runtime-head__eyebrow">Активное соревнование</div>
+                        <div class="runtime-head__eyebrow">${eyebrow}</div>
                         <h1 id="tournamentRuntimeTitle" class="dash-header" style="margin:0">${escapeHtml(tournament.title || "Соревнование")}</h1>
                         <div class="tour-runtime-head__meta">
                             <span>${escapeHtml(tournament.participantLabel || "Участник")}</span>
@@ -8623,7 +9193,11 @@ function renderTournamentRuntimePage(runtime) {
                         <div class="runtime-side-card__title">Правила проверки</div>
                         <div class="runtime-rules">
                             <div class="runtime-rules__item">Баллы начисляются только за первое принятое решение.</div>
-                            <div class="runtime-rules__item">За неверную попытку добавляется штраф ${escapeHtml(formatDurationDetailedLabel(tournament.wrongAttemptPenaltySeconds || 0))}.</div>
+                            <div class="runtime-rules__item">${
+                                Number(tournament.wrongAttemptPenaltySeconds || 0) > 0
+                                    ? `За неверную попытку добавляется штраф ${escapeHtml(formatDurationDetailedLabel(tournament.wrongAttemptPenaltySeconds || 0))}.`
+                                    : "Штраф за неверные попытки отключен."
+                            }</div>
                             <div class="runtime-rules__item">В командном формате ответ может отправить любой участник команды, но результат идёт в общий зачёт команды.</div>
                             <div class="runtime-rules__item">${escapeHtml(tournament.canTasksChange ? "Организатор может менять набор задач по ходу занятия." : "Набор задач зафиксирован и не меняется во время тура.")}</div>
                         </div>
@@ -8840,7 +9414,12 @@ function bindTournamentRuntimeInteractions(container) {
     container.querySelectorAll("[data-runtime-back]").forEach((button) => {
         button.addEventListener("click", () => {
             clearActiveTournamentRuntimeView();
-            ViewManager.open("tournaments", { historyMode: "replace" });
+            const currentRuntime = getTournamentRuntimeState();
+            if (currentRuntime?.tournament?.isDaily) {
+                ViewManager.open("dashboard", { historyMode: "replace" });
+            } else {
+                ViewManager.open("tournaments", { historyMode: "replace" });
+            }
         });
     });
 

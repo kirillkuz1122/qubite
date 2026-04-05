@@ -127,7 +127,7 @@ function getLocalDateBounds(date = new Date()) {
 }
 
 function formatDailyTournamentTitle(date = new Date()) {
-    return `Ежедневный турнир • ${padDatePart(date.getDate())}.${padDatePart(
+    return `Ежедневное задание • ${padDatePart(date.getDate())}.${padDatePart(
         date.getMonth() + 1,
     )}`;
 }
@@ -3496,7 +3496,7 @@ async function ensureDailyTournamentForDate(date = new Date()) {
     }
 
     const candidates = await listDailyTaskCandidates(24);
-    const selectedTasks = pickUniqueDailyTasks(candidates, bounds.key, 3);
+    const selectedTasks = pickUniqueDailyTasks(candidates, bounds.key, 1);
     if (selectedTasks.length === 0) {
         return null;
     }
@@ -3544,12 +3544,12 @@ async function ensureDailyTournamentForDate(date = new Date()) {
                         created_at,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'individual', 'open', NULL, ?, 'competition', 0, 900, 1, 1, NULL, NULL, NULL, 1, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'individual', 'open', NULL, ?, 'competition', 0, 0, 0, 0, NULL, NULL, NULL, 1, ?, ?, ?)
                 `,
                 [
                     slug,
                     title,
-                    "Ежедневный открытый турнир с автоматически подобранными задачами из общего банка.",
+                    "Ежедневное задание дня. Выполните его в течение суток, чтобы получить очки и сохранить серию.",
                     "published",
                     0,
                     buildTournamentTimeLabel("published", bounds.startAt, bounds.endAt),
@@ -3668,6 +3668,7 @@ async function getTournaments(userId, teamId = null) {
                 ) AS joined_team
             FROM tournaments t
             WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
+              AND COALESCE(t.is_daily, 0) = 0
               AND (
                 COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
                 OR (
@@ -3712,6 +3713,7 @@ async function getPrimaryTournament(userId, teamId = null) {
                 ) AS joined_team
             FROM tournaments t
             WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
+              AND COALESCE(t.is_daily, 0) = 0
               AND (
                 COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
                 OR (
@@ -4513,7 +4515,7 @@ async function recalculateTournamentEntryStats(entryId) {
         return null;
     }
 
-    const [progressStats, totalTasksRow] = await Promise.all([
+    const [progressStats, totalTasksRow, averageSolveRow] = await Promise.all([
         get(
             `
                 SELECT
@@ -4529,12 +4531,34 @@ async function recalculateTournamentEntryStats(entryId) {
             "SELECT COUNT(*) AS count FROM tournament_tasks WHERE tournament_id = ?",
             [entry.tournament_id],
         ),
+        get(
+            `
+                SELECT
+                    AVG(
+                        CASE
+                            WHEN is_solved = 1 AND accepted_at IS NOT NULL
+                                THEN CAST(
+                                    (julianday(accepted_at) - julianday(COALESCE(first_attempt_at, accepted_at))) * 86400
+                                    AS INTEGER
+                                )
+                            ELSE NULL
+                        END
+                    ) AS average_solve_seconds
+                FROM tournament_task_progress
+                WHERE entry_id = ?
+            `,
+            [entryId],
+        ),
     ]);
 
     const score = Number(progressStats?.score || 0);
     const solvedCount = Number(progressStats?.solved_count || 0);
     const penaltySeconds = Number(progressStats?.penalty_seconds || 0);
     const totalTasks = Number(totalTasksRow?.count || 0);
+    const averageTimeSeconds = Math.max(
+        0,
+        Math.round(Number(averageSolveRow?.average_solve_seconds || 0)),
+    );
 
     await run(
         `
@@ -4555,7 +4579,7 @@ async function recalculateTournamentEntryStats(entryId) {
             totalTasks,
             score,
             penaltySeconds,
-            penaltySeconds,
+            averageTimeSeconds,
             nowIso(),
             entryId,
         ],
@@ -4708,9 +4732,134 @@ async function submitTournamentTaskAnswer({
     });
 }
 
+function buildPlatformActivitySeries(rows = [], date = new Date()) {
+    const labels = ["00", "04", "08", "12", "16", "20"];
+    const values = new Array(labels.length).fill(0);
+    const sameDayRows = Array.isArray(rows) ? rows : [];
+
+    sameDayRows.forEach((row) => {
+        const timestamp = Date.parse(String(row.updated_at || ""));
+        if (!Number.isFinite(timestamp)) {
+            return;
+        }
+
+        const itemDate = new Date(timestamp);
+        if (
+            itemDate.getFullYear() !== date.getFullYear() ||
+            itemDate.getMonth() !== date.getMonth() ||
+            itemDate.getDate() !== date.getDate()
+        ) {
+            return;
+        }
+
+        const hour = itemDate.getHours();
+        const bucketIndex = Math.min(
+            labels.length - 1,
+            Math.max(0, Math.floor(hour / 4)),
+        );
+        values[bucketIndex] += 1;
+    });
+
+    return labels.map((label, index) => ({
+        label,
+        value: values[index],
+    }));
+}
+
+async function listPublicLandingTournaments(limit = 4) {
+    return all(
+        `
+            SELECT
+                t.*,
+                (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                COALESCE(t.runtime_mode, 'competition') AS runtime_mode,
+                COALESCE(t.allow_live_task_add, 0) AS allow_live_task_add,
+                COALESCE(t.wrong_attempt_penalty_seconds, 1200) AS wrong_attempt_penalty_seconds,
+                0 AS joined_individual,
+                0 AS joined_team
+            FROM tournaments t
+            WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
+              AND COALESCE(t.is_daily, 0) = 0
+              AND COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
+            ORDER BY
+                CASE t.status
+                    WHEN 'live' THEN 0
+                    WHEN 'published' THEN 1
+                    WHEN 'upcoming' THEN 1
+                    ELSE 2
+                END,
+                t.start_at ASC
+            LIMIT ?
+        `,
+        [Math.max(1, Math.min(Number(limit || 4), 12))],
+    );
+}
+
+async function listTopPlayers(limit = 10) {
+    const safeLimit = Math.max(1, Math.min(Number(limit || 10), 50));
+    const players = await all(
+        `
+            SELECT
+                u.*,
+                COALESCE(SUM(CASE WHEN te.rank_position = 1 AND COALESCE(t.is_daily, 0) = 0 THEN 1 ELSE 0 END), 0) AS wins_count,
+                COALESCE(SUM(CASE WHEN te.rank_position <= 3 AND COALESCE(t.is_daily, 0) = 0 THEN 1 ELSE 0 END), 0) AS podium_count
+            FROM users u
+            LEFT JOIN tournament_entries te
+                ON te.user_id = u.id
+            LEFT JOIN tournaments t
+                ON t.id = te.tournament_id
+            WHERE u.role = 'user'
+              AND u.status = 'active'
+            GROUP BY u.id
+            ORDER BY u.rating DESC, wins_count DESC, podium_count DESC, u.updated_at DESC
+            LIMIT ?
+        `,
+        [safeLimit],
+    );
+
+    const enriched = [];
+    for (const player of players) {
+        const recentRanks = await all(
+            `
+                SELECT te.rank_position
+                FROM tournament_entries te
+                JOIN tournaments t ON t.id = te.tournament_id
+                WHERE te.user_id = ?
+                  AND COALESCE(t.is_daily, 0) = 0
+                ORDER BY COALESCE(t.end_at, t.start_at) DESC
+                LIMIT 12
+            `,
+            [player.id],
+        );
+        let streakCount = 0;
+        for (const item of recentRanks) {
+            if (Number(item.rank_position || 0) !== 1) {
+                break;
+            }
+            streakCount += 1;
+        }
+
+        enriched.push({
+            ...player,
+            wins_count: Number(player.wins_count || 0),
+            podium_count: Number(player.podium_count || 0),
+            streak_count: streakCount,
+        });
+    }
+
+    return enriched;
+}
+
 async function getPlatformMetrics() {
-    const [tournamentRow, sessionRow, userRow] = await Promise.all([
-        get("SELECT COALESCE(SUM(participants_count), 0) AS participants FROM tournaments"),
+    const [tournamentRow, sessionRow, userRow, sessionActivityRows] =
+        await Promise.all([
+            get(
+                `
+                    SELECT COALESCE(SUM(participants_count), 0) AS participants
+                    FROM tournaments
+                    WHERE COALESCE(is_daily, 0) = 0
+                `,
+            ),
         get(
             `
                 SELECT COUNT(*) AS active_sessions
@@ -4720,17 +4869,28 @@ async function getPlatformMetrics() {
             `,
             [nowIso()],
         ),
-        get("SELECT COUNT(*) AS users_count FROM users"),
-    ]);
+            get("SELECT COUNT(*) AS users_count FROM users WHERE status != 'deleted'"),
+            all(
+                `
+                    SELECT updated_at
+                    FROM sessions
+                    WHERE revoked_at IS NULL
+                      AND updated_at >= ?
+                `,
+                [addDays(new Date(), -1)],
+            ),
+        ]);
 
     return {
         participants: tournamentRow ? tournamentRow.participants : 0,
         activeSessions: sessionRow ? sessionRow.active_sessions : 0,
         usersCount: userRow ? userRow.users_count : 0,
+        activitySeries: buildPlatformActivitySeries(sessionActivityRows),
     };
 }
 
-async function listUserTournamentResults(userId) {
+async function listUserTournamentResults(userId, options = {}) {
+    const includeDaily = Boolean(options.includeDaily);
     return all(
         `
             SELECT
@@ -4739,17 +4899,20 @@ async function listUserTournamentResults(userId) {
                 t.start_at,
                 t.end_at,
                 t.status,
-                t.format
+                t.format,
+                COALESCE(t.is_daily, 0) AS is_daily
             FROM tournament_entries te
             JOIN tournaments t ON t.id = te.tournament_id
             WHERE te.user_id = ?
+              AND (? = 1 OR COALESCE(t.is_daily, 0) = 0)
             ORDER BY COALESCE(t.end_at, t.start_at) DESC
         `,
-        [userId],
+        [userId, includeDaily ? 1 : 0],
     );
 }
 
-async function listTeamTournamentResults(teamId) {
+async function listTeamTournamentResults(teamId, options = {}) {
+    const includeDaily = Boolean(options.includeDaily);
     return all(
         `
             SELECT
@@ -4758,13 +4921,15 @@ async function listTeamTournamentResults(teamId) {
                 t.start_at,
                 t.end_at,
                 t.status,
-                t.format
+                t.format,
+                COALESCE(t.is_daily, 0) AS is_daily
             FROM tournament_entries te
             JOIN tournaments t ON t.id = te.tournament_id
             WHERE te.team_id = ?
+              AND (? = 1 OR COALESCE(t.is_daily, 0) = 0)
             ORDER BY COALESCE(t.end_at, t.start_at) DESC
         `,
-        [teamId],
+        [teamId, includeDaily ? 1 : 0],
     );
 }
 
@@ -4869,7 +5034,7 @@ async function refreshUserCompetitionStats(userId) {
             totalSolved,
             totalTasks,
             latestDifficulty,
-            currentDaily?.title || "Ежедневный турнир появится скоро",
+            currentDaily?.title || "Ежедневное задание появится скоро",
             currentDaily?.difficulty_label || "Mixed",
             streak,
             nowIso(),
@@ -5375,12 +5540,14 @@ module.exports = {
     listOrganizerApplications,
     listOrganizerTaskBank,
     listOrganizerTournaments,
+    listPublicLandingTournaments,
     listSessionsForUser,
     listTaskBank,
     listTasksByIds,
     listTeamMemberIds,
     listTeamMembers,
     listTeamTournamentResults,
+    listTopPlayers,
     listTournamentEntries,
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,

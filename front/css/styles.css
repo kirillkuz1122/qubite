@@ -250,7 +250,7 @@ a {
 .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 5px;
     font-weight: 800;
     color: var(--fg-strong);
 }
@@ -505,6 +505,15 @@ a {
     text-align: center;
     gap: 10px;
     min-height: 220px; /* чтобы по высоте не отличалась */
+}
+
+button.card--all,
+button.row--cta {
+    border: none;
+    background: inherit;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
 }
 .card--all .cta {
     display: inline-flex;
@@ -1849,6 +1858,21 @@ a {
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
     grid-template-rows: auto auto;
+}
+
+.dash-board-section {
+    margin-top: 24px;
+}
+
+.dash-card-button {
+    width: 100%;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+    background: inherit;
+    color: inherit;
+    font: inherit;
 }
 
 /* Top Row: Active Tournament (2 cols) | Profile (1 col) */
@@ -5534,7 +5558,7 @@ body.loading {
 }
 
 #workspace-view > aside > div > div {
-    margin-right: 10px;
+    margin-right: 5px;
 }
 
 #workspace-view > aside.sidebar--collapsed > div > div {
@@ -6483,6 +6507,14 @@ body.loading {
     gap: 12px;
     width: 100%;
     padding: 0 20px;
+}
+
+.bar-row__value {
+    min-width: 32px;
+    text-align: right;
+    color: var(--fg-muted);
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .bar-row .r {
@@ -8016,6 +8048,12 @@ body.loading {
     margin-top: 48px;
 }
 
+.role-preview-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .btn-logout-link {
     color: #f43f5e;
     text-decoration: none;
@@ -9442,6 +9480,18 @@ body.loading {
 .tour-runtime-view {
     max-width: 1360px;
     gap: 24px;
+}
+
+.board--dashboard {
+    margin-top: 6px;
+}
+
+.board .row--active {
+    background: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--accent-from) 10%, transparent),
+        color-mix(in oklab, var(--accent-to) 8%, transparent)
+    );
 }
 
 .tour-runtime-head {
