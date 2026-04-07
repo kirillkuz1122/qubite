@@ -5,6 +5,7 @@
         user: null,
         profile: null,
         publicLanding: null,
+        rating: [],
         dashboard: null,
         tournaments: [],
         tournamentRuntime: null,
@@ -53,6 +54,7 @@
         state.user = null;
         state.profile = null;
         state.publicLanding = null;
+        state.rating = [];
         state.dashboard = null;
         state.tournaments = [];
         state.tournamentRuntime = null;
@@ -107,6 +109,11 @@
               }
             : null;
         return state.publicLanding;
+    }
+
+    function syncRating(items) {
+        state.rating = Array.isArray(items) ? [...items] : [];
+        return state.rating;
     }
 
     function syncTeam(team) {
@@ -354,6 +361,13 @@
     async function loadPublicLanding() {
         const data = await request("/api/public/landing");
         return syncPublicLanding(data);
+    }
+
+    async function loadRating(limit = 50) {
+        const data = await request(
+            `/api/rating?limit=${encodeURIComponent(limit)}`,
+        );
+        return syncRating(data.items);
     }
 
     async function loadTournaments() {
@@ -1158,6 +1172,7 @@
         loadAdminUsers,
         loadDashboard,
         loadPublicLanding,
+        loadRating,
         loadModerationApplications,
         loadModerationOverview,
         loadModerationTasks,

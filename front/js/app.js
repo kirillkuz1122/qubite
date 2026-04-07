@@ -44,6 +44,8 @@ function switchToTournaments() {
 const apiClient = window.QubiteAPI || null;
 let pendingProfileCompletion = false;
 let pendingResetToken = null;
+const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
+const NOTIFICATION_UNREAD_STORAGE_KEY = "qubite.notificationsUnreadAt";
 
 const EMPTY_TEAM_STATE = {
     inTeam: false,
@@ -528,6 +530,10 @@ function getPublicLandingState() {
             topPlayers: [],
         }
     );
+}
+
+function getRatingState() {
+    return apiClient?.state?.rating || [];
 }
 
 function getTeamAnalyticsState() {
@@ -1045,6 +1051,21 @@ function formatNumberRu(value) {
     return Number(value || 0).toLocaleString("ru-RU");
 }
 
+function formatCompactNumberRu(value) {
+    const num = Number(value || 0);
+    const abs = Math.abs(num);
+    if (abs >= 1_000_000_000) {
+        return `${(num / 1_000_000_000).toFixed(abs >= 10_000_000_000 ? 0 : 1).replace(/\.0$/, "")} млрд`;
+    }
+    if (abs >= 1_000_000) {
+        return `${(num / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")} м`;
+    }
+    if (abs >= 1_000) {
+        return `${(num / 1_000).toFixed(abs >= 10_000 ? 0 : 1).replace(/\.0$/, "")} к`;
+    }
+    return formatNumberRu(num);
+}
+
 function formatSignedPoints(value) {
     const num = Number(value || 0);
     return `${num >= 0 ? "+" : ""}${formatNumberRu(num)}`;
@@ -1075,6 +1096,347 @@ function formatDateTimeLabel(value) {
     });
 }
 
+function buildAvatarInnerMarkup(initials = "Q", avatarUrl = "") {
+    if (avatarUrl) {
+        return `<img class="avatar-image" src="${escapeHtml(avatarUrl)}" alt="Аватар">`;
+    }
+    return `<span class="avatar-letter">${escapeHtml(initials)}</span>`;
+}
+
+function setInlineFieldError(form, fieldName, message = "") {
+    const errorNode = form?.querySelector(`[data-error-for="${fieldName}"]`);
+    if (errorNode) {
+        errorNode.textContent = message;
+    }
+    const input = form?.elements?.[fieldName];
+    if (input?.classList) {
+        input.classList.toggle("is-invalid", Boolean(message));
+        if (message) {
+            input.classList.remove("is-valid");
+        }
+    }
+}
+
+function normalizeWhitespace(value) {
+    return String(value || "").replace(/\s+/g, " ").trimStart();
+}
+
+function toTitleCaseWords(value) {
+    return normalizeWhitespace(value)
+        .toLocaleLowerCase("ru-RU")
+        .replace(
+            /(^|[\s-])([A-Za-zА-Яа-яЁё])/gu,
+            (match, prefix, char) => `${prefix}${char.toLocaleUpperCase("ru-RU")}`,
+        );
+}
+
+function formatProfilePhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (!digits) {
+        return "";
+    }
+
+    let normalized = digits;
+    if (normalized.startsWith("8")) {
+        normalized = `7${normalized.slice(1)}`;
+    }
+    if (!normalized.startsWith("7")) {
+        normalized = `7${normalized}`;
+    }
+    normalized = normalized.slice(0, 11);
+
+    const country = normalized.slice(0, 1);
+    const part1 = normalized.slice(1, 4);
+    const part2 = normalized.slice(4, 7);
+    const part3 = normalized.slice(7, 9);
+    const part4 = normalized.slice(9, 11);
+
+    let result = `+${country}`;
+    if (part1) {
+        result += ` (${part1}`;
+    }
+    if (part1.length === 3) {
+        result += ")";
+    }
+    if (part2) {
+        result += ` ${part2}`;
+    }
+    if (part3) {
+        result += `-${part3}`;
+    }
+    if (part4) {
+        result += `-${part4}`;
+    }
+    return result;
+}
+
+function buildDetailedProfilePayload(form) {
+    return {
+        lastName: toTitleCaseWords(form.elements["lastName"]?.value || ""),
+        firstName: toTitleCaseWords(form.elements["firstName"]?.value || ""),
+        middleName: toTitleCaseWords(form.elements["middleName"]?.value || ""),
+        login: String(form.elements["login"]?.value || "").trim(),
+        email: String(form.elements["email"]?.value || "").trim(),
+        phone: formatProfilePhone(form.elements["phone"]?.value || ""),
+        city: toTitleCaseWords(form.elements["city"]?.value || ""),
+        place: normalizeWhitespace(form.elements["place"]?.value || ""),
+        studyGroup: normalizeWhitespace(form.elements["studyGroup"]?.value || ""),
+    };
+}
+
+function validateDetailedProfilePayload(payload) {
+    const errors = {};
+    const nameRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
+    const cityRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
+    const placeRule = /^[A-Za-zА-Яа-яЁё0-9№"'().,/ -]{2,120}$/u;
+    const studyGroupRule = /^[A-Za-zА-Яа-яЁё0-9()./_ -]{1,40}$/u;
+    const phoneDigits = payload.phone.replace(/\D/g, "");
+
+    if (!payload.lastName) {
+        errors.lastName = "Укажите фамилию.";
+    } else if (!nameRule.test(payload.lastName)) {
+        errors.lastName = "Фамилия может содержать только буквы, пробел и дефис.";
+    }
+
+    if (!payload.firstName) {
+        errors.firstName = "Укажите имя.";
+    } else if (!nameRule.test(payload.firstName)) {
+        errors.firstName = "Имя может содержать только буквы, пробел и дефис.";
+    }
+
+    if (payload.middleName && !nameRule.test(payload.middleName)) {
+        errors.middleName = "Отчество может содержать только буквы, пробел и дефис.";
+    }
+
+    if (!payload.login) {
+        errors.login = "Укажите логин.";
+    } else if (!validators.login(payload.login)) {
+        errors.login = "Логин: только латиница, цифры и _.";
+    }
+
+    if (!payload.email) {
+        errors.email = "Укажите e-mail.";
+    } else if (!validators.email(payload.email)) {
+        errors.email = "Почта вводится латиницей без пробелов.";
+    }
+
+    if (payload.phone && phoneDigits.length !== 11) {
+        errors.phone = "Укажите полный номер телефона в формате +7 (999) 111-22-33.";
+    }
+
+    if (!payload.city) {
+        errors.city = "Укажите город.";
+    } else if (!cityRule.test(payload.city)) {
+        errors.city = "Город может содержать только буквы, пробел и дефис.";
+    }
+
+    if (!payload.place) {
+        errors.place = "Укажите место обучения.";
+    } else if (!placeRule.test(payload.place)) {
+        errors.place = "Используйте буквы, цифры и базовые знаки без лишних символов.";
+    }
+
+    if (!payload.studyGroup) {
+        errors.studyGroup = "Укажите класс, группу или курс.";
+    } else if (!studyGroupRule.test(payload.studyGroup)) {
+        errors.studyGroup = "Поле допускает буквы, цифры, пробелы и / - _ ( ).";
+    }
+
+    return errors;
+}
+
+function syncDetailedProfileFormState(form, extraState = {}) {
+    const payload = buildDetailedProfilePayload(form);
+    const errors = validateDetailedProfilePayload(payload);
+    const saveButton = form.querySelector('button[type="submit"]');
+
+    Object.entries(payload).forEach(([fieldName, value]) => {
+        const field = form.elements[fieldName];
+        if (
+            field &&
+            document.activeElement !== field &&
+            field.value !== value
+        ) {
+            field.value = value;
+        }
+    });
+
+    [
+        "lastName",
+        "firstName",
+        "middleName",
+        "login",
+        "email",
+        "phone",
+        "city",
+        "place",
+        "studyGroup",
+    ].forEach((fieldName) => {
+        setInlineFieldError(form, fieldName, errors[fieldName] || "");
+    });
+
+    const initialPayload = JSON.parse(form.dataset.initialPayload || "{}");
+    const normalizedCurrent = JSON.stringify({
+        ...payload,
+        avatarUrl: extraState.avatarUrl || "",
+    });
+    const normalizedInitial = JSON.stringify(initialPayload);
+    const hasChanges = normalizedCurrent !== normalizedInitial;
+    const isValid = Object.keys(errors).length === 0;
+
+    if (saveButton) {
+        saveButton.disabled = !hasChanges || !isValid;
+        saveButton.classList.toggle("is-disabled", !hasChanges || !isValid);
+    }
+
+    return {
+        payload,
+        errors,
+        hasChanges,
+        isValid,
+    };
+}
+
+function isUserProfileComplete(user = getUserState()) {
+    if (!user) return false;
+    return Boolean(
+        String(user.firstName || "").trim() &&
+            String(user.lastName || "").trim() &&
+            String(user.city || "").trim() &&
+            String(user.place || "").trim() &&
+            String(user.studyGroup || "").trim(),
+    );
+}
+
+function getStoredNotifications() {
+    try {
+        const raw = window.localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+        const items = JSON.parse(raw || "[]");
+        return Array.isArray(items) ? items : [];
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+function saveStoredNotifications(items) {
+    try {
+        window.localStorage.setItem(
+            NOTIFICATION_STORAGE_KEY,
+            JSON.stringify(Array.isArray(items) ? items.slice(0, 80) : []),
+        );
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function getNotificationsUnreadAt() {
+    try {
+        return Number(window.localStorage.getItem(NOTIFICATION_UNREAD_STORAGE_KEY) || 0);
+    } catch (error) {
+        console.error(error);
+        return 0;
+    }
+}
+
+function markNotificationsRead() {
+    try {
+        window.localStorage.setItem(
+            NOTIFICATION_UNREAD_STORAGE_KEY,
+            String(Date.now()),
+        );
+    } catch (error) {
+        console.error(error);
+    }
+    updateNotificationsBadge();
+}
+
+function pushNotificationHistory(title, desc, type = "info") {
+    const nextItems = [
+        {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            title: String(title || "Уведомление"),
+            desc: String(desc || ""),
+            type,
+            createdAt: new Date().toISOString(),
+        },
+        ...getStoredNotifications(),
+    ];
+    saveStoredNotifications(nextItems);
+    updateNotificationsBadge();
+}
+
+function renderNotificationsPanel() {
+    const items = getStoredNotifications();
+    if (items.length === 0) {
+        return `
+            <div class="notifications-empty">
+                <div class="notifications-empty__title">Пока пусто</div>
+                <div class="notifications-empty__desc">Новые уведомления будут появляться здесь автоматически.</div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="notifications-list">
+            ${items
+                .map(
+                    (item) => `
+                        <div class="notifications-item notifications-item--${escapeHtml(item.type || "info")}">
+                            <div class="notifications-item__title">${escapeHtml(item.title)}</div>
+                            <div class="notifications-item__desc">${escapeHtml(item.desc)}</div>
+                            <div class="notifications-item__time">${escapeHtml(formatDateTimeLabel(item.createdAt))}</div>
+                        </div>
+                    `,
+                )
+                .join("")}
+        </div>
+    `;
+}
+
+function ensureNotificationsModal() {
+    if (document.getElementById("notificationsModal")) {
+        return;
+    }
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="notificationsModal" class="modal" hidden>
+            <div class="modal__backdrop" data-close="notificationsModal"></div>
+            <div class="modal__panel modal__panel--notifications" role="dialog" aria-modal="true" aria-labelledby="notificationsTitle">
+                <div class="modal__head">
+                    <div id="notificationsTitle" class="modal__title">Уведомления</div>
+                    <button class="modal__close" data-close="notificationsModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div id="notificationsModalBody" class="notifications-body"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+}
+
+function openNotificationsModal() {
+    ensureNotificationsModal();
+    const body = document.getElementById("notificationsModalBody");
+    if (body) {
+        body.innerHTML = renderNotificationsPanel();
+    }
+    markNotificationsRead();
+    openModal("notificationsModal");
+}
+
+function updateNotificationsBadge() {
+    const unreadAfter = getNotificationsUnreadAt();
+    const hasUnread = getStoredNotifications().some((item) => {
+        const time = Date.parse(String(item.createdAt || ""));
+        return Number.isFinite(time) && time > unreadAfter;
+    });
+    document.querySelectorAll(".btn-notif").forEach((button) => {
+        button.classList.toggle("has-unread", hasUnread);
+    });
+}
+
 function getRecentWeekdayLabels(length = 7) {
     const formatter = new Intl.DateTimeFormat("ru-RU", {
         weekday: "short",
@@ -1089,9 +1451,11 @@ function getRecentWeekdayLabels(length = 7) {
     });
 }
 
-function buildDashboardRatingColumns(series, deltaLabel = "") {
+function buildDashboardRatingColumns(series) {
     const values = Array.isArray(series)
-        ? series.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+        ? series
+              .map((item) => Number(item))
+              .filter((item) => Number.isFinite(item))
         : [];
     const fallbackValues =
         values.length > 0
@@ -1103,17 +1467,31 @@ function buildDashboardRatingColumns(series, deltaLabel = "") {
     const min = Math.min(...fallbackValues);
     const max = Math.max(...fallbackValues);
     const range = Math.max(max - min, 1);
+    const deltas = fallbackValues.map((value, index) =>
+        index === 0 ? 0 : value - fallbackValues[index - 1],
+    );
+    const maxGain = Math.max(...deltas, 0);
+    const highlightIndex =
+        maxGain > 0
+            ? deltas.lastIndexOf(maxGain)
+            : fallbackValues.length - 1;
+    const totalDelta =
+        fallbackValues[fallbackValues.length - 1] - fallbackValues[0];
 
-    return fallbackValues.map((value, index) => {
-        const isActive = index === fallbackValues.length - 1;
-        return {
-            v: value,
-            h: Math.round(((value - min) / range) * 70) + 30,
+    return {
+        totalDeltaLabel: `${formatSignedPoints(totalDelta)} за 7 дней`,
+        columns: fallbackValues.map((value, index) => ({
+            v: formatCompactNumberRu(value),
+            rawValue: value,
+            h: Math.round(((value - min) / range) * 68) + 22,
             l: labels[index] || "",
-            a: isActive,
-            d: isActive ? deltaLabel : undefined,
-        };
-    });
+            a: index === highlightIndex,
+            d:
+                index === highlightIndex && maxGain > 0
+                    ? formatSignedPoints(maxGain)
+                    : "",
+        })),
+    };
 }
 
 function buildDashboardPulseColumns(series) {
@@ -1130,13 +1508,213 @@ function buildDashboardPulseColumns(series) {
                   label: String(item.l || ""),
                   value: Number(item.v || 0),
               }));
-    const max = Math.max(...fallback.map((item) => item.value), 1);
+    const values = fallback.map((item) => item.value);
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 1);
+    const range = Math.max(max - min, 1);
+    const highlightIndex = fallback.findIndex((item) => item.value === max);
+
     return fallback.map((item, index) => ({
-        v: item.value,
-        h: Math.round((item.value / max) * 75) + 25,
+        v: formatCompactNumberRu(item.value),
+        rawValue: item.value,
+        h: Math.round(((item.value - min) / range) * 68) + 22,
         l: item.label,
-        a: item.value === max || index === fallback.length - 1,
+        a: index === highlightIndex,
     }));
+}
+
+function ensureFullRatingModal() {
+    if (document.getElementById("fullRatingModal")) {
+        return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="fullRatingModal" class="modal" hidden>
+            <div class="modal__backdrop" data-close="fullRatingModal"></div>
+            <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="fullRatingTitle" style="max-width: 860px;">
+                <div class="modal__head">
+                    <div id="fullRatingTitle" class="modal__title">Полный рейтинг</div>
+                    <button class="modal__close" data-close="fullRatingModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div class="modal__form" style="gap: 16px;">
+                    <div id="fullRatingBody" class="board"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+}
+
+function renderFullRatingRows(items) {
+    const players = Array.isArray(items) ? items : [];
+    if (!players.length) {
+        return `<div class="row" style="grid-template-columns:1fr; justify-items:center; min-height:120px; color: var(--fg-muted);">Рейтинг пока формируется</div>`;
+    }
+
+    return players
+        .map(
+            (player) => `
+                <div class="row ${player.isCurrentUser ? "row--active" : ""}">
+                    <div class="rankchip ${player.rank === 1 ? "rankchip--1" : player.rank === 2 ? "rankchip--2" : player.rank === 3 ? "rankchip--3" : "rankchip--n"}">${escapeHtml(player.rank)}</div>
+                    <div class="badge">${escapeHtml(player.initials || "Q")}</div>
+                    <div class="row__mid">
+                        <div class="row__name">${escapeHtml(player.name)}</div>
+                        <div class="row__sub">${escapeHtml(player.rankTitle || "Игрок")} · Серия: ${escapeHtml(player.streakCount || 0)}</div>
+                    </div>
+                    <div class="row__right">
+                        <div class="score">${escapeHtml(formatNumberRu(player.rating || 0))} RP</div>
+                        <div class="wins">Побед: ${escapeHtml(player.winsCount || 0)}</div>
+                    </div>
+                </div>
+            `,
+        )
+        .join("");
+}
+
+async function openFullRatingModal() {
+    ensureFullRatingModal();
+    Loader.show();
+    try {
+        const items =
+            getRatingState().length > 0
+                ? getRatingState()
+                : await apiClient.loadRating(100);
+        const body = document.getElementById("fullRatingBody");
+        if (body) {
+            body.innerHTML = renderFullRatingRows(items);
+        }
+        openModal("fullRatingModal");
+    } catch (error) {
+        showRequestError("Рейтинг", error);
+    } finally {
+        Loader.hide(300);
+    }
+}
+
+function ensureTournamentInfoModal() {
+    if (document.getElementById("tournamentInfoModal")) {
+        return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="tournamentInfoModal" class="modal" hidden>
+            <div class="modal__backdrop" data-close="tournamentInfoModal"></div>
+            <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="tournamentInfoTitle" style="max-width: 700px;">
+                <div class="modal__head">
+                    <div id="tournamentInfoTitle" class="modal__title">Соревнование</div>
+                    <button class="modal__close" data-close="tournamentInfoModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div id="tournamentInfoBody" class="modal__form" style="gap: 16px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+}
+
+function renderTournamentInfoBody(tournament) {
+    if (!tournament) {
+        return `<div class="tour-sub">Не удалось найти информацию о турнире.</div>`;
+    }
+
+    const canShowLeaderboard =
+        tournament.actionType === "muted" ||
+        (tournament.status === "ended" && tournament.resultsVisible);
+    const primaryActionLabel =
+        tournament.actionType === "join"
+            ? "Присоединиться"
+            : tournament.actionType === "solve"
+              ? "Перейти к задачам"
+              : "К турнирам";
+
+    return `
+        <div class="status-tag status--${escapeHtml(tournament.status)}" style="width:max-content;">
+            <div class="status-dot"></div>
+            <span>${escapeHtml(tournament.statusText)}</span>
+        </div>
+        <div style="display:grid; gap: 10px;">
+            <div style="font-size: 28px; font-family: var(--font-head); color: var(--fg-strong);">${escapeHtml(tournament.title)}</div>
+            <div class="tour-sub">${escapeHtml(tournament.desc || "Описание турнира скоро появится.")}</div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+            <div class="metric">
+                <div class="metric__label">Статус</div>
+                <div class="metric__val">${escapeHtml(tournament.time)}</div>
+            </div>
+            <div class="metric">
+                <div class="metric__label">Участников</div>
+                <div class="metric__val">${escapeHtml(formatCompactNumberRu(tournament.participants || 0))}</div>
+            </div>
+            <div class="metric">
+                <div class="metric__label">Формат</div>
+                <div class="metric__val">${escapeHtml(tournament.format === "team" ? "Командный" : "Индивидуальный")}</div>
+            </div>
+            <div class="metric">
+                <div class="metric__label">Задач</div>
+                <div class="metric__val">${escapeHtml(formatTournamentRoundsLabel(tournament.taskCount))}</div>
+            </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap: 12px; justify-content:flex-end;">
+            ${
+                canShowLeaderboard
+                    ? `<button class="btn btn--muted" type="button" data-tournament-info-action="leaderboard" data-tournament-id="${escapeHtml(tournament.id)}">Результаты</button>`
+                    : ""
+            }
+            <button class="btn ${tournament.actionType === "join" || tournament.actionType === "solve" ? "btn--accent" : "btn--muted"}" type="button" data-tournament-info-action="${escapeHtml(tournament.actionType === "join" || tournament.actionType === "solve" ? tournament.actionType : "tournaments")}" data-tournament-id="${escapeHtml(tournament.id)}">${escapeHtml(primaryActionLabel)}</button>
+        </div>
+    `;
+}
+
+function findTournamentById(tournamentId) {
+    const id = Number(tournamentId || 0);
+    if (!Number.isInteger(id) || id <= 0) {
+        return null;
+    }
+    return getTournamentsData().find((item) => Number(item.id) === id) || null;
+}
+
+async function openTournamentInfoModal(tournamentId) {
+    ensureTournamentInfoModal();
+    let tournament = findTournamentById(tournamentId);
+    if (!tournament) {
+        await apiClient.loadTournaments().catch(() => null);
+        tournament = findTournamentById(tournamentId);
+    }
+
+    const body = document.getElementById("tournamentInfoBody");
+    if (body) {
+        body.innerHTML = renderTournamentInfoBody(tournament);
+        body.querySelectorAll("[data-tournament-info-action]").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const action = button.dataset.tournamentInfoAction;
+                const id = Number(button.dataset.tournamentId || 0);
+                closeModal("tournamentInfoModal", true);
+                if (action === "leaderboard") {
+                    await openLeaderboardModal(id, "view");
+                    return;
+                }
+                if (action === "join") {
+                    const actionButton = document.querySelector(
+                        `[data-tournament-action="join"][data-tournament-id="${id}"]`,
+                    );
+                    actionButton?.click();
+                    return;
+                }
+                if (action === "solve") {
+                    await openTournamentRuntimeModal(id);
+                    return;
+                }
+                ViewManager.open("tournaments");
+            });
+        });
+    }
+
+    openModal("tournamentInfoModal");
 }
 
 function formatTournamentRoundsLabel(taskCount) {
@@ -1271,6 +1849,7 @@ function updateWorkspaceIdentity() {
     const displayName = user.displayName || user.login || "Пользователь";
     const uid = user.uid ? `UID: ${user.uid}` : "UID: -";
     const initials = user.initials || getUserInitials();
+    const avatarUrl = user.avatarUrl || "";
 
     document.querySelectorAll(".profile-name").forEach((node) => {
         node.textContent = displayName;
@@ -1280,8 +1859,8 @@ function updateWorkspaceIdentity() {
         node.textContent = uid;
     });
 
-    document.querySelectorAll(".avatar-letter").forEach((node) => {
-        node.textContent = initials;
+    document.querySelectorAll(".avatar-inner").forEach((node) => {
+        node.innerHTML = buildAvatarInnerMarkup(initials, avatarUrl);
     });
 }
 
@@ -1307,6 +1886,10 @@ async function bootstrapAuthSession() {
         if (session.authenticated) {
             await loadWorkspaceData();
             switchToWorkspace();
+            pendingProfileCompletion = !isUserProfileComplete(getUserState());
+            if (pendingProfileCompletion) {
+                openModal("profileModal");
+            }
         } else {
             await refreshLandingPublicData();
             await apiClient.loadOAuthProviders();
@@ -1411,6 +1994,7 @@ const Toast = {
         return container;
     },
     show(title, desc, type = "success", duration = 4000) {
+        pushNotificationHistory(title, desc, type);
         const container = this.getContainer();
         const toast = document.createElement("div");
         toast.className = `toast toast--${type}`;
@@ -1863,12 +2447,12 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="profileForm" novalidate>
-        <div class="field"><label>Фамилия</label><input class="input" name="lastName" data-required></div>
-        <div class="field"><label>Имя</label><input class="input" name="firstName" data-required></div>
-        <div class="field"><label>Отчество</label><input class="input" name="middleName"></div>
-        <div class="field"><label>Город</label><input class="input" name="city" data-required></div>
-        <div class="field"><label>Место обучения</label><input class="input" name="place" data-required></div>
-        <div class="field"><label>Класс/группа/курс</label><input class="input" name="class" data-required></div>
+        <div class="field"><label>Фамилия</label><input class="input" name="lastName" data-required><div class="error" data-error-for="lastName"></div></div>
+        <div class="field"><label>Имя</label><input class="input" name="firstName" data-required><div class="error" data-error-for="firstName"></div></div>
+        <div class="field"><label>Отчество</label><input class="input" name="middleName"><div class="error" data-error-for="middleName"></div></div>
+        <div class="field"><label>Город</label><input class="input" name="city" data-required><div class="error" data-error-for="city"></div></div>
+        <div class="field"><label>Место обучения</label><input class="input" name="place" data-required><div class="error" data-error-for="place"></div></div>
+        <div class="field"><label>Класс/группа/курс</label><input class="input" name="class" data-required><div class="error" data-error-for="class"></div></div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сохранить</button>
       </form>
     </div>
@@ -1884,8 +2468,8 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="authForm" novalidate>
-        <div class="field"><label>Логин</label><input class="input" name="login" data-required></div>
-        <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" data-required><button type="button" class="input-toggle" aria-label="Показать пароль"></button></div>
+        <div class="field"><label>Логин или e-mail</label><input class="input" name="login" data-required><div class="error" data-error-for="login"></div></div>
+        <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" data-required><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Войти</button>
         <div data-oauth-slot></div>
         <div class="form__links">
@@ -2359,6 +2943,7 @@ function mountModals() {
     const wrap = document.createElement("div");
     wrap.innerHTML = DYNAMIC_MODALS_HTML;
     document.body.appendChild(wrap);
+    ensureNotificationsModal();
 
     // Инициализируем валидацию для всех новых форм
     wrap.querySelectorAll("form").forEach((f) => setupForm(f));
@@ -2446,6 +3031,24 @@ function openModal(id) {
         }
     }
 
+    if (id === "profileModal") {
+        const form = el.querySelector("#profileForm");
+        const user = getUserState();
+        if (form && user) {
+            form.elements["lastName"].value = user.lastName || "";
+            form.elements["firstName"].value = user.firstName || "";
+            form.elements["middleName"].value = user.middleName || "";
+            form.elements["city"].value = user.city || "";
+            form.elements["place"].value = user.place || "";
+            form.elements["class"].value = user.studyGroup || "";
+            clearFormErrors(form);
+            form.querySelectorAll(".input").forEach((input) => {
+                input.classList.remove("is-invalid");
+            });
+            form.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+    }
+
     // Если уже открыта другая - меняем
     if (activeModal && activeModal !== el) {
         closeModal(activeModal.id, true); // true = fast close without attributes
@@ -2473,6 +3076,18 @@ function openModal(id) {
 function closeModal(id, immediate = false) {
     const el = document.getElementById(id || "");
     if (!el) return;
+    if (id === "profileModal" && pendingProfileCompletion) {
+        const user = getUserState();
+        if (!isUserProfileComplete(user)) {
+            Toast.show(
+                "Профиль",
+                "Сначала заполните обязательные поля профиля, чтобы продолжить.",
+                "info",
+                5000,
+            );
+            return;
+        }
+    }
 
     el.classList.remove("modal--open");
 
@@ -2528,6 +3143,15 @@ document.addEventListener("click", (e) => {
 // Закрытие по ESC
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeAnyModal();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".btn-notif").forEach((button) => {
+        button.addEventListener("click", () => {
+            openNotificationsModal();
+        });
+    });
+    updateNotificationsBadge();
 });
 
 // --- Привязка кнопок статической модалки (#loginModal) ---
@@ -2600,7 +3224,9 @@ function initConfirmModal({
 
 // Валидаторы
 const validators = {
-    email: (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+    email: (val) =>
+        /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/u.test(val),
+    login: (val) => /^[A-Za-z0-9_]{2,32}$/u.test(val),
     pass: (val) =>
         val.length >= 8 && /[A-Za-z]/.test(val) && /\d/.test(val), // min 8 + letter + digit
 };
@@ -2737,7 +3363,38 @@ function setupForm(form) {
             const err = form.querySelector(`[data-error-for="${el.name}"]`);
             if (el.value && !validators.email(el.value)) {
                 isFormValid = false;
-                if (err) err.textContent = "Некорректный E-mail";
+                if (err) err.textContent = "Почта вводится латиницей без пробелов.";
+            } else if (err) {
+                err.textContent = "";
+            }
+        });
+
+        form.querySelectorAll('input[name="login"]').forEach((el) => {
+            if (form.id === "authForm") {
+                const err = form.querySelector(`[data-error-for="${el.name}"]`);
+                const value = el.value.trim();
+                if (
+                    value &&
+                    !validators.login(value) &&
+                    !validators.email(value)
+                ) {
+                    isFormValid = false;
+                    if (err) {
+                        err.textContent =
+                            "Введите логин латиницей/цифрами/_ или корректный e-mail.";
+                    }
+                } else if (err) {
+                    err.textContent = "";
+                }
+                return;
+            }
+
+            const err = form.querySelector(`[data-error-for="${el.name}"]`);
+            if (el.value && !validators.login(el.value.trim())) {
+                isFormValid = false;
+                if (err) {
+                    err.textContent = "Только латиница, цифры и _.";
+                }
             } else if (err) {
                 err.textContent = "";
             }
@@ -2778,6 +3435,35 @@ function setupForm(form) {
             const otherText = form.elements["other_text"].value.trim();
             if (!reason) isFormValid = false;
             if (reason === "other" && otherText.length < 5) isFormValid = false;
+        }
+
+        if (form.id === "profileForm") {
+            const payload = {
+                lastName: toTitleCaseWords(form.elements["lastName"]?.value || ""),
+                firstName: toTitleCaseWords(form.elements["firstName"]?.value || ""),
+                middleName: toTitleCaseWords(form.elements["middleName"]?.value || ""),
+                city: toTitleCaseWords(form.elements["city"]?.value || ""),
+                place: normalizeWhitespace(form.elements["place"]?.value || ""),
+                class: normalizeWhitespace(form.elements["class"]?.value || ""),
+            };
+            const nameRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
+            const cityRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
+            const placeRule = /^[A-Za-zА-Яа-яЁё0-9№"'().,/ -]{2,120}$/u;
+            const studyGroupRule = /^[A-Za-zА-Яа-яЁё0-9()./_ -]{1,40}$/u;
+
+            [
+                ["lastName", !payload.lastName ? "Укажите фамилию." : !nameRule.test(payload.lastName) ? "Только буквы, пробел и дефис." : ""],
+                ["firstName", !payload.firstName ? "Укажите имя." : !nameRule.test(payload.firstName) ? "Только буквы, пробел и дефис." : ""],
+                ["middleName", payload.middleName && !nameRule.test(payload.middleName) ? "Только буквы, пробел и дефис." : ""],
+                ["city", !payload.city ? "Укажите город." : !cityRule.test(payload.city) ? "Только буквы, пробел и дефис." : ""],
+                ["place", !payload.place ? "Укажите место обучения." : !placeRule.test(payload.place) ? "Используйте буквы, цифры и базовые знаки." : ""],
+                ["class", !payload.class ? "Укажите класс, группу или курс." : !studyGroupRule.test(payload.class) ? "Разрешены буквы, цифры, пробелы и / - _ ( )." : ""],
+            ].forEach(([fieldName, message]) => {
+                setInlineFieldError(form, fieldName, message);
+                if (message) {
+                    isFormValid = false;
+                }
+            });
         }
 
         if (submitBtn) {
@@ -2975,16 +3661,24 @@ function setupForm(form) {
             Loader.show();
 
             try {
+                const profilePayload = {
+                    lastName: toTitleCaseWords(form.elements["lastName"].value),
+                    firstName: toTitleCaseWords(form.elements["firstName"].value),
+                    middleName: toTitleCaseWords(form.elements["middleName"].value),
+                    city: toTitleCaseWords(form.elements["city"].value),
+                    place: normalizeWhitespace(form.elements["place"].value),
+                    class: normalizeWhitespace(form.elements["class"].value),
+                };
                 await apiClient.updateProfile({
-                    lastName: form.elements["lastName"].value.trim(),
-                    firstName: form.elements["firstName"].value.trim(),
-                    middleName: form.elements["middleName"].value.trim(),
+                    lastName: profilePayload.lastName,
+                    firstName: profilePayload.firstName,
+                    middleName: profilePayload.middleName,
                     login: apiClient.state.user?.login || "user",
                     email: apiClient.state.user?.email || "",
                     phone: "",
-                    city: form.elements["city"].value.trim(),
-                    place: form.elements["place"].value.trim(),
-                    studyGroup: form.elements["class"].value.trim(),
+                    city: profilePayload.city,
+                    place: profilePayload.place,
+                    studyGroup: profilePayload.class,
                 });
                 await loadWorkspaceData();
                 pendingProfileCompletion = false;
@@ -3201,20 +3895,16 @@ function setupForm(form) {
         }
     });
 
-    // --- 3.1 Блокировка кириллицы (live replace) ---
-    // Для логина (допустим, латиница + цифры + _)
+    // --- 3.1 Пояснения по допустимым символам ---
     const loginInput = form.querySelector('input[name="login"]');
-    if (loginInput) {
+    if (loginInput && form.id !== "authForm") {
         loginInput.addEventListener("input", (e) => {
-            const start = e.target.selectionStart;
-            // Убираем все кроме a-z, A-Z, 0-9, _ и пробелы
-            let val = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
-            if (e.target.value !== val) {
-                e.target.value = val;
-                // Если был введен запрещенный символ (в т.ч. пробел), возвращаем курсор
-                const pos = Math.max(0, start - 1);
-                e.target.setSelectionRange(pos, pos);
-            }
+            const hasInvalid = /[^A-Za-z0-9_]/u.test(e.target.value);
+            setInlineFieldError(
+                form,
+                "login",
+                hasInvalid ? "Только латиница, цифры и _." : "",
+            );
             validate();
         });
     }
@@ -3252,34 +3942,48 @@ function setupForm(form) {
         }
     }
 
+    if (form.id === "profileForm") {
+        ["lastName", "firstName", "middleName", "city"].forEach((fieldName) => {
+            const input = form.elements[fieldName];
+            input?.addEventListener("input", () => {
+                input.value = toTitleCaseWords(input.value);
+                validate();
+            });
+        });
+        ["place", "class"].forEach((fieldName) => {
+            const input = form.elements[fieldName];
+            input?.addEventListener("input", () => {
+                input.value = normalizeWhitespace(input.value);
+                validate();
+            });
+        });
+    }
+
     // Для пароля (латиница + символы, БЕЗ ПРОБЕЛОВ)
     const passInputs = form.querySelectorAll('input[type="password"]');
     passInputs.forEach((p) => {
         p.addEventListener("input", (e) => {
-            const start = e.target.selectionStart;
-            let val = e.target.value.replace(/[а-яА-ЯёЁ\s]/g, "");
-            if (e.target.value !== val) {
-                e.target.value = val;
-                const pos = Math.max(0, start - 1);
-                e.target.setSelectionRange(pos, pos);
-            }
+            const hasInvalid = /[А-Яа-яЁё\s]/u.test(e.target.value);
+            setInlineFieldError(
+                form,
+                e.target.name,
+                hasInvalid
+                    ? "Пароль: латиница, цифры и символы без пробелов."
+                    : "",
+            );
             validate();
         });
     });
 
-    // Для почты (разрешаем кириллицу, но ЖЕСТКО БЛОКИРУЕМ ПРОБЕЛЫ)
-    // Используем [data-type="email"], так как мы сменили type на text
     const emailInputs = form.querySelectorAll('[data-type="email"]');
     emailInputs.forEach((em) => {
         em.addEventListener("input", (e) => {
-            const start = e.target.selectionStart;
-            // Разрешаем: буквы (лат/кир), цифры, @, точки, подчеркивания, тире
-            let val = e.target.value.replace(/[^a-zA-Z0-9_@.а-яА-ЯёЁ\-]/g, "");
-            if (e.target.value !== val) {
-                e.target.value = val;
-                const pos = Math.max(0, start - 1);
-                e.target.setSelectionRange(pos, pos);
-            }
+            const hasInvalid = /[А-Яа-яЁё\s]/u.test(e.target.value);
+            setInlineFieldError(
+                form,
+                e.target.name,
+                hasInvalid ? "Почта вводится латиницей без пробелов." : "",
+            );
             validate();
         });
     });
@@ -3616,7 +4320,7 @@ function bindLandingActionLinks() {
                 return;
             }
             if (action === "rating") {
-                openProfileAnalyticsView();
+                openFullRatingModal();
                 return;
             }
             ViewManager.open("tournaments");
@@ -3864,7 +4568,7 @@ function renderProfilePersonal() {
     const user = getUserState() || {};
     const displayName = escapeHtml(user.displayName || user.login || "Профиль");
     const uid = escapeHtml(user.uid || "—");
-    const initials = escapeHtml(user.initials || "Q");
+    const avatarMarkup = buildAvatarInnerMarkup(user.initials || "Q", user.avatarUrl || "");
     const organizerApplications = getOrganizerApplicationsState();
     const latestOrganizerApplication =
         organizerApplications.length > 0 ? organizerApplications[0] : null;
@@ -3918,15 +4622,14 @@ function renderProfilePersonal() {
     return `
         <div class="profile-user-bar" data-view-anim style="transition-delay: 0.2s">
             <div class="profile-avatar has-sub large">
-                <div class="avatar-inner">
-                    <span class="avatar-letter">${initials}</span>
-                </div>
+                <div class="avatar-inner">${avatarMarkup}</div>
             </div>
             <div class="profile-user-meta">
                 <h2 class="profile-fullname">${displayName}</h2>
                 <div class="profile-uid-label">UID: ${uid}</div>
             </div>
-            <button class="btn btn-upload-photo">
+            <input type="file" id="profileAvatarInput" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="btn btn-upload-photo" type="button">
                 <span>Загрузить фото</span>
             </button>
         </div>
@@ -3937,46 +4640,55 @@ function renderProfilePersonal() {
                     <div class="field">
                         <label>Фамилия</label>
                         <input type="text" class="input" name="lastName" value="${escapeHtml(user.lastName || "")}" placeholder="Введите фамилию">
+                        <div class="error" data-error-for="lastName"></div>
                     </div>
                     <div class="field">
                         <label>Имя</label>
                         <input type="text" class="input" name="firstName" value="${escapeHtml(user.firstName || "")}" placeholder="Введите имя">
+                        <div class="error" data-error-for="firstName"></div>
                     </div>
                     <div class="field">
                         <label>Отчество</label>
                         <input type="text" class="input" name="middleName" value="${escapeHtml(user.middleName || "")}" placeholder="Введите отчество">
+                        <div class="error" data-error-for="middleName"></div>
                     </div>
 
                     <div class="field">
                         <label>Никнейм</label>
                         <input type="text" class="input" name="login" value="${escapeHtml(user.login || "")}" placeholder="Введите никнейм">
+                        <div class="error" data-error-for="login"></div>
                     </div>
                     <div class="field">
                         <label>E-mail</label>
                         <input type="email" class="input" name="email" value="${escapeHtml(user.email || "")}" placeholder="email@example.com">
+                        <div class="error" data-error-for="email"></div>
                     </div>
                     <div class="field">
                         <label>Телефон</label>
                         <input type="tel" class="input" name="phone" value="${escapeHtml(user.phone || "")}" placeholder="+7 (___) ___-__-__">
+                        <div class="error" data-error-for="phone"></div>
                     </div>
 
                     <div class="field">
                         <label>Город</label>
                         <input type="text" class="input" name="city" value="${escapeHtml(user.city || "")}" placeholder="Введите город">
+                        <div class="error" data-error-for="city"></div>
                     </div>
                     <div class="field">
                         <label>Место обучения</label>
                         <input type="text" class="input" name="place" value="${escapeHtml(user.place || "")}" placeholder="Укажите учебное заведение">
+                        <div class="error" data-error-for="place"></div>
                     </div>
                     <div class="field">
                         <label>Класс / Группа / Курс</label>
                         <input type="text" class="input" name="studyGroup" value="${escapeHtml(user.studyGroup || "")}" placeholder="Например: 11А или ПИ-22">
+                        <div class="error" data-error-for="studyGroup"></div>
                     </div>
                 </div>
 
                 <div class="profile-footer-row">
                     <button type="button" class="btn-logout-link" id="profile-logout-btn">Выйти</button>
-                    <button type="submit" class="btn btn-save-large">Сохранить изменения</button>
+                    <button type="submit" class="btn btn-save-large is-disabled" disabled>Сохранить изменения</button>
                 </div>
             </form>
         </div>
@@ -3986,7 +4698,27 @@ function renderProfilePersonal() {
 }
 
 function renderProfileSessionsList() {
-    const sessions = getUserState()?.sessions || [];
+    const rawSessions = getUserState()?.sessions || [];
+    const sessions = rawSessions
+        .slice()
+        .sort((left, right) => {
+            if (left.isCurrent) return -1;
+            if (right.isCurrent) return 1;
+            return (
+                Date.parse(String(right.lastSeen || "")) -
+                Date.parse(String(left.lastSeen || ""))
+            );
+        })
+        .filter((session, index, list) => {
+            const key = `${session.deviceLabel}|${session.detailsLabel}`;
+            return (
+                index ===
+                list.findIndex((candidate) => {
+                    const candidateKey = `${candidate.deviceLabel}|${candidate.detailsLabel}`;
+                    return candidateKey === key;
+                })
+            );
+        });
 
     if (sessions.length === 0) {
         return `
@@ -4438,44 +5170,112 @@ function renderProfileAnalytics() {
 function initProfilePersonalInteractions(container) {
     const form = container.querySelector("#profile-detailed-form");
     if (!form) return;
-
+    const user = getUserState() || {};
     const saveBtn = form.querySelector('button[type="submit"]');
-    const inputs = form.querySelectorAll(".input");
+    const avatarButton = container.querySelector(".btn-upload-photo");
+    const avatarInput = container.querySelector("#profileAvatarInput");
+    const avatarNode = container.querySelector(".profile-avatar .avatar-inner");
+    let avatarUrlDraft = user.avatarUrl || "";
 
-    inputs.forEach((input) => {
-        input.dataset.initial = input.value;
+    form.dataset.initialPayload = JSON.stringify({
+        ...buildDetailedProfilePayload(form),
+        avatarUrl: avatarUrlDraft,
+    });
+
+    const fieldNormalizers = {
+        lastName: toTitleCaseWords,
+        firstName: toTitleCaseWords,
+        middleName: toTitleCaseWords,
+        city: toTitleCaseWords,
+        place: normalizeWhitespace,
+        studyGroup: normalizeWhitespace,
+        phone: formatProfilePhone,
+    };
+
+    form.querySelectorAll(".input").forEach((input) => {
         input.addEventListener("input", () => {
-            let hasChanges = false;
-            inputs.forEach((i) => {
-                if (i.value !== i.dataset.initial) hasChanges = true;
-            });
-            saveBtn.disabled = !hasChanges;
-            saveBtn.style.opacity = hasChanges ? "1" : "0.5";
-            saveBtn.style.background = hasChanges
-                ? "var(--accent-grad)"
-                : "var(--muted)";
+            const formatter = fieldNormalizers[input.name];
+            if (formatter) {
+                const formatted = formatter(input.value);
+                if (formatted !== input.value) {
+                    input.value = formatted;
+                }
+            }
+            syncDetailedProfileFormState(form, { avatarUrl: avatarUrlDraft });
+        });
+        input.addEventListener("blur", () => {
+            const formatter = fieldNormalizers[input.name];
+            if (formatter) {
+                input.value = formatter(input.value).trim();
+            }
+            syncDetailedProfileFormState(form, { avatarUrl: avatarUrlDraft });
         });
     });
 
+    avatarButton?.addEventListener("click", () => {
+        avatarInput?.click();
+    });
+
+    avatarInput?.addEventListener("change", async (event) => {
+        const file = event.currentTarget.files?.[0];
+        if (!file) {
+            return;
+        }
+        if (!/^image\/(png|jpeg|webp)$/i.test(file.type)) {
+            Toast.show("Фото", "Поддерживаются PNG, JPG и WEBP.", "error");
+            event.currentTarget.value = "";
+            return;
+        }
+        if (file.size > 1024 * 1024) {
+            Toast.show("Фото", "Изображение должно быть меньше 1 МБ.", "error");
+            event.currentTarget.value = "";
+            return;
+        }
+
+        avatarButton?.classList.add("is-loading");
+        try {
+            const base64 = await readFileAsBase64(file);
+            avatarUrlDraft = `data:${file.type};base64,${base64}`;
+            if (avatarNode) {
+                avatarNode.innerHTML = buildAvatarInnerMarkup(
+                    user.initials || "Q",
+                    avatarUrlDraft,
+                );
+            }
+            syncDetailedProfileFormState(form, { avatarUrl: avatarUrlDraft });
+            Toast.show("Фото", "Фото готово к сохранению.", "success");
+        } catch (error) {
+            showRequestError("Фото", error);
+        } finally {
+            avatarButton?.classList.remove("is-loading");
+            event.currentTarget.value = "";
+        }
+    });
+
+    syncDetailedProfileFormState(form, { avatarUrl: avatarUrlDraft });
+
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        const state = syncDetailedProfileFormState(form, {
+            avatarUrl: avatarUrlDraft,
+        });
+        if (!state.isValid || !state.hasChanges) {
+            return;
+        }
+
         Loader.show();
         setSubmitLoading(saveBtn, true, "Сохраняем...");
 
         try {
             await apiClient.updateProfile({
-                lastName: form.elements["lastName"].value.trim(),
-                firstName: form.elements["firstName"].value.trim(),
-                middleName: form.elements["middleName"].value.trim(),
-                login: form.elements["login"].value.trim(),
-                email: form.elements["email"].value.trim(),
-                phone: form.elements["phone"].value.trim(),
-                city: form.elements["city"].value.trim(),
-                place: form.elements["place"].value.trim(),
-                studyGroup: form.elements["studyGroup"].value.trim(),
+                ...state.payload,
+                avatarUrl: avatarUrlDraft,
             });
-            await apiClient.loadDashboard();
-            await apiClient.loadProfile();
+            await Promise.all([
+                apiClient.loadDashboard(),
+                apiClient.loadProfile(),
+            ]);
+            pendingProfileCompletion = !isUserProfileComplete(getUserState());
             updateWorkspaceIdentity();
 
             container.innerHTML = renderProfilePersonal();
@@ -7528,77 +8328,49 @@ const ViewManager = {
    ========================================= */
 const DEFAULT_DASHBOARD_DATA = {
     activeTournament: {
-        id: 1,
-        title: "Qubit Open: Весна 2024",
-        statusText: "Идет сейчас",
-        rankPosition: "#12",
-        rankDeltaLabel: "+3 позиции",
-        timeLabel: "4ч 32м",
-        solvedLabel: "3/5",
-        difficultyLabel: "Сложность: Hard",
-        ctaLabel: "Перейти к задачам",
-        actionType: "solve",
-        joined: true,
+        id: null,
+        title: "Подходящий турнир появится скоро",
+        statusText: "Рекомендация",
+        rankPosition: "—",
+        rankDeltaLabel: "Новые турниры появятся в списке ниже",
+        timeLabel: "Следите за обновлениями",
+        solvedLabel: "0/0",
+        difficultyLabel: "Сложность: Mixed",
+        ctaLabel: "К турнирам",
+        actionType: "outline",
+        joined: false,
     },
     profile: {
-        fullName: "Кирилл Кузмичев",
-        initials: "КК",
-        loginTag: "@Kkuzya3",
-        rating: "2,450",
-        rankTitle: "Мастер",
+        fullName: "Профиль",
+        initials: "QP",
+        loginTag: "@user",
+        rating: "1 450",
+        rankTitle: "Новичок",
     },
     dailyTask: {
-        id: 99,
-        title: "Ежедневное задание • 05.04",
+        id: null,
+        title: "Ежедневное задание",
         difficulty: "Mixed",
-        streak: 12,
+        streak: 0,
         solved: false,
         statusText: "Сегодня",
         timeLabel: "Один челлендж на день",
         ctaLabel: "Перейти к заданию",
     },
-    ratingDeltaLabel: "+12 за неделю",
-    ratingSeries: [1650, 1720, 1680, 1890, 1980, 1910, 2005],
+    ratingDeltaLabel: "+0 за 7 дней",
+    ratingSeries: [1450, 1450, 1450, 1450, 1450, 1450, 1450],
     platformPulse: {
-        activeParticipants: 246,
+        activeParticipants: 0,
         series: [
-            { label: "00", value: 52 },
-            { label: "04", value: 98 },
-            { label: "08", value: 64 },
-            { label: "12", value: 91 },
-            { label: "16", value: 120 },
-            { label: "20", value: 110 },
+            { label: "16", value: 0 },
+            { label: "20", value: 0 },
+            { label: "00", value: 0 },
+            { label: "04", value: 0 },
+            { label: "08", value: 0 },
+            { label: "12", value: 0 },
         ],
     },
-    topPlayers: [
-        {
-            id: 1,
-            rank: 1,
-            initials: "N",
-            name: "Neo",
-            rating: 1980,
-            winsCount: 12,
-            streakCount: 4,
-        },
-        {
-            id: 2,
-            rank: 2,
-            initials: "A",
-            name: "Astra",
-            rating: 1765,
-            winsCount: 9,
-            streakCount: 2,
-        },
-        {
-            id: 3,
-            rank: 3,
-            initials: "Z",
-            name: "Zed",
-            rating: 1702,
-            winsCount: 8,
-            streakCount: 1,
-        },
-    ],
+    topPlayers: [],
 };
 
 function renderDashboard() {
@@ -7607,17 +8379,37 @@ function renderDashboard() {
     const dailyTask = dashboard.dailyTask || DEFAULT_DASHBOARD_DATA.dailyTask;
     const platformPulse =
         dashboard.platformPulse || DEFAULT_DASHBOARD_DATA.platformPulse;
-    const ratingColumns = buildDashboardRatingColumns(
-        dashboard.ratingSeries,
-        dashboard.ratingDeltaLabel,
-    );
-    const platformSeries = buildDashboardPulseColumns(
-        platformPulse.series,
-    );
+    const ratingChart = buildDashboardRatingColumns(dashboard.ratingSeries);
+    const platformSeries = buildDashboardPulseColumns(platformPulse.series);
     const topPlayers =
         Array.isArray(dashboard.topPlayers) && dashboard.topPlayers.length > 0
             ? dashboard.topPlayers
             : DEFAULT_DASHBOARD_DATA.topPlayers;
+    const topPlayersMarkup =
+        topPlayers.length > 0
+            ? topPlayers
+                  .map(
+                      (player) => `
+                                <div class="row ${player.isCurrentUser ? "row--active" : ""}">
+                                    <div class="rankchip ${player.rank === 1 ? "rankchip--1" : player.rank === 2 ? "rankchip--2" : player.rank === 3 ? "rankchip--3" : "rankchip--n"}">${escapeHtml(player.rank)}</div>
+                                    <div class="badge">${escapeHtml(player.initials || "Q")}</div>
+                                    <div class="row__mid">
+                                        <div class="row__name">${escapeHtml(player.name)}</div>
+                                        <div class="row__sub">Серия: ${escapeHtml(player.streakCount || 0)}</div>
+                                    </div>
+                                    <div class="row__right">
+                                        <div class="score">${escapeHtml(formatNumberRu(player.rating))} RP</div>
+                                        <div class="wins">Побед: ${escapeHtml(player.winsCount || 0)}</div>
+                                    </div>
+                                </div>
+                            `,
+                  )
+                  .join("")
+            : `
+                <div class="row" style="grid-template-columns:1fr; justify-items:center; min-height:120px; color: var(--fg-muted);">
+                    Полный рейтинг появится после первых завершённых турниров.
+                </div>
+            `;
 
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
@@ -7658,9 +8450,7 @@ function renderDashboard() {
                     </div>
                     <div class="profile-summary">
                         <div class="profile-avatar">
-                            <div class="avatar-inner">
-                                <span class="avatar-letter">${escapeHtml(dashboard.profile.initials)}</span>
-                            </div>
+                            <div class="avatar-inner">${buildAvatarInnerMarkup(dashboard.profile.initials, dashboard.profile.avatarUrl || "")}</div>
                         </div>
                         <div>
                             <div class="profile-name">${escapeHtml(dashboard.profile.fullName)}</div>
@@ -7707,13 +8497,13 @@ function renderDashboard() {
                 <div class="card dash-card chart-card" data-view-anim style="transition-delay: 0.4s">
                     <div class="card__head row-between">
                         <div class="card__title">Мой рейтинг</div>
-                        <div class="card__sub text-green" style="margin:0;">${escapeHtml(dashboard.ratingDeltaLabel)}</div>
+                        <div class="card__sub text-green" style="margin:0;">${escapeHtml(ratingChart.totalDeltaLabel)}</div>
                     </div>
                     <div class="chart-area">
-                        ${ratingColumns
+                        ${ratingChart.columns
                             .map(
                                 (i) => `
-                            <div class="chart-col ${i.a ? "is-active" : ""}">
+                            <div class="chart-col ${i.a ? "is-active" : ""}" title="${escapeHtml(formatNumberRu(i.rawValue))} RP">
                                 <div class="bar" style="height: ${
                                     i.h
                                 }% !important;">
@@ -7761,9 +8551,9 @@ function renderDashboard() {
                     </div>
                     <div class="pulse-foot">
                         <span class="text-accent">${escapeHtml(
-                            Number(
+                            formatCompactNumberRu(
                                 platformPulse.activeParticipants || 0,
-                            ).toLocaleString("ru-RU"),
+                            ),
                         )}</span> активных участников
                     </div>
                 </div>
@@ -7775,24 +8565,7 @@ function renderDashboard() {
                     <button class="topbar-btn" type="button" data-dashboard-open-rating>Полный рейтинг</button>
                 </div>
                 <div class="board board--dashboard">
-                    ${topPlayers
-                        .map(
-                            (player) => `
-                                <div class="row ${player.isCurrentUser ? "row--active" : ""}">
-                                    <div class="rankchip ${player.rank === 1 ? "rankchip--1" : player.rank === 2 ? "rankchip--2" : player.rank === 3 ? "rankchip--3" : "rankchip--n"}">${escapeHtml(player.rank)}</div>
-                                    <div class="badge">${escapeHtml(player.initials || "Q")}</div>
-                                    <div class="row__mid">
-                                        <div class="row__name">${escapeHtml(player.name)}</div>
-                                        <div class="row__sub">Серия: ${escapeHtml(player.streakCount || 0)}</div>
-                                    </div>
-                                    <div class="row__right">
-                                        <div class="score">${escapeHtml(formatNumberRu(player.rating))} RP</div>
-                                        <div class="wins">Побед: ${escapeHtml(player.winsCount || 0)}</div>
-                                    </div>
-                                </div>
-                            `,
-                        )
-                        .join("")}
+                    ${topPlayersMarkup}
                 </div>
             </div>
         </div>
@@ -7837,7 +8610,7 @@ async function openDashboardActiveTournament() {
             if (response.runtime) {
                 await openTournamentRuntimeModal(tournamentId, response.runtime);
             } else {
-                ViewManager.open("tournaments");
+                await openTournamentInfoModal(tournamentId);
             }
         } catch (error) {
             showRequestError("Турнир", error);
@@ -7847,7 +8620,7 @@ async function openDashboardActiveTournament() {
         return;
     }
 
-    ViewManager.open("tournaments");
+    await openTournamentInfoModal(tournamentId);
 }
 
 async function openDailyChallengeFromDashboard() {
@@ -7914,7 +8687,7 @@ function initDashboardInteractions(container) {
     container
         .querySelector("[data-dashboard-open-rating]")
         ?.addEventListener("click", () => {
-            openProfileAnalyticsView();
+            openFullRatingModal();
         });
 
     container
@@ -9530,6 +10303,132 @@ function createDefaultTournamentFilters() {
     };
 }
 
+function getTournamentStartMs(tournament) {
+    const timestamp = Date.parse(
+        String(tournament?.startAt || tournament?.start_at || ""),
+    );
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getTournamentEndMs(tournament) {
+    const timestamp = Date.parse(
+        String(tournament?.endAt || tournament?.end_at || ""),
+    );
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getTournamentCreatedMs(tournament) {
+    const timestamp = Date.parse(
+        String(tournament?.createdAt || tournament?.updatedAt || ""),
+    );
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getTournamentEffectiveStatusClient(tournament) {
+    const now = Date.now();
+    const startMs = getTournamentStartMs(tournament);
+    const endMs = getTournamentEndMs(tournament);
+    const rawStatus = String(
+        tournament?.rawStatus || tournament?.status || "",
+    ).toLowerCase();
+
+    if (rawStatus === "ended" || (endMs !== null && now > endMs)) {
+        return "ended";
+    }
+    if (
+        (rawStatus === "live" ||
+            rawStatus === "published" ||
+            rawStatus === "upcoming") &&
+        startMs !== null &&
+        now >= startMs &&
+        (endMs === null || now <= endMs)
+    ) {
+        return "live";
+    }
+    if (rawStatus === "live" && startMs !== null && now < startMs) {
+        return "upcoming";
+    }
+    return rawStatus === "published" ? "upcoming" : rawStatus;
+}
+
+function isSameTournamentDay(tournament, selectedDate) {
+    if (!selectedDate) {
+        return true;
+    }
+    const startMs = getTournamentStartMs(tournament);
+    const endMs = getTournamentEndMs(tournament) ?? startMs;
+    if (!Number.isFinite(startMs) && !Number.isFinite(endMs)) {
+        return false;
+    }
+    const rangeStart = Number.isFinite(startMs) ? startMs : endMs;
+    const rangeEnd = Number.isFinite(endMs) ? endMs : startMs;
+    const selectedStart = new Date(
+        Number(selectedDate.year),
+        Number(selectedDate.month),
+        Number(selectedDate.day),
+        0,
+        0,
+        0,
+        0,
+    ).getTime();
+    const selectedEnd = new Date(
+        Number(selectedDate.year),
+        Number(selectedDate.month),
+        Number(selectedDate.day),
+        23,
+        59,
+        59,
+        999,
+    ).getTime();
+    return rangeStart <= selectedEnd && rangeEnd >= selectedStart;
+}
+
+function sortTournamentsByDefault(items) {
+    return [...items].sort((left, right) => {
+        const leftStatus = getTournamentEffectiveStatusClient(left);
+        const rightStatus = getTournamentEffectiveStatusClient(right);
+        const groupOrder = { live: 0, upcoming: 1, ended: 2 };
+        const leftGroup = groupOrder[leftStatus] ?? 3;
+        const rightGroup = groupOrder[rightStatus] ?? 3;
+        if (leftGroup !== rightGroup) {
+            return leftGroup - rightGroup;
+        }
+
+        const leftStart = getTournamentStartMs(left) ?? Number.MAX_SAFE_INTEGER;
+        const rightStart = getTournamentStartMs(right) ?? Number.MAX_SAFE_INTEGER;
+        const leftEnd = getTournamentEndMs(left) ?? Number.MAX_SAFE_INTEGER;
+        const rightEnd = getTournamentEndMs(right) ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftStatus === "live" && leftEnd !== rightEnd) {
+            return leftEnd - rightEnd;
+        }
+        if (leftStatus === "upcoming" && leftStart !== rightStart) {
+            return leftStart - rightStart;
+        }
+        if (leftStatus === "ended" && leftEnd !== rightEnd) {
+            return rightEnd - leftEnd;
+        }
+
+        return getTournamentCreatedMs(right) - getTournamentCreatedMs(left);
+    });
+}
+
+function sortTournamentsByNewest(items) {
+    return [...items].sort((left, right) => {
+        const leftStamp =
+            getTournamentCreatedMs(left) ||
+            getTournamentStartMs(left) ||
+            getTournamentEndMs(left) ||
+            0;
+        const rightStamp =
+            getTournamentCreatedMs(right) ||
+            getTournamentStartMs(right) ||
+            getTournamentEndMs(right) ||
+            0;
+        return rightStamp - leftStamp;
+    });
+}
+
 function renderTournaments() {
     if (isParticipantUser() && hasActiveTournamentRuntimeView()) {
         const runtime = getTournamentRuntimeState();
@@ -9592,10 +10491,6 @@ function renderTournaments() {
             <div class="tour-list" id="tournaments-list-container">
                 ${renderTournamentList(getTournamentsData())}
             </div>
-
-            <div class="tour-more-action" data-view-anim style="transition-delay: 0.3s">
-                <button class="btn btn--muted-tour btn--more">Показать еще</button>
-            </div>
         </div>
     `;
 }
@@ -9619,7 +10514,7 @@ function renderTournamentList(data) {
                     <span>${t.statusText}</span>
                 </div>
                 <div class="participants-count">${
-                    t.participants
+                    formatCompactNumberRu(t.participants || 0)
                 } участников</div>
             </div>
             <div class="tour-card__content">
@@ -9757,8 +10652,10 @@ function initTournamentsInteractions(container) {
                         }
                     } else if (actionType === "solve") {
                         await openTournamentRuntimeModal(tournamentId);
-                    } else {
+                    } else if (actionType === "muted") {
                         openLeaderboardModal(tournamentId, "view");
+                    } else {
+                        await openTournamentInfoModal(tournamentId);
                     }
                 });
             });
@@ -9767,8 +10664,9 @@ function initTournamentsInteractions(container) {
     // --- Логика фильтрации и нечеткого поиска ---
     const updateList = () => {
         let filtered = getTournamentsData().filter((t) => {
+            const effectiveStatus = getTournamentEffectiveStatusClient(t);
             const matchesStatus =
-                filters.status === "all" || t.status === filters.status;
+                filters.status === "all" || effectiveStatus === filters.status;
 
             // Продвинутый поиск (MegaSearch)
             const query = filters.search.toLowerCase().trim();
@@ -9783,9 +10681,7 @@ function initTournamentsInteractions(container) {
                 (t.category && filters.categories.includes(t.category));
 
             // Фильтр по дате (тестово: если дата выбрана, показываем только этот день)
-            const matchesDate =
-                !filters.selectedDate ||
-                (t.date && t.date === filters.selectedDate);
+            const matchesDate = isSameTournamentDay(t, filters.selectedDate);
 
             return (
                 matchesStatus && matchesSearch && matchesCategory && matchesDate
@@ -9796,9 +10692,11 @@ function initTournamentsInteractions(container) {
         if (filters.sort === "participants") {
             filtered.sort((a, b) => b.participants - a.participants);
         } else if (filters.sort === "name") {
-            filtered.sort((a, b) => a.title.localeCompare(b.title));
+            filtered.sort((a, b) => a.title.localeCompare(b.title, "ru"));
         } else if (filters.sort === "newest") {
-            filtered.sort((a, b) => b.id - a.id);
+            filtered = sortTournamentsByNewest(filtered);
+        } else {
+            filtered = sortTournamentsByDefault(filtered);
         }
 
         listContainer.innerHTML = renderTournamentList(filtered);
@@ -10266,7 +11164,8 @@ function initTournamentsInteractions(container) {
         });
     }
 
-    bindTournamentCardActions();
+    syncCategoryUI();
+    updateList();
 }
 
 /* =========================================

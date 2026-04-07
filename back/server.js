@@ -377,6 +377,16 @@ function calculateProgressiveRatings(entries) {
     let topThreeCount = 0;
 
     return sorted.map((entry) => {
+        const previousRating = Math.max(
+            1200,
+            Math.round(
+                1450 +
+                    totalScore * 0.45 +
+                    totalSolved * 8 +
+                    winsCount * 40 +
+                    topThreeCount * 18,
+            ),
+        );
         const rank = Number(entry.rank_position || 0);
         totalScore += Number(entry.score || 0);
         totalSolved += Number(entry.solved_count || 0);
@@ -400,17 +410,20 @@ function calculateProgressiveRatings(entries) {
 
         return {
             timeMs: getEntryEventTimeMs(entry),
+            previousRating,
             rating,
         };
     });
 }
 
 function buildDailyRatingSeries(days, ratingHistory, fallbackBase, now = new Date()) {
-    const baseline = Math.max(Number(fallbackBase || 1450), 1200);
     const history = Array.isArray(ratingHistory) ? ratingHistory : [];
     const series = [];
     let cursor = 0;
-    let current = baseline;
+    let current =
+        history.length > 0
+            ? Math.max(Number(history[0].previousRating || 1450), 1200)
+            : Math.max(Number(fallbackBase || 1450), 1200);
 
     for (let offset = days - 1; offset >= 0; offset -= 1) {
         const bucketDate = new Date(
@@ -433,11 +446,13 @@ function buildDailyRatingSeries(days, ratingHistory, fallbackBase, now = new Dat
 }
 
 function buildMonthlyRatingSeries(months, ratingHistory, fallbackBase, now = new Date()) {
-    const baseline = Math.max(Number(fallbackBase || 1450), 1200);
     const history = Array.isArray(ratingHistory) ? ratingHistory : [];
     const series = [];
     let cursor = 0;
-    let current = baseline;
+    let current =
+        history.length > 0
+            ? Math.max(Number(history[0].previousRating || 1450), 1200)
+            : Math.max(Number(fallbackBase || 1450), 1200);
 
     for (let offset = months - 1; offset >= 0; offset -= 1) {
         const bucketEnd = new Date(
@@ -679,6 +694,23 @@ function serializeUser(user) {
     };
 }
 
+function serializeCurrentSessionUser(user, authUser = null) {
+    if (!user) {
+        return null;
+    }
+
+    if (!authUser || user.id !== authUser.id) {
+        return serializeUser(user);
+    }
+
+    return serializeUser({
+        ...user,
+        role: authUser.role || user.role || ROLE_USER,
+        actual_role: authUser.actual_role || user.role || ROLE_USER,
+        preview_role: authUser.preview_role || null,
+    });
+}
+
 function serializeTopPlayer(player, index, currentUserId = null) {
     return {
         id: player.id,
@@ -762,6 +794,8 @@ function serializeTournament(row, currentUserId = null) {
         ownerUserId: row.owner_user_id || null,
         startAt: row.start_at,
         endAt: row.end_at,
+        createdAt: row.created_at || null,
+        updatedAt: row.updated_at || null,
         registrationStartAt: row.registration_start_at || null,
         registrationEndAt: row.registration_end_at || null,
     };
@@ -913,6 +947,7 @@ function buildDashboard({
         profile: {
             fullName: buildDisplayName(user),
             initials: buildInitials(user),
+            avatarUrl: user.avatar_url || "",
             loginTag: `@${user.login}`,
             rating: Number(user.rating || 1450).toLocaleString("ru-RU"),
             rankTitle: user.rank_title || "Новичок",
@@ -920,7 +955,15 @@ function buildDashboard({
         dailyTask: {
             id: dailyTournament ? Number(dailyTournament.id) : null,
             title:
-                dailyTournament?.title ||
+                (dailyTournament?.start_at
+                    ? `Ежедневное задание • ${new Date(dailyTournament.start_at).toLocaleDateString(
+                          "ru-RU",
+                          {
+                              day: "2-digit",
+                              month: "2-digit",
+                          },
+                      )}`
+                    : "") ||
                 user.daily_task_title ||
                 "Ежедневное задание появится скоро",
             difficulty:
@@ -956,6 +999,36 @@ function serializeSession(session, currentSessionId) {
         )}`,
         lastSeen: session.updated_at,
     };
+}
+
+function dedupeSessionsForDisplay(sessions, currentSessionId) {
+    const buckets = new Map();
+    for (const session of Array.isArray(sessions) ? sessions : []) {
+        const serialized = serializeSession(session, currentSessionId);
+        const key = `${serialized.deviceLabel}|${session.ip_address || ""}`;
+        const previous = buckets.get(key);
+        const previousTime = previous ? Date.parse(String(previous.lastSeen || "")) : 0;
+        const currentTime = Date.parse(String(serialized.lastSeen || ""));
+        const shouldReplace =
+            !previous ||
+            (serialized.isCurrent && !previous.isCurrent) ||
+            (serialized.isCurrent === previous.isCurrent &&
+                (currentTime || 0) > (previousTime || 0));
+
+        if (shouldReplace) {
+            buckets.set(key, serialized);
+        }
+    }
+
+    return [...buckets.values()].sort((left, right) => {
+        if (left.isCurrent !== right.isCurrent) {
+            return left.isCurrent ? -1 : 1;
+        }
+        return (
+            Date.parse(String(right.lastSeen || "")) -
+            Date.parse(String(left.lastSeen || ""))
+        );
+    });
 }
 
 function serializeTask(task) {
@@ -2451,7 +2524,7 @@ app.post(
 
             res.json({
                 success: true,
-                user: serializeUser(user),
+                user: serializeCurrentSessionUser(user, req.auth.user),
             });
         } catch (error) {
             next(error);
@@ -2469,6 +2542,20 @@ app.get("/api/public/landing", async (req, res, next) => {
         res.json({
             tournaments: tournaments.map((item) => serializeTournament(item)),
             topPlayers: topPlayers.map((item, index) =>
+                serializeTopPlayer(item, index, req.auth?.user?.id || null),
+            ),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/rating", async (req, res, next) => {
+    try {
+        const limit = Math.max(5, Math.min(Number(req.query.limit || 50), 100));
+        const topPlayers = await listTopPlayers(limit);
+        res.json({
+            items: topPlayers.map((item, index) =>
                 serializeTopPlayer(item, index, req.auth?.user?.id || null),
             ),
         });
@@ -2539,7 +2626,7 @@ app.post("/api/auth/2fa/email/verify", requireAuth, authRateLimiter, async (req,
 
         res.json({
             success: true,
-            user: serializeUser(user),
+            user: serializeCurrentSessionUser(user, req.auth.user),
         });
     } catch (error) {
         next(error);
@@ -2556,7 +2643,7 @@ app.delete("/api/auth/2fa/email", requireAuth, async (req, res, next) => {
 
         res.json({
             success: true,
-            user: serializeUser(user),
+            user: serializeCurrentSessionUser(user, req.auth.user),
         });
     } catch (error) {
         next(error);
@@ -2613,7 +2700,7 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
         const dailyTournament = isParticipantRole(req.auth.user.role)
             ? await ensureDailyTournamentForDate()
             : null;
-        const [user, primaryTournament, metrics, topPlayers, analyticsEntries] =
+        const [user, primaryTournament, metrics, analyticsEntries] =
             await Promise.all([
             isParticipantRole(req.auth.user.role)
                 ? refreshUserCompetitionStats(req.auth.user.id)
@@ -2623,11 +2710,13 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
                 req.auth.teamMembership?.team_id || null,
             ),
             getPlatformMetrics(),
-            isParticipantRole(req.auth.user.role) ? listTopPlayers(5) : [],
             isParticipantRole(req.auth.user.role)
                 ? listUserTournamentResults(req.auth.user.id)
                 : [],
         ]);
+        const topPlayers = isParticipantRole(req.auth.user.role)
+            ? await listTopPlayers(5)
+            : [];
         const analytics = isParticipantRole(req.auth.user.role)
             ? buildAnalyticsPayload(analyticsEntries, Number(user.rating || 1450))
             : null;
@@ -2691,10 +2780,8 @@ app.get("/api/profile", requireAuth, async (req, res, next) => {
         ]);
 
         res.json({
-            ...serializeUser(user),
-            sessions: sessions.map((session) =>
-                serializeSession(session, req.auth.session.id),
-            ),
+            ...serializeCurrentSessionUser(user, req.auth.user),
+            sessions: dedupeSessionsForDisplay(sessions, req.auth.session.id),
         });
     } catch (error) {
         next(error);
@@ -2713,6 +2800,7 @@ app.put("/api/profile", requireAuth, async (req, res, next) => {
             city: cleanText(req.body.city, 80),
             place: cleanText(req.body.place, 120),
             studyGroup: cleanText(req.body.studyGroup, 80),
+            avatarUrl: cleanText(req.body.avatarUrl, 1024 * 1024),
         };
 
         if (!payload.firstName || !payload.lastName) {
@@ -2754,7 +2842,7 @@ app.put("/api/profile", requireAuth, async (req, res, next) => {
         }
 
         res.json({
-            user: serializeUser(user),
+            user: serializeCurrentSessionUser(user, req.auth.user),
         });
     } catch (error) {
         next(error);
@@ -4915,6 +5003,10 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(ROOT_DIR, "index.html"));
 });
 
+app.get("/index.html", (req, res) => {
+    res.sendFile(path.join(ROOT_DIR, "index.html"));
+});
+
 app.get("/404.html", (req, res) => {
     res.sendFile(path.join(ROOT_DIR, "404.html"));
 });
@@ -4928,7 +5020,7 @@ app.use("/api", (req, res) => {
 });
 
 app.use((req, res) => {
-    res.status(404).sendFile(path.join(ROOT_DIR, "4041.html"));
+    res.status(404).sendFile(path.join(ROOT_DIR, "404.html"));
 });
 
 app.use((error, req, res, next) => {

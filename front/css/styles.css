@@ -204,7 +204,12 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     padding-top: var(--header-h);
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow-x: hidden;
+}
+
+#landing-view {
+    overflow-x: hidden;
 }
 a {
     color: inherit;
@@ -507,13 +512,19 @@ a {
     min-height: 220px; /* чтобы по высоте не отличалась */
 }
 
-button.card--all,
 button.row--cta {
     border: none;
-    background: inherit;
+    background: transparent;
     color: inherit;
     font: inherit;
     cursor: pointer;
+}
+button.card--all {
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    /* background: transparent; */
 }
 .card--all .cta {
     display: inline-flex;
@@ -997,6 +1008,8 @@ button.row--cta {
 /* FOOTER */
 .footer {
     margin-top: 32px;
+    margin-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     border-top: 1px solid var(--border);
     background: color-mix(in oklab, var(--bg-2) 75%, transparent);
 }
@@ -1168,17 +1181,17 @@ button.row--cta {
 }
 /* Кнопка-плитка "Все турниры" — аккуратный вид */
 .card--all {
-    display: flex;
-    justify-content: right;
     position: relative;
     display: grid;
-    place-items: center; /* запас справа под стрелку */
-    min-height: 200px; /* как у обычных карточек */
+    place-items: center;
+    justify-items: center;
+    min-height: 200px;
     width: 244px;
     padding-right: 80px;
     border-radius: 24px;
     border: 1px solid rgba(0, 0, 0, 0.08);
-    background:
+    background-color: transparent;
+    background-image:
         radial-gradient(
             120% 120% at 0% 0%,
             rgba(255, 255, 255, 0.18),
@@ -1576,17 +1589,16 @@ button.row--cta {
 }
 /* CTA внизу рейтинга — в стилистике списка */
 .row--cta {
-    /* как обычная строка */
     display: grid;
     grid-template-columns: 1fr;
     align-items: center;
     justify-items: center;
     gap: 0;
-    padding: 12px 14px; /* как у .row */
-    min-height: 72px; /* ~высота строки с бейджами */
+    width: 100%;
+    padding: 22px 14px 20px;
+    min-height: 88px;
     border-top: 1px solid var(--border);
-    background: transparent; /* без заливки-полосы */
-    max-height: 81px;
+    background: transparent;
 }
 
 /* внутренняя "кнопка" */
@@ -1594,6 +1606,7 @@ button.row--cta {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    margin-inline: auto;
     padding: 12px 18px;
     border-radius: 999px;
     font-weight: 900;
@@ -4900,13 +4913,20 @@ body.loading {
         height: 56px;
     }
     #workspace-view {
-        display: inline !important;
+        display: block !important;
         padding-top: var(--header-height) !important;
+        min-height: 100dvh;
+        overflow-x: hidden;
+    }
+
+    #workspace-view[hidden] {
+        display: none !important;
     }
 
     .workspace__content {
         margin-left: 0 !important; /* FORCE RESET MARGIN */
-        padding-top: 72px; /* Add bottom padding for scroll */
+        padding-top: 72px;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
         width: 100%;
     }
     .dash-view {
@@ -5675,6 +5695,18 @@ body.loading {
     cursor: pointer;
     transition: all 0.3s ease;
     flex-shrink: 0;
+    position: relative;
+}
+.btn-notif.has-unread::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+    box-shadow: 0 0 0 2px var(--bg-1);
 }
 
 /* .btn-notif:hover {
@@ -7996,6 +8028,10 @@ body.loading {
     background: rgba(255, 255, 255, 0.1);
     color: var(--fg);
 }
+.btn-upload-photo.is-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
 
 /* Form Container */
 .profile-form-container {
@@ -8038,6 +8074,16 @@ body.loading {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--accent-from);
     outline: none;
+}
+.profile-new-grid .field .error {
+    min-height: 16px;
+    margin-top: -4px;
+}
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
 }
 
 /* Footer Actions */
@@ -8083,6 +8129,13 @@ body.loading {
         transform 0.2s,
         box-shadow 0.2s;
     box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+}
+.btn-save-large.is-disabled,
+.btn-save-large:disabled {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--fg-muted);
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
 .btn-save-large:hover {

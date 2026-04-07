@@ -141,20 +141,29 @@ function hashSeed(value) {
 }
 
 function buildRankTitle(rating) {
-    if (rating >= 2400) {
-        return "Гроссмейстер";
+    if (rating >= 2600) {
+        return "Легенда";
+    }
+    if (rating >= 2350) {
+        return "Грандмастер";
     }
     if (rating >= 2100) {
         return "Мастер";
     }
-    if (rating >= 1850) {
+    if (rating >= 1900) {
+        return "Кандидат в мастера";
+    }
+    if (rating >= 1750) {
         return "Эксперт";
     }
-    if (rating >= 1650) {
-        return "Продвинутый";
+    if (rating >= 1600) {
+        return "Стратег";
     }
-    if (rating >= 1500) {
-        return "Уверенный";
+    if (rating >= 1450) {
+        return "Практик";
+    }
+    if (rating >= 1300) {
+        return "Исследователь";
     }
     return "Новичок";
 }
@@ -2054,6 +2063,25 @@ async function findNextUniqueLogin(baseLogin) {
 
 async function createSession(payload) {
     const timestamp = nowIso();
+    await run(
+        `
+            UPDATE sessions
+            SET revoked_at = ?, updated_at = ?
+            WHERE user_id = ?
+              AND revoked_at IS NULL
+              AND expires_at > ?
+              AND COALESCE(ip_address, '') = COALESCE(?, '')
+              AND COALESCE(user_agent, '') = COALESCE(?, '')
+        `,
+        [
+            timestamp,
+            timestamp,
+            payload.userId,
+            timestamp,
+            payload.ipAddress || "",
+            payload.userAgent || "",
+        ],
+    );
     const result = await run(
         `
             INSERT INTO sessions (
@@ -2218,6 +2246,7 @@ async function updateUserProfile(userId, payload) {
                 place = ?,
                 study_group = ?,
                 phone = ?,
+                avatar_url = ?,
                 updated_at = ?
             WHERE id = ?
         `,
@@ -2233,6 +2262,7 @@ async function updateUserProfile(userId, payload) {
             payload.place,
             payload.studyGroup,
             payload.phone,
+            payload.avatarUrl || "",
             nowIso(),
             userId,
         ],
@@ -3667,7 +3697,7 @@ async function getTournaments(userId, teamId = null) {
                       AND te.team_id = ?
                 ) AS joined_team
             FROM tournaments t
-            WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
+            WHERE t.status IN ('live', 'upcoming', 'published')
               AND COALESCE(t.is_daily, 0) = 0
               AND (
                 COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
@@ -3695,6 +3725,7 @@ async function getTournaments(userId, teamId = null) {
 }
 
 async function getPrimaryTournament(userId, teamId = null) {
+    const now = nowIso();
     return get(
         `
             SELECT
@@ -3712,8 +3743,9 @@ async function getPrimaryTournament(userId, teamId = null) {
                       AND te.team_id = ?
                 ) AS joined_team
             FROM tournaments t
-            WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
+            WHERE t.status IN ('live', 'upcoming', 'published')
               AND COALESCE(t.is_daily, 0) = 0
+              AND NOT (t.end_at IS NOT NULL AND t.end_at < ?)
               AND (
                 COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
                 OR (
@@ -3727,16 +3759,53 @@ async function getPrimaryTournament(userId, teamId = null) {
                 )
               )
             ORDER BY
-                CASE t.status
-                    WHEN 'live' THEN 0
-                    WHEN 'published' THEN 1
-                    WHEN 'upcoming' THEN 1
+                CASE
+                    WHEN t.status = 'live'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?) THEN 0
+                    WHEN t.status IN ('published', 'upcoming')
+                         AND (t.start_at IS NULL OR t.start_at > ?) THEN 1
+                    WHEN t.status = 'live'
+                         AND t.start_at IS NOT NULL
+                         AND t.start_at > ? THEN 1
                     ELSE 2
                 END,
-                t.start_at ASC
+                CASE
+                    WHEN t.status = 'live'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?)
+                    THEN COALESCE(t.end_at, t.start_at)
+                END ASC,
+                CASE
+                    WHEN (
+                        t.status IN ('published', 'upcoming')
+                        AND (t.start_at IS NULL OR t.start_at > ?)
+                    )
+                    OR (
+                        t.status = 'live'
+                        AND t.start_at IS NOT NULL
+                        AND t.start_at > ?
+                    )
+                    THEN COALESCE(t.start_at, t.end_at)
+                END ASC,
+                t.created_at DESC,
+                t.id DESC
             LIMIT 1
         `,
-        [userId || -1, teamId || -1, userId || -1],
+        [
+            userId || -1,
+            teamId || -1,
+            userId || -1,
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+        ],
     );
 }
 
@@ -4733,40 +4802,57 @@ async function submitTournamentTaskAnswer({
 }
 
 function buildPlatformActivitySeries(rows = [], date = new Date()) {
-    const labels = ["00", "04", "08", "12", "16", "20"];
-    const values = new Array(labels.length).fill(0);
-    const sameDayRows = Array.isArray(rows) ? rows : [];
+    const bucketHours = 4;
+    const bucketCount = 6;
+    const rowsList = Array.isArray(rows) ? rows : [];
+    const now = new Date(date);
+    const currentBucketStartHour =
+        Math.floor(now.getHours() / bucketHours) * bucketHours;
+    const currentBucketStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        currentBucketStartHour,
+        0,
+        0,
+        0,
+    );
+    const buckets = Array.from({ length: bucketCount }, (_, index) => {
+        const start = new Date(
+            currentBucketStart.getTime() -
+                (bucketCount - index - 1) * bucketHours * 60 * 60 * 1000,
+        );
+        const end = new Date(start.getTime() + bucketHours * 60 * 60 * 1000);
+        return {
+            label: String(start.getHours()).padStart(2, "0"),
+            value: 0,
+            startMs: start.getTime(),
+            endMs: end.getTime(),
+        };
+    });
 
-    sameDayRows.forEach((row) => {
+    rowsList.forEach((row) => {
         const timestamp = Date.parse(String(row.updated_at || ""));
         if (!Number.isFinite(timestamp)) {
             return;
         }
 
-        const itemDate = new Date(timestamp);
-        if (
-            itemDate.getFullYear() !== date.getFullYear() ||
-            itemDate.getMonth() !== date.getMonth() ||
-            itemDate.getDate() !== date.getDate()
-        ) {
-            return;
-        }
-
-        const hour = itemDate.getHours();
-        const bucketIndex = Math.min(
-            labels.length - 1,
-            Math.max(0, Math.floor(hour / 4)),
+        const bucket = buckets.find(
+            (item) => timestamp >= item.startMs && timestamp < item.endMs,
         );
-        values[bucketIndex] += 1;
+        if (bucket) {
+            bucket.value += 1;
+        }
     });
 
-    return labels.map((label, index) => ({
+    return buckets.map(({ label, value }) => ({
         label,
-        value: values[index],
+        value,
     }));
 }
 
 async function listPublicLandingTournaments(limit = 4) {
+    const now = nowIso();
     return all(
         `
             SELECT
@@ -4782,16 +4868,44 @@ async function listPublicLandingTournaments(limit = 4) {
               AND COALESCE(t.is_daily, 0) = 0
               AND COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
             ORDER BY
-                CASE t.status
-                    WHEN 'live' THEN 0
-                    WHEN 'published' THEN 1
-                    WHEN 'upcoming' THEN 1
+                CASE
+                    WHEN t.status = 'live'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?) THEN 0
+                    WHEN t.status IN ('published', 'upcoming')
+                         AND (t.start_at IS NULL OR t.start_at > ?) THEN 1
                     ELSE 2
                 END,
-                t.start_at ASC
+                CASE
+                    WHEN t.status = 'live'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?)
+                    THEN COALESCE(t.end_at, t.start_at)
+                END ASC,
+                CASE
+                    WHEN t.status IN ('published', 'upcoming')
+                         AND (t.start_at IS NULL OR t.start_at > ?)
+                    THEN COALESCE(t.start_at, t.end_at)
+                END ASC,
+                CASE
+                    WHEN t.status = 'ended'
+                         OR (t.end_at IS NOT NULL AND t.end_at < ?)
+                    THEN COALESCE(t.end_at, t.start_at)
+                END DESC,
+                t.created_at DESC,
+                t.id DESC
             LIMIT ?
         `,
-        [Math.max(1, Math.min(Number(limit || 4), 12))],
+        [
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+            now,
+            Math.max(1, Math.min(Number(limit || 4), 12)),
+        ],
     );
 }
 
