@@ -16,6 +16,7 @@ const {
     TRUST_PROXY,
     SESSION_COOKIE_NAME,
     SESSION_TTL_MS,
+    SESSION_TOUCH_INTERVAL_MS,
     AUTH_CHALLENGE_TTL_MS,
     PASSWORD_RESET_TTL_MS,
     OAUTH_STATE_TTL_MS,
@@ -107,12 +108,12 @@ const {
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,
     listTournamentSubmissionsForEntry,
+    listTournamentTaskIdsByTournamentIds,
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,
     markUserEmailVerified,
     recalculateTournamentEntryStats,
-    refreshTournamentParticipantsCount,
     refreshUserCompetitionStats,
     removeTournamentRosterEntry,
     removeTeamMember,
@@ -233,6 +234,86 @@ app.disable("x-powered-by");
 const defaultJsonParser = express.json({ limit: JSON_BODY_LIMIT });
 const heavyJsonParser = express.json({ limit: HEAVY_JSON_BODY_LIMIT });
 const importJsonParser = express.json({ limit: IMPORT_JSON_BODY_LIMIT });
+const STATIC_ASSET_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const PUBLIC_LANDING_CACHE_TTL_MS = 15 * 1000;
+const PUBLIC_RATING_CACHE_TTL_MS = 15 * 1000;
+const PUBLIC_CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
+const ADMIN_OVERVIEW_CACHE_TTL_MS = 10 * 1000;
+
+function createTtlCache(ttlMs) {
+    return {
+        ttlMs,
+        entries: new Map(),
+        inflight: new Map(),
+    };
+}
+
+const publicLandingCache = createTtlCache(PUBLIC_LANDING_CACHE_TTL_MS);
+const publicRatingCache = createTtlCache(PUBLIC_RATING_CACHE_TTL_MS);
+const publicConfigCache = createTtlCache(PUBLIC_CONFIG_CACHE_TTL_MS);
+const adminOverviewCache = createTtlCache(ADMIN_OVERVIEW_CACHE_TTL_MS);
+const platformMetricsCache = createTtlCache(ADMIN_OVERVIEW_CACHE_TTL_MS);
+
+function readCache(cache, key = "default") {
+    const entry = cache.entries.get(key);
+    if (!entry) {
+        return null;
+    }
+    if (Date.now() >= entry.expiresAt) {
+        cache.entries.delete(key);
+        return null;
+    }
+    return entry.value;
+}
+
+function writeCache(cache, value, key = "default") {
+    cache.entries.set(key, {
+        value,
+        expiresAt: Date.now() + cache.ttlMs,
+    });
+    return value;
+}
+
+async function getCached(cache, loader, key = "default") {
+    const cached = readCache(cache, key);
+    if (cached !== null) {
+        return cached;
+    }
+
+    const inflight = cache.inflight.get(key);
+    if (inflight) {
+        return inflight;
+    }
+
+    const promise = Promise.resolve()
+        .then(loader)
+        .then((loaded) => writeCache(cache, loaded, key))
+        .finally(() => {
+            cache.inflight.delete(key);
+        });
+    cache.inflight.set(key, promise);
+    return promise;
+}
+
+function invalidateCache(cache, key = null) {
+    if (key === null) {
+        cache.entries.clear();
+        cache.inflight.clear();
+        return;
+    }
+    cache.entries.delete(key);
+    cache.inflight.delete(key);
+}
+
+function invalidatePublicReadCaches() {
+    invalidateCache(publicLandingCache);
+    invalidateCache(publicRatingCache);
+}
+
+function invalidateAdminReadCaches() {
+    invalidateCache(adminOverviewCache);
+    invalidateCache(platformMetricsCache);
+}
 
 function applyJsonParserByRoute(req, res, next) {
     if (!req.is("application/json")) {
@@ -1480,6 +1561,7 @@ function dedupeSessionsForDisplay(sessions, currentSessionId) {
 function serializeTask(task) {
     return {
         id: task.id,
+        ownerUserId: task.owner_user_id || null,
         title: task.title,
         category: task.category,
         difficulty: task.difficulty,
@@ -1594,12 +1676,34 @@ function serializeRosterEntry(entry) {
     };
 }
 
-async function serializeOrganizerTournament(row, currentUserId = null) {
-    const tasks = await listTournamentTasks(row.id);
+async function serializeOrganizerTournament(
+    row,
+    currentUserId = null,
+    taskIdsByTournamentId = null,
+) {
+    const taskIds = taskIdsByTournamentId?.get?.(Number(row.id)) || null;
+    const fallbackTasks =
+        taskIds === null ? await listTournamentTasks(row.id) : null;
     return {
         ...serializeTournament(row, currentUserId, { includeSensitive: true }),
-        taskIds: tasks.map((task) => task.id),
+        taskIds:
+            taskIds ||
+            fallbackTasks.map((task) => Number(task.id)),
     };
+}
+
+async function ensureAuthTeamMembership(auth) {
+    if (!auth?.user) {
+        return null;
+    }
+
+    if (auth.teamMembershipLoaded) {
+        return auth.teamMembership || null;
+    }
+
+    auth.teamMembership = await getMembershipByUserId(auth.user.id);
+    auth.teamMembershipLoaded = true;
+    return auth.teamMembership || null;
 }
 
 function serializeLeaderboard(tournament, tasks, entries, auth) {
@@ -1726,15 +1830,16 @@ async function resolveTournamentEntryContext(tournament, auth, rosterEntry) {
             };
         }
 
-        if (auth.teamMembership?.team_id) {
+        const teamMembership = await ensureAuthTeamMembership(auth);
+        if (teamMembership?.team_id) {
             const entry = await getTournamentEntryForContext({
                 tournamentId: tournament.id,
-                teamId: auth.teamMembership.team_id,
+                teamId: teamMembership?.team_id,
             });
             return {
                 entry,
                 entryType: "team",
-                participantLabel: auth.teamMembership.team_name || "",
+                participantLabel: teamMembership?.team_name || "",
             };
         }
 
@@ -1830,7 +1935,12 @@ async function attachAuth(req, res, next) {
     const rawToken = cookies[SESSION_COOKIE_NAME];
 
     if (!rawToken) {
-        req.auth = { user: null, session: null, teamMembership: null };
+        req.auth = {
+            user: null,
+            session: null,
+            teamMembership: null,
+            teamMembershipLoaded: true,
+        };
         next();
         return;
     }
@@ -1842,7 +1952,12 @@ async function attachAuth(req, res, next) {
 
         if (!sessionBundle) {
             res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
-            req.auth = { user: null, session: null, teamMembership: null };
+            req.auth = {
+                user: null,
+                session: null,
+                teamMembership: null,
+                teamMembershipLoaded: true,
+            };
             next();
             return;
         }
@@ -1850,16 +1965,24 @@ async function attachAuth(req, res, next) {
         if (new Date(sessionBundle.session.expires_at).getTime() <= Date.now()) {
             await revokeSessionById(sessionBundle.session.id);
             res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
-            req.auth = { user: null, session: null, teamMembership: null };
+            req.auth = {
+                user: null,
+                session: null,
+                teamMembership: null,
+                teamMembershipLoaded: true,
+            };
             next();
             return;
         }
-
-        const teamMembership = await getMembershipByUserId(sessionBundle.user.id);
         if (!ACTIVE_USER_STATUSES.has(sessionBundle.user.status || "active")) {
             await revokeSessionById(sessionBundle.session.id);
             res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
-            req.auth = { user: null, session: null, teamMembership: null };
+            req.auth = {
+                user: null,
+                session: null,
+                teamMembership: null,
+                teamMembershipLoaded: true,
+            };
             next();
             return;
         }
@@ -1877,10 +2000,14 @@ async function attachAuth(req, res, next) {
                 role: resolvedRole.effectiveRole,
             },
             session: sessionBundle.session,
-            teamMembership,
+            teamMembership: null,
+            teamMembershipLoaded: false,
         };
 
-        if (Date.now() - new Date(sessionBundle.session.updated_at).getTime() > 60 * 1000) {
+        if (
+            Date.now() - new Date(sessionBundle.session.updated_at).getTime() >
+            SESSION_TOUCH_INTERVAL_MS
+        ) {
             touchSession(sessionBundle.session.id).catch(() => {});
         }
 
@@ -1888,6 +2015,242 @@ async function attachAuth(req, res, next) {
     } catch (error) {
         next(error);
     }
+}
+
+async function buildProfilePayload(req, user) {
+    const sessions = await listSessionsForUser(req.auth.user.id);
+    return {
+        ...serializeCurrentSessionUser(user, req.auth.user),
+        sessions: dedupeSessionsForDisplay(sessions, req.auth.session.id),
+    };
+}
+
+async function serializeOrganizerTournaments(items, currentUserId) {
+    const rows = Array.isArray(items) ? items : [];
+    if (rows.length === 0) {
+        return [];
+    }
+
+    const taskIdsByTournamentId = await listTournamentTaskIdsByTournamentIds(
+        rows.map((item) => item.id),
+    );
+
+    return Promise.all(
+        rows.map((item) =>
+            serializeOrganizerTournament(
+                item,
+                currentUserId,
+                taskIdsByTournamentId,
+            ),
+        ),
+    );
+}
+
+async function buildParticipantWorkspaceBootstrap(req) {
+    const [dailyTournament, teamMembership] = await Promise.all([
+        ensureDailyTournamentForDate(),
+        ensureAuthTeamMembership(req.auth),
+    ]);
+
+    const [
+        user,
+        primaryTournament,
+        metrics,
+        analyticsEntries,
+        teamBundle,
+        tournaments,
+        organizerApplications,
+    ] = await Promise.all([
+        refreshUserCompetitionStats(req.auth.user.id),
+        getPrimaryTournament(req.auth.user.id, teamMembership?.team_id || null),
+        getCached(platformMetricsCache, () => getPlatformMetrics()),
+        listUserTournamentResults(req.auth.user.id),
+        getTeamForUser(req.auth.user.id),
+        getTournaments(req.auth.user.id, teamMembership?.team_id || null),
+        listOrganizerApplications({ userId: req.auth.user.id }),
+    ]);
+
+    if (teamBundle?.membership) {
+        req.auth.teamMembership = teamBundle.membership;
+        req.auth.teamMembershipLoaded = true;
+    }
+
+    const [topPlayers, teamAnalyticsEntries, profile] = await Promise.all([
+        getCached(publicRatingCache, () => listTopPlayers(5), "limit:5"),
+        teamBundle?.team?.id
+            ? listTeamTournamentResults(teamBundle.team.id)
+            : Promise.resolve([]),
+        buildProfilePayload(req, user),
+    ]);
+
+    const analytics = buildAnalyticsPayload(
+        analyticsEntries,
+        Number(user.rating || 1450),
+    );
+
+    let activeEntry = null;
+    if (primaryTournament) {
+        const rosterEntry =
+            primaryTournament.format === "team"
+                ? await getTournamentRosterEntryForUser(
+                      primaryTournament.id,
+                      req.auth.user.id,
+                  )
+                : null;
+        const context = await resolveTournamentEntryContext(
+            primaryTournament,
+            req.auth,
+            rosterEntry,
+        );
+        activeEntry = context.entry || null;
+    }
+
+    let dailyEntry = null;
+    if (dailyTournament) {
+        const dailyContext = await resolveTournamentEntryContext(
+            dailyTournament,
+            req.auth,
+            null,
+        );
+        dailyEntry = dailyContext.entry || null;
+    }
+
+    return {
+        role: "participant",
+        dashboard: buildDashboard({
+            user,
+            tournament: primaryTournament,
+            metrics,
+            dailyTournament,
+            analytics,
+            topPlayers: topPlayers.map((item, index) =>
+                serializeTopPlayer(item, index, req.auth.user.id),
+            ),
+            activeEntry,
+            dailyEntry,
+        }),
+        tournaments: tournaments.map((item) =>
+            serializeTournament(item, req.auth.user.id),
+        ),
+        profile,
+        team: serializeTeam(teamBundle, req.auth.user.id),
+        profileAnalytics: analytics,
+        teamAnalytics: teamBundle?.team?.id
+            ? buildAnalyticsPayload(teamAnalyticsEntries, 1520)
+            : null,
+        organizerApplications: organizerApplications.map(
+            serializeOrganizerApplication,
+        ),
+        oauthProviders: listOAuthProviders(),
+    };
+}
+
+async function buildOrganizerWorkspaceBootstrap(req) {
+    const [user, organizerOverview, organizerTournaments, organizerTasks, organizerApplications] =
+        await Promise.all([
+            getUserById(req.auth.user.id),
+            getOrganizerOverview(req.auth.user.id),
+            listOrganizerTournaments(req.auth.user.id),
+            listOrganizerTaskBank(req.auth.user.id),
+            listOrganizerApplications({ userId: req.auth.user.id }),
+        ]);
+
+    const [profile, serializedTournaments] = await Promise.all([
+        buildProfilePayload(req, user),
+        serializeOrganizerTournaments(organizerTournaments, req.auth.user.id),
+    ]);
+
+    return {
+        role: "organizer",
+        profile,
+        oauthProviders: listOAuthProviders(),
+        organizerOverview: {
+            ...organizerOverview,
+            recentActions: organizerOverview.recentActions.map(serializeAuditEntry),
+        },
+        organizerTournaments: serializedTournaments,
+        organizerTasks: {
+            personal: organizerTasks.personal.map(serializeTask),
+            shared: organizerTasks.shared.map(serializeTask),
+            pending: organizerTasks.pending.map(serializeTask),
+        },
+        organizerApplications: organizerApplications.map(
+            serializeOrganizerApplication,
+        ),
+    };
+}
+
+async function buildModeratorWorkspaceBootstrap(req) {
+    const [user, moderationOverview, moderationTasks, moderationApplications, moderationUsers] =
+        await Promise.all([
+            getUserById(req.auth.user.id),
+            getCached(adminOverviewCache, () => getAdminOverview()),
+            listModeratorTaskQueue(),
+            listOrganizerApplications(),
+            listModerationUsers(),
+        ]);
+
+    return {
+        role: "moderator",
+        profile: await buildProfilePayload(req, user),
+        oauthProviders: listOAuthProviders(),
+        moderationOverview: {
+            pendingTasksCount: moderationOverview.pendingTaskModerationCount,
+            pendingOrganizerApplicationsCount:
+                moderationOverview.pendingOrganizerApplicationsCount,
+            blockedUsersCount: moderationOverview.blockedUsersCount,
+        },
+        moderationTasks: moderationTasks.map(serializeTask),
+        moderationApplications: moderationApplications.map(
+            serializeOrganizerApplication,
+        ),
+        moderationUsers: moderationUsers.map(serializeAdminUser),
+    };
+}
+
+async function buildAdminWorkspaceBootstrap(req) {
+    const [user, adminOverview, metrics, adminUsers, adminTeams, adminTasks, adminTournaments, adminApplications, adminAudit] =
+        await Promise.all([
+            getUserById(req.auth.user.id),
+            getCached(adminOverviewCache, () => getAdminOverview()),
+            getCached(platformMetricsCache, () => getPlatformMetrics()),
+            listAdminUsers(),
+            listAdminTeams(),
+            listAdminTasks(),
+            listAdminTournaments(),
+            listOrganizerApplications(),
+            listAuditLog(80),
+        ]);
+
+    return {
+        role: "admin",
+        profile: await buildProfilePayload(req, user),
+        oauthProviders: listOAuthProviders(),
+        adminOverview: {
+            overview: adminOverview,
+            metrics,
+        },
+        adminUsers: adminUsers.map(serializeAdminUser),
+        adminTeams: adminTeams.map(serializeAdminTeam),
+        adminTasks: adminTasks.map(serializeAdminTask),
+        adminTournaments: adminTournaments.map(serializeAdminTournament),
+        adminApplications: adminApplications.map(serializeOrganizerApplication),
+        adminAudit: adminAudit.map(serializeAuditEntry),
+    };
+}
+
+async function buildWorkspaceBootstrapPayload(req) {
+    const role = req.auth.user.role || ROLE_USER;
+    if (isAdminRole(role)) {
+        return buildAdminWorkspaceBootstrap(req);
+    }
+    if (role === ROLE_MODERATOR) {
+        return buildModeratorWorkspaceBootstrap(req);
+    }
+    if (role === ROLE_ORGANIZER) {
+        return buildOrganizerWorkspaceBootstrap(req);
+    }
+    return buildParticipantWorkspaceBootstrap(req);
 }
 
 function requireAuth(req, res, next) {
@@ -2404,10 +2767,16 @@ app.get("/api/status", (req, res) => {
     });
 });
 
-app.get("/api/public/config", (req, res) => {
-    res.json({
-        turnstile: getTurnstileClientConfig(),
-    });
+app.get("/api/public/config", async (req, res, next) => {
+    try {
+        res.json(
+            await getCached(publicConfigCache, async () => ({
+                turnstile: getTurnstileClientConfig(),
+            })),
+        );
+    } catch (error) {
+        next(error);
+    }
 });
 
 app.get("/api/auth/me", (req, res) => {
@@ -2426,6 +2795,14 @@ app.get("/api/auth/oauth/providers", (req, res) => {
     res.json({
         providers: listOAuthProviders(),
     });
+});
+
+app.get("/api/workspace/bootstrap", requireAuth, async (req, res, next) => {
+    try {
+        res.json(await buildWorkspaceBootstrapPayload(req));
+    } catch (error) {
+        next(error);
+    }
 });
 
 app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (req, res, next) => {
@@ -2986,14 +3363,21 @@ app.post(
 
 app.get("/api/public/landing", publicExpensiveRateLimiter, async (req, res, next) => {
     try {
-        const [tournaments, topPlayers] = await Promise.all([
-            listPublicLandingTournaments(4),
-            listTopPlayers(5),
-        ]);
+        const data = await getCached(publicLandingCache, async () => {
+            const [tournaments, topPlayers] = await Promise.all([
+                listPublicLandingTournaments(4),
+                listTopPlayers(5),
+            ]);
+
+            return {
+                tournaments: tournaments.map((item) => serializeTournament(item)),
+                topPlayers,
+            };
+        });
 
         res.json({
-            tournaments: tournaments.map((item) => serializeTournament(item)),
-            topPlayers: topPlayers.map((item, index) =>
+            tournaments: data.tournaments,
+            topPlayers: data.topPlayers.map((item, index) =>
                 serializeTopPlayer(item, index, req.auth?.user?.id || null),
             ),
         });
@@ -3005,7 +3389,11 @@ app.get("/api/public/landing", publicExpensiveRateLimiter, async (req, res, next
 app.get("/api/rating", publicExpensiveRateLimiter, async (req, res, next) => {
     try {
         const limit = Math.max(5, Math.min(Number(req.query.limit || 50), 100));
-        const topPlayers = await listTopPlayers(limit);
+        const topPlayers = await getCached(
+            publicRatingCache,
+            () => listTopPlayers(limit),
+            `limit:${limit}`,
+        );
         res.json({
             items: topPlayers.map((item, index) =>
                 serializeTopPlayer(item, index, req.auth?.user?.id || null),
@@ -3149,6 +3537,9 @@ app.delete("/api/auth/sessions/:sessionId", requireAuth, profileWriteRateLimiter
 
 app.get("/api/dashboard", requireAuth, async (req, res, next) => {
     try {
+        const teamMembership = isParticipantRole(req.auth.user.role)
+            ? await ensureAuthTeamMembership(req.auth)
+            : null;
         const dailyTournament = isParticipantRole(req.auth.user.role)
             ? await ensureDailyTournamentForDate()
             : null;
@@ -3159,15 +3550,15 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
                 : getUserById(req.auth.user.id),
             getPrimaryTournament(
                 req.auth.user.id,
-                req.auth.teamMembership?.team_id || null,
+                teamMembership?.team_id || null,
             ),
-            getPlatformMetrics(),
+            getCached(platformMetricsCache, () => getPlatformMetrics()),
             isParticipantRole(req.auth.user.role)
                 ? listUserTournamentResults(req.auth.user.id)
                 : [],
         ]);
         const topPlayers = isParticipantRole(req.auth.user.role)
-            ? await listTopPlayers(5)
+            ? await getCached(publicRatingCache, () => listTopPlayers(5), "limit:5")
             : [];
         const analytics = isParticipantRole(req.auth.user.role)
             ? buildAnalyticsPayload(analyticsEntries, Number(user.rating || 1450))
@@ -3312,6 +3703,8 @@ app.put("/api/profile", requireAuth, profileWriteRateLimiter, async (req, res, n
             user = await getUserById(req.auth.user.id);
         }
 
+        invalidatePublicReadCaches();
+
         res.json({
             user: serializeCurrentSessionUser(user, req.auth.user),
             emailVerificationRequired: emailChanged,
@@ -3416,6 +3809,8 @@ app.post("/api/organizer-applications", requireParticipant, async (req, res, nex
             summary: "Подана заявка на роль организатора",
         });
 
+        invalidateAdminReadCaches();
+
         const [enriched] = await listOrganizerApplications({
             userId: req.auth.user.id,
         });
@@ -3453,6 +3848,8 @@ app.post("/api/team", requireParticipant, async (req, res, next) => {
             name,
             description,
         });
+
+        invalidateAdminReadCaches();
 
         res.status(201).json({
             team: serializeTeam(bundle, req.auth.user.id),
@@ -3529,6 +3926,7 @@ app.put("/api/team", requireParticipant, async (req, res, next) => {
 app.post("/api/team/leave", requireParticipant, async (req, res, next) => {
     try {
         const success = await leaveTeam(req.auth.user.id);
+        invalidateAdminReadCaches();
         res.json({ success });
     } catch (error) {
         next(error);
@@ -3632,6 +4030,8 @@ app.post("/api/task-bank", requireAdmin, async (req, res, next) => {
             ...payload,
         });
 
+        invalidateAdminReadCaches();
+
         res.status(201).json({
             item: serializeTask({
                 ...task,
@@ -3690,6 +4090,8 @@ app.post("/api/organizer/tasks", requireOrganizer, async (req, res, next) => {
             summary: "Организатор создал задачу в личном банке",
         });
 
+        invalidateAdminReadCaches();
+
         res.status(201).json({
             item: serializeTask(task),
         });
@@ -3746,6 +4148,8 @@ app.patch("/api/organizer/tasks/:id", requireOrganizer, async (req, res, next) =
                     : "Обновлена задача организатора",
         });
 
+        invalidateAdminReadCaches();
+
         res.json({
             item: serializeTask(task),
         });
@@ -3778,6 +4182,8 @@ app.post(
                 entityId: task.id,
                 summary: "Задача отправлена на модерацию",
             });
+
+            invalidateAdminReadCaches();
 
             res.json({
                 item: serializeTask(task),
@@ -3862,6 +4268,8 @@ app.post(
                 payload: { importedCount: created.length },
             });
 
+            invalidateAdminReadCaches();
+
             res.status(201).json({
                 items: created,
                 importedCount: created.length,
@@ -3878,10 +4286,9 @@ app.get("/api/organizer/tournaments", requireOrganizer, async (req, res, next) =
     try {
         const tournaments = await listOrganizerTournaments(req.auth.user.id);
         res.json({
-            items: await Promise.all(
-                tournaments.map((item) =>
-                    serializeOrganizerTournament(item, req.auth.user.id),
-                ),
+            items: await serializeOrganizerTournaments(
+                tournaments,
+                req.auth.user.id,
             ),
         });
     } catch (error) {
@@ -3978,6 +4385,9 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
             entityId: tournament.id,
             summary: "Организатор создал соревнование",
         });
+
+        invalidatePublicReadCaches();
+        invalidateAdminReadCaches();
 
         res.status(201).json({
             item: await serializeOrganizerTournament(tournament, req.auth.user.id),
@@ -4129,6 +4539,9 @@ app.patch(
                 summary: "Организатор обновил соревнование",
             });
 
+            invalidatePublicReadCaches();
+            invalidateAdminReadCaches();
+
             res.json({
                 item: await serializeOrganizerTournament(updated, req.auth.user.id),
             });
@@ -4165,6 +4578,9 @@ app.delete(
                 entityId: tournamentId,
                 summary: "Организатор удалил соревнование",
             });
+
+            invalidatePublicReadCaches();
+            invalidateAdminReadCaches();
 
             res.json({ success: true });
         } catch (error) {
@@ -4417,9 +4833,10 @@ app.delete(
 app.get("/api/tournaments", requireParticipant, async (req, res, next) => {
     try {
         await ensureDailyTournamentForDate();
+        const teamMembership = await ensureAuthTeamMembership(req.auth);
         const tournaments = await getTournaments(
             req.auth.user.id,
-            req.auth.teamMembership?.team_id || null,
+            teamMembership?.team_id || null,
         );
         res.json({
             items: tournaments.map((item) =>
@@ -4498,6 +4915,9 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
                     ? "Mixed"
                     : tasks[0].difficulty || "Mixed",
         });
+
+        invalidatePublicReadCaches();
+        invalidateAdminReadCaches();
 
         res.status(201).json({
             item: serializeTournament({
@@ -4595,11 +5015,14 @@ app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimi
             totalTasks: tasks.length,
         });
 
-        await refreshTournamentParticipantsCount(tournamentId);
         const [updatedTournament, leaderboard] = await Promise.all([
             getTournamentById(tournamentId),
             listLeaderboardForTournament(tournamentId),
         ]);
+        const resolvedTeamMembership =
+            updatedTournament?.format === "team"
+                ? await ensureAuthTeamMembership(req.auth)
+                : null;
         const runtimeOpen = isTournamentRuntimeOpen(updatedTournament);
         const joinedContext =
             runtimeOpen
@@ -4624,7 +5047,7 @@ app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimi
                   leaderboard,
                   {
                       user: req.auth.user,
-                      teamMembership: req.auth.teamMembership,
+                      teamMembership: resolvedTeamMembership,
                       rosterEntry,
                   },
               )
@@ -4876,6 +5299,7 @@ app.post(
             }
 
             await refreshUserCompetitionStats(req.auth.user.id);
+            invalidatePublicReadCaches();
 
             const updatedEntry = await getTournamentEntryForContext({
                 tournamentId,
@@ -4965,11 +5389,15 @@ app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res,
             listTournamentTasks(tournamentId),
             listLeaderboardForTournament(tournamentId),
         ]);
+        const teamMembership =
+            tournament.format === "team"
+                ? await ensureAuthTeamMembership(req.auth)
+                : null;
 
         res.json(
             serializeLeaderboard(tournament, tasks, leaderboard, {
                 user: req.auth.user,
-                teamMembership: req.auth.teamMembership,
+                teamMembership,
                 rosterEntry,
             }),
         );
@@ -5010,7 +5438,7 @@ app.get("/api/analytics/team", requireParticipant, async (req, res, next) => {
 
 app.get("/api/moderation/overview", requireModerator, async (req, res, next) => {
     try {
-        const overview = await getAdminOverview();
+        const overview = await getCached(adminOverviewCache, () => getAdminOverview());
         res.json({
             pendingTasksCount: overview.pendingTaskModerationCount,
             pendingOrganizerApplicationsCount:
@@ -5075,6 +5503,8 @@ app.post(
                         : "Задача отклонена модератором",
                 payload: { reviewerNote },
             });
+
+            invalidateAdminReadCaches();
 
             res.json({
                 item: serializeTask(task),
@@ -5142,6 +5572,8 @@ app.post(
                         : "Заявка на роль организатора отклонена",
                 payload: { reviewerNote },
             });
+
+            invalidateAdminReadCaches();
 
             const items = await listOrganizerApplications();
             const current = items.find((item) => item.id === applicationId);
@@ -5236,6 +5668,9 @@ app.patch(
                 payload: { reason },
             });
 
+            invalidateAdminReadCaches();
+            invalidatePublicReadCaches();
+
             res.json({
                 item: serializeAdminUser(updatedUser),
             });
@@ -5248,8 +5683,8 @@ app.patch(
 app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
     try {
         const [overview, metrics] = await Promise.all([
-            getAdminOverview(),
-            getPlatformMetrics(),
+            getCached(adminOverviewCache, () => getAdminOverview()),
+            getCached(platformMetricsCache, () => getPlatformMetrics()),
         ]);
 
         res.json({
@@ -5350,6 +5785,8 @@ app.patch("/api/admin/users/:id/role", requireAdmin, adminSensitiveRateLimiter, 
                 nextRole: role,
             },
         });
+        invalidateAdminReadCaches();
+        invalidatePublicReadCaches();
         res.json({
             item: serializeAdminUser(updatedUser),
         });
@@ -5383,6 +5820,8 @@ app.delete("/api/admin/teams/:id", requireAdmin, adminSensitiveRateLimiter, asyn
             return;
         }
 
+        invalidateAdminReadCaches();
+
         res.json({ success: true });
     } catch (error) {
         next(error);
@@ -5413,6 +5852,8 @@ app.delete("/api/admin/tasks/:id", requireAdmin, adminSensitiveRateLimiter, asyn
             sendError(res, 404, "Задача не найдена.");
             return;
         }
+
+        invalidateAdminReadCaches();
 
         res.json({ success: true });
     } catch (error) {
@@ -5454,6 +5895,9 @@ app.patch("/api/admin/tournaments/:id", requireAdmin, adminSensitiveRateLimiter,
             return;
         }
 
+        invalidatePublicReadCaches();
+        invalidateAdminReadCaches();
+
         res.json({
             item: serializeAdminTournament(updatedTournament),
         });
@@ -5480,6 +5924,9 @@ app.delete(
                 return;
             }
 
+            invalidatePublicReadCaches();
+            invalidateAdminReadCaches();
+
             res.json({ success: true });
         } catch (error) {
             next(error);
@@ -5487,22 +5934,44 @@ app.delete(
     },
 );
 
-app.use("/front", express.static(FRONT_DIR, { index: false }));
+app.use(
+    "/front",
+    express.static(FRONT_DIR, {
+        index: false,
+        maxAge: STATIC_ASSET_MAX_AGE_SECONDS * 1000,
+        setHeaders(res, filePath) {
+            if (String(filePath).endsWith(".html")) {
+                res.setHeader("Cache-Control", "no-cache");
+                return;
+            }
+
+            res.setHeader(
+                "Cache-Control",
+                `public, max-age=${STATIC_ASSET_MAX_AGE_SECONDS}, stale-while-revalidate=86400`,
+            );
+        },
+    }),
+);
+
+function sendHtmlPage(res, pageName) {
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(ROOT_DIR, pageName));
+}
 
 app.get("/", (req, res) => {
-    res.sendFile(path.join(ROOT_DIR, "index.html"));
+    sendHtmlPage(res, "index.html");
 });
 
 app.get("/index.html", (req, res) => {
-    res.sendFile(path.join(ROOT_DIR, "index.html"));
+    sendHtmlPage(res, "index.html");
 });
 
 app.get("/404.html", (req, res) => {
-    res.sendFile(path.join(ROOT_DIR, "404.html"));
+    sendHtmlPage(res, "404.html");
 });
 
 app.get("/4041.html", (req, res) => {
-    res.sendFile(path.join(ROOT_DIR, "4041.html"));
+    sendHtmlPage(res, "4041.html");
 });
 
 app.use("/api", (req, res) => {
@@ -5510,7 +5979,8 @@ app.use("/api", (req, res) => {
 });
 
 app.use((req, res) => {
-    res.status(404).sendFile(path.join(ROOT_DIR, "404.html"));
+    res.status(404);
+    sendHtmlPage(res, "404.html");
 });
 
 app.use((error, req, res, next) => {

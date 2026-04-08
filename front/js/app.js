@@ -44,7 +44,12 @@ function switchToTournaments() {
 const apiClient = window.QubiteAPI || null;
 const TURNSTILE_FORM_IDS = new Set(["regForm", "authForm", "forgotForm"]);
 const turnstileWidgetIds = new Map();
+const TURNSTILE_SCRIPT_SRC =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const CHART_JS_SCRIPT_SRC = "https://cdn.jsdelivr.net/npm/chart.js";
 let publicConfigPromise = null;
+let turnstileScriptPromise = null;
+let chartJsScriptPromise = null;
 let pendingProfileCompletion = false;
 let pendingResetToken = null;
 const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
@@ -169,6 +174,7 @@ let tournamentRuntimeUiState = {
     loadError: "",
     sidebarForced: false,
     sidebarRestoreCollapsed: null,
+    deadlineRefreshDone: false,
 };
 
 let runtimeClockInterval = null;
@@ -203,6 +209,85 @@ async function ensurePublicSecurityConfig() {
 
 function getTurnstileConfig() {
     return apiClient?.state?.publicConfig?.turnstile || null;
+}
+
+function loadScriptOnce(src, existingPromise, globalCheck) {
+    if (globalCheck()) {
+        return Promise.resolve(globalCheck());
+    }
+
+    if (existingPromise) {
+        return existingPromise;
+    }
+
+    return new Promise((resolve, reject) => {
+        const existingScript = document.querySelector(`script[src="${src}"]`);
+        if (existingScript) {
+            existingScript.addEventListener("load", () => resolve(globalCheck()), {
+                once: true,
+            });
+            existingScript.addEventListener(
+                "error",
+                () => reject(new Error(`Не удалось загрузить ${src}`)),
+                { once: true },
+            );
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.defer = true;
+        script.addEventListener("load", () => resolve(globalCheck()), {
+            once: true,
+        });
+        script.addEventListener(
+            "error",
+            () => reject(new Error(`Не удалось загрузить ${src}`)),
+            { once: true },
+        );
+        document.head.appendChild(script);
+    });
+}
+
+async function ensureTurnstileScript() {
+    if (window.turnstile?.render) {
+        return window.turnstile;
+    }
+
+    if (!turnstileScriptPromise) {
+        turnstileScriptPromise = loadScriptOnce(
+            TURNSTILE_SCRIPT_SRC,
+            turnstileScriptPromise,
+            () => window.turnstile,
+        ).finally(() => {
+            if (!window.turnstile?.render) {
+                turnstileScriptPromise = null;
+            }
+        });
+    }
+
+    return turnstileScriptPromise;
+}
+
+async function ensureChartJsLoaded() {
+    if (window.Chart?.getChart) {
+        return window.Chart;
+    }
+
+    if (!chartJsScriptPromise) {
+        chartJsScriptPromise = loadScriptOnce(
+            CHART_JS_SCRIPT_SRC,
+            chartJsScriptPromise,
+            () => window.Chart,
+        ).finally(() => {
+            if (!window.Chart?.getChart) {
+                chartJsScriptPromise = null;
+            }
+        });
+    }
+
+    return chartJsScriptPromise;
 }
 
 async function waitForTurnstileGlobal(timeoutMs = 5000) {
@@ -252,6 +337,7 @@ async function renderTurnstileForForm(form) {
         return;
     }
 
+    await ensureTurnstileScript();
     const turnstileApi = await waitForTurnstileGlobal();
     if (!turnstileApi) {
         return;
@@ -924,6 +1010,7 @@ function stopTournamentRuntimeTimers() {
         clearInterval(runtimeRefreshInterval);
         runtimeRefreshInterval = null;
     }
+    tournamentRuntimeUiState.deadlineRefreshDone = false;
 }
 
 function readRuntimeAnswerPayload(form, taskType) {
@@ -5433,10 +5520,6 @@ function initProfilePersonalInteractions(container) {
                 ...state.payload,
                 avatarUrl: avatarUrlDraft,
             });
-            await Promise.all([
-                apiClient.loadDashboard(),
-                apiClient.loadProfile(),
-            ]);
             pendingProfileCompletion = !isUserProfileComplete(getUserState());
             updateWorkspaceIdentity();
 
@@ -5728,8 +5811,12 @@ function initProfileInteractions(container) {
     const initMap = {
         personal: initProfilePersonalInteractions,
         security: initProfileSecurityInteractions,
-        analytics: (el) => {
-            if (typeof Chart !== "undefined") {
+        analytics: async (el) => {
+            await ensureChartJsLoaded().catch((error) => {
+                console.error(error);
+                return null;
+            });
+            if (window.Chart?.getChart) {
                 initAnalyticsChart("profile", "week");
             }
             const btns = el.querySelectorAll(".period-btn");
@@ -5762,7 +5849,9 @@ function initProfileInteractions(container) {
         if (renderFn && subviewContainer) {
             subviewContainer.innerHTML = renderFn();
             const initFn = initMap[tabName];
-            if (initFn) initFn(subviewContainer);
+            if (initFn) {
+                void initFn(subviewContainer);
+            }
 
             // Re-trigger animations
             requestAnimationFrame(() => {
@@ -7860,7 +7949,6 @@ function initAdminControlInteractions(container) {
                     Toast.show("Админка", "Роль обновлена. Админка скрыта для текущего аккаунта.", "info");
                     return;
                 }
-                await Promise.all([apiClient.loadAdminUsers(), apiClient.loadAdminAudit(), apiClient.loadAdminOverview()]);
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Роль пользователя обновлена.", "success");
@@ -7881,7 +7969,6 @@ function initAdminControlInteractions(container) {
                     status: button.dataset.adminStatusSet,
                     reason,
                 });
-                await Promise.all([apiClient.loadAdminAudit(), apiClient.loadAdminOverview()]);
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Статус пользователя обновлён.", "success");
@@ -7902,7 +7989,6 @@ function initAdminControlInteractions(container) {
                 await apiClient.updateAdminTournament(tournamentId, {
                     status: select.value,
                 });
-                await apiClient.loadAdminAudit();
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Статус соревнования обновлён.", "success");
@@ -7920,7 +8006,6 @@ function initAdminControlInteractions(container) {
             Loader.show();
             try {
                 await apiClient.deleteAdminTournament(Number(button.dataset.adminTournamentDelete));
-                await apiClient.loadAdminAudit();
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Соревнование удалено.", "success");
@@ -7938,7 +8023,6 @@ function initAdminControlInteractions(container) {
             Loader.show();
             try {
                 await apiClient.deleteAdminTeam(Number(button.dataset.adminTeamDelete));
-                await apiClient.loadAdminAudit();
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Команда удалена.", "success");
@@ -7956,7 +8040,6 @@ function initAdminControlInteractions(container) {
             Loader.show();
             try {
                 await apiClient.deleteAdminTask(Number(button.dataset.adminTaskDelete));
-                await apiClient.loadAdminAudit();
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
                 Toast.show("Админка", "Задача удалена.", "success");
@@ -8233,7 +8316,9 @@ function initAdminInteractions(container) {
                                 ViewManager.open("dashboard");
                                 return;
                             }
-                            await refreshAdminData();
+                            container.innerHTML = renderAdminView();
+                            bindAdminActions();
+                            observeNewContent();
                             Toast.show("Админка", "Роль пользователя обновлена.", "success");
                         } catch (error) {
                             showRequestError("Админка", error);
@@ -8258,8 +8343,9 @@ function initAdminInteractions(container) {
                         await apiClient.updateAdminTournament(tournamentId, {
                             status: select?.value || "upcoming",
                         });
-                        await apiClient.loadTournaments();
-                        await refreshAdminData();
+                        container.innerHTML = renderAdminView();
+                        bindAdminActions();
+                        observeNewContent();
                         Toast.show("Админка", "Статус турнира обновлён.", "success");
                     } catch (error) {
                         showRequestError("Админка", error);
@@ -8282,9 +8368,9 @@ function initAdminInteractions(container) {
                             Loader.show();
                             try {
                                 await apiClient.deleteAdminTournament(tournamentId);
-                                await apiClient.loadTournaments();
-                                await apiClient.loadDashboard();
-                                await refreshAdminData();
+                                container.innerHTML = renderAdminView();
+                                bindAdminActions();
+                                observeNewContent();
                                 Toast.show("Админка", "Турнир удалён.", "success");
                             } catch (error) {
                                 showRequestError("Админка", error);
@@ -8307,9 +8393,9 @@ function initAdminInteractions(container) {
                         Loader.show();
                         try {
                             await apiClient.deleteAdminTeam(teamId);
-                            await apiClient.loadTeam().catch(() => null);
-                            await apiClient.loadTeamAnalytics().catch(() => null);
-                            await refreshAdminData();
+                            container.innerHTML = renderAdminView();
+                            bindAdminActions();
+                            observeNewContent();
                             Toast.show("Админка", "Команда удалена.", "success");
                         } catch (error) {
                             showRequestError("Админка", error);
@@ -8332,7 +8418,9 @@ function initAdminInteractions(container) {
                         Loader.show();
                         try {
                             await apiClient.deleteAdminTask(taskId);
-                            await refreshAdminData();
+                            container.innerHTML = renderAdminView();
+                            bindAdminActions();
+                            observeNewContent();
                             Toast.show("Админка", "Задача удалена.", "success");
                         } catch (error) {
                             showRequestError("Админка", error);
@@ -8777,7 +8865,6 @@ async function openDashboardActiveTournament() {
             await Promise.all([
                 apiClient.loadDashboard().catch(() => null),
                 apiClient.loadTournaments().catch(() => null),
-                apiClient.loadProfileAnalytics().catch(() => null),
             ]);
             if (response.runtime) {
                 await openTournamentRuntimeModal(tournamentId, response.runtime);
@@ -8812,7 +8899,6 @@ async function openDailyChallengeFromDashboard() {
         const response = await apiClient.joinTournament(tournamentId, {});
         await Promise.all([
             apiClient.loadDashboard().catch(() => null),
-            apiClient.loadProfileAnalytics().catch(() => null),
         ]);
         if (response.runtime) {
             await openTournamentRuntimeModal(tournamentId, response.runtime);
@@ -9510,7 +9596,13 @@ function initTeamInteractions(container) {
                         }
                     }
                     subviewContainer.innerHTML = renderTeamAnalytics();
-                    initAnalyticsChart("team", "week");
+                    await ensureChartJsLoaded().catch((error) => {
+                        console.error(error);
+                        return null;
+                    });
+                    if (window.Chart?.getChart) {
+                        initAnalyticsChart("team", "week");
+                    }
 
                     // Add listeners for period buttons
                     const periodBtns =
@@ -9756,11 +9848,10 @@ async function openLeaderboardModal(tournamentId, mode = "view") {
         if (mode === "join") {
             const response = await apiClient.joinTournament(tournamentId);
             payload = response.leaderboard;
-            await apiClient.loadTournaments();
-            if (getTeamState().inTeam) {
-                await apiClient.loadTeamAnalytics();
-            }
-            await apiClient.loadProfileAnalytics();
+            await Promise.all([
+                apiClient.loadDashboard().catch(() => null),
+                apiClient.loadTournaments().catch(() => null),
+            ]);
         } else {
             payload = await apiClient.loadTournamentLeaderboard(tournamentId);
         }
@@ -10302,6 +10393,7 @@ function startTournamentRuntimeClock(runtime) {
     }
 
     stopTournamentRuntimeTimers();
+    tournamentRuntimeUiState.deadlineRefreshDone = false;
     node.textContent = formatRuntimeCountdown(runtime.tournament.endAt);
     runtimeClockInterval = window.setInterval(() => {
         const runtimeState = getTournamentRuntimeState();
@@ -10311,11 +10403,24 @@ function startTournamentRuntimeClock(runtime) {
         }
 
         node.textContent = formatRuntimeCountdown(runtimeState.tournament.endAt);
+        const endAtMs = Date.parse(runtimeState.tournament.endAt || "");
         if (
             runtimeState.tournament.status === "live" &&
-            !isTournamentRuntimeEditable(runtimeState.tournament)
+            !isTournamentRuntimeEditable(runtimeState.tournament) &&
+            Number.isFinite(endAtMs) &&
+            endAtMs <= Date.now() &&
+            !tournamentRuntimeUiState.deadlineRefreshDone
         ) {
-            refreshTournamentRuntimeSilently();
+            tournamentRuntimeUiState.deadlineRefreshDone = true;
+            if (runtimeClockInterval) {
+                clearInterval(runtimeClockInterval);
+                runtimeClockInterval = null;
+            }
+            if (runtimeRefreshInterval) {
+                clearInterval(runtimeRefreshInterval);
+                runtimeRefreshInterval = null;
+            }
+            void refreshTournamentRuntimeSilently();
         }
     }, 1000);
 }
@@ -10800,7 +10905,6 @@ function initTournamentsInteractions(container) {
                             await Promise.all([
                                 apiClient.loadDashboard(),
                                 apiClient.loadTournaments(),
-                                apiClient.loadProfileAnalytics(),
                             ]);
                             if (response.runtime) {
                                 await openTournamentRuntimeModal(
@@ -11381,7 +11485,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initAnalyticsChart(scope = "profile", period = "week") {
     const canvas = document.getElementById("performanceChart");
-    if (!canvas) return;
+    if (!canvas || !window.Chart?.getChart) return;
 
     const ctx = canvas.getContext("2d");
     const labels = [];
@@ -11442,10 +11546,10 @@ function initAnalyticsChart(scope = "profile", period = "week") {
     fillGradient.addColorStop(0, accentFrom + fillAlpha);
     fillGradient.addColorStop(1, accentFrom + "00");
 
-    const existingChart = Chart.getChart(canvas);
+    const existingChart = window.Chart.getChart(canvas);
     if (existingChart) existingChart.destroy();
 
-    new Chart(ctx, {
+    new window.Chart(ctx, {
         type: "line",
         data: {
             labels: labels,

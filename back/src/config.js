@@ -142,6 +142,14 @@ module.exports = {
   IS_PRODUCTION: NODE_ENV === "production",
   SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME || "qb_session",
   SESSION_TTL_MS: 1000 * 60 * 60 * 24 * 14,
+  SESSION_TOUCH_INTERVAL_MS: parseInteger(
+    process.env.SESSION_TOUCH_INTERVAL_MS,
+    5 * 60 * 1000,
+    {
+      min: 30 * 1000,
+      max: 24 * 60 * 60 * 1000,
+    },
+  ),
   AUTH_CHALLENGE_TTL_MS: 1000 * 60 * 10,
   PASSWORD_RESET_TTL_MS: 1000 * 60 * 20,
   OAUTH_STATE_TTL_MS: 1000 * 60 * 10,
@@ -185,6 +193,18 @@ module.exports = {
       max: 10_000,
     },
   ),
+  SQLITE_BUSY_TIMEOUT_MS: parseInteger(
+    process.env.SQLITE_BUSY_TIMEOUT_MS,
+    5_000,
+    {
+      min: 1_000,
+      max: 60_000,
+    },
+  ),
+  SEED_DEMO_DATA:
+    process.env.SEED_DEMO_DATA === undefined
+      ? NODE_ENV !== "production"
+      : parseBoolean(process.env.SEED_DEMO_DATA, NODE_ENV !== "production"),
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
   GOOGLE_CALLBACK_URL:

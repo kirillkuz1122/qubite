@@ -2,7 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-const { DATABASE_PATH } = require("./config");
+const {
+    DATABASE_PATH,
+    SQLITE_BUSY_TIMEOUT_MS,
+    SEED_DEMO_DATA,
+} = require("./config");
 const {
     buildDisplayName,
     makeUid,
@@ -15,9 +19,20 @@ const { buildTaskSnapshot } = require("./task-runtime");
 fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
 
 const db = new sqlite3.Database(DATABASE_PATH);
-db.serialize(() => {
+let dailyTournamentCache = {
+    key: null,
+    row: null,
+};
+
+function applyDatabasePragmas() {
     db.run("PRAGMA foreign_keys = ON");
     db.run("PRAGMA journal_mode = WAL");
+    db.run(`PRAGMA busy_timeout = ${Math.max(Number(SQLITE_BUSY_TIMEOUT_MS || 0), 0)}`);
+    db.run("PRAGMA temp_store = MEMORY");
+}
+
+db.serialize(() => {
+    applyDatabasePragmas();
 });
 
 function run(sql, params = []) {
@@ -402,11 +417,15 @@ function buildTournamentAction(status, joined) {
 }
 
 async function initializeDatabase(options = {}) {
-    const seedDemoData = options.seedDemoData !== false;
+    const seedDemoData =
+        options.seedDemoData === undefined ? SEED_DEMO_DATA : options.seedDemoData;
+    applyDatabasePragmas();
 
     await exec(`
         PRAGMA foreign_keys = ON;
         PRAGMA journal_mode = WAL;
+        PRAGMA busy_timeout = ${Math.max(Number(SQLITE_BUSY_TIMEOUT_MS || 0), 0)};
+        PRAGMA temp_store = MEMORY;
 
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -940,8 +959,14 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_users_status
         ON users (status);
 
+        CREATE INDEX IF NOT EXISTS idx_users_role_status_rating
+        ON users (role, status, rating DESC, updated_at DESC);
+
         CREATE INDEX IF NOT EXISTS idx_task_bank_scope_status
         ON task_bank (bank_scope, moderation_status);
+
+        CREATE INDEX IF NOT EXISTS idx_task_bank_owner_scope_status
+        ON task_bank (owner_user_id, bank_scope, moderation_status);
 
         CREATE INDEX IF NOT EXISTS idx_task_bank_source
         ON task_bank (source_task_id);
@@ -949,12 +974,30 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_tournaments_runtime_mode
         ON tournaments (runtime_mode);
 
+        CREATE INDEX IF NOT EXISTS idx_tournaments_owner_status_updated
+        ON tournaments (owner_user_id, status, updated_at DESC);
+
         CREATE UNIQUE INDEX IF NOT EXISTS idx_tournaments_daily_key
         ON tournaments (daily_key)
         WHERE daily_key IS NOT NULL;
 
         CREATE INDEX IF NOT EXISTS idx_tournament_entries_rank
         ON tournament_entries (tournament_id, score DESC, penalty_seconds ASC, last_submission_at ASC);
+
+        CREATE INDEX IF NOT EXISTS idx_audit_log_actor_created_at
+        ON audit_log (actor_user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_active_user_updated
+        ON sessions (user_id, updated_at DESC)
+        WHERE revoked_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_active_expires
+        ON sessions (expires_at)
+        WHERE revoked_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_active_updated
+        ON sessions (updated_at)
+        WHERE revoked_at IS NULL;
     `);
 
     await exec(`
@@ -1035,6 +1078,9 @@ async function initializeDatabase(options = {}) {
 
         CREATE INDEX IF NOT EXISTS idx_tournament_submissions_task_time
         ON tournament_submissions (tournament_task_id, submitted_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_tournament_entry_time
+        ON tournament_submissions (tournament_id, entry_id, submitted_at DESC, id DESC);
     `);
 
     await run(
@@ -1701,7 +1747,14 @@ async function cleanupExpiredArtifacts() {
         `
             DELETE FROM sessions
             WHERE revoked_at IS NOT NULL
-               OR expires_at <= ?
+        `,
+    );
+
+    await run(
+        `
+            DELETE FROM sessions
+            WHERE revoked_at IS NULL
+              AND expires_at <= ?
         `,
         [timestamp],
     );
@@ -3665,7 +3718,11 @@ async function getDailyTournamentByKey(dailyKey) {
         return null;
     }
 
-    return get(
+    if (dailyTournamentCache.key === dailyKey && dailyTournamentCache.row) {
+        return dailyTournamentCache.row;
+    }
+
+    const row = await get(
         `
             SELECT
                 t.*,
@@ -3686,6 +3743,13 @@ async function getDailyTournamentByKey(dailyKey) {
         `,
         [dailyKey],
     );
+    if (row) {
+        dailyTournamentCache = {
+            key: dailyKey,
+            row,
+        };
+    }
+    return row;
 }
 
 async function ensureDailyTournamentForDate(date = new Date()) {
@@ -3706,7 +3770,7 @@ async function ensureDailyTournamentForDate(date = new Date()) {
     );
 
     try {
-        return await withTransaction(async () => {
+        const created = await withTransaction(async () => {
             const timestamp = nowIso();
             const title = formatDailyTournamentTitle(date);
             const slug = await buildUniqueTournamentSlug(`${title} ${bounds.key}`);
@@ -3780,6 +3844,13 @@ async function ensureDailyTournamentForDate(date = new Date()) {
 
             return getTournamentById(insert.lastID);
         });
+        if (created) {
+            dailyTournamentCache = {
+                key: bounds.key,
+                row: created,
+            };
+        }
+        return created;
     } catch (error) {
         if (/daily_key/i.test(String(error.message || ""))) {
             return getDailyTournamentByKey(bounds.key);
@@ -4010,29 +4081,34 @@ async function listOrganizerTournaments(ownerUserId) {
 }
 
 async function getOrganizerOverview(ownerUserId) {
-    const [tournamentRow, draftRow, liveRow, taskRow, pendingTaskRow] =
-        await Promise.all([
-            get(
-                "SELECT COUNT(*) AS count FROM tournaments WHERE owner_user_id = ?",
-                [ownerUserId],
-            ),
-            get(
-                "SELECT COUNT(*) AS count FROM tournaments WHERE owner_user_id = ? AND status = 'draft'",
-                [ownerUserId],
-            ),
-            get(
-                "SELECT COUNT(*) AS count FROM tournaments WHERE owner_user_id = ? AND status = 'live'",
-                [ownerUserId],
-            ),
-            get(
-                "SELECT COUNT(*) AS count FROM task_bank WHERE owner_user_id = ? AND bank_scope = 'personal' AND moderation_status = 'draft'",
-                [ownerUserId],
-            ),
-            get(
-                "SELECT COUNT(*) AS count FROM task_bank WHERE owner_user_id = ? AND moderation_status = 'pending_review'",
-                [ownerUserId],
-            ),
-        ]);
+    const summary = await get(
+        `
+            SELECT
+                (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ?) AS tournaments_count,
+                (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ? AND status = 'draft') AS drafts_count,
+                (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ? AND status = 'live') AS live_count,
+                (
+                    SELECT COUNT(*)
+                    FROM task_bank
+                    WHERE owner_user_id = ?
+                      AND bank_scope = 'personal'
+                      AND moderation_status = 'draft'
+                ) AS personal_tasks_count,
+                (
+                    SELECT COUNT(*)
+                    FROM task_bank
+                    WHERE owner_user_id = ?
+                      AND moderation_status = 'pending_review'
+                ) AS pending_tasks_count
+        `,
+        [
+            ownerUserId,
+            ownerUserId,
+            ownerUserId,
+            ownerUserId,
+            ownerUserId,
+        ],
+    );
 
     const recentActions = await all(
         `
@@ -4046,11 +4122,11 @@ async function getOrganizerOverview(ownerUserId) {
     );
 
     return {
-        tournamentsCount: Number(tournamentRow?.count || 0),
-        draftsCount: Number(draftRow?.count || 0),
-        liveCount: Number(liveRow?.count || 0),
-        personalTasksCount: Number(taskRow?.count || 0),
-        pendingTasksCount: Number(pendingTaskRow?.count || 0),
+        tournamentsCount: Number(summary?.tournaments_count || 0),
+        draftsCount: Number(summary?.drafts_count || 0),
+        liveCount: Number(summary?.live_count || 0),
+        personalTasksCount: Number(summary?.personal_tasks_count || 0),
+        pendingTasksCount: Number(summary?.pending_tasks_count || 0),
         recentActions,
     };
 }
@@ -4180,6 +4256,40 @@ async function listTournamentTasks(tournamentId) {
         `,
         [tournamentId],
     );
+}
+
+async function listTournamentTaskIdsByTournamentIds(tournamentIds = []) {
+    const normalizedIds = (Array.isArray(tournamentIds) ? tournamentIds : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+    if (normalizedIds.length === 0) {
+        return new Map();
+    }
+
+    const placeholders = normalizedIds.map(() => "?").join(", ");
+    const rows = await all(
+        `
+            SELECT tournament_id, task_id
+            FROM tournament_tasks
+            WHERE tournament_id IN (${placeholders})
+            ORDER BY tournament_id ASC, sort_order ASC, id ASC
+        `,
+        normalizedIds,
+    );
+
+    const taskIdsByTournamentId = new Map();
+    normalizedIds.forEach((tournamentId) => {
+        taskIdsByTournamentId.set(tournamentId, []);
+    });
+    rows.forEach((row) => {
+        const tournamentId = Number(row.tournament_id || 0);
+        if (!taskIdsByTournamentId.has(tournamentId)) {
+            taskIdsByTournamentId.set(tournamentId, []);
+        }
+        taskIdsByTournamentId.get(tournamentId).push(Number(row.task_id || 0));
+    });
+
+    return taskIdsByTournamentId;
 }
 
 async function listTournamentRosterEntries(tournamentId) {
@@ -4375,28 +4485,37 @@ async function refreshTournamentParticipantsCount(tournamentId) {
 }
 
 async function recalculateTournamentRanks(tournamentId) {
-    const entries = await all(
+    await run(
         `
-            SELECT id
-            FROM tournament_entries
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            score DESC,
+                            solved_count DESC,
+                            penalty_seconds ASC,
+                            CASE
+                                WHEN last_submission_at IS NULL
+                                    THEN '9999-12-31T23:59:59.999Z'
+                                ELSE last_submission_at
+                            END ASC,
+                            updated_at ASC,
+                            id ASC
+                    ) AS next_rank
+                FROM tournament_entries
+                WHERE tournament_id = ?
+            )
+            UPDATE tournament_entries
+            SET rank_position = (
+                SELECT ranked.next_rank
+                FROM ranked
+                WHERE ranked.id = tournament_entries.id
+            )
             WHERE tournament_id = ?
-            ORDER BY
-                score DESC,
-                solved_count DESC,
-                penalty_seconds ASC,
-                CASE WHEN last_submission_at IS NULL THEN '9999-12-31T23:59:59.999Z' ELSE last_submission_at END ASC,
-                updated_at ASC,
-                id ASC
         `,
-        [tournamentId],
+        [tournamentId, tournamentId],
     );
-
-    for (const [index, entry] of entries.entries()) {
-        await run(
-            "UPDATE tournament_entries SET rank_position = ? WHERE id = ?",
-            [index + 1, entry.id],
-        );
-    }
 }
 
 async function joinTournament(payload) {
@@ -5101,37 +5220,60 @@ async function listTopPlayers(limit = 10) {
         [safeLimit],
     );
 
-    const enriched = [];
-    for (const player of players) {
-        const recentRanks = await all(
-            `
-                SELECT te.rank_position
+    if (players.length === 0) {
+        return [];
+    }
+
+    const playerIds = players.map((player) => Number(player.id)).filter(Boolean);
+    const placeholders = playerIds.map(() => "?").join(", ");
+    const recentRanks = await all(
+        `
+            SELECT user_id, rank_position
+            FROM (
+                SELECT
+                    te.user_id,
+                    te.rank_position,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY te.user_id
+                        ORDER BY COALESCE(t.end_at, t.start_at) DESC, te.id DESC
+                    ) AS row_number
                 FROM tournament_entries te
                 JOIN tournaments t ON t.id = te.tournament_id
-                WHERE te.user_id = ?
+                WHERE te.user_id IN (${placeholders})
                   AND COALESCE(t.is_daily, 0) = 0
-                ORDER BY COALESCE(t.end_at, t.start_at) DESC
-                LIMIT 12
-            `,
-            [player.id],
-        );
+            ) ranked
+            WHERE row_number <= 12
+            ORDER BY user_id ASC, row_number ASC
+        `,
+        playerIds,
+    );
+
+    const ranksByPlayerId = new Map();
+    recentRanks.forEach((item) => {
+        const playerId = Number(item.user_id || 0);
+        if (!ranksByPlayerId.has(playerId)) {
+            ranksByPlayerId.set(playerId, []);
+        }
+        ranksByPlayerId.get(playerId).push(Number(item.rank_position || 0));
+    });
+
+    return players.map((player) => {
+        const ranks = ranksByPlayerId.get(Number(player.id)) || [];
         let streakCount = 0;
-        for (const item of recentRanks) {
-            if (Number(item.rank_position || 0) !== 1) {
+        for (const rank of ranks) {
+            if (rank !== 1) {
                 break;
             }
             streakCount += 1;
         }
 
-        enriched.push({
+        return {
             ...player,
             wins_count: Number(player.wins_count || 0),
             podium_count: Number(player.podium_count || 0),
             streak_count: streakCount,
-        });
-    }
-
-    return enriched;
+        };
+    });
 }
 
 async function getPlatformMetrics() {
@@ -5505,13 +5647,20 @@ async function reviewOrganizerApplication(
 async function listModerationUsers() {
     return all(
         `
+            WITH active_sessions AS (
+                SELECT
+                    user_id,
+                    COUNT(*) AS active_sessions
+                FROM sessions
+                WHERE revoked_at IS NULL
+                  AND expires_at > ?
+                GROUP BY user_id
+            )
             SELECT
                 u.*,
-                (SELECT COUNT(*) FROM sessions s
-                    WHERE s.user_id = u.id
-                      AND s.revoked_at IS NULL
-                      AND s.expires_at > ?) AS active_sessions
+                COALESCE(active_sessions.active_sessions, 0) AS active_sessions
             FROM users u
+            LEFT JOIN active_sessions ON active_sessions.user_id = u.id
             WHERE u.status != 'deleted'
             ORDER BY
                 CASE u.status WHEN 'blocked' THEN 0 ELSE 1 END,
@@ -5522,68 +5671,102 @@ async function listModerationUsers() {
 }
 
 async function getAdminOverview() {
-    const [
-        userRow,
-        adminRow,
-        ownerRow,
-        moderatorRow,
-        organizerRow,
-        blockedRow,
-        teamRow,
-        taskRow,
-        pendingTaskRow,
-        tournamentRow,
-        liveRow,
-        applicationRow,
-    ] =
-        await Promise.all([
-            get("SELECT COUNT(*) AS count FROM users WHERE status != 'deleted'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE role IN ('admin', 'owner') AND status = 'active'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE role = 'owner' AND status = 'active'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE role = 'moderator' AND status = 'active'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE role = 'organizer' AND status = 'active'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE status = 'blocked'"),
-            get("SELECT COUNT(*) AS count FROM teams"),
-            get("SELECT COUNT(*) AS count FROM task_bank WHERE moderation_status != 'archived'"),
-            get("SELECT COUNT(*) AS count FROM task_bank WHERE moderation_status = 'pending_review'"),
-            get("SELECT COUNT(*) AS count FROM tournaments"),
-            get("SELECT COUNT(*) AS count FROM tournaments WHERE status = 'live'"),
-            get("SELECT COUNT(*) AS count FROM organizer_applications WHERE status = 'pending'"),
-        ]);
+    const summary = await get(
+        `
+            SELECT
+                (SELECT COUNT(*) FROM users WHERE status != 'deleted') AS users_count,
+                (
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE role IN ('admin', 'owner')
+                      AND status = 'active'
+                ) AS admins_count,
+                (
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE role = 'owner'
+                      AND status = 'active'
+                ) AS owners_count,
+                (
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE role = 'moderator'
+                      AND status = 'active'
+                ) AS moderators_count,
+                (
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE role = 'organizer'
+                      AND status = 'active'
+                ) AS organizers_count,
+                (SELECT COUNT(*) FROM users WHERE status = 'blocked') AS blocked_users_count,
+                (SELECT COUNT(*) FROM teams) AS teams_count,
+                (
+                    SELECT COUNT(*)
+                    FROM task_bank
+                    WHERE moderation_status != 'archived'
+                ) AS tasks_count,
+                (
+                    SELECT COUNT(*)
+                    FROM task_bank
+                    WHERE moderation_status = 'pending_review'
+                ) AS pending_task_moderation_count,
+                (SELECT COUNT(*) FROM tournaments) AS tournaments_count,
+                (SELECT COUNT(*) FROM tournaments WHERE status = 'live') AS live_tournaments_count,
+                (
+                    SELECT COUNT(*)
+                    FROM organizer_applications
+                    WHERE status = 'pending'
+                ) AS pending_organizer_applications_count
+        `,
+    );
 
     return {
-        usersCount: Number(userRow?.count || 0),
-        adminsCount: Number(adminRow?.count || 0),
-        ownersCount: Number(ownerRow?.count || 0),
-        moderatorsCount: Number(moderatorRow?.count || 0),
-        organizersCount: Number(organizerRow?.count || 0),
-        blockedUsersCount: Number(blockedRow?.count || 0),
-        teamsCount: Number(teamRow?.count || 0),
-        tasksCount: Number(taskRow?.count || 0),
-        pendingTaskModerationCount: Number(pendingTaskRow?.count || 0),
-        tournamentsCount: Number(tournamentRow?.count || 0),
-        liveTournamentsCount: Number(liveRow?.count || 0),
-        pendingOrganizerApplicationsCount: Number(applicationRow?.count || 0),
+        usersCount: Number(summary?.users_count || 0),
+        adminsCount: Number(summary?.admins_count || 0),
+        ownersCount: Number(summary?.owners_count || 0),
+        moderatorsCount: Number(summary?.moderators_count || 0),
+        organizersCount: Number(summary?.organizers_count || 0),
+        blockedUsersCount: Number(summary?.blocked_users_count || 0),
+        teamsCount: Number(summary?.teams_count || 0),
+        tasksCount: Number(summary?.tasks_count || 0),
+        pendingTaskModerationCount: Number(
+            summary?.pending_task_moderation_count || 0,
+        ),
+        tournamentsCount: Number(summary?.tournaments_count || 0),
+        liveTournamentsCount: Number(summary?.live_tournaments_count || 0),
+        pendingOrganizerApplicationsCount: Number(
+            summary?.pending_organizer_applications_count || 0,
+        ),
     };
 }
 
 async function listAdminUsers() {
     return all(
         `
+            WITH active_sessions AS (
+                SELECT
+                    user_id,
+                    COUNT(*) AS active_sessions
+                FROM sessions
+                WHERE revoked_at IS NULL
+                  AND expires_at > ?
+                GROUP BY user_id
+            ),
+            user_teams AS (
+                SELECT
+                    tm.user_id,
+                    t.name AS team_name
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+            )
             SELECT
                 u.*,
-                (SELECT COUNT(*) FROM sessions s
-                    WHERE s.user_id = u.id
-                      AND s.revoked_at IS NULL
-                      AND s.expires_at > ?) AS active_sessions,
-                (
-                    SELECT t.name
-                    FROM team_members tm
-                    JOIN teams t ON t.id = tm.team_id
-                    WHERE tm.user_id = u.id
-                    LIMIT 1
-                ) AS team_name
+                COALESCE(active_sessions.active_sessions, 0) AS active_sessions,
+                COALESCE(user_teams.team_name, '') AS team_name
             FROM users u
+            LEFT JOIN active_sessions ON active_sessions.user_id = u.id
+            LEFT JOIN user_teams ON user_teams.user_id = u.id
             ORDER BY
                 CASE u.role
                     WHEN 'owner' THEN 0
@@ -5845,6 +6028,7 @@ module.exports = {
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,
     listTournamentSubmissionsForEntry,
+    listTournamentTaskIdsByTournamentIds,
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,

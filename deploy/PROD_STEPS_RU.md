@@ -35,6 +35,7 @@ ALLOWED_ORIGINS=https://qubiteapp.ru,https://www.qubiteapp.ru
 ALLOWED_HOSTS=qubiteapp.ru,www.qubiteapp.ru
 
 SESSION_COOKIE_NAME=qb_session
+SESSION_TOUCH_INTERVAL_MS=300000
 
 JSON_BODY_LIMIT=32kb
 HEAVY_JSON_BODY_LIMIT=256kb
@@ -43,6 +44,9 @@ REQUEST_TIMEOUT_MS=15000
 HEADERS_TIMEOUT_MS=12000
 KEEP_ALIVE_TIMEOUT_MS=5000
 MAX_REQUESTS_PER_SOCKET=100
+SQLITE_BUSY_TIMEOUT_MS=5000
+SEED_DEMO_DATA=false
+NODE_OPTIONS=--max-old-space-size=256
 
 EMAIL_DELIVERY_MODE=log
 EMAIL_FROM=Qubite <no-reply@qubiteapp.ru>
@@ -67,6 +71,10 @@ YANDEX_CALLBACK_URL=https://qubiteapp.ru/api/auth/oauth/yandex/callback
 - `HOST=127.0.0.1`, а не `0.0.0.0`
 - `TRUST_PROXY=1`, потому что перед Node стоит Nginx
 - `APP_BASE_URL` должен быть ровно `https://qubiteapp.ru`
+- `SESSION_TOUCH_INTERVAL_MS=300000` уменьшает лишние записи в SQLite по активным сессиям
+- `SQLITE_BUSY_TIMEOUT_MS=5000` полезен для маленького VPS и снижает шанс transient `database is locked`
+- `SEED_DEMO_DATA=false` обязательно для production, чтобы не тратить startup на demo-seed
+- `NODE_OPTIONS=--max-old-space-size=256` или `384` достаточно для этого проекта на 1 GB RAM
 - если Turnstile еще не включили, сайт будет требовать его на register/login/forgot в production, так что ключи лучше добавить сразу
 
 ## 3. Назначить admin и owner
@@ -118,6 +126,8 @@ systemctl reload nginx
 - если `nginx -t` скажет, что сертификат не подходит для `.online`, временно закомментируйте именно `server_name qubiteapp.online www.qubiteapp.online;` блок на `443`
 
 ## 5. Перезапустить backend через PM2
+
+Для SQLite лучше держать один Node-процесс. Не включайте PM2 cluster mode для этого инстанса.
 
 Если у вас приложение уже в PM2:
 

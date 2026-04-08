@@ -1,5 +1,8 @@
 (function initQubiteApi(windowObject) {
     const ROLE_PREVIEW_ACTIVE_STORAGE_KEY = "qubite.rolePreviewActive";
+    const PUBLIC_LANDING_CACHE_TTL_MS = 15 * 1000;
+    const PUBLIC_CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
+    const RATING_CACHE_TTL_MS = 15 * 1000;
     const state = {
         bootstrapped: false,
         user: null,
@@ -37,6 +40,22 @@
         adminAudit: [],
     };
 
+    function createLocalCache(ttlMs) {
+        return {
+            ttlMs,
+            entries: new Map(),
+            inflight: new Map(),
+        };
+    }
+
+    const publicLandingRequestCache = createLocalCache(
+        PUBLIC_LANDING_CACHE_TTL_MS,
+    );
+    const publicConfigRequestCache = createLocalCache(
+        PUBLIC_CONFIG_CACHE_TTL_MS,
+    );
+    const ratingRequestCache = createLocalCache(RATING_CACHE_TTL_MS);
+
     function escapeHtml(value) {
         return String(value ?? "").replace(
             /[&<>"']/g,
@@ -64,6 +83,7 @@
         state.profileAnalytics = null;
         state.teamAnalytics = null;
         state.taskBank = [];
+        state.oauthProviders = [];
         state.organizerOverview = null;
         state.organizerTournaments = [];
         state.organizerTasks = {
@@ -84,6 +104,54 @@
         state.adminTournaments = [];
         state.adminApplications = [];
         state.adminAudit = [];
+    }
+
+    function readLocalCache(cache, key = "default") {
+        const entry = cache.entries.get(key);
+        if (!entry) {
+            return null;
+        }
+
+        if (Date.now() >= entry.expiresAt) {
+            cache.entries.delete(key);
+            return null;
+        }
+
+        return entry.value;
+    }
+
+    function writeLocalCache(cache, value, key = "default") {
+        cache.entries.set(key, {
+            value,
+            expiresAt: Date.now() + cache.ttlMs,
+        });
+        return value;
+    }
+
+    function clearLocalCache(cache) {
+        cache.entries.clear();
+        cache.inflight.clear();
+    }
+
+    async function getCachedResource(cache, key, loader) {
+        const cached = readLocalCache(cache, key);
+        if (cached !== null) {
+            return cached;
+        }
+
+        const inflight = cache.inflight.get(key);
+        if (inflight) {
+            return inflight;
+        }
+
+        const promise = Promise.resolve()
+            .then(loader)
+            .then((value) => writeLocalCache(cache, value, key))
+            .finally(() => {
+                cache.inflight.delete(key);
+            });
+        cache.inflight.set(key, promise);
+        return promise;
     }
 
     function syncUser(user) {
@@ -121,6 +189,16 @@
     function syncRating(items) {
         state.rating = Array.isArray(items) ? [...items] : [];
         return state.rating;
+    }
+
+    function syncDashboard(payload) {
+        state.dashboard = payload ? { ...payload } : null;
+        return state.dashboard;
+    }
+
+    function syncTournaments(items) {
+        state.tournaments = Array.isArray(items) ? [...items] : [];
+        return state.tournaments;
     }
 
     function syncTeam(team) {
@@ -245,6 +323,212 @@
         return state.adminAudit;
     }
 
+    function upsertById(items, item, { prepend = false } = {}) {
+        const nextItems = Array.isArray(items) ? [...items] : [];
+        const index = nextItems.findIndex(
+            (entry) => Number(entry?.id) === Number(item?.id),
+        );
+
+        if (index >= 0) {
+            nextItems[index] = item;
+            return nextItems;
+        }
+
+        if (prepend) {
+            nextItems.unshift(item);
+            return nextItems;
+        }
+
+        nextItems.push(item);
+        return nextItems;
+    }
+
+    function removeById(items, itemId) {
+        return (Array.isArray(items) ? items : []).filter(
+            (item) => Number(item?.id) !== Number(itemId),
+        );
+    }
+
+    function buildDisplayName(user) {
+        const parts = [user?.lastName, user?.firstName, user?.middleName].filter(
+            Boolean,
+        );
+        if (parts.length > 0) {
+            return parts.join(" ");
+        }
+        return user?.login || "Пользователь";
+    }
+
+    function buildInitials(user) {
+        const source = [user?.firstName, user?.lastName].filter(Boolean);
+        if (source.length > 0) {
+            return source
+                .map((value) => String(value).trim().charAt(0).toUpperCase())
+                .join("")
+                .slice(0, 2);
+        }
+
+        return String(user?.login || "")
+            .trim()
+            .slice(0, 2)
+            .toUpperCase();
+    }
+
+    function syncDashboardProfileFromUser(user) {
+        if (!user || !state.dashboard?.profile) {
+            return state.dashboard;
+        }
+
+        state.dashboard = {
+            ...state.dashboard,
+            profile: {
+                ...state.dashboard.profile,
+                fullName: buildDisplayName(user),
+                initials: buildInitials(user),
+                avatarUrl: user.avatarUrl || "",
+                loginTag: user.login ? `@${user.login}` : "",
+                rating: Number(user.rating || 1450).toLocaleString("ru-RU"),
+                rankTitle: user.rankTitle || state.dashboard.profile.rankTitle,
+            },
+        };
+
+        return state.dashboard;
+    }
+
+    function resolveOrganizerTaskBucket(item) {
+        if (!item) {
+            return null;
+        }
+
+        if (item.bankScope === "shared" && item.moderationStatus === "approved_shared") {
+            return "shared";
+        }
+
+        if (item.bankScope === "personal" && item.moderationStatus === "draft") {
+            return "personal";
+        }
+
+        if (["pending_review", "rejected"].includes(item.moderationStatus)) {
+            return "pending";
+        }
+
+        return null;
+    }
+
+    function syncOrganizerTaskItem(item, options = {}) {
+        const nextBuckets = {
+            personal: removeById(state.organizerTasks.personal, item?.id),
+            shared: removeById(state.organizerTasks.shared, item?.id),
+            pending: removeById(state.organizerTasks.pending, item?.id),
+        };
+        const bucket = resolveOrganizerTaskBucket(item);
+        if (bucket) {
+            nextBuckets[bucket] = upsertById(nextBuckets[bucket], item, options);
+        }
+
+        syncOrganizerTasks(nextBuckets);
+        return state.organizerTasks;
+    }
+
+    function syncOrganizerTournamentItem(item, options = {}) {
+        syncOrganizerTournaments(
+            upsertById(state.organizerTournaments, item, options),
+        );
+        return state.organizerTournaments;
+    }
+
+    function syncAdminUserItem(item) {
+        syncAdminUsers(upsertById(state.adminUsers, item));
+        syncModerationUsers(upsertById(state.moderationUsers, item));
+        return item;
+    }
+
+    function syncAdminTaskItem(item) {
+        syncAdminTasks(upsertById(state.adminTasks, item));
+        return item;
+    }
+
+    function syncAdminTournamentItem(item) {
+        syncAdminTournaments(upsertById(state.adminTournaments, item));
+        syncTournaments(upsertById(state.tournaments, item));
+        return item;
+    }
+
+    function applyWorkspaceBootstrap(data) {
+        if (!data || typeof data !== "object") {
+            return data;
+        }
+
+        if ("profile" in data) {
+            syncProfile(data.profile);
+        }
+        if ("oauthProviders" in data) {
+            syncOAuthProviders(data.oauthProviders || []);
+        }
+        if ("dashboard" in data) {
+            syncDashboard(data.dashboard);
+        }
+        if ("tournaments" in data) {
+            syncTournaments(data.tournaments || []);
+        }
+        if ("team" in data) {
+            syncTeam(data.team);
+        }
+        if ("profileAnalytics" in data) {
+            syncProfileAnalytics(data.profileAnalytics);
+        }
+        if ("teamAnalytics" in data) {
+            syncTeamAnalytics(data.teamAnalytics);
+        }
+        if ("organizerApplications" in data) {
+            syncOrganizerApplications(data.organizerApplications || []);
+        }
+        if ("organizerOverview" in data) {
+            syncOrganizerOverview(data.organizerOverview);
+        }
+        if ("organizerTournaments" in data) {
+            syncOrganizerTournaments(data.organizerTournaments || []);
+        }
+        if ("organizerTasks" in data) {
+            syncOrganizerTasks(data.organizerTasks);
+        }
+        if ("moderationOverview" in data) {
+            syncModerationOverview(data.moderationOverview);
+        }
+        if ("moderationTasks" in data) {
+            syncModerationTasks(data.moderationTasks || []);
+        }
+        if ("moderationApplications" in data) {
+            syncModerationApplications(data.moderationApplications || []);
+        }
+        if ("moderationUsers" in data) {
+            syncModerationUsers(data.moderationUsers || []);
+        }
+        if ("adminOverview" in data) {
+            syncAdminOverview(data.adminOverview);
+        }
+        if ("adminUsers" in data) {
+            syncAdminUsers(data.adminUsers || []);
+        }
+        if ("adminTeams" in data) {
+            syncAdminTeams(data.adminTeams || []);
+        }
+        if ("adminTasks" in data) {
+            syncAdminTasks(data.adminTasks || []);
+        }
+        if ("adminTournaments" in data) {
+            syncAdminTournaments(data.adminTournaments || []);
+        }
+        if ("adminApplications" in data) {
+            syncAdminApplications(data.adminApplications || []);
+        }
+        if ("adminAudit" in data) {
+            syncAdminAudit(data.adminAudit || []);
+        }
+
+        return data;
+    }
+
     async function request(url, options = {}) {
         if (windowObject.location.protocol === "file:") {
             throw new Error(
@@ -306,6 +590,8 @@
     async function restoreSession() {
         const data = await request("/api/auth/me");
         state.bootstrapped = true;
+        clearLocalCache(publicLandingRequestCache);
+        clearLocalCache(ratingRequestCache);
 
         if (data.authenticated && data.user) {
             syncUser(data.user);
@@ -324,6 +610,8 @@
 
         if (data.user) {
             syncUser(data.user);
+            clearLocalCache(publicLandingRequestCache);
+            clearLocalCache(ratingRequestCache);
         }
 
         return data;
@@ -337,6 +625,8 @@
 
         if (data.user) {
             syncUser(data.user);
+            clearLocalCache(publicLandingRequestCache);
+            clearLocalCache(ratingRequestCache);
         }
 
         return data;
@@ -349,6 +639,8 @@
         });
 
         syncUser(data.user);
+        clearLocalCache(publicLandingRequestCache);
+        clearLocalCache(ratingRequestCache);
         return data;
     }
 
@@ -356,36 +648,50 @@
         try {
             await request("/api/auth/logout", { method: "POST" });
         } finally {
+            clearLocalCache(publicLandingRequestCache);
+            clearLocalCache(ratingRequestCache);
             resetState();
         }
     }
 
     async function loadDashboard() {
-        state.dashboard = await request("/api/dashboard");
-        return state.dashboard;
+        const data = await request("/api/dashboard");
+        return syncDashboard(data);
     }
 
     async function loadPublicLanding() {
-        const data = await request("/api/public/landing");
+        const data = await getCachedResource(
+            publicLandingRequestCache,
+            `viewer:${state.user?.id || 0}`,
+            () => request("/api/public/landing"),
+        );
         return syncPublicLanding(data);
     }
 
     async function loadPublicConfig() {
-        const data = await request("/api/public/config");
+        const data = await getCachedResource(
+            publicConfigRequestCache,
+            "default",
+            () => request("/api/public/config"),
+        );
         return syncPublicConfig(data);
     }
 
     async function loadRating(limit = 50) {
-        const data = await request(
-            `/api/rating?limit=${encodeURIComponent(limit)}`,
+        const data = await getCachedResource(
+            ratingRequestCache,
+            `viewer:${state.user?.id || 0}:limit:${limit}`,
+            () =>
+                request(
+                    `/api/rating?limit=${encodeURIComponent(limit)}`,
+                ),
         );
         return syncRating(data.items);
     }
 
     async function loadTournaments() {
         const data = await request("/api/tournaments");
-        state.tournaments = data.items || [];
-        return state.tournaments;
+        return syncTournaments(data.items || []);
     }
 
     async function loadProfile() {
@@ -520,134 +826,8 @@
     }
 
     async function loadWorkspaceData() {
-        const role = state.user?.role || "user";
-        const isAdminLike = role === "admin" || role === "owner";
-
-        if (role === "organizer") {
-            const [
-                profile,
-                oauthProviders,
-                organizerOverview,
-                organizerTournaments,
-                organizerTasks,
-                organizerApplications,
-            ] = await Promise.all([
-                loadProfile(),
-                loadOAuthProviders(),
-                loadOrganizerOverview(),
-                loadOrganizerTournaments(),
-                loadOrganizerTasks(),
-                loadOrganizerApplications(),
-            ]);
-
-            return {
-                profile,
-                oauthProviders,
-                organizerOverview,
-                organizerTournaments,
-                organizerTasks,
-                organizerApplications,
-            };
-        }
-
-        if (role === "moderator") {
-            const [
-                profile,
-                oauthProviders,
-                moderationOverview,
-                moderationTasks,
-                moderationApplications,
-                moderationUsers,
-            ] = await Promise.all([
-                loadProfile(),
-                loadOAuthProviders(),
-                loadModerationOverview(),
-                loadModerationTasks(),
-                loadModerationApplications(),
-                loadModerationUsers(),
-            ]);
-
-            return {
-                profile,
-                oauthProviders,
-                moderationOverview,
-                moderationTasks,
-                moderationApplications,
-                moderationUsers,
-            };
-        }
-
-        if (isAdminLike) {
-            const [
-                profile,
-                oauthProviders,
-                adminOverview,
-                adminUsers,
-                adminTeams,
-                adminTasks,
-                adminTournaments,
-                adminApplications,
-                adminAudit,
-            ] = await Promise.all([
-                loadProfile(),
-                loadOAuthProviders(),
-                loadAdminOverview(),
-                loadAdminUsers(),
-                loadAdminTeams(),
-                loadAdminTasks(),
-                loadAdminTournaments(),
-                loadAdminApplications(),
-                loadAdminAudit(),
-            ]);
-
-            return {
-                profile,
-                oauthProviders,
-                adminOverview,
-                adminUsers,
-                adminTeams,
-                adminTasks,
-                adminTournaments,
-                adminApplications,
-                adminAudit,
-            };
-        }
-
-        const [
-            dashboard,
-            tournaments,
-            profile,
-            team,
-            profileAnalytics,
-            oauthProviders,
-            organizerApplications,
-        ] =
-            await Promise.all([
-                loadDashboard(),
-                loadTournaments(),
-                loadProfile(),
-                loadTeam(),
-                loadProfileAnalytics(),
-                loadOAuthProviders(),
-                loadOrganizerApplications(),
-            ]);
-
-        if (team && team.inTeam) {
-            await loadTeamAnalytics();
-        } else {
-            syncTeamAnalytics(null);
-        }
-
-        return {
-            dashboard,
-            tournaments,
-            profile,
-            team,
-            profileAnalytics,
-            oauthProviders,
-            organizerApplications,
-            teamAnalytics: state.teamAnalytics,
-        };
+        const data = await request("/api/workspace/bootstrap");
+        return applyWorkspaceBootstrap(data);
     }
 
     async function updateProfile(payload) {
@@ -661,6 +841,7 @@
             ...data.user,
             sessions: currentSessions,
         });
+        syncDashboardProfileFromUser(data.user);
 
         return data.user;
     }
@@ -905,7 +1086,8 @@
             method: "POST",
             body: JSON.stringify(payload),
         });
-        await loadOrganizerTasks();
+        syncOrganizerTaskItem(data.item, { prepend: true });
+        await loadOrganizerOverview();
         return data.item;
     }
 
@@ -914,7 +1096,8 @@
             method: "PATCH",
             body: JSON.stringify(payload),
         });
-        await loadOrganizerTasks();
+        syncOrganizerTaskItem(data.item);
+        await loadOrganizerOverview();
         return data.item;
     }
 
@@ -922,7 +1105,8 @@
         const data = await request(`/api/organizer/tasks/${taskId}/submit-review`, {
             method: "POST",
         });
-        await loadOrganizerTasks();
+        syncOrganizerTaskItem(data.item, { prepend: true });
+        await loadOrganizerOverview();
         return data.item;
     }
 
@@ -938,7 +1122,10 @@
             method: "POST",
             body: JSON.stringify({ base64File }),
         });
-        await loadOrganizerTasks();
+        (data.items || []).forEach((item) =>
+            syncOrganizerTaskItem(item, { prepend: true }),
+        );
+        await loadOrganizerOverview();
         return data;
     }
 
@@ -947,7 +1134,8 @@
             method: "POST",
             body: JSON.stringify(payload),
         });
-        await loadOrganizerTournaments();
+        syncOrganizerTournamentItem(data.item, { prepend: true });
+        await loadOrganizerOverview();
         return data.item;
     }
 
@@ -956,7 +1144,8 @@
             method: "PATCH",
             body: JSON.stringify(payload),
         });
-        await loadOrganizerTournaments();
+        syncOrganizerTournamentItem(data.item);
+        await loadOrganizerOverview();
         return data.item;
     }
 
@@ -964,9 +1153,8 @@
         const data = await request(`/api/organizer/tournaments/${tournamentId}`, {
             method: "DELETE",
         });
-        state.organizerTournaments = state.organizerTournaments.filter(
-            (item) => item.id !== tournamentId,
-        );
+        syncOrganizerTournaments(removeById(state.organizerTournaments, tournamentId));
+        await loadOrganizerOverview();
         return data;
     }
 
@@ -1012,7 +1200,11 @@
             method: "POST",
             body: JSON.stringify(payload),
         });
-        await loadOrganizerApplications();
+        syncOrganizerApplications(
+            upsertById(state.organizerApplications, data.item, {
+                prepend: true,
+            }),
+        );
         return data.item;
     }
 
@@ -1021,11 +1213,17 @@
             method: "POST",
             body: JSON.stringify(payload),
         });
-        if (state.user?.role === "admin") {
-            await Promise.all([loadModerationTasks(), loadAdminTasks()]);
-        } else {
-            await loadModerationTasks();
-        }
+        syncModerationTasks(removeById(state.moderationTasks, taskId));
+        syncAdminTaskItem(data.item);
+        await Promise.all([
+            loadModerationOverview(),
+            state.user?.role === "admin"
+                ? loadAdminOverview()
+                : Promise.resolve(state.moderationOverview),
+            state.user?.role === "admin"
+                ? loadAdminAudit()
+                : Promise.resolve(state.adminAudit),
+        ]);
         return data.item;
     }
 
@@ -1037,16 +1235,26 @@
                 body: JSON.stringify(payload),
             },
         );
-        if (state.user?.role === "admin") {
-            await Promise.all([
-                loadModerationApplications(),
-                loadModerationUsers(),
-                loadAdminApplications(),
-                loadAdminUsers(),
-            ]);
-        } else {
-            await Promise.all([loadModerationApplications(), loadModerationUsers()]);
-        }
+        syncModerationApplications(
+            upsertById(state.moderationApplications, data.item),
+        );
+        syncAdminApplications(upsertById(state.adminApplications, data.item));
+        await Promise.all([
+            loadModerationOverview(),
+            loadModerationUsers(),
+            state.user?.role === "admin"
+                ? loadAdminApplications()
+                : Promise.resolve(state.adminApplications),
+            state.user?.role === "admin"
+                ? loadAdminUsers()
+                : Promise.resolve(state.adminUsers),
+            state.user?.role === "admin"
+                ? loadAdminOverview()
+                : Promise.resolve(state.adminOverview),
+            state.user?.role === "admin"
+                ? loadAdminAudit()
+                : Promise.resolve(state.adminAudit),
+        ]);
         return data.item;
     }
 
@@ -1055,15 +1263,16 @@
             method: "PATCH",
             body: JSON.stringify(payload),
         });
-        if (state.user?.role === "admin") {
-            await Promise.all([
-                loadModerationUsers(),
-                loadAdminUsers(),
-                loadAdminOverview(),
-            ]);
-        } else {
-            await loadModerationUsers();
-        }
+        syncAdminUserItem(data.item);
+        await Promise.all([
+            loadModerationOverview(),
+            state.user?.role === "admin"
+                ? loadAdminOverview()
+                : Promise.resolve(state.adminOverview),
+            state.user?.role === "admin"
+                ? loadAdminAudit()
+                : Promise.resolve(state.adminAudit),
+        ]);
         if (state.user?.id === userId || state.profile?.id === userId) {
             syncUser({
                 status: data.item.status,
@@ -1082,9 +1291,7 @@
             body: JSON.stringify({ role }),
         });
 
-        state.adminUsers = state.adminUsers.map((item) =>
-            item.id === userId ? data.item : item,
-        );
+        syncAdminUserItem(data.item);
         if (state.user?.id === userId || state.profile?.id === userId) {
             syncUser({
                 role: data.item.role,
@@ -1103,6 +1310,8 @@
             });
         }
 
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
+
         return data.item;
     }
 
@@ -1112,12 +1321,8 @@
             body: JSON.stringify(payload),
         });
 
-        state.adminTournaments = state.adminTournaments.map((item) =>
-            item.id === tournamentId ? data.item : item,
-        );
-        state.tournaments = state.tournaments.map((item) =>
-            item.id === tournamentId ? data.item : item,
-        );
+        syncAdminTournamentItem(data.item);
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
 
         return data.item;
     }
@@ -1127,10 +1332,9 @@
             method: "DELETE",
         });
 
-        state.adminTournaments = state.adminTournaments.filter(
-            (item) => item.id !== tournamentId,
-        );
-        state.tournaments = state.tournaments.filter((item) => item.id !== tournamentId);
+        syncAdminTournaments(removeById(state.adminTournaments, tournamentId));
+        syncTournaments(removeById(state.tournaments, tournamentId));
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
         return data;
     }
 
@@ -1139,10 +1343,15 @@
             method: "DELETE",
         });
 
-        state.adminTeams = state.adminTeams.filter((item) => item.id !== teamId);
-        if (state.team && state.team.id === teamId) {
+        const deletedTeam = state.adminTeams.find(
+            (item) => Number(item?.id) === Number(teamId),
+        );
+        syncAdminTeams(removeById(state.adminTeams, teamId));
+        if (state.team && deletedTeam && state.team.id === deletedTeam.teamCode) {
             syncTeam(null);
+            syncTeamAnalytics(null);
         }
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
         return data;
     }
 
@@ -1151,8 +1360,9 @@
             method: "DELETE",
         });
 
-        state.adminTasks = state.adminTasks.filter((item) => item.id !== taskId);
-        state.taskBank = state.taskBank.filter((item) => item.id !== taskId);
+        syncAdminTasks(removeById(state.adminTasks, taskId));
+        syncTaskBank(removeById(state.taskBank, taskId));
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
         return data;
     }
 
