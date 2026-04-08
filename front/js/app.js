@@ -1861,23 +1861,31 @@ function getLandingTournamentButtonLabel(item) {
 
 function badgeTone(status) {
     const tones = {
-        active: "var(--ok)",
-        blocked: "var(--danger)",
-        deleted: "var(--fg-muted)",
-        draft: "var(--fg-muted)",
-        pending_review: "var(--accent-to)",
-        approved_shared: "var(--ok)",
-        rejected: "var(--danger)",
-        live: "var(--ok)",
-        published: "var(--accent-to)",
-        ended: "var(--fg-muted)",
-        archived: "var(--fg-muted)",
-        user: "var(--fg-muted)",
-        organizer: "var(--accent-to)",
-        moderator: "var(--warning)",
-        admin: "var(--danger)",
+        active: "success",
+        blocked: "danger",
+        deleted: "muted",
+        draft: "muted",
+        pending: "warning",
+        pending_review: "warning",
+        approved: "success",
+        approved_shared: "success",
+        rejected: "danger",
+        live: "success",
+        published: "warning",
+        upcoming: "accent",
+        ended: "muted",
+        archived: "muted",
+        user: "muted",
+        organizer: "accent",
+        moderator: "warning",
+        admin: "danger",
+        owner: "owner",
     };
-    return tones[status] || "var(--fg-muted)";
+    return tones[status] || "muted";
+}
+
+function renderOpsBadge(label, tone = "muted", extraClassName = "") {
+    return `<span class="ops-badge ops-badge--${escapeHtml(tone)} ${escapeHtml(extraClassName).trim()}">${escapeHtml(label)}</span>`;
 }
 
 function readFileAsBase64(file) {
@@ -2550,7 +2558,7 @@ const DYNAMIC_MODALS_HTML = `
         <input type="hidden" name="turnstileToken" value="">
         <div class="field turnstile-field">
           <div class="turnstile-shell">
-            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div class="turnstile-shell__label">Подтвердите, что вы не бот.</div>
             <div data-turnstile-slot></div>
           </div>
           <div class="error" data-error-for="turnstileToken"></div>
@@ -2599,7 +2607,7 @@ const DYNAMIC_MODALS_HTML = `
         <input type="hidden" name="turnstileToken" value="">
         <div class="field turnstile-field">
           <div class="turnstile-shell">
-            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div class="turnstile-shell__label">Подтвердите, что вы не бот.</div>
             <div data-turnstile-slot></div>
           </div>
           <div class="error" data-error-for="turnstileToken"></div>
@@ -2654,7 +2662,7 @@ const DYNAMIC_MODALS_HTML = `
         <input type="hidden" name="turnstileToken" value="">
         <div class="field turnstile-field">
           <div class="turnstile-shell">
-            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div class="turnstile-shell__label">Подтвердите, что вы не бот.</div>
             <div data-turnstile-slot></div>
           </div>
           <div class="error" data-error-for="turnstileToken"></div>
@@ -3392,7 +3400,7 @@ function setupForm(form) {
         const updateEye = () => {
             const isPass = input.type === "password";
             btn.innerHTML = window.getSVGIcon(
-                "visibility",
+                isPass ? "visibility_off" : "visibility",
                 'class="icon-svg input-toggle__icon-svg" aria-hidden="true"',
             );
             btn.setAttribute(
@@ -3400,7 +3408,6 @@ function setupForm(form) {
                 isPass ? "Показать пароль" : "Скрыть пароль",
             );
             btn.classList.toggle("is-active", !isPass);
-            btn.classList.toggle("is-masked", isPass);
         };
         updateEye();
 
@@ -5782,7 +5789,7 @@ function initProfileInteractions(container) {
 }
 
 function renderInlineBadge(label, value) {
-    return `<span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; border:1px solid var(--line); color:${badgeTone(value)}; font-size:12px;">${escapeHtml(label)}</span>`;
+    return renderOpsBadge(label, badgeTone(value));
 }
 
 function renderRecentActionList(items) {
@@ -6939,14 +6946,14 @@ function renderModerationUsersSection(users) {
                     return `
                         <div class="ops-entity-row">
                             <div class="ops-entity-row__main">
-                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ' <span class="s-sub" style="display:inline-flex; margin-left:8px; padding:2px 10px; border:1px solid var(--line); border-radius:999px;">Owner</span>' : ""}</div>
+                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ` ${renderOpsBadge("Owner", "owner", "ops-badge--inline")}` : ""}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(user.email || "Без e-mail")} • ${escapeHtml(humanizeUserRole(user.role))} • ${escapeHtml(user.status)}</div>
                                 ${user.blockedReason ? `<div class="ops-entity-row__note">Причина: ${escapeHtml(user.blockedReason)}</div>` : ""}
                             </div>
                             <div class="ops-entity-row__actions">
                                 ${
                                     isProtected
-                                        ? `<span class="s-sub">Защищённый owner</span>`
+                                        ? renderOpsBadge("Защищённый owner", "owner")
                                         : user.status === "blocked"
                                         ? `<button class="btn btn--muted btn--sm" data-mod-user-status="active" data-mod-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-mod-user-status="blocked" data-mod-user-id="${escapeHtml(user.id)}">Заблокировать</button>`
@@ -7053,7 +7060,7 @@ function renderAdminUsersSection(users) {
                     return `
                         <div class="ops-admin-row">
                             <div class="ops-admin-row__main">
-                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ' <span class="s-sub" style="display:inline-flex; margin-left:8px; padding:2px 10px; border:1px solid var(--line); border-radius:999px;">Owner</span>' : ""}</div>
+                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ` ${renderOpsBadge("Owner", "owner", "ops-badge--inline")}` : ""}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(user.email)} • ${escapeHtml(user.status)}${user.blockedReason ? ` • ${escapeHtml(user.blockedReason)}` : ""}</div>
                             </div>
                             <div class="ops-admin-row__controls">
@@ -7067,7 +7074,7 @@ function renderAdminUsersSection(users) {
                                 <button class="btn btn--muted btn--sm" data-admin-role-save="${escapeHtml(user.id)}" ${isProtected ? "disabled" : ""}>Сохранить роль</button>
                                 ${
                                     isProtected
-                                        ? `<span class="s-sub">Изменяется только через CLI</span>`
+                                        ? renderOpsBadge("Только через CLI", "owner")
                                         : user.status === "blocked"
                                         ? `<button class="btn btn--muted btn--sm" data-admin-status-set="active" data-admin-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-admin-status-set="blocked" data-admin-user-id="${escapeHtml(user.id)}">Блок</button>`
