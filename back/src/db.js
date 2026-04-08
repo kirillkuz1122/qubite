@@ -118,6 +118,10 @@ function getLocalDateKey(date = new Date()) {
     ].join("-");
 }
 
+function getLocalHourKey(date = new Date()) {
+    return `${getLocalDateKey(date)}T${padDatePart(date.getHours())}`;
+}
+
 function getLocalDateBounds(date = new Date()) {
     const start = new Date(
         date.getFullYear(),
@@ -962,6 +966,9 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_users_role_status_rating
         ON users (role, status, rating DESC, updated_at DESC);
 
+        CREATE INDEX IF NOT EXISTS idx_users_created_at
+        ON users (created_at DESC);
+
         CREATE INDEX IF NOT EXISTS idx_task_bank_scope_status
         ON task_bank (bank_scope, moderation_status);
 
@@ -1078,6 +1085,9 @@ async function initializeDatabase(options = {}) {
 
         CREATE INDEX IF NOT EXISTS idx_tournament_submissions_task_time
         ON tournament_submissions (tournament_task_id, submitted_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_submissions_submitted_at
+        ON tournament_submissions (submitted_at DESC);
 
         CREATE INDEX IF NOT EXISTS idx_tournament_submissions_tournament_entry_time
         ON tournament_submissions (tournament_id, entry_id, submitted_at DESC, id DESC);
@@ -5140,6 +5150,57 @@ function buildPlatformActivitySeries(rows = [], date = new Date()) {
     }));
 }
 
+function buildHourlyCountSeries(rows = [], hours = 24, date = new Date()) {
+    const rowsMap = new Map(
+        (Array.isArray(rows) ? rows : []).map((row) => [
+            String(row.bucket || ""),
+            Number(row.value || 0),
+        ]),
+    );
+    const currentHour = new Date(date);
+    currentHour.setMinutes(0, 0, 0);
+
+    return Array.from({ length: hours }, (_, index) => {
+        const point = new Date(
+            currentHour.getTime() - (hours - index - 1) * 60 * 60 * 1000,
+        );
+        const key = getLocalHourKey(point);
+        return {
+            label: `${padDatePart(point.getHours())}:00`,
+            value: rowsMap.get(key) || 0,
+        };
+    });
+}
+
+function buildDailyCountSeries(rows = [], days = 14, date = new Date()) {
+    const rowsMap = new Map(
+        (Array.isArray(rows) ? rows : []).map((row) => [
+            String(row.bucket || ""),
+            Number(row.value || 0),
+        ]),
+    );
+    const currentDay = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0,
+        0,
+    );
+
+    return Array.from({ length: days }, (_, index) => {
+        const point = new Date(
+            currentDay.getTime() - (days - index - 1) * 24 * 60 * 60 * 1000,
+        );
+        const key = getLocalDateKey(point);
+        return {
+            label: `${padDatePart(point.getDate())}.${padDatePart(point.getMonth() + 1)}`,
+            value: rowsMap.get(key) || 0,
+        };
+    });
+}
+
 async function listPublicLandingTournaments(limit = 4) {
     const now = nowIso();
     return all(
@@ -5277,41 +5338,189 @@ async function listTopPlayers(limit = 10) {
 }
 
 async function getPlatformMetrics() {
-    const [tournamentRow, sessionRow, userRow, sessionActivityRows] =
+    const now = new Date();
+    const [tournamentRow, sessionRow, userRow, submissionRow, sessionActivityRows, registrationRows, submissionRows, hotTournaments, recentUsers] =
         await Promise.all([
             get(
                 `
-                    SELECT COALESCE(SUM(participants_count), 0) AS participants
+                    SELECT
+                        COALESCE(SUM(CASE WHEN COALESCE(is_daily, 0) = 0 THEN participants_count ELSE 0 END), 0) AS participants,
+                        COALESCE(SUM(CASE WHEN COALESCE(is_daily, 0) = 0 AND status = 'live' THEN participants_count ELSE 0 END), 0) AS live_participants
                     FROM tournaments
-                    WHERE COALESCE(is_daily, 0) = 0
                 `,
             ),
-        get(
-            `
-                SELECT COUNT(*) AS active_sessions
-                FROM sessions
-                WHERE revoked_at IS NULL
-                  AND expires_at > ?
-            `,
-            [nowIso()],
-        ),
-            get("SELECT COUNT(*) AS users_count FROM users WHERE status != 'deleted'"),
+            get(
+                `
+                    SELECT
+                        COUNT(*) AS active_sessions,
+                        COUNT(DISTINCT CASE WHEN updated_at >= ? THEN user_id END) AS active_users_15m,
+                        COUNT(DISTINCT CASE WHEN updated_at >= ? THEN user_id END) AS active_users_24h
+                    FROM sessions
+                    WHERE revoked_at IS NULL
+                      AND expires_at > ?
+                `,
+                [addMinutes(now, -15), addDays(now, -1), nowIso()],
+            ),
+            get(
+                `
+                    SELECT
+                        COUNT(*) AS users_count,
+                        SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS new_users_24h,
+                        SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS new_users_7d
+                    FROM users
+                    WHERE status != 'deleted'
+                `,
+                [addDays(now, -1), addDays(now, -7)],
+            ),
+            get(
+                `
+                    SELECT
+                        SUM(CASE WHEN submitted_at >= ? THEN 1 ELSE 0 END) AS submissions_24h,
+                        SUM(CASE WHEN submitted_at >= ? THEN 1 ELSE 0 END) AS submissions_7d
+                    FROM tournament_submissions
+                `,
+                [addDays(now, -1), addDays(now, -7)],
+            ),
             all(
                 `
-                    SELECT updated_at
+                    SELECT
+                        strftime('%Y-%m-%dT%H', updated_at, 'localtime') AS bucket,
+                        COUNT(*) AS value
                     FROM sessions
                     WHERE revoked_at IS NULL
                       AND updated_at >= ?
+                      AND expires_at > ?
+                    GROUP BY bucket
+                    ORDER BY bucket ASC
                 `,
-                [addDays(new Date(), -1)],
+                [addHours(now, -23), nowIso()],
+            ),
+            all(
+                `
+                    SELECT
+                        strftime('%Y-%m-%d', created_at, 'localtime') AS bucket,
+                        COUNT(*) AS value
+                    FROM users
+                    WHERE status != 'deleted'
+                      AND created_at >= ?
+                    GROUP BY bucket
+                    ORDER BY bucket ASC
+                `,
+                [addDays(now, -13)],
+            ),
+            all(
+                `
+                    SELECT
+                        strftime('%Y-%m-%d', submitted_at, 'localtime') AS bucket,
+                        COUNT(*) AS value
+                    FROM tournament_submissions
+                    WHERE submitted_at >= ?
+                    GROUP BY bucket
+                    ORDER BY bucket ASC
+                `,
+                [addDays(now, -13)],
+            ),
+            all(
+                `
+                    WITH recent_submissions AS (
+                        SELECT
+                            tournament_id,
+                            COUNT(*) AS submissions_24h
+                        FROM tournament_submissions
+                        WHERE submitted_at >= ?
+                        GROUP BY tournament_id
+                    )
+                    SELECT
+                        t.id,
+                        t.title,
+                        t.status,
+                        t.participants_count,
+                        t.start_at,
+                        t.end_at,
+                        t.updated_at,
+                        COALESCE(u.login, 'system') AS owner_login,
+                        COALESCE(recent_submissions.submissions_24h, 0) AS submissions_24h
+                    FROM tournaments t
+                    LEFT JOIN users u ON u.id = t.owner_user_id
+                    LEFT JOIN recent_submissions ON recent_submissions.tournament_id = t.id
+                    WHERE COALESCE(t.is_daily, 0) = 0
+                    ORDER BY
+                        CASE
+                            WHEN t.status = 'live' THEN 0
+                            WHEN t.status IN ('published', 'upcoming') THEN 1
+                            ELSE 2
+                        END,
+                        COALESCE(recent_submissions.submissions_24h, 0) DESC,
+                        t.participants_count DESC,
+                        t.updated_at DESC
+                    LIMIT 6
+                `,
+                [addDays(now, -1)],
+            ),
+            all(
+                `
+                    SELECT
+                        id,
+                        login,
+                        first_name,
+                        last_name,
+                        middle_name,
+                        role,
+                        status,
+                        created_at,
+                        last_login_at
+                    FROM users
+                    WHERE status != 'deleted'
+                    ORDER BY created_at DESC
+                    LIMIT 6
+                `,
             ),
         ]);
 
     return {
-        participants: tournamentRow ? tournamentRow.participants : 0,
-        activeSessions: sessionRow ? sessionRow.active_sessions : 0,
-        usersCount: userRow ? userRow.users_count : 0,
-        activitySeries: buildPlatformActivitySeries(sessionActivityRows),
+        participants: Number(tournamentRow?.participants || 0),
+        liveParticipants: Number(tournamentRow?.live_participants || 0),
+        activeSessions: Number(sessionRow?.active_sessions || 0),
+        activeUsers15m: Number(sessionRow?.active_users_15m || 0),
+        activeUsers24h: Number(sessionRow?.active_users_24h || 0),
+        usersCount: Number(userRow?.users_count || 0),
+        newUsers24h: Number(userRow?.new_users_24h || 0),
+        newUsers7d: Number(userRow?.new_users_7d || 0),
+        submissions24h: Number(submissionRow?.submissions_24h || 0),
+        submissions7d: Number(submissionRow?.submissions_7d || 0),
+        activitySeries: buildPlatformActivitySeries(
+            (Array.isArray(sessionActivityRows) ? sessionActivityRows : []).flatMap(
+                (row) =>
+                    Array.from({ length: Number(row.value || 0) }, () => ({
+                        updated_at: `${String(row.bucket || "")}:00:00`,
+                    })),
+            ),
+        ),
+        sessionActivitySeries: buildHourlyCountSeries(sessionActivityRows, 24, now),
+        registrationsSeries: buildDailyCountSeries(registrationRows, 14, now),
+        submissionsSeries: buildDailyCountSeries(submissionRows, 14, now),
+        hotTournaments: (Array.isArray(hotTournaments) ? hotTournaments : []).map(
+            (item) => ({
+                id: Number(item.id),
+                title: item.title,
+                status: item.status || "upcoming",
+                participants: Number(item.participants_count || 0),
+                submissions24h: Number(item.submissions_24h || 0),
+                ownerLogin: item.owner_login || "system",
+                updatedAt: item.updated_at || null,
+                startAt: item.start_at || null,
+                endAt: item.end_at || null,
+            }),
+        ),
+        recentUsers: (Array.isArray(recentUsers) ? recentUsers : []).map((item) => ({
+            id: Number(item.id),
+            login: item.login,
+            displayName: buildDisplayName(item),
+            role: item.role || "user",
+            status: item.status || "active",
+            createdAt: item.created_at || null,
+            lastLoginAt: item.last_login_at || null,
+        })),
     };
 }
 

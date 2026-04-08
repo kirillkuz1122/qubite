@@ -47,9 +47,18 @@ const turnstileWidgetIds = new Map();
 const TURNSTILE_SCRIPT_SRC =
     "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const CHART_JS_SCRIPT_SRC = "https://cdn.jsdelivr.net/npm/chart.js";
+const WORKSPACE_AUTO_SYNC_INTERVAL_MS = 60 * 1000;
+const WORKSPACE_VIEW_REFRESH_TTL_MS = 20 * 1000;
 let publicConfigPromise = null;
 let turnstileScriptPromise = null;
 let chartJsScriptPromise = null;
+let adminOverviewCharts = {
+    sessions: null,
+    growth: null,
+};
+let workspaceAutoSyncTimer = null;
+let workspaceSyncInFlight = false;
+let workspaceLastSyncedAt = 0;
 let pendingProfileCompletion = false;
 let pendingResetToken = null;
 const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
@@ -128,8 +137,21 @@ const DEFAULT_ADMIN_OVERVIEW = {
     },
     metrics: {
         participants: 0,
+        liveParticipants: 0,
         activeSessions: 0,
+        activeUsers15m: 0,
+        activeUsers24h: 0,
         usersCount: 0,
+        newUsers24h: 0,
+        newUsers7d: 0,
+        submissions24h: 0,
+        submissions7d: 0,
+        activitySeries: [],
+        sessionActivitySeries: [],
+        registrationsSeries: [],
+        submissionsSeries: [],
+        hotTournaments: [],
+        recentUsers: [],
     },
 };
 
@@ -1528,7 +1550,7 @@ function saveStoredNotifications(items) {
     try {
         window.localStorage.setItem(
             NOTIFICATION_STORAGE_KEY,
-            JSON.stringify(Array.isArray(items) ? items.slice(0, 80) : []),
+            JSON.stringify(Array.isArray(items) ? items.slice(0, 120) : []),
         );
     } catch (error) {
         console.error(error);
@@ -1557,46 +1579,143 @@ function markNotificationsRead() {
 }
 
 function pushNotificationHistory(title, desc, type = "info") {
-    const nextItems = [
-        {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            title: String(title || "Уведомление"),
-            desc: String(desc || ""),
-            type,
-            createdAt: new Date().toISOString(),
-        },
-        ...getStoredNotifications(),
-    ];
+    const now = new Date().toISOString();
+    const currentItems = getStoredNotifications();
+    const firstItem = currentItems[0];
+    const shouldMerge =
+        firstItem &&
+        firstItem.title === String(title || "Уведомление") &&
+        firstItem.desc === String(desc || "") &&
+        firstItem.type === type &&
+        Date.now() - Date.parse(String(firstItem.createdAt || 0)) < 30 * 1000;
+    const nextItems = shouldMerge
+        ? [
+              {
+                  ...firstItem,
+                  count: Number(firstItem.count || 1) + 1,
+                  createdAt: now,
+              },
+              ...currentItems.slice(1),
+          ]
+        : [
+              {
+                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  title: String(title || "Уведомление"),
+                  desc: String(desc || ""),
+                  type,
+                  count: 1,
+                  createdAt: now,
+              },
+              ...currentItems,
+          ];
     saveStoredNotifications(nextItems);
     updateNotificationsBadge();
 }
 
+function clearNotificationHistory() {
+    saveStoredNotifications([]);
+    markNotificationsRead();
+}
+
+function getNotificationTypeMeta(type) {
+    const map = {
+        success: {
+            label: "Успех",
+            icon: "check_circle",
+        },
+        error: {
+            label: "Ошибка",
+            icon: "error",
+        },
+        info: {
+            label: "Инфо",
+            icon: "info",
+        },
+    };
+    return map[type] || map.info;
+}
+
 function renderNotificationsPanel() {
     const items = getStoredNotifications();
+    const unreadAfter = getNotificationsUnreadAt();
+    const unreadCount = items.filter((item) => {
+        const time = Date.parse(String(item.createdAt || ""));
+        return Number.isFinite(time) && time > unreadAfter;
+    }).length;
     if (items.length === 0) {
         return `
-            <div class="notifications-empty">
-                <div class="notifications-empty__title">Пока пусто</div>
-                <div class="notifications-empty__desc">Новые уведомления будут появляться здесь автоматически.</div>
+            <div class="notifications-shell">
+                <div class="notifications-toolbar">
+                    <div class="notifications-toolbar__copy">
+                        <div class="notifications-toolbar__title">История уведомлений</div>
+                        <div class="notifications-toolbar__meta">Новые события, статусы запросов и важные системные сообщения.</div>
+                    </div>
+                </div>
+                <div class="notifications-empty">
+                    <div class="notifications-empty__title">Пока пусто</div>
+                    <div class="notifications-empty__desc">Новые уведомления будут появляться здесь автоматически.</div>
+                </div>
             </div>
         `;
     }
 
     return `
-        <div class="notifications-list">
-            ${items
-                .map(
-                    (item) => `
-                        <div class="notifications-item notifications-item--${escapeHtml(item.type || "info")}">
-                            <div class="notifications-item__title">${escapeHtml(item.title)}</div>
-                            <div class="notifications-item__desc">${escapeHtml(item.desc)}</div>
-                            <div class="notifications-item__time">${escapeHtml(formatDateTimeLabel(item.createdAt))}</div>
-                        </div>
-                    `,
-                )
-                .join("")}
+        <div class="notifications-shell">
+            <div class="notifications-toolbar">
+                <div class="notifications-toolbar__copy">
+                    <div class="notifications-toolbar__title">История уведомлений</div>
+                    <div class="notifications-toolbar__meta">
+                        ${escapeHtml(formatNumberRu(items.length))} записей • ${escapeHtml(formatNumberRu(unreadCount))} новых с прошлого открытия
+                    </div>
+                </div>
+                <div class="notifications-toolbar__actions">
+                    <button class="btn btn--muted btn--sm" type="button" id="notificationsClearBtn">Очистить</button>
+                </div>
+            </div>
+            <div class="notifications-list">
+                ${items
+                    .map((item) => {
+                        const typeMeta = getNotificationTypeMeta(item.type);
+                        return `
+                            <article class="notifications-item notifications-item--${escapeHtml(item.type || "info")}">
+                                <div class="notifications-item__icon">
+                                    ${window.getSVGIcon(typeMeta.icon, `class="icon-svg icon-svg-${typeMeta.icon}"`)}
+                                </div>
+                                <div class="notifications-item__main">
+                                    <div class="notifications-item__head">
+                                        <div class="notifications-item__title-wrap">
+                                            <div class="notifications-item__title">${escapeHtml(item.title)}</div>
+                                            <div class="notifications-item__desc">${escapeHtml(item.desc)}</div>
+                                        </div>
+                                        <div class="notifications-item__meta">
+                                            <span class="notifications-item__badge notifications-item__badge--${escapeHtml(item.type || "info")}">${escapeHtml(typeMeta.label)}</span>
+                                            ${
+                                                Number(item.count || 1) > 1
+                                                    ? `<span class="notifications-item__count">x${escapeHtml(formatNumberRu(item.count))}</span>`
+                                                    : ""
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="notifications-item__time">${escapeHtml(formatDateTimeLabel(item.createdAt))}</div>
+                                </div>
+                            </article>
+                        `;
+                    })
+                    .join("")}
+            </div>
         </div>
     `;
+}
+
+function bindNotificationsPanelActions(root) {
+    root?.querySelector("#notificationsClearBtn")?.addEventListener("click", () => {
+        if (!window.confirm("Очистить историю уведомлений?")) {
+            return;
+        }
+        clearNotificationHistory();
+        root.innerHTML = renderNotificationsPanel();
+        bindNotificationsPanelActions(root);
+    });
 }
 
 function ensureNotificationsModal() {
@@ -1626,6 +1745,7 @@ function openNotificationsModal() {
     const body = document.getElementById("notificationsModalBody");
     if (body) {
         body.innerHTML = renderNotificationsPanel();
+        bindNotificationsPanelActions(body);
     }
     markNotificationsRead();
     openModal("notificationsModal");
@@ -2085,6 +2205,7 @@ async function loadWorkspaceData() {
     await apiClient.loadWorkspaceData();
     syncClientStateFromApi();
     updateWorkspaceIdentity();
+    workspaceLastSyncedAt = Date.now();
 }
 
 async function bootstrapAuthSession() {
@@ -4734,6 +4855,9 @@ document.addEventListener("DOMContentLoaded", () => {
             workspaceHistoryApplying = false;
         }
     });
+    document.addEventListener("visibilitychange", () => {
+        handleWorkspaceVisibilityChange();
+    });
     void bootstrapAuthSession();
 });
 
@@ -4770,6 +4894,7 @@ function switchToWorkspace() {
             (hasActiveTournamentRuntimeView() ? "tournaments" : "dashboard"),
         { historyMode: "replace" },
     );
+    startWorkspaceAutoSync();
     closeAnyModal();
     void applyRolePreviewScenario();
 }
@@ -4779,9 +4904,224 @@ function switchToLanding() {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
 
+    stopWorkspaceAutoSync();
+    destroyAdminOverviewCharts();
+    workspaceLastSyncedAt = 0;
     document.getElementById("landing-view").hidden = false;
     document.getElementById("workspace-view").hidden = true;
     void refreshLandingPublicData();
+}
+
+function isWorkspaceVisible() {
+    const workspaceView = document.getElementById("workspace-view");
+    return Boolean(workspaceView && !workspaceView.hidden);
+}
+
+function hasWorkspaceInteractiveFocus() {
+    const activeElement = document.activeElement;
+    const workspaceContent = document.getElementById("workspace-content");
+    if (!activeElement || !workspaceContent || !workspaceContent.contains(activeElement)) {
+        return false;
+    }
+
+    return ["INPUT", "TEXTAREA", "SELECT"].includes(activeElement.tagName);
+}
+
+function hasOpenModalDialog() {
+    return Boolean(document.querySelector(".modal:not([hidden])"));
+}
+
+function isWorkspaceAutoSyncEnabled(viewName = null) {
+    const resolvedViewName = viewName || ViewManager.currentView || "dashboard";
+    if (!getUserState()) {
+        return false;
+    }
+
+    if (resolvedViewName === "dashboard") {
+        return true;
+    }
+
+    if (resolvedViewName === "admin" && isAdminUser()) {
+        return true;
+    }
+
+    if (resolvedViewName === "moderation" && isModeratorUser()) {
+        return true;
+    }
+
+    if (resolvedViewName === "tournaments" && !isOrganizerUser()) {
+        return true;
+    }
+
+    return false;
+}
+
+function canPassiveRerenderWorkspaceView(viewName = null) {
+    const resolvedViewName = viewName || ViewManager.currentView || "dashboard";
+    return (
+        isWorkspaceAutoSyncEnabled(resolvedViewName) &&
+        !hasActiveTournamentRuntimeView() &&
+        !hasWorkspaceInteractiveFocus() &&
+        !hasOpenModalDialog()
+    );
+}
+
+async function loadWorkspaceDataForActiveView(viewName = null) {
+    const resolvedViewName = viewName || ViewManager.currentView || "dashboard";
+    if (!apiClient || !getUserState()) {
+        return;
+    }
+
+    if (resolvedViewName === "dashboard") {
+        if (isAdminUser()) {
+            await apiClient.loadAdminOverview();
+            return;
+        }
+        if (isModeratorUser() && !isAdminUser()) {
+            await apiClient.loadModerationOverview();
+            return;
+        }
+        if (isOrganizerUser()) {
+            await apiClient.loadOrganizerOverview();
+            return;
+        }
+        await apiClient.loadDashboard();
+        return;
+    }
+
+    if (resolvedViewName === "admin" && isAdminUser()) {
+        const loaders = [apiClient.loadAdminOverview()];
+        switch (adminUiState.activeTab || "users") {
+            case "tournaments":
+                loaders.push(apiClient.loadAdminTournaments());
+                break;
+            case "teams":
+                loaders.push(apiClient.loadAdminTeams());
+                break;
+            case "tasks":
+                loaders.push(apiClient.loadAdminTasks());
+                break;
+            case "applications":
+                loaders.push(apiClient.loadAdminApplications());
+                break;
+            case "audit":
+                loaders.push(apiClient.loadAdminAudit());
+                break;
+            case "users":
+            default:
+                loaders.push(apiClient.loadAdminUsers());
+                break;
+        }
+        await Promise.all(loaders);
+        return;
+    }
+
+    if (resolvedViewName === "moderation" && isModeratorUser()) {
+        const loaders = [apiClient.loadModerationOverview()];
+        switch (moderationUiState.activeTab || "tasks") {
+            case "applications":
+                loaders.push(apiClient.loadModerationApplications());
+                break;
+            case "users":
+                loaders.push(apiClient.loadModerationUsers());
+                break;
+            case "tasks":
+            default:
+                loaders.push(apiClient.loadModerationTasks());
+                break;
+        }
+        await Promise.all(loaders);
+        return;
+    }
+
+    if (resolvedViewName === "tournaments" && !isOrganizerUser()) {
+        await apiClient.loadTournaments();
+    }
+}
+
+async function syncWorkspaceDataForActiveView({
+    viewName = null,
+    force = false,
+    rerender = true,
+} = {}) {
+    const resolvedViewName = viewName || ViewManager.currentView || "dashboard";
+    if (
+        !apiClient ||
+        !getUserState() ||
+        !isWorkspaceVisible() ||
+        document.visibilityState === "hidden" ||
+        workspaceSyncInFlight ||
+        !isWorkspaceAutoSyncEnabled(resolvedViewName)
+    ) {
+        return false;
+    }
+
+    if (
+        !force &&
+        Date.now() - workspaceLastSyncedAt < WORKSPACE_VIEW_REFRESH_TTL_MS
+    ) {
+        return false;
+    }
+
+    workspaceSyncInFlight = true;
+    try {
+        await loadWorkspaceDataForActiveView(resolvedViewName);
+        syncClientStateFromApi();
+        updateWorkspaceIdentity();
+        workspaceLastSyncedAt = Date.now();
+
+        if (
+            rerender &&
+            ViewManager.currentView === resolvedViewName &&
+            canPassiveRerenderWorkspaceView(resolvedViewName)
+        ) {
+            renderWorkspaceContent(resolvedViewName, { preserveScroll: true });
+        }
+
+        return true;
+    } catch (error) {
+        console.error(error);
+        return false;
+    } finally {
+        workspaceSyncInFlight = false;
+    }
+}
+
+function stopWorkspaceAutoSync() {
+    if (workspaceAutoSyncTimer) {
+        clearInterval(workspaceAutoSyncTimer);
+        workspaceAutoSyncTimer = null;
+    }
+}
+
+function startWorkspaceAutoSync() {
+    stopWorkspaceAutoSync();
+    if (
+        !isWorkspaceVisible() ||
+        document.visibilityState === "hidden" ||
+        !isWorkspaceAutoSyncEnabled()
+    ) {
+        return;
+    }
+
+    workspaceAutoSyncTimer = window.setInterval(() => {
+        void syncWorkspaceDataForActiveView({ rerender: true });
+    }, WORKSPACE_AUTO_SYNC_INTERVAL_MS);
+}
+
+function handleWorkspaceVisibilityChange() {
+    if (!isWorkspaceVisible()) {
+        stopWorkspaceAutoSync();
+        return;
+    }
+
+    if (document.visibilityState === "hidden") {
+        stopWorkspaceAutoSync();
+        return;
+    }
+
+    startWorkspaceAutoSync();
+    void syncWorkspaceDataForActiveView({ force: true, rerender: true });
 }
 
 /**
@@ -6117,6 +6457,362 @@ function humanizeUserRole(role) {
     return map[role] || role || "—";
 }
 
+function humanizeUserStatusLabel(status) {
+    const map = {
+        active: "Активен",
+        blocked: "Заблокирован",
+        deleted: "Удалён",
+    };
+    return map[status] || status || "—";
+}
+
+function humanizeTournamentStatusLabel(status) {
+    const map = {
+        draft: "Черновик",
+        published: "Опубликован",
+        upcoming: "Скоро старт",
+        live: "Идёт",
+        ended: "Завершён",
+        archived: "Архив",
+    };
+    return map[status] || status || "—";
+}
+
+function renderAdminOverviewKpiCard({
+    label,
+    value,
+    meta = "",
+    tone = "accent",
+}) {
+    return `
+        <div class="ops-admin-kpi-card ops-admin-kpi-card--${escapeHtml(tone)}">
+            <div class="ops-admin-kpi-card__label">${escapeHtml(label)}</div>
+            <div class="ops-admin-kpi-card__value">${escapeHtml(value)}</div>
+            <div class="ops-admin-kpi-card__meta">${escapeHtml(meta)}</div>
+        </div>
+    `;
+}
+
+function buildAdminAttentionItems(overview, metrics) {
+    const moderationQueue =
+        Number(overview.pendingTaskModerationCount || 0) +
+        Number(overview.pendingOrganizerApplicationsCount || 0);
+    const items = [];
+
+    items.push(
+        moderationQueue > 0
+            ? {
+                  icon: "pending_actions",
+                  tone: "warning",
+                  title: `${formatNumberRu(moderationQueue)} элементов ждут решения`,
+                  desc: `В очереди ${formatNumberRu(overview.pendingTaskModerationCount)} задач и ${formatNumberRu(overview.pendingOrganizerApplicationsCount)} organizer-заявок.`,
+                  actionLabel: "Открыть очередь",
+                  targetTab:
+                      Number(overview.pendingTaskModerationCount || 0) > 0
+                          ? "tasks"
+                          : "applications",
+              }
+            : {
+                  icon: "verified_user",
+                  tone: "accent",
+                  title: "Очередь модерации чистая",
+                  desc: "Новых задач и organizer-заявок на проверку сейчас нет.",
+                  actionLabel: "Проверить разделы",
+                  targetTab: "tasks",
+              },
+    );
+
+    items.push(
+        Number(overview.liveTournamentsCount || 0) > 0
+            ? {
+                  icon: "emoji_events",
+                  tone: "accent",
+                  title: `Сейчас идут ${formatNumberRu(overview.liveTournamentsCount)} live-турнира`,
+                  desc: `В live участвуют ${formatNumberRu(metrics.liveParticipants || 0)} пользователей и командных составов.`,
+                  actionLabel: "Смотреть турниры",
+                  targetTab: "tournaments",
+              }
+            : {
+                  icon: "schedule",
+                  tone: "muted",
+                  title: "Сейчас нет live-турниров",
+                  desc: "Если это не планировалось, проверьте ближайшие публикации и расписание стартов.",
+                  actionLabel: "Открыть турниры",
+                  targetTab: "tournaments",
+              },
+    );
+
+    items.push(
+        Number(overview.blockedUsersCount || 0) > 0
+            ? {
+                  icon: "block",
+                  tone: "danger",
+                  title: `${formatNumberRu(overview.blockedUsersCount)} аккаунтов заблокировано`,
+                  desc: "Проверьте, не зависли ли старые ограничения и везде ли понятны причины блокировки.",
+                  actionLabel: "Открыть пользователей",
+                  targetTab: "users",
+              }
+            : {
+                  icon: "verified_user",
+                  tone: "accent",
+                  title: "Критичных блокировок сейчас нет",
+                  desc: "Аккаунты без ограничений, админке не требуется ручная расчистка по блокам.",
+                  actionLabel: "Проверить пользователей",
+                  targetTab: "users",
+              },
+    );
+
+    items.push(
+        Number(metrics.newUsers24h || 0) > 0 || Number(metrics.submissions24h || 0) > 0
+            ? {
+                  icon: "analytics",
+                  tone: "accent",
+                  title: `${formatNumberRu(metrics.newUsers24h || 0)} регистраций и ${formatNumberRu(metrics.submissions24h || 0)} отправок за сутки`,
+                  desc: `За 7 дней: ${formatNumberRu(metrics.newUsers7d || 0)} новых пользователей и ${formatNumberRu(metrics.submissions7d || 0)} отправок.`,
+                  actionLabel: "Смотреть аудит",
+                  targetTab: "audit",
+              }
+            : {
+                  icon: "groups",
+                  tone: "muted",
+                  title: "Сутки прошли спокойно",
+                  desc: "Низкая активность по регистрациям и отправкам. Это нормально для тихого окна разработки или межсезонья.",
+                  actionLabel: "Открыть аудит",
+                  targetTab: "audit",
+              },
+    );
+
+    return items;
+}
+
+function resolveAdminAttentionTarget(targetTab) {
+    if (targetTab === "tasks" || targetTab === "applications" || targetTab === "users") {
+        return {
+            view: "moderation",
+            moderationTab: targetTab,
+        };
+    }
+
+    if (targetTab === "audit") {
+        return {
+            view: "admin",
+            adminTab: "audit",
+        };
+    }
+
+    return {
+        view: "tournaments",
+    };
+}
+
+function renderAdminOverviewSection(adminState) {
+    const overview = adminState.overview || DEFAULT_ADMIN_OVERVIEW.overview;
+    const metrics = {
+        ...DEFAULT_ADMIN_OVERVIEW.metrics,
+        ...(adminState.metrics || {}),
+    };
+    const attentionItems = buildAdminAttentionItems(overview, metrics);
+    const hotTournaments = Array.isArray(metrics.hotTournaments)
+        ? metrics.hotTournaments
+        : [];
+    const recentUsers = Array.isArray(metrics.recentUsers)
+        ? metrics.recentUsers
+        : [];
+
+    return `
+        <div class="ops-stack">
+            <div class="ops-admin-overview-grid">
+                ${renderOpsPanel({
+                    title: "Сейчас на платформе",
+                    desc: "Сигналы текущей нагрузки, активности и общего масштаба системы.",
+                    body: `
+                        <div class="ops-admin-kpi-grid">
+                            ${renderAdminOverviewKpiCard({
+                                label: "Онлайн сейчас",
+                                value: formatNumberRu(metrics.activeUsers15m),
+                                meta: "Активность за 15 минут",
+                                tone: "accent",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Активных сессий",
+                                value: formatNumberRu(metrics.activeSessions),
+                                meta: "Текущие cookie-session",
+                                tone: "muted",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Активны за 24ч",
+                                value: formatNumberRu(metrics.activeUsers24h),
+                                meta: "Живая дневная аудитория",
+                                tone: "accent",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Участия в live",
+                                value: formatNumberRu(metrics.liveParticipants),
+                                meta: "Пользователи и команды в идущих турнирах",
+                                tone: "warning",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Аккаунтов всего",
+                                value: formatNumberRu(overview.usersCount || metrics.usersCount),
+                                meta: `${formatNumberRu(overview.organizersCount)} организаторов, ${formatNumberRu(overview.moderatorsCount)} модераторов`,
+                                tone: "accent",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Команд",
+                                value: formatNumberRu(overview.teamsCount),
+                                meta: "Отдельные командные составы",
+                                tone: "muted",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Задач",
+                                value: formatNumberRu(overview.tasksCount),
+                                meta: `${formatNumberRu(overview.pendingTaskModerationCount)} ждут модерации`,
+                                tone: "warning",
+                            })}
+                            ${renderAdminOverviewKpiCard({
+                                label: "Турниров",
+                                value: formatNumberRu(overview.tournamentsCount),
+                                meta: `${formatNumberRu(overview.liveTournamentsCount)} идут прямо сейчас`,
+                                tone: "accent",
+                            })}
+                        </div>
+                    `,
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "Что требует внимания",
+                    desc: "Быстрые сигналы, по которым админ обычно принимает первое решение.",
+                    body: `
+                        <div class="ops-admin-alert-list">
+                            ${attentionItems
+                                .map(
+                                    (item) => `
+                                        <div class="ops-admin-alert-item ops-admin-alert-item--${escapeHtml(item.tone)}">
+                                            <div class="ops-admin-alert-item__icon">
+                                                ${renderOpsIcon(item.icon, item.tone)}
+                                            </div>
+                                            <div class="ops-admin-alert-item__copy">
+                                                <div class="ops-admin-alert-item__title">${escapeHtml(item.title)}</div>
+                                                <div class="ops-admin-alert-item__desc">${escapeHtml(item.desc)}</div>
+                                            </div>
+                                            <div class="ops-admin-alert-item__actions">
+                                                <button class="btn btn--muted btn--sm" type="button" data-admin-tab="${escapeHtml(item.targetTab)}">${escapeHtml(item.actionLabel)}</button>
+                                            </div>
+                                        </div>
+                                    `,
+                                )
+                                .join("")}
+                        </div>
+                    `,
+                    className: "ops-panel--primary",
+                })}
+            </div>
+
+            <div class="ops-admin-chart-grid">
+                ${renderOpsPanel({
+                    title: "Пульс платформы",
+                    desc: "Активные сессии по часам за последние 24 часа. Это быстрый индикатор текущего онлайна и входов.",
+                    body: `
+                        <div class="ops-admin-chart-card">
+                            <canvas id="adminSessionsChart" aria-label="Пульс платформы"></canvas>
+                        </div>
+                    `,
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "Рост и нагрузка",
+                    desc: "Новые регистрации и отправки решений за последние 14 дней.",
+                    body: `
+                        <div class="ops-admin-chart-card">
+                            <canvas id="adminGrowthChart" aria-label="Рост и нагрузка"></canvas>
+                        </div>
+                    `,
+                    className: "ops-panel--primary",
+                })}
+            </div>
+
+            <div class="ops-admin-overview-grid ops-admin-overview-grid--secondary">
+                ${renderOpsPanel({
+                    title: "Самые живые турниры",
+                    desc: "Турниры с наибольшим текущим движением по участникам, статусу и отправкам.",
+                    actions:
+                        '<button class="btn btn--muted btn--sm" type="button" data-admin-tab="tournaments">Все турниры</button>',
+                    body: hotTournaments.length
+                        ? `
+                            <div class="ops-admin-mini-list">
+                                ${hotTournaments
+                                    .map(
+                                        (item) => `
+                                            <div class="ops-admin-mini-row">
+                                                <div class="ops-admin-mini-row__main">
+                                                    <div class="ops-entity-row__title">
+                                                        ${escapeHtml(item.title)}
+                                                        ${renderOpsBadge(
+                                                            humanizeTournamentStatusLabel(item.status),
+                                                            badgeTone(item.status),
+                                                            "ops-badge--inline",
+                                                        )}
+                                                    </div>
+                                                    <div class="ops-admin-mini-row__meta">@${escapeHtml(item.ownerLogin || "system")} • ${escapeHtml(item.startAt ? `старт ${formatDateTimeLabel(item.startAt)}` : `обновлён ${formatDateTimeLabel(item.updatedAt)}`)}</div>
+                                                </div>
+                                                <div class="ops-admin-mini-row__stats">
+                                                    <span class="ops-admin-mini-pill">${escapeHtml(formatNumberRu(item.participants || 0))} участников</span>
+                                                    <span class="ops-admin-mini-pill">${escapeHtml(formatNumberRu(item.submissions24h || 0))} отправок / 24ч</span>
+                                                </div>
+                                            </div>
+                                        `,
+                                    )
+                                    .join("")}
+                            </div>
+                        `
+                        : renderOpsEmptyState({
+                              icon: "emoji_events",
+                              title: "Пока нет активных турниров",
+                              desc: "Когда турниры начнут жить по участникам и отправкам, здесь появится быстрый список лидеров по активности.",
+                          }),
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "Новые пользователи",
+                    desc: "Последние регистрации помогают быстро замечать рост, тестовые аккаунты и ручные назначения ролей.",
+                    actions:
+                        '<button class="btn btn--muted btn--sm" type="button" data-admin-tab="users">Открыть пользователей</button>',
+                    body: recentUsers.length
+                        ? `
+                            <div class="ops-admin-mini-list">
+                                ${recentUsers
+                                    .map(
+                                        (item) => `
+                                            <div class="ops-admin-mini-row">
+                                                <div class="ops-admin-mini-row__main">
+                                                    <div class="ops-entity-row__title">
+                                                        ${escapeHtml(item.displayName || item.login || "Без имени")}
+                                                        <span class="ops-admin-mini-row__handle">@${escapeHtml(item.login || "unknown")}</span>
+                                                    </div>
+                                                    <div class="ops-admin-mini-row__meta">Регистрация: ${escapeHtml(formatDateTimeLabel(item.createdAt))}</div>
+                                                </div>
+                                                <div class="ops-admin-mini-row__stats">
+                                                    ${renderOpsBadge(humanizeUserRole(item.role), badgeTone(item.role))}
+                                                    ${renderOpsBadge(humanizeUserStatusLabel(item.status), badgeTone(item.status))}
+                                                </div>
+                                            </div>
+                                        `,
+                                    )
+                                    .join("")}
+                            </div>
+                        `
+                        : renderOpsEmptyState({
+                              icon: "groups",
+                              title: "Регистраций пока нет",
+                              desc: "После первых пользователей здесь появится короткий поток новых аккаунтов.",
+                          }),
+                    className: "ops-panel--primary",
+                })}
+            </div>
+        </div>
+    `;
+}
+
 function renderOrganizerDashboard() {
     const overview = getOrganizerOverviewState();
     const quickActions = `
@@ -7061,6 +7757,12 @@ function renderModerationView() {
     const tasks = getModerationTasksState();
     const applications = getModerationApplicationsState();
     const users = getModerationUsersState();
+    const moderationActions = isAdminUser()
+        ? `
+            <button class="btn btn--muted" data-moderation-open-view="dashboard">Главная</button>
+            <button class="btn btn--muted" data-moderation-open-view="admin">Админка</button>
+        `
+        : '<button class="btn btn--muted" data-moderation-open-view="dashboard">Главная модератора</button>';
     const tabs = [
         { id: "tasks", label: "Задачи", icon: "pending_actions", count: tasks.length },
         {
@@ -7095,7 +7797,7 @@ function renderModerationView() {
                     <div class="tour-sub">Фокусируйтесь на одной очереди за раз: задачи, заявки или пользователи.</div>
                 </div>
                 <div class="ops-header__actions">
-                    <button class="btn btn--muted" data-moderation-open-view="dashboard">Главная модератора</button>
+                    ${moderationActions}
                 </div>
             </div>
             <div class="ops-metric-grid ops-metric-grid--three">
@@ -7130,6 +7832,27 @@ function renderModerationView() {
             })}
         </div>
     `;
+}
+
+function initAdminDashboardInteractions(container) {
+    container.querySelectorAll("[data-admin-home-open-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const nextView = button.dataset.adminHomeOpenView;
+            const nextAdminTab = button.dataset.adminHomeAdminTab;
+            const nextModerationTab = button.dataset.adminHomeModerationTab;
+
+            if (nextAdminTab) {
+                adminUiState.activeTab = nextAdminTab;
+            }
+            if (nextModerationTab) {
+                moderationUiState.activeTab = nextModerationTab;
+            }
+
+            ViewManager.open(nextView);
+        });
+    });
+
+    void initAdminOverviewCharts(container);
 }
 
 function renderAdminUsersSection(users) {
@@ -7194,7 +7917,8 @@ function renderAdminTournamentsSection(tournaments) {
                         <div class="ops-admin-row">
                             <div class="ops-admin-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(item.title)}</div>
-                                <div class="ops-entity-row__meta">${escapeHtml(item.ownerUserId ? "organizer" : "system")} • ${escapeHtml(item.statusText)} • ${formatDateTimeLabel(item.startAt)}</div>
+                                <div class="ops-entity-row__meta">@${escapeHtml(item.ownerLogin || "system")} • ${escapeHtml(item.statusText)} • ${formatDateTimeLabel(item.startAt)}</div>
+                                <div class="ops-entity-row__note">${escapeHtml(item.format === "team" ? "Командный" : "Индивидуальный")} • ${escapeHtml(formatNumberRu(item.participants || 0))} участников • ${escapeHtml(formatNumberRu(item.taskCount || 0))} задач</div>
                             </div>
                             <div class="ops-admin-row__controls">
                                 <select class="input" data-admin-tournament-status="${escapeHtml(item.id)}">
@@ -7315,6 +8039,242 @@ function renderAdminAuditSection(audit) {
     return `<div class="ops-timeline">${renderRecentActionList(audit)}</div>`;
 }
 
+function renderAdminDashboard() {
+    const adminState = getAdminOverviewState();
+    const overview = adminState.overview || DEFAULT_ADMIN_OVERVIEW.overview;
+    const metrics = {
+        ...DEFAULT_ADMIN_OVERVIEW.metrics,
+        ...(adminState.metrics || {}),
+    };
+    const attentionItems = buildAdminAttentionItems(overview, metrics).slice(0, 3);
+    const hotTournaments = Array.isArray(metrics.hotTournaments)
+        ? metrics.hotTournaments.slice(0, 4)
+        : [];
+    const recentUsers = Array.isArray(metrics.recentUsers)
+        ? metrics.recentUsers.slice(0, 4)
+        : [];
+    const moderationQueue =
+        Number(overview.pendingTaskModerationCount || 0) +
+        Number(overview.pendingOrganizerApplicationsCount || 0);
+
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="dash-view admin-home-view">
+            <h1 class="dash-header" data-view-anim>Главная</h1>
+
+            <div class="dash-grid admin-home-grid">
+                <section class="card dash-card tour-card admin-home-hero" data-view-anim style="transition-delay: 0.05s;">
+                    <div class="card__head admin-home-hero__head">
+                        <div>
+                            <div class="card__title">Центр платформы</div>
+                            <div class="card__sub">Живое состояние сайта, очередь решений и быстрые переходы без входа в сырую админскую таблицу.</div>
+                        </div>
+                        <div class="admin-home-hero__chips">
+                            ${renderOpsBadge(`${formatNumberRu(metrics.activeUsers15m)} онлайн`, "success")}
+                            ${renderOpsBadge(`${formatNumberRu(overview.liveTournamentsCount)} live`, "accent")}
+                            ${renderOpsBadge(`${formatNumberRu(moderationQueue)} в очереди`, moderationQueue > 0 ? "warning" : "muted")}
+                        </div>
+                    </div>
+
+                    <div class="tour-stats">
+                        <div class="stat-box">
+                            <div class="stat-box__label">Активность 15 минут</div>
+                            <div class="stat-box__val">${escapeHtml(formatNumberRu(metrics.activeUsers15m))}</div>
+                            <div class="stat-box__sub">живой онлайн по пользователям</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box__label">Отправки за сутки</div>
+                            <div class="stat-box__val">${escapeHtml(formatNumberRu(metrics.submissions24h))}</div>
+                            <div class="stat-box__sub">${escapeHtml(formatNumberRu(metrics.submissions7d))} за 7 дней</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box__label">Регистрации за сутки</div>
+                            <div class="stat-box__val">${escapeHtml(formatNumberRu(metrics.newUsers24h))}</div>
+                            <div class="stat-box__sub">${escapeHtml(formatNumberRu(metrics.newUsers7d))} за 7 дней</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-home-hero__actions">
+                        <button class="btn--gradient-block" type="button" data-admin-home-open-view="admin">Открыть админку</button>
+                        <div class="admin-home-hero__actions-row">
+                            <button class="btn btn--subtle" type="button" data-admin-home-open-view="moderation" data-admin-home-moderation-tab="tasks">Модерация</button>
+                            <button class="btn btn--subtle" type="button" data-admin-home-open-view="tournaments">Турниры</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card dash-card profile-card admin-home-summary-card" data-view-anim style="transition-delay: 0.1s;">
+                    <div class="card__head">
+                        <div>
+                            <div class="card__title">Быстрая сводка</div>
+                            <div class="card__sub">Короткая картина по сущностям платформы и текущей инфраструктурной нагрузке.</div>
+                        </div>
+                    </div>
+                    <div class="profile-metrics admin-home-summary-grid">
+                        <div class="metric">
+                            <div class="metric__label">Аккаунтов</div>
+                            <div class="metric__val">${escapeHtml(formatNumberRu(overview.usersCount || metrics.usersCount))}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric__label">Турниров</div>
+                            <div class="metric__val">${escapeHtml(formatNumberRu(overview.tournamentsCount))}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric__label">Команд</div>
+                            <div class="metric__val">${escapeHtml(formatNumberRu(overview.teamsCount))}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric__label">Задач</div>
+                            <div class="metric__val">${escapeHtml(formatNumberRu(overview.tasksCount))}</div>
+                        </div>
+                    </div>
+                    <div class="admin-home-summary-meta">
+                        <span>${escapeHtml(formatNumberRu(metrics.activeSessions))} активных cookie-session</span>
+                        <span>${escapeHtml(formatNumberRu(metrics.liveParticipants))} участников внутри live</span>
+                    </div>
+                </section>
+
+                <section class="card dash-card task-card admin-home-attention-card" data-view-anim style="transition-delay: 0.15s;">
+                    <div class="card__head">
+                        <div>
+                            <div class="card__title">Сейчас важно</div>
+                            <div class="card__sub">Три сигнала, которые обычно требуют первого админского решения.</div>
+                        </div>
+                    </div>
+                    <div class="admin-home-alert-list">
+                        ${attentionItems
+                            .map((item) => {
+                                const target = resolveAdminAttentionTarget(item.targetTab);
+                                return `
+                                    <div class="admin-home-alert admin-home-alert--${escapeHtml(item.tone)}">
+                                        <div class="admin-home-alert__icon">
+                                            ${renderOpsIcon(item.icon, item.tone)}
+                                        </div>
+                                        <div class="admin-home-alert__copy">
+                                            <div class="admin-home-alert__title">${escapeHtml(item.title)}</div>
+                                            <div class="admin-home-alert__desc">${escapeHtml(item.desc)}</div>
+                                        </div>
+                                        <button
+                                            class="btn btn--muted btn--sm"
+                                            type="button"
+                                            data-admin-home-open-view="${escapeHtml(target.view)}"
+                                            ${target.adminTab ? `data-admin-home-admin-tab="${escapeHtml(target.adminTab)}"` : ""}
+                                            ${target.moderationTab ? `data-admin-home-moderation-tab="${escapeHtml(target.moderationTab)}"` : ""}
+                                        >${escapeHtml(item.actionLabel)}</button>
+                                    </div>
+                                `;
+                            })
+                            .join("")}
+                    </div>
+                </section>
+
+                <section class="card dash-card chart-card admin-home-feed-card admin-home-feed-card--wide" data-view-anim style="transition-delay: 0.2s;">
+                    <div class="card__head row-between">
+                        <div>
+                            <div class="card__title">Самые живые турниры</div>
+                            <div class="card__sub">Не абстрактный список, а текущие турниры с реальными статусами, владельцами и движением.</div>
+                        </div>
+                        <button class="topbar-btn" type="button" data-admin-home-open-view="tournaments">Все турниры</button>
+                    </div>
+                    <div class="admin-home-feed">
+                        ${
+                            hotTournaments.length > 0
+                                ? hotTournaments
+                                      .map(
+                                          (item) => `
+                                              <button class="admin-home-feed__item" type="button" data-admin-home-open-view="tournaments">
+                                                  <div class="admin-home-feed__head">
+                                                      <div class="admin-home-feed__title">${escapeHtml(item.title)}</div>
+                                                      ${renderOpsBadge(
+                                                          humanizeTournamentStatusLabel(item.status),
+                                                          badgeTone(item.status),
+                                                      )}
+                                                  </div>
+                                                  <div class="admin-home-feed__meta">@${escapeHtml(item.ownerLogin || "system")} • ${escapeHtml(item.startAt ? `старт ${formatDateTimeLabel(item.startAt)}` : `обновлён ${formatDateTimeLabel(item.updatedAt)}`)}</div>
+                                                  <div class="admin-home-feed__pills">
+                                                      <span class="admin-home-pill">${escapeHtml(formatNumberRu(item.participants || 0))} участников</span>
+                                                      <span class="admin-home-pill">${escapeHtml(formatNumberRu(item.submissions24h || 0))} отправок / 24ч</span>
+                                                  </div>
+                                              </button>
+                                          `,
+                                      )
+                                      .join("")
+                                : `
+                                    <div class="admin-home-feed__empty">
+                                        <div class="admin-home-feed__empty-title">Активных турниров пока мало</div>
+                                        <div class="admin-home-feed__empty-desc">Когда на платформе пойдёт живая активность, здесь появится быстрый рейтинг по движению и нагрузке.</div>
+                                    </div>
+                                `
+                        }
+                    </div>
+                </section>
+
+                <section class="card dash-card pulse-card admin-home-feed-card" data-view-anim style="transition-delay: 0.25s;">
+                    <div class="card__head row-between">
+                        <div>
+                            <div class="card__title">Новые пользователи</div>
+                            <div class="card__sub">Последние регистрации, роли и статусы без сухого текстового списка.</div>
+                        </div>
+                        <button class="topbar-btn" type="button" data-admin-home-open-view="admin" data-admin-home-admin-tab="users">Пользователи</button>
+                    </div>
+                    <div class="admin-home-users">
+                        ${
+                            recentUsers.length > 0
+                                ? recentUsers
+                                      .map(
+                                          (item) => `
+                                              <button class="admin-home-user" type="button" data-admin-home-open-view="admin" data-admin-home-admin-tab="users">
+                                                  <div class="admin-home-user__main">
+                                                      <div class="admin-home-user__title">${escapeHtml(item.displayName || item.login || "Без имени")}</div>
+                                                      <div class="admin-home-user__meta">@${escapeHtml(item.login || "unknown")} • регистрация ${escapeHtml(formatDateTimeLabel(item.createdAt))}</div>
+                                                  </div>
+                                                  <div class="admin-home-user__badges">
+                                                      ${renderOpsBadge(humanizeUserRole(item.role), badgeTone(item.role))}
+                                                      ${renderOpsBadge(humanizeUserStatusLabel(item.status), badgeTone(item.status))}
+                                                  </div>
+                                              </button>
+                                          `,
+                                      )
+                                      .join("")
+                                : `
+                                    <div class="admin-home-feed__empty">
+                                        <div class="admin-home-feed__empty-title">Регистрации пока не накопились</div>
+                                        <div class="admin-home-feed__empty-desc">Поток новых аккаунтов появится здесь автоматически, когда пользователи начнут приходить.</div>
+                                    </div>
+                                `
+                        }
+                    </div>
+                </section>
+            </div>
+
+            <div class="admin-home-charts">
+                <section class="card dash-card admin-home-chart-card" data-view-anim style="transition-delay: 0.3s;">
+                    <div class="card__head row-between">
+                        <div>
+                            <div class="card__title">Пульс платформы</div>
+                            <div class="card__sub">Активные сессии по часам за последние 24 часа.</div>
+                        </div>
+                    </div>
+                    <div class="admin-home-chart-wrap">
+                        <canvas id="adminSessionsChart" aria-label="Пульс платформы"></canvas>
+                    </div>
+                </section>
+                <section class="card dash-card admin-home-chart-card" data-view-anim style="transition-delay: 0.35s;">
+                    <div class="card__head row-between">
+                        <div>
+                            <div class="card__title">Рост и нагрузка</div>
+                            <div class="card__sub">Регистрации и отправки решений за последние 14 дней.</div>
+                        </div>
+                    </div>
+                    <div class="admin-home-chart-wrap">
+                        <canvas id="adminGrowthChart" aria-label="Рост и нагрузка"></canvas>
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
 function renderAdminControlView() {
     const adminState = getAdminOverviewState();
     const overview = adminState.overview || DEFAULT_ADMIN_OVERVIEW.overview;
@@ -7344,7 +8304,7 @@ function renderAdminControlView() {
     ];
     const activeTab = adminUiState.activeTab || "users";
     let panelTitle = "Пользователи и роли";
-    let panelDesc = "Назначайте роли, блокируйте аккаунты и следите за текущими статусами.";
+    let panelDesc = "Назначайте роли, блокируйте аккаунты и управляйте доступом без перехода в другие роли.";
     let panelBody = renderAdminUsersSection(users);
 
     if (activeTab === "tournaments") {
@@ -7375,7 +8335,11 @@ function renderAdminControlView() {
             <div class="ops-header" data-view-anim>
                 <div class="ops-header__copy">
                     <h1 class="dash-header">Админка</h1>
-                    <div class="tour-sub">Единая панель управления платформой: роли, сущности, блокировки, заявки и аудит.</div>
+                    <div class="tour-sub">Полная панель управления платформой: роли, сущности, блокировки, турниры, модерация и аудит без визуального шума.</div>
+                </div>
+                <div class="ops-header__actions">
+                    <button class="btn btn--muted" type="button" data-admin-open-view="dashboard">Главная</button>
+                    <button class="btn btn--muted" type="button" data-admin-open-view="moderation">Модерация</button>
                 </div>
             </div>
             <div class="ops-metric-grid ops-metric-grid--six">
@@ -7384,7 +8348,7 @@ function renderAdminControlView() {
                     tone: "accent",
                     label: "Пользователи",
                     value: formatNumberRu(overview.usersCount),
-                    meta: "Все зарегистрированные аккаунты",
+                    meta: `${formatNumberRu(overview.organizersCount)} организаторов и ${formatNumberRu(overview.moderatorsCount)} модераторов`,
                 })}
                 ${renderOpsMetricCard({
                     icon: "shield",
@@ -7394,35 +8358,36 @@ function renderAdminControlView() {
                     meta: "Полный доступ к платформе",
                 })}
                 ${renderOpsMetricCard({
-                    icon: "verified_user",
-                    tone: "warning",
-                    label: "Модераторы",
-                    value: formatNumberRu(overview.moderatorsCount),
-                    meta: "Проверка задач и заявок",
-                })}
-                ${renderOpsMetricCard({
                     icon: "emoji_events",
                     tone: "accent",
-                    label: "Организаторы",
-                    value: formatNumberRu(overview.organizersCount),
-                    meta: "Управление собственными турнирами",
+                    label: "Турниры",
+                    value: formatNumberRu(overview.tournamentsCount),
+                    meta: `${formatNumberRu(overview.liveTournamentsCount)} live прямо сейчас`,
                 })}
                 ${renderOpsMetricCard({
-                    icon: "block",
-                    tone: "danger",
-                    label: "Блокировки",
-                    value: formatNumberRu(overview.blockedUsersCount),
-                    meta: "Активные ограничения аккаунтов",
+                    icon: "group_add",
+                    tone: "muted",
+                    label: "Команды",
+                    value: formatNumberRu(overview.teamsCount),
+                    meta: "Управление командами и владельцами",
+                })}
+                ${renderOpsMetricCard({
+                    icon: "library_books",
+                    tone: "warning",
+                    label: "Банк задач",
+                    value: formatNumberRu(overview.tasksCount),
+                    meta: `${formatNumberRu(overview.pendingTaskModerationCount)} ждут модерации`,
                 })}
                 ${renderOpsMetricCard({
                     icon: "pending_actions",
-                    tone: "warning",
-                    label: "Модерация",
+                    tone: overview.blockedUsersCount > 0 ? "danger" : "warning",
+                    label: "Очередь и блоки",
                     value: formatNumberRu(
                         overview.pendingTaskModerationCount +
-                            overview.pendingOrganizerApplicationsCount,
+                            overview.pendingOrganizerApplicationsCount +
+                            overview.blockedUsersCount,
                     ),
-                    meta: "Очередь задач и organizer-заявок",
+                    meta: "Модерация и ограниченные аккаунты",
                 })}
             </div>
             ${renderOpsTabs(tabs, activeTab, "data-admin-tab")}
@@ -7434,6 +8399,225 @@ function renderAdminControlView() {
             })}
         </div>
     `;
+}
+
+function destroyAdminOverviewCharts() {
+    Object.values(adminOverviewCharts).forEach((chart) => {
+        if (chart && typeof chart.destroy === "function") {
+            chart.destroy();
+        }
+    });
+    adminOverviewCharts = {
+        sessions: null,
+        growth: null,
+    };
+}
+
+function getAdminChartColor(name, fallback) {
+    const value = getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
+    return value || fallback;
+}
+
+async function initAdminOverviewCharts(container) {
+    if (!container) {
+        return;
+    }
+
+    const sessionsCanvas = container.querySelector("#adminSessionsChart");
+    const growthCanvas = container.querySelector("#adminGrowthChart");
+    if (!sessionsCanvas || !growthCanvas) {
+        destroyAdminOverviewCharts();
+        return;
+    }
+
+    const ChartLib = await ensureChartJsLoaded().catch((error) => {
+        console.error(error);
+        return null;
+    });
+    if (!ChartLib?.getChart) {
+        return;
+    }
+    if (
+        (adminUiState.activeTab || "overview") !== "overview" ||
+        !container.contains(sessionsCanvas) ||
+        !container.contains(growthCanvas)
+    ) {
+        return;
+    }
+
+    destroyAdminOverviewCharts();
+
+    const metrics = {
+        ...DEFAULT_ADMIN_OVERVIEW.metrics,
+        ...(getAdminOverviewState().metrics || {}),
+    };
+    const sessionSeries = Array.isArray(metrics.sessionActivitySeries)
+        ? metrics.sessionActivitySeries
+        : [];
+    const registrationsSeries = Array.isArray(metrics.registrationsSeries)
+        ? metrics.registrationsSeries
+        : [];
+    const submissionsSeries = Array.isArray(metrics.submissionsSeries)
+        ? metrics.submissionsSeries
+        : [];
+
+    const accentFrom = getAdminChartColor("--accent-from", "#34d399");
+    const accentTo = getAdminChartColor("--accent-to", "#60a5fa");
+    const warning = getAdminChartColor("--warning", "#f59e0b");
+    const fgStrong = getAdminChartColor("--fg-strong", "#ffffff");
+    const fgMuted = getAdminChartColor("--fg-muted", "#9ca3af");
+    const line = getAdminChartColor("--line", "rgba(255,255,255,0.08)");
+
+    const sessionsContext = sessionsCanvas.getContext("2d");
+    const growthContext = growthCanvas.getContext("2d");
+    if (!sessionsContext || !growthContext) {
+        return;
+    }
+
+    const sessionsGradient = sessionsContext.createLinearGradient(
+        0,
+        0,
+        0,
+        sessionsCanvas.height || 240,
+    );
+    sessionsGradient.addColorStop(0, "rgba(96, 165, 250, 0.28)");
+    sessionsGradient.addColorStop(1, "rgba(96, 165, 250, 0.04)");
+
+    adminOverviewCharts.sessions = new window.Chart(sessionsContext, {
+        type: "line",
+        data: {
+            labels: sessionSeries.map((item) => item.label || ""),
+            datasets: [
+                {
+                    label: "Активные сессии",
+                    data: sessionSeries.map((item) => Number(item.value || 0)),
+                    borderColor: accentTo,
+                    backgroundColor: sessionsGradient,
+                    fill: true,
+                    borderWidth: 2,
+                    tension: 0.34,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: "index",
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    backgroundColor: "rgba(11, 15, 25, 0.92)",
+                    titleColor: fgStrong,
+                    bodyColor: fgStrong,
+                    displayColors: false,
+                },
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: line,
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: fgMuted,
+                        maxRotation: 0,
+                        autoSkip: true,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: line,
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: fgMuted,
+                        precision: 0,
+                    },
+                },
+            },
+        },
+    });
+
+    adminOverviewCharts.growth = new window.Chart(growthContext, {
+        type: "bar",
+        data: {
+            labels: registrationsSeries.map((item) => item.label || ""),
+            datasets: [
+                {
+                    label: "Регистрации",
+                    data: registrationsSeries.map((item) => Number(item.value || 0)),
+                    backgroundColor: accentFrom,
+                    borderRadius: 10,
+                    maxBarThickness: 18,
+                },
+                {
+                    label: "Отправки",
+                    data: submissionsSeries.map((item) => Number(item.value || 0)),
+                    backgroundColor: warning,
+                    borderRadius: 10,
+                    maxBarThickness: 18,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: "index",
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: fgMuted,
+                        usePointStyle: true,
+                        boxWidth: 10,
+                        boxHeight: 10,
+                    },
+                },
+                tooltip: {
+                    backgroundColor: "rgba(11, 15, 25, 0.92)",
+                    titleColor: fgStrong,
+                    bodyColor: fgStrong,
+                },
+            },
+            scales: {
+                x: {
+                    stacked: false,
+                    grid: {
+                        display: false,
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: fgMuted,
+                        maxRotation: 0,
+                        autoSkip: true,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: line,
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: fgMuted,
+                        precision: 0,
+                    },
+                },
+            },
+        },
+    });
 }
 
 async function initOrganizerTournamentsInteractions(container) {
@@ -7928,6 +9112,12 @@ function initModerationInteractions(container) {
 }
 
 function initAdminControlInteractions(container) {
+    container.querySelectorAll("[data-admin-open-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+            ViewManager.open(button.dataset.adminOpenView);
+        });
+    });
+
     container.querySelectorAll("[data-admin-tab]").forEach((tab) => {
         tab.addEventListener("click", () => {
             adminUiState.activeTab = tab.dataset.adminTab;
@@ -8050,6 +9240,7 @@ function initAdminControlInteractions(container) {
             }
         });
     });
+    destroyAdminOverviewCharts();
 }
 
 function formatAdminDateLabel(value) {
@@ -8461,6 +9652,78 @@ function initAdminInteractions(container) {
     void refreshAdminData(true);
 }
 
+function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
+    if (!ViewManager.content) {
+        return;
+    }
+
+    const scrollTop = preserveScroll ? window.scrollY : 0;
+
+    if (ViewManager.navItems) {
+        ViewManager.navItems.forEach((el) => {
+            el.classList.toggle("active", el.dataset.view === viewName);
+        });
+    }
+
+    if (viewName === "dashboard") {
+        if (isOrganizerUser()) {
+            ViewManager.content.innerHTML = renderOrganizerDashboard();
+            initOrganizerDashboardInteractions(ViewManager.content);
+        } else if (isModeratorUser() && !isAdminUser()) {
+            ViewManager.content.innerHTML = renderModerationDashboard();
+            initModerationDashboardInteractions(ViewManager.content);
+        } else if (isAdminUser()) {
+            ViewManager.content.innerHTML = renderAdminDashboard();
+            initAdminDashboardInteractions(ViewManager.content);
+        } else {
+            ViewManager.content.innerHTML = renderDashboard();
+            initDashboardInteractions(ViewManager.content);
+        }
+    } else if (viewName === "task-bank") {
+        ViewManager.content.innerHTML = renderOrganizerTaskBank();
+        initOrganizerTaskBankInteractions(ViewManager.content);
+    } else if (viewName === "moderation") {
+        ViewManager.content.innerHTML = renderModerationView();
+        initModerationInteractions(ViewManager.content);
+    } else if (viewName === "tournaments" && isOrganizerUser()) {
+        ViewManager.content.innerHTML = renderOrganizerTournaments();
+        initOrganizerTournamentsInteractions(ViewManager.content);
+    } else if (viewName === "profile" && isOrganizerUser()) {
+        ViewManager.content.innerHTML = renderOrganizerProfile();
+        initOrganizerProfileInteractions(ViewManager.content);
+    } else if (viewName === "tournaments") {
+        ViewManager.tourFilters =
+            ViewManager.tourFilters || createDefaultTournamentFilters();
+        ViewManager.content.innerHTML = renderTournaments();
+        initTournamentsInteractions(ViewManager.content);
+    } else if (viewName === "team") {
+        ViewManager.content.innerHTML = renderTeam();
+        initTeamInteractions(ViewManager.content);
+    } else if (viewName === "profile") {
+        ViewManager.content.innerHTML = renderProfile();
+        initProfileInteractions(ViewManager.content);
+    } else if (viewName === "admin") {
+        ViewManager.content.innerHTML = renderAdminControlView();
+        initAdminControlInteractions(ViewManager.content);
+    } else {
+        ViewManager.content.innerHTML = `<div class="section__title" data-view-anim>Раздел ${viewName} в разработке</div>`;
+    }
+
+    if (preserveScroll) {
+        window.scrollTo({ top: scrollTop, behavior: "instant" });
+        document.documentElement.scrollTop = scrollTop;
+        document.body.scrollTop = scrollTop;
+    } else {
+        window.scrollTo({ top: 0, behavior: "instant" });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    }
+
+    requestAnimationFrame(() => {
+        observeRenderedWorkspaceContent(ViewManager.content);
+    });
+}
+
 const ViewManager = {
     content: null,
     navItems: null,
@@ -8518,67 +9781,26 @@ const ViewManager = {
 
         this.currentView = viewName;
 
-        // Update Nav
-        this.navItems.forEach((el) => {
-            el.classList.toggle("active", el.dataset.view === viewName);
-        });
-
-        // Render Content
-        if (viewName === "dashboard") {
-            if (isOrganizerUser()) {
-                this.content.innerHTML = renderOrganizerDashboard();
-                initOrganizerDashboardInteractions(this.content);
-            } else if (isModeratorUser() && !isAdminUser()) {
-                this.content.innerHTML = renderModerationDashboard();
-                initModerationDashboardInteractions(this.content);
-            } else if (isAdminUser()) {
-                this.content.innerHTML = renderAdminControlView();
-                initAdminControlInteractions(this.content);
-            } else {
-                this.content.innerHTML = renderDashboard();
-                initDashboardInteractions(this.content);
-            }
-        } else if (viewName === "task-bank") {
-            this.content.innerHTML = renderOrganizerTaskBank();
-            initOrganizerTaskBankInteractions(this.content);
-        } else if (viewName === "moderation") {
-            this.content.innerHTML = renderModerationView();
-            initModerationInteractions(this.content);
-        } else if (viewName === "tournaments" && isOrganizerUser()) {
-            this.content.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(this.content);
-        } else if (viewName === "profile" && isOrganizerUser()) {
-            this.content.innerHTML = renderOrganizerProfile();
-            initOrganizerProfileInteractions(this.content);
-        } else if (viewName === "tournaments") {
-            this.tourFilters = this.tourFilters || createDefaultTournamentFilters();
-            this.content.innerHTML = renderTournaments();
-            initTournamentsInteractions(this.content);
-        } else if (viewName === "team") {
-            this.content.innerHTML = renderTeam();
-            initTeamInteractions(this.content);
-        } else if (viewName === "profile") {
-            this.content.innerHTML = renderProfile();
-            initProfileInteractions(this.content);
-        } else if (viewName === "admin") {
-            this.content.innerHTML = renderAdminControlView();
-            initAdminControlInteractions(this.content);
-        } else {
-            this.content.innerHTML = `<div class="section__title" data-view-anim>Раздел ${viewName} в разработке</div>`;
+        if (!(viewName === "dashboard" && isAdminUser()) && viewName !== "admin") {
+            destroyAdminOverviewCharts();
         }
 
-        // Re-attach observers and scroll to top
-        window.scrollTo({ top: 0, behavior: "instant" });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-
-        requestAnimationFrame(() => {
-            observeRenderedWorkspaceContent(this.content);
-        });
+        renderWorkspaceContent(viewName);
 
         const historyMode = options.historyMode ?? "push";
         if (historyMode !== "none") {
             syncWorkspaceHistory(historyMode, viewName);
+        }
+
+        if (isWorkspaceAutoSyncEnabled(viewName)) {
+            startWorkspaceAutoSync();
+            void syncWorkspaceDataForActiveView({
+                viewName,
+                force: true,
+                rerender: true,
+            });
+        } else {
+            stopWorkspaceAutoSync();
         }
     },
 };

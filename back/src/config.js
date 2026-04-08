@@ -109,8 +109,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_HOST =
   process.env.PUBLIC_HOST || (HOST === "0.0.0.0" ? "127.0.0.1" : HOST);
+const DEFAULT_APP_PROTOCOL = NODE_ENV === "production" ? "https" : "http";
 const APP_BASE_URL =
-  process.env.APP_BASE_URL || `https://${PUBLIC_HOST}:${PORT}`;
+  process.env.APP_BASE_URL || `${DEFAULT_APP_PROTOCOL}://${PUBLIC_HOST}:${PORT}`;
 const APP_URL = new URL(APP_BASE_URL);
 const DATABASE_PATH =
   process.env.DATABASE_PATH ||
