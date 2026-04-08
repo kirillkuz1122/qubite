@@ -260,8 +260,14 @@ async function renderTurnstileForForm(form) {
     hiddenInput.value = "";
     const currentWidgetId = turnstileWidgetIds.get(form.id);
     if (currentWidgetId !== undefined) {
-        turnstileApi.reset(currentWidgetId);
-        return;
+        const hasRenderedIframe = Boolean(
+            slot.querySelector("iframe, textarea[name^='cf-turnstile-response']"),
+        );
+        if (hasRenderedIframe) {
+            turnstileApi.reset(currentWidgetId);
+            return;
+        }
+        turnstileWidgetIds.delete(form.id);
     }
 
     slot.innerHTML = "";
@@ -4532,7 +4538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Создание модалок
     mountModals();
     wireStaticLoginModal();
-    void ensurePublicSecurityConfig().then(() => hydrateTurnstileForms());
+    void ensurePublicSecurityConfig();
 
     // 2. Инициализация форм
     document.querySelectorAll("form").forEach(setupForm);
