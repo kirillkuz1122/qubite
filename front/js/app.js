@@ -2548,7 +2548,13 @@ const DYNAMIC_MODALS_HTML = `
         <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" placeholder="********" minlength="8" data-required data-type="passrule"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
         <div class="field input-group"><label>Повторите пароль</label><input class="input" type="password" name="pass2" placeholder="********" data-required data-type="match:pass"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass2"></div></div>
         <input type="hidden" name="turnstileToken" value="">
-        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
+        <div class="field turnstile-field">
+          <div class="turnstile-shell">
+            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div data-turnstile-slot></div>
+          </div>
+          <div class="error" data-error-for="turnstileToken"></div>
+        </div>
         <label class="checkbox"><input type="checkbox" name="agree" data-required-check><span>Принимаю <a href="#" class="reg-link">условия соглашения</a></span></label>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Зарегистрироваться</button>
         <div data-oauth-slot></div>
@@ -2591,7 +2597,13 @@ const DYNAMIC_MODALS_HTML = `
         <div class="field"><label>Логин или e-mail</label><input class="input" name="login" data-required><div class="error" data-error-for="login"></div></div>
         <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" data-required><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
         <input type="hidden" name="turnstileToken" value="">
-        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
+        <div class="field turnstile-field">
+          <div class="turnstile-shell">
+            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div data-turnstile-slot></div>
+          </div>
+          <div class="error" data-error-for="turnstileToken"></div>
+        </div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Войти</button>
         <div data-oauth-slot></div>
         <div class="form__links">
@@ -2640,7 +2652,13 @@ const DYNAMIC_MODALS_HTML = `
       <form class="modal__form" id="forgotForm" novalidate>
         <div class="field"><label>Почта</label><input class="input" type="text" inputmode="email" name="email" placeholder="mail@example.com" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
         <input type="hidden" name="turnstileToken" value="">
-        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
+        <div class="field turnstile-field">
+          <div class="turnstile-shell">
+            <div class="turnstile-shell__label">Проверка безопасности</div>
+            <div data-turnstile-slot></div>
+          </div>
+          <div class="error" data-error-for="turnstileToken"></div>
+        </div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сбросить пароль</button>
       </form>
     </div>
@@ -3373,15 +3391,16 @@ function setupForm(form) {
 
         const updateEye = () => {
             const isPass = input.type === "password";
-            btn.innerHTML = `<span>${window.getSVGIcon(
-                isPass ? "visibility_off" : "visibility",
-                'class="icon-svg" style="font-size: 20px; width: 20px; height: 20px;"',
-            )}</span>`;
+            btn.innerHTML = window.getSVGIcon(
+                "visibility",
+                'class="icon-svg input-toggle__icon-svg" aria-hidden="true"',
+            );
             btn.setAttribute(
                 "aria-label",
                 isPass ? "Показать пароль" : "Скрыть пароль",
             );
             btn.classList.toggle("is-active", !isPass);
+            btn.classList.toggle("is-masked", isPass);
         };
         updateEye();
 

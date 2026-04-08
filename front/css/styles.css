@@ -2088,6 +2088,68 @@ button.card--all {
     font-size: 13px;
     color: var(--fg-muted);
 }
+.turnstile-field {
+    gap: 8px;
+}
+.turnstile-shell {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--border) 85%, rgba(244, 63, 94, 0.2));
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--bg-2) 82%, transparent),
+            color-mix(in oklab, var(--muted) 94%, transparent)
+        );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 12px 30px rgba(2, 6, 23, 0.18);
+    overflow: hidden;
+}
+.turnstile-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        rgba(244, 63, 94, 0),
+        rgba(244, 63, 94, 0.65),
+        rgba(245, 158, 11, 0.65),
+        rgba(245, 158, 11, 0)
+    );
+    pointer-events: none;
+}
+.turnstile-shell__label {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, var(--fg-muted) 90%, var(--accent-to));
+}
+.turnstile-shell > [data-turnstile-slot] {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 74px;
+}
+.turnstile-shell > [data-turnstile-slot] > * {
+    max-width: 100%;
+}
+.turnstile-shell iframe {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    border-radius: 12px;
+}
+.turnstile-field .error {
+    min-height: 1em;
+}
 .input,
 .textarea {
     width: 100%;
@@ -2348,31 +2410,49 @@ button.card--all {
     place-items: center;
 
     /* Base style (Inactive) */
-    background: var(--muted);
-    border: 1px solid var(--border);
-    color: var(--fg-muted);
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--muted) 92%, transparent),
+            color-mix(in oklab, var(--bg-2) 68%, transparent)
+        );
+    border: 1px solid color-mix(in oklab, var(--border) 88%, rgba(255, 255, 255, 0.02));
+    color: color-mix(in oklab, var(--fg) 82%, #fff);
     cursor: pointer;
-
-    /* Material Symbols font settings */
-    font-family: "Material Symbols Outlined";
-    font-weight: 300;
-    font-style: normal;
-    font-size: 24px;
-    line-height: 1;
-    letter-spacing: normal;
-    text-transform: none;
-    white-space: nowrap;
-    direction: ltr;
-    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
     user-select: none;
-    transition: all 0.2s ease;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 8px 18px rgba(2, 6, 23, 0.12);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease,
+        background 0.2s ease,
+        color 0.2s ease;
 }
 
-/* Span внутри toggle для градиентного текста */
-.input-toggle span {
-    display: inline-block;
+.input-toggle__icon-svg {
+    width: 20px;
+    height: 20px;
+    display: block;
     color: currentColor;
-    transition: color 0.2s ease;
+    flex: 0 0 auto;
+    transition:
+        transform 0.2s ease,
+        color 0.2s ease;
+}
+
+.input-toggle.is-masked::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: rotate(-34deg);
+    box-shadow: 0 0 10px rgba(2, 6, 23, 0.18);
+    pointer-events: none;
 }
 
 /* --- STATES --- */
@@ -2382,15 +2462,17 @@ button.card--all {
 /* 2. ACTIVE (Открыт, покой) - Прозрачный центр, яркая рамка */
 .input-toggle.is-active {
     border: 1px solid transparent;
-    box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
-    color: transparent; /* Текст градиентный через span */
+    box-shadow:
+        0 0 16px rgba(244, 63, 94, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #fff;
 }
 
 .input-toggle.is-active:not(:hover) {
     background: linear-gradient(
             176.35deg,
-            rgba(244, 63, 94, 0.1),
-            rgba(245, 158, 11, 0.1)
+            rgba(244, 63, 94, 0.2),
+            rgba(245, 158, 11, 0.2)
         )
         padding-box !important;
 }
@@ -2406,17 +2488,9 @@ button.card--all {
 }
 
 /* FIX: На мобиле при клике (active) цвет не должен слетать */
-.input-toggle.is-active:active span,
-.input-toggle.is-active:focus span {
-    background: linear-gradient(
-        176.35deg,
-        rgba(244, 63, 94, 1),
-        rgba(245, 158, 11, 1)
-    ) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    color: transparent !important;
+.input-toggle.is-active:active .input-toggle__icon-svg,
+.input-toggle.is-active:focus .input-toggle__icon-svg {
+    color: #fff !important;
 }
 
 /* Рамка через псевдо-элемент */
@@ -2437,15 +2511,8 @@ button.card--all {
 }
 
 /* Градиентный текст иконки (только в покое) */
-.input-toggle.is-active:not(:hover) span {
-    background: linear-gradient(
-        176.35deg,
-        rgba(244, 63, 94, 1),
-        rgba(245, 158, 11, 1)
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+.input-toggle.is-active:not(:hover) .input-toggle__icon-svg {
+    color: #fff;
 }
 
 .input-toggle:active {
@@ -4524,11 +4591,9 @@ body.loading {
         box-shadow: 0 0 16px rgba(244, 63, 94, 0.4);
         color: #fff !important;
     }
-    .input-toggle:hover span,
-    .input-toggle.is-active:hover span,
-    .input-toggle:focus:hover span {
-        background: none !important;
-        -webkit-text-fill-color: #fff !important;
+    .input-toggle:hover .input-toggle__icon-svg,
+    .input-toggle.is-active:hover .input-toggle__icon-svg,
+    .input-toggle:focus:hover .input-toggle__icon-svg {
         color: #fff !important;
         transform: scale(1.05);
     }
