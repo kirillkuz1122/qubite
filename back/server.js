@@ -1,7 +1,6 @@
 const path = require("path");
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
 
 const {
     ROOT_DIR,
@@ -9,20 +8,34 @@ const {
     HOST,
     PORT,
     APP_BASE_URL,
+    APP_HOST,
+    APP_ORIGIN,
+    ALLOWED_HOSTS,
+    ALLOWED_ORIGINS,
     IS_PRODUCTION,
+    TRUST_PROXY,
     SESSION_COOKIE_NAME,
     SESSION_TTL_MS,
     AUTH_CHALLENGE_TTL_MS,
     PASSWORD_RESET_TTL_MS,
     OAUTH_STATE_TTL_MS,
     EMAIL_DELIVERY_MODE,
+    JSON_BODY_LIMIT,
+    HEAVY_JSON_BODY_LIMIT,
+    IMPORT_JSON_BODY_LIMIT,
+    REQUEST_TIMEOUT_MS,
+    HEADERS_TIMEOUT_MS,
+    KEEP_ALIVE_TIMEOUT_MS,
+    MAX_REQUESTS_PER_SOCKET,
 } = require("./src/config");
 const {
     blockEmail,
+    blockIpAddress,
     bootstrapAdminUsers,
     buildTournamentAction,
     buildTournamentTimeLabel,
     cleanupExpiredArtifacts,
+    countAdmins,
     createAuditLog,
     consumeAuthChallenge,
     consumeOAuthState,
@@ -55,6 +68,7 @@ const {
     getAuthChallengeById,
     getMembershipByUserId,
     getOrganizerOverview,
+    getOwnerUser,
     getPlatformMetrics,
     getPrimaryTournament,
     getSessionByUserAndId,
@@ -173,41 +187,145 @@ const {
     stripTaskSnapshotForParticipant,
     validateTaskRuntime,
 } = require("./src/task-runtime");
+const {
+    buildRequestFingerprint,
+    createDuplicateRequestGuard,
+    createOriginGuard,
+    createRateLimiter,
+    normalizeHost,
+    setNoStore,
+} = require("./src/request-guard");
+const {
+    getTurnstileClientConfig,
+    verifyTurnstileToken,
+} = require("./src/turnstile");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+app.set("trust proxy", TRUST_PROXY);
+server.requestTimeout = REQUEST_TIMEOUT_MS;
+server.headersTimeout = HEADERS_TIMEOUT_MS;
+server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+server.maxRequestsPerSocket = MAX_REQUESTS_PER_SOCKET;
 
 const ROLE_USER = "user";
 const ROLE_ORGANIZER = "organizer";
 const ROLE_MODERATOR = "moderator";
 const ROLE_ADMIN = "admin";
+const ROLE_OWNER = "owner";
 const ACTIVE_USER_STATUSES = new Set(["active"]);
 const ROLE_PREVIEW_HEADER = "x-qubite-role-preview";
+const SENSITIVE_API_PREFIXES = [
+    "/api/auth",
+    "/api/profile",
+    "/api/dashboard",
+    "/api/team",
+    "/api/tournaments",
+    "/api/analytics",
+    "/api/organizer",
+    "/api/moderation",
+    "/api/admin",
+];
+const DUMMY_PASSWORD_SALT = "qubite-security-dummy-salt";
+const DEFAULT_AVATAR_DATA_URL_RE = /^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,[a-z0-9+/=]+$/i;
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "128kb" }));
+const defaultJsonParser = express.json({ limit: JSON_BODY_LIMIT });
+const heavyJsonParser = express.json({ limit: HEAVY_JSON_BODY_LIMIT });
+const importJsonParser = express.json({ limit: IMPORT_JSON_BODY_LIMIT });
+
+function applyJsonParserByRoute(req, res, next) {
+    if (!req.is("application/json")) {
+        next();
+        return;
+    }
+
+    const requestPath = String(req.path || "");
+    if (
+        requestPath === "/api/organizer/tasks/import/preview" ||
+        requestPath === "/api/organizer/tasks/import/confirm" ||
+        /^\/api\/organizer\/tournaments\/\d+\/roster\/(?:preview|confirm)$/.test(
+            requestPath,
+        )
+    ) {
+        importJsonParser(req, res, next);
+        return;
+    }
+
+    if (
+        requestPath.startsWith("/api/task-bank") ||
+        requestPath.startsWith("/api/organizer/tasks") ||
+        requestPath.startsWith("/api/organizer/tournaments") ||
+        requestPath.startsWith("/api/admin/tournaments")
+    ) {
+        heavyJsonParser(req, res, next);
+        return;
+    }
+
+    defaultJsonParser(req, res, next);
+}
+
+app.use(applyJsonParserByRoute);
 
 app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "same-origin");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader(
         "Permissions-Policy",
         "camera=(), microphone=(), geolocation=()",
     );
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+    res.setHeader("Origin-Agent-Cluster", "?1");
+    res.setHeader(
+        "Content-Security-Policy",
+        [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'none'",
+            "form-action 'self'",
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            "style-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com",
+            "connect-src 'self' https://challenges.cloudflare.com",
+            "frame-src https://challenges.cloudflare.com",
+        ].join("; "),
+    );
+    if (IS_PRODUCTION) {
+        res.setHeader(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains; preload",
+        );
+    }
+
+    if (SENSITIVE_API_PREFIXES.some((prefix) => String(req.path || "").startsWith(prefix))) {
+        setNoStore(res);
+    }
+
     next();
 });
 
-const authRateLimits = new Map();
-const submissionRateLimits = new Map();
+app.use(
+    createOriginGuard({
+        allowedOrigins: ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : [APP_ORIGIN],
+        allowedHosts: ALLOWED_HOSTS.length > 0 ? ALLOWED_HOSTS : [APP_HOST],
+    }),
+);
 
 function isAdminRole(role) {
-    return role === ROLE_ADMIN;
+    return role === ROLE_ADMIN || role === ROLE_OWNER;
+}
+
+function isOwnerRole(role) {
+    return role === ROLE_OWNER;
 }
 
 function canModerate(role) {
-    return role === ROLE_ADMIN || role === ROLE_MODERATOR;
+    return isAdminRole(role) || role === ROLE_MODERATOR;
 }
 
 function isOrganizerRole(role) {
@@ -244,12 +362,9 @@ function resolveEffectiveRole(actualRole, previewValue) {
 }
 
 function getRequestIp(req) {
-    const forwarded = req.headers["x-forwarded-for"];
-    const raw = Array.isArray(forwarded)
-        ? forwarded[0]
-        : String(forwarded || req.socket.remoteAddress || "");
-
-    return raw.replace("::ffff:", "") || "127.0.0.1";
+    return String(req.ip || req.socket?.remoteAddress || "127.0.0.1")
+        .replace(/^::ffff:/, "")
+        .trim() || "127.0.0.1";
 }
 
 function cleanText(value, maxLength = 255) {
@@ -282,54 +397,381 @@ function sendError(res, status, error, field = null, extra = {}) {
     res.status(status).json({ error, field, ...extra });
 }
 
-function authRateLimiter(req, res, next) {
-    const key = `${getRequestIp(req)}:${req.path}`;
-    const now = Date.now();
-    const windowMs = 15 * 60 * 1000;
-    const maxAttempts = 16;
-    const entry = authRateLimits.get(key);
+function buildExpiryIso(durationMs) {
+    return new Date(Date.now() + Number(durationMs || 0)).toISOString();
+}
 
-    if (!entry || entry.expiresAt <= now) {
-        authRateLimits.set(key, {
-            count: 1,
-            expiresAt: now + windowMs,
-        });
-        next();
-        return;
+async function consumePasswordHashTiming(password) {
+    await hashPassword(String(password || ""), DUMMY_PASSWORD_SALT);
+}
+
+function normalizeRequestIdentifier(value) {
+    const trimmed = cleanText(value, 160);
+    if (!trimmed) {
+        return "";
     }
 
-    if (entry.count >= maxAttempts) {
+    return trimmed.includes("@") ? normalizeEmail(trimmed) : normalizeLogin(trimmed);
+}
+
+function normalizeRequestEmail(value) {
+    return normalizeEmail(cleanText(value, 160));
+}
+
+function normalizeRequestFlowToken(value) {
+    return cleanText(value, 255);
+}
+
+function normalizeRequestUserId(value) {
+    const numeric = Number(value);
+    return Number.isInteger(numeric) && numeric > 0 ? numeric : 0;
+}
+
+function isAllowedAvatarUrl(value) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) {
+        return true;
+    }
+
+    if (DEFAULT_AVATAR_DATA_URL_RE.test(trimmed)) {
+        return trimmed.length <= 256 * 1024;
+    }
+
+    try {
+        const parsed = new URL(trimmed);
+        return ["https:"].includes(parsed.protocol);
+    } catch (error) {
+        return false;
+    }
+}
+
+function buildRateLimitNote(req, label) {
+    return `${label} ${req.method} ${req.path}`;
+}
+
+function getManagedUserRole(user) {
+    return String(user?.actual_role || user?.role || ROLE_USER);
+}
+
+function assertTargetIsNotOwner(targetUser) {
+    if (isOwnerRole(getManagedUserRole(targetUser))) {
+        const error = new Error("Аккаунт owner защищён и недоступен для этой операции.");
+        error.code = "OWNER_IMMUTABLE";
+        throw error;
+    }
+}
+
+function assertActorCanManageTarget(actor, targetUser) {
+    const actorRole = getManagedUserRole(actor);
+    const targetRole = getManagedUserRole(targetUser);
+
+    assertTargetIsNotOwner(targetUser);
+
+    if (actorRole === ROLE_MODERATOR) {
+        if ([ROLE_MODERATOR, ROLE_ADMIN, ROLE_OWNER].includes(targetRole)) {
+            const error = new Error("Модератор не может управлять этим пользователем.");
+            error.code = "INSUFFICIENT_PRIVILEGES";
+            throw error;
+        }
+    }
+
+    if (actorRole === ROLE_ADMIN && isOwnerRole(targetRole)) {
+        const error = new Error("Администратор не может управлять owner.");
+        error.code = "INSUFFICIENT_PRIVILEGES";
+        throw error;
+    }
+}
+
+async function requireTurnstile(req, res, next) {
+    const verification = await verifyTurnstileToken({
+        token: req.body?.turnstileToken,
+        remoteIp: getRequestIp(req),
+        host: normalizeHost(req.headers.host || ""),
+    });
+
+    if (!verification.ok) {
         sendError(
             res,
-            429,
-            "Слишком много попыток. Попробуйте снова через несколько минут.",
+            verification.code === "captcha_unavailable" ? 503 : 400,
+            verification.code === "captcha_unavailable"
+                ? "CAPTCHA временно недоступна. Попробуйте позже или настройте Turnstile."
+                : "Подтвердите, что вы не бот.",
+            "turnstileToken",
+            { code: verification.code },
         );
         return;
     }
 
-    entry.count += 1;
     next();
 }
 
-function hitSimpleRateLimit(bucket, key, windowMs, maxAttempts) {
-    const now = Date.now();
-    const entry = bucket.get(key);
-
-    if (!entry || entry.expiresAt <= now) {
-        bucket.set(key, {
-            count: 1,
-            expiresAt: now + windowMs,
-        });
-        return false;
+async function persistTemporaryIpBlock(req, reason, durationMs) {
+    const ipAddress = getRequestIp(req);
+    if (!ipAddress) {
+        return;
     }
 
-    if (entry.count >= maxAttempts) {
-        return true;
-    }
-
-    entry.count += 1;
-    return false;
+    await blockIpAddress(
+        ipAddress,
+        reason,
+        null,
+        buildExpiryIso(durationMs),
+        buildRateLimitNote(req, reason),
+    );
 }
+
+const globalApiRateLimiter = createRateLimiter({
+    message: "Слишком много запросов подряд. Подождите немного и попробуйте снова.",
+    rules: [
+        {
+            name: "api-burst",
+            windowMs: 10 * 1000,
+            max: 30,
+            key: (req) => getRequestIp(req),
+        },
+        {
+            name: "api-sustained",
+            windowMs: 5 * 60 * 1000,
+            max: 300,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const publicExpensiveRateLimiter = createRateLimiter({
+    message: "Запросов слишком много. Подождите немного.",
+    rules: [
+        {
+            name: "public-expensive",
+            windowMs: 60 * 1000,
+            max: 30,
+            key: (req) => `${getRequestIp(req)}:${req.path}`,
+        },
+    ],
+});
+
+const authRateLimiter = createRateLimiter({
+    message: "Слишком много попыток входа или регистрации. Подождите несколько минут.",
+    rules: [
+        {
+            name: "auth-identifier",
+            windowMs: 5 * 60 * 1000,
+            max: 5,
+            key: (req) => {
+                const identifier =
+                    normalizeRequestIdentifier(req.body?.login) ||
+                    normalizeRequestEmail(req.body?.email);
+                return identifier ? `${getRequestIp(req)}:${identifier}` : "";
+            },
+        },
+        {
+            name: "auth-ip",
+            windowMs: 15 * 60 * 1000,
+            max: 15,
+            banMs: 30 * 60 * 1000,
+            key: (req) => getRequestIp(req),
+            onLimit: ({ req, rule }) => persistTemporaryIpBlock(req, "auth_abuse", rule.banMs),
+        },
+    ],
+});
+
+const passwordResetRateLimiter = createRateLimiter({
+    message: "Слишком много запросов на восстановление пароля. Подождите немного.",
+    rules: [
+        {
+            name: "password-reset-email",
+            windowMs: 15 * 60 * 1000,
+            max: 3,
+            key: (req) => normalizeRequestEmail(req.body?.email),
+        },
+        {
+            name: "password-reset-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 10,
+            banMs: 30 * 60 * 1000,
+            key: (req) => getRequestIp(req),
+            onLimit: ({ req, rule }) =>
+                persistTemporaryIpBlock(req, "password_reset_abuse", rule.banMs),
+        },
+    ],
+});
+
+const challengeVerifyRateLimiter = createRateLimiter({
+    message: "Слишком много попыток подтверждения. Подождите и попробуйте снова.",
+    rules: [
+        {
+            name: "challenge-verify-flow",
+            windowMs: 10 * 60 * 1000,
+            max: 6,
+            key: (req) => normalizeRequestFlowToken(req.body?.flowToken),
+        },
+        {
+            name: "challenge-verify-ip",
+            windowMs: 15 * 60 * 1000,
+            max: 20,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const challengeResendRateLimiter = createRateLimiter({
+    message: "Слишком много запросов нового кода. Подождите несколько минут.",
+    rules: [
+        {
+            name: "challenge-resend-flow",
+            windowMs: 10 * 60 * 1000,
+            max: 3,
+            key: (req) => normalizeRequestFlowToken(req.body?.flowToken),
+        },
+        {
+            name: "challenge-resend-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 10,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const profileWriteRateLimiter = createRateLimiter({
+    message: "Слишком много изменений профиля. Подождите немного.",
+    rules: [
+        {
+            name: "profile-user",
+            windowMs: 15 * 60 * 1000,
+            max: 6,
+            key: (req) => String(req.auth?.user?.id || ""),
+        },
+        {
+            name: "profile-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 20,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const teamJoinRateLimiter = createRateLimiter({
+    message: "Слишком много попыток вступить в команды. Подождите немного.",
+    rules: [
+        {
+            name: "team-join-user",
+            windowMs: 15 * 60 * 1000,
+            max: 10,
+            key: (req) => String(req.auth?.user?.id || ""),
+        },
+        {
+            name: "team-join-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 30,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const tournamentJoinRateLimiter = createRateLimiter({
+    message: "Слишком много попыток присоединения к турниру. Подождите немного.",
+    rules: [
+        {
+            name: "tournament-join-user",
+            windowMs: 15 * 60 * 1000,
+            max: 10,
+            key: (req) => {
+                const tournamentId = Number(req.params?.id || 0);
+                const userId = Number(req.auth?.user?.id || 0);
+                return tournamentId > 0 && userId > 0
+                    ? `${userId}:${tournamentId}`
+                    : "";
+            },
+        },
+        {
+            name: "tournament-join-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 30,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
+
+const tournamentDraftRateLimiter = createRateLimiter({
+    message: "Черновик обновляется слишком часто. Подождите немного.",
+    rules: [
+        {
+            name: "tournament-draft-user",
+            windowMs: 60 * 1000,
+            max: 30,
+            key: (req) => {
+                const tournamentId = Number(req.params?.id || 0);
+                const userId = Number(req.auth?.user?.id || 0);
+                return tournamentId > 0 && userId > 0
+                    ? `${userId}:${tournamentId}`
+                    : "";
+            },
+        },
+    ],
+});
+
+const tournamentSubmitRateLimiter = createRateLimiter({
+    message: "Слишком много отправок подряд. Подождите несколько секунд.",
+    rules: [
+        {
+            name: "tournament-submit-short",
+            windowMs: 15 * 1000,
+            max: 5,
+            key: (req) => {
+                const tournamentId = Number(req.params?.id || 0);
+                const taskId = Number(req.params?.taskId || 0);
+                const userId = Number(req.auth?.user?.id || 0);
+                return tournamentId > 0 && taskId > 0 && userId > 0
+                    ? `${userId}:${tournamentId}:${taskId}`
+                    : "";
+            },
+        },
+        {
+            name: "tournament-submit-long",
+            windowMs: 10 * 60 * 1000,
+            max: 60,
+            key: (req) => {
+                const tournamentId = Number(req.params?.id || 0);
+                const userId = Number(req.auth?.user?.id || 0);
+                return tournamentId > 0 && userId > 0 ? `${userId}:${tournamentId}` : "";
+            },
+        },
+    ],
+});
+
+const tournamentSubmitDuplicateGuard = createDuplicateRequestGuard({
+    windowMs: 3 * 1000,
+    key: (req) => {
+        const tournamentId = Number(req.params?.id || 0);
+        const taskId = Number(req.params?.taskId || 0);
+        const userId = Number(req.auth?.user?.id || 0);
+        if (!(tournamentId > 0 && taskId > 0 && userId > 0)) {
+            return "";
+        }
+
+        return `${userId}:${tournamentId}:${taskId}:${buildRequestFingerprint(
+            JSON.stringify(req.body || {}),
+        )}`;
+    },
+});
+
+const adminSensitiveRateLimiter = createRateLimiter({
+    message: "Слишком много административных действий подряд. Подождите немного.",
+    rules: [
+        {
+            name: "admin-sensitive-user",
+            windowMs: 10 * 60 * 1000,
+            max: 20,
+            key: (req) => String(req.auth?.user?.id || ""),
+        },
+        {
+            name: "admin-sensitive-ip",
+            windowMs: 60 * 60 * 1000,
+            max: 60,
+            key: (req) => getRequestIp(req),
+        },
+    ],
+});
 
 function formatDateLabel(isoString) {
     if (!isoString) {
@@ -658,7 +1100,8 @@ function serializeUser(user) {
         previewRole: user.preview_role || null,
         status: user.status || "active",
         isAdmin: isAdminRole(effectiveRole),
-        isSuperAdmin: isAdminRole(actualRole),
+        isSuperAdmin: isOwnerRole(actualRole),
+        isOwner: isOwnerRole(actualRole),
         canModerate: canModerate(effectiveRole),
         isOrganizer: isOrganizerRole(effectiveRole),
         firstName: user.first_name,
@@ -737,11 +1180,12 @@ function sessionCookieOptions() {
     };
 }
 
-function serializeTournament(row, currentUserId = null) {
+function serializeTournament(row, currentUserId = null, options = {}) {
     const joined = Boolean(row.joined_individual || row.joined_team);
     const effectiveStatus = getTournamentEffectiveStatus(row);
     const action = buildTournamentAction(effectiveStatus, joined);
     const date = new Date(row.start_at);
+    const includeSensitive = Boolean(options.includeSensitive);
     const statusTextMap = {
         draft: "Черновик",
         published: "Опубликован",
@@ -780,7 +1224,7 @@ function serializeTournament(row, currentUserId = null) {
             Number(row.owner_user_id || 0) === Number(currentUserId),
         accessScope:
             row.access_scope === "public" ? "open" : row.access_scope || "open",
-        accessCode: row.access_code || "",
+        accessCode: includeSensitive ? row.access_code || "" : "",
         leaderboardVisible: Boolean(row.leaderboard_visible),
         resultsVisible: Boolean(row.results_visible),
         runtimeMode: row.runtime_mode || "competition",
@@ -790,8 +1234,8 @@ function serializeTournament(row, currentUserId = null) {
         ),
         isDaily: Boolean(row.is_daily),
         dailyKey: row.daily_key || null,
-        rosterCount: Number(row.roster_count || 0),
-        ownerUserId: row.owner_user_id || null,
+        rosterCount: includeSensitive ? Number(row.roster_count || 0) : 0,
+        ownerUserId: includeSensitive ? row.owner_user_id || null : null,
         startAt: row.start_at,
         endAt: row.end_at,
         createdAt: row.created_at || null,
@@ -809,6 +1253,8 @@ function serializeAdminUser(user) {
         email: user.email,
         role: user.role || ROLE_USER,
         status: user.status || "active",
+        isOwner: Boolean(user.role === ROLE_OWNER),
+        protectedAccount: Boolean(user.role === ROLE_OWNER),
         blockedReason: user.blocked_reason || "",
         displayName: buildDisplayName(user),
         createdAt: user.created_at,
@@ -857,7 +1303,7 @@ function serializeAdminTask(task) {
 
 function serializeAdminTournament(tournament) {
     return {
-        ...serializeTournament(tournament),
+        ...serializeTournament(tournament, null, { includeSensitive: true }),
         ownerLogin: tournament.owner_login || "unknown",
         createdAt: tournament.created_at,
         updatedAt: tournament.updated_at,
@@ -1151,7 +1597,7 @@ function serializeRosterEntry(entry) {
 async function serializeOrganizerTournament(row, currentUserId = null) {
     const tasks = await listTournamentTasks(row.id);
     return {
-        ...serializeTournament(row, currentUserId),
+        ...serializeTournament(row, currentUserId, { includeSensitive: true }),
         taskIds: tasks.map((task) => task.id),
     };
 }
@@ -1461,7 +1907,11 @@ function requireRoles(allowedRoles) {
         }
 
         const role = req.auth.user.role || ROLE_USER;
-        if (!allowedRoles.includes(role)) {
+        const normalizedAllowedRoles = new Set(allowedRoles);
+        const permitted =
+            normalizedAllowedRoles.has(role) ||
+            (isOwnerRole(role) && normalizedAllowedRoles.has(ROLE_ADMIN));
+        if (!permitted) {
             sendError(res, 403, "Недостаточно прав для этого действия.");
             return;
         }
@@ -1667,7 +2117,6 @@ async function ensureOAuthUser(profile) {
             });
         }
 
-        await bootstrapAdminUsers();
         return getUserById(user.id);
     }
 
@@ -1691,7 +2140,6 @@ async function ensureOAuthUser(profile) {
     });
 
     await linkOAuthProviderToUser(user.id, profile.provider, profile);
-    await bootstrapAdminUsers();
     return getUserById(user.id);
 }
 
@@ -1946,19 +2394,20 @@ function validateTaskPayload(res, payload) {
     return true;
 }
 
+app.use("/api", globalApiRateLimiter);
 app.use(attachAuth);
 
-app.get("/api/status", async (req, res, next) => {
-    try {
-        const metrics = await getPlatformMetrics();
-        res.json({
-            status: "ok",
-            version: "3.0.0",
-            metrics,
-        });
-    } catch (error) {
-        next(error);
-    }
+app.get("/api/status", (req, res) => {
+    res.json({
+        status: "ok",
+        version: "3.1.0",
+    });
+});
+
+app.get("/api/public/config", (req, res) => {
+    res.json({
+        turnstile: getTurnstileClientConfig(),
+    });
 });
 
 app.get("/api/auth/me", (req, res) => {
@@ -1979,7 +2428,7 @@ app.get("/api/auth/oauth/providers", (req, res) => {
     });
 });
 
-app.get("/api/auth/oauth/:provider/start", async (req, res, next) => {
+app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (req, res, next) => {
     try {
         const providerSlug = String(req.params.provider || "");
         const provider = getProvider(providerSlug);
@@ -2079,14 +2528,17 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             provider: providerSlug,
         });
     } catch (error) {
-        console.error(error);
+        console.error(
+            `[${new Date().toISOString()}] OAuth callback failed`,
+            error?.code || error?.message || error,
+        );
         redirectToApp(res, {
             oauthError: "callback_failed",
         });
     }
 });
 
-app.post("/api/auth/register", authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/register", publicExpensiveRateLimiter, authRateLimiter, requireTurnstile, async (req, res, next) => {
     try {
         const login = cleanText(req.body.login, 32);
         const email = cleanText(req.body.email, 120);
@@ -2160,7 +2612,6 @@ app.post("/api/auth/register", authRateLimiter, async (req, res, next) => {
             throw error;
         }
 
-        await bootstrapAdminUsers();
         user = await getUserById(user.id);
 
         const rawToken = generateSessionToken();
@@ -2191,7 +2642,7 @@ app.post("/api/auth/register", authRateLimiter, async (req, res, next) => {
     }
 });
 
-app.post("/api/auth/login", authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/login", publicExpensiveRateLimiter, authRateLimiter, requireTurnstile, async (req, res, next) => {
     try {
         const identifier = cleanText(req.body.login, 120);
         const password = String(req.body.password || "");
@@ -2207,6 +2658,7 @@ app.post("/api/auth/login", authRateLimiter, async (req, res, next) => {
 
         const user = await findUserByLoginOrEmail(normalizedIdentifier);
         if (!user) {
+            await consumePasswordHashTiming(password);
             sendError(res, 401, "Неверный логин или пароль.");
             return;
         }
@@ -2273,7 +2725,7 @@ app.post("/api/auth/login", authRateLimiter, async (req, res, next) => {
     }
 });
 
-app.post("/api/auth/2fa/login/verify", authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/2fa/login/verify", challengeVerifyRateLimiter, async (req, res, next) => {
     try {
         const flowToken = String(req.body.flowToken || "");
         const code = String(req.body.code || "");
@@ -2316,7 +2768,7 @@ app.post("/api/auth/2fa/login/verify", authRateLimiter, async (req, res, next) =
     }
 });
 
-app.post("/api/auth/challenges/resend", authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/challenges/resend", challengeResendRateLimiter, async (req, res, next) => {
     try {
         const flowToken = String(req.body.flowToken || "");
         if (!flowToken) {
@@ -2340,7 +2792,7 @@ app.post("/api/auth/challenges/resend", authRateLimiter, async (req, res, next) 
     }
 });
 
-app.post("/api/auth/password/forgot", authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/password/forgot", publicExpensiveRateLimiter, passwordResetRateLimiter, requireTurnstile, async (req, res, next) => {
     try {
         const email = cleanText(req.body.email, 120);
         if (!isValidEmail(email)) {
@@ -2374,7 +2826,7 @@ app.post("/api/auth/password/forgot", authRateLimiter, async (req, res, next) =>
 
 app.post(
     "/api/auth/password/forgot/verify",
-    authRateLimiter,
+    challengeVerifyRateLimiter,
     async (req, res, next) => {
         try {
             const flowToken = String(req.body.flowToken || "");
@@ -2457,7 +2909,7 @@ app.post("/api/auth/password/reset", authRateLimiter, async (req, res, next) => 
 app.post(
     "/api/auth/email/verification/send",
     requireAuth,
-    authRateLimiter,
+    challengeResendRateLimiter,
     async (req, res, next) => {
         try {
             const user = await getUserById(req.auth.user.id);
@@ -2494,7 +2946,7 @@ app.post(
 app.post(
     "/api/auth/email/verification/verify",
     requireAuth,
-    authRateLimiter,
+    challengeVerifyRateLimiter,
     async (req, res, next) => {
         try {
             const flowToken = String(req.body.flowToken || "");
@@ -2532,7 +2984,7 @@ app.post(
     },
 );
 
-app.get("/api/public/landing", async (req, res, next) => {
+app.get("/api/public/landing", publicExpensiveRateLimiter, async (req, res, next) => {
     try {
         const [tournaments, topPlayers] = await Promise.all([
             listPublicLandingTournaments(4),
@@ -2550,7 +3002,7 @@ app.get("/api/public/landing", async (req, res, next) => {
     }
 });
 
-app.get("/api/rating", async (req, res, next) => {
+app.get("/api/rating", publicExpensiveRateLimiter, async (req, res, next) => {
     try {
         const limit = Math.max(5, Math.min(Number(req.query.limit || 50), 100));
         const topPlayers = await listTopPlayers(limit);
@@ -2564,7 +3016,7 @@ app.get("/api/rating", async (req, res, next) => {
     }
 });
 
-app.post("/api/auth/2fa/email/send", requireAuth, authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/2fa/email/send", requireAuth, challengeResendRateLimiter, async (req, res, next) => {
     try {
         const user = await getUserById(req.auth.user.id);
         if (!user.email_verified_at) {
@@ -2597,7 +3049,7 @@ app.post("/api/auth/2fa/email/send", requireAuth, authRateLimiter, async (req, r
     }
 });
 
-app.post("/api/auth/2fa/email/verify", requireAuth, authRateLimiter, async (req, res, next) => {
+app.post("/api/auth/2fa/email/verify", requireAuth, challengeVerifyRateLimiter, async (req, res, next) => {
     try {
         const flowToken = String(req.body.flowToken || "");
         const code = String(req.body.code || "");
@@ -2650,7 +3102,7 @@ app.delete("/api/auth/2fa/email", requireAuth, async (req, res, next) => {
     }
 });
 
-app.post("/api/auth/logout", requireAuth, async (req, res, next) => {
+app.post("/api/auth/logout", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
         await revokeSessionById(req.auth.session.id);
         res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
@@ -2660,7 +3112,7 @@ app.post("/api/auth/logout", requireAuth, async (req, res, next) => {
     }
 });
 
-app.post("/api/auth/logout-all", requireAuth, async (req, res, next) => {
+app.post("/api/auth/logout-all", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
         await revokeSessionsForUser(req.auth.user.id, req.auth.session.id);
         res.json({ success: true });
@@ -2669,7 +3121,7 @@ app.post("/api/auth/logout-all", requireAuth, async (req, res, next) => {
     }
 });
 
-app.delete("/api/auth/sessions/:sessionId", requireAuth, async (req, res, next) => {
+app.delete("/api/auth/sessions/:sessionId", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
         const sessionId = Number(req.params.sessionId);
         if (!Number.isInteger(sessionId) || sessionId <= 0) {
@@ -2788,8 +3240,9 @@ app.get("/api/profile", requireAuth, async (req, res, next) => {
     }
 });
 
-app.put("/api/profile", requireAuth, async (req, res, next) => {
+app.put("/api/profile", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
+        const currentUser = await getUserById(req.auth.user.id);
         const payload = {
             lastName: cleanText(req.body.lastName, 80),
             firstName: cleanText(req.body.firstName, 80),
@@ -2800,8 +3253,11 @@ app.put("/api/profile", requireAuth, async (req, res, next) => {
             city: cleanText(req.body.city, 80),
             place: cleanText(req.body.place, 120),
             studyGroup: cleanText(req.body.studyGroup, 80),
-            avatarUrl: cleanText(req.body.avatarUrl, 1024 * 1024),
+            avatarUrl: cleanText(req.body.avatarUrl, 256 * 1024),
         };
+
+        const emailChanged =
+            normalizeEmail(currentUser?.email || "") !== normalizeEmail(payload.email);
 
         if (!payload.firstName || !payload.lastName) {
             sendError(res, 400, "Имя и фамилия обязательны.");
@@ -2815,6 +3271,16 @@ app.put("/api/profile", requireAuth, async (req, res, next) => {
 
         if (!isValidEmail(payload.email)) {
             sendError(res, 400, "Некорректный e-mail.", "email");
+            return;
+        }
+
+        if (!isAllowedAvatarUrl(payload.avatarUrl)) {
+            sendError(
+                res,
+                400,
+                "Аватар должен быть https-ссылкой или data:image.",
+                "avatarUrl",
+            );
             return;
         }
 
@@ -2841,15 +3307,21 @@ app.put("/api/profile", requireAuth, async (req, res, next) => {
             throw error;
         }
 
+        if (emailChanged) {
+            await revokeActiveAuthChallengesForUser(req.auth.user.id);
+            user = await getUserById(req.auth.user.id);
+        }
+
         res.json({
             user: serializeCurrentSessionUser(user, req.auth.user),
+            emailVerificationRequired: emailChanged,
         });
     } catch (error) {
         next(error);
     }
 });
 
-app.put("/api/profile/password", requireAuth, async (req, res, next) => {
+app.put("/api/profile/password", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
         const oldPassword = String(req.body.oldPassword || "");
         const newPassword = String(req.body.newPassword || "");
@@ -2994,7 +3466,7 @@ app.post("/api/team", requireParticipant, async (req, res, next) => {
     }
 });
 
-app.post("/api/team/join", requireParticipant, async (req, res, next) => {
+app.post("/api/team/join", requireParticipant, teamJoinRateLimiter, async (req, res, next) => {
     try {
         const teamCode = cleanText(req.body.teamCode, 32).toUpperCase();
         if (!/^T-[A-Z0-9]{8}$/.test(teamCode)) {
@@ -4032,14 +4504,14 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
                 ...tournament,
                 joined_individual: 0,
                 joined_team: 0,
-            }, req.auth.user.id),
+            }, req.auth.user.id, { includeSensitive: true }),
         });
     } catch (error) {
         next(error);
     }
 });
 
-app.post("/api/tournaments/:id/join", requireParticipant, async (req, res, next) => {
+app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimiter, async (req, res, next) => {
     try {
         const tournamentId = Number(req.params.id);
         if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
@@ -4227,6 +4699,7 @@ app.get("/api/tournaments/:id/runtime", requireParticipant, async (req, res, nex
 app.post(
     "/api/tournaments/:id/tasks/:taskId/draft",
     requireParticipant,
+    tournamentDraftRateLimiter,
     async (req, res, next) => {
         try {
             const tournamentId = Number(req.params.id);
@@ -4313,6 +4786,8 @@ app.post(
 app.post(
     "/api/tournaments/:id/tasks/:taskId/submit",
     requireParticipant,
+    tournamentSubmitRateLimiter,
+    tournamentSubmitDuplicateGuard,
     async (req, res, next) => {
         try {
             const tournamentId = Number(req.params.id);
@@ -4365,23 +4840,6 @@ app.post(
             );
             if (!entry) {
                 sendError(res, 409, "Сначала присоединитесь к соревнованию.");
-                return;
-            }
-
-            const rateLimitKey = `${req.auth.user.id}:${tournamentId}:${tournamentTaskId}`;
-            if (
-                hitSimpleRateLimit(
-                    submissionRateLimits,
-                    rateLimitKey,
-                    15 * 1000,
-                    8,
-                )
-            ) {
-                sendError(
-                    res,
-                    429,
-                    "Слишком много отправок подряд. Подождите несколько секунд.",
-                );
                 return;
             }
 
@@ -4484,6 +4942,20 @@ app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res,
             return;
         }
 
+        const { entry } = await resolveTournamentEntryContext(
+            tournament,
+            req.auth,
+            rosterEntry,
+        );
+        if (accessScope === "code" && !entry) {
+            sendError(
+                res,
+                403,
+                "Сначала присоединитесь к турниру по коду доступа.",
+            );
+            return;
+        }
+
         if (!canParticipantViewLeaderboard(tournament)) {
             sendError(res, 403, getLeaderboardVisibilityErrorMessage(tournament));
             return;
@@ -4564,6 +5036,7 @@ app.get("/api/moderation/tasks", requireModerator, async (req, res, next) => {
 app.post(
     "/api/moderation/tasks/:id/review",
     requireModerator,
+    adminSensitiveRateLimiter,
     async (req, res, next) => {
         try {
             const taskId = Number(req.params.id);
@@ -4630,6 +5103,7 @@ app.get(
 app.post(
     "/api/moderation/applications/:id/review",
     requireModerator,
+    adminSensitiveRateLimiter,
     async (req, res, next) => {
         try {
             const applicationId = Number(req.params.id);
@@ -4695,6 +5169,7 @@ app.get("/api/moderation/users", requireModerator, async (req, res, next) => {
 app.patch(
     "/api/moderation/users/:id/status",
     requireModerator,
+    adminSensitiveRateLimiter,
     async (req, res, next) => {
         try {
             const userId = Number(req.params.id);
@@ -4717,13 +5192,20 @@ app.patch(
                 return;
             }
 
+            try {
+                assertActorCanManageTarget(req.auth.user, targetUser);
+            } catch (error) {
+                sendError(res, 403, error.message);
+                return;
+            }
+
             if (
                 isAdminRole(targetUser.role || ROLE_USER) &&
                 targetUser.status === "active" &&
                 status !== "active"
             ) {
-                const overview = await getAdminOverview();
-                if (overview.adminsCount <= 1) {
+                const adminsCount = await countAdmins();
+                if (adminsCount <= 1) {
                     sendError(
                         res,
                         409,
@@ -4812,7 +5294,7 @@ app.get("/api/admin/audit", requireAdmin, async (req, res, next) => {
     }
 });
 
-app.patch("/api/admin/users/:id/role", requireAdmin, async (req, res, next) => {
+app.patch("/api/admin/users/:id/role", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
     try {
         const userId = Number(req.params.id);
         const role = normalizeUserRole(req.body.role);
@@ -4833,13 +5315,20 @@ app.patch("/api/admin/users/:id/role", requireAdmin, async (req, res, next) => {
             return;
         }
 
+        try {
+            assertActorCanManageTarget(req.auth.user, targetUser);
+        } catch (error) {
+            sendError(res, 403, error.message);
+            return;
+        }
+
         if (
             isAdminRole(targetUser.role || ROLE_USER) &&
             targetUser.status === "active" &&
             !isAdminRole(role)
         ) {
-            const overview = await getAdminOverview();
-            if (overview.adminsCount <= 1) {
+            const adminsCount = await countAdmins();
+            if (adminsCount <= 1) {
                 sendError(
                     res,
                     409,
@@ -4880,7 +5369,7 @@ app.get("/api/admin/teams", requireAdmin, async (req, res, next) => {
     }
 });
 
-app.delete("/api/admin/teams/:id", requireAdmin, async (req, res, next) => {
+app.delete("/api/admin/teams/:id", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
     try {
         const teamId = Number(req.params.id);
         if (!Number.isInteger(teamId) || teamId <= 0) {
@@ -4911,7 +5400,7 @@ app.get("/api/admin/tasks", requireAdmin, async (req, res, next) => {
     }
 });
 
-app.delete("/api/admin/tasks/:id", requireAdmin, async (req, res, next) => {
+app.delete("/api/admin/tasks/:id", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
     try {
         const taskId = Number(req.params.id);
         if (!Number.isInteger(taskId) || taskId <= 0) {
@@ -4942,7 +5431,7 @@ app.get("/api/admin/tournaments", requireAdmin, async (req, res, next) => {
     }
 });
 
-app.patch("/api/admin/tournaments/:id", requireAdmin, async (req, res, next) => {
+app.patch("/api/admin/tournaments/:id", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
     try {
         const tournamentId = Number(req.params.id);
         const status = cleanText(req.body.status, 16).toLowerCase();
@@ -4976,6 +5465,7 @@ app.patch("/api/admin/tournaments/:id", requireAdmin, async (req, res, next) => 
 app.delete(
     "/api/admin/tournaments/:id",
     requireAdmin,
+    adminSensitiveRateLimiter,
     async (req, res, next) => {
         try {
             const tournamentId = Number(req.params.id);
@@ -5024,22 +5514,60 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-    console.error(error);
-    sendError(res, 500, "Внутренняя ошибка сервера.");
+    const status =
+        error?.statusCode ||
+        error?.status ||
+        (error?.type === "entity.too.large" ? 413 : 500);
+
+    if (error?.type === "entity.too.large") {
+        sendError(res, 413, "Размер запроса превышает допустимый лимит.");
+        return;
+    }
+
+    if (error instanceof SyntaxError && Object.prototype.hasOwnProperty.call(error, "body")) {
+        sendError(res, 400, "Некорректный JSON в теле запроса.");
+        return;
+    }
+
+    const label = `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`;
+    if (status >= 500) {
+        console.error(label, error?.code || error?.message || error);
+    } else if (!IS_PRODUCTION) {
+        console.warn(label, error?.message || error);
+    }
+
+    sendError(res, status >= 400 && status < 500 ? status : 500, "Внутренняя ошибка сервера.");
 });
 
-io.on("connection", (socket) => {
-    console.log(`Пользователь подключился: ${socket.id}`);
+server.on("clientError", (error, socket) => {
+    if (socket.writable) {
+        socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+    } else {
+        socket.destroy();
+    }
 
-    socket.on("disconnect", () => {
-        console.log(`Пользователь отключился: ${socket.id}`);
-    });
+    if (!IS_PRODUCTION) {
+        console.warn("clientError", error?.message || error);
+    }
 });
 
 async function start() {
     await initializeDatabase();
-    await bootstrapAdminUsers();
+    const privilegedUsers = await bootstrapAdminUsers();
     await ensureDailyTournamentForDate();
+
+    if (!privilegedUsers.length) {
+        console.warn(
+            "В системе нет активных admin/owner. Назначьте их через back/scripts/promote-admin.js или back/scripts/set-owner.js.",
+        );
+    } else {
+        const ownerUser = await getOwnerUser();
+        if (!ownerUser) {
+            console.warn(
+                "Owner для этого инстанса ещё не назначен. Рекомендуется выполнить back/scripts/set-owner.js на сервере.",
+            );
+        }
+    }
 
     setInterval(() => {
         cleanupExpiredArtifacts().catch((error) => {

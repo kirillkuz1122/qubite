@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-const { ADMIN_EMAILS, ADMIN_LOGINS, DATABASE_PATH } = require("./config");
+const { DATABASE_PATH } = require("./config");
 const {
     buildDisplayName,
     makeUid,
@@ -15,6 +15,10 @@ const { buildTaskSnapshot } = require("./task-runtime");
 fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
 
 const db = new sqlite3.Database(DATABASE_PATH);
+db.serialize(() => {
+    db.run("PRAGMA foreign_keys = ON");
+    db.run("PRAGMA journal_mode = WAL");
+});
 
 function run(sql, params = []) {
     return new Promise((resolve, reject) => {
@@ -260,12 +264,30 @@ function mapUser(row) {
 
 async function countAdmins() {
     const row = await get(
-        "SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND status = 'active'",
+        "SELECT COUNT(*) AS count FROM users WHERE role IN ('admin', 'owner') AND status = 'active'",
     );
     return Number(row?.count || 0);
 }
 
-async function setUserRole(userId, role) {
+async function countOwners() {
+    const row = await get(
+        "SELECT COUNT(*) AS count FROM users WHERE role = 'owner' AND status = 'active'",
+    );
+    return Number(row?.count || 0);
+}
+
+async function setUserRole(userId, role, options = {}) {
+    const current = await getUserById(userId);
+    if (!current) {
+        return null;
+    }
+
+    if (current.role === "owner" && !options.allowOwnerChange) {
+        const error = new Error("Owner role cannot be changed via this action.");
+        error.code = "OWNER_IMMUTABLE";
+        throw error;
+    }
+
     await run("UPDATE users SET role = ?, updated_at = ? WHERE id = ?", [
         role,
         nowIso(),
@@ -276,6 +298,17 @@ async function setUserRole(userId, role) {
 }
 
 async function setUserStatus(userId, status, options = {}) {
+    const current = await getUserById(userId);
+    if (!current) {
+        return null;
+    }
+
+    if (current.role === "owner" && !options.allowOwnerChange) {
+        const error = new Error("Owner status cannot be changed via this action.");
+        error.code = "OWNER_IMMUTABLE";
+        throw error;
+    }
+
     await run(
         `
             UPDATE users
@@ -303,58 +336,15 @@ async function setUserStatus(userId, status, options = {}) {
 }
 
 async function bootstrapAdminUsers() {
-    const users = await all(
+    return all(
         `
-            SELECT id, login_normalized, email_normalized
+            SELECT *
             FROM users
-            ORDER BY id ASC
+            WHERE role IN ('owner', 'admin')
+              AND status = 'active'
+            ORDER BY CASE role WHEN 'owner' THEN 0 ELSE 1 END, id ASC
         `,
     );
-    if (users.length === 0) {
-        return [];
-    }
-
-    const adminLoginSet = new Set(
-        ADMIN_LOGINS.map((value) => normalizeLogin(value)).filter(Boolean),
-    );
-    const adminEmailSet = new Set(
-        ADMIN_EMAILS.map((value) => normalizeEmail(value)).filter(Boolean),
-    );
-
-    const targetIds = users
-        .filter(
-            (user) =>
-                adminLoginSet.has(user.login_normalized) ||
-                adminEmailSet.has(user.email_normalized),
-        )
-        .map((user) => user.id);
-
-    if (targetIds.length === 0) {
-        const adminUser = users.find((user) => user.login_normalized === "admin");
-        if (adminUser) {
-            targetIds.push(adminUser.id);
-        }
-    }
-
-    if (targetIds.length === 0 && (await countAdmins()) === 0) {
-        targetIds.push(users[0].id);
-    }
-
-    if (targetIds.length === 0) {
-        return [];
-    }
-
-    const placeholders = targetIds.map(() => "?").join(", ");
-    await run(
-        `
-            UPDATE users
-            SET role = 'admin', updated_at = ?
-            WHERE id IN (${placeholders})
-        `,
-        [nowIso(), ...targetIds],
-    );
-
-    return Promise.all(targetIds.map((userId) => getUserById(userId)));
 }
 
 function buildTournamentTimeLabel(status, startAt, endAt) {
@@ -411,7 +401,9 @@ function buildTournamentAction(status, joined) {
     return { label: "Результаты", type: "muted", icon: "history" };
 }
 
-async function initializeDatabase() {
+async function initializeDatabase(options = {}) {
+    const seedDemoData = options.seedDemoData !== false;
+
     await exec(`
         PRAGMA foreign_keys = ON;
         PRAGMA journal_mode = WAL;
@@ -1117,14 +1109,16 @@ async function initializeDatabase() {
         `,
     );
 
-    await seedSystemTasks();
-    await seedTournaments();
-    await normalizeLegacyTournamentRows();
-    await backfillLegacyTaskRuntimeConfigs();
-    await seedTournamentTasks();
-    await rebuildTournamentTaskSnapshots();
-    await syncAllTournamentEntryTotals();
-    await seedTournamentEntries();
+    if (seedDemoData) {
+        await seedSystemTasks();
+        await seedTournaments();
+        await normalizeLegacyTournamentRows();
+        await backfillLegacyTaskRuntimeConfigs();
+        await seedTournamentTasks();
+        await rebuildTournamentTaskSnapshots();
+        await syncAllTournamentEntryTotals();
+        await seedTournamentEntries();
+    }
     await ensureDailyTournamentForDate();
     await cleanupExpiredArtifacts();
 }
@@ -1833,6 +1827,26 @@ async function getUserById(userId) {
     return row ? mapUser(row) : null;
 }
 
+async function getOwnerUser() {
+    const row = await get(
+        `
+            SELECT *
+            FROM users
+            WHERE role = 'owner'
+            ORDER BY id ASC
+            LIMIT 1
+        `,
+    );
+    return row ? mapUser(row) : null;
+}
+
+async function findUserByUid(uid) {
+    const row = await get("SELECT * FROM users WHERE uid = ?", [
+        String(uid || "").trim(),
+    ]);
+    return row ? mapUser(row) : null;
+}
+
 async function findUserByLoginOrEmail(identifier) {
     const row = await get(
         `
@@ -1939,6 +1953,77 @@ async function unblockEmail(emailNormalized) {
     await run("DELETE FROM blocked_emails WHERE email_normalized = ?", [
         emailNormalized,
     ]);
+}
+
+async function blockIpAddress(
+    ipAddress,
+    reason,
+    blockedByUserId = null,
+    expiresAt = null,
+    notes = "",
+) {
+    const normalizedIp = String(ipAddress || "").trim();
+    if (!normalizedIp) {
+        return null;
+    }
+
+    const existing = await get(
+        "SELECT id FROM ip_blocklist WHERE ip_address = ?",
+        [normalizedIp],
+    );
+    const timestamp = nowIso();
+
+    if (existing) {
+        await run(
+            `
+                UPDATE ip_blocklist
+                SET
+                    reason = ?,
+                    notes = ?,
+                    blocked_by_user_id = ?,
+                    updated_at = ?,
+                    expires_at = ?
+                WHERE id = ?
+            `,
+            [
+                reason || "",
+                notes || "",
+                blockedByUserId,
+                timestamp,
+                expiresAt || null,
+                existing.id,
+            ],
+        );
+    } else {
+        await run(
+            `
+                INSERT INTO ip_blocklist (
+                    ip_address,
+                    reason,
+                    notes,
+                    blocked_by_user_id,
+                    created_at,
+                    updated_at,
+                    expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+                normalizedIp,
+                reason || "",
+                notes || "",
+                blockedByUserId,
+                timestamp,
+                timestamp,
+                expiresAt || null,
+            ],
+        );
+    }
+
+    return get(
+        "SELECT * FROM ip_blocklist WHERE ip_address = ?",
+        [normalizedIp],
+    );
 }
 
 async function isIpBlocked(ipAddress) {
@@ -2239,6 +2324,18 @@ async function updateUserProfile(userId, payload) {
                 login_normalized = ?,
                 email = ?,
                 email_normalized = ?,
+                email_verified_at = CASE
+                    WHEN email_normalized != ? THEN NULL
+                    ELSE email_verified_at
+                END,
+                email_verification_sent_at = CASE
+                    WHEN email_normalized != ? THEN NULL
+                    ELSE email_verification_sent_at
+                END,
+                email_2fa_enabled = CASE
+                    WHEN email_normalized != ? THEN 0
+                    ELSE email_2fa_enabled
+                END,
                 first_name = ?,
                 last_name = ?,
                 middle_name = ?,
@@ -2254,6 +2351,9 @@ async function updateUserProfile(userId, payload) {
             payload.login,
             payload.loginNormalized,
             payload.email,
+            payload.emailNormalized,
+            payload.emailNormalized,
+            payload.emailNormalized,
             payload.emailNormalized,
             payload.firstName,
             payload.lastName,
@@ -2283,6 +2383,76 @@ async function updateUserPassword(userId, passwordHash, passwordSalt) {
         `,
         [passwordHash, passwordSalt, nowIso(), userId],
     );
+}
+
+async function promoteUserToAdmin(userId) {
+    const user = await getUserById(userId);
+    if (!user) {
+        return null;
+    }
+
+    if (user.role === "owner") {
+        const error = new Error("Owner already has higher privileges.");
+        error.code = "OWNER_IMMUTABLE";
+        throw error;
+    }
+
+    await run("UPDATE users SET role = 'admin', updated_at = ? WHERE id = ?", [
+        nowIso(),
+        userId,
+    ]);
+
+    return getUserById(userId);
+}
+
+async function setOwnerUser(userId, options = {}) {
+    return withTransaction(async () => {
+        const nextOwner = await getUserById(userId);
+        if (!nextOwner) {
+            return null;
+        }
+
+        if ((nextOwner.status || "active") !== "active") {
+            const error = new Error("Only active users can become owner.");
+            error.code = "OWNER_MUST_BE_ACTIVE";
+            throw error;
+        }
+
+        const currentOwner = await getOwnerUser();
+        if (currentOwner && currentOwner.id === nextOwner.id) {
+            return {
+                currentOwner: nextOwner,
+                previousOwner: null,
+                changed: false,
+            };
+        }
+
+        if (currentOwner && !options.replace) {
+            const error = new Error("Owner already exists.");
+            error.code = "OWNER_EXISTS";
+            error.currentOwnerId = currentOwner.id;
+            throw error;
+        }
+
+        const timestamp = nowIso();
+        if (currentOwner) {
+            await run(
+                "UPDATE users SET role = 'admin', updated_at = ? WHERE id = ?",
+                [timestamp, currentOwner.id],
+            );
+        }
+
+        await run(
+            "UPDATE users SET role = 'owner', updated_at = ? WHERE id = ?",
+            [timestamp, nextOwner.id],
+        );
+
+        return {
+            currentOwner: await getUserById(nextOwner.id),
+            previousOwner: currentOwner ? await getUserById(currentOwner.id) : null,
+            changed: true,
+        };
+    });
 }
 
 async function createAuthChallenge(payload) {
@@ -5355,6 +5525,7 @@ async function getAdminOverview() {
     const [
         userRow,
         adminRow,
+        ownerRow,
         moderatorRow,
         organizerRow,
         blockedRow,
@@ -5367,7 +5538,8 @@ async function getAdminOverview() {
     ] =
         await Promise.all([
             get("SELECT COUNT(*) AS count FROM users WHERE status != 'deleted'"),
-            get("SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND status = 'active'"),
+            get("SELECT COUNT(*) AS count FROM users WHERE role IN ('admin', 'owner') AND status = 'active'"),
+            get("SELECT COUNT(*) AS count FROM users WHERE role = 'owner' AND status = 'active'"),
             get("SELECT COUNT(*) AS count FROM users WHERE role = 'moderator' AND status = 'active'"),
             get("SELECT COUNT(*) AS count FROM users WHERE role = 'organizer' AND status = 'active'"),
             get("SELECT COUNT(*) AS count FROM users WHERE status = 'blocked'"),
@@ -5382,6 +5554,7 @@ async function getAdminOverview() {
     return {
         usersCount: Number(userRow?.count || 0),
         adminsCount: Number(adminRow?.count || 0),
+        ownersCount: Number(ownerRow?.count || 0),
         moderatorsCount: Number(moderatorRow?.count || 0),
         organizersCount: Number(organizerRow?.count || 0),
         blockedUsersCount: Number(blockedRow?.count || 0),
@@ -5413,10 +5586,11 @@ async function listAdminUsers() {
             FROM users u
             ORDER BY
                 CASE u.role
-                    WHEN 'admin' THEN 0
-                    WHEN 'moderator' THEN 1
-                    WHEN 'organizer' THEN 2
-                    ELSE 3
+                    WHEN 'owner' THEN 0
+                    WHEN 'admin' THEN 1
+                    WHEN 'moderator' THEN 2
+                    WHEN 'organizer' THEN 3
+                    ELSE 4
                 END,
                 CASE u.status WHEN 'blocked' THEN 0 ELSE 1 END,
                 u.created_at ASC
@@ -5588,10 +5762,13 @@ async function deleteAdminTeam(teamId) {
 
 module.exports = {
     blockEmail,
+    blockIpAddress,
     bootstrapAdminUsers,
     buildTournamentAction,
     buildTournamentTimeLabel,
     cleanupExpiredArtifacts,
+    countAdmins,
+    countOwners,
     createAuditLog,
     consumeAuthChallenge,
     consumeOAuthState,
@@ -5615,6 +5792,7 @@ module.exports = {
     findActiveOAuthState,
     findActivePasswordResetTicket,
     findBlockedEmail,
+    findUserByUid,
     findSessionWithUserByTokenHash,
     findUserByEmailNormalized,
     findUserByLoginOrEmail,
@@ -5624,6 +5802,7 @@ module.exports = {
     getAuthChallengeById,
     getMembershipByUserId,
     getOrganizerOverview,
+    getOwnerUser,
     getPlatformMetrics,
     getPrimaryTournament,
     getSessionByUserAndId,
@@ -5670,6 +5849,7 @@ module.exports = {
     listUsersByIdentifiers,
     listUserTournamentResults,
     markUserEmailVerified,
+    promoteUserToAdmin,
     recalculateTournamentRanks,
     recalculateTournamentEntryStats,
     refreshTournamentParticipantsCount,
@@ -5684,6 +5864,7 @@ module.exports = {
     revokeSessionById,
     revokeSessionsForUser,
     setUserLastLogin,
+    setOwnerUser,
     setUserStatus,
     touchSession,
     transferTeamOwnership,

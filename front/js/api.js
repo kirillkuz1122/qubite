@@ -5,6 +5,7 @@
         user: null,
         profile: null,
         publicLanding: null,
+        publicConfig: null,
         rating: [],
         dashboard: null,
         tournaments: [],
@@ -54,6 +55,7 @@
         state.user = null;
         state.profile = null;
         state.publicLanding = null;
+        state.publicConfig = null;
         state.rating = [];
         state.dashboard = null;
         state.tournaments = [];
@@ -109,6 +111,11 @@
               }
             : null;
         return state.publicLanding;
+    }
+
+    function syncPublicConfig(payload) {
+        state.publicConfig = payload ? { ...payload } : null;
+        return state.publicConfig;
     }
 
     function syncRating(items) {
@@ -363,6 +370,11 @@
         return syncPublicLanding(data);
     }
 
+    async function loadPublicConfig() {
+        const data = await request("/api/public/config");
+        return syncPublicConfig(data);
+    }
+
     async function loadRating(limit = 50) {
         const data = await request(
             `/api/rating?limit=${encodeURIComponent(limit)}`,
@@ -509,6 +521,7 @@
 
     async function loadWorkspaceData() {
         const role = state.user?.role || "user";
+        const isAdminLike = role === "admin" || role === "owner";
 
         if (role === "organizer") {
             const [
@@ -564,7 +577,7 @@
             };
         }
 
-        if (role === "admin") {
+        if (isAdminLike) {
             const [
                 profile,
                 oauthProviders,
@@ -1172,6 +1185,7 @@
         loadAdminUsers,
         loadDashboard,
         loadPublicLanding,
+        loadPublicConfig,
         loadRating,
         loadModerationApplications,
         loadModerationOverview,

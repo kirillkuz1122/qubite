@@ -42,6 +42,9 @@ function switchToTournaments() {
 }
 
 const apiClient = window.QubiteAPI || null;
+const TURNSTILE_FORM_IDS = new Set(["regForm", "authForm", "forgotForm"]);
+const turnstileWidgetIds = new Map();
+let publicConfigPromise = null;
 let pendingProfileCompletion = false;
 let pendingResetToken = null;
 const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
@@ -176,6 +179,115 @@ const ROLE_PREVIEW_ACTIVE_STORAGE_KEY = "qubite.rolePreviewActive";
 const ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY = "qubite.activeTournamentRuntime";
 const WORKSPACE_HISTORY_STATE_KEY = "__qubiteWorkspaceState";
 let workspaceHistoryApplying = false;
+
+async function ensurePublicSecurityConfig() {
+    if (!apiClient) {
+        return null;
+    }
+
+    if (apiClient.state.publicConfig) {
+        return apiClient.state.publicConfig;
+    }
+
+    if (!publicConfigPromise) {
+        publicConfigPromise = apiClient
+            .loadPublicConfig()
+            .catch(() => null)
+            .finally(() => {
+                publicConfigPromise = null;
+            });
+    }
+
+    return publicConfigPromise;
+}
+
+function getTurnstileConfig() {
+    return apiClient?.state?.publicConfig?.turnstile || null;
+}
+
+async function waitForTurnstileGlobal(timeoutMs = 5000) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt <= timeoutMs) {
+        if (window.turnstile?.render) {
+            return window.turnstile;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    return null;
+}
+
+function resetTurnstileForForm(form) {
+    if (!form || !TURNSTILE_FORM_IDS.has(form.id)) {
+        return;
+    }
+
+    const hiddenInput = form.querySelector('input[name="turnstileToken"]');
+    if (hiddenInput) {
+        hiddenInput.value = "";
+    }
+
+    const widgetId = turnstileWidgetIds.get(form.id);
+    if (widgetId !== undefined && window.turnstile?.reset) {
+        window.turnstile.reset(widgetId);
+    }
+}
+
+async function renderTurnstileForForm(form) {
+    if (!form || !TURNSTILE_FORM_IDS.has(form.id)) {
+        return;
+    }
+
+    const slot = form.querySelector("[data-turnstile-slot]");
+    const hiddenInput = form.querySelector('input[name="turnstileToken"]');
+    if (!slot || !hiddenInput) {
+        return;
+    }
+
+    await ensurePublicSecurityConfig();
+    const turnstileConfig = getTurnstileConfig();
+    if (!turnstileConfig?.enabled || !turnstileConfig.siteKey) {
+        slot.innerHTML = "";
+        hiddenInput.value = "";
+        return;
+    }
+
+    const turnstileApi = await waitForTurnstileGlobal();
+    if (!turnstileApi) {
+        return;
+    }
+
+    hiddenInput.value = "";
+    const currentWidgetId = turnstileWidgetIds.get(form.id);
+    if (currentWidgetId !== undefined) {
+        turnstileApi.reset(currentWidgetId);
+        return;
+    }
+
+    slot.innerHTML = "";
+    const widgetId = turnstileApi.render(slot, {
+        sitekey: turnstileConfig.siteKey,
+        theme: "auto",
+        callback(token) {
+            hiddenInput.value = token || "";
+            setInlineFieldError(form, "turnstileToken", "");
+        },
+        "expired-callback"() {
+            hiddenInput.value = "";
+        },
+        "error-callback"() {
+            hiddenInput.value = "";
+        },
+    });
+    turnstileWidgetIds.set(form.id, widgetId);
+}
+
+async function hydrateTurnstileForms() {
+    const forms = Array.from(document.querySelectorAll("form")).filter((form) =>
+        TURNSTILE_FORM_IDS.has(form.id),
+    );
+    await Promise.all(forms.map((form) => renderTurnstileForForm(form)));
+}
 
 function readWorkspaceLocationSnapshot() {
     const params = new URLSearchParams(window.location.search);
@@ -1026,7 +1138,7 @@ async function applyRolePreviewScenario() {
 }
 
 function isAdminUser(user = getUserState()) {
-    return Boolean(user && (user.isAdmin || user.role === "admin"));
+    return Boolean(user && (user.isAdmin || user.role === "admin" || user.role === "owner"));
 }
 
 function isOrganizerUser(user = getUserState()) {
@@ -2429,6 +2541,8 @@ const DYNAMIC_MODALS_HTML = `
         <div class="field"><label>Почта</label><input class="input" type="text" inputmode="email" name="email" placeholder="mail@example.com" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
         <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" placeholder="********" minlength="8" data-required data-type="passrule"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
         <div class="field input-group"><label>Повторите пароль</label><input class="input" type="password" name="pass2" placeholder="********" data-required data-type="match:pass"><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass2"></div></div>
+        <input type="hidden" name="turnstileToken" value="">
+        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
         <label class="checkbox"><input type="checkbox" name="agree" data-required-check><span>Принимаю <a href="#" class="reg-link">условия соглашения</a></span></label>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Зарегистрироваться</button>
         <div data-oauth-slot></div>
@@ -2470,6 +2584,8 @@ const DYNAMIC_MODALS_HTML = `
       <form class="modal__form" id="authForm" novalidate>
         <div class="field"><label>Логин или e-mail</label><input class="input" name="login" data-required><div class="error" data-error-for="login"></div></div>
         <div class="field input-group"><label>Пароль</label><input class="input" type="password" name="pass" data-required><button type="button" class="input-toggle" aria-label="Показать пароль"></button><div class="error" data-error-for="pass"></div></div>
+        <input type="hidden" name="turnstileToken" value="">
+        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Войти</button>
         <div data-oauth-slot></div>
         <div class="form__links">
@@ -2517,6 +2633,8 @@ const DYNAMIC_MODALS_HTML = `
         </button></div>
       <form class="modal__form" id="forgotForm" novalidate>
         <div class="field"><label>Почта</label><input class="input" type="text" inputmode="email" name="email" placeholder="mail@example.com" data-required data-type="email"><div class="error" data-error-for="email"></div></div>
+        <input type="hidden" name="turnstileToken" value="">
+        <div class="field"><div data-turnstile-slot></div><div class="error" data-error-for="turnstileToken"></div></div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сбросить пароль</button>
       </form>
     </div>
@@ -2995,6 +3113,7 @@ let activeModal = null;
 function resetForm(form) {
     if (!form) return;
     form.reset();
+    resetTurnstileForForm(form);
     form.querySelectorAll(".input").forEach((i) => {
         i.classList.remove("is-valid");
         // Also clear code values explicitly just in case
@@ -3061,6 +3180,10 @@ function openModal(id) {
         el.classList.add("modal--open");
     });
     document.body.style.overflow = "hidden";
+    const modalForm = el.querySelector("form");
+    if (modalForm) {
+        void renderTurnstileForForm(modalForm);
+    }
 
     // Фокус на первом элементе
     const firstInput = el.querySelector("input, button");
@@ -3494,6 +3617,7 @@ function setupForm(form) {
                     login: form.elements["login"].value.trim(),
                     email: form.elements["email"].value.trim(),
                     password: form.elements["pass"].value,
+                    turnstileToken: form.elements["turnstileToken"]?.value || "",
                 });
                 pendingProfileCompletion = true;
                 resetForm(form);
@@ -3506,6 +3630,7 @@ function setupForm(form) {
             } catch (error) {
                 applyRequestError(form, error, "Регистрация");
             } finally {
+                resetTurnstileForForm(form);
                 setSubmitLoading(submitBtn, false);
                 Loader.hide(300);
                 validate();
@@ -3520,6 +3645,7 @@ function setupForm(form) {
             try {
                 const response = await apiClient.requestPasswordReset({
                     email: form.elements["email"].value.trim(),
+                    turnstileToken: form.elements["turnstileToken"]?.value || "",
                 });
                 resetForm(form);
                 closeModal("forgotModal");
@@ -3538,6 +3664,7 @@ function setupForm(form) {
             } catch (error) {
                 applyRequestError(form, error, "Восстановление");
             } finally {
+                resetTurnstileForForm(form);
                 setSubmitLoading(submitBtn, false);
                 Loader.hide(300);
                 validate();
@@ -3702,6 +3829,7 @@ function setupForm(form) {
                 const loginResult = await apiClient.login({
                     login: form.elements["login"].value.trim(),
                     password: form.elements["pass"].value,
+                    turnstileToken: form.elements["turnstileToken"]?.value || "",
                 });
                 if (loginResult.requiresTwoFactor) {
                     resetForm(form);
@@ -3726,6 +3854,7 @@ function setupForm(form) {
             } catch (error) {
                 applyRequestError(form, error, "Авторизация");
             } finally {
+                resetTurnstileForForm(form);
                 setSubmitLoading(submitBtn, false);
                 Loader.hide(300);
                 validate();
@@ -4403,6 +4532,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Создание модалок
     mountModals();
     wireStaticLoginModal();
+    void ensurePublicSecurityConfig().then(() => hydrateTurnstileForms());
 
     // 2. Инициализация форм
     document.querySelectorAll("form").forEach(setupForm);
@@ -5861,6 +5991,7 @@ function humanizeUserRole(role) {
         organizer: "Организатор",
         moderator: "Модератор",
         admin: "Администратор",
+        owner: "Owner",
     };
     return map[role] || role || "—";
 }
@@ -6778,24 +6909,27 @@ function renderModerationUsersSection(users) {
     return `
         <div class="ops-entity-list">
             ${users
-                .map(
-                    (user) => `
+                .map((user) => {
+                    const isProtected = Boolean(user.protectedAccount || user.isOwner);
+                    return `
                         <div class="ops-entity-row">
                             <div class="ops-entity-row__main">
-                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}</div>
+                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ' <span class="s-sub" style="display:inline-flex; margin-left:8px; padding:2px 10px; border:1px solid var(--line); border-radius:999px;">Owner</span>' : ""}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(user.email || "Без e-mail")} • ${escapeHtml(humanizeUserRole(user.role))} • ${escapeHtml(user.status)}</div>
                                 ${user.blockedReason ? `<div class="ops-entity-row__note">Причина: ${escapeHtml(user.blockedReason)}</div>` : ""}
                             </div>
                             <div class="ops-entity-row__actions">
                                 ${
-                                    user.status === "blocked"
+                                    isProtected
+                                        ? `<span class="s-sub">Защищённый owner</span>`
+                                        : user.status === "blocked"
                                         ? `<button class="btn btn--muted btn--sm" data-mod-user-status="active" data-mod-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-mod-user-status="blocked" data-mod-user-id="${escapeHtml(user.id)}">Заблокировать</button>`
                                 }
                             </div>
                         </div>
-                    `,
-                )
+                    `;
+                })
                 .join("")}
         </div>
     `;
@@ -6889,30 +7023,34 @@ function renderAdminUsersSection(users) {
     return `
         <div class="ops-admin-list">
             ${users
-                .map(
-                    (user) => `
+                .map((user) => {
+                    const isProtected = Boolean(user.protectedAccount || user.isOwner);
+                    return `
                         <div class="ops-admin-row">
                             <div class="ops-admin-row__main">
-                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}</div>
+                                <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ' <span class="s-sub" style="display:inline-flex; margin-left:8px; padding:2px 10px; border:1px solid var(--line); border-radius:999px;">Owner</span>' : ""}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(user.email)} • ${escapeHtml(user.status)}${user.blockedReason ? ` • ${escapeHtml(user.blockedReason)}` : ""}</div>
                             </div>
                             <div class="ops-admin-row__controls">
-                                <select class="input" data-admin-role-select="${escapeHtml(user.id)}">
+                                <select class="input" data-admin-role-select="${escapeHtml(user.id)}" ${isProtected ? "disabled" : ""}>
+                                    ${user.role === "owner" ? '<option value="owner" selected>owner</option>' : ""}
                                     <option value="user" ${user.role === "user" ? "selected" : ""}>user</option>
                                     <option value="organizer" ${user.role === "organizer" ? "selected" : ""}>organizer</option>
                                     <option value="moderator" ${user.role === "moderator" ? "selected" : ""}>moderator</option>
                                     <option value="admin" ${user.role === "admin" ? "selected" : ""}>admin</option>
                                 </select>
-                                <button class="btn btn--muted btn--sm" data-admin-role-save="${escapeHtml(user.id)}">Сохранить роль</button>
+                                <button class="btn btn--muted btn--sm" data-admin-role-save="${escapeHtml(user.id)}" ${isProtected ? "disabled" : ""}>Сохранить роль</button>
                                 ${
-                                    user.status === "blocked"
+                                    isProtected
+                                        ? `<span class="s-sub">Изменяется только через CLI</span>`
+                                        : user.status === "blocked"
                                         ? `<button class="btn btn--muted btn--sm" data-admin-status-set="active" data-admin-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-admin-status-set="blocked" data-admin-user-id="${escapeHtml(user.id)}">Блок</button>`
                                 }
                             </div>
                         </div>
-                    `,
-                )
+                    `;
+                })
                 .join("")}
         </div>
     `;
@@ -7867,14 +8005,15 @@ function renderAdminView() {
                     ${
                         users.length > 0
                             ? users
-                                  .map(
-                                      (user) => `
+                                  .map((user) => {
+                                      const isProtected = Boolean(user.protectedAccount || user.isOwner);
+                                      return `
                             <div style="display:grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items:center; padding: 14px 16px; border: 1px solid var(--line); border-radius: 18px;">
                                 <div style="min-width: 0;">
                                     <div style="font-weight: 600; display:flex; align-items:center; gap: 8px; flex-wrap:wrap;">
                                         <span>${escapeHtml(user.displayName)}</span>
-                                        <span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); color: ${user.role === "admin" ? "var(--accent-to)" : "var(--fg-muted)"};">
-                                            ${user.role === "admin" ? "admin" : "user"}
+                                        <span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); color: ${user.role === "owner" ? "var(--danger)" : user.role === "admin" ? "var(--accent-to)" : "var(--fg-muted)"};">
+                                            ${escapeHtml(user.role === "owner" ? "owner" : user.role === "admin" ? "admin" : "user")}
                                         </span>
                                     </div>
                                     <div style="margin-top: 4px; color: var(--fg-muted); font-size: 13px;">
@@ -7892,13 +8031,14 @@ function renderAdminView() {
                                         data-admin-user-role
                                         data-user-id="${escapeHtml(user.id)}"
                                         data-next-role="${user.role === "admin" ? "user" : "admin"}"
+                                        ${isProtected ? "disabled" : ""}
                                     >
-                                        ${user.role === "admin" ? "Снять админа" : "Сделать админом"}
+                                        ${isProtected ? "Owner защищён" : user.role === "admin" ? "Снять админа" : "Сделать админом"}
                                     </button>
                                 </div>
                             </div>
-                        `,
-                                  )
+                        `;
+                                  })
                                   .join("")
                             : `<div style="color: var(--fg-muted); text-align:center; padding: 24px;">Пользователей пока нет.</div>`
                     }
