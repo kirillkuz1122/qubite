@@ -172,10 +172,26 @@ const DEFAULT_MODERATION_OVERVIEW = {
 
 let organizerUiState = {
     selectedTournamentId: null,
-    activeStep: "info",
+    activeStep: "basics",
     selectedTaskId: null,
     taskImport: null,
     rosterImportByTournament: {},
+    codesLoadingByTournament: {},
+    helperCodesByTournament: {},
+    helperCodesLoadingByTournament: {},
+    editor: {
+        tournamentId: null,
+        draft: null,
+        dirty: false,
+        dirtyKeys: new Set(),
+        saveState: "idle",
+        saveError: "",
+        autosaveTimer: null,
+        inFlight: false,
+        lastSavedAt: null,
+        categoryQuery: "",
+    },
+    resultsByTournament: {},
 };
 
 let moderationUiState = {
@@ -199,6 +215,22 @@ let tournamentRuntimeUiState = {
     deadlineRefreshDone: false,
 };
 
+let participantTournamentUiState = {
+    activeTournamentId: null,
+    mode: null,
+    leaderboardByTournamentId: {},
+    leaderboardLoadingByTournamentId: {},
+    leaderboardErrorByTournamentId: {},
+};
+
+let actionFormDialogState = {
+    resolver: null,
+};
+
+let confirmDialogState = {
+    resolver: null,
+};
+
 let runtimeClockInterval = null;
 let runtimeRefreshInterval = null;
 
@@ -206,6 +238,9 @@ const ROLE_PREVIEW_SCENARIO_STORAGE_KEY = "qubite.rolePreview";
 const ROLE_PREVIEW_ACTIVE_STORAGE_KEY = "qubite.rolePreviewActive";
 const ACTIVE_TOURNAMENT_RUNTIME_STORAGE_KEY = "qubite.activeTournamentRuntime";
 const WORKSPACE_HISTORY_STATE_KEY = "__qubiteWorkspaceState";
+const CODE_ENTRY_SESSION_STORAGE_KEY = "qubite.codeEntrySession";
+
+let codeEntrySessionState = null;
 let workspaceHistoryApplying = false;
 
 async function ensurePublicSecurityConfig() {
@@ -416,16 +451,26 @@ function readWorkspaceLocationSnapshot() {
             Number.isInteger(tournamentId) && tournamentId > 0
                 ? tournamentId
                 : null,
+        tournamentMode: params.get("tmode") || null,
     };
 }
 
 function buildWorkspaceLocationSnapshot(viewName = ViewManager?.currentView || "dashboard") {
+    const tournamentMode =
+        viewName === "tournaments" && hasActiveTournamentRuntimeView()
+            ? "runtime"
+            : viewName === "tournaments" && hasActiveParticipantTournamentView()
+              ? getActiveParticipantTournamentMode()
+              : null;
     return {
         viewName: viewName || "dashboard",
         tournamentId:
             viewName === "tournaments" && hasActiveTournamentRuntimeView()
                 ? getActiveTournamentRuntimeId()
+                : viewName === "tournaments" && hasActiveParticipantTournamentView()
+                  ? getActiveParticipantTournamentId()
                 : null,
+        tournamentMode,
     };
 }
 
@@ -447,8 +492,14 @@ function syncWorkspaceHistory(mode = "push", viewName = ViewManager?.currentView
     url.searchParams.set("view", snapshot.viewName);
     if (snapshot.tournamentId) {
         url.searchParams.set("tournament", String(snapshot.tournamentId));
+        if (snapshot.tournamentMode) {
+            url.searchParams.set("tmode", snapshot.tournamentMode);
+        } else {
+            url.searchParams.delete("tmode");
+        }
     } else {
         url.searchParams.delete("tournament");
+        url.searchParams.delete("tmode");
     }
 
     const method = mode === "replace" ? "replaceState" : "pushState";
@@ -458,6 +509,7 @@ function syncWorkspaceHistory(mode = "push", viewName = ViewManager?.currentView
             [WORKSPACE_HISTORY_STATE_KEY]: true,
             viewName: snapshot.viewName,
             tournamentId: snapshot.tournamentId,
+            tournamentMode: snapshot.tournamentMode,
         },
         "",
         `${url.pathname}${url.search}${url.hash}`,
@@ -478,13 +530,23 @@ function applyWorkspaceLocationSnapshot(snapshot) {
         snapshot.tournamentId &&
         isParticipantUser()
     ) {
-        setActiveTournamentRuntimeView(snapshot.tournamentId);
+        if (snapshot.tournamentMode === "runtime") {
+            setActiveTournamentRuntimeView(snapshot.tournamentId);
+        } else {
+            setActiveParticipantTournamentView(
+                snapshot.tournamentId,
+                snapshot.tournamentMode === "leaderboard" ? "leaderboard" : "details",
+            );
+        }
         ViewManager.open("tournaments", { historyMode: "none" });
         return;
     }
 
     if (hasActiveTournamentRuntimeView()) {
         clearActiveTournamentRuntimeView();
+    }
+    if (hasActiveParticipantTournamentView()) {
+        clearActiveParticipantTournamentView();
     }
 
     ViewManager.open(snapshot.viewName || "dashboard", { historyMode: "none" });
@@ -572,6 +634,46 @@ function getActiveTournamentRuntimeId() {
         : null;
 }
 
+function hasActiveParticipantTournamentView() {
+    const tournamentId = Number(participantTournamentUiState.activeTournamentId || 0);
+    return (
+        isParticipantUser() &&
+        Number.isInteger(tournamentId) &&
+        tournamentId > 0 &&
+        ["details", "leaderboard"].includes(participantTournamentUiState.mode)
+    );
+}
+
+function getActiveParticipantTournamentId() {
+    return hasActiveParticipantTournamentView()
+        ? Number(participantTournamentUiState.activeTournamentId)
+        : null;
+}
+
+function getActiveParticipantTournamentMode() {
+    return hasActiveParticipantTournamentView()
+        ? participantTournamentUiState.mode
+        : null;
+}
+
+function setActiveParticipantTournamentView(tournamentId, mode = "details") {
+    const normalizedId = Number(tournamentId || 0);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+        return;
+    }
+    participantTournamentUiState.activeTournamentId = normalizedId;
+    participantTournamentUiState.mode =
+        mode === "leaderboard" ? "leaderboard" : "details";
+    if (hasActiveTournamentRuntimeView()) {
+        clearActiveTournamentRuntimeView();
+    }
+}
+
+function clearActiveParticipantTournamentView() {
+    participantTournamentUiState.activeTournamentId = null;
+    participantTournamentUiState.mode = null;
+}
+
 function setSelectedRuntimeTaskId(taskId) {
     const normalizedTaskId = Number(taskId || 0);
     tournamentRuntimeUiState.selectedTaskId =
@@ -589,6 +691,9 @@ function setActiveTournamentRuntimeView(tournamentId, selectedTaskId = null) {
 
     tournamentRuntimeUiState.activeTournamentId = normalizedId;
     tournamentRuntimeUiState.loadError = "";
+    if (hasActiveParticipantTournamentView()) {
+        clearActiveParticipantTournamentView();
+    }
     if (selectedTaskId) {
         setSelectedRuntimeTaskId(selectedTaskId);
     } else {
@@ -737,6 +842,88 @@ function getUserState() {
     return apiClient?.state?.profile || apiClient?.state?.user || null;
 }
 
+function readStoredCodeEntrySession() {
+    try {
+        const raw = window.sessionStorage.getItem(CODE_ENTRY_SESSION_STORAGE_KEY);
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Number.isInteger(Number(parsed.tournamentId))) {
+            return null;
+        }
+        return {
+            mode: parsed.mode === "helper" ? "helper" : "participant",
+            tournamentId: Number(parsed.tournamentId),
+            helperLabel: String(parsed.helperLabel || ""),
+        };
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+}
+
+function getCodeEntrySessionState() {
+    if (codeEntrySessionState === null) {
+        codeEntrySessionState = readStoredCodeEntrySession();
+    }
+    return codeEntrySessionState;
+}
+
+function setCodeEntrySessionState(session) {
+    const normalized =
+        session && Number.isInteger(Number(session.tournamentId))
+            ? {
+                  mode: session.mode === "helper" ? "helper" : "participant",
+                  tournamentId: Number(session.tournamentId),
+                  helperLabel: String(session.helperLabel || ""),
+              }
+            : null;
+    codeEntrySessionState = normalized;
+    try {
+        if (normalized) {
+            window.sessionStorage.setItem(
+                CODE_ENTRY_SESSION_STORAGE_KEY,
+                JSON.stringify(normalized),
+            );
+        } else {
+            window.sessionStorage.removeItem(CODE_ENTRY_SESSION_STORAGE_KEY);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function clearCodeEntrySessionState() {
+    setCodeEntrySessionState(null);
+}
+
+function isCodeGuestUser(user = getUserState()) {
+    return Boolean(user?.isGuest);
+}
+
+function isHelperCodeSession(session = getCodeEntrySessionState()) {
+    return Boolean(isCodeGuestUser() && session?.mode === "helper");
+}
+
+function ensureGuestCodeTournamentFocus() {
+    if (!isCodeGuestUser()) {
+        return;
+    }
+    const session = getCodeEntrySessionState();
+    const tournamentId = Number(session?.tournamentId || 0);
+    if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+        return;
+    }
+    if (hasActiveTournamentRuntimeView() || hasActiveParticipantTournamentView()) {
+        return;
+    }
+    setActiveParticipantTournamentView(
+        tournamentId,
+        session?.mode === "helper" ? "leaderboard" : "details",
+    );
+}
+
 function getTeamState() {
     return apiClient?.state?.team || userTeamState || EMPTY_TEAM_STATE;
 }
@@ -819,6 +1006,50 @@ function getOrganizerTasksState() {
 
 function getOrganizerRosterState(tournamentId) {
     return apiClient?.state?.organizerRoster?.[tournamentId] || [];
+}
+
+function getOrganizerHelperCodesState(tournamentId) {
+    return organizerUiState.helperCodesByTournament[tournamentId] || [];
+}
+
+function getOrganizerResultsState(tournamentId) {
+    return organizerUiState.resultsByTournament[tournamentId] || null;
+}
+
+async function ensureOrganizerHelperCodesLoaded(tournamentId) {
+    const normalizedId = Number(tournamentId || 0);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0 || !apiClient) {
+        return [];
+    }
+    if (organizerUiState.helperCodesByTournament[normalizedId]) {
+        return organizerUiState.helperCodesByTournament[normalizedId];
+    }
+    if (organizerUiState.helperCodesLoadingByTournament[normalizedId]) {
+        return [];
+    }
+    organizerUiState.helperCodesLoadingByTournament[normalizedId] = true;
+    try {
+        const payload = await apiClient.loadOrganizerTournamentHelperCodes(normalizedId);
+        organizerUiState.helperCodesByTournament[normalizedId] = Array.isArray(payload?.items)
+            ? payload.items
+            : [];
+        return organizerUiState.helperCodesByTournament[normalizedId];
+    } finally {
+        organizerUiState.helperCodesLoadingByTournament[normalizedId] = false;
+    }
+}
+
+async function ensureOrganizerTournamentResultsLoaded(tournamentId) {
+    const normalizedId = Number(tournamentId || 0);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0 || !apiClient) {
+        return null;
+    }
+    if (organizerUiState.resultsByTournament[normalizedId]) {
+        return organizerUiState.resultsByTournament[normalizedId];
+    }
+    const payload = await apiClient.loadOrganizerTournamentResults(normalizedId);
+    organizerUiState.resultsByTournament[normalizedId] = payload || null;
+    return organizerUiState.resultsByTournament[normalizedId];
 }
 
 function getOrganizerApplicationsState() {
@@ -1535,6 +1766,13 @@ function isUserProfileComplete(user = getUserState()) {
     );
 }
 
+function shouldRequireProfileCompletion(user = getUserState()) {
+    if (!user || user.isGuest) {
+        return false;
+    }
+    return !isUserProfileComplete(user);
+}
+
 function getStoredNotifications() {
     try {
         const raw = window.localStorage.getItem(NOTIFICATION_STORAGE_KEY);
@@ -1708,8 +1946,14 @@ function renderNotificationsPanel() {
 }
 
 function bindNotificationsPanelActions(root) {
-    root?.querySelector("#notificationsClearBtn")?.addEventListener("click", () => {
-        if (!window.confirm("Очистить историю уведомлений?")) {
+    root?.querySelector("#notificationsClearBtn")?.addEventListener("click", async () => {
+        const confirmed = await requestConfirmDialog({
+            title: "Очистить уведомления",
+            desc: "История уведомлений будет удалена из локального интерфейса.",
+            isDanger: true,
+            confirmLabel: "Очистить",
+        });
+        if (!confirmed) {
             return;
         }
         clearNotificationHistory();
@@ -1947,12 +2191,16 @@ function renderTournamentInfoBody(tournament) {
         return `<div class="tour-sub">Не удалось найти информацию о турнире.</div>`;
     }
 
-    const canShowLeaderboard =
-        tournament.actionType === "muted" ||
-        (tournament.status === "ended" && tournament.resultsVisible);
+    const joinAvailability = tournament.joinAvailability || {};
+    const resultAvailability = tournament.resultAvailability || {};
+    const canShowLeaderboard = Boolean(resultAvailability.visible);
+    const leaderboardButtonLabel =
+        tournament.lifecycle === "ended" || tournament.lifecycle === "archived"
+            ? "Итоги"
+            : "Таблица";
     const primaryActionLabel =
         tournament.actionType === "join"
-            ? "Присоединиться"
+            ? tournament.action || "Записаться"
             : tournament.actionType === "solve"
               ? "Перейти к задачам"
               : "К турнирам";
@@ -1968,7 +2216,7 @@ function renderTournamentInfoBody(tournament) {
         </div>
         <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
             <div class="metric">
-                <div class="metric__label">Статус</div>
+                <div class="metric__label">Жизненный цикл</div>
                 <div class="metric__val">${escapeHtml(tournament.time)}</div>
             </div>
             <div class="metric">
@@ -1983,14 +2231,303 @@ function renderTournamentInfoBody(tournament) {
                 <div class="metric__label">Задач</div>
                 <div class="metric__val">${escapeHtml(formatTournamentRoundsLabel(tournament.taskCount))}</div>
             </div>
+            <div class="metric">
+                <div class="metric__label">Допуск</div>
+                <div class="metric__val">${escapeHtml(tournament.entrySummary || "Доступ по правилам турнира")}</div>
+            </div>
+            <div class="metric">
+                <div class="metric__label">Можно сделать сейчас</div>
+                <div class="metric__val">${escapeHtml(joinAvailability.label || resultAvailability.label || "Следите за временем старта")}</div>
+            </div>
+            <div class="metric">
+                <div class="metric__label">Результаты</div>
+                <div class="metric__val">${escapeHtml(resultAvailability.label || "Появятся позже")}</div>
+            </div>
         </div>
+        <div class="tour-sub">${escapeHtml(joinAvailability.description || "")}</div>
         <div style="display:flex; flex-wrap:wrap; gap: 12px; justify-content:flex-end;">
             ${
                 canShowLeaderboard
-                    ? `<button class="btn btn--muted" type="button" data-tournament-info-action="leaderboard" data-tournament-id="${escapeHtml(tournament.id)}">Результаты</button>`
+                    ? `<button class="btn btn--muted" type="button" data-tournament-info-action="leaderboard" data-tournament-id="${escapeHtml(tournament.id)}">${leaderboardButtonLabel}</button>`
                     : ""
             }
             <button class="btn ${tournament.actionType === "join" || tournament.actionType === "solve" ? "btn--accent" : "btn--muted"}" type="button" data-tournament-info-action="${escapeHtml(tournament.actionType === "join" || tournament.actionType === "solve" ? tournament.actionType : "tournaments")}" data-tournament-id="${escapeHtml(tournament.id)}">${escapeHtml(primaryActionLabel)}</button>
+        </div>
+    `;
+}
+
+function renderTournamentLeaderboardPanel(payload) {
+    if (!payload) {
+        return `
+            <div class="card dash-card">
+                <div class="card__title">Таблица</div>
+                <div class="card__sub">Загружаем актуальные результаты.</div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="card dash-card">
+            <div style="display:grid; gap: 14px;">
+                <div style="display:flex; justify-content:space-between; gap: 12px; align-items:flex-start; flex-wrap:wrap;">
+                    <div>
+                        <div class="card__title">Таблица турнира</div>
+                        <div class="card__sub">${escapeHtml(payload.tournament.participants || 0)} участников • ${escapeHtml(payload.tournament.format === "team" ? "Командный формат" : "Личный формат")}</div>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap: 8px;">
+                        ${(payload.tournament.tasks || [])
+                            .map(
+                                (task) => `<span class="ops-category-chip">${escapeHtml(task.title)} • ${escapeHtml(task.points)} очк.</span>`,
+                            )
+                            .join("")}
+                    </div>
+                </div>
+                <div class="tour-table-wrap">
+                    <table class="tour-table">
+                        <thead>
+                            <tr>
+                                <th>Место</th>
+                                <th>Участник</th>
+                                <th>Решено</th>
+                                <th>Среднее время</th>
+                                <th>Очки</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${
+                                payload.rows?.length
+                                    ? payload.rows
+                                          .map(
+                                              (row) => `
+                                                    <tr ${row.isCurrent ? 'class="tour-table__row--current"' : ""}>
+                                                        <td>${formatRankValue(row.rank)}</td>
+                                                        <td>${escapeHtml(row.name)}${row.isCurrent ? " (вы)" : ""}</td>
+                                                        <td>${escapeHtml(row.solvedLabel)}</td>
+                                                        <td>${escapeHtml(row.averageTimeLabel)}</td>
+                                                        <td>${formatNumberRu(row.score)}</td>
+                                                    </tr>
+                                                `,
+                                          )
+                                          .join("")
+                                    : '<tr><td colspan="5" style="text-align:center; color: var(--fg-muted);">Таблица пока пустая.</td></tr>'
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderCodeGuestSessionBar() {
+    if (!isCodeGuestUser()) {
+        return "";
+    }
+    const user = getUserState() || {};
+    const session = getCodeEntrySessionState();
+    const title =
+        session?.mode === "helper"
+            ? "Вы вошли по helper-коду"
+            : "Вы вошли по коду";
+    const subtitle =
+        session?.mode === "helper"
+            ? session?.helperLabel || "Экран таблицы"
+            : user.displayName || user.login || "Гостевой участник";
+    return `
+        <div class="guest-session-bar card dash-card" data-view-anim style="transition-delay: 0.02s">
+            <div class="guest-session-bar__copy">
+                <div class="guest-session-bar__eyebrow">${escapeHtml(title)}</div>
+                <div class="guest-session-bar__title">${escapeHtml(subtitle)}</div>
+                <div class="guest-session-bar__hint">Эта сессия открывает только текущий турнир. Остальные разделы скрыты.</div>
+            </div>
+            <button class="btn btn--muted" type="button" data-guest-code-logout>Выйти</button>
+        </div>
+    `;
+}
+
+async function ensureTournamentLeaderboardLoaded(tournamentId) {
+    const normalizedId = Number(tournamentId || 0);
+    if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+        return null;
+    }
+    if (participantTournamentUiState.leaderboardByTournamentId[normalizedId]) {
+        return participantTournamentUiState.leaderboardByTournamentId[normalizedId];
+    }
+    if (participantTournamentUiState.leaderboardLoadingByTournamentId[normalizedId]) {
+        return null;
+    }
+    participantTournamentUiState.leaderboardLoadingByTournamentId[normalizedId] = true;
+    participantTournamentUiState.leaderboardErrorByTournamentId[normalizedId] = "";
+    try {
+        const payload = await apiClient.loadTournamentLeaderboard(normalizedId);
+        participantTournamentUiState.leaderboardByTournamentId[normalizedId] = payload;
+        return payload;
+    } catch (error) {
+        participantTournamentUiState.leaderboardErrorByTournamentId[normalizedId] =
+            error?.message || "Не удалось загрузить таблицу";
+        return null;
+    } finally {
+        participantTournamentUiState.leaderboardLoadingByTournamentId[normalizedId] = false;
+        if (ViewManager.currentView === "tournaments") {
+            rerenderActiveWorkspaceContent();
+        }
+    }
+}
+
+function renderParticipantTournamentDetailPage(tournament, mode = "details") {
+    if (!tournament) {
+        return `
+            <div class="tour-view">
+                <div class="card dash-card">
+                    <div class="card__title">Турнир не найден</div>
+                    <div class="card__sub">Попробуйте вернуться к списку и обновить данные.</div>
+                </div>
+            </div>
+        `;
+    }
+
+    const joinAvailability = tournament.joinAvailability || {};
+    const resultAvailability = tournament.resultAvailability || {};
+    const leaderboardPayload =
+        participantTournamentUiState.leaderboardByTournamentId[Number(tournament.id)];
+    const leaderboardLoading =
+        participantTournamentUiState.leaderboardLoadingByTournamentId[Number(tournament.id)];
+    const leaderboardError =
+        participantTournamentUiState.leaderboardErrorByTournamentId[Number(tournament.id)] || "";
+    const categories = Array.isArray(tournament.categories) ? tournament.categories : [];
+    const helperSession = isHelperCodeSession();
+    const codeGuest = isCodeGuestUser();
+    const primaryAction =
+        helperSession
+            ? null
+            : joinAvailability.canSolve
+            ? { id: "solve", label: "Открыть задачи" }
+            : joinAvailability.canJoin
+              ? { id: "join", label: joinAvailability.label || "Записаться" }
+              : null;
+    const effectiveMode = helperSession ? "leaderboard" : mode;
+
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="tour-view tour-runtime-view">
+            ${renderCodeGuestSessionBar()}
+            <div class="tour-runtime-head" data-view-anim>
+                <div class="tour-runtime-head__main">
+                    ${
+                        codeGuest
+                            ? ""
+                            : `
+                                <button class="btn btn--muted-tour tour-runtime-back" type="button" data-participant-tournament-back>
+                                    <span>Назад к турнирам</span>
+                                </button>
+                            `
+                    }
+                    <div class="tour-runtime-head__copy">
+                        <div class="runtime-head__eyebrow">Карточка турнира</div>
+                        <h1 class="dash-header" style="margin:0">${escapeHtml(tournament.title)}</h1>
+                        <div class="tour-runtime-head__meta">
+                            <span>${escapeHtml(tournament.statusText)}</span>
+                            <span>${escapeHtml(tournament.format === "team" ? "Командный формат" : "Личный формат")}</span>
+                            <span>${escapeHtml(tournament.time || "Следите за обновлениями")}</span>
+                            <span>${escapeHtml(tournament.entrySummary || "")}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tour-runtime-head__actions">
+                    ${
+                        helperSession
+                            ? ""
+                            : '<button class="btn btn--muted-tour" type="button" data-participant-tournament-tab="details">О турнире</button>'
+                    }
+                    ${
+                        resultAvailability.visible
+                            ? `<button class="btn btn--muted-tour" type="button" data-participant-tournament-tab="leaderboard">Таблица</button>`
+                            : ""
+                    }
+                    ${
+                        primaryAction
+                            ? `<button class="btn btn--accent" type="button" data-participant-tournament-primary="${escapeHtml(primaryAction.id)}">${escapeHtml(primaryAction.label)}</button>`
+                            : ""
+                    }
+                </div>
+            </div>
+
+            <div class="tour-runtime-summary" data-view-anim style="transition-delay: 0.05s">
+                <div class="card dash-card tour-runtime-summary-card">
+                    <span class="runtime-summary-card__label">Участников</span>
+                    <span class="runtime-summary-card__value">${formatCompactNumberRu(tournament.participants || 0)}</span>
+                </div>
+                <div class="card dash-card tour-runtime-summary-card">
+                    <span class="runtime-summary-card__label">Задач</span>
+                    <span class="runtime-summary-card__value">${formatNumberRu(tournament.taskCount || 0)}</span>
+                </div>
+                <div class="card dash-card tour-runtime-summary-card">
+                    <span class="runtime-summary-card__label">Категории</span>
+                    <span class="runtime-summary-card__value">${escapeHtml(categories.map(getOrganizerTournamentCategoryLabel).join(", ") || "Общее")}</span>
+                </div>
+                <div class="card dash-card tour-runtime-summary-card">
+                    <span class="runtime-summary-card__label">Что можно сейчас</span>
+                    <span class="runtime-summary-card__value">${escapeHtml(joinAvailability.label || resultAvailability.label || "Следите за временем старта")}</span>
+                </div>
+            </div>
+
+            ${
+                effectiveMode === "leaderboard"
+                    ? leaderboardLoading
+                        ? `<div class="card dash-card"><div class="card__title">Загружаем таблицу</div><div class="card__sub">Подтягиваем текущие места, очки и прогресс участников.</div></div>`
+                        : leaderboardError
+                          ? `<div class="card dash-card"><div class="card__title">Не удалось открыть таблицу</div><div class="card__sub">${escapeHtml(leaderboardError)}</div></div>`
+                          : renderTournamentLeaderboardPanel(leaderboardPayload)
+                    : `
+                        <div class="tour-runtime-layout tour-runtime-layout--details" data-view-anim style="transition-delay: 0.1s">
+                            <section class="tour-runtime-main">
+                                <div class="card dash-card runtime-task-panel">
+                                    <div class="runtime-task-panel__head">
+                                        <div>
+                                            <div class="runtime-task-panel__eyebrow">Описание</div>
+                                            <h2 class="runtime-task-panel__title">О турнире</h2>
+                                            <div class="runtime-task-panel__meta">
+                                                <span>${escapeHtml(resultAvailability.label || "Результаты будут доступны по правилам турнира")}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="runtime-statement">${formatRuntimeStatement(tournament.desc || "Организатор пока не добавил подробное описание.")}</div>
+                                </div>
+                                ${
+                                    resultAvailability.visible
+                                        ? renderTournamentLeaderboardPanel(leaderboardPayload)
+                                        : ""
+                                }
+                            </section>
+                            <aside class="card dash-card tour-runtime-sidebar">
+                                <div class="tour-runtime-sidebar__head">
+                                    <div>
+                                        <div class="card__title">Параметры</div>
+                                        <div class="card__sub">Что увидит и сможет участник</div>
+                                    </div>
+                                </div>
+                                <div class="tour-runtime-sidebar__list">
+                                    <div class="tour-runtime-task is-active">
+                                        <div class="tour-runtime-task__title">Допуск</div>
+                                        <div class="tour-runtime-task__meta">${escapeHtml(tournament.entrySummary || "По правилам турнира")}</div>
+                                    </div>
+                                    <div class="tour-runtime-task">
+                                        <div class="tour-runtime-task__title">Текущая фаза</div>
+                                        <div class="tour-runtime-task__meta">${escapeHtml(tournament.statusText)}</div>
+                                    </div>
+                                    <div class="tour-runtime-task">
+                                        <div class="tour-runtime-task__title">Результаты</div>
+                                        <div class="tour-runtime-task__meta">${escapeHtml(resultAvailability.label || "Появятся позже")}</div>
+                                    </div>
+                                    <div class="tour-runtime-task">
+                                        <div class="tour-runtime-task__title">Код доступа</div>
+                                        <div class="tour-runtime-task__meta">${escapeHtml(tournament.entryPolicy?.requiresCode ? "Нужен код организатора" : "Не требуется")}</div>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    `
+            }
         </div>
     `;
 }
@@ -2004,42 +2541,17 @@ function findTournamentById(tournamentId) {
 }
 
 async function openTournamentInfoModal(tournamentId) {
-    ensureTournamentInfoModal();
     let tournament = findTournamentById(tournamentId);
     if (!tournament) {
         await apiClient.loadTournaments().catch(() => null);
         tournament = findTournamentById(tournamentId);
     }
-
-    const body = document.getElementById("tournamentInfoBody");
-    if (body) {
-        body.innerHTML = renderTournamentInfoBody(tournament);
-        body.querySelectorAll("[data-tournament-info-action]").forEach((button) => {
-            button.addEventListener("click", async () => {
-                const action = button.dataset.tournamentInfoAction;
-                const id = Number(button.dataset.tournamentId || 0);
-                closeModal("tournamentInfoModal", true);
-                if (action === "leaderboard") {
-                    await openLeaderboardModal(id, "view");
-                    return;
-                }
-                if (action === "join") {
-                    const actionButton = document.querySelector(
-                        `[data-tournament-action="join"][data-tournament-id="${id}"]`,
-                    );
-                    actionButton?.click();
-                    return;
-                }
-                if (action === "solve") {
-                    await openTournamentRuntimeModal(id);
-                    return;
-                }
-                ViewManager.open("tournaments");
-            });
-        });
+    if (!tournament) {
+        Toast.show("Турнир", "Не удалось открыть карточку турнира.", "error");
+        return;
     }
-
-    openModal("tournamentInfoModal");
+    setActiveParticipantTournamentView(tournament.id, "details");
+    ViewManager.open("tournaments");
 }
 
 function formatTournamentRoundsLabel(taskCount) {
@@ -2165,18 +2677,22 @@ function updateWorkspaceIdentity() {
     const teamNavItem = document.getElementById("teamNavItem");
     const taskBankNavItem = document.getElementById("taskBankNavItem");
     const moderationNavItem = document.getElementById("moderationNavItem");
+    const workspaceView = document.getElementById("workspace-view");
+    const codeGuestMode = isCodeGuestUser(user);
     if (adminNavItem) {
-        adminNavItem.hidden = !isAdminUser(user);
+        adminNavItem.hidden = codeGuestMode || !isAdminUser(user);
     }
     if (teamNavItem) {
-        teamNavItem.hidden = !isParticipantUser(user);
+        teamNavItem.hidden = codeGuestMode || !isParticipantUser(user);
     }
     if (taskBankNavItem) {
-        taskBankNavItem.hidden = !isOrganizerUser(user);
+        taskBankNavItem.hidden = codeGuestMode || !isOrganizerUser(user);
     }
     if (moderationNavItem) {
-        moderationNavItem.hidden = !isModeratorUser(user);
+        moderationNavItem.hidden = codeGuestMode || !isModeratorUser(user);
     }
+    document.body.classList.toggle("workspace-guest-code", codeGuestMode);
+    workspaceView?.classList.toggle("workspace-guest-code", codeGuestMode);
     if (!user) return;
 
     const displayName = user.displayName || user.login || "Пользователь";
@@ -2219,8 +2735,11 @@ async function bootstrapAuthSession() {
         const session = await apiClient.restoreSession();
         if (session.authenticated) {
             await loadWorkspaceData();
+            if (!isCodeGuestUser()) {
+                clearCodeEntrySessionState();
+            }
             switchToWorkspace();
-            pendingProfileCompletion = !isUserProfileComplete(getUserState());
+            pendingProfileCompletion = shouldRequireProfileCompletion(getUserState());
             if (pendingProfileCompletion) {
                 openModal("profileModal");
             }
@@ -2840,6 +3359,7 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="codeForm" novalidate>
+        <div class="tour-sub">Введите 8-символьный код. Если это общий код турнира, мы отдельно попросим имя и фамилию.</div>
         <div class="code-grid">
           ${Array(8)
               .fill(
@@ -2850,6 +3370,7 @@ const DYNAMIC_MODALS_HTML = `
               )
               .join("")}
         </div>
+        <div class="error" data-error-for="code"></div>
         <input type="hidden" name="code" value="">
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Войти</button>
       </form>
@@ -2980,53 +3501,44 @@ const DYNAMIC_MODALS_HTML = `
     <div class="modal__backdrop" data-close="createTournamentModal"></div>
     <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="createTournamentTitle" style="max-width: 820px;">
       <div class="modal__head">
-        <div id="createTournamentTitle" class="modal__title">Создать турнир</div>
+        <div id="createTournamentTitle" class="modal__title">Быстрый запуск турнира</div>
         <button class="modal__close" data-close="createTournamentModal" aria-label="Закрыть">
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="createTournamentForm" novalidate>
         <div class="field"><label>Название турнира</label><input class="input" name="title" data-required minlength="4" placeholder="Весенний спринт Qubite"></div>
         <div class="field"><label>Описание</label><textarea class="textarea input" name="description" placeholder="Коротко опишите формат и правила" style="min-height: 100px; resize: vertical;"></textarea></div>
-        <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
-          <div class="field">
-            <label>Категория</label>
-            <select class="input" name="category" data-required>
-              <option value="algo">Алгоритмы</option>
-              <option value="team">Командные</option>
-              <option value="ml">ML</option>
-              <option value="marathon">Марафон</option>
-              <option value="other">Другое</option>
-            </select>
+        <div class="field">
+          <label>Категории</label>
+          <div class="s-sub" style="margin-bottom: 10px;">Для быстрого запуска ставим базовую категорию «Общее». Подробный выбор с облаком и поиском доступен в редакторе организатора.</div>
+          <div style="display:flex; flex-wrap:wrap; gap: 8px;">
+            <span class="ops-category-chip is-active">Общее</span>
           </div>
+          <input type="hidden" name="category" value="other">
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
           <div class="field">
             <label>Формат</label>
             <select class="input" name="format" data-required>
-              <option value="individual">Индивидуальный</option>
+              <option value="individual">Личный</option>
               <option value="team">Командный</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Статус</label>
-            <select class="input" name="status" data-required>
-              <option value="upcoming" selected>Скоро</option>
-              <option value="live">Сейчас идет</option>
-              <option value="ended">Уже завершён</option>
             </select>
           </div>
           <div class="field">
             <label>Дата старта</label>
             <input class="input" name="startAt" type="datetime-local" data-required>
           </div>
-        </div>
-        <div class="field">
-          <label>Дата завершения</label>
-          <input class="input" name="endAt" type="datetime-local" data-required>
+          <div class="field">
+            <label>Дата завершения</label>
+            <input class="input" name="endAt" type="datetime-local" data-required>
+          </div>
         </div>
         <div class="field">
           <label>Задачи турнира</label>
           <div id="tournamentTaskSelector" style="display:grid; gap: 8px; max-height: 220px; overflow:auto; padding: 6px; border: 1px solid var(--line); border-radius: 18px;"></div>
           <div class="error" data-error-for="taskIds"></div>
         </div>
+        <div class="s-sub">Ручной статус больше не нужен: после создания турнир появится как опубликованный и дальше будет жить по времени.</div>
         <button class="btn btn--accent" type="submit">Создать турнир</button>
       </form>
     </div>
@@ -3197,6 +3709,26 @@ const DYNAMIC_MODALS_HTML = `
             <button id="confirmBtn" class="btn btn--accent btn--block">Подтвердить</button>
          </div>
       </div>
+    </div>
+  </div>
+
+  <div id="actionFormModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="actionFormModal"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" style="max-width: 520px;">
+      <div class="modal__head">
+        <div id="actionFormTitle" class="modal__title">Действие</div>
+        <button class="modal__close" data-close="actionFormModal">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form class="modal__form" id="actionFormModalForm" novalidate>
+        <div id="actionFormDesc" class="tour-sub" style="margin-bottom: 4px;"></div>
+        <div id="actionFormFields" style="display:grid; gap: 14px;"></div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <button type="button" class="btn btn--muted btn--block" data-close="actionFormModal">Отмена</button>
+          <button id="actionFormSubmitBtn" type="submit" class="btn btn--accent btn--block">Продолжить</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -3461,6 +3993,12 @@ function closeModal(id, immediate = false) {
         if (el.id === "verifyModal") {
             clearInterval(timerInterval);
         }
+        if (el.id === "confirmModal") {
+            resolveConfirmDialog(false);
+        }
+        if (el.id === "actionFormModal") {
+            resolveActionFormDialog(null);
+        }
         if (el.id === "tournamentRuntimeModal") {
             stopTournamentRuntimeTimers();
         }
@@ -3528,9 +4066,18 @@ function wireStaticLoginModal() {
     const btns = lm.querySelectorAll(".modal__body .btn");
     // Предполагаемый порядок: 1. По коду, 2. По логину, 3. Регистрация
     if (btns.length >= 3) {
-        btns[0].addEventListener("click", () => openModal("codeModal"));
-        btns[1].addEventListener("click", () => openModal("authModal"));
-        btns[2].addEventListener("click", () => openModal("regModal"));
+        btns[0].addEventListener("click", () => {
+            closeModal("loginModal");
+            openModal("codeModal");
+        });
+        btns[1].addEventListener("click", () => {
+            closeModal("loginModal");
+            openModal("authModal");
+        });
+        btns[2].addEventListener("click", () => {
+            closeModal("loginModal");
+            openModal("regModal");
+        });
     }
 
     // Backdrop клик для статической модалки
@@ -3556,6 +4103,7 @@ function initConfirmModal({
     desc,
     extra = "",
     isDanger = false,
+    confirmLabel = "Подтвердить",
     onConfirm,
 }) {
     const modal = document.getElementById("confirmModal");
@@ -3572,6 +4120,7 @@ function initConfirmModal({
     const confirmBtn = modal.querySelector("#confirmBtn");
     const newConfirmBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    newConfirmBtn.textContent = confirmLabel;
 
     newConfirmBtn.addEventListener("click", () => {
         onConfirm();
@@ -3579,6 +4128,138 @@ function initConfirmModal({
     });
 
     openModal("confirmModal");
+}
+
+function resolveConfirmDialog(result = false) {
+    if (typeof confirmDialogState.resolver === "function") {
+        confirmDialogState.resolver(Boolean(result));
+        confirmDialogState.resolver = null;
+    }
+}
+
+function requestConfirmDialog({
+    title,
+    desc,
+    extra = "",
+    isDanger = false,
+    confirmLabel = "Подтвердить",
+}) {
+    if (!document.getElementById("confirmModal")) {
+        return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+        confirmDialogState.resolver = resolve;
+        initConfirmModal({
+            title,
+            desc,
+            extra,
+            isDanger,
+            confirmLabel,
+            onConfirm: () => resolveConfirmDialog(true),
+        });
+    });
+}
+
+function resolveActionFormDialog(result = null) {
+    if (typeof actionFormDialogState.resolver === "function") {
+        actionFormDialogState.resolver(result);
+        actionFormDialogState.resolver = null;
+    }
+}
+
+function openActionFormModal({
+    title,
+    desc = "",
+    submitLabel = "Продолжить",
+    fields = [],
+}) {
+    const modal = document.getElementById("actionFormModal");
+    const form = document.getElementById("actionFormModalForm");
+    const titleNode = document.getElementById("actionFormTitle");
+    const descNode = document.getElementById("actionFormDesc");
+    const fieldsNode = document.getElementById("actionFormFields");
+    const submitBtn = document.getElementById("actionFormSubmitBtn");
+    if (!modal || !form || !titleNode || !descNode || !fieldsNode || !submitBtn) {
+        return Promise.resolve(null);
+    }
+
+    titleNode.textContent = title;
+    descNode.textContent = desc;
+    submitBtn.textContent = submitLabel;
+    fieldsNode.innerHTML = fields
+        .map((field) => {
+            const required = field.required ? "data-required" : "";
+            const value = escapeHtml(field.value || "");
+            if (field.type === "textarea") {
+                return `
+                    <div class="field">
+                        <label>${escapeHtml(field.label)}</label>
+                        <textarea class="textarea input" name="${escapeHtml(field.name)}" ${required} style="min-height: 100px;">${value}</textarea>
+                        <div class="error" data-error-for="${escapeHtml(field.name)}"></div>
+                    </div>
+                `;
+            }
+            return `
+                <div class="field">
+                    <label>${escapeHtml(field.label)}</label>
+                    <input
+                        class="input"
+                        name="${escapeHtml(field.name)}"
+                        type="${escapeHtml(field.type || "text")}"
+                        value="${value}"
+                        placeholder="${escapeHtml(field.placeholder || "")}"
+                        ${field.min !== undefined ? `min="${escapeHtml(field.min)}"` : ""}
+                        ${field.step !== undefined ? `step="${escapeHtml(field.step)}"` : ""}
+                        ${required}
+                    >
+                    <div class="error" data-error-for="${escapeHtml(field.name)}"></div>
+                </div>
+            `;
+        })
+        .join("");
+    setupForm(form);
+    clearFormErrors(form);
+    form.querySelectorAll(".input").forEach((input) => input.classList.remove("is-invalid"));
+
+    const formClone = form.cloneNode(true);
+    form.parentNode.replaceChild(formClone, form);
+    const nextForm = document.getElementById("actionFormModalForm");
+    setupForm(nextForm);
+
+    return new Promise((resolve) => {
+        actionFormDialogState.resolver = resolve;
+        nextForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const values = {};
+            let hasError = false;
+            fields.forEach((field) => {
+                const element = nextForm.elements[field.name];
+                const rawValue = element?.value ?? "";
+                const value = field.type === "number" ? Number(rawValue) : rawValue;
+                if (field.required && (!rawValue || (field.type === "number" && !Number.isFinite(value)))) {
+                    setInlineFieldError(nextForm, field.name, "Заполните поле.");
+                    hasError = true;
+                    return;
+                }
+                if (field.validate) {
+                    const errorText = field.validate(value);
+                    if (errorText) {
+                        setInlineFieldError(nextForm, field.name, errorText);
+                        hasError = true;
+                        return;
+                    }
+                }
+                setInlineFieldError(nextForm, field.name, "");
+                values[field.name] = value;
+            });
+            if (hasError) {
+                return;
+            }
+            resolveActionFormDialog(values);
+            closeModal("actionFormModal");
+        });
+        openModal("actionFormModal");
+    });
 }
 
 /* =========================================
@@ -3859,6 +4540,7 @@ function setupForm(form) {
                     password: form.elements["pass"].value,
                     turnstileToken: form.elements["turnstileToken"]?.value || "",
                 });
+                clearCodeEntrySessionState();
                 pendingProfileCompletion = true;
                 resetForm(form);
                 openModal("profileModal");
@@ -4086,6 +4768,7 @@ function setupForm(form) {
                         "info",
                     );
                 } else {
+                    clearCodeEntrySessionState();
                     await loadWorkspaceData();
                     closeAnyModal();
                     switchToWorkspace();
@@ -4101,11 +4784,103 @@ function setupForm(form) {
             }
         } else if (form.id === "codeForm") {
             e.preventDefault();
-            Toast.show(
-                "Вход по коду",
-                "Этот сценарий подключим вместе с живыми турнирами и кодами доступа к турнирам.",
-                "info",
-            );
+            clearFormErrors(form);
+            setSubmitLoading(submitBtn, true, "Подключаем...");
+            Loader.show();
+
+            try {
+                const code = String(form.elements["code"]?.value || "").trim();
+                const inspection = await apiClient.inspectTournamentCode({ code });
+                let payload = { code };
+                if (inspection?.codeType === "shared") {
+                    Loader.hide(300);
+                    const values = await openActionFormModal({
+                        title: "Как подписать участника",
+                        desc: "Для общего кода нужен только участник. Эти данные покажутся в турнире и таблице.",
+                        submitLabel: "Продолжить",
+                        fields: [
+                            {
+                                name: "lastName",
+                                label: "Фамилия",
+                                required: true,
+                                validate(value) {
+                                    return String(value || "").trim().length < 2
+                                        ? "Введите фамилию."
+                                        : "";
+                                },
+                            },
+                            {
+                                name: "firstName",
+                                label: "Имя",
+                                required: true,
+                                validate(value) {
+                                    return String(value || "").trim().length < 2
+                                        ? "Введите имя."
+                                        : "";
+                                },
+                            },
+                        ],
+                    });
+                    if (!values) {
+                        return;
+                    }
+                    Loader.show();
+                    payload.fullName = toTitleCaseWords(
+                        `${values.lastName || ""} ${values.firstName || ""}`.trim(),
+                    );
+                }
+                const result = await apiClient.loginByTournamentCode({
+                    ...payload,
+                });
+                setCodeEntrySessionState({
+                    mode:
+                        inspection?.codeType === "helper" || result?.viewMode === "leaderboard"
+                            ? "helper"
+                            : "participant",
+                    tournamentId: Number(result?.tournamentId || inspection?.tournamentId || 0),
+                    helperLabel: result?.helperLabel || inspection?.label || "",
+                });
+                if (result?.leaderboard && result?.tournamentId) {
+                    participantTournamentUiState.leaderboardByTournamentId[
+                        Number(result.tournamentId)
+                    ] = result.leaderboard;
+                    participantTournamentUiState.leaderboardErrorByTournamentId[
+                        Number(result.tournamentId)
+                    ] = "";
+                }
+                await loadWorkspaceData();
+                pendingProfileCompletion = shouldRequireProfileCompletion(getUserState());
+                closeAnyModal();
+                switchToWorkspace();
+
+                if (result?.viewMode === "leaderboard" && result?.tournamentId) {
+                    setActiveParticipantTournamentView(result.tournamentId, "leaderboard");
+                    ViewManager.open("tournaments");
+                    Toast.show(
+                        "Вход по коду",
+                        result.helperLabel
+                            ? `Открыта таблица: ${result.helperLabel}.`
+                            : "Таблица турнира открыта.",
+                        "success",
+                    );
+                } else if (result?.runtime && result?.tournamentId) {
+                    await openTournamentRuntimeModal(result.tournamentId, result.runtime);
+                    Toast.show("Вход по коду", "Вы вошли в турнир.", "success");
+                } else if (result?.tournamentId) {
+                    setActiveParticipantTournamentView(result.tournamentId, "details");
+                    ViewManager.open("tournaments");
+                    Toast.show("Вход по коду", "Вы вошли в турнир.", "success");
+                } else {
+                    ViewManager.open("tournaments");
+                    Toast.show("Вход по коду", "Код успешно принят.", "success");
+                }
+            } catch (error) {
+                applyRequestError(form, error, "Вход по коду");
+            } finally {
+                setSubmitLoading(submitBtn, false);
+                Loader.hide(300);
+                validate();
+            }
         } else if (form.id === "joinTeamForm") {
             e.preventDefault();
             Loader.show();
@@ -4201,8 +4976,9 @@ function setupForm(form) {
                     title: form.elements["title"].value.trim(),
                     description: form.elements["description"].value.trim(),
                     category: form.elements["category"].value,
+                    categories: [form.elements["category"].value],
                     format: form.elements["format"].value,
-                    status: form.elements["status"].value,
+                    status: "published",
                     startAt: new Date(form.elements["startAt"].value).toISOString(),
                     endAt: new Date(form.elements["endAt"].value).toISOString(),
                     taskIds: checkedTasks,
@@ -4877,6 +5653,7 @@ function switchToWorkspace() {
     document.body.style.paddingTop = "0";
     updateWorkspaceIdentity();
     hydrateTournamentRuntimeUiState();
+    ensureGuestCodeTournamentFocus();
     const locationSnapshot = readWorkspaceLocationSnapshot();
     if (locationSnapshot) {
         if (
@@ -4884,14 +5661,31 @@ function switchToWorkspace() {
             locationSnapshot.tournamentId &&
             isParticipantUser()
         ) {
-            setActiveTournamentRuntimeView(locationSnapshot.tournamentId);
+            if (locationSnapshot.tournamentMode === "runtime") {
+                setActiveTournamentRuntimeView(locationSnapshot.tournamentId);
+            } else {
+                setActiveParticipantTournamentView(
+                    locationSnapshot.tournamentId,
+                    locationSnapshot.tournamentMode === "leaderboard"
+                        ? "leaderboard"
+                        : "details",
+                );
+            }
         } else if (hasActiveTournamentRuntimeView()) {
             clearActiveTournamentRuntimeView();
+        } else if (hasActiveParticipantTournamentView()) {
+            clearActiveParticipantTournamentView();
         }
     }
+    const defaultWorkspaceView = isCodeGuestUser()
+        ? "tournaments"
+        : hasActiveTournamentRuntimeView() || hasActiveParticipantTournamentView()
+          ? "tournaments"
+          : "dashboard";
     ViewManager.open(
-        locationSnapshot?.viewName ||
-            (hasActiveTournamentRuntimeView() ? "tournaments" : "dashboard"),
+        isCodeGuestUser()
+            ? "tournaments"
+            : locationSnapshot?.viewName || defaultWorkspaceView,
         { historyMode: "replace" },
     );
     startWorkspaceAutoSync();
@@ -4907,6 +5701,7 @@ function switchToLanding() {
     stopWorkspaceAutoSync();
     destroyAdminOverviewCharts();
     workspaceLastSyncedAt = 0;
+    clearCodeEntrySessionState();
     document.getElementById("landing-view").hidden = false;
     document.getElementById("workspace-view").hidden = true;
     void refreshLandingPublicData();
@@ -5860,7 +6655,7 @@ function initProfilePersonalInteractions(container) {
                 ...state.payload,
                 avatarUrl: avatarUrlDraft,
             });
-            pendingProfileCompletion = !isUserProfileComplete(getUserState());
+            pendingProfileCompletion = shouldRequireProfileCompletion(getUserState());
             updateWorkspaceIdentity();
 
             container.innerHTML = renderProfilePersonal();
@@ -5877,48 +6672,62 @@ function initProfilePersonalInteractions(container) {
 
     const logoutBtn = container.querySelector("#profile-logout-btn");
     if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            if (typeof initConfirmModal === "function") {
-                initConfirmModal({
-                    title: "Выход",
-                    desc: "Вы уверены, что хотите выйти из аккаунта?",
-                    isDanger: true,
-                    onConfirm: async () => {
-                        Toast.show("Аккаунт", "Выход из системы...", "info");
-                        await apiClient.logout();
-                        location.reload();
-                    },
-                });
-            } else {
-                if (confirm("Выйти из аккаунта?")) {
-                    apiClient.logout().finally(() => location.reload());
-                }
+        logoutBtn.addEventListener("click", async () => {
+            const confirmed = await requestConfirmDialog({
+                title: "Выход",
+                desc: "Вы уверены, что хотите выйти из аккаунта?",
+                isDanger: true,
+                confirmLabel: "Выйти",
+            });
+            if (!confirmed) {
+                return;
             }
+            Toast.show("Аккаунт", "Выход из системы...", "info");
+            clearCodeEntrySessionState();
+            await apiClient.logout();
+            location.reload();
         });
     }
 
     const applyOrganizerRoleBtn = container.querySelector("#applyOrganizerRoleBtn");
     if (applyOrganizerRoleBtn) {
         applyOrganizerRoleBtn.addEventListener("click", async () => {
-            const organizationName =
-                window.prompt("Организация / школа / площадка:", "") || "";
-            if (!organizationName.trim()) return;
-
-            const organizationType =
-                window.prompt("Тип организации (например: школа, вуз, клуб):", "") ||
-                "";
-            const note =
-                window.prompt(
-                    "Коротко опишите, для чего вам роль организатора:",
-                    "",
-                ) || "";
+            const values = await openActionFormModal({
+                title: "Заявка на роль организатора",
+                desc: "Расскажите о вашей площадке и о том, зачем вам нужен организаторский доступ.",
+                submitLabel: "Отправить заявку",
+                fields: [
+                    {
+                        name: "organizationName",
+                        label: "Организация / школа / площадка",
+                        required: true,
+                        validate(value) {
+                            return String(value || "").trim().length < 3
+                                ? "Укажите название площадки."
+                                : "";
+                        },
+                    },
+                    {
+                        name: "organizationType",
+                        label: "Тип организации",
+                        placeholder: "Школа, вуз, клуб, кружок",
+                    },
+                    {
+                        name: "note",
+                        label: "Для чего вам роль организатора",
+                        type: "textarea",
+                        placeholder: "Например: проводить школьные турниры и тренировки",
+                    },
+                ],
+            });
+            if (!values?.organizationName?.trim()) return;
 
             Loader.show();
             try {
                 await apiClient.submitOrganizerApplication({
-                    organizationName,
-                    organizationType,
-                    note,
+                    organizationName: values.organizationName.trim(),
+                    organizationType: String(values.organizationType || "").trim(),
+                    note: String(values.note || "").trim(),
                 });
                 await apiClient.loadOrganizerApplications();
                 container.innerHTML = renderProfilePersonal();
@@ -6478,6 +7287,26 @@ function humanizeTournamentStatusLabel(status) {
     return map[status] || status || "—";
 }
 
+function renderAdminTournamentActions(item, compact = false) {
+    const items = Array.isArray(item?.availableActions)
+        ? item.availableActions
+        : [];
+    return items
+        .filter((action) =>
+            ["finish_now", "archive", "unpublish"].includes(action.id),
+        )
+        .map((action) => {
+            const btnClass =
+                action.id === "finish_now"
+                    ? "btn btn--accent"
+                    : compact
+                      ? "btn btn--muted btn--sm"
+                      : "btn btn--muted";
+            return `<button class="${btnClass}" data-admin-tournament-action="${escapeHtml(item.id)}" data-admin-action-name="${escapeHtml(action.id)}">${escapeHtml(action.label)}</button>`;
+        })
+        .join("");
+}
+
 function renderAdminOverviewKpiCard({
     label,
     value,
@@ -6527,15 +7356,15 @@ function buildAdminAttentionItems(overview, metrics) {
             ? {
                   icon: "emoji_events",
                   tone: "accent",
-                  title: `Сейчас идут ${formatNumberRu(overview.liveTournamentsCount)} live-турнира`,
-                  desc: `В live участвуют ${formatNumberRu(metrics.liveParticipants || 0)} пользователей и командных составов.`,
+                  title: `Сейчас идут ${formatNumberRu(overview.liveTournamentsCount)} активных турнира`,
+                  desc: `В активных турнирах участвуют ${formatNumberRu(metrics.liveParticipants || 0)} пользователей и командных составов.`,
                   actionLabel: "Смотреть турниры",
                   targetTab: "tournaments",
               }
             : {
                   icon: "schedule",
                   tone: "muted",
-                  title: "Сейчас нет live-турниров",
+                  title: "Сейчас нет активных турниров",
                   desc: "Если это не планировалось, проверьте ближайшие публикации и расписание стартов.",
                   actionLabel: "Открыть турниры",
                   targetTab: "tournaments",
@@ -6646,7 +7475,7 @@ function renderAdminOverviewSection(adminState) {
                                 tone: "accent",
                             })}
                             ${renderAdminOverviewKpiCard({
-                                label: "Участия в live",
+                                label: "Участия в активных турнирах",
                                 value: formatNumberRu(metrics.liveParticipants),
                                 meta: "Пользователи и команды в идущих турнирах",
                                 tone: "warning",
@@ -6916,7 +7745,7 @@ function renderOrganizerDashboard() {
                                 <div class="ops-flow-item">
                                     <span class="ops-flow-item__step">3</span>
                                     <div>
-                                        <div class="s-title">Подготовить roster</div>
+                                        <div class="s-title">Подготовить список допуска</div>
                                         <div class="s-sub">Для закрытых турниров импортируйте только существующих пользователей.</div>
                                     </div>
                                 </div>
@@ -6937,11 +7766,13 @@ function initOrganizerDashboardInteractions(container) {
                 title: `Новое соревнование ${new Date().toLocaleDateString("ru-RU")}`,
                 description: "",
                 category: "other",
+                categories: ["other"],
                 format: "individual",
                 status: "draft",
+                lateJoinMode: "until_finish",
             });
             organizerUiState.selectedTournamentId = item.id;
-            organizerUiState.activeStep = "info";
+            organizerUiState.activeStep = "basics";
             await apiClient.loadOrganizerRoster(item.id);
             ViewManager.open("tournaments");
             Toast.show("Соревнования", "Черновик соревнования создан.", "success");
@@ -7030,6 +7861,451 @@ function renderOrganizerRosterPreview(tournamentId) {
     `;
 }
 
+const ORGANIZER_TOURNAMENT_CATEGORY_OPTIONS = [
+    { slug: "algo", label: "Алгоритмы", quick: true },
+    { slug: "team", label: "Командные", quick: true },
+    { slug: "ml", label: "Машинное обучение", quick: true },
+    { slug: "marathon", label: "Марафон", quick: true },
+    { slug: "python", label: "Python" },
+    { slug: "javascript", label: "JavaScript" },
+    { slug: "c++", label: "C++" },
+    { slug: "data-science", label: "Data Science" },
+    { slug: "frontend", label: "Frontend" },
+    { slug: "backend", label: "Backend" },
+    { slug: "security", label: "Security" },
+    { slug: "other", label: "Общее", quick: true },
+];
+
+function normalizeOrganizerTournamentCategories(value) {
+    const items = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [];
+    const normalized = [];
+    items.forEach((item) => {
+        const slug = String(item || "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "-");
+        if (slug && !normalized.includes(slug)) {
+            normalized.push(slug);
+        }
+    });
+    return normalized.length ? normalized : ["other"];
+}
+
+function getOrganizerTournamentCategoryLabel(slug) {
+    const match = ORGANIZER_TOURNAMENT_CATEGORY_OPTIONS.find((item) => item.slug === slug);
+    return match?.label || slug;
+}
+
+function renderOrganizerCategoryPicker(draft) {
+    const selectedCategories = normalizeOrganizerTournamentCategories(draft.categories);
+    const query = String(organizerUiState.editor.categoryQuery || "").trim().toLowerCase();
+    const knownOptions = [...ORGANIZER_TOURNAMENT_CATEGORY_OPTIONS];
+    selectedCategories.forEach((slug) => {
+        if (!knownOptions.some((item) => item.slug === slug)) {
+            knownOptions.push({ slug, label: slug });
+        }
+    });
+    const filteredOptions = knownOptions.filter((item) =>
+        !query ||
+        item.label.toLowerCase().includes(query) ||
+        item.slug.toLowerCase().includes(query),
+    );
+
+    return `
+        <div class="field ops-field-wide">
+            <label>Категории турнира</label>
+            <div class="ops-category-picker">
+                <input class="input" data-organizer-category-search placeholder="Поиск категории" value="${escapeHtml(organizerUiState.editor.categoryQuery || "")}">
+                <div class="ops-category-picker__selected">
+                    ${selectedCategories
+                        .map(
+                            (slug) => `
+                                <button class="ops-category-chip ops-category-chip--selected" type="button" data-organizer-category-remove="${escapeHtml(slug)}">
+                                    ${escapeHtml(getOrganizerTournamentCategoryLabel(slug))}
+                                </button>
+                            `,
+                        )
+                        .join("")}
+                </div>
+                <div class="ops-category-picker__cloud">
+                    ${filteredOptions
+                        .map(
+                            (item) => `
+                                <button class="ops-category-chip ${selectedCategories.includes(item.slug) ? "is-active" : ""}" type="button" data-organizer-category-option="${escapeHtml(item.slug)}">
+                                    ${escapeHtml(item.label)}
+                                </button>
+                            `,
+                        )
+                        .join("")}
+                </div>
+                <div class="ops-category-picker__hint">Можно выбрать несколько категорий. Первая будет основной для старых экранов и карточек.</div>
+            </div>
+        </div>
+    `;
+}
+
+function toLocalDateTimeValue(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function fromLocalDateTimeValue(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function getDefaultOrganizerScheduleIso() {
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(10, 0, 0, 0);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    return {
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+    };
+}
+
+function buildOrganizerEditorDraft(tournament) {
+    const defaults = getDefaultOrganizerScheduleIso();
+    const entryPolicy = tournament?.entryPolicy || {};
+    const categories = normalizeOrganizerTournamentCategories(
+        tournament?.categories || [tournament?.category || "other"],
+    );
+    return {
+        id: tournament?.id || null,
+        title: tournament?.title || "",
+        description: tournament?.desc || "",
+        category: categories[0] || tournament?.category || "other",
+        categories,
+        format: tournament?.format || "individual",
+        startAt: tournament?.startAt || defaults.startAt,
+        endAt: tournament?.endAt || defaults.endAt,
+        joinMode: entryPolicy.joinMode || "open",
+        codeMode: entryPolicy.codeMode || tournament?.codeMode || "shared",
+        requiresCode: Boolean(entryPolicy.requiresCode),
+        accessCode: entryPolicy.accessCode || "",
+        registrationStartAt:
+            entryPolicy.registrationStartAt ||
+            tournament?.registrationStartAt ||
+            "",
+        registrationEndAt:
+            entryPolicy.registrationEndAt ||
+            tournament?.registrationEndAt ||
+            tournament?.startAt ||
+            "",
+        lateJoinMode: entryPolicy.lateJoinMode || "until_finish",
+        lateJoinUntilAt:
+            entryPolicy.lateJoinUntilAt || tournament?.lateJoinUntilAt || "",
+        runtimeMode: tournament?.runtimeMode || "competition",
+        allowLiveTaskAdd: Boolean(tournament?.allowLiveTaskAdd),
+        wrongAttemptPenaltySeconds: Number(
+            tournament?.wrongAttemptPenaltySeconds ?? 1200,
+        ),
+        leaderboardVisible: Boolean(tournament?.leaderboardVisible),
+        resultsVisible: Boolean(tournament?.resultsVisible),
+        taskIds: Array.isArray(tournament?.taskIds) ? [...tournament.taskIds] : [],
+    };
+}
+
+function ensureOrganizerEditorDraft(selected) {
+    if (!selected) {
+        organizerUiState.editor.tournamentId = null;
+        organizerUiState.editor.draft = null;
+        organizerUiState.editor.dirty = false;
+        organizerUiState.editor.dirtyKeys = new Set();
+        organizerUiState.editor.saveState = "idle";
+        organizerUiState.editor.saveError = "";
+        organizerUiState.editor.categoryQuery = "";
+        return null;
+    }
+
+    if (
+        organizerUiState.editor.tournamentId !== selected.id ||
+        !organizerUiState.editor.draft
+    ) {
+        organizerUiState.editor.tournamentId = selected.id;
+        organizerUiState.editor.draft = buildOrganizerEditorDraft(selected);
+        organizerUiState.editor.dirty = false;
+        organizerUiState.editor.dirtyKeys = new Set();
+        organizerUiState.editor.saveState = "idle";
+        organizerUiState.editor.saveError = "";
+        organizerUiState.editor.categoryQuery = "";
+    }
+
+    return organizerUiState.editor.draft;
+}
+
+function getOrganizerAccessScopeFromDraft(draft) {
+    if (draft.joinMode === "code") {
+        return "code";
+    }
+    if (draft.joinMode === "roster_only") {
+        return "closed";
+    }
+    if (draft.joinMode === "registration") {
+        return "registration";
+    }
+    return draft.requiresCode ? "code" : "open";
+}
+
+function buildOrganizerEditorPatch(draft) {
+    const categories = normalizeOrganizerTournamentCategories(draft.categories);
+    return {
+        title: String(draft.title || "").trim(),
+        description: String(draft.description || "").trim(),
+        category: categories[0] || "other",
+        categories,
+        format: draft.format,
+        startAt: draft.startAt || null,
+        endAt: draft.endAt || null,
+        accessScope: getOrganizerAccessScopeFromDraft(draft),
+        accessCode:
+            draft.joinMode === "code"
+                ? draft.codeMode === "shared"
+                    ? String(draft.accessCode || "").trim()
+                    : ""
+                : draft.requiresCode
+                  ? String(draft.accessCode || "").trim()
+                  : "",
+        codeMode: draft.joinMode === "code" ? draft.codeMode || "shared" : "shared",
+        registrationStartAt:
+            draft.joinMode === "registration" && draft.registrationStartAt
+                ? draft.registrationStartAt
+                : null,
+        registrationEndAt:
+            draft.joinMode === "registration" && draft.registrationEndAt
+                ? draft.registrationEndAt
+                : null,
+        lateJoinMode: draft.lateJoinMode,
+        lateJoinUntilAt:
+            draft.lateJoinMode === "fixed_window" && draft.lateJoinUntilAt
+                ? draft.lateJoinUntilAt
+                : null,
+        runtimeMode: draft.runtimeMode,
+        allowLiveTaskAdd: Boolean(draft.allowLiveTaskAdd),
+        wrongAttemptPenaltySeconds: Number(draft.wrongAttemptPenaltySeconds || 0),
+        leaderboardVisible: Boolean(draft.leaderboardVisible),
+        resultsVisible: Boolean(draft.resultsVisible),
+        taskIds: Array.isArray(draft.taskIds) ? [...draft.taskIds] : [],
+    };
+}
+
+function buildOrganizerLocalReadiness(draft, selected = null) {
+    const blockers = [];
+    const warnings = [];
+    const startMs = Date.parse(String(draft.startAt || ""));
+    const endMs = Date.parse(String(draft.endAt || ""));
+    const regStartMs = Date.parse(String(draft.registrationStartAt || ""));
+    const regEndMs = Date.parse(String(draft.registrationEndAt || ""));
+    const lateJoinUntilMs = Date.parse(String(draft.lateJoinUntilAt || ""));
+
+    if (String(draft.title || "").trim().length < 4) {
+        blockers.push("Добавьте название турнира");
+    }
+    if (!draft.startAt) {
+        blockers.push("Укажите время старта");
+    }
+    if (
+        !draft.endAt ||
+        Number.isNaN(endMs) ||
+        (!Number.isNaN(startMs) && endMs <= startMs)
+    ) {
+        blockers.push("Окончание должно быть позже старта");
+    }
+    if (!Array.isArray(draft.taskIds) || draft.taskIds.length === 0) {
+        blockers.push("Добавьте хотя бы одну задачу");
+    }
+    const effectiveRequiresCode = draft.joinMode === "code" ? draft.codeMode === "shared" : draft.requiresCode;
+    if (effectiveRequiresCode && !String(draft.accessCode || "").trim()) {
+        blockers.push(
+            draft.joinMode === "code" && draft.codeMode === "shared"
+                ? "Сгенерируйте общий код доступа"
+                : "Заполните код доступа",
+        );
+    }
+    if (draft.joinMode === "registration") {
+        if (
+            draft.registrationStartAt &&
+            draft.registrationEndAt &&
+            !Number.isNaN(regStartMs) &&
+            !Number.isNaN(regEndMs) &&
+            regEndMs < regStartMs
+        ) {
+            blockers.push("Окно регистрации закрывается раньше, чем открывается");
+        }
+        if (
+            draft.registrationEndAt &&
+            !Number.isNaN(regEndMs) &&
+            !Number.isNaN(startMs) &&
+            regEndMs > startMs
+        ) {
+            blockers.push("Регистрация должна закрыться до старта");
+        }
+    }
+    if (draft.lateJoinMode === "fixed_window") {
+        if (!draft.lateJoinUntilAt || Number.isNaN(lateJoinUntilMs)) {
+            blockers.push("Укажите конец окна позднего входа");
+        }
+    }
+    if (effectiveRequiresCode && String(draft.accessCode || "").trim().length < 4) {
+        blockers.push("Код доступа должен быть не короче 4 символов");
+    }
+    if (draft.joinMode === "code" && draft.codeMode === "personal") {
+        const rosterCount = Number(selected?.rosterCount || 0);
+        const rosterCodesCount = Number(selected?.rosterCodesCount || 0);
+        if (rosterCount <= 0) {
+            blockers.push("Для персональных кодов сначала нужен список допуска");
+        } else if (rosterCodesCount < rosterCount) {
+            blockers.push("Сгенерируйте персональные коды для участников");
+        }
+    }
+    if (!draft.leaderboardVisible) {
+        warnings.push("Лидерборд будет скрыт во время тура");
+    }
+    if (!draft.resultsVisible) {
+        warnings.push("После завершения подробные результаты будут скрыты");
+    }
+    if (draft.runtimeMode === "lesson" && draft.allowLiveTaskAdd) {
+        warnings.push("Организатор сможет добавлять задачи во время live");
+    }
+
+    return {
+        ready: blockers.length === 0,
+        blockers,
+        warnings,
+    };
+}
+
+function renderOrganizerReadinessCard(readiness, selected = null) {
+    const actionMarkup =
+        selected?.lifecycle === "ended" || selected?.lifecycle === "archived"
+            ? '<button class="btn btn--accent" type="button" data-organizer-step-go="results">Открыть итоги</button>'
+            : Array.isArray(selected?.availableActions) &&
+                selected.availableActions.some((item) => item.id === "publish") &&
+                readiness.ready
+              ? '<button class="btn btn--accent" type="button" data-organizer-action="publish">Опубликовать турнир</button>'
+              : "";
+    return renderOpsPanel({
+        title: readiness.ready ? "Турнир готов к публикации" : "Что ещё нужно довести",
+        desc: readiness.ready
+            ? "Критических блокеров нет. Можно публиковать и запускать турнир."
+            : "Ниже список того, что ещё мешает опубликовать турнир без боли.",
+        actions: actionMarkup,
+        className: "ops-panel--nested",
+        body: `
+            <div class="ops-flow-list">
+                ${
+                    readiness.blockers.length
+                        ? readiness.blockers
+                              .map(
+                                  (item, index) => `
+                                    <div class="ops-flow-item">
+                                        <span class="ops-flow-item__step">${index + 1}</span>
+                                        <div><div class="s-title">${escapeHtml(item)}</div></div>
+                                    </div>
+                                `,
+                              )
+                              .join("")
+                        : '<div class="s-sub">Блокеров публикации сейчас нет.</div>'
+                }
+            </div>
+            ${
+                readiness.warnings.length
+                    ? `
+                        <div class="ops-divider"></div>
+                        <div class="ops-flow-list">
+                            ${readiness.warnings
+                                .map(
+                                    (item) => `
+                                        <div class="ops-flow-item">
+                                            <span class="ops-flow-item__step">!</span>
+                                            <div><div class="s-title">${escapeHtml(item)}</div></div>
+                                        </div>
+                                    `,
+                                )
+                                .join("")}
+                        </div>
+                    `
+                    : ""
+            }
+        `,
+    });
+}
+
+function renderOrganizerEditorStepActions(selected, step, readiness) {
+    const steps = ["basics", "schedule", "access", "tasks", "participants", "results"];
+    const currentIndex = steps.indexOf(step);
+    const previousStep = currentIndex > 0 ? steps[currentIndex - 1] : null;
+    const nextStep = currentIndex >= 0 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : null;
+    const canPublish = Array.isArray(selected?.availableActions)
+        ? selected.availableActions.some((item) => item.id === "publish")
+        : false;
+    const showResultsShortcut =
+        selected?.lifecycle === "ended" || selected?.lifecycle === "archived";
+
+    return `
+        <div class="ops-step-actions">
+            <div class="ops-inline-actions">
+                ${
+                    previousStep
+                        ? `<button class="btn btn--muted" type="button" data-organizer-step-go="${previousStep}">Назад</button>`
+                        : ""
+                }
+                ${
+                    nextStep
+                        ? `<button class="btn btn--muted" type="button" data-organizer-step-go="${nextStep}">Далее</button>`
+                        : ""
+                }
+            </div>
+            <div class="ops-inline-actions">
+                ${
+                    step === "participants" && canPublish && readiness.ready
+                        ? '<button class="btn btn--accent" type="button" data-organizer-action="publish">Опубликовать турнир</button>'
+                        : ""
+                }
+                ${
+                    showResultsShortcut
+                        ? step === "results"
+                            ? `<a class="btn btn--accent" href="/api/organizer/tournaments/${escapeHtml(selected?.id || "")}/results/export.csv">Экспорт результатов</a>`
+                            : '<button class="btn btn--accent" type="button" data-organizer-step-go="results">К итогам</button>'
+                        : ""
+                }
+            </div>
+        </div>
+    `;
+}
+
+function renderOrganizerLifecycleActions(selected, localReadiness) {
+    const items = Array.isArray(selected?.availableActions)
+        ? selected.availableActions
+        : [];
+    return items
+        .map((action) => {
+            const disabled =
+                (action.id === "publish" && !localReadiness.ready) || action.disabled
+                    ? "disabled"
+                    : "";
+            const btnClass =
+                action.tone === "accent"
+                    ? "btn btn--accent"
+                    : "btn btn--muted";
+            return `<button class="${btnClass}" type="button" data-organizer-action="${escapeHtml(action.id)}" ${disabled}>${escapeHtml(action.label)}</button>`;
+        })
+        .join("");
+}
+
 function renderOrganizerTournamentEditor(selected) {
     if (!selected) {
         return renderOpsPanel({
@@ -7046,87 +8322,224 @@ function renderOrganizerTournamentEditor(selected) {
         });
     }
 
-    const step = organizerUiState.activeStep || "info";
+    const step = organizerUiState.activeStep || "basics";
     const roster = getOrganizerRosterState(selected.id);
-    const currentTaskIds = Array.isArray(selected.taskIds) ? selected.taskIds : [];
-    const selectedStatus = selected.rawStatus || selected.status;
-    const infoForm = `
-        <form id="organizerTournamentInfoForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-stack">
-            <div class="ops-form-grid ops-form-grid--full">
-                <div class="field ops-field-wide">
-                    <label>Название</label>
-                    <input class="input" name="title" value="${escapeHtml(selected.title)}">
+    const helperCodes = getOrganizerHelperCodesState(selected.id);
+    const helperCodesLoading = Boolean(
+        organizerUiState.helperCodesLoadingByTournament[selected.id],
+    );
+    const resultsPayload = getOrganizerResultsState(selected.id);
+    const draft = ensureOrganizerEditorDraft(selected);
+    const currentTaskIds = Array.isArray(draft.taskIds) ? draft.taskIds : [];
+    const readiness = buildOrganizerLocalReadiness(draft, selected);
+    const showAccessCodeField = Boolean(draft.requiresCode);
+    const showLiveTaskAddToggle = draft.runtimeMode === "lesson";
+    const saveStateMap = {
+        idle: "Все изменения сохранены",
+        dirty: "Есть несохранённые изменения",
+        saving: "Сохраняем…",
+        saved: organizerUiState.editor.lastSavedAt
+            ? `Сохранено ${formatDateTimeLabel(organizerUiState.editor.lastSavedAt)}`
+            : "Сохранено",
+        error: organizerUiState.editor.saveError || "Не удалось сохранить изменения",
+    };
+
+    const basicsSection = renderOpsPanel({
+        title: "Основа",
+        desc: "Название, описание, категории и формат турнира.",
+        className: "ops-panel--nested",
+        body: `
+            <div class="ops-form-stack">
+                <div class="ops-editor-hero-grid">
+                    <div class="ops-form-stack ops-form-stack--main">
+                        <div class="field ops-field-wide">
+                        <label>Название</label>
+                        <input class="input" data-organizer-field="title" value="${escapeHtml(draft.title)}" placeholder="Весенний спринт Qubite">
+                        </div>
+                        <div class="field ops-field-wide">
+                        <label>Описание</label>
+                        <textarea class="textarea input" data-organizer-field="description" style="min-height:120px;">${escapeHtml(draft.description || "")}</textarea>
+                        </div>
+                    </div>
+                    <div class="ops-editor-summary-card">
+                        <div class="ops-editor-summary-card__label">Состояние турнира</div>
+                        <div class="ops-editor-summary-card__value">${escapeHtml(selected.statusText || "Черновик")}</div>
+                        <div class="ops-editor-summary-card__hint">Система сама считает фазу по публикации и времени. Тебе не нужно переключать технические статусы вручную.</div>
+                    </div>
                 </div>
-                <div class="field ops-field-wide">
-                    <label>Описание</label>
-                    <textarea class="textarea input" name="description" style="min-height:120px;">${escapeHtml(selected.desc || "")}</textarea>
+                ${renderOrganizerCategoryPicker(draft)}
+                <div class="ops-form-grid ops-form-grid--double">
+                    <div class="field"><label>Формат</label><select class="input" data-organizer-field="format"><option value="individual" ${draft.format === "individual" ? "selected" : ""}>Личный</option><option value="team" ${draft.format === "team" ? "selected" : ""}>Командный</option></select></div>
+                    <div class="ops-editor-summary-card">
+                        <div class="ops-editor-summary-card__label">Как это увидят участники</div>
+                        <div class="ops-editor-summary-card__value">${escapeHtml(selected.entrySummary || "Свободный вход")}</div>
+                        <div class="ops-editor-summary-card__hint">${escapeHtml(selected.time || "Старт и фаза появятся после настройки расписания")}</div>
+                    </div>
                 </div>
             </div>
-            <div class="ops-form-grid ops-form-grid--triple">
-                <div class="field"><label>Категория</label><input class="input" name="category" value="${escapeHtml(selected.category || "other")}"></div>
-                <div class="field"><label>Формат</label><select class="input" name="format"><option value="individual" ${selected.format === "individual" ? "selected" : ""}>Личное</option><option value="team" ${selected.format === "team" ? "selected" : ""}>Командное</option></select></div>
-                <div class="field"><label>Статус</label><select class="input" name="status"><option value="draft" ${selectedStatus === "draft" ? "selected" : ""}>Черновик</option><option value="published" ${selectedStatus === "published" || selectedStatus === "upcoming" ? "selected" : ""}>Опубликовано</option><option value="live" ${selectedStatus === "live" ? "selected" : ""}>Идёт</option><option value="ended" ${selectedStatus === "ended" ? "selected" : ""}>Завершено</option><option value="archived" ${selectedStatus === "archived" ? "selected" : ""}>Архив</option></select></div>
-                <div class="field"><label>Начало</label><input class="input" type="datetime-local" name="startAt" value="${selected.startAt ? new Date(selected.startAt).toISOString().slice(0, 16) : ""}"></div>
-                <div class="field"><label>Окончание</label><input class="input" type="datetime-local" name="endAt" value="${selected.endAt ? new Date(selected.endAt).toISOString().slice(0, 16) : ""}"></div>
-                <div class="field"><label>UID соревнования</label><input class="input" value="${escapeHtml(selected.slug || "")}" disabled></div>
+        `,
+    });
+
+    const scheduleSection = renderOpsPanel({
+        title: "Расписание",
+        desc: "Когда открывается турнир, когда стартует и когда заканчивается.",
+        className: "ops-panel--nested",
+        body: `
+            <div class="ops-form-grid ops-form-grid--double">
+                <div class="field"><label>Старт</label><input class="input" type="datetime-local" data-organizer-field="startAt" value="${escapeHtml(toLocalDateTimeValue(draft.startAt))}"></div>
+                <div class="field"><label>Финиш</label><input class="input" type="datetime-local" data-organizer-field="endAt" value="${escapeHtml(toLocalDateTimeValue(draft.endAt))}"></div>
             </div>
-            <div class="ops-form-actions">
-                <button class="btn btn--accent" type="submit">Сохранить информацию</button>
+            <div class="ops-editor-phase-card">
+                <div class="ops-editor-phase-card__label">Текущая фаза</div>
+                <div class="ops-editor-phase-card__value">${escapeHtml(selected.statusText || "Соревнование")}</div>
+                <div class="ops-editor-phase-card__meta">${escapeHtml(selected.time || "Система пересчитывает состояние автоматически")}</div>
             </div>
-        </form>
-    `;
-    const manageForm = `
-        <form id="organizerTournamentManageForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-stack">
-            <div class="ops-form-grid ops-form-grid--triple">
-                <div class="field"><label>Режим доступа</label><select class="input" name="accessScope"><option value="open" ${selected.accessScope === "open" ? "selected" : ""}>Открытый</option><option value="registration" ${selected.accessScope === "registration" ? "selected" : ""}>Регистрация</option><option value="closed" ${selected.accessScope === "closed" ? "selected" : ""}>Закрытый список</option><option value="code" ${selected.accessScope === "code" ? "selected" : ""}>По коду</option></select></div>
-                <div class="field"><label>Код доступа</label><input class="input" name="accessCode" value="${escapeHtml(selected.accessCode || "")}" placeholder="Если режим по коду"></div>
-                <div class="field"><label>Режим турнира</label><select class="input" name="runtimeMode"><option value="competition" ${selected.runtimeMode === "competition" ? "selected" : ""}>Competition</option><option value="lesson" ${selected.runtimeMode === "lesson" ? "selected" : ""}>Lesson</option></select></div>
-                <div class="field"><label>Старт регистрации</label><input class="input" type="datetime-local" name="registrationStartAt" value="${selected.registrationStartAt ? new Date(selected.registrationStartAt).toISOString().slice(0, 16) : ""}"></div>
-                <div class="field"><label>Финиш регистрации</label><input class="input" type="datetime-local" name="registrationEndAt" value="${selected.registrationEndAt ? new Date(selected.registrationEndAt).toISOString().slice(0, 16) : ""}"></div>
-                <div class="field"><label>Штраф за неверную попытку, сек</label><input class="input" type="number" min="0" step="60" name="wrongAttemptPenaltySeconds" value="${escapeHtml(selected.wrongAttemptPenaltySeconds ?? 1200)}"></div>
+        `,
+    });
+
+    const accessSection = renderOpsPanel({
+        title: "Допуск",
+        desc: "Кто входит, нужен ли код и разрешён ли поздний вход.",
+        className: "ops-panel--nested",
+        body: `
+            <div class="ops-form-stack">
+                <div class="ops-form-grid ops-form-grid--double">
+                    <div class="field">
+                        <label>Способ допуска</label>
+                        <select class="input" data-organizer-field="joinMode">
+                            <option value="open" ${draft.joinMode === "open" ? "selected" : ""}>Свободный вход</option>
+                            <option value="registration" ${draft.joinMode === "registration" ? "selected" : ""}>Регистрация до старта</option>
+                            <option value="roster_only" ${draft.joinMode === "roster_only" ? "selected" : ""}>Только по списку допуска</option>
+                            <option value="code" ${draft.joinMode === "code" ? "selected" : ""}>Вход по коду</option>
+                        </select>
+                    </div>
+                    <div class="ops-editor-summary-card">
+                        <div class="ops-editor-summary-card__label">Текущий сценарий входа</div>
+                        <div class="ops-editor-summary-card__value">${escapeHtml(
+                            draft.joinMode === "code"
+                                ? draft.codeMode === "personal"
+                                    ? "Персональные коды"
+                                    : "Один общий код"
+                                : draft.requiresCode
+                                  ? "Есть дополнительный код"
+                                  : "Без кода",
+                        )}</div>
+                        <div class="ops-editor-summary-card__hint">${escapeHtml(
+                            draft.joinMode === "code"
+                                ? "Коды становятся главным способом входа."
+                                : "Код можно включить поверх любого обычного способа допуска.",
+                        )}</div>
+                    </div>
+                </div>
+                ${
+                    draft.joinMode === "code"
+                        ? `
+                            <div class="ops-code-mode-grid">
+                                <button class="ops-choice-card ${draft.codeMode === "shared" ? "is-active" : ""}" type="button" data-organizer-code-mode="shared">
+                                    <span class="ops-choice-card__title">Один общий код</span>
+                                    <span class="ops-choice-card__desc">Подходит, если участники уже вошли в аккаунты и просто должны знать общий код входа.</span>
+                                </button>
+                                <button class="ops-choice-card ${draft.codeMode === "personal" ? "is-active" : ""}" type="button" data-organizer-code-mode="personal">
+                                    <span class="ops-choice-card__title">Персональные коды</span>
+                                    <span class="ops-choice-card__desc">Код генерируется для каждого участника из списка допуска. Его можно экспортировать и распечатать.</span>
+                                </button>
+                            </div>
+                            ${
+                                draft.codeMode === "shared"
+                                    ? `
+                                        <div class="ops-form-grid ops-form-grid--double">
+                                            <div class="ops-editor-summary-card">
+                                                <div class="ops-editor-summary-card__label">Общий код входа</div>
+                                                <div class="ops-editor-summary-card__value">${escapeHtml(draft.accessCode || "Ещё не сгенерирован")}</div>
+                                                <div class="ops-editor-summary-card__hint">Организатор код не придумывает вручную. Сгенерируйте 8-символьный код и при необходимости выгрузите его в CSV.</div>
+                                            </div>
+                                            <div class="ops-inline-actions ops-inline-actions--stretch">
+                                                <button class="btn btn--muted" type="button" data-organizer-generate-codes="shared">Сгенерировать код</button>
+                                                <a class="btn btn--muted" href="/api/organizer/tournaments/${escapeHtml(selected.id)}/access-codes/export.csv">Экспорт CSV</a>
+                                            </div>
+                                        </div>
+                                    `
+                                    : `
+                                        <div class="ops-editor-summary-card">
+                                            <div class="ops-editor-summary-card__label">Персональные коды</div>
+                                            <div class="ops-editor-summary-card__value">${escapeHtml(formatNumberRu(selected.rosterCodesCount || 0))} из ${escapeHtml(formatNumberRu(selected.rosterCount || 0))}</div>
+                                            <div class="ops-editor-summary-card__hint">Генерация и экспорт доступны во вкладке «Участники».</div>
+                                        </div>
+                                    `
+                            }
+                        `
+                        : `
+                            <label class="ops-toggle-card ops-toggle-card--compact">
+                                <input type="checkbox" data-organizer-field="requiresCode" ${draft.requiresCode ? "checked" : ""}>
+                                <span class="ops-toggle-card__copy">
+                                    <span class="ops-toggle-card__title">Требовать код</span>
+                                    <span class="ops-toggle-card__desc">Дополнительный барьер поверх любого режима допуска.</span>
+                                </span>
+                            </label>
+                            ${
+                                showAccessCodeField
+                                    ? `
+                                        <div class="field">
+                                            <label>Код доступа</label>
+                                            <input class="input" data-organizer-field="accessCode" value="${escapeHtml(draft.accessCode)}" placeholder="Минимум 4 символа">
+                                        </div>
+                                    `
+                                    : ``
+                            }
+                        `
+                }
+                ${
+                    draft.joinMode === "registration"
+                        ? `
+                            <div class="ops-form-grid ops-form-grid--double">
+                                <div class="field"><label>Открытие регистрации</label><input class="input" type="datetime-local" data-organizer-field="registrationStartAt" value="${escapeHtml(toLocalDateTimeValue(draft.registrationStartAt))}"></div>
+                                <div class="field"><label>Закрытие регистрации</label><input class="input" type="datetime-local" data-organizer-field="registrationEndAt" value="${escapeHtml(toLocalDateTimeValue(draft.registrationEndAt || draft.startAt))}"></div>
+                            </div>
+                        `
+                        : ``
+                }
+                <div class="ops-form-grid ops-form-grid--double">
+                    <div class="field"><label>Поздний вход</label><select class="input" data-organizer-field="lateJoinMode"><option value="none" ${draft.lateJoinMode === "none" ? "selected" : ""}>Запретить</option><option value="until_finish" ${draft.lateJoinMode === "until_finish" ? "selected" : ""}>До окончания</option><option value="fixed_window" ${draft.lateJoinMode === "fixed_window" ? "selected" : ""}>До выбранного времени</option></select></div>
+                    ${
+                        draft.lateJoinMode === "fixed_window"
+                            ? `<div class="field"><label>Поздний вход открыт до</label><input class="input" type="datetime-local" data-organizer-field="lateJoinUntilAt" value="${escapeHtml(toLocalDateTimeValue(draft.lateJoinUntilAt))}"></div>`
+                            : `<div class="ops-editor-summary-card"><div class="ops-editor-summary-card__label">Подсказка</div><div class="ops-editor-summary-card__value">Поздний вход</div><div class="ops-editor-summary-card__hint">${escapeHtml(draft.joinMode === "registration" ? "Для регистрации поздний вход можно открыть и после старта." : "Полезно, если хотите впускать участников уже во время тура.")}</div></div>`
+                    }
+                </div>
+                <details class="ops-panel ops-panel--nested">
+                    <summary class="ops-panel__title" style="cursor:pointer;">Расширенные настройки</summary>
+                    <div class="ops-form-stack" style="margin-top:12px;">
+                        <div class="ops-form-grid ops-form-grid--triple">
+                            <div class="field"><label>Режим турнира</label><select class="input" data-organizer-field="runtimeMode"><option value="competition" ${draft.runtimeMode === "competition" ? "selected" : ""}>Соревнование</option><option value="lesson" ${draft.runtimeMode === "lesson" ? "selected" : ""}>Урок / тренировка</option></select></div>
+                            <div class="field"><label>Штраф за неверную попытку, сек</label><input class="input" type="number" min="0" step="60" data-organizer-field="wrongAttemptPenaltySeconds" value="${escapeHtml(draft.wrongAttemptPenaltySeconds)}"></div>
+                        </div>
+                        <div class="ops-toggle-grid">
+                            ${
+                                showLiveTaskAddToggle
+                                    ? `<label class="ops-toggle-card"><input type="checkbox" data-organizer-field="allowLiveTaskAdd" ${draft.allowLiveTaskAdd ? "checked" : ""}><span class="ops-toggle-card__copy"><span class="ops-toggle-card__title">Добавлять задачи во время live</span><span class="ops-toggle-card__desc">Работает только в режиме урока или тренировки.</span></span></label>`
+                                    : `<div class="ops-toggle-card"><span class="ops-toggle-card__copy"><span class="ops-toggle-card__title">Добавление задач во время live выключено</span><span class="ops-toggle-card__desc">Для обычного соревнования состав задач фиксируется до старта.</span></span></div>`
+                            }
+                            <label class="ops-toggle-card"><input type="checkbox" data-organizer-field="leaderboardVisible" ${draft.leaderboardVisible ? "checked" : ""}><span class="ops-toggle-card__copy"><span class="ops-toggle-card__title">Показывать лидерборд во время тура</span><span class="ops-toggle-card__desc">Участники будут видеть live-таблицу.</span></span></label>
+                            <label class="ops-toggle-card"><input type="checkbox" data-organizer-field="resultsVisible" ${draft.resultsVisible ? "checked" : ""}><span class="ops-toggle-card__copy"><span class="ops-toggle-card__title">Показывать результаты после завершения</span><span class="ops-toggle-card__desc">Можно скрыть подробные итоги после финиша.</span></span></label>
+                        </div>
+                    </div>
+                </details>
             </div>
-            <div class="ops-toggle-grid">
-                <label class="ops-toggle-card">
-                    <input type="checkbox" name="leaderboardVisible" ${selected.leaderboardVisible ? "checked" : ""}>
-                    <span class="ops-toggle-card__copy">
-                        <span class="ops-toggle-card__title">Видимый лидерборд</span>
-                        <span class="ops-toggle-card__desc">Участники видят таблицу результатов во время турнира.</span>
-                    </span>
-                </label>
-                <label class="ops-toggle-card">
-                    <input type="checkbox" name="resultsVisible" ${selected.resultsVisible ? "checked" : ""}>
-                    <span class="ops-toggle-card__copy">
-                        <span class="ops-toggle-card__title">Видимые результаты</span>
-                        <span class="ops-toggle-card__desc">После завершения можно открыть подробные итоги и баллы.</span>
-                    </span>
-                </label>
-                <label class="ops-toggle-card">
-                    <input type="checkbox" name="allowLiveTaskAdd" ${selected.allowLiveTaskAdd ? "checked" : ""}>
-                    <span class="ops-toggle-card__copy">
-                        <span class="ops-toggle-card__title">Разрешить добавление задач во время live</span>
-                        <span class="ops-toggle-card__desc">Подходит для режима lesson, если список заданий может расширяться прямо на занятии.</span>
-                    </span>
-                </label>
-            </div>
-            <div class="s-sub">Участники увидят, можно ли менять набор задач во время турнира. В режиме competition после старта лучше не менять состав заданий.</div>
-            <div class="ops-form-actions">
-                <button class="btn btn--accent" type="submit">Сохранить параметры</button>
-            </div>
-        </form>
-    `;
-    const tasksForm = `
-        <form id="organizerTournamentTasksForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-stack">
-            <div class="ops-checklist">${renderOrganizerTournamentTasksChecklist(currentTaskIds)}</div>
-            <div class="ops-form-actions">
-                <button class="btn btn--accent" type="submit">Сохранить набор задач</button>
-            </div>
-        </form>
-    `;
-    const participantsBody = `
+        `,
+    });
+
+    const tasksSection = renderOpsPanel({
+        title: "Задачи",
+        desc: "Набор задач сохраняется автоматически и сразу влияет на готовность турнира.",
+        className: "ops-panel--nested",
+        body: `<div class="ops-checklist">${renderOrganizerTournamentTasksChecklist(currentTaskIds)}</div>`,
+    });
+
+    const participantsSection = `
         <div class="ops-participants-layout">
             <div class="ops-stack">
                 ${renderOpsPanel({
-                    title: "Импорт roster",
+                    title: "Импорт списка допуска",
                     desc: "Для закрытых турниров можно загрузить XLSX только с существующими аккаунтами.",
                     body: `
                         <div class="ops-inline-actions">
@@ -7141,134 +8554,167 @@ function renderOrganizerTournamentEditor(selected) {
                     `,
                     className: "ops-panel--nested",
                 })}
-
                 ${renderOpsPanel({
                     title: "Добавить вручную",
                     desc: "Используйте login или e-mail существующего пользователя.",
                     body: `
-                        <form id="organizerRosterManualForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-grid ${selected.format === "team" ? "ops-form-grid--quad" : "ops-form-grid--triple"}">
-                            <div class="field">
-                                <label>Login или e-mail</label>
-                                <input class="input" name="identifier" placeholder="ivanov11 или mail@example.com">
-                            </div>
-                            ${
-                                selected.format === "team"
-                                    ? `
-                                        <div class="field">
-                                            <label>Команда</label>
-                                            <input class="input" name="teamName" placeholder="MSK">
-                                        </div>
-                                    `
-                                    : ""
-                            }
-                            <div class="field">
-                                <label>Класс / группа</label>
-                                <input class="input" name="classGroup" placeholder="11А">
-                            </div>
-                            <div class="ops-form-submit-wrap">
-                                <button class="btn btn--muted" type="submit">Добавить</button>
-                            </div>
+                        <form id="organizerRosterManualForm" data-tournament-id="${escapeHtml(selected.id)}" class="ops-form-grid ${draft.format === "team" ? "ops-form-grid--quad" : "ops-form-grid--triple"}">
+                            <div class="field"><label>Login или e-mail</label><input class="input" name="identifier" placeholder="ivanov11 или mail@example.com"></div>
+                            ${draft.format === "team" ? '<div class="field"><label>Команда</label><input class="input" name="teamName" placeholder="MSK"></div>' : ""}
+                            <div class="field"><label>Класс / группа</label><input class="input" name="classGroup" placeholder="11А"></div>
+                            <div class="ops-form-submit-wrap"><button class="btn btn--muted" type="submit">Добавить</button></div>
                         </form>
                     `,
                     className: "ops-panel--nested",
                 })}
             </div>
-
             ${renderOpsPanel({
-                title: "Список участников",
-                desc: `${formatNumberRu(roster.length)} в текущем roster`,
+                title: "Список допуска",
+                desc: `${formatNumberRu(roster.length)} в текущем списке допуска`,
                 body: roster.length
-                    ? `<div class="ops-entity-list">${roster
-                          .map(
-                              (item) => `
-                                <div class="ops-entity-row">
-                                    <div class="ops-entity-row__main">
-                                        <div class="ops-entity-row__title">${escapeHtml(item.fullName || item.login)}</div>
-                                        <div class="ops-entity-row__meta">@${escapeHtml(item.login)} • ${escapeHtml(item.email || "—")} • ${escapeHtml(item.classGroup || "—")}${item.teamName ? ` • ${escapeHtml(item.teamName)}` : ""}</div>
-                                    </div>
-                                    <button class="btn btn--accent btn--sm" data-organizer-delete-roster="${escapeHtml(item.id)}" data-organizer-tournament="${escapeHtml(selected.id)}">Удалить</button>
+                    ? `<div class="ops-entity-list">${roster.map((item) => `
+                            <div class="ops-entity-row">
+                                <div class="ops-entity-row__main">
+                                    <div class="ops-entity-row__title">${escapeHtml(item.fullName || item.login)}</div>
+                                    <div class="ops-entity-row__meta">@${escapeHtml(item.login)} • ${escapeHtml(item.email || "—")} • ${escapeHtml(item.classGroup || "—")}${item.teamName ? ` • ${escapeHtml(item.teamName)}` : ""}${draft.joinMode === "code" && draft.codeMode === "personal" ? ` • код: ${escapeHtml(item.inviteCode || "ещё не выдан")}` : ""}</div>
                                 </div>
-                            `,
-                          )
-                          .join("")}</div>`
+                                <button class="btn btn--accent btn--sm" data-organizer-delete-roster="${escapeHtml(item.id)}" data-organizer-tournament="${escapeHtml(selected.id)}">Удалить</button>
+                            </div>
+                        `).join("")}</div>`
                     : renderOpsEmptyState({
                           icon: "groups",
                           title: "Roster пока пуст",
-                          desc: "Загрузите XLSX или добавьте участников вручную, чтобы сформировать допуск.",
+                          desc: "Нужен, если вы делаете закрытый допуск или заранее фиксируете участников.",
                       }),
             })}
         </div>
+        ${
+            draft.joinMode === "code" && draft.codeMode === "personal"
+                ? renderOpsPanel({
+                      title: "Персональные коды",
+                      desc: "Сгенерируйте коды для списка допуска и выгрузите их для печати или раздачи помощникам.",
+                      className: "ops-panel--nested",
+                      body: `
+                          <div class="ops-inline-actions">
+                              <button class="btn btn--accent" type="button" data-organizer-generate-codes="personal">Сгенерировать коды</button>
+                              <a class="btn btn--muted" href="/api/organizer/tournaments/${escapeHtml(selected.id)}/access-codes/export.csv">Экспорт CSV</a>
+                          </div>
+                          <div class="s-sub">Уже выдано кодов: ${escapeHtml(formatNumberRu(selected.rosterCodesCount || 0))} из ${escapeHtml(formatNumberRu(selected.rosterCount || 0))}.</div>
+                      `,
+                  })
+                : ""
+        }
     `;
+
+    const resultsSection = renderOpsPanel({
+        title: "Итоги",
+        desc: "После завершения можно выгрузить итоговую таблицу и проверить, что увидят участники.",
+        className: "ops-panel--nested",
+        body: `
+            <div class="ops-metric-grid ops-metric-grid--three">
+                ${renderOpsMetricCard({ icon: "groups", tone: "accent", label: "Участники", value: formatNumberRu(selected.participants || 0), meta: "По текущим входам" })}
+                ${renderOpsMetricCard({ icon: "library_books", tone: "muted", label: "Задачи", value: formatNumberRu(selected.taskCount || 0), meta: "В итоговом наборе" })}
+                ${renderOpsMetricCard({ icon: "bar_chart", tone: selected.resultsVisible ? "accent" : "warning", label: "Итоги", value: selected.resultsVisible ? "Открыты" : "Скрыты", meta: selected.resultAvailability?.label || "Настройка видимости после финиша" })}
+            </div>
+            ${
+                resultsPayload?.leaderboard
+                    ? `
+                        <div class="ops-form-stack">
+                            <div>
+                                <div class="card__title">Предпросмотр таблицы</div>
+                                <div class="card__sub">${escapeHtml(formatNumberRu(resultsPayload.summary?.participantsCount || 0))} участников • ${escapeHtml(formatNumberRu(resultsPayload.summary?.submissionsCount || 0))} отправок</div>
+                            </div>
+                            ${renderTournamentLeaderboardPanel(resultsPayload.leaderboard)}
+                        </div>
+                    `
+                    : '<div class="s-sub">Таблица появится здесь после загрузки данных. CSV уже можно выгружать отдельно.</div>'
+            }
+            ${
+                selected.lifecycle === "ended" || selected.lifecycle === "archived"
+                    ? `<div class="ops-inline-actions"><a class="btn btn--accent" href="/api/organizer/tournaments/${escapeHtml(selected.id)}/results/export.csv">Экспорт CSV</a></div>`
+                    : '<div class="s-sub">Экспорт результатов станет главным действием после завершения турнира.</div>'
+            }
+            <div class="ops-divider"></div>
+            <div class="ops-form-stack">
+                <div>
+                    <div class="card__title">Helper-коды для экрана</div>
+                    <div class="card__sub">Их можно выдать помощникам или открыть таблицу на проекторе без обычной регистрации.</div>
+                </div>
+                <div class="ops-inline-actions">
+                    <button class="btn btn--accent" type="button" data-organizer-generate-helper-codes="${escapeHtml(selected.id)}">Сгенерировать helper-коды</button>
+                    <a class="btn btn--muted" href="/api/organizer/tournaments/${escapeHtml(selected.id)}/helper-codes/export.csv">Экспорт CSV</a>
+                </div>
+                ${
+                    helperCodesLoading
+                        ? '<div class="s-sub">Загружаем helper-коды…</div>'
+                        : helperCodes.length
+                          ? `<div class="ops-entity-list">${helperCodes
+                                .map(
+                                    (item) => `
+                                        <div class="ops-entity-row">
+                                            <div class="ops-entity-row__main">
+                                                <div class="ops-entity-row__title">${escapeHtml(item.label || "Экран")}</div>
+                                                <div class="ops-entity-row__meta">${escapeHtml(item.code)} • ${escapeHtml(item.helperType === "leaderboard" ? "Таблица" : item.helperType)}${item.lastUsedAt ? ` • использован ${escapeHtml(formatDateTimeLabel(item.lastUsedAt))}` : ""}</div>
+                                            </div>
+                                        </div>
+                                    `,
+                                )
+                                .join("")}</div>`
+                          : '<div class="s-sub">Пока нет helper-кодов. Сгенерируйте несколько кодов для экранов и помощников.</div>'
+                }
+            </div>
+        `,
+    });
+
+    const tabContent =
+        step === "basics"
+            ? basicsSection
+            : step === "schedule"
+              ? scheduleSection
+              : step === "access"
+                ? accessSection
+                : step === "tasks"
+                  ? tasksSection
+                  : step === "participants"
+                    ? participantsSection
+                    : resultsSection;
 
     return `
         <div class="card dash-card ops-editor-shell">
-            <div class="ops-record-head">
+            <div class="ops-record-head" style="position:sticky; top:0; z-index:3; background:var(--surface);">
                 <div class="ops-record-head__copy">
-                    <div class="ops-record-head__eyebrow">Соревнование</div>
-                    <div class="ops-record-head__title">${escapeHtml(selected.title)}</div>
-                    <div class="tour-sub">${escapeHtml(selected.statusText)} • UID ${escapeHtml(selected.slug)}</div>
+                    <div class="ops-record-head__eyebrow">Редактор турнира</div>
+                    <div class="ops-record-head__title">${escapeHtml(draft.title || "Новое соревнование")}</div>
+                    <div class="tour-sub">${escapeHtml(selected.statusText)} • ${escapeHtml(selected.entrySummary || "")}</div>
+                    <div class="s-sub" id="organizerEditorSaveState">${escapeHtml(saveStateMap[organizerUiState.editor.saveState] || saveStateMap.idle)}</div>
                 </div>
                 <div class="ops-record-head__actions">
-                    ${renderInlineBadge(selectedStatus, selectedStatus)}
-                    ${renderInlineBadge(
-                        selected.accessScope === "open"
-                            ? "Открытый доступ"
-                            : selected.accessScope === "registration"
-                              ? "Регистрация"
-                              : selected.accessScope === "closed"
-                                ? "Закрытый список"
-                                : "По коду",
-                        selected.accessScope || "open",
-                    )}
+                    ${renderInlineBadge(selected.statusText || "Состояние", selected.rawStatus || selected.status)}
+                    ${renderInlineBadge(selected.lifecycle || "draft", selected.lifecycle || "draft")}
+                    ${renderOrganizerLifecycleActions(selected, readiness)}
                     <button class="btn btn--muted btn--sm" data-organizer-delete-tournament="${escapeHtml(selected.id)}">Удалить</button>
                 </div>
             </div>
             <div class="ops-record-meta">
-                <div class="ops-record-meta__item">
-                    <span class="ops-record-meta__label">Старт</span>
-                    <span class="ops-record-meta__value">${escapeHtml(formatDateTimeLabel(selected.startAt))}</span>
-                </div>
-                <div class="ops-record-meta__item">
-                    <span class="ops-record-meta__label">Финиш</span>
-                    <span class="ops-record-meta__value">${escapeHtml(formatDateTimeLabel(selected.endAt))}</span>
-                </div>
-                <div class="ops-record-meta__item">
-                    <span class="ops-record-meta__label">Задачи</span>
-                    <span class="ops-record-meta__value">${escapeHtml(formatNumberRu(selected.taskCount))}</span>
-                </div>
-                <div class="ops-record-meta__item">
-                    <span class="ops-record-meta__label">Roster</span>
-                    <span class="ops-record-meta__value">${escapeHtml(formatNumberRu(selected.rosterCount))}</span>
-                </div>
+                <div class="ops-record-meta__item"><span class="ops-record-meta__label">Старт</span><span class="ops-record-meta__value">${escapeHtml(formatDateTimeLabel(draft.startAt))}</span></div>
+                <div class="ops-record-meta__item"><span class="ops-record-meta__label">Финиш</span><span class="ops-record-meta__value">${escapeHtml(formatDateTimeLabel(draft.endAt))}</span></div>
+                <div class="ops-record-meta__item"><span class="ops-record-meta__label">Задачи</span><span class="ops-record-meta__value">${escapeHtml(formatNumberRu(currentTaskIds.length))}</span></div>
+                <div class="ops-record-meta__item"><span class="ops-record-meta__label">Список допуска</span><span class="ops-record-meta__value">${escapeHtml(formatNumberRu(roster.length || selected.rosterCount || 0))}</span></div>
             </div>
             <div class="tabs-nav in ops-tabs ops-tabs--editor">
-                <div class="tab-item ${step === "info" ? "active" : ""}" data-organizer-step="info"><span>Информация о соревновании</span></div>
-                <div class="tab-item ${step === "manage" ? "active" : ""}" data-organizer-step="manage"><span>Управление соревнованием</span></div>
-                <div class="tab-item ${step === "tasks" ? "active" : ""}" data-organizer-step="tasks"><span>Задания</span></div>
-                <div class="tab-item ${step === "participants" ? "active" : ""}" data-organizer-step="participants"><span>Список участников</span></div>
+                <div class="tab-item ${step === "basics" ? "active" : ""}" data-organizer-step="basics"><span>Основа</span></div>
+                <div class="tab-item ${step === "schedule" ? "active" : ""}" data-organizer-step="schedule"><span>Расписание</span></div>
+                <div class="tab-item ${step === "access" ? "active" : ""}" data-organizer-step="access"><span>Допуск</span></div>
+                <div class="tab-item ${step === "tasks" ? "active" : ""}" data-organizer-step="tasks"><span>Задачи</span></div>
+                <div class="tab-item ${step === "participants" ? "active" : ""}" data-organizer-step="participants"><span>Участники</span></div>
+                <div class="tab-item ${step === "results" ? "active" : ""}" data-organizer-step="results"><span>Итоги</span></div>
             </div>
-            <div class="ops-editor-content">
-                ${
-                    step === "info"
-                        ? renderOpsPanel({
-                              title: "Информация о соревновании",
-                              desc: "Базовые данные карточки и время проведения.",
-                              body: infoForm,
-                          })
-                        : step === "manage"
-                          ? renderOpsPanel({
-                                title: "Управление соревнованием",
-                                desc: "Настройте доступ, регистрацию и видимость результатов.",
-                                body: manageForm,
-                            })
-                          : step === "tasks"
-                            ? renderOpsPanel({
-                                  title: "Задания",
-                                  desc: "Подберите набор задач из личного и общего банков.",
-                                  body: tasksForm,
-                              })
-                            : participantsBody
-                }
+            <div class="ops-shell ops-shell--aside">
+                <div class="ops-stack">${tabContent}</div>
+                <div class="ops-stack">
+                    ${renderOrganizerEditorStepActions(selected, step, readiness)}
+                    ${renderOrganizerReadinessCard(readiness, selected)}
+                </div>
             </div>
         </div>
     `;
@@ -7317,7 +8763,7 @@ function renderOrganizerTournaments() {
                 ${renderOpsMetricCard({
                     icon: "groups",
                     tone: "warning",
-                    label: "Записей в roster",
+                    label: "Записей в списке допуска",
                     value: formatNumberRu(rosterCount),
                     meta: "Суммарно по вашим турнирам",
                 })}
@@ -7343,7 +8789,7 @@ function renderOrganizerTournaments() {
                                     ${renderInlineBadge(item.statusText, item.rawStatus || item.status)}
                                 </div>
                                 <div class="ops-list-card__meta">${escapeHtml(formatDateTimeLabel(item.startAt))}</div>
-                                <div class="ops-list-card__meta">${formatNumberRu(item.taskCount)} задач • ${formatNumberRu(item.rosterCount)} в roster • ${escapeHtml(item.format === "team" ? "Командное" : "Личное")}</div>
+                                <div class="ops-list-card__meta">${formatNumberRu(item.taskCount)} задач • ${formatNumberRu(item.rosterCount)} в списке допуска • ${escapeHtml(item.format === "team" ? "Командное" : "Личное")}</div>
                             </button>
                         `,
                                       )
@@ -7921,14 +9367,7 @@ function renderAdminTournamentsSection(tournaments) {
                                 <div class="ops-entity-row__note">${escapeHtml(item.format === "team" ? "Командный" : "Индивидуальный")} • ${escapeHtml(formatNumberRu(item.participants || 0))} участников • ${escapeHtml(formatNumberRu(item.taskCount || 0))} задач</div>
                             </div>
                             <div class="ops-admin-row__controls">
-                                <select class="input" data-admin-tournament-status="${escapeHtml(item.id)}">
-                                    <option value="draft" ${item.rawStatus === "draft" ? "selected" : ""}>draft</option>
-                                    <option value="published" ${item.rawStatus === "published" || item.rawStatus === "upcoming" ? "selected" : ""}>published</option>
-                                    <option value="live" ${item.rawStatus === "live" ? "selected" : ""}>live</option>
-                                    <option value="ended" ${item.rawStatus === "ended" ? "selected" : ""}>ended</option>
-                                    <option value="archived" ${item.rawStatus === "archived" ? "selected" : ""}>archived</option>
-                                </select>
-                                <button class="btn btn--muted btn--sm" data-admin-tournament-save="${escapeHtml(item.id)}">Сохранить</button>
+                                ${renderAdminTournamentActions(item, true)}
                                 <button class="btn btn--accent btn--sm" data-admin-tournament-delete="${escapeHtml(item.id)}">Удалить</button>
                             </div>
                         </div>
@@ -8620,7 +10059,108 @@ async function initAdminOverviewCharts(container) {
     });
 }
 
+async function flushOrganizerEditorSave() {
+    const editor = organizerUiState.editor;
+    const selected = getSelectedOrganizerTournament();
+    if (!selected || !editor.draft || editor.inFlight || !editor.dirty) {
+        return selected;
+    }
+
+    editor.inFlight = true;
+    editor.saveState = "saving";
+    editor.saveError = "";
+    const saveNode = document.getElementById("organizerEditorSaveState");
+    if (saveNode) {
+        saveNode.textContent = "Сохраняем…";
+    }
+
+    try {
+        const saved = await apiClient.updateOrganizerTournament(
+            selected.id,
+            buildOrganizerEditorPatch(editor.draft),
+        );
+        editor.tournamentId = saved.id;
+        editor.draft = buildOrganizerEditorDraft(saved);
+        editor.dirty = false;
+        editor.dirtyKeys = new Set();
+        editor.saveState = "saved";
+        editor.lastSavedAt = new Date().toISOString();
+        if (saveNode) {
+            saveNode.textContent = `Сохранено ${formatDateTimeLabel(editor.lastSavedAt)}`;
+        }
+        return saved;
+    } catch (error) {
+        editor.saveState = "error";
+        editor.saveError = error?.error || error?.message || "Ошибка сохранения";
+        if (saveNode) {
+            saveNode.textContent = editor.saveError;
+        }
+        throw error;
+    } finally {
+        editor.inFlight = false;
+    }
+}
+
+function scheduleOrganizerEditorSave() {
+    const editor = organizerUiState.editor;
+    editor.saveState = "dirty";
+    editor.dirty = true;
+    if (editor.autosaveTimer) {
+        clearTimeout(editor.autosaveTimer);
+    }
+    const saveNode = document.getElementById("organizerEditorSaveState");
+    if (saveNode) {
+        saveNode.textContent = "Есть несохранённые изменения";
+    }
+    editor.autosaveTimer = window.setTimeout(async () => {
+        editor.autosaveTimer = null;
+        try {
+            await flushOrganizerEditorSave();
+        } catch (error) {
+            console.error(error);
+        }
+    }, 900);
+}
+
+function updateOrganizerDraftField(field, value) {
+    const draft = organizerUiState.editor.draft;
+    if (!draft) return;
+    draft[field] = value;
+    if (field === "categories") {
+        draft.categories = normalizeOrganizerTournamentCategories(value);
+        draft.category = draft.categories[0] || "other";
+    }
+    organizerUiState.editor.dirtyKeys.add(field);
+    scheduleOrganizerEditorSave();
+}
+
+window.addEventListener("beforeunload", (event) => {
+    if (organizerUiState.editor?.dirty || organizerUiState.editor?.inFlight) {
+        event.preventDefault();
+        event.returnValue = "";
+    }
+});
+
 async function initOrganizerTournamentsInteractions(container) {
+    const rerender = () => {
+        container.innerHTML = renderOrganizerTournaments();
+        initOrganizerTournamentsInteractions(container);
+    };
+    const loadStepSideData = async (selected) => {
+        if (!selected) {
+            return;
+        }
+        if (organizerUiState.activeStep === "participants") {
+            await apiClient.loadOrganizerRoster(selected.id);
+        }
+        if (organizerUiState.activeStep === "results") {
+            await Promise.all([
+                ensureOrganizerHelperCodesLoaded(selected.id),
+                ensureOrganizerTournamentResultsLoaded(selected.id),
+            ]);
+        }
+    };
+
     const createDraft = async () => {
         Loader.show();
         try {
@@ -8628,14 +10168,15 @@ async function initOrganizerTournamentsInteractions(container) {
                 title: `Новое соревнование ${new Date().toLocaleDateString("ru-RU")}`,
                 description: "",
                 category: "other",
+                categories: ["other"],
                 format: "individual",
                 status: "draft",
             });
             organizerUiState.selectedTournamentId = item.id;
-            organizerUiState.activeStep = "info";
-            await apiClient.loadOrganizerRoster(item.id);
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            organizerUiState.activeStep = "basics";
+            organizerUiState.editor.tournamentId = null;
+            await loadStepSideData(item);
+            rerender();
             Toast.show("Соревнования", "Черновик соревнования создан.", "success");
         } catch (error) {
             showRequestError("Соревнования", error);
@@ -8655,23 +10196,35 @@ async function initOrganizerTournamentsInteractions(container) {
 
     container.querySelectorAll("[data-organizer-open-tournament]").forEach((button) => {
         button.addEventListener("click", async () => {
+            try {
+                await flushOrganizerEditorSave();
+            } catch (error) {
+                showRequestError("Соревнования", error);
+                return;
+            }
             organizerUiState.selectedTournamentId = Number(button.dataset.organizerOpenTournament);
-            await apiClient.loadOrganizerRoster(organizerUiState.selectedTournamentId);
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            await loadStepSideData(getSelectedOrganizerTournament());
+            organizerUiState.editor.tournamentId = null;
+            rerender();
         });
     });
 
     container.querySelector("[data-organizer-delete-tournament]")?.addEventListener("click", async (event) => {
-        if (!window.confirm("Удалить это соревнование?")) return;
+        const confirmed = await requestConfirmDialog({
+            title: "Удалить соревнование",
+            desc: "Черновик и связанные настройки будут удалены. Это действие нельзя отменить.",
+            isDanger: true,
+            confirmLabel: "Удалить",
+        });
+        if (!confirmed) return;
         Loader.show();
         try {
             await apiClient.deleteOrganizerTournament(
                 Number(event.currentTarget.dataset.organizerDeleteTournament),
             );
             organizerUiState.selectedTournamentId = null;
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            organizerUiState.editor.tournamentId = null;
+            rerender();
             Toast.show("Соревнования", "Соревнование удалено.", "success");
         } catch (error) {
             showRequestError("Соревнования", error);
@@ -8684,79 +10237,350 @@ async function initOrganizerTournamentsInteractions(container) {
         tab.addEventListener("click", async () => {
             organizerUiState.activeStep = tab.dataset.organizerStep;
             const selected = getSelectedOrganizerTournament();
-            if (selected && organizerUiState.activeStep === "participants") {
-                await apiClient.loadOrganizerRoster(selected.id);
-            }
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            await loadStepSideData(selected);
+            rerender();
         });
     });
 
-    container.querySelector("#organizerTournamentInfoForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        Loader.show();
-        try {
-            await apiClient.updateOrganizerTournament(Number(form.dataset.tournamentId), {
-                title: form.elements.title.value.trim(),
-                description: form.elements.description.value.trim(),
-                category: form.elements.category.value.trim(),
-                format: form.elements.format.value,
-                status: form.elements.status.value,
-                startAt: form.elements.startAt.value ? new Date(form.elements.startAt.value).toISOString() : null,
-                endAt: form.elements.endAt.value ? new Date(form.elements.endAt.value).toISOString() : null,
-            });
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
-            Toast.show("Соревнования", "Информация сохранена.", "success");
-        } catch (error) {
-            showRequestError("Соревнования", error);
-        } finally {
-            Loader.hide(300);
-        }
+    container.querySelectorAll("[data-organizer-field]").forEach((input) => {
+        const field = input.dataset.organizerField;
+        const eventName =
+            input.type === "checkbox" || input.tagName === "SELECT"
+                ? "change"
+                : "input";
+        input.addEventListener(eventName, () => {
+            const rawValue =
+                input.type === "checkbox"
+                    ? input.checked
+                    : input.type === "datetime-local"
+                      ? fromLocalDateTimeValue(input.value)
+                      : input.value;
+            updateOrganizerDraftField(field, rawValue);
+            if (field === "runtimeMode" && rawValue !== "lesson") {
+                updateOrganizerDraftField("allowLiveTaskAdd", false);
+            }
+            if (field === "joinMode") {
+                if (rawValue === "code") {
+                    updateOrganizerDraftField("requiresCode", false);
+                    updateOrganizerDraftField(
+                        "codeMode",
+                        organizerUiState.editor.draft?.codeMode || "shared",
+                    );
+                }
+                if (rawValue !== "code" && organizerUiState.editor.draft?.codeMode === "personal") {
+                    updateOrganizerDraftField("codeMode", "shared");
+                }
+            }
+            if (field === "requiresCode") {
+                if (!rawValue) {
+                    updateOrganizerDraftField("accessCode", "");
+                }
+                rerender();
+            }
+            if (field === "joinMode" || field === "lateJoinMode" || field === "format" || field === "runtimeMode") {
+                rerender();
+            }
+        });
     });
 
-    container.querySelector("#organizerTournamentManageForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        Loader.show();
-        try {
-            await apiClient.updateOrganizerTournament(Number(form.dataset.tournamentId), {
-                accessScope: form.elements.accessScope.value,
-                accessCode: form.elements.accessCode.value.trim(),
-                runtimeMode: form.elements.runtimeMode.value,
-                allowLiveTaskAdd: form.elements.allowLiveTaskAdd.checked,
-                wrongAttemptPenaltySeconds: Number(form.elements.wrongAttemptPenaltySeconds.value || 0),
-                leaderboardVisible: form.elements.leaderboardVisible.checked,
-                resultsVisible: form.elements.resultsVisible.checked,
-                registrationStartAt: form.elements.registrationStartAt.value ? new Date(form.elements.registrationStartAt.value).toISOString() : null,
-                registrationEndAt: form.elements.registrationEndAt.value ? new Date(form.elements.registrationEndAt.value).toISOString() : null,
-            });
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
-            Toast.show("Соревнования", "Параметры управления сохранены.", "success");
-        } catch (error) {
-            showRequestError("Соревнования", error);
-        } finally {
-            Loader.hide(300);
-        }
+    container.querySelectorAll("[data-organizer-code-mode]").forEach((button) => {
+        button.addEventListener("click", () => {
+            updateOrganizerDraftField("codeMode", button.dataset.organizerCodeMode || "shared");
+            if (button.dataset.organizerCodeMode === "personal") {
+                updateOrganizerDraftField("accessCode", "");
+            }
+            rerender();
+        });
     });
 
-    container.querySelector("#organizerTournamentTasksForm")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const taskIds = Array.from(form.querySelectorAll('input[name="taskIds"]:checked')).map((node) => Number(node.value));
-        Loader.show();
-        try {
-            await apiClient.updateOrganizerTournament(Number(form.dataset.tournamentId), { taskIds });
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
-            Toast.show("Соревнования", "Список задач сохранён.", "success");
-        } catch (error) {
-            showRequestError("Соревнования", error);
-        } finally {
-            Loader.hide(300);
-        }
+    container.querySelectorAll("[data-organizer-step-go]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            try {
+                await flushOrganizerEditorSave();
+            } catch (error) {
+                showRequestError("Соревнования", error);
+                return;
+            }
+            organizerUiState.activeStep = button.dataset.organizerStepGo;
+            const selected = getSelectedOrganizerTournament();
+            await loadStepSideData(selected);
+            rerender();
+        });
+    });
+
+    container.querySelectorAll("[data-organizer-generate-codes]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const selected = getSelectedOrganizerTournament();
+            if (!selected) return;
+            const mode = button.dataset.organizerGenerateCodes || "shared";
+            Loader.show();
+            organizerUiState.codesLoadingByTournament[selected.id] = true;
+            try {
+                await flushOrganizerEditorSave();
+                const response = await apiClient.generateOrganizerTournamentCodes(selected.id, mode);
+                organizerUiState.selectedTournamentId = response?.item?.id || selected.id;
+                await apiClient.loadOrganizerRoster(selected.id);
+                organizerUiState.editor.tournamentId = null;
+                rerender();
+                Toast.show("Соревнования", mode === "personal" ? "Персональные коды сгенерированы." : "Общий код сгенерирован.", "success");
+            } catch (error) {
+                showRequestError("Соревнования", error);
+            } finally {
+                organizerUiState.codesLoadingByTournament[selected.id] = false;
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-organizer-generate-helper-codes]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const selected = getSelectedOrganizerTournament();
+            if (!selected) return;
+            const values = await openActionFormModal({
+                title: "Helper-коды для экрана",
+                desc: "Сколько кодов сгенерировать для проекторов, помощников и запасных экранов?",
+                submitLabel: "Сгенерировать",
+                fields: [
+                    {
+                        name: "count",
+                        label: "Количество кодов",
+                        type: "number",
+                        value: 3,
+                        min: 1,
+                        step: 1,
+                        required: true,
+                        validate(value) {
+                            const numeric = Number(value);
+                            if (!Number.isFinite(numeric) || numeric < 1 || numeric > 25) {
+                                return "Можно сгенерировать от 1 до 25 кодов.";
+                            }
+                            return "";
+                        },
+                    },
+                ],
+            });
+            if (!values) return;
+            Loader.show();
+            organizerUiState.helperCodesLoadingByTournament[selected.id] = true;
+            try {
+                const response = await apiClient.generateOrganizerTournamentHelperCodes(
+                    selected.id,
+                    Number(values.count || 3),
+                );
+                organizerUiState.helperCodesByTournament[selected.id] = Array.isArray(
+                    response?.items,
+                )
+                    ? response.items
+                    : [];
+                rerender();
+                Toast.show("Соревнования", "Helper-коды сгенерированы.", "success");
+            } catch (error) {
+                showRequestError("Соревнования", error);
+            } finally {
+                organizerUiState.helperCodesLoadingByTournament[selected.id] = false;
+                Loader.hide(300);
+            }
+        });
+    });
+
+    const selected = getSelectedOrganizerTournament();
+    if (
+        selected &&
+        organizerUiState.activeStep === "results" &&
+        (
+            !organizerUiState.helperCodesByTournament[selected.id] ||
+            !organizerUiState.resultsByTournament[selected.id]
+        ) &&
+        !organizerUiState.helperCodesLoadingByTournament[selected.id]
+    ) {
+        void Promise.all([
+            ensureOrganizerHelperCodesLoaded(selected.id),
+            ensureOrganizerTournamentResultsLoaded(selected.id),
+        ])
+            .then(() => {
+                if (ViewManager.currentView === "tournaments") {
+                    rerender();
+                }
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+    }
+
+    container.querySelector("[data-organizer-category-search]")?.addEventListener("input", (event) => {
+        organizerUiState.editor.categoryQuery = event.currentTarget.value || "";
+        rerender();
+    });
+
+    container.querySelectorAll("[data-organizer-category-option]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const draft = organizerUiState.editor.draft;
+            if (!draft) return;
+            const slug = button.dataset.organizerCategoryOption;
+            const categories = normalizeOrganizerTournamentCategories(draft.categories);
+            if (categories.includes(slug)) {
+                updateOrganizerDraftField(
+                    "categories",
+                    categories.filter((item) => item !== slug),
+                );
+            } else {
+                updateOrganizerDraftField("categories", [...categories, slug]);
+            }
+            rerender();
+        });
+    });
+
+    container.querySelectorAll("[data-organizer-category-remove]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const draft = organizerUiState.editor.draft;
+            if (!draft) return;
+            const slug = button.dataset.organizerCategoryRemove;
+            const nextCategories = normalizeOrganizerTournamentCategories(draft.categories).filter(
+                (item) => item !== slug,
+            );
+            updateOrganizerDraftField(
+                "categories",
+                nextCategories.length ? nextCategories : ["other"],
+            );
+            rerender();
+        });
+    });
+
+    container.querySelectorAll('input[name="taskIds"]').forEach((input) => {
+        input.addEventListener("change", () => {
+            const selectedIds = Array.from(
+                container.querySelectorAll('input[name="taskIds"]:checked'),
+            ).map((node) => Number(node.value));
+            updateOrganizerDraftField("taskIds", selectedIds);
+            rerender();
+        });
+    });
+
+    container.querySelectorAll("[data-organizer-action]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const selected = getSelectedOrganizerTournament();
+            if (!selected) return;
+            try {
+                await flushOrganizerEditorSave();
+            } catch (error) {
+                showRequestError("Соревнования", error);
+                return;
+            }
+            const action = button.dataset.organizerAction;
+            let payload = {};
+            if (action === "reschedule" || action === "repeat") {
+                const values = await openActionFormModal({
+                    title: action === "repeat" ? "Повторить турнир" : "Перенести турнир",
+                    desc:
+                        action === "repeat"
+                            ? "Новая копия получит эти даты, задачи и текущие настройки."
+                            : "Система пересчитает фазу турнира по новым датам.",
+                    submitLabel: action === "repeat" ? "Создать копию" : "Сохранить даты",
+                    fields: [
+                        {
+                            name: "startAt",
+                            label: "Старт",
+                            type: "datetime-local",
+                            value: toLocalDateTimeValue(
+                                organizerUiState.editor.draft?.startAt || selected.startAt,
+                            ),
+                            required: true,
+                        },
+                        {
+                            name: "endAt",
+                            label: "Финиш",
+                            type: "datetime-local",
+                            value: toLocalDateTimeValue(
+                                organizerUiState.editor.draft?.endAt || selected.endAt,
+                            ),
+                            required: true,
+                        },
+                    ],
+                });
+                if (!values?.startAt || !values?.endAt) return;
+                payload = {
+                    startAt: fromLocalDateTimeValue(values.startAt),
+                    endAt: fromLocalDateTimeValue(values.endAt),
+                };
+            } else if (action === "extend") {
+                const values = await openActionFormModal({
+                    title: "Продлить турнир",
+                    desc: "Укажите, на сколько минут перенести время завершения.",
+                    submitLabel: "Продлить",
+                    fields: [
+                        {
+                            name: "minutes",
+                            label: "Минут продления",
+                            type: "number",
+                            value: "30",
+                            min: "1",
+                            step: "5",
+                            required: true,
+                            validate(value) {
+                                return !Number.isFinite(Number(value)) || Number(value) <= 0
+                                    ? "Введите число больше нуля."
+                                    : "";
+                            },
+                        },
+                    ],
+                });
+                if (!values?.minutes) return;
+                payload = { minutes: Number(values.minutes) };
+            } else if (["publish", "unpublish", "start_now", "finish_now", "archive"].includes(action)) {
+                const actionCopy = {
+                    publish: {
+                        title: "Опубликовать турнир",
+                        desc: "После публикации турнир появится у участников и откроется по настроенным правилам допуска.",
+                        confirmLabel: "Опубликовать",
+                    },
+                    unpublish: {
+                        title: "Снять с публикации",
+                        desc: "Турнир снова станет черновиком и исчезнет из публичного списка.",
+                        confirmLabel: "Снять с публикации",
+                        isDanger: true,
+                    },
+                    start_now: {
+                        title: "Запустить турнир сейчас",
+                        desc: "Старт будет перенесён на текущее время, а длительность сохранится.",
+                        confirmLabel: "Запустить",
+                    },
+                    finish_now: {
+                        title: "Завершить турнир досрочно",
+                        desc: "Текущее время станет моментом завершения турнира.",
+                        confirmLabel: "Завершить",
+                        isDanger: true,
+                    },
+                    archive: {
+                        title: "Архивировать турнир",
+                        desc: "Турнир уйдёт в архив и останется только для истории и итогов.",
+                        confirmLabel: "Архивировать",
+                        isDanger: true,
+                    },
+                }[action];
+                const confirmed = await requestConfirmDialog(actionCopy);
+                if (!confirmed) return;
+            }
+
+            Loader.show();
+            try {
+                const item = await apiClient.runOrganizerTournamentAction(
+                    selected.id,
+                    action,
+                    payload,
+                );
+                organizerUiState.selectedTournamentId = item.id;
+                organizerUiState.editor.tournamentId = null;
+                if (action === "repeat" || action === "duplicate") {
+                    await apiClient.loadOrganizerRoster(item.id);
+                }
+                rerender();
+                Toast.show("Соревнования", "Действие выполнено.", "success");
+            } catch (error) {
+                showRequestError("Соревнования", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
     });
 
     container.querySelector("#organizerRosterFileInput")?.addEventListener("change", async (event) => {
@@ -8767,8 +10591,7 @@ async function initOrganizerTournamentsInteractions(container) {
             organizerUiState.rosterImportByTournament[Number(input.dataset.tournamentId)] = {
                 base64: await readFileAsBase64(file),
             };
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            rerender();
             Toast.show("Roster", "Файл загружен. Теперь можно запустить проверку.", "info");
         } catch (error) {
             showRequestError("Roster", error);
@@ -8786,8 +10609,7 @@ async function initOrganizerTournamentsInteractions(container) {
                 ...draft,
                 preview,
             };
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            rerender();
         } catch (error) {
             showRequestError("Roster", error);
         } finally {
@@ -8803,8 +10625,7 @@ async function initOrganizerTournamentsInteractions(container) {
         try {
             const response = await apiClient.confirmOrganizerRosterImport(tournamentId, draft.base64);
             delete organizerUiState.rosterImportByTournament[tournamentId];
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            rerender();
             Toast.show("Roster", `Импортировано ${response.importedCount} участников.`, "success");
         } catch (error) {
             showRequestError("Roster", error);
@@ -8823,8 +10644,7 @@ async function initOrganizerTournamentsInteractions(container) {
                 teamName: form.elements.teamName ? form.elements.teamName.value.trim() : "",
                 classGroup: form.elements.classGroup.value.trim(),
             });
-            container.innerHTML = renderOrganizerTournaments();
-            initOrganizerTournamentsInteractions(container);
+            rerender();
             Toast.show("Roster", "Пользователь добавлен в список допуска.", "success");
         } catch (error) {
             showRequestError("Roster", error);
@@ -8841,8 +10661,7 @@ async function initOrganizerTournamentsInteractions(container) {
                     Number(button.dataset.organizerTournament),
                     Number(button.dataset.organizerDeleteRoster),
                 );
-                container.innerHTML = renderOrganizerTournaments();
-                initOrganizerTournamentsInteractions(container);
+                rerender();
                 Toast.show("Roster", "Запись удалена.", "success");
             } catch (error) {
                 showRequestError("Roster", error);
@@ -9008,7 +10827,7 @@ function initOrganizerProfileInteractions(container) {
             subview.querySelectorAll("[data-organizer-open-from-profile]").forEach((button) => {
                 button.addEventListener("click", () => {
                     organizerUiState.selectedTournamentId = Number(button.dataset.organizerOpenFromProfile);
-                    organizerUiState.activeStep = "info";
+                    organizerUiState.activeStep = "basics";
                     ViewManager.open("tournaments");
                 });
             });
@@ -9051,12 +10870,18 @@ function initModerationInteractions(container) {
 
     container.querySelectorAll("[data-mod-task-review]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const reviewerNote = window.prompt("Комментарий модератора (необязательно):", "") || "";
+            const values = await openActionFormModal({
+                title: "Решение по задаче",
+                desc: "Комментарий увидит организатор. Поле можно оставить пустым.",
+                submitLabel: "Сохранить решение",
+                fields: [{ name: "reviewerNote", label: "Комментарий модератора", type: "textarea" }],
+            });
+            if (!values) return;
             Loader.show();
             try {
                 await apiClient.reviewModerationTask(Number(button.dataset.modTaskId), {
                     decision: button.dataset.modTaskReview,
-                    reviewerNote,
+                    reviewerNote: String(values.reviewerNote || "").trim(),
                 });
                 container.innerHTML = renderModerationView();
                 initModerationInteractions(container);
@@ -9071,12 +10896,18 @@ function initModerationInteractions(container) {
 
     container.querySelectorAll("[data-mod-application-review]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const reviewerNote = window.prompt("Комментарий по заявке (необязательно):", "") || "";
+            const values = await openActionFormModal({
+                title: "Решение по заявке",
+                desc: "Комментарий увидит пользователь. Поле можно оставить пустым.",
+                submitLabel: "Сохранить решение",
+                fields: [{ name: "reviewerNote", label: "Комментарий по заявке", type: "textarea" }],
+            });
+            if (!values) return;
             Loader.show();
             try {
                 await apiClient.reviewOrganizerApplication(Number(button.dataset.modApplicationId), {
                     decision: button.dataset.modApplicationReview,
-                    reviewerNote,
+                    reviewerNote: String(values.reviewerNote || "").trim(),
                 });
                 container.innerHTML = renderModerationView();
                 initModerationInteractions(container);
@@ -9092,7 +10923,17 @@ function initModerationInteractions(container) {
     container.querySelectorAll("[data-mod-user-status]").forEach((button) => {
         button.addEventListener("click", async () => {
             const status = button.dataset.modUserStatus;
-            const reason = status === "blocked" ? window.prompt("Причина блокировки:", "") || "" : "";
+            let reason = "";
+            if (status === "blocked") {
+                const values = await openActionFormModal({
+                    title: "Причина блокировки",
+                    desc: "Причина будет сохранена для истории модерации.",
+                    submitLabel: "Заблокировать",
+                    fields: [{ name: "reason", label: "Причина", type: "textarea", required: true }],
+                });
+                if (!values) return;
+                reason = String(values.reason || "").trim();
+            }
             Loader.show();
             try {
                 await apiClient.updateModerationUserStatus(Number(button.dataset.modUserId), {
@@ -9152,7 +10993,17 @@ function initAdminControlInteractions(container) {
 
     container.querySelectorAll("[data-admin-status-set]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const reason = button.dataset.adminStatusSet === "blocked" ? window.prompt("Причина блокировки:", "") || "" : "";
+            let reason = "";
+            if (button.dataset.adminStatusSet === "blocked") {
+                const values = await openActionFormModal({
+                    title: "Причина блокировки",
+                    desc: "Причина будет записана как решение администратора.",
+                    submitLabel: "Заблокировать",
+                    fields: [{ name: "reason", label: "Причина", type: "textarea", required: true }],
+                });
+                if (!values) return;
+                reason = String(values.reason || "").trim();
+            }
             Loader.show();
             try {
                 await apiClient.updateModerationUserStatus(Number(button.dataset.adminUserId), {
@@ -9170,18 +11021,42 @@ function initAdminControlInteractions(container) {
         });
     });
 
-    container.querySelectorAll("[data-admin-tournament-save]").forEach((button) => {
+    container.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const tournamentId = Number(button.dataset.adminTournamentSave);
-            const select = container.querySelector(`[data-admin-tournament-status="${tournamentId}"]`);
+            const tournamentId = Number(button.dataset.adminTournamentAction);
+            const action = button.dataset.adminActionName;
+            if (["finish_now", "archive", "unpublish"].includes(action)) {
+                const confirmed = await requestConfirmDialog({
+                    title:
+                        action === "finish_now"
+                            ? "Завершить турнир"
+                            : action === "archive"
+                              ? "Архивировать турнир"
+                              : "Снять с публикации",
+                    desc:
+                        action === "finish_now"
+                            ? "Текущее время станет моментом завершения турнира."
+                            : action === "archive"
+                              ? "Турнир будет убран в архив и останется только для истории."
+                              : "Турнир снова станет черновиком и пропадёт из публичного списка.",
+                    isDanger: action !== "unpublish",
+                    confirmLabel:
+                        action === "finish_now"
+                            ? "Завершить"
+                            : action === "archive"
+                              ? "Архивировать"
+                              : "Снять",
+                });
+                if (!confirmed) {
+                    return;
+                }
+            }
             Loader.show();
             try {
-                await apiClient.updateAdminTournament(tournamentId, {
-                    status: select.value,
-                });
+                await apiClient.runAdminTournamentAction(tournamentId, action);
                 container.innerHTML = renderAdminControlView();
                 initAdminControlInteractions(container);
-                Toast.show("Админка", "Статус соревнования обновлён.", "success");
+                Toast.show("Админка", "Действие по турниру выполнено.", "success");
             } catch (error) {
                 showRequestError("Админка", error);
             } finally {
@@ -9192,7 +11067,13 @@ function initAdminControlInteractions(container) {
 
     container.querySelectorAll("[data-admin-tournament-delete]").forEach((button) => {
         button.addEventListener("click", async () => {
-            if (!window.confirm("Удалить соревнование?")) return;
+            const confirmed = await requestConfirmDialog({
+                title: "Удалить соревнование",
+                desc: "Соревнование, его настройки и история будут удалены без возможности восстановления.",
+                isDanger: true,
+                confirmLabel: "Удалить",
+            });
+            if (!confirmed) return;
             Loader.show();
             try {
                 await apiClient.deleteAdminTournament(Number(button.dataset.adminTournamentDelete));
@@ -9209,7 +11090,13 @@ function initAdminControlInteractions(container) {
 
     container.querySelectorAll("[data-admin-team-delete]").forEach((button) => {
         button.addEventListener("click", async () => {
-            if (!window.confirm("Удалить команду?")) return;
+            const confirmed = await requestConfirmDialog({
+                title: "Удалить команду",
+                desc: "Команда будет удалена целиком. Участникам придётся вступать заново.",
+                isDanger: true,
+                confirmLabel: "Удалить",
+            });
+            if (!confirmed) return;
             Loader.show();
             try {
                 await apiClient.deleteAdminTeam(Number(button.dataset.adminTeamDelete));
@@ -9226,7 +11113,13 @@ function initAdminControlInteractions(container) {
 
     container.querySelectorAll("[data-admin-task-delete]").forEach((button) => {
         button.addEventListener("click", async () => {
-            if (!window.confirm("Удалить задачу?")) return;
+            const confirmed = await requestConfirmDialog({
+                title: "Удалить задачу",
+                desc: "Задача исчезнет из банка и станет недоступна в новых турнирах.",
+                isDanger: true,
+                confirmLabel: "Удалить",
+            });
+            if (!confirmed) return;
             Loader.show();
             try {
                 await apiClient.deleteAdminTask(Number(button.dataset.adminTaskDelete));
@@ -9371,13 +11264,8 @@ function renderAdminView() {
                                         ${escapeHtml(item.ownerLogin)} • ${escapeHtml(item.format)} • ${formatNumberRu(item.participants)} участников • ${formatNumberRu(item.taskCount)} задач
                                     </div>
                                 </div>
-                                <select class="input" data-admin-tournament-status="${escapeHtml(item.id)}" style="min-width: 150px;">
-                                    <option value="upcoming" ${item.status === "upcoming" ? "selected" : ""}>Скоро</option>
-                                    <option value="live" ${item.status === "live" ? "selected" : ""}>Идет</option>
-                                    <option value="ended" ${item.status === "ended" ? "selected" : ""}>Завершен</option>
-                                </select>
                                 <div style="display:flex; gap: 8px; justify-content:flex-end;">
-                                    <button class="btn btn--muted" data-admin-tournament-save="${escapeHtml(item.id)}">Сохранить</button>
+                                    ${renderAdminTournamentActions(item)}
                                     <button class="btn btn--accent" data-admin-tournament-delete="${escapeHtml(item.id)}">Удалить</button>
                                 </div>
                             </div>
@@ -9522,22 +11410,18 @@ function initAdminInteractions(container) {
         });
 
         container
-            .querySelectorAll("[data-admin-tournament-save]")
+            .querySelectorAll("[data-admin-tournament-action]")
             .forEach((button) => {
                 button.addEventListener("click", async () => {
-                    const tournamentId = Number(button.dataset.adminTournamentSave);
-                    const select = container.querySelector(
-                        `[data-admin-tournament-status="${tournamentId}"]`,
-                    );
+                    const tournamentId = Number(button.dataset.adminTournamentAction);
+                    const action = button.dataset.adminActionName;
                     Loader.show();
                     try {
-                        await apiClient.updateAdminTournament(tournamentId, {
-                            status: select?.value || "upcoming",
-                        });
+                        await apiClient.runAdminTournamentAction(tournamentId, action);
                         container.innerHTML = renderAdminView();
                         bindAdminActions();
                         observeNewContent();
-                        Toast.show("Админка", "Статус турнира обновлён.", "success");
+                        Toast.show("Админка", "Действие по турниру выполнено.", "success");
                     } catch (error) {
                         showRequestError("Админка", error);
                     } finally {
@@ -9753,6 +11637,9 @@ const ViewManager = {
     },
 
     open(viewName, options = {}) {
+        if (isCodeGuestUser() && viewName !== "tournaments") {
+            viewName = "tournaments";
+        }
         if (viewName === "admin" && !isAdminUser()) {
             Toast.show("Админка", "Раздел доступен только администраторам.", "error");
             viewName = "dashboard";
@@ -10069,35 +11956,7 @@ async function openDashboardActiveTournament() {
     }
 
     if (tournament.actionType === "join") {
-        Loader.show();
-        try {
-            const payload = {};
-            if (tournament.accessScope === "code") {
-                const accessCode = window.prompt(
-                    "Введите код доступа к турниру:",
-                    "",
-                );
-                if (!accessCode) {
-                    Loader.hide(300);
-                    return;
-                }
-                payload.accessCode = accessCode.trim();
-            }
-            const response = await apiClient.joinTournament(tournamentId, payload);
-            await Promise.all([
-                apiClient.loadDashboard().catch(() => null),
-                apiClient.loadTournaments().catch(() => null),
-            ]);
-            if (response.runtime) {
-                await openTournamentRuntimeModal(tournamentId, response.runtime);
-            } else {
-                await openTournamentInfoModal(tournamentId);
-            }
-        } catch (error) {
-            showRequestError("Турнир", error);
-        } finally {
-            Loader.hide(300);
-        }
+        await openTournamentInfoModal(tournamentId);
         return;
     }
 
@@ -10129,6 +11988,69 @@ async function openDailyChallengeFromDashboard() {
         }
     } catch (error) {
         showRequestError("Ежедневное задание", error);
+    } finally {
+        Loader.hide(300);
+    }
+}
+
+async function requestTournamentAccessCode(tournament) {
+    if (!tournament?.entryPolicy?.requiresCode) {
+        return "";
+    }
+
+    const values = await openActionFormModal({
+        title: "Код доступа",
+        desc: "Организатор ограничил вход кодом. Введите код, чтобы записаться или открыть турнир.",
+        submitLabel: "Продолжить",
+        fields: [
+            {
+                name: "accessCode",
+                label: "Код доступа",
+                value: "",
+                required: true,
+                validate(value) {
+                    if (String(value || "").trim().length < 4) {
+                        return "Код должен быть не короче 4 символов.";
+                    }
+                    return "";
+                },
+            },
+        ],
+    });
+
+    return values?.accessCode?.trim() || null;
+}
+
+async function joinTournamentFromTournamentPage(tournamentId) {
+    const tournament = findTournamentById(tournamentId);
+    if (!tournament) {
+        return;
+    }
+
+    Loader.show();
+    try {
+        const payload = {};
+        if (tournament.entryPolicy?.requiresCode) {
+            const accessCode = await requestTournamentAccessCode(tournament);
+            if (!accessCode) {
+                Loader.hide(300);
+                return;
+            }
+            payload.accessCode = accessCode;
+        }
+        const response = await apiClient.joinTournament(tournamentId, payload);
+        await Promise.all([
+            apiClient.loadDashboard().catch(() => null),
+            apiClient.loadTournaments().catch(() => null),
+        ]);
+        if (response.runtime) {
+            await openTournamentRuntimeModal(tournamentId, response.runtime);
+        } else {
+            setActiveParticipantTournamentView(tournamentId, "details");
+            rerenderActiveWorkspaceContent();
+        }
+    } catch (error) {
+        showRequestError("Турнир", error);
     } finally {
         Loader.hide(300);
     }
@@ -11064,6 +12986,12 @@ function renderLeaderboard(payload) {
 }
 
 async function openLeaderboardModal(tournamentId, mode = "view") {
+    if (isParticipantUser() && mode === "view") {
+        setActiveParticipantTournamentView(tournamentId, "leaderboard");
+        ViewManager.open("tournaments");
+        void ensureTournamentLeaderboardLoaded(tournamentId);
+        return;
+    }
     Loader.show();
     try {
         let payload;
@@ -11295,13 +13223,18 @@ function renderTournamentRuntimePage(runtime) {
     const selectedTask = getSelectedRuntimeTask(runtime);
     const tasks = Array.isArray(runtime?.tasks) ? runtime.tasks : [];
     const isDaily = Boolean(tournament.isDaily);
-    const backLabel = isDaily ? "Назад на главную" : "Назад к турнирам";
+    const backLabel = isCodeGuestUser()
+        ? "К турниру"
+        : isDaily
+          ? "Назад на главную"
+          : "Назад к турнирам";
     const eyebrow = isDaily ? "Ежедневное задание" : "Активное соревнование";
 
     if (!selectedTask) {
         return `
             <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
             <div class="tour-view tour-runtime-view">
+                ${renderCodeGuestSessionBar()}
                 <div class="tour-runtime-head" data-view-anim>
                     <div class="tour-runtime-head__main">
                         <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
@@ -11329,6 +13262,7 @@ function renderTournamentRuntimePage(runtime) {
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
         <div class="tour-view tour-runtime-view">
+            ${renderCodeGuestSessionBar()}
             <div class="tour-runtime-head" data-view-anim>
                 <div class="tour-runtime-head__main">
                     <button class="btn btn--muted-tour tour-runtime-back" type="button" data-runtime-back>
@@ -11340,8 +13274,8 @@ function renderTournamentRuntimePage(runtime) {
                         <div class="tour-runtime-head__meta">
                             <span>${escapeHtml(tournament.participantLabel || "Участник")}</span>
                             <span>${escapeHtml(tournament.format === "team" ? "Командный формат" : "Личный формат")}</span>
-                            <span>${escapeHtml(tournament.runtimeMode === "lesson" ? "Lesson mode" : "Competition mode")}</span>
-                            <span>${escapeHtml(tournament.accessScope === "closed" ? "Закрытый roster" : tournament.accessScope === "code" ? "Вход по коду" : "Свободный вход")}</span>
+                            <span>${escapeHtml(tournament.runtimeMode === "lesson" ? "Режим урока" : "Режим соревнования")}</span>
+                            <span>${escapeHtml(tournament.entrySummary || "Доступ по правилам турнира")}</span>
                         </div>
                     </div>
                 </div>
@@ -11685,9 +13619,12 @@ function bindTournamentRuntimeInteractions(container) {
 
     container.querySelectorAll("[data-runtime-back]").forEach((button) => {
         button.addEventListener("click", () => {
-            clearActiveTournamentRuntimeView();
             const currentRuntime = getTournamentRuntimeState();
-            if (currentRuntime?.tournament?.isDaily) {
+            clearActiveTournamentRuntimeView();
+            if (isCodeGuestUser() && currentRuntime?.tournament?.id) {
+                setActiveParticipantTournamentView(currentRuntime.tournament.id, "details");
+                ViewManager.open("tournaments", { historyMode: "replace" });
+            } else if (currentRuntime?.tournament?.isDaily) {
                 ViewManager.open("dashboard", { historyMode: "replace" });
             } else {
                 ViewManager.open("tournaments", { historyMode: "replace" });
@@ -11929,12 +13866,38 @@ function sortTournamentsByNewest(items) {
 }
 
 function renderTournaments() {
+    if (isCodeGuestUser()) {
+        ensureGuestCodeTournamentFocus();
+    }
     if (isParticipantUser() && hasActiveTournamentRuntimeView()) {
         const runtime = getTournamentRuntimeState();
         if (runtime?.tournament?.id === getActiveTournamentRuntimeId()) {
             return renderTournamentRuntimePage(runtime);
         }
         return renderTournamentRuntimeLoadingView();
+    }
+
+    if (isParticipantUser() && hasActiveParticipantTournamentView()) {
+        return renderParticipantTournamentDetailPage(
+            findTournamentById(getActiveParticipantTournamentId()),
+            getActiveParticipantTournamentMode(),
+        );
+    }
+
+    if (isCodeGuestUser()) {
+        return `
+            <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+            <div class="tour-view">
+                ${renderCodeGuestSessionBar()}
+                <div class="card dash-card">
+                    <div class="card__title">Турнир не найден в текущей сессии</div>
+                    <div class="card__sub">Попробуйте войти по коду заново. Для гостевого входа открыт только связанный турнир.</div>
+                    <div class="ops-inline-actions">
+                        <button class="btn btn--muted" type="button" data-guest-code-logout>Выйти</button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     const adminActions = isAdminUser()
@@ -12019,12 +13982,17 @@ function renderTournamentList(data) {
             <div class="tour-card__content">
                 <div class="tour-card__title">${t.title}</div>
                 <div class="tour-card__desc">${t.desc}</div>
+                <div class="s-sub" style="margin-top:8px;">${escapeHtml(t.entrySummary || "")}</div>
             </div>
             <div class="tour-card__divider"></div>
             <div class="tour-card__bottom">
                 <div class="tour-meta-item">
                     ${window.getSVGIcon(t.icon, ` class="icon-svg icon-svg-${t.icon}"`)}
                     <span>${t.time}</span>
+                </div>
+                <div class="tour-meta-item" style="min-width:0; flex:1;">
+                    ${window.getSVGIcon("info", ' class="icon-svg icon-svg-info"')}
+                    <span>${escapeHtml(t.joinAvailability?.label || t.resultAvailability?.label || "Следите за обновлениями")}</span>
                 </div>
                 <button class="btn ${
                     t.actionType === "join" || t.actionType === "solve"
@@ -12075,11 +14043,85 @@ function initParticipantTournamentRuntimeView(container) {
     }
 }
 
+function initParticipantTournamentDetailView(container) {
+    if (!container) {
+        return;
+    }
+    const tournamentId = getActiveParticipantTournamentId();
+    const tournament = findTournamentById(tournamentId);
+    if (!tournament) {
+        return;
+    }
+
+    if (
+        getActiveParticipantTournamentMode() === "leaderboard" &&
+        tournament.resultAvailability?.visible &&
+        !participantTournamentUiState.leaderboardByTournamentId[tournamentId] &&
+        !participantTournamentUiState.leaderboardLoadingByTournamentId[tournamentId]
+    ) {
+        void ensureTournamentLeaderboardLoaded(tournamentId);
+    }
+
+    container.querySelectorAll("[data-participant-tournament-back]").forEach((button) => {
+        button.addEventListener("click", () => {
+            if (isCodeGuestUser()) {
+                return;
+            }
+            clearActiveParticipantTournamentView();
+            ViewManager.open("tournaments", { historyMode: "replace" });
+        });
+    });
+
+    container.querySelectorAll("[data-participant-tournament-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const nextMode =
+                button.dataset.participantTournamentTab === "leaderboard"
+                    ? "leaderboard"
+                    : "details";
+            setActiveParticipantTournamentView(tournamentId, nextMode);
+            rerenderActiveWorkspaceContent();
+            if (nextMode === "leaderboard") {
+                void ensureTournamentLeaderboardLoaded(tournamentId);
+            }
+        });
+    });
+
+    container.querySelector("[data-participant-tournament-primary]")?.addEventListener("click", async (event) => {
+        const action = event.currentTarget.dataset.participantTournamentPrimary;
+        if (action === "solve") {
+            await openTournamentRuntimeModal(tournamentId);
+            return;
+        }
+        if (action === "join") {
+            await joinTournamentFromTournamentPage(tournamentId);
+        }
+    });
+}
+
 function initTournamentsInteractions(container) {
     if (!container) return;
 
+    container.querySelectorAll("[data-guest-code-logout]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                clearCodeEntrySessionState();
+                await apiClient.logout();
+                location.reload();
+            } catch (error) {
+                showRequestError("Вход по коду", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
     if (isParticipantUser() && hasActiveTournamentRuntimeView()) {
         initParticipantTournamentRuntimeView(container);
+        return;
+    }
+    if (isParticipantUser() && hasActiveParticipantTournamentView()) {
+        initParticipantTournamentDetailView(container);
         return;
     }
 
@@ -12105,53 +14147,13 @@ function initTournamentsInteractions(container) {
                     const actionType = button.dataset.tournamentAction;
 
                     if (actionType === "join") {
-                        Loader.show();
-                        try {
-                            const payload = {};
-                            if (tournament?.accessScope === "code" && !tournament?.joined) {
-                                const accessCode = window.prompt(
-                                    "Введите код доступа к турниру:",
-                                    "",
-                                );
-                                if (!accessCode) {
-                                    Loader.hide(300);
-                                    return;
-                                }
-                                payload.accessCode = accessCode.trim();
-                            }
-
-                            const response = await apiClient.joinTournament(
-                                tournamentId,
-                                payload,
-                            );
-                            await Promise.all([
-                                apiClient.loadDashboard(),
-                                apiClient.loadTournaments(),
-                            ]);
-                            if (response.runtime) {
-                                await openTournamentRuntimeModal(
-                                    tournamentId,
-                                    response.runtime,
-                                );
-                            } else if (response.leaderboard) {
-                                renderLeaderboard(response.leaderboard);
-                                openModal("leaderboardModal");
-                            } else {
-                                Toast.show(
-                                    "Турнир",
-                                    "Вы присоединились к соревнованию. Лидерборд пока скрыт организатором.",
-                                    "success",
-                                );
-                            }
-                        } catch (error) {
-                            showRequestError("Турниры", error);
-                        } finally {
-                            Loader.hide(300);
-                        }
+                        await openTournamentInfoModal(tournamentId);
                     } else if (actionType === "solve") {
                         await openTournamentRuntimeModal(tournamentId);
                     } else if (actionType === "muted") {
-                        openLeaderboardModal(tournamentId, "view");
+                        setActiveParticipantTournamentView(tournamentId, "leaderboard");
+                        ViewManager.open("tournaments");
+                        void ensureTournamentLeaderboardLoaded(tournamentId);
                     } else {
                         await openTournamentInfoModal(tournamentId);
                     }
@@ -12176,7 +14178,9 @@ function initTournamentsInteractions(container) {
             // Несколько категорий
             const matchesCategory =
                 filters.categories.length === 0 ||
-                (t.category && filters.categories.includes(t.category));
+                (Array.isArray(t.categories)
+                    ? t.categories.some((slug) => filters.categories.includes(slug))
+                    : t.category && filters.categories.includes(t.category));
 
             // Фильтр по дате (тестово: если дата выбрана, показываем только этот день)
             const matchesDate = isSameTournamentDay(t, filters.selectedDate);
@@ -12226,8 +14230,8 @@ function initTournamentsInteractions(container) {
             if (form) {
                 const start = new Date(Date.now() + 60 * 60 * 1000);
                 const end = new Date(Date.now() + 3 * 60 * 60 * 1000);
-                form.elements["startAt"].value = start.toISOString().slice(0, 16);
-                form.elements["endAt"].value = end.toISOString().slice(0, 16);
+                form.elements["startAt"].value = toLocalDateTimeValue(start.toISOString());
+                form.elements["endAt"].value = toLocalDateTimeValue(end.toISOString());
             }
         });
 

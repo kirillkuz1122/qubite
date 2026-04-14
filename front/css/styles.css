@@ -1863,6 +1863,54 @@ button.card--all {
   padding: 32px 40px;
 }
 
+body.workspace-guest-code #workspace-view {
+  display: block;
+}
+
+body.workspace-guest-code .sidebar,
+body.workspace-guest-code .workspace-mobile-header {
+  display: none !important;
+}
+
+body.workspace-guest-code .workspace__content {
+  margin-left: 0 !important;
+  width: 100% !important;
+  padding-top: 24px;
+}
+
+.guest-session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+}
+
+.guest-session-bar__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.guest-session-bar__eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--fg-muted);
+}
+
+.guest-session-bar__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg-strong);
+}
+
+.guest-session-bar__hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
 /* DASHBOARD GRID */
 .dash-grid {
   display: grid;
@@ -9497,12 +9545,12 @@ body.loading {
 }
 
 .ops-shell--aside {
-  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.8fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.72fr);
   align-items: start;
 }
 
 .ops-shell--editor {
-  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
   align-items: start;
 }
 
@@ -9811,6 +9859,26 @@ body.loading {
   gap: 18px;
 }
 
+.ops-editor-hero-grid,
+.ops-code-mode-grid,
+.ops-step-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.ops-editor-hero-grid {
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.75fr);
+  align-items: start;
+}
+
+.ops-form-stack--main {
+  min-width: 0;
+}
+
+.ops-code-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .ops-form-grid {
   display: grid;
   gap: 14px;
@@ -9895,6 +9963,83 @@ body.loading {
   color: var(--fg-muted);
 }
 
+.ops-toggle-card--compact {
+  padding: 14px 16px;
+}
+
+.ops-editor-summary-card,
+.ops-editor-phase-card,
+.ops-category-picker {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+}
+
+.ops-editor-summary-card__label,
+.ops-editor-phase-card__label,
+.ops-category-picker__hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.ops-editor-summary-card__value,
+.ops-editor-phase-card__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg-strong);
+}
+
+.ops-editor-summary-card__hint,
+.ops-editor-phase-card__meta {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.ops-category-picker {
+  padding: 14px;
+}
+
+.ops-category-picker__selected,
+.ops-category-picker__cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ops-category-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-0) 60%, transparent);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ops-category-chip:hover {
+  border-color: color-mix(in oklab, var(--accent-to) 26%, var(--line));
+}
+
+.ops-category-chip.is-active,
+.ops-category-chip--selected {
+  border-color: color-mix(in oklab, var(--accent-to) 34%, var(--line));
+  background: color-mix(in oklab, var(--accent-to) 18%, var(--bg-0));
+  color: var(--fg-strong);
+}
+
 .ops-checklist {
   display: grid;
   gap: 12px;
@@ -9953,6 +10098,70 @@ body.loading {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.ops-inline-actions--stretch {
+  align-items: end;
+}
+
+.ops-step-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+}
+
+.ops-step-actions .ops-inline-actions:last-child {
+  justify-content: flex-end;
+}
+
+.ops-choice-card {
+  display: grid;
+  gap: 8px;
+  align-items: start;
+  padding: 15px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+@media (max-width: 1360px) {
+  .ops-editor-hero-grid,
+  .ops-shell--aside {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ops-choice-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--accent-to) 28%, var(--line));
+}
+
+.ops-choice-card.is-active {
+  border-color: color-mix(in oklab, var(--accent-to) 40%, var(--line));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent-from) 10%, var(--bg-1)),
+    color-mix(in oklab, var(--accent-to) 8%, var(--bg-1))
+  );
+}
+
+.ops-choice-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-strong);
+}
+
+.ops-choice-card__desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-muted);
 }
 
 .ops-preview-card {
@@ -11071,6 +11280,12 @@ body.loading {
     grid-template-columns: 1fr;
   }
 
+  .ops-editor-hero-grid,
+  .ops-code-mode-grid,
+  .ops-step-actions {
+    grid-template-columns: 1fr;
+  }
+
   .ops-sidebar {
     position: static;
     max-height: none;
@@ -11138,6 +11353,10 @@ body.loading {
     grid-column: span 6;
   }
 
+  .ops-step-actions .ops-inline-actions:last-child {
+    justify-content: flex-start;
+  }
+
   .ops-admin-row {
     grid-template-columns: 1fr;
     align-items: start;
@@ -11174,6 +11393,11 @@ body.loading {
 }
 
 @media (max-width: 720px) {
+  .guest-session-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .ops-header,
   .ops-record-head {
     flex-direction: column;
@@ -11211,6 +11435,12 @@ body.loading {
   .ops-metric-grid--four,
   .ops-metric-grid--six,
   .ops-record-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-toggle-grid,
+  .ops-code-mode-grid,
+  .ops-step-actions {
     grid-template-columns: 1fr;
   }
 

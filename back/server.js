@@ -46,6 +46,7 @@ const {
     createOAuthState,
     createPasswordResetTicket,
     createSession,
+    createTournamentHelperCodes,
     createTaskRevision,
     createTask,
     createTeam,
@@ -65,6 +66,8 @@ const {
     findUserByLoginOrEmail,
     findUserByOAuthSubject,
     findNextUniqueLogin,
+    findTournamentHelperCode,
+    findTournamentRosterEntryByInviteCode,
     getAdminOverview,
     getAuthChallengeById,
     getMembershipByUserId,
@@ -75,6 +78,7 @@ const {
     getSessionByUserAndId,
     getTaskById,
     getTeamForUser,
+    findTournamentByAccessCode,
     getTournamentById,
     getTournamentEntryForContext,
     getTournamentRosterEntryForUser,
@@ -105,6 +109,7 @@ const {
     listTasksByIds,
     listTeamTournamentResults,
     listTopPlayers,
+    listTournamentHelperCodes,
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,
     listTournamentSubmissionsForEntry,
@@ -112,12 +117,16 @@ const {
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,
+    isTournamentCodeTaken,
+    markTournamentHelperCodeUsed,
     markUserEmailVerified,
     recalculateTournamentEntryStats,
     refreshUserCompetitionStats,
     removeTournamentRosterEntry,
     removeTeamMember,
     replaceTournamentRosterEntries,
+    setTournamentRosterGuestUser,
+    setTournamentRosterInviteCodes,
     replaceTournamentTasks,
     reviewOrganizerApplication,
     reviewTaskModeration,
@@ -1171,6 +1180,7 @@ function buildAnalyticsPayload(entries, fallbackBase) {
 function serializeUser(user) {
     const effectiveRole = user.role || ROLE_USER;
     const actualRole = user.actual_role || user.role || ROLE_USER;
+    const isGuest = String(user.email || "").endsWith("@guest.qubite.local");
     return {
         id: user.id,
         uid: user.uid,
@@ -1206,6 +1216,7 @@ function serializeUser(user) {
         displayName: buildDisplayName(user),
         initials: buildInitials(user),
         emailVerified: Boolean(user.email_verified_at),
+        isGuest,
         security: {
             email2faEnabled: Boolean(user.email_2fa_enabled),
             phone2faEnabled: Boolean(user.phone_2fa_enabled),
@@ -1216,6 +1227,14 @@ function serializeUser(user) {
             yandex: Boolean(user.yandex_oauth_sub),
         },
     };
+}
+
+function isGuestUserAccount(user) {
+    return Boolean(user && String(user.email || "").endsWith("@guest.qubite.local"));
+}
+
+function sendGuestSessionRestriction(res, message = "Для гостевого входа доступен только турнир по коду.") {
+    sendError(res, 403, message);
 }
 
 function serializeCurrentSessionUser(user, authUser = null) {
@@ -1264,7 +1283,20 @@ function sessionCookieOptions() {
 function serializeTournament(row, currentUserId = null, options = {}) {
     const joined = Boolean(row.joined_individual || row.joined_team);
     const effectiveStatus = getTournamentEffectiveStatus(row);
-    const action = buildTournamentAction(effectiveStatus, joined);
+    const lifecycle = getTournamentLifecycle(row);
+    const categories = getTournamentCategories(row);
+    const entryPolicy = getTournamentEntryPolicy(row);
+    const joinAvailability = buildTournamentJoinAvailability(row, {
+        joined,
+    });
+    const resultAvailability = buildTournamentResultAvailability(row);
+    const readiness = buildTournamentReadiness(row);
+    const action = buildTournamentPrimaryAction(
+        row,
+        joinAvailability,
+        resultAvailability,
+        joined,
+    );
     const date = new Date(row.start_at);
     const includeSensitive = Boolean(options.includeSensitive);
     const statusTextMap = {
@@ -1287,14 +1319,19 @@ function serializeTournament(row, currentUserId = null, options = {}) {
                 : effectiveStatus === "draft"
                   ? "upcoming"
                   : effectiveStatus,
-        rawStatus: row.status,
-        statusText: statusTextMap[effectiveStatus] || "Неизвестно",
+        rawStatus: getTournamentPersistedStatus(row),
+        lifecycle,
+        statusText:
+            getTournamentLifecycleLabel(lifecycle) ||
+            statusTextMap[effectiveStatus] ||
+            "Неизвестно",
         participants: row.participants_count,
-        time: buildTournamentTimeLabel(effectiveStatus, row.start_at, row.end_at),
+        time: buildTournamentLifecycleTimeLabel(row, lifecycle),
         icon: action.icon,
         action: action.label,
         actionType: action.type,
-        category: row.category,
+        category: categories[0] || row.category,
+        categories,
         date: Number.isNaN(date.getTime()) ? null : date.getDate(),
         format: row.format,
         joined,
@@ -1313,9 +1350,14 @@ function serializeTournament(row, currentUserId = null, options = {}) {
         wrongAttemptPenaltySeconds: Number(
             row.wrong_attempt_penalty_seconds || 1200,
         ),
+        entryPolicy,
+        entrySummary: buildTournamentEntrySummary(entryPolicy),
+        joinAvailability,
+        resultAvailability,
         isDaily: Boolean(row.is_daily),
         dailyKey: row.daily_key || null,
         rosterCount: includeSensitive ? Number(row.roster_count || 0) : 0,
+        rosterCodesCount: includeSensitive ? Number(row.roster_codes_count || 0) : 0,
         ownerUserId: includeSensitive ? row.owner_user_id || null : null,
         startAt: row.start_at,
         endAt: row.end_at,
@@ -1323,6 +1365,13 @@ function serializeTournament(row, currentUserId = null, options = {}) {
         updatedAt: row.updated_at || null,
         registrationStartAt: row.registration_start_at || null,
         registrationEndAt: row.registration_end_at || null,
+        lateJoinMode: entryPolicy.lateJoinMode,
+        lateJoinUntilAt: entryPolicy.lateJoinUntilAt,
+        codeMode: entryPolicy.codeMode,
+        readiness: includeSensitive ? readiness : null,
+        availableActions: includeSensitive
+            ? getTournamentAvailableActions(row, readiness)
+            : [],
     };
 }
 
@@ -1670,9 +1719,23 @@ function serializeRosterEntry(entry) {
         teamName: entry.team_name || "",
         classGroup: entry.class_group || "",
         externalId: entry.external_id || "",
+        inviteCode: entry.invite_code || "",
         userStatus: entry.user_status || "active",
         createdAt: entry.created_at,
         updatedAt: entry.updated_at,
+    };
+}
+
+function serializeTournamentHelperCode(entry) {
+    return {
+        id: entry.helper_code_id || entry.id,
+        tournamentId: entry.tournament_id,
+        code: entry.helper_code || entry.code || "",
+        label: entry.helper_label || entry.label || "",
+        helperType: entry.helper_type || "leaderboard",
+        lastUsedAt: entry.helper_last_used_at || entry.last_used_at || null,
+        createdAt: entry.created_at || null,
+        updatedAt: entry.updated_at || null,
     };
 }
 
@@ -2518,12 +2581,11 @@ function redirectToApp(res, params) {
 
 function normalizeTournamentStatusInput(value) {
     const normalized = cleanText(value, 24).toLowerCase() || "draft";
-    if (
-        ["draft", "published", "live", "ended", "archived", "upcoming"].includes(
-            normalized,
-        )
-    ) {
+    if (["draft", "published", "ended", "archived"].includes(normalized)) {
         return normalized;
+    }
+    if (normalized === "live" || normalized === "upcoming") {
+        return "published";
     }
 
     return "draft";
@@ -2545,6 +2607,71 @@ function normalizeTournamentRuntimeMode(value) {
     }
 
     return "competition";
+}
+
+function normalizeTournamentCategorySlug(value) {
+    return cleanText(value, 32)
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9+#.-]/g, "");
+}
+
+function normalizeTournamentCategoriesInput(value, fallback = []) {
+    const sourceItems = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [];
+    const normalized = [];
+
+    for (const item of sourceItems) {
+        const slug = normalizeTournamentCategorySlug(item);
+        if (slug && !normalized.includes(slug)) {
+            normalized.push(slug);
+        }
+    }
+
+    if (normalized.length > 0) {
+        return normalized;
+    }
+
+    const fallbackItems = Array.isArray(fallback) ? fallback : [fallback];
+    for (const item of fallbackItems) {
+        const slug = normalizeTournamentCategorySlug(item);
+        if (slug && !normalized.includes(slug)) {
+            normalized.push(slug);
+        }
+    }
+
+    return normalized.length > 0 ? normalized : ["other"];
+}
+
+function normalizeTournamentLateJoinMode(value) {
+    const normalized = cleanText(value, 32).toLowerCase() || "none";
+    if (
+        ["none", "until_start", "fixed_window", "until_finish"].includes(
+            normalized,
+        )
+    ) {
+        return normalized;
+    }
+
+    return "none";
+}
+
+function normalizeTournamentCodeMode(value) {
+    const normalized = cleanText(value, 24).toLowerCase() || "shared";
+    if (["shared", "personal"].includes(normalized)) {
+        return normalized;
+    }
+    return "shared";
+}
+
+function normalizeTournamentJoinCode(value) {
+    return String(value || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 16);
 }
 
 function normalizePenaltySeconds(value) {
@@ -2583,10 +2710,684 @@ function parseTournamentDateMs(value) {
     return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function getTournamentEffectiveStatus(tournament, nowMs = Date.now()) {
-    const rawStatus = normalizeTournamentStatusInput(
+function getTournamentPersistedStatus(tournament) {
+    return normalizeTournamentStatusInput(
         tournament?.status || tournament?.rawStatus,
     );
+}
+
+function getTournamentCategories(tournament) {
+    const rawCategories =
+        tournament?.categories ??
+        tournament?.categories_json ??
+        tournament?.categoriesJson ??
+        [];
+    let parsedCategories = rawCategories;
+
+    if (typeof rawCategories === "string") {
+        try {
+            parsedCategories = JSON.parse(rawCategories);
+        } catch (error) {
+            parsedCategories = [];
+        }
+    }
+
+    return normalizeTournamentCategoriesInput(parsedCategories, [
+        tournament?.category || "other",
+    ]);
+}
+
+function getTournamentEntryPolicy(tournament) {
+    const rawScope = normalizeTournamentAccessScope(tournament?.access_scope || tournament?.accessScope);
+    const accessCode = cleanText(tournament?.access_code || tournament?.accessCode, 48);
+    const codeMode = normalizeTournamentCodeMode(
+        tournament?.code_mode || tournament?.codeMode,
+    );
+    const joinMode =
+        rawScope === "closed"
+            ? "roster_only"
+            : rawScope === "registration"
+              ? "registration"
+              : rawScope === "code"
+                ? "code"
+                : "open";
+    const requiresCode =
+        joinMode === "code" || rawScope === "code" || accessCode.length > 0;
+    const lateJoinMode =
+        normalizeTournamentLateJoinMode(
+            tournament?.late_join_mode || tournament?.lateJoinMode,
+        ) ||
+        (joinMode === "registration" ? "until_finish" : "none");
+
+    return {
+        joinMode,
+        requiresCode,
+        accessCode,
+        codeMode,
+        lateJoinMode:
+            lateJoinMode === "none" && joinMode === "registration"
+                ? "until_finish"
+                : lateJoinMode,
+        lateJoinUntilAt:
+            tournament?.late_join_until_at || tournament?.lateJoinUntilAt || null,
+        registrationStartAt:
+            tournament?.registration_start_at || tournament?.registrationStartAt || null,
+        registrationEndAt:
+            tournament?.registration_end_at || tournament?.registrationEndAt || null,
+    };
+}
+
+function isTournamentRegistrationOpen(tournament, nowMs = Date.now()) {
+    const policy = getTournamentEntryPolicy(tournament);
+    if (policy.joinMode !== "registration") {
+        return false;
+    }
+
+    const startMs = parseTournamentDateMs(policy.registrationStartAt);
+    const endMs = parseTournamentDateMs(policy.registrationEndAt);
+    if (startMs !== null && nowMs < startMs) {
+        return false;
+    }
+    if (endMs !== null && nowMs > endMs) {
+        return false;
+    }
+    return true;
+}
+
+function isTournamentLateJoinOpen(tournament, nowMs = Date.now()) {
+    const policy = getTournamentEntryPolicy(tournament);
+    const lifecycle = getTournamentEffectiveStatus(tournament, nowMs);
+    if (lifecycle !== "live") {
+        return false;
+    }
+
+    if (policy.lateJoinMode === "until_finish") {
+        return true;
+    }
+
+    const startMs = parseTournamentDateMs(tournament?.start_at || tournament?.startAt);
+    const limitMs =
+        policy.lateJoinMode === "until_start"
+            ? startMs
+            : parseTournamentDateMs(policy.lateJoinUntilAt);
+
+    if (policy.lateJoinMode === "none" || limitMs === null) {
+        return false;
+    }
+
+    return nowMs <= limitMs;
+}
+
+function getTournamentLifecycle(tournament, nowMs = Date.now()) {
+    const persistedStatus = getTournamentPersistedStatus(tournament);
+    if (persistedStatus === "draft") {
+        return "draft";
+    }
+    if (persistedStatus === "archived") {
+        return "archived";
+    }
+    if (persistedStatus === "ended") {
+        return "ended";
+    }
+
+    const effectiveStatus = getTournamentEffectiveStatus(tournament, nowMs);
+    if (effectiveStatus === "ended") {
+        return "ended";
+    }
+    if (effectiveStatus === "live") {
+        return isTournamentLateJoinOpen(tournament, nowMs)
+            ? "live_late_join"
+            : "live";
+    }
+
+    const startMs = parseTournamentDateMs(tournament?.start_at || tournament?.startAt);
+    const policy = getTournamentEntryPolicy(tournament);
+    const isJoinOpenBeforeStart =
+        policy.joinMode === "registration"
+            ? isTournamentRegistrationOpen(tournament, nowMs)
+            : true;
+    const timeToStart = startMs === null ? null : startMs - nowMs;
+
+    if (
+        timeToStart !== null &&
+        timeToStart <= 30 * 60 * 1000 &&
+        timeToStart >= 0
+    ) {
+        return "starting_soon";
+    }
+
+    return isJoinOpenBeforeStart
+        ? "registration_open"
+        : "registration_scheduled";
+}
+
+function getTournamentLifecycleLabel(lifecycle) {
+    const map = {
+        draft: "Черновик",
+        registration_open: "Открыта запись",
+        registration_scheduled: "Запись откроется",
+        starting_soon: "Скоро старт",
+        live: "Идет сейчас",
+        live_late_join: "Идет, вход открыт",
+        ended: "Завершен",
+        archived: "Архив",
+    };
+    return map[lifecycle] || "Соревнование";
+}
+
+function buildTournamentEntrySummary(policy) {
+    const parts = [];
+    if (policy.joinMode === "registration") {
+        parts.push("Запись через регистрацию");
+    } else if (policy.joinMode === "code") {
+        parts.push(
+            policy.codeMode === "personal"
+                ? "Вход по персональным кодам"
+                : "Вход по общему коду",
+        );
+    } else if (policy.joinMode === "roster_only") {
+        parts.push("Допуск по списку");
+    } else {
+        parts.push("Свободный вход");
+    }
+    if (policy.requiresCode && policy.joinMode !== "code") {
+        parts.push("нужен код");
+    }
+    if (policy.lateJoinMode === "until_finish") {
+        parts.push("поздний вход до конца");
+    } else if (policy.lateJoinMode === "fixed_window") {
+        parts.push("поздний вход по окну");
+    }
+    return parts.join(" • ");
+}
+
+function buildTournamentLifecycleTimeLabel(tournament, lifecycle) {
+    const startAt = tournament?.start_at || tournament?.startAt;
+    const endAt = tournament?.end_at || tournament?.endAt;
+    const policy = getTournamentEntryPolicy(tournament);
+    if (lifecycle === "registration_open" && policy.joinMode === "registration") {
+        return policy.registrationEndAt
+            ? `Запись до ${new Date(policy.registrationEndAt).toLocaleString("ru-RU")}`
+            : "Запись уже открыта";
+    }
+    if (
+        lifecycle === "registration_scheduled" &&
+        policy.joinMode === "registration"
+    ) {
+        return policy.registrationStartAt
+            ? `Запись откроется ${new Date(policy.registrationStartAt).toLocaleString("ru-RU")}`
+            : buildTournamentTimeLabel("published", startAt, endAt);
+    }
+    if (lifecycle === "starting_soon" && startAt) {
+        return `Старт ${new Date(startAt).toLocaleString("ru-RU")}`;
+    }
+    if (lifecycle === "live_late_join") {
+        return isTournamentLateJoinOpen(tournament)
+            ? "Турнир идет, вход еще открыт"
+            : buildTournamentTimeLabel("live", startAt, endAt);
+    }
+    return buildTournamentTimeLabel(
+        lifecycle === "registration_open" ||
+            lifecycle === "registration_scheduled" ||
+            lifecycle === "starting_soon"
+            ? "published"
+            : lifecycle === "live_late_join"
+              ? "live"
+              : lifecycle,
+        startAt,
+        endAt,
+    );
+}
+
+function buildTournamentReadiness(tournament) {
+    const blockers = [];
+    const warnings = [];
+    const policy = getTournamentEntryPolicy(tournament);
+    const title = cleanText(tournament?.title, 120);
+    const format = cleanText(tournament?.format, 16).toLowerCase();
+    const startMs = parseTournamentDateMs(tournament?.start_at || tournament?.startAt);
+    const endMs = parseTournamentDateMs(tournament?.end_at || tournament?.endAt);
+    const registrationStartMs = parseTournamentDateMs(policy.registrationStartAt);
+    const registrationEndMs = parseTournamentDateMs(policy.registrationEndAt);
+    const lateJoinUntilMs = parseTournamentDateMs(policy.lateJoinUntilAt);
+    const taskCount = Number(
+        tournament?.task_count || tournament?.taskCount || 0,
+    );
+    const rosterCount = Number(
+        tournament?.roster_count || tournament?.rosterCount || 0,
+    );
+
+    if (title.length < 4) {
+        blockers.push({
+            key: "title",
+            label: "Добавьте понятное название турнира",
+        });
+    }
+    if (!["individual", "team"].includes(format)) {
+        blockers.push({
+            key: "format",
+            label: "Выберите корректный формат турнира",
+        });
+    }
+    if (startMs === null) {
+        blockers.push({
+            key: "startAt",
+            label: "Укажите время старта",
+        });
+    }
+    if (endMs === null || (startMs !== null && endMs <= startMs)) {
+        blockers.push({
+            key: "endAt",
+            label: "Дата окончания должна быть позже старта",
+        });
+    }
+    if (taskCount <= 0) {
+        blockers.push({
+            key: "taskIds",
+            label: "Добавьте хотя бы одну задачу",
+        });
+    }
+    if (!["open", "registration", "roster_only", "code"].includes(policy.joinMode)) {
+        blockers.push({
+            key: "entryPolicy.joinMode",
+            label: "Настройте понятный способ допуска участников",
+        });
+    }
+    if (policy.requiresCode && !policy.accessCode) {
+        blockers.push({
+            key: "entryPolicy.accessCode",
+            label: "Заполните код доступа",
+        });
+    } else if (policy.requiresCode && String(policy.accessCode || "").trim().length < 4) {
+        blockers.push({
+            key: "entryPolicy.accessCode",
+            label: "Код доступа должен быть не короче 4 символов",
+        });
+    }
+    if (policy.joinMode === "registration") {
+        if (registrationStartMs !== null && registrationEndMs !== null && registrationEndMs < registrationStartMs) {
+            blockers.push({
+                key: "registrationEndAt",
+                label: "Окно регистрации закрывается раньше, чем открывается",
+            });
+        }
+        if (registrationEndMs !== null && startMs !== null && registrationEndMs > startMs) {
+            blockers.push({
+                key: "registrationEndAt",
+                label: "Регистрация должна закрываться не позже старта турнира",
+            });
+        }
+    }
+    if (policy.joinMode === "code") {
+        if (policy.codeMode === "shared" && String(policy.accessCode || "").trim().length < 4) {
+            blockers.push({
+                key: "entryPolicy.accessCode",
+                label: "Для входа по общему коду нужен код не короче 4 символов",
+            });
+        }
+        if (policy.codeMode === "personal" && rosterCount <= 0) {
+            blockers.push({
+                key: "roster",
+                label: "Для персональных кодов сначала нужен список допуска",
+            });
+        }
+        if (
+            policy.codeMode === "personal" &&
+            rosterCount > 0 &&
+            Number(tournament?.roster_codes_count || tournament?.rosterCodesCount || 0) < rosterCount
+        ) {
+            blockers.push({
+                key: "personalCodes",
+                label: "Сгенерируйте персональные коды для списка допуска",
+            });
+        }
+    }
+    if (policy.lateJoinMode === "fixed_window") {
+        if (lateJoinUntilMs === null) {
+            blockers.push({
+                key: "lateJoinUntilAt",
+                label: "Для ограниченного позднего входа нужно указать конец окна",
+            });
+        } else if (
+            (startMs !== null && lateJoinUntilMs < startMs) ||
+            (endMs !== null && lateJoinUntilMs > endMs)
+        ) {
+            blockers.push({
+                key: "lateJoinUntilAt",
+                label: "Окно позднего входа должно лежать между стартом и завершением",
+            });
+        }
+    }
+
+    if (policy.joinMode === "roster_only" && rosterCount <= 0) {
+        warnings.push({
+            key: "roster",
+            label: "Roster пока пуст, никто не сможет войти",
+        });
+    }
+    if (format === "team" && rosterCount <= 0) {
+        warnings.push({
+            key: "team-roster",
+            label: "Командный турнир без roster оставит вход только через команды",
+        });
+    }
+    if (!Boolean(tournament?.leaderboard_visible || tournament?.leaderboardVisible)) {
+        warnings.push({
+            key: "leaderboardVisible",
+            label: "Во время live лидерборд будет скрыт",
+        });
+    }
+    if (!Boolean(tournament?.results_visible || tournament?.resultsVisible)) {
+        warnings.push({
+            key: "resultsVisible",
+            label: "После завершения подробные результаты будут скрыты",
+        });
+    }
+    if (
+        (tournament?.runtime_mode || tournament?.runtimeMode) === "lesson" &&
+        Boolean(tournament?.allow_live_task_add || tournament?.allowLiveTaskAdd)
+    ) {
+        warnings.push({
+            key: "allowLiveTaskAdd",
+            label: "В lesson-режиме список задач может меняться по ходу турнира",
+        });
+    }
+
+    return {
+        ready: blockers.length === 0,
+        blockers,
+        warnings,
+        taskCount,
+        rosterCount,
+    };
+}
+
+function getTournamentAvailableActions(tournament, readiness = null) {
+    const lifecycle = getTournamentLifecycle(tournament);
+    const persistedStatus = getTournamentPersistedStatus(tournament);
+    const startMs = parseTournamentDateMs(tournament?.start_at || tournament?.startAt);
+    const nowMs = Date.now();
+    const entriesCount = Number(tournament?.participants_count || tournament?.participants || 0);
+    const submissionsCount = Number(tournament?.submissions_count || 0);
+    const actions = [];
+    const canUnpublish =
+        persistedStatus === "published" &&
+        (startMs === null || nowMs < startMs) &&
+        entriesCount === 0 &&
+        submissionsCount === 0;
+
+    if (persistedStatus === "draft") {
+        actions.push({
+            id: "publish",
+            label: "Опубликовать",
+            tone: readiness?.ready ? "accent" : "muted",
+            disabled: !readiness?.ready,
+        });
+        actions.push({
+            id: "duplicate",
+            label: "Дублировать",
+            tone: "muted",
+        });
+        actions.push({
+            id: "archive",
+            label: "Архивировать",
+            tone: "muted",
+        });
+        return actions;
+    }
+
+    if (persistedStatus === "published") {
+        if (canUnpublish) {
+            actions.push({
+                id: "unpublish",
+                label: "Вернуть в черновик",
+                tone: "muted",
+            });
+        }
+        if (lifecycle === "registration_open" || lifecycle === "registration_scheduled" || lifecycle === "starting_soon") {
+            actions.push({
+                id: "start_now",
+                label: "Начать сейчас",
+                tone: "accent",
+            });
+            actions.push({
+                id: "reschedule",
+                label: "Перенести",
+                tone: "muted",
+            });
+        }
+        if (lifecycle === "live" || lifecycle === "live_late_join") {
+            actions.push({
+                id: "extend",
+                label: "Продлить",
+                tone: "muted",
+            });
+            actions.push({
+                id: "finish_now",
+                label: "Завершить досрочно",
+                tone: "danger",
+            });
+        }
+        actions.push({
+            id: "duplicate",
+            label: "Дублировать",
+            tone: "muted",
+        });
+        return actions;
+    }
+
+    if (persistedStatus === "ended" || lifecycle === "ended") {
+        actions.push({
+            id: "repeat",
+            label: "Повторить на новую дату",
+            tone: "accent",
+        });
+        actions.push({
+            id: "duplicate",
+            label: "Дублировать",
+            tone: "muted",
+        });
+        actions.push({
+            id: "archive",
+            label: "Архивировать",
+            tone: "muted",
+        });
+        return actions;
+    }
+
+    if (persistedStatus === "archived") {
+        actions.push({
+            id: "repeat",
+            label: "Повторить",
+            tone: "accent",
+        });
+        actions.push({
+            id: "duplicate",
+            label: "Дублировать",
+            tone: "muted",
+        });
+    }
+
+    return actions;
+}
+
+function buildTournamentResultAvailability(tournament, nowMs = Date.now()) {
+    const lifecycle = getTournamentLifecycle(tournament, nowMs);
+    const leaderboardVisible = Boolean(
+        tournament?.leaderboard_visible || tournament?.leaderboardVisible,
+    );
+    const resultsVisible = Boolean(
+        tournament?.results_visible || tournament?.resultsVisible,
+    );
+
+    if (lifecycle === "live" || lifecycle === "live_late_join") {
+        return {
+            visible: leaderboardVisible,
+            state: leaderboardVisible ? "leaderboard" : "hidden",
+            label: leaderboardVisible
+                ? "Лидерборд открыт во время турнира"
+                : "Лидерборд скрыт до завершения",
+        };
+    }
+
+    if (lifecycle === "ended" || lifecycle === "archived") {
+        return {
+            visible: resultsVisible,
+            state: resultsVisible ? "results" : "hidden",
+            label: resultsVisible
+                ? "Итоги и результаты доступны"
+                : "Турнир завершен, но результаты скрыты",
+        };
+    }
+
+    return {
+        visible: false,
+        state: "pending",
+        label: "Результаты появятся после завершения турнира",
+    };
+}
+
+function buildTournamentJoinAvailability(tournament, options = {}, nowMs = Date.now()) {
+    const joined = Boolean(options.joined);
+    const lifecycle = getTournamentLifecycle(tournament, nowMs);
+    const policy = getTournamentEntryPolicy(tournament);
+
+    if (joined) {
+        if (lifecycle === "live" || lifecycle === "live_late_join") {
+            return {
+                canJoin: false,
+                canSolve: true,
+                state: "solve",
+                label: "Решать",
+                description: "Вы уже внутри турнира и можете открыть задачи.",
+                requiresCode: policy.requiresCode,
+                requiresRoster: policy.joinMode === "roster_only",
+                lateJoinOpen: isTournamentLateJoinOpen(tournament, nowMs),
+            };
+        }
+        return {
+            canJoin: false,
+            canSolve: false,
+            state: lifecycle === "ended" || lifecycle === "archived" ? "finished" : "joined",
+            label:
+                lifecycle === "ended" || lifecycle === "archived"
+                    ? "Турнир завершен"
+                    : "Вы записаны",
+            description:
+                lifecycle === "ended" || lifecycle === "archived"
+                    ? "Новые отправки закрыты."
+                    : "Дождитесь старта турнира.",
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: false,
+        };
+    }
+
+    if (lifecycle === "draft") {
+        return {
+            canJoin: false,
+            canSolve: false,
+            state: "hidden",
+            label: "Черновик",
+            description: "Турнир еще не опубликован.",
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: false,
+        };
+    }
+    if (lifecycle === "archived" || lifecycle === "ended") {
+        return {
+            canJoin: false,
+            canSolve: false,
+            state: "closed",
+            label: "Вход закрыт",
+            description: "Турнир уже завершен.",
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: false,
+        };
+    }
+    if (lifecycle === "registration_scheduled") {
+        return {
+            canJoin: false,
+            canSolve: false,
+            state: "scheduled",
+            label: "Запись скоро откроется",
+            description: policy.registrationStartAt
+                ? `Окно записи откроется ${new Date(policy.registrationStartAt).toLocaleString("ru-RU")}.`
+                : "Запись пока недоступна.",
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: false,
+        };
+    }
+    if (lifecycle === "registration_open" || lifecycle === "starting_soon") {
+        return {
+            canJoin: true,
+            canSolve: false,
+            state: "join",
+            label: policy.joinMode === "code" ? "Войти по коду" : "Записаться",
+            description: buildTournamentEntrySummary(policy),
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: false,
+        };
+    }
+    if (lifecycle === "live_late_join") {
+        return {
+            canJoin: true,
+            canSolve: false,
+            state: "join_live",
+            label: "Войти",
+            description: "Турнир уже идет, но вход еще открыт.",
+            requiresCode: policy.requiresCode,
+            requiresRoster: policy.joinMode === "roster_only",
+            lateJoinOpen: true,
+        };
+    }
+
+    return {
+        canJoin: false,
+        canSolve: false,
+        state: "locked",
+        label: "Вход закрыт",
+        description: "Сейчас присоединиться нельзя.",
+        requiresCode: policy.requiresCode,
+        requiresRoster: policy.joinMode === "roster_only",
+        lateJoinOpen: false,
+    };
+}
+
+function buildTournamentPrimaryAction(
+    tournament,
+    joinAvailability,
+    resultAvailability,
+    joined,
+) {
+    if (joinAvailability?.canSolve) {
+        return { label: "Решать", type: "solve", icon: "play_circle" };
+    }
+    if (joinAvailability?.canJoin) {
+        return {
+            label: joinAvailability.label || "Записаться",
+            type: "join",
+            icon:
+                joinAvailability.state === "join_live"
+                    ? "login"
+                    : "calendar_today",
+        };
+    }
+    if (resultAvailability?.visible && (getTournamentLifecycle(tournament) === "ended" || getTournamentLifecycle(tournament) === "archived")) {
+        return { label: "Результаты", type: "muted", icon: "history" };
+    }
+    if (joined) {
+        return { label: "Открыть", type: "outline", icon: "schedule" };
+    }
+    return { label: "Открыть", type: "outline", icon: "calendar_today" };
+}
+
+function getTournamentEffectiveStatus(tournament, nowMs = Date.now()) {
+    const rawStatus = getTournamentPersistedStatus(tournament);
     const startMs = parseTournamentDateMs(
         tournament?.start_at || tournament?.startAt,
     );
@@ -2600,12 +3401,8 @@ function getTournamentEffectiveStatus(tournament, nowMs = Date.now()) {
         return "ended";
     }
 
-    if (rawStatus === "live" && startMs !== null && nowMs < startMs) {
-        return "upcoming";
-    }
-
     if (
-        (rawStatus === "published" || rawStatus === "upcoming") &&
+        rawStatus === "published" &&
         startMs !== null &&
         nowMs >= startMs &&
         (endMs === null || nowMs <= endMs)
@@ -2654,6 +3451,287 @@ function getLeaderboardVisibilityErrorMessage(tournament) {
     }
 
     return "Результаты этого соревнования пока скрыты организатором.";
+}
+
+function buildCsvCell(value) {
+    const text = String(value ?? "");
+    if (/[,"\n;]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+}
+
+function formatTournamentResultsCsv(entries = []) {
+    const header = [
+        "place",
+        "display_name",
+        "user_id",
+        "team_id",
+        "score",
+        "solved_count",
+        "penalty_seconds",
+        "joined_at",
+        "last_submission_at",
+    ];
+    const rows = entries.map((entry) => [
+        entry.rank_position || "",
+        entry.display_name || "",
+        entry.user_id || "",
+        entry.team_id || "",
+        entry.score || 0,
+        entry.solved_count || 0,
+        entry.penalty_seconds || 0,
+        entry.joined_at || "",
+        entry.last_submission_at || "",
+    ]);
+    return [header, ...rows]
+        .map((row) => row.map((cell) => buildCsvCell(cell)).join(","))
+        .join("\n");
+}
+
+function generateTournamentAccessCode() {
+    return generateRandomToken(4).slice(0, 8).toUpperCase();
+}
+
+function generateTournamentHelperCode() {
+    return `H${generateRandomToken(4).slice(0, 7).toUpperCase()}`;
+}
+
+async function generateUniqueTournamentCode(factory, attempts = 40) {
+    for (let index = 0; index < attempts; index += 1) {
+        const candidate = String(factory()).trim().toUpperCase();
+        if (!candidate) {
+            continue;
+        }
+        const taken = await isTournamentCodeTaken(
+            normalizeTournamentJoinCode(candidate),
+        );
+        if (!taken) {
+            return candidate;
+        }
+    }
+
+    throw new Error("Не удалось сгенерировать уникальный код. Повторите попытку.");
+}
+
+function formatTournamentInviteCodesCsv(entries = []) {
+    const header = [
+        "full_name",
+        "login",
+        "email",
+        "team_name",
+        "class_group",
+        "invite_code",
+    ];
+    const rows = entries.map((entry) => [
+        entry.full_name || "",
+        entry.login || "",
+        entry.email || "",
+        entry.team_name || "",
+        entry.class_group || "",
+        entry.invite_code || "",
+    ]);
+    return [header, ...rows]
+        .map((row) => row.map((cell) => buildCsvCell(cell)).join(","))
+        .join("\n");
+}
+
+function formatTournamentHelperCodesCsv(entries = []) {
+    const header = ["label", "helper_type", "code", "last_used_at"];
+    const rows = entries.map((entry) => [
+        entry.label || "",
+        entry.helper_type || "leaderboard",
+        entry.code || "",
+        entry.last_used_at || "",
+    ]);
+    return [header, ...rows]
+        .map((row) => row.map((cell) => buildCsvCell(cell)).join(","))
+        .join("\n");
+}
+
+async function createGuestUserSession({
+    fullName,
+    studyGroup = "",
+    ipAddress = "",
+    userAgent = "",
+    loginPrefix = "guest",
+}) {
+    const uid = makeUid("G");
+    const login = await findNextUniqueLogin(
+        `${loginPrefix}-${uid.slice(-6).toLowerCase()}`,
+    );
+    const email = `${login}@guest.qubite.local`;
+    const generatedPassword = generateRandomToken(24);
+    const { hash, salt } = await hashPassword(generatedPassword);
+    const user = await createUser({
+        uid,
+        login,
+        loginNormalized: normalizeLogin(login),
+        email,
+        emailNormalized: normalizeEmail(email),
+        passwordHash: hash,
+        passwordSalt: salt,
+        firstName: fullName,
+        studyGroup,
+        place: "Гостевой вход",
+        city: "",
+        emailVerifiedAt: new Date().toISOString(),
+    });
+
+    const rawToken = generateSessionToken();
+    await createSession({
+        userId: user.id,
+        tokenHash: hashSessionToken(rawToken),
+        ipAddress,
+        userAgent,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+    });
+    await setUserLastLogin(user.id);
+
+    return {
+        user,
+        rawToken,
+    };
+}
+
+function getDefaultTournamentDraftTimes() {
+    const startAt = new Date();
+    startAt.setDate(startAt.getDate() + 1);
+    startAt.setHours(10, 0, 0, 0);
+    const endAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000);
+    return {
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+    };
+}
+
+async function duplicateTournamentForOrganizer(sourceTournament, ownerUserId, options = {}) {
+    const taskIds = (await listTournamentTasks(sourceTournament.id)).map((task) =>
+        Number(task.id),
+    );
+    const sourceStartMs = parseTournamentDateMs(sourceTournament.start_at);
+    const sourceEndMs = parseTournamentDateMs(sourceTournament.end_at);
+    const durationMs =
+        sourceStartMs !== null && sourceEndMs !== null && sourceEndMs > sourceStartMs
+            ? sourceEndMs - sourceStartMs
+            : 2 * 60 * 60 * 1000;
+    const defaults = getDefaultTournamentDraftTimes();
+    const startAt = isValidDate(options.startAt)
+        ? new Date(options.startAt).toISOString()
+        : defaults.startAt;
+    const endAt = isValidDate(options.endAt)
+        ? new Date(options.endAt).toISOString()
+        : new Date(Date.parse(startAt) + durationMs).toISOString();
+    const startAtMs = Date.parse(startAt);
+    const endAtMs = Date.parse(endAt);
+    const categories = normalizeTournamentCategoriesInput(
+        options.categories,
+        getTournamentCategories(sourceTournament),
+    );
+    const entryPolicy = getTournamentEntryPolicy(sourceTournament);
+    const shiftRelativeToNextStart = (sourceIso, fallbackIso = null) => {
+        if (!isValidDate(sourceIso) || sourceStartMs === null) {
+            return fallbackIso;
+        }
+        const sourceValueMs = Date.parse(sourceIso);
+        const deltaMs = sourceStartMs - sourceValueMs;
+        return new Date(startAtMs - deltaMs).toISOString();
+    };
+    const nextRegistrationEndAtRaw = shiftRelativeToNextStart(
+        sourceTournament.registration_end_at,
+        startAt,
+    );
+    const nextRegistrationEndAt =
+        isValidDate(nextRegistrationEndAtRaw) &&
+        Date.parse(nextRegistrationEndAtRaw) <= startAtMs
+            ? nextRegistrationEndAtRaw
+            : startAt;
+    const nextRegistrationStartAtRaw = shiftRelativeToNextStart(
+        sourceTournament.registration_start_at,
+        nextRegistrationEndAt,
+    );
+    const nextRegistrationStartAt =
+        isValidDate(nextRegistrationStartAtRaw) &&
+        Date.parse(nextRegistrationStartAtRaw) <= Date.parse(nextRegistrationEndAt)
+            ? nextRegistrationStartAtRaw
+            : nextRegistrationEndAt;
+    const nextLateJoinUntilAtRaw =
+        entryPolicy.lateJoinMode === "fixed_window"
+            ? shiftRelativeToNextStart(entryPolicy.lateJoinUntilAt, null)
+            : null;
+    const nextLateJoinUntilAt =
+        entryPolicy.lateJoinMode === "fixed_window" &&
+        isValidDate(nextLateJoinUntilAtRaw)
+            ? new Date(
+                  Math.min(
+                      Math.max(Date.parse(nextLateJoinUntilAtRaw), startAtMs),
+                      endAtMs,
+                  ),
+              ).toISOString()
+            : null;
+    const created = await createTournament({
+        ownerUserId,
+        title: cleanText(
+            options.title || `${sourceTournament.title} (копия)`,
+            120,
+        ),
+        description: sourceTournament.description || "",
+        category: categories[0] || sourceTournament.category || "other",
+        categories,
+        format: sourceTournament.format || "individual",
+        status: "draft",
+        startAt,
+        endAt,
+        taskIds,
+        accessScope:
+            entryPolicy.joinMode === "roster_only"
+                ? "closed"
+                : entryPolicy.joinMode === "registration"
+                  ? "registration"
+                  : entryPolicy.joinMode === "code" || entryPolicy.requiresCode
+                    ? "code"
+                    : "open",
+        accessCode:
+            entryPolicy.joinMode === "code" && entryPolicy.codeMode === "shared"
+                ? null
+                : entryPolicy.requiresCode
+                  ? entryPolicy.accessCode
+                  : null,
+        codeMode: entryPolicy.joinMode === "code" ? entryPolicy.codeMode : "shared",
+        runtimeMode: sourceTournament.runtime_mode || "competition",
+        allowLiveTaskAdd: Boolean(sourceTournament.allow_live_task_add),
+        wrongAttemptPenaltySeconds: Number(
+            sourceTournament.wrong_attempt_penalty_seconds || 1200,
+        ),
+        leaderboardVisible: Boolean(sourceTournament.leaderboard_visible),
+        resultsVisible: Boolean(sourceTournament.results_visible),
+        registrationStartAt: nextRegistrationStartAt,
+        registrationEndAt: nextRegistrationEndAt,
+        lateJoinMode: entryPolicy.lateJoinMode,
+        lateJoinUntilAt: nextLateJoinUntilAt,
+    });
+
+    if (options.copyRoster) {
+        const roster = await listTournamentRosterEntries(sourceTournament.id);
+        if (roster.length > 0) {
+            await replaceTournamentRosterEntries(
+                created.id,
+                ownerUserId,
+                roster.map((item) => ({
+                    userId: item.user_id,
+                    login: item.login,
+                    email: item.email,
+                    fullName: item.full_name,
+                    teamName: item.team_name,
+                    classGroup: item.class_group,
+                    externalId: item.external_id,
+                    inviteCode: null,
+                })),
+            );
+        }
+    }
+
+    return created;
 }
 
 async function buildRosterPreview(base64File, format = "individual") {
@@ -3102,6 +4180,388 @@ app.post("/api/auth/login", publicExpensiveRateLimiter, authRateLimiter, require
     }
 });
 
+app.post("/api/auth/code-entry/inspect", publicExpensiveRateLimiter, authRateLimiter, async (req, res, next) => {
+    try {
+        const accessCode = normalizeTournamentJoinCode(req.body.code);
+        if (accessCode.length < 4) {
+            sendError(res, 400, "Введите код.", "code");
+            return;
+        }
+
+        const helperMatch = await findTournamentHelperCode(accessCode);
+        if (helperMatch) {
+            const tournament = await getTournamentById(helperMatch.tournament_id);
+            if (!tournament || !canParticipantViewLeaderboard(tournament)) {
+                sendError(res, 409, "Для этого helper-кода таблица сейчас недоступна.", "code");
+                return;
+            }
+            res.json({
+                codeType: "helper",
+                tournamentId: tournament.id,
+                title: tournament.title,
+                label: helperMatch.helper_label || "Экран",
+            });
+            return;
+        }
+
+        const personalMatch = await findTournamentRosterEntryByInviteCode(accessCode);
+        if (personalMatch) {
+            const entryPolicy = getTournamentEntryPolicy(personalMatch);
+            if (entryPolicy.joinMode !== "code" || entryPolicy.codeMode !== "personal") {
+                sendError(res, 409, "Этот персональный код сейчас не активен.", "code");
+                return;
+            }
+            if ((personalMatch.format || "individual") !== "individual") {
+                sendError(
+                    res,
+                    409,
+                    "Персональный вход по коду пока доступен только для личных турниров.",
+                    "code",
+                );
+                return;
+            }
+            const effectiveStatus = getTournamentEffectiveStatus(personalMatch);
+            const lateJoinOpen = isTournamentLateJoinOpen(personalMatch);
+            const lifecycle = getTournamentLifecycle(personalMatch);
+            if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+                sendError(res, 409, "Турнир уже завершён.", "code");
+                return;
+            }
+            if (lifecycle === "registration_scheduled") {
+                sendError(res, 409, "Вход по коду откроется позже.", "code");
+                return;
+            }
+            if (effectiveStatus === "live" && !lateJoinOpen) {
+                sendError(res, 409, "Турнир уже начался и поздний вход закрыт.", "code");
+                return;
+            }
+            res.json({
+                codeType: "personal",
+                tournamentId: personalMatch.tournament_id,
+                title: personalMatch.title,
+                participantName:
+                    personalMatch.roster_full_name ||
+                    personalMatch.full_name ||
+                    "Участник",
+            });
+            return;
+        }
+
+        const tournament = await findTournamentByAccessCode(accessCode);
+        if (!tournament) {
+            sendError(res, 404, "Код не найден.", "code");
+            return;
+        }
+
+        const entryPolicy = getTournamentEntryPolicy(tournament);
+        if (entryPolicy.joinMode !== "code" || entryPolicy.codeMode !== "shared") {
+            sendError(res, 409, "Этот код не подходит для гостевого входа.", "code");
+            return;
+        }
+        if ((tournament.format || "individual") !== "individual") {
+            sendError(
+                res,
+                409,
+                "Гостевой вход по общему коду пока доступен только для личных турниров.",
+                "code",
+            );
+            return;
+        }
+
+        const effectiveStatus = getTournamentEffectiveStatus(tournament);
+        const lateJoinOpen = isTournamentLateJoinOpen(tournament);
+        const lifecycle = getTournamentLifecycle(tournament);
+        if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+            sendError(res, 409, "Турнир уже завершён.", "code");
+            return;
+        }
+        if (lifecycle === "registration_scheduled") {
+            sendError(res, 409, "Вход по коду откроется позже.", "code");
+            return;
+        }
+        if (effectiveStatus === "live" && !lateJoinOpen) {
+            sendError(res, 409, "Турнир уже начался и поздний вход закрыт.", "code");
+            return;
+        }
+
+        res.json({
+            codeType: "shared",
+            tournamentId: tournament.id,
+            title: tournament.title,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/code-entry", publicExpensiveRateLimiter, authRateLimiter, async (req, res, next) => {
+    try {
+        const accessCode = normalizeTournamentJoinCode(req.body.code);
+        const fullName = cleanText(req.body.fullName, 120);
+        const ipAddress = getRequestIp(req);
+        const userAgent = req.headers["user-agent"] || "";
+
+        if (accessCode.length < 4) {
+            sendError(res, 400, "Введите код турнира.", "code");
+            return;
+        }
+
+        const helperMatch = await findTournamentHelperCode(accessCode);
+        if (helperMatch) {
+            const helperTournament = await getTournamentById(helperMatch.tournament_id);
+            if (!helperTournament) {
+                sendError(res, 404, "Турнир для helper-кода не найден.", "code");
+                return;
+            }
+            if (!canParticipantViewLeaderboard(helperTournament)) {
+                sendError(
+                    res,
+                    409,
+                    getLeaderboardVisibilityErrorMessage(helperTournament),
+                    "code",
+                );
+                return;
+            }
+
+            const helperDisplayName =
+                fullName || helperMatch.helper_label || "Экран";
+            const { user, rawToken } = await createGuestUserSession({
+                fullName: helperDisplayName,
+                studyGroup: "",
+                ipAddress,
+                userAgent,
+                loginPrefix: "helper",
+            });
+            await markTournamentHelperCodeUsed(helperMatch.helper_code_id);
+
+            const [tasks, leaderboard] = await Promise.all([
+                listTournamentTasks(helperTournament.id),
+                listLeaderboardForTournament(helperTournament.id),
+            ]);
+
+            res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+            res.status(201).json({
+                user: serializeUser(user),
+                tournamentId: helperTournament.id,
+                viewMode: "leaderboard",
+                helperLabel: helperMatch.helper_label || "",
+                leaderboard: serializeLeaderboard(helperTournament, tasks, leaderboard, {
+                    user,
+                    teamMembership: null,
+                    rosterEntry: null,
+                }),
+            });
+            return;
+        }
+
+        const personalMatch = await findTournamentRosterEntryByInviteCode(accessCode);
+        if (personalMatch) {
+            const entryPolicy = getTournamentEntryPolicy(personalMatch);
+            if (entryPolicy.joinMode !== "code" || entryPolicy.codeMode !== "personal") {
+                sendError(res, 409, "Этот персональный код сейчас не активен.", "code");
+                return;
+            }
+            if ((personalMatch.format || "individual") !== "individual") {
+                sendError(
+                    res,
+                    409,
+                    "Персональный вход по коду пока доступен только для личных турниров.",
+                    "code",
+                );
+                return;
+            }
+
+            const effectiveStatus = getTournamentEffectiveStatus(personalMatch);
+            const lifecycle = getTournamentLifecycle(personalMatch);
+            const lateJoinOpen = isTournamentLateJoinOpen(personalMatch);
+            if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+                sendError(res, 409, "Турнир уже завершён.", "code");
+                return;
+            }
+            if (lifecycle === "registration_scheduled") {
+                sendError(res, 409, "Вход по коду откроется позже.", "code");
+                return;
+            }
+            if (effectiveStatus === "live" && !lateJoinOpen) {
+                sendError(res, 409, "Турнир уже начался и поздний вход закрыт.", "code");
+                return;
+            }
+
+            let user = null;
+            let rawToken = "";
+            const guestUserId = Number(personalMatch.roster_guest_user_id || 0);
+            if (guestUserId > 0) {
+                user = await getUserById(guestUserId);
+            }
+            if (!user || user.status !== "active") {
+                const created = await createGuestUserSession({
+                    fullName:
+                        personalMatch.roster_full_name ||
+                        personalMatch.full_name ||
+                        personalMatch.login ||
+                        "Участник",
+                    studyGroup:
+                        personalMatch.roster_class_group ||
+                        personalMatch.class_group ||
+                        "",
+                    ipAddress,
+                    userAgent,
+                    loginPrefix: "guest",
+                });
+                user = created.user;
+                rawToken = created.rawToken;
+                await setTournamentRosterGuestUser(
+                    personalMatch.tournament_id,
+                    personalMatch.roster_entry_id || personalMatch.id,
+                    user.id,
+                );
+                const tasks = await listTournamentTasks(personalMatch.tournament_id);
+                await joinTournament({
+                    tournamentId: personalMatch.tournament_id,
+                    userId: user.id,
+                    teamId: null,
+                    entryType: "user",
+                    displayName:
+                        personalMatch.roster_full_name ||
+                        personalMatch.full_name ||
+                        "Участник",
+                    totalTasks: tasks.length,
+                });
+            } else {
+                rawToken = generateSessionToken();
+                await createSession({
+                    userId: user.id,
+                    tokenHash: hashSessionToken(rawToken),
+                    ipAddress,
+                    userAgent,
+                    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+                });
+                await setUserLastLogin(user.id);
+            }
+
+            const updatedTournament = await getTournamentById(personalMatch.tournament_id);
+            const runtimePayload =
+                isTournamentRuntimeOpen(updatedTournament)
+                    ? await buildTournamentRuntimePayload(
+                          updatedTournament,
+                          await getTournamentEntryForContext({
+                              tournamentId: updatedTournament.id,
+                              userId: user.id,
+                          }),
+                          { user },
+                      )
+                    : null;
+
+            res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+            res.status(201).json({
+                user: serializeUser(user),
+                tournamentId: updatedTournament.id,
+                viewMode: runtimePayload ? "runtime" : "details",
+                runtime: runtimePayload,
+            });
+            return;
+        }
+
+        const tournament = await findTournamentByAccessCode(accessCode);
+        if (!tournament) {
+            sendError(res, 404, "Турнир с таким кодом не найден.", "code");
+            return;
+        }
+
+        const entryPolicy = getTournamentEntryPolicy(tournament);
+        if (entryPolicy.joinMode !== "code") {
+            sendError(res, 409, "Этот турнир не поддерживает гостевой вход по коду.");
+            return;
+        }
+
+        if (entryPolicy.codeMode !== "shared") {
+            sendError(
+                res,
+                409,
+                "Персональные коды пока требуют заранее подготовленных аккаунтов участников.",
+            );
+            return;
+        }
+
+        if ((tournament.format || "individual") !== "individual") {
+            sendError(
+                res,
+                409,
+                "Гостевой вход по коду пока доступен только для личных турниров.",
+            );
+            return;
+        }
+
+        const effectiveStatus = getTournamentEffectiveStatus(tournament);
+        if (effectiveStatus === "ended" || effectiveStatus === "archived") {
+            sendError(res, 409, "Турнир уже завершён.");
+            return;
+        }
+
+        const lifecycle = getTournamentLifecycle(tournament);
+        const lateJoinOpen = isTournamentLateJoinOpen(tournament);
+        if (lifecycle === "registration_scheduled") {
+            sendError(res, 409, "Вход по коду откроется позже.");
+            return;
+        }
+        if (effectiveStatus === "live" && !lateJoinOpen) {
+            sendError(res, 409, "Турнир уже начался и поздний вход закрыт.");
+            return;
+        }
+
+        const expectedCode = normalizeTournamentJoinCode(entryPolicy.accessCode);
+        if (!expectedCode || expectedCode !== accessCode) {
+            sendError(res, 403, "Неверный код турнира.", "code");
+            return;
+        }
+        if (fullName.length < 3) {
+            sendError(res, 400, "Укажите имя и фамилию участника.", "fullName");
+            return;
+        }
+
+        const { user, rawToken } = await createGuestUserSession({
+            fullName,
+            studyGroup: "",
+            ipAddress,
+            userAgent,
+            loginPrefix: "guest",
+        });
+
+        const tasks = await listTournamentTasks(tournament.id);
+        await joinTournament({
+            tournamentId: tournament.id,
+            userId: user.id,
+            teamId: null,
+            entryType: "user",
+            displayName: fullName,
+            totalTasks: tasks.length,
+        });
+
+        const updatedTournament = await getTournamentById(tournament.id);
+        const runtimePayload =
+            isTournamentRuntimeOpen(updatedTournament)
+                ? await buildTournamentRuntimePayload(
+                      updatedTournament,
+                      await getTournamentEntryForContext({
+                          tournamentId: updatedTournament.id,
+                          userId: user.id,
+                      }),
+                      { user },
+                  )
+                : null;
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.status(201).json({
+            user: serializeUser(user),
+            tournamentId: updatedTournament.id,
+            viewMode: runtimePayload ? "runtime" : "details",
+            runtime: runtimePayload,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post("/api/auth/2fa/login/verify", challengeVerifyRateLimiter, async (req, res, next) => {
     try {
         const flowToken = String(req.body.flowToken || "");
@@ -3492,7 +4952,11 @@ app.delete("/api/auth/2fa/email", requireAuth, async (req, res, next) => {
 
 app.post("/api/auth/logout", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
-        await revokeSessionById(req.auth.session.id);
+        if (isGuestUserAccount(req.auth.user)) {
+            await revokeSessionsForUser(req.auth.user.id);
+        } else {
+            await revokeSessionById(req.auth.session.id);
+        }
         res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
         res.json({ success: true });
     } catch (error) {
@@ -3633,6 +5097,13 @@ app.get("/api/profile", requireAuth, async (req, res, next) => {
 
 app.put("/api/profile", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к редактированию профиля.",
+            );
+            return;
+        }
         const currentUser = await getUserById(req.auth.user.id);
         const payload = {
             lastName: cleanText(req.body.lastName, 80),
@@ -3716,6 +5187,13 @@ app.put("/api/profile", requireAuth, profileWriteRateLimiter, async (req, res, n
 
 app.put("/api/profile/password", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Для гостевой сессии смена пароля недоступна.",
+            );
+            return;
+        }
         const oldPassword = String(req.body.oldPassword || "");
         const newPassword = String(req.body.newPassword || "");
 
@@ -3769,6 +5247,13 @@ app.get("/api/organizer-applications/mine", requireAuth, async (req, res, next) 
 
 app.post("/api/organizer-applications", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду нельзя использовать как обычный аккаунт.",
+            );
+            return;
+        }
         if (await hasPendingOrganizerApplication(req.auth.user.id)) {
             sendError(
                 res,
@@ -3825,6 +5310,13 @@ app.post("/api/organizer-applications", requireParticipant, async (req, res, nex
 
 app.get("/api/team", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к разделу команды.",
+            );
+            return;
+        }
         const bundle = await getTeamForUser(req.auth.user.id);
         res.json(serializeTeam(bundle, req.auth.user.id));
     } catch (error) {
@@ -3834,6 +5326,13 @@ app.get("/api/team", requireParticipant, async (req, res, next) => {
 
 app.post("/api/team", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к созданию команды.",
+            );
+            return;
+        }
         const name = cleanText(req.body.name, 64);
         const description = cleanText(req.body.description, 500);
 
@@ -3865,6 +5364,13 @@ app.post("/api/team", requireParticipant, async (req, res, next) => {
 
 app.post("/api/team/join", requireParticipant, teamJoinRateLimiter, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к командам.",
+            );
+            return;
+        }
         const teamCode = cleanText(req.body.teamCode, 32).toUpperCase();
         if (!/^T-[A-Z0-9]{8}$/.test(teamCode)) {
             sendError(res, 400, "Некорректный код команды.", "teamCode");
@@ -3896,6 +5402,13 @@ app.post("/api/team/join", requireParticipant, teamJoinRateLimiter, async (req, 
 
 app.put("/api/team", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к редактированию команды.",
+            );
+            return;
+        }
         const bundle = await getTeamForUser(req.auth.user.id);
         if (!bundle) {
             sendError(res, 404, "Команда не найдена.");
@@ -3925,6 +5438,13 @@ app.put("/api/team", requireParticipant, async (req, res, next) => {
 
 app.post("/api/team/leave", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не участвует в обычных командах.",
+            );
+            return;
+        }
         const success = await leaveTeam(req.auth.user.id);
         invalidateAdminReadCaches();
         res.json({ success });
@@ -3935,6 +5455,13 @@ app.post("/api/team/leave", requireParticipant, async (req, res, next) => {
 
 app.post("/api/team/transfer", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к управлению командой.",
+            );
+            return;
+        }
         const bundle = await getTeamForUser(req.auth.user.id);
         if (!bundle) {
             sendError(res, 404, "Команда не найдена.");
@@ -3973,6 +5500,13 @@ app.post("/api/team/transfer", requireParticipant, async (req, res, next) => {
 
 app.delete("/api/team/members/:userId", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к управлению командой.",
+            );
+            return;
+        }
         const bundle = await getTeamForUser(req.auth.user.id);
         if (!bundle) {
             sendError(res, 404, "Команда не найдена.");
@@ -4300,11 +5834,16 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
     try {
         const title = cleanText(req.body.title, 120);
         const description = cleanText(req.body.description, 1200);
-        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
+        const categories = normalizeTournamentCategoriesInput(req.body.categories, [
+            req.body.category || "other",
+        ]);
+        const category = categories[0] || "other";
         const format = cleanText(req.body.format, 16).toLowerCase() || "individual";
         const status = normalizeTournamentStatusInput(req.body.status);
         const accessScope = normalizeTournamentAccessScope(req.body.accessScope);
+        const codeMode = normalizeTournamentCodeMode(req.body.codeMode);
         const runtimeMode = normalizeTournamentRuntimeMode(req.body.runtimeMode);
+        const lateJoinMode = normalizeTournamentLateJoinMode(req.body.lateJoinMode);
         const rawStartAt = String(req.body.startAt || "");
         const rawEndAt = String(req.body.endAt || "");
         const taskIds = Array.isArray(req.body.taskIds)
@@ -4351,6 +5890,7 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
             title,
             description,
             category,
+            categories,
             format,
             status,
             startAt,
@@ -4361,6 +5901,7 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
                 accessScope === "code"
                     ? cleanText(req.body.accessCode, 48)
                     : null,
+            codeMode,
             difficultyLabel: taskIds.length > 1 ? "Mixed" : req.body.difficultyLabel || "Mixed",
             runtimeMode,
             allowLiveTaskAdd:
@@ -4376,6 +5917,14 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
             registrationEndAt: isValidDate(req.body.registrationEndAt)
                 ? new Date(req.body.registrationEndAt).toISOString()
                 : null,
+            lateJoinMode:
+                lateJoinMode === "none" && accessScope === "registration"
+                    ? "until_finish"
+                    : lateJoinMode,
+            lateJoinUntilAt: isValidDate(req.body.lateJoinUntilAt)
+                ? new Date(req.body.lateJoinUntilAt).toISOString()
+                : null,
+            publishedAt: status === "published" ? new Date().toISOString() : null,
         });
 
         await createAuditLog({
@@ -4428,7 +5977,7 @@ app.patch(
             }
 
             if (
-                currentTournament.status === "live" &&
+                getTournamentEffectiveStatus(currentTournament) === "live" &&
                 Array.isArray(taskIds)
             ) {
                 const currentTaskIds = (await listTournamentTasks(tournamentId)).map((item) =>
@@ -4451,6 +6000,20 @@ app.patch(
                 }
             }
 
+            if (
+                req.body.format &&
+                cleanText(req.body.format, 16).toLowerCase() !==
+                    String(currentTournament.format || "").toLowerCase() &&
+                getTournamentEffectiveStatus(currentTournament) === "live"
+            ) {
+                sendError(
+                    res,
+                    409,
+                    "Нельзя менять формат турнира после старта.",
+                );
+                return;
+            }
+
             const updated = await updateOrganizerTournament(
                 tournamentId,
                 req.auth.user.id,
@@ -4460,9 +6023,18 @@ app.patch(
                         req.body.description !== undefined
                             ? cleanText(req.body.description, 1200)
                             : undefined,
-                    category: req.body.category
-                        ? cleanText(req.body.category, 32).toLowerCase()
-                        : undefined,
+                    category:
+                        req.body.category !== undefined || req.body.categories !== undefined
+                            ? normalizeTournamentCategoriesInput(req.body.categories, [
+                                  req.body.category || currentTournament.category || "other",
+                              ])[0]
+                            : undefined,
+                    categories:
+                        req.body.category !== undefined || req.body.categories !== undefined
+                            ? normalizeTournamentCategoriesInput(req.body.categories, [
+                                  req.body.category || currentTournament.category || "other",
+                              ])
+                            : undefined,
                     format: req.body.format
                         ? cleanText(req.body.format, 16).toLowerCase()
                         : undefined,
@@ -4486,13 +6058,32 @@ app.patch(
                         req.body.accessCode !== undefined
                             ? cleanText(req.body.accessCode, 48)
                             : undefined,
+                    codeMode:
+                        req.body.codeMode !== undefined
+                            ? normalizeTournamentCodeMode(req.body.codeMode)
+                            : undefined,
                     runtimeMode:
                         req.body.runtimeMode !== undefined
                             ? normalizeTournamentRuntimeMode(req.body.runtimeMode)
                             : undefined,
+                    lateJoinMode:
+                        req.body.lateJoinMode !== undefined
+                            ? normalizeTournamentLateJoinMode(req.body.lateJoinMode)
+                            : undefined,
+                    lateJoinUntilAt:
+                        req.body.lateJoinUntilAt && isValidDate(req.body.lateJoinUntilAt)
+                            ? new Date(req.body.lateJoinUntilAt).toISOString()
+                            : req.body.lateJoinUntilAt === null
+                              ? null
+                              : undefined,
                     allowLiveTaskAdd:
                         req.body.allowLiveTaskAdd !== undefined
-                            ? Boolean(req.body.allowLiveTaskAdd)
+                            ? Boolean(req.body.allowLiveTaskAdd) &&
+                              (
+                                  req.body.runtimeMode !== undefined
+                                      ? normalizeTournamentRuntimeMode(req.body.runtimeMode)
+                                      : currentTournament.runtimeMode || "competition"
+                              ) === "lesson"
                             : undefined,
                     wrongAttemptPenaltySeconds:
                         req.body.wrongAttemptPenaltySeconds !== undefined
@@ -4551,6 +6142,199 @@ app.patch(
     },
 );
 
+app.post(
+    "/api/organizer/tournaments/:id/actions",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const action = cleanText(req.body.action, 32).toLowerCase();
+            if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+                sendError(res, 400, "Некорректное соревнование.");
+                return;
+            }
+
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const readiness = buildTournamentReadiness(tournament);
+            const startMs = parseTournamentDateMs(tournament.start_at);
+            const endMs = parseTournamentDateMs(tournament.end_at);
+            const durationMs =
+                startMs !== null && endMs !== null && endMs > startMs
+                    ? endMs - startMs
+                    : 2 * 60 * 60 * 1000;
+            let updated = null;
+            let summary = "Организатор обновил жизненный цикл соревнования";
+
+            if (action === "publish") {
+                if (!readiness.ready) {
+                    sendError(
+                        res,
+                        409,
+                        "Турнир пока не готов к публикации.",
+                        null,
+                        { readiness },
+                    );
+                    return;
+                }
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    status: "published",
+                    publishedAt: new Date().toISOString(),
+                    registrationStartAt:
+                        tournament.registration_start_at ||
+                        new Date().toISOString(),
+                    registrationEndAt:
+                        tournament.registration_end_at || tournament.start_at,
+                });
+                summary = "Организатор опубликовал соревнование";
+            } else if (action === "unpublish") {
+                if (
+                    Number(tournament.participants_count || 0) > 0 ||
+                    Number(tournament.submissions_count || 0) > 0
+                ) {
+                    sendError(
+                        res,
+                        409,
+                        "Нельзя вернуть в черновик турнир, в котором уже есть участники или отправки.",
+                    );
+                    return;
+                }
+                if (
+                    startMs !== null &&
+                    Date.now() >= startMs
+                ) {
+                    sendError(
+                        res,
+                        409,
+                        "Нельзя вернуть в черновик турнир после старта.",
+                    );
+                    return;
+                }
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    status: "draft",
+                    publishedAt: null,
+                    endedAtTimestamp: null,
+                });
+                summary = "Организатор вернул соревнование в черновик";
+            } else if (action === "start_now") {
+                const nowIso = new Date().toISOString();
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    status: "published",
+                    startAt: nowIso,
+                    endAt: new Date(Date.parse(nowIso) + durationMs).toISOString(),
+                    publishedAt: tournament.published_at || nowIso,
+                    registrationEndAt:
+                        getTournamentEntryPolicy(tournament).joinMode === "registration"
+                            ? nowIso
+                            : tournament.registration_end_at,
+                });
+                summary = "Организатор запустил соревнование раньше времени";
+            } else if (action === "reschedule") {
+                const nextStartAt =
+                    req.body.payload?.startAt && isValidDate(req.body.payload.startAt)
+                        ? new Date(req.body.payload.startAt).toISOString()
+                        : null;
+                const nextEndAt =
+                    req.body.payload?.endAt && isValidDate(req.body.payload.endAt)
+                        ? new Date(req.body.payload.endAt).toISOString()
+                        : null;
+                if (!nextStartAt || !nextEndAt) {
+                    sendError(res, 400, "Для переноса нужно указать новые даты.");
+                    return;
+                }
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    startAt: nextStartAt,
+                    endAt: nextEndAt,
+                });
+                summary = "Организатор перенес соревнование";
+            } else if (action === "extend") {
+                const nextEndAt =
+                    req.body.payload?.endAt && isValidDate(req.body.payload.endAt)
+                        ? new Date(req.body.payload.endAt).toISOString()
+                        : Number.isFinite(Number(req.body.payload?.minutes))
+                          ? new Date(
+                                (endMs || Date.now()) +
+                                    Number(req.body.payload.minutes) * 60 * 1000,
+                            ).toISOString()
+                          : null;
+                if (!nextEndAt) {
+                    sendError(res, 400, "Укажите новую дату окончания или длительность продления.");
+                    return;
+                }
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    endAt: nextEndAt,
+                });
+                summary = "Организатор продлил соревнование";
+            } else if (action === "finish_now") {
+                const nowIso = new Date().toISOString();
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    status: "ended",
+                    endAt: nowIso,
+                    endedAtTimestamp: nowIso,
+                });
+                summary = "Организатор завершил соревнование досрочно";
+            } else if (action === "archive") {
+                updated = await updateOrganizerTournament(tournamentId, req.auth.user.id, {
+                    status: "archived",
+                });
+                summary = "Организатор архивировал соревнование";
+            } else if (action === "duplicate") {
+                updated = await duplicateTournamentForOrganizer(
+                    tournament,
+                    req.auth.user.id,
+                    {
+                        title: req.body.payload?.title,
+                    },
+                );
+                summary = "Организатор создал копию соревнования";
+            } else if (action === "repeat") {
+                updated = await duplicateTournamentForOrganizer(
+                    tournament,
+                    req.auth.user.id,
+                    {
+                        title:
+                            req.body.payload?.title ||
+                            `${tournament.title} (повтор)`,
+                        startAt: req.body.payload?.startAt,
+                        endAt: req.body.payload?.endAt,
+                        copyRoster: true,
+                    },
+                );
+                summary = "Организатор подготовил повтор соревнования";
+            } else {
+                sendError(res, 400, "Неизвестное действие для соревнования.");
+                return;
+            }
+
+            if (!updated) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: `organizer_tournament.${action}`,
+                entityType: "tournament",
+                entityId: updated.id,
+                summary,
+            });
+
+            invalidatePublicReadCaches();
+            invalidateAdminReadCaches();
+
+            res.json({
+                item: await serializeOrganizerTournament(updated, req.auth.user.id),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
 app.delete(
     "/api/organizer/tournaments/:id",
     requireOrganizer,
@@ -4583,6 +6367,70 @@ app.delete(
             invalidateAdminReadCaches();
 
             res.json({ success: true });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/results",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const [tasks, leaderboard] = await Promise.all([
+                listTournamentTasks(tournamentId),
+                listLeaderboardForTournament(tournamentId),
+            ]);
+
+            res.json({
+                summary: {
+                    id: tournament.id,
+                    title: tournament.title,
+                    lifecycle: getTournamentLifecycle(tournament),
+                    participantsCount: Number(tournament.participants_count || 0),
+                    submissionsCount: Number(tournament.submissions_count || 0),
+                    leaderboardVisible: Boolean(tournament.leaderboard_visible),
+                    resultsVisible: Boolean(tournament.results_visible),
+                },
+                leaderboard: serializeLeaderboard(tournament, tasks, leaderboard, {
+                    user: req.auth.user,
+                    teamMembership: null,
+                    rosterEntry: null,
+                }),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/results/export.csv",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const entries = await listLeaderboardForTournament(tournamentId);
+            res.setHeader("Content-Type", "text/csv; charset=utf-8");
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="qubite-tournament-${tournamentId}-results.csv"`,
+            );
+            res.send(formatTournamentResultsCsv(entries));
         } catch (error) {
             next(error);
         }
@@ -4830,6 +6678,271 @@ app.delete(
     },
 );
 
+app.get(
+    "/api/organizer/tournaments/:id/access-codes",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const roster = await listTournamentRosterEntries(tournamentId);
+            const policy = getTournamentEntryPolicy(tournament);
+            res.json({
+                summary: {
+                    joinMode: policy.joinMode,
+                    codeMode: policy.codeMode,
+                    sharedCode: policy.codeMode === "shared" ? policy.accessCode : "",
+                    rosterCount: Number(tournament.roster_count || roster.length || 0),
+                    generatedCount: roster.filter((item) => String(item.invite_code || "").trim()).length,
+                },
+                items: roster.map(serializeRosterEntry),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tournaments/:id/access-codes/generate",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const mode = normalizeTournamentCodeMode(req.body.mode || tournament.code_mode);
+            let updatedTournament = tournament;
+            let rosterItems = [];
+            let summary = "";
+
+            if (mode === "personal") {
+                const roster = await listTournamentRosterEntries(tournamentId);
+                if (!roster.length) {
+                    sendError(
+                        res,
+                        409,
+                        "Для персональных кодов сначала нужен список допуска.",
+                    );
+                    return;
+                }
+
+                rosterItems = await setTournamentRosterInviteCodes(
+                    tournamentId,
+                    await Promise.all(
+                        roster.map(async (item) => ({
+                            id: item.id,
+                            inviteCode: await generateUniqueTournamentCode(
+                                generateTournamentAccessCode,
+                            ),
+                        })),
+                    ),
+                );
+                updatedTournament = await updateOrganizerTournament(
+                    tournamentId,
+                    req.auth.user.id,
+                    {
+                        accessScope: "code",
+                        codeMode: "personal",
+                        accessCode: null,
+                    },
+                );
+                summary = "Организатор сгенерировал персональные коды доступа";
+            } else {
+                updatedTournament = await updateOrganizerTournament(
+                    tournamentId,
+                    req.auth.user.id,
+                    {
+                        accessScope: "code",
+                        codeMode: "shared",
+                        accessCode: await generateUniqueTournamentCode(
+                            generateTournamentAccessCode,
+                        ),
+                    },
+                );
+                rosterItems = await listTournamentRosterEntries(tournamentId);
+                summary = "Организатор сгенерировал общий код доступа";
+            }
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: `organizer_tournament_codes.generate.${mode}`,
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary,
+            });
+
+            invalidatePublicReadCaches();
+
+            res.json({
+                item: await serializeOrganizerTournament(updatedTournament, req.auth.user.id),
+                items: rosterItems.map(serializeRosterEntry),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/access-codes/export.csv",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const policy = getTournamentEntryPolicy(tournament);
+            res.setHeader("Content-Type", "text/csv; charset=utf-8");
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="qubite-tournament-${tournamentId}-access-codes.csv"`,
+            );
+
+            if (policy.codeMode === "personal") {
+                const roster = await listTournamentRosterEntries(tournamentId);
+                res.send(formatTournamentInviteCodesCsv(roster));
+                return;
+            }
+
+            res.send(
+                [
+                    ["title", "shared_code"],
+                    [tournament.title || "", policy.accessCode || ""],
+                ]
+                    .map((row) => row.map((cell) => buildCsvCell(cell)).join(","))
+                    .join("\n"),
+            );
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/helper-codes",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const items = await listTournamentHelperCodes(tournamentId);
+            res.json({
+                summary: {
+                    count: items.length,
+                },
+                items: items.map(serializeTournamentHelperCode),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.post(
+    "/api/organizer/tournaments/:id/helper-codes/generate",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const requestedCount = Number(req.body.count || 3);
+            const count = Math.max(1, Math.min(Math.round(requestedCount), 25));
+            const existing = await listTournamentHelperCodes(tournamentId);
+            const usedCodes = new Set(
+                existing.map((item) => normalizeTournamentJoinCode(item.code)),
+            );
+            const nextItems = [];
+            while (nextItems.length < count) {
+                const candidate = await generateUniqueTournamentCode(
+                    generateTournamentHelperCode,
+                );
+                const normalizedCandidate = normalizeTournamentJoinCode(candidate);
+                if (usedCodes.has(normalizedCandidate)) {
+                    continue;
+                }
+                usedCodes.add(normalizedCandidate);
+                nextItems.push({
+                    code: candidate,
+                    label: `Экран ${existing.length + nextItems.length + 1}`,
+                    helperType: "leaderboard",
+                });
+            }
+            const items = await createTournamentHelperCodes(
+                tournamentId,
+                req.auth.user.id,
+                nextItems,
+            );
+
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "organizer_tournament_helper_codes.generate",
+                entityType: "tournament",
+                entityId: tournamentId,
+                summary: `Организатор сгенерировал helper-коды: ${count}`,
+                payload: { count },
+            });
+
+            res.json({
+                items: items.map(serializeTournamentHelperCode),
+                summary: {
+                    count: items.length,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
+app.get(
+    "/api/organizer/tournaments/:id/helper-codes/export.csv",
+    requireOrganizer,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament || tournament.owner_user_id !== req.auth.user.id) {
+                sendError(res, 404, "Соревнование не найдено.");
+                return;
+            }
+
+            const items = await listTournamentHelperCodes(tournamentId);
+            res.setHeader("Content-Type", "text/csv; charset=utf-8");
+            res.setHeader(
+                "Content-Disposition",
+                `attachment; filename="qubite-tournament-${tournamentId}-helper-codes.csv"`,
+            );
+            res.send(formatTournamentHelperCodesCsv(items));
+        } catch (error) {
+            next(error);
+        }
+    },
+);
+
 app.get("/api/tournaments", requireParticipant, async (req, res, next) => {
     try {
         await ensureDailyTournamentForDate();
@@ -4852,9 +6965,12 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
     try {
         const title = cleanText(req.body.title, 120);
         const description = cleanText(req.body.description, 600);
-        const category = cleanText(req.body.category, 32).toLowerCase() || "other";
+        const categories = normalizeTournamentCategoriesInput(req.body.categories, [
+            req.body.category || "other",
+        ]);
+        const category = categories[0] || "other";
         const format = cleanText(req.body.format, 16).toLowerCase() || "individual";
-        const status = cleanText(req.body.status, 16).toLowerCase() || "upcoming";
+        const status = normalizeTournamentStatusInput(req.body.status || "published");
         const startAt = String(req.body.startAt || "");
         const endAt = String(req.body.endAt || "");
         const taskIds = Array.isArray(req.body.taskIds)
@@ -4883,7 +6999,7 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
             return;
         }
 
-        if (!["live", "upcoming", "ended"].includes(status)) {
+        if (!["draft", "published", "ended", "archived"].includes(status)) {
             sendError(res, 400, "Неизвестный статус турнира.");
             return;
         }
@@ -4904,6 +7020,7 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
             title,
             description,
             category,
+            categories,
             format,
             status,
             startAt,
@@ -4914,6 +7031,7 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
                 tasks.length > 1
                     ? "Mixed"
                     : tasks[0].difficulty || "Mixed",
+            publishedAt: status === "published" ? new Date().toISOString() : null,
         });
 
         invalidatePublicReadCaches();
@@ -4951,16 +7069,13 @@ app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimi
             return;
         }
 
-        const accessScope =
-            tournament.access_scope === "public"
-                ? "open"
-                : tournament.access_scope || "open";
+        const entryPolicy = getTournamentEntryPolicy(tournament);
         const rosterEntry = await getTournamentRosterEntryForUser(
             tournamentId,
             req.auth.user.id,
         );
 
-        if (accessScope === "closed" && !rosterEntry) {
+        if (entryPolicy.joinMode === "roster_only" && !rosterEntry) {
             sendError(
                 res,
                 403,
@@ -4969,16 +7084,89 @@ app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimi
             return;
         }
 
+        if (entryPolicy.requiresCode) {
+            const expectedCode = normalizeTournamentJoinCode(entryPolicy.accessCode);
+            const suppliedCode = normalizeTournamentJoinCode(req.body.accessCode);
+            const expectedPersonalCode = normalizeTournamentJoinCode(rosterEntry?.invite_code);
+            if (
+                entryPolicy.joinMode === "code" &&
+                entryPolicy.codeMode === "personal"
+            ) {
+                if (!rosterEntry) {
+                    sendError(
+                        res,
+                        403,
+                        "Для персонального кода вы должны быть в списке допуска.",
+                        "accessCode",
+                    );
+                    return;
+                }
+                if (!expectedPersonalCode || suppliedCode !== expectedPersonalCode) {
+                    sendError(
+                        res,
+                        403,
+                        "Неверный персональный код доступа.",
+                        "accessCode",
+                    );
+                    return;
+                }
+            } else if (expectedCode && suppliedCode !== expectedCode) {
+                sendError(
+                    res,
+                    403,
+                    "Неверный код доступа к соревнованию.",
+                    "accessCode",
+                );
+                return;
+            }
+        }
+
+        const lifecycle = getTournamentLifecycle(tournament);
+        const registrationOpen = isTournamentRegistrationOpen(tournament);
+        const lateJoinOpen = isTournamentLateJoinOpen(tournament);
+
+        if (lifecycle === "registration_scheduled") {
+            sendError(
+                res,
+                409,
+                "Запись в этот турнир ещё не открылась.",
+            );
+            return;
+        }
+
+        if (lifecycle === "starting_soon" && entryPolicy.joinMode === "registration" && !registrationOpen) {
+            sendError(
+                res,
+                409,
+                "Регистрация в этот турнир уже закрыта.",
+            );
+            return;
+        }
+
         if (
-            accessScope === "code" &&
-            String(req.body.accessCode || "").trim() !==
-                String(tournament.access_code || "").trim()
+            effectiveStatus === "live" &&
+            !lateJoinOpen &&
+            !Boolean(rosterEntry) &&
+            entryPolicy.joinMode !== "open"
         ) {
             sendError(
                 res,
-                403,
-                "Неверный код доступа к соревнованию.",
-                "accessCode",
+                409,
+                "Поздний вход в этот турнир уже закрыт.",
+            );
+            return;
+        }
+
+        if (
+            effectiveStatus === "live" &&
+            !lateJoinOpen &&
+            !tournament.joined_individual &&
+            !tournament.joined_team
+        ) {
+            sendError(
+                res,
+                409,
+                "Турнир уже начался и вход закрыт.",
             );
             return;
         }
@@ -5348,43 +7536,15 @@ app.get("/api/tournaments/:id/leaderboard", requireParticipant, async (req, res,
             return;
         }
 
-        const accessScope =
-            tournament.access_scope === "public"
-                ? "open"
-                : tournament.access_scope || "open";
-        const rosterEntry = await getTournamentRosterEntryForUser(
-            tournamentId,
-            req.auth.user.id,
-        );
-
-        if (accessScope === "closed" && !rosterEntry) {
-            sendError(
-                res,
-                403,
-                "Вы не входите в список участников этого соревнования.",
-            );
-            return;
-        }
-
-        const { entry } = await resolveTournamentEntryContext(
-            tournament,
-            req.auth,
-            rosterEntry,
-        );
-        if (accessScope === "code" && !entry) {
-            sendError(
-                res,
-                403,
-                "Сначала присоединитесь к турниру по коду доступа.",
-            );
-            return;
-        }
-
         if (!canParticipantViewLeaderboard(tournament)) {
             sendError(res, 403, getLeaderboardVisibilityErrorMessage(tournament));
             return;
         }
 
+        const rosterEntry = await getTournamentRosterEntryForUser(
+            tournamentId,
+            req.auth.user.id,
+        );
         const [tasks, leaderboard] = await Promise.all([
             listTournamentTasks(tournamentId),
             listLeaderboardForTournament(tournamentId),
@@ -5421,6 +7581,13 @@ app.get("/api/analytics/profile", requireParticipant, async (req, res, next) => 
 
 app.get("/api/analytics/team", requireParticipant, async (req, res, next) => {
     try {
+        if (isGuestUserAccount(req.auth.user)) {
+            sendGuestSessionRestriction(
+                res,
+                "Гостевой вход по коду не даёт доступ к аналитике команды.",
+            );
+            return;
+        }
         const teamBundle = await getTeamForUser(req.auth.user.id);
         if (!teamBundle) {
             res.json(
@@ -5875,14 +8042,14 @@ app.get("/api/admin/tournaments", requireAdmin, async (req, res, next) => {
 app.patch("/api/admin/tournaments/:id", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
     try {
         const tournamentId = Number(req.params.id);
-        const status = cleanText(req.body.status, 16).toLowerCase();
+        const status = normalizeTournamentStatusInput(req.body.status);
 
         if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
             sendError(res, 400, "Некорректный турнир.");
             return;
         }
 
-        if (status && !["live", "upcoming", "ended"].includes(status)) {
+        if (status && !["draft", "published", "ended", "archived"].includes(status)) {
             sendError(res, 400, "Неизвестный статус турнира.");
             return;
         }
@@ -5905,6 +8072,60 @@ app.patch("/api/admin/tournaments/:id", requireAdmin, adminSensitiveRateLimiter,
         next(error);
     }
 });
+
+app.post(
+    "/api/admin/tournaments/:id/actions",
+    requireAdmin,
+    adminSensitiveRateLimiter,
+    async (req, res, next) => {
+        try {
+            const tournamentId = Number(req.params.id);
+            const action = cleanText(req.body.action, 32).toLowerCase();
+            if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+                sendError(res, 400, "Некорректный турнир.");
+                return;
+            }
+
+            const tournament = await getTournamentById(tournamentId);
+            if (!tournament) {
+                sendError(res, 404, "Турнир не найден.");
+                return;
+            }
+
+            let updatedTournament = null;
+            if (action === "finish_now") {
+                const nowIso = new Date().toISOString();
+                updatedTournament = await updateAdminTournament(tournamentId, {
+                    status: "ended",
+                    endAt: nowIso,
+                    endedAtTimestamp: nowIso,
+                });
+            } else if (action === "archive") {
+                updatedTournament = await updateAdminTournament(tournamentId, {
+                    status: "archived",
+                });
+            } else if (action === "unpublish") {
+                updatedTournament = await updateAdminTournament(tournamentId, {
+                    status: "draft",
+                    publishedAt: null,
+                    endedAtTimestamp: null,
+                });
+            } else {
+                sendError(res, 400, "Неизвестное действие администратора.");
+                return;
+            }
+
+            invalidatePublicReadCaches();
+            invalidateAdminReadCaches();
+
+            res.json({
+                item: serializeAdminTournament(updatedTournament),
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
 
 app.delete(
     "/api/admin/tournaments/:id",
@@ -5940,7 +8161,12 @@ app.use(
         index: false,
         maxAge: STATIC_ASSET_MAX_AGE_SECONDS * 1000,
         setHeaders(res, filePath) {
-            if (String(filePath).endsWith(".html")) {
+            const normalizedPath = String(filePath || "");
+            const isHtml = normalizedPath.endsWith(".html");
+            const isMutableAsset =
+                normalizedPath.endsWith(".js") || normalizedPath.endsWith(".css");
+
+            if (isHtml || (!IS_PRODUCTION && isMutableAsset)) {
                 res.setHeader("Cache-Control", "no-cache");
                 return;
             }
@@ -6049,7 +8275,7 @@ async function start() {
     }, 60 * 60 * 1000).unref();
 
     server.listen(PORT, HOST, () => {
-        console.log(`Сервер запущен на ${HOST}:${PORT}`);
+        console.log(`Сервер запущен на http://${HOST}:${PORT}`);
     });
 }
 

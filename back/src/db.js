@@ -420,6 +420,17 @@ function buildTournamentAction(status, joined) {
     return { label: "Результаты", type: "muted", icon: "history" };
 }
 
+function normalizeStoredTournamentStatus(value) {
+    const normalized = String(value || "").trim().toLowerCase() || "draft";
+    if (normalized === "live" || normalized === "upcoming") {
+        return "published";
+    }
+    if (["draft", "published", "ended", "archived"].includes(normalized)) {
+        return normalized;
+    }
+    return "draft";
+}
+
 async function initializeDatabase(options = {}) {
     const seedDemoData =
         options.seedDemoData === undefined ? SEED_DEMO_DATA : options.seedDemoData;
@@ -497,16 +508,27 @@ async function initializeDatabase(options = {}) {
             action_label TEXT NOT NULL,
             action_type TEXT NOT NULL,
             category TEXT NOT NULL,
+            categories_json TEXT NOT NULL DEFAULT '[]',
             start_at TEXT NOT NULL,
             end_at TEXT,
             owner_user_id INTEGER DEFAULT NULL,
             format TEXT NOT NULL DEFAULT 'individual',
             access_scope TEXT NOT NULL DEFAULT 'public',
             access_code TEXT DEFAULT NULL,
+            code_mode TEXT NOT NULL DEFAULT 'shared',
             difficulty_label TEXT NOT NULL DEFAULT 'Mixed',
             runtime_mode TEXT NOT NULL DEFAULT 'competition',
             allow_live_task_add INTEGER NOT NULL DEFAULT 0,
             wrong_attempt_penalty_seconds INTEGER NOT NULL DEFAULT 1200,
+            leaderboard_visible INTEGER NOT NULL DEFAULT 1,
+            results_visible INTEGER NOT NULL DEFAULT 1,
+            registration_start_at TEXT DEFAULT NULL,
+            registration_end_at TEXT DEFAULT NULL,
+            late_join_mode TEXT NOT NULL DEFAULT 'none',
+            late_join_until_at TEXT DEFAULT NULL,
+            published_at TEXT DEFAULT NULL,
+            ended_at TEXT DEFAULT NULL,
+            archived_at TEXT DEFAULT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE SET NULL
@@ -691,6 +713,7 @@ async function initializeDatabase(options = {}) {
             team_name TEXT NOT NULL DEFAULT '',
             class_group TEXT NOT NULL DEFAULT '',
             external_id TEXT NOT NULL DEFAULT '',
+            invite_code TEXT DEFAULT NULL,
             created_by_user_id INTEGER DEFAULT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -698,6 +721,20 @@ async function initializeDatabase(options = {}) {
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             FOREIGN KEY (created_by_user_id) REFERENCES users (id) ON DELETE SET NULL,
             UNIQUE (tournament_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tournament_helper_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tournament_id INTEGER NOT NULL,
+            code TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL DEFAULT '',
+            helper_type TEXT NOT NULL DEFAULT 'leaderboard',
+            created_by_user_id INTEGER DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_used_at TEXT DEFAULT NULL,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by_user_id) REFERENCES users (id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS tournament_task_progress (
@@ -777,6 +814,8 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_tournament ON tournament_roster_entries (tournament_id);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_user ON tournament_roster_entries (user_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_helper_codes_tournament ON tournament_helper_codes (tournament_id);
+        CREATE INDEX IF NOT EXISTS idx_tournament_helper_codes_code ON tournament_helper_codes (code);
         CREATE INDEX IF NOT EXISTS idx_tournament_tasks_tournament_sort ON tournament_tasks (tournament_id, sort_order, id);
         CREATE INDEX IF NOT EXISTS idx_tournament_progress_entry_task ON tournament_task_progress (entry_id, tournament_task_id);
         CREATE INDEX IF NOT EXISTS idx_tournament_progress_tournament ON tournament_task_progress (tournament_id, entry_id);
@@ -805,6 +844,11 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
         "tournaments",
+        "categories_json",
+        "TEXT NOT NULL DEFAULT '[]'",
+    );
+    await ensureColumn(
+        "tournaments",
         "format",
         "TEXT NOT NULL DEFAULT 'individual'",
     );
@@ -814,6 +858,11 @@ async function initializeDatabase(options = {}) {
         "TEXT NOT NULL DEFAULT 'public'",
     );
     await ensureColumn("tournaments", "access_code", "TEXT DEFAULT NULL");
+    await ensureColumn(
+        "tournaments",
+        "code_mode",
+        "TEXT NOT NULL DEFAULT 'shared'",
+    );
     await ensureColumn(
         "tournaments",
         "difficulty_label",
@@ -857,6 +906,26 @@ async function initializeDatabase(options = {}) {
     await ensureColumn(
         "tournaments",
         "archived_at",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournaments",
+        "late_join_mode",
+        "TEXT NOT NULL DEFAULT 'none'",
+    );
+    await ensureColumn(
+        "tournaments",
+        "late_join_until_at",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournaments",
+        "published_at",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournaments",
+        "ended_at",
         "TEXT DEFAULT NULL",
     );
     await ensureColumn(
@@ -950,6 +1019,31 @@ async function initializeDatabase(options = {}) {
         "last_submission_at",
         "TEXT DEFAULT NULL",
     );
+    await ensureColumn(
+        "tournament_roster_entries",
+        "invite_code",
+        "TEXT DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournament_roster_entries",
+        "guest_user_id",
+        "INTEGER DEFAULT NULL",
+    );
+    await ensureColumn(
+        "tournament_helper_codes",
+        "label",
+        "TEXT NOT NULL DEFAULT ''",
+    );
+    await ensureColumn(
+        "tournament_helper_codes",
+        "helper_type",
+        "TEXT NOT NULL DEFAULT 'leaderboard'",
+    );
+    await ensureColumn(
+        "tournament_helper_codes",
+        "last_used_at",
+        "TEXT DEFAULT NULL",
+    );
 
     await exec(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_oauth_sub
@@ -1005,6 +1099,9 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_sessions_active_updated
         ON sessions (updated_at)
         WHERE revoked_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_tournament_helper_codes_lookup
+        ON tournament_helper_codes (code, tournament_id);
     `);
 
     await exec(`
@@ -1490,6 +1587,7 @@ async function seedTournaments() {
                     action_label,
                     action_type,
                     category,
+                    categories_json,
                     start_at,
                     end_at,
                     owner_user_id,
@@ -3624,7 +3722,8 @@ async function createTournament(payload) {
     return withTransaction(async () => {
         const timestamp = nowIso();
         const slug = await buildUniqueTournamentSlug(payload.title);
-        const action = buildTournamentAction(payload.status, false);
+        const status = normalizeStoredTournamentStatus(payload.status);
+        const action = buildTournamentAction(status, false);
         const result = await run(
             `
                 INSERT INTO tournaments (
@@ -3638,12 +3737,14 @@ async function createTournament(payload) {
                     action_label,
                     action_type,
                     category,
+                    categories_json,
                     start_at,
                     end_at,
                     owner_user_id,
                     format,
                     access_scope,
                     access_code,
+                    code_mode,
                     difficulty_label,
                     runtime_mode,
                     allow_live_task_add,
@@ -3652,20 +3753,24 @@ async function createTournament(payload) {
                     results_visible,
                     registration_start_at,
                     registration_end_at,
+                    late_join_mode,
+                    late_join_until_at,
+                    published_at,
+                    ended_at,
                     archived_at,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 slug,
                 payload.title,
                 payload.description,
-                payload.status,
+                status,
                 0,
                 buildTournamentTimeLabel(
-                    payload.status,
+                    status,
                     payload.startAt,
                     payload.endAt,
                 ),
@@ -3673,12 +3778,14 @@ async function createTournament(payload) {
                 action.label,
                 action.type,
                 payload.category,
+                toJsonString(payload.categories || [payload.category || "other"], []),
                 payload.startAt,
                 payload.endAt,
                 payload.ownerUserId,
                 payload.format,
                 payload.accessScope || "open",
                 payload.accessCode || null,
+                payload.codeMode || "shared",
                 payload.difficultyLabel || "Mixed",
                 payload.runtimeMode || "competition",
                 payload.allowLiveTaskAdd ? 1 : 0,
@@ -3689,7 +3796,13 @@ async function createTournament(payload) {
                 payload.resultsVisible === false ? 0 : 1,
                 payload.registrationStartAt || null,
                 payload.registrationEndAt || null,
-                payload.status === "archived" ? timestamp : null,
+                payload.lateJoinMode || "none",
+                payload.lateJoinUntilAt || null,
+                payload.publishedAt ||
+                    (status === "published" ? timestamp : null),
+                payload.endedAtTimestamp ||
+                    (status === "ended" ? timestamp : null),
+                status === "archived" ? timestamp : null,
                 timestamp,
                 timestamp,
             ],
@@ -3742,6 +3855,13 @@ async function getDailyTournamentByKey(dailyKey) {
                     FROM tournament_roster_entries tre
                     WHERE tre.tournament_id = t.id
                 ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                      AND tre.invite_code IS NOT NULL
+                      AND tre.invite_code != ''
+                ) AS roster_codes_count,
                 (
                     SELECT COUNT(*)
                     FROM tournament_submissions ts
@@ -3887,6 +4007,13 @@ async function getTournamentById(tournamentId) {
                 ) AS roster_count,
                 (
                     SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                      AND tre.invite_code IS NOT NULL
+                      AND tre.invite_code != ''
+                ) AS roster_codes_count,
+                (
+                    SELECT COUNT(*)
                     FROM tournament_submissions ts
                     WHERE ts.tournament_id = t.id
                 ) AS submissions_count
@@ -3894,6 +4021,220 @@ async function getTournamentById(tournamentId) {
             WHERE t.id = ?
         `,
         [tournamentId],
+    );
+}
+
+async function findTournamentByAccessCode(normalizedCode) {
+    return get(
+        `
+            SELECT
+                t.*,
+                (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                      AND tre.invite_code IS NOT NULL
+                      AND tre.invite_code != ''
+                ) AS roster_codes_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_submissions ts
+                    WHERE ts.tournament_id = t.id
+                ) AS submissions_count
+            FROM tournaments t
+            WHERE REPLACE(UPPER(COALESCE(t.access_code, '')), '-', '') = ?
+              AND COALESCE(t.access_scope, 'open') = 'code'
+            LIMIT 1
+        `,
+        [normalizedCode],
+    );
+}
+
+async function findTournamentHelperCode(normalizedCode) {
+    return get(
+        `
+            SELECT
+                thc.*,
+                t.*,
+                thc.id AS helper_code_id,
+                thc.code AS helper_code,
+                thc.label AS helper_label,
+                thc.helper_type AS helper_type,
+                thc.last_used_at AS helper_last_used_at,
+                (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                      AND tre.invite_code IS NOT NULL
+                      AND tre.invite_code != ''
+                ) AS roster_codes_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_submissions ts
+                    WHERE ts.tournament_id = t.id
+                ) AS submissions_count
+            FROM tournament_helper_codes thc
+            INNER JOIN tournaments t ON t.id = thc.tournament_id
+            WHERE REPLACE(UPPER(COALESCE(thc.code, '')), '-', '') = ?
+            LIMIT 1
+        `,
+        [normalizedCode],
+    );
+}
+
+async function findTournamentRosterEntryByInviteCode(normalizedCode) {
+    return get(
+        `
+            SELECT
+                tre.*,
+                t.*,
+                tre.id AS roster_entry_id,
+                tre.invite_code AS roster_invite_code,
+                tre.full_name AS roster_full_name,
+                tre.class_group AS roster_class_group,
+                tre.team_name AS roster_team_name,
+                tre.guest_user_id AS roster_guest_user_id,
+                (SELECT COUNT(*) FROM tournament_tasks tt WHERE tt.tournament_id = t.id) AS task_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre2
+                    WHERE tre2.tournament_id = t.id
+                ) AS roster_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre2
+                    WHERE tre2.tournament_id = t.id
+                      AND tre2.invite_code IS NOT NULL
+                      AND tre2.invite_code != ''
+                ) AS roster_codes_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_submissions ts
+                    WHERE ts.tournament_id = t.id
+                ) AS submissions_count
+            FROM tournament_roster_entries tre
+            INNER JOIN tournaments t ON t.id = tre.tournament_id
+            WHERE REPLACE(UPPER(COALESCE(tre.invite_code, '')), '-', '') = ?
+            LIMIT 1
+        `,
+        [normalizedCode],
+    );
+}
+
+async function setTournamentRosterGuestUser(tournamentId, rosterEntryId, guestUserId) {
+    await run(
+        `
+            UPDATE tournament_roster_entries
+            SET
+                guest_user_id = ?,
+                updated_at = ?
+            WHERE tournament_id = ? AND id = ?
+        `,
+        [guestUserId || null, nowIso(), tournamentId, rosterEntryId],
+    );
+    return get(
+        `
+            SELECT *
+            FROM tournament_roster_entries
+            WHERE tournament_id = ? AND id = ?
+        `,
+        [tournamentId, rosterEntryId],
+    );
+}
+
+async function isTournamentCodeTaken(normalizedCode) {
+    const row = await get(
+        `
+            SELECT 1 AS taken
+            WHERE EXISTS (
+                SELECT 1
+                FROM tournaments t
+                WHERE REPLACE(UPPER(COALESCE(t.access_code, '')), '-', '') = ?
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM tournament_roster_entries tre
+                WHERE REPLACE(UPPER(COALESCE(tre.invite_code, '')), '-', '') = ?
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM tournament_helper_codes thc
+                WHERE REPLACE(UPPER(COALESCE(thc.code, '')), '-', '') = ?
+            )
+        `,
+        [normalizedCode, normalizedCode, normalizedCode],
+    );
+    return Boolean(row?.taken);
+}
+
+async function listTournamentHelperCodes(tournamentId) {
+    return all(
+        `
+            SELECT *
+            FROM tournament_helper_codes
+            WHERE tournament_id = ?
+            ORDER BY id ASC
+        `,
+        [tournamentId],
+    );
+}
+
+async function createTournamentHelperCodes(tournamentId, createdByUserId, items = []) {
+    return withTransaction(async () => {
+        const timestamp = nowIso();
+        for (const item of items) {
+            await run(
+                `
+                    INSERT INTO tournament_helper_codes (
+                        tournament_id,
+                        code,
+                        label,
+                        helper_type,
+                        created_by_user_id,
+                        created_at,
+                        updated_at,
+                        last_used_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+                `,
+                [
+                    tournamentId,
+                    String(item.code || "").trim(),
+                    String(item.label || "").trim(),
+                    String(item.helperType || "leaderboard").trim() || "leaderboard",
+                    createdByUserId || null,
+                    timestamp,
+                    timestamp,
+                ],
+            );
+        }
+
+        return listTournamentHelperCodes(tournamentId);
+    });
+}
+
+async function markTournamentHelperCodeUsed(helperCodeId) {
+    await run(
+        `
+            UPDATE tournament_helper_codes
+            SET
+                last_used_at = ?,
+                updated_at = ?
+            WHERE id = ?
+        `,
+        [nowIso(), nowIso(), helperCodeId],
     );
 }
 
@@ -4061,6 +4402,7 @@ async function getPrimaryTournament(userId, teamId = null) {
 }
 
 async function listOrganizerTournaments(ownerUserId) {
+    const now = nowIso();
     return all(
         `
             SELECT
@@ -4074,29 +4416,61 @@ async function listOrganizerTournaments(ownerUserId) {
                     FROM tournament_roster_entries tre
                     WHERE tre.tournament_id = t.id
                 ) AS roster_count
+                ,
+                (
+                    SELECT COUNT(*)
+                    FROM tournament_roster_entries tre
+                    WHERE tre.tournament_id = t.id
+                      AND tre.invite_code IS NOT NULL
+                      AND tre.invite_code != ''
+                ) AS roster_codes_count
             FROM tournaments t
             WHERE t.owner_user_id = ?
             ORDER BY
-                CASE t.status
-                    WHEN 'live' THEN 0
-                    WHEN 'published' THEN 1
-                    WHEN 'draft' THEN 2
-                    WHEN 'ended' THEN 3
+                CASE
+                    WHEN t.status = 'live' THEN 0
+                    WHEN t.status = 'published'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?)
+                    THEN 0
+                    WHEN t.status = 'upcoming' THEN 1
+                    WHEN t.status = 'published'
+                         AND t.start_at IS NOT NULL
+                         AND t.start_at > ?
+                    THEN 1
+                    WHEN t.status = 'draft' THEN 2
+                    WHEN t.status = 'ended'
+                         OR (t.end_at IS NOT NULL AND t.end_at < ?)
+                    THEN 3
                     ELSE 4
                 END,
-                t.updated_at DESC
+                t.updated_at DESC,
+                t.id DESC
         `,
-        [ownerUserId],
+        [ownerUserId, now, now, now, now],
     );
 }
 
 async function getOrganizerOverview(ownerUserId) {
+    const now = nowIso();
     const summary = await get(
         `
             SELECT
                 (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ?) AS tournaments_count,
                 (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ? AND status = 'draft') AS drafts_count,
-                (SELECT COUNT(*) FROM tournaments WHERE owner_user_id = ? AND status = 'live') AS live_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournaments
+                    WHERE owner_user_id = ?
+                      AND (
+                        status = 'live'
+                        OR (
+                            status = 'published'
+                            AND (start_at IS NULL OR start_at <= ?)
+                            AND (end_at IS NULL OR end_at >= ?)
+                        )
+                      )
+                ) AS live_count,
                 (
                     SELECT COUNT(*)
                     FROM task_bank
@@ -4115,6 +4489,8 @@ async function getOrganizerOverview(ownerUserId) {
             ownerUserId,
             ownerUserId,
             ownerUserId,
+            now,
+            now,
             ownerUserId,
             ownerUserId,
         ],
@@ -4148,11 +4524,43 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
             return null;
         }
 
-        const nextStatus = payload.status || current.status;
+        const nextStatus = normalizeStoredTournamentStatus(
+            payload.status || current.status,
+        );
         const nextStartAt = payload.startAt || current.start_at;
         const nextEndAt =
             payload.endAt !== undefined ? payload.endAt : current.end_at;
+        const nextRuntimeMode =
+            payload.runtimeMode !== undefined
+                ? payload.runtimeMode || "competition"
+                : current.runtime_mode || "competition";
+        const nextAllowLiveTaskAdd =
+            payload.allowLiveTaskAdd !== undefined
+                ? payload.allowLiveTaskAdd && nextRuntimeMode === "lesson"
+                    ? 1
+                    : 0
+                : nextRuntimeMode === "lesson"
+                  ? current.allow_live_task_add
+                  : 0;
         const action = buildTournamentAction(nextStatus, false);
+        const nextPublishedAt =
+            payload.publishedAt !== undefined
+                ? payload.publishedAt
+                : nextStatus === "published"
+                  ? current.published_at || nowIso()
+                  : nextStatus === "draft"
+                    ? null
+                    : current.published_at;
+        const nextEndedAt =
+            payload.endedAtTimestamp !== undefined
+                ? payload.endedAtTimestamp
+                : nextStatus === "ended"
+                  ? current.ended_at || nowIso()
+                  : nextStatus === "published" || nextStatus === "draft"
+                    ? null
+                    : current.ended_at;
+        const nextArchivedAt =
+            nextStatus === "archived" ? current.archived_at || nowIso() : null;
 
         await run(
             `
@@ -4166,11 +4574,13 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                     action_label = ?,
                     action_type = ?,
                     category = ?,
+                    categories_json = ?,
                     start_at = ?,
                     end_at = ?,
                     format = ?,
                     access_scope = ?,
                     access_code = ?,
+                    code_mode = ?,
                     difficulty_label = ?,
                     runtime_mode = ?,
                     allow_live_task_add = ?,
@@ -4179,6 +4589,10 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                     results_visible = ?,
                     registration_start_at = ?,
                     registration_end_at = ?,
+                    late_join_mode = ?,
+                    late_join_until_at = ?,
+                    published_at = ?,
+                    ended_at = ?,
                     archived_at = ?,
                     updated_at = ?
                 WHERE id = ?
@@ -4194,6 +4608,7 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                 action.label,
                 action.type,
                 payload.category || current.category,
+                toJsonString(payload.categories || parseJson(current.categories_json, []), []),
                 nextStartAt,
                 nextEndAt,
                 payload.format || current.format,
@@ -4201,13 +4616,12 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                 payload.accessCode !== undefined
                     ? payload.accessCode || null
                     : current.access_code,
+                payload.codeMode !== undefined
+                    ? payload.codeMode || "shared"
+                    : current.code_mode || "shared",
                 payload.difficultyLabel || current.difficulty_label || "Mixed",
-                payload.runtimeMode || current.runtime_mode || "competition",
-                payload.allowLiveTaskAdd !== undefined
-                    ? payload.allowLiveTaskAdd
-                        ? 1
-                        : 0
-                    : current.allow_live_task_add,
+                nextRuntimeMode,
+                nextAllowLiveTaskAdd,
                 payload.wrongAttemptPenaltySeconds !== undefined
                     ? Math.max(Number(payload.wrongAttemptPenaltySeconds) || 0, 0)
                     : current.wrong_attempt_penalty_seconds,
@@ -4227,7 +4641,15 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                 payload.registrationEndAt !== undefined
                     ? payload.registrationEndAt || null
                     : current.registration_end_at,
-                nextStatus === "archived" ? nowIso() : null,
+                payload.lateJoinMode !== undefined
+                    ? payload.lateJoinMode || "none"
+                    : current.late_join_mode || "none",
+                payload.lateJoinUntilAt !== undefined
+                    ? payload.lateJoinUntilAt || null
+                    : current.late_join_until_at,
+                nextPublishedAt,
+                nextEndedAt,
+                nextArchivedAt,
                 nowIso(),
                 tournamentId,
             ],
@@ -4347,6 +4769,17 @@ async function replaceTournamentRosterEntries(
 ) {
     return withTransaction(async () => {
         const timestamp = nowIso();
+        const existingRows = await all(
+            `
+                SELECT user_id, invite_code
+                FROM tournament_roster_entries
+                WHERE tournament_id = ?
+            `,
+            [tournamentId],
+        );
+        const inviteCodeByUserId = new Map(
+            existingRows.map((row) => [Number(row.user_id || 0), row.invite_code || null]),
+        );
         await run("DELETE FROM tournament_roster_entries WHERE tournament_id = ?", [
             tournamentId,
         ]);
@@ -4363,11 +4796,12 @@ async function replaceTournamentRosterEntries(
                         team_name,
                         class_group,
                         external_id,
+                        invite_code,
                         created_by_user_id,
                         created_at,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     tournamentId,
@@ -4378,6 +4812,9 @@ async function replaceTournamentRosterEntries(
                     item.teamName || "",
                     item.classGroup || "",
                     item.externalId || "",
+                    item.inviteCode !== undefined
+                        ? item.inviteCode || null
+                        : inviteCodeByUserId.get(Number(item.userId || 0)) || null,
                     createdByUserId || null,
                     timestamp,
                     timestamp,
@@ -4405,6 +4842,7 @@ async function upsertTournamentRosterEntry(tournamentId, createdByUserId, item) 
                         team_name = ?,
                         class_group = ?,
                         external_id = ?,
+                        invite_code = ?,
                         created_by_user_id = ?,
                         updated_at = ?
                     WHERE id = ?
@@ -4416,6 +4854,9 @@ async function upsertTournamentRosterEntry(tournamentId, createdByUserId, item) 
                     item.teamName || "",
                     item.classGroup || "",
                     item.externalId || "",
+                    item.inviteCode !== undefined
+                        ? item.inviteCode || null
+                        : existing.invite_code || null,
                     createdByUserId || null,
                     timestamp,
                     existing.id,
@@ -4433,11 +4874,12 @@ async function upsertTournamentRosterEntry(tournamentId, createdByUserId, item) 
                         team_name,
                         class_group,
                         external_id,
+                        invite_code,
                         created_by_user_id,
                         created_at,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `,
                 [
                     tournamentId,
@@ -4448,6 +4890,7 @@ async function upsertTournamentRosterEntry(tournamentId, createdByUserId, item) 
                     item.teamName || "",
                     item.classGroup || "",
                     item.externalId || "",
+                    item.inviteCode || null,
                     createdByUserId || null,
                     timestamp,
                     timestamp,
@@ -4465,6 +4908,30 @@ async function removeTournamentRosterEntry(tournamentId, rosterEntryId) {
         [tournamentId, rosterEntryId],
     );
     return result.changes > 0;
+}
+
+async function setTournamentRosterInviteCodes(tournamentId, items = []) {
+    return withTransaction(async () => {
+        const timestamp = nowIso();
+        for (const item of Array.isArray(items) ? items : []) {
+            const rosterEntryId = Number(item.id || 0);
+            if (!Number.isInteger(rosterEntryId) || rosterEntryId <= 0) {
+                continue;
+            }
+            await run(
+                `
+                    UPDATE tournament_roster_entries
+                    SET
+                        invite_code = ?,
+                        updated_at = ?
+                    WHERE tournament_id = ?
+                      AND id = ?
+                `,
+                [item.inviteCode || null, timestamp, tournamentId, rosterEntryId],
+            );
+        }
+        return listTournamentRosterEntries(tournamentId);
+    });
 }
 
 async function listTournamentEntries(tournamentId) {
@@ -5339,15 +5806,34 @@ async function listTopPlayers(limit = 10) {
 
 async function getPlatformMetrics() {
     const now = new Date();
+    const nowValue = nowIso();
     const [tournamentRow, sessionRow, userRow, submissionRow, sessionActivityRows, registrationRows, submissionRows, hotTournaments, recentUsers] =
         await Promise.all([
             get(
                 `
                     SELECT
                         COALESCE(SUM(CASE WHEN COALESCE(is_daily, 0) = 0 THEN participants_count ELSE 0 END), 0) AS participants,
-                        COALESCE(SUM(CASE WHEN COALESCE(is_daily, 0) = 0 AND status = 'live' THEN participants_count ELSE 0 END), 0) AS live_participants
+                        COALESCE(
+                            SUM(
+                                CASE
+                                    WHEN COALESCE(is_daily, 0) = 0
+                                         AND (
+                                            status = 'live'
+                                            OR (
+                                                status = 'published'
+                                                AND (start_at IS NULL OR start_at <= ?)
+                                                AND (end_at IS NULL OR end_at >= ?)
+                                            )
+                                         )
+                                    THEN participants_count
+                                    ELSE 0
+                                END
+                            ),
+                            0
+                        ) AS live_participants
                     FROM tournaments
                 `,
+                [nowValue, nowValue],
             ),
             get(
                 `
@@ -5447,7 +5933,14 @@ async function getPlatformMetrics() {
                     ORDER BY
                         CASE
                             WHEN t.status = 'live' THEN 0
-                            WHEN t.status IN ('published', 'upcoming') THEN 1
+                            WHEN t.status = 'published'
+                                 AND (t.start_at IS NULL OR t.start_at <= ?)
+                                 AND (t.end_at IS NULL OR t.end_at >= ?)
+                            THEN 0
+                            WHEN t.status = 'upcoming' THEN 1
+                            WHEN t.status = 'published'
+                                 AND (t.start_at IS NULL OR t.start_at > ?)
+                            THEN 1
                             ELSE 2
                         END,
                         COALESCE(recent_submissions.submissions_24h, 0) DESC,
@@ -5455,7 +5948,7 @@ async function getPlatformMetrics() {
                         t.updated_at DESC
                     LIMIT 6
                 `,
-                [addDays(now, -1)],
+                [addDays(now, -1), nowValue, nowValue, nowValue],
             ),
             all(
                 `
@@ -5880,6 +6373,7 @@ async function listModerationUsers() {
 }
 
 async function getAdminOverview() {
+    const now = nowIso();
     const summary = await get(
         `
             SELECT
@@ -5921,13 +6415,23 @@ async function getAdminOverview() {
                     WHERE moderation_status = 'pending_review'
                 ) AS pending_task_moderation_count,
                 (SELECT COUNT(*) FROM tournaments) AS tournaments_count,
-                (SELECT COUNT(*) FROM tournaments WHERE status = 'live') AS live_tournaments_count,
                 (
                     SELECT COUNT(*)
                     FROM organizer_applications
                     WHERE status = 'pending'
-                ) AS pending_organizer_applications_count
+                ) AS pending_organizer_applications_count,
+                (
+                    SELECT COUNT(*)
+                    FROM tournaments
+                    WHERE status = 'live'
+                       OR (
+                            status = 'published'
+                            AND (start_at IS NULL OR start_at <= ?)
+                            AND (end_at IS NULL OR end_at >= ?)
+                       )
+                ) AS live_tournaments_count
         `,
+        [now, now],
     );
 
     return {
@@ -6032,6 +6536,7 @@ async function listAdminTasks() {
 }
 
 async function listAdminTournaments() {
+    const now = nowIso();
     return all(
         `
             SELECT
@@ -6041,17 +6546,27 @@ async function listAdminTournaments() {
             FROM tournaments t
             LEFT JOIN users u ON u.id = t.owner_user_id
             ORDER BY
-                CASE t.status
-                    WHEN 'live' THEN 0
-                    WHEN 'published' THEN 1
-                    WHEN 'upcoming' THEN 1
-                    WHEN 'draft' THEN 2
-                    WHEN 'ended' THEN 3
+                CASE
+                    WHEN t.status = 'live' THEN 0
+                    WHEN t.status = 'published'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?)
+                    THEN 0
+                    WHEN t.status = 'upcoming' THEN 1
+                    WHEN t.status = 'published'
+                         AND t.start_at IS NOT NULL
+                         AND t.start_at > ?
+                    THEN 1
+                    WHEN t.status = 'draft' THEN 2
+                    WHEN t.status = 'ended'
+                         OR (t.end_at IS NOT NULL AND t.end_at < ?)
+                    THEN 3
                     ELSE 4
                 END,
                 t.updated_at DESC,
                 t.id DESC
         `,
+        [now, now, now, now],
     );
 }
 
@@ -6061,7 +6576,9 @@ async function updateAdminTournament(tournamentId, payload) {
         return null;
     }
 
-    const nextStatus = payload.status || current.status;
+    const nextStatus = normalizeStoredTournamentStatus(
+        payload.status || current.status,
+    );
     const nextTitle = payload.title || current.title;
     const nextDescription =
         payload.description !== undefined ? payload.description : current.description;
@@ -6070,6 +6587,24 @@ async function updateAdminTournament(tournamentId, payload) {
     const nextStartAt = payload.startAt || current.start_at;
     const nextEndAt = payload.endAt || current.end_at;
     const action = buildTournamentAction(nextStatus, false);
+    const nextPublishedAt =
+        payload.publishedAt !== undefined
+            ? payload.publishedAt
+            : nextStatus === "published"
+              ? current.published_at || nowIso()
+              : nextStatus === "draft"
+                ? null
+                : current.published_at;
+    const nextEndedAt =
+        payload.endedAtTimestamp !== undefined
+            ? payload.endedAtTimestamp
+            : nextStatus === "ended"
+              ? current.ended_at || nowIso()
+              : nextStatus === "published" || nextStatus === "draft"
+                ? null
+                : current.ended_at;
+    const nextArchivedAt =
+        nextStatus === "archived" ? current.archived_at || nowIso() : null;
 
     await run(
         `
@@ -6083,15 +6618,21 @@ async function updateAdminTournament(tournamentId, payload) {
                 action_label = ?,
                 action_type = ?,
                 category = ?,
+                categories_json = ?,
                 start_at = ?,
                 end_at = ?,
                 format = ?,
                 access_scope = ?,
                 access_code = ?,
+                code_mode = ?,
                 leaderboard_visible = ?,
                 results_visible = ?,
                 registration_start_at = ?,
                 registration_end_at = ?,
+                late_join_mode = ?,
+                late_join_until_at = ?,
+                published_at = ?,
+                ended_at = ?,
                 archived_at = ?,
                 updated_at = ?
             WHERE id = ?
@@ -6105,6 +6646,7 @@ async function updateAdminTournament(tournamentId, payload) {
             action.label,
             action.type,
             nextCategory,
+            toJsonString(payload.categories || parseJson(current.categories_json, []), []),
             nextStartAt,
             nextEndAt,
             nextFormat,
@@ -6112,6 +6654,9 @@ async function updateAdminTournament(tournamentId, payload) {
             payload.accessCode !== undefined
                 ? payload.accessCode || null
                 : current.access_code,
+            payload.codeMode !== undefined
+                ? payload.codeMode || "shared"
+                : current.code_mode || "shared",
             payload.leaderboardVisible !== undefined
                 ? payload.leaderboardVisible
                     ? 1
@@ -6128,7 +6673,15 @@ async function updateAdminTournament(tournamentId, payload) {
             payload.registrationEndAt !== undefined
                 ? payload.registrationEndAt || null
                 : current.registration_end_at,
-            nextStatus === "archived" ? nowIso() : null,
+            payload.lateJoinMode !== undefined
+                ? payload.lateJoinMode || "none"
+                : current.late_join_mode || "none",
+            payload.lateJoinUntilAt !== undefined
+                ? payload.lateJoinUntilAt || null
+                : current.late_join_until_at,
+            nextPublishedAt,
+            nextEndedAt,
+            nextArchivedAt,
             nowIso(),
             tournamentId,
         ],
@@ -6170,6 +6723,7 @@ module.exports = {
     createOAuthState,
     createPasswordResetTicket,
     createSession,
+    createTournamentHelperCodes,
     createTaskRevision,
     createTask,
     createTeam,
@@ -6190,6 +6744,9 @@ module.exports = {
     findUserByLoginOrEmail,
     findUserByOAuthSubject,
     findNextUniqueLogin,
+    findTournamentByAccessCode,
+    findTournamentHelperCode,
+    findTournamentRosterEntryByInviteCode,
     getAdminOverview,
     getAuthChallengeById,
     getMembershipByUserId,
@@ -6234,6 +6791,7 @@ module.exports = {
     listTeamTournamentResults,
     listTopPlayers,
     listTournamentEntries,
+    listTournamentHelperCodes,
     listTournamentRosterEntries,
     listTournamentRuntimeTasks,
     listTournamentSubmissionsForEntry,
@@ -6241,6 +6799,8 @@ module.exports = {
     listTournamentTasks,
     listUsersByIdentifiers,
     listUserTournamentResults,
+    isTournamentCodeTaken,
+    markTournamentHelperCodeUsed,
     markUserEmailVerified,
     promoteUserToAdmin,
     recalculateTournamentRanks,
@@ -6250,6 +6810,8 @@ module.exports = {
     removeTournamentRosterEntry,
     removeTeamMember,
     replaceTournamentRosterEntries,
+    setTournamentRosterGuestUser,
+    setTournamentRosterInviteCodes,
     replaceTournamentTasks,
     reviewOrganizerApplication,
     reviewTaskModeration,

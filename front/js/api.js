@@ -617,6 +617,31 @@
         return data;
     }
 
+    async function loginByTournamentCode(payload) {
+        const data = await request("/api/auth/code-entry", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+
+        if (data.user) {
+            syncUser(data.user);
+            clearLocalCache(publicLandingRequestCache);
+            clearLocalCache(ratingRequestCache);
+        }
+        if (data.runtime) {
+            syncTournamentRuntime(data.runtime);
+        }
+
+        return data;
+    }
+
+    async function inspectTournamentCode(payload) {
+        return request("/api/auth/code-entry/inspect", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    }
+
     async function completeLoginTwoFactor(payload) {
         const data = await request("/api/auth/2fa/login/verify", {
             method: "POST",
@@ -1149,6 +1174,56 @@
         return data.item;
     }
 
+    async function runOrganizerTournamentAction(tournamentId, action, payload = {}) {
+        const data = await request(`/api/organizer/tournaments/${tournamentId}/actions`, {
+            method: "POST",
+            body: JSON.stringify({ action, payload }),
+        });
+        syncOrganizerTournamentItem(data.item, { prepend: true });
+        await loadOrganizerOverview();
+        return data.item;
+    }
+
+    async function loadOrganizerTournamentResults(tournamentId) {
+        return request(`/api/organizer/tournaments/${tournamentId}/results`);
+    }
+
+    async function loadOrganizerTournamentCodes(tournamentId) {
+        return request(`/api/organizer/tournaments/${tournamentId}/access-codes`);
+    }
+
+    async function loadOrganizerTournamentHelperCodes(tournamentId) {
+        return request(`/api/organizer/tournaments/${tournamentId}/helper-codes`);
+    }
+
+    async function generateOrganizerTournamentCodes(tournamentId, mode) {
+        const data = await request(
+            `/api/organizer/tournaments/${tournamentId}/access-codes/generate`,
+            {
+                method: "POST",
+                body: JSON.stringify({ mode }),
+            },
+        );
+        if (data.item) {
+            syncOrganizerTournamentItem(data.item, { prepend: true });
+        }
+        if (data.items) {
+            syncOrganizerRoster(tournamentId, data.items);
+        }
+        await loadOrganizerOverview();
+        return data;
+    }
+
+    async function generateOrganizerTournamentHelperCodes(tournamentId, count = 3) {
+        return request(
+            `/api/organizer/tournaments/${tournamentId}/helper-codes/generate`,
+            {
+                method: "POST",
+                body: JSON.stringify({ count }),
+            },
+        );
+    }
+
     async function deleteOrganizerTournamentRequest(tournamentId) {
         const data = await request(`/api/organizer/tournaments/${tournamentId}`, {
             method: "DELETE",
@@ -1181,6 +1256,7 @@
             body: JSON.stringify(payload),
         });
         await loadOrganizerRoster(tournamentId);
+        await loadOrganizerTournaments();
         return data.item;
     }
 
@@ -1192,6 +1268,7 @@
             },
         );
         await loadOrganizerRoster(tournamentId);
+        await loadOrganizerTournaments();
         return data;
     }
 
@@ -1327,6 +1404,18 @@
         return data.item;
     }
 
+    async function runAdminTournamentAction(tournamentId, action, payload = {}) {
+        const data = await request(`/api/admin/tournaments/${tournamentId}/actions`, {
+            method: "POST",
+            body: JSON.stringify({ action, payload }),
+        });
+
+        syncAdminTournamentItem(data.item);
+        await Promise.all([loadAdminOverview(), loadAdminAudit()]);
+
+        return data.item;
+    }
+
     async function deleteAdminTournament(tournamentId) {
         const data = await request(`/api/admin/tournaments/${tournamentId}`, {
             method: "DELETE",
@@ -1404,6 +1493,9 @@
         loadOAuthProviders,
         loadOrganizerApplications,
         loadOrganizerOverview,
+        loadOrganizerTournamentCodes,
+        loadOrganizerTournamentHelperCodes,
+        loadOrganizerTournamentResults,
         loadOrganizerRoster,
         loadOrganizerTasks,
         loadOrganizerTournaments,
@@ -1416,7 +1508,9 @@
         loadTournamentRuntime,
         loadTournaments,
         loadWorkspaceData,
+        inspectTournamentCode,
         login,
+        loginByTournamentCode,
         logout,
         logoutAllSessions,
         register,
@@ -1433,11 +1527,15 @@
         sendEmailTwoFactorSetup,
         sendEmailVerification,
         saveTournamentTaskDraft,
+        generateOrganizerTournamentCodes,
+        generateOrganizerTournamentHelperCodes,
         submitOrganizerApplication: submitOrganizerApplicationRequest,
         submitOrganizerTaskForReview: submitOrganizerTaskForReviewRequest,
         submitTournamentTaskAnswer,
         state,
         transferTeam: transferTeamRequest,
+        runAdminTournamentAction,
+        runOrganizerTournamentAction,
         updateModerationUserStatus,
         updateOrganizerTask: updateOrganizerTaskRequest,
         updateOrganizerTournament: updateOrganizerTournamentRequest,
