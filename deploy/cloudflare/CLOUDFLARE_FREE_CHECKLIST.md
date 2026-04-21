@@ -1,36 +1,39 @@
-# Cloudflare Free checklist for Qubite
+# Cloudflare Free: базовый checklist для Qubite
 
-## DNS and proxy
+## DNS и proxy
 
-- Turn on the orange-cloud proxy for the public app hostname.
-- Keep the origin Node server private behind Nginx.
-- If the origin was previously exposed, rotate firewall rules so only `80/443` stay public.
+- Включите orange-cloud proxy для публичного домена приложения.
+- Держите origin Node server закрытым за Nginx.
+- Если origin раньше был открыт напрямую, проверьте firewall ещё раз.
 
 ## SSL/TLS
 
-- Set SSL/TLS mode to `Full (strict)`.
-- Enable `Always Use HTTPS`.
-- Prefer HSTS only after HTTPS is stable end-to-end.
+- Режим `Full (strict)`.
+- Включён `Always Use HTTPS`.
+- HSTS включайте только после уверенной проверки HTTPS end-to-end.
 
-Official docs:
+Официальная документация:
+
 - [Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/)
 
-## Bot and abuse controls
+## Защита от abuse
 
-- Enable `Bot Fight Mode`.
-- Add a free rate-limiting rule for `/api/auth/*`.
-- Add a managed challenge or JS challenge rule for suspicious spikes on `/api/*` if needed.
+- Включите `Bot Fight Mode`.
+- Добавьте rate limiting rule для `/api/auth/*`.
+- При всплесках на `/api/*` используйте challenge/rate rules на уровне Cloudflare.
 
-Official docs:
+Официальная документация:
+
 - [Bot Fight Mode](https://developers.cloudflare.com/bots/get-started/bot-fight-mode/)
 - [Free bot protections overview](https://developers.cloudflare.com/bots/plans/free/)
 - [Rate limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/)
 
 ## Real visitor IPs
 
-- Keep `TRUST_PROXY=1` in the app when Nginx is in front of Node.
-- Forward `X-Forwarded-For`, `X-Forwarded-Host`, and `X-Forwarded-Proto` from Nginx.
-- If you want Nginx logs to show the real Cloudflare visitor IP, configure Cloudflare real IP restoration there too.
+- В приложении держите `TRUST_PROXY=1`, если перед Node реально стоит Nginx.
+- Пробрасывайте `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`.
+- Если важны реальные IP в логах Nginx, настройте там восстановление Cloudflare visitor IP.
 
-Official docs:
-- [Restore original visitor IPs](https://developers.cloudflare.com/support/troubleshooting/restoring-visitor-ips/index/)
+## Важное ограничение
+
+Для RU-пользовательского контура Cloudflare полезен как edge/proxy слой, но текущий Turnstile-поток не обязательно оптимален в долгую. Планируемая миграция на Яндекс SmartCaptcha не отменяет полезность Cloudflare как DNS/TLS/edge-инфраструктуры.

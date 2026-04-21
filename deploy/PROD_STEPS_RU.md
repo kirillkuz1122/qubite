@@ -1,34 +1,45 @@
-# Qubite: что сделать сейчас на вашем сервере
+# Qubite: production-шаги для текущего VPS-сценария
 
-Ниже шаги под ваш текущий сервер:
+Этот файл описывает практический серверный сценарий, который уже ближе всего к реальной эксплуатации Qubite.
 
-- Ubuntu 24.04
-- Nginx уже стоит
-- Certbot уже выдал сертификаты в `/etc/letsencrypt/live/qubiteapp.ru/`
-- backend слушает через PM2
-- домены:
-  - основной: `qubiteapp.ru`
-  - алиасы: `www.qubiteapp.ru`, `qubiteapp.online`, `www.qubiteapp.online`
+Подробнее общий контекст описан в [`../docs/deploy-and-production.md`](../docs/deploy-and-production.md). Здесь — именно пошаговый operator checklist.
 
-## 1. Обновить проект
+## Исходные предпосылки
+
+- Ubuntu/VPS
+- Nginx стоит перед Node
+- backend работает через PM2
+- основная RU-версия живёт на `qubiteapp.ru`
+- Node должен слушать только локальный адрес
+
+## 1. Обновить код и зависимости
+
+Текущий рабочий update-flow:
 
 ```bash
-cd ~/qubite
+cd /var/www/qubiteapp/ && git pull && cd back/ && npm install && pm2 restart 0 --update-env
+```
+
+Если хотите выполнять шаги по отдельности:
+
+```bash
+cd /var/www/qubiteapp
 git pull
 cd back
 npm install
+pm2 restart 0 --update-env
 ```
 
-## 2. Настроить production `.env`
+## 2. Проверить production `.env`
 
-Создайте или обновите `~/qubite/.env` примерно так:
+Минимально важные поля:
 
 ```env
 HOST=127.0.0.1
 PORT=3000
 NODE_ENV=production
 APP_BASE_URL=https://qubiteapp.ru
-DATABASE_PATH=/root/qubite/back/data/qubite.sqlite
+DATABASE_PATH=/var/www/qubiteapp/back/data/qubite.sqlite
 
 TRUST_PROXY=1
 ALLOWED_ORIGINS=https://qubiteapp.ru,https://www.qubiteapp.ru
@@ -45,8 +56,6 @@ HEADERS_TIMEOUT_MS=12000
 KEEP_ALIVE_TIMEOUT_MS=5000
 MAX_REQUESTS_PER_SOCKET=100
 SQLITE_BUSY_TIMEOUT_MS=5000
-SEED_DEMO_DATA=false
-NODE_OPTIONS=--max-old-space-size=256
 
 EMAIL_DELIVERY_MODE=log
 EMAIL_FROM=Qubite <no-reply@qubiteapp.ru>
@@ -69,81 +78,55 @@ YANDEX_CALLBACK_URL=https://qubiteapp.ru/api/auth/oauth/yandex/callback
 Важно:
 
 - `HOST=127.0.0.1`, а не `0.0.0.0`
-- `TRUST_PROXY=1`, потому что перед Node стоит Nginx
-- `APP_BASE_URL` должен быть ровно `https://qubiteapp.ru`
-- `SESSION_TOUCH_INTERVAL_MS=300000` уменьшает лишние записи в SQLite по активным сессиям
-- `SQLITE_BUSY_TIMEOUT_MS=5000` полезен для маленького VPS и снижает шанс transient `database is locked`
-- `SEED_DEMO_DATA=false` обязательно для production, чтобы не тратить startup на demo-seed
-- `NODE_OPTIONS=--max-old-space-size=256` или `384` достаточно для этого проекта на 1 GB RAM
-- если Turnstile еще не включили, сайт будет требовать его на register/login/forgot в production, так что ключи лучше добавить сразу
+- `TRUST_PROXY=1`, только если перед Node реально стоит Nginx
+- `APP_BASE_URL` должен совпадать с реальным доменом
+- не храните production secrets в Git
 
 ## 3. Назначить admin и owner
 
-Если нужный пользователь уже зарегистрирован:
+Если пользователь уже зарегистрирован:
 
 ```bash
-cd ~/qubite
+cd /var/www/qubiteapp
 node back/scripts/promote-admin.js --email YOUR_EMAIL
 node back/scripts/set-owner.js --email YOUR_EMAIL
 ```
 
-Если потом захотите передать owner:
+Если owner нужно передать:
 
 ```bash
 node back/scripts/set-owner.js --email NEW_OWNER_EMAIL --replace
 ```
 
-Через сайт owner теперь не снимается и не блокируется.
+## 4. Проверить Nginx
 
-## 4. Поставить новый Nginx-конфиг
+Основные файлы:
 
-Сначала создайте proxy snippet:
+- `deploy/nginx/qubite.conf`
+- `deploy/nginx/snippets/qubite-proxy-headers.conf`
+
+Типовой порядок:
 
 ```bash
 mkdir -p /etc/nginx/snippets
-cp ~/qubite/deploy/nginx/snippets/qubite-proxy-headers.conf /etc/nginx/snippets/qubite-proxy-headers.conf
-```
-
-Потом замените дефолтный сайт:
-
-```bash
-cp ~/qubite/deploy/nginx/qubite.conf /etc/nginx/sites-available/default
+cp /var/www/qubiteapp/deploy/nginx/snippets/qubite-proxy-headers.conf /etc/nginx/snippets/qubite-proxy-headers.conf
+cp /var/www/qubiteapp/deploy/nginx/qubite.conf /etc/nginx/sites-available/default
 nginx -t
 systemctl reload nginx
 ```
 
-Что даст этот конфиг:
+## 5. Проверить PM2
 
-- `qubiteapp.ru` станет основным доменом
-- `www.qubiteapp.ru` будет редиректиться на основной
-- `qubiteapp.online` и `www.qubiteapp.online` будут редиректиться на основной
-- появятся лимиты на `/api/auth/` и `/api/`
-- появятся timeout/body-limit/connection-limit настройки перед Node
+- не используйте cluster mode для этого SQLite-инстанса;
+- после изменения env или кода обновляйте процесс через `--update-env`;
+- проверьте, что Node реально слушает только loopback.
 
-Важно:
-
-- блок для `qubiteapp.online` на `443` работает только если ваш текущий сертификат реально покрывает `qubiteapp.online`
-- если `nginx -t` скажет, что сертификат не подходит для `.online`, временно закомментируйте именно `server_name qubiteapp.online www.qubiteapp.online;` блок на `443`
-
-## 5. Перезапустить backend через PM2
-
-Для SQLite лучше держать один Node-процесс. Не включайте PM2 cluster mode для этого инстанса.
-
-Если у вас приложение уже в PM2:
-
-```bash
-cd ~/qubite/back
-pm2 restart 0 --update-env
-pm2 save
-```
-
-Если хотите проверить, что env применился:
+Полезно:
 
 ```bash
 pm2 show 0
+pm2 logs
 ```
-
-Смотрите, чтобы Node слушал только `127.0.0.1:3000`.
 
 ## 6. Базово закрыть VPS
 
@@ -160,61 +143,41 @@ ufw enable
 ufw status verbose
 ```
 
-Не открывайте наружу `3000`.
+Никогда не открывайте наружу Node-порт.
 
-## 7. Включить Turnstile
+См. также:
 
-В Cloudflare:
+- [`firewall/UFW.md`](firewall/UFW.md)
+- [`firewall/nftables-qubite.nft`](firewall/nftables-qubite.nft)
 
-1. Создайте Turnstile widget
-2. Разрешите hostname `qubiteapp.ru`
-3. Вставьте `TURNSTILE_SITE_KEY` и `TURNSTILE_SECRET_KEY` в `.env`
-4. Перезапустите PM2:
+## 7. Cloudflare и CAPTCHA
 
-```bash
-cd ~/qubite/back
-pm2 restart 0 --update-env
-```
+Сейчас в коде используется `Cloudflare Turnstile`.
 
-## 8. Что проверить после раскатки
+Практически это означает:
+
+1. у Cloudflare должен быть настроен proxy/edge для публичного домена;
+2. в `.env` должны быть реальные `TURNSTILE_*` ключи;
+3. `TURNSTILE_DEV_BYPASS=false` в production;
+4. после изменения ключей нужно перезапустить PM2.
+
+Важно: для RU-контура это временное решение. В roadmap уже есть переход на Яндекс SmartCaptcha.
+
+## 8. Проверка после раскатки
 
 Проверьте руками:
 
-1. `https://qubiteapp.ru` открывается
-2. `https://www.qubiteapp.ru` редиректит на `https://qubiteapp.ru`
-3. `https://qubiteapp.online` редиректит на `https://qubiteapp.ru`
-4. регистрация работает
-5. логин работает
-6. owner виден в админке, но кнопки изменения/блока для него отключены
-7. обычный пользователь с логином `admin` не становится админом
+1. открывается `https://qubiteapp.ru`
+2. Node-порт не торчит наружу
+3. регистрация работает
+4. логин работает
+5. owner виден в админском контуре, но не доступен для обычного demote/block flow
+6. OAuth-провайдеры показываются только когда реально настроены
+7. CAPTCHA/anti-bot flow работает на боевом домене
 
-## 9. Команды, которые вам, скорее всего, нужны прямо сейчас
+## 9. Что ещё требует ручной проверки
 
-Если делать по-быстрому и в правильном порядке:
-
-```bash
-cd ~/qubite
-git pull
-
-cp ~/qubite/deploy/nginx/snippets/qubite-proxy-headers.conf /etc/nginx/snippets/qubite-proxy-headers.conf
-cp ~/qubite/deploy/nginx/qubite.conf /etc/nginx/sites-available/default
-
-nvim ~/qubite/.env
-
-cd ~/qubite/back
-npm install
-
-nginx -t
-systemctl reload nginx
-
-pm2 restart 0 --update-env
-pm2 save
-```
-
-А потом:
-
-```bash
-cd ~/qubite
-node back/scripts/promote-admin.js --email YOUR_EMAIL
-node back/scripts/set-owner.js --email YOUR_EMAIL
-```
+- насколько текущие deploy-файлы полностью совпадают с реальным сервером;
+- не закоммичены ли действующие production secrets;
+- насколько аккуратно разведены RU и EN окружения;
+- не расходится ли operator memory с Markdown-инструкциями.

@@ -1,4 +1,4 @@
-# UFW baseline for Qubite
+# Базовый UFW-профиль для Qubite
 
 ```bash
 sudo ufw default deny incoming
@@ -11,8 +11,8 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-Notes:
+## Примечания
 
-- Do not open the Node.js port publicly.
-- If you use another SSH port, allow and limit that port instead of `22/tcp`.
-- For ICMP/ping rate limiting, prefer nftables from [`nftables-qubite.nft`](/home/kirill/programing/qubite/deploy/firewall/nftables-qubite.nft).
+- Не открывайте наружу Node.js порт.
+- Если SSH работает на другом порту, разрешайте и лимитируйте именно его.
+- Для более тонкой сетевой фильтрации и rate limiting смотрите `nftables-qubite.nft`.
