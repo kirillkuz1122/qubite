@@ -65,6 +65,7 @@ const {
     deleteAdminTask,
     deleteAdminTeam,
     deleteAdminTournament,
+    deleteAdminUserHard,
     deleteOrganizerTournament,
     ensureDailyTournamentForDate,
     findActiveAuthChallengeByFlowToken,
@@ -85,6 +86,9 @@ const {
     getOwnerUser,
     getPlatformMetrics,
     getPrimaryTournament,
+    getSystemSettings,
+    updateSystemSetting,
+    getSystemSettingValue,
     getSessionByUserAndId,
     getTaskById,
     getTeamForUser,
@@ -3963,6 +3967,69 @@ function validateTaskPayload(res, payload) {
 app.use("/api", globalApiRateLimiter);
 app.use(attachAuth);
 
+// System Control Middleware
+app.use(async (req, res, next) => {
+    const settings = await getSystemSettings();
+    const isOwner = req.auth?.user?.role === "owner";
+    const isMaintenance = settings.maintenance_mode === true || settings.maintenance_mode === 'true';
+    const path = req.path;
+
+    const cookies = parseCookies(req.headers.cookie || "");
+    const queryToken = req.query.owner_bypass;
+    
+    if (queryToken && queryToken === settings.maintenance_token) {
+        res.cookie('qubite_bypass', queryToken, { maxAge: 24 * 3600000, httpOnly: true, path: '/' });
+        const queryParams = new URLSearchParams(req.query);
+        queryParams.delete('owner_bypass');
+        const queryString = queryParams.toString();
+        // Используем 302 редирект, чтобы очистить URL, но не трогаем сессию
+        res.redirect(path + (queryString ? '?' + queryString : ''));
+        return;
+    }
+    
+    const hasBypass = Boolean(settings.maintenance_token) && cookies?.qubite_bypass === settings.maintenance_token;
+
+    // Режим обслуживания (отправляем на спец страницу)
+    if (isMaintenance && !hasBypass) {
+        // Пропускаем статику для страницы техработ и иконок
+        if (path === '/maintenance.html' || path.startsWith('/front/img/')) {
+            return next();
+        }
+        
+        // Для API кидаем 503
+        if (path.startsWith('/api')) {
+            sendError(res, 503, "Сайт временно недоступен. Проводятся технические работы.");
+            return;
+        }
+        
+        // Для всех остальных путей (включая корень) отправляем HTML техработ
+        res.setHeader("Cache-Control", "no-cache");
+        res.sendFile(require('path').join(ROOT_DIR, "maintenance.html"));
+        return;
+    }
+
+    // Проверка регистрации
+    if (path === '/api/auth/register' && !settings.registration_enabled && !isOwner) {
+        sendError(res, 403, "Регистрация временно приостановлена. Попробуйте позже.");
+        return;
+    }
+
+    // Проверка создания турниров
+    if (path === '/api/organizer/tournaments' && req.method === 'POST' && !settings.tournament_creation_enabled && !isOwner) {
+        sendError(res, 403, "Создание новых турниров временно отключено.");
+        return;
+    }
+
+    // Проверка участия
+    if (path.includes('/join') && !settings.tournament_participation_enabled && !isOwner) {
+        sendError(res, 403, "Присоединение к турнирам временно недоступно.");
+        return;
+    }
+
+    req.systemSettings = settings;
+    next();
+});
+
 app.get("/api/status", (req, res) => {
     res.json({
         status: "ok",
@@ -4259,6 +4326,10 @@ app.post("/api/auth/login", publicExpensiveRateLimiter, authRateLimiter, require
         }
 
         if ((user.status || "active") !== "active") {
+            if (user.status === 'deleted') {
+                sendError(res, 403, "Этот аккаунт удален. Обратитесь в поддержку.");
+                return;
+            }
             sendError(
                 res,
                 403,
@@ -8077,6 +8148,49 @@ app.get("/api/admin/stats/detailed", requireAdmin, async (req, res, next) => {
     }
 });
 
+app.get("/api/admin/system-settings", requireAdmin, async (req, res, next) => {
+    try {
+        const settings = await getSystemSettings();
+        res.json(settings);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch("/api/admin/system-settings/:key", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
+    try {
+        if (req.auth.user.role !== "owner") {
+            sendError(res, 403, "Только владелец платформы может изменять системные настройки.");
+            return;
+        }
+        const { key } = req.params;
+        const { value } = req.body;
+        let finalValue = value;
+        let tokenResponse = null;
+
+        if (key === 'maintenance_mode' && value === true) {
+            const crypto = require('crypto');
+            const token = crypto.randomBytes(16).toString('hex');
+            await updateSystemSetting('maintenance_token', token);
+            tokenResponse = token;
+        }
+
+        const updated = await updateSystemSetting(key, finalValue);
+        
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "system.setting.update",
+            entityType: "system",
+            entityId: key,
+            summary: `Изменена системная настройка: ${key} = ${value}`,
+        });
+
+        res.json({ updated, bypassToken: tokenResponse });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
     try {
         const [overview, metrics] = await Promise.all([
@@ -8216,6 +8330,63 @@ app.delete("/api/admin/users/:id", requireAdmin, adminSensitiveRateLimiter, asyn
             entityType: "user",
             entityId: userId,
             summary: `Администратор удалил аккаунт: ${targetUser.login}`,
+        });
+
+        invalidateAdminReadCaches();
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/admin/users/:id/hard", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
+    try {
+        const userId = Number(req.params.id);
+        const targetUser = await getUserById(userId);
+        if (!targetUser) {
+            sendError(res, 404, "Пользователь не найден.");
+            return;
+        }
+
+        if (targetUser.role === ROLE_OWNER) {
+            sendError(res, 403, "Нельзя удалить владельца через API.");
+            return;
+        }
+
+        await deleteAdminUserHard(userId);
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "user.delete_hard.admin",
+            entityType: "user",
+            entityId: userId,
+            summary: `Администратор окончательно удалил аккаунт: ${targetUser.login}`,
+        });
+
+        invalidateAdminReadCaches();
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/admin/users/:id/restore", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
+    try {
+        const userId = Number(req.params.id);
+        const targetUser = await getUserById(userId);
+        if (!targetUser) {
+            sendError(res, 404, "Пользователь не найден.");
+            return;
+        }
+
+        await setUserStatus(userId, "active");
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "user.restore.admin",
+            entityType: "user",
+            entityId: userId,
+            summary: `Администратор восстановил аккаунт: ${targetUser.login}`,
         });
 
         invalidateAdminReadCaches();

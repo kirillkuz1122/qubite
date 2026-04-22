@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Техническое обслуживание | Qubite</title>
+        <link rel="icon" href="./front/img/icon.svg" type="image/x-icon" />
+        <style>
+            :root {
+                --bg-color: #050505;
+                --accent-start: #f59e0b;
+                --accent-end: #f43f5e;
+            }
+
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: var(--bg-color);
+                font-family: "Segoe UI", "Roboto", sans-serif;
+                user-select: none;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #ui-layer {
+                z-index: 10;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+
+            #block-503 {
+                font-size: clamp(80px, 15vw, 150px);
+                font-weight: 900;
+                background: linear-gradient(
+                    135deg,
+                    var(--accent-start),
+                    var(--accent-end)
+                );
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                margin-bottom: 20px;
+                filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.5));
+                animation: pulse 2s infinite alternate;
+            }
+
+            #text-title {
+                color: white;
+                font-size: clamp(24px, 5vw, 40px);
+                font-weight: 700;
+                margin-bottom: 15px;
+            }
+
+            #text-desc {
+                color: #aaa;
+                font-size: clamp(14px, 3vw, 18px);
+                max-width: 600px;
+                line-height: 1.6;
+                padding: 0 20px;
+            }
+
+            @keyframes pulse {
+                0% { filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.3)); transform: scale(0.98); }
+                100% { filter: drop-shadow(0 0 30px rgba(245, 158, 11, 0.7)); transform: scale(1.02); }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="ui-layer">
+            <div id="block-503">503</div>
+            <div id="text-title">Платформа на обслуживании</div>
+            <div id="text-desc">
+                Мы проводим плановые технические работы. Пожалуйста, зайдите позже. <br> Скоро мы вернемся с обновлениями!
+            </div>
+        </div>
+    </body>
+</html>

@@ -35,6 +35,7 @@
         adminSystemStats: null,
         adminSystemStatsHistory: [],
         adminDetailedStats: null,
+        adminSystemSettings: {},
         adminUsers: [],
         adminTournaments: [],
         adminTasks: [],
@@ -580,6 +581,11 @@
             : await response.text();
 
         if (!response.ok) {
+            if (response.status === 503) {
+                window.location.reload();
+                await new Promise(() => {}); // prevent further execution
+            }
+            
             const err = new Error(
                 payload && typeof payload === "object" && payload.error
                     ? payload.error
@@ -824,6 +830,26 @@
     function syncAdminDetailedStats(payload) {
         state.adminDetailedStats = payload ? { ...payload } : null;
         return state.adminDetailedStats;
+    }
+
+    function syncAdminSystemSettings(payload) {
+        state.adminSystemSettings = payload ? { ...payload } : {};
+        return state.adminSystemSettings;
+    }
+
+    async function loadAdminSystemSettings() {
+        const data = await request("/api/admin/system-settings");
+        syncAdminSystemSettings(data);
+        return state.adminSystemSettings;
+    }
+
+    async function updateAdminSystemSetting(key, value) {
+        const data = await request(`/api/admin/system-settings/${key}`, {
+            method: "PATCH",
+            body: JSON.stringify({ value }),
+        });
+        syncAdminSystemSettings(data.updated || data);
+        return data; // Возвращаем сырой data, чтобы app.js мог достать bypassToken
     }
 
     async function loadAdminDetailedStats(hours = 24) {
@@ -1507,6 +1533,21 @@
         return data;
     }
 
+    async function deleteAdminUserHard(userId) {
+        const data = await request(`/api/admin/users/${userId}/hard`, {
+            method: "DELETE",
+        });
+        syncAdminUsers(removeById(state.adminUsers, userId));
+        return data;
+    }
+
+    async function restoreAdminUser(userId) {
+        const data = await request(`/api/admin/users/${userId}/restore`, {
+            method: "POST",
+        });
+        return data;
+    }
+
     async function deleteSelfAccount() {
         return request("/api/profile", {
             method: "DELETE",
@@ -1540,10 +1581,14 @@
         loadAdminDetailedStats,
         generateAdminUser,
         deleteAdminUser,
+        deleteAdminUserHard,
+        restoreAdminUser,
         deleteSelfAccount,
         loadAdminOverview,
         loadAdminSystemStats,
         loadAdminSystemStatsHistory,
+        loadAdminSystemSettings,
+        updateAdminSystemSetting,
         loadAdminTasks,
         loadAdminTeams,
         loadAdminTournaments,

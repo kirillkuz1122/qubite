@@ -1501,6 +1501,10 @@ function isAdminUser(user = getUserState()) {
     return Boolean(user && (user.isAdmin || user.role === "admin" || user.role === "owner"));
 }
 
+function isOwnerUser(user = getUserState()) {
+    return Boolean(user && user.role === "owner");
+}
+
 function isOrganizerUser(user = getUserState()) {
     return Boolean(user && user.role === "organizer");
 }
@@ -2779,15 +2783,7 @@ async function bootstrapAuthSession() {
             pendingEmailVerification = shouldRequireEmailVerification(getUserState());
             
             if (pendingEmailVerification) {
-                try {
-                    const response = await apiClient.sendEmailVerification();
-                    openVerifyFlow({
-                        type: "email-verification",
-                        flowToken: response.flowToken,
-                    });
-                } catch (err) {
-                    Toast.show("Подтверждение", "Не удалось отправить код подтверждения.", "error");
-                }
+                openModal("verifyPromptModal");
             } else if (pendingProfileCompletion) {
                 openModal("profileModal");
             }
@@ -2904,6 +2900,7 @@ const Toast = {
             success: "check_circle",
             error: "error",
             info: "info",
+            warning: "warning",
         };
 
         toast.innerHTML = `
@@ -3453,7 +3450,23 @@ const DYNAMIC_MODALS_HTML = `
     </div>
   </div>
   <!-- Подтверждение почты (Verify) -->
-  <div id="verifyModal" class="modal" hidden>
+  
+  <!-- Запрос на отправку почты -->
+  <div id="verifyPromptModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="verifyPromptModal"></div>
+    <div class="modal__panel modal__panel--code" role="dialog" aria-modal="true" aria-labelledby="verifyPromptTitle">
+      <div class="modal__head">
+        <div id="verifyPromptTitle" class="modal__title">Подтверждение E-mail</div>
+      </div>
+      <div class="modal__body" style="text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 20px;">📧</div>
+        <p style="margin-bottom: 20px; color: var(--fg-strong); font-size: 16px;">Ваша почта еще не подтверждена.</p>
+        <p style="margin-bottom: 24px; color: var(--fg-muted);">Без подтверждения почты большинство функций платформы недоступно. Мы отправим письмо с кодом подтверждения на ваш адрес.</p>
+        <button class="btn btn--accent btn--block" id="btn-trigger-verify" type="button">Отправить письмо с кодом</button>
+      </div>
+    </div>
+  </div>
+<div id="verifyModal" class="modal" hidden>
     <div class="modal__backdrop" data-close="verifyModal"></div>
     <div class="modal__panel modal__panel--code" role="dialog" aria-modal="true" aria-labelledby="verifyTitle">
       <div class="modal__head">
@@ -3890,6 +3903,26 @@ function mountModals() {
     // Инициализируем валидацию для всех новых форм
     wrap.querySelectorAll("form").forEach((f) => setupForm(f));
     hydrateOAuthButtons();
+
+    // Инициализация кнопки подтверждения почты
+    const triggerVerifyBtn = document.getElementById("btn-trigger-verify");
+    if (triggerVerifyBtn) {
+        triggerVerifyBtn.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                const response = await apiClient.sendEmailVerification();
+                closeModal("verifyPromptModal");
+                openVerifyFlow({
+                    type: "email-verification",
+                    flowToken: response.flowToken,
+                });
+            } catch (err) {
+                Toast.show("Подтверждение", "Не удалось отправить код подтверждения.", "error");
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    }
 }
 
 // Timer Logic
@@ -4839,7 +4872,16 @@ function setupForm(form) {
                     await loadWorkspaceData();
                     closeAnyModal();
                     switchToWorkspace();
-                    Toast.show("Аккаунт", "Вход выполнен", "success");
+                    
+                    if (shouldRequireEmailVerification(getUserState())) {
+                        pendingEmailVerification = true;
+                        openModal("verifyPromptModal");
+                    } else if (shouldRequireProfileCompletion(getUserState())) {
+                        pendingProfileCompletion = true;
+                        openModal("profileModal");
+                    } else {
+                        Toast.show("Аккаунт", "Вход выполнен", "success");
+                    }
                 }
             } catch (error) {
                 applyRequestError(form, error, "Авторизация");
@@ -5871,7 +5913,8 @@ async function loadWorkspaceDataForActiveView(viewName = null) {
         if (isAdminUser()) {
             await Promise.all([
                 apiClient.loadAdminOverview(),
-                apiClient.loadAdminSystemStats()
+                apiClient.loadAdminSystemStats(),
+                apiClient.loadAdminSystemSettings()
             ]);
             return;
         }
@@ -6660,7 +6703,43 @@ function renderProfileAnalytics() {
 
 
 
+
 function renderAnalyticsView() {
+    
+    const settings = apiClient.state.adminSystemSettings || {};
+    const renderSystemSettingsBlock = () => {
+        if (!isOwnerUser()) return "";
+        const toggleBtn = (key, label, isEnabled) => `
+            <button class="admin-home-alert admin-home-alert--${isEnabled ? 'accent' : 'muted'}" 
+                    style="cursor: pointer; text-align: left; width: 100%; padding: 12px;"
+                    onclick="toggleSystemSetting('${key}', ${!isEnabled})">
+                <div class="admin-home-alert__icon">
+                    ${renderOpsIcon(isEnabled ? 'task_alt' : 'lock', isEnabled ? 'accent' : 'muted')}
+                </div>
+                <div class="admin-home-alert__copy">
+                    <div class="admin-home-alert__title">${label}</div>
+                    <div class="admin-home-alert__desc">${isEnabled ? 'Включено' : 'Выключено'}</div>
+                </div>
+            </button>
+        `;
+
+        return `
+            <section class="card dash-card" data-view-anim style="margin-bottom: var(--space-md);">
+                <div class="card__head">
+                    <div class="card__title">Управление системой</div>
+                    <div class="card__sub">Глобальные переключатели доступности функций платформы.</div>
+                </div>
+                <div class="kpi-grid">
+                    ${toggleBtn('maintenance_mode', 'Режим обслуживания', settings.maintenance_mode)}
+                    ${toggleBtn('registration_enabled', 'Регистрация', settings.registration_enabled)}
+                    ${toggleBtn('email_enabled', 'Рассылка писем', settings.email_enabled)}
+                    ${toggleBtn('tournament_creation_enabled', 'Создание турниров', settings.tournament_creation_enabled)}
+                    ${toggleBtn('tournament_participation_enabled', 'Участие в турнирах', settings.tournament_participation_enabled)}
+                </div>
+            </section>
+        `;
+    };
+
     const stats = getAdminSystemStatsState();
     const history = apiClient.state.adminSystemStatsHistory || [];
     const detailed = apiClient.state.adminDetailedStats || { visits: [], emails: [], registrations: [], submissions: [] };
@@ -6772,6 +6851,31 @@ function renderAnalyticsView() {
     `;
 }
 
+
+window.toggleSystemSetting = async (key, value) => {
+    Loader.show();
+    try {
+        const result = await apiClient.updateAdminSystemSetting(key, value);
+        const container = document.getElementById('workspace-content');
+        if (container) {
+            container.innerHTML = renderAdminDashboard();
+            void initAdminDashboardInteractions(container);
+        }
+        
+        if (key === 'maintenance_mode' && value === true && result.bypassToken) {
+            const bypassUrl = `${window.location.origin}/?owner_bypass=${result.bypassToken}`;
+            const desc = `ВКЛЮЧЕН!<br>Секретный доступ:<br><a href="${bypassUrl}" style="color:white;text-decoration:underline;word-break:break-all;">${bypassUrl}</a><br><button class="btn btn--muted btn--sm" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.1)" onclick="navigator.clipboard.writeText('${bypassUrl}').then(() => Toast.show('Успех', 'Ссылка скопирована в буфер', 'success'))">Скопировать ссылку</button>`;
+            Toast.show("Режим обслуживания", desc, "warning", 20000);
+        } else {
+            Toast.show("Система", "Настройка обновлена", "success");
+        }
+    } catch (err) {
+        showRequestError("Система", err);
+    } finally {
+        Loader.hide(300);
+    }
+};
+
 window.setGlobalAnalyticsRange = async (hours) => {
     adminUiState.statsHistoryRange = hours;
     Loader.show();
@@ -6781,16 +6885,14 @@ window.setGlobalAnalyticsRange = async (hours) => {
             apiClient.loadAdminDetailedStats(hours),
             apiClient.loadAdminSystemStats()
         ]);
-        // Принудительно рендерим и инициализируем графики
         const container = document.getElementById('workspace-content');
         if (container) {
             container.innerHTML = renderAnalyticsView();
             void initAnalyticsInteractions(container);
         }
-        // Обновляем URL без полной перезагрузки ViewManager если нужно
         const queryParams = new URLSearchParams(window.location.search);
         queryParams.set("view", "analytics");
-        window.history.replaceState({}, "", "?".concat(queryParams.toString()));
+        window.history.replaceState({}, "", "?" + queryParams.toString());
     } catch (err) {
         showRequestError("Аналитика", err);
     } finally {
@@ -6840,10 +6942,8 @@ async function initAnalyticsInteractions(container) {
         plugins: { legend: { labels: { color: fgStrong } } }
     };
 
-    // Helper to format hours
     const formatH = (hStr) => hStr.split(' ')[1] + ':00';
 
-    // Registrations
     analyticsCharts.regs = new ChartLib(container.querySelector('#analyticsRegsChart'), {
         type: 'line',
         data: {
@@ -6853,7 +6953,6 @@ async function initAnalyticsInteractions(container) {
         options: commonOptions
     });
 
-    // Submissions
     analyticsCharts.submits = new ChartLib(container.querySelector('#analyticsSubmitsChart'), {
         type: 'line',
         data: {
@@ -6863,7 +6962,6 @@ async function initAnalyticsInteractions(container) {
         options: commonOptions
     });
 
-    // Visits
     analyticsCharts.visits = new ChartLib(visitsCanvas, {
         type: 'bar',
         data: {
@@ -6873,7 +6971,6 @@ async function initAnalyticsInteractions(container) {
         options: commonOptions
     });
 
-    // Emails
     const emailLabels = [...new Set(detailed.emails.map(e => e.hour))].sort();
     analyticsCharts.emails = new ChartLib(container.querySelector('#analyticsEmailsChart'), {
         type: 'line',
@@ -6887,7 +6984,6 @@ async function initAnalyticsInteractions(container) {
         options: commonOptions
     });
 
-    // Resources
     analyticsCharts.resources = new ChartLib(container.querySelector('#analyticsResourcesChart'), {
         type: 'line',
         data: {
@@ -6900,7 +6996,6 @@ async function initAnalyticsInteractions(container) {
         options: { ...commonOptions, scales: { ...commonOptions.scales, y1: { position: 'right', grid: { display: false }, ticks: { color: secondary } } } }
     });
 
-    // Traffic
     analyticsCharts.traffic = new ChartLib(container.querySelector('#analyticsTrafficChart'), {
         type: 'line',
         data: {
@@ -6914,12 +7009,6 @@ async function initAnalyticsInteractions(container) {
     });
 }
 
-/**
- * Инициализирует интерактивность в секции профиля.
- */
-/**
- * Инициализирует интерактивность в секции профиля.
- */
 
 function initProfilePersonalInteractions(container) {
     const form = container.querySelector("#profile-detailed-form");
@@ -7248,17 +7337,26 @@ function initProfileSecurityInteractions(container) {
                 Loader.hide(300);
             }
         });
+    });
     
     const deleteBtn = container.querySelector('#profile-delete-btn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async () => {
-            const confirmed = await requestConfirmDialog({
-                title: 'Удаление аккаунта',
+            const confirmed1 = await requestConfirmDialog({
+                title: 'Удаление аккаунта (Шаг 1)',
                 desc: 'Вы уверены, что хотите навсегда удалить свой аккаунт? Все ваши достижения и данные будут стерты без возможности восстановления.',
-                confirmLabel: 'Удалить всё',
+                confirmLabel: 'Да, я хочу удалить',
                 confirmTone: 'danger',
             });
-            if (!confirmed) return;
+            if (!confirmed1) return;
+
+            const confirmed2 = await requestConfirmDialog({
+                title: 'Удаление аккаунта (Шаг 2)',
+                desc: 'Это действие НЕОБРАТИМО. Подтвердите окончательное удаление вашего аккаунта.',
+                confirmLabel: 'Удалить навсегда',
+                confirmTone: 'danger',
+            });
+            if (!confirmed2) return;
 
             Loader.show();
             try {
@@ -7272,7 +7370,7 @@ function initProfileSecurityInteractions(container) {
             }
         });
     }
-});
+
 
     container.querySelector(".btn-send-email-verify")?.addEventListener(
         "click",
@@ -9771,11 +9869,14 @@ function renderAdminUsersSection(users) {
                                 ${
                                     isProtected
                                         ? renderOpsBadge("Только через CLI", "owner")
+                                        : user.status === "deleted"
+                                        ? `<button class="btn btn--success btn--sm" data-admin-user-restore="${escapeHtml(user.id)}">Восстановить</button>
+                                           <button class="btn btn--danger btn--sm" data-admin-user-hard-delete="${escapeHtml(user.id)}">Стереть</button>`
                                         : user.status === "blocked"
                                         ? `<button class="btn btn--muted btn--sm" data-admin-status-set="active" data-admin-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-admin-status-set="blocked" data-admin-user-id="${escapeHtml(user.id)}">Блок</button>`
                                 }
-                                ${!isProtected ? `<button class="btn btn--muted btn--sm" data-admin-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт навсегда">Удалить</button>` : ""}
+                                ${!isProtected && user.status !== "deleted" ? `<button class="btn btn--muted btn--sm" data-admin-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт">Удалить</button>` : ""}
                             </div>
                         </div>
                     `;
@@ -9994,6 +10095,41 @@ function renderAdminDashboard() {
         Number(overview.pendingTaskModerationCount || 0) +
         Number(overview.pendingOrganizerApplicationsCount || 0);
 
+    
+    const settings = apiClient.state.adminSystemSettings || {};
+    const renderSystemSettingsBlock = () => {
+        if (!isOwnerUser()) return "";
+        const toggleBtn = (key, label, isEnabled) => `
+            <button class="admin-home-alert admin-home-alert--${isEnabled ? 'accent' : 'muted'}" 
+                    style="cursor: pointer; text-align: left; width: 100%; padding: 12px;"
+                    onclick="toggleSystemSetting('${key}', ${!isEnabled})">
+                <div class="admin-home-alert__icon">
+                    ${renderOpsIcon(isEnabled ? 'task_alt' : 'lock', isEnabled ? 'accent' : 'muted')}
+                </div>
+                <div class="admin-home-alert__copy">
+                    <div class="admin-home-alert__title">${label}</div>
+                    <div class="admin-home-alert__desc">${isEnabled ? 'Включено' : 'Выключено'}</div>
+                </div>
+            </button>
+        `;
+
+        return `
+            <section class="card dash-card" data-view-anim style="margin-bottom: var(--space-md);">
+                <div class="card__head">
+                    <div class="card__title">Управление системой</div>
+                    <div class="card__sub">Глобальные переключатели доступности функций платформы.</div>
+                </div>
+                <div class="kpi-grid">
+                    ${toggleBtn('maintenance_mode', 'Режим обслуживания', settings.maintenance_mode)}
+                    ${toggleBtn('registration_enabled', 'Регистрация', settings.registration_enabled)}
+                    ${toggleBtn('email_enabled', 'Рассылка писем', settings.email_enabled)}
+                    ${toggleBtn('tournament_creation_enabled', 'Создание турниров', settings.tournament_creation_enabled)}
+                    ${toggleBtn('tournament_participation_enabled', 'Участие в турнирах', settings.tournament_participation_enabled)}
+                </div>
+            </section>
+        `;
+    };
+
     const stats = getAdminSystemStatsState();
     
     const renderStatsBlock = () => {
@@ -10041,6 +10177,7 @@ function renderAdminDashboard() {
             <h1 class="dash-header" data-view-anim>Главная</h1>
             
             ${renderStatsBlock()}
+            ${renderSystemSettingsBlock()}
 
             <div class="dash-grid admin-home-grid">
                 <section class="card dash-card tour-card admin-home-hero" data-view-anim style="transition-delay: 0.05s;">
@@ -11776,6 +11913,47 @@ function initAdminControlInteractions(container) {
             }
         });
     });
+
+    container.querySelectorAll("[data-admin-user-restore]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const userId = Number(btn.dataset.adminUserRestore);
+            Loader.show();
+            try {
+                await apiClient.restoreAdminUser(userId);
+                Toast.show("Админка", "Пользователь восстановлен.", "success");
+                rerender();
+            } catch (err) {
+                showRequestError("Админка", err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-admin-user-hard-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const userId = Number(btn.dataset.adminUserHardDelete);
+            const confirmed = await requestConfirmDialog({
+                title: "Окончательное удаление",
+                desc: "Вы уверены? Данные будут стерты навсегда из базы данных.",
+                confirmLabel: "Стереть",
+                confirmTone: "danger",
+            });
+            if (!confirmed) return;
+
+            Loader.show();
+            try {
+                await apiClient.deleteAdminUserHard(userId);
+                Toast.show("Админка", "Пользователь окончательно удален.", "success");
+                rerender();
+            } catch (err) {
+                showRequestError("Админка", err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
 
     container.querySelectorAll("[data-admin-open-view]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -14661,15 +14839,14 @@ function renderTournaments() {
             </div>
 
             <div class="tour-filters-area" data-view-anim style="transition-delay: 0.1s">
-                <div class="tour-tabs-row" style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
-                    <button class="btn btn--accent" data-open="codeModal">Вход по коду</button>
-                    <div style="width: 1px; height: 24px; background: var(--border); opacity: 0.5;"></div>
+                <div class="tour-tabs-row" style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; justify-content: space-between;">
                     <div class="tabs-nav" style="margin-bottom: 0;">
                         <div class="tab-item active" data-slug="all">Все</div>
                         <div class="tab-item" data-slug="live">Текущие</div>
                         <div class="tab-item" data-slug="upcoming">Ближайшие</div>
                         <div class="tab-item" data-slug="ended">Прошедшие</div>
                     </div>
+                    <button class="btn btn--accent" data-open="codeModal">Вход по коду</button>
                 </div>
 
                 <div class="chips-row">                    <div class="chips-list">

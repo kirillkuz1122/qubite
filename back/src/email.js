@@ -5,7 +5,7 @@ const {
     IS_PRODUCTION,
     RESEND_API_KEY,
 } = require("./config");
-const { logEmailSent } = require("./db");
+const { logEmailSent, getSystemSettingValue } = require("./db");
 
 async function sendEmail(message) {
     const payload = {
@@ -20,6 +20,12 @@ async function sendEmail(message) {
     let result = { delivered: false };
 
     try {
+        const isEmailEnabled = await getSystemSettingValue('email_enabled', true);
+        if (!isEmailEnabled) {
+            console.log("[mail:blocked] Email sending is disabled by admin.");
+            return { delivered: false, error: "Отправка писем временно отключена администратором." };
+        }
+
         if (EMAIL_DELIVERY_MODE === "log") {
             console.log("[mail:log]", JSON.stringify(payload, null, 2));
             result = {

@@ -736,6 +736,18 @@ async function initializeDatabase(options = {}) {
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('maintenance_mode', 'false', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('registration_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('email_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_creation_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_participation_enabled', 'true', datetime('now'));
+
         CREATE TABLE IF NOT EXISTS tournament_roster_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL,
@@ -1884,6 +1896,16 @@ async function seedTournamentEntries() {
 
 async function cleanupExpiredArtifacts() {
     const timestamp = nowIso();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    await run(
+        `
+            DELETE FROM users
+            WHERE status = 'deleted' AND deleted_at < ?
+        `,
+        [sevenDaysAgo]
+    );
+
     await run(
         `
             DELETE FROM sessions
@@ -6738,6 +6760,11 @@ async function deleteAdminTeam(teamId) {
     return result.changes > 0;
 }
 
+async function deleteAdminUserHard(userId) {
+    const result = await run("DELETE FROM users WHERE id = ?", [userId]);
+    return result.changes > 0;
+}
+
 async function saveSystemStats(payload) {
     return run(
         `
@@ -6761,14 +6788,15 @@ async function saveSystemStats(payload) {
 }
 
 async function getSystemStatsHistory(hours = 24) {
+    const timeRef = `-${hours} hours`;
     return all(
         `
-            SELECT *
+            SELECT *, replace(replace(created_at, 'T', ' '), 'Z', '') as normalized_date
             FROM system_stats_history
-            WHERE created_at >= datetime('now', ?)
+            WHERE replace(replace(created_at, 'T', ' '), 'Z', '') >= datetime('now', ?)
             ORDER BY created_at ASC
         `,
-        [`-${hours} hours`],
+        [timeRef],
     );
 }
 
@@ -6799,23 +6827,47 @@ async function logEmailSent(payload) {
 async function getDetailedStats(hours = 24) {
     const timeRef = `-${hours} hours`;
     const visits = await all(
-        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, COUNT(*) as count FROM site_visits WHERE created_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
+        "SELECT strftime('%Y-%m-%d %H', replace(replace(created_at, 'T', ' '), 'Z', '')) as hour, COUNT(*) as count FROM site_visits WHERE created_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
         [timeRef]
     );
     const emails = await all(
-        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, status, COUNT(*) as count FROM email_logs WHERE created_at >= datetime('now', ?) GROUP BY hour, status ORDER BY hour ASC",
+        "SELECT strftime('%Y-%m-%d %H', replace(replace(created_at, 'T', ' '), 'Z', '')) as hour, status, COUNT(*) as count FROM email_logs WHERE created_at >= datetime('now', ?) GROUP BY hour, status ORDER BY hour ASC",
         [timeRef]
     );
     const registrations = await all(
-        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, COUNT(*) as count FROM users WHERE created_at >= datetime('now', ?) AND status != 'deleted' GROUP BY hour ORDER BY hour ASC",
+        "SELECT strftime('%Y-%m-%d %H', replace(replace(created_at, 'T', ' '), 'Z', '')) as hour, COUNT(*) as count FROM users WHERE created_at >= datetime('now', ?) AND status != 'deleted' GROUP BY hour ORDER BY hour ASC",
         [timeRef]
     );
     const submissions = await all(
-        "SELECT strftime('%Y-%m-%d %H', submitted_at) as hour, COUNT(*) as count FROM tournament_submissions WHERE created_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
+        "SELECT strftime('%Y-%m-%d %H', replace(replace(submitted_at, 'T', ' '), 'Z', '')) as hour, COUNT(*) as count FROM tournament_submissions WHERE submitted_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
         [timeRef]
     );
     
     return { visits, emails, registrations, submissions };
+}
+
+async function getSystemSettings() {
+    const rows = await all("SELECT key, value FROM system_settings");
+    const settings = {};
+    rows.forEach(row => {
+        settings[row.key] = row.value === 'true' ? true : row.value === 'false' ? false : row.value;
+    });
+    return settings;
+}
+
+async function updateSystemSetting(key, value) {
+    const stringValue = String(value);
+    await run(
+        "INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at",
+        [key, stringValue]
+    );
+    return getSystemSettings();
+}
+
+async function getSystemSettingValue(key, fallback = null) {
+    const row = await get("SELECT value FROM system_settings WHERE key = ?", [key]);
+    if (!row) return fallback;
+    return row.value === 'true' ? true : row.value === 'false' ? false : row.value;
 }
 
 module.exports = {
@@ -6845,6 +6897,7 @@ module.exports = {
     deleteAdminTask,
     deleteAdminTeam,
     deleteAdminTournament,
+    deleteAdminUserHard,
     deleteOrganizerTournament,
     ensureDailyTournamentForDate,
     findActiveAuthChallengeByFlowToken,
@@ -6958,4 +7011,7 @@ module.exports = {
     logSiteVisit,
     logEmailSent,
     getDetailedStats,
+    getSystemSettings,
+    updateSystemSetting,
+    getSystemSettingValue,
 };
