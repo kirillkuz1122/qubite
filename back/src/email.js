@@ -5,6 +5,7 @@ const {
     IS_PRODUCTION,
     RESEND_API_KEY,
 } = require("./config");
+const { logEmailSent } = require("./db");
 
 async function sendEmail(message) {
     const payload = {
@@ -16,63 +17,87 @@ async function sendEmail(message) {
         replyTo: String(message.replyTo || EMAIL_REPLY_TO || "").trim(),
     };
 
-    if (EMAIL_DELIVERY_MODE === "log") {
-        console.log("[mail:log]", JSON.stringify(payload, null, 2));
-        return {
-            delivered: true,
-            mode: "log",
-            preview: !IS_PRODUCTION,
-        };
-    }
+    let result = { delivered: false };
 
-    if (EMAIL_DELIVERY_MODE === "disabled") {
-        return {
-            delivered: false,
-            mode: "disabled",
-            preview: false,
-        };
-    }
+    try {
+        if (EMAIL_DELIVERY_MODE === "log") {
+            console.log("[mail:log]", JSON.stringify(payload, null, 2));
+            result = {
+                delivered: true,
+                mode: "log",
+                preview: !IS_PRODUCTION,
+            };
+        } else if (EMAIL_DELIVERY_MODE === "disabled") {
+            result = {
+                delivered: false,
+                mode: "disabled",
+                preview: false,
+            };
+        } else if (EMAIL_DELIVERY_MODE === "resend") {
+            if (!RESEND_API_KEY) {
+                throw new Error(
+                    'EMAIL_DELIVERY_MODE="resend" требует RESEND_API_KEY в `.env`.',
+                );
+            }
 
-    if (EMAIL_DELIVERY_MODE === "resend") {
-        if (!RESEND_API_KEY) {
+            const resendResponse = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${RESEND_API_KEY}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    from: payload.from,
+                    to: [payload.to],
+                    subject: payload.subject,
+                    text: payload.text,
+                    html: payload.html,
+                    reply_to: payload.replyTo || undefined,
+                }),
+            });
+
+            if (!resendResponse.ok) {
+                const errorText = await resendResponse.text();
+                throw new Error(`Resend delivery failed: ${errorText}`);
+            }
+
+            const resendPayload = await resendResponse.json();
+            result = {
+                delivered: true,
+                mode: "resend",
+                providerId: resendPayload.id || null,
+                preview: false,
+            };
+        } else {
             throw new Error(
-                'EMAIL_DELIVERY_MODE="resend" требует RESEND_API_KEY в `.env`.',
+                `EMAIL_DELIVERY_MODE="${EMAIL_DELIVERY_MODE}" пока не поддерживается без внешнего провайдера.`,
             );
         }
 
-        const resendResponse = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: payload.from,
-                to: [payload.to],
-                subject: payload.subject,
-                text: payload.text,
-                html: payload.html,
-                reply_to: payload.replyTo || undefined,
-            }),
-        });
+        // Log success
+        logEmailSent({
+            userId: message.userId || null,
+            email: payload.to,
+            purpose: message.purpose || "unknown",
+            status: "sent"
+        }).catch(e => console.error("[mail:db_log_fail]", e));
 
-        if (!resendResponse.ok) {
-            const errorText = await resendResponse.text();
-            throw new Error(`Resend delivery failed: ${errorText}`);
-        }
+        return result;
 
-        const resendPayload = await resendResponse.json();
-        return {
-            delivered: true,
-            mode: "resend",
-            providerId: resendPayload.id || null,
-            preview: false,
-        };
+    } catch (error) {
+        console.error("Email send error:", error);
+        
+        // Log failure
+        logEmailSent({
+            userId: message.userId || null,
+            email: payload.to,
+            purpose: message.purpose || "unknown",
+            status: "failed",
+            errorMessage: error.message
+        }).catch(e => console.error("[mail:db_log_fail]", e));
+        
+        throw error;
     }
-
-    throw new Error(
-        `EMAIL_DELIVERY_MODE="${EMAIL_DELIVERY_MODE}" пока не поддерживается без внешнего провайдера.`,
-    );
 }
 
 function buildCodeEmail({ code, title, subtitle, hint }) {

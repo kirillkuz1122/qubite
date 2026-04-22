@@ -32,8 +32,11 @@
         moderationApplications: [],
         moderationUsers: [],
         adminOverview: null,
+        adminSystemStats: null,
+        adminSystemStatsHistory: [],
+        adminDetailedStats: null,
         adminUsers: [],
-        adminTeams: [],
+        adminTournaments: [],
         adminTasks: [],
         adminTournaments: [],
         adminApplications: [],
@@ -234,6 +237,11 @@
     function syncOAuthProviders(items) {
         state.oauthProviders = Array.isArray(items) ? [...items] : [];
         return state.oauthProviders;
+    }
+
+    function syncAdminSystemStats(payload) {
+        state.adminSystemStats = payload ? { ...payload } : null;
+        return state.adminSystemStats;
     }
 
     function syncAdminOverview(payload) {
@@ -806,6 +814,34 @@
         const data = await request("/api/moderation/users");
         syncModerationUsers(data.items || []);
         return state.moderationUsers;
+    }
+
+    function syncAdminSystemStatsHistory(items) {
+        state.adminSystemStatsHistory = Array.isArray(items) ? [...items] : [];
+        return state.adminSystemStatsHistory;
+    }
+
+    function syncAdminDetailedStats(payload) {
+        state.adminDetailedStats = payload ? { ...payload } : null;
+        return state.adminDetailedStats;
+    }
+
+    async function loadAdminDetailedStats(hours = 24) {
+        const data = await request(`/api/admin/stats/detailed?hours=${hours}`);
+        syncAdminDetailedStats(data);
+        return state.adminDetailedStats;
+    }
+
+    async function loadAdminSystemStatsHistory(hours = 24) {
+        const data = await request(`/api/admin/system-stats/history?hours=${hours}`);
+        syncAdminSystemStatsHistory(data.items || []);
+        return state.adminSystemStatsHistory;
+    }
+
+    async function loadAdminSystemStats() {
+        const data = await request("/api/admin/system-stats");
+        syncAdminSystemStats(data);
+        return state.adminSystemStats;
     }
 
     async function loadAdminOverview() {
@@ -1455,6 +1491,30 @@
         return data;
     }
 
+    async function generateAdminUser() {
+        const data = await request("/api/admin/users/generate", {
+            method: "POST",
+        });
+        syncAdminUsers([data.item, ...state.adminUsers]);
+        return data;
+    }
+
+    async function deleteAdminUser(userId) {
+        const data = await request(`/api/admin/users/${userId}`, {
+            method: "DELETE",
+        });
+        syncAdminUsers(removeById(state.adminUsers, userId));
+        return data;
+    }
+
+    async function deleteSelfAccount() {
+        return request("/api/profile", {
+            method: "DELETE",
+        }).then(() => {
+            resetState();
+        });
+    }
+
     windowObject.QubiteAPI = {
         addOrganizerRosterEntry,
         completeLoginTwoFactor,
@@ -1477,7 +1537,13 @@
         joinTournament: joinTournamentRequest,
         loadAdminApplications,
         loadAdminAudit,
+        loadAdminDetailedStats,
+        generateAdminUser,
+        deleteAdminUser,
+        deleteSelfAccount,
         loadAdminOverview,
+        loadAdminSystemStats,
+        loadAdminSystemStatsHistory,
         loadAdminTasks,
         loadAdminTeams,
         loadAdminTournaments,

@@ -703,6 +703,39 @@ async function initializeDatabase(options = {}) {
             FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE SET NULL
         );
 
+        CREATE TABLE IF NOT EXISTS system_stats_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cpu_load REAL NOT NULL,
+            ram_used INTEGER NOT NULL,
+            ram_total INTEGER NOT NULL,
+            disk_used INTEGER NOT NULL,
+            disk_total INTEGER NOT NULL,
+            requests_count INTEGER NOT NULL,
+            traffic_in INTEGER NOT NULL DEFAULT 0,
+            traffic_out INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS site_visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            path TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            duration_ms INTEGER,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS email_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            email TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            status TEXT NOT NULL, -- 'sent', 'failed'
+            error_message TEXT,
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS tournament_roster_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL,
@@ -6705,6 +6738,86 @@ async function deleteAdminTeam(teamId) {
     return result.changes > 0;
 }
 
+async function saveSystemStats(payload) {
+    return run(
+        `
+            INSERT INTO system_stats_history (
+                cpu_load, ram_used, ram_total, disk_used, disk_total,
+                requests_count, traffic_in, traffic_out, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            payload.cpuLoad,
+            payload.ramUsed,
+            payload.ramTotal,
+            payload.diskUsed,
+            payload.diskTotal,
+            payload.requestsCount,
+            payload.trafficIn || 0,
+            payload.trafficOut || 0,
+            nowIso(),
+        ],
+    );
+}
+
+async function getSystemStatsHistory(hours = 24) {
+    return all(
+        `
+            SELECT *
+            FROM system_stats_history
+            WHERE created_at >= datetime('now', ?)
+            ORDER BY created_at ASC
+        `,
+        [`-${hours} hours`],
+    );
+}
+
+async function aggregateSystemStats() {
+    // Удаляем старые детальные записи старше 7 дней, оставляя только почасовые агрегаты
+    // Это заготовка для оптимизации диска
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    await run(
+        "DELETE FROM system_stats_history WHERE created_at < ? AND id NOT IN (SELECT id FROM system_stats_history GROUP BY strftime('%Y-%m-%d %H', created_at))",
+        [sevenDaysAgo]
+    );
+}
+
+async function logSiteVisit(payload) {
+    return run(
+        `INSERT INTO site_visits (user_id, path, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+        [payload.userId, payload.path, payload.ipAddress, payload.userAgent, nowIso()]
+    );
+}
+
+async function logEmailSent(payload) {
+    return run(
+        `INSERT INTO email_logs (user_id, email, purpose, status, error_message, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+        [payload.userId, payload.email, payload.purpose, payload.status, payload.errorMessage, nowIso()]
+    );
+}
+
+async function getDetailedStats(hours = 24) {
+    const timeRef = `-${hours} hours`;
+    const visits = await all(
+        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, COUNT(*) as count FROM site_visits WHERE created_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
+        [timeRef]
+    );
+    const emails = await all(
+        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, status, COUNT(*) as count FROM email_logs WHERE created_at >= datetime('now', ?) GROUP BY hour, status ORDER BY hour ASC",
+        [timeRef]
+    );
+    const registrations = await all(
+        "SELECT strftime('%Y-%m-%d %H', created_at) as hour, COUNT(*) as count FROM users WHERE created_at >= datetime('now', ?) AND status != 'deleted' GROUP BY hour ORDER BY hour ASC",
+        [timeRef]
+    );
+    const submissions = await all(
+        "SELECT strftime('%Y-%m-%d %H', submitted_at) as hour, COUNT(*) as count FROM tournament_submissions WHERE created_at >= datetime('now', ?) GROUP BY hour ORDER BY hour ASC",
+        [timeRef]
+    );
+    
+    return { visits, emails, registrations, submissions };
+}
+
 module.exports = {
     blockEmail,
     blockIpAddress,
@@ -6839,4 +6952,10 @@ module.exports = {
     upsertTournamentTaskDraft,
     upsertTournamentRosterEntry,
     leaveTeam,
+    saveSystemStats,
+    getSystemStatsHistory,
+    aggregateSystemStats,
+    logSiteVisit,
+    logEmailSent,
+    getDetailedStats,
 };

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Qubite — Публичная страница безопасности</title>
+        <meta name="description" content="Краткая публичная страница безопасности Qubite." />
+        <link rel="stylesheet" href="./front/css/styles.css" />
+        <link rel="icon" href="./front/img/icon.svg" type="image/x-icon" />
+    </head>
+    <body class="document-page">
+        <div class="doc-shell">
+            <div class="grid" aria-hidden="true"></div>
+            <main class="container">
+                <section class="doc-hero">
+                    <div class="doc-kicker">Безопасность</div>
+                    <h1 class="doc-title">Краткая публичная позиция Qubite по защите платформы</h1>
+                    <p class="doc-subtitle">
+                        Эта страница предназначена для быстрого внешнего понимания того, какие базовые
+                        защитные механизмы уже есть в проекте и где проходят текущие ограничения.
+                    </p>
+                </section>
+                <section class="doc-layout">
+                    <aside class="doc-sidecard">
+                        <h2>Что уже есть</h2>
+                        <ul>
+                            <li>Сессии, вход, verify-flow и защита аккаунтов.</li>
+                            <li>Rate limiting и ограничения для чувствительных маршрутов.</li>
+                            <li>Роли, audit log и защищённые admin/owner операции.</li>
+                            <li>Nginx, firewall и базовый hardening production-контура.</li>
+                        </ul>
+                    </aside>
+                    <div>
+                        <article class="doc-card">
+                            <h2>Аккаунты и сессии</h2>
+                            <p>
+                                Qubite использует session-based аутентификацию, управление сессиями,
+                                парольные и email-based verification flows, а также контроль привилегированных ролей.
+                            </p>
+                        </article>
+                        <article class="doc-card">
+                            <h2>Ограничения и злоупотребления</h2>
+                            <p>
+                                Для части публичных и чувствительных сценариев используются route-specific
+                                rate limits, origin checks, защитные middleware и CAPTCHA-слой.
+                            </p>
+                        </article>
+                        <article class="doc-card">
+                            <h2>Текущее ограничение</h2>
+                            <p>
+                                Сейчас проект использует Cloudflare Turnstile. Для российского пользовательского
+                                контура это не идеальное решение, поэтому в roadmap уже заложен переход на Яндекс SmartCaptcha.
+                            </p>
+                        </article>
+                        <article class="doc-card">
+                            <h2>Контакты</h2>
+                            <p>
+                                Сообщения о проблемах безопасности и подозрительном поведении можно направлять на
+                                <a href="mailto:support@qubiteapp.ru">support@qubiteapp.ru</a>.
+                            </p>
+                            <div class="doc-link-row">
+                                <a class="doc-link-btn doc-link-btn--accent" href="/index.html">На главную</a>
+                                <a class="doc-link-btn" href="/privacy.html">Конфиденциальность</a>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </body>
+</html>

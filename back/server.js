@@ -1,5 +1,10 @@
 const path = require("path");
+const os = require("os");
+const { spawn } = require("child_process");
+const EventEmitter = require("events");
 const express = require("express");
+
+const auditEmitter = new EventEmitter();
 const http = require("http");
 
 const {
@@ -30,6 +35,11 @@ const {
     MAX_REQUESTS_PER_SOCKET,
 } = require("./src/config");
 const {
+    saveSystemStats,
+    getSystemStatsHistory,
+    aggregateSystemStats,
+    logSiteVisit,
+    getDetailedStats,
     blockEmail,
     blockIpAddress,
     bootstrapAdminUsers,
@@ -37,7 +47,7 @@ const {
     buildTournamentTimeLabel,
     cleanupExpiredArtifacts,
     countAdmins,
-    createAuditLog,
+    createAuditLog: dbCreateAuditLog,
     consumeAuthChallenge,
     consumeOAuthState,
     consumePasswordResetTicket,
@@ -154,6 +164,20 @@ const {
     updateUserSecuritySettings,
     leaveTeam,
 } = require("./src/db");
+
+// Wrapper for audit log to support real-time emitter
+async function createAuditLog(payload) {
+    const result = await dbCreateAuditLog(payload);
+    auditEmitter.emit("log", {
+        action: payload.action,
+        summary: payload.summary,
+        entityType: payload.entityType,
+        entityId: payload.entityId,
+        createdAt: new Date().toISOString(),
+    });
+    return result;
+}
+
 const { buildCodeEmail, sendEmail } = require("./src/email");
 const {
     buildRosterTemplateBuffer,
@@ -210,7 +234,100 @@ const {
     verifyTurnstileToken,
 } = require("./src/turnstile");
 
+let totalHttpRequests = 0;
+let totalTrafficIn = 0;
+let totalTrafficOut = 0;
+
 const app = express();
+
+app.use((req, res, next) => {
+    totalHttpRequests++;
+    
+    // Log site visit for analytics
+    const userId = req.auth?.user?.id || null;
+    const path = req.path;
+    if (path.startsWith('/api') || path.includes('.')) {
+        // Skip API calls and static files for "Site Visits" chart if you want purely page views,
+        // or include them for "Hits" chart. 
+    } else {
+        logSiteVisit({
+            userId,
+            path,
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers['user-agent']
+        }).catch(err => console.error("[stats:visit] Log failed:", err));
+    }
+
+    // Track incoming traffic (rough estimate)
+    const requestSize = parseInt(req.headers['content-length'] || 0, 10);
+    totalTrafficIn += requestSize;
+
+    // Track outgoing traffic
+    const oldWrite = res.write;
+    const oldEnd = res.end;
+    res.write = function (chunk) {
+        if (chunk) totalTrafficOut += chunk.length;
+        return oldWrite.apply(res, arguments);
+    };
+    res.end = function (chunk) {
+        if (chunk) totalTrafficOut += chunk.length;
+        return oldEnd.apply(res, arguments);
+    };
+
+    next();
+});
+
+// Stats collection logic
+async function collectAndSaveSystemStats() {
+    try {
+        const cpus = os.cpus();
+        const memTotal = os.totalmem();
+        const memFree = os.freemem();
+        const loadAvg = os.loadavg();
+        
+        const getDisk = () => new Promise((resolve) => {
+            const df = spawn("df", ["-k", "/"]);
+            let data = "";
+            df.stdout.on("data", (chunk) => { data += chunk; });
+            df.on("close", () => {
+                const lines = data.trim().split("\n");
+                if (lines.length < 2) return resolve({ used: 0, total: 0 });
+                const parts = lines[1].replace(/\s+/g, " ").split(" ");
+                resolve({ 
+                    used: parseInt(parts[2], 10) * 1024, 
+                    total: parseInt(parts[1], 10) * 1024 
+                });
+            });
+        });
+
+        const disk = await getDisk();
+
+        await saveSystemStats({
+            cpuLoad: loadAvg[0], // 1m load
+            ramUsed: memTotal - memFree,
+            ramTotal: memTotal,
+            diskUsed: disk.used,
+            diskTotal: disk.total,
+            requestsCount: totalHttpRequests,
+            trafficIn: totalTrafficIn,
+            trafficOut: totalTrafficOut
+        });
+    } catch (err) {
+        console.error("[monitor:background] Failed to save stats:", err);
+    }
+}
+
+// Background stats collection (every 5 minutes)
+setInterval(collectAndSaveSystemStats, 5 * 60 * 1000);
+
+// Run first collection immediately
+collectAndSaveSystemStats();
+
+// Daily aggregation (every 24h)
+setInterval(() => {
+    aggregateSystemStats().catch(err => console.error("[monitor:cleanup] Failed:", err));
+}, 24 * 60 * 60 * 1000);
+
 const server = http.createServer(app);
 app.set("trust proxy", TRUST_PROXY);
 server.requestTimeout = REQUEST_TIMEOUT_MS;
@@ -2325,6 +2442,14 @@ function requireAuth(req, res, next) {
     next();
 }
 
+function requireVerifiedEmail(req, res, next) {
+    if (!req.auth?.user?.email_verified_at) {
+        sendError(res, 403, "Подтвердите e-mail, чтобы продолжить.");
+        return;
+    }
+    next();
+}
+
 function requireRoles(allowedRoles) {
     return (req, res, next) => {
         if (!req.auth || !req.auth.user) {
@@ -4080,9 +4205,24 @@ app.post("/api/auth/register", publicExpensiveRateLimiter, authRateLimiter, requ
         await setUserLastLogin(user.id);
 
         res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+
+        const challenge = await createAndSendChallenge({
+            userId: user.id,
+            email: user.email_normalized,
+            purpose: "email_verification",
+            title: "Qubite",
+            subtitle: "Подтверждение регистрации",
+            hint: "Введите этот код для активации аккаунта.",
+        });
+
         res.status(201).json({
             user: serializeUser(user),
             emailVerificationRequired: true,
+            authChallenge: {
+                flowToken: challenge.flowToken,
+                delivery: challenge.delivery,
+                expiresAt: challenge.expiresAt,
+            },
         });
 
         await createAuditLog({
@@ -5245,7 +5385,7 @@ app.get("/api/organizer-applications/mine", requireAuth, async (req, res, next) 
     }
 });
 
-app.post("/api/organizer-applications", requireParticipant, async (req, res, next) => {
+app.post("/api/organizer-applications", requireParticipant, requireVerifiedEmail, async (req, res, next) => {
     try {
         if (isGuestUserAccount(req.auth.user)) {
             sendGuestSessionRestriction(
@@ -5324,7 +5464,7 @@ app.get("/api/team", requireParticipant, async (req, res, next) => {
     }
 });
 
-app.post("/api/team", requireParticipant, async (req, res, next) => {
+app.post("/api/team", requireParticipant, requireVerifiedEmail, async (req, res, next) => {
     try {
         if (isGuestUserAccount(req.auth.user)) {
             sendGuestSessionRestriction(
@@ -5362,7 +5502,7 @@ app.post("/api/team", requireParticipant, async (req, res, next) => {
     }
 });
 
-app.post("/api/team/join", requireParticipant, teamJoinRateLimiter, async (req, res, next) => {
+app.post("/api/team/join", requireParticipant, requireVerifiedEmail, teamJoinRateLimiter, async (req, res, next) => {
     try {
         if (isGuestUserAccount(req.auth.user)) {
             sendGuestSessionRestriction(
@@ -5897,10 +6037,7 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
             endAt,
             taskIds,
             accessScope,
-            accessCode:
-                accessScope === "code"
-                    ? cleanText(req.body.accessCode, 48)
-                    : null,
+            accessCode: cleanText(req.body.accessCode, 48) || null,
             codeMode,
             difficultyLabel: taskIds.length > 1 ? "Mixed" : req.body.difficultyLabel || "Mixed",
             runtimeMode,
@@ -6943,7 +7080,7 @@ app.get(
     },
 );
 
-app.get("/api/tournaments", requireParticipant, async (req, res, next) => {
+app.get("/api/tournaments", requireAuth, async (req, res, next) => {
     try {
         await ensureDailyTournamentForDate();
         const teamMembership = await ensureAuthTeamMembership(req.auth);
@@ -7049,7 +7186,7 @@ app.post("/api/tournaments", requireAdmin, async (req, res, next) => {
     }
 });
 
-app.post("/api/tournaments/:id/join", requireParticipant, tournamentJoinRateLimiter, async (req, res, next) => {
+app.post("/api/tournaments/:id/join", requireParticipant, requireVerifiedEmail, tournamentJoinRateLimiter, async (req, res, next) => {
     try {
         const tournamentId = Number(req.params.id);
         if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
@@ -7847,6 +7984,99 @@ app.patch(
     },
 );
 
+app.get("/api/admin/system-stats", requireAdmin, async (req, res, next) => {
+    try {
+        const cpus = os.cpus();
+        const memTotal = os.totalmem();
+        const memFree = os.freemem();
+        
+        // Simple disk check using df
+        const getDiskSpace = () => new Promise((resolve) => {
+            const df = spawn("df", ["-k", "/"]);
+            let data = "";
+            df.stdout.on("data", (chunk) => { data += chunk; });
+            df.on("close", (code) => {
+                if (code !== 0) return resolve(null);
+                const lines = data.trim().split("\n");
+                if (lines.length < 2) return resolve(null);
+                const parts = lines[1].replace(/\s+/g, " ").split(" ");
+                if (parts.length >= 4) {
+                    const total = parseInt(parts[1], 10) * 1024;
+                    const used = parseInt(parts[2], 10) * 1024;
+                    const free = parseInt(parts[3], 10) * 1024;
+                    resolve({ total, used, free });
+                } else {
+                    resolve(null);
+                }
+            });
+            df.on("error", () => resolve(null));
+        });
+
+        const disk = await getDiskSpace();
+
+        res.json({
+            uptime: process.uptime(),
+            osUptime: os.uptime(),
+            cpu: {
+                cores: cpus.length,
+                model: cpus[0].model,
+                loadAvg: os.loadavg(), // [1m, 5m, 15m]
+            },
+            memory: {
+                total: memTotal,
+                free: memFree,
+                used: memTotal - memFree,
+                nodeUsage: process.memoryUsage(),
+            },
+            disk: disk || { total: 0, used: 0, free: 0 },
+            network: {
+                totalRequests: totalHttpRequests,
+                trafficIn: totalTrafficIn,
+                trafficOut: totalTrafficOut
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/system-stats/history", requireAdmin, async (req, res, next) => {
+    try {
+        const hours = parseInt(req.query.hours || 24, 10);
+        const history = await getSystemStatsHistory(hours);
+        res.json({ items: history });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/admin/audit/live", requireAdmin, (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const onLog = (log) => {
+        res.write(`data: ${JSON.stringify(log)}\n\n`);
+    };
+
+    auditEmitter.on("log", onLog);
+
+    req.on("close", () => {
+        auditEmitter.off("log", onLog);
+    });
+});
+
+app.get("/api/admin/stats/detailed", requireAdmin, async (req, res, next) => {
+    try {
+        const hours = parseInt(req.query.hours || 24, 10);
+        const stats = await getDetailedStats(hours);
+        res.json(stats);
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
     try {
         const [overview, metrics] = await Promise.all([
@@ -7891,6 +8121,105 @@ app.get("/api/admin/audit", requireAdmin, async (req, res, next) => {
         res.json({
             items: items.map(serializeAuditEntry),
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/profile", requireAuth, async (req, res, next) => {
+    try {
+        const user = await getUserById(req.auth.user.id);
+        if (user.role === ROLE_OWNER) {
+            const ownersCount = await countOwners();
+            if (ownersCount <= 1) {
+                sendError(res, 409, "Нельзя удалить единственного владельца.");
+                return;
+            }
+        }
+
+        await setUserStatus(user.id, "deleted");
+        await revokeSessionsForUser(user.id);
+        
+        await createAuditLog({
+            actorUserId: user.id,
+            action: "user.delete.self",
+            entityType: "user",
+            entityId: user.id,
+            summary: "Пользователь удалил свой аккаунт",
+        });
+
+        res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions());
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/admin/users/generate", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
+    try {
+        const suffix = Math.random().toString(36).substring(2, 8);
+        const login = `test_${suffix}`;
+        const email = `test_${suffix}@qubiteapp.ru`;
+        const plainPassword = Math.random().toString(36).substring(2, 10);
+        const { hash, salt } = await hashPassword(plainPassword);
+        
+        const user = await createUser({
+            uid: makeUid(),
+            login,
+            loginNormalized: normalizeLogin(login),
+            email,
+            emailNormalized: normalizeEmail(email),
+            passwordHash: hash,
+            passwordSalt: salt,
+            role: ROLE_USER,
+        });
+
+        await markUserEmailVerified(user.id);
+        
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "user.generate",
+            entityType: "user",
+            entityId: user.id,
+            summary: `Сгенерирован тестовый аккаунт: ${login}`,
+        });
+
+        res.status(201).json({
+            item: serializeAdminUser(user),
+            plainPassword: plainPassword,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.delete("/api/admin/users/:id", requireAdmin, adminSensitiveRateLimiter, async (req, res, next) => {
+    try {
+        const userId = Number(req.params.id);
+        const targetUser = await getUserById(userId);
+        if (!targetUser) {
+            sendError(res, 404, "Пользователь не найден.");
+            return;
+        }
+
+        if (targetUser.role === ROLE_OWNER) {
+            sendError(res, 403, "Нельзя удалить владельца через API.");
+            return;
+        }
+
+        await setUserStatus(userId, "deleted");
+        await revokeSessionsForUser(userId);
+
+        await createAuditLog({
+            actorUserId: req.auth.user.id,
+            action: "user.delete.admin",
+            entityType: "user",
+            entityId: userId,
+            summary: `Администратор удалил аккаунт: ${targetUser.login}`,
+        });
+
+        invalidateAdminReadCaches();
+        res.json({ success: true });
     } catch (error) {
         next(error);
     }
@@ -8198,6 +8527,18 @@ app.get("/404.html", (req, res) => {
 
 app.get("/4041.html", (req, res) => {
     sendHtmlPage(res, "4041.html");
+});
+
+[
+    "about.html",
+    "privacy.html",
+    "terms.html",
+    "acceptable-use.html",
+    "security.html",
+].forEach((pageName) => {
+    app.get(`/${pageName}`, (req, res) => {
+        sendHtmlPage(res, pageName);
+    });
 });
 
 app.use("/api", (req, res) => {

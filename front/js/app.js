@@ -56,10 +56,17 @@ let adminOverviewCharts = {
     sessions: null,
     growth: null,
 };
+let adminInfrastructureCharts = {
+    cpu: null,
+    memory: null,
+    traffic: null,
+};
+let adminLiveEventSource = null;
 let workspaceAutoSyncTimer = null;
 let workspaceSyncInFlight = false;
 let workspaceLastSyncedAt = 0;
 let pendingProfileCompletion = false;
+let pendingEmailVerification = false;
 let pendingResetToken = null;
 const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
 const NOTIFICATION_UNREAD_STORAGE_KEY = "qubite.notificationsUnreadAt";
@@ -196,10 +203,13 @@ let organizerUiState = {
 
 let moderationUiState = {
     activeTab: "tasks",
+    searchQuery: "",
 };
 
 let adminUiState = {
     activeTab: "users",
+    searchQuery: "",
+    statsHistoryRange: 24,
 };
 
 let tournamentRuntimeUiState = {
@@ -962,6 +972,10 @@ function getAdminOverviewState() {
     return apiClient?.state?.adminOverview || DEFAULT_ADMIN_OVERVIEW;
 }
 
+function getAdminSystemStatsState() {
+    return apiClient?.state?.adminSystemStats || null;
+}
+
 function getAdminUsersState() {
     return apiClient?.state?.adminUsers || [];
 }
@@ -1524,6 +1538,15 @@ function formatCompactNumberRu(value) {
     return formatNumberRu(num);
 }
 
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 function formatSignedPoints(value) {
     const num = Number(value || 0);
     return `${num >= 0 ? "+" : ""}${formatNumberRu(num)}`;
@@ -1770,7 +1793,16 @@ function shouldRequireProfileCompletion(user = getUserState()) {
     if (!user || user.isGuest) {
         return false;
     }
+    // Профили админов/организаторов не блокируют интерфейс принудительно,
+    // но мы всё равно считаем их неполными для отображения в UI.
     return !isUserProfileComplete(user);
+}
+
+function shouldRequireEmailVerification(user = getUserState()) {
+    if (!user || user.isGuest) {
+        return false;
+    }
+    return !user.emailVerified;
 }
 
 function getStoredNotifications() {
@@ -2674,6 +2706,7 @@ function setSubmitLoading(button, isLoading, loadingText) {
 function updateWorkspaceIdentity() {
     const user = getUserState();
     const adminNavItem = document.getElementById("adminNavItem");
+    const analyticsNavItem = document.getElementById("analyticsNavItem");
     const teamNavItem = document.getElementById("teamNavItem");
     const taskBankNavItem = document.getElementById("taskBankNavItem");
     const moderationNavItem = document.getElementById("moderationNavItem");
@@ -2681,6 +2714,9 @@ function updateWorkspaceIdentity() {
     const codeGuestMode = isCodeGuestUser(user);
     if (adminNavItem) {
         adminNavItem.hidden = codeGuestMode || !isAdminUser(user);
+    }
+    if (analyticsNavItem) {
+        analyticsNavItem.hidden = codeGuestMode || !isAdminUser(user);
     }
     if (teamNavItem) {
         teamNavItem.hidden = codeGuestMode || !isParticipantUser(user);
@@ -2740,7 +2776,19 @@ async function bootstrapAuthSession() {
             }
             switchToWorkspace();
             pendingProfileCompletion = shouldRequireProfileCompletion(getUserState());
-            if (pendingProfileCompletion) {
+            pendingEmailVerification = shouldRequireEmailVerification(getUserState());
+            
+            if (pendingEmailVerification) {
+                try {
+                    const response = await apiClient.sendEmailVerification();
+                    openVerifyFlow({
+                        type: "email-verification",
+                        flowToken: response.flowToken,
+                    });
+                } catch (err) {
+                    Toast.show("Подтверждение", "Не удалось отправить код подтверждения.", "error");
+                }
+            } else if (pendingProfileCompletion) {
                 openModal("profileModal");
             }
         } else {
@@ -3290,7 +3338,8 @@ const DYNAMIC_MODALS_HTML = `
           </div>
           <div class="error" data-error-for="turnstileToken"></div>
         </div>
-        <label class="checkbox"><input type="checkbox" name="agree" data-required-check><span>Принимаю <a href="#" class="reg-link">условия соглашения</a></span></label>
+        <label class="checkbox"><input type="checkbox" name="agree" data-required-check><span>Принимаю <a href="/terms.html" class="reg-link" target="_blank" rel="noreferrer">условия использования</a> и <a href="/privacy.html" class="reg-link" target="_blank" rel="noreferrer">политику конфиденциальности</a></span></label>
+        <div class="modal__note">Продолжая регистрацию, вы также подтверждаете соблюдение <a href="/acceptable-use.html" class="reg-link" target="_blank" rel="noreferrer">правил платформы</a>. Краткое публичное описание защитных мер доступно на странице <a href="/security.html" class="reg-link" target="_blank" rel="noreferrer">безопасности</a>.</div>
         <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Зарегистрироваться</button>
         <div data-oauth-slot></div>
         <div class="form__links"><a href="#" data-open="authModal">Уже есть аккаунт? Войти</a></div>
@@ -3308,13 +3357,17 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="profileForm" novalidate>
-        <div class="field"><label>Фамилия</label><input class="input" name="lastName" data-required><div class="error" data-error-for="lastName"></div></div>
-        <div class="field"><label>Имя</label><input class="input" name="firstName" data-required><div class="error" data-error-for="firstName"></div></div>
-        <div class="field"><label>Отчество</label><input class="input" name="middleName"><div class="error" data-error-for="middleName"></div></div>
-        <div class="field"><label>Город</label><input class="input" name="city" data-required><div class="error" data-error-for="city"></div></div>
-        <div class="field"><label>Место обучения</label><input class="input" name="place" data-required><div class="error" data-error-for="place"></div></div>
-        <div class="field"><label>Класс/группа/курс</label><input class="input" name="class" data-required><div class="error" data-error-for="class"></div></div>
-        <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сохранить</button>
+        <div class="ops-form-grid ops-form-grid--triple">
+          <div class="field"><label>Фамилия</label><input class="input" name="lastName" data-required placeholder="Иванов"><div class="error" data-error-for="lastName"></div></div>
+          <div class="field"><label>Имя</label><input class="input" name="firstName" data-required placeholder="Иван"><div class="error" data-error-for="firstName"></div></div>
+          <div class="field"><label>Отчество</label><input class="input" name="middleName" placeholder="Иванович"><div class="error" data-error-for="middleName"></div></div>
+        </div>
+        <div class="ops-form-grid ops-form-grid--triple">
+          <div class="field"><label>Город</label><input class="input" name="city" data-required placeholder="Москва"><div class="error" data-error-for="city"></div></div>
+          <div class="field"><label>Место обучения</label><input class="input" name="place" data-required placeholder="Школа №1"><div class="error" data-error-for="place"></div></div>
+          <div class="field"><label>Класс/группа/курс</label><input class="input" name="studyGroup" data-required placeholder="11А"><div class="error" data-error-for="studyGroup"></div></div>
+        </div>
+        <button class="btn btn--accent btn--block is-disabled" type="submit" disabled>Сохранить и продолжить</button>
       </form>
     </div>
   </div>
@@ -3359,7 +3412,6 @@ const DYNAMIC_MODALS_HTML = `
           <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button></div>
       <form class="modal__form" id="codeForm" novalidate>
-        <div class="tour-sub">Введите 8-символьный код. Если это общий код турнира, мы отдельно попросим имя и фамилию.</div>
         <div class="code-grid">
           ${Array(8)
               .fill(
@@ -4488,7 +4540,7 @@ function setupForm(form) {
                 middleName: toTitleCaseWords(form.elements["middleName"]?.value || ""),
                 city: toTitleCaseWords(form.elements["city"]?.value || ""),
                 place: normalizeWhitespace(form.elements["place"]?.value || ""),
-                class: normalizeWhitespace(form.elements["class"]?.value || ""),
+                studyGroup: normalizeWhitespace(form.elements["studyGroup"]?.value || ""),
             };
             const nameRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
             const cityRule = /^[A-Za-zА-Яа-яЁё]+(?:[ -][A-Za-zА-Яа-яЁё]+)*$/u;
@@ -4501,7 +4553,7 @@ function setupForm(form) {
                 ["middleName", payload.middleName && !nameRule.test(payload.middleName) ? "Только буквы, пробел и дефис." : ""],
                 ["city", !payload.city ? "Укажите город." : !cityRule.test(payload.city) ? "Только буквы, пробел и дефис." : ""],
                 ["place", !payload.place ? "Укажите место обучения." : !placeRule.test(payload.place) ? "Используйте буквы, цифры и базовые знаки." : ""],
-                ["class", !payload.class ? "Укажите класс, группу или курс." : !studyGroupRule.test(payload.class) ? "Разрешены буквы, цифры, пробелы и / - _ ( )." : ""],
+                ["studyGroup", !payload.studyGroup ? "Укажите класс, группу или курс." : !studyGroupRule.test(payload.studyGroup) ? "Разрешены буквы, цифры, пробелы и / - _ ( )." : ""],
             ].forEach(([fieldName, message]) => {
                 setInlineFieldError(form, fieldName, message);
                 if (message) {
@@ -4534,7 +4586,7 @@ function setupForm(form) {
             Loader.show();
 
             try {
-                await apiClient.register({
+                const response = await apiClient.register({
                     login: form.elements["login"].value.trim(),
                     email: form.elements["email"].value.trim(),
                     password: form.elements["pass"].value,
@@ -4543,12 +4595,25 @@ function setupForm(form) {
                 clearCodeEntrySessionState();
                 pendingProfileCompletion = true;
                 resetForm(form);
-                openModal("profileModal");
-                Toast.show(
-                    "Аккаунт",
-                    "Профиль создан. Осталось заполнить основные данные.",
-                    "success",
-                );
+                
+                if (response.emailVerificationRequired && response.authChallenge) {
+                    openVerifyFlow({
+                        type: "email-verification",
+                        flowToken: response.authChallenge.flowToken,
+                    });
+                    Toast.show(
+                        "Аккаунт",
+                        "Профиль создан. Подтвердите почту.",
+                        "success",
+                    );
+                } else {
+                    openModal("profileModal");
+                    Toast.show(
+                        "Аккаунт",
+                        "Профиль создан. Осталось заполнить основные данные.",
+                        "success",
+                    );
+                }
             } catch (error) {
                 applyRequestError(form, error, "Регистрация");
             } finally {
@@ -4632,7 +4697,9 @@ function setupForm(form) {
                         "Почта подтверждена.",
                         "success",
                     );
-                    if (document.querySelector(".profile-view")) {
+                    if (pendingProfileCompletion) {
+                        openModal("profileModal");
+                    } else if (document.querySelector(".profile-view")) {
                         ViewManager.open("profile");
                     }
                 } else if (verifySource.type === "email-2fa-setup") {
@@ -4716,7 +4783,7 @@ function setupForm(form) {
                     middleName: toTitleCaseWords(form.elements["middleName"].value),
                     city: toTitleCaseWords(form.elements["city"].value),
                     place: normalizeWhitespace(form.elements["place"].value),
-                    class: normalizeWhitespace(form.elements["class"].value),
+                    studyGroup: normalizeWhitespace(form.elements["studyGroup"].value),
                 };
                 await apiClient.updateProfile({
                     lastName: profilePayload.lastName,
@@ -4727,7 +4794,7 @@ function setupForm(form) {
                     phone: "",
                     city: profilePayload.city,
                     place: profilePayload.place,
-                    studyGroup: profilePayload.class,
+                    studyGroup: profilePayload.studyGroup,
                 });
                 await loadWorkspaceData();
                 pendingProfileCompletion = false;
@@ -4791,6 +4858,26 @@ function setupForm(form) {
             try {
                 const code = String(form.elements["code"]?.value || "").trim();
                 const inspection = await apiClient.inspectTournamentCode({ code });
+                
+                if (isParticipantUser()) {
+                    if (inspection?.codeType === "helper") {
+                        window.open(`/?view=tournaments&tournament=${inspection.tournamentId}&tmode=leaderboard`, '_blank');
+                        closeAnyModal();
+                        Toast.show("Экран", "Таблица открыта в новой вкладке", "success");
+                        return;
+                    }
+                    
+                    await apiClient.joinTournament(inspection.tournamentId, { accessCode: code });
+                    
+                    closeAnyModal();
+                    Toast.show("Турнир", "Успешный вход по коду", "success");
+                    await loadWorkspaceData();
+                    switchToWorkspace();
+                    ViewManager.open("tournaments");
+                    await openTournamentRuntimeModal(inspection.tournamentId);
+                    return;
+                }
+
                 let payload = { code };
                 if (inspection?.codeType === "shared") {
                     Loader.hide(300);
@@ -5095,7 +5182,7 @@ function setupForm(form) {
                 validate();
             });
         });
-        ["place", "class"].forEach((fieldName) => {
+        ["place", "studyGroup"].forEach((fieldName) => {
             const input = form.elements[fieldName];
             input?.addEventListener("input", () => {
                 input.value = normalizeWhitespace(input.value);
@@ -5715,11 +5802,24 @@ function isWorkspaceVisible() {
 function hasWorkspaceInteractiveFocus() {
     const activeElement = document.activeElement;
     const workspaceContent = document.getElementById("workspace-content");
+
+    // Если редактор организатора в процессе правки или сохранения,
+    // мы считаем, что у пользователя есть интерактивный фокус, чтобы не сбить ввод.
+    if (
+        (organizerUiState.editor?.dirty || organizerUiState.editor?.inFlight) &&
+        ViewManager.currentView === "organizer"
+    ) {
+        return true;
+    }
+
     if (!activeElement || !workspaceContent || !workspaceContent.contains(activeElement)) {
         return false;
     }
 
-    return ["INPUT", "TEXTAREA", "SELECT"].includes(activeElement.tagName);
+    return (
+        ["INPUT", "TEXTAREA", "SELECT"].includes(activeElement.tagName) ||
+        activeElement.isContentEditable
+    );
 }
 
 function hasOpenModalDialog() {
@@ -5769,7 +5869,10 @@ async function loadWorkspaceDataForActiveView(viewName = null) {
 
     if (resolvedViewName === "dashboard") {
         if (isAdminUser()) {
-            await apiClient.loadAdminOverview();
+            await Promise.all([
+                apiClient.loadAdminOverview(),
+                apiClient.loadAdminSystemStats()
+            ]);
             return;
         }
         if (isModeratorUser() && !isAdminUser()) {
@@ -5781,6 +5884,16 @@ async function loadWorkspaceDataForActiveView(viewName = null) {
             return;
         }
         await apiClient.loadDashboard();
+        return;
+    }
+
+    if (resolvedViewName === "analytics") {
+        const range = adminUiState.statsHistoryRange || 24;
+        await Promise.all([
+            apiClient.loadAdminSystemStats(),
+            apiClient.loadAdminSystemStatsHistory(range),
+            apiClient.loadAdminDetailedStats(range)
+        ]);
         return;
     }
 
@@ -5970,7 +6083,7 @@ function renderProfilePersonal() {
             </div>
         `
         : "";
-    const rolePreviewBlock = user.isSuperAdmin
+    const rolePreviewBlock = (user.isAdmin || user.isSuperAdmin)
         ? `
             <div class="card dash-card role-preview-card" style="padding:20px; margin-top:20px;">
                 <div class="modal__title" style="font-size:18px; margin-bottom:8px;">Режим ролей</div>
@@ -6072,7 +6185,7 @@ function renderProfilePersonal() {
 
                 <div class="profile-footer-row">
                     <button type="button" class="btn-logout-link" id="profile-logout-btn">Выйти</button>
-                    <button type="submit" class="btn btn-save-large is-disabled" disabled>Сохранить изменения</button>
+                    <button type="submit" class="btn btn--accent btn-save-large is-disabled" disabled>Сохранить изменения</button>
                 </div>
             </form>
         </div>
@@ -6259,8 +6372,9 @@ function renderProfileSecurity() {
                     <div class="sec-list">
                         ${renderProfileSessionsList()}
                     </div>
-                    <div class="sec-footer">
+                    <div class="sec-footer" style="flex-direction: column; gap: 12px;">
                         <button class="btn btn--muted btn-logout-all" style="width: 100%;">Выйти со всех устройств</button>
+                        <button type="button" class="btn btn--muted btn--sm" id="profile-delete-btn" style="color: var(--accent-from); width: 100%; border: none; background: transparent;">Удалить аккаунт навсегда</button>
                     </div>
                 </div>
             </div>
@@ -6544,6 +6658,262 @@ function renderProfileAnalytics() {
     return renderAnalyticsLayout(analytics, "profile");
 }
 
+
+
+function renderAnalyticsView() {
+    const stats = getAdminSystemStatsState();
+    const history = apiClient.state.adminSystemStatsHistory || [];
+    const detailed = apiClient.state.adminDetailedStats || { visits: [], emails: [], registrations: [], submissions: [] };
+
+    const rangeLabel = {
+        1: 'последний час',
+        24: 'последние 24 часа',
+        168: 'последнюю неделю',
+        720: 'последний месяц'
+    }[adminUiState.statsHistoryRange] || 'выбранный период';
+
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="dash-view ops-view analytics-view">
+            <div class="ops-header" data-view-anim>
+                <div class="ops-header__copy">
+                    <h1 class="ops-header__title">Аналитика платформы</h1>
+                    <div class="ops-header__subtitle">Полный мониторинг активности, ресурсов и событий за ${rangeLabel}.</div>
+                </div>
+                <div class="ops-header__actions">
+                    <div class="tabs-nav tabs-nav--sm" style="margin: 0;">
+                        ${[
+                            { id: 1, label: 'Час' },
+                            { id: 24, label: 'День' },
+                            { id: 168, label: 'Неделя' },
+                            { id: 720, label: 'Месяц' }
+                        ].map(range => `
+                            <div class="tab-item ${adminUiState.statsHistoryRange === range.id ? 'active' : ''}" 
+                                 onclick="setGlobalAnalyticsRange(${range.id})">
+                                ${range.label}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="ops-stack">
+                <div class="kpi-grid">
+                    ${renderOpsMetricCard({
+                        icon: "analytics",
+                        tone: "accent",
+                        label: "Пользователей",
+                        value: formatNumberRu(detailed.registrations.reduce((acc, v) => acc + v.count, 0)),
+                        meta: "Новых за период",
+                    })}
+                    ${renderOpsMetricCard({
+                        icon: "task_alt",
+                        tone: "warning",
+                        label: "Решений",
+                        value: formatNumberRu(detailed.submissions.reduce((acc, v) => acc + v.count, 0)),
+                        meta: "Отправок в турнирах",
+                    })}
+                    ${renderOpsMetricCard({
+                        icon: "visibility",
+                        tone: "accent",
+                        label: "Просмотров",
+                        value: formatNumberRu(detailed.visits.reduce((acc, v) => acc + v.count, 0)),
+                        meta: "Посещения страниц",
+                    })}
+                    ${renderOpsMetricCard({
+                        icon: "public",
+                        tone: "accent",
+                        label: "HTTP Трафик",
+                        value: stats ? formatBytes(stats.network.trafficIn + stats.network.trafficOut) : '0',
+                        meta: "Текущая сессия",
+                    })}
+                </div>
+
+                <div class="adaptive-grid" style="grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));">
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">Рост аудитории (Регистрации)</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsRegsChart"></canvas>
+                        </div>
+                    </section>
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">Активность (Отправки решений)</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsSubmitsChart"></canvas>
+                        </div>
+                    </section>
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">Посещения (Page Views)</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsVisitsChart"></canvas>
+                        </div>
+                    </section>
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">E-mail Уведомления</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsEmailsChart"></canvas>
+                        </div>
+                    </section>
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">Ресурсы: CPU и RAM</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsResourcesChart"></canvas>
+                        </div>
+                    </section>
+                    <section class="card dash-card">
+                        <div class="card__head"><div class="card__title">Сетевой трафик (KB/s)</div></div>
+                        <div class="admin-home-chart-wrap" style="height: 280px;">
+                            <canvas id="analyticsTrafficChart"></canvas>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+window.setGlobalAnalyticsRange = async (hours) => {
+    adminUiState.statsHistoryRange = hours;
+    Loader.show();
+    try {
+        await Promise.all([
+            apiClient.loadAdminSystemStatsHistory(hours),
+            apiClient.loadAdminDetailedStats(hours),
+            apiClient.loadAdminSystemStats()
+        ]);
+        // Принудительно рендерим и инициализируем графики
+        const container = document.getElementById('workspace-content');
+        if (container) {
+            container.innerHTML = renderAnalyticsView();
+            void initAnalyticsInteractions(container);
+        }
+        // Обновляем URL без полной перезагрузки ViewManager если нужно
+        const queryParams = new URLSearchParams(window.location.search);
+        queryParams.set("view", "analytics");
+        window.history.replaceState({}, "", "?".concat(queryParams.toString()));
+    } catch (err) {
+        showRequestError("Аналитика", err);
+    } finally {
+        Loader.hide(300);
+    }
+};
+
+let analyticsCharts = {
+    visits: null,
+    emails: null,
+    resources: null,
+    traffic: null,
+    regs: null,
+    submits: null
+};
+
+function destroyAnalyticsCharts() {
+    Object.values(analyticsCharts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') chart.destroy();
+    });
+    analyticsCharts = { visits: null, emails: null, resources: null, traffic: null, regs: null, submits: null };
+}
+
+async function initAnalyticsInteractions(container) {
+    const visitsCanvas = container.querySelector('#analyticsVisitsChart');
+    if (!visitsCanvas) return;
+
+    const ChartLib = await ensureChartJsLoaded();
+    if (!ChartLib) return;
+
+    destroyAnalyticsCharts();
+
+    const detailed = apiClient.state.adminDetailedStats || { visits: [], emails: [], registrations: [], submissions: [] };
+    const history = apiClient.state.adminSystemStatsHistory || [];
+    
+    const fgStrong = getAdminChartColor('--fg-strong', '#fff');
+    const accent = getAdminChartColor('--accent-from', '#f43f5e');
+    const secondary = getAdminChartColor('--accent-to', '#fbbf24');
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: { grid: { display: false }, ticks: { color: fgStrong, font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: fgStrong, beginAtZero: true } }
+        },
+        plugins: { legend: { labels: { color: fgStrong } } }
+    };
+
+    // Helper to format hours
+    const formatH = (hStr) => hStr.split(' ')[1] + ':00';
+
+    // Registrations
+    analyticsCharts.regs = new ChartLib(container.querySelector('#analyticsRegsChart'), {
+        type: 'line',
+        data: {
+            labels: detailed.registrations.map(v => formatH(v.hour)),
+            datasets: [{ label: 'Регистрации', data: detailed.registrations.map(v => v.count), borderColor: '#34d399', fill: true, backgroundColor: 'rgba(52, 211, 153, 0.1)' }]
+        },
+        options: commonOptions
+    });
+
+    // Submissions
+    analyticsCharts.submits = new ChartLib(container.querySelector('#analyticsSubmitsChart'), {
+        type: 'line',
+        data: {
+            labels: detailed.submissions.map(v => formatH(v.hour)),
+            datasets: [{ label: 'Отправки', data: detailed.submissions.map(v => v.count), borderColor: '#60a5fa', fill: true, backgroundColor: 'rgba(96, 165, 250, 0.1)' }]
+        },
+        options: commonOptions
+    });
+
+    // Visits
+    analyticsCharts.visits = new ChartLib(visitsCanvas, {
+        type: 'bar',
+        data: {
+            labels: detailed.visits.map(v => formatH(v.hour)),
+            datasets: [{ label: 'Просмотры', data: detailed.visits.map(v => v.count), backgroundColor: accent, borderRadius: 4 }]
+        },
+        options: commonOptions
+    });
+
+    // Emails
+    const emailLabels = [...new Set(detailed.emails.map(e => e.hour))].sort();
+    analyticsCharts.emails = new ChartLib(container.querySelector('#analyticsEmailsChart'), {
+        type: 'line',
+        data: {
+            labels: emailLabels.map(l => formatH(l)),
+            datasets: [
+                { label: 'Успешно', data: emailLabels.map(l => (detailed.emails.find(e => e.hour === l && e.status === 'sent')?.count || 0)), borderColor: '#10b981' },
+                { label: 'Ошибки', data: emailLabels.map(l => (detailed.emails.find(e => e.hour === l && e.status === 'failed')?.count || 0)), borderColor: '#f43f5e' }
+            ]
+        },
+        options: commonOptions
+    });
+
+    // Resources
+    analyticsCharts.resources = new ChartLib(container.querySelector('#analyticsResourcesChart'), {
+        type: 'line',
+        data: {
+            labels: history.map(h => formatDateTimeLabel(h.created_at)),
+            datasets: [
+                { label: 'CPU %', data: history.map(h => h.cpu_load * 100), borderColor: accent, yAxisID: 'y' },
+                { label: 'RAM MB', data: history.map(h => h.ram_used / 1024 / 1024), borderColor: secondary, yAxisID: 'y1' }
+            ]
+        },
+        options: { ...commonOptions, scales: { ...commonOptions.scales, y1: { position: 'right', grid: { display: false }, ticks: { color: secondary } } } }
+    });
+
+    // Traffic
+    analyticsCharts.traffic = new ChartLib(container.querySelector('#analyticsTrafficChart'), {
+        type: 'line',
+        data: {
+            labels: history.map(h => formatDateTimeLabel(h.created_at)),
+            datasets: [
+                { label: 'In (KB/s)', data: history.map(h => h.traffic_in / 1024), borderColor: '#3b82f6' },
+                { label: 'Out (KB/s)', data: history.map(h => h.traffic_out / 1024), borderColor: '#8b5cf6' }
+            ]
+        },
+        options: commonOptions
+    });
+}
+
 /**
  * Инициализирует интерактивность в секции профиля.
  */
@@ -6686,6 +7056,30 @@ function initProfilePersonalInteractions(container) {
             clearCodeEntrySessionState();
             await apiClient.logout();
             location.reload();
+        });
+    }
+
+    const deleteBtn = container.querySelector("#profile-delete-btn");
+    if (deleteBtn) {
+        deleteBtn.addEventListener("click", async () => {
+            const confirmed = await requestConfirmDialog({
+                title: "Удаление аккаунта",
+                desc: "Вы уверены, что хотите навсегда удалить свой аккаунт? Все ваши достижения и данные будут стерты без возможности восстановления.",
+                confirmLabel: "Удалить всё",
+                confirmTone: "danger",
+            });
+            if (!confirmed) return;
+
+            Loader.show();
+            try {
+                await apiClient.deleteSelfAccount();
+                Toast.show("Аккаунт", "Прощайте! Ваш аккаунт удален.", "success");
+                setTimeout(() => location.reload(), 2000);
+            } catch (error) {
+                showRequestError("Профиль", error);
+            } finally {
+                Loader.hide(300);
+            }
         });
     }
 
@@ -6854,7 +7248,31 @@ function initProfileSecurityInteractions(container) {
                 Loader.hide(300);
             }
         });
-    });
+    
+    const deleteBtn = container.querySelector('#profile-delete-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            const confirmed = await requestConfirmDialog({
+                title: 'Удаление аккаунта',
+                desc: 'Вы уверены, что хотите навсегда удалить свой аккаунт? Все ваши достижения и данные будут стерты без возможности восстановления.',
+                confirmLabel: 'Удалить всё',
+                confirmTone: 'danger',
+            });
+            if (!confirmed) return;
+
+            Loader.show();
+            try {
+                await apiClient.deleteSelfAccount();
+                Toast.show('Аккаунт', 'Прощайте! Ваш аккаунт удален.', 'success');
+                setTimeout(() => location.reload(), 2000);
+            } catch (err) {
+                showRequestError('Профиль', err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    }
+});
 
     container.querySelector(".btn-send-email-verify")?.addEventListener(
         "click",
@@ -7068,11 +7486,16 @@ function resolveUiIcon(name) {
         library_books: "content_copy",
         pending_actions: "schedule",
         public: "visibility",
-        how_to_reg: "group_add",
         groups: "group_add",
         library_add: "add",
         verified_user: "security",
         lock: "security",
+        analytics: "analytics",
+        emoji_events: "emoji_events",
+        task_alt: "task_alt",
+        how_to_reg: "how_to_reg",
+        shield: "shield",
+        visibility: "visibility",
     };
 
     if (window.SVGDic[name]) {
@@ -7084,7 +7507,7 @@ function resolveUiIcon(name) {
 
 function renderOpsMetricCard({ icon, tone = "accent", label, value, meta = "" }) {
     return `
-        <div class="card dash-card ops-metric-card" data-view-anim>
+        <div class="glass-panel ops-metric-card" data-view-anim>
             <div class="ops-metric-card__top">
                 ${renderOpsIcon(icon, tone)}
                 <div class="ops-metric-card__copy">
@@ -7092,7 +7515,7 @@ function renderOpsMetricCard({ icon, tone = "accent", label, value, meta = "" })
                     <div class="ops-metric-card__value">${escapeHtml(value)}</div>
                 </div>
             </div>
-            <div class="ops-metric-card__meta">${escapeHtml(meta)}</div>
+            ${meta ? `<div class="ops-metric-card__meta">${escapeHtml(meta)}</div>` : ""}
         </div>
     `;
 }
@@ -7105,7 +7528,7 @@ function renderOpsPanel({
     className = "",
 }) {
     return `
-        <section class="card dash-card ops-panel ${className}">
+        <section class="glass-panel card-accent-top ops-panel ${className}" data-view-anim>
             <div class="ops-panel__head">
                 <div class="ops-panel__copy">
                     <h3 class="ops-panel__title">${escapeHtml(title)}</h3>
@@ -7113,7 +7536,7 @@ function renderOpsPanel({
                 </div>
                 ${actions ? `<div class="ops-panel__actions">${actions}</div>` : ""}
             </div>
-            <div class="ops-panel__body">${body}</div>
+            ${body ? `<div class="ops-panel__body">${body}</div>` : ""}
         </section>
     `;
 }
@@ -7156,7 +7579,7 @@ function renderOpsEmptyState({
     actionMarkup = "",
 }) {
     return `
-        <div class="ops-empty-state">
+        <div class="ops-empty-state" data-view-anim>
             <div class="ops-empty-state__visual">
                 ${renderOpsIcon(icon, "accent")}
             </div>
@@ -7314,7 +7737,7 @@ function renderAdminOverviewKpiCard({
     tone = "accent",
 }) {
     return `
-        <div class="ops-admin-kpi-card ops-admin-kpi-card--${escapeHtml(tone)}">
+        <div class="glass-panel ops-admin-kpi-card ops-admin-kpi-card--${escapeHtml(tone)}" data-view-anim>
             <div class="ops-admin-kpi-card__label">${escapeHtml(label)}</div>
             <div class="ops-admin-kpi-card__value">${escapeHtml(value)}</div>
             <div class="ops-admin-kpi-card__meta">${escapeHtml(meta)}</div>
@@ -7455,7 +7878,7 @@ function renderAdminOverviewSection(adminState) {
                     title: "Сейчас на платформе",
                     desc: "Сигналы текущей нагрузки, активности и общего масштаба системы.",
                     body: `
-                        <div class="ops-admin-kpi-grid">
+                        <div class="kpi-grid">
                             ${renderAdminOverviewKpiCard({
                                 label: "Онлайн сейчас",
                                 value: formatNumberRu(metrics.activeUsers15m),
@@ -7516,7 +7939,7 @@ function renderAdminOverviewSection(adminState) {
                             ${attentionItems
                                 .map(
                                     (item) => `
-                                        <div class="ops-admin-alert-item ops-admin-alert-item--${escapeHtml(item.tone)}">
+                                        <div class="ops-admin-alert-item ops-admin-alert-item--${escapeHtml(item.tone)} glass-panel" data-view-anim>
                                             <div class="ops-admin-alert-item__icon">
                                                 ${renderOpsIcon(item.icon, item.tone)}
                                             </div>
@@ -7655,14 +8078,14 @@ function renderOrganizerDashboard() {
         <div class="dash-view ops-view organizer-home-view">
             <div class="ops-header" data-view-anim>
                 <div class="ops-header__copy">
-                    <h1 class="dash-header">Главная</h1>
-                    <div class="tour-sub">Кабинет организатора с акцентом на свои соревнования, банк заданий и публикационный поток.</div>
+                    <h1 class="ops-header__title">Главная</h1>
+                    <div class="ops-header__subtitle">Кабинет организатора с акцентом на свои соревнования, банк заданий и публикационный поток.</div>
                 </div>
                 <div class="ops-header__actions">
                     ${quickActions}
                 </div>
             </div>
-            <div class="ops-metric-grid ops-metric-grid--four">
+            <div class="kpi-grid">
                 ${renderOpsMetricCard({
                     icon: "emoji_events",
                     tone: "accent",
@@ -7709,12 +8132,12 @@ function renderOrganizerDashboard() {
                         desc: "Самые частые действия организатора без лишних переходов.",
                         body: `
                             <div class="ops-action-grid">
-                                <button class="ops-action-card" id="organizerCreateTournamentBtnHeroCard" type="button">
+                                <button class="ops-action-card glass-panel" id="organizerCreateTournamentBtnHeroCard" type="button" data-view-anim>
                                     ${renderOpsIcon("add_circle", "accent")}
                                     <span class="ops-action-card__title">Создать соревнование</span>
                                     <span class="ops-action-card__desc">Новый черновик с настройками по умолчанию.</span>
                                 </button>
-                                <button class="ops-action-card" data-organizer-open-view="task-bank" type="button">
+                                <button class="ops-action-card glass-panel" data-organizer-open-view="task-bank" type="button" data-view-anim>
                                     ${renderOpsIcon("library_books", "warning")}
                                     <span class="ops-action-card__title">Открыть банк заданий</span>
                                     <span class="ops-action-card__desc">Добавить задачи, импортировать XLSX и отправить на модерацию.</span>
@@ -7728,25 +8151,25 @@ function renderOrganizerDashboard() {
                         desc: "Как обычно проходит подготовка соревнования.",
                         body: `
                             <div class="ops-flow-list">
-                                <div class="ops-flow-item">
+                                <div class="ops-flow-item" data-view-anim>
                                     <span class="ops-flow-item__step">1</span>
                                     <div>
                                         <div class="s-title">Подготовить структуру турнира</div>
                                         <div class="s-sub">Название, формат участия, доступ и временные окна.</div>
                                     </div>
                                 </div>
-                                <div class="ops-flow-item">
+                                <div class="ops-flow-item" data-view-anim>
                                     <span class="ops-flow-item__step">2</span>
                                     <div>
                                         <div class="s-title">Собрать и проверить задания</div>
                                         <div class="s-sub">Используйте личный банк или отправляйте задачи в общий банк.</div>
                                     </div>
                                 </div>
-                                <div class="ops-flow-item">
+                                <div class="ops-flow-item" data-view-anim>
                                     <span class="ops-flow-item__step">3</span>
                                     <div>
-                                        <div class="s-title">Подготовить список допуска</div>
-                                        <div class="s-sub">Для закрытых турниров импортируйте только существующих пользователей.</div>
+                                        <div class="s-title">Публикация и контроль</div>
+                                        <div class="s-sub">Переведите турнир в статус публикации и следите за ходом турнира.</div>
                                     </div>
                                 </div>
                             </div>
@@ -8057,7 +8480,7 @@ function getOrganizerAccessScopeFromDraft(draft) {
     if (draft.joinMode === "registration") {
         return "registration";
     }
-    return draft.requiresCode ? "code" : "open";
+    return "open";
 }
 
 function buildOrganizerEditorPatch(draft) {
@@ -9007,14 +9430,14 @@ function renderModerationDashboard() {
         <div class="dash-view ops-view">
             <div class="ops-header" data-view-anim>
                 <div class="ops-header__copy">
-                    <h1 class="dash-header">Главная</h1>
-                    <div class="tour-sub">Кабинет модератора: проверка задач, заявок на organizer и контроль пользовательских блокировок.</div>
+                    <h1 class="ops-header__title">Главная</h1>
+                    <div class="ops-header__subtitle">Кабинет модератора: проверка задач, заявок на organizer и контроль пользовательских блокировок.</div>
                 </div>
                 <div class="ops-header__actions">
                     <button class="btn btn--accent" data-moderation-open-view="moderation">Открыть модерацию</button>
                 </div>
             </div>
-            <div class="ops-metric-grid ops-metric-grid--three">
+            <div class="kpi-grid">
                 ${renderOpsMetricCard({
                     icon: "pending_actions",
                     tone: "warning",
@@ -9044,21 +9467,21 @@ function renderModerationDashboard() {
                     desc: "В первую очередь проверяйте pending-задачи и новые заявки на organizer.",
                     body: `
                         <div class="ops-flow-list">
-                            <div class="ops-flow-item">
+                            <div class="ops-flow-item" data-view-anim>
                                 <span class="ops-flow-item__step">1</span>
                                 <div>
                                     <div class="s-title">Задачи на проверке</div>
                                     <div class="s-sub">Проверьте качество условий, корректность уровня сложности и уместность публикации.</div>
                                 </div>
                             </div>
-                            <div class="ops-flow-item">
+                            <div class="ops-flow-item" data-view-anim>
                                 <span class="ops-flow-item__step">2</span>
                                 <div>
                                     <div class="s-title">Заявки на organizer</div>
                                     <div class="s-sub">Подтверждайте только проверенные школы, клубы и площадки.</div>
                                 </div>
                             </div>
-                            <div class="ops-flow-item">
+                            <div class="ops-flow-item" data-view-anim>
                                 <span class="ops-flow-item__step">3</span>
                                 <div>
                                     <div class="s-title">Пользовательские блокировки</div>
@@ -9073,7 +9496,7 @@ function renderModerationDashboard() {
                     desc: "Самые частые переходы внутри moderation workspace.",
                     body: `
                         <div class="ops-action-grid">
-                            <button class="ops-action-card" type="button" data-moderation-open-view="moderation">
+                            <button class="ops-action-card glass-panel" type="button" data-moderation-open-view="moderation" data-view-anim>
                                 ${renderOpsIcon("pending_actions", "warning")}
                                 <span class="ops-action-card__title">Открыть очередь</span>
                                 <span class="ops-action-card__desc">Перейти к проверке задач, заявок и пользователей.</span>
@@ -9100,7 +9523,7 @@ function renderModerationTasksSection(tasks) {
             ${tasks
                 .map(
                     (task) => `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(task.title)}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(task.ownerLabel)} • ${escapeHtml(task.category)} • ${escapeHtml(task.difficulty)}</div>
@@ -9132,7 +9555,7 @@ function renderModerationApplicationsSection(applications) {
             ${applications
                 .map(
                     (item) => `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(item.organizationName)}</div>
                                 <div class="ops-entity-row__meta">@${escapeHtml(item.applicantLogin)} • ${escapeHtml(item.organizationType || "organization")} • ${escapeHtml(item.status)}</div>
@@ -9175,7 +9598,7 @@ function renderModerationUsersSection(users) {
                 .map((user) => {
                     const isProtected = Boolean(user.protectedAccount || user.isOwner);
                     return `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ` ${renderOpsBadge("Owner", "owner", "ops-badge--inline")}` : ""}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(user.email || "Без e-mail")} • ${escapeHtml(humanizeUserRole(user.role))} • ${escapeHtml(user.status)}</div>
@@ -9189,6 +9612,7 @@ function renderModerationUsersSection(users) {
                                         ? `<button class="btn btn--muted btn--sm" data-mod-user-status="active" data-mod-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-mod-user-status="blocked" data-mod-user-id="${escapeHtml(user.id)}">Заблокировать</button>`
                                 }
+                                ${!isProtected ? `<button class="btn btn--muted btn--sm" data-mod-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт навсегда">Удалить</button>` : ""}
                             </div>
                         </div>
                     `;
@@ -9200,15 +9624,23 @@ function renderModerationUsersSection(users) {
 
 function renderModerationView() {
     const overview = getModerationOverviewState();
-    const tasks = getModerationTasksState();
-    const applications = getModerationApplicationsState();
-    const users = getModerationUsersState();
+    const query = (moderationUiState.searchQuery || "").toLowerCase().trim();
+
+    const filterFn = (item, fields) => {
+        if (!query) return true;
+        return fields.some(f => String(item[f] || "").toLowerCase().includes(query));
+    };
+
+    const tasks = getModerationTasksState().filter(t => filterFn(t, ['title', 'ownerLabel', 'category', 'difficulty']));
+    const applications = getModerationApplicationsState().filter(a => filterFn(a, ['organizationName', 'applicantLogin']));
+    const users = getModerationUsersState().filter(u => filterFn(u, ['displayName', 'login', 'email']));
+
     const moderationActions = isAdminUser()
         ? `
-            <button class="btn btn--muted" data-moderation-open-view="dashboard">Главная</button>
-            <button class="btn btn--muted" data-moderation-open-view="admin">Админка</button>
+            <button class="btn btn--muted" type="button" data-moderation-open-view="dashboard">Главная</button>
+            <button class="btn btn--muted" type="button" data-moderation-open-view="admin">Админка</button>
         `
-        : '<button class="btn btn--muted" data-moderation-open-view="dashboard">Главная модератора</button>';
+        : '<button class="btn btn--muted" type="button" data-moderation-open-view="dashboard">Главная модератора</button>';
     const tabs = [
         { id: "tasks", label: "Задачи", icon: "pending_actions", count: tasks.length },
         {
@@ -9239,33 +9671,37 @@ function renderModerationView() {
         <div class="dash-view ops-view moderation-view">
             <div class="ops-header" data-view-anim>
                 <div class="ops-header__copy">
-                    <h1 class="dash-header">Модерация</h1>
-                    <div class="tour-sub">Фокусируйтесь на одной очереди за раз: задачи, заявки или пользователи.</div>
+                    <h1 class="ops-header__title">Модерация</h1>
+                    <div class="ops-header__subtitle">Фокусируйтесь на одной очереди за раз: задачи, заявки или пользователи.</div>
                 </div>
                 <div class="ops-header__actions">
+                    <div class="search-wrap" style="min-width: 260px;">
+                        ${window.getSVGIcon("search", 'class="search-icon icon-svg icon-svg-search"')}
+                        <input type="text" class="search-input" id="moderationSearchInput" placeholder="Поиск в очереди..." value="${escapeHtml(moderationUiState.searchQuery)}">
+                    </div>
                     ${moderationActions}
                 </div>
             </div>
-            <div class="ops-metric-grid ops-metric-grid--three">
+            <div class="kpi-grid">
                 ${renderOpsMetricCard({
                     icon: "pending_actions",
                     tone: activeTab === "tasks" ? "warning" : "muted",
                     label: "Задачи на проверке",
-                    value: formatNumberRu(tasks.length || overview.pendingTasksCount),
+                    value: formatNumberRu(getModerationTasksState().length),
                     meta: "Очередь публикации в общий банк",
                 })}
                 ${renderOpsMetricCard({
                     icon: "how_to_reg",
                     tone: activeTab === "applications" ? "accent" : "muted",
                     label: "Organizer-заявки",
-                    value: formatNumberRu(applications.length || overview.pendingOrganizerApplicationsCount),
+                    value: formatNumberRu(getModerationApplicationsState().length),
                     meta: "Площадки и школы, ожидающие решения",
                 })}
                 ${renderOpsMetricCard({
                     icon: "shield",
                     tone: activeTab === "users" ? "danger" : "muted",
                     label: "Пользователи",
-                    value: formatNumberRu(users.length),
+                    value: formatNumberRu(getModerationUsersState().length),
                     meta: `${formatNumberRu(overview.blockedUsersCount)} заблокировано`,
                 })}
             </div>
@@ -9279,6 +9715,7 @@ function renderModerationView() {
         </div>
     `;
 }
+
 
 function initAdminDashboardInteractions(container) {
     container.querySelectorAll("[data-admin-home-open-view]").forEach((button) => {
@@ -9299,6 +9736,7 @@ function initAdminDashboardInteractions(container) {
     });
 
     void initAdminOverviewCharts(container);
+    void initAdminLiveFeed(container);
 }
 
 function renderAdminUsersSection(users) {
@@ -9316,10 +9754,10 @@ function renderAdminUsersSection(users) {
                 .map((user) => {
                     const isProtected = Boolean(user.protectedAccount || user.isOwner);
                     return `
-                        <div class="ops-admin-row">
+                        <div class="ops-admin-row glass-panel" data-view-anim>
                             <div class="ops-admin-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(user.displayName)} • @${escapeHtml(user.login)}${isProtected ? ` ${renderOpsBadge("Owner", "owner", "ops-badge--inline")}` : ""}</div>
-                                <div class="ops-entity-row__meta">${escapeHtml(user.email)} • ${escapeHtml(user.status)}${user.blockedReason ? ` • ${escapeHtml(user.blockedReason)}` : ""}</div>
+                                <div class="ops-entity-row__meta">${escapeHtml(user.email)} • ${escapeHtml(humanizeUserRole(user.role))} • ${escapeHtml(user.status)}${user.blockedReason ? ` • ${escapeHtml(user.blockedReason)}` : ""}</div>
                             </div>
                             <div class="ops-admin-row__controls">
                                 <select class="input" data-admin-role-select="${escapeHtml(user.id)}" ${isProtected ? "disabled" : ""}>
@@ -9337,6 +9775,7 @@ function renderAdminUsersSection(users) {
                                         ? `<button class="btn btn--muted btn--sm" data-admin-status-set="active" data-admin-user-id="${escapeHtml(user.id)}">Разблокировать</button>`
                                         : `<button class="btn btn--accent btn--sm" data-admin-status-set="blocked" data-admin-user-id="${escapeHtml(user.id)}">Блок</button>`
                                 }
+                                ${!isProtected ? `<button class="btn btn--muted btn--sm" data-admin-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт навсегда">Удалить</button>` : ""}
                             </div>
                         </div>
                     `;
@@ -9360,10 +9799,10 @@ function renderAdminTournamentsSection(tournaments) {
             ${tournaments
                 .map(
                     (item) => `
-                        <div class="ops-admin-row">
+                        <div class="ops-admin-row glass-panel" data-view-anim>
                             <div class="ops-admin-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(item.title)}</div>
-                                <div class="ops-entity-row__meta">@${escapeHtml(item.ownerLogin || "system")} • ${escapeHtml(item.statusText)} • ${formatDateTimeLabel(item.startAt)}</div>
+                                <div class="ops-entity-row__meta">@${escapeHtml(item.ownerLogin || "system")} • ${escapeHtml(humanizeTournamentStatusLabel(item.status))} • ${formatDateTimeLabel(item.startAt)}</div>
                                 <div class="ops-entity-row__note">${escapeHtml(item.format === "team" ? "Командный" : "Индивидуальный")} • ${escapeHtml(formatNumberRu(item.participants || 0))} участников • ${escapeHtml(formatNumberRu(item.taskCount || 0))} задач</div>
                             </div>
                             <div class="ops-admin-row__controls">
@@ -9392,7 +9831,7 @@ function renderAdminTeamsSection(teams) {
             ${teams
                 .map(
                     (team) => `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(team.name)}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(team.teamCode)} • ${formatNumberRu(team.membersCount)} участников</div>
@@ -9422,7 +9861,7 @@ function renderAdminTasksSection(tasks) {
             ${tasks
                 .map(
                     (task) => `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(task.title)}</div>
                                 <div class="ops-entity-row__meta">${escapeHtml(task.bankScope)} • ${escapeHtml(task.moderationStatus)} • ${escapeHtml(task.ownerLabel)}</div>
@@ -9443,7 +9882,7 @@ function renderAdminApplicationsSection(applications) {
         return renderOpsEmptyState({
             icon: "how_to_reg",
             title: "Заявок нет",
-            desc: "Когда появятся новые organizer applications, они будут отображаться здесь.",
+            desc: "История пуста или ещё никто не подал заявку.",
         });
     }
 
@@ -9452,7 +9891,7 @@ function renderAdminApplicationsSection(applications) {
             ${applications
                 .map(
                     (item) => `
-                        <div class="ops-entity-row">
+                        <div class="ops-entity-row glass-panel" data-view-anim>
                             <div class="ops-entity-row__main">
                                 <div class="ops-entity-row__title">${escapeHtml(item.organizationName)}</div>
                                 <div class="ops-entity-row__meta">@${escapeHtml(item.applicantLogin)} • ${escapeHtml(item.status)} • ${escapeHtml(item.reviewerLogin || "без ревьюера")}</div>
@@ -9475,7 +9914,66 @@ function renderAdminAuditSection(audit) {
         });
     }
 
-    return `<div class="ops-timeline">${renderRecentActionList(audit)}</div>`;
+    return `
+        <div class="ops-timeline">
+            ${audit.map(item => `
+                <div class="ops-admin-mini-row glass-panel" data-view-anim>
+                    <div class="ops-admin-mini-row__main">
+                        <div class="ops-entity-row__title">${escapeHtml(item.summary)}</div>
+                        <div class="ops-entity-row__meta">${escapeHtml(item.action)} • ${escapeHtml(item.entityType)} #${escapeHtml(item.entityId)}</div>
+                        <div class="ops-entity-row__note">${formatDateTimeLabel(item.createdAt)}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function destroyAdminLiveFeed() {
+    if (adminLiveEventSource) {
+        adminLiveEventSource.close();
+        adminLiveEventSource = null;
+    }
+}
+
+function initAdminLiveFeed(container) {
+    const feedNode = container.querySelector('#adminLiveFeed');
+    if (!feedNode) return;
+
+    destroyAdminLiveFeed();
+    adminLiveEventSource = new EventSource('/api/admin/audit/live');
+    
+    adminLiveEventSource.onmessage = (event) => {
+        try {
+            const log = JSON.parse(event.data);
+            const row = document.createElement('div');
+            row.className = 'ops-admin-mini-row glass-panel';
+            row.style.animation = 'fadeInDown 0.3s ease-out both';
+            
+            const time = new Date(log.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            row.innerHTML = `
+                <div class="ops-admin-mini-row__main">
+                    <div class="ops-entity-row__title">${escapeHtml(log.summary)}</div>
+                    <div class="ops-entity-row__meta">${escapeHtml(log.action)} • ${time}</div>
+                </div>
+            `;
+
+            if (feedNode.querySelector('.s-sub')) {
+                feedNode.innerHTML = '';
+            }
+            feedNode.prepend(row);
+            while (feedNode.children.length > 15) {
+                feedNode.lastElementChild.remove();
+            }
+        } catch (err) {
+            console.error('[live-feed] Error:', err);
+        }
+    };
+
+    adminLiveEventSource.onerror = () => {
+        console.warn('[live-feed] Connection lost. Retrying...');
+    };
 }
 
 function renderAdminDashboard() {
@@ -9496,10 +9994,53 @@ function renderAdminDashboard() {
         Number(overview.pendingTaskModerationCount || 0) +
         Number(overview.pendingOrganizerApplicationsCount || 0);
 
+    const stats = getAdminSystemStatsState();
+    
+    const renderStatsBlock = () => {
+        if (!stats) return '';
+        const memPercent = Math.round((stats.memory.used / stats.memory.total) * 100);
+        const diskPercent = stats.disk?.total ? Math.round((stats.disk.used / stats.disk.total) * 100) : 0;
+        
+        return `
+            <div class="kpi-grid" style="margin-bottom: var(--space-md);">
+                ${renderOpsMetricCard({
+                    icon: "analytics",
+                    tone: "warning",
+                    label: "CPU Load",
+                    value: `${stats.cpu.cores} cores`,
+                    meta: `Load: ${stats.cpu.loadAvg.map(n => n.toFixed(2)).join(', ')}`,
+                })}
+                ${renderOpsMetricCard({
+                    icon: "analytics",
+                    tone: memPercent > 85 ? "danger" : "accent",
+                    label: "RAM",
+                    value: `${memPercent}%`,
+                    meta: `${formatBytes(stats.memory.used)} / ${formatBytes(stats.memory.total)}`,
+                })}
+                ${renderOpsMetricCard({
+                    icon: "analytics",
+                    tone: diskPercent > 85 ? "danger" : "accent",
+                    label: "Disk",
+                    value: stats.disk?.total ? `${diskPercent}%` : 'N/A',
+                    meta: stats.disk?.total ? `${formatBytes(stats.disk.used)} / ${formatBytes(stats.disk.total)}` : 'No data',
+                })}
+                ${renderOpsMetricCard({
+                    icon: "public",
+                    tone: "accent",
+                    label: "HTTP Requests",
+                    value: formatCompactNumberRu(stats.network.totalRequests),
+                    meta: `Uptime: ${formatSecondsLabel(stats.uptime)}`,
+                })}
+            </div>
+        `;
+    };
+
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
         <div class="dash-view admin-home-view">
             <h1 class="dash-header" data-view-anim>Главная</h1>
+            
+            ${renderStatsBlock()}
 
             <div class="dash-grid admin-home-grid">
                 <section class="card dash-card tour-card admin-home-hero" data-view-anim style="transition-delay: 0.05s;">
@@ -9684,9 +10225,7 @@ function renderAdminDashboard() {
                         }
                     </div>
                 </section>
-            </div>
 
-            <div class="admin-home-charts">
                 <section class="card dash-card admin-home-chart-card" data-view-anim style="transition-delay: 0.3s;">
                     <div class="card__head row-between">
                         <div>
@@ -9698,6 +10237,7 @@ function renderAdminDashboard() {
                         <canvas id="adminSessionsChart" aria-label="Пульс платформы"></canvas>
                     </div>
                 </section>
+
                 <section class="card dash-card admin-home-chart-card" data-view-anim style="transition-delay: 0.35s;">
                     <div class="card__head row-between">
                         <div>
@@ -9709,63 +10249,82 @@ function renderAdminDashboard() {
                         <canvas id="adminGrowthChart" aria-label="Рост и нагрузка"></canvas>
                     </div>
                 </section>
+
+                <section class="card dash-card admin-home-live-feed-card" data-view-anim style="transition-delay: 0.4s;">
+                    <div class="card__head row-between">
+                        <div>
+                            <div class="card__title">Живая лента</div>
+                            <div class="card__sub">События платформы в реальном времени.</div>
+                        </div>
+                        <div class="ops-badge ops-badge--success">Live</div>
+                    </div>
+                    <div id="adminLiveFeed" class="ops-timeline ops-timeline--live">
+                        <div class="s-sub" style="padding: 20px; text-align: center;">Ожидание событий...</div>
+                    </div>
+                </section>
             </div>
         </div>
     `;
 }
 
+
 function renderAdminControlView() {
     const adminState = getAdminOverviewState();
-    const overview = adminState.overview || DEFAULT_ADMIN_OVERVIEW.overview;
-    const users = getAdminUsersState();
-    const tournaments = getAdminTournamentsState();
-    const teams = getAdminTeamsState();
-    const tasks = getAdminTasksState();
-    const applications = getAdminApplicationsState();
-    const audit = getAdminAuditState();
+    const query = (adminUiState.searchQuery || '').toLowerCase().trim();
+    
+    const filterFn = (item, fields) => {
+        if (!query) return true;
+        return fields.some(f => String(item[f] || '').toLowerCase().includes(query));
+    };
+
+    const users = getAdminUsersState().filter(u => filterFn(u, ['displayName', 'login', 'email', 'role']));
+    const tournaments = getAdminTournamentsState().filter(t => filterFn(t, ['title', 'ownerLogin', 'statusText']));
+    const teams = getAdminTeamsState().filter(t => filterFn(t, ['name', 'teamCode']));
+    const tasks = getAdminTasksState().filter(t => filterFn(t, ['title', 'ownerLabel', 'bankScope']));
+    const applications = getAdminApplicationsState().filter(a => filterFn(a, ['organizationName', 'applicantLogin']));
+    const audit = getAdminAuditState().filter(a => filterFn(a, ['summary', 'action', 'entityType']));
+
     const tabs = [
-        { id: "users", label: "Пользователи", icon: "groups", count: users.length },
-        {
-            id: "tournaments",
-            label: "Соревнования",
-            icon: "emoji_events",
-            count: tournaments.length,
-        },
-        { id: "teams", label: "Команды", icon: "group_add", count: teams.length },
-        { id: "tasks", label: "Задачи", icon: "library_books", count: tasks.length },
-        {
-            id: "applications",
-            label: "Заявки",
-            icon: "how_to_reg",
-            count: applications.length,
-        },
-        { id: "audit", label: "Аудит", icon: "analytics", count: audit.length },
+        { id: 'users', label: 'Пользователи', icon: 'groups', count: users.length },
+        { id: 'tournaments', label: 'Соревнования', icon: 'emoji_events', count: tournaments.length },
+        { id: 'teams', label: 'Команды', icon: 'group_add', count: teams.length },
+        { id: 'tasks', label: 'Задачи', icon: 'library_books', count: tasks.length },
+        { id: 'applications', label: 'Заявки', icon: 'how_to_reg', count: applications.length },
+        { id: 'audit', label: 'Аудит', icon: 'analytics', count: audit.length },
+        { id: 'infrastructure', label: 'Инфраструктура', icon: 'analytics', count: 0 },
     ];
-    const activeTab = adminUiState.activeTab || "users";
-    let panelTitle = "Пользователи и роли";
-    let panelDesc = "Назначайте роли, блокируйте аккаунты и управляйте доступом без перехода в другие роли.";
+    const activeTab = adminUiState.activeTab || 'users';
+    let panelTitle = 'Пользователи и роли';
+    let panelDesc = 'Назначайте роли, блокируйте аккаунты и управляйте доступом без перехода в другие роли.';
+    let panelActions = '';
     let panelBody = renderAdminUsersSection(users);
 
-    if (activeTab === "tournaments") {
-        panelTitle = "Соревнования";
-        panelDesc = "Изменение статусов, контроль жизненного цикла и удаление турниров.";
+    if (activeTab === 'tournaments') {
+        panelTitle = 'Соревнования';
+        panelDesc = 'Изменение статусов, контроль жизненного цикла и удаление турниров.';
         panelBody = renderAdminTournamentsSection(tournaments);
-    } else if (activeTab === "teams") {
-        panelTitle = "Команды";
-        panelDesc = "Просмотр и удаление команд, если это необходимо для платформы.";
+    } else if (activeTab === 'teams') {
+        panelTitle = 'Команды';
+        panelDesc = 'Просмотр и удаление команд, если это необходимо для платформы.';
         panelBody = renderAdminTeamsSection(teams);
-    } else if (activeTab === "tasks") {
-        panelTitle = "Задачи";
-        panelDesc = "Удаление задач и контроль состояния банков заданий.";
+    } else if (activeTab === 'tasks') {
+        panelTitle = 'Банк задач';
+        panelDesc = 'Общий список всех задач платформы, включая личные и опубликованные.';
         panelBody = renderAdminTasksSection(tasks);
-    } else if (activeTab === "applications") {
-        panelTitle = "Заявки организаторов";
-        panelDesc = "История и статусы заявок на organizer-role.";
+    } else if (activeTab === 'applications') {
+        panelTitle = 'Заявки на Organizer';
+        panelDesc = 'История всех поданных заявок на получение прав организатора.';
         panelBody = renderAdminApplicationsSection(applications);
-    } else if (activeTab === "audit") {
-        panelTitle = "Аудит действий";
-        panelDesc = "Последние административные и модераторские действия по платформе.";
+    } else if (activeTab === 'audit') {
+        panelTitle = 'Журнал аудита';
+        panelDesc = 'Последние действия администраторов и важные системные события.';
         panelBody = renderAdminAuditSection(audit);
+    } else if (activeTab === 'infrastructure') {
+        panelTitle = 'Мониторинг инфраструктуры';
+        panelDesc = 'Детальные графики нагрузки, трафика и системных ресурсов в реальном времени.';
+        panelBody = renderAdminInfrastructureSection();
+    } else if (activeTab === 'users') {
+        panelActions = `<button class="btn btn--accent btn--sm" id="adminGenerateUserBtn">Сгенерировать аккаунт</button>`;
     }
 
     return `
@@ -9773,74 +10332,80 @@ function renderAdminControlView() {
         <div class="dash-view ops-view admin-view">
             <div class="ops-header" data-view-anim>
                 <div class="ops-header__copy">
-                    <h1 class="dash-header">Админка</h1>
-                    <div class="tour-sub">Полная панель управления платформой: роли, сущности, блокировки, турниры, модерация и аудит без визуального шума.</div>
+                    <h1 class="ops-header__title">Админка</h1>
+                    <div class="ops-header__subtitle">Полная панель управления платформой: роли, сущности, блокировки, турниры и аудит.</div>
                 </div>
                 <div class="ops-header__actions">
+                    <div class="search-wrap" style="min-width: 260px;">
+                        ${window.getSVGIcon("search", 'class="search-icon icon-svg icon-svg-search"')}
+                        <input type="text" class="search-input" id="adminSearchInput" placeholder="Быстрый поиск..." value="${escapeHtml(adminUiState.searchQuery)}">
+                    </div>
                     <button class="btn btn--muted" type="button" data-admin-open-view="dashboard">Главная</button>
                     <button class="btn btn--muted" type="button" data-admin-open-view="moderation">Модерация</button>
                 </div>
             </div>
-            <div class="ops-metric-grid ops-metric-grid--six">
+            <div class="kpi-grid">
                 ${renderOpsMetricCard({
                     icon: "groups",
                     tone: "accent",
                     label: "Пользователи",
-                    value: formatNumberRu(overview.usersCount),
-                    meta: `${formatNumberRu(overview.organizersCount)} организаторов и ${formatNumberRu(overview.moderatorsCount)} модераторов`,
+                    value: formatNumberRu(getAdminUsersState().length),
+                    meta: "Всего аккаунтов",
                 })}
                 ${renderOpsMetricCard({
                     icon: "shield",
                     tone: "danger",
                     label: "Админы",
-                    value: formatNumberRu(overview.adminsCount),
-                    meta: "Полный доступ к платформе",
+                    value: formatNumberRu(adminState.overview?.adminsCount || 0),
+                    meta: "Полный доступ",
                 })}
                 ${renderOpsMetricCard({
                     icon: "emoji_events",
                     tone: "accent",
                     label: "Турниры",
-                    value: formatNumberRu(overview.tournamentsCount),
-                    meta: `${formatNumberRu(overview.liveTournamentsCount)} live прямо сейчас`,
+                    value: formatNumberRu(getAdminTournamentsState().length),
+                    meta: "Всего создано",
                 })}
                 ${renderOpsMetricCard({
-                    icon: "group_add",
-                    tone: "muted",
+                    icon: "groups",
+                    tone: "accent",
                     label: "Команды",
-                    value: formatNumberRu(overview.teamsCount),
-                    meta: "Управление командами и владельцами",
+                    value: formatNumberRu(getAdminTeamsState().length),
+                    meta: "Командные составы",
                 })}
                 ${renderOpsMetricCard({
                     icon: "library_books",
                     tone: "warning",
                     label: "Банк задач",
-                    value: formatNumberRu(overview.tasksCount),
-                    meta: `${formatNumberRu(overview.pendingTaskModerationCount)} ждут модерации`,
+                    value: formatNumberRu(getAdminTasksState().length),
+                    meta: "Включая личные",
                 })}
                 ${renderOpsMetricCard({
-                    icon: "pending_actions",
-                    tone: overview.blockedUsersCount > 0 ? "danger" : "warning",
-                    label: "Очередь и блоки",
-                    value: formatNumberRu(
-                        overview.pendingTaskModerationCount +
-                            overview.pendingOrganizerApplicationsCount +
-                            overview.blockedUsersCount,
-                    ),
-                    meta: "Модерация и ограниченные аккаунты",
+                    icon: "hourglass_top",
+                    tone: "warning",
+                    label: "Аудит",
+                    value: formatNumberRu(getAdminAuditState().length),
+                    meta: "Записей в логе",
                 })}
             </div>
+
             ${renderOpsTabs(tabs, activeTab, "data-admin-tab")}
-            ${renderOpsPanel({
-                title: panelTitle,
-                desc: panelDesc,
-                body: panelBody,
-                className: "ops-panel--primary",
-            })}
+
+            <div class="ops-shell">
+                ${renderOpsPanel({
+                    title: panelTitle,
+                    desc: panelDesc,
+                    body: panelBody,
+                    actions: panelActions,
+                    className: "ops-panel--primary",
+                })}
+            </div>
         </div>
     `;
 }
 
 function destroyAdminOverviewCharts() {
+    destroyAdminLiveFeed();
     Object.values(adminOverviewCharts).forEach((chart) => {
         if (chart && typeof chart.destroy === "function") {
             chart.destroy();
@@ -9857,6 +10422,158 @@ function getAdminChartColor(name, fallback) {
         .getPropertyValue(name)
         .trim();
     return value || fallback;
+}
+
+
+function renderAdminInfrastructureSection() {
+    return `
+        <div class="ops-stack" data-view-anim>
+            <div class="card dash-card" style="padding: 20px; margin-bottom: 20px;">
+                <div class="card__head row-between">
+                    <div class="card__title">Диапазон истории</div>
+                    <div class="tabs-nav tabs-nav--sm" style="margin: 0;">
+                        ${[
+                            { id: 1, label: 'Час' },
+                            { id: 24, label: 'День' },
+                            { id: 168, label: 'Неделя' },
+                            { id: 720, label: 'Месяц' }
+                        ].map(range => `
+                            <div class="tab-item ${adminUiState.statsHistoryRange === range.id ? 'active' : ''}" 
+                                 onclick="setAdminStatsRange(${range.id})">
+                                ${range.label}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="adaptive-grid" style="grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));">
+                <section class="card dash-card">
+                    <div class="card__head"><div class="card__title">Загрузка CPU (%)</div></div>
+                    <div class="admin-home-chart-wrap" style="height: 300px;">
+                        <canvas id="infraCpuChart"></canvas>
+                    </div>
+                </section>
+                <section class="card dash-card">
+                    <div class="card__head"><div class="card__title">Использование RAM (MB)</div></div>
+                    <div class="admin-home-chart-wrap" style="height: 300px;">
+                        <canvas id="infraMemChart"></canvas>
+                    </div>
+                </section>
+                <section class="card dash-card" style="grid-column: 1 / -1;">
+                    <div class="card__head"><div class="card__title">Сетевой трафик (KB/s)</div></div>
+                    <div class="admin-home-chart-wrap" style="height: 350px;">
+                        <canvas id="infraTrafficChart"></canvas>
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+window.setAdminStatsRange = async (hours) => {
+    adminUiState.statsHistoryRange = hours;
+    Loader.show();
+    try {
+        await apiClient.loadAdminSystemStatsHistory(hours);
+        const container = document.getElementById('workspace-content');
+        if (container) {
+            container.innerHTML = renderAdminControlView();
+            initAdminControlInteractions(container);
+        }
+    } finally {
+        Loader.hide(300);
+    }
+};
+
+function destroyAdminInfrastructureCharts() {
+    Object.values(adminInfrastructureCharts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') chart.destroy();
+    });
+    adminInfrastructureCharts = { cpu: null, memory: null, traffic: null };
+}
+
+async function initAdminInfrastructureCharts(container) {
+    const history = apiClient.state.adminSystemStatsHistory || [];
+    const cpuCanvas = container.querySelector('#infraCpuChart');
+    const memCanvas = container.querySelector('#infraMemChart');
+    const trafficCanvas = container.querySelector('#infraTrafficChart');
+
+    if (!cpuCanvas || !memCanvas || !trafficCanvas) {
+        destroyAdminInfrastructureCharts();
+        return;
+    }
+
+    const ChartLib = await ensureChartJsLoaded();
+    if (!ChartLib) return;
+
+    destroyAdminInfrastructureCharts();
+
+    const labels = history.map(h => formatDateTimeLabel(h.created_at));
+    const fgStrong = getAdminChartColor('--fg-strong', '#fff');
+    const accent = getAdminChartColor('--accent-from', '#f43f5e');
+    const secondary = getAdminChartColor('--accent-to', '#fbbf24');
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        elements: { point: { radius: 2, hoverRadius: 5 }, line: { tension: 0.3 } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: fgStrong, font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: fgStrong } }
+        },
+        plugins: { legend: { display: false } }
+    };
+
+    adminInfrastructureCharts.cpu = new ChartLib(cpuCanvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: history.map(h => h.cpu_load * 100),
+                borderColor: accent,
+                backgroundColor: accent + '22',
+                fill: true
+            }]
+        },
+        options: chartOptions
+    });
+
+    adminInfrastructureCharts.memory = new ChartLib(memCanvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: history.map(h => h.ram_used / 1024 / 1024),
+                borderColor: secondary,
+                backgroundColor: secondary + '22',
+                fill: true
+            }]
+        },
+        options: chartOptions
+    });
+
+    adminInfrastructureCharts.traffic = new ChartLib(trafficCanvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'In',
+                    data: history.map(h => h.traffic_in / 1024),
+                    borderColor: '#10b981',
+                    fill: false
+                },
+                {
+                    label: 'Out',
+                    data: history.map(h => h.traffic_out / 1024),
+                    borderColor: '#3b82f6',
+                    fill: false
+                }
+            ]
+        },
+        options: { ...chartOptions, plugins: { legend: { display: true, labels: { color: fgStrong } } } }
+    });
 }
 
 async function initAdminOverviewCharts(container) {
@@ -9879,7 +10596,6 @@ async function initAdminOverviewCharts(container) {
         return;
     }
     if (
-        (adminUiState.activeTab || "overview") !== "overview" ||
         !container.contains(sessionsCanvas) ||
         !container.contains(growthCanvas)
     ) {
@@ -10854,6 +11570,51 @@ function initModerationDashboardInteractions(container) {
 }
 
 function initModerationInteractions(container) {
+    const rerender = () => {
+        container.innerHTML = renderModerationView();
+        initModerationInteractions(container);
+    };
+
+    const searchInput = container.querySelector("#moderationSearchInput");
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            moderationUiState.searchQuery = searchInput.value;
+            rerender();
+            const nextInput = container.querySelector("#moderationSearchInput");
+            if (nextInput) {
+                nextInput.focus();
+                nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length);
+            }
+        });
+    }
+
+    container.querySelectorAll("[data-mod-user-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const userId = Number(btn.dataset.modUserDelete);
+            const confirmed = await requestConfirmDialog({
+                title: "Удаление аккаунта",
+                desc: "Вы уверены, что хотите навсегда удалить этот аккаунт? Это действие необратимо.",
+                confirmLabel: "Удалить",
+                confirmTone: "danger",
+            });
+            if (!confirmed) return;
+
+            Loader.show();
+            try {
+                // Модераторы используют тот же эндпоинт админки, если разрешено,
+                // либо отдельный. В данном случае мы добавили API deleteAdminUser.
+                // Если модератор имеет права, он удалит.
+                await apiClient.deleteAdminUser(userId);
+                Toast.show("Модерация", "Аккаунт удален", "success");
+                rerender();
+            } catch (err) {
+                showRequestError("Модерация", err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
     container.querySelectorAll("[data-moderation-open-view]").forEach((button) => {
         button.addEventListener("click", () => {
             ViewManager.open(button.dataset.moderationOpenView);
@@ -10953,6 +11714,69 @@ function initModerationInteractions(container) {
 }
 
 function initAdminControlInteractions(container) {
+    const rerender = () => {
+        container.innerHTML = renderAdminControlView();
+        initAdminControlInteractions(container);
+    };
+
+    const searchInput = container.querySelector("#adminSearchInput");
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            adminUiState.searchQuery = searchInput.value;
+            rerender();
+            // Вернуть фокус и курсор в конец
+            const nextInput = container.querySelector("#adminSearchInput");
+            if (nextInput) {
+                nextInput.focus();
+                nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length);
+            }
+        });
+    }
+
+    const generateBtn = container.querySelector("#adminGenerateUserBtn");
+    if (generateBtn) {
+        generateBtn.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                const data = await apiClient.generateAdminUser();
+                Toast.show("Админка", `Создан аккаунт: ${data.item.login}<br>Пароль: <b>${data.plainPassword}</b>`, "success");
+                rerender();
+            } catch (err) {
+                showRequestError("Админка", err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    }
+
+    if (adminUiState.activeTab === 'infrastructure') {
+        void initAdminInfrastructureCharts(container);
+    }
+
+    container.querySelectorAll("[data-admin-user-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const userId = Number(btn.dataset.adminUserDelete);
+            const confirmed = await requestConfirmDialog({
+                title: "Удаление аккаунта",
+                desc: "Вы уверены, что хотите навсегда удалить этот аккаунт? Это действие необратимо.",
+                confirmLabel: "Удалить",
+                confirmTone: "danger",
+            });
+            if (!confirmed) return;
+
+            Loader.show();
+            try {
+                await apiClient.deleteAdminUser(userId);
+                Toast.show("Админка", "Аккаунт удален", "success");
+                rerender();
+            } catch (err) {
+                showRequestError("Админка", err);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
     container.querySelectorAll("[data-admin-open-view]").forEach((button) => {
         button.addEventListener("click", () => {
             ViewManager.open(button.dataset.adminOpenView);
@@ -11516,6 +12340,7 @@ function initAdminInteractions(container) {
         try {
             await Promise.all([
                 apiClient.loadAdminOverview(),
+                apiClient.loadAdminSystemStats(),
                 apiClient.loadAdminUsers(),
                 apiClient.loadAdminTournaments(),
                 apiClient.loadAdminTeams(),
@@ -11569,6 +12394,9 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
     } else if (viewName === "moderation") {
         ViewManager.content.innerHTML = renderModerationView();
         initModerationInteractions(ViewManager.content);
+    } else if (viewName === "analytics") {
+        ViewManager.content.innerHTML = renderAnalyticsView();
+        void initAnalyticsInteractions(ViewManager.content);
     } else if (viewName === "tournaments" && isOrganizerUser()) {
         ViewManager.content.innerHTML = renderOrganizerTournaments();
         initOrganizerTournamentsInteractions(ViewManager.content);
@@ -12798,87 +13626,8 @@ function getAnalyticsSeriesForScope(scope, period) {
    9. TOURNAMENTS RENDERER
    ========================================= */
 
-const DEFAULT_TOURNAMENTS_DATA = [
-    {
-        id: 1,
-        title: "Зимний Кубок Qubit 2024",
-        desc: "Ежегодный турнир для опытных программистов с призовым фондом.",
-        status: "live",
-        statusText: "Идет сейчас",
-        participants: 345,
-        time: "Осталось 2ч 15м",
-        icon: "timer",
-        action: "Присоединиться",
-        actionType: "join",
-        delay: "0.1s",
-        category: "c++",
-        date: 15,
-    },
-    {
-        id: 2,
-        title: "Марафон по алгоритмам",
-        desc: "24-часовой марафон для проверки вашей выносливости и навыков.",
-        status: "upcoming",
-        statusText: "Скоро начнется",
-        participants: 128,
-        time: "Сегодня в 18:00",
-        icon: "calendar_today",
-        action: "Открыть",
-        actionType: "outline",
-        delay: "0.2s",
-        category: "algorithms",
-        date: 10,
-    },
-    {
-        id: 3,
-        title: "Data Science Challenge",
-        desc: "Решите задачи по машинному обучению и анализу данных.",
-        status: "upcoming",
-        statusText: "Скоро начнется",
-        participants: 78,
-        time: "Начало через 3 дня",
-        icon: "schedule",
-        action: "Открыть",
-        actionType: "outline",
-        delay: "0.3s",
-        category: "data-science",
-        date: 20,
-    },
-    {
-        id: 4,
-        title: "Осенний спринт",
-        desc: "Быстрые задачи на скорость и точность для всех уровней.",
-        status: "ended",
-        statusText: "Завершен",
-        participants: 210,
-        time: "Завершился 1 нед. назад",
-        icon: "history",
-        action: "Результаты",
-        actionType: "muted",
-        delay: "0.4s",
-        category: "python",
-        date: 5,
-    },
-    {
-        id: 5,
-        title: "Командное первенство",
-        desc: "Соревнования для команд из 3 человек. Покажите свою синергию.",
-        status: "ended",
-        statusText: "Завершен",
-        participants: 154,
-        time: "Завершился 1 мес. назад",
-        icon: "history",
-        action: "Результаты",
-        actionType: "muted",
-        delay: "0.5s",
-        category: "team",
-        date: 1,
-    },
-];
-
 function getTournamentsData() {
-    const items = apiClient?.state?.tournaments || [];
-    return items.length > 0 ? items : DEFAULT_TOURNAMENTS_DATA;
+    return apiClient?.state?.tournaments || [];
 }
 
 function renderTaskBankItems(items) {
@@ -13900,38 +14649,30 @@ function renderTournaments() {
         `;
     }
 
-    const adminActions = isAdminUser()
-        ? `
-            <div data-view-anim style="transition-delay: 0.05s; display:flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px;">
-                <button class="btn btn--accent" data-open="createTournamentModal">Создать турнир</button>
-                <button class="btn btn--muted" data-open="taskBankModal">Банк задач</button>
-            </div>
-        `
-        : "";
-
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
         <div class="tour-view">
             <div class="tour-head-row" data-view-anim>
-                <h1 class="dash-header" style="margin:0">Турниры</h1>
+                <h1 class="ops-header__title" style="margin:0">Турниры</h1>
                 <div class="search-wrap">
                     <svg class="search-icon icon-svg icon-svg-search" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></g><g class="svg-filled" style="display:none"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></g></svg>
                     <input type="text" class="search-input" placeholder="Поиск турниров...">
                 </div>
             </div>
 
-            ${adminActions}
-
             <div class="tour-filters-area" data-view-anim style="transition-delay: 0.1s">
-                <div class="tabs-nav">
-                    <div class="tab-item active" data-slug="all">Все</div>
-                    <div class="tab-item" data-slug="live">Текущие</div>
-                    <div class="tab-item" data-slug="upcoming">Ближайшие</div>
-                    <div class="tab-item" data-slug="ended">Прошедшие</div>
+                <div class="tour-tabs-row" style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+                    <button class="btn btn--accent" data-open="codeModal">Вход по коду</button>
+                    <div style="width: 1px; height: 24px; background: var(--border); opacity: 0.5;"></div>
+                    <div class="tabs-nav" style="margin-bottom: 0;">
+                        <div class="tab-item active" data-slug="all">Все</div>
+                        <div class="tab-item" data-slug="live">Текущие</div>
+                        <div class="tab-item" data-slug="upcoming">Ближайшие</div>
+                        <div class="tab-item" data-slug="ended">Прошедшие</div>
+                    </div>
                 </div>
-                
-                <div class="chips-row">
-                    <div class="chips-list">
+
+                <div class="chips-row">                    <div class="chips-list">
                         <button class="chip-btn active" data-slug="all">Все</button>
                         <button class="chip-btn" data-slug="algo">Алгоритмы</button>
                         <button class="chip-btn" data-slug="team">Командные</button>
@@ -13962,12 +14703,31 @@ function renderTournaments() {
  */
 function renderTournamentList(data) {
     if (data.length === 0) {
-        return `<div class="card dash-card" style="text-align:center; padding: 40px; color: var(--fg-muted);">Турниров не найдено</div>`;
+        return `
+            <div class="tournament-card glass-panel tournament-card--empty" data-view-anim>
+                <div class="tour-card__top">
+                    <div class="status-tag status--archived">
+                        <div class="status-dot"></div>
+                        <span>Пусто</span>
+                    </div>
+                </div>
+                <div class="tour-card__content">
+                    <div class="tour-card__title">Турниров не найдено</div>
+                    <p class="tour-card__desc">Попробуйте изменить фильтры или загляните позже — новые соревнования скоро появятся.</p>
+                </div>
+                <div class="tour-card__footer">
+                    <div class="tour-card__meta">
+                        ${renderOpsIcon("history", "muted")}
+                        <span>Ожидайте обновлений</span>
+                    </div>
+                </div>
+            </div>
+        `;
     }
     return data
         .map(
             (t, idx) => `
-        <div class="tournament-card" data-view-anim style="transition-delay: ${
+        <div class="tournament-card glass-panel" data-view-anim style="transition-delay: ${
             0.1 * (idx + 1)
         }s">
             <div class="tour-card__top">
@@ -14875,3 +15635,4 @@ function initAnalyticsChart(scope = "profile", period = "week") {
 function initTeamAnalyticsChart(period = "week") {
     return initAnalyticsChart("team", period);
 }
+
