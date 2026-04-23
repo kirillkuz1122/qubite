@@ -5890,6 +5890,10 @@ function isWorkspaceAutoSyncEnabled(viewName = null) {
         return true;
     }
 
+    if (resolvedViewName === "analytics" && isAdminUser()) {
+        return true;
+    }
+
     return false;
 }
 
@@ -6808,7 +6812,7 @@ function renderAnalyticsView() {
                     })}
                 </div>
 
-                <div class="adaptive-grid" style="grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));">
+                <div class="adaptive-grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));">
                     <section class="card dash-card">
                         <div class="card__head"><div class="card__title">Рост аудитории (Регистрации)</div></div>
                         <div class="admin-home-chart-wrap" style="height: 280px;">
@@ -9211,7 +9215,6 @@ function renderOrganizerTournamentEditor(selected) {
                 </div>
                 <div class="ops-record-head__actions">
                     ${renderInlineBadge(selected.statusText || "Состояние", selected.rawStatus || selected.status)}
-                    ${renderInlineBadge(selected.lifecycle || "draft", selected.lifecycle || "draft")}
                     ${renderOrganizerLifecycleActions(selected, readiness)}
                     <button class="btn btn--muted btn--sm" data-organizer-delete-tournament="${escapeHtml(selected.id)}">Удалить</button>
                 </div>
@@ -9740,7 +9743,7 @@ function renderModerationView() {
         `
         : '<button class="btn btn--muted" type="button" data-moderation-open-view="dashboard">Главная модератора</button>';
     const tabs = [
-        { id: "tasks", label: "Задачи", icon: "pending_actions", count: tasks.length },
+        { id: "tasks", label: "Задачи", icon: "task_alt", count: tasks.length },
         {
             id: "applications",
             label: "Заявки",
