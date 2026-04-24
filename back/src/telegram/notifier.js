@@ -1,4 +1,4 @@
-const { TELEGRAM_OWNER_ID } = require("../config");
+const { TELEGRAM_OWNER_IDS } = require("../config");
 
 const CRITICAL_ACTIONS = new Set([
     "system.setting.update",
@@ -17,19 +17,24 @@ function attachNotifier(botInstance) {
 }
 
 function notifyAudit(payload) {
-    if (!bot || !TELEGRAM_OWNER_ID) return;
+    if (!bot || !TELEGRAM_OWNER_IDS.length) return;
     if (!payload || !payload.action) return;
     if (!CRITICAL_ACTIONS.has(payload.action)) return;
 
-    // Skip alerts triggered by the bot itself (summary contains [TG:...])
-    if (payload.summary && /\[TG:\d+]/.test(payload.summary)) return;
+    // Extract TG id of the actor (if action was done via bot)
+    const tgMatch = payload.summary && payload.summary.match(/\[TG:(\d+)]/);
+    const actorTgId = tgMatch ? tgMatch[1] : null;
 
     const actor = payload.actorUserId ? `user#${payload.actorUserId}` : "system";
     const text = `[ALERT] ${payload.action}\n${payload.summary || ""}\nАктор: ${actor}`;
 
-    bot.sendMessage(TELEGRAM_OWNER_ID, text).catch((err) => {
-        console.error("[TG notifier] Failed to send alert:", err.message);
-    });
+    // Send to all owners except the one who triggered the action
+    for (const ownerId of TELEGRAM_OWNER_IDS) {
+        if (ownerId === actorTgId) continue;
+        bot.sendMessage(ownerId, text).catch((err) => {
+            console.error(`[TG notifier] Failed to send alert to ${ownerId}:`, err.message);
+        });
+    }
 }
 
 module.exports = { attachNotifier, notifyAudit };

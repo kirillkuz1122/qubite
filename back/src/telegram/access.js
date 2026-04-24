@@ -1,11 +1,11 @@
-const { TELEGRAM_OWNER_ID, TELEGRAM_MODERATOR_IDS } = require("../config");
+const { TELEGRAM_OWNER_IDS, TELEGRAM_MODERATOR_IDS } = require("../config");
 const { getTelegramAccess } = require("../db");
 
 const ROLE_OWNER = "owner";
 const ROLE_MODERATOR = "moderator";
 
 function isOwner(tgId) {
-    return String(tgId) === String(TELEGRAM_OWNER_ID);
+    return TELEGRAM_OWNER_IDS.includes(String(tgId));
 }
 
 async function resolveRole(tgId) {
