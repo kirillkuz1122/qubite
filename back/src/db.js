@@ -748,6 +748,14 @@ async function initializeDatabase(options = {}) {
         INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_creation_enabled', 'true', datetime('now'));
         INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_participation_enabled', 'true', datetime('now'));
 
+        CREATE TABLE IF NOT EXISTS telegram_access (
+            tg_id TEXT PRIMARY KEY,
+            role TEXT NOT NULL DEFAULT 'moderator',
+            granted_by_user_id INTEGER DEFAULT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS tournament_roster_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL,
@@ -6252,6 +6260,9 @@ async function createAuditLog(payload) {
             nowIso(),
         ],
     );
+
+    // Lazy require to avoid circular dependency
+    try { require("./telegram/notifier").notifyAudit(payload); } catch (_) { /* bot not loaded yet */ }
 }
 
 async function listAuditLog(limit = 50) {
@@ -6870,6 +6881,31 @@ async function getSystemSettingValue(key, fallback = null) {
     return row.value === 'true' ? true : row.value === 'false' ? false : row.value;
 }
 
+async function grantTelegramAccess(tgId, role = "moderator", grantedByUserId = null, note = "") {
+    await run(
+        `INSERT INTO telegram_access (tg_id, role, granted_by_user_id, note, created_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(tg_id) DO UPDATE SET role=excluded.role, granted_by_user_id=excluded.granted_by_user_id, note=excluded.note`,
+        [String(tgId), role, grantedByUserId, note, nowIso()]
+    );
+    return getTelegramAccess(tgId);
+}
+
+async function revokeTelegramAccess(tgId) {
+    const existing = await getTelegramAccess(tgId);
+    if (!existing) return null;
+    await run("DELETE FROM telegram_access WHERE tg_id = ?", [String(tgId)]);
+    return existing;
+}
+
+async function listTelegramAccess() {
+    return all("SELECT * FROM telegram_access ORDER BY created_at DESC");
+}
+
+async function getTelegramAccess(tgId) {
+    return get("SELECT * FROM telegram_access WHERE tg_id = ?", [String(tgId)]);
+}
+
 module.exports = {
     blockEmail,
     blockIpAddress,
@@ -7014,4 +7050,8 @@ module.exports = {
     getSystemSettings,
     updateSystemSetting,
     getSystemSettingValue,
+    grantTelegramAccess,
+    revokeTelegramAccess,
+    listTelegramAccess,
+    getTelegramAccess,
 };

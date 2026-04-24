@@ -8786,6 +8786,14 @@ async function start() {
         });
     }, 60 * 60 * 1000).unref();
 
+    // Telegram bot (long-polling, не блокирует старт)
+    try {
+        const { startTelegramBot } = require("./src/telegram-bot");
+        startTelegramBot();
+    } catch (err) {
+        console.error("[TG bot] Не удалось запустить:", err.message);
+    }
+
     server.listen(PORT, HOST, () => {
         console.log(`Сервер запущен на http://${HOST}:${PORT}`);
     });

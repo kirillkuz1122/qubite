@@ -216,4 +216,8 @@ module.exports = {
   YANDEX_CALLBACK_URL:
     process.env.YANDEX_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/yandex/callback`,
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
+  TELEGRAM_OWNER_ID: process.env.TELEGRAM_OWNER_ID || "",
+  TELEGRAM_MODERATOR_IDS: parseCsv(process.env.TELEGRAM_MODERATOR_IDS || ""),
+  TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),
 };

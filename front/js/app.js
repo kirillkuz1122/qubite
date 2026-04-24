@@ -2903,6 +2903,8 @@ const Toast = {
             warning: "warning",
         };
 
+        toast.style.position = "relative";
+        toast.style.overflow = "hidden";
         toast.innerHTML = `
             <div class="toast__icon">
                 ${window.getSVGIcon(icons[type], ` class="icon-svg icon-svg-${icons[type]}"`)}
@@ -2911,6 +2913,7 @@ const Toast = {
                 <div class="toast__title">${title}</div>
                 <div class="toast__desc">${desc}</div>
             </div>
+            <div class="toast__progress" style="animation-duration:${duration}ms;"></div>
         `;
 
         container.appendChild(toast);
@@ -9226,12 +9229,12 @@ function renderOrganizerTournamentEditor(selected) {
                 <div class="ops-record-meta__item"><span class="ops-record-meta__label">Список допуска</span><span class="ops-record-meta__value">${escapeHtml(formatNumberRu(roster.length || selected.rosterCount || 0))}</span></div>
             </div>
             <div class="tabs-nav in ops-tabs ops-tabs--editor">
-                <div class="tab-item ${step === "basics" ? "active" : ""}" data-organizer-step="basics"><span>Основа</span></div>
-                <div class="tab-item ${step === "schedule" ? "active" : ""}" data-organizer-step="schedule"><span>Расписание</span></div>
-                <div class="tab-item ${step === "access" ? "active" : ""}" data-organizer-step="access"><span>Допуск</span></div>
-                <div class="tab-item ${step === "tasks" ? "active" : ""}" data-organizer-step="tasks"><span>Задачи</span></div>
-                <div class="tab-item ${step === "participants" ? "active" : ""}" data-organizer-step="participants"><span>Участники</span></div>
-                <div class="tab-item ${step === "results" ? "active" : ""}" data-organizer-step="results"><span>Итоги</span></div>
+                <div class="tab-item ${step === "basics" ? "active" : ""}" data-organizer-step="basics"><span class="ops-step-num">1</span><span>Основа</span></div>
+                <div class="tab-item ${step === "schedule" ? "active" : ""}" data-organizer-step="schedule"><span class="ops-step-num">2</span><span>Расписание</span></div>
+                <div class="tab-item ${step === "access" ? "active" : ""}" data-organizer-step="access"><span class="ops-step-num">3</span><span>Допуск</span></div>
+                <div class="tab-item ${step === "tasks" ? "active" : ""}" data-organizer-step="tasks"><span class="ops-step-num">4</span><span>Задачи</span></div>
+                <div class="tab-item ${step === "participants" ? "active" : ""}" data-organizer-step="participants"><span class="ops-step-num">5</span><span>Участники</span></div>
+                <div class="tab-item ${step === "results" ? "active" : ""}" data-organizer-step="results"><span class="ops-step-num">6</span><span>Итоги</span></div>
             </div>
             <div class="ops-shell ops-shell--aside">
                 <div class="ops-stack">${tabContent}</div>
@@ -9295,9 +9298,14 @@ function renderOrganizerTournaments() {
 
             <div class="ops-shell ops-shell--editor">
                 <aside class="card dash-card ops-sidebar" data-view-anim>
+                    <button class="ops-sidebar__toggle" data-sidebar-toggle type="button">
+                        <div class="ops-sidebar__head" style="margin-bottom:0;">
+                            <div class="ops-panel__title">Мои соревнования <span style="font-weight:400;font-size:13px;color:var(--fg-muted);">(${formatNumberRu(items.length)})</span></div>
+                        </div>
+                        <svg class="ops-sidebar__toggle-icon" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z"/></svg>
+                    </button>
                     <div class="ops-sidebar__head">
                         <div>
-                            <div class="ops-panel__title">Мои соревнования</div>
                             <div class="ops-panel__desc">Список черновиков, публикаций и завершённых запусков.</div>
                         </div>
                     </div>
@@ -11044,6 +11052,12 @@ async function initOrganizerTournamentsInteractions(container) {
     container.querySelector("#organizerCreateTournamentBtn")?.addEventListener("click", createDraft);
     container.querySelector("#organizerCreateTournamentBtnEmpty")?.addEventListener("click", createDraft);
     container.querySelector("#organizerCreateTournamentBtnEmptyAside")?.addEventListener("click", createDraft);
+
+    container.querySelector("[data-sidebar-toggle]")?.addEventListener("click", () => {
+        const sidebar = container.querySelector(".ops-sidebar");
+        if (sidebar) sidebar.classList.toggle("is-expanded");
+    });
+
     container.querySelectorAll("[data-organizer-open-view]").forEach((button) => {
         button.addEventListener("click", () => {
             ViewManager.open(button.dataset.organizerOpenView);

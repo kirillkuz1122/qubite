@@ -48,6 +48,18 @@
 - `back/src/oauth.js` — OAuth providers
 - `back/src/turnstile.js` — текущая CAPTCHA-интеграция
 
+### Telegram Bot
+
+- `back/src/telegram-bot.js` — точка входа, запуск polling, /start, /help, роутинг
+- `back/src/telegram/access.js` — проверка прав (owner из env, moderator из env + БД)
+- `back/src/telegram/menus.js` — inline-клавиатуры и шаблоны меню
+- `back/src/telegram/notifier.js` — push-уведомления owner'у о критичных audit-событиях
+- `back/src/telegram/handlers/settings.js` — 5 тумблеров system_settings (owner)
+- `back/src/telegram/handlers/analytics.js` — overview, метрики, детальная статистика
+- `back/src/telegram/handlers/moderation.js` — задачи, заявки организаторов, блокировка юзеров
+- `back/src/telegram/handlers/admin.js` — пользователи, турниры, команды, задачи, аудит (owner)
+- `back/src/telegram/handlers/access.js` — /grant, /revoke, /list для управления доступами (owner)
+
 ### Deploy / Ops
 
 - `deploy/nginx/*`
@@ -76,6 +88,7 @@
 - organizer/moderation/admin/owner contours
 - Excel import для задач и roster
 - OAuth через Google/Yandex
+- Telegram-бот для управления платформой (owner + модераторы)
 
 ## Что ещё нельзя выдавать за реализованное
 
@@ -83,7 +96,7 @@
 - AI-проверка как готовая user-facing функция
 - апелляции
 - drag-and-drop / visual task types
-- VK / Telegram login
+- VK / Telegram login (бот управления есть, но login через TG — нет)
 
 ## Обязательное правило сопровождения
 
@@ -107,3 +120,51 @@
 ## Если docs расходятся с кодом
 
 Верить нужно коду, а docs надо исправлять.
+
+## Операционная шпаргалка (факты из кода)
+
+Эта секция — быстрый справочник, чтобы не перечитывать весь репозиторий заново.
+
+### Стек и запуск
+
+- Node.js + Express 5 + `sqlite3` + `xlsx`. CommonJS (`"type": "commonjs"`).
+- `package.json` только один — в `back/`. В корне проекта его нет.
+- Запуск локально: `cd back && npm install && npm run dev` (это `node --watch server.js`).
+- Production-запуск: `npm start` (`node server.js`), обычно под PM2 + Nginx.
+- По умолчанию слушает `127.0.0.1:3000` (см. `.env` → `HOST`, `PORT`, `APP_BASE_URL`).
+- SQLite-файл по умолчанию: `back/data/qubite.sqlite` (`DATABASE_PATH`).
+
+### Тесты и верификация
+
+- Автоматических тестов в проекте нет: `npm test` в `back/` намеренно возвращает ошибку.
+- Верификация изменений = ручной прогон сценариев через UI (`index.html`) или через API-клиент `front/js/api.js`.
+- Для e2e/UI-проверок подходит skill `webapp-testing` / `playwright`.
+
+### Размеры ключевых файлов (важно для стратегии правок)
+
+- `back/server.js` — ~8.8K строк (почти все HTTP-роуты в одном файле).
+- `back/src/db.js` — ~7K строк (схема + большая часть прикладной логики).
+- `front/js/app.js` — ~15.8K строк (вся UI-логика, модалки, role workspaces).
+- `front/js/api.js` — ~1.7K строк (API-клиент + client state).
+- `index.html` — ~1.4K строк (shell приложения, не SPA-роутер).
+
+Из-за этих монолитов: для точечных правок используйте `grep`/`edit` по сигнатурам, **не** перечитывайте файлы целиком. Монолитность `db.js` и `app.js` уже зафиксирована как tech debt в `TODO.md`.
+
+### Важные dev-флаги из `.env`
+
+- `TURNSTILE_DEV_BYPASS=true` — в dev капча пропускается, в prod должно быть `false`.
+- `SEED_DEMO_DATA=false` — на включении создаются демо-данные в БД.
+- `NODE_ENV=dev` — влияет на режимы логирования и guard'ов.
+- `TRUST_PROXY=0` — в проде за Nginx должно быть `1`.
+- Лимиты body: `JSON_BODY_LIMIT=32kb`, `HEAVY_JSON_BODY_LIMIT=256kb`, `IMPORT_JSON_BODY_LIMIT=2mb` (используются в `server.js` на разных группах роутов).
+- `TELEGRAM_BOT_TOKEN` — токен бота; если пуст, бот не запускается.
+- `TELEGRAM_OWNER_ID` — Telegram user ID владельца (единственный source of truth для owner-доступа в боте).
+- `TELEGRAM_MODERATOR_IDS` — CSV доп. модераторов (жёсткий whitelist, требует рестарта); динамические выдачи — через БД (`telegram_access`).
+- `TELEGRAM_ENABLED=true` — kill-switch для бота без удаления токена.
+
+### Прочее
+
+- Статические HTML-страницы в корне (`about.html`, `privacy.html`, `terms.html`, `security.html`, `acceptable-use.html`, `404.html`, `4041.html`, `maintenance.html`) отдаются бэкендом; при правке legal-страниц надо держать в синхроне ссылки из `index.html`.
+- `back/src/imports.js` и `back/src/email.js` существуют, но в карте ключевых файлов выше не перечислены как «самые важные» — заглядывать туда, только если задача касается Excel-импорта или писем соответственно.
+- `front/js/icons.js` — справочник SVG-иконок для UI.
+- Рабочая ветка разработки часто `codex`, мейнлайн — `main`.

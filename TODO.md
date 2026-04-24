@@ -31,7 +31,7 @@
 
 - Миграция CAPTCHA-слоя с Cloudflare Turnstile на Яндекс SmartCaptcha для российского контура.
 - Добавление VK login.
-- Добавление Telegram login / integration surface.
+- Добавление Telegram login / integration surface (бот управления уже есть, login — нет).
 
 ### Ops / Docs
 
@@ -46,6 +46,7 @@
 - Команды и командные турниры уже есть.
 - Leaderboard и аналитические выборки уже есть.
 - Organizer/moderation/admin/owner контуры уже есть.
+- Telegram-бот для управления платформой (owner + модераторы) уже есть.
 
 Если эти части требуют доработки, это нужно описывать как `сырой UX` или `частично доведено`, а не как “вообще не сделано”.
 
