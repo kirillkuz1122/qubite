@@ -1,12 +1,22 @@
+const crypto = require("crypto");
+
 const {
     APP_BASE_URL,
     GOOGLE_CALLBACK_URL,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    TELEGRAM_BOT_TOKEN,
+    VK_CALLBACK_URL,
+    VK_CLIENT_ID,
+    VK_CLIENT_SECRET,
     YANDEX_CALLBACK_URL,
     YANDEX_CLIENT_ID,
     YANDEX_CLIENT_SECRET,
 } = require("./config");
+
+const TELEGRAM_BOT_ID = TELEGRAM_BOT_TOKEN
+    ? TELEGRAM_BOT_TOKEN.split(":")[0]
+    : "";
 
 const PROVIDERS = {
     google: {
@@ -92,6 +102,86 @@ const PROVIDERS = {
             };
         },
     },
+    vk: {
+        slug: "vk",
+        label: "VK",
+        clientId: VK_CLIENT_ID,
+        clientSecret: VK_CLIENT_SECRET,
+        callbackUrl: VK_CALLBACK_URL,
+        authorizeUrl: "https://oauth.vk.com/authorize",
+        tokenUrl: "https://oauth.vk.com/access_token",
+        userInfoUrl: "https://api.vk.com/method/users.get",
+        scopes: ["email"],
+        buildAuthorizeParams({ state }) {
+            return {
+                client_id: this.clientId,
+                redirect_uri: this.callbackUrl,
+                response_type: "code",
+                scope: this.scopes.join(","),
+                display: "page",
+                v: "5.131",
+                state,
+            };
+        },
+        mapProfile(payload, tokenPayload = {}) {
+            const user = payload.response?.[0] || {};
+            const email = String(tokenPayload.email || "").trim();
+            return {
+                provider: "vk",
+                subject: String(user.id || tokenPayload.user_id || ""),
+                email,
+                emailVerified: Boolean(email),
+                loginHint:
+                    String(user.screen_name || user.first_name || "vk-user")
+                        .trim() || "vk-user",
+                displayName:
+                    [user.first_name, user.last_name]
+                        .filter(Boolean)
+                        .join(" ") || "VK User",
+                firstName: String(user.first_name || "").trim(),
+                lastName: String(user.last_name || "").trim(),
+                avatarUrl: String(user.photo_200 || "").trim(),
+            };
+        },
+    },
+    telegram: {
+        slug: "telegram",
+        label: "Telegram",
+        clientId: TELEGRAM_BOT_ID,
+        clientSecret: TELEGRAM_BOT_TOKEN,
+        callbackUrl: `${APP_BASE_URL}/api/auth/oauth/telegram/callback`,
+        authorizeUrl: "https://oauth.telegram.org/auth",
+        tokenUrl: null,
+        userInfoUrl: null,
+        scopes: [],
+        buildAuthorizeParams({ state }) {
+            const origin = new URL(APP_BASE_URL).origin;
+            return {
+                bot_id: TELEGRAM_BOT_ID,
+                origin,
+                request_access: "write",
+                return_to: `${this.callbackUrl}?state=${encodeURIComponent(state)}`,
+            };
+        },
+        mapProfile(payload) {
+            return {
+                provider: "telegram",
+                subject: String(payload.id || ""),
+                email: "",
+                emailVerified: false,
+                loginHint:
+                    String(payload.username || payload.first_name || "tg-user")
+                        .trim() || "tg-user",
+                displayName:
+                    [payload.first_name, payload.last_name]
+                        .filter(Boolean)
+                        .join(" ") || "Telegram User",
+                firstName: String(payload.first_name || "").trim(),
+                lastName: String(payload.last_name || "").trim(),
+                avatarUrl: String(payload.photo_url || "").trim(),
+            };
+        },
+    },
 };
 
 function getProvider(providerSlug) {
@@ -163,10 +253,26 @@ async function exchangeOAuthCode(providerSlug, code) {
     return tokenPayload;
 }
 
-async function fetchOAuthProfile(providerSlug, accessToken) {
+async function fetchOAuthProfile(providerSlug, accessToken, tokenPayload = {}) {
     const provider = getProvider(providerSlug);
     if (!provider) {
         throw new Error("OAuth provider not found.");
+    }
+
+    // VK API uses query-string auth + requires v and fields params
+    if (providerSlug === "vk") {
+        const url = new URL(provider.userInfoUrl);
+        url.searchParams.set("user_ids", String(tokenPayload.user_id || ""));
+        url.searchParams.set("fields", "photo_200,screen_name");
+        url.searchParams.set("access_token", accessToken);
+        url.searchParams.set("v", "5.131");
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OAuth user info failed: ${errorText}`);
+        }
+        const payload = await response.json();
+        return provider.mapProfile(payload, tokenPayload);
     }
 
     const response = await fetch(provider.userInfoUrl, {
@@ -187,6 +293,29 @@ async function fetchOAuthProfile(providerSlug, accessToken) {
     return provider.mapProfile(payload);
 }
 
+function verifyTelegramAuth(botToken, params) {
+    const hash = String(params.hash || "");
+    if (!hash || !botToken) return false;
+
+    const secretKey = crypto.createHash("sha256").update(botToken).digest();
+    const checkString = Object.keys(params)
+        .filter((k) => k !== "hash" && params[k] !== undefined && params[k] !== "")
+        .sort()
+        .map((k) => `${k}=${params[k]}`)
+        .join("\n");
+    const hmac = crypto
+        .createHmac("sha256", secretKey)
+        .update(checkString)
+        .digest("hex");
+
+    if (hmac !== hash) return false;
+
+    const authDate = parseInt(params.auth_date, 10);
+    if (isNaN(authDate) || Date.now() / 1000 - authDate > 86400) return false;
+
+    return true;
+}
+
 module.exports = {
     buildOAuthAuthorizeUrl,
     exchangeOAuthCode,
@@ -194,4 +323,5 @@ module.exports = {
     getProvider,
     isProviderConfigured,
     listOAuthProviders,
+    verifyTelegramAuth,
 };

@@ -9,13 +9,14 @@ const analyticsHandler = require("./telegram/handlers/analytics");
 const moderationHandler = require("./telegram/handlers/moderation");
 const adminHandler = require("./telegram/handlers/admin");
 const accessHandler = require("./telegram/handlers/access");
+const supportHandler = require("./telegram/handlers/support");
 
 const DENIED_TEXT = "Бот недоступен.";
 const RECONNECT_DELAY_MS = 10_000;
 
 let bot = null;
 
-function startTelegramBot() {
+function startTelegramBot({ supportChatEmitter } = {}) {
     if (!TELEGRAM_BOT_TOKEN) {
         console.warn("[TG bot] TELEGRAM_BOT_TOKEN not set — bot disabled.");
         return null;
@@ -36,7 +37,7 @@ function startTelegramBot() {
         const tgId = msg.from.id;
         const role = await resolveRole(tgId);
         if (!role) {
-            return bot.sendMessage(msg.chat.id, DENIED_TEXT);
+            return bot.sendMessage(msg.chat.id, "Добро пожаловать в Qubite! Напишите ваш вопрос — мы передадим его в поддержку.");
         }
         await bot.sendMessage(msg.chat.id, `Привет! Роль: ${role}. Выберите раздел:`, {
             reply_markup: mainMenu(role),
@@ -48,7 +49,7 @@ function startTelegramBot() {
         const tgId = msg.from.id;
         const role = await resolveRole(tgId);
         if (!role) {
-            return bot.sendMessage(msg.chat.id, DENIED_TEXT);
+            return bot.sendMessage(msg.chat.id, "Напишите сообщение — оно будет передано в чат поддержки Qubite.");
         }
         const lines = [
             "/start — главное меню",
@@ -83,18 +84,14 @@ function startTelegramBot() {
     adminHandler.register(bot);
     accessHandler.register(bot);
 
+    // Support chat handler (pass emitter for cross-channel messaging)
+    if (supportChatEmitter) {
+        supportHandler.setSupportChatEmitter(supportChatEmitter);
+    }
+    supportHandler.register(bot);
+
     // Attach notifier so audit alerts get pushed
     attachNotifier(bot);
-
-    // Catch-all: deny unknown users on any message
-    bot.on("message", async (msg) => {
-        // Skip if it's a command we already handle
-        if (msg.text && msg.text.startsWith("/")) return;
-        const role = await resolveRole(msg.from.id);
-        if (!role) {
-            return bot.sendMessage(msg.chat.id, DENIED_TEXT);
-        }
-    });
 
     console.log("[TG bot] Started (polling).");
     return bot;

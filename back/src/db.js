@@ -477,6 +477,8 @@ async function initializeDatabase(options = {}) {
             app_2fa_enabled INTEGER NOT NULL DEFAULT 0,
             google_oauth_sub TEXT DEFAULT NULL,
             yandex_oauth_sub TEXT DEFAULT NULL,
+            telegram_oauth_sub TEXT DEFAULT NULL,
+            vk_oauth_sub TEXT DEFAULT NULL,
             preferred_auth_provider TEXT DEFAULT NULL,
             last_login_at TEXT DEFAULT NULL,
             created_at TEXT NOT NULL,
@@ -756,6 +758,29 @@ async function initializeDatabase(options = {}) {
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS support_chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            visitor_name TEXT NOT NULL DEFAULT '',
+            user_id INTEGER DEFAULT NULL,
+            source TEXT NOT NULL DEFAULT 'web',
+            tg_chat_id TEXT DEFAULT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            sender_type TEXT NOT NULL DEFAULT 'visitor',
+            sender_name TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (chat_id) REFERENCES support_chats (id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS tournament_roster_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tournament_id INTEGER NOT NULL,
@@ -891,6 +916,8 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("users", "app_2fa_enabled", "INTEGER NOT NULL DEFAULT 0");
     await ensureColumn("users", "google_oauth_sub", "TEXT DEFAULT NULL");
     await ensureColumn("users", "yandex_oauth_sub", "TEXT DEFAULT NULL");
+    await ensureColumn("users", "telegram_oauth_sub", "TEXT DEFAULT NULL");
+    await ensureColumn("users", "vk_oauth_sub", "TEXT DEFAULT NULL");
     await ensureColumn("users", "preferred_auth_provider", "TEXT DEFAULT NULL");
     await ensureColumn("users", "last_login_at", "TEXT DEFAULT NULL");
 
@@ -1106,6 +1133,14 @@ async function initializeDatabase(options = {}) {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_yandex_oauth_sub
         ON users (yandex_oauth_sub)
         WHERE yandex_oauth_sub IS NOT NULL;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_oauth_sub
+        ON users (telegram_oauth_sub)
+        WHERE telegram_oauth_sub IS NOT NULL;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_vk_oauth_sub
+        ON users (vk_oauth_sub)
+        WHERE vk_oauth_sub IS NOT NULL;
 
         CREATE INDEX IF NOT EXISTS idx_users_status
         ON users (status);
@@ -2265,8 +2300,14 @@ async function isIpBlocked(ipAddress) {
 }
 
 async function findUserByOAuthSubject(provider, subject) {
-    const column =
-        provider === "google" ? "google_oauth_sub" : "yandex_oauth_sub";
+    const OAUTH_COLUMNS = {
+        google: "google_oauth_sub",
+        yandex: "yandex_oauth_sub",
+        telegram: "telegram_oauth_sub",
+        vk: "vk_oauth_sub",
+    };
+    const column = OAUTH_COLUMNS[provider];
+    if (!column) return null;
     const row = await get(`SELECT * FROM users WHERE ${column} = ?`, [subject]);
     return row ? mapUser(row) : null;
 }
@@ -2308,34 +2349,46 @@ async function updateUserSecuritySettings(userId, payload) {
 }
 
 async function linkOAuthProviderToUser(userId, provider, profile) {
-    const column =
-        provider === "google" ? "google_oauth_sub" : "yandex_oauth_sub";
+    const OAUTH_COLUMNS = {
+        google: "google_oauth_sub",
+        yandex: "yandex_oauth_sub",
+        telegram: "telegram_oauth_sub",
+        vk: "vk_oauth_sub",
+    };
+    const column = OAUTH_COLUMNS[provider];
+    if (!column) return getUserById(userId);
+
+    const emailUpdate = profile.email
+        ? `email = ?, email_normalized = ?,`
+        : "";
+    const emailVerifiedUpdate = profile.email
+        ? `email_verified_at = COALESCE(email_verified_at, ?),`
+        : "";
+
+    const params = [profile.subject];
+    if (profile.email) {
+        params.push(profile.email, normalizeEmail(profile.email));
+    }
+    params.push(profile.avatarUrl || "", provider);
+    if (profile.email) {
+        params.push(profile.emailVerified ? nowIso() : null);
+    }
+    params.push(nowIso(), nowIso(), userId);
 
     await run(
         `
             UPDATE users
             SET
                 ${column} = ?,
-                email = ?,
-                email_normalized = ?,
+                ${emailUpdate}
                 avatar_url = CASE WHEN avatar_url = '' THEN ? ELSE avatar_url END,
                 preferred_auth_provider = ?,
-                email_verified_at = COALESCE(email_verified_at, ?),
+                ${emailVerifiedUpdate}
                 updated_at = ?,
                 last_login_at = ?
             WHERE id = ?
         `,
-        [
-            profile.subject,
-            profile.email,
-            normalizeEmail(profile.email),
-            profile.avatarUrl || "",
-            provider,
-            profile.emailVerified ? nowIso() : null,
-            nowIso(),
-            nowIso(),
-            userId,
-        ],
+        params,
     );
 
     return getUserById(userId);
@@ -6881,6 +6934,82 @@ async function getSystemSettingValue(key, fallback = null) {
     return row.value === 'true' ? true : row.value === 'false' ? false : row.value;
 }
 
+// ── Support chat CRUD ──
+
+async function createSupportChat({ visitorId, visitorName, userId, source, tgChatId }) {
+    const now = nowIso();
+    const result = await run(
+        `INSERT INTO support_chats (visitor_id, visitor_name, user_id, source, tg_chat_id, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`,
+        [visitorId, visitorName || "", userId || null, source || "web", tgChatId || null, now, now]
+    );
+    return getSupportChatById(result.lastID);
+}
+
+async function getSupportChatById(chatId) {
+    return get("SELECT * FROM support_chats WHERE id = ?", [chatId]);
+}
+
+async function getSupportChatByVisitor(visitorId) {
+    return get("SELECT * FROM support_chats WHERE visitor_id = ? AND status = 'open' ORDER BY created_at DESC LIMIT 1", [visitorId]);
+}
+
+async function getSupportChatByTgChatId(tgChatId) {
+    return get("SELECT * FROM support_chats WHERE tg_chat_id = ? AND status = 'open' ORDER BY created_at DESC LIMIT 1", [String(tgChatId)]);
+}
+
+async function listSupportChats({ status, limit = 50, offset = 0 } = {}) {
+    const conditions = [];
+    const params = [];
+    if (status) {
+        conditions.push("status = ?");
+        params.push(status);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return all(
+        `SELECT sc.*, 
+            (SELECT COUNT(*) FROM support_messages sm WHERE sm.chat_id = sc.id) AS message_count,
+            (SELECT sm.body FROM support_messages sm WHERE sm.chat_id = sc.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message
+         FROM support_chats sc ${where}
+         ORDER BY sc.updated_at DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+    );
+}
+
+async function updateSupportChatStatus(chatId, status) {
+    await run("UPDATE support_chats SET status = ?, updated_at = ? WHERE id = ?", [status, nowIso(), chatId]);
+    return getSupportChatById(chatId);
+}
+
+async function createSupportMessage({ chatId, senderType, senderName, body }) {
+    const now = nowIso();
+    const result = await run(
+        `INSERT INTO support_messages (chat_id, sender_type, sender_name, body, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [chatId, senderType || "visitor", senderName || "", body, now]
+    );
+    await run("UPDATE support_chats SET updated_at = ? WHERE id = ?", [now, chatId]);
+    return get("SELECT * FROM support_messages WHERE id = ?", [result.lastID]);
+}
+
+async function listSupportMessages(chatId, { limit = 100, beforeId } = {}) {
+    if (beforeId) {
+        return all(
+            "SELECT * FROM support_messages WHERE chat_id = ? AND id < ? ORDER BY id DESC LIMIT ?",
+            [chatId, beforeId, limit]
+        ).then(rows => rows.reverse());
+    }
+    return all(
+        "SELECT * FROM support_messages WHERE chat_id = ? ORDER BY id ASC LIMIT ?",
+        [chatId, limit]
+    );
+}
+
+async function getLatestSupportMessageId(chatId) {
+    const row = await get("SELECT MAX(id) AS max_id FROM support_messages WHERE chat_id = ?", [chatId]);
+    return row?.max_id || 0;
+}
+
 async function grantTelegramAccess(tgId, role = "moderator", grantedByUserId = null, note = "") {
     await run(
         `INSERT INTO telegram_access (tg_id, role, granted_by_user_id, note, created_at)
@@ -7050,6 +7179,15 @@ module.exports = {
     getSystemSettings,
     updateSystemSetting,
     getSystemSettingValue,
+    createSupportChat,
+    getSupportChatById,
+    getSupportChatByVisitor,
+    getSupportChatByTgChatId,
+    listSupportChats,
+    updateSupportChatStatus,
+    createSupportMessage,
+    listSupportMessages,
+    getLatestSupportMessageId,
     grantTelegramAccess,
     revokeTelegramAccess,
     listTelegramAccess,

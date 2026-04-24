@@ -5,6 +5,7 @@ const EventEmitter = require("events");
 const express = require("express");
 
 const auditEmitter = new EventEmitter();
+const supportChatEmitter = new EventEmitter();
 const http = require("http");
 
 const {
@@ -167,6 +168,15 @@ const {
     upsertTournamentRosterEntry,
     updateUserSecuritySettings,
     leaveTeam,
+    createSupportChat,
+    getSupportChatById,
+    getSupportChatByVisitor,
+    getSupportChatByTgChatId,
+    listSupportChats,
+    updateSupportChatStatus,
+    createSupportMessage,
+    listSupportMessages,
+    getLatestSupportMessageId,
 } = require("./src/db");
 
 // Wrapper for audit log to support real-time emitter
@@ -196,6 +206,7 @@ const {
     getProvider,
     isProviderConfigured,
     listOAuthProviders,
+    verifyTelegramAuth,
 } = require("./src/oauth");
 const {
     buildDisplayName,
@@ -356,6 +367,7 @@ const SENSITIVE_API_PREFIXES = [
     "/api/organizer",
     "/api/moderation",
     "/api/admin",
+    "/api/support",
 ];
 const DUMMY_PASSWORD_SALT = "qubite-security-dummy-salt";
 const DEFAULT_AVATAR_DATA_URL_RE = /^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,[a-z0-9+/=]+$/i;
@@ -1346,6 +1358,8 @@ function serializeUser(user) {
         authProviders: {
             google: Boolean(user.google_oauth_sub),
             yandex: Boolean(user.yandex_oauth_sub),
+            telegram: Boolean(user.telegram_oauth_sub),
+            vk: Boolean(user.vk_oauth_sub),
         },
     };
 }
@@ -4123,6 +4137,46 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             return;
         }
 
+        // --- Telegram Login Widget (non-standard OAuth) ---
+        if (providerSlug === "telegram") {
+            const state = String(req.query.state || "");
+            if (!state) {
+                redirectToApp(res, { oauthError: "missing_state" });
+                return;
+            }
+
+            const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
+            if (!oauthState || oauthState.provider !== "telegram") {
+                redirectToApp(res, { oauthError: "invalid_state" });
+                return;
+            }
+
+            await consumeOAuthState(oauthState.id);
+
+            const { state: _s, ...tgParams } = req.query;
+            if (!verifyTelegramAuth(provider.clientSecret, tgParams)) {
+                redirectToApp(res, { oauthError: "invalid_signature" });
+                return;
+            }
+
+            const profile = provider.mapProfile(tgParams);
+            const user = await ensureOAuthUser(profile);
+            const rawToken = generateSessionToken();
+            await createSession({
+                userId: user.id,
+                tokenHash: hashSessionToken(rawToken),
+                ipAddress: getRequestIp(req),
+                userAgent: req.headers["user-agent"] || "",
+                expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+            });
+            await setUserLastLogin(user.id);
+
+            res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+            redirectToApp(res, { oauth: "success", provider: "telegram" });
+            return;
+        }
+
+        // --- Standard OAuth flow (Google, Yandex, etc.) ---
         const code = String(req.query.code || "");
         const state = String(req.query.state || "");
         if (!code || !state) {
@@ -4150,12 +4204,16 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             return;
         }
 
-        const profile = await fetchOAuthProfile(providerSlug, accessToken);
-        if (!profile.email || !isValidEmail(profile.email)) {
-            redirectToApp(res, {
-                oauthError: "email_required",
-            });
-            return;
+        const profile = await fetchOAuthProfile(providerSlug, accessToken, tokenPayload);
+        // VK may not provide email (it's optional in their OAuth scope)
+        const emailOptionalProviders = ["vk"];
+        if (!emailOptionalProviders.includes(providerSlug)) {
+            if (!profile.email || !isValidEmail(profile.email)) {
+                redirectToApp(res, {
+                    oauthError: "email_required",
+                });
+                return;
+            }
         }
 
         const user = await ensureOAuthUser(profile);
@@ -8055,6 +8113,230 @@ app.patch(
     },
 );
 
+// ── Support Chat API ──
+// Notify TG staff when a new web chat is created
+let notifySupportNewChatFn = null;
+try {
+    notifySupportNewChatFn = require("./src/telegram/notifier").notifySupportNewChat;
+} catch (_) {}
+
+supportChatEmitter.on("chat:new", (chat) => {
+    if (notifySupportNewChatFn) {
+        notifySupportNewChatFn(chat);
+    }
+});
+
+const SUPPORT_COOKIE_NAME = "qb_support_id";
+
+function getOrCreateSupportVisitorId(req, res) {
+    const cookies = parseCookies(req.headers.cookie || "");
+    let visitorId = cookies[SUPPORT_COOKIE_NAME];
+    if (!visitorId) {
+        visitorId = `guest_${makeUid()}`;
+        res.cookie(SUPPORT_COOKIE_NAME, visitorId, {
+            maxAge: 365 * 24 * 60 * 60 * 1000,
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: IS_PRODUCTION,
+        });
+    }
+    return visitorId;
+}
+
+function resolveSupportIdentity(req, res) {
+    const user = req.auth?.user;
+    if (user) {
+        return {
+            visitorId: `user_${user.id}`,
+            visitorName: buildDisplayName(user) || user.login || "",
+            userId: user.id,
+        };
+    }
+    return {
+        visitorId: getOrCreateSupportVisitorId(req, res),
+        visitorName: "",
+        userId: null,
+    };
+}
+
+// Visitor: create or get own chat
+app.post("/api/support/chats", defaultJsonParser, async (req, res, next) => {
+    try {
+        const identity = resolveSupportIdentity(req, res);
+        const visitorName = cleanText(req.body?.name, 80) || identity.visitorName;
+
+        let chat = await getSupportChatByVisitor(identity.visitorId);
+        if (!chat) {
+            chat = await createSupportChat({
+                visitorId: identity.visitorId,
+                visitorName,
+                userId: identity.userId,
+                source: "web",
+            });
+            supportChatEmitter.emit("chat:new", chat);
+        }
+        res.json({ chat });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Visitor: send message to own chat
+app.post("/api/support/chats/:id/messages", defaultJsonParser, async (req, res, next) => {
+    try {
+        const chatId = Number(req.params.id);
+        const chat = await getSupportChatById(chatId);
+        if (!chat) return sendError(res, 404, "Чат не найден.");
+
+        const identity = resolveSupportIdentity(req, res);
+        if (chat.visitor_id !== identity.visitorId) {
+            return sendError(res, 403, "Нет доступа к этому чату.");
+        }
+        if (chat.status === "closed") {
+            return sendError(res, 400, "Чат закрыт.");
+        }
+
+        const body = cleanText(req.body?.body, 2000);
+        if (!body) return sendError(res, 400, "Сообщение не может быть пустым.", "body");
+
+        const senderName = cleanText(req.body?.name, 80) || identity.visitorName || "Гость";
+        const message = await createSupportMessage({
+            chatId,
+            senderType: "visitor",
+            senderName,
+            body,
+        });
+        supportChatEmitter.emit("message", { chatId, message });
+        res.json({ message });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Visitor: get own chat messages
+app.get("/api/support/chats/:id/messages", async (req, res, next) => {
+    try {
+        const chatId = Number(req.params.id);
+        const chat = await getSupportChatById(chatId);
+        if (!chat) return sendError(res, 404, "Чат не найден.");
+
+        const identity = resolveSupportIdentity(req, res);
+        const isStaff = req.auth?.user && canModerate(req.auth.user.role);
+        if (!isStaff && chat.visitor_id !== identity.visitorId) {
+            return sendError(res, 403, "Нет доступа к этому чату.");
+        }
+
+        const messages = await listSupportMessages(chatId);
+        res.json({ messages });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// SSE: live messages for a chat (visitor or staff)
+app.get("/api/support/chats/:id/live", (req, res) => {
+    const chatId = Number(req.params.id);
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const onMessage = (data) => {
+        if (data.chatId === chatId) {
+            res.write(`data: ${JSON.stringify(data.message)}\n\n`);
+        }
+    };
+
+    supportChatEmitter.on("message", onMessage);
+    req.on("close", () => {
+        supportChatEmitter.off("message", onMessage);
+    });
+});
+
+// Staff: list all support chats (moderator+)
+app.get("/api/support/chats", requireModerator, async (req, res, next) => {
+    try {
+        const status = req.query.status || null;
+        const chats = await listSupportChats({ status });
+        res.json({ chats });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Staff: send reply to chat (moderator+)
+app.post("/api/support/staff/chats/:id/messages", requireModerator, defaultJsonParser, async (req, res, next) => {
+    try {
+        const chatId = Number(req.params.id);
+        const chat = await getSupportChatById(chatId);
+        if (!chat) return sendError(res, 404, "Чат не найден.");
+
+        const body = cleanText(req.body?.body, 2000);
+        if (!body) return sendError(res, 400, "Сообщение не может быть пустым.", "body");
+
+        const staffUser = req.auth.user;
+        const senderName = buildDisplayName(staffUser) || staffUser.login || "Поддержка";
+        const message = await createSupportMessage({
+            chatId,
+            senderType: "staff",
+            senderName,
+            body,
+        });
+        supportChatEmitter.emit("message", { chatId, message });
+
+        // If chat originated from TG, push reply to Telegram user
+        if (chat.tg_chat_id) {
+            supportChatEmitter.emit("tg:reply", { chat, message });
+        }
+
+        res.json({ message });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Staff: update chat status (moderator+)
+app.patch("/api/support/chats/:id", requireModerator, defaultJsonParser, async (req, res, next) => {
+    try {
+        const chatId = Number(req.params.id);
+        const chat = await getSupportChatById(chatId);
+        if (!chat) return sendError(res, 404, "Чат не найден.");
+
+        const status = req.body?.status;
+        if (!["open", "closed"].includes(status)) {
+            return sendError(res, 400, "Допустимые статусы: open, closed.");
+        }
+
+        const updated = await updateSupportChatStatus(chatId, status);
+        res.json({ chat: updated });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// SSE: live feed of all new chats/messages for staff panel
+app.get("/api/support/staff/live", requireModerator, (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const onNewChat = (chat) => {
+        res.write(`event: new_chat\ndata: ${JSON.stringify(chat)}\n\n`);
+    };
+    const onMessage = (data) => {
+        res.write(`event: message\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    supportChatEmitter.on("chat:new", onNewChat);
+    supportChatEmitter.on("message", onMessage);
+    req.on("close", () => {
+        supportChatEmitter.off("chat:new", onNewChat);
+        supportChatEmitter.off("message", onMessage);
+    });
+});
+
 app.get("/api/admin/system-stats", requireAdmin, async (req, res, next) => {
     try {
         const cpus = os.cpus();
@@ -8706,6 +8988,7 @@ app.get("/4041.html", (req, res) => {
     "terms.html",
     "acceptable-use.html",
     "security.html",
+    "support.html",
 ].forEach((pageName) => {
     app.get(`/${pageName}`, (req, res) => {
         sendHtmlPage(res, pageName);
@@ -8789,7 +9072,7 @@ async function start() {
     // Telegram bot (long-polling, не блокирует старт)
     try {
         const { startTelegramBot } = require("./src/telegram-bot");
-        startTelegramBot();
+        startTelegramBot({ supportChatEmitter });
     } catch (err) {
         console.error("[TG bot] Не удалось запустить:", err.message);
     }

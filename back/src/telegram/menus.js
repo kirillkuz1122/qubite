@@ -4,6 +4,7 @@ function mainMenu(role) {
     const rows = [];
     rows.push([{ text: "Аналитика", callback_data: "menu:analytics" }]);
     rows.push([{ text: "Модерация", callback_data: "menu:moderation" }]);
+    rows.push([{ text: "Чаты поддержки", callback_data: "menu:support" }]);
     if (role === ROLE_OWNER) {
         rows.push([{ text: "Тумблеры", callback_data: "menu:settings" }]);
         rows.push([{ text: "Админка", callback_data: "menu:admin" }]);
