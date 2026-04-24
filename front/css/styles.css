@@ -1272,6 +1272,10 @@ button.card--all {
   opacity: 0.35;
   cursor: not-allowed;
 }
+.vk-id-widget-wrap {
+  display: flex;
+  justify-content: center;
+}
 
 .document-page {
   min-height: 100vh;

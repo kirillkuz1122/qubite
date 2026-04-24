@@ -6,9 +6,7 @@ const {
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     TELEGRAM_BOT_TOKEN,
-    VK_CALLBACK_URL,
-    VK_CLIENT_ID,
-    VK_CLIENT_SECRET,
+    VK_APP_ID,
     YANDEX_CALLBACK_URL,
     YANDEX_CLIENT_ID,
     YANDEX_CLIENT_SECRET,
@@ -102,48 +100,6 @@ const PROVIDERS = {
             };
         },
     },
-    vk: {
-        slug: "vk",
-        label: "VK",
-        clientId: VK_CLIENT_ID,
-        clientSecret: VK_CLIENT_SECRET,
-        callbackUrl: VK_CALLBACK_URL,
-        authorizeUrl: "https://oauth.vk.com/authorize",
-        tokenUrl: "https://oauth.vk.com/access_token",
-        userInfoUrl: "https://api.vk.com/method/users.get",
-        scopes: ["email"],
-        buildAuthorizeParams({ state }) {
-            return {
-                client_id: this.clientId,
-                redirect_uri: this.callbackUrl,
-                response_type: "code",
-                scope: this.scopes.join(","),
-                display: "page",
-                v: "5.131",
-                state,
-            };
-        },
-        mapProfile(payload, tokenPayload = {}) {
-            const user = payload.response?.[0] || {};
-            const email = String(tokenPayload.email || "").trim();
-            return {
-                provider: "vk",
-                subject: String(user.id || tokenPayload.user_id || ""),
-                email,
-                emailVerified: Boolean(email),
-                loginHint:
-                    String(user.screen_name || user.first_name || "vk-user")
-                        .trim() || "vk-user",
-                displayName:
-                    [user.first_name, user.last_name]
-                        .filter(Boolean)
-                        .join(" ") || "VK User",
-                firstName: String(user.first_name || "").trim(),
-                lastName: String(user.last_name || "").trim(),
-                avatarUrl: String(user.photo_200 || "").trim(),
-            };
-        },
-    },
     telegram: {
         slug: "telegram",
         label: "Telegram",
@@ -194,7 +150,7 @@ function isProviderConfigured(providerSlug) {
 }
 
 function listOAuthProviders() {
-    return Object.values(PROVIDERS).map((provider) => ({
+    const list = Object.values(PROVIDERS).map((provider) => ({
         slug: provider.slug,
         label: provider.label,
         enabled: isProviderConfigured(provider.slug),
@@ -202,6 +158,23 @@ function listOAuthProviders() {
             ? `${APP_BASE_URL}/api/auth/oauth/${provider.slug}/start`
             : null,
     }));
+
+    // VK ID SDK — client-side flow, insert before Telegram
+    const vkEntry = {
+        slug: "vk",
+        label: "VK ID",
+        enabled: Boolean(VK_APP_ID),
+        startUrl: null,
+        sdkAppId: VK_APP_ID ? Number(VK_APP_ID) : null,
+    };
+    const tgIdx = list.findIndex((p) => p.slug === "telegram");
+    if (tgIdx >= 0) {
+        list.splice(tgIdx, 0, vkEntry);
+    } else {
+        list.push(vkEntry);
+    }
+
+    return list;
 }
 
 function buildOAuthAuthorizeUrl(providerSlug, options) {
@@ -253,26 +226,10 @@ async function exchangeOAuthCode(providerSlug, code) {
     return tokenPayload;
 }
 
-async function fetchOAuthProfile(providerSlug, accessToken, tokenPayload = {}) {
+async function fetchOAuthProfile(providerSlug, accessToken) {
     const provider = getProvider(providerSlug);
     if (!provider) {
         throw new Error("OAuth provider not found.");
-    }
-
-    // VK API uses query-string auth + requires v and fields params
-    if (providerSlug === "vk") {
-        const url = new URL(provider.userInfoUrl);
-        url.searchParams.set("user_ids", String(tokenPayload.user_id || ""));
-        url.searchParams.set("fields", "photo_200,screen_name");
-        url.searchParams.set("access_token", accessToken);
-        url.searchParams.set("v", "5.131");
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OAuth user info failed: ${errorText}`);
-        }
-        const payload = await response.json();
-        return provider.mapProfile(payload, tokenPayload);
     }
 
     const response = await fetch(provider.userInfoUrl, {

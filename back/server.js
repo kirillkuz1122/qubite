@@ -4204,16 +4204,12 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             return;
         }
 
-        const profile = await fetchOAuthProfile(providerSlug, accessToken, tokenPayload);
-        // VK may not provide email (it's optional in their OAuth scope)
-        const emailOptionalProviders = ["vk"];
-        if (!emailOptionalProviders.includes(providerSlug)) {
-            if (!profile.email || !isValidEmail(profile.email)) {
-                redirectToApp(res, {
-                    oauthError: "email_required",
-                });
-                return;
-            }
+        const profile = await fetchOAuthProfile(providerSlug, accessToken);
+        if (!profile.email || !isValidEmail(profile.email)) {
+            redirectToApp(res, {
+                oauthError: "email_required",
+            });
+            return;
         }
 
         const user = await ensureOAuthUser(profile);
@@ -4240,6 +4236,85 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
         redirectToApp(res, {
             oauthError: "callback_failed",
         });
+    }
+});
+
+// VK ID SDK — client-side token exchange, backend verification
+app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (req, res, next) => {
+    try {
+        const accessToken = String(req.body.accessToken || "");
+        if (!accessToken) {
+            sendError(res, 400, "Отсутствует access_token.");
+            return;
+        }
+
+        // Verify token by calling VK API
+        const vkUrl = new URL("https://api.vk.com/method/users.get");
+        vkUrl.searchParams.set("fields", "photo_200,screen_name");
+        vkUrl.searchParams.set("access_token", accessToken);
+        vkUrl.searchParams.set("v", "5.131");
+
+        const vkResponse = await fetch(vkUrl.toString());
+        if (!vkResponse.ok) {
+            sendError(res, 502, "Не удалось связаться с VK API.");
+            return;
+        }
+
+        const vkData = await vkResponse.json();
+        if (vkData.error) {
+            console.error(
+                `[${new Date().toISOString()}] VK ID token invalid:`,
+                vkData.error.error_msg || vkData.error,
+            );
+            sendError(res, 401, "Недействительный VK-токен.");
+            return;
+        }
+
+        const vkUser = vkData.response?.[0];
+        if (!vkUser || !vkUser.id) {
+            sendError(res, 401, "Не удалось получить профиль VK.");
+            return;
+        }
+
+        const profile = {
+            provider: "vk",
+            subject: String(vkUser.id),
+            email: "",
+            emailVerified: false,
+            loginHint:
+                String(vkUser.screen_name || vkUser.first_name || "vk-user").trim() ||
+                "vk-user",
+            displayName:
+                [vkUser.first_name, vkUser.last_name].filter(Boolean).join(" ") ||
+                "VK User",
+            firstName: String(vkUser.first_name || "").trim(),
+            lastName: String(vkUser.last_name || "").trim(),
+            avatarUrl: String(vkUser.photo_200 || "").trim(),
+        };
+
+        const user = await ensureOAuthUser(profile);
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.json({ ok: true, provider: "vk" });
+    } catch (error) {
+        if (error.code === "ACCOUNT_BLOCKED") {
+            sendError(res, 403, error.message);
+            return;
+        }
+        console.error(
+            `[${new Date().toISOString()}] VK ID auth failed:`,
+            error?.message || error,
+        );
+        sendError(res, 500, "Ошибка входа через VK.");
     }
 });
 

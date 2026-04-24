@@ -128,9 +128,10 @@ const DEFAULT_OAUTH_PROVIDERS = [
     },
     {
         slug: "vk",
-        label: "VK",
+        label: "VK ID",
         enabled: false,
         startUrl: null,
+        sdkAppId: null,
     },
     {
         slug: "telegram",
@@ -143,7 +144,6 @@ const DEFAULT_OAUTH_PROVIDERS = [
 const OAUTH_ICONS = {
     google: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09a7.12 7.12 0 0 1 0-4.18V7.07H2.18A11.99 11.99 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`,
     yandex: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#FC3F1D"/><path d="M13.63 7.56h-.79c-1.3 0-1.98.7-1.98 1.59 0 1 .48 1.5 1.46 2.17l.82.56-2.35 3.9h-1.62l2.1-3.49c-1.18-.83-1.85-1.6-1.85-2.94 0-1.67 1.17-2.84 3.38-2.84h1.63v9.27h-1.35V7.56h.55z" fill="#fff"/></svg>`,
-    vk: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="12" fill="#0077FF"/><path d="M12.77 16.87h.73s.22-.02.33-.14c.1-.1.1-.31.1-.31s-.01-1.07.49-1.23c.49-.16 1.13 1.04 1.8 1.5.51.35.9.27.9.27l1.8-.02s.94-.06.5-.78c-.04-.06-.26-.55-1.33-1.56-1.12-1.06-.97-.89.38-2.72.82-1.12 1.15-1.8 1.05-2.1-.1-.28-.7-.21-.7-.21l-2.03.01s-.15-.02-.26.05c-.11.06-.18.21-.18.21s-.33.87-.76 1.6c-.92 1.56-1.28 1.64-1.43 1.55-.35-.23-.26-1.8-.26-1.8s0-.58-.19-.83c-.15-.21-.43-.27-.56-.28-.31-.03-1.35 0-1.35 0s-.5.03-.7.24c0 0-.17.21.02.21.23 0 .55.1.55.1s.35.2.5.64c.3.9-.02 2.55-.02 2.55s-.11.95-.67.95c-.41 0-.99-.42-1.41-1.21-.42-.78-.74-1.65-.74-1.65s-.06-.15-.17-.22c-.13-.1-.31-.13-.31-.13l-1.93.01s-.29.01-.4.13c-.09.11-.01.34-.01.34s1.54 3.57 3.27 5.37c1.59 1.65 3.39 1.54 3.39 1.54z" fill="#fff"/></svg>`,
     telegram: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#2AABEE"/><path d="M7.05 11.81l8.15-3.14c.38-.14.7.09.58.64l-1.39 6.53c-.1.46-.37.57-.75.35l-2.08-1.53-1 .97c-.11.11-.2.2-.42.2l.15-2.12 3.87-3.5c.17-.15-.04-.23-.26-.09L9.3 13.2l-2.02-.63c-.44-.14-.45-.44.09-.65z" fill="#fff"/></svg>`,
 };
 
@@ -2852,26 +2852,39 @@ function buildOAuthButtonsHtml() {
         return "";
     }
 
+    // Standard OAuth buttons (redirect flow)
+    const standardProviders = providers.filter((p) => p.slug !== "vk");
+    // VK ID SDK (client-side flow)
+    const vkProvider = providers.find((p) => p.slug === "vk");
+
+    const standardHtml = standardProviders
+        .map(
+            (provider) => `
+            <button
+                type="button"
+                class="oauth-icon-btn"
+                data-oauth-provider="${escapeHtml(provider.slug)}"
+                ${provider.enabled && provider.startUrl ? "" : "disabled"}
+                title="${escapeHtml(provider.label)}"
+            >${OAUTH_ICONS[provider.slug] || escapeHtml(provider.label)}</button>
+        `,
+        )
+        .join("");
+
+    const vkHtml =
+        vkProvider && vkProvider.enabled && vkProvider.sdkAppId
+            ? `<div class="vk-id-widget-wrap" data-vk-app-id="${vkProvider.sdkAppId}"></div>`
+            : "";
+
     return `
         <div class="oauth-block">
             <div class="oauth-divider">
                 <span></span><span>или через</span><span></span>
             </div>
             <div class="oauth-icons">
-                ${providers
-                    .map(
-                        (provider) => `
-                    <button
-                        type="button"
-                        class="oauth-icon-btn"
-                        data-oauth-provider="${escapeHtml(provider.slug)}"
-                        ${provider.enabled && provider.startUrl ? "" : "disabled"}
-                        title="${escapeHtml(provider.label)}"
-                    >${OAUTH_ICONS[provider.slug] || escapeHtml(provider.label)}</button>
-                `,
-                    )
-                    .join("")}
+                ${standardHtml}
             </div>
+            ${vkHtml}
         </div>
     `;
 }
@@ -2899,6 +2912,86 @@ function hydrateOAuthButtons() {
             window.location.href = provider.startUrl;
         });
     });
+
+    // VK ID SDK — render OneTap widget into each container
+    initVkIdWidgets();
+}
+
+// --- VK ID SDK integration ---
+let _vkIdSdkInited = false;
+
+function initVkIdWidgets() {
+    if (!window.VKIDSDK) return;
+    const containers = document.querySelectorAll(".vk-id-widget-wrap[data-vk-app-id]");
+    if (containers.length === 0) return;
+
+    const VKID = window.VKIDSDK;
+    const appId = Number(containers[0].dataset.vkAppId);
+    if (!appId) return;
+
+    // Init config once
+    if (!_vkIdSdkInited) {
+        VKID.Config.init({
+            app: appId,
+            redirectUrl: window.location.origin + "/api/auth/oauth/vk/callback",
+            responseMode: VKID.ConfigResponseMode.Callback,
+            source: VKID.ConfigSource.LOWCODE,
+            scope: "",
+        });
+        _vkIdSdkInited = true;
+    }
+
+    containers.forEach((container) => {
+        if (container.dataset.vkRendered) return;
+        container.dataset.vkRendered = "1";
+
+        const oneTap = new VKID.OneTap();
+        oneTap
+            .render({
+                container,
+                fastAuthEnabled: false,
+                showAlternativeLogin: true,
+                skin: "secondary",
+                styles: { borderRadius: 12, width: 40 },
+                oauthList: ["ok_ru", "mail_ru"],
+            })
+            .on(VKID.WidgetEvents.ERROR, (error) => {
+                console.error("[VK ID] Widget error:", error);
+                Toast.show("VK", "Ошибка входа через VK", "error");
+            })
+            .on(VKID.OneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
+                VKID.Auth.exchangeCode(payload.code, payload.device_id)
+                    .then(handleVkIdSuccess)
+                    .catch((error) => {
+                        console.error("[VK ID] Code exchange failed:", error);
+                        Toast.show("VK", "Ошибка входа через VK", "error");
+                    });
+            });
+    });
+}
+
+async function handleVkIdSuccess(data) {
+    try {
+        const resp = await fetch("/api/auth/vk-id", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ accessToken: data.access_token }),
+        });
+        if (resp.ok) {
+            window.location.reload();
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            Toast.show(
+                "VK",
+                err.message || "Ошибка входа через VK",
+                "error",
+            );
+        }
+    } catch (error) {
+        console.error("[VK ID] Backend auth failed:", error);
+        Toast.show("VK", "Ошибка входа через VK", "error");
+    }
 }
 
 // Авто-лоадер на старте убран. Используйте Loader.show() / Loader.hide() для ручного управления.
