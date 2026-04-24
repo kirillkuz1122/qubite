@@ -8,3 +8,4 @@ back/data/*.sqlite
 back/data/*.sqlite-*
 .env
 node_modules/
+.codex
