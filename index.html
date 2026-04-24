@@ -844,6 +844,8 @@
                                 <a href="/privacy.html" class="footer__link">Конфиденциальность</a>
                                 <a href="/acceptable-use.html" class="footer__link">Правила платформы</a>
                                 <a href="/security.html" class="footer__link">Безопасность</a>
+                                <a href="/support.html" class="footer__link">Поддержка</a>
+                                <a href="mailto:support@qubiteapp.online" class="footer__link">support@qubiteapp.online</a>
                             </div>
                             <div class="footer__copy">
                                 © 2025 Qubite. Все права защищены.
@@ -1113,6 +1115,32 @@
                         <a
                             href="#"
                             class="nav-item"
+                            data-view="support-chats"
+                            id="supportChatsNavItem"
+                            hidden
+                        >
+                            <svg
+                                class="icon-svg icon-svg-support_agent"
+                                viewBox="0 -960 960 960"
+                                fill="currentColor"
+                            >
+                                <g class="svg-outline">
+                                    <path
+                                        d="M440-120v-80h320v-284q0-117-81.5-198.5T480-764q-117 0-198.5 81.5T200-484v244h-40q-33 0-56.5-23.5T80-320v-80q0-21 10.5-39.5T120-469l3-53q8-68 39.5-126t79-101q47.5-43 109-67T480-840q68 0 129 24t109 66.5Q766-706 797-648t40 126l3 52q19 9 29.5 27t10.5 38v92q0 20-10.5 38T840-248v128H440ZM360-400q-17 0-28.5-11.5T320-440q0-17 11.5-28.5T360-480q17 0 28.5 11.5T400-440q0 17-11.5 28.5T360-400Zm240 0q-17 0-28.5-11.5T560-440q0-17 11.5-28.5T600-480q17 0 28.5 11.5T640-440q0 17-11.5 28.5T600-400Zm-359-62q-7-106 64-182t177-76q89 0 156.5 56.5T720-520q-94-2-177.5-50T409-462Z"
+                                    />
+                                </g>
+                                <g class="svg-filled" style="display: none">
+                                    <path
+                                        d="M440-120v-80h320v-284q0-117-81.5-198.5T480-764q-117 0-198.5 81.5T200-484v244h-40q-33 0-56.5-23.5T80-320v-80q0-21 10.5-39.5T120-469l3-53q8-68 39.5-126t79-101q47.5-43 109-67T480-840q68 0 129 24t109 66.5Q766-706 797-648t40 126l3 52q19 9 29.5 27t10.5 38v92q0 20-10.5 38T840-248v128H440ZM360-400q-17 0-28.5-11.5T320-440q0-17 11.5-28.5T360-480q17 0 28.5 11.5T400-440q0 17-11.5 28.5T360-400Zm240 0q-17 0-28.5-11.5T560-440q0-17 11.5-28.5T600-480q17 0 28.5 11.5T640-440q0 17-11.5 28.5T600-400Z"
+                                    />
+                                </g>
+                            </svg>
+                            <span>Чаты</span>
+                        </a>
+
+                        <a
+                            href="#"
+                            class="nav-item"
                             data-view="admin"
                             id="adminNavItem"
                             hidden
@@ -1372,21 +1400,25 @@
                     <button
                         class="btn btn--accent"
                         style="justify-content: center"
+                        id="loginModalCode"
                     >
                         Войти по коду
                     </button>
                     <button
                         class="btn btn--muted"
                         style="justify-content: center"
+                        id="loginModalAuth"
                     >
                         Войти по логину
                     </button>
                     <button
                         class="btn btn--muted"
                         style="justify-content: center"
+                        id="loginModalReg"
                     >
                         Зарегистрироваться
                     </button>
+                    <div data-oauth-slot></div>
                 </div>
             </div>
         </div>

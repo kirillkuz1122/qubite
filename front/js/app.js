@@ -126,7 +126,26 @@ const DEFAULT_OAUTH_PROVIDERS = [
         enabled: false,
         startUrl: null,
     },
+    {
+        slug: "vk",
+        label: "VK",
+        enabled: false,
+        startUrl: null,
+    },
+    {
+        slug: "telegram",
+        label: "Telegram",
+        enabled: false,
+        startUrl: null,
+    },
 ];
+
+const OAUTH_ICONS = {
+    google: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09a7.12 7.12 0 0 1 0-4.18V7.07H2.18A11.99 11.99 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`,
+    yandex: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#FC3F1D"/><path d="M13.63 7.56h-.79c-1.3 0-1.98.7-1.98 1.59 0 1 .48 1.5 1.46 2.17l.82.56-2.35 3.9h-1.62l2.1-3.49c-1.18-.83-1.85-1.6-1.85-2.94 0-1.67 1.17-2.84 3.38-2.84h1.63v9.27h-1.35V7.56h.55z" fill="#fff"/></svg>`,
+    vk: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="12" fill="#0077FF"/><path d="M12.77 16.87h.73s.22-.02.33-.14c.1-.1.1-.31.1-.31s-.01-1.07.49-1.23c.49-.16 1.13 1.04 1.8 1.5.51.35.9.27.9.27l1.8-.02s.94-.06.5-.78c-.04-.06-.26-.55-1.33-1.56-1.12-1.06-.97-.89.38-2.72.82-1.12 1.15-1.8 1.05-2.1-.1-.28-.7-.21-.7-.21l-2.03.01s-.15-.02-.26.05c-.11.06-.18.21-.18.21s-.33.87-.76 1.6c-.92 1.56-1.28 1.64-1.43 1.55-.35-.23-.26-1.8-.26-1.8s0-.58-.19-.83c-.15-.21-.43-.27-.56-.28-.31-.03-1.35 0-1.35 0s-.5.03-.7.24c0 0-.17.21.02.21.23 0 .55.1.55.1s.35.2.5.64c.3.9-.02 2.55-.02 2.55s-.11.95-.67.95c-.41 0-.99-.42-1.41-1.21-.42-.78-.74-1.65-.74-1.65s-.06-.15-.17-.22c-.13-.1-.31-.13-.31-.13l-1.93.01s-.29.01-.4.13c-.09.11-.01.34-.01.34s1.54 3.57 3.27 5.37c1.59 1.65 3.39 1.54 3.39 1.54z" fill="#fff"/></svg>`,
+    telegram: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#2AABEE"/><path d="M7.05 11.81l8.15-3.14c.38-.14.7.09.58.64l-1.39 6.53c-.1.46-.37.57-.75.35l-2.08-1.53-1 .97c-.11.11-.2.2-.42.2l.15-2.12 3.87-3.5c.17-.15-.04-.23-.26-.09L9.3 13.2l-2.02-.63c-.44-.14-.45-.44.09-.65z" fill="#fff"/></svg>`,
+};
 
 const DEFAULT_ADMIN_OVERVIEW = {
     overview: {
@@ -1806,6 +1825,9 @@ function shouldRequireEmailVerification(user = getUserState()) {
     if (!user || user.isGuest) {
         return false;
     }
+    if (!user.email) {
+        return false;
+    }
     return !user.emailVerified;
 }
 
@@ -2731,6 +2753,10 @@ function updateWorkspaceIdentity() {
     if (moderationNavItem) {
         moderationNavItem.hidden = codeGuestMode || !isModeratorUser(user);
     }
+    const supportChatsNavItem = document.getElementById("supportChatsNavItem");
+    if (supportChatsNavItem) {
+        supportChatsNavItem.hidden = codeGuestMode || !isModeratorUser(user);
+    }
     document.body.classList.toggle("workspace-guest-code", codeGuestMode);
     workspaceView?.classList.toggle("workspace-guest-code", codeGuestMode);
     if (!user) return;
@@ -2827,25 +2853,21 @@ function buildOAuthButtonsHtml() {
     }
 
     return `
-        <div class="oauth-block" style="display:grid; gap: 10px; margin-top: 12px;">
-            <div style="display:flex; align-items:center; gap: 10px; color: var(--fg-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;">
-                <span style="flex:1; height:1px; background: var(--line);"></span>
-                <span>или через</span>
-                <span style="flex:1; height:1px; background: var(--line);"></span>
+        <div class="oauth-block">
+            <div class="oauth-divider">
+                <span></span><span>или через</span><span></span>
             </div>
-            <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+            <div class="oauth-icons">
                 ${providers
                     .map(
                         (provider) => `
                     <button
                         type="button"
-                        class="btn btn--muted btn--block oauth-btn"
+                        class="oauth-icon-btn"
                         data-oauth-provider="${escapeHtml(provider.slug)}"
                         ${provider.enabled && provider.startUrl ? "" : "disabled"}
-                        style="display:flex; align-items:center; justify-content:center; gap: 8px;"
-                    >
-                        <span>${escapeHtml(provider.label)}</span>
-                    </button>
+                        title="${escapeHtml(provider.label)}"
+                    >${OAUTH_ICONS[provider.slug] || escapeHtml(provider.label)}</button>
                 `,
                     )
                     .join("")}
@@ -4034,6 +4056,11 @@ function openModal(id) {
     }
 
     activeModal = el;
+    // Снимаем stale transitionend listener, если остался от предыдущего closeModal
+    if (el._modalCloseHandler) {
+        el.removeEventListener("transitionend", el._modalCloseHandler);
+        el._modalCloseHandler = null;
+    }
     el.hidden = false;
     // Используем requestAnimationFrame, чтобы браузер успел отрисовать display: block перед анимацией
     requestAnimationFrame(() => {
@@ -4072,6 +4099,12 @@ function closeModal(id, immediate = false) {
         }
     }
 
+    // Снимаем stale transitionend listener от предыдущего closeModal, если есть
+    if (el._modalCloseHandler) {
+        el.removeEventListener("transitionend", el._modalCloseHandler);
+        el._modalCloseHandler = null;
+    }
+
     el.classList.remove("modal--open");
 
     const onHidden = () => {
@@ -4096,11 +4129,13 @@ function closeModal(id, immediate = false) {
         // Сброс форм внутри
         el.querySelectorAll("form").forEach(resetForm);
         el.removeEventListener("transitionend", onHidden);
+        el._modalCloseHandler = null;
     };
 
     if (immediate) {
         onHidden();
     } else {
+        el._modalCloseHandler = onHidden;
         el.addEventListener("transitionend", onHidden);
     }
 }
@@ -4150,23 +4185,15 @@ function wireStaticLoginModal() {
     const lm = document.getElementById("loginModal");
     if (!lm) return;
 
-    // Находим 3 кнопки внутри тела модалки
-    const btns = lm.querySelectorAll(".modal__body .btn");
-    // Предполагаемый порядок: 1. По коду, 2. По логину, 3. Регистрация
-    if (btns.length >= 3) {
-        btns[0].addEventListener("click", () => {
-            closeModal("loginModal");
-            openModal("codeModal");
-        });
-        btns[1].addEventListener("click", () => {
-            closeModal("loginModal");
-            openModal("authModal");
-        });
-        btns[2].addEventListener("click", () => {
-            closeModal("loginModal");
-            openModal("regModal");
-        });
-    }
+    document.getElementById("loginModalCode")?.addEventListener("click", () => {
+        openModal("codeModal");
+    });
+    document.getElementById("loginModalAuth")?.addEventListener("click", () => {
+        openModal("authModal");
+    });
+    document.getElementById("loginModalReg")?.addEventListener("click", () => {
+        openModal("regModal");
+    });
 
     // Backdrop клик для статической модалки
     const backdrop = lm.querySelector(".modal__backdrop");
@@ -5886,6 +5913,10 @@ function isWorkspaceAutoSyncEnabled(viewName = null) {
     }
 
     if (resolvedViewName === "moderation" && isModeratorUser()) {
+        return true;
+    }
+
+    if (resolvedViewName === "support-chats" && isModeratorUser()) {
         return true;
     }
 
@@ -12556,6 +12587,291 @@ function initAdminInteractions(container) {
     void refreshAdminData(true);
 }
 
+// ── Support Chats View (moderator+) ──
+
+let supportChatsState = {
+    chats: [],
+    activeChat: null,
+    messages: [],
+    sse: null,
+    staffSse: null,
+    filter: "open",
+};
+
+function renderSupportChatsView() {
+    const { chats, activeChat, messages, filter } = supportChatsState;
+    const filteredChats = chats.filter(c => filter === "all" || c.status === filter);
+
+    const chatListHtml = filteredChats.length
+        ? filteredChats.map(c => {
+            const active = activeChat && activeChat.id === c.id ? " sc-chat-item--active" : "";
+            const statusIcon = c.status === "open" ? "●" : "○";
+            const statusCls = c.status === "open" ? "sc-status--open" : "sc-status--closed";
+            const src = c.source === "telegram" ? " [TG]" : "";
+            const name = escapeHtml(c.visitor_name || c.visitor_id || "Гость");
+            const last = c.last_message ? escapeHtml(c.last_message).slice(0, 60) : "Нет сообщений";
+            const count = c.message_count || 0;
+            const time = c.updated_at ? new Date(c.updated_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+            return `<div class="sc-chat-item${active}" data-chat-id="${c.id}">
+                <div class="sc-chat-item__head">
+                    <span class="sc-chat-item__name">${name}${src}</span>
+                    <span class="sc-chat-item__time">${time}</span>
+                </div>
+                <div class="sc-chat-item__preview">
+                    <span class="${statusCls}">${statusIcon}</span> ${last}
+                    ${count > 0 ? `<span class="sc-chat-item__count">${count}</span>` : ""}
+                </div>
+            </div>`;
+        }).join("")
+        : `<div class="sc-empty">Нет чатов</div>`;
+
+    const messagesHtml = activeChat
+        ? messages.map(m => {
+            const isStaff = m.sender_type === "staff";
+            const cls = isStaff ? "sc-msg--staff" : "sc-msg--visitor";
+            const nameLabel = escapeHtml(m.sender_name || (isStaff ? "Поддержка" : "Гость"));
+            const time = new Date(m.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+            return `<div class="sc-msg ${cls}">
+                <div class="sc-msg__name">${nameLabel} <span class="sc-msg__time">${time}</span></div>
+                <div class="sc-msg__body">${escapeHtml(m.body)}</div>
+            </div>`;
+        }).join("") || `<div class="sc-empty">Нет сообщений</div>`
+        : `<div class="sc-empty">Выберите чат слева</div>`;
+
+    const chatHeader = activeChat
+        ? `<div class="sc-chat-header">
+            <strong>${escapeHtml(activeChat.visitor_name || activeChat.visitor_id || "Гость")}</strong>
+            <span class="sc-chat-header__meta">${activeChat.source === "telegram" ? "Telegram" : "Веб"} · ${activeChat.status === "open" ? "Открыт" : "Закрыт"}</span>
+            <button class="btn btn--sm sc-toggle-status" data-chat-id="${activeChat.id}" data-status="${activeChat.status === "open" ? "closed" : "open"}">
+                ${activeChat.status === "open" ? "Закрыть" : "Открыть"}
+            </button>
+        </div>`
+        : "";
+
+    const inputHtml = activeChat && activeChat.status === "open"
+        ? `<div class="sc-input-bar">
+            <input type="text" class="sc-reply-input" placeholder="Ответить..." maxlength="2000" />
+            <button class="btn btn--primary sc-send-btn">Отправить</button>
+        </div>`
+        : activeChat
+            ? `<div class="sc-input-bar sc-input-bar--closed">Чат закрыт</div>`
+            : "";
+
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="support-chats-view">
+            <h1 class="section__title" data-view-anim>Чаты поддержки</h1>
+            <div class="sc-filters" data-view-anim style="transition-delay: 0.05s">
+                <button class="btn btn--sm ${filter === "open" ? "btn--primary" : ""}" data-sc-filter="open">Открытые</button>
+                <button class="btn btn--sm ${filter === "closed" ? "btn--primary" : ""}" data-sc-filter="closed">Закрытые</button>
+                <button class="btn btn--sm ${filter === "all" ? "btn--primary" : ""}" data-sc-filter="all">Все</button>
+            </div>
+            <div class="sc-layout" data-view-anim style="transition-delay: 0.1s">
+                <div class="sc-sidebar">${chatListHtml}</div>
+                <div class="sc-main">
+                    ${chatHeader}
+                    <div class="sc-messages" id="scMessages">${messagesHtml}</div>
+                    ${inputHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function loadSupportChats() {
+    try {
+        const statusParam = supportChatsState.filter === "all" ? "" : supportChatsState.filter;
+        const url = statusParam ? `/api/support/chats?status=${statusParam}` : "/api/support/chats";
+        const res = await fetch(url);
+        const data = await res.json();
+        supportChatsState.chats = data.chats || [];
+    } catch (err) {
+        console.error("[support-chats] load error:", err);
+    }
+}
+
+async function loadSupportChatMessages(chatId) {
+    try {
+        const res = await fetch(`/api/support/chats/${chatId}/messages`);
+        const data = await res.json();
+        supportChatsState.messages = data.messages || [];
+    } catch (err) {
+        console.error("[support-chats] messages error:", err);
+    }
+}
+
+function startSupportChatSSE(chatId) {
+    stopSupportChatSSE();
+    const sse = new EventSource(`/api/support/chats/${chatId}/live`);
+    sse.onmessage = (e) => {
+        try {
+            const msg = JSON.parse(e.data);
+            const exists = supportChatsState.messages.some(m => m.id === msg.id);
+            if (!exists) {
+                supportChatsState.messages.push(msg);
+                if (ViewManager.currentView === "support-chats") {
+                    const container = document.getElementById("scMessages");
+                    if (container) {
+                        const emptyEl = container.querySelector(".sc-empty");
+                        if (emptyEl) emptyEl.remove();
+                        container.insertAdjacentHTML("beforeend", renderSingleSupportMessage(msg));
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+            }
+        } catch (_) {}
+    };
+    sse.onerror = () => {
+        sse.close();
+        supportChatsState.sse = null;
+        setTimeout(() => {
+            if (supportChatsState.activeChat?.id === chatId) startSupportChatSSE(chatId);
+        }, 3000);
+    };
+    supportChatsState.sse = sse;
+}
+
+function stopSupportChatSSE() {
+    if (supportChatsState.sse) {
+        supportChatsState.sse.close();
+        supportChatsState.sse = null;
+    }
+}
+
+function startStaffSupportSSE() {
+    if (supportChatsState.staffSse) return;
+    const sse = new EventSource("/api/support/staff/live");
+    sse.addEventListener("new_chat", (e) => {
+        try {
+            const chat = JSON.parse(e.data);
+            if (!supportChatsState.chats.some(c => c.id === chat.id)) {
+                supportChatsState.chats.unshift({ ...chat, message_count: 0, last_message: "" });
+                if (ViewManager.currentView === "support-chats") {
+                    rerenderActiveWorkspaceContent();
+                }
+            }
+        } catch (_) {}
+    });
+    sse.addEventListener("message", (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            const chat = supportChatsState.chats.find(c => c.id === data.chatId);
+            if (chat) {
+                chat.last_message = data.message?.body || chat.last_message;
+                chat.message_count = (chat.message_count || 0) + 1;
+                chat.updated_at = data.message?.created_at || new Date().toISOString();
+            }
+        } catch (_) {}
+    });
+    sse.onerror = () => {
+        sse.close();
+        supportChatsState.staffSse = null;
+        setTimeout(startStaffSupportSSE, 5000);
+    };
+    supportChatsState.staffSse = sse;
+}
+
+function renderSingleSupportMessage(m) {
+    const isStaff = m.sender_type === "staff";
+    const cls = isStaff ? "sc-msg--staff" : "sc-msg--visitor";
+    const nameLabel = escapeHtml(m.sender_name || (isStaff ? "Поддержка" : "Гость"));
+    const time = new Date(m.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    return `<div class="sc-msg ${cls}">
+        <div class="sc-msg__name">${nameLabel} <span class="sc-msg__time">${time}</span></div>
+        <div class="sc-msg__body">${escapeHtml(m.body)}</div>
+    </div>`;
+}
+
+async function initSupportChatsInteractions(container) {
+    await loadSupportChats();
+    container.innerHTML = renderSupportChatsView();
+    observeRenderedWorkspaceContent(container);
+    startStaffSupportSSE();
+
+    container.addEventListener("click", async (e) => {
+        const chatItem = e.target.closest("[data-chat-id]");
+        const filterBtn = e.target.closest("[data-sc-filter]");
+        const sendBtn = e.target.closest(".sc-send-btn");
+        const toggleBtn = e.target.closest(".sc-toggle-status");
+
+        if (filterBtn) {
+            supportChatsState.filter = filterBtn.dataset.scFilter;
+            await loadSupportChats();
+            container.innerHTML = renderSupportChatsView();
+            observeRenderedWorkspaceContent(container);
+            return;
+        }
+
+        if (toggleBtn) {
+            const id = Number(toggleBtn.dataset.chatId);
+            const newStatus = toggleBtn.dataset.status;
+            try {
+                await fetch(`/api/support/chats/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: newStatus }),
+                });
+                if (supportChatsState.activeChat?.id === id) {
+                    supportChatsState.activeChat.status = newStatus;
+                }
+                const chatInList = supportChatsState.chats.find(c => c.id === id);
+                if (chatInList) chatInList.status = newStatus;
+                container.innerHTML = renderSupportChatsView();
+                observeRenderedWorkspaceContent(container);
+                scrollMessagesToBottom();
+            } catch (err) {
+                console.error("[support-chats] toggle error:", err);
+            }
+            return;
+        }
+
+        if (sendBtn) {
+            const input = container.querySelector(".sc-reply-input");
+            const body = (input?.value || "").trim();
+            if (!body || !supportChatsState.activeChat) return;
+            sendBtn.disabled = true;
+            try {
+                await fetch(`/api/support/staff/chats/${supportChatsState.activeChat.id}/messages`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ body }),
+                });
+                if (input) input.value = "";
+            } catch (err) {
+                console.error("[support-chats] send error:", err);
+            } finally {
+                sendBtn.disabled = false;
+                input?.focus();
+            }
+            return;
+        }
+
+        if (chatItem && chatItem.dataset.chatId) {
+            const chatId = Number(chatItem.dataset.chatId);
+            const chat = supportChatsState.chats.find(c => c.id === chatId);
+            if (!chat) return;
+            supportChatsState.activeChat = chat;
+            await loadSupportChatMessages(chatId);
+            startSupportChatSSE(chatId);
+            container.innerHTML = renderSupportChatsView();
+            observeRenderedWorkspaceContent(container);
+            scrollMessagesToBottom();
+        }
+    });
+
+    container.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey && e.target.classList.contains("sc-reply-input")) {
+            e.preventDefault();
+            container.querySelector(".sc-send-btn")?.click();
+        }
+    });
+}
+
+function scrollMessagesToBottom() {
+    const el = document.getElementById("scMessages");
+    if (el) el.scrollTop = el.scrollHeight;
+}
+
 function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
     if (!ViewManager.content) {
         return;
@@ -12612,6 +12928,9 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
     } else if (viewName === "admin") {
         ViewManager.content.innerHTML = renderAdminControlView();
         initAdminControlInteractions(ViewManager.content);
+    } else if (viewName === "support-chats") {
+        ViewManager.content.innerHTML = renderSupportChatsView();
+        initSupportChatsInteractions(ViewManager.content);
     } else {
         ViewManager.content.innerHTML = `<div class="section__title" data-view-anim>Раздел ${viewName} в разработке</div>`;
     }

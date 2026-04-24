@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Qubite — Поддержка</title>
+        <meta name="description" content="Чат поддержки Qubite. Задайте вопрос — мы ответим." />
+        <link rel="stylesheet" href="./front/css/styles.css" />
+        <link rel="icon" href="./front/img/icon.svg" type="image/x-icon" />
+        <style>
+            .support-page { min-height: 100vh; display: flex; flex-direction: column; }
+            .support-shell { flex: 1; display: flex; flex-direction: column; position: relative; }
+            .support-hero { padding: 48px 0 16px; text-align: center; }
+            .support-hero h1 { font-size: 28px; font-weight: 800; color: var(--fg-strong); margin: 0 0 8px; }
+            .support-hero p { color: var(--fg-muted); font-size: 15px; margin: 0; }
+
+            .support-chat-wrap {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                max-width: 640px;
+                width: 100%;
+                margin: 0 auto 32px;
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                background: color-mix(in oklab, var(--bg-2) 88%, transparent);
+                overflow: hidden;
+                min-height: 420px;
+                max-height: 70vh;
+            }
+
+            .support-messages {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px 16px 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .support-msg {
+                max-width: 80%;
+                padding: 10px 14px;
+                border-radius: 14px;
+                font-size: 14px;
+                line-height: 1.5;
+                word-break: break-word;
+            }
+            .support-msg--visitor {
+                align-self: flex-end;
+                background: var(--accent);
+                color: var(--bg);
+                border-bottom-right-radius: 4px;
+            }
+            .support-msg--staff {
+                align-self: flex-start;
+                background: color-mix(in oklab, var(--bg-3) 80%, transparent);
+                color: var(--fg);
+                border-bottom-left-radius: 4px;
+            }
+            .support-msg__name {
+                font-size: 11px;
+                opacity: 0.7;
+                margin-bottom: 2px;
+            }
+            .support-msg__time {
+                font-size: 10px;
+                opacity: 0.5;
+                margin-top: 2px;
+                text-align: right;
+            }
+
+            .support-empty {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--fg-muted);
+                font-size: 14px;
+                padding: 40px;
+                text-align: center;
+            }
+
+            .support-input-bar {
+                display: flex;
+                gap: 8px;
+                padding: 12px 16px;
+                border-top: 1px solid var(--border);
+                background: color-mix(in oklab, var(--bg-2) 60%, transparent);
+            }
+            .support-input-bar input {
+                flex: 1;
+                padding: 10px 14px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--bg);
+                color: var(--fg);
+                font-size: 14px;
+                outline: none;
+            }
+            .support-input-bar input:focus { border-color: var(--accent); }
+            .support-input-bar button {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 10px;
+                background: var(--accent);
+                color: var(--bg);
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .support-input-bar button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .support-status-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 16px;
+                border-bottom: 1px solid var(--border);
+                font-size: 12px;
+                color: var(--fg-muted);
+            }
+            .support-status-dot {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #4caf50;
+                margin-right: 6px;
+            }
+            .support-status-dot--closed { background: #999; }
+
+            .support-closed-notice {
+                text-align: center;
+                padding: 12px 16px;
+                border-top: 1px solid var(--border);
+                color: var(--fg-muted);
+                font-size: 13px;
+                background: color-mix(in oklab, var(--bg-2) 60%, transparent);
+            }
+            .support-closed-notice button {
+                background: none;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                color: var(--accent);
+                padding: 6px 14px;
+                cursor: pointer;
+                font-size: 13px;
+                margin-left: 8px;
+            }
+
+            .support-contacts {
+                text-align: center;
+                padding: 16px 0 32px;
+                color: var(--fg-muted);
+                font-size: 13px;
+            }
+            .support-contacts a { color: var(--accent); }
+        </style>
+    </head>
+    <body class="support-page">
+        <div class="support-shell">
+            <div class="grid" aria-hidden="true"></div>
+            <main class="container">
+                <div class="support-hero">
+                    <h1>Поддержка</h1>
+                    <p>Напишите нам — ответим как можно скорее</p>
+                </div>
+
+                <div class="support-chat-wrap" id="chatWrap">
+                    <div class="support-status-bar" id="statusBar">
+                        <span><span class="support-status-dot" id="statusDot"></span><span id="statusText">Подключение...</span></span>
+                    </div>
+                    <div class="support-messages" id="messagesContainer">
+                        <div class="support-empty" id="emptyState">Начните диалог — напишите первое сообщение</div>
+                    </div>
+                    <div class="support-input-bar" id="inputBar">
+                        <input type="text" id="msgInput" placeholder="Введите сообщение..." maxlength="2000" autocomplete="off" />
+                        <button id="sendBtn" disabled>Отправить</button>
+                    </div>
+                </div>
+
+                <div class="support-contacts">
+                    Или напишите на <a href="mailto:support@qubiteapp.online">support@qubiteapp.online</a>
+                </div>
+            </main>
+        </div>
+
+        <script>
+        (function() {
+            const messagesEl = document.getElementById("messagesContainer");
+            const emptyEl = document.getElementById("emptyState");
+            const inputEl = document.getElementById("msgInput");
+            const sendBtn = document.getElementById("sendBtn");
+            const statusText = document.getElementById("statusText");
+            const statusDot = document.getElementById("statusDot");
+            const inputBar = document.getElementById("inputBar");
+
+            let chatId = null;
+            let sse = null;
+            let sending = false;
+
+            function escapeHtml(str) {
+                const div = document.createElement("div");
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function formatTime(iso) {
+                const d = new Date(iso);
+                return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+            }
+
+            function renderMessage(msg) {
+                const isStaff = msg.sender_type === "staff";
+                const cls = isStaff ? "support-msg--staff" : "support-msg--visitor";
+                const nameHtml = isStaff && msg.sender_name
+                    ? `<div class="support-msg__name">${escapeHtml(msg.sender_name)}</div>`
+                    : "";
+                return `<div class="support-msg ${cls}">${nameHtml}${escapeHtml(msg.body)}<div class="support-msg__time">${formatTime(msg.created_at)}</div></div>`;
+            }
+
+            function scrollToBottom() {
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+
+            function appendMessage(msg) {
+                if (emptyEl) emptyEl.remove();
+                messagesEl.insertAdjacentHTML("beforeend", renderMessage(msg));
+                scrollToBottom();
+            }
+
+            function showMessages(messages) {
+                if (!messages.length) return;
+                if (emptyEl) emptyEl.remove();
+                messagesEl.innerHTML = messages.map(renderMessage).join("");
+                scrollToBottom();
+            }
+
+            function startSSE() {
+                if (!chatId || sse) return;
+                sse = new EventSource(`/api/support/chats/${chatId}/live`);
+                sse.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        appendMessage(msg);
+                    } catch (_) {}
+                };
+                sse.onerror = () => {
+                    sse.close();
+                    sse = null;
+                    setTimeout(startSSE, 3000);
+                };
+            }
+
+            function setConnected(status) {
+                if (status === "open") {
+                    statusText.textContent = "Чат открыт";
+                    statusDot.className = "support-status-dot";
+                    sendBtn.disabled = false;
+                } else if (status === "closed") {
+                    statusText.textContent = "Чат закрыт";
+                    statusDot.className = "support-status-dot support-status-dot--closed";
+                    inputBar.innerHTML = `<div class="support-closed-notice">Этот чат закрыт. <button id="reopenBtn">Начать новый</button></div>`;
+                    document.getElementById("reopenBtn")?.addEventListener("click", () => {
+                        chatId = null;
+                        initChat();
+                    });
+                } else {
+                    statusText.textContent = "Подключение...";
+                    sendBtn.disabled = true;
+                }
+            }
+
+            async function initChat() {
+                setConnected("connecting");
+                messagesEl.innerHTML = `<div class="support-empty" id="emptyState">Начните диалог — напишите первое сообщение</div>`;
+
+                // Reset input bar if it was replaced
+                const wrap = document.getElementById("chatWrap");
+                const oldInput = document.getElementById("inputBar");
+                if (!document.getElementById("msgInput")) {
+                    oldInput.innerHTML = `<input type="text" id="msgInput" placeholder="Введите сообщение..." maxlength="2000" autocomplete="off" /><button id="sendBtn" disabled>Отправить</button>`;
+                    rebindInput();
+                }
+
+                try {
+                    const res = await fetch("/api/support/chats", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({}),
+                    });
+                    const data = await res.json();
+                    if (!data.chat) throw new Error("no chat");
+
+                    chatId = data.chat.id;
+                    setConnected(data.chat.status);
+
+                    const msgRes = await fetch(`/api/support/chats/${chatId}/messages`);
+                    const msgData = await msgRes.json();
+                    if (msgData.messages?.length) {
+                        showMessages(msgData.messages);
+                    }
+
+                    startSSE();
+                } catch (err) {
+                    statusText.textContent = "Ошибка подключения";
+                    console.error("[support]", err);
+                }
+            }
+
+            async function sendMessage() {
+                const body = (document.getElementById("msgInput")?.value || "").trim();
+                if (!body || sending || !chatId) return;
+
+                sending = true;
+                const btn = document.getElementById("sendBtn");
+                if (btn) btn.disabled = true;
+
+                try {
+                    const res = await fetch(`/api/support/chats/${chatId}/messages`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ body }),
+                    });
+                    if (res.ok) {
+                        const inp = document.getElementById("msgInput");
+                        if (inp) inp.value = "";
+                    }
+                } catch (err) {
+                    console.error("[support] send error:", err);
+                } finally {
+                    sending = false;
+                    const btn2 = document.getElementById("sendBtn");
+                    if (btn2) btn2.disabled = false;
+                }
+            }
+
+            function rebindInput() {
+                const inp = document.getElementById("msgInput");
+                const btn = document.getElementById("sendBtn");
+                if (inp) {
+                    inp.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                        }
+                    });
+                }
+                if (btn) {
+                    btn.addEventListener("click", sendMessage);
+                }
+            }
+
+            rebindInput();
+            initChat();
+        })();
+        </script>
+    </body>
+</html>

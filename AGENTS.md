@@ -87,7 +87,7 @@
 - турниры, команды, рейтинг, аналитика
 - organizer/moderation/admin/owner contours
 - Excel import для задач и roster
-- OAuth через Google/Yandex
+- OAuth через Google/Yandex/VK/Telegram (Login Widget)
 - Telegram-бот для управления платформой (owner + модераторы)
 
 ## Что ещё нельзя выдавать за реализованное
@@ -96,7 +96,6 @@
 - AI-проверка как готовая user-facing функция
 - апелляции
 - drag-and-drop / visual task types
-- VK / Telegram login (бот управления есть, но login через TG — нет)
 
 ## Обязательное правило сопровождения
 
