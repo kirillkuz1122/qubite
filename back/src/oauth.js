@@ -110,13 +110,13 @@ const PROVIDERS = {
         tokenUrl: null,
         userInfoUrl: null,
         scopes: [],
-        buildAuthorizeParams({ state }) {
-            const origin = new URL(APP_BASE_URL).origin;
+        buildAuthorizeParams({ state, baseUrl = APP_BASE_URL }) {
+            const origin = new URL(baseUrl).origin;
             return {
                 bot_id: TELEGRAM_BOT_ID,
                 origin,
                 request_access: "write",
-                return_to: `${this.callbackUrl}?state=${encodeURIComponent(state)}`,
+                return_to: `${origin}/api/auth/oauth/telegram/callback?state=${encodeURIComponent(state)}`,
             };
         },
         mapProfile(payload) {
@@ -155,7 +155,7 @@ function listOAuthProviders() {
         label: provider.label,
         enabled: isProviderConfigured(provider.slug),
         startUrl: isProviderConfigured(provider.slug)
-            ? `${APP_BASE_URL}/api/auth/oauth/${provider.slug}/start`
+            ? `/api/auth/oauth/${provider.slug}/start`
             : null,
     }));
 

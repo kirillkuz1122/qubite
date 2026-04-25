@@ -523,9 +523,9 @@ app.use((req, res, next) => {
             "img-src 'self' data: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline'",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com",
-            "connect-src 'self' https://challenges.cloudflare.com https://id.vk.ru https://stat-events-vkid.vk.ru",
-            "frame-src https://challenges.cloudflare.com https://id.vk.ru",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://id.vk.ru https://challenges.cloudflare.com",
+            "connect-src 'self' https://challenges.cloudflare.com https://id.vk.ru https://stat-events-vkid.vk.ru https://api.vk.com https://vk.com https://login.vk.com",
+            "frame-src https://challenges.cloudflare.com https://id.vk.ru https://oauth.telegram.org https://vk.com https://login.vk.com",
         ].join("; "),
     );
     if (IS_PRODUCTION) {
@@ -2795,13 +2795,35 @@ async function ensureOAuthUser(profile) {
 }
 
 function redirectToApp(res, params) {
-    const url = new URL(APP_BASE_URL);
+    const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "") {
-            url.searchParams.set(key, String(value));
+            query.set(key, String(value));
         }
     });
-    res.redirect(url.toString());
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    res.redirect(`/${suffix}`);
+}
+
+function getRequestBaseUrl(req) {
+    const configuredUrl = new URL(APP_BASE_URL);
+    const configuredHost = configuredUrl.hostname.toLowerCase();
+    if (configuredHost !== "localhost" && configuredHost !== "127.0.0.1") {
+        return configuredUrl.origin;
+    }
+
+    const host = String(req.get("x-forwarded-host") || req.get("host") || "")
+        .split(",")[0]
+        .trim();
+    if (!host) return configuredUrl.origin;
+
+    const rawProto = String(req.get("x-forwarded-proto") || req.protocol || "https")
+        .split(",")[0]
+        .trim()
+        .replace(/:$/, "");
+    const isLoopbackHost = /^(localhost|127\.0\.0\.1)(:\\d+)?$/i.test(host);
+    const proto = rawProto === "http" && IS_PRODUCTION && !isLoopbackHost ? "https" : rawProto;
+    return `${proto || "https"}://${host}`;
 }
 
 function normalizeTournamentStatusInput(value) {
@@ -4201,6 +4223,7 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
         res.redirect(
             buildOAuthAuthorizeUrl(providerSlug, {
                 state,
+                baseUrl: getRequestBaseUrl(req),
             }),
         );
     } catch (error) {

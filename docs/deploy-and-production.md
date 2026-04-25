@@ -55,7 +55,7 @@ cd /var/www/qubiteapp/ && git pull && cd back/ && npm install && pm2 restart 0 -
 Дополнительно:
 
 - email delivery через `Resend` или другой рабочий канал;
-- OAuth keys для включённых провайдеров;
+- OAuth/VK ID/Telegram Login keys для включённых провайдеров;
 - CAPTCHA keys для текущей anti-bot конфигурации.
 
 ## Nginx
@@ -114,7 +114,7 @@ PM2 используется как process manager.
 - backend не торчит наружу напрямую
 - регистрация и логин работают
 - owner/admin операции не ломают role protections
-- OAuth работает только для реально настроенных провайдеров
+- OAuth/VK ID/Telegram Login работает только для реально настроенных провайдеров
 - CAPTCHA/anti-bot flow работает на реальном домене
 - SQLite-файл и `.env` не попадают в публичную раздачу
 

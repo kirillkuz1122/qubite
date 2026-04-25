@@ -145,6 +145,7 @@ const DEFAULT_OAUTH_PROVIDERS = [
 const OAUTH_ICONS = {
     google: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09a7.12 7.12 0 0 1 0-4.18V7.07H2.18A11.99 11.99 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`,
     yandex: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#FC3F1D"/><path d="M13.63 7.56h-.79c-1.3 0-1.98.7-1.98 1.59 0 1 .48 1.5 1.46 2.17l.82.56-2.35 3.9h-1.62l2.1-3.49c-1.18-.83-1.85-1.6-1.85-2.94 0-1.67 1.17-2.84 3.38-2.84h1.63v9.27h-1.35V7.56h.55z" fill="#fff"/></svg>`,
+    vk: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="12" fill="#0077FF"/><path d="M12.77 16.87h.73s.22-.02.33-.14c.1-.1.1-.31.1-.31s-.01-1.07.49-1.23c.49-.16 1.13 1.04 1.8 1.5.51.35.9.27.9.27l1.8-.02s.94-.06.5-.78c-.04-.06-.26-.55-1.33-1.56-1.12-1.06-.97-.89.38-2.72.82-1.12 1.15-1.8 1.05-2.1-.1-.28-.7-.21-.7-.21l-2.03.01s-.15-.02-.26.05c-.11.06-.18.21-.18.21s-.33.87-.76 1.6c-.92 1.56-1.28 1.64-1.43 1.55-.35-.23-.26-1.8-.26-1.8s0-.58-.19-.83c-.15-.21-.43-.27-.56-.28-.31-.03-1.35 0-1.35 0s-.5.03-.7.24c0 0-.17.21.02.21.23 0 .55.1.55.1s.35.2.5.64c.3.9-.02 2.55-.02 2.55s-.11.95-.67.95c-.41 0-.99-.42-1.41-1.21-.42-.78-.74-1.65-.74-1.65s-.06-.15-.17-.22c-.13-.1-.31-.13-.31-.13l-1.93.01s-.29.01-.4.13c-.09.11-.01.34-.01.34s1.54 3.57 3.27 5.37c1.59 1.65 3.39 1.54 3.39 1.54z" fill="#fff"/></svg>`,
     telegram: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" fill="#2AABEE"/><path d="M7.05 11.81l8.15-3.14c.38-.14.7.09.58.64l-1.39 6.53c-.1.46-.37.57-.75.35l-2.08-1.53-1 .97c-.11.11-.2.2-.42.2l.15-2.12 3.87-3.5c.17-.15-.04-.23-.26-.09L9.3 13.2l-2.02-.63c-.44-.14-.45-.44.09-.65z" fill="#fff"/></svg>`,
 };
 
@@ -865,7 +866,17 @@ function escapeHtml(value) {
         return apiClient.escapeHtml(value);
     }
 
-    return String(value ?? "");
+    return String(value ?? "").replace(
+        /[&<>"']/g,
+        (char) =>
+            ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+            })[char],
+    );
 }
 
 function getUserState() {
@@ -1903,7 +1914,7 @@ function pushNotificationHistory(title, desc, type = "info") {
                   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                   title: String(title || "Уведомление"),
                   desc: String(desc || ""),
-                  type,
+                  type: normalizeNotificationType(type),
                   count: 1,
                   createdAt: now,
               },
@@ -1916,6 +1927,10 @@ function pushNotificationHistory(title, desc, type = "info") {
 function clearNotificationHistory() {
     saveStoredNotifications([]);
     markNotificationsRead();
+}
+
+function normalizeNotificationType(type) {
+    return ["success", "error", "info", "warning"].includes(type) ? type : "info";
 }
 
 function getNotificationTypeMeta(type) {
@@ -1932,8 +1947,12 @@ function getNotificationTypeMeta(type) {
             label: "Инфо",
             icon: "info",
         },
+        warning: {
+            label: "Важно",
+            icon: "warning",
+        },
     };
-    return map[type] || map.info;
+    return map[normalizeNotificationType(type)] || map.info;
 }
 
 function renderNotificationsPanel() {
@@ -3176,9 +3195,10 @@ const Toast = {
     },
     show(title, desc, type = "success", duration = 4000) {
         pushNotificationHistory(title, desc, type);
+        const safeType = normalizeNotificationType(type);
         const container = this.getContainer();
         const toast = document.createElement("div");
-        toast.className = `toast toast--${type}`;
+        toast.className = `toast toast--${safeType}`;
 
         const icons = {
             success: "check_circle",
@@ -3189,17 +3209,31 @@ const Toast = {
 
         toast.style.position = "relative";
         toast.style.overflow = "hidden";
-        toast.innerHTML = `
-            <div class="toast__icon">
-                ${window.getSVGIcon(icons[type], ` class="icon-svg icon-svg-${icons[type]}"`)}
-            </div>
-            <div class="toast__content">
-                <div class="toast__title">${title}</div>
-                <div class="toast__desc">${desc}</div>
-            </div>
-            <div class="toast__progress" style="animation-duration:${duration}ms;"></div>
-        `;
 
+        const iconNode = document.createElement("div");
+        iconNode.className = "toast__icon";
+        iconNode.innerHTML = window.getSVGIcon(
+            icons[safeType],
+            ` class="icon-svg icon-svg-${icons[safeType]}"`,
+        );
+
+        const contentNode = document.createElement("div");
+        contentNode.className = "toast__content";
+
+        const titleNode = document.createElement("div");
+        titleNode.className = "toast__title";
+        titleNode.textContent = String(title || "Уведомление");
+
+        const descNode = document.createElement("div");
+        descNode.className = "toast__desc";
+        descNode.textContent = String(desc || "");
+
+        const progressNode = document.createElement("div");
+        progressNode.className = "toast__progress";
+        progressNode.style.animationDuration = `${Number(duration) || 4000}ms`;
+
+        contentNode.append(titleNode, descNode);
+        toast.append(iconNode, contentNode, progressNode);
         container.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add("show"));
 
@@ -3547,25 +3581,32 @@ function fitWord() {
     if (!el) return;
     const parent = el.parentElement;
     const viewportWidth = window.visualViewport?.width || window.innerWidth;
-    const parentWidth = parent.getBoundingClientRect().width || parent.clientWidth || viewportWidth;
-    const maxW = Math.max(240, Math.min(parentWidth, viewportWidth) - 40);
+    const parentWidth =
+        parent.getBoundingClientRect().width || parent.clientWidth || viewportWidth;
+    const sidePadding = viewportWidth <= 640 ? 56 : 40;
+    const maxW = Math.max(220, Math.min(parentWidth, viewportWidth) - sidePadding);
     const minPx = 48,
         maxPx = 1000;
 
+    el.style.width = "max-content";
+    el.style.maxWidth = "none";
     el.style.fontSize = maxPx + "px";
     el.style.whiteSpace = "nowrap";
 
-    const w = el.scrollWidth;
+    const w = el.getBoundingClientRect().width || el.scrollWidth;
     const fs = parseFloat(getComputedStyle(el).fontSize);
 
     if (w > 0) {
-        const ratio = (maxW * 0.98) / w;
+        const ratio = (maxW * 0.96) / w;
         const next = Math.max(
             minPx,
             Math.min(maxPx, Math.floor(fs * Math.min(1, ratio))),
         );
         el.style.fontSize = next + "px";
     }
+
+    el.style.width = "100%";
+    el.style.maxWidth = "100%";
 }
 window.addEventListener("resize", fitWord, { passive: true });
 window.addEventListener("orientationchange", fitWord);
@@ -4535,7 +4576,7 @@ function initConfirmModal({
     if (icon) icon.style.display = isDanger ? "block" : "none";
 
     modal.querySelector("#confirmTitle").textContent = title;
-    modal.querySelector("#confirmDesc").innerHTML = desc;
+    modal.querySelector("#confirmDesc").textContent = String(desc || "");
     modal.querySelector("#confirmExtra").innerHTML = extra;
 
     const confirmBtn = modal.querySelector("#confirmBtn");
@@ -13783,6 +13824,10 @@ function removeApplication(id) {
     );
 }
 
+function getTeamMemberKey(member) {
+    return String(member?.userId || member?.id || member?.uid || member?.name || "");
+}
+
 function renderTeam() {
     return `
         <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
@@ -13813,15 +13858,17 @@ function renderTeamSettings() {
     // ЕСЛИ ПОЛЬЗОВАТЕЛЬ НЕ В КОМАНДЕ
     if (!userTeamState.inTeam) {
         const invites = teamInvitations
-            .map(
-                (inv, idx) => `
-            <div class="team-invite-card" data-invite-id="${inv.id}" data-view-anim style="transition-delay: ${0.1 + idx * 0.05}s">
+            .map((inv, idx) => {
+                const iconName = String(inv.icon || "group");
+                const safeIconName = escapeHtml(iconName);
+                return `
+            <div class="team-invite-card" data-invite-id="${escapeHtml(inv.id)}" data-view-anim style="transition-delay: ${0.1 + idx * 0.05}s">
                 <div class="invite-icon-box">
-                    ${window.getSVGIcon(inv.icon, ` class="icon-svg icon-svg-${inv.icon}"`)}
+                    ${window.getSVGIcon(iconName, ` class="icon-svg icon-svg-${safeIconName}"`)}
                 </div>
                 <div class="invite-content">
-                    <div class="invite-title">Вас пригласили в команду "${inv.teamName}"</div>
-                    <div class="invite-desc">Приглашение от пользователя <a href="javascript:void(0)" class="text-accent-link">${inv.leader}</a></div>
+                    <div class="invite-title">Вас пригласили в команду "${escapeHtml(inv.teamName)}"</div>
+                    <div class="invite-desc">Приглашение от пользователя <a href="javascript:void(0)" class="text-accent-link">${escapeHtml(inv.leader)}</a></div>
                 </div>
                 <div class="invite-actions">
                     <button class="btn btn--muted btn--sm action-report" title="Пожаловаться">
@@ -13831,8 +13878,8 @@ function renderTeamSettings() {
                     <button class="btn btn--accent btn--sm action-accept">Принять</button>
                 </div>
             </div>
-        `,
-            )
+        `;
+            })
             .join("");
 
         const separator =
@@ -13885,13 +13932,13 @@ function renderTeamSettings() {
         ? userTeamState.applications
               .map(
                   (app, idx) => `
-        <div class="team-invite-card" data-app-id="${app.id}" data-view-anim>
+        <div class="team-invite-card" data-app-id="${escapeHtml(app.id)}" data-view-anim>
             <div class="invite-icon-box">
                 <svg class="icon-svg icon-svg-mail" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280L160-640v400h640v-400L480-440Zm0-80 320-200H160l320 200ZM160-640v-80 480-400Z"/></g><g class="svg-filled" style="display:none"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280 320-200v-80L480-520 160-720v80l320 200Z"/></g></svg>
             </div>
             <div class="invite-content">
                 <div class="invite-title">Заявка на вступление</div>
-                <div class="invite-desc">Пользователь <a href="javascript:void(0)" class="text-accent-link">${app.name}</a> хочет присоединиться к команде.</div>
+                <div class="invite-desc">Пользователь <a href="javascript:void(0)" class="text-accent-link">${escapeHtml(app.name)}</a> хочет присоединиться к команде.</div>
             </div>
             <div class="invite-actions">
                 <button class="btn btn--muted btn--sm app-report" title="Пожаловаться">
@@ -13907,23 +13954,24 @@ function renderTeamSettings() {
         : "";
 
     const members = userTeamState.members
-        .map(
-            (m, idx) => `
-        <div class="member-card">
+        .map((m, idx) => {
+            const memberName = String(m.name || "Участник");
+            return `
+        <div class="member-card" data-member-key="${escapeHtml(getTeamMemberKey(m))}">
             <div class="member-avatar-wrap">
                 <div class="profile-avatar ${m.sub === true ? "has-sub" : ""}">
                     <div class="avatar-inner ">
-                        <span class="avatar-letter">${m.name.charAt(0).toUpperCase()}</span>
+                        <span class="avatar-letter">${escapeHtml(memberName.charAt(0).toUpperCase())}</span>
                     </div>
                 </div>
             </div>
             <div class="member-info">
                 <div class="member-name">
-                    ${m.name}
+                    ${escapeHtml(memberName)}
                     <span class="member-me">${m.me === true ? " (Вы)" : ""}</span>
                     ${m.role === "owner" ? '<svg class="role-icon icon-svg icon-svg-military_tech" title="Лидер" style="color: var(--accent-to); font-size: 18px; margin-left: 4px;" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm80 80v234l80 48v-282h-80Zm240 0h-80v282l80-48v-234ZM480-647Zm-40-12Zm80 0Z"/></g><g class="svg-filled" style="display:none"><path d="M280-880h400v314q0 23-10 41t-28 29l-142 84 28 92h152l-124 88 48 152-124-94-124 94 48-152-124-88h152l28-92-142-84q-18-11-28-29t-10-41v-314Zm160 80v282l40 24 40-24v-282h-80Z"/></g></svg>' : ""}
                 </div>
-                <div class="member-uid">UID: ${m.uid}</div>
+                <div class="member-uid">UID: ${escapeHtml(m.uid)}</div>
             </div>
             <div class="member-actions">
                 ${
@@ -13936,8 +13984,8 @@ function renderTeamSettings() {
                 }
             </div>
         </div>
-    `,
-        )
+    `;
+        })
         .join("");
 
     const separator =
@@ -13951,12 +13999,12 @@ function renderTeamSettings() {
         <div class="team-info-grid" data-view-anim>
             <div class="field">
                 <label>Название команды</label>
-                <input class="input" name="teamName" value="${userTeamState.name}" ${!isOwner ? "readonly" : ""}>
+                <input class="input" name="teamName" value="${escapeHtml(userTeamState.name)}" ${!isOwner ? "readonly" : ""}>
             </div>
             <div class="field">
                 <label>ID команды</label>
                 <div style="display: flex; gap: 8px;">
-                    <input class="input" id="team-id-input" readonly value="${userTeamState.id}" style="flex:1">
+                    <input class="input" id="team-id-input" readonly value="${escapeHtml(userTeamState.id)}" style="flex:1">
                     <button class="copy-btn" id="copy-team-id" title="Копировать"><svg class="icon-svg icon-svg-content_copy" viewBox="0 -960 960 960" fill="currentColor"><g class="svg-outline"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></g><g class="svg-filled" style="display:none"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/></g></svg></button>
                 </div>
             </div>
@@ -13968,7 +14016,7 @@ function renderTeamSettings() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px;" data-view-anim>
             <div class="field">
                 <label>Описание команды</label>
-                <textarea class="textarea" style="min-height: 120px;" placeholder="Добавьте краткое описание вашей команды...">${userTeamState.description === "Добавьте краткое описание вашей команды..." ? "" : userTeamState.description}</textarea>
+                <textarea class="textarea" style="min-height: 120px;" placeholder="Добавьте краткое описание вашей команды...">${escapeHtml(userTeamState.description === "Добавьте краткое описание вашей команды..." ? "" : userTeamState.description)}</textarea>
             </div>
             <div class="admin-transfer-card">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -14251,38 +14299,47 @@ function initTeamInteractions(container) {
         if (transferBtn) {
             transferBtn.addEventListener("click", () => {
                 const modal = document.getElementById("transferAdminModal");
+                if (!modal) return;
                 const list = modal.querySelector("#transferMembersList");
+                if (!list) return;
                 // Рендерим список участников (кроме себя)
                 list.innerHTML =
                     userTeamState.members
                         .filter((m) => m.role !== "owner")
-                        .map(
-                            (m) => `
-                        <div class="member-card" style="cursor: pointer; border-style: dashed;" onclick="this.parentElement.dispatchEvent(new CustomEvent('select', {detail: '${m.name}'}))">
+                        .map((m) => {
+                            const memberName = String(m.name || "Участник");
+                            const memberKey = getTeamMemberKey(m);
+                            return `
+                        <div class="member-card" data-transfer-member-key="${escapeHtml(memberKey)}" style="cursor: pointer; border-style: dashed;">
                             <div class="member-avatar-wrap">
                                 <div class="profile-avatar ${m.sub ? "has-sub" : ""}">
-                                    <div class="avatar-inner"><span class="avatar-letter">${m.name[0]}</span></div>
+                                    <div class="avatar-inner"><span class="avatar-letter">${escapeHtml(memberName.charAt(0).toUpperCase())}</span></div>
                                 </div>
                             </div>
                             <div class="member-info">
-                                <div class="member-name">${m.name}</div>
-                                <div class="member-uid">UID: ${m.uid}</div>
+                                <div class="member-name">${escapeHtml(memberName)}</div>
+                                <div class="member-uid">UID: ${escapeHtml(m.uid)}</div>
                             </div>
                         </div>
-                    `,
-                        )
+                    `;
+                        })
                         .join("") ||
                     '<p style="text-align:center; padding: 20px; color: var(--fg-muted);">Нет доступных участников</p>';
 
-                const onSelect = (e) => {
-                    const name = e.detail;
-                    const member = userTeamState.members.find((item) => item.name === name);
+                list.onclick = (event) => {
+                    const card = event.target.closest("[data-transfer-member-key]");
+                    if (!card || !list.contains(card)) return;
+                    const memberKey = card.dataset.transferMemberKey || "";
+                    const member = userTeamState.members.find(
+                        (item) => getTeamMemberKey(item) === memberKey,
+                    );
+                    if (!member) return;
+                    const name = String(member.name || "участнику");
                     initConfirmModal({
                         title: "Передача прав",
-                        desc: `Вы действительно хотите передать права администратора участнику <b>${name}</b>? Вы потеряете статус владельца.`,
+                        desc: `Вы действительно хотите передать права администратора участнику ${name}? Вы потеряете статус владельца.`,
                         isDanger: true,
                         onConfirm: async () => {
-                            if (!member) return;
                             Loader.show();
                             try {
                                 await apiClient.transferTeam(member.userId || member.id);
@@ -14301,9 +14358,7 @@ function initTeamInteractions(container) {
                             }
                         },
                     });
-                    list.removeEventListener("select", onSelect);
                 };
-                list.addEventListener("select", onSelect);
                 openModal("transferAdminModal");
             });
         }
@@ -14314,13 +14369,14 @@ function initTeamInteractions(container) {
             .forEach((btn) => {
                 btn.addEventListener("click", () => {
                     const card = btn.closest(".member-card");
-                    const name = card
-                        .querySelector(".member-name")
-                        .textContent.trim()
-                        .replace(" (Вы)", "");
+                    const memberKey = card?.dataset.memberKey || "";
+                    const member = userTeamState.members.find(
+                        (item) => getTeamMemberKey(item) === memberKey,
+                    );
+                    const name = String(member?.name || "участника");
                     initConfirmModal({
                         title: "Удаление",
-                        desc: `Вы уверены, что хотите удалить <b>${name}</b> из команды?`,
+                        desc: `Вы уверены, что хотите удалить ${name} из команды?`,
                         isDanger: true,
                         extra: `
                         <label class="checkbox" style="margin: 0">
@@ -14329,9 +14385,6 @@ function initTeamInteractions(container) {
                         </label>
                     `,
                         onConfirm: async () => {
-                            const member = userTeamState.members.find(
-                                (item) => item.name === name,
-                            );
                             if (!member) return;
 
                             Loader.show();

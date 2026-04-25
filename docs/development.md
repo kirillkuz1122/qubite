@@ -81,6 +81,9 @@ http://127.0.0.1:3000
 - `YANDEX_CLIENT_ID`
 - `YANDEX_CLIENT_SECRET`
 - `YANDEX_CALLBACK_URL`
+- `VK_APP_ID` — ID приложения VK ID SDK, secret для текущей VK-интеграции не нужен
+- `TELEGRAM_BOT_TOKEN` — нужен и для Telegram Bot, и для Telegram Login Widget
+- `TELEGRAM_ENABLED` — включает только Telegram-бота; Login Widget использует токен независимо от polling-режима
 
 ### CAPTCHA
 

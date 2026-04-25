@@ -182,10 +182,11 @@
 - `NODE_ENV=dev` — влияет на режимы логирования и guard'ов.
 - `TRUST_PROXY=0` — в проде за Nginx должно быть `1`.
 - Лимиты body: `JSON_BODY_LIMIT=32kb`, `HEAVY_JSON_BODY_LIMIT=256kb`, `IMPORT_JSON_BODY_LIMIT=2mb` (используются в `server.js` на разных группах роутов).
-- `TELEGRAM_BOT_TOKEN` — токен бота; если пуст, бот не запускается.
+- `VK_APP_ID` — ID приложения VK ID SDK; client secret для текущего VK-входа не используется.
+- `TELEGRAM_BOT_TOKEN` — токен бота; если пуст, бот не запускается и Telegram Login Widget не включается.
 - `TELEGRAM_OWNER_ID` — Telegram user ID владельца (единственный source of truth для owner-доступа в боте).
 - `TELEGRAM_MODERATOR_IDS` — CSV доп. модераторов (жёсткий whitelist, требует рестарта); динамические выдачи — через БД (`telegram_access`).
-- `TELEGRAM_ENABLED=true` — kill-switch для бота без удаления токена.
+- `TELEGRAM_ENABLED=true` — kill-switch только для Telegram-бота без удаления токена; Login Widget зависит от `TELEGRAM_BOT_TOKEN`.
 
 ### Прочее
 

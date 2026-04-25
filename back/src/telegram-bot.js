@@ -25,10 +25,24 @@ function startTelegramBot({ supportChatEmitter } = {}) {
         console.warn("[TG bot] TELEGRAM_ENABLED=false — bot disabled.");
         return null;
     }
+    const pm2Instance = process.env.NODE_APP_INSTANCE;
+    if (pm2Instance && pm2Instance !== "0") {
+        console.warn(`[TG bot] PM2 instance ${pm2Instance} — bot polling skipped.`);
+        return null;
+    }
+    if (bot) {
+        return bot;
+    }
 
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
     bot.on("polling_error", (err) => {
+        if (String(err.message || "").includes("409 Conflict")) {
+            console.error("[TG bot] Polling conflict: another bot instance is already running. Stopping this polling loop.");
+            bot.stopPolling({ reason: "409 conflict" }).catch(() => {});
+            bot = null;
+            return;
+        }
         console.error("[TG bot] Polling error:", err.message);
     });
 

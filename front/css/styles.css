@@ -1386,7 +1386,7 @@ button.card--all {
   }
 
   .word {
-    font-size: clamp(58px, 17vw, 96px);
+    font-size: min(15.5vw, 86px);
   }
   .cookie-notice__btn {
     width: 100%;

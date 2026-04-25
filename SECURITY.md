@@ -84,6 +84,7 @@
 **Риски и компромиссы:**
 - Действия через TG обходят web-based rate limiter'ы и email-2FA. Компенсация: жёсткий whitelist, audit log на каждое действие, двухшаговое подтверждение деструктивных операций.
 - `TELEGRAM_BOT_TOKEN` — секрет, дающий доступ к привилегированным операциям. Должен быть только в `.env`, никогда в Git.
+- Telegram Login Widget использует тот же токен только для HMAC-проверки callback-параметров; polling-конфликт Telegram-бота не должен ломать web-login.
 - Все действия бота записываются в `audit_log` с пометкой `[TG:<id>]` и видны в web-админке.
 - Push-уведомления owner'у отправляются при критичных audit-событиях: `system.setting.update`, `user.role.change`, `user.block`, `user.delete.hard`, `moderation.task.reject`.
 
