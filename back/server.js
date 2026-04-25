@@ -177,6 +177,15 @@ const {
     createSupportMessage,
     listSupportMessages,
     getLatestSupportMessageId,
+    applyTournamentRatingChange,
+    applyDailyBonusRatingChange,
+    applyRatingDecay,
+    migrateLegacyRating,
+    listRatingChanges,
+    countRatingChanges,
+    getRatingSeriesFromHistory,
+    buildRankTitle,
+    RATING_START,
 } = require("./src/db");
 
 // Wrapper for audit log to support real-time emitter
@@ -353,6 +362,7 @@ server.maxRequestsPerSocket = MAX_REQUESTS_PER_SOCKET;
 const ROLE_USER = "user";
 const ROLE_ORGANIZER = "organizer";
 const ROLE_MODERATOR = "moderator";
+const RATING_MIN = 800;
 const ROLE_ADMIN = "admin";
 const ROLE_OWNER = "owner";
 const ACTIVE_USER_STATUSES = new Set(["active"]);
@@ -514,8 +524,8 @@ app.use((req, res, next) => {
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline'",
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com",
-            "connect-src 'self' https://challenges.cloudflare.com",
-            "frame-src https://challenges.cloudflare.com",
+            "connect-src 'self' https://challenges.cloudflare.com https://id.vk.ru https://stat-events-vkid.vk.ru",
+            "frame-src https://challenges.cloudflare.com https://id.vk.ru",
         ].join("; "),
     );
     if (IS_PRODUCTION) {
@@ -1043,9 +1053,9 @@ function calculateProgressiveRatings(entries) {
 
     return sorted.map((entry) => {
         const previousRating = Math.max(
-            1200,
+            RATING_MIN,
             Math.round(
-                1450 +
+                RATING_START +
                     totalScore * 0.45 +
                     totalSolved * 8 +
                     winsCount * 40 +
@@ -1063,9 +1073,9 @@ function calculateProgressiveRatings(entries) {
         }
 
         const rating = Math.max(
-            1200,
+            RATING_MIN,
             Math.round(
-                1450 +
+                RATING_START +
                     totalScore * 0.45 +
                     totalSolved * 8 +
                     winsCount * 40 +
@@ -1087,8 +1097,8 @@ function buildDailyRatingSeries(days, ratingHistory, fallbackBase, now = new Dat
     let cursor = 0;
     let current =
         history.length > 0
-            ? Math.max(Number(history[0].previousRating || 1450), 1200)
-            : Math.max(Number(fallbackBase || 1450), 1200);
+            ? Math.max(Number(history[0].previousRating || RATING_START), RATING_MIN)
+            : Math.max(Number(fallbackBase || RATING_START), RATING_MIN);
 
     for (let offset = days - 1; offset >= 0; offset -= 1) {
         const bucketDate = new Date(
@@ -1116,8 +1126,8 @@ function buildMonthlyRatingSeries(months, ratingHistory, fallbackBase, now = new
     let cursor = 0;
     let current =
         history.length > 0
-            ? Math.max(Number(history[0].previousRating || 1450), 1200)
-            : Math.max(Number(fallbackBase || 1450), 1200);
+            ? Math.max(Number(history[0].previousRating || RATING_START), RATING_MIN)
+            : Math.max(Number(fallbackBase || RATING_START), RATING_MIN);
 
     for (let offset = months - 1; offset >= 0; offset -= 1) {
         const bucketEnd = new Date(
@@ -1139,12 +1149,27 @@ function buildMonthlyRatingSeries(months, ratingHistory, fallbackBase, now = new
     return series;
 }
 
-function buildAnalyticsPayload(entries, fallbackBase) {
+async function buildAnalyticsPayload(entries, fallbackBase, userId = null) {
     const competitionEntries = Array.isArray(entries)
         ? entries.filter((item) => !Number(item.is_daily || 0))
         : [];
 
     if (competitionEntries.length === 0) {
+        const seriesBase = Math.max(Number(fallbackBase || RATING_START), RATING_MIN);
+        let weekSeries, monthSeries, sixMonthsSeries, yearSeries;
+        if (userId) {
+            [weekSeries, monthSeries] = await Promise.all([
+                getRatingSeriesFromHistory(userId, 7),
+                getRatingSeriesFromHistory(userId, 30),
+            ]);
+            sixMonthsSeries = weekSeries.length > 0 ? [weekSeries[weekSeries.length - 1]] : [seriesBase];
+            yearSeries = sixMonthsSeries;
+        } else {
+            weekSeries = Array.from({ length: 7 }, () => seriesBase);
+            monthSeries = Array.from({ length: 30 }, () => seriesBase);
+            sixMonthsSeries = Array.from({ length: 6 }, () => seriesBase);
+            yearSeries = Array.from({ length: 12 }, () => seriesBase);
+        }
         return {
             hasData: false,
             overview: {
@@ -1170,18 +1195,10 @@ function buildAnalyticsPayload(entries, fallbackBase) {
             bestTournament: null,
             recentResults: [],
             series: {
-                week: Array.from({ length: 7 }, () =>
-                    Math.max(Number(fallbackBase || 1450), 1200),
-                ),
-                month: Array.from({ length: 30 }, () =>
-                    Math.max(Number(fallbackBase || 1450), 1200),
-                ),
-                "6months": Array.from({ length: 6 }, () =>
-                    Math.max(Number(fallbackBase || 1450), 1200),
-                ),
-                year: Array.from({ length: 12 }, () =>
-                    Math.max(Number(fallbackBase || 1450), 1200),
-                ),
+                week: weekSeries,
+                month: monthSeries,
+                "6months": sixMonthsSeries,
+                year: yearSeries,
             },
         };
     }
@@ -1256,8 +1273,23 @@ function buildAnalyticsPayload(entries, fallbackBase) {
     const bestTournament = [...competitionEntries].sort(
         (left, right) => Number(right.score || 0) - Number(left.score || 0),
     )[0];
-    const ratingHistory = calculateProgressiveRatings(competitionEntries);
-    const seriesBase = Math.max(Number(fallbackBase || 1450), 1200);
+    const seriesBase = Math.max(Number(fallbackBase || RATING_START), RATING_MIN);
+
+    let weekSeries, monthSeries, sixMonthsSeries, yearSeries;
+    if (userId) {
+        [weekSeries, monthSeries] = await Promise.all([
+            getRatingSeriesFromHistory(userId, 7),
+            getRatingSeriesFromHistory(userId, 30),
+        ]);
+        sixMonthsSeries = weekSeries.length > 0 ? [weekSeries[weekSeries.length - 1]] : [seriesBase];
+        yearSeries = sixMonthsSeries;
+    } else {
+        const ratingHistory = calculateProgressiveRatings(competitionEntries);
+        weekSeries = buildDailyRatingSeries(7, ratingHistory, seriesBase);
+        monthSeries = buildDailyRatingSeries(30, ratingHistory, seriesBase);
+        sixMonthsSeries = buildMonthlyRatingSeries(6, ratingHistory, seriesBase);
+        yearSeries = buildMonthlyRatingSeries(12, ratingHistory, seriesBase);
+    }
 
     return {
         hasData: true,
@@ -1302,10 +1334,10 @@ function buildAnalyticsPayload(entries, fallbackBase) {
             pointsDelta: Number(item.score || item.points_delta || 0),
         })),
         series: {
-            week: buildDailyRatingSeries(7, ratingHistory, seriesBase),
-            month: buildDailyRatingSeries(30, ratingHistory, seriesBase),
-            "6months": buildMonthlyRatingSeries(6, ratingHistory, seriesBase),
-            year: buildMonthlyRatingSeries(12, ratingHistory, seriesBase),
+            week: weekSeries,
+            month: monthSeries,
+            "6months": sixMonthsSeries,
+            year: yearSeries,
         },
     };
 }
@@ -1402,6 +1434,55 @@ function serializeTopPlayer(player, index, currentUserId = null) {
         podiumCount: Number(player.podium_count || 0),
         isCurrentUser:
             currentUserId !== null && Number(player.id) === Number(currentUserId),
+    };
+}
+
+const RATING_CHANGE_TYPE_LABELS = {
+    tournament_result: "Турнир",
+    daily_bonus: "Ежедневный бонус",
+    decay: "Снижение за неактивность",
+    migration: "Стартовый рейтинг",
+    correction: "Корректировка",
+};
+
+function serializeRatingChange(row) {
+    let details = {};
+    try {
+        details = JSON.parse(row.details_json || "{}");
+    } catch (_) {}
+
+    const changeTypeLabel = RATING_CHANGE_TYPE_LABELS[row.change_type] || row.change_type;
+    const delta = Number(row.delta || 0);
+
+    let description = changeTypeLabel;
+    if (row.change_type === "tournament_result" && row.tournament_title) {
+        description = row.tournament_title;
+        if (details.rank) {
+            description += ` — ${details.rank}-е место`;
+        }
+    } else if (row.change_type === "daily_bonus") {
+        description = `Ежедневный бонус: +${details.bonus || 0} RP`;
+    } else if (row.change_type === "decay") {
+        description = `Снижение: неактивность ${details.daysSinceActivity || 0} дн.`;
+    } else if (row.change_type === "migration") {
+        description = "Перенос старого рейтинга в новую систему";
+    }
+
+    return {
+        id: row.id,
+        userId: row.user_id,
+        tournamentId: row.tournament_id,
+        tournamentTitle: row.tournament_title || null,
+        changeType: row.change_type,
+        changeTypeLabel,
+        description,
+        ratingBefore: Number(row.rating_before || 0),
+        ratingAfter: Number(row.rating_after || 0),
+        delta,
+        deltaLabel: row.change_type === "migration" ? "Старт" : delta >= 0 ? `+${delta}` : String(delta),
+        isNeutral: row.change_type === "migration",
+        details,
+        createdAt: row.created_at,
     };
 }
 
@@ -1660,7 +1741,7 @@ function buildDashboard({
             initials: buildInitials(user),
             avatarUrl: user.avatar_url || "",
             loginTag: `@${user.login}`,
-            rating: Number(user.rating || 1450).toLocaleString("ru-RU"),
+            rating: Number(user.rating || RATING_START).toLocaleString("ru-RU"),
             rankTitle: user.rank_title || "Новичок",
         },
         dailyTask: {
@@ -2281,9 +2362,10 @@ async function buildParticipantWorkspaceBootstrap(req) {
         buildProfilePayload(req, user),
     ]);
 
-    const analytics = buildAnalyticsPayload(
+    const analytics = await buildAnalyticsPayload(
         analyticsEntries,
-        Number(user.rating || 1450),
+        Number(user.rating || RATING_START),
+        req.auth.user.id,
     );
 
     let activeEntry = null;
@@ -2334,7 +2416,7 @@ async function buildParticipantWorkspaceBootstrap(req) {
         team: serializeTeam(teamBundle, req.auth.user.id),
         profileAnalytics: analytics,
         teamAnalytics: teamBundle?.team?.id
-            ? buildAnalyticsPayload(teamAnalyticsEntries, 1520)
+            ? await buildAnalyticsPayload(teamAnalyticsEntries, RATING_START)
             : null,
         organizerApplications: organizerApplications.map(
             serializeOrganizerApplication,
@@ -5208,6 +5290,82 @@ app.get("/api/rating", publicExpensiveRateLimiter, async (req, res, next) => {
     }
 });
 
+app.get("/api/rating/me/history", requireAuth, async (req, res, next) => {
+    try {
+        const limit = Math.max(1, Math.min(Number(req.query.limit || 50), 200));
+        const offset = Math.max(0, Number(req.query.offset || 0));
+        const [changes, total] = await Promise.all([
+            listRatingChanges(req.auth.user.id, limit, offset),
+            countRatingChanges(req.auth.user.id),
+        ]);
+        res.json({
+            items: changes.map(serializeRatingChange),
+            total,
+            limit,
+            offset,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/rating/me/explain", requireAuth, async (req, res, next) => {
+    try {
+        const user = await getUserById(req.auth.user.id);
+        const currentRating = Number(user?.rating || RATING_START);
+        res.json({
+            rating: currentRating,
+            rankTitle: buildRankTitle(currentRating),
+            startRating: RATING_START,
+            formula: {
+                type: "elo-like",
+                description: "Рейтинг пересчитывается после каждого турнира с учётом силы соперников",
+                kFactor: `max(16, round(48 - rating/100)) = ${Math.max(16, Math.round(48 - currentRating / 100))}`,
+                expectedScore: "1 / (1 + 10^((opponentAvgRating - yourRating) / 400))",
+                actualScore: "1 - (rankPosition - 1) / (totalParticipants - 1)",
+                decay: `Если нет активности ${30}+ дней: -2 RP/день (но не ниже ${RATING_START})`,
+            },
+            ranks: [
+                { title: "Легенда", minRating: 2600 },
+                { title: "Грандмастер", minRating: 2350 },
+                { title: "Мастер", minRating: 2100 },
+                { title: "Кандидат в мастера", minRating: 1900 },
+                { title: "Эксперт", minRating: 1750 },
+                { title: "Стратег", minRating: 1600 },
+                { title: "Практик", minRating: 1450 },
+                { title: "Исследователь", minRating: 1300 },
+                { title: "Новичок", minRating: 0 },
+            ],
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/rating/history/:userId", requireAdmin, async (req, res, next) => {
+    try {
+        const userId = Number(req.params.userId);
+        if (!userId) {
+            sendError(res, 400, "Некорректный ID пользователя.");
+            return;
+        }
+        const limit = Math.max(1, Math.min(Number(req.query.limit || 50), 200));
+        const offset = Math.max(0, Number(req.query.offset || 0));
+        const [changes, total] = await Promise.all([
+            listRatingChanges(userId, limit, offset),
+            countRatingChanges(userId),
+        ]);
+        res.json({
+            items: changes.map(serializeRatingChange),
+            total,
+            limit,
+            offset,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.post("/api/auth/2fa/email/send", requireAuth, challengeResendRateLimiter, async (req, res, next) => {
     try {
         const user = await getUserById(req.auth.user.id);
@@ -5369,7 +5527,7 @@ app.get("/api/dashboard", requireAuth, async (req, res, next) => {
             ? await getCached(publicRatingCache, () => listTopPlayers(5), "limit:5")
             : [];
         const analytics = isParticipantRole(req.auth.user.role)
-            ? buildAnalyticsPayload(analyticsEntries, Number(user.rating || 1450))
+            ? await buildAnalyticsPayload(analyticsEntries, Number(user.rating || RATING_START), req.auth.user.id)
             : null;
 
         let activeEntry = null;
@@ -7828,6 +7986,37 @@ app.post(
             }
 
             await refreshUserCompetitionStats(req.auth.user.id);
+
+            // Apply Elo-like rating change for correct answers in non-daily tournaments
+            if (judged.verdict === "accepted" && !Number(tournament.is_daily || 0)) {
+                const updatedEntryForRating = await getTournamentEntryForContext({
+                    tournamentId,
+                    userId: tournament.format === "team" ? null : req.auth.user.id,
+                    teamId: entry.team_id || null,
+                    teamDisplayName: "",
+                });
+                if (updatedEntryForRating?.entry) {
+                    await applyTournamentRatingChange(
+                        req.auth.user.id,
+                        tournamentId,
+                        Number(updatedEntryForRating.entry.rank_position || 0),
+                        Number(updatedEntryForRating.entry.score || 0),
+                        Number(updatedEntryForRating.entry.solved_count || 0),
+                        Number(updatedEntryForRating.entry.total_tasks || 0),
+                    );
+                }
+            }
+
+            // Apply daily bonus for daily tournament correct answers
+            if (judged.verdict === "accepted" && Number(tournament.is_daily || 0)) {
+                await applyDailyBonusRatingChange(
+                    req.auth.user.id,
+                    tournamentId,
+                    Number(entry.solved_count || 0) + 1,
+                    Number(entry.total_tasks || 0),
+                );
+            }
+
             invalidatePublicReadCaches();
 
             const updatedEntry = await getTournamentEntryForContext({
@@ -7914,7 +8103,7 @@ app.get("/api/analytics/profile", requireParticipant, async (req, res, next) => 
             listUserTournamentResults(req.auth.user.id),
         ]);
 
-        res.json(buildAnalyticsPayload(entries, Number(user.rating || 1450)));
+        res.json(await buildAnalyticsPayload(entries, Number(user.rating || RATING_START), req.auth.user.id));
     } catch (error) {
         next(error);
     }
@@ -7932,13 +8121,13 @@ app.get("/api/analytics/team", requireParticipant, async (req, res, next) => {
         const teamBundle = await getTeamForUser(req.auth.user.id);
         if (!teamBundle) {
             res.json(
-                buildAnalyticsPayload([], 1450),
+                await buildAnalyticsPayload([], RATING_START),
             );
             return;
         }
 
         const entries = await listTeamTournamentResults(teamBundle.team.id);
-        res.json(buildAnalyticsPayload(entries, 1520));
+        res.json(await buildAnalyticsPayload(entries, RATING_START));
     } catch (error) {
         next(error);
     }

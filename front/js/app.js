@@ -70,6 +70,7 @@ let pendingEmailVerification = false;
 let pendingResetToken = null;
 const NOTIFICATION_STORAGE_KEY = "qubite.notifications";
 const NOTIFICATION_UNREAD_STORAGE_KEY = "qubite.notificationsUnreadAt";
+const COOKIE_NOTICE_STORAGE_KEY = "qubite.cookieNoticeAccepted";
 
 const EMPTY_TEAM_STATE = {
     inTeam: false,
@@ -109,7 +110,7 @@ const DEFAULT_PROFILE_ANALYTICS = {
         week: [1200, 1210, 1220, 1230, 1240, 1250, 1260],
         month: Array.from({ length: 30 }, (_, index) => 1200 + index * 4),
         "6months": [1180, 1210, 1240, 1275, 1310, 1340],
-        year: [1100, 1130, 1170, 1200, 1230, 1260, 1290, 1320, 1350, 1380, 1410, 1450],
+        year: [1100, 1130, 1170, 1200, 1230, 1260, 1290, 1320, 1350, 1380, 1410, 1200],
     },
 };
 
@@ -985,6 +986,10 @@ function getTeamAnalyticsState() {
 function getOAuthProviders() {
     const providers = apiClient?.state?.oauthProviders || [];
     return providers.length > 0 ? providers : DEFAULT_OAUTH_PROVIDERS;
+}
+
+function isLocalDevOrigin() {
+    return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 }
 
 function getAdminOverviewState() {
@@ -2221,6 +2226,168 @@ async function openFullRatingModal() {
     }
 }
 
+function ensureRatingExplainModal() {
+    if (document.getElementById("ratingExplainModal")) {
+        return;
+    }
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="ratingExplainModal" class="modal" hidden>
+            <div class="modal__backdrop" data-close="ratingExplainModal"></div>
+            <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="ratingExplainTitle" style="max-width: 640px;">
+                <div class="modal__head">
+                    <div id="ratingExplainTitle" class="modal__title">Как считается рейтинг</div>
+                    <button class="modal__close" data-close="ratingExplainModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div id="ratingExplainBody" class="modal__form" style="gap: 16px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+}
+
+async function openRatingExplainModal() {
+    ensureRatingExplainModal();
+    Loader.show();
+    try {
+        const data = await apiClient.loadRatingExplain();
+        const body = document.getElementById("ratingExplainBody");
+        if (body) {
+            body.innerHTML = renderRatingExplainContent(data);
+        }
+        openModal("ratingExplainModal");
+    } catch (error) {
+        showRequestError("Рейтинг", error);
+    } finally {
+        Loader.hide(300);
+    }
+}
+
+function renderRatingExplainContent(data) {
+    const ranks = Array.isArray(data.ranks) ? data.ranks : [];
+    const formula = data.formula || {};
+    const ranksMarkup = ranks.map((r) => `
+        <div class="rating-rank-row ${r.minRating <= data.rating ? "rating-rank-row--active" : ""}">
+            <div class="rating-rank-title">${escapeHtml(r.title)}</div>
+            <div class="rating-rank-threshold">${r.minRating}+ RP</div>
+        </div>
+    `).join("");
+
+    return `
+        <div class="rating-explain-section">
+            <div class="rating-explain-current">
+                <div class="metric">
+                    <div class="metric__label">Ваш текущий рейтинг</div>
+                    <div class="metric__val">${formatNumberRu(data.rating)} RP</div>
+                </div>
+                <div class="metric">
+                    <div class="metric__label">Звание</div>
+                    <div class="metric__val">${escapeHtml(data.rankTitle)}</div>
+                </div>
+            </div>
+        </div>
+        <div class="rating-explain-section">
+            <h3 class="rating-explain-heading">Формула</h3>
+            <p class="rating-explain-text">${escapeHtml(formula.description || "")}</p>
+            <div class="rating-explain-details">
+                <div class="rating-explain-detail">
+                    <span class="rating-explain-detail-label">Коэффициент K:</span>
+                    <span class="rating-explain-detail-value">${escapeHtml(formula.kFactor || "")}</span>
+                </div>
+                <div class="rating-explain-detail">
+                    <span class="rating-explain-detail-label">Ожидаемый результат:</span>
+                    <span class="rating-explain-detail-value">${escapeHtml(formula.expectedScore || "")}</span>
+                </div>
+                <div class="rating-explain-detail">
+                    <span class="rating-explain-detail-label">Фактический результат:</span>
+                    <span class="rating-explain-detail-value">${escapeHtml(formula.actualScore || "")}</span>
+                </div>
+                <div class="rating-explain-detail">
+                    <span class="rating-explain-detail-label">Снижение за неактивность:</span>
+                    <span class="rating-explain-detail-value">${escapeHtml(formula.decay || "")}</span>
+                </div>
+            </div>
+        </div>
+        <div class="rating-explain-section">
+            <h3 class="rating-explain-heading">Звания</h3>
+            <div class="rating-ranks-list">${ranksMarkup}</div>
+        </div>
+        <button class="btn--gradient-block" type="button" data-open-rating-history style="margin-top: 12px;">История изменений</button>
+    `;
+}
+
+function ensureRatingHistoryModal() {
+    if (document.getElementById("ratingHistoryModal")) {
+        return;
+    }
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `
+        <div id="ratingHistoryModal" class="modal" hidden>
+            <div class="modal__backdrop" data-close="ratingHistoryModal"></div>
+            <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="ratingHistoryTitle" style="max-width: 700px;">
+                <div class="modal__head">
+                    <div id="ratingHistoryTitle" class="modal__title">История рейтинга</div>
+                    <button class="modal__close" data-close="ratingHistoryModal" aria-label="Закрыть">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <div id="ratingHistoryBody" class="modal__form" style="gap: 8px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrap);
+}
+
+async function openRatingHistoryModal() {
+    ensureRatingHistoryModal();
+    Loader.show();
+    try {
+        const data = await apiClient.loadRatingHistory(50, 0);
+        const body = document.getElementById("ratingHistoryBody");
+        if (body) {
+            body.innerHTML = renderRatingHistoryContent(data);
+        }
+        openModal("ratingHistoryModal");
+    } catch (error) {
+        showRequestError("Рейтинг", error);
+    } finally {
+        Loader.hide(300);
+    }
+}
+
+function renderRatingHistoryContent(data) {
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length) {
+        return `<div class="rating-history-empty" style="text-align:center; color: var(--fg-muted); padding: 40px 0;">Пока нет изменений рейтинга. Участвуйте в турнирах!</div>`;
+    }
+
+    return items.map((item) => {
+        const isNeutral = Boolean(item.isNeutral || item.changeType === "migration");
+        const isPositive = Number(item.delta || 0) >= 0;
+        const deltaClass = isNeutral ? "rating-delta--neutral" : isPositive ? "rating-delta--positive" : "rating-delta--negative";
+        const arrow = isNeutral ? "" : isPositive ? "▲" : "▼";
+        const dateStr = item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" })
+            : "";
+
+        return `
+            <div class="rating-history-row">
+                <div class="rating-history-row__left">
+                    <div class="rating-history-type">${escapeHtml(item.changeTypeLabel || "")}</div>
+                    <div class="rating-history-desc">${escapeHtml(item.description || "")}</div>
+                    <div class="rating-history-date">${dateStr}</div>
+                </div>
+                <div class="rating-history-row__right">
+                    <div class="rating-delta ${deltaClass}">${escapeHtml(`${arrow} ${item.deltaLabel || "0"}`.trim())}</div>
+                    <div class="rating-value">${formatNumberRu(item.ratingAfter)} RP</div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
 function ensureTournamentInfoModal() {
     if (document.getElementById("tournamentInfoModal")) {
         return;
@@ -2873,7 +3040,9 @@ function buildOAuthButtonsHtml() {
 
     const vkHtml =
         vkProvider && vkProvider.enabled && vkProvider.sdkAppId
-            ? `<div class="vk-id-widget-wrap" data-vk-app-id="${vkProvider.sdkAppId}"></div>`
+            ? isLocalDevOrigin()
+                ? `<button class="oauth-icon-btn" type="button" disabled title="VK ID работает на домене, указанном в настройках VK">${OAUTH_ICONS.vk}</button>`
+                : `<div class="oauth-icon-btn vk-id-widget-wrap" data-vk-app-id="${vkProvider.sdkAppId}" title="${escapeHtml(vkProvider.label)}"></div>`
             : "";
 
     return `
@@ -2883,8 +3052,8 @@ function buildOAuthButtonsHtml() {
             </div>
             <div class="oauth-icons">
                 ${standardHtml}
+                ${vkHtml}
             </div>
-            ${vkHtml}
         </div>
     `;
 }
@@ -3315,6 +3484,36 @@ if (savedSidebarState) {
     setSidebarState(true);
 }
 
+function renderCookieNotice() {
+    if (window.localStorage.getItem(COOKIE_NOTICE_STORAGE_KEY) === "1") {
+        return;
+    }
+    if (document.querySelector(".cookie-notice")) {
+        return;
+    }
+
+    const notice = document.createElement("div");
+    notice.className = "cookie-notice";
+    notice.innerHTML = `
+        <div class="cookie-notice__copy">
+            <strong>Мы используем cookies и локальное хранилище</strong>
+            <span>Они нужны для входа, безопасности, запоминания настроек интерфейса, работы турниров и поддержки. Подробнее — в <a href="/privacy.html" target="_blank" rel="noreferrer">политике конфиденциальности</a>.</span>
+        </div>
+        <button class="btn btn--accent cookie-notice__btn" type="button">Понятно</button>
+    `;
+    notice.querySelector(".cookie-notice__btn")?.addEventListener("click", () => {
+        window.localStorage.setItem(COOKIE_NOTICE_STORAGE_KEY, "1");
+        notice.remove();
+    });
+    document.body.appendChild(notice);
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderCookieNotice);
+} else {
+    renderCookieNotice();
+}
+
 // Слушаем системную тему, если пользователь не выбрал вручную
 if (!localStorage.getItem("theme") && window.matchMedia) {
     window
@@ -3347,7 +3546,9 @@ function fitWord() {
     const el = document.getElementById("word");
     if (!el) return;
     const parent = el.parentElement;
-    const maxW = Math.min(parent.clientWidth, window.innerWidth) - 24;
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const parentWidth = parent.getBoundingClientRect().width || parent.clientWidth || viewportWidth;
+    const maxW = Math.max(240, Math.min(parentWidth, viewportWidth) - 40);
     const minPx = 48,
         maxPx = 1000;
 
@@ -3368,9 +3569,12 @@ function fitWord() {
 }
 window.addEventListener("resize", fitWord, { passive: true });
 window.addEventListener("orientationchange", fitWord);
+window.visualViewport?.addEventListener("resize", fitWord, { passive: true });
 document.addEventListener("DOMContentLoaded", () => {
     fitWord();
     setTimeout(fitWord, 50);
+    setTimeout(fitWord, 300);
+    document.fonts?.ready?.then(fitWord).catch(() => {});
 });
 
 /* =========================================
@@ -4253,6 +4457,15 @@ document.addEventListener("click", (e) => {
     if (closeBtn) {
         e.preventDefault();
         closeModal(closeBtn.getAttribute("data-close"));
+        return;
+    }
+
+    // Rating history button inside explain modal
+    const ratingHistoryBtn = e.target.closest("[data-open-rating-history]");
+    if (ratingHistoryBtn) {
+        e.preventDefault();
+        closeModal("ratingExplainModal");
+        openRatingHistoryModal();
         return;
     }
 });
@@ -5850,13 +6063,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const heroObserver = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        headerBtn.style.opacity = "0";
-                        headerBtn.style.pointerEvents = "none";
-                    } else {
-                        headerBtn.style.opacity = "1";
-                        headerBtn.style.pointerEvents = "auto";
-                    }
+                    headerBtn.classList.toggle("is-hidden", entry.isIntersecting);
                 });
             },
             { threshold: 0.1 },
@@ -12688,6 +12895,7 @@ let supportChatsState = {
     messages: [],
     sse: null,
     staffSse: null,
+    interactionsAbortController: null,
     filter: "open",
 };
 
@@ -12876,7 +13084,14 @@ function renderSingleSupportMessage(m) {
 }
 
 async function initSupportChatsInteractions(container) {
+    supportChatsState.interactionsAbortController?.abort();
+    const interactionsAbortController = new AbortController();
+    supportChatsState.interactionsAbortController = interactionsAbortController;
+
     await loadSupportChats();
+    if (supportChatsState.interactionsAbortController !== interactionsAbortController) {
+        return;
+    }
     container.innerHTML = renderSupportChatsView();
     observeRenderedWorkspaceContent(container);
     startStaffSupportSSE();
@@ -12919,6 +13134,7 @@ async function initSupportChatsInteractions(container) {
         }
 
         if (sendBtn) {
+            if (sendBtn.disabled) return;
             const input = container.querySelector(".sc-reply-input");
             const body = (input?.value || "").trim();
             if (!body || !supportChatsState.activeChat) return;
@@ -12950,14 +13166,14 @@ async function initSupportChatsInteractions(container) {
             observeRenderedWorkspaceContent(container);
             scrollMessagesToBottom();
         }
-    });
+    }, { signal: interactionsAbortController.signal });
 
     container.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey && e.target.classList.contains("sc-reply-input")) {
             e.preventDefault();
             container.querySelector(".sc-send-btn")?.click();
         }
-    });
+    }, { signal: interactionsAbortController.signal });
 }
 
 function scrollMessagesToBottom() {
@@ -12976,6 +13192,11 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
         ViewManager.navItems.forEach((el) => {
             el.classList.toggle("active", el.dataset.view === viewName);
         });
+    }
+
+    if (viewName !== "support-chats") {
+        supportChatsState.interactionsAbortController?.abort();
+        supportChatsState.interactionsAbortController = null;
     }
 
     if (viewName === "dashboard") {
@@ -13148,7 +13369,7 @@ const DEFAULT_DASHBOARD_DATA = {
         fullName: "Профиль",
         initials: "QP",
         loginTag: "@user",
-        rating: "1 450",
+        rating: "1 200",
         rankTitle: "Новичок",
     },
     dailyTask: {
@@ -13162,7 +13383,7 @@ const DEFAULT_DASHBOARD_DATA = {
         ctaLabel: "Перейти к заданию",
     },
     ratingDeltaLabel: "+0 за 7 дней",
-    ratingSeries: [1450, 1450, 1450, 1450, 1450, 1450, 1450],
+    ratingSeries: [1200, 1200, 1200, 1200, 1200, 1200, 1200],
     platformPulse: {
         activeParticipants: 0,
         series: [
@@ -13366,7 +13587,10 @@ function renderDashboard() {
             <div class="dash-board-section card dash-card" data-view-anim style="transition-delay: 0.6s">
                 <div class="chart-header">
                     <h3 class="chart-title">Топ игроков</h3>
-                    <button class="topbar-btn" type="button" data-dashboard-open-rating>Полный рейтинг</button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="topbar-btn" type="button" data-dashboard-open-rating>Полный рейтинг</button>
+                        <button class="topbar-btn" type="button" data-dashboard-rating-explain>Как считается?</button>
+                    </div>
                 </div>
                 <div class="board board--dashboard">
                     ${topPlayersMarkup}
@@ -13525,6 +13749,12 @@ function initDashboardInteractions(container) {
         .querySelector("[data-dashboard-open-rating]")
         ?.addEventListener("click", () => {
             openFullRatingModal();
+        });
+
+    container
+        .querySelector("[data-dashboard-rating-explain]")
+        ?.addEventListener("click", () => {
+            openRatingExplainModal();
         });
 
     container
@@ -16241,4 +16471,3 @@ function initAnalyticsChart(scope = "profile", period = "week") {
 function initTeamAnalyticsChart(period = "week") {
     return initAnalyticsChart("team", period);
 }
-

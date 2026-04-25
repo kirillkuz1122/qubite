@@ -728,6 +728,18 @@
         return syncRating(data.items);
     }
 
+    async function loadRatingHistory(limit = 50, offset = 0) {
+        const data = await request(
+            `/api/rating/me/history?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`,
+        );
+        return data;
+    }
+
+    async function loadRatingExplain() {
+        const data = await request("/api/rating/me/explain");
+        return data;
+    }
+
     async function loadTournaments() {
         const data = await request("/api/tournaments");
         return syncTournaments(data.items || []);
@@ -1597,6 +1609,8 @@
         loadPublicLanding,
         loadPublicConfig,
         loadRating,
+        loadRatingHistory,
+        loadRatingExplain,
         loadModerationApplications,
         loadModerationOverview,
         loadModerationTasks,

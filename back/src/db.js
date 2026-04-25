@@ -460,7 +460,7 @@ async function initializeDatabase(options = {}) {
             study_group TEXT NOT NULL DEFAULT '',
             phone TEXT NOT NULL DEFAULT '',
             avatar_url TEXT NOT NULL DEFAULT '',
-            rating INTEGER NOT NULL DEFAULT 1450,
+            rating INTEGER NOT NULL DEFAULT 1200,
             rank_title TEXT NOT NULL DEFAULT 'Новичок',
             rank_position INTEGER NOT NULL DEFAULT 120,
             rank_delta INTEGER NOT NULL DEFAULT 3,
@@ -875,6 +875,20 @@ async function initializeDatabase(options = {}) {
             FOREIGN KEY (submitted_by_user_id) REFERENCES users (id) ON DELETE SET NULL
         );
 
+        CREATE TABLE IF NOT EXISTS rating_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            tournament_id INTEGER DEFAULT NULL,
+            change_type TEXT NOT NULL,
+            rating_before INTEGER NOT NULL,
+            rating_after INTEGER NOT NULL,
+            delta INTEGER NOT NULL,
+            details_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE SET NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash);
         CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments (status);
@@ -1190,6 +1204,12 @@ async function initializeDatabase(options = {}) {
 
         CREATE INDEX IF NOT EXISTS idx_tournament_helper_codes_lookup
         ON tournament_helper_codes (code, tournament_id);
+
+        CREATE INDEX IF NOT EXISTS idx_rating_changes_user_created
+        ON rating_changes (user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_rating_changes_tournament
+        ON rating_changes (tournament_id);
     `);
 
     await exec(`
@@ -2014,12 +2034,14 @@ async function createUser(payload) {
                 study_group,
                 phone,
                 avatar_url,
+                rating,
+                rank_title,
                 email_verified_at,
                 preferred_auth_provider,
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             payload.uid,
@@ -2038,6 +2060,8 @@ async function createUser(payload) {
             payload.studyGroup || "",
             payload.phone || "",
             payload.avatarUrl || "",
+            Number(payload.rating || RATING_START),
+            buildRankTitle(Number(payload.rating || RATING_START)),
             payload.emailVerifiedAt || null,
             payload.preferredAuthProvider || null,
             timestamp,
@@ -6177,6 +6201,311 @@ async function listTeamTournamentResults(teamId, options = {}) {
     );
 }
 
+// ─── Rating system (Elo-like) ────────────────────────────────────────
+
+const RATING_START = 1200;
+const RATING_MIN = 800;
+const RATING_DECAY_THRESHOLD_DAYS = 30;
+const RATING_DECAY_PER_DAY = 2;
+
+function computeRatingK(currentRating) {
+    return Math.max(16, Math.round(48 - currentRating / 100));
+}
+
+function computeExpectedScore(playerRating, opponentRating) {
+    return 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
+}
+
+function computeActualScore(rankPosition, totalParticipants) {
+    if (totalParticipants <= 1) return 1;
+    return Math.max(0, 1 - (rankPosition - 1) / (totalParticipants - 1));
+}
+
+async function getTournamentAverageOpponentRating(tournamentId, excludeUserId) {
+    const row = await get(
+        `
+        SELECT AVG(u.rating) AS avg_rating
+        FROM tournament_entries te
+        JOIN users u ON u.id = te.user_id
+        WHERE te.tournament_id = ?
+          AND te.user_id != ?
+          AND u.status = 'active'
+        `,
+        [tournamentId, excludeUserId],
+    );
+    return Number(row?.avg_rating || RATING_START);
+}
+
+async function getTournamentParticipantCount(tournamentId) {
+    const row = await get(
+        `
+        SELECT COUNT(*) AS cnt
+        FROM tournament_entries
+        WHERE tournament_id = ?
+        `,
+        [tournamentId],
+    );
+    return Number(row?.cnt || 0);
+}
+
+async function applyRatingChange(userId, { tournamentId = null, changeType, ratingBefore, ratingAfter, details = {} }) {
+    const delta = ratingAfter - ratingBefore;
+    await run(
+        `
+        INSERT INTO rating_changes (user_id, tournament_id, change_type, rating_before, rating_after, delta, details_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [userId, tournamentId, changeType, ratingBefore, ratingAfter, delta, JSON.stringify(details), nowIso()],
+    );
+    return { ratingBefore, ratingAfter, delta };
+}
+
+async function applyTournamentRatingChange(userId, tournamentId, rankPosition, score, solvedCount, totalTasks) {
+    const user = await getUserById(userId);
+    if (!user) return null;
+
+    const currentRating = Number(user.rating || RATING_START);
+    const participantCount = await getTournamentParticipantCount(tournamentId);
+    const avgOpponentRating = await getTournamentAverageOpponentRating(tournamentId, userId);
+
+    const K = computeRatingK(currentRating);
+    const expectedScore = computeExpectedScore(currentRating, avgOpponentRating);
+    const actualScore = computeActualScore(rankPosition, participantCount);
+
+    const rawDelta = Math.round(K * (actualScore - expectedScore));
+    const newRating = Math.max(RATING_MIN, currentRating + rawDelta);
+
+    const result = await applyRatingChange(userId, {
+        tournamentId,
+        changeType: "tournament_result",
+        ratingBefore: currentRating,
+        ratingAfter: newRating,
+        details: {
+            rank: rankPosition,
+            score,
+            solvedCount,
+            totalTasks,
+            participants: participantCount,
+            avgOpponentRating: Math.round(avgOpponentRating),
+            K,
+            expectedScore: Math.round(expectedScore * 1000) / 1000,
+            actualScore: Math.round(actualScore * 1000) / 1000,
+        },
+    });
+
+    await run(
+        `
+        UPDATE users
+        SET rating = ?,
+            rank_title = ?,
+            updated_at = ?
+        WHERE id = ?
+        `,
+        [newRating, buildRankTitle(newRating), nowIso(), userId],
+    );
+
+    return result;
+}
+
+async function applyDailyBonusRatingChange(userId, tournamentId, solvedCount, totalTasks) {
+    const user = await getUserById(userId);
+    if (!user) return null;
+
+    const currentRating = Number(user.rating || RATING_START);
+    const bonus = solvedCount > 0 ? Math.min(solvedCount * 2, 10) : 0;
+    if (bonus === 0) return null;
+
+    const newRating = currentRating + bonus;
+
+    const result = await applyRatingChange(userId, {
+        tournamentId,
+        changeType: "daily_bonus",
+        ratingBefore: currentRating,
+        ratingAfter: newRating,
+        details: { solvedCount, totalTasks, bonus },
+    });
+
+    await run(
+        `
+        UPDATE users
+        SET rating = ?,
+            rank_title = ?,
+            updated_at = ?
+        WHERE id = ?
+        `,
+        [newRating, buildRankTitle(newRating), nowIso(), userId],
+    );
+
+    return result;
+}
+
+async function applyRatingDecay(userId) {
+    const user = await getUserById(userId);
+    if (!user) return null;
+
+    const currentRating = Number(user.rating || RATING_START);
+    if (currentRating <= RATING_START) return null;
+
+    const lastActivity = await get(
+        `
+        SELECT created_at FROM rating_changes
+        WHERE user_id = ? AND change_type != 'decay'
+        ORDER BY created_at DESC LIMIT 1
+        `,
+        [userId],
+    );
+
+    if (!lastActivity) return null;
+
+    const lastActivityMs = new Date(lastActivity.created_at).getTime();
+    const nowMs = Date.now();
+    const daysSinceActivity = Math.floor((nowMs - lastActivityMs) / (24 * 60 * 60 * 1000));
+
+    if (daysSinceActivity < RATING_DECAY_THRESHOLD_DAYS) return null;
+
+    const decayDays = daysSinceActivity - RATING_DECAY_THRESHOLD_DAYS;
+    const decayAmount = Math.min(decayDays * RATING_DECAY_PER_DAY, currentRating - RATING_START);
+    if (decayAmount <= 0) return null;
+
+    const newRating = currentRating - decayAmount;
+
+    const result = await applyRatingChange(userId, {
+        changeType: "decay",
+        ratingBefore: currentRating,
+        ratingAfter: newRating,
+        details: { daysSinceActivity, decayDays, decayPerDay: RATING_DECAY_PER_DAY },
+    });
+
+    await run(
+        `
+        UPDATE users
+        SET rating = ?,
+            rank_title = ?,
+            updated_at = ?
+        WHERE id = ?
+        `,
+        [newRating, buildRankTitle(newRating), nowIso(), userId],
+    );
+
+    return result;
+}
+
+async function migrateLegacyRating(userId) {
+    const user = await getUserById(userId);
+    if (!user) return null;
+
+    const entryRow = await get(
+        `SELECT COUNT(*) AS cnt FROM tournament_entries WHERE user_id = ?`,
+        [userId],
+    );
+    const hasTournamentEntries = Number(entryRow?.cnt || 0) > 0;
+    if (!hasTournamentEntries) {
+        const changeStats = await get(
+            `
+            SELECT
+                COUNT(*) AS total_count,
+                COALESCE(SUM(CASE WHEN change_type != 'migration' THEN 1 ELSE 0 END), 0) AS non_migration_count
+            FROM rating_changes
+            WHERE user_id = ?
+            `,
+            [userId],
+        );
+        if (Number(changeStats?.non_migration_count || 0) === 0) {
+            await run(
+                `
+                UPDATE users
+                SET rating = ?,
+                    rank_title = ?,
+                    updated_at = ?
+                WHERE id = ?
+                `,
+                [RATING_START, buildRankTitle(RATING_START), nowIso(), userId],
+            );
+            if (Number(changeStats?.total_count || 0) > 0) {
+                await run(
+                    `DELETE FROM rating_changes WHERE user_id = ? AND change_type = 'migration'`,
+                    [userId],
+                );
+            }
+            return null;
+        }
+    }
+
+    const existing = await get(
+        `SELECT id FROM rating_changes WHERE user_id = ? AND change_type = 'migration' LIMIT 1`,
+        [userId],
+    );
+    if (existing) return null;
+
+    const currentRating = Number(user.rating || RATING_START);
+    if (currentRating === RATING_START) return null;
+
+    return applyRatingChange(userId, {
+        changeType: "migration",
+        ratingBefore: RATING_START,
+        ratingAfter: currentRating,
+        details: { legacyFormula: "1450 + totalScore*0.45 + totalSolved*8 + winsCount*40 + topThreeCount*18" },
+    });
+}
+
+async function listRatingChanges(userId, limit = 50, offset = 0) {
+    const safeLimit = Math.max(1, Math.min(Number(limit || 50), 200));
+    const safeOffset = Math.max(0, Number(offset || 0));
+    return all(
+        `
+        SELECT rc.*, t.title AS tournament_title
+        FROM rating_changes rc
+        LEFT JOIN tournaments t ON t.id = rc.tournament_id
+        WHERE rc.user_id = ?
+        ORDER BY rc.created_at DESC
+        LIMIT ? OFFSET ?
+        `,
+        [userId, safeLimit, safeOffset],
+    );
+}
+
+async function countRatingChanges(userId) {
+    const row = await get(
+        `SELECT COUNT(*) AS cnt FROM rating_changes WHERE user_id = ?`,
+        [userId],
+    );
+    return Number(row?.cnt || 0);
+}
+
+async function getRatingSeriesFromHistory(userId, days) {
+    const changes = await all(
+        `
+        SELECT rating_after, created_at
+        FROM rating_changes
+        WHERE user_id = ?
+        ORDER BY created_at ASC
+        `,
+        [userId],
+    );
+
+    const user = await getUserById(userId);
+    const baseRating = Number(user?.rating || RATING_START);
+
+    if (changes.length === 0) {
+        return Array.from({ length: days }, () => baseRating);
+    }
+
+    const now = new Date();
+    const series = [];
+    let currentRating = changes[0].rating_after;
+
+    for (let offset = days - 1; offset >= 0; offset -= 1) {
+        const bucketDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
+        while (changes.length > 0 && new Date(changes[0].created_at).getTime() <= bucketDate.getTime()) {
+            currentRating = changes[0].rating_after;
+            changes.shift();
+        }
+        series.push(currentRating);
+    }
+
+    return series;
+}
+
 async function refreshUserCompetitionStats(userId) {
     const todayBounds = getLocalDateBounds();
     const [aggregateRow, latestRows, dailyCompletions, currentDaily] = await Promise.all([
@@ -6232,18 +6561,11 @@ async function refreshUserCompetitionStats(userId) {
         getDailyTournamentByKey(todayBounds.key),
     ]);
 
-    const totalScore = Number(aggregateRow?.total_score || 0);
     const totalSolved = Number(aggregateRow?.total_solved || 0);
     const totalTasks = Number(aggregateRow?.total_tasks || 0);
-    const winsCount = Number(aggregateRow?.wins_count || 0);
-    const topThreeCount = Number(aggregateRow?.top_three_count || 0);
     const latestRank = Number(latestRows?.[0]?.rank_position || 0) || 120;
     const previousRank = Number(latestRows?.[1]?.rank_position || 0) || latestRank;
     const rankDelta = previousRank > 0 ? previousRank - latestRank : 0;
-    const rating = Math.max(
-        1200,
-        Math.round(1450 + totalScore * 0.45 + totalSolved * 8 + winsCount * 40 + topThreeCount * 18),
-    );
     const streak = computeDailyStreak(
         dailyCompletions.map((item) => item.daily_key),
         todayBounds.key,
@@ -6253,11 +6575,20 @@ async function refreshUserCompetitionStats(userId) {
         currentDaily?.difficulty_label ||
         "Medium";
 
+    // Ensure legacy rating is migrated to rating_changes
+    await migrateLegacyRating(userId);
+
+    // Apply rating decay if applicable
+    await applyRatingDecay(userId);
+
+    // Read current rating (may have been updated by migration/decay)
+    const user = await getUserById(userId);
+    const currentRating = Number(user?.rating || RATING_START);
+
     await run(
         `
             UPDATE users
             SET
-                rating = ?,
                 rank_title = ?,
                 rank_position = ?,
                 rank_delta = ?,
@@ -6271,8 +6602,7 @@ async function refreshUserCompetitionStats(userId) {
             WHERE id = ?
         `,
         [
-            rating,
-            buildRankTitle(rating),
+            buildRankTitle(currentRating),
             latestRank,
             rankDelta,
             totalSolved,
@@ -7192,4 +7522,13 @@ module.exports = {
     revokeTelegramAccess,
     listTelegramAccess,
     getTelegramAccess,
+    applyTournamentRatingChange,
+    applyDailyBonusRatingChange,
+    applyRatingDecay,
+    migrateLegacyRating,
+    listRatingChanges,
+    countRatingChanges,
+    getRatingSeriesFromHistory,
+    buildRankTitle,
+    RATING_START,
 };
