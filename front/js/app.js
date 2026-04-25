@@ -3018,9 +3018,14 @@ async function bootstrapAuthSession() {
             );
             window.history.replaceState({}, "", window.location.pathname);
         } else if (oauthError) {
+            console.warn("[OAuth] Redirect finished with error:", {
+                error: oauthError,
+                provider: oauthProvider || null,
+                url: window.location.href,
+            });
             Toast.show(
                 "OAuth",
-                "Не удалось завершить вход через внешний аккаунт.",
+                `Не удалось завершить вход через внешний аккаунт (${oauthError}).`,
                 "error",
             );
             window.history.replaceState({}, "", window.location.pathname);
@@ -3126,6 +3131,12 @@ function initVkIdWidgets() {
             source: VKID.ConfigSource.LOWCODE,
             scope: "",
         });
+        console.info("[VK ID] SDK config initialized:", {
+            appId,
+            origin: window.location.origin,
+            redirectUrl: window.location.origin + "/api/auth/oauth/vk/callback",
+            responseMode: "callback",
+        });
         _vkIdSdkInited = true;
     }
 
@@ -3145,14 +3156,32 @@ function initVkIdWidgets() {
             })
             .on(VKID.WidgetEvents.ERROR, (error) => {
                 console.error("[VK ID] Widget error:", error);
-                Toast.show("VK", "Ошибка входа через VK", "error");
+                Toast.show(
+                    "VK",
+                    `Ошибка входа через VK (${error?.code || error?.type || "widget_error"})`,
+                    "error",
+                );
             })
             .on(VKID.OneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
+                console.info("[VK ID] Login success payload:", {
+                    hasCode: Boolean(payload?.code),
+                    hasDeviceId: Boolean(payload?.device_id),
+                    keys: Object.keys(payload || {}),
+                });
                 VKID.Auth.exchangeCode(payload.code, payload.device_id)
                     .then(handleVkIdSuccess)
                     .catch((error) => {
-                        console.error("[VK ID] Code exchange failed:", error);
-                        Toast.show("VK", "Ошибка входа через VK", "error");
+                        console.error("[VK ID] Code exchange failed:", {
+                            error: error?.error || error?.code || null,
+                            errorDescription:
+                                error?.error_description || error?.message || String(error),
+                            keys: Object.keys(error || {}),
+                        });
+                        Toast.show(
+                            "VK",
+                            `Ошибка обмена кода VK (${error?.error || error?.code || "exchange_failed"})`,
+                            "error",
+                        );
                     });
             });
     });
@@ -3160,6 +3189,14 @@ function initVkIdWidgets() {
 
 async function handleVkIdSuccess(data) {
     try {
+        console.info("[VK ID] Token exchange result:", {
+            hasAccessToken: Boolean(data?.access_token),
+            hasIdToken: Boolean(data?.id_token),
+            hasUserId: Boolean(data?.user_id),
+            tokenType: data?.token_type || null,
+            scope: data?.scope || null,
+            expiresIn: data?.expires_in || null,
+        });
         const resp = await fetch("/api/auth/vk-id", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -3170,6 +3207,11 @@ async function handleVkIdSuccess(data) {
             window.location.reload();
         } else {
             const err = await resp.json().catch(() => ({}));
+            console.error("[VK ID] Backend rejected auth:", {
+                status: resp.status,
+                code: err.code || null,
+                message: err.message || null,
+            });
             Toast.show(
                 "VK",
                 err.message || "Ошибка входа через VK",

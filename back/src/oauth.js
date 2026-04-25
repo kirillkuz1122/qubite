@@ -252,7 +252,12 @@ async function fetchOAuthProfile(providerSlug, accessToken) {
 
 function verifyTelegramAuth(botToken, params) {
     const hash = String(params.hash || "");
-    if (!hash || !botToken) return false;
+    if (!hash || !botToken) {
+        return {
+            ok: false,
+            reason: !hash ? "missing_hash" : "missing_bot_token",
+        };
+    }
 
     const secretKey = crypto.createHash("sha256").update(botToken).digest();
     const checkString = Object.keys(params)
@@ -265,12 +270,34 @@ function verifyTelegramAuth(botToken, params) {
         .update(checkString)
         .digest("hex");
 
-    if (hmac !== hash) return false;
+    if (hmac !== hash) {
+        return {
+            ok: false,
+            reason: "hash_mismatch",
+            checkStringKeys: Object.keys(params)
+                .filter((k) => k !== "hash" && params[k] !== undefined && params[k] !== "")
+                .sort(),
+        };
+    }
 
     const authDate = parseInt(params.auth_date, 10);
-    if (isNaN(authDate) || Date.now() / 1000 - authDate > 86400) return false;
+    if (isNaN(authDate)) {
+        return {
+            ok: false,
+            reason: "invalid_auth_date",
+        };
+    }
+    if (Date.now() / 1000 - authDate > 86400) {
+        return {
+            ok: false,
+            reason: "auth_date_expired",
+            authDate,
+        };
+    }
 
-    return true;
+    return {
+        ok: true,
+    };
 }
 
 module.exports = {

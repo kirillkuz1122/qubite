@@ -4245,13 +4245,25 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
         // --- Telegram Login Widget (non-standard OAuth) ---
         if (providerSlug === "telegram") {
             const state = String(req.query.state || "");
+            console.info(`[${new Date().toISOString()}] OAuth telegram callback received`, {
+                hasState: Boolean(state),
+                queryKeys: Object.keys(req.query || {}).sort(),
+                origin: req.get("origin") || null,
+                referer: req.get("referer") || null,
+                host: req.get("host") || null,
+            });
             if (!state) {
+                console.warn(`[${new Date().toISOString()}] OAuth telegram failed: missing_state`);
                 redirectToApp(res, { oauthError: "missing_state" });
                 return;
             }
 
             const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
             if (!oauthState || oauthState.provider !== "telegram") {
+                console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_state`, {
+                    stateFound: Boolean(oauthState),
+                    stateProvider: oauthState?.provider || null,
+                });
                 redirectToApp(res, { oauthError: "invalid_state" });
                 return;
             }
@@ -4259,7 +4271,14 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             await consumeOAuthState(oauthState.id);
 
             const { state: _s, ...tgParams } = req.query;
-            if (!verifyTelegramAuth(provider.clientSecret, tgParams)) {
+            const telegramVerification = verifyTelegramAuth(provider.clientSecret, tgParams);
+            if (!telegramVerification.ok) {
+                console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_signature`, {
+                    reason: telegramVerification.reason,
+                    queryKeys: Object.keys(tgParams || {}).sort(),
+                    checkStringKeys: telegramVerification.checkStringKeys || null,
+                    authDate: telegramVerification.authDate || tgParams.auth_date || null,
+                });
                 redirectToApp(res, { oauthError: "invalid_signature" });
                 return;
             }
@@ -4349,9 +4368,21 @@ app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (
     try {
         const accessToken = String(req.body.accessToken || "");
         if (!accessToken) {
+            console.warn(`[${new Date().toISOString()}] VK ID auth failed: missing_access_token`, {
+                bodyKeys: Object.keys(req.body || {}).sort(),
+                origin: req.get("origin") || null,
+                referer: req.get("referer") || null,
+            });
             sendError(res, 400, "Отсутствует access_token.");
             return;
         }
+
+        console.info(`[${new Date().toISOString()}] VK ID auth started`, {
+            tokenLength: accessToken.length,
+            origin: req.get("origin") || null,
+            referer: req.get("referer") || null,
+            userAgent: req.headers["user-agent"] || "",
+        });
 
         // Verify token by calling VK API
         const vkUrl = new URL("https://api.vk.com/method/users.get");
@@ -4361,6 +4392,12 @@ app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (
 
         const vkResponse = await fetch(vkUrl.toString());
         if (!vkResponse.ok) {
+            const errorText = await vkResponse.text().catch(() => "");
+            console.error(`[${new Date().toISOString()}] VK API users.get HTTP failed`, {
+                status: vkResponse.status,
+                statusText: vkResponse.statusText,
+                bodyPreview: errorText.slice(0, 300),
+            });
             sendError(res, 502, "Не удалось связаться с VK API.");
             return;
         }
@@ -4369,7 +4406,10 @@ app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (
         if (vkData.error) {
             console.error(
                 `[${new Date().toISOString()}] VK ID token invalid:`,
-                vkData.error.error_msg || vkData.error,
+                {
+                    errorCode: vkData.error.error_code || null,
+                    errorMsg: vkData.error.error_msg || null,
+                },
             );
             sendError(res, 401, "Недействительный VK-токен.");
             return;
@@ -4377,6 +4417,10 @@ app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (
 
         const vkUser = vkData.response?.[0];
         if (!vkUser || !vkUser.id) {
+            console.warn(`[${new Date().toISOString()}] VK ID auth failed: empty_profile`, {
+                responseType: Array.isArray(vkData.response) ? "array" : typeof vkData.response,
+                responseLength: Array.isArray(vkData.response) ? vkData.response.length : null,
+            });
             sendError(res, 401, "Не удалось получить профиль VK.");
             return;
         }
@@ -4409,6 +4453,10 @@ app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (
         await setUserLastLogin(user.id);
 
         res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        console.info(`[${new Date().toISOString()}] VK ID auth success`, {
+            vkSubject: profile.subject,
+            userId: user.id,
+        });
         res.json({ ok: true, provider: "vk" });
     } catch (error) {
         if (error.code === "ACCOUNT_BLOCKED") {
