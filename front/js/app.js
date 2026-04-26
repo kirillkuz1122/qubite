@@ -1743,21 +1743,15 @@ function validateDetailedProfilePayload(payload) {
         errors.phone = "Укажите полный номер телефона в формате +7 (999) 111-22-33.";
     }
 
-    if (!payload.city) {
-        errors.city = "Укажите город.";
-    } else if (!cityRule.test(payload.city)) {
+    if (payload.city && !cityRule.test(payload.city)) {
         errors.city = "Город может содержать только буквы, пробел и дефис.";
     }
 
-    if (!payload.place) {
-        errors.place = "Укажите место обучения.";
-    } else if (!placeRule.test(payload.place)) {
+    if (payload.place && !placeRule.test(payload.place)) {
         errors.place = "Используйте буквы, цифры и базовые знаки без лишних символов.";
     }
 
-    if (!payload.studyGroup) {
-        errors.studyGroup = "Укажите класс, группу или курс.";
-    } else if (!studyGroupRule.test(payload.studyGroup)) {
+    if (payload.studyGroup && !studyGroupRule.test(payload.studyGroup)) {
         errors.studyGroup = "Поле допускает буквы, цифры, пробелы и / - _ ( ).";
     }
 
@@ -4872,9 +4866,9 @@ function setupForm(form) {
                 ["lastName", !payload.lastName ? "Укажите фамилию." : !nameRule.test(payload.lastName) ? "Только буквы, пробел и дефис." : ""],
                 ["firstName", !payload.firstName ? "Укажите имя." : !nameRule.test(payload.firstName) ? "Только буквы, пробел и дефис." : ""],
                 ["middleName", payload.middleName && !nameRule.test(payload.middleName) ? "Только буквы, пробел и дефис." : ""],
-                ["city", !payload.city ? "Укажите город." : !cityRule.test(payload.city) ? "Только буквы, пробел и дефис." : ""],
-                ["place", !payload.place ? "Укажите место обучения." : !placeRule.test(payload.place) ? "Используйте буквы, цифры и базовые знаки." : ""],
-                ["studyGroup", !payload.studyGroup ? "Укажите класс, группу или курс." : !studyGroupRule.test(payload.studyGroup) ? "Разрешены буквы, цифры, пробелы и / - _ ( )." : ""],
+                ["city", payload.city && !cityRule.test(payload.city) ? "Только буквы, пробел и дефис." : ""],
+                ["place", payload.place && !placeRule.test(payload.place) ? "Используйте буквы, цифры и базовые знаки." : ""],
+                ["studyGroup", payload.studyGroup && !studyGroupRule.test(payload.studyGroup) ? "Разрешены буквы, цифры, пробелы и / - _ ( )." : ""],
             ].forEach(([fieldName, message]) => {
                 setInlineFieldError(form, fieldName, message);
                 if (message) {
