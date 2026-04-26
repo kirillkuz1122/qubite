@@ -19,6 +19,7 @@ const {
 const TELEGRAM_BOT_ID = TELEGRAM_BOT_TOKEN
     ? TELEGRAM_BOT_TOKEN.split(":")[0]
     : "";
+let telegramBotUsernameCache = null;
 
 const OAUTH_RUNTIME_SETTING_KEYS = {
     google: "oauth_google_enabled",
@@ -31,6 +32,28 @@ function isRuntimeOAuthEnabled(providerSlug, settings = {}) {
     const key = OAUTH_RUNTIME_SETTING_KEYS[providerSlug];
     if (!key) return true;
     return settings[key] !== false && settings[key] !== "false";
+}
+
+async function getTelegramBotUsername() {
+    if (telegramBotUsernameCache) {
+        return telegramBotUsernameCache;
+    }
+    if (!TELEGRAM_BOT_TOKEN) {
+        return "";
+    }
+
+    const response = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`,
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok || !payload.result?.username) {
+        throw new Error(
+            `Telegram getMe failed: ${payload.description || response.statusText}`,
+        );
+    }
+
+    telegramBotUsernameCache = String(payload.result.username).replace(/^@/, "");
+    return telegramBotUsernameCache;
 }
 
 const PROVIDERS = {
@@ -339,6 +362,7 @@ module.exports = {
     exchangeOAuthCode,
     fetchOAuthProfile,
     getTelegramAuthorizeDebugInfo,
+    getTelegramBotUsername,
     getProvider,
     isRuntimeOAuthEnabled,
     isProviderConfigured,

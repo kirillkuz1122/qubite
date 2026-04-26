@@ -34,6 +34,8 @@ const {
     HEADERS_TIMEOUT_MS,
     KEEP_ALIVE_TIMEOUT_MS,
     MAX_REQUESTS_PER_SOCKET,
+    OAUTH_VK_ENABLED,
+    VK_APP_ID,
 } = require("./src/config");
 const {
     saveSystemStats,
@@ -213,6 +215,7 @@ const {
     exchangeOAuthCode,
     fetchOAuthProfile,
     getProvider,
+    getTelegramBotUsername,
     isProviderConfigured,
     isRuntimeOAuthEnabled,
     listOAuthProviders,
@@ -525,7 +528,7 @@ app.use((req, res, next) => {
             "img-src 'self' data: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline'",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://id.vk.ru https://challenges.cloudflare.com",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://id.vk.ru https://telegram.org https://challenges.cloudflare.com",
             "connect-src 'self' https://challenges.cloudflare.com https://id.vk.ru https://stat-events-vkid.vk.ru https://api.vk.com https://vk.com https://login.vk.com",
             "frame-src https://challenges.cloudflare.com https://id.vk.ru https://oauth.telegram.org https://vk.com https://login.vk.com",
         ].join("; "),
@@ -2807,6 +2810,174 @@ function redirectToApp(res, params) {
     res.redirect(`/${suffix}`);
 }
 
+function escapeHtmlAttr(value) {
+    return String(value ?? "").replace(
+        /[&<>"']/g,
+        (char) =>
+            ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+            })[char],
+    );
+}
+
+function sendTelegramLoginWidgetPage(res, { botUsername, authUrl }) {
+    res.setHeader("Cache-Control", "no-store");
+    res.type("html").send(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram login — Qubite</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #070b16;
+      color: #eef2ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(420px, calc(100vw - 32px));
+      padding: 28px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 24px;
+      background: rgba(15,23,42,.88);
+      box-shadow: 0 24px 80px rgba(0,0,0,.42);
+      text-align: center;
+    }
+    h1 { margin: 0 0 10px; font-size: 22px; }
+    p { margin: 0 0 22px; color: #94a3b8; line-height: 1.5; }
+    a { color: #f97316; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Вход через Telegram</h1>
+    <p>Нажмите кнопку Telegram, чтобы подтвердить вход в Qubite.</p>
+    <script async src="https://telegram.org/js/telegram-widget.js?22"
+      data-telegram-login="${escapeHtmlAttr(botUsername)}"
+      data-size="large"
+      data-auth-url="${escapeHtmlAttr(authUrl)}"></script>
+    <p style="margin-top:22px;font-size:13px"><a href="/">Вернуться на сайт</a></p>
+  </main>
+</body>
+</html>`);
+}
+
+function sendVkIdCallbackBridgePage(res, { appId, redirectUrl, code, deviceId }) {
+    res.setHeader("Cache-Control", "no-store");
+    res.type("html").send(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VK ID login — Qubite</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #070b16;
+      color: #eef2ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(420px, calc(100vw - 32px));
+      padding: 28px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 24px;
+      background: rgba(15,23,42,.88);
+      box-shadow: 0 24px 80px rgba(0,0,0,.42);
+      text-align: center;
+    }
+    h1 { margin: 0 0 10px; font-size: 22px; }
+    p { margin: 0; color: #94a3b8; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Завершаем вход через VK ID</h1>
+    <p id="status">Подождите несколько секунд…</p>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@vkid/sdk@latest/dist-sdk/umd/index.js"></script>
+  <script>
+    (async () => {
+      const status = document.getElementById("status");
+      const fail = (error) => {
+        console.error("[VK ID callback] failed:", error);
+        status.textContent = "Не удалось завершить вход через VK ID.";
+        window.location.replace("/?oauthError=vk_callback_failed&provider=vk");
+      };
+
+      try {
+        const VKID = window.VKIDSDK;
+        if (!VKID) {
+          fail("sdk_missing");
+          return;
+        }
+
+        const appId = Number(${JSON.stringify(Number(appId) || 0)});
+        const code = ${JSON.stringify(String(code || ""))};
+        const deviceId = ${JSON.stringify(String(deviceId || ""))};
+        const redirectUrl = ${JSON.stringify(String(redirectUrl || ""))};
+        if (!appId || !code || !deviceId || !redirectUrl) {
+          fail("missing_callback_params");
+          return;
+        }
+
+        VKID.Config.init({
+          app: appId,
+          redirectUrl,
+          responseMode: VKID.ConfigResponseMode.Callback,
+          source: VKID.ConfigSource.LOWCODE,
+          scope: "",
+        });
+
+        const tokenResult = await VKID.Auth.exchangeCode(code, deviceId);
+        console.info("[VK ID callback] token exchange result:", {
+          hasAccessToken: Boolean(tokenResult?.access_token),
+          hasIdToken: Boolean(tokenResult?.id_token),
+          hasUserId: Boolean(tokenResult?.user_id),
+          tokenType: tokenResult?.token_type || null,
+          scope: tokenResult?.scope || null,
+          expiresIn: tokenResult?.expires_in || null,
+        });
+
+        const response = await fetch("/api/auth/vk-id", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ accessToken: tokenResult.access_token }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          fail({ status: response.status, code: payload.code || null, message: payload.message || null });
+          return;
+        }
+
+        window.location.replace("/?oauth=success&provider=vk");
+      } catch (error) {
+        fail({
+          error: error?.error || error?.code || null,
+          errorDescription: error?.error_description || error?.message || String(error),
+        });
+      }
+    })();
+  </script>
+</body>
+</html>`);
+}
+
 function getRequestBaseUrl(req) {
     const configuredUrl = new URL(APP_BASE_URL);
     const configuredHost = configuredUrl.hostname.toLowerCase();
@@ -4233,12 +4404,24 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
         };
 
         if (providerSlug === "telegram") {
+            const telegramDebugInfo = getTelegramAuthorizeDebugInfo(authorizeOptions);
             console.info(`[${new Date().toISOString()}] OAuth telegram start`, {
-                ...getTelegramAuthorizeDebugInfo(authorizeOptions),
+                ...telegramDebugInfo,
                 host: req.get("host") || null,
                 forwardedHost: req.get("x-forwarded-host") || null,
                 forwardedProto: req.get("x-forwarded-proto") || null,
             });
+            const botUsername = await getTelegramBotUsername();
+            console.info(`[${new Date().toISOString()}] OAuth telegram widget bridge`, {
+                botId: telegramDebugInfo?.botId || null,
+                botUsername,
+                authUrl: telegramDebugInfo?.returnTo || null,
+            });
+            sendTelegramLoginWidgetPage(res, {
+                botUsername,
+                authUrl: telegramDebugInfo.returnTo,
+            });
+            return;
         }
 
         res.redirect(buildOAuthAuthorizeUrl(providerSlug, authorizeOptions));
@@ -4250,6 +4433,56 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
 app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
     try {
         const providerSlug = String(req.params.provider || "");
+        if (providerSlug === "vk") {
+            console.info(`[${new Date().toISOString()}] VK ID callback received`, {
+                queryKeys: Object.keys(req.query || {}).sort(),
+                hasCode: Boolean(req.query.code),
+                hasDeviceId: Boolean(req.query.device_id),
+                hasError: Boolean(req.query.error),
+                host: req.get("host") || null,
+                referer: req.get("referer") || null,
+            });
+            if (!OAUTH_VK_ENABLED || !VK_APP_ID) {
+                redirectToApp(res, {
+                    oauthError: "provider_not_configured",
+                    provider: "vk",
+                });
+                return;
+            }
+            if (!isRuntimeOAuthEnabled("vk", req.systemSettings || {})) {
+                redirectToApp(res, {
+                    oauthError: "provider_disabled",
+                    provider: "vk",
+                });
+                return;
+            }
+            if (req.query.error) {
+                redirectToApp(res, {
+                    oauthError: "vk_authorization_failed",
+                    provider: "vk",
+                });
+                return;
+            }
+
+            const code = String(req.query.code || "");
+            const deviceId = String(req.query.device_id || "");
+            if (!code || !deviceId) {
+                redirectToApp(res, {
+                    oauthError: "vk_missing_code_or_device",
+                    provider: "vk",
+                });
+                return;
+            }
+
+            sendVkIdCallbackBridgePage(res, {
+                appId: VK_APP_ID,
+                redirectUrl: `${getRequestBaseUrl(req)}/api/auth/oauth/vk/callback`,
+                code,
+                deviceId,
+            });
+            return;
+        }
+
         const provider = getProvider(providerSlug);
         if (!provider || !isProviderConfigured(providerSlug)) {
             redirectToApp(res, {
