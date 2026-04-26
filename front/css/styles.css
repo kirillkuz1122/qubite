@@ -1381,9 +1381,9 @@ button.card--all {
     align-items: stretch;
   }
 
-  /* .word { */
-  /*   font-size: min(14.5vw, 86px); */
-  /* } */
+  .word {
+    font-size: min(14vw, 86px);
+  }
   .cookie-notice__btn {
     width: 100%;
   }
