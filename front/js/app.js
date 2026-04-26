@@ -132,7 +132,6 @@ const DEFAULT_OAUTH_PROVIDERS = [
         label: "VK ID",
         enabled: false,
         startUrl: null,
-        sdkAppId: null,
     },
     {
         slug: "telegram",
@@ -3043,12 +3042,7 @@ function buildOAuthButtonsHtml() {
         return "";
     }
 
-    // Standard OAuth buttons (redirect flow)
-    const standardProviders = providers.filter((p) => p.slug !== "vk");
-    // VK ID SDK (client-side flow)
-    const vkProvider = providers.find((p) => p.slug === "vk");
-
-    const standardHtml = standardProviders
+    const buttonsHtml = providers
         .map(
             (provider) => `
             <button
@@ -3062,21 +3056,13 @@ function buildOAuthButtonsHtml() {
         )
         .join("");
 
-    const vkHtml =
-        vkProvider && vkProvider.enabled && vkProvider.sdkAppId
-            ? isLocalDevOrigin()
-                ? `<button class="oauth-icon-btn" type="button" disabled title="VK ID работает на домене, указанном в настройках VK">${OAUTH_ICONS.vk}</button>`
-                : `<div class="oauth-icon-btn vk-id-widget-wrap" data-vk-app-id="${vkProvider.sdkAppId}" title="${escapeHtml(vkProvider.label)}"></div>`
-            : "";
-
     return `
         <div class="oauth-block">
             <div class="oauth-divider">
                 <span></span><span>или через</span><span></span>
             </div>
             <div class="oauth-icons">
-                ${standardHtml}
-                ${vkHtml}
+                ${buttonsHtml}
             </div>
         </div>
     `;
@@ -3105,123 +3091,6 @@ function hydrateOAuthButtons() {
             window.location.href = provider.startUrl;
         });
     });
-
-    // VK ID SDK — render OneTap widget into each container
-    initVkIdWidgets();
-}
-
-// --- VK ID SDK integration ---
-let _vkIdSdkInited = false;
-
-function initVkIdWidgets() {
-    if (!window.VKIDSDK) return;
-    const containers = document.querySelectorAll(".vk-id-widget-wrap[data-vk-app-id]");
-    if (containers.length === 0) return;
-
-    const VKID = window.VKIDSDK;
-    const appId = Number(containers[0].dataset.vkAppId);
-    if (!appId) return;
-
-    // Init config once
-    if (!_vkIdSdkInited) {
-        VKID.Config.init({
-            app: appId,
-            redirectUrl: window.location.origin + "/api/auth/oauth/vk/callback",
-            responseMode: VKID.ConfigResponseMode.Callback,
-            source: VKID.ConfigSource.LOWCODE,
-            scope: "",
-        });
-        console.info("[VK ID] SDK config initialized:", {
-            appId,
-            origin: window.location.origin,
-            redirectUrl: window.location.origin + "/api/auth/oauth/vk/callback",
-            responseMode: "callback",
-        });
-        _vkIdSdkInited = true;
-    }
-
-    containers.forEach((container) => {
-        if (container.dataset.vkRendered) return;
-        container.dataset.vkRendered = "1";
-
-        const oneTap = new VKID.OneTap();
-        oneTap
-            .render({
-                container,
-                fastAuthEnabled: false,
-                showAlternativeLogin: true,
-                skin: "secondary",
-                styles: { borderRadius: 12, width: 40 },
-                oauthList: ["ok_ru", "mail_ru"],
-            })
-            .on(VKID.WidgetEvents.ERROR, (error) => {
-                console.error("[VK ID] Widget error:", error);
-                Toast.show(
-                    "VK",
-                    `Ошибка входа через VK (${error?.code || error?.type || "widget_error"})`,
-                    "error",
-                );
-            })
-            .on(VKID.OneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
-                console.info("[VK ID] Login success payload:", {
-                    hasCode: Boolean(payload?.code),
-                    hasDeviceId: Boolean(payload?.device_id),
-                    keys: Object.keys(payload || {}),
-                });
-                VKID.Auth.exchangeCode(payload.code, payload.device_id)
-                    .then(handleVkIdSuccess)
-                    .catch((error) => {
-                        console.error("[VK ID] Code exchange failed:", {
-                            error: error?.error || error?.code || null,
-                            errorDescription:
-                                error?.error_description || error?.message || String(error),
-                            keys: Object.keys(error || {}),
-                        });
-                        Toast.show(
-                            "VK",
-                            `Ошибка обмена кода VK (${error?.error || error?.code || "exchange_failed"})`,
-                            "error",
-                        );
-                    });
-            });
-    });
-}
-
-async function handleVkIdSuccess(data) {
-    try {
-        console.info("[VK ID] Token exchange result:", {
-            hasAccessToken: Boolean(data?.access_token),
-            hasIdToken: Boolean(data?.id_token),
-            hasUserId: Boolean(data?.user_id),
-            tokenType: data?.token_type || null,
-            scope: data?.scope || null,
-            expiresIn: data?.expires_in || null,
-        });
-        const resp = await fetch("/api/auth/vk-id", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify({ accessToken: data.access_token }),
-        });
-        if (resp.ok) {
-            window.location.reload();
-        } else {
-            const err = await resp.json().catch(() => ({}));
-            console.error("[VK ID] Backend rejected auth:", {
-                status: resp.status,
-                code: err.code || null,
-                message: err.message || null,
-            });
-            Toast.show(
-                "VK",
-                err.message || "Ошибка входа через VK",
-                "error",
-            );
-        }
-    } catch (error) {
-        console.error("[VK ID] Backend auth failed:", error);
-        Toast.show("VK", "Ошибка входа через VK", "error");
-    }
 }
 
 // Авто-лоадер на старте убран. Используйте Loader.show() / Loader.hide() для ручного управления.

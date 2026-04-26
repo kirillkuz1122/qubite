@@ -87,7 +87,7 @@
 - турниры, команды, рейтинг, аналитика
 - organizer/moderation/admin/owner contours
 - Excel import для задач и roster
-- OAuth через Google/Yandex/VK/Telegram (Login Widget)
+- OAuth через Google/Yandex/VK (серверный PKCE)/Telegram (direct redirect)
 - Telegram-бот для управления платформой (owner + модераторы)
 - Elo-подобная рейтинговая система с таблицей `rating_changes`, историей и UI
 - cookie/localStorage notice в `front/js/app.js` + legal-текст в `privacy.html`
@@ -147,7 +147,6 @@
 - **После каждого коммита сразу делать `git push origin codex`.**
 - `main` не трогать: не checkout, не merge, не push, если пользователь явно не попросил именно это.
 - Перед коммитом проверять `git status --short --branch`; случайные удаления вроде `.env.example` не включать в коммит без отдельного подтверждения.
-- Если пользователь просит “запушь”, пушить текущую ветку `codex` в `origin/codex`.
 
 ### Размеры ключевых файлов (важно для стратегии правок)
 
@@ -183,7 +182,7 @@
 - `NODE_ENV=dev` — влияет на режимы логирования и guard'ов.
 - `TRUST_PROXY=0` — в проде за Nginx должно быть `1`.
 - Лимиты body: `JSON_BODY_LIMIT=32kb`, `HEAVY_JSON_BODY_LIMIT=256kb`, `IMPORT_JSON_BODY_LIMIT=2mb` (используются в `server.js` на разных группах роутов).
-- `VK_APP_ID` — ID приложения VK ID SDK; client secret для текущего VK-входа не используется.
+- `VK_APP_ID` — ID приложения VK ID. `VK_CLIENT_SECRET` — «Защищённый ключ» из VK Developer Console. VK OAuth использует серверный PKCE-flow (code_verifier хранится в `oauth_states`).
 - `OAUTH_GOOGLE_ENABLED`, `OAUTH_YANDEX_ENABLED`, `OAUTH_VK_ENABLED`, `OAUTH_TELEGRAM_ENABLED` — аварийные env kill-switch'и для отдельных способов входа; при `false` провайдер скрывается из UI и web-start endpoint не работает. Оперативное включение/выключение owner делает без рестарта через `system_settings`: `oauth_google_enabled`, `oauth_yandex_enabled`, `oauth_vk_enabled`, `oauth_telegram_enabled`.
 - `TELEGRAM_BOT_TOKEN` — токен бота; если пуст, бот не запускается и Telegram Login Widget не включается.
 - `TELEGRAM_OWNER_ID` — Telegram user ID владельца (единственный source of truth для owner-доступа в боте).

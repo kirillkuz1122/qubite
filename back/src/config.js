@@ -219,7 +219,11 @@ module.exports = {
     process.env.YANDEX_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/yandex/callback`,
   VK_APP_ID: process.env.VK_APP_ID || process.env.VK_CLIENT_ID || "",
+  VK_CLIENT_SECRET: process.env.VK_CLIENT_SECRET || "",
   OAUTH_VK_ENABLED: parseBoolean(process.env.OAUTH_VK_ENABLED, true),
+  VK_CALLBACK_URL:
+    process.env.VK_CALLBACK_URL ||
+    `${APP_BASE_URL}/api/auth/oauth/vk/callback`,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
   OAUTH_TELEGRAM_ENABLED: parseBoolean(process.env.OAUTH_TELEGRAM_ENABLED, true),
   TELEGRAM_OWNER_IDS: parseCsv(process.env.TELEGRAM_OWNER_ID || ""),

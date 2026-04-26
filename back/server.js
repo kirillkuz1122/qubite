@@ -212,8 +212,12 @@ const {
 } = require("./src/imports");
 const {
     buildOAuthAuthorizeUrl,
+    computeCodeChallenge,
     exchangeOAuthCode,
+    exchangeVkCode,
     fetchOAuthProfile,
+    fetchVkProfile,
+    generateCodeVerifier,
     getProvider,
     getTelegramBotUsername,
     isProviderConfigured,
@@ -528,9 +532,9 @@ app.use((req, res, next) => {
             "img-src 'self' data: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline'",
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://id.vk.ru https://telegram.org https://challenges.cloudflare.com",
-            "connect-src 'self' https://challenges.cloudflare.com https://id.vk.ru https://stat-events-vkid.vk.ru https://api.vk.com https://vk.com https://login.vk.com",
-            "frame-src https://challenges.cloudflare.com https://id.vk.ru https://oauth.telegram.org https://vk.com https://login.vk.com",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://telegram.org https://challenges.cloudflare.com",
+            "connect-src 'self' https://challenges.cloudflare.com",
+            "frame-src https://challenges.cloudflare.com https://oauth.telegram.org",
         ].join("; "),
     );
     if (IS_PRODUCTION) {
@@ -2935,113 +2939,6 @@ function sendTelegramCallbackBridgePage(res) {
 </html>`);
 }
 
-function sendVkIdCallbackBridgePage(res, { appId, redirectUrl, code, deviceId }) {
-    res.setHeader("Cache-Control", "no-store");
-    res.type("html").send(`<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VK ID login — Qubite</title>
-  <style>
-    :root { color-scheme: dark; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #070b16;
-      color: #eef2ff;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    main {
-      width: min(420px, calc(100vw - 32px));
-      padding: 28px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 24px;
-      background: rgba(15,23,42,.88);
-      box-shadow: 0 24px 80px rgba(0,0,0,.42);
-      text-align: center;
-    }
-    h1 { margin: 0 0 10px; font-size: 22px; }
-    p { margin: 0; color: #94a3b8; line-height: 1.5; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Завершаем вход через VK ID</h1>
-    <p id="status">Подождите несколько секунд…</p>
-  </main>
-  <script src="https://cdn.jsdelivr.net/npm/@vkid/sdk@latest/dist-sdk/umd/index.js"></script>
-  <script>
-    (async () => {
-      const status = document.getElementById("status");
-      const fail = (error) => {
-        console.error("[VK ID callback] failed:", error);
-        status.textContent = "Не удалось завершить вход через VK ID.";
-        window.location.replace("/?oauthError=vk_callback_failed&provider=vk");
-      };
-
-      try {
-        const VKID = window.VKIDSDK;
-        if (!VKID) {
-          fail("sdk_missing");
-          return;
-        }
-
-        const appId = Number(${JSON.stringify(Number(appId) || 0)});
-        const code = ${JSON.stringify(String(code || ""))};
-        const deviceId = ${JSON.stringify(String(deviceId || ""))};
-        const redirectUrl = ${JSON.stringify(String(redirectUrl || ""))};
-        if (!appId || !code || !deviceId || !redirectUrl) {
-          fail("missing_callback_params");
-          return;
-        }
-
-        VKID.Config.init({
-          app: appId,
-          redirectUrl,
-          responseMode: VKID.ConfigResponseMode.Callback,
-          source: VKID.ConfigSource.LOWCODE,
-          scope: "",
-        });
-
-        const tokenResult = await VKID.Auth.exchangeCode(code, deviceId);
-        console.info("[VK ID callback] token exchange result:", {
-          hasAccessToken: Boolean(tokenResult?.access_token),
-          hasIdToken: Boolean(tokenResult?.id_token),
-          hasUserId: Boolean(tokenResult?.user_id),
-          tokenType: tokenResult?.token_type || null,
-          scope: tokenResult?.scope || null,
-          expiresIn: tokenResult?.expires_in || null,
-        });
-
-        const response = await fetch("/api/auth/vk-id", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ accessToken: tokenResult.access_token }),
-        });
-
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          fail({ status: response.status, code: payload.code || null, message: payload.message || null });
-          return;
-        }
-
-        window.location.replace("/?oauth=success&provider=vk");
-      } catch (error) {
-        fail({
-          error: error?.error || error?.code || null,
-          errorDescription: error?.error_description || error?.message || String(error),
-        });
-      }
-    })();
-  </script>
-</body>
-</html>`);
-}
-
 function getRequestBaseUrl(req) {
     const configuredUrl = new URL(APP_BASE_URL);
     const configuredHost = configuredUrl.hostname.toLowerCase();
@@ -4453,9 +4350,11 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
         }
 
         const state = generateRandomToken(24);
+        const codeVerifier = provider.usesPkce ? generateCodeVerifier() : null;
         await createOAuthState({
             provider: providerSlug,
             stateHash: hashOpaqueToken(state),
+            codeVerifier,
             ipAddress: getRequestIp(req),
             userAgent: req.headers["user-agent"] || "",
             expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString(),
@@ -4466,6 +4365,10 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
             state,
             baseUrl,
         };
+
+        if (codeVerifier) {
+            authorizeOptions.codeChallenge = computeCodeChallenge(codeVerifier);
+        }
 
         if (providerSlug === "telegram") {
             const telegramDebugInfo = getTelegramAuthorizeDebugInfo(authorizeOptions);
@@ -4486,53 +4389,90 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
 app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
     try {
         const providerSlug = String(req.params.provider || "");
+        // --- VK ID server-side OAuth with PKCE ---
         if (providerSlug === "vk") {
             console.info(`[${new Date().toISOString()}] VK ID callback received`, {
                 queryKeys: Object.keys(req.query || {}).sort(),
                 hasCode: Boolean(req.query.code),
                 hasDeviceId: Boolean(req.query.device_id),
+                hasState: Boolean(req.query.state),
                 hasError: Boolean(req.query.error),
-                host: req.get("host") || null,
-                referer: req.get("referer") || null,
             });
-            if (!OAUTH_VK_ENABLED || !VK_APP_ID) {
-                redirectToApp(res, {
-                    oauthError: "provider_not_configured",
-                    provider: "vk",
-                });
+
+            if (!isProviderConfigured("vk")) {
+                redirectToApp(res, { oauthError: "provider_not_configured", provider: "vk" });
                 return;
             }
             if (!isRuntimeOAuthEnabled("vk", req.systemSettings || {})) {
-                redirectToApp(res, {
-                    oauthError: "provider_disabled",
-                    provider: "vk",
-                });
+                redirectToApp(res, { oauthError: "provider_disabled", provider: "vk" });
                 return;
             }
             if (req.query.error) {
-                redirectToApp(res, {
-                    oauthError: "vk_authorization_failed",
-                    provider: "vk",
+                console.warn(`[${new Date().toISOString()}] VK auth error from provider:`, {
+                    error: req.query.error,
+                    errorDescription: req.query.error_description || null,
                 });
+                redirectToApp(res, { oauthError: "vk_authorization_failed", provider: "vk" });
                 return;
             }
 
             const code = String(req.query.code || "");
             const deviceId = String(req.query.device_id || "");
-            if (!code || !deviceId) {
-                redirectToApp(res, {
-                    oauthError: "vk_missing_code_or_device",
-                    provider: "vk",
-                });
+            const state = String(req.query.state || "");
+            if (!code || !deviceId || !state) {
+                redirectToApp(res, { oauthError: "vk_missing_params", provider: "vk" });
                 return;
             }
 
-            sendVkIdCallbackBridgePage(res, {
-                appId: VK_APP_ID,
-                redirectUrl: `${getRequestBaseUrl(req)}/api/auth/oauth/vk/callback`,
+            const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
+            if (!oauthState || oauthState.provider !== "vk") {
+                redirectToApp(res, { oauthError: "invalid_state", provider: "vk" });
+                return;
+            }
+
+            const codeVerifier = oauthState.code_verifier;
+            await consumeOAuthState(oauthState.id);
+
+            if (!codeVerifier) {
+                redirectToApp(res, { oauthError: "missing_code_verifier", provider: "vk" });
+                return;
+            }
+
+            const tokenPayload = await exchangeVkCode({
                 code,
+                codeVerifier,
                 deviceId,
+                state,
             });
+            const accessToken = tokenPayload.access_token;
+            if (!accessToken) {
+                redirectToApp(res, { oauthError: "missing_access_token", provider: "vk" });
+                return;
+            }
+
+            const profile = await fetchVkProfile(accessToken);
+            if (!profile.subject) {
+                redirectToApp(res, { oauthError: "vk_empty_profile", provider: "vk" });
+                return;
+            }
+
+            const user = await ensureOAuthUser(profile);
+            const rawToken = generateSessionToken();
+            await createSession({
+                userId: user.id,
+                tokenHash: hashSessionToken(rawToken),
+                ipAddress: getRequestIp(req),
+                userAgent: req.headers["user-agent"] || "",
+                expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+            });
+            await setUserLastLogin(user.id);
+
+            res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+            console.info(`[${new Date().toISOString()}] VK ID auth success`, {
+                vkSubject: profile.subject,
+                userId: user.id,
+            });
+            redirectToApp(res, { oauth: "success", provider: "vk" });
             return;
         }
 
@@ -4685,114 +4625,6 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
         redirectToApp(res, {
             oauthError: "callback_failed",
         });
-    }
-});
-
-// VK ID SDK — client-side token exchange, backend verification
-app.post("/api/auth/vk-id", publicExpensiveRateLimiter, authRateLimiter, async (req, res, next) => {
-    try {
-        const accessToken = String(req.body.accessToken || "");
-        if (!accessToken) {
-            console.warn(`[${new Date().toISOString()}] VK ID auth failed: missing_access_token`, {
-                bodyKeys: Object.keys(req.body || {}).sort(),
-                origin: req.get("origin") || null,
-                referer: req.get("referer") || null,
-            });
-            sendError(res, 400, "Отсутствует access_token.");
-            return;
-        }
-
-        console.info(`[${new Date().toISOString()}] VK ID auth started`, {
-            tokenLength: accessToken.length,
-            origin: req.get("origin") || null,
-            referer: req.get("referer") || null,
-            userAgent: req.headers["user-agent"] || "",
-        });
-
-        // Verify token by calling VK API
-        const vkUrl = new URL("https://api.vk.com/method/users.get");
-        vkUrl.searchParams.set("fields", "photo_200,screen_name");
-        vkUrl.searchParams.set("access_token", accessToken);
-        vkUrl.searchParams.set("v", "5.131");
-
-        const vkResponse = await fetch(vkUrl.toString());
-        if (!vkResponse.ok) {
-            const errorText = await vkResponse.text().catch(() => "");
-            console.error(`[${new Date().toISOString()}] VK API users.get HTTP failed`, {
-                status: vkResponse.status,
-                statusText: vkResponse.statusText,
-                bodyPreview: errorText.slice(0, 300),
-            });
-            sendError(res, 502, "Не удалось связаться с VK API.");
-            return;
-        }
-
-        const vkData = await vkResponse.json();
-        if (vkData.error) {
-            console.error(
-                `[${new Date().toISOString()}] VK ID token invalid:`,
-                {
-                    errorCode: vkData.error.error_code || null,
-                    errorMsg: vkData.error.error_msg || null,
-                },
-            );
-            sendError(res, 401, "Недействительный VK-токен.");
-            return;
-        }
-
-        const vkUser = vkData.response?.[0];
-        if (!vkUser || !vkUser.id) {
-            console.warn(`[${new Date().toISOString()}] VK ID auth failed: empty_profile`, {
-                responseType: Array.isArray(vkData.response) ? "array" : typeof vkData.response,
-                responseLength: Array.isArray(vkData.response) ? vkData.response.length : null,
-            });
-            sendError(res, 401, "Не удалось получить профиль VK.");
-            return;
-        }
-
-        const profile = {
-            provider: "vk",
-            subject: String(vkUser.id),
-            email: "",
-            emailVerified: false,
-            loginHint:
-                String(vkUser.screen_name || vkUser.first_name || "vk-user").trim() ||
-                "vk-user",
-            displayName:
-                [vkUser.first_name, vkUser.last_name].filter(Boolean).join(" ") ||
-                "VK User",
-            firstName: String(vkUser.first_name || "").trim(),
-            lastName: String(vkUser.last_name || "").trim(),
-            avatarUrl: String(vkUser.photo_200 || "").trim(),
-        };
-
-        const user = await ensureOAuthUser(profile);
-        const rawToken = generateSessionToken();
-        await createSession({
-            userId: user.id,
-            tokenHash: hashSessionToken(rawToken),
-            ipAddress: getRequestIp(req),
-            userAgent: req.headers["user-agent"] || "",
-            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
-        });
-        await setUserLastLogin(user.id);
-
-        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
-        console.info(`[${new Date().toISOString()}] VK ID auth success`, {
-            vkSubject: profile.subject,
-            userId: user.id,
-        });
-        res.json({ ok: true, provider: "vk" });
-    } catch (error) {
-        if (error.code === "ACCOUNT_BLOCKED") {
-            sendError(res, 403, error.message);
-            return;
-        }
-        console.error(
-            `[${new Date().toISOString()}] VK ID auth failed:`,
-            error?.message || error,
-        );
-        sendError(res, 500, "Ошибка входа через VK.");
     }
 });
 

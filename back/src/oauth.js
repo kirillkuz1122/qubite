@@ -11,6 +11,8 @@ const {
     OAUTH_YANDEX_ENABLED,
     TELEGRAM_BOT_TOKEN,
     VK_APP_ID,
+    VK_CLIENT_SECRET,
+    VK_CALLBACK_URL,
     YANDEX_CALLBACK_URL,
     YANDEX_CLIENT_ID,
     YANDEX_CLIENT_SECRET,
@@ -142,6 +144,48 @@ const PROVIDERS = {
             };
         },
     },
+    vk: {
+        slug: "vk",
+        label: "VK ID",
+        enabled: OAUTH_VK_ENABLED,
+        clientId: VK_APP_ID,
+        clientSecret: VK_CLIENT_SECRET,
+        callbackUrl: VK_CALLBACK_URL,
+        authorizeUrl: "https://id.vk.ru/authorize",
+        tokenUrl: "https://id.vk.ru/oauth2/auth",
+        userInfoUrl: "https://id.vk.ru/oauth2/user_info",
+        scopes: ["vkid.personal_info"],
+        usesPkce: true,
+        buildAuthorizeParams({ state, codeChallenge }) {
+            return {
+                response_type: "code",
+                client_id: this.clientId,
+                redirect_uri: this.callbackUrl,
+                state,
+                code_challenge: codeChallenge,
+                code_challenge_method: "S256",
+                scope: this.scopes.join(" "),
+                scheme: "dark",
+            };
+        },
+        mapProfile(payload) {
+            const user = payload.user || payload;
+            return {
+                provider: "vk",
+                subject: String(user.user_id || ""),
+                email: String(user.email || "").trim(),
+                emailVerified: Boolean(user.email),
+                loginHint:
+                    String(user.first_name || "vk-user").trim() || "vk-user",
+                displayName:
+                    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+                    "VK User",
+                firstName: String(user.first_name || "").trim(),
+                lastName: String(user.last_name || "").trim(),
+                avatarUrl: String(user.avatar || "").trim(),
+            };
+        },
+    },
     telegram: {
         slug: "telegram",
         label: "Telegram",
@@ -192,7 +236,7 @@ function isProviderConfigured(providerSlug) {
 }
 
 function listOAuthProviders(settings = {}) {
-    const list = Object.values(PROVIDERS).map((provider) => ({
+    return Object.values(PROVIDERS).map((provider) => ({
         slug: provider.slug,
         label: provider.label,
         enabled: isProviderConfigured(provider.slug) && isRuntimeOAuthEnabled(provider.slug, settings),
@@ -200,23 +244,6 @@ function listOAuthProviders(settings = {}) {
             ? `/api/auth/oauth/${provider.slug}/start`
             : null,
     }));
-
-    // VK ID SDK — client-side flow, insert before Telegram
-    const vkEntry = {
-        slug: "vk",
-        label: "VK ID",
-        enabled: Boolean(OAUTH_VK_ENABLED && VK_APP_ID && isRuntimeOAuthEnabled("vk", settings)),
-        startUrl: null,
-        sdkAppId: VK_APP_ID ? Number(VK_APP_ID) : null,
-    };
-    const tgIdx = list.findIndex((p) => p.slug === "telegram");
-    if (tgIdx >= 0) {
-        list.splice(tgIdx, 0, vkEntry);
-    } else {
-        list.push(vkEntry);
-    }
-
-    return list;
 }
 
 function buildOAuthAuthorizeUrl(providerSlug, options) {
@@ -307,6 +334,85 @@ async function fetchOAuthProfile(providerSlug, accessToken) {
     return provider.mapProfile(payload);
 }
 
+// --- PKCE helpers (RFC 7636) ---
+
+function generateCodeVerifier() {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const length = 64;
+    const buf = crypto.randomBytes(length);
+    let verifier = "";
+    for (let i = 0; i < length; i++) {
+        verifier += chars[buf[i] % chars.length];
+    }
+    return verifier;
+}
+
+function computeCodeChallenge(codeVerifier) {
+    return crypto
+        .createHash("sha256")
+        .update(codeVerifier)
+        .digest("base64url");
+}
+
+// --- VK ID server-side token exchange (PKCE, no client_secret) ---
+
+async function exchangeVkCode({ code, codeVerifier, deviceId, state }) {
+    const provider = getProvider("vk");
+    if (!provider) {
+        throw new Error("VK provider not found.");
+    }
+
+    const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        code_verifier: codeVerifier,
+        redirect_uri: provider.callbackUrl,
+        code: String(code || ""),
+        client_id: provider.clientId,
+        device_id: String(deviceId || ""),
+        state: String(state || ""),
+    });
+
+    const tokenResponse = await fetch(provider.tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+    });
+
+    const tokenPayload = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || tokenPayload.error) {
+        const errMsg = tokenPayload.error_description || tokenPayload.error || tokenResponse.statusText;
+        throw new Error(`VK token exchange failed: ${errMsg}`);
+    }
+
+    return tokenPayload;
+}
+
+async function fetchVkProfile(accessToken) {
+    const provider = getProvider("vk");
+    if (!provider) {
+        throw new Error("VK provider not found.");
+    }
+
+    const body = new URLSearchParams({
+        client_id: provider.clientId,
+        access_token: accessToken,
+    });
+
+    const response = await fetch(provider.userInfoUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.error) {
+        const errMsg = payload.error_description || payload.error || response.statusText;
+        throw new Error(`VK user_info failed: ${errMsg}`);
+    }
+
+    return provider.mapProfile(payload);
+}
+
 function verifyTelegramAuth(botToken, params) {
     const hash = String(params.hash || "");
     if (!hash || !botToken) {
@@ -359,8 +465,12 @@ function verifyTelegramAuth(botToken, params) {
 
 module.exports = {
     buildOAuthAuthorizeUrl,
+    computeCodeChallenge,
     exchangeOAuthCode,
+    exchangeVkCode,
     fetchOAuthProfile,
+    fetchVkProfile,
+    generateCodeVerifier,
     getTelegramAuthorizeDebugInfo,
     getTelegramBotUsername,
     getProvider,
