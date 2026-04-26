@@ -635,7 +635,6 @@ button.card--all {
   letter-spacing: -0.02em;
   text-align: center;
   font-size: clamp(64px, 18vw, 220px);
-  overflow: hidden;
   background-image: linear-gradient(
     90deg,
     var(--accent-from),
@@ -652,7 +651,6 @@ button.card--all {
     gloss 3.5s ease-in-out infinite;
   white-space: nowrap;
   max-width: 100%;
-  overflow: hidden;
 }
 @keyframes breathe {
   0% {
@@ -1386,7 +1384,7 @@ button.card--all {
   }
 
   .word {
-    font-size: min(15.5vw, 86px);
+    font-size: min(14.5vw, 86px);
   }
   .cookie-notice__btn {
     width: 100%;
@@ -12529,9 +12527,10 @@ body.loading {
   }
 }
 
-/* Firefox mobile: prevent hero content from causing horizontal shift */
+/* Firefox mobile: prevent hero content from causing horizontal shift.
+   Only 'paint' — 'layout' breaks word sizing in Gecko on narrow viewports. */
 .hero__stage {
-  contain: paint layout;
+  contain: paint;
 }
 
 /* Safari: fix background-clip for gradient text */
