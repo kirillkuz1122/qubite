@@ -576,7 +576,7 @@ a {
   width: 100%;
   min-width: 0;
   max-width: min(1100px, 100%);
-  overflow: clip;
+  box-sizing: border-box;
   padding-inline: 16px;
   padding-block: 64px;
 }
@@ -627,8 +627,7 @@ button.card--all {
 
 .word {
   display: block;
-  width: 100%;
-  box-sizing: border-box;
+  justify-self: stretch;
   font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
   font-weight: 900;
   line-height: 1;
@@ -1749,7 +1748,7 @@ button.card--all {
   width: 100%;
   max-width: min(1100px, 100%);
   min-width: 0;
-  overflow: clip;
+  box-sizing: border-box;
 }
 /* hero-кнопка: сочный градиент, мягкая тень, блик */
 .btn--hero {
