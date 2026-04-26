@@ -4291,7 +4291,7 @@ function openModal(id) {
             form.elements["middleName"].value = user.middleName || "";
             form.elements["city"].value = user.city || "";
             form.elements["place"].value = user.place || "";
-            form.elements["class"].value = user.studyGroup || "";
+            form.elements["studyGroup"].value = user.studyGroup || "";
             clearFormErrors(form);
             form.querySelectorAll(".input").forEach((input) => {
                 input.classList.remove("is-invalid");
