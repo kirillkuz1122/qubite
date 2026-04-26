@@ -627,11 +627,8 @@ button.card--all {
 
 .word {
   display: block;
-  width: fit-content;
-  min-width: 0;
-  max-width: 100%;
-  margin-inline: auto;
-  padding-inline: 0.3em;
+  width: 100%;
+  box-sizing: border-box;
   font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
   font-weight: 900;
   line-height: 1;
