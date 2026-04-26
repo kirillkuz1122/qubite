@@ -2783,13 +2783,14 @@ async function ensureOAuthUser(profile) {
     const login = await findNextUniqueLogin(profile.loginHint || "oauth-user");
     const generatedPassword = generateRandomToken(24);
     const { hash, salt } = await hashPassword(generatedPassword);
+    const uid = makeUid();
 
     user = await createUser({
-        uid: makeUid(),
+        uid,
         login,
         loginNormalized: normalizeLogin(login),
-        email: profile.email,
-        emailNormalized: normalizeEmail(profile.email),
+        email: profile.email || "",
+        emailNormalized: profile.email ? normalizeEmail(profile.email) : `__noemail__${uid}`,
         passwordHash: hash,
         passwordSalt: salt,
         firstName: profile.firstName || "",
