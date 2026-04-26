@@ -3485,33 +3485,40 @@ function fitWord() {
     const el = document.getElementById("word");
     if (!el) return;
     const parent = el.parentElement;
-    const viewportWidth = window.visualViewport?.width || window.innerWidth;
-    const parentWidth =
-        parent.getBoundingClientRect().width || parent.clientWidth || viewportWidth;
-    const sidePadding = viewportWidth <= 640 ? 56 : 40;
-    const maxW = Math.max(220, Math.min(parentWidth, viewportWidth) - sidePadding);
-    const minPx = 48,
-        maxPx = 1000;
+    if (!parent) return;
 
+    // Доступная ширина = content-box родителя (уже без padding)
+    const parentStyle = getComputedStyle(parent);
+    const parentPadL = parseFloat(parentStyle.paddingLeft) || 0;
+    const parentPadR = parseFloat(parentStyle.paddingRight) || 0;
+    const parentBox = parent.getBoundingClientRect().width || parent.clientWidth || 0;
+    const maxW = parentBox - parentPadL - parentPadR;
+
+    if (maxW <= 0) return;
+
+    const minPx = 48,
+        maxPx = 220;
+
+    // Измеряем ширину текста при эталонном размере
+    const probeFontSize = 100;
+    el.style.fontSize = probeFontSize + "px";
     el.style.width = "max-content";
     el.style.maxWidth = "none";
-    el.style.fontSize = maxPx + "px";
     el.style.whiteSpace = "nowrap";
 
-    const w = el.getBoundingClientRect().width || el.scrollWidth;
-    const fs = parseFloat(getComputedStyle(el).fontSize);
+    const textW = el.getBoundingClientRect().width || el.scrollWidth;
 
-    if (w > 0) {
-        const ratio = (maxW * 0.96) / w;
-        const next = Math.max(
-            minPx,
-            Math.min(maxPx, Math.floor(fs * Math.min(1, ratio))),
-        );
-        el.style.fontSize = next + "px";
+    // Рассчитываем размер чтобы текст точно вписался
+    let next = maxPx;
+    if (textW > 0) {
+        next = Math.floor(probeFontSize * (maxW / textW));
+        next = Math.max(minPx, Math.min(maxPx, next));
     }
 
-    el.style.width = "100%";
-    el.style.maxWidth = "100%";
+    el.style.fontSize = next + "px";
+    el.style.width = "";
+    el.style.maxWidth = "";
+    el.style.whiteSpace = "";
 }
 window.addEventListener("resize", fitWord, { passive: true });
 window.addEventListener("orientationchange", fitWord);
