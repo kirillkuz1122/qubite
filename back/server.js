@@ -4438,20 +4438,47 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
                 return;
             }
 
-            const tokenPayload = await exchangeVkCode({
-                code,
-                codeVerifier,
-                deviceId,
-                state,
-            });
+            let tokenPayload;
+            try {
+                console.info(`[${new Date().toISOString()}] VK ID exchanging code for token`, {
+                    codeLength: code.length,
+                    deviceIdLength: deviceId.length,
+                    hasCodeVerifier: Boolean(codeVerifier),
+                });
+                tokenPayload = await exchangeVkCode({
+                    code,
+                    codeVerifier,
+                    deviceId,
+                    state,
+                });
+            } catch (tokenError) {
+                console.error(`[${new Date().toISOString()}] VK ID token exchange failed:`, tokenError?.message || tokenError);
+                redirectToApp(res, { oauthError: "vk_token_exchange_failed", provider: "vk" });
+                return;
+            }
+
             const accessToken = tokenPayload.access_token;
             if (!accessToken) {
+                console.warn(`[${new Date().toISOString()}] VK ID: no access_token in response`, {
+                    keys: Object.keys(tokenPayload || {}),
+                    error: tokenPayload.error || null,
+                    errorDescription: tokenPayload.error_description || null,
+                });
                 redirectToApp(res, { oauthError: "missing_access_token", provider: "vk" });
                 return;
             }
 
-            const profile = await fetchVkProfile(accessToken);
+            let profile;
+            try {
+                profile = await fetchVkProfile(accessToken);
+            } catch (profileError) {
+                console.error(`[${new Date().toISOString()}] VK ID user_info failed:`, profileError?.message || profileError);
+                redirectToApp(res, { oauthError: "vk_profile_failed", provider: "vk" });
+                return;
+            }
+
             if (!profile.subject) {
+                console.warn(`[${new Date().toISOString()}] VK ID: empty subject in profile`, { profile });
                 redirectToApp(res, { oauthError: "vk_empty_profile", provider: "vk" });
                 return;
             }
