@@ -4232,6 +4232,7 @@ app.use(async (req, res, next) => {
     
     if (queryToken && queryToken === settings.maintenance_token) {
         res.cookie('qubite_bypass', queryToken, { maxAge: 24 * 3600000, httpOnly: true, path: '/' });
+        res.cookie('qubite_debug', '1', { maxAge: 24 * 3600000, httpOnly: false, path: '/' });
         const queryParams = new URLSearchParams(req.query);
         queryParams.delete('owner_bypass');
         const queryString = queryParams.toString();
