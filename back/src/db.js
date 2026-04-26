@@ -749,6 +749,10 @@ async function initializeDatabase(options = {}) {
         INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('email_enabled', 'true', datetime('now'));
         INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_creation_enabled', 'true', datetime('now'));
         INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('tournament_participation_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('oauth_google_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('oauth_yandex_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('oauth_vk_enabled', 'true', datetime('now'));
+        INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('oauth_telegram_enabled', 'true', datetime('now'));
 
         CREATE TABLE IF NOT EXISTS telegram_access (
             tg_id TEXT PRIMARY KEY,

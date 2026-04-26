@@ -5,6 +5,10 @@ const {
     GOOGLE_CALLBACK_URL,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    OAUTH_GOOGLE_ENABLED,
+    OAUTH_TELEGRAM_ENABLED,
+    OAUTH_VK_ENABLED,
+    OAUTH_YANDEX_ENABLED,
     TELEGRAM_BOT_TOKEN,
     VK_APP_ID,
     YANDEX_CALLBACK_URL,
@@ -16,10 +20,24 @@ const TELEGRAM_BOT_ID = TELEGRAM_BOT_TOKEN
     ? TELEGRAM_BOT_TOKEN.split(":")[0]
     : "";
 
+const OAUTH_RUNTIME_SETTING_KEYS = {
+    google: "oauth_google_enabled",
+    yandex: "oauth_yandex_enabled",
+    vk: "oauth_vk_enabled",
+    telegram: "oauth_telegram_enabled",
+};
+
+function isRuntimeOAuthEnabled(providerSlug, settings = {}) {
+    const key = OAUTH_RUNTIME_SETTING_KEYS[providerSlug];
+    if (!key) return true;
+    return settings[key] !== false && settings[key] !== "false";
+}
+
 const PROVIDERS = {
     google: {
         slug: "google",
         label: "Google",
+        enabled: OAUTH_GOOGLE_ENABLED,
         clientId: GOOGLE_CLIENT_ID,
         clientSecret: GOOGLE_CLIENT_SECRET,
         callbackUrl: GOOGLE_CALLBACK_URL,
@@ -59,6 +77,7 @@ const PROVIDERS = {
     yandex: {
         slug: "yandex",
         label: "Яндекс",
+        enabled: OAUTH_YANDEX_ENABLED,
         clientId: YANDEX_CLIENT_ID,
         clientSecret: YANDEX_CLIENT_SECRET,
         callbackUrl: YANDEX_CALLBACK_URL,
@@ -103,6 +122,7 @@ const PROVIDERS = {
     telegram: {
         slug: "telegram",
         label: "Telegram",
+        enabled: OAUTH_TELEGRAM_ENABLED,
         clientId: TELEGRAM_BOT_ID,
         clientSecret: TELEGRAM_BOT_TOKEN,
         callbackUrl: `${APP_BASE_URL}/api/auth/oauth/telegram/callback`,
@@ -115,7 +135,6 @@ const PROVIDERS = {
             return {
                 bot_id: TELEGRAM_BOT_ID,
                 origin,
-                request_access: "write",
                 return_to: `${origin}/api/auth/oauth/telegram/callback?state=${encodeURIComponent(state)}`,
             };
         },
@@ -146,14 +165,14 @@ function getProvider(providerSlug) {
 
 function isProviderConfigured(providerSlug) {
     const provider = getProvider(providerSlug);
-    return Boolean(provider && provider.clientId && provider.clientSecret);
+    return Boolean(provider && provider.enabled !== false && provider.clientId && provider.clientSecret);
 }
 
-function listOAuthProviders() {
+function listOAuthProviders(settings = {}) {
     const list = Object.values(PROVIDERS).map((provider) => ({
         slug: provider.slug,
         label: provider.label,
-        enabled: isProviderConfigured(provider.slug),
+        enabled: isProviderConfigured(provider.slug) && isRuntimeOAuthEnabled(provider.slug, settings),
         startUrl: isProviderConfigured(provider.slug)
             ? `/api/auth/oauth/${provider.slug}/start`
             : null,
@@ -163,7 +182,7 @@ function listOAuthProviders() {
     const vkEntry = {
         slug: "vk",
         label: "VK ID",
-        enabled: Boolean(VK_APP_ID),
+        enabled: Boolean(OAUTH_VK_ENABLED && VK_APP_ID && isRuntimeOAuthEnabled("vk", settings)),
         startUrl: null,
         sdkAppId: VK_APP_ID ? Number(VK_APP_ID) : null,
     };
@@ -193,6 +212,21 @@ function buildOAuthAuthorizeUrl(providerSlug, options) {
     });
 
     return url.toString();
+}
+
+function getTelegramAuthorizeDebugInfo(options = {}) {
+    const provider = getProvider("telegram");
+    if (!provider) return null;
+
+    const params = provider.buildAuthorizeParams(options);
+    return {
+        botId: provider.clientId || null,
+        origin: params.origin || null,
+        returnTo: params.return_to || null,
+        requestAccess: params.request_access || null,
+        configured: isProviderConfigured("telegram"),
+        enabled: provider.enabled !== false,
+    };
 }
 
 async function exchangeOAuthCode(providerSlug, code) {
@@ -304,8 +338,11 @@ module.exports = {
     buildOAuthAuthorizeUrl,
     exchangeOAuthCode,
     fetchOAuthProfile,
+    getTelegramAuthorizeDebugInfo,
     getProvider,
+    isRuntimeOAuthEnabled,
     isProviderConfigured,
     listOAuthProviders,
+    OAUTH_RUNTIME_SETTING_KEYS,
     verifyTelegramAuth,
 };

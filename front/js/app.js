@@ -3038,7 +3038,7 @@ async function bootstrapAuthSession() {
 }
 
 function buildOAuthButtonsHtml() {
-    const providers = getOAuthProviders();
+    const providers = getOAuthProviders().filter((provider) => provider.enabled);
     if (providers.length === 0) {
         return "";
     }
@@ -7156,6 +7156,10 @@ function renderAnalyticsView() {
                     ${toggleBtn('email_enabled', 'Рассылка писем', settings.email_enabled)}
                     ${toggleBtn('tournament_creation_enabled', 'Создание турниров', settings.tournament_creation_enabled)}
                     ${toggleBtn('tournament_participation_enabled', 'Участие в турнирах', settings.tournament_participation_enabled)}
+                    ${toggleBtn('oauth_google_enabled', 'Вход через Google', settings.oauth_google_enabled)}
+                    ${toggleBtn('oauth_yandex_enabled', 'Вход через Yandex', settings.oauth_yandex_enabled)}
+                    ${toggleBtn('oauth_vk_enabled', 'Вход через VK ID', settings.oauth_vk_enabled)}
+                    ${toggleBtn('oauth_telegram_enabled', 'Вход через Telegram', settings.oauth_telegram_enabled)}
                 </div>
             </section>
         `;
@@ -10550,6 +10554,10 @@ function renderAdminDashboard() {
                     ${toggleBtn('email_enabled', 'Рассылка писем', settings.email_enabled)}
                     ${toggleBtn('tournament_creation_enabled', 'Создание турниров', settings.tournament_creation_enabled)}
                     ${toggleBtn('tournament_participation_enabled', 'Участие в турнирах', settings.tournament_participation_enabled)}
+                    ${toggleBtn('oauth_google_enabled', 'Вход через Google', settings.oauth_google_enabled)}
+                    ${toggleBtn('oauth_yandex_enabled', 'Вход через Yandex', settings.oauth_yandex_enabled)}
+                    ${toggleBtn('oauth_vk_enabled', 'Вход через VK ID', settings.oauth_vk_enabled)}
+                    ${toggleBtn('oauth_telegram_enabled', 'Вход через Telegram', settings.oauth_telegram_enabled)}
                 </div>
             </section>
         `;

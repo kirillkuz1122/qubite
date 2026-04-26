@@ -55,7 +55,7 @@ cd /var/www/qubiteapp/ && git pull && cd back/ && npm install && pm2 restart 0 -
 Дополнительно:
 
 - email delivery через `Resend` или другой рабочий канал;
-- OAuth/VK ID/Telegram Login keys для включённых провайдеров;
+- OAuth/VK ID/Telegram Login keys для включённых провайдеров; отдельные методы входа можно аварийно скрыть через env `OAUTH_GOOGLE_ENABLED=false`, `OAUTH_YANDEX_ENABLED=false`, `OAUTH_VK_ENABLED=false`, `OAUTH_TELEGRAM_ENABLED=false`, а штатно owner управляет ими без рестарта через админку/Telegram-тумблеры;
 - CAPTCHA keys для текущей anti-bot конфигурации.
 
 ## Nginx

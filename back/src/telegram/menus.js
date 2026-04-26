@@ -20,6 +20,10 @@ function settingsMenu(settings) {
         { key: "email_enabled", label: "Email-рассылка" },
         { key: "tournament_creation_enabled", label: "Создание турниров" },
         { key: "tournament_participation_enabled", label: "Участие в турнирах" },
+        { key: "oauth_google_enabled", label: "OAuth Google" },
+        { key: "oauth_yandex_enabled", label: "OAuth Yandex" },
+        { key: "oauth_vk_enabled", label: "OAuth VK ID" },
+        { key: "oauth_telegram_enabled", label: "OAuth Telegram" },
     ];
     const rows = keys.map(({ key, label }) => {
         const on = settings[key] === true || settings[key] === "true";

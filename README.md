@@ -109,6 +109,8 @@ TELEGRAM_OWNER_ID=<ваш Telegram user ID>
 
 Бот запускается автоматически вместе с сервером (long-polling). Без токена сервер работает штатно, бот просто не стартует.
 
+Отдельные способы OAuth-входа owner может скрывать без рестарта через админку или Telegram-тумблеры. Env-переменные `OAUTH_GOOGLE_ENABLED=false`, `OAUTH_YANDEX_ENABLED=false`, `OAUTH_VK_ENABLED=false`, `OAUTH_TELEGRAM_ENABLED=false` остаются аварийными kill-switch'ами.
+
 Подробности: `back/src/telegram-bot.js`, [`SECURITY.md`](SECURITY.md#telegram-bot--модель-безопасности).
 
 ## Карта документации

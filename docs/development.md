@@ -83,6 +83,7 @@ http://127.0.0.1:3000
 - `YANDEX_CALLBACK_URL`
 - `VK_APP_ID` — ID приложения VK ID SDK, secret для текущей VK-интеграции не нужен
 - `TELEGRAM_BOT_TOKEN` — нужен и для Telegram Bot, и для Telegram Login Widget
+- `OAUTH_GOOGLE_ENABLED`, `OAUTH_YANDEX_ENABLED`, `OAUTH_VK_ENABLED`, `OAUTH_TELEGRAM_ENABLED` — аварийные env kill-switch'и; owner runtime-тумблеры без рестарта хранятся в `system_settings`: `oauth_google_enabled`, `oauth_yandex_enabled`, `oauth_vk_enabled`, `oauth_telegram_enabled`
 - `TELEGRAM_ENABLED` — включает только Telegram-бота; Login Widget использует токен независимо от polling-режима
 
 ### CAPTCHA

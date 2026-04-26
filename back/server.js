@@ -214,7 +214,9 @@ const {
     fetchOAuthProfile,
     getProvider,
     isProviderConfigured,
+    isRuntimeOAuthEnabled,
     listOAuthProviders,
+    getTelegramAuthorizeDebugInfo,
     verifyTelegramAuth,
 } = require("./src/oauth");
 const {
@@ -4181,7 +4183,7 @@ app.get("/api/auth/me", (req, res) => {
 
 app.get("/api/auth/oauth/providers", (req, res) => {
     res.json({
-        providers: listOAuthProviders(),
+        providers: listOAuthProviders(req.systemSettings || {}),
     });
 });
 
@@ -4210,6 +4212,10 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
             );
             return;
         }
+        if (!isRuntimeOAuthEnabled(providerSlug, req.systemSettings || {})) {
+            sendError(res, 503, `${provider.label} OAuth временно отключён владельцем платформы.`);
+            return;
+        }
 
         const state = generateRandomToken(24);
         await createOAuthState({
@@ -4220,12 +4226,22 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
             expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS).toISOString(),
         });
 
-        res.redirect(
-            buildOAuthAuthorizeUrl(providerSlug, {
-                state,
-                baseUrl: getRequestBaseUrl(req),
-            }),
-        );
+        const baseUrl = getRequestBaseUrl(req);
+        const authorizeOptions = {
+            state,
+            baseUrl,
+        };
+
+        if (providerSlug === "telegram") {
+            console.info(`[${new Date().toISOString()}] OAuth telegram start`, {
+                ...getTelegramAuthorizeDebugInfo(authorizeOptions),
+                host: req.get("host") || null,
+                forwardedHost: req.get("x-forwarded-host") || null,
+                forwardedProto: req.get("x-forwarded-proto") || null,
+            });
+        }
+
+        res.redirect(buildOAuthAuthorizeUrl(providerSlug, authorizeOptions));
     } catch (error) {
         next(error);
     }
@@ -4271,6 +4287,17 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             await consumeOAuthState(oauthState.id);
 
             const { state: _s, ...tgParams } = req.query;
+            if (Object.keys(tgParams).length === 0) {
+                console.warn(`[${new Date().toISOString()}] OAuth telegram failed: no_auth_data`, {
+                    returnReason:
+                        "Telegram returned to callback without id/hash/auth_date. This usually means auth was cancelled or the bot/domain/token pair is not accepted by Telegram.",
+                });
+                redirectToApp(res, {
+                    oauthError: "telegram_no_auth_data",
+                    provider: "telegram",
+                });
+                return;
+            }
             const telegramVerification = verifyTelegramAuth(provider.clientSecret, tgParams);
             if (!telegramVerification.ok) {
                 console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_signature`, {
@@ -4279,7 +4306,10 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
                     checkStringKeys: telegramVerification.checkStringKeys || null,
                     authDate: telegramVerification.authDate || tgParams.auth_date || null,
                 });
-                redirectToApp(res, { oauthError: "invalid_signature" });
+                redirectToApp(res, {
+                    oauthError: "invalid_signature",
+                    provider: "telegram",
+                });
                 return;
             }
 

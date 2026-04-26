@@ -208,16 +208,20 @@ module.exports = {
       : parseBoolean(process.env.SEED_DEMO_DATA, NODE_ENV !== "production"),
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+  OAUTH_GOOGLE_ENABLED: parseBoolean(process.env.OAUTH_GOOGLE_ENABLED, true),
   GOOGLE_CALLBACK_URL:
     process.env.GOOGLE_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/google/callback`,
   YANDEX_CLIENT_ID: process.env.YANDEX_CLIENT_ID || "",
   YANDEX_CLIENT_SECRET: process.env.YANDEX_CLIENT_SECRET || "",
+  OAUTH_YANDEX_ENABLED: parseBoolean(process.env.OAUTH_YANDEX_ENABLED, true),
   YANDEX_CALLBACK_URL:
     process.env.YANDEX_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/yandex/callback`,
   VK_APP_ID: process.env.VK_APP_ID || process.env.VK_CLIENT_ID || "",
+  OAUTH_VK_ENABLED: parseBoolean(process.env.OAUTH_VK_ENABLED, true),
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
+  OAUTH_TELEGRAM_ENABLED: parseBoolean(process.env.OAUTH_TELEGRAM_ENABLED, true),
   TELEGRAM_OWNER_IDS: parseCsv(process.env.TELEGRAM_OWNER_ID || ""),
   TELEGRAM_MODERATOR_IDS: parseCsv(process.env.TELEGRAM_MODERATOR_IDS || ""),
   TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),
