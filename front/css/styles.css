@@ -633,7 +633,7 @@ button.card--all {
   line-height: 1;
   letter-spacing: -0.02em;
   text-align: center;
-  font-size: clamp(64px, 18vw, 220px);
+  font-size: clamp(1px, 18vw, 220px);
   background-image: linear-gradient(
     90deg,
     var(--accent-from),
@@ -1382,7 +1382,7 @@ button.card--all {
   }
 
   .word {
-    font-size: min(1vw, 86px);
+    font-size: min(14.5vw, 86px);
   }
   .cookie-notice__btn {
     width: 100%;
