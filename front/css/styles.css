@@ -576,7 +576,7 @@ a {
   width: 100%;
   min-width: 0;
   max-width: min(1100px, 100%);
-  overflow: hidden;
+  overflow: clip;
   padding-inline: 16px;
   padding-block: 64px;
 }
@@ -627,8 +627,11 @@ button.card--all {
 
 .word {
   display: block;
-  width: 100%;
+  width: fit-content;
   min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-right: 0.15em;
   font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
   font-weight: 900;
   line-height: 1;
@@ -644,13 +647,12 @@ button.card--all {
   background-position: 0% 50%;
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: transparent;
   filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.35));
   animation:
     breathe 4s ease-in-out infinite,
     gloss 3.5s ease-in-out infinite;
   white-space: nowrap;
-  max-width: 100%;
 }
 @keyframes breathe {
   0% {
@@ -1750,7 +1752,7 @@ button.card--all {
   width: 100%;
   max-width: min(1100px, 100%);
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 /* hero-кнопка: сочный градиент, мягкая тень, блик */
 .btn--hero {
