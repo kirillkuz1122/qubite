@@ -2871,6 +2871,70 @@ function sendTelegramLoginWidgetPage(res, { botUsername, authUrl }) {
 </html>`);
 }
 
+function sendTelegramCallbackBridgePage(res) {
+    res.setHeader("Cache-Control", "no-store");
+    res.type("html").send(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram login — Qubite</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      background: #070b16; color: #eef2ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(420px, calc(100vw - 32px)); padding: 28px;
+      border: 1px solid rgba(255,255,255,.12); border-radius: 24px;
+      background: rgba(15,23,42,.88); box-shadow: 0 24px 80px rgba(0,0,0,.42);
+      text-align: center;
+    }
+    p { margin: 0; color: #94a3b8; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main><p id="status">Завершаем вход через Telegram…</p></main>
+  <script>
+    (function() {
+      var h = location.hash.substring(1);
+      if (!h) {
+        location.replace("/?oauthError=telegram_no_auth_data&provider=telegram");
+        return;
+      }
+      var ps = {};
+      h.split("&").forEach(function(p) {
+        var i = p.indexOf("=");
+        if (i > 0) ps[decodeURIComponent(p.substring(0, i))] = decodeURIComponent(p.substring(i + 1));
+      });
+      var r = ps.tgAuthResult;
+      if (!r) {
+        location.replace("/?oauthError=telegram_no_auth_data&provider=telegram");
+        return;
+      }
+      try {
+        var d;
+        try { d = JSON.parse(r); } catch (e) {
+          var b = r.replace(/-/g, "+").replace(/_/g, "/");
+          while (b.length % 4) b += "=";
+          d = JSON.parse(atob(b));
+        }
+        if (!d || !d.id || !d.hash || !d.auth_date) throw new Error("missing fields");
+        var u = new URL(location.href.split("#")[0]);
+        Object.keys(d).forEach(function(k) { u.searchParams.set(k, String(d[k])); });
+        location.replace(u.toString());
+      } catch (e) {
+        console.error("[TG callback bridge] parse error:", e);
+        location.replace("/?oauthError=telegram_auth_parse_error&provider=telegram");
+      }
+    })();
+  </script>
+</body>
+</html>`);
+}
+
 function sendVkIdCallbackBridgePage(res, { appId, redirectUrl, code, deviceId }) {
     res.setHeader("Cache-Control", "no-store");
     res.type("html").send(`<!doctype html>
@@ -4405,23 +4469,12 @@ app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (re
 
         if (providerSlug === "telegram") {
             const telegramDebugInfo = getTelegramAuthorizeDebugInfo(authorizeOptions);
-            console.info(`[${new Date().toISOString()}] OAuth telegram start`, {
+            console.info(`[${new Date().toISOString()}] OAuth telegram start (direct redirect)`, {
                 ...telegramDebugInfo,
                 host: req.get("host") || null,
                 forwardedHost: req.get("x-forwarded-host") || null,
                 forwardedProto: req.get("x-forwarded-proto") || null,
             });
-            const botUsername = await getTelegramBotUsername();
-            console.info(`[${new Date().toISOString()}] OAuth telegram widget bridge`, {
-                botId: telegramDebugInfo?.botId || null,
-                botUsername,
-                authUrl: telegramDebugInfo?.returnTo || null,
-            });
-            sendTelegramLoginWidgetPage(res, {
-                botUsername,
-                authUrl: telegramDebugInfo.returnTo,
-            });
-            return;
         }
 
         res.redirect(buildOAuthAuthorizeUrl(providerSlug, authorizeOptions));
@@ -4491,7 +4544,7 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
             return;
         }
 
-        // --- Telegram Login Widget (non-standard OAuth) ---
+        // --- Telegram OAuth (direct redirect + Login Widget fallback) ---
         if (providerSlug === "telegram") {
             const state = String(req.query.state || "");
             console.info(`[${new Date().toISOString()}] OAuth telegram callback received`, {
@@ -4507,6 +4560,28 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
                 return;
             }
 
+            const { state: _s, ...tgParams } = req.query;
+
+            // No auth data in query params — serve bridge page to extract
+            // #tgAuthResult from URL fragment (Telegram OAuth direct redirect flow)
+            if (Object.keys(tgParams).length === 0) {
+                const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
+                if (!oauthState || oauthState.provider !== "telegram") {
+                    console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_state (bridge)`, {
+                        stateFound: Boolean(oauthState),
+                        stateProvider: oauthState?.provider || null,
+                    });
+                    redirectToApp(res, { oauthError: "invalid_state" });
+                    return;
+                }
+                // State is valid — serve bridge page (don't consume state yet,
+                // it will be consumed when auth data arrives on second request)
+                console.info(`[${new Date().toISOString()}] OAuth telegram: serving fragment bridge`);
+                sendTelegramCallbackBridgePage(res);
+                return;
+            }
+
+            // Auth data present — validate state, consume it, process auth
             const oauthState = await findActiveOAuthState(hashOpaqueToken(state));
             if (!oauthState || oauthState.provider !== "telegram") {
                 console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_state`, {
@@ -4516,21 +4591,8 @@ app.get("/api/auth/oauth/:provider/callback", async (req, res, next) => {
                 redirectToApp(res, { oauthError: "invalid_state" });
                 return;
             }
-
             await consumeOAuthState(oauthState.id);
 
-            const { state: _s, ...tgParams } = req.query;
-            if (Object.keys(tgParams).length === 0) {
-                console.warn(`[${new Date().toISOString()}] OAuth telegram failed: no_auth_data`, {
-                    returnReason:
-                        "Telegram returned to callback without id/hash/auth_date. This usually means auth was cancelled or the bot/domain/token pair is not accepted by Telegram.",
-                });
-                redirectToApp(res, {
-                    oauthError: "telegram_no_auth_data",
-                    provider: "telegram",
-                });
-                return;
-            }
             const telegramVerification = verifyTelegramAuth(provider.clientSecret, tgParams);
             if (!telegramVerification.ok) {
                 console.warn(`[${new Date().toISOString()}] OAuth telegram failed: invalid_signature`, {
