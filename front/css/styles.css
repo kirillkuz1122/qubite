@@ -2205,10 +2205,7 @@ button.card--all {
   gap: 16px;
   border-radius: 16px;
 
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 16px;
   color: #888899;
   font-weight: 500;
@@ -4752,7 +4749,7 @@ body.workspace-guest-code .workspace__content {
 }
 .card__foot .icon-text .span:last-child {
   color: rgba(255, 255, 255, 255);
-  font-family: Roboto, sans-serif;
+  font-family: var(--font-body);
   font-style: normal;
   font-size: 18px;
   font-weight: 300;
