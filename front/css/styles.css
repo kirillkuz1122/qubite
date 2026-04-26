@@ -552,7 +552,7 @@ a {
 /* HERO */
 .hero {
   position: relative;
-  max-width: 100vw;
+  max-width: 100%;
   overflow-x: hidden;
 }
 .hero__stage {
@@ -560,7 +560,7 @@ a {
   top: 0;
   left: 0;
   width: 100%;
-  max-width: 100vw;
+  max-width: 100%;
   min-height: calc(var(--vh, 1vh) * 100);
   min-height: 100svh;
   display: grid;
@@ -575,7 +575,7 @@ a {
   justify-items: center;
   width: 100%;
   min-width: 0;
-  max-width: min(1100px, 100vw);
+  max-width: min(1100px, 100%);
   overflow: hidden;
   padding-inline: 16px;
   padding-block: 64px;
@@ -630,7 +630,7 @@ button.card--all {
   width: 100%;
   min-width: 0;
   font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
-  font-weight: 1000;
+  font-weight: 900;
   line-height: 1;
   letter-spacing: -0.02em;
   text-align: center;
@@ -1748,7 +1748,7 @@ button.card--all {
   padding: clamp(12px, 3vw, 24px);
   margin: 0 auto;
   width: 100%;
-  max-width: min(1100px, 100vw);
+  max-width: min(1100px, 100%);
   min-width: 0;
   overflow: hidden;
 }
