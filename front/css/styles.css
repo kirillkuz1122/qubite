@@ -576,7 +576,6 @@ a {
   width: 100%;
   min-width: 0;
   max-width: min(1100px, 100%);
-  box-sizing: border-box;
   padding-inline: 16px;
   padding-block: 64px;
 }
@@ -628,6 +627,7 @@ button.card--all {
 .word {
   display: block;
   justify-self: stretch;
+  overflow: hidden;
   font-family: Roboto, Ubuntu, Cantarell, "Noto Sans", Helvetica, Arial;
   font-weight: 900;
   line-height: 1;
@@ -648,7 +648,6 @@ button.card--all {
   animation:
     breathe 4s ease-in-out infinite,
     gloss 3.5s ease-in-out infinite;
-  white-space: nowrap;
 }
 @keyframes breathe {
   0% {
@@ -682,6 +681,7 @@ button.card--all {
 .formulas {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
   opacity: 0.1;
 }
@@ -703,7 +703,7 @@ button.card--all {
   --rot: -14deg;
 }
 .formulas .f2 {
-  left: 64%;
+  right: 4%;
   top: 18%;
   font-size: 22px;
   --rot: 8deg;
@@ -715,7 +715,7 @@ button.card--all {
   --rot: -8deg;
 }
 .formulas .f4 {
-  left: 72%;
+  right: 6%;
   top: 64%;
   font-size: 24px;
   --rot: 12deg;
@@ -733,7 +733,7 @@ button.card--all {
   --rot: 5deg;
 }
 .formulas .f7 {
-  left: 78%;
+  right: 4%;
   top: 42%;
   font-size: 19px;
   --rot: -10deg;
@@ -751,7 +751,7 @@ button.card--all {
   --rot: -4deg;
 }
 .formulas .f10 {
-  left: 86%;
+  right: 2%;
   top: 28%;
   font-size: 18px;
   --rot: 9deg;
@@ -1748,7 +1748,6 @@ button.card--all {
   width: 100%;
   max-width: min(1100px, 100%);
   min-width: 0;
-  box-sizing: border-box;
 }
 /* hero-кнопка: сочный градиент, мягкая тень, блик */
 .btn--hero {
@@ -5545,6 +5544,9 @@ body.loading {
   .hero__inner {
     gap: 12px;
     padding-inline: 20px;
+  }
+  .formulas span {
+    font-size: 14px !important;
   }
 }
 @media (max-width: 400px) {
