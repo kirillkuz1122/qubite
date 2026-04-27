@@ -12189,7 +12189,10 @@ function initAdminControlInteractions(container) {
             Loader.show();
             try {
                 const data = await apiClient.generateAdminUser();
-                Toast.show("Админка", `Создан аккаунт: ${data.item.login}<br>Пароль: <b>${data.plainPassword}</b>`, "success", 4000, { html: true });
+                const _l = data.item.login;
+                const _p = data.plainPassword;
+                const desc = `Логин: <b>${_l}</b><br>Пароль: <b>${_p}</b><br><button class="btn btn--muted btn--sm" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.1)" onclick="navigator.clipboard.writeText('${_l}:${_p}').then(() => Toast.show('Успех', 'Данные скопированы в буфер', 'success'))">Скопировать логин:пароль</button>`;
+                Toast.show("Аккаунт создан", desc, "success", 15000, { html: true });
                 rerender();
             } catch (err) {
                 showRequestError("Админка", err);
