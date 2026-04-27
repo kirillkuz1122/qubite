@@ -3098,7 +3098,7 @@ const Toast = {
         }
         return container;
     },
-    show(title, desc, type = "success", duration = 4000) {
+    show(title, desc, type = "success", duration = 4000, { html = false } = {}) {
         pushNotificationHistory(title, desc, type);
         const safeType = normalizeNotificationType(type);
         const container = this.getContainer();
@@ -3131,7 +3131,11 @@ const Toast = {
 
         const descNode = document.createElement("div");
         descNode.className = "toast__desc";
-        descNode.textContent = String(desc || "");
+        if (html) {
+            descNode.innerHTML = String(desc || "");
+        } else {
+            descNode.textContent = String(desc || "");
+        }
 
         const progressNode = document.createElement("div");
         progressNode.className = "toast__progress";
@@ -7160,7 +7164,7 @@ window.toggleSystemSetting = async (key, value) => {
         if (key === 'maintenance_mode' && value === true && result.bypassToken) {
             const bypassUrl = `${window.location.origin}/?owner_bypass=${result.bypassToken}`;
             const desc = `ВКЛЮЧЕН!<br>Секретный доступ:<br><a href="${bypassUrl}" style="color:white;text-decoration:underline;word-break:break-all;">${bypassUrl}</a><br><button class="btn btn--muted btn--sm" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.1)" onclick="navigator.clipboard.writeText('${bypassUrl}').then(() => Toast.show('Успех', 'Ссылка скопирована в буфер', 'success'))">Скопировать ссылку</button>`;
-            Toast.show("Режим обслуживания", desc, "warning", 20000);
+            Toast.show("Режим обслуживания", desc, "warning", 20000, { html: true });
         } else {
             Toast.show("Система", "Настройка обновлена", "success");
         }
@@ -12185,7 +12189,7 @@ function initAdminControlInteractions(container) {
             Loader.show();
             try {
                 const data = await apiClient.generateAdminUser();
-                Toast.show("Админка", `Создан аккаунт: ${data.item.login}<br>Пароль: <b>${data.plainPassword}</b>`, "success");
+                Toast.show("Админка", `Создан аккаунт: ${data.item.login}<br>Пароль: <b>${data.plainPassword}</b>`, "success", 4000, { html: true });
                 rerender();
             } catch (err) {
                 showRequestError("Админка", err);
