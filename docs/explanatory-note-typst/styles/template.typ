@@ -7,17 +7,8 @@
   numbering: "1",
   number-align: top + right,
 )
-#set par(justify: true, first-line-indent: 1.25cm, leading: 0.75em)
+#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 0.75em)
 #set heading(numbering: none)
-
-// Невидимый абзац: после заголовков и блоков Typst по умолчанию
-// подавляет красную строку у первого абзаца. Этот хак «расходует»
-// исключение, и следующий настоящий абзац получает отступ по ГОСТу.
-#let force-indent = context {
-  let b = par[#box()]
-  b
-  v(-measure(b + b).height)
-}
 
 #show heading.where(level: 1): it => {
   block(above: 1.25em, below: 0.65em)[
@@ -25,7 +16,6 @@
     #set par(first-line-indent: 0pt)
     #align(center)[#it]
   ]
-  force-indent
 }
 
 #show heading.where(level: 2): it => {
@@ -34,7 +24,6 @@
     #set par(first-line-indent: 0pt)
     #it
   ]
-  force-indent
 }
 
 #let simple_table(rows, columns: (35%, 65%)) = block(
