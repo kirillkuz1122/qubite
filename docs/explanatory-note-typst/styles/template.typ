@@ -108,8 +108,8 @@
       stroke: none,
       inset: 2pt,
       align: left,
-      [Выполнил], [ученик #student_class #student_name],
-      [Руководитель], [#supervisor_name],
+      [Выполнил:], [ученик #student_class #student_name],
+      [Руководитель:], [#supervisor_name],
     )
   ]
   v(1fr)
