@@ -10,7 +10,7 @@
 
 #pagebreak()
 
-= ОГЛАВЛЕНИЕ
+#align(center)[#text(weight: "bold")[ОГЛАВЛЕНИЕ]]
 #set par(first-line-indent: 0pt)
 #outline(title: none, indent: 1.2em)
 
@@ -32,3 +32,6 @@
 
 #pagebreak()
 #include "sections/06-functionality.typ"
+
+#pagebreak()
+#include "sections/07-appendix.typ"

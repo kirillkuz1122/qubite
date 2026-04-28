@@ -6,22 +6,30 @@
 
 2. ГОСТ Р 2.106-2019. Единая система конструкторской документации. Текстовые документы. PDF-документ, предоставленный пользователем.
 
-3. README проекта Qubite. Локальный файл репозитория.
+3. Прессман Р. С., Максим Б. Р. Инженерия программного обеспечения: практический подход. 8-е изд. М.: Вильямс, 2016.
 
-4. Исходный код проекта Qubite: `back/server.js`, `back/src/db.js`, `back/src/config.js`, `back/src/security.js`, `back/src/task-runtime.js`, `front/js/app.js`, `front/js/api.js`, `front/css/styles.css`. Локальные файлы репозитория.
+4. Соммервилл И. Инженерия программного обеспечения. 10-е изд. Pearson, 2016.
 
-5. Роббинс Дж. Н. Веб-дизайн для начинающих. HTML, CSS, JavaScript и веб-графика. СПб.: БХВ-Петербург, 2021. 912 с.
+5. Роббинс Дж. Н. Learning Web Design: A Beginner's Guide to HTML, CSS, JavaScript, and Web Graphics. 5th ed. O'Reilly Media, 2018.
 
-6. Дронов В. А. JavaScript и AJAX в Web-дизайне. 2-е изд. СПб.: БХВ-Петербург. 736 с.
+6. Duckett J. HTML and CSS: Design and Build Websites. Indianapolis: Wiley, 2011.
 
-7. Гриншкун В. В., Краснова Г. А. Современная цифровая образовательная среда: ресурсы, средства, сервисы: монография. М.: Проспект, 2021. 216 с.
+7. Duckett J. JavaScript and JQuery: Interactive Front-End Web Development. Indianapolis: Wiley, 2014.
 
-8. Node.js Documentation [Электронный ресурс]. Режим доступа: https://nodejs.org/api/documentation.html
+8. Гриншкун В. В., Краснова Г. А. Современная цифровая образовательная среда: ресурсы, средства, сервисы: монография. М.: Проспект, 2021.
 
-9. Express Documentation. Installing; Basic routing [Электронный ресурс]. Режим доступа: https://expressjs.com/en/starter/installing.html ; https://expressjs.com/en/starter/basic-routing.html
+9. MDN Web Docs. Документация по HTML, CSS и JavaScript [Электронный ресурс]. Режим доступа: https://developer.mozilla.org/ (дата обращения: 27.04.2026).
 
-10. SQLite Documentation [Электронный ресурс]. Режим доступа: https://sqlite.org/docs.html
+10. Node.js Documentation. Официальная документация среды Node.js [Электронный ресурс]. Режим доступа: https://nodejs.org/api/documentation.html (дата обращения: 27.04.2026).
 
-11. MDN Web Docs. HTML: HyperText Markup Language [Электронный ресурс]. Режим доступа: https://developer.mozilla.org/en-US/docs/Web/HTML
+11. Express Documentation. Routing and basic routing [Электронный ресурс]. Режим доступа: https://expressjs.com/en/guide/routing.html ; https://expressjs.com/en/starter/basic-routing.html (дата обращения: 27.04.2026).
 
-12. Atlassian. How to write SMART goals [Электронный ресурс]. Режим доступа: https://www.atlassian.com/blog/productivity/how-to-write-smart-goals
+12. SQLite Documentation. Официальная документация SQLite [Электронный ресурс]. Режим доступа: https://sqlite.org/docs.html (дата обращения: 27.04.2026).
+
+13. OWASP Cheat Sheet Series. Authentication Cheat Sheet [Электронный ресурс]. Режим доступа: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html (дата обращения: 27.04.2026).
+
+14. Cloudflare Turnstile Documentation [Электронный ресурс]. Режим доступа: https://developers.cloudflare.com/turnstile/ (дата обращения: 27.04.2026).
+
+15. Yandex Cloud. Getting started with Yandex SmartCaptcha [Электронный ресурс]. Режим доступа: https://yandex.cloud/en/docs/smartcaptcha/quickstart (дата обращения: 27.04.2026).
+
+16. Atlassian. How to write SMART goals [Электронный ресурс]. Режим доступа: https://www.atlassian.com/blog/productivity/how-to-write-smart-goals (дата обращения: 27.04.2026).

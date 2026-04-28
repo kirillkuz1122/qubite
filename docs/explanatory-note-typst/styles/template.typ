@@ -20,19 +20,56 @@
   #it
 ]
 
-#let simple_table(rows, columns: (35%, 65%)) = table(
-  columns: columns,
-  inset: 8pt,
-  stroke: 0.4pt + luma(180),
-  ..rows,
-)
+#let simple_table(rows, columns: (35%, 65%)) = block(
+  breakable: false,
+  above: 0.45em,
+  below: 0.45em,
+)[
+  #set par(first-line-indent: 0pt)
+  #table(
+    columns: columns,
+    inset: 8pt,
+    stroke: 0.4pt + luma(180),
+    ..rows,
+  )
+]
 
-#let label_value_table(rows) = table(
-  columns: (32%, 68%),
-  inset: 6pt,
-  stroke: none,
-  ..rows,
-)
+#let label_value_table(rows) = block(
+  breakable: false,
+)[
+  #set par(first-line-indent: 0pt)
+  #table(
+    columns: (32%, 68%),
+    inset: 6pt,
+    stroke: none,
+    ..rows,
+  )
+]
+
+#let figure_image(path, caption_text, width: 92%) = {
+  counter("figure").step()
+  context {
+    let number = counter("figure").get().first()
+    block(breakable: false)[
+      #align(center)[#image(path, width: width)]
+      #v(4pt)
+      #set par(first-line-indent: 0pt)
+      #align(center)[#text(size: 12pt)[Рисунок #number — #caption_text]]
+    ]
+  }
+}
+
+#let callout(title, body) = block(
+  inset: 10pt,
+  radius: 0pt,
+  stroke: (left: 2pt + rgb("#f43f5e"), rest: 0.4pt + luma(190)),
+  fill: luma(248),
+)[
+  #set par(first-line-indent: 0pt)
+  #text(weight: "bold")[#title]
+  #v(4pt)
+  #body
+]
 
 #let running_header() = context {
   let current_page = counter(page).get().first()
@@ -40,7 +77,7 @@
   let next_same_page = upcoming.filter(it => counter(page).at(it.location()).first() == current_page)
   let previous = query(selector(heading.where(level: 1)).before(here()))
   let header_body = if next_same_page.len() > 0 {
-    next_same_page.first().body
+    []
   } else if previous.len() > 0 {
     previous.last().body
   } else {
@@ -71,10 +108,10 @@
   #v(4.2cm)
   #align(right)[
     #table(
-      columns: (auto, 6.2cm),
+      columns: (3.1cm, 7.8cm),
       stroke: none,
       inset: 2pt,
-      [Выполнил:], [ученик #student_class #student_name],
+      [Выполнил:], [ученик #student_class \ #student_name],
       [Руководитель:], [#supervisor_name],
     )
   ]
