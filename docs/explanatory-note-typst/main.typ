@@ -15,8 +15,8 @@
 #outline(title: none, indent: 1.2em)
 
 #pagebreak()
-#set page(numbering: "1", number-align: bottom + left, header: running_header())
-#set par(first-line-indent: 1.25cm, leading: 7pt)
+#set page(numbering: "1", number-align: top + right)
+#set par(first-line-indent: 1.25cm, leading: 0.75em)
 
 #include "sections/01-introduction.typ"
 

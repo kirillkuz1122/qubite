@@ -1,24 +1,41 @@
 #import "../config/metadata.typ": *
 
-#set text(lang: "ru", font: "Liberation Serif", size: 14pt)
+#set text(lang: "ru", font: ("Times New Roman", "Liberation Serif"), size: 14pt)
 #set page(
   paper: "a4",
   margin: (top: 2cm, bottom: 2cm, left: 3cm, right: 1.5cm),
   numbering: "1",
   number-align: top + right,
 )
-#set par(justify: true, first-line-indent: 1.25cm, leading: 7pt)
+#set par(justify: true, first-line-indent: 1.25cm, leading: 0.75em)
 #set heading(numbering: none)
 
-#show heading.where(level: 1): it => block(above: 1.25em, below: 0.65em)[
-  #set text(weight: "bold", size: 14pt)
-  #align(center)[#it]
-]
+// Невидимый абзац: после заголовков и блоков Typst по умолчанию
+// подавляет красную строку у первого абзаца. Этот хак «расходует»
+// исключение, и следующий настоящий абзац получает отступ по ГОСТу.
+#let force-indent = context {
+  let b = par[#box()]
+  b
+  v(-measure(b + b).height)
+}
 
-#show heading.where(level: 2): it => block(above: 1em, below: 0.45em)[
-  #set text(weight: "bold", size: 14pt)
-  #it
-]
+#show heading.where(level: 1): it => {
+  block(above: 1.25em, below: 0.65em)[
+    #set text(weight: "bold", size: 14pt)
+    #set par(first-line-indent: 0pt)
+    #align(center)[#it]
+  ]
+  force-indent
+}
+
+#show heading.where(level: 2): it => {
+  block(above: 1em, below: 0.45em)[
+    #set text(weight: "bold", size: 14pt)
+    #set par(first-line-indent: 0pt)
+    #it
+  ]
+  force-indent
+}
 
 #let simple_table(rows, columns: (35%, 65%)) = block(
   breakable: false,
@@ -71,50 +88,30 @@
   #body
 ]
 
-#let running_header() = context {
-  let current_page = counter(page).get().first()
-  let upcoming = query(selector(heading.where(level: 1)).after(here()))
-  let next_same_page = upcoming.filter(it => counter(page).at(it.location()).first() == current_page)
-  let previous = query(selector(heading.where(level: 1)).before(here()))
-  let header_body = if next_same_page.len() > 0 {
-    []
-  } else if previous.len() > 0 {
-    previous.last().body
-  } else {
-    []
-  }
+#let title_page() = {
+  set par(first-line-indent: 0pt, leading: 0.65em)
+  set align(center)
 
-  if header_body == [] {
-    []
-  } else [
-    #set text(size: 10pt, fill: luma(70))
+  v(1cm)
+  text(size: 14pt)[#school_name]
+  v(1fr)
+  text(weight: "bold", size: 14pt)[#document_title]
+  v(0.6cm)
+  text(weight: "bold", size: 14pt)[«#topic»]
+  v(0.5cm)
+  text(size: 14pt)[#subject_name]
+  v(1fr)
+  align(right)[
     #set par(first-line-indent: 0pt)
-    #align(right)[#header_body]
-    #v(2pt)
-    #line(length: 100%, stroke: 0.4pt + luma(180))
-  ]
-}
-
-#let title_page() = align(center + horizon)[
-  #set par(first-line-indent: 0pt, leading: 4pt)
-  #v(1.4cm)
-  #text(size: 14pt)[#school_name]
-  #v(5.2cm)
-  #text(weight: "bold")[#document_title]
-  #v(0.6cm)
-  #text(weight: "bold")[«#topic»]
-  #v(0.5cm)
-  #text()[#subject_name]
-  #v(4.2cm)
-  #align(right)[
     #table(
-      columns: (3.1cm, 7.8cm),
+      columns: (auto, auto),
       stroke: none,
       inset: 2pt,
-      [Выполнил:], [ученик #student_class \ #student_name],
-      [Руководитель:], [#supervisor_name],
+      align: left,
+      [Выполнил], [ученик #student_class #student_name],
+      [Руководитель], [#supervisor_name],
     )
   ]
-  #v(6.2cm)
-  #text()[#city, #year]
-]
+  v(1fr)
+  text(size: 14pt)[#city, #year год]
+}

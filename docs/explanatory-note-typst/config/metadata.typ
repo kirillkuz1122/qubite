@@ -5,7 +5,7 @@
 #let subject_name = "по информатике"
 #let student_class = "8 «Б» класса"
 #let student_name = "Кузмичев Кирилл Павлович"
-#let supervisor_name = "Арабоджи Андрей Александрович"
+#let supervisor_name = "Арабаджи Андрей Александрович"
 #let city = "Челябинск"
 #let year = "2026"
 #let work_period = "2025-2026 учебный год"
