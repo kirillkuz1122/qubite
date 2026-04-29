@@ -9,3 +9,4 @@ back/data/*.sqlite-*
 .env
 node_modules/
 .codex
+qubite-remotion/

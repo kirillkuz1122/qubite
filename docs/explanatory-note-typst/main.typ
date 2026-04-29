@@ -16,7 +16,7 @@
 
 #pagebreak()
 #set page(numbering: "1", number-align: top + right)
-#set par(first-line-indent: (amount: 1.25cm, all: true), leading: 0.75em)
+#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 0.75em)
 
 #include "sections/01-introduction.typ"
 
