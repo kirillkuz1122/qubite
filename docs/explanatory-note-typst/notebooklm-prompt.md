@@ -22,11 +22,17 @@
 
 6. **TODO.md** — roadmap и границы MVP, для слайда про развитие.
 
-7. **Скриншоты** (4 файла из `docs/explanatory-note-typst/assets/screenshots/`):
-   - `home.png` — главная страница
-   - `tournaments.png` — раздел турниров
-   - `profile-analytics.png` — профиль и аналитика
-   - `team-analytics.png` — командная аналитика
+7. **Скриншоты** (10 файлов из `docs/explanatory-note-typst/assets/screenshots/`):
+   - `01-landing.png` — главная страница
+   - `02-login-modal.png` — вход и регистрация
+   - `03-user-dashboard.png` — дашборд участника
+   - `04-tournaments-list.png` — список турниров
+   - `05-tournament-overview.png` — карточка турнира
+   - `06-tournament-rating.png` — рейтинг турнира
+   - `07-profile-personal.png` — личные данные профиля
+   - `08-profile-security.png` — безопасность профиля
+   - `09-profile-analytics-summary.png` — сводная аналитика профиля
+   - `10-profile-analytics-history.png` — история результатов и динамика
    - Эти скриншоты нужны для слайда с демонстрацией. Загружай как изображения.
 
 ---
@@ -114,7 +120,7 @@
 - Конфигурации для reverse proxy и firewall
 
 Слайд 12 — Демонстрация платформы
-- 4 скриншота: главная, турниры, профиль+аналитика, командная аналитика
+- 4–6 скриншотов: главная, вход, дашборд, турниры, профиль, аналитика профиля
 - Если можешь вставить загруженные скриншоты — вставь
 
 Слайд 13 — Границы MVP и развитие
@@ -152,7 +158,7 @@
 | 4 | Продукт и роли | `docs/product-and-roles.md` | Роли, сценарии, функции |
 | 5 | README | `README.md` | Общее описание (опц.) |
 | 6 | TODO / Roadmap | `TODO.md` | Границы MVP, планы (опц.) |
-| 7 | Скриншоты (4 шт.) | `docs/explanatory-note-typst/assets/screenshots/*.png` | Для слайда демонстрации (опц.) |
+| 7 | Скриншоты (10 шт.) | `docs/explanatory-note-typst/assets/screenshots/*.png` | Для слайда демонстрации (опц.) |
 
 ### Порядок действий:
 1. Открой [NotebookLM](https://notebooklm.google.com/)

@@ -5,21 +5,27 @@
 
 == Приложение А. Визуальные материалы проекта
 
-В приложении приведены скриншоты основных экранов проекта. По ним можно увидеть общий стиль платформы, процесс входа, рабочее пространство участника, раздел турниров, решение задачи, профиль с аналитикой и командную работу.
+В приложении приведены скриншоты основных экранов проекта. По ним можно увидеть общий стиль платформы, процесс входа, рабочее пространство участника, раздел турниров, карточку турнира, таблицу результатов, профиль, настройки безопасности и аналитику участника.
 
 #figure_image("../assets/screenshots/01-landing.png", [Главная страница платформы #project_name], width: 90%)
 
-#figure_image("../assets/screenshots/02-login.png", [Модалка входа и регистрации], width: 90%)
+#figure_image("../assets/screenshots/02-login-modal.png", [Модалка входа и регистрации], width: 90%)
 
-#figure_image("../assets/screenshots/03-dashboard.png", [Дашборд участника после входа], width: 90%)
+#figure_image("../assets/screenshots/03-user-dashboard.png", [Дашборд участника после входа], width: 90%)
 
-#figure_image("../assets/screenshots/04-tournaments.png", [Раздел турниров: список соревнований], width: 90%)
+#figure_image("../assets/screenshots/04-tournaments-list.png", [Раздел турниров: список соревнований], width: 90%)
 
-#figure_image("../assets/screenshots/05-task.png", [Решение задачи внутри турнира], width: 90%)
+#figure_image("../assets/screenshots/05-tournament-overview.png", [Карточка турнира с задачами и данными участника], width: 90%)
 
-#figure_image("../assets/screenshots/06-profile.png", [Профиль участника с рейтингом и аналитикой], width: 90%)
+#figure_image("../assets/screenshots/06-tournament-rating.png", [Таблица результатов турнира], width: 90%)
 
-#figure_image("../assets/screenshots/07-team.png", [Командная аналитика и работа команды], width: 90%)
+#figure_image("../assets/screenshots/07-profile-personal.png", [Профиль участника: личные данные], width: 90%)
+
+#figure_image("../assets/screenshots/08-profile-security.png", [Профиль участника: безопасность и активные сессии], width: 90%)
+
+#figure_image("../assets/screenshots/09-profile-analytics-summary.png", [Профиль участника: сводная аналитика], width: 90%)
+
+#figure_image("../assets/screenshots/10-profile-analytics-history.png", [Профиль участника: история результатов и динамика], width: 90%)
 
 #pagebreak()
 
