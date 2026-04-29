@@ -43,8 +43,9 @@
         ..rows,
       )
       #if caption != none [
-        #v(3pt)
+        #v(-2pt)
         #text(size: 10pt, fill: luma(120))[Таблица #number — #caption]
+        #v(6pt)
       ]
     ]
   }
