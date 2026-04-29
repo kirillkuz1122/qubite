@@ -107,6 +107,7 @@
       columns: (auto, auto),
       stroke: none,
       inset: 2pt,
+      column-gutter: 12pt,
       align: left,
       [Выполнил], [ученик #student_class #student_name],
       [Руководитель], [#supervisor_name],
