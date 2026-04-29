@@ -5,7 +5,7 @@
   doc
 }
 
-#set page(numbering: none)
+#set page(margin: (top: 20mm, bottom: 20mm, left: 30mm, right: 15mm), numbering: none)
 #title_page()
 
 #pagebreak()
@@ -15,8 +15,8 @@
 #outline(title: none, indent: 1.2em)
 
 #pagebreak()
-#set page(numbering: "1", number-align: top + right)
-#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 0.75em)
+#set page(margin: (top: 20mm, bottom: 20mm, left: 30mm, right: 15mm), numbering: "1", number-align: top + right)
+#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 1.08em)
 
 #include "sections/01-introduction.typ"
 

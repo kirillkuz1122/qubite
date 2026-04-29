@@ -7,7 +7,7 @@
   numbering: "1",
   number-align: top + right,
 )
-#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 0.75em)
+#set par(justify: true, first-line-indent: (amount: 1.25cm, all: true), leading: 1.08em)
 #set heading(numbering: none)
 
 #show heading.where(level: 1): it => {
@@ -108,8 +108,8 @@
       stroke: none,
       inset: 2pt,
       align: left,
-      [Выполнил:], [ученик #student_class #student_name],
-      [Руководитель:], [#supervisor_name],
+      [Выполнил], [ученик #student_class #student_name],
+      [Руководитель], [#supervisor_name],
     )
   ]
   v(1fr)
