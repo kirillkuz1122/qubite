@@ -67,11 +67,11 @@
   counter("figure").step()
   context {
     let number = counter("figure").get().first()
-    block(breakable: false)[
+    block(breakable: false, above: 0.8em, below: 0.8em)[
       #align(center)[#image(path, width: width)]
-      #v(4pt)
+      #v(2pt)
       #set par(first-line-indent: 0pt)
-      #align(center)[#text(size: 12pt)[Рисунок #number — #caption_text]]
+      #align(center)[#text(size: 10pt, fill: luma(120))[Рисунок #number — #caption_text]]
     ]
   }
 }

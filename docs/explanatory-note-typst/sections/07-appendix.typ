@@ -9,27 +9,15 @@
 
 #figure_image("../assets/screenshots/01-landing.png", [Главная страница платформы #project_name], width: 90%)
 
-#pagebreak()
-
 #figure_image("../assets/screenshots/02-login.png", [Модалка входа и регистрации], width: 90%)
-
-#pagebreak()
 
 #figure_image("../assets/screenshots/03-dashboard.png", [Дашборд участника после входа], width: 90%)
 
-#pagebreak()
-
 #figure_image("../assets/screenshots/04-tournaments.png", [Раздел турниров: список соревнований], width: 90%)
-
-#pagebreak()
 
 #figure_image("../assets/screenshots/05-task.png", [Решение задачи внутри турнира], width: 90%)
 
-#pagebreak()
-
 #figure_image("../assets/screenshots/06-profile.png", [Профиль участника с рейтингом и аналитикой], width: 90%)
-
-#pagebreak()
 
 #figure_image("../assets/screenshots/07-team.png", [Командная аналитика и работа команды], width: 90%)
 
