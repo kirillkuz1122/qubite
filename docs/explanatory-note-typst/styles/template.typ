@@ -3,7 +3,7 @@
 #set text(lang: "ru", font: ("Times New Roman", "Liberation Serif"), size: 14pt)
 #set page(
   paper: "a4",
-  margin: (top: 2cm, bottom: 2cm, left: 3cm, right: 1.5cm),
+  margin: (top: 20mm, bottom: 20mm, left: 30mm, right: 15mm),
   numbering: "1",
   number-align: top + right,
 )
@@ -26,19 +26,29 @@
   ]
 }
 
-#let simple_table(rows, columns: (35%, 65%)) = block(
-  breakable: false,
-  above: 0.45em,
-  below: 0.45em,
-)[
-  #set par(first-line-indent: 0pt)
-  #table(
-    columns: columns,
-    inset: 8pt,
-    stroke: 0.4pt + luma(180),
-    ..rows,
-  )
-]
+#let simple_table(rows, columns: (35%, 65%), caption: none) = {
+  counter("table").step()
+  context {
+    let number = counter("table").get().first()
+    block(
+      breakable: true,
+      above: 0.45em,
+      below: 0.45em,
+    )[
+      #set par(first-line-indent: 0pt)
+      #table(
+        columns: columns,
+        inset: 8pt,
+        stroke: 0.4pt + luma(180),
+        ..rows,
+      )
+      #if caption != none [
+        #v(3pt)
+        #text(size: 10pt, fill: luma(120))[Таблица #number — #caption]
+      ]
+    ]
+  }
+}
 
 #let label_value_table(rows) = block(
   breakable: false,
