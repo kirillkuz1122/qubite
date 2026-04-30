@@ -4412,6 +4412,7 @@ async function replaceTournamentTasks(tournamentId, taskIds = []) {
 }
 
 async function getTournaments(userId, teamId = null) {
+    const now = nowIso();
     return all(
         `
             SELECT
@@ -4433,7 +4434,7 @@ async function getTournaments(userId, teamId = null) {
                       AND te.team_id = ?
                 ) AS joined_team
             FROM tournaments t
-            WHERE t.status IN ('live', 'upcoming', 'published')
+            WHERE t.status IN ('live', 'upcoming', 'published', 'ended')
               AND COALESCE(t.is_daily, 0) = 0
               AND (
                 COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
@@ -4448,15 +4449,25 @@ async function getTournaments(userId, teamId = null) {
                 )
               )
             ORDER BY
-                CASE t.status
-                    WHEN 'live' THEN 0
-                    WHEN 'published' THEN 1
-                    WHEN 'upcoming' THEN 1
+                CASE
+                    WHEN t.status = 'live'
+                         AND (t.start_at IS NULL OR t.start_at <= ?)
+                         AND (t.end_at IS NULL OR t.end_at >= ?) THEN 0
+                    WHEN t.status IN ('published', 'upcoming')
+                         AND (t.start_at IS NULL OR t.start_at > ?) THEN 1
+                    WHEN t.status = 'live'
+                         AND t.start_at IS NOT NULL
+                         AND t.start_at > ? THEN 1
                     ELSE 2
                 END,
+                CASE
+                    WHEN t.status = 'ended'
+                         OR (t.end_at IS NOT NULL AND t.end_at < ?)
+                    THEN COALESCE(t.end_at, t.start_at)
+                END DESC,
                 t.start_at ASC
         `,
-        [userId || -1, teamId || -1, userId || -1],
+        [userId || -1, teamId || -1, userId || -1, now, now, now, now, now],
     );
 }
 
