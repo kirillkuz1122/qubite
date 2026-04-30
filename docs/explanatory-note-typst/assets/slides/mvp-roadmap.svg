@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#f5f1fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#15202b" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <text x="70" y="76" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#102030">Границы MVP и развитие</text>
+  <text x="70" y="113" font-family="Inter, Arial, sans-serif" font-size="20" fill="#53616b">Текущее состояние честно описано как рабочий функциональный MVP-прототип.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="95" y="175" width="460" height="390" rx="28" fill="#ffffff" stroke="#d8e2ea"/>
+    <rect x="645" y="175" width="460" height="390" rx="28" fill="#ffffff" stroke="#d8e2ea"/>
+  </g>
+  <rect x="95" y="175" width="460" height="80" rx="28" fill="#173b46"/>
+  <rect x="645" y="175" width="460" height="80" rx="28" fill="#4c3f7a"/>
+  <text x="325" y="225" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff">Уже реализовано</text>
+  <text x="875" y="225" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff">Дальнейшее развитие</text>
+
+  <g font-family="Inter, Arial, sans-serif" font-size="22" fill="#20313a">
+    <text x="135" y="305">✓ турниры, роли и допуск</text>
+    <text x="135" y="352">✓ банк задач и проверка части ответов</text>
+    <text x="135" y="399">✓ рейтинг, лидерборд и аналитика</text>
+    <text x="135" y="446">✓ импорт из Excel</text>
+    <text x="135" y="493">✓ Telegram-бот и администрирование</text>
+
+    <text x="685" y="305">→ code runner для программирования</text>
+    <text x="685" y="352">→ полноценная AI-проверка</text>
+    <text x="685" y="399">→ апелляции</text>
+    <text x="685" y="446">→ визуальные типы задач</text>
+    <text x="685" y="493">→ интерфейсы организатора и модератора</text>
+  </g>
+</svg>

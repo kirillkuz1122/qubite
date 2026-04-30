@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#f43f5e"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="675" fill="#0b1220"/>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="100" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="70" y="275" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="70" y="450" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="910" y="100" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="910" y="275" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="910" y="450" width="210" height="96" rx="18" fill="#131b2e" stroke="#1e293b"/>
+  </g>
+
+  <g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+    <text x="175" y="138" font-size="22" font-weight="700" fill="#f8fafc">Задания</text>
+    <text x="175" y="167" font-size="17" fill="#94a3b8">банк и публикация</text>
+    <text x="175" y="313" font-size="22" font-weight="700" fill="#f8fafc">Участники</text>
+    <text x="175" y="342" font-size="17" fill="#94a3b8">регистрация и допуск</text>
+    <text x="175" y="488" font-size="22" font-weight="700" fill="#f8fafc">Результаты</text>
+    <text x="175" y="517" font-size="17" fill="#94a3b8">проверка и баллы</text>
+
+    <text x="1015" y="138" font-size="22" font-weight="700" fill="#f8fafc">Рейтинг</text>
+    <text x="1015" y="167" font-size="17" fill="#94a3b8">история изменений</text>
+    <text x="1015" y="313" font-size="22" font-weight="700" fill="#f8fafc">Команды</text>
+    <text x="1015" y="342" font-size="17" fill="#94a3b8">совместное участие</text>
+    <text x="1015" y="488" font-size="22" font-weight="700" fill="#f8fafc">Аналитика</text>
+    <text x="1015" y="517" font-size="17" fill="#94a3b8">статистика и профиль</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="410" y="215" width="380" height="240" rx="30" fill="#131b2e" stroke="#f43f5e" stroke-width="1.5"/>
+    <circle cx="600" cy="251" r="44" fill="#f43f5e"/>
+    <path d="M578 252 L595 269 L624 231" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="600" y="337" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800" fill="#f8fafc">Qubite</text>
+  <text x="600" y="376" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="20" fill="#f59e0b">единая web-платформа</text>
+  <text x="600" y="409" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="18" fill="#94a3b8">турниры • роли • задачи • рейтинг</text>
+
+  <g stroke="#f43f5e" stroke-width="4" fill="none" marker-end="url(#arrow)" opacity="0.7">
+    <path d="M292 148 C345 148 352 246 397 285"/>
+    <path d="M292 323 C347 323 355 350 397 350"/>
+    <path d="M292 498 C346 498 352 435 397 408"/>
+    <path d="M908 148 C855 148 848 246 803 285"/>
+    <path d="M908 323 C853 323 845 350 803 350"/>
+    <path d="M908 498 C854 498 848 435 803 408"/>
+  </g>
+</svg>

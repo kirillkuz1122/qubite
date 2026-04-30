@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M1,1 L7,4 L1,7 Z" fill="#f43f5e"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="675" fill="#0b1220"/>
+  <g filter="url(#shadow)" font-family="Inter, Arial, sans-serif">
+    <rect x="300" y="60" width="600" height="88" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="300" y="190" width="600" height="88" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="300" y="320" width="600" height="88" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="95" y="475" width="460" height="84" rx="18" fill="#131b2e" stroke="#1e293b"/>
+    <rect x="645" y="475" width="460" height="84" rx="18" fill="#131b2e" stroke="#1e293b"/>
+  </g>
+
+  <g font-family="Inter, Arial, sans-serif" text-anchor="middle">
+    <text x="600" y="94" font-size="24" font-weight="800" fill="#f8fafc">Пользователь (браузер)</text>
+    <text x="600" y="120" font-size="17" fill="#e2e8f0">HTML / CSS / JavaScript</text>
+    <text x="600" y="140" font-size="14" fill="#94a3b8">index.html, front/js/app.js, front/js/api.js</text>
+
+    <text x="600" y="225" font-size="24" font-weight="800" fill="#f8fafc">Cloudflare + Nginx</text>
+    <text x="600" y="253" font-size="17" fill="#e2e8f0">TLS, CDN, rate limiting, reverse proxy</text>
+
+    <text x="600" y="355" font-size="24" font-weight="800" fill="#f8fafc">Express-сервер (Node.js)</text>
+    <text x="600" y="383" font-size="17" fill="#e2e8f0">REST API, авторизация, бизнес-логика</text>
+    <text x="600" y="402" font-size="14" fill="#94a3b8">back/server.js, back/src/db.js, back/src/security.js</text>
+
+    <text x="325" y="510" font-size="23" font-weight="800" fill="#f59e0b">SQLite</text>
+    <text x="325" y="536" font-size="16" fill="#94a3b8">пользователи, турниры, задачи, рейтинг, аудит</text>
+
+    <text x="875" y="510" font-size="23" font-weight="800" fill="#8b5cf6">Внешние сервисы</text>
+    <text x="875" y="536" font-size="16" fill="#94a3b8">OAuth, CAPTCHA, Email, Telegram Bot API</text>
+  </g>
+
+  <g stroke="#f43f5e" stroke-width="3.5" fill="none" marker-end="url(#arrow)" opacity="0.8">
+    <path d="M600 158 V182"/>
+    <path d="M600 288 V312"/>
+    <path d="M505 418 C492 447 425 452 365 467"/>
+    <path d="M695 418 C708 447 775 452 835 467"/>
+  </g>
+</svg>
