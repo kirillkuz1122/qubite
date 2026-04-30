@@ -8828,6 +8828,10 @@ function buildOrganizerEditorDraft(tournament) {
         lateJoinMode: entryPolicy.lateJoinMode || "until_finish",
         lateJoinUntilAt:
             entryPolicy.lateJoinUntilAt || tournament?.lateJoinUntilAt || "",
+        catalogVisible:
+            tournament?.catalogVisible !== undefined
+                ? Boolean(tournament.catalogVisible)
+                : !["code", "roster_only"].includes(entryPolicy.joinMode || "open"),
         runtimeMode: tournament?.runtimeMode || "competition",
         allowLiveTaskAdd: Boolean(tournament?.allowLiveTaskAdd),
         wrongAttemptPenaltySeconds: Number(
@@ -8891,6 +8895,10 @@ function buildOrganizerEditorPatch(draft) {
         startAt: draft.startAt || null,
         endAt: draft.endAt || null,
         accessScope: getOrganizerAccessScopeFromDraft(draft),
+        catalogVisible:
+            draft.joinMode === "code" || draft.joinMode === "roster_only"
+                ? Boolean(draft.catalogVisible)
+                : true,
         accessCode:
             draft.joinMode === "code"
                 ? draft.codeMode === "shared"
@@ -9154,6 +9162,8 @@ function renderOrganizerTournamentEditor(selected) {
     const readiness = buildOrganizerLocalReadiness(draft, selected);
     const showAccessCodeField = Boolean(draft.requiresCode);
     const showLiveTaskAddToggle = draft.runtimeMode === "lesson";
+    const showCatalogVisibilityToggle =
+        draft.joinMode === "code" || draft.joinMode === "roster_only";
     const saveStateMap = {
         idle: "Все изменения сохранены",
         dirty: "Есть несохранённые изменения",
@@ -9307,6 +9317,19 @@ function renderOrganizerTournamentEditor(selected) {
                                     : ``
                             }
                         `
+                }
+                ${
+                    showCatalogVisibilityToggle
+                        ? `
+                            <label class="ops-toggle-card ops-toggle-card--compact">
+                                <input type="checkbox" data-organizer-field="catalogVisible" ${draft.catalogVisible ? "checked" : ""}>
+                                <span class="ops-toggle-card__copy">
+                                    <span class="ops-toggle-card__title">Показывать в общей витрине</span>
+                                    <span class="ops-toggle-card__desc">Если выключено, турнир не появится в общем списке. Участники из списка допуска всё равно увидят его у себя.</span>
+                                </span>
+                            </label>
+                        `
+                        : ``
                 }
                 ${
                     draft.joinMode === "registration"
@@ -11435,6 +11458,11 @@ async function initOrganizerTournamentsInteractions(container) {
                 }
                 if (rawValue !== "code" && organizerUiState.editor.draft?.codeMode === "personal") {
                     updateOrganizerDraftField("codeMode", "shared");
+                }
+                if (rawValue === "code" || rawValue === "roster_only") {
+                    updateOrganizerDraftField("catalogVisible", false);
+                } else {
+                    updateOrganizerDraftField("catalogVisible", true);
                 }
             }
             if (field === "requiresCode") {

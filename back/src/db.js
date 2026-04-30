@@ -518,6 +518,7 @@ async function initializeDatabase(options = {}) {
             access_scope TEXT NOT NULL DEFAULT 'public',
             access_code TEXT DEFAULT NULL,
             code_mode TEXT NOT NULL DEFAULT 'shared',
+            catalog_visible INTEGER NOT NULL DEFAULT 1,
             difficulty_label TEXT NOT NULL DEFAULT 'Mixed',
             runtime_mode TEXT NOT NULL DEFAULT 'competition',
             allow_live_task_add INTEGER NOT NULL DEFAULT 0,
@@ -961,6 +962,22 @@ async function initializeDatabase(options = {}) {
         "code_mode",
         "TEXT NOT NULL DEFAULT 'shared'",
     );
+    const tournamentColumnsBeforeCatalogVisible = await getTableColumns("tournaments");
+    const hadTournamentCatalogVisible = tournamentColumnsBeforeCatalogVisible.has(
+        "catalog_visible",
+    );
+    await ensureColumn(
+        "tournaments",
+        "catalog_visible",
+        "INTEGER NOT NULL DEFAULT 1",
+    );
+    if (!hadTournamentCatalogVisible) {
+        await run(`
+            UPDATE tournaments
+            SET catalog_visible = 0
+            WHERE COALESCE(access_scope, 'open') IN ('code', 'closed')
+        `);
+    }
     await ensureColumn(
         "tournaments",
         "difficulty_label",
@@ -3867,6 +3884,16 @@ async function createTournament(payload) {
         const timestamp = nowIso();
         const slug = await buildUniqueTournamentSlug(payload.title);
         const status = normalizeStoredTournamentStatus(payload.status);
+        const accessScope = payload.accessScope || "open";
+        const protectedAccess = ["code", "closed"].includes(accessScope);
+        const catalogVisible =
+            payload.catalogVisible !== undefined
+                ? payload.catalogVisible
+                    ? 1
+                    : 0
+                : protectedAccess
+                  ? 0
+                  : 1;
         const action = buildTournamentAction(status, false);
         const result = await run(
             `
@@ -3889,6 +3916,7 @@ async function createTournament(payload) {
                     access_scope,
                     access_code,
                     code_mode,
+                    catalog_visible,
                     difficulty_label,
                     runtime_mode,
                     allow_live_task_add,
@@ -3905,7 +3933,7 @@ async function createTournament(payload) {
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 slug,
@@ -3927,9 +3955,10 @@ async function createTournament(payload) {
                 payload.endAt,
                 payload.ownerUserId,
                 payload.format,
-                payload.accessScope || "open",
+                accessScope,
                 payload.accessCode || null,
                 payload.codeMode || "shared",
+                catalogVisible,
                 payload.difficultyLabel || "Mixed",
                 payload.runtimeMode || "competition",
                 payload.allowLiveTaskAdd ? 1 : 0,
@@ -4437,14 +4466,17 @@ async function getTournaments(userId, teamId = null) {
             WHERE t.status IN ('live', 'upcoming', 'published', 'ended')
               AND COALESCE(t.is_daily, 0) = 0
               AND (
-                COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
+                COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public')
                 OR (
-                    COALESCE(t.access_scope, 'open') = 'closed'
-                    AND EXISTS(
-                        SELECT 1
-                        FROM tournament_roster_entries tre
-                        WHERE tre.tournament_id = t.id
-                          AND tre.user_id = ?
+                    COALESCE(t.access_scope, 'open') IN ('code', 'closed')
+                    AND (
+                        COALESCE(t.catalog_visible, 0) = 1
+                        OR EXISTS(
+                            SELECT 1
+                            FROM tournament_roster_entries tre
+                            WHERE tre.tournament_id = t.id
+                              AND tre.user_id = ?
+                        )
                     )
                 )
               )
@@ -4494,14 +4526,17 @@ async function getPrimaryTournament(userId, teamId = null) {
               AND COALESCE(t.is_daily, 0) = 0
               AND NOT (t.end_at IS NOT NULL AND t.end_at < ?)
               AND (
-                COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
+                COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public')
                 OR (
-                    COALESCE(t.access_scope, 'open') = 'closed'
-                    AND EXISTS(
-                        SELECT 1
-                        FROM tournament_roster_entries tre
-                        WHERE tre.tournament_id = t.id
-                          AND tre.user_id = ?
+                    COALESCE(t.access_scope, 'open') IN ('code', 'closed')
+                    AND (
+                        COALESCE(t.catalog_visible, 0) = 1
+                        OR EXISTS(
+                            SELECT 1
+                            FROM tournament_roster_entries tre
+                            WHERE tre.tournament_id = t.id
+                              AND tre.user_id = ?
+                        )
                     )
                 )
               )
@@ -4689,6 +4724,25 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
             payload.runtimeMode !== undefined
                 ? payload.runtimeMode || "competition"
                 : current.runtime_mode || "competition";
+        const nextAccessScope = payload.accessScope || current.access_scope || "open";
+        const accessScopeChanged =
+            payload.accessScope !== undefined &&
+            nextAccessScope !== (current.access_scope || "open");
+        const nextProtectedAccess = ["code", "closed"].includes(nextAccessScope);
+        const nextCatalogVisible =
+            payload.catalogVisible !== undefined
+                ? payload.catalogVisible
+                    ? 1
+                    : 0
+                : accessScopeChanged
+                  ? nextProtectedAccess
+                      ? 0
+                      : 1
+                  : current.catalog_visible !== undefined
+                    ? current.catalog_visible
+                    : nextProtectedAccess
+                      ? 0
+                      : 1;
         const nextAllowLiveTaskAdd =
             payload.allowLiveTaskAdd !== undefined
                 ? payload.allowLiveTaskAdd && nextRuntimeMode === "lesson"
@@ -4736,6 +4790,7 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                     access_scope = ?,
                     access_code = ?,
                     code_mode = ?,
+                    catalog_visible = ?,
                     difficulty_label = ?,
                     runtime_mode = ?,
                     allow_live_task_add = ?,
@@ -4767,13 +4822,14 @@ async function updateOrganizerTournament(tournamentId, ownerUserId, payload) {
                 nextStartAt,
                 nextEndAt,
                 payload.format || current.format,
-                payload.accessScope || current.access_scope || "open",
+                nextAccessScope,
                 payload.accessCode !== undefined
                     ? payload.accessCode || null
                     : current.access_code,
                 payload.codeMode !== undefined
                     ? payload.codeMode || "shared"
                     : current.code_mode || "shared",
+                nextCatalogVisible,
                 payload.difficultyLabel || current.difficulty_label || "Mixed",
                 nextRuntimeMode,
                 nextAllowLiveTaskAdd,
@@ -5838,7 +5894,13 @@ async function listPublicLandingTournaments(limit = 4) {
             FROM tournaments t
             WHERE t.status IN ('live', 'upcoming', 'ended', 'published')
               AND COALESCE(t.is_daily, 0) = 0
-              AND COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public', 'code')
+              AND (
+                COALESCE(t.access_scope, 'open') IN ('open', 'registration', 'public')
+                OR (
+                    COALESCE(t.access_scope, 'open') IN ('code', 'closed')
+                    AND COALESCE(t.catalog_visible, 0) = 1
+                )
+              )
             ORDER BY
                 CASE
                     WHEN t.status = 'live'
@@ -7048,6 +7110,25 @@ async function updateAdminTournament(tournamentId, payload) {
         payload.description !== undefined ? payload.description : current.description;
     const nextCategory = payload.category || current.category;
     const nextFormat = payload.format || current.format;
+    const nextAccessScope = payload.accessScope || current.access_scope || "open";
+    const accessScopeChanged =
+        payload.accessScope !== undefined &&
+        nextAccessScope !== (current.access_scope || "open");
+    const nextProtectedAccess = ["code", "closed"].includes(nextAccessScope);
+    const nextCatalogVisible =
+        payload.catalogVisible !== undefined
+            ? payload.catalogVisible
+                ? 1
+                : 0
+            : accessScopeChanged
+              ? nextProtectedAccess
+                  ? 0
+                  : 1
+              : current.catalog_visible !== undefined
+                ? current.catalog_visible
+                : nextProtectedAccess
+                  ? 0
+                  : 1;
     const nextStartAt = payload.startAt || current.start_at;
     const nextEndAt = payload.endAt || current.end_at;
     const action = buildTournamentAction(nextStatus, false);
@@ -7089,6 +7170,7 @@ async function updateAdminTournament(tournamentId, payload) {
                 access_scope = ?,
                 access_code = ?,
                 code_mode = ?,
+                catalog_visible = ?,
                 leaderboard_visible = ?,
                 results_visible = ?,
                 registration_start_at = ?,
@@ -7114,13 +7196,14 @@ async function updateAdminTournament(tournamentId, payload) {
             nextStartAt,
             nextEndAt,
             nextFormat,
-            payload.accessScope || current.access_scope || "open",
+            nextAccessScope,
             payload.accessCode !== undefined
                 ? payload.accessCode || null
                 : current.access_code,
             payload.codeMode !== undefined
                 ? payload.codeMode || "shared"
                 : current.code_mode || "shared",
+            nextCatalogVisible,
             payload.leaderboardVisible !== undefined
                 ? payload.leaderboardVisible
                     ? 1

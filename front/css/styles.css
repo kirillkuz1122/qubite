@@ -10608,6 +10608,10 @@ body.loading {
   align-items: start;
 }
 
+.ops-editor-hero-grid > * {
+  min-width: 0;
+}
+
 .ops-form-stack--main {
   min-width: 0;
 }
@@ -10708,6 +10712,7 @@ body.loading {
 .ops-editor-phase-card,
 .ops-category-picker {
   display: grid;
+  min-width: 0;
   gap: 10px;
   padding: 16px 18px;
   border-radius: 16px;

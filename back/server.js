@@ -1567,6 +1567,7 @@ function serializeTournament(row, currentUserId = null, options = {}) {
             Number(row.owner_user_id || 0) === Number(currentUserId),
         accessScope:
             row.access_scope === "public" ? "open" : row.access_scope || "open",
+        catalogVisible: Boolean(row.catalog_visible),
         accessCode: includeSensitive ? row.access_code || "" : "",
         leaderboardVisible: Boolean(row.leaderboard_visible),
         resultsVisible: Boolean(row.results_visible),
@@ -3047,6 +3048,16 @@ function normalizeTournamentCodeMode(value) {
         return normalized;
     }
     return "shared";
+}
+
+function normalizeBooleanInput(value) {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    if (typeof value === "string") {
+        return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+    }
+    return Boolean(value);
 }
 
 function normalizeTournamentJoinCode(value) {
@@ -6656,6 +6667,10 @@ app.post("/api/organizer/tournaments", requireOrganizer, async (req, res, next) 
             endAt,
             taskIds,
             accessScope,
+            catalogVisible:
+                req.body.catalogVisible !== undefined
+                    ? normalizeBooleanInput(req.body.catalogVisible)
+                    : undefined,
             accessCode: cleanText(req.body.accessCode, 48) || null,
             codeMode,
             difficultyLabel: taskIds.length > 1 ? "Mixed" : req.body.difficultyLabel || "Mixed",
@@ -6810,6 +6825,10 @@ app.patch(
                     accessScope: req.body.accessScope
                         ? normalizeTournamentAccessScope(req.body.accessScope)
                         : undefined,
+                    catalogVisible:
+                        req.body.catalogVisible !== undefined
+                            ? normalizeBooleanInput(req.body.catalogVisible)
+                            : undefined,
                     accessCode:
                         req.body.accessCode !== undefined
                             ? cleanText(req.body.accessCode, 48)

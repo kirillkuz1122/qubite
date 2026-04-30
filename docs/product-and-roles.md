@@ -37,6 +37,7 @@ Qubite — это рабочий прототип платформы для уч
 - статусы хранения: `draft`, `published`, `ended`, `archived`
 - вычисляемые lifecycle-состояния: `registration_open`, `registration_scheduled`, `starting_soon`, `live`, `live_late_join`, `ended`, `archived`
 - пользовательская витрина турниров показывает опубликованные, текущие и завершённые турниры; `draft` и `archived` остаются вне публичного списка
+- турниры с допуском `code` или `roster_only` по умолчанию скрыты из общей витрины через `catalog_visible = 0`; organizer может вручную открыть их в витрине, а скрытые roster-турниры видны только участникам из списка допуска
 - режимы допуска: `open`, `registration`, `roster_only`, `code`
 - режимы кодов: общий или персональный
 
