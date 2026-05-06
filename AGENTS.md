@@ -130,7 +130,7 @@
 
 - Node.js + Express 5 + `sqlite3` + `xlsx`. CommonJS (`"type": "commonjs"`).
 - `package.json` только один — в `back/`. В корне проекта его нет.
-- Запуск локально: `cd back && npm install && npm run dev` (это `node --watch server.js`).
+- Запуск локально: `cd back && npm install && node server.js`.
 - Production-запуск: `npm start` (`node server.js`), обычно под PM2 + Nginx.
 - По умолчанию слушает `127.0.0.1:3000` (см. `.env` → `HOST`, `PORT`, `APP_BASE_URL`).
 - SQLite-файл по умолчанию: `back/data/qubite.sqlite` (`DATABASE_PATH`).

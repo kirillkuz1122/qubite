@@ -10276,6 +10276,7 @@ body.loading {
 .ops-panel__body {
   display: grid;
   gap: 16px;
+  container-type: inline-size;
 }
 
 .ops-action-grid {
@@ -10459,6 +10460,8 @@ body.loading {
 .ops-main {
   display: grid;
   gap: 18px;
+  container-type: inline-size;
+  container-name: ops-main;
 }
 
 .ops-editor-shell {
@@ -10604,7 +10607,7 @@ body.loading {
 }
 
 .ops-editor-hero-grid {
-  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.75fr);
+  grid-template-columns: minmax(220px, 1fr) minmax(200px, 240px);
   align-items: start;
 }
 
@@ -10646,6 +10649,35 @@ body.loading {
 
 .ops-form-grid--quad > * {
   grid-column: span 3;
+}
+
+@container (max-width: 460px) {
+  .ops-editor-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-editor-summary-card {
+    width: 100%;
+  }
+}
+
+@container (max-width: 620px) {
+  .ops-code-mode-grid,
+  .ops-step-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-form-grid--double > *,
+  .ops-form-grid--triple > *,
+  .ops-form-grid--quad > * {
+    grid-column: 1 / -1;
+  }
+}
+
+@container ops-main (max-width: 980px) {
+  .ops-shell--aside {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ops-field-wide {
@@ -10874,7 +10906,6 @@ body.loading {
 }
 
 @media (max-width: 1360px) {
-  .ops-editor-hero-grid,
   .ops-shell--aside {
     grid-template-columns: 1fr;
   }
@@ -12064,7 +12095,6 @@ body.loading {
     grid-template-columns: 1fr;
   }
 
-  .ops-editor-hero-grid,
   .ops-code-mode-grid,
   .ops-step-actions {
     grid-template-columns: 1fr;
