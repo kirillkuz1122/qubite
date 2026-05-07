@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Run as root: sudo $0" >&2
+  exit 1
+fi
+
+ask() {
+  local name="$1" prompt="$2" default="${3:-}" secret="${4:-}"
+  [[ -n "${!name:-}" ]] && return
+  local suffix=""
+  [[ -n "$default" ]] && suffix=" [$default]"
+  if [[ "$secret" == "secret" ]]; then
+    read -r -s -p "$prompt$suffix: " "$name"
+    echo
+  else
+    read -r -p "$prompt$suffix: " "$name"
+  fi
+  [[ -z "${!name}" && -n "$default" ]] && printf -v "$name" "%s" "$default"
+}
+
+REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+ask MAIN_SITE_DOMAIN "Main site domain" "qubiteapp.ru"
+ask EXTRA_SITE_DOMAINS "Extra site domains, comma separated" "www.qubiteapp.ru,ru.qubiteapp.online,www.ru.qubiteapp.online"
+ask PROXY_DOMAIN "Proxy domain on master server" "proxy.qubiteapp.online"
+ask APP_PORT "Node app port" "3000"
+ask PROXY_CREDENTIAL_ENCRYPTION_KEY "Proxy credential encryption key" "$(openssl rand -base64 32)" secret
+ask PROXY_SYNC_TOKEN "Master-local proxy sync token" "$(openssl rand -hex 32)" secret
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  nodejs npm nginx git curl golang-go libcap2-bin ufw fail2ban unzip zip
+
+if [[ -f "$REPO_DIR/back/package-lock.json" ]]; then
+  npm --prefix "$REPO_DIR/back" ci
+else
+  npm --prefix "$REPO_DIR/back" install
+fi
+
+if ! command -v pm2 >/dev/null 2>&1; then
+  npm install -g pm2
+fi
+
+ENV_FILE="$REPO_DIR/.env"
+touch "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+set_env() {
+  local key="$1" value="$2"
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+  else
+    printf "%s=%s\n" "$key" "$value" >>"$ENV_FILE"
+  fi
+}
+
+set_env HOST "127.0.0.1"
+set_env PORT "$APP_PORT"
+set_env NODE_ENV "production"
+set_env APP_BASE_URL "https://${MAIN_SITE_DOMAIN}"
+set_env TRUST_PROXY "1"
+set_env PROXY_PUBLIC_DOMAIN "$PROXY_DOMAIN"
+set_env PROXY_CREDENTIAL_ENCRYPTION_KEY "$PROXY_CREDENTIAL_ENCRYPTION_KEY"
+set_env PROXY_SYNC_TOKEN "$PROXY_SYNC_TOKEN"
+
+if [[ ! -x /usr/local/bin/xcaddy ]]; then
+  GOBIN=/usr/local/bin go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+fi
+
+/usr/local/bin/xcaddy build \
+  --output /usr/local/bin/caddy-naive \
+  --with github.com/caddyserver/forwardproxy@caddy2
+setcap cap_net_bind_service=+ep /usr/local/bin/caddy-naive || true
+
+TS="$(date +%F-%H%M%S)"
+[[ -d /etc/nginx ]] && cp -a /etc/nginx "/root/nginx-backup-${TS}"
+cp "$REPO_DIR/deploy/proxy/nginx-internal-qubite.conf" /etc/nginx/sites-available/qubiteapp.ru
+ln -sfn /etc/nginx/sites-available/qubiteapp.ru /etc/nginx/sites-enabled/qubiteapp.ru
+rm -f /etc/nginx/sites-enabled/default
+
+mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy
+cat >/etc/caddy/forwardproxy-credentials.caddy <<'EOF_CREDS'
+basic_auth bootstrap bootstrap-change-me
+EOF_CREDS
+chmod 600 /etc/caddy/forwardproxy-credentials.caddy
+
+SITE_NAMES="$MAIN_SITE_DOMAIN"
+IFS=',' read -ra EXTRA <<<"$EXTRA_SITE_DOMAINS"
+for domain in "${EXTRA[@]}"; do
+  domain="$(echo "$domain" | xargs)"
+  [[ -n "$domain" ]] && SITE_NAMES="${SITE_NAMES}, https://${domain}"
+done
+
+cat >/etc/caddy/Caddyfile <<EOF_CADDY
+{
+    order forward_proxy before reverse_proxy
+    admin 127.0.0.1:2019
+}
+
+https://${PROXY_DOMAIN}, :443 {
+    route {
+        forward_proxy {
+            import /etc/caddy/forwardproxy-credentials.caddy
+            hide_ip
+            hide_via
+            probe_resistance
+        }
+
+        redir https://${MAIN_SITE_DOMAIN}{uri} 302
+    }
+}
+
+https://${SITE_NAMES} {
+    reverse_proxy 127.0.0.1:8080
+}
+EOF_CADDY
+
+cat >/etc/systemd/system/caddy-naive.service <<'EOF_SERVICE'
+[Unit]
+Description=Caddy NaiveProxy frontend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/local/bin/caddy-naive run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy-naive reload --config /etc/caddy/Caddyfile --force
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
+cat >/etc/systemd/system/qubite-proxy-sync.service <<EOF_SERVICE
+[Unit]
+Description=Sync local Qubite proxy credentials into Caddy
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PROXY_SYNC_TOKEN=${PROXY_SYNC_TOKEN}
+Environment=QUBITE_PROXY_SYNC_URL=http://127.0.0.1:${APP_PORT}/api/proxy/sync/credentials?domain=${PROXY_DOMAIN}
+Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.caddy
+ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
+ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
+EOF_SERVICE
+
+cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
+[Unit]
+Description=Refresh local Qubite proxy credentials for Caddy
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Unit=qubite-proxy-sync.service
+
+[Install]
+WantedBy=timers.target
+EOF_TIMER
+
+nginx -t
+/usr/local/bin/caddy-naive validate --config /etc/caddy/Caddyfile
+
+pm2 start "$REPO_DIR/back/server.js" --name qubiteapp --cwd "$REPO_DIR/back" --update-env || \
+  pm2 restart qubiteapp --update-env
+pm2 save
+pm2 startup systemd -u root --hp /root >/dev/null || true
+
+ufw allow 22/tcp >/dev/null || true
+ufw allow 80/tcp >/dev/null || true
+ufw allow 443/tcp >/dev/null || true
+
+systemctl daemon-reload
+systemctl enable nginx caddy-naive.service qubite-proxy-sync.timer fail2ban >/dev/null
+systemctl restart nginx
+systemctl restart caddy-naive.service
+systemctl restart qubite-proxy-sync.service || true
+systemctl start qubite-proxy-sync.timer
+
+echo "Master Qubite server installed."
+echo "Site: https://${MAIN_SITE_DOMAIN}"
+echo "Master proxy: https://${PROXY_DOMAIN}"
+echo "Repo: ${REPO_DIR}"
+echo "Nginx backup: /root/nginx-backup-${TS}"

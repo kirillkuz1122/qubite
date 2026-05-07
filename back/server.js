@@ -1,5 +1,6 @@
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 const { spawn } = require("child_process");
 const EventEmitter = require("events");
 const express = require("express");
@@ -189,6 +190,10 @@ const {
     buildRankTitle,
     RATING_START,
 } = require("./src/db");
+const {
+    ensureProxyDefaultServer: ensureProxyDefaultServerRuntime,
+    registerProxyRoutes,
+} = require("./src/proxy/routes");
 
 // Wrapper for audit log to support real-time emitter
 async function createAuditLog(payload) {
@@ -386,6 +391,7 @@ const SENSITIVE_API_PREFIXES = [
     "/api/organizer",
     "/api/moderation",
     "/api/admin",
+    "/api/proxy",
     "/api/support",
 ];
 const DUMMY_PASSWORD_SALT = "qubite-security-dummy-salt";
@@ -1618,6 +1624,7 @@ function serializeAdminUser(user) {
         activeSessions: Number(user.active_sessions || 0),
         teamName: user.team_name || "",
         emailVerified: Boolean(user.email_verified_at),
+        proxyNoLogs: Boolean(Number(user.proxy_no_logs || 0)),
     };
 }
 
@@ -2597,6 +2604,7 @@ function requireAdmin(req, res, next) {
 
 const requireOrganizer = requireRoles([ROLE_ORGANIZER, ROLE_ADMIN]);
 const requireModerator = requireRoles([ROLE_MODERATOR, ROLE_ADMIN]);
+const requireOwner = requireRoles([ROLE_OWNER]);
 
 function requireParticipant(req, res, next) {
     if (!req.auth || !req.auth.user) {
@@ -4256,6 +4264,10 @@ app.use(async (req, res, next) => {
 
     // Режим обслуживания (отправляем на спец страницу)
     if (isMaintenance && !hasBypass) {
+        if (path === "/api/proxy/sync/credentials") {
+            return next();
+        }
+
         // Пропускаем статику для страницы техработ и иконок
         if (path === '/maintenance.html' || path.startsWith('/front/img/')) {
             return next();
@@ -4338,6 +4350,17 @@ app.get("/api/workspace/bootstrap", requireAuth, async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+});
+
+registerProxyRoutes(app, {
+    cleanText,
+    createAuditLog,
+    generateRandomToken,
+    getRequestIp,
+    hashOpaqueToken,
+    requireAuth,
+    requireOwner,
+    sendError,
 });
 
 app.get("/api/auth/oauth/:provider/start", publicExpensiveRateLimiter, async (req, res, next) => {
@@ -9584,6 +9607,7 @@ server.on("clientError", (error, socket) => {
 
 async function start() {
     await initializeDatabase();
+    await ensureProxyDefaultServerRuntime();
     const privilegedUsers = await bootstrapAdminUsers();
     await ensureDailyTournamentForDate();
 

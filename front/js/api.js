@@ -36,6 +36,9 @@
         adminSystemStatsHistory: [],
         adminDetailedStats: null,
         adminSystemSettings: {},
+        adminProxyServers: [],
+        adminProxyLogs: [],
+        adminProxyStats: {},
         adminUsers: [],
         adminTournaments: [],
         adminTasks: [],
@@ -103,6 +106,9 @@
         state.moderationUsers = [];
         state.adminOverview = null;
         state.adminUsers = [];
+        state.adminProxyServers = [];
+        state.adminProxyLogs = [];
+        state.adminProxyStats = {};
         state.adminTeams = [];
         state.adminTasks = [];
         state.adminTournaments = [];
@@ -334,9 +340,15 @@
 
     function upsertById(items, item, { prepend = false } = {}) {
         const nextItems = Array.isArray(items) ? [...items] : [];
-        const index = nextItems.findIndex(
-            (entry) => Number(entry?.id) === Number(item?.id),
-        );
+        const itemId = item?.id;
+        const index = nextItems.findIndex((entry) => {
+            if (entry?.id === itemId) {
+                return true;
+            }
+            const left = Number(entry?.id);
+            const right = Number(itemId);
+            return Number.isFinite(left) && Number.isFinite(right) && left === right;
+        });
 
         if (index >= 0) {
             nextItems[index] = item;
@@ -849,6 +861,25 @@
         return state.adminSystemSettings;
     }
 
+    function syncAdminProxyServers(items) {
+        state.adminProxyServers = Array.isArray(items) ? [...items] : [];
+        return state.adminProxyServers;
+    }
+
+    function syncAdminProxyLogs(items) {
+        state.adminProxyLogs = Array.isArray(items) ? [...items] : [];
+        return state.adminProxyLogs;
+    }
+
+    function syncAdminProxyStats(serverId, payload) {
+        if (!serverId) return state.adminProxyStats;
+        state.adminProxyStats = {
+            ...state.adminProxyStats,
+            [serverId]: payload ? { ...payload } : null,
+        };
+        return state.adminProxyStats[serverId];
+    }
+
     async function loadAdminSystemSettings() {
         const data = await request("/api/admin/system-settings");
         syncAdminSystemSettings(data);
@@ -922,6 +953,68 @@
         const data = await request("/api/admin/audit");
         syncAdminAudit(data.items || []);
         return state.adminAudit;
+    }
+
+    async function loadAdminProxyServers() {
+        const data = await request("/api/admin/proxy-servers");
+        syncAdminProxyServers(data.items || []);
+        return state.adminProxyServers;
+    }
+
+    async function createAdminProxyServer(payload) {
+        const data = await request("/api/admin/proxy-servers", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxyServers([data.item, ...state.adminProxyServers]);
+        return data;
+    }
+
+    async function updateAdminProxyServer(serverId, payload) {
+        const data = await request(`/api/admin/proxy-servers/${encodeURIComponent(serverId)}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxyServers(upsertById(state.adminProxyServers, data.item));
+        return data.item;
+    }
+
+    async function rotateAdminProxyServerToken(serverId) {
+        const data = await request(`/api/admin/proxy-servers/${encodeURIComponent(serverId)}/rotate-token`, {
+            method: "POST",
+        });
+        syncAdminProxyServers(upsertById(state.adminProxyServers, data.item));
+        return data;
+    }
+
+    async function loadAdminProxyLogs(params = {}) {
+        const query = new URLSearchParams();
+        if (params.serverId) query.set("serverId", params.serverId);
+        if (params.userId) query.set("userId", params.userId);
+        if (params.host) query.set("host", params.host);
+        query.set("limit", String(params.limit || 120));
+        const suffix = query.toString() ? `?${query.toString()}` : "";
+        const data = await request(`/api/admin/proxy-logs${suffix}`);
+        syncAdminProxyLogs(data.items || []);
+        return state.adminProxyLogs;
+    }
+
+    async function loadAdminProxyServerStats(serverId, hours = 24) {
+        const data = await request(`/api/admin/proxy-servers/${encodeURIComponent(serverId)}/stats?hours=${encodeURIComponent(hours)}`);
+        syncAdminProxyStats(serverId, data);
+        return data;
+    }
+
+    async function updateAdminProxyUserPrivacy(userId, noLogs) {
+        const data = await request(`/api/admin/proxy-users/${encodeURIComponent(userId)}/privacy`, {
+            method: "PATCH",
+            body: JSON.stringify({ noLogs }),
+        });
+        syncAdminUserItem({
+            ...(state.adminUsers.find((item) => Number(item.id) === Number(userId)) || {}),
+            ...data.item,
+        });
+        return data.item;
     }
 
     async function loadWorkspaceData() {
@@ -1574,6 +1667,7 @@
         createTask: createTaskRequest,
         createOrganizerTask: createOrganizerTaskRequest,
         createOrganizerTournament: createOrganizerTournamentRequest,
+        createAdminProxyServer,
         createTeam: createTeamRequest,
         createTournament: createTournamentRequest,
         clearTournamentRuntime,
@@ -1597,10 +1691,15 @@
         restoreAdminUser,
         deleteSelfAccount,
         loadAdminOverview,
+        loadAdminProxyLogs,
+        loadAdminProxyServers,
+        loadAdminProxyServerStats,
         loadAdminSystemStats,
         loadAdminSystemStatsHistory,
         loadAdminSystemSettings,
         updateAdminSystemSetting,
+        updateAdminProxyServer,
+        updateAdminProxyUserPrivacy,
         loadAdminTasks,
         loadAdminTeams,
         loadAdminTournaments,
@@ -1666,6 +1765,7 @@
         updateOrganizerTournament: updateOrganizerTournamentRequest,
         updateAdminTournament,
         updateAdminUserRole,
+        rotateAdminProxyServerToken,
         updatePassword,
         updateProfile,
         updateTeam: updateTeamRequest,

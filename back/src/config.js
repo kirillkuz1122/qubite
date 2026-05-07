@@ -229,4 +229,33 @@ module.exports = {
   TELEGRAM_OWNER_IDS: parseCsv(process.env.TELEGRAM_OWNER_ID || ""),
   TELEGRAM_MODERATOR_IDS: parseCsv(process.env.TELEGRAM_MODERATOR_IDS || ""),
   TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),
+  PROXY_PUBLIC_DOMAIN: process.env.PROXY_PUBLIC_DOMAIN || "proxy.qubiteapp.online",
+  PROXY_DEFAULT_REGION: process.env.PROXY_DEFAULT_REGION || "eu-test",
+  PROXY_SESSION_TTL_MS: parseInteger(
+    process.env.PROXY_SESSION_TTL_MS,
+    30 * 60 * 1000,
+    {
+      min: 5 * 60 * 1000,
+      max: 24 * 60 * 60 * 1000,
+    },
+  ),
+  PROXY_REFRESH_AFTER_MS: parseInteger(
+    process.env.PROXY_REFRESH_AFTER_MS,
+    10 * 60 * 1000,
+    {
+      min: 60 * 1000,
+      max: 60 * 60 * 1000,
+    },
+  ),
+  PROXY_MAX_ACTIVE_DEVICES: parseInteger(
+    process.env.PROXY_MAX_ACTIVE_DEVICES,
+    3,
+    {
+      min: 1,
+      max: 20,
+    },
+  ),
+  PROXY_CREDENTIAL_ENCRYPTION_KEY:
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY || "",
+  PROXY_SYNC_TOKEN: process.env.PROXY_SYNC_TOKEN || "",
 };

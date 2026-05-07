@@ -481,6 +481,7 @@ async function initializeDatabase(options = {}) {
             vk_oauth_sub TEXT DEFAULT NULL,
             preferred_auth_provider TEXT DEFAULT NULL,
             last_login_at TEXT DEFAULT NULL,
+            proxy_no_logs INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -496,6 +497,110 @@ async function initializeDatabase(options = {}) {
             expires_at TEXT NOT NULL,
             revoked_at TEXT DEFAULT NULL,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_servers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            public_domain TEXT NOT NULL UNIQUE,
+            proxy_url TEXT NOT NULL,
+            region TEXT NOT NULL DEFAULT '',
+            provider TEXT NOT NULL DEFAULT '',
+            priority INTEGER NOT NULL DEFAULT 100,
+            weight INTEGER NOT NULL DEFAULT 100,
+            status TEXT NOT NULL DEFAULT 'active',
+            health_status TEXT NOT NULL DEFAULT 'unknown',
+            node_token_hash TEXT NOT NULL DEFAULT '',
+            last_seen_at TEXT DEFAULT NULL,
+            last_heartbeat_at TEXT DEFAULT NULL,
+            metrics_json TEXT NOT NULL DEFAULT '{}',
+            last_error TEXT NOT NULL DEFAULT '',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_devices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            device_name TEXT NOT NULL DEFAULT '',
+            platform TEXT NOT NULL DEFAULT '',
+            app_version TEXT NOT NULL DEFAULT '',
+            fingerprint_hash TEXT NOT NULL DEFAULT '',
+            public_key TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active',
+            last_seen_at TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            revoked_at TEXT DEFAULT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            device_id INTEGER NOT NULL,
+            server_id INTEGER NOT NULL,
+            username TEXT NOT NULL UNIQUE,
+            secret_hash TEXT NOT NULL,
+            secret_ciphertext TEXT NOT NULL DEFAULT '',
+            previous_secret_hash TEXT DEFAULT NULL,
+            ip_address TEXT NOT NULL DEFAULT '',
+            user_agent TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            refresh_after_at TEXT NOT NULL,
+            revoked_at TEXT DEFAULT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (device_id) REFERENCES proxy_devices (id) ON DELETE CASCADE,
+            FOREIGN KEY (server_id) REFERENCES proxy_servers (id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER DEFAULT NULL,
+            device_id INTEGER DEFAULT NULL,
+            session_id INTEGER DEFAULT NULL,
+            server_id INTEGER DEFAULT NULL,
+            action TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            ip_address TEXT NOT NULL DEFAULT '',
+            user_agent TEXT NOT NULL DEFAULT '',
+            details_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+            FOREIGN KEY (device_id) REFERENCES proxy_devices (id) ON DELETE SET NULL,
+            FOREIGN KEY (session_id) REFERENCES proxy_sessions (id) ON DELETE SET NULL,
+            FOREIGN KEY (server_id) REFERENCES proxy_servers (id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_traffic_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            user_id INTEGER DEFAULT NULL,
+            device_id INTEGER DEFAULT NULL,
+            session_id INTEGER DEFAULT NULL,
+            server_id INTEGER DEFAULT NULL,
+            destination_host TEXT NOT NULL DEFAULT '',
+            destination_port INTEGER NOT NULL DEFAULT 0,
+            action TEXT NOT NULL DEFAULT 'proxy',
+            transport TEXT NOT NULL DEFAULT '',
+            request_count INTEGER NOT NULL DEFAULT 1,
+            bytes_up INTEGER NOT NULL DEFAULT 0,
+            bytes_down INTEGER NOT NULL DEFAULT 0,
+            status_code INTEGER NOT NULL DEFAULT 0,
+            app_version TEXT NOT NULL DEFAULT '',
+            details_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+            FOREIGN KEY (device_id) REFERENCES proxy_devices (id) ON DELETE SET NULL,
+            FOREIGN KEY (session_id) REFERENCES proxy_sessions (id) ON DELETE SET NULL,
+            FOREIGN KEY (server_id) REFERENCES proxy_servers (id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS tournaments (
@@ -909,6 +1014,19 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_organizer_applications_status ON organizer_applications (status);
         CREATE INDEX IF NOT EXISTS idx_organizer_applications_user ON organizer_applications (user_id);
         CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_servers_status_priority ON proxy_servers (status, priority, weight);
+        CREATE INDEX IF NOT EXISTS idx_proxy_devices_user_status ON proxy_devices (user_id, status, updated_at DESC);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_proxy_devices_user_fingerprint
+        ON proxy_devices (user_id, fingerprint_hash)
+        WHERE fingerprint_hash != '';
+        CREATE INDEX IF NOT EXISTS idx_proxy_sessions_user_status ON proxy_sessions (user_id, status, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_sessions_active_expires ON proxy_sessions (expires_at)
+        WHERE revoked_at IS NULL AND status = 'active';
+        CREATE INDEX IF NOT EXISTS idx_proxy_events_created_at ON proxy_events (created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_traffic_logs_created_at ON proxy_traffic_logs (created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_traffic_logs_server_time ON proxy_traffic_logs (server_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_traffic_logs_user_time ON proxy_traffic_logs (user_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_traffic_logs_host ON proxy_traffic_logs (destination_host, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_tournament ON tournament_roster_entries (tournament_id);
         CREATE INDEX IF NOT EXISTS idx_tournament_roster_user ON tournament_roster_entries (user_id);
         CREATE INDEX IF NOT EXISTS idx_tournament_helper_codes_tournament ON tournament_helper_codes (tournament_id);
@@ -939,6 +1057,13 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("users", "vk_oauth_sub", "TEXT DEFAULT NULL");
     await ensureColumn("users", "preferred_auth_provider", "TEXT DEFAULT NULL");
     await ensureColumn("users", "last_login_at", "TEXT DEFAULT NULL");
+    await ensureColumn("users", "proxy_no_logs", "INTEGER NOT NULL DEFAULT 0");
+
+    await ensureColumn("proxy_servers", "node_token_hash", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "last_heartbeat_at", "TEXT DEFAULT NULL");
+    await ensureColumn("proxy_servers", "metrics_json", "TEXT NOT NULL DEFAULT '{}'");
+    await ensureColumn("proxy_servers", "last_error", "TEXT NOT NULL DEFAULT ''");
+    await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
@@ -2635,6 +2760,761 @@ async function getSessionByUserAndId(userId, sessionId) {
         `,
         [sessionId, userId],
     );
+}
+
+async function upsertProxyServer(payload) {
+    const timestamp = nowIso();
+    const uid = payload.uid || makeUid("PS");
+    const publicDomain = String(payload.publicDomain || "").trim().toLowerCase();
+    const proxyUrl = payload.proxyUrl || `https://${publicDomain}`;
+
+    await run(
+        `
+            INSERT INTO proxy_servers (
+                uid,
+                name,
+                public_domain,
+                proxy_url,
+                region,
+                provider,
+                priority,
+                weight,
+                status,
+                health_status,
+                node_token_hash,
+                metadata_json,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(public_domain) DO UPDATE SET
+                name = excluded.name,
+                proxy_url = excluded.proxy_url,
+                region = excluded.region,
+                provider = excluded.provider,
+                priority = excluded.priority,
+                weight = excluded.weight,
+                status = excluded.status,
+                health_status = excluded.health_status,
+                node_token_hash = CASE
+                    WHEN excluded.node_token_hash != '' THEN excluded.node_token_hash
+                    ELSE proxy_servers.node_token_hash
+                END,
+                metadata_json = excluded.metadata_json,
+                updated_at = excluded.updated_at
+        `,
+        [
+            uid,
+            payload.name || publicDomain,
+            publicDomain,
+            proxyUrl,
+            payload.region || "",
+            payload.provider || "",
+            Number(payload.priority || 100),
+            Number(payload.weight || 100),
+            payload.status || "active",
+            payload.healthStatus || "unknown",
+            payload.nodeTokenHash || "",
+            toJsonString(payload.metadata, {}),
+            timestamp,
+            timestamp,
+        ],
+    );
+
+    return getProxyServerByDomain(publicDomain);
+}
+
+async function getProxyServerByDomain(publicDomain) {
+    return get("SELECT * FROM proxy_servers WHERE public_domain = ?", [
+        String(publicDomain || "").trim().toLowerCase(),
+    ]);
+}
+
+async function getProxyServerByUid(serverUid) {
+    return get("SELECT * FROM proxy_servers WHERE uid = ?", [serverUid]);
+}
+
+async function getProxyServerByNodeTokenHash(tokenHash) {
+    return get(
+        `
+            SELECT *
+            FROM proxy_servers
+            WHERE node_token_hash = ?
+              AND node_token_hash != ''
+            LIMIT 1
+        `,
+        [tokenHash],
+    );
+}
+
+async function getProxyServerById(serverId) {
+    return get("SELECT * FROM proxy_servers WHERE id = ?", [serverId]);
+}
+
+async function getDefaultProxyServer() {
+    return get(
+        `
+            SELECT *
+            FROM proxy_servers
+            WHERE status = 'active'
+            ORDER BY priority ASC, weight DESC, id ASC
+            LIMIT 1
+        `,
+    );
+}
+
+async function listProxyServersForClient() {
+    return all(
+        `
+            SELECT uid, name, public_domain, proxy_url, region, priority, weight, health_status, updated_at
+            FROM proxy_servers
+            WHERE status = 'active'
+            ORDER BY priority ASC, weight DESC, id ASC
+        `,
+    );
+}
+
+async function listProxyServersForAdmin() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    return all(
+        `
+            SELECT
+                ps.*,
+                (
+                    SELECT COUNT(*)
+                    FROM proxy_sessions pxs
+                    WHERE pxs.server_id = ps.id
+                      AND pxs.status = 'active'
+                      AND pxs.revoked_at IS NULL
+                      AND pxs.expires_at > ?
+                ) AS active_sessions_count,
+                (
+                    SELECT COALESCE(SUM(ptl.request_count), 0)
+                    FROM proxy_traffic_logs ptl
+                    WHERE ptl.server_id = ps.id
+                      AND ptl.created_at >= ?
+                ) AS traffic_requests_24h,
+                (
+                    SELECT COALESCE(SUM(ptl.bytes_up + ptl.bytes_down), 0)
+                    FROM proxy_traffic_logs ptl
+                    WHERE ptl.server_id = ps.id
+                      AND ptl.created_at >= ?
+                ) AS traffic_bytes_24h,
+                (
+                    SELECT COUNT(DISTINCT ptl.user_id)
+                    FROM proxy_traffic_logs ptl
+                    WHERE ptl.server_id = ps.id
+                      AND ptl.created_at >= ?
+                ) AS traffic_users_24h,
+                (
+                    SELECT COUNT(DISTINCT ptl.device_id)
+                    FROM proxy_traffic_logs ptl
+                    WHERE ptl.server_id = ps.id
+                      AND ptl.created_at >= ?
+                ) AS traffic_devices_24h
+            FROM proxy_servers ps
+            ORDER BY priority ASC, id ASC
+        `,
+        [nowIso(), since, since, since, since],
+    );
+}
+
+async function updateProxyServer(payload) {
+    const current = await getProxyServerByUid(payload.uid);
+    if (!current) {
+        return null;
+    }
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_servers
+            SET
+                name = ?,
+                public_domain = ?,
+                proxy_url = ?,
+                region = ?,
+                provider = ?,
+                priority = ?,
+                weight = ?,
+                status = ?,
+                health_status = ?,
+                updated_at = ?
+            WHERE uid = ?
+        `,
+        [
+            payload.name ?? current.name,
+            payload.publicDomain ?? current.public_domain,
+            payload.proxyUrl ?? current.proxy_url,
+            payload.region ?? current.region,
+            payload.provider ?? current.provider,
+            Number(payload.priority ?? current.priority ?? 100),
+            Number(payload.weight ?? current.weight ?? 100),
+            payload.status ?? current.status,
+            payload.healthStatus ?? current.health_status,
+            timestamp,
+            payload.uid,
+        ],
+    );
+    return getProxyServerByUid(payload.uid);
+}
+
+async function setProxyServerNodeToken(uid, tokenHash) {
+    await run(
+        `
+            UPDATE proxy_servers
+            SET node_token_hash = ?, updated_at = ?
+            WHERE uid = ?
+        `,
+        [tokenHash, nowIso(), uid],
+    );
+    return getProxyServerByUid(uid);
+}
+
+async function recordProxyServerHeartbeat(serverId, payload = {}) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_servers
+            SET
+                health_status = ?,
+                last_seen_at = ?,
+                last_heartbeat_at = ?,
+                metrics_json = ?,
+                last_error = ?,
+                updated_at = ?
+            WHERE id = ?
+        `,
+        [
+            payload.healthStatus || "online",
+            timestamp,
+            timestamp,
+            toJsonString(payload.metrics, {}),
+            payload.lastError || "",
+            timestamp,
+            serverId,
+        ],
+    );
+    return getProxyServerById(serverId);
+}
+
+async function registerProxyDevice(payload) {
+    const timestamp = nowIso();
+    const uid = String(payload.deviceUid || "").trim() || makeUid("PD");
+    const fingerprintHash = String(payload.fingerprintHash || "").trim();
+    const existing = fingerprintHash
+        ? await get(
+              `
+                  SELECT *
+                  FROM proxy_devices
+                  WHERE user_id = ?
+                    AND fingerprint_hash = ?
+                  LIMIT 1
+              `,
+              [payload.userId, fingerprintHash],
+          )
+        : await get(
+              `
+                  SELECT *
+                  FROM proxy_devices
+                  WHERE user_id = ?
+                    AND uid = ?
+                  LIMIT 1
+              `,
+              [payload.userId, uid],
+          );
+
+    if (existing) {
+        await run(
+            `
+                UPDATE proxy_devices
+                SET
+                    device_name = ?,
+                    platform = ?,
+                    app_version = ?,
+                    public_key = ?,
+                    status = CASE WHEN status = 'revoked' THEN status ELSE 'active' END,
+                    last_seen_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+            `,
+            [
+                payload.deviceName || existing.device_name || "",
+                payload.platform || existing.platform || "",
+                payload.appVersion || existing.app_version || "",
+                payload.publicKey || existing.public_key || "",
+                timestamp,
+                timestamp,
+                existing.id,
+            ],
+        );
+        return getProxyDeviceById(existing.id);
+    }
+
+    const result = await run(
+        `
+            INSERT INTO proxy_devices (
+                uid,
+                user_id,
+                device_name,
+                platform,
+                app_version,
+                fingerprint_hash,
+                public_key,
+                status,
+                last_seen_at,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+        `,
+        [
+            uid,
+            payload.userId,
+            payload.deviceName || "",
+            payload.platform || "",
+            payload.appVersion || "",
+            fingerprintHash,
+            payload.publicKey || "",
+            timestamp,
+            timestamp,
+            timestamp,
+        ],
+    );
+
+    return getProxyDeviceById(result.lastID);
+}
+
+async function getProxyDeviceById(deviceId) {
+    return get("SELECT * FROM proxy_devices WHERE id = ?", [deviceId]);
+}
+
+async function getProxyDeviceByUid(userId, deviceUid) {
+    return get(
+        `
+            SELECT *
+            FROM proxy_devices
+            WHERE user_id = ?
+              AND uid = ?
+        `,
+        [userId, deviceUid],
+    );
+}
+
+async function countActiveProxyDevices(userId) {
+    const row = await get(
+        `
+            SELECT COUNT(*) AS count
+            FROM proxy_devices
+            WHERE user_id = ?
+              AND status = 'active'
+              AND revoked_at IS NULL
+        `,
+        [userId],
+    );
+    return Number(row?.count || 0);
+}
+
+async function listProxyDevicesForUser(userId) {
+    return all(
+        `
+            SELECT id, uid, device_name, platform, app_version, status, last_seen_at, created_at, updated_at, revoked_at
+            FROM proxy_devices
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+        `,
+        [userId],
+    );
+}
+
+async function createProxySession(payload) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_sessions
+            SET status = 'rotated', revoked_at = ?, updated_at = ?
+            WHERE device_id = ?
+              AND status = 'active'
+              AND revoked_at IS NULL
+        `,
+        [timestamp, timestamp, payload.deviceId],
+    );
+
+    const result = await run(
+        `
+            INSERT INTO proxy_sessions (
+                uid,
+                user_id,
+                device_id,
+                server_id,
+                username,
+                secret_hash,
+                secret_ciphertext,
+                ip_address,
+                user_agent,
+                status,
+                created_at,
+                updated_at,
+                expires_at,
+                refresh_after_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)
+        `,
+        [
+            payload.uid || makeUid("PXS"),
+            payload.userId,
+            payload.deviceId,
+            payload.serverId,
+            payload.username,
+            payload.secretHash,
+            payload.secretCiphertext || "",
+            payload.ipAddress || "",
+            payload.userAgent || "",
+            timestamp,
+            timestamp,
+            payload.expiresAt,
+            payload.refreshAfterAt,
+        ],
+    );
+
+    return getProxySessionById(result.lastID);
+}
+
+async function getProxySessionById(sessionId) {
+    return get(
+        `
+            SELECT ps.*, psv.uid AS server_uid, psv.name AS server_name, psv.public_domain, psv.proxy_url, psv.region
+            FROM proxy_sessions ps
+            JOIN proxy_servers psv ON psv.id = ps.server_id
+            WHERE ps.id = ?
+        `,
+        [sessionId],
+    );
+}
+
+async function getActiveProxySessionForUser(sessionUid, userId) {
+    return get(
+        `
+            SELECT ps.*, pd.uid AS device_uid, psv.public_domain, psv.proxy_url, psv.region
+            FROM proxy_sessions ps
+            JOIN proxy_devices pd ON pd.id = ps.device_id
+            JOIN proxy_servers psv ON psv.id = ps.server_id
+            WHERE ps.uid = ?
+              AND ps.user_id = ?
+              AND ps.status = 'active'
+              AND ps.revoked_at IS NULL
+              AND ps.expires_at > ?
+        `,
+        [sessionUid, userId, nowIso()],
+    );
+}
+
+async function rotateProxySessionSecret(
+    sessionId,
+    secretHash,
+    secretCiphertext,
+    expiresAt,
+    refreshAfterAt,
+) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_sessions
+            SET
+                previous_secret_hash = secret_hash,
+                secret_hash = ?,
+                secret_ciphertext = ?,
+                expires_at = ?,
+                refresh_after_at = ?,
+                updated_at = ?
+            WHERE id = ?
+        `,
+        [
+            secretHash,
+            secretCiphertext || "",
+            expiresAt,
+            refreshAfterAt,
+            timestamp,
+            sessionId,
+        ],
+    );
+    return getProxySessionById(sessionId);
+}
+
+async function listActiveProxySessionsForSync(options = {}) {
+    const publicDomain = String(options.publicDomain || "").trim().toLowerCase();
+    const domainClause = publicDomain ? "AND psv.public_domain = ?" : "";
+    const params = publicDomain ? [nowIso(), publicDomain] : [nowIso()];
+    return all(
+        `
+            SELECT
+                ps.uid,
+                ps.username,
+                ps.secret_ciphertext,
+                ps.expires_at,
+                psv.public_domain,
+                psv.proxy_url
+            FROM proxy_sessions ps
+            JOIN proxy_servers psv ON psv.id = ps.server_id
+            JOIN proxy_devices pd ON pd.id = ps.device_id
+            JOIN users u ON u.id = ps.user_id
+            WHERE ps.status = 'active'
+              AND ps.revoked_at IS NULL
+              AND ps.expires_at > ?
+              AND pd.status = 'active'
+              AND pd.revoked_at IS NULL
+              AND u.status = 'active'
+              AND ps.secret_ciphertext != ''
+              ${domainClause}
+            ORDER BY ps.updated_at DESC
+        `,
+        params,
+    );
+}
+
+async function revokeProxySession(sessionId) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_sessions
+            SET status = 'revoked', revoked_at = ?, updated_at = ?
+            WHERE id = ?
+        `,
+        [timestamp, timestamp, sessionId],
+    );
+}
+
+async function revokeProxyDevice(userId, deviceUid) {
+    const timestamp = nowIso();
+    const device = await getProxyDeviceByUid(userId, deviceUid);
+    if (!device) {
+        return null;
+    }
+    await run(
+        `
+            UPDATE proxy_devices
+            SET status = 'revoked', revoked_at = ?, updated_at = ?
+            WHERE id = ?
+        `,
+        [timestamp, timestamp, device.id],
+    );
+    await run(
+        `
+            UPDATE proxy_sessions
+            SET status = 'revoked', revoked_at = ?, updated_at = ?
+            WHERE device_id = ?
+              AND revoked_at IS NULL
+        `,
+        [timestamp, timestamp, device.id],
+    );
+    return getProxyDeviceById(device.id);
+}
+
+async function touchProxyDevice(deviceId) {
+    const timestamp = nowIso();
+    await run(
+        "UPDATE proxy_devices SET last_seen_at = ?, updated_at = ? WHERE id = ?",
+        [timestamp, timestamp, deviceId],
+    );
+}
+
+async function createProxyEvent(payload) {
+    await run(
+        `
+            INSERT INTO proxy_events (
+                user_id,
+                device_id,
+                session_id,
+                server_id,
+                action,
+                severity,
+                ip_address,
+                user_agent,
+                details_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            payload.userId || null,
+            payload.deviceId || null,
+            payload.sessionId || null,
+            payload.serverId || null,
+            payload.action,
+            payload.severity || "info",
+            payload.ipAddress || "",
+            payload.userAgent || "",
+            toJsonString(payload.details, {}),
+            nowIso(),
+        ],
+    );
+}
+
+async function createProxyTrafficLog(payload) {
+    const timestamp = payload.createdAt || nowIso();
+    const result = await run(
+        `
+            INSERT INTO proxy_traffic_logs (
+                uid,
+                user_id,
+                device_id,
+                session_id,
+                server_id,
+                destination_host,
+                destination_port,
+                action,
+                transport,
+                request_count,
+                bytes_up,
+                bytes_down,
+                status_code,
+                app_version,
+                details_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            payload.uid || makeUid("PTL"),
+            payload.userId || null,
+            payload.deviceId || null,
+            payload.sessionId || null,
+            payload.serverId || null,
+            String(payload.destinationHost || "").trim().toLowerCase(),
+            Number(payload.destinationPort || 0),
+            payload.action || "proxy",
+            payload.transport || "",
+            Math.max(1, Number(payload.requestCount || 1)),
+            Math.max(0, Number(payload.bytesUp || 0)),
+            Math.max(0, Number(payload.bytesDown || 0)),
+            Number(payload.statusCode || 0),
+            payload.appVersion || "",
+            toJsonString(payload.details, {}),
+            timestamp,
+        ],
+    );
+    return get("SELECT * FROM proxy_traffic_logs WHERE id = ?", [result.lastID]);
+}
+
+async function listProxyTrafficLogs(options = {}) {
+    const clauses = [];
+    const params = [];
+    if (options.serverUid) {
+        clauses.push("psv.uid = ?");
+        params.push(options.serverUid);
+    }
+    if (options.userId) {
+        clauses.push("ptl.user_id = ?");
+        params.push(Number(options.userId));
+    }
+    if (options.destinationHost) {
+        clauses.push("ptl.destination_host LIKE ?");
+        params.push(`%${String(options.destinationHost).trim().toLowerCase()}%`);
+    }
+    if (options.since) {
+        clauses.push("ptl.created_at >= ?");
+        params.push(options.since);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const limit = Math.min(Math.max(Number(options.limit || 100), 1), 500);
+    return all(
+        `
+            SELECT
+                ptl.*,
+                u.login AS user_login,
+                u.email AS user_email,
+                pd.uid AS device_uid,
+                pd.device_name,
+                pd.platform,
+                ps.uid AS session_uid,
+                psv.uid AS server_uid,
+                psv.name AS server_name,
+                psv.public_domain AS server_domain
+            FROM proxy_traffic_logs ptl
+            LEFT JOIN users u ON u.id = ptl.user_id
+            LEFT JOIN proxy_devices pd ON pd.id = ptl.device_id
+            LEFT JOIN proxy_sessions ps ON ps.id = ptl.session_id
+            LEFT JOIN proxy_servers psv ON psv.id = ptl.server_id
+            ${where}
+            ORDER BY ptl.created_at DESC, ptl.id DESC
+            LIMIT ?
+        `,
+        [...params, limit],
+    );
+}
+
+async function getProxyTrafficSummary(options = {}) {
+    const clauses = [];
+    const params = [];
+    if (options.serverUid) {
+        clauses.push("psv.uid = ?");
+        params.push(options.serverUid);
+    }
+    if (options.since) {
+        clauses.push("ptl.created_at >= ?");
+        params.push(options.since);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const summary = await get(
+        `
+            SELECT
+                COUNT(*) AS log_events,
+                COALESCE(SUM(ptl.request_count), 0) AS request_count,
+                COALESCE(SUM(ptl.bytes_up), 0) AS bytes_up,
+                COALESCE(SUM(ptl.bytes_down), 0) AS bytes_down,
+                COUNT(DISTINCT ptl.user_id) AS users_count,
+                COUNT(DISTINCT ptl.device_id) AS devices_count,
+                COUNT(DISTINCT ptl.destination_host) AS hosts_count
+            FROM proxy_traffic_logs ptl
+            LEFT JOIN proxy_servers psv ON psv.id = ptl.server_id
+            ${where}
+        `,
+        params,
+    );
+    const topHosts = await all(
+        `
+            SELECT
+                ptl.destination_host,
+                COALESCE(SUM(ptl.request_count), 0) AS request_count,
+                COALESCE(SUM(ptl.bytes_up + ptl.bytes_down), 0) AS bytes_total
+            FROM proxy_traffic_logs ptl
+            LEFT JOIN proxy_servers psv ON psv.id = ptl.server_id
+            ${where}
+            GROUP BY ptl.destination_host
+            ORDER BY request_count DESC, bytes_total DESC
+            LIMIT 12
+        `,
+        params,
+    );
+    const topUsers = await all(
+        `
+            SELECT
+                u.id AS user_id,
+                u.login,
+                COALESCE(SUM(ptl.request_count), 0) AS request_count,
+                COALESCE(SUM(ptl.bytes_up + ptl.bytes_down), 0) AS bytes_total
+            FROM proxy_traffic_logs ptl
+            LEFT JOIN users u ON u.id = ptl.user_id
+            LEFT JOIN proxy_servers psv ON psv.id = ptl.server_id
+            ${where}
+            GROUP BY u.id, u.login
+            ORDER BY request_count DESC, bytes_total DESC
+            LIMIT 12
+        `,
+        params,
+    );
+    return {
+        summary,
+        topHosts,
+        topUsers,
+    };
+}
+
+async function setUserProxyNoLogs(userId, enabled) {
+    await run(
+        "UPDATE users SET proxy_no_logs = ?, updated_at = ? WHERE id = ?",
+        [enabled ? 1 : 0, nowIso(), userId],
+    );
+    return getUserById(userId);
 }
 
 async function updateUserProfile(userId, payload) {
@@ -7471,6 +8351,7 @@ module.exports = {
     buildTournamentTimeLabel,
     cleanupExpiredArtifacts,
     countAdmins,
+    countActiveProxyDevices,
     countOwners,
     createAuditLog,
     consumeAuthChallenge,
@@ -7480,6 +8361,9 @@ module.exports = {
     createOrganizerApplication,
     createOAuthState,
     createPasswordResetTicket,
+    createProxyEvent,
+    createProxySession,
+    createProxyTrafficLog,
     createSession,
     createTournamentHelperCodes,
     createTaskRevision,
@@ -7513,7 +8397,15 @@ module.exports = {
     getOwnerUser,
     getPlatformMetrics,
     getPrimaryTournament,
+    getActiveProxySessionForUser,
+    getDefaultProxyServer,
     getSessionByUserAndId,
+    getProxyDeviceByUid,
+    getProxyServerByDomain,
+    getProxyServerById,
+    getProxyServerByNodeTokenHash,
+    getProxyServerByUid,
+    getProxyTrafficSummary,
     getTaskById,
     getTeamById,
     getTeamForUser,
@@ -7531,6 +8423,7 @@ module.exports = {
     joinTournament,
     linkOAuthProviderToUser,
     listAuditLog,
+    listActiveProxySessionsForSync,
     listAdminTasks,
     listAdminTeams,
     listAdminTournaments,
@@ -7542,6 +8435,10 @@ module.exports = {
     listOrganizerTaskBank,
     listOrganizerTournaments,
     listPublicLandingTournaments,
+    listProxyDevicesForUser,
+    listProxyServersForAdmin,
+    listProxyServersForClient,
+    listProxyTrafficLogs,
     listSessionsForUser,
     listTaskBank,
     listTasksByIds,
@@ -7572,15 +8469,22 @@ module.exports = {
     setTournamentRosterGuestUser,
     setTournamentRosterInviteCodes,
     replaceTournamentTasks,
+    registerProxyDevice,
     reviewOrganizerApplication,
     reviewTaskModeration,
+    revokeProxyDevice,
+    revokeProxySession,
+    recordProxyServerHeartbeat,
     revokeActiveAuthChallengesForUser,
     revokeSessionById,
     revokeSessionsForUser,
     setUserLastLogin,
     setOwnerUser,
     setUserStatus,
+    setProxyServerNodeToken,
+    setUserProxyNoLogs,
     touchSession,
+    touchProxyDevice,
     transferTeamOwnership,
     unblockEmail,
     updateOrganizerTournament,
@@ -7593,9 +8497,12 @@ module.exports = {
     updateUserProfile,
     setUserRole,
     updateUserSecuritySettings,
+    updateProxyServer,
     submitTaskForModeration,
     submitTournamentTaskAnswer,
     upsertTournamentTaskDraft,
+    upsertProxyServer,
+    rotateProxySessionSecret,
     upsertTournamentRosterEntry,
     leaveTeam,
     saveSystemStats,

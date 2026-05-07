@@ -1,0 +1,21 @@
+{
+    order forward_proxy before reverse_proxy
+    admin 127.0.0.1:2019
+}
+
+https://proxy.qubiteapp.online, :443 {
+    route {
+        forward_proxy {
+            import /etc/caddy/forwardproxy-credentials.caddy
+            hide_ip
+            hide_via
+            probe_resistance
+        }
+
+        redir https://qubiteapp.ru{uri} 302
+    }
+}
+
+https://qubiteapp.ru, https://www.qubiteapp.ru, https://ru.qubiteapp.online, https://www.ru.qubiteapp.online {
+    reverse_proxy 127.0.0.1:8080
+}

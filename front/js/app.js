@@ -1034,6 +1034,18 @@ function getAdminAuditState() {
     return apiClient?.state?.adminAudit || [];
 }
 
+function getAdminProxyServersState() {
+    return apiClient?.state?.adminProxyServers || [];
+}
+
+function getAdminProxyLogsState() {
+    return apiClient?.state?.adminProxyLogs || [];
+}
+
+function getAdminProxyStatsState() {
+    return apiClient?.state?.adminProxyStats || {};
+}
+
 function getOrganizerOverviewState() {
     return apiClient?.state?.organizerOverview || DEFAULT_ORGANIZER_OVERVIEW;
 }
@@ -2912,6 +2924,7 @@ function updateWorkspaceIdentity() {
     const user = getUserState();
     const adminNavItem = document.getElementById("adminNavItem");
     const analyticsNavItem = document.getElementById("analyticsNavItem");
+    const proxyServersNavItem = document.getElementById("proxyServersNavItem");
     const teamNavItem = document.getElementById("teamNavItem");
     const taskBankNavItem = document.getElementById("taskBankNavItem");
     const moderationNavItem = document.getElementById("moderationNavItem");
@@ -2922,6 +2935,9 @@ function updateWorkspaceIdentity() {
     }
     if (analyticsNavItem) {
         analyticsNavItem.hidden = codeGuestMode || !isAdminUser(user);
+    }
+    if (proxyServersNavItem) {
+        proxyServersNavItem.hidden = codeGuestMode || !isOwnerUser(user);
     }
     if (teamNavItem) {
         teamNavItem.hidden = codeGuestMode || !isParticipantUser(user);
@@ -13177,6 +13193,262 @@ function scrollMessagesToBottom() {
     if (el) el.scrollTop = el.scrollHeight;
 }
 
+function renderProxyServersView() {
+    const servers = getAdminProxyServersState();
+    const logs = getAdminProxyLogsState();
+    const users = getAdminUsersState();
+    const protectedUsers = users.filter((user) => user.proxyNoLogs);
+    const online = servers.filter((item) => item.health === "online").length;
+    const active = servers.filter((item) => item.status === "active").length;
+    const totalTraffic = servers.reduce((sum, item) => sum + Number(item.traffic24h?.bytes || 0), 0);
+    const totalRequests = servers.reduce((sum, item) => sum + Number(item.traffic24h?.requests || 0), 0);
+    return `
+        <div class="grid" style="position: absolute; inset: 0; z-index: -1;"></div>
+        <div class="dash-view ops-view admin-view">
+            <div class="ops-header" data-view-anim>
+                <div class="ops-header__copy">
+                    <h1 class="ops-header__title">Прокси-серверы</h1>
+                    <div class="ops-header__subtitle">Master хранит базу и ключи, дочерние ноды синхронизируются по API и редиректят браузер на основной домен.</div>
+                </div>
+                <div class="ops-header__actions">
+                    <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
+                    <button class="btn btn--muted" type="button" id="proxyRefreshServersBtn">Обновить</button>
+                </div>
+            </div>
+            <div class="kpi-grid">
+                ${renderOpsMetricCard({ icon: "analytics", tone: "accent", label: "Нод", value: formatNumberRu(servers.length), meta: "Всего зарегистрировано" })}
+                ${renderOpsMetricCard({ icon: "shield", tone: "accent", label: "Активных", value: formatNumberRu(active), meta: "Разрешены для выдачи ключей" })}
+                ${renderOpsMetricCard({ icon: "task_alt", tone: "success", label: "Online", value: formatNumberRu(online), meta: "Есть свежий heartbeat" })}
+                ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "Сессий", value: formatNumberRu(servers.reduce((sum, item) => sum + Number(item.activeSessions || 0), 0)), meta: `${formatCompactNumber(totalRequests)} запросов / ${formatBytes(totalTraffic)}` })}
+            </div>
+            <div class="ops-shell">
+                ${renderOpsPanel({
+                    title: "Ноды",
+                    desc: "Выключение ноды запрещает ей получать новые credentials. Браузер без ключа всё равно будет уходить на главный сайт.",
+                    body: servers.length
+                        ? `<div class="ops-admin-list">${servers.map(renderProxyServerRow).join("")}</div>`
+                        : `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Нод пока нет</div><div class="admin-home-feed__empty-desc">Добавьте proxy-домен, получите token и запустите setup-proxy-node.sh на дочернем VPS.</div></div>`,
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "Логи трафика",
+                    desc: "Сохраняются домены, объём трафика и устройство. Полные HTTPS URL не пишутся.",
+                    body: renderProxyLogsList(logs),
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "Защита от логов",
+                    desc: "Для выбранных пользователей proxy-трафик и proxy-события не сохраняются.",
+                    body: renderProxyPrivacyControls(users, protectedUsers),
+                    className: "ops-panel--primary",
+                })}
+            </div>
+        </div>
+    `;
+}
+
+function renderProxyServerRow(server) {
+    const statusLabel = server.status === "active" ? "Включен" : server.status === "maintenance" ? "Пауза" : "Выключен";
+    const metrics = server.metrics || {};
+    const traffic = server.traffic24h || {};
+    return `
+        <div class="ops-admin-row glass-panel" data-view-anim>
+            <div class="ops-admin-row__main">
+                <div class="ops-admin-row__title">${escapeHtml(server.name || server.domain)}</div>
+                <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "region не задан")} • ${escapeHtml(server.health || "unknown")}</div>
+                <div class="ops-admin-row__meta">Heartbeat: ${escapeHtml(server.lastHeartbeatAt ? formatDateTimeLabel(server.lastHeartbeatAt) : "нет")} • CPU ${escapeHtml(String(Math.round(Number(metrics.cpuLoad || 0) * 100) / 100))} • RAM ${escapeHtml(String(metrics.memoryUsedMb || 0))}/${escapeHtml(String(metrics.memoryTotalMb || 0))} MB</div>
+                <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumber(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
+                ${server.lastError ? `<div class="ops-admin-row__meta">Ошибка: ${escapeHtml(server.lastError)}</div>` : ""}
+            </div>
+            <div class="ops-admin-row__controls">
+                <span class="ops-admin-mini-pill">${escapeHtml(statusLabel)}</span>
+                <span class="ops-admin-mini-pill">${escapeHtml(formatNumberRu(server.activeSessions || 0))} сессий</span>
+                <button class="btn btn--muted btn--sm" type="button" data-proxy-server-logs="${escapeHtml(server.id)}">Логи</button>
+                <button class="btn btn--muted btn--sm" type="button" data-proxy-server-toggle="${escapeHtml(server.id)}" data-next-status="${server.status === "active" ? "disabled" : "active"}">${server.status === "active" ? "Выключить" : "Включить"}</button>
+                <button class="btn btn--accent btn--sm" type="button" data-proxy-server-token="${escapeHtml(server.id)}">Новый token</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderProxyLogsList(logs) {
+    if (!logs.length) {
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Логов пока нет</div><div class="admin-home-feed__empty-desc">Приложение начнёт отправлять traffic events после подключения к proxy API.</div></div>`;
+    }
+    return `
+        <div class="ops-admin-list">
+            ${logs.slice(0, 80).map((log) => `
+                <div class="ops-admin-row glass-panel" data-view-anim>
+                    <div class="ops-admin-row__main">
+                        <div class="ops-admin-row__title">${escapeHtml(log.destinationHost || "unknown")}</div>
+                        <div class="ops-admin-row__meta">@${escapeHtml(log.user?.login || "unknown")} • ${escapeHtml(log.device?.name || log.device?.platform || "device")} • ${escapeHtml(log.server?.domain || "server")} • ${escapeHtml(formatDateTimeLabel(log.createdAt))}</div>
+                        <div class="ops-admin-row__meta">${escapeHtml(log.action || "proxy")} • ${escapeHtml(formatNumberRu(log.requestCount || 0))} req • ↑ ${escapeHtml(formatBytes(log.bytesUp || 0))} / ↓ ${escapeHtml(formatBytes(log.bytesDown || 0))}</div>
+                    </div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderProxyPrivacyControls(users, protectedUsers) {
+    const options = users
+        .filter((user) => !user.proxyNoLogs)
+        .slice(0, 200)
+        .map((user) => `<option value="${escapeHtml(user.id)}">@${escapeHtml(user.login)} • ${escapeHtml(user.email || "")}</option>`)
+        .join("");
+    return `
+        <div class="ops-admin-list">
+            <div class="ops-admin-row glass-panel" data-view-anim>
+                <div class="ops-admin-row__main">
+                    <div class="ops-admin-row__title">Выдать защиту</div>
+                    <div class="ops-admin-row__meta">После включения новые proxy-логи и proxy-события пользователя не пишутся.</div>
+                </div>
+                <div class="ops-admin-row__controls">
+                    <select class="form-input" id="proxyPrivacyUserSelect" style="min-width: 260px;">${options || '<option value="">Нет доступных пользователей</option>'}</select>
+                    <button class="btn btn--accent btn--sm" type="button" id="proxyPrivacyEnableBtn">Включить</button>
+                </div>
+            </div>
+            ${protectedUsers.length
+                ? protectedUsers.map((user) => `
+                    <div class="ops-admin-row glass-panel" data-view-anim>
+                        <div class="ops-admin-row__main">
+                            <div class="ops-admin-row__title">@${escapeHtml(user.login)}</div>
+                            <div class="ops-admin-row__meta">${escapeHtml(user.email || "")} • защита от proxy-логов включена</div>
+                        </div>
+                        <div class="ops-admin-row__controls">
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-privacy-disable="${escapeHtml(user.id)}">Выключить</button>
+                        </div>
+                    </div>
+                `).join("")
+                : `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Защищённых пользователей нет</div><div class="admin-home-feed__empty-desc">Выберите пользователя выше и включите no-log режим.</div></div>`}
+        </div>
+    `;
+}
+
+function initProxyServersInteractions(container) {
+    container.querySelector("#proxyRefreshServersBtn")?.addEventListener("click", async () => {
+        Loader.show();
+        try {
+            await apiClient.loadAdminProxyServers();
+            await apiClient.loadAdminProxyLogs({ limit: 120 });
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("Прокси", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
+    container.querySelector("#proxyCreateServerBtn")?.addEventListener("click", async () => {
+        const publicDomain = window.prompt("Домен proxy-ноды, например proxy2.example.com");
+        if (!publicDomain) return;
+        Loader.show();
+        try {
+            const data = await apiClient.createAdminProxyServer({
+                publicDomain,
+                name: publicDomain,
+                proxyUrl: `https://${publicDomain}`,
+                region: "custom",
+                provider: "vps",
+                status: "active",
+            });
+            Toast.show("Node token", `Token: <b>${escapeHtml(data.nodeToken)}</b>`, "success", 20000, { html: true });
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("Прокси", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
+    container.querySelectorAll("[data-proxy-server-toggle]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxyServer(button.dataset.proxyServerToggle, {
+                    status: button.dataset.nextStatus,
+                });
+                Toast.show("Прокси", "Статус ноды обновлён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Прокси", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-server-logs]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.loadAdminProxyLogs({
+                    serverId: button.dataset.proxyServerLogs,
+                    limit: 160,
+                });
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Прокси-логи", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelector("#proxyPrivacyEnableBtn")?.addEventListener("click", async () => {
+        const select = container.querySelector("#proxyPrivacyUserSelect");
+        const userId = select?.value;
+        if (!userId) return;
+        Loader.show();
+        try {
+            await apiClient.updateAdminProxyUserPrivacy(userId, true);
+            Toast.show("Прокси", "Защита от логов включена.", "success");
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("Защита от логов", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
+    container.querySelectorAll("[data-proxy-privacy-disable]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxyUserPrivacy(button.dataset.proxyPrivacyDisable, false);
+                Toast.show("Прокси", "Защита от логов выключена.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Защита от логов", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-server-token]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                const data = await apiClient.rotateAdminProxyServerToken(button.dataset.proxyServerToken);
+                Toast.show("Node token", `Новый token: <b>${escapeHtml(data.nodeToken)}</b>`, "success", 20000, { html: true });
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Прокси", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+}
+
 function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
     if (!ViewManager.content) {
         return;
@@ -13238,6 +13510,24 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
     } else if (viewName === "admin") {
         ViewManager.content.innerHTML = renderAdminControlView();
         initAdminControlInteractions(ViewManager.content);
+    } else if (viewName === "proxy-servers") {
+        ViewManager.content.innerHTML = renderProxyServersView();
+        initProxyServersInteractions(ViewManager.content);
+        if (isOwnerUser()) {
+            Promise.all([
+                apiClient.loadAdminProxyServers(),
+                apiClient.loadAdminProxyLogs({ limit: 120 }),
+                apiClient.loadAdminUsers(),
+            ])
+                .then(() => {
+                    if (ViewManager.currentView === "proxy-servers") {
+                        ViewManager.content.innerHTML = renderProxyServersView();
+                        initProxyServersInteractions(ViewManager.content);
+                        observeRenderedWorkspaceContent(ViewManager.content);
+                    }
+                })
+                .catch((error) => showRequestError("Прокси", error));
+        }
     } else if (viewName === "support-chats") {
         ViewManager.content.innerHTML = renderSupportChatsView();
         initSupportChatsInteractions(ViewManager.content);
@@ -13306,6 +13596,10 @@ const ViewManager = {
         }
         if (viewName === "moderation" && !isModeratorUser()) {
             Toast.show("Модерация", "Раздел доступен только модераторам.", "error");
+            viewName = "dashboard";
+        }
+        if (viewName === "proxy-servers" && !isOwnerUser()) {
+            Toast.show("Прокси", "Раздел доступен только owner.", "error");
             viewName = "dashboard";
         }
 
