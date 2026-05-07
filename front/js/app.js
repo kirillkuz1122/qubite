@@ -13219,7 +13219,7 @@ function renderProxyServersView() {
                 ${renderOpsMetricCard({ icon: "analytics", tone: "accent", label: "Нод", value: formatNumberRu(servers.length), meta: "Всего зарегистрировано" })}
                 ${renderOpsMetricCard({ icon: "shield", tone: "accent", label: "Активных", value: formatNumberRu(active), meta: "Разрешены для выдачи ключей" })}
                 ${renderOpsMetricCard({ icon: "task_alt", tone: "success", label: "Online", value: formatNumberRu(online), meta: "Есть свежий heartbeat" })}
-                ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "Сессий", value: formatNumberRu(servers.reduce((sum, item) => sum + Number(item.activeSessions || 0), 0)), meta: `${formatCompactNumber(totalRequests)} запросов / ${formatBytes(totalTraffic)}` })}
+                ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "Сессий", value: formatNumberRu(servers.reduce((sum, item) => sum + Number(item.activeSessions || 0), 0)), meta: `${formatCompactNumberRu(totalRequests)} запросов / ${formatBytes(totalTraffic)}` })}
             </div>
             <div class="ops-shell">
                 ${renderOpsPanel({
@@ -13257,7 +13257,7 @@ function renderProxyServerRow(server) {
                 <div class="ops-admin-row__title">${escapeHtml(server.name || server.domain)}</div>
                 <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "region не задан")} • ${escapeHtml(server.health || "unknown")}</div>
                 <div class="ops-admin-row__meta">Heartbeat: ${escapeHtml(server.lastHeartbeatAt ? formatDateTimeLabel(server.lastHeartbeatAt) : "нет")} • CPU ${escapeHtml(String(Math.round(Number(metrics.cpuLoad || 0) * 100) / 100))} • RAM ${escapeHtml(String(metrics.memoryUsedMb || 0))}/${escapeHtml(String(metrics.memoryTotalMb || 0))} MB</div>
-                <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumber(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
+                <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumberRu(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
                 ${server.lastError ? `<div class="ops-admin-row__meta">Ошибка: ${escapeHtml(server.lastError)}</div>` : ""}
             </div>
             <div class="ops-admin-row__controls">
