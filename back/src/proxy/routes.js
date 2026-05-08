@@ -525,7 +525,7 @@ function buildNaiveUri({ host, username, password, label }) {
     return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=false#${encodeURIComponent(label)}`;
 }
 
-async function buildSubscriptionProfiles(subscription, { hashOpaqueToken }) {
+async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken }) {
     const device = await registerProxyDevice({
         userId: subscription.user_id,
         deviceUid: `SUB-${subscription.uid}`,
@@ -690,7 +690,7 @@ function registerProxyRoutes(app, deps) {
                 res.status(404).type("text/plain").send("Subscription not found or disabled.\n");
                 return;
             }
-            const lines = await buildSubscriptionProfiles(subscription, { hashOpaqueToken });
+            const lines = await buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken });
             const body = `${lines.join("\n")}\n`;
             res.setHeader("Cache-Control", "no-store");
             if (String(req.query.format || "").toLowerCase() === "base64") {
