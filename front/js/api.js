@@ -37,6 +37,7 @@
         adminDetailedStats: null,
         adminSystemSettings: {},
         adminProxyServers: [],
+        adminProxySniRoutes: [],
         adminProxyLogs: [],
         adminProxyStats: {},
         adminUsers: [],
@@ -107,6 +108,7 @@
         state.adminOverview = null;
         state.adminUsers = [];
         state.adminProxyServers = [];
+        state.adminProxySniRoutes = [];
         state.adminProxyLogs = [];
         state.adminProxyStats = {};
         state.adminTeams = [];
@@ -866,6 +868,11 @@
         return state.adminProxyServers;
     }
 
+    function syncAdminProxySniRoutes(items) {
+        state.adminProxySniRoutes = Array.isArray(items) ? [...items] : [];
+        return state.adminProxySniRoutes;
+    }
+
     function syncAdminProxyLogs(items) {
         state.adminProxyLogs = Array.isArray(items) ? [...items] : [];
         return state.adminProxyLogs;
@@ -985,6 +992,38 @@
         });
         syncAdminProxyServers(upsertById(state.adminProxyServers, data.item));
         return data;
+    }
+
+    async function loadAdminProxySniRoutes() {
+        const data = await request("/api/admin/proxy-sni-routes");
+        syncAdminProxySniRoutes(data.items || []);
+        return state.adminProxySniRoutes;
+    }
+
+    async function createAdminProxySniRoute(payload) {
+        const data = await request("/api/admin/proxy-sni-routes", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxySniRoutes([data.item, ...state.adminProxySniRoutes]);
+        return data.item;
+    }
+
+    async function updateAdminProxySniRoute(routeId, payload) {
+        const data = await request(`/api/admin/proxy-sni-routes/${encodeURIComponent(routeId)}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxySniRoutes(upsertById(state.adminProxySniRoutes, data.item));
+        return data.item;
+    }
+
+    async function deleteAdminProxySniRoute(routeId) {
+        await request(`/api/admin/proxy-sni-routes/${encodeURIComponent(routeId)}`, {
+            method: "DELETE",
+        });
+        syncAdminProxySniRoutes(state.adminProxySniRoutes.filter((item) => item.id !== routeId));
+        return true;
     }
 
     async function loadAdminProxyLogs(params = {}) {
@@ -1668,6 +1707,7 @@
         createOrganizerTask: createOrganizerTaskRequest,
         createOrganizerTournament: createOrganizerTournamentRequest,
         createAdminProxyServer,
+        createAdminProxySniRoute,
         createTeam: createTeamRequest,
         createTournament: createTournamentRequest,
         clearTournamentRuntime,
@@ -1688,17 +1728,20 @@
         generateAdminUser,
         deleteAdminUser,
         deleteAdminUserHard,
+        deleteAdminProxySniRoute,
         restoreAdminUser,
         deleteSelfAccount,
         loadAdminOverview,
         loadAdminProxyLogs,
         loadAdminProxyServers,
         loadAdminProxyServerStats,
+        loadAdminProxySniRoutes,
         loadAdminSystemStats,
         loadAdminSystemStatsHistory,
         loadAdminSystemSettings,
         updateAdminSystemSetting,
         updateAdminProxyServer,
+        updateAdminProxySniRoute,
         updateAdminProxyUserPrivacy,
         loadAdminTasks,
         loadAdminTeams,

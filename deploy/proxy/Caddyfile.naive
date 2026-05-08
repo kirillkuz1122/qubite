@@ -16,6 +16,8 @@ https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.
     }
 }
 
+import /etc/caddy/qubite-sni-routes.caddy
+
 https://qubiteapp.ru, https://www.qubiteapp.ru, https://ru.qubiteapp.online, https://www.ru.qubiteapp.online {
     reverse_proxy localhost:8080
 }

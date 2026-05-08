@@ -505,6 +505,10 @@ async function initializeDatabase(options = {}) {
             name TEXT NOT NULL,
             public_domain TEXT NOT NULL UNIQUE,
             proxy_url TEXT NOT NULL,
+            ipv4_address TEXT NOT NULL DEFAULT '',
+            ipv6_address TEXT NOT NULL DEFAULT '',
+            supports_ipv4 INTEGER NOT NULL DEFAULT 1,
+            supports_ipv6 INTEGER NOT NULL DEFAULT 1,
             region TEXT NOT NULL DEFAULT '',
             provider TEXT NOT NULL DEFAULT '',
             priority INTEGER NOT NULL DEFAULT 100,
@@ -519,6 +523,21 @@ async function initializeDatabase(options = {}) {
             metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_sni_routes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            server_id INTEGER DEFAULT NULL,
+            route_domain TEXT NOT NULL UNIQUE,
+            target_sni TEXT NOT NULL,
+            redirect_url TEXT NOT NULL,
+            ip_family TEXT NOT NULL DEFAULT 'auto',
+            status TEXT NOT NULL DEFAULT 'active',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (server_id) REFERENCES proxy_servers (id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS proxy_devices (
@@ -1015,6 +1034,8 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_organizer_applications_user ON organizer_applications (user_id);
         CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_proxy_servers_status_priority ON proxy_servers (status, priority, weight);
+        CREATE INDEX IF NOT EXISTS idx_proxy_sni_routes_server_status ON proxy_sni_routes (server_id, status, route_domain);
+        CREATE INDEX IF NOT EXISTS idx_proxy_sni_routes_status_family ON proxy_sni_routes (status, ip_family);
         CREATE INDEX IF NOT EXISTS idx_proxy_devices_user_status ON proxy_devices (user_id, status, updated_at DESC);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_proxy_devices_user_fingerprint
         ON proxy_devices (user_id, fingerprint_hash)
@@ -1063,6 +1084,10 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_servers", "last_heartbeat_at", "TEXT DEFAULT NULL");
     await ensureColumn("proxy_servers", "metrics_json", "TEXT NOT NULL DEFAULT '{}'");
     await ensureColumn("proxy_servers", "last_error", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "ipv4_address", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "ipv6_address", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "supports_ipv4", "INTEGER NOT NULL DEFAULT 1");
+    await ensureColumn("proxy_servers", "supports_ipv6", "INTEGER NOT NULL DEFAULT 1");
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
@@ -2775,6 +2800,10 @@ async function upsertProxyServer(payload) {
                 name,
                 public_domain,
                 proxy_url,
+                ipv4_address,
+                ipv6_address,
+                supports_ipv4,
+                supports_ipv6,
                 region,
                 provider,
                 priority,
@@ -2786,10 +2815,14 @@ async function upsertProxyServer(payload) {
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(public_domain) DO UPDATE SET
                 name = excluded.name,
                 proxy_url = excluded.proxy_url,
+                ipv4_address = excluded.ipv4_address,
+                ipv6_address = excluded.ipv6_address,
+                supports_ipv4 = excluded.supports_ipv4,
+                supports_ipv6 = excluded.supports_ipv6,
                 region = excluded.region,
                 provider = excluded.provider,
                 priority = excluded.priority,
@@ -2808,6 +2841,10 @@ async function upsertProxyServer(payload) {
             payload.name || publicDomain,
             publicDomain,
             proxyUrl,
+            payload.ipv4Address || "",
+            payload.ipv6Address || "",
+            payload.supportsIpv4 === false ? 0 : 1,
+            payload.supportsIpv6 === false ? 0 : 1,
             payload.region || "",
             payload.provider || "",
             Number(payload.priority || 100),
@@ -2866,7 +2903,7 @@ async function getDefaultProxyServer() {
 async function listProxyServersForClient() {
     return all(
         `
-            SELECT uid, name, public_domain, proxy_url, region, priority, weight, health_status, updated_at
+            SELECT uid, name, public_domain, proxy_url, ipv4_address, ipv6_address, supports_ipv4, supports_ipv6, region, priority, weight, health_status, updated_at
             FROM proxy_servers
             WHERE status = 'active'
             ORDER BY priority ASC, weight DESC, id ASC
@@ -2932,6 +2969,10 @@ async function updateProxyServer(payload) {
                 name = ?,
                 public_domain = ?,
                 proxy_url = ?,
+                ipv4_address = ?,
+                ipv6_address = ?,
+                supports_ipv4 = ?,
+                supports_ipv6 = ?,
                 region = ?,
                 provider = ?,
                 priority = ?,
@@ -2945,6 +2986,10 @@ async function updateProxyServer(payload) {
             payload.name ?? current.name,
             payload.publicDomain ?? current.public_domain,
             payload.proxyUrl ?? current.proxy_url,
+            payload.ipv4Address ?? current.ipv4_address,
+            payload.ipv6Address ?? current.ipv6_address,
+            payload.supportsIpv4 === undefined ? Number(current.supports_ipv4 || 0) : (payload.supportsIpv4 ? 1 : 0),
+            payload.supportsIpv6 === undefined ? Number(current.supports_ipv6 || 0) : (payload.supportsIpv6 ? 1 : 0),
             payload.region ?? current.region,
             payload.provider ?? current.provider,
             Number(payload.priority ?? current.priority ?? 100),
@@ -2995,6 +3040,167 @@ async function recordProxyServerHeartbeat(serverId, payload = {}) {
         ],
     );
     return getProxyServerById(serverId);
+}
+
+async function listProxySniRoutesForAdmin() {
+    return all(
+        `
+            SELECT
+                psr.*,
+                ps.uid AS server_uid,
+                ps.name AS server_name,
+                ps.public_domain AS server_domain
+            FROM proxy_sni_routes psr
+            LEFT JOIN proxy_servers ps ON ps.id = psr.server_id
+            ORDER BY psr.status ASC, psr.route_domain ASC
+        `,
+    );
+}
+
+async function listActiveProxySniRoutesForSync({ publicDomain = "" } = {}) {
+    const domain = String(publicDomain || "").trim().toLowerCase();
+    return all(
+        `
+            SELECT
+                psr.*,
+                ps.uid AS server_uid,
+                ps.public_domain AS server_domain
+            FROM proxy_sni_routes psr
+            LEFT JOIN proxy_servers ps ON ps.id = psr.server_id
+            WHERE psr.status = 'active'
+              AND (
+                    psr.server_id IS NULL
+                    OR ps.public_domain = ?
+                  )
+            ORDER BY psr.route_domain ASC
+        `,
+        [domain],
+    );
+}
+
+async function listActiveProxySniRoutesForClient() {
+    return all(
+        `
+            SELECT
+                psr.uid,
+                psr.route_domain,
+                psr.target_sni,
+                psr.redirect_url,
+                psr.ip_family,
+                psr.updated_at,
+                ps.uid AS server_uid,
+                ps.name AS server_name,
+                ps.public_domain AS server_domain
+            FROM proxy_sni_routes psr
+            LEFT JOIN proxy_servers ps ON ps.id = psr.server_id
+            WHERE psr.status = 'active'
+              AND (ps.id IS NULL OR ps.status = 'active')
+            ORDER BY psr.route_domain ASC
+        `,
+    );
+}
+
+async function getProxySniRouteByUid(routeUid) {
+    return get("SELECT * FROM proxy_sni_routes WHERE uid = ?", [routeUid]);
+}
+
+async function upsertProxySniRoute(payload) {
+    const timestamp = nowIso();
+    const routeDomain = String(payload.routeDomain || "").trim().toLowerCase();
+    const targetSni = String(payload.targetSni || "").trim().toLowerCase();
+    const redirectUrl = String(payload.redirectUrl || "").trim();
+    const uid = payload.uid || makeUid("SNI");
+    const serverId = payload.serverId ? Number(payload.serverId) : null;
+
+    await run(
+        `
+            INSERT INTO proxy_sni_routes (
+                uid,
+                server_id,
+                route_domain,
+                target_sni,
+                redirect_url,
+                ip_family,
+                status,
+                notes,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(route_domain) DO UPDATE SET
+                server_id = excluded.server_id,
+                target_sni = excluded.target_sni,
+                redirect_url = excluded.redirect_url,
+                ip_family = excluded.ip_family,
+                status = excluded.status,
+                notes = excluded.notes,
+                updated_at = excluded.updated_at
+        `,
+        [
+            uid,
+            serverId,
+            routeDomain,
+            targetSni,
+            redirectUrl,
+            payload.ipFamily || "auto",
+            payload.status || "active",
+            payload.notes || "",
+            timestamp,
+            timestamp,
+        ],
+    );
+
+    return getProxySniRouteByDomain(routeDomain);
+}
+
+async function getProxySniRouteByDomain(routeDomain) {
+    return get("SELECT * FROM proxy_sni_routes WHERE route_domain = ?", [
+        String(routeDomain || "").trim().toLowerCase(),
+    ]);
+}
+
+async function updateProxySniRoute(payload) {
+    const current = await getProxySniRouteByUid(payload.uid);
+    if (!current) {
+        return null;
+    }
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_sni_routes
+            SET
+                server_id = ?,
+                route_domain = ?,
+                target_sni = ?,
+                redirect_url = ?,
+                ip_family = ?,
+                status = ?,
+                notes = ?,
+                updated_at = ?
+            WHERE uid = ?
+        `,
+        [
+            payload.serverId === undefined ? current.server_id : (payload.serverId ? Number(payload.serverId) : null),
+            payload.routeDomain ?? current.route_domain,
+            payload.targetSni ?? current.target_sni,
+            payload.redirectUrl ?? current.redirect_url,
+            payload.ipFamily ?? current.ip_family,
+            payload.status ?? current.status,
+            payload.notes ?? current.notes,
+            timestamp,
+            payload.uid,
+        ],
+    );
+    return getProxySniRouteByUid(payload.uid);
+}
+
+async function deleteProxySniRoute(routeUid) {
+    const current = await getProxySniRouteByUid(routeUid);
+    if (!current) {
+        return null;
+    }
+    await run("DELETE FROM proxy_sni_routes WHERE uid = ?", [routeUid]);
+    return current;
 }
 
 async function registerProxyDevice(payload) {
@@ -8375,6 +8581,7 @@ module.exports = {
     deleteAdminTeam,
     deleteAdminTournament,
     deleteAdminUserHard,
+    deleteProxySniRoute,
     deleteOrganizerTournament,
     ensureDailyTournamentForDate,
     findActiveAuthChallengeByFlowToken,
@@ -8405,6 +8612,8 @@ module.exports = {
     getProxyServerById,
     getProxyServerByNodeTokenHash,
     getProxyServerByUid,
+    getProxySniRouteByDomain,
+    getProxySniRouteByUid,
     getProxyTrafficSummary,
     getTaskById,
     getTeamById,
@@ -8424,6 +8633,8 @@ module.exports = {
     linkOAuthProviderToUser,
     listAuditLog,
     listActiveProxySessionsForSync,
+    listActiveProxySniRoutesForClient,
+    listActiveProxySniRoutesForSync,
     listAdminTasks,
     listAdminTeams,
     listAdminTournaments,
@@ -8438,6 +8649,7 @@ module.exports = {
     listProxyDevicesForUser,
     listProxyServersForAdmin,
     listProxyServersForClient,
+    listProxySniRoutesForAdmin,
     listProxyTrafficLogs,
     listSessionsForUser,
     listTaskBank,
@@ -8498,10 +8710,12 @@ module.exports = {
     setUserRole,
     updateUserSecuritySettings,
     updateProxyServer,
+    updateProxySniRoute,
     submitTaskForModeration,
     submitTournamentTaskAnswer,
     upsertTournamentTaskDraft,
     upsertProxyServer,
+    upsertProxySniRoute,
     rotateProxySessionSecret,
     upsertTournamentRosterEntry,
     leaveTeam,

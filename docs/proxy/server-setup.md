@@ -66,6 +66,19 @@ The child script asks for:
 - master API base URL;
 - node token from the owner panel.
 
+SNI/decoy domains are managed from the owner "Прокси" panel. Add a route such
+as:
+
+```text
+sni.proxy.qubiteapp.online  -> redirect https://www.cloudflare.com/
+sni.proxy6.qubiteapp.online -> redirect https://www.cloudflare.com/
+```
+
+The nearest credential sync writes `/etc/caddy/qubite-sni-routes.caddy` and
+reloads `caddy-naive.service`. A normal browser without proxy credentials gets
+the configured redirect, while a NaiveProxy client can use the same short-lived
+credentials on that SNI domain.
+
 1. Backup Nginx and current PM2 state.
 
 ```bash
@@ -110,6 +123,8 @@ proxy.qubiteapp.online   A     193.233.91.128
 proxy.qubiteapp.online   AAAA  2a01:e5c0:17bc::2
 proxy4.qubiteapp.online  A     193.233.91.128
 proxy6.qubiteapp.online  AAAA  2a01:e5c0:17bc::2
+sni.proxy.qubiteapp.online  A     193.233.91.128
+sni.proxy6.qubiteapp.online AAAA  2a01:e5c0:17bc::2
 ```
 
 For additional nodes, use the same pattern with numbers, for example

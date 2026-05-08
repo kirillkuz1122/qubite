@@ -58,6 +58,13 @@ GET /api/proxy/servers
       "name": "Qubite Proxy",
       "domain": "proxy.qubiteapp.online",
       "url": "https://proxy.qubiteapp.online",
+      "network": {
+        "ipv4": "193.233.91.128",
+        "ipv6": "2a01:e5c0:17bc::2",
+        "supportsIpv4": true,
+        "supportsIpv6": true,
+        "strategy": "happy-eyeballs"
+      },
       "region": "eu-test",
       "priority": 10,
       "weight": 100,
@@ -75,6 +82,47 @@ Client selection rule:
 2. Within the same priority, choose by weight.
 3. If a server fails, try the next server and send heartbeat telemetry.
 ```
+
+## 2.1 Connection Catalog
+
+```http
+GET /api/proxy/catalog
+```
+
+Use this endpoint in the app when it needs all connection variants separated by
+type.
+
+```json
+{
+  "version": 1,
+  "generatedAt": "...",
+  "normal": {
+    "all": [],
+    "ipv4": [],
+    "ipv6": []
+  },
+  "sni": [
+    {
+      "id": "SNI-...",
+      "type": "sni",
+      "domain": "sni.proxy.qubiteapp.online",
+      "host": "sni.proxy.qubiteapp.online",
+      "port": 443,
+      "targetSni": "www.cloudflare.com",
+      "redirectUrl": "https://www.cloudflare.com/",
+      "ipFamily": "auto",
+      "server": null,
+      "updatedAt": "..."
+    }
+  ],
+  "routingProfile": {}
+}
+```
+
+`normal.ipv4` and `normal.ipv6` are filtered views of `normal.all`. The app
+should still test real connectivity on the device and prefer a Happy Eyeballs
+style fallback: try the best family first, then quickly fall back to the other
+family or another node.
 
 ## 3. Start Proxy Session
 

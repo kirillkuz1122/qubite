@@ -1038,6 +1038,10 @@ function getAdminProxyServersState() {
     return apiClient?.state?.adminProxyServers || [];
 }
 
+function getAdminProxySniRoutesState() {
+    return apiClient?.state?.adminProxySniRoutes || [];
+}
+
 function getAdminProxyLogsState() {
     return apiClient?.state?.adminProxyLogs || [];
 }
@@ -13195,6 +13199,7 @@ function scrollMessagesToBottom() {
 
 function renderProxyServersView() {
     const servers = getAdminProxyServersState();
+    const sniRoutes = getAdminProxySniRoutesState();
     const logs = getAdminProxyLogsState();
     const users = getAdminUsersState();
     const protectedUsers = users.filter((user) => user.proxyNoLogs);
@@ -13212,6 +13217,7 @@ function renderProxyServersView() {
                 </div>
                 <div class="ops-header__actions">
                     <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
+                    <button class="btn btn--muted" type="button" id="proxyCreateSniRouteBtn">Добавить SNI</button>
                     <button class="btn btn--muted" type="button" id="proxyRefreshServersBtn">Обновить</button>
                 </div>
             </div>
@@ -13219,7 +13225,7 @@ function renderProxyServersView() {
                 ${renderOpsMetricCard({ icon: "analytics", tone: "accent", label: "Нод", value: formatNumberRu(servers.length), meta: "Всего зарегистрировано" })}
                 ${renderOpsMetricCard({ icon: "shield", tone: "accent", label: "Активных", value: formatNumberRu(active), meta: "Разрешены для выдачи ключей" })}
                 ${renderOpsMetricCard({ icon: "task_alt", tone: "success", label: "Online", value: formatNumberRu(online), meta: "Есть свежий heartbeat" })}
-                ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "Сессий", value: formatNumberRu(servers.reduce((sum, item) => sum + Number(item.activeSessions || 0), 0)), meta: `${formatCompactNumberRu(totalRequests)} запросов / ${formatBytes(totalTraffic)}` })}
+                ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "SNI", value: formatNumberRu(sniRoutes.filter((item) => item.status === "active").length), meta: `${formatNumberRu(sniRoutes.length)} маршрутов • ${formatCompactNumberRu(totalRequests)} req / ${formatBytes(totalTraffic)}` })}
             </div>
             <div class="ops-shell">
                 ${renderOpsPanel({
@@ -13228,6 +13234,12 @@ function renderProxyServersView() {
                     body: servers.length
                         ? `<div class="ops-admin-list">${servers.map(renderProxyServerRow).join("")}</div>`
                         : `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Нод пока нет</div><div class="admin-home-feed__empty-desc">Добавьте proxy-домен, получите token и запустите setup-proxy-node.sh на дочернем VPS.</div></div>`,
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "SNI-маршруты",
+                    desc: "Домены для маскировки: приложение получает их отдельным списком, а Caddy редиректит обычный браузер на указанный сайт.",
+                    body: renderProxySniRoutesList(sniRoutes),
                     className: "ops-panel--primary",
                 })}
                 ${renderOpsPanel({
@@ -13251,11 +13263,13 @@ function renderProxyServerRow(server) {
     const statusLabel = server.status === "active" ? "Включен" : server.status === "maintenance" ? "Пауза" : "Выключен";
     const metrics = server.metrics || {};
     const traffic = server.traffic24h || {};
+    const network = server.network || {};
     return `
         <div class="ops-admin-row glass-panel" data-view-anim>
             <div class="ops-admin-row__main">
                 <div class="ops-admin-row__title">${escapeHtml(server.name || server.domain)}</div>
                 <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "region не задан")} • ${escapeHtml(server.health || "unknown")}</div>
+                <div class="ops-admin-row__meta">IPv4 ${network.supportsIpv4 ? "on" : "off"} ${network.ipv4 ? `• ${escapeHtml(network.ipv4)}` : ""} • IPv6 ${network.supportsIpv6 ? "on" : "off"} ${network.ipv6 ? `• ${escapeHtml(network.ipv6)}` : ""}</div>
                 <div class="ops-admin-row__meta">Heartbeat: ${escapeHtml(server.lastHeartbeatAt ? formatDateTimeLabel(server.lastHeartbeatAt) : "нет")} • CPU ${escapeHtml(String(Math.round(Number(metrics.cpuLoad || 0) * 100) / 100))} • RAM ${escapeHtml(String(metrics.memoryUsedMb || 0))}/${escapeHtml(String(metrics.memoryTotalMb || 0))} MB</div>
                 <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumberRu(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
                 ${server.lastError ? `<div class="ops-admin-row__meta">Ошибка: ${escapeHtml(server.lastError)}</div>` : ""}
@@ -13267,6 +13281,34 @@ function renderProxyServerRow(server) {
                 <button class="btn btn--muted btn--sm" type="button" data-proxy-server-toggle="${escapeHtml(server.id)}" data-next-status="${server.status === "active" ? "disabled" : "active"}">${server.status === "active" ? "Выключить" : "Включить"}</button>
                 <button class="btn btn--accent btn--sm" type="button" data-proxy-server-token="${escapeHtml(server.id)}">Новый token</button>
             </div>
+        </div>
+    `;
+}
+
+function renderProxySniRoutesList(routes) {
+    if (!routes.length) {
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">SNI-маршрутов пока нет</div><div class="admin-home-feed__empty-desc">Добавьте sni-домен, target SNI и сайт для редиректа обычного браузера.</div></div>`;
+    }
+    return `
+        <div class="ops-admin-list">
+            ${routes.map((route) => {
+                const statusLabel = route.status === "active" ? "Включен" : "Выключен";
+                return `
+                    <div class="ops-admin-row glass-panel" data-view-anim>
+                        <div class="ops-admin-row__main">
+                            <div class="ops-admin-row__title">${escapeHtml(route.domain)}</div>
+                            <div class="ops-admin-row__meta">target SNI: ${escapeHtml(route.targetSni)} • ${escapeHtml(route.ipFamily || "auto")} • ${escapeHtml(route.server?.domain || "все ноды")}</div>
+                            <div class="ops-admin-row__meta">browser redirect: ${escapeHtml(route.redirectUrl)}</div>
+                            ${route.notes ? `<div class="ops-admin-row__meta">${escapeHtml(route.notes)}</div>` : ""}
+                        </div>
+                        <div class="ops-admin-row__controls">
+                            <span class="ops-admin-mini-pill">${escapeHtml(statusLabel)}</span>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sni-toggle="${escapeHtml(route.id)}" data-next-status="${route.status === "active" ? "disabled" : "active"}">${route.status === "active" ? "Выключить" : "Включить"}</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sni-delete="${escapeHtml(route.id)}">Удалить</button>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
         </div>
     `;
 }
@@ -13330,6 +13372,7 @@ function initProxyServersInteractions(container) {
         Loader.show();
         try {
             await apiClient.loadAdminProxyServers();
+            await apiClient.loadAdminProxySniRoutes();
             await apiClient.loadAdminProxyLogs({ limit: 120 });
             container.innerHTML = renderProxyServersView();
             initProxyServersInteractions(container);
@@ -13340,15 +13383,47 @@ function initProxyServersInteractions(container) {
         }
     });
 
+    container.querySelector("#proxyCreateSniRouteBtn")?.addEventListener("click", async () => {
+        const routeDomain = window.prompt("SNI-поддомен, например sni.proxy.qubiteapp.online");
+        if (!routeDomain) return;
+        const redirectUrl = window.prompt("Куда редиректить обычный браузер, например https://www.cloudflare.com/");
+        if (!redirectUrl) return;
+        const targetSni = window.prompt("Target SNI для приложения. Можно оставить пустым, тогда возьмём host из redirect URL.") || "";
+        const ipFamily = window.prompt("IP family: auto, ipv4 или ipv6", routeDomain.includes("6") ? "ipv6" : "auto") || "auto";
+        Loader.show();
+        try {
+            await apiClient.createAdminProxySniRoute({
+                routeDomain,
+                redirectUrl,
+                targetSni,
+                ipFamily,
+                status: "active",
+            });
+            Toast.show("Прокси", "SNI-маршрут добавлен. На нодах он применится после ближайшего sync.", "success");
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("SNI-маршрут", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
     container.querySelector("#proxyCreateServerBtn")?.addEventListener("click", async () => {
         const publicDomain = window.prompt("Домен proxy-ноды, например proxy2.example.com");
         if (!publicDomain) return;
+        const ipv4Address = window.prompt("IPv4 адрес ноды. Можно оставить пустым.") || "";
+        const ipv6Address = window.prompt("IPv6 адрес ноды. Можно оставить пустым.") || "";
         Loader.show();
         try {
             const data = await apiClient.createAdminProxyServer({
                 publicDomain,
                 name: publicDomain,
                 proxyUrl: `https://${publicDomain}`,
+                ipv4Address,
+                ipv6Address,
+                supportsIpv4: Boolean(ipv4Address) || !ipv6Address,
+                supportsIpv6: Boolean(ipv6Address) || !ipv4Address,
                 region: "custom",
                 provider: "vps",
                 status: "active",
@@ -13361,6 +13436,41 @@ function initProxyServersInteractions(container) {
         } finally {
             Loader.hide(300);
         }
+    });
+
+    container.querySelectorAll("[data-proxy-sni-toggle]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySniRoute(button.dataset.proxySniToggle, {
+                    status: button.dataset.nextStatus,
+                });
+                Toast.show("Прокси", "SNI-маршрут обновлён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("SNI-маршрут", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sni-delete]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            if (!window.confirm("Удалить SNI-маршрут?")) return;
+            Loader.show();
+            try {
+                await apiClient.deleteAdminProxySniRoute(button.dataset.proxySniDelete);
+                Toast.show("Прокси", "SNI-маршрут удалён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("SNI-маршрут", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
     });
 
     container.querySelectorAll("[data-proxy-server-toggle]").forEach((button) => {
@@ -13516,6 +13626,7 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
         if (isOwnerUser()) {
             Promise.all([
                 apiClient.loadAdminProxyServers(),
+                apiClient.loadAdminProxySniRoutes(),
                 apiClient.loadAdminProxyLogs({ limit: 120 }),
                 apiClient.loadAdminUsers(),
             ])

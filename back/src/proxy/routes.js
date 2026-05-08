@@ -15,6 +15,7 @@ const {
     createProxyEvent,
     createProxySession,
     createProxyTrafficLog,
+    deleteProxySniRoute,
     getActiveProxySessionForUser,
     getDefaultProxyServer,
     getProxyDeviceByUid,
@@ -22,12 +23,16 @@ const {
     getProxyServerById,
     getProxyServerByNodeTokenHash,
     getProxyServerByUid,
+    getProxySniRouteByUid,
     getProxyTrafficSummary,
     getUserById,
     listActiveProxySessionsForSync,
+    listActiveProxySniRoutesForClient,
+    listActiveProxySniRoutesForSync,
     listProxyDevicesForUser,
     listProxyServersForAdmin,
     listProxyServersForClient,
+    listProxySniRoutesForAdmin,
     listProxyTrafficLogs,
     recordProxyServerHeartbeat,
     registerProxyDevice,
@@ -38,7 +43,9 @@ const {
     setUserProxyNoLogs,
     touchProxyDevice,
     updateProxyServer,
+    updateProxySniRoute,
     upsertProxyServer,
+    upsertProxySniRoute,
 } = require("../db");
 
 function buildProxyRoutingProfile() {
@@ -134,11 +141,20 @@ function decryptProxyCredential(payload) {
 
 function serializeProxyServer(server) {
     if (!server) return null;
+    const supportsIpv4 = Boolean(Number(server.supports_ipv4 ?? 1));
+    const supportsIpv6 = Boolean(Number(server.supports_ipv6 ?? 1));
     return {
         id: server.uid,
         name: server.name,
         domain: server.public_domain,
         url: server.proxy_url,
+        network: {
+            ipv4: server.ipv4_address || "",
+            ipv6: server.ipv6_address || "",
+            supportsIpv4,
+            supportsIpv6,
+            strategy: "happy-eyeballs",
+        },
         region: server.region,
         priority: Number(server.priority || 100),
         weight: Number(server.weight || 100),
@@ -170,11 +186,19 @@ function parseMetricsJson(value) {
 }
 
 function serializeProxyServerForAdmin(server) {
+    const supportsIpv4 = Boolean(Number(server.supports_ipv4 ?? 1));
+    const supportsIpv6 = Boolean(Number(server.supports_ipv6 ?? 1));
     return {
         id: server.uid,
         name: server.name,
         domain: server.public_domain,
         url: server.proxy_url,
+        network: {
+            ipv4: server.ipv4_address || "",
+            ipv6: server.ipv6_address || "",
+            supportsIpv4,
+            supportsIpv6,
+        },
         region: server.region,
         provider: server.provider || "",
         priority: Number(server.priority || 100),
@@ -195,6 +219,49 @@ function serializeProxyServerForAdmin(server) {
         hasNodeToken: Boolean(server.node_token_hash),
         createdAt: server.created_at,
         updatedAt: server.updated_at,
+    };
+}
+
+function serializeProxySniRoute(route) {
+    if (!route) return null;
+    return {
+        id: route.uid,
+        domain: route.route_domain,
+        targetSni: route.target_sni,
+        redirectUrl: route.redirect_url,
+        ipFamily: route.ip_family || "auto",
+        status: route.status || "active",
+        notes: route.notes || "",
+        server: route.server_uid
+            ? {
+                  id: route.server_uid,
+                  name: route.server_name || route.server_domain || "",
+                  domain: route.server_domain || "",
+              }
+            : null,
+        createdAt: route.created_at,
+        updatedAt: route.updated_at,
+    };
+}
+
+function serializeProxySniRouteForClient(route) {
+    return {
+        id: route.uid,
+        type: "sni",
+        domain: route.route_domain,
+        host: route.route_domain,
+        port: 443,
+        targetSni: route.target_sni,
+        redirectUrl: route.redirect_url,
+        ipFamily: route.ip_family || "auto",
+        server: route.server_uid
+            ? {
+                  id: route.server_uid,
+                  name: route.server_name || route.server_domain || "",
+                  domain: route.server_domain || "",
+              }
+            : null,
+        updatedAt: route.updated_at,
     };
 }
 
@@ -274,6 +341,44 @@ function sanitizeDestinationHost(value) {
     }
 }
 
+function normalizeProxyDomain(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .split("/")[0]
+        .replace(/:\d+$/, "")
+        .replace(/^\.+|\.+$/g, "");
+}
+
+function isValidProxyDomain(value) {
+    return /^[a-z0-9.-]+$/.test(value || "") && String(value || "").includes(".");
+}
+
+function normalizeRedirectUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const withProtocol = raw.includes("://") ? raw : `https://${raw}`;
+    try {
+        const parsed = new URL(withProtocol);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+            return "";
+        }
+        parsed.hash = "";
+        return parsed.toString();
+    } catch (error) {
+        return "";
+    }
+}
+
+function getHostnameFromUrl(value) {
+    try {
+        return new URL(value).hostname.toLowerCase();
+    } catch (error) {
+        return "";
+    }
+}
+
 function normalizeTrafficEvents(body) {
     return (Array.isArray(body?.events) ? body.events : [body || {}]).slice(0, 100);
 }
@@ -339,6 +444,26 @@ function registerProxyRoutes(app, deps) {
         try {
             const servers = await listProxyServersForClient();
             res.json({ servers: servers.map(serializeProxyServer) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.get("/api/proxy/catalog", requireAuth, async (req, res, next) => {
+        try {
+            const servers = (await listProxyServersForClient()).map(serializeProxyServer);
+            const sniRoutes = (await listActiveProxySniRoutesForClient()).map(serializeProxySniRouteForClient);
+            res.json({
+                version: 1,
+                generatedAt: new Date().toISOString(),
+                normal: {
+                    all: servers,
+                    ipv4: servers.filter((server) => server.network?.supportsIpv4),
+                    ipv6: servers.filter((server) => server.network?.supportsIpv6),
+                },
+                sni: sniRoutes,
+                routingProfile: buildProxyRoutingProfile(),
+            });
         } catch (error) {
             next(error);
         }
@@ -613,6 +738,10 @@ function registerProxyRoutes(app, deps) {
                 name: cleanText(req.body?.name, 80) || publicDomain,
                 publicDomain,
                 proxyUrl: cleanText(req.body?.proxyUrl, 160) || `https://${publicDomain}`,
+                ipv4Address: cleanText(req.body?.ipv4Address, 64),
+                ipv6Address: cleanText(req.body?.ipv6Address, 80),
+                supportsIpv4: req.body?.supportsIpv4 === undefined ? true : Boolean(req.body.supportsIpv4),
+                supportsIpv6: req.body?.supportsIpv6 === undefined ? true : Boolean(req.body.supportsIpv6),
                 region: cleanText(req.body?.region, 40),
                 provider: cleanText(req.body?.provider, 40),
                 priority: Number(req.body?.priority || 100),
@@ -652,6 +781,10 @@ function registerProxyRoutes(app, deps) {
                 name: req.body?.name === undefined ? undefined : cleanText(req.body.name, 80),
                 publicDomain: nextPublicDomain,
                 proxyUrl: req.body?.proxyUrl === undefined ? undefined : cleanText(req.body.proxyUrl, 160),
+                ipv4Address: req.body?.ipv4Address === undefined ? undefined : cleanText(req.body.ipv4Address, 64),
+                ipv6Address: req.body?.ipv6Address === undefined ? undefined : cleanText(req.body.ipv6Address, 80),
+                supportsIpv4: req.body?.supportsIpv4 === undefined ? undefined : Boolean(req.body.supportsIpv4),
+                supportsIpv6: req.body?.supportsIpv6 === undefined ? undefined : Boolean(req.body.supportsIpv6),
                 region: req.body?.region === undefined ? undefined : cleanText(req.body.region, 40),
                 provider: req.body?.provider === undefined ? undefined : cleanText(req.body.provider, 40),
                 priority: req.body?.priority,
@@ -727,6 +860,166 @@ function registerProxyRoutes(app, deps) {
                     bytes: Number(item.bytes_total || 0),
                 })),
             });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.get("/api/admin/proxy-sni-routes", requireOwner, async (req, res, next) => {
+        try {
+            const routes = await listProxySniRoutesForAdmin();
+            res.json({ items: routes.map(serializeProxySniRoute) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/api/admin/proxy-sni-routes", requireOwner, async (req, res, next) => {
+        try {
+            const routeDomain = normalizeProxyDomain(req.body?.routeDomain);
+            if (!isValidProxyDomain(routeDomain)) {
+                sendError(res, 400, "Укажите корректный SNI-поддомен.", "routeDomain");
+                return;
+            }
+            const redirectUrl = normalizeRedirectUrl(req.body?.redirectUrl);
+            if (!redirectUrl) {
+                sendError(res, 400, "Укажите корректный URL для редиректа.", "redirectUrl");
+                return;
+            }
+            const targetSni = normalizeProxyDomain(req.body?.targetSni) || getHostnameFromUrl(redirectUrl);
+            if (!isValidProxyDomain(targetSni)) {
+                sendError(res, 400, "Укажите корректный target SNI.", "targetSni");
+                return;
+            }
+            const ipFamily = cleanText(req.body?.ipFamily, 12).toLowerCase() || "auto";
+            if (!["auto", "ipv4", "ipv6"].includes(ipFamily)) {
+                sendError(res, 400, "Допустимые значения IP family: auto, ipv4, ipv6.", "ipFamily");
+                return;
+            }
+            const status = cleanText(req.body?.status, 20).toLowerCase() || "active";
+            if (!["active", "disabled"].includes(status)) {
+                sendError(res, 400, "Неизвестный статус SNI-маршрута.", "status");
+                return;
+            }
+            let serverId = null;
+            const serverUid = cleanText(req.body?.serverId, 80);
+            if (serverUid) {
+                const server = await getProxyServerByUid(serverUid);
+                if (!server) {
+                    sendError(res, 404, "Proxy-нода для SNI-маршрута не найдена.", "serverId");
+                    return;
+                }
+                serverId = server.id;
+            }
+            const route = await upsertProxySniRoute({
+                serverId,
+                routeDomain,
+                targetSni,
+                redirectUrl,
+                ipFamily,
+                status,
+                notes: cleanText(req.body?.notes, 240),
+            });
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.sni_route.create",
+                entityType: "proxy_sni_route",
+                entityId: route.uid,
+                summary: `Добавлен SNI-маршрут ${routeDomain} -> ${targetSni}`,
+            });
+            res.status(201).json({ item: serializeProxySniRoute(route) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.patch("/api/admin/proxy-sni-routes/:routeUid", requireOwner, async (req, res, next) => {
+        try {
+            const current = await getProxySniRouteByUid(cleanText(req.params.routeUid, 80));
+            if (!current) {
+                sendError(res, 404, "SNI-маршрут не найден.");
+                return;
+            }
+            const nextRouteDomain = req.body?.routeDomain === undefined ? undefined : normalizeProxyDomain(req.body.routeDomain);
+            if (nextRouteDomain !== undefined && !isValidProxyDomain(nextRouteDomain)) {
+                sendError(res, 400, "Укажите корректный SNI-поддомен.", "routeDomain");
+                return;
+            }
+            const nextRedirectUrl = req.body?.redirectUrl === undefined ? undefined : normalizeRedirectUrl(req.body.redirectUrl);
+            if (nextRedirectUrl !== undefined && !nextRedirectUrl) {
+                sendError(res, 400, "Укажите корректный URL для редиректа.", "redirectUrl");
+                return;
+            }
+            const nextTargetSni = req.body?.targetSni === undefined
+                ? undefined
+                : (normalizeProxyDomain(req.body.targetSni) || getHostnameFromUrl(nextRedirectUrl || current.redirect_url));
+            if (nextTargetSni !== undefined && !isValidProxyDomain(nextTargetSni)) {
+                sendError(res, 400, "Укажите корректный target SNI.", "targetSni");
+                return;
+            }
+            const nextIpFamily = req.body?.ipFamily === undefined ? undefined : cleanText(req.body.ipFamily, 12).toLowerCase();
+            if (nextIpFamily !== undefined && !["auto", "ipv4", "ipv6"].includes(nextIpFamily)) {
+                sendError(res, 400, "Допустимые значения IP family: auto, ipv4, ipv6.", "ipFamily");
+                return;
+            }
+            const nextStatus = req.body?.status === undefined ? undefined : cleanText(req.body.status, 20).toLowerCase();
+            if (nextStatus !== undefined && !["active", "disabled"].includes(nextStatus)) {
+                sendError(res, 400, "Неизвестный статус SNI-маршрута.", "status");
+                return;
+            }
+            let nextServerId = undefined;
+            if (req.body?.serverId !== undefined) {
+                const serverUid = cleanText(req.body.serverId, 80);
+                if (serverUid) {
+                    const server = await getProxyServerByUid(serverUid);
+                    if (!server) {
+                        sendError(res, 404, "Proxy-нода для SNI-маршрута не найдена.", "serverId");
+                        return;
+                    }
+                    nextServerId = server.id;
+                } else {
+                    nextServerId = null;
+                }
+            }
+            const route = await updateProxySniRoute({
+                uid: current.uid,
+                serverId: nextServerId,
+                routeDomain: nextRouteDomain,
+                targetSni: nextTargetSni,
+                redirectUrl: nextRedirectUrl,
+                ipFamily: nextIpFamily,
+                status: nextStatus,
+                notes: req.body?.notes === undefined ? undefined : cleanText(req.body.notes, 240),
+            });
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.sni_route.update",
+                entityType: "proxy_sni_route",
+                entityId: route.uid,
+                summary: `Обновлен SNI-маршрут ${route.route_domain}`,
+                payload: req.body || {},
+            });
+            res.json({ item: serializeProxySniRoute(route) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.delete("/api/admin/proxy-sni-routes/:routeUid", requireOwner, async (req, res, next) => {
+        try {
+            const route = await deleteProxySniRoute(cleanText(req.params.routeUid, 80));
+            if (!route) {
+                sendError(res, 404, "SNI-маршрут не найден.");
+                return;
+            }
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.sni_route.delete",
+                entityType: "proxy_sni_route",
+                entityId: route.uid,
+                summary: `Удален SNI-маршрут ${route.route_domain}`,
+            });
+            res.json({ ok: true });
         } catch (error) {
             next(error);
         }
@@ -818,6 +1111,7 @@ function registerProxyRoutes(app, deps) {
                 publicDomain = server.public_domain;
             }
             const sessions = await listActiveProxySessionsForSync({ publicDomain });
+            const sniRoutes = await listActiveProxySniRoutesForSync({ publicDomain });
             res.json({
                 generatedAt: new Date().toISOString(),
                 domain: publicDomain || PROXY_PUBLIC_DOMAIN,
@@ -833,6 +1127,12 @@ function registerProxyRoutes(app, deps) {
                         };
                     })
                     .filter(Boolean),
+                sniRoutes: sniRoutes.map((route) => ({
+                    domain: route.route_domain,
+                    targetSni: route.target_sni,
+                    redirectUrl: route.redirect_url,
+                    ipFamily: route.ip_family || "auto",
+                })),
             });
         } catch (error) {
             next(error);
