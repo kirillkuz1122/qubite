@@ -1,12 +1,17 @@
 {
-    order forward_proxy before reverse_proxy
+    # klzgrad forward_proxy requires file_server ordering for NaiveProxy padding
+    order forward_proxy before file_server
     admin 127.0.0.1:2019
     # Caddy listens on 18443 behind the nginx SNI router (port 443).
     # TLS is still terminated here; nginx passes raw TCP without decryption.
-    default_bind 0.0.0.0
+    https_port 18443
 }
 
-https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.qubiteapp.online, :18443 {
+# IMPORTANT: `:18443` MUST be first for NaiveProxy to intercept all connections.
+:18443, proxy.qubiteapp.online, proxy4.qubiteapp.online, proxy6.qubiteapp.online {
+    tls {
+        on_demand
+    }
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy

@@ -159,12 +159,15 @@ done
 
 cat >/etc/caddy/Caddyfile <<EOF_CADDY
 {
-    order forward_proxy before reverse_proxy
+    order forward_proxy before file_server
     admin 127.0.0.1:2019
-    default_bind 0.0.0.0
+    https_port 18443
 }
 
-https://${PROXY_SITE_NAMES}, :18443 {
+:18443, ${PROXY_SITE_NAMES} {
+    tls {
+        on_demand
+    }
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy
