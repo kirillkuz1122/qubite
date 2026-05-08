@@ -623,7 +623,7 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
         }
     }
 
-    // VLESS+Reality links for servers that have Reality configured
+    // Collect servers with Reality configured (for SNI-based VLESS generation)
     const vlessUuid = deriveVlessUuid(subscription.uid);
     const realityServers = [];
     for (const server of servers) {
@@ -632,17 +632,6 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
         const reality = metadata.reality;
         if (!reality || !reality.publicKey || !reality.shortId) continue;
         realityServers.push({ server, reality });
-        const host = server.ipv4_domain || server.public_domain;
-        const label = buildProxyVariantName(server, "reality");
-        lines.push(buildVlessUri({
-            host,
-            uuid: vlessUuid,
-            label,
-            serverName: reality.targetSni || "www.microsoft.com",
-            publicKey: reality.publicKey,
-            shortId: reality.shortId,
-            port: Number(reality.port || 443),
-        }));
     }
 
     // SNI routes: generate VLESS entries per server with custom SNI masquerade

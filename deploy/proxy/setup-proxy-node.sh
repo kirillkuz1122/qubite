@@ -247,10 +247,11 @@ Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.c
 Environment=SINGBOX_REALITY_CONFIG=/etc/singbox/config.json
 Environment=REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
 Environment=REALITY_SHORT_ID=${REALITY_SHORT_ID}
-Environment=REALITY_TARGET_SNI=${REALITY_TARGET_SNI}
+Environment=NGINX_STREAM_CONF=/etc/nginx/stream.d/sni-router.conf
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
 ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
 ExecStartPost=/usr/bin/systemctl restart singbox-reality.service
+ExecStartPost=/usr/bin/nginx -s reload
 EOF_SERVICE
 
 cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
