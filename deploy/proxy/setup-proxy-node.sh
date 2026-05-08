@@ -44,13 +44,13 @@ fi
 
 /usr/local/bin/xcaddy build \
   --output /usr/local/bin/caddy-naive \
-  --with github.com/klzgrad/forwardproxy@naive
+  --with 'github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive'
 setcap cap_net_bind_service=+ep /usr/local/bin/caddy-naive || true
 
 # --- Install sing-box for VLESS+Reality ---
 
 if ! command -v sing-box >/dev/null 2>&1; then
-  SINGBOX_VERSION="1.11.0"
+  SINGBOX_VERSION="1.13.5"
   SINGBOX_ARCH="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
   SINGBOX_URL="https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}.tar.gz"
   curl -fsSL "$SINGBOX_URL" -o /tmp/sing-box.tar.gz
