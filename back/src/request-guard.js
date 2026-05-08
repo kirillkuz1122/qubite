@@ -232,6 +232,12 @@ function createOriginGuard(options = {}) {
             return;
         }
 
+        const path = String(req.path || "");
+        if (path.startsWith("/api/proxy/node/") || path.startsWith("/api/proxy/sync/")) {
+            next();
+            return;
+        }
+
         const host = normalizeHost(req.headers.host || "");
         if (host && allowedHosts.size > 0 && !allowedHosts.has(host)) {
             res.status(403).json({ error: message, code: "origin_mismatch" });
