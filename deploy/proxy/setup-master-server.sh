@@ -293,7 +293,7 @@ Environment=NGINX_STREAM_CONF=/etc/nginx/stream.d/sni-router.conf
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
 ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
 ExecStartPost=/usr/bin/systemctl restart singbox-reality.service
-ExecStartPost=/usr/bin/nginx -s reload
+ExecStartPost=/usr/bin/systemctl reload nginx
 EOF_SERVICE
 
 cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
