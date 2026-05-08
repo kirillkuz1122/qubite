@@ -38,6 +38,7 @@
         adminSystemSettings: {},
         adminProxyServers: [],
         adminProxySniRoutes: [],
+        adminProxySubscriptions: [],
         adminProxyLogs: [],
         adminProxyStats: {},
         adminUsers: [],
@@ -109,6 +110,7 @@
         state.adminUsers = [];
         state.adminProxyServers = [];
         state.adminProxySniRoutes = [];
+        state.adminProxySubscriptions = [];
         state.adminProxyLogs = [];
         state.adminProxyStats = {};
         state.adminTeams = [];
@@ -873,6 +875,11 @@
         return state.adminProxySniRoutes;
     }
 
+    function syncAdminProxySubscriptions(items) {
+        state.adminProxySubscriptions = Array.isArray(items) ? [...items] : [];
+        return state.adminProxySubscriptions;
+    }
+
     function syncAdminProxyLogs(items) {
         state.adminProxyLogs = Array.isArray(items) ? [...items] : [];
         return state.adminProxyLogs;
@@ -1023,6 +1030,38 @@
             method: "DELETE",
         });
         syncAdminProxySniRoutes(state.adminProxySniRoutes.filter((item) => item.id !== routeId));
+        return true;
+    }
+
+    async function loadAdminProxySubscriptions() {
+        const data = await request("/api/admin/proxy-subscriptions");
+        syncAdminProxySubscriptions(data.items || []);
+        return state.adminProxySubscriptions;
+    }
+
+    async function createAdminProxySubscription(payload) {
+        const data = await request("/api/admin/proxy-subscriptions", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxySubscriptions([data.item, ...state.adminProxySubscriptions]);
+        return data;
+    }
+
+    async function updateAdminProxySubscription(subscriptionId, payload) {
+        const data = await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxySubscriptions(upsertById(state.adminProxySubscriptions, data.item));
+        return data.item;
+    }
+
+    async function deleteAdminProxySubscription(subscriptionId) {
+        await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}`, {
+            method: "DELETE",
+        });
+        syncAdminProxySubscriptions(state.adminProxySubscriptions.filter((item) => item.id !== subscriptionId));
         return true;
     }
 
@@ -1708,6 +1747,7 @@
         createOrganizerTournament: createOrganizerTournamentRequest,
         createAdminProxyServer,
         createAdminProxySniRoute,
+        createAdminProxySubscription,
         createTeam: createTeamRequest,
         createTournament: createTournamentRequest,
         clearTournamentRuntime,
@@ -1729,6 +1769,7 @@
         deleteAdminUser,
         deleteAdminUserHard,
         deleteAdminProxySniRoute,
+        deleteAdminProxySubscription,
         restoreAdminUser,
         deleteSelfAccount,
         loadAdminOverview,
@@ -1736,12 +1777,14 @@
         loadAdminProxyServers,
         loadAdminProxyServerStats,
         loadAdminProxySniRoutes,
+        loadAdminProxySubscriptions,
         loadAdminSystemStats,
         loadAdminSystemStatsHistory,
         loadAdminSystemSettings,
         updateAdminSystemSetting,
         updateAdminProxyServer,
         updateAdminProxySniRoute,
+        updateAdminProxySubscription,
         updateAdminProxyUserPrivacy,
         loadAdminTasks,
         loadAdminTeams,

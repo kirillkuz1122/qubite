@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 
 const {
+    APP_BASE_URL,
     PROXY_CREDENTIAL_ENCRYPTION_KEY,
     PROXY_DEFAULT_REGION,
     PROXY_MAX_ACTIVE_DEVICES,
@@ -14,7 +15,9 @@ const {
     countActiveProxyDevices,
     createProxyEvent,
     createProxySession,
+    createProxySubscription,
     createProxyTrafficLog,
+    deleteProxySubscription,
     deleteProxySniRoute,
     getActiveProxySessionForUser,
     getDefaultProxyServer,
@@ -24,25 +27,33 @@ const {
     getProxyServerByNodeTokenHash,
     getProxyServerByUid,
     getProxySniRouteByUid,
+    getActiveProxySessionForDeviceAndServer,
+    getActiveProxySubscriptionByTokenHash,
+    getProxySubscriptionByUid,
     getProxyTrafficSummary,
     getUserById,
+    hasActiveProxySubscriptionForUser,
     listActiveProxySessionsForSync,
+    listActiveProxyServersForSubscription,
     listActiveProxySniRoutesForClient,
     listActiveProxySniRoutesForSync,
     listProxyDevicesForUser,
     listProxyServersForAdmin,
     listProxyServersForClient,
     listProxySniRoutesForAdmin,
+    listProxySubscriptionsForAdmin,
     listProxyTrafficLogs,
     recordProxyServerHeartbeat,
     registerProxyDevice,
     revokeProxyDevice,
     revokeProxySession,
+    revokeProxySubscription,
     rotateProxySessionSecret,
     setProxyServerNodeToken,
     setUserProxyNoLogs,
     touchProxyDevice,
     updateProxyServer,
+    updateProxySubscription,
     updateProxySniRoute,
     upsertProxyServer,
     upsertProxySniRoute,
@@ -317,6 +328,28 @@ function serializeProxySniRouteForClient(route) {
     };
 }
 
+function serializeProxySubscriptionForAdmin(subscription, token = "") {
+    const pathToken = token || "";
+    return {
+        id: subscription.uid,
+        label: subscription.label || "",
+        status: subscription.status || "active",
+        noLogs: Boolean(Number(subscription.no_logs || 0)),
+        user: {
+            id: subscription.user_id,
+            uid: subscription.user_uid || "",
+            login: subscription.user_login || "unknown",
+            email: subscription.user_email || "",
+            status: subscription.user_status || "",
+        },
+        url: pathToken ? `${APP_BASE_URL.replace(/\/$/, "")}/api/proxy/subscription/${pathToken}` : "",
+        createdAt: subscription.created_at,
+        updatedAt: subscription.updated_at,
+        expiresAt: subscription.expires_at,
+        revokedAt: subscription.revoked_at,
+    };
+}
+
 function serializeProxySession(session, secret = null) {
     return {
         id: session.uid,
@@ -461,6 +494,112 @@ async function authenticateProxyNode(req, res, { sendError, hashOpaqueToken }) {
     return server;
 }
 
+async function requireProxyAccess(req, res, sendError) {
+    if (!req.auth?.user?.id) {
+        sendError(res, 401, "Требуется авторизация.");
+        return false;
+    }
+    if (req.auth.user.role === "owner") {
+        return true;
+    }
+    const allowed = await hasActiveProxySubscriptionForUser(req.auth.user.id);
+    if (!allowed) {
+        sendError(res, 403, "VPN доступ доступен только пользователям с активной подпиской.");
+        return false;
+    }
+    return true;
+}
+
+function buildNaiveUri({ host, username, password, label }) {
+    return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=false#${encodeURIComponent(label)}`;
+}
+
+async function buildSubscriptionProfiles(subscription, { hashOpaqueToken }) {
+    const device = await registerProxyDevice({
+        userId: subscription.user_id,
+        deviceUid: `SUB-${subscription.uid}`,
+        deviceName: `VPN subscription: ${subscription.label || subscription.uid}`,
+        platform: "subscription",
+        appVersion: "subscription",
+        fingerprintHash: hashOpaqueToken(`proxy-subscription:${subscription.uid}`),
+        publicKey: "",
+    });
+    const servers = await listActiveProxyServersForSubscription();
+    const sessionsByServerUid = new Map();
+    const now = Date.now();
+    for (const server of servers) {
+        let session = await getActiveProxySessionForDeviceAndServer(device.id, server.id);
+        let password = session?.secret_ciphertext ? decryptProxyCredential(session.secret_ciphertext) : "";
+        if (!session || !password) {
+            password = generateRandomToken(24);
+            session = await createProxySession({
+                userId: subscription.user_id,
+                deviceId: device.id,
+                serverId: server.id,
+                username: `qbs_${subscription.id}_${server.id}_${generateRandomToken(5)}`,
+                secretHash: hashOpaqueToken(password),
+                secretCiphertext: encryptProxyCredential(password),
+                ipAddress: "",
+                userAgent: "proxy-subscription",
+                expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                refreshAfterAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                rotateDeviceSessions: false,
+            });
+        }
+        sessionsByServerUid.set(server.uid, { session, password, server });
+    }
+
+    const lines = [];
+    for (const server of servers) {
+        const credential = sessionsByServerUid.get(server.uid);
+        if (!credential) continue;
+        const variants = [
+            { host: server.public_domain, name: buildProxyVariantName(server) },
+        ];
+        if (Number(server.supports_ipv4 ?? 1)) {
+            variants.push({
+                host: server.ipv4_domain || server.public_domain,
+                name: buildProxyVariantName(server, "ip4"),
+            });
+        }
+        if (Number(server.supports_ipv6 ?? 1) && (server.ipv6_domain || server.ipv6_address)) {
+            variants.push({
+                host: server.ipv6_domain || server.public_domain,
+                name: buildProxyVariantName(server, "ip6"),
+            });
+        }
+        for (const variant of variants) {
+            if (!variant.host) continue;
+            lines.push(buildNaiveUri({
+                host: variant.host,
+                username: credential.session.username,
+                password: credential.password,
+                label: variant.name,
+            }));
+        }
+    }
+
+    const sniRoutes = await listActiveProxySniRoutesForClient();
+    for (const route of sniRoutes) {
+        const serverUid = route.server_uid || servers[0]?.uid;
+        const credential = sessionsByServerUid.get(serverUid);
+        if (!credential) continue;
+        const baseServer = {
+            name: route.server_name || credential.server.name || route.server_domain || route.route_domain,
+            public_domain: route.server_domain || credential.server.public_domain || route.route_domain,
+        };
+        const familySuffix = route.ip_family === "ipv4" ? "ip4-" : route.ip_family === "ipv6" ? "ip6-" : "";
+        const label = buildProxyVariantName(baseServer, `${familySuffix}sni:${normalizeCatalogLabel(route.target_sni, "target")}`);
+        lines.push(buildNaiveUri({
+            host: route.route_domain,
+            username: credential.session.username,
+            password: credential.password,
+            label,
+        }));
+    }
+    return lines;
+}
+
 async function ensureProxyDefaultServer() {
     const existing = await getProxyServerByDomain(PROXY_PUBLIC_DOMAIN);
     if (existing) {
@@ -494,6 +633,7 @@ function registerProxyRoutes(app, deps) {
 
     app.get("/api/proxy/servers", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const servers = await listProxyServersForClient();
             res.json({ servers: servers.map(serializeProxyServer) });
         } catch (error) {
@@ -503,6 +643,7 @@ function registerProxyRoutes(app, deps) {
 
     app.get("/api/proxy/catalog", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const rawServers = await listProxyServersForClient();
             const sniRoutes = (await listActiveProxySniRoutesForClient()).map(serializeProxySniRouteForClient);
             res.json({
@@ -526,11 +667,34 @@ function registerProxyRoutes(app, deps) {
     });
 
     app.get("/api/proxy/routing-profile", requireAuth, async (req, res) => {
+        if (!(await requireProxyAccess(req, res, sendError))) return;
         res.json(buildProxyRoutingProfile());
+    });
+
+    app.get("/api/proxy/subscription/:token", async (req, res, next) => {
+        try {
+            const token = cleanText(req.params.token, 160);
+            const subscription = await getActiveProxySubscriptionByTokenHash(hashOpaqueToken(token));
+            if (!subscription) {
+                res.status(404).type("text/plain").send("Subscription not found or disabled.\n");
+                return;
+            }
+            const lines = await buildSubscriptionProfiles(subscription, { hashOpaqueToken });
+            const body = `${lines.join("\n")}\n`;
+            res.setHeader("Cache-Control", "no-store");
+            if (String(req.query.format || "").toLowerCase() === "base64") {
+                res.type("text/plain").send(Buffer.from(body, "utf8").toString("base64"));
+                return;
+            }
+            res.type("text/plain").send(body);
+        } catch (error) {
+            next(error);
+        }
     });
 
     app.get("/api/proxy/devices", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const devices = await listProxyDevicesForUser(req.auth.user.id);
             res.json({ devices: devices.map(serializeProxyDevice) });
         } catch (error) {
@@ -540,6 +704,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/devices/register", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const deviceUid = normalizeProxyDeviceUid(req.body?.deviceId, cleanText);
             const fingerprint = cleanText(req.body?.fingerprint, 512);
             const fingerprintHash = fingerprint ? hashOpaqueToken(fingerprint) : "";
@@ -578,6 +743,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/session/start", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const deviceUid = normalizeProxyDeviceUid(req.body?.deviceId, cleanText);
             if (!deviceUid) {
                 sendError(res, 400, "Нужен deviceId.", "deviceId");
@@ -631,6 +797,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/session/refresh", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const sessionUid = cleanText(req.body?.sessionId, 80);
             const session = await getActiveProxySessionForUser(sessionUid, req.auth.user.id);
             if (!session) {
@@ -664,6 +831,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/session/stop", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const sessionUid = cleanText(req.body?.sessionId, 80);
             const session = await getActiveProxySessionForUser(sessionUid, req.auth.user.id);
             if (!session) {
@@ -688,6 +856,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/devices/:deviceId/revoke", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const deviceUid = normalizeProxyDeviceUid(req.params.deviceId, cleanText);
             const device = await revokeProxyDevice(req.auth.user.id, deviceUid);
             if (!device) {
@@ -709,6 +878,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/events/heartbeat", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const deviceUid = normalizeProxyDeviceUid(req.body?.deviceId, cleanText);
             const device = await getProxyDeviceByUid(req.auth.user.id, deviceUid);
             if (!device || device.status !== "active" || device.revoked_at) {
@@ -732,6 +902,7 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/proxy/events/traffic", requireAuth, async (req, res, next) => {
         try {
+            if (!(await requireProxyAccess(req, res, sendError))) return;
             const deviceUid = normalizeProxyDeviceUid(req.body?.deviceId, cleanText);
             const sessionUid = cleanText(req.body?.sessionId, 80);
             const device = await getProxyDeviceByUid(req.auth.user.id, deviceUid);
@@ -741,8 +912,17 @@ function registerProxyRoutes(app, deps) {
                 return;
             }
             await touchProxyDevice(device.id);
+            let subscriptionNoLogs = false;
+            if (String(device.uid || "").startsWith("SUB-SUB-")) {
+                const subscription = await getProxySubscriptionByUid(String(device.uid).slice(4));
+                subscriptionNoLogs = Boolean(Number(subscription?.no_logs || 0));
+            }
             if (isProxyNoLogsUser(req.auth.user)) {
                 res.json({ saved: false, privacy: "no_logs" });
+                return;
+            }
+            if (subscriptionNoLogs) {
+                res.json({ saved: false, privacy: "subscription_no_logs" });
                 return;
             }
             let saved = 0;
@@ -929,6 +1109,96 @@ function registerProxyRoutes(app, deps) {
         try {
             const routes = await listProxySniRoutesForAdmin();
             res.json({ items: routes.map(serializeProxySniRoute) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.get("/api/admin/proxy-subscriptions", requireOwner, async (req, res, next) => {
+        try {
+            const subscriptions = await listProxySubscriptionsForAdmin();
+            res.json({ items: subscriptions.map((item) => serializeProxySubscriptionForAdmin(item)) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/api/admin/proxy-subscriptions", requireOwner, async (req, res, next) => {
+        try {
+            const userId = Number(req.body?.userId);
+            const user = await getUserById(userId);
+            if (!user) {
+                sendError(res, 404, "Пользователь для VPN-подписки не найден.", "userId");
+                return;
+            }
+            const token = `qbs_${generateRandomToken(32)}`;
+            const subscription = await createProxySubscription({
+                userId,
+                tokenHash: hashOpaqueToken(token),
+                label: cleanText(req.body?.label, 80) || `vpn-${user.login || user.uid}`,
+                status: "active",
+                noLogs: Boolean(req.body?.noLogs),
+                expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
+            });
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.subscription.create",
+                entityType: "proxy_subscription",
+                entityId: subscription.uid,
+                summary: `Выдана VPN-подписка ${subscription.label || subscription.uid} для @${user.login}`,
+            });
+            res.status(201).json({ item: serializeProxySubscriptionForAdmin(subscription, token), token });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.patch("/api/admin/proxy-subscriptions/:subscriptionUid", requireOwner, async (req, res, next) => {
+        try {
+            const status = req.body?.status === undefined ? undefined : cleanText(req.body.status, 20).toLowerCase();
+            if (status !== undefined && !["active", "disabled", "revoked"].includes(status)) {
+                sendError(res, 400, "Неизвестный статус VPN-подписки.", "status");
+                return;
+            }
+            const subscription = await updateProxySubscription({
+                uid: cleanText(req.params.subscriptionUid, 80),
+                label: req.body?.label === undefined ? undefined : cleanText(req.body.label, 80),
+                status,
+                noLogs: req.body?.noLogs === undefined ? undefined : Boolean(req.body.noLogs),
+            });
+            if (!subscription) {
+                sendError(res, 404, "VPN-подписка не найдена.");
+                return;
+            }
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.subscription.update",
+                entityType: "proxy_subscription",
+                entityId: subscription.uid,
+                summary: `Обновлена VPN-подписка ${subscription.label || subscription.uid}`,
+                payload: req.body || {},
+            });
+            res.json({ item: serializeProxySubscriptionForAdmin(subscription) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.delete("/api/admin/proxy-subscriptions/:subscriptionUid", requireOwner, async (req, res, next) => {
+        try {
+            const subscription = await deleteProxySubscription(cleanText(req.params.subscriptionUid, 80));
+            if (!subscription) {
+                sendError(res, 404, "VPN-подписка не найдена.");
+                return;
+            }
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.subscription.delete",
+                entityType: "proxy_subscription",
+                entityId: subscription.uid,
+                summary: `Удалена VPN-подписка ${subscription.label || subscription.uid}`,
+            });
+            res.json({ ok: true });
         } catch (error) {
             next(error);
         }

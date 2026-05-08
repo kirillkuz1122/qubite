@@ -542,6 +542,21 @@ async function initializeDatabase(options = {}) {
             FOREIGN KEY (server_id) REFERENCES proxy_servers (id) ON DELETE SET NULL
         );
 
+        CREATE TABLE IF NOT EXISTS proxy_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active',
+            no_logs INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            expires_at TEXT DEFAULT NULL,
+            revoked_at TEXT DEFAULT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS proxy_devices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uid TEXT NOT NULL UNIQUE,
@@ -1038,6 +1053,8 @@ async function initializeDatabase(options = {}) {
         CREATE INDEX IF NOT EXISTS idx_proxy_servers_status_priority ON proxy_servers (status, priority, weight);
         CREATE INDEX IF NOT EXISTS idx_proxy_sni_routes_server_status ON proxy_sni_routes (server_id, status, route_domain);
         CREATE INDEX IF NOT EXISTS idx_proxy_sni_routes_status_family ON proxy_sni_routes (status, ip_family);
+        CREATE INDEX IF NOT EXISTS idx_proxy_subscriptions_user_status ON proxy_subscriptions (user_id, status, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_proxy_subscriptions_token ON proxy_subscriptions (token_hash);
         CREATE INDEX IF NOT EXISTS idx_proxy_devices_user_status ON proxy_devices (user_id, status, updated_at DESC);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_proxy_devices_user_fingerprint
         ON proxy_devices (user_id, fingerprint_hash)
@@ -1093,6 +1110,7 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_servers", "supports_ipv4", "INTEGER NOT NULL DEFAULT 1");
     await ensureColumn("proxy_servers", "supports_ipv6", "INTEGER NOT NULL DEFAULT 1");
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
+    await ensureColumn("proxy_subscriptions", "no_logs", "INTEGER NOT NULL DEFAULT 0");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
@@ -3114,6 +3132,17 @@ async function listActiveProxySniRoutesForClient() {
     );
 }
 
+async function listActiveProxyServersForSubscription() {
+    return all(
+        `
+            SELECT *
+            FROM proxy_servers
+            WHERE status = 'active'
+            ORDER BY priority ASC, weight DESC, id ASC
+        `,
+    );
+}
+
 async function getProxySniRouteByUid(routeUid) {
     return get("SELECT * FROM proxy_sni_routes WHERE uid = ?", [routeUid]);
 }
@@ -3214,6 +3243,159 @@ async function deleteProxySniRoute(routeUid) {
         return null;
     }
     await run("DELETE FROM proxy_sni_routes WHERE uid = ?", [routeUid]);
+    return current;
+}
+
+async function createProxySubscription(payload) {
+    const timestamp = nowIso();
+    const result = await run(
+        `
+            INSERT INTO proxy_subscriptions (
+                uid,
+                user_id,
+                token_hash,
+                label,
+                status,
+                no_logs,
+                created_at,
+                updated_at,
+                expires_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            payload.uid || makeUid("SUB"),
+            payload.userId,
+            payload.tokenHash,
+            payload.label || "",
+            payload.status || "active",
+            payload.noLogs ? 1 : 0,
+            timestamp,
+            timestamp,
+            payload.expiresAt || null,
+        ],
+    );
+    return getProxySubscriptionById(result.lastID);
+}
+
+async function getProxySubscriptionById(subscriptionId) {
+    return get(
+        `
+            SELECT psu.*, u.uid AS user_uid, u.login AS user_login, u.email AS user_email, u.status AS user_status
+            FROM proxy_subscriptions psu
+            JOIN users u ON u.id = psu.user_id
+            WHERE psu.id = ?
+        `,
+        [subscriptionId],
+    );
+}
+
+async function getProxySubscriptionByUid(subscriptionUid) {
+    return get(
+        `
+            SELECT psu.*, u.uid AS user_uid, u.login AS user_login, u.email AS user_email, u.status AS user_status
+            FROM proxy_subscriptions psu
+            JOIN users u ON u.id = psu.user_id
+            WHERE psu.uid = ?
+        `,
+        [subscriptionUid],
+    );
+}
+
+async function getActiveProxySubscriptionByTokenHash(tokenHash) {
+    return get(
+        `
+            SELECT psu.*, u.uid AS user_uid, u.login AS user_login, u.email AS user_email, u.status AS user_status
+            FROM proxy_subscriptions psu
+            JOIN users u ON u.id = psu.user_id
+            WHERE psu.token_hash = ?
+              AND psu.status = 'active'
+              AND psu.revoked_at IS NULL
+              AND u.status = 'active'
+              AND (psu.expires_at IS NULL OR psu.expires_at > ?)
+            LIMIT 1
+        `,
+        [tokenHash, nowIso()],
+    );
+}
+
+async function listProxySubscriptionsForAdmin() {
+    return all(
+        `
+            SELECT psu.*, u.uid AS user_uid, u.login AS user_login, u.email AS user_email, u.status AS user_status
+            FROM proxy_subscriptions psu
+            JOIN users u ON u.id = psu.user_id
+            ORDER BY psu.updated_at DESC
+            LIMIT 300
+        `,
+    );
+}
+
+async function hasActiveProxySubscriptionForUser(userId) {
+    const row = await get(
+        `
+            SELECT id
+            FROM proxy_subscriptions
+            WHERE user_id = ?
+              AND status = 'active'
+              AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at > ?)
+            LIMIT 1
+        `,
+        [userId, nowIso()],
+    );
+    return Boolean(row);
+}
+
+async function revokeProxySubscription(subscriptionUid) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_subscriptions
+            SET status = 'revoked', revoked_at = ?, updated_at = ?
+            WHERE uid = ?
+        `,
+        [timestamp, timestamp, subscriptionUid],
+    );
+    return get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
+}
+
+async function updateProxySubscription(payload) {
+    const current = await get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [payload.uid]);
+    if (!current) {
+        return null;
+    }
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_subscriptions
+            SET
+                label = ?,
+                status = ?,
+                no_logs = ?,
+                updated_at = ?,
+                revoked_at = CASE WHEN ? = 'revoked' THEN ? ELSE revoked_at END
+            WHERE uid = ?
+        `,
+        [
+            payload.label ?? current.label,
+            payload.status ?? current.status,
+            payload.noLogs === undefined ? Number(current.no_logs || 0) : (payload.noLogs ? 1 : 0),
+            timestamp,
+            payload.status ?? current.status,
+            timestamp,
+            payload.uid,
+        ],
+    );
+    return getProxySubscriptionById(current.id);
+}
+
+async function deleteProxySubscription(subscriptionUid) {
+    const current = await get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
+    if (!current) {
+        return null;
+    }
+    await run("DELETE FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
     return current;
 }
 
@@ -3348,16 +3530,18 @@ async function listProxyDevicesForUser(userId) {
 
 async function createProxySession(payload) {
     const timestamp = nowIso();
-    await run(
-        `
-            UPDATE proxy_sessions
-            SET status = 'rotated', revoked_at = ?, updated_at = ?
-            WHERE device_id = ?
-              AND status = 'active'
-              AND revoked_at IS NULL
-        `,
-        [timestamp, timestamp, payload.deviceId],
-    );
+    if (payload.rotateDeviceSessions !== false) {
+        await run(
+            `
+                UPDATE proxy_sessions
+                SET status = 'rotated', revoked_at = ?, updated_at = ?
+                WHERE device_id = ?
+                  AND status = 'active'
+                  AND revoked_at IS NULL
+            `,
+            [timestamp, timestamp, payload.deviceId],
+        );
+    }
 
     const result = await run(
         `
@@ -3397,6 +3581,24 @@ async function createProxySession(payload) {
     );
 
     return getProxySessionById(result.lastID);
+}
+
+async function getActiveProxySessionForDeviceAndServer(deviceId, serverId) {
+    return get(
+        `
+            SELECT ps.*, psv.uid AS server_uid, psv.name AS server_name, psv.public_domain, psv.proxy_url, psv.region
+            FROM proxy_sessions ps
+            JOIN proxy_servers psv ON psv.id = ps.server_id
+            WHERE ps.device_id = ?
+              AND ps.server_id = ?
+              AND ps.status = 'active'
+              AND ps.revoked_at IS NULL
+              AND ps.expires_at > ?
+            ORDER BY ps.updated_at DESC
+            LIMIT 1
+        `,
+        [deviceId, serverId, nowIso()],
+    );
 }
 
 async function getProxySessionById(sessionId) {
@@ -8585,6 +8787,7 @@ module.exports = {
     createProxySession,
     createProxyTrafficLog,
     createSession,
+    createProxySubscription,
     createTournamentHelperCodes,
     createTaskRevision,
     createTask,
@@ -8595,6 +8798,7 @@ module.exports = {
     deleteAdminTeam,
     deleteAdminTournament,
     deleteAdminUserHard,
+    deleteProxySubscription,
     deleteProxySniRoute,
     deleteOrganizerTournament,
     ensureDailyTournamentForDate,
@@ -8628,6 +8832,9 @@ module.exports = {
     getProxyServerByUid,
     getProxySniRouteByDomain,
     getProxySniRouteByUid,
+    getProxySubscriptionById,
+    getProxySubscriptionByUid,
+    getActiveProxySubscriptionByTokenHash,
     getProxyTrafficSummary,
     getTaskById,
     getTeamById,
@@ -8639,6 +8846,7 @@ module.exports = {
     getTournaments,
     getUserById,
     hasPendingOrganizerApplication,
+    hasActiveProxySubscriptionForUser,
     incrementAuthChallengeAttempts,
     initializeDatabase,
     isIpBlocked,
@@ -8649,6 +8857,7 @@ module.exports = {
     listActiveProxySessionsForSync,
     listActiveProxySniRoutesForClient,
     listActiveProxySniRoutesForSync,
+    listActiveProxyServersForSubscription,
     listAdminTasks,
     listAdminTeams,
     listAdminTournaments,
@@ -8664,6 +8873,7 @@ module.exports = {
     listProxyServersForAdmin,
     listProxyServersForClient,
     listProxySniRoutesForAdmin,
+    listProxySubscriptionsForAdmin,
     listProxyTrafficLogs,
     listSessionsForUser,
     listTaskBank,
@@ -8700,6 +8910,7 @@ module.exports = {
     reviewTaskModeration,
     revokeProxyDevice,
     revokeProxySession,
+    revokeProxySubscription,
     recordProxyServerHeartbeat,
     revokeActiveAuthChallengesForUser,
     revokeSessionById,
@@ -8724,6 +8935,7 @@ module.exports = {
     setUserRole,
     updateUserSecuritySettings,
     updateProxyServer,
+    updateProxySubscription,
     updateProxySniRoute,
     submitTaskForModeration,
     submitTournamentTaskAnswer,
@@ -8735,6 +8947,7 @@ module.exports = {
     leaveTeam,
     saveSystemStats,
     getSystemStatsHistory,
+    getActiveProxySessionForDeviceAndServer,
     aggregateSystemStats,
     logSiteVisit,
     logEmailSent,

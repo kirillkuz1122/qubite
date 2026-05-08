@@ -1042,6 +1042,10 @@ function getAdminProxySniRoutesState() {
     return apiClient?.state?.adminProxySniRoutes || [];
 }
 
+function getAdminProxySubscriptionsState() {
+    return apiClient?.state?.adminProxySubscriptions || [];
+}
+
 function getAdminProxyLogsState() {
     return apiClient?.state?.adminProxyLogs || [];
 }
@@ -13200,6 +13204,7 @@ function scrollMessagesToBottom() {
 function renderProxyServersView() {
     const servers = getAdminProxyServersState();
     const sniRoutes = getAdminProxySniRoutesState();
+    const subscriptions = getAdminProxySubscriptionsState();
     const logs = getAdminProxyLogsState();
     const users = getAdminUsersState();
     const protectedUsers = users.filter((user) => user.proxyNoLogs);
@@ -13217,6 +13222,7 @@ function renderProxyServersView() {
                 </div>
                 <div class="ops-header__actions">
                     <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
+                    <button class="btn btn--accent" type="button" id="proxyCreateSubscriptionBtn">Выдать VPN</button>
                     <button class="btn btn--muted" type="button" id="proxyCreateSniRouteBtn">Добавить SNI</button>
                     <button class="btn btn--muted" type="button" id="proxyRefreshServersBtn">Обновить</button>
                 </div>
@@ -13240,6 +13246,12 @@ function renderProxyServersView() {
                     title: "SNI-маршруты",
                     desc: "Домены для маскировки: приложение получает их отдельным списком, а Caddy редиректит обычный браузер на указанный сайт.",
                     body: renderProxySniRoutesList(sniRoutes),
+                    className: "ops-panel--primary",
+                })}
+                ${renderOpsPanel({
+                    title: "VPN-подписки",
+                    desc: "Только пользователи с активной подпиской получают proxy catalog, ключи и subscription link.",
+                    body: renderProxySubscriptionsList(subscriptions),
                     className: "ops-panel--primary",
                 })}
                 ${renderOpsPanel({
@@ -13314,6 +13326,33 @@ function renderProxySniRoutesList(routes) {
     `;
 }
 
+function renderProxySubscriptionsList(subscriptions) {
+    if (!subscriptions.length) {
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Выдай подписку пользователю сайта, чтобы он получил доступ к VPN API и subscription link.</div></div>`;
+    }
+    return `
+        <div class="ops-admin-list">
+            ${subscriptions.map((subscription) => {
+                const statusLabel = subscription.status === "active" ? "Активна" : subscription.status === "disabled" ? "Отключена" : "Отозвана";
+                return `
+                    <div class="ops-admin-row glass-panel" data-view-anim>
+                        <div class="ops-admin-row__main">
+                            <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}</div>
+                            <div class="ops-admin-row__meta">@${escapeHtml(subscription.user?.login || "unknown")} • ${escapeHtml(subscription.user?.email || "")} • ${escapeHtml(statusLabel)}${subscription.noLogs ? " • no-log" : ""}</div>
+                            <div class="ops-admin-row__meta">${subscription.url ? escapeHtml(subscription.url) : "URL показывается только при создании или перевыпуске"}</div>
+                        </div>
+                        <div class="ops-admin-row__controls">
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-toggle="${escapeHtml(subscription.id)}" data-next-status="${subscription.status === "active" ? "disabled" : "active"}">${subscription.status === "active" ? "Отключить" : "Включить"}</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-nolog="${escapeHtml(subscription.id)}" data-next-nolog="${subscription.noLogs ? "0" : "1"}">${subscription.noLogs ? "Логи on" : "No-log"}</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-delete="${escapeHtml(subscription.id)}">Удалить</button>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
 function renderProxyLogsList(logs) {
     if (!logs.length) {
         return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Логов пока нет</div><div class="admin-home-feed__empty-desc">Приложение начнёт отправлять traffic events после подключения к proxy API.</div></div>`;
@@ -13374,11 +13413,40 @@ function initProxyServersInteractions(container) {
         try {
             await apiClient.loadAdminProxyServers();
             await apiClient.loadAdminProxySniRoutes();
+            await apiClient.loadAdminProxySubscriptions();
             await apiClient.loadAdminProxyLogs({ limit: 120 });
             container.innerHTML = renderProxyServersView();
             initProxyServersInteractions(container);
         } catch (error) {
             showRequestError("Прокси", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
+    container.querySelector("#proxyCreateSubscriptionBtn")?.addEventListener("click", async () => {
+        const users = getAdminUsersState();
+        const userHint = users.slice(0, 80).map((user, index) => `${index + 1}: @${user.login} ${user.email || ""}`).join("\n");
+        const choice = window.prompt(`Кому выдать VPN-подписку? Введи номер, id или login.\n${userHint}`, "");
+        if (!choice) return;
+        const selected = users[Number(choice) - 1] || users.find((user) => String(user.id) === choice || user.login === choice.replace(/^@/, ""));
+        if (!selected) {
+            Toast.show("Прокси", "Пользователь не найден в загруженном списке.", "error");
+            return;
+        }
+        const label = window.prompt("Название VPN-аккаунта, например family-ru1", `vpn-${selected.login}`) || `vpn-${selected.login}`;
+        Loader.show();
+        try {
+            const data = await apiClient.createAdminProxySubscription({
+                userId: selected.id,
+                label,
+                noLogs: false,
+            });
+            Toast.show("VPN подписка", `Ссылка: <b>${escapeHtml(data.item.url)}</b>`, "success", 30000, { html: true });
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("VPN-подписка", error);
         } finally {
             Loader.hide(300);
         }
@@ -13518,6 +13586,59 @@ function initProxyServersInteractions(container) {
                 initProxyServersInteractions(container);
             } catch (error) {
                 showRequestError("Прокси", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-toggle]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySubscription(button.dataset.proxySubToggle, {
+                    status: button.dataset.nextStatus,
+                });
+                Toast.show("VPN подписка", "Статус обновлён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-nolog]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySubscription(button.dataset.proxySubNolog, {
+                    noLogs: button.dataset.nextNolog === "1",
+                });
+                Toast.show("VPN подписка", "No-log флаг обновлён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-delete]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            if (!window.confirm("Удалить VPN-подписку? Ссылка перестанет работать.")) return;
+            Loader.show();
+            try {
+                await apiClient.deleteAdminProxySubscription(button.dataset.proxySubDelete);
+                Toast.show("VPN подписка", "Удалена.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
             } finally {
                 Loader.hide(300);
             }
@@ -13678,6 +13799,7 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
             Promise.all([
                 apiClient.loadAdminProxyServers(),
                 apiClient.loadAdminProxySniRoutes(),
+                apiClient.loadAdminProxySubscriptions(),
                 apiClient.loadAdminProxyLogs({ limit: 120 }),
                 apiClient.loadAdminUsers(),
             ])
