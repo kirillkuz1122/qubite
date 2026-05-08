@@ -1587,8 +1587,22 @@ function registerProxyRoutes(app, deps) {
     // Node-reported traffic from Caddy access logs (proxy-log-reporter.mjs)
     app.post("/api/proxy/node/traffic", async (req, res, next) => {
         try {
-            const server = await authenticateProxyNode(req, res, { sendError, hashOpaqueToken });
-            if (!server) return;
+            let server = null;
+            // Accept PROXY_SYNC_TOKEN (for master-local reporter) or node token
+            const header = String(req.headers.authorization || "");
+            const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+            if (PROXY_SYNC_TOKEN && token) {
+                const left = Buffer.from(hashOpaqueToken(token), "hex");
+                const right = Buffer.from(hashOpaqueToken(PROXY_SYNC_TOKEN), "hex");
+                if (left.length === right.length && crypto.timingSafeEqual(left, right)) {
+                    const domain = cleanText(req.query.domain || PROXY_PUBLIC_DOMAIN, 120).toLowerCase();
+                    server = domain ? await getProxyServerByDomain(domain) : null;
+                }
+            }
+            if (!server) {
+                server = await authenticateProxyNode(req, res, { sendError, hashOpaqueToken });
+                if (!server) return;
+            }
             if (server.status !== "active") {
                 sendError(res, 403, "Proxy node is disabled.");
                 return;
