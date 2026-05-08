@@ -1,9 +1,12 @@
 {
     order forward_proxy before reverse_proxy
     admin 127.0.0.1:2019
+    # Caddy listens on 18443 behind the nginx SNI router (port 443).
+    # TLS is still terminated here; nginx passes raw TCP without decryption.
+    default_bind 0.0.0.0
 }
 
-https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.qubiteapp.online, :443 {
+https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.qubiteapp.online, :18443 {
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy
@@ -13,6 +16,14 @@ https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.
         }
 
         redir https://qubiteapp.ru{uri} 302
+    }
+
+    log {
+        output file /var/log/caddy/proxy-access.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
     }
 }
 

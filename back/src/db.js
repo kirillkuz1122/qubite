@@ -3351,6 +3351,20 @@ async function hasActiveProxySubscriptionForUser(userId) {
     return Boolean(row);
 }
 
+async function listActiveProxySubscriptionsForSync() {
+    return all(
+        `
+            SELECT uid
+            FROM proxy_subscriptions
+            WHERE status = 'active'
+              AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY id ASC
+        `,
+        [nowIso()],
+    );
+}
+
 async function revokeProxySubscription(subscriptionUid) {
     const timestamp = nowIso();
     await run(
@@ -3657,6 +3671,23 @@ async function getActiveProxySessionForUser(sessionUid, userId) {
               AND ps.expires_at > ?
         `,
         [sessionUid, userId, nowIso()],
+    );
+}
+
+async function getActiveProxySessionByUsername(username) {
+    return get(
+        `
+            SELECT ps.*, pd.uid AS device_uid, psv.uid AS server_uid,
+                   psv.public_domain, psv.proxy_url, psv.region
+            FROM proxy_sessions ps
+            JOIN proxy_devices pd ON pd.id = ps.device_id
+            JOIN proxy_servers psv ON psv.id = ps.server_id
+            WHERE ps.username = ?
+              AND ps.status = 'active'
+              AND ps.revoked_at IS NULL
+              AND ps.expires_at > ?
+        `,
+        [username, nowIso()],
     );
 }
 
@@ -8865,6 +8896,7 @@ module.exports = {
     getOwnerUser,
     getPlatformMetrics,
     getPrimaryTournament,
+    getActiveProxySessionByUsername,
     getActiveProxySessionForUser,
     getDefaultProxyServer,
     getSessionByUserAndId,
@@ -8890,6 +8922,7 @@ module.exports = {
     getUserById,
     hasPendingOrganizerApplication,
     hasActiveProxySubscriptionForUser,
+    listActiveProxySubscriptionsForSync,
     incrementAuthChallengeAttempts,
     initializeDatabase,
     isIpBlocked,

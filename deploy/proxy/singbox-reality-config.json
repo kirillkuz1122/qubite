@@ -1,0 +1,37 @@
+{
+  "log": {
+    "level": "info",
+    "output": "/var/log/singbox/reality.log",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-reality-in",
+      "listen": "127.0.0.1",
+      "listen_port": 18444,
+      "users": [],
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "www.microsoft.com",
+            "server_port": 443
+          },
+          "private_key": "REPLACE_WITH_PRIVATE_KEY",
+          "short_id": [
+            "deadbeef"
+          ]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ]
+}

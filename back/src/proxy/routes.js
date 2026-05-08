@@ -20,6 +20,7 @@ const {
     createUser,
     deleteProxySubscription,
     deleteProxySniRoute,
+    getActiveProxySessionByUsername,
     getActiveProxySessionForUser,
     getDefaultProxyServer,
     getProxyDeviceByUid,
@@ -34,6 +35,7 @@ const {
     getProxyTrafficSummary,
     getUserById,
     hasActiveProxySubscriptionForUser,
+    listActiveProxySubscriptionsForSync,
     listActiveProxySessionsForSync,
     listActiveProxyServersForSubscription,
     listActiveProxySniRoutesForClient,
@@ -522,7 +524,37 @@ async function requireProxyAccess(req, res, sendError) {
 }
 
 function buildNaiveUri({ host, username, password, label }) {
-    return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=false#${encodeURIComponent(label)}`;
+    return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=true#${encodeURIComponent(label)}`;
+}
+
+const VLESS_UUID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+function deriveVlessUuid(subscriptionUid) {
+    const hash = crypto.createHash("sha1")
+        .update(Buffer.from(VLESS_UUID_NAMESPACE.replace(/-/g, ""), "hex"))
+        .update(String(subscriptionUid))
+        .digest("hex");
+    return [
+        hash.slice(0, 8),
+        hash.slice(8, 12),
+        "5" + hash.slice(13, 16),
+        ((parseInt(hash.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0") + hash.slice(18, 20),
+        hash.slice(20, 32),
+    ].join("-");
+}
+
+function buildVlessUri({ host, uuid, label, serverName, publicKey, shortId, port = 443 }) {
+    const params = new URLSearchParams({
+        encryption: "none",
+        flow: "xtls-rprx-vision",
+        security: "reality",
+        sni: serverName,
+        fp: "chrome",
+        pbk: publicKey,
+        sid: shortId,
+        type: "tcp",
+    });
+    return `vless://${uuid}@${host}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
 }
 
 async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken }) {
@@ -608,6 +640,27 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
             label,
         }));
     }
+
+    // VLESS+Reality links for servers that have Reality configured
+    const vlessUuid = deriveVlessUuid(subscription.uid);
+    for (const server of servers) {
+        let metadata = {};
+        try { metadata = JSON.parse(server.metadata || "{}"); } catch (_) {}
+        const reality = metadata.reality;
+        if (!reality || !reality.publicKey || !reality.shortId) continue;
+        const host = server.ipv4_domain || server.public_domain;
+        const label = buildProxyVariantName(server, "reality");
+        lines.push(buildVlessUri({
+            host,
+            uuid: vlessUuid,
+            label,
+            serverName: reality.targetSni || "www.microsoft.com",
+            publicKey: reality.publicKey,
+            shortId: reality.shortId,
+            port: Number(reality.port || 443),
+        }));
+    }
+
     return lines;
 }
 
@@ -1499,6 +1552,7 @@ function registerProxyRoutes(app, deps) {
             }
             const sessions = await listActiveProxySessionsForSync({ publicDomain });
             const sniRoutes = await listActiveProxySniRoutesForSync({ publicDomain });
+            const activeSubscriptions = await listActiveProxySubscriptionsForSync();
             res.json({
                 generatedAt: new Date().toISOString(),
                 domain: publicDomain || PROXY_PUBLIC_DOMAIN,
@@ -1520,7 +1574,54 @@ function registerProxyRoutes(app, deps) {
                     redirectUrl: route.redirect_url,
                     ipFamily: route.ip_family || "auto",
                 })),
+                realityUsers: activeSubscriptions.map((sub) => ({
+                    uid: sub.uid,
+                    uuid: deriveVlessUuid(sub.uid),
+                })),
             });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    // Node-reported traffic from Caddy access logs (proxy-log-reporter.mjs)
+    app.post("/api/proxy/node/traffic", async (req, res, next) => {
+        try {
+            const server = await authenticateProxyNode(req, res, { sendError, hashOpaqueToken });
+            if (!server) return;
+            if (server.status !== "active") {
+                sendError(res, 403, "Proxy node is disabled.");
+                return;
+            }
+            const events = Array.isArray(req.body?.events) ? req.body.events.slice(0, 500) : [];
+            let saved = 0;
+            for (const event of events) {
+                const username = cleanText(event.username, 120);
+                const destinationHost = sanitizeDestinationHost(event.destinationHost || event.host);
+                if (!username || !destinationHost) continue;
+
+                const session = await getActiveProxySessionByUsername(username);
+                if (!session) continue;
+
+                await createProxyTrafficLog({
+                    userId: session.user_id,
+                    deviceId: session.device_id,
+                    sessionId: session.id,
+                    serverId: server.id,
+                    destinationHost,
+                    destinationPort: Number(event.destinationPort || event.port || 443),
+                    action: "proxy",
+                    transport: "https",
+                    requestCount: Number(event.requestCount || 1),
+                    bytesUp: Number(event.bytesUp || 0),
+                    bytesDown: Number(event.bytesDown || 0),
+                    statusCode: Number(event.statusCode || 0),
+                    appVersion: "node-reporter",
+                    details: { source: "caddy-log", nodeUid: server.uid },
+                });
+                saved += 1;
+            }
+            res.json({ saved: true, count: saved });
         } catch (error) {
             next(error);
         }

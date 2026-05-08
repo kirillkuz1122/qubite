@@ -30,11 +30,13 @@ ask MASTER_API_BASE_URL "Master Qubite API base URL" "https://${MAIN_SITE_DOMAIN
 ask PROXY_NODE_TOKEN "Node token from owner panel" "" secret
 
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y golang-go git nodejs curl libcap2-bin ufw
+DEBIAN_FRONTEND=noninteractive apt-get install -y golang-go git nodejs curl libcap2-bin ufw nginx
 
 if [[ -f /etc/default/ufw ]]; then
   sed -i 's/^IPV6=.*/IPV6=yes/' /etc/default/ufw
 fi
+
+# --- Build Caddy with NaiveProxy (klzgrad fork) ---
 
 if [[ ! -x /usr/local/bin/xcaddy ]]; then
   GOBIN=/usr/local/bin go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
@@ -42,8 +44,41 @@ fi
 
 /usr/local/bin/xcaddy build \
   --output /usr/local/bin/caddy-naive \
-  --with github.com/caddyserver/forwardproxy@caddy2
+  --with github.com/klzgrad/forwardproxy@naive
 setcap cap_net_bind_service=+ep /usr/local/bin/caddy-naive || true
+
+# --- Install sing-box for VLESS+Reality ---
+
+if ! command -v sing-box >/dev/null 2>&1; then
+  SINGBOX_VERSION="1.11.0"
+  SINGBOX_ARCH="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
+  SINGBOX_URL="https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}.tar.gz"
+  curl -fsSL "$SINGBOX_URL" -o /tmp/sing-box.tar.gz
+  tar -xzf /tmp/sing-box.tar.gz -C /tmp
+  cp "/tmp/sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}/sing-box" /usr/local/bin/sing-box
+  chmod +x /usr/local/bin/sing-box
+  rm -rf /tmp/sing-box* || true
+fi
+
+# Generate Reality keypair if not provided
+REALITY_PRIVATE_KEY="${REALITY_PRIVATE_KEY:-}"
+REALITY_PUBLIC_KEY="${REALITY_PUBLIC_KEY:-}"
+REALITY_SHORT_ID="${REALITY_SHORT_ID:-$(openssl rand -hex 4)}"
+REALITY_TARGET_SNI="${REALITY_TARGET_SNI:-www.microsoft.com}"
+
+if [[ -z "$REALITY_PRIVATE_KEY" ]]; then
+  echo "Generating Reality keypair..."
+  KEYPAIR="$(sing-box generate reality-keypair)"
+  REALITY_PRIVATE_KEY="$(echo "$KEYPAIR" | grep -oP 'PrivateKey: \K.*')"
+  REALITY_PUBLIC_KEY="$(echo "$KEYPAIR" | grep -oP 'PublicKey: \K.*')"
+  echo "Reality public key: ${REALITY_PUBLIC_KEY}"
+  echo "Reality short ID:   ${REALITY_SHORT_ID}"
+  echo ""
+  echo "SAVE THESE! You need the public key and short ID for the admin panel."
+  echo ""
+fi
+
+# --- Caddy config (listens on 18443, behind nginx SNI router) ---
 
 mkdir -p /etc/caddy /var/lib/caddy /var/log/caddy
 cat >/etc/caddy/forwardproxy-credentials.caddy <<'EOF_CREDS'
@@ -66,9 +101,10 @@ cat >/etc/caddy/Caddyfile <<EOF_CADDY
 {
     order forward_proxy before reverse_proxy
     admin 127.0.0.1:2019
+    default_bind 0.0.0.0
 }
 
-https://${PROXY_SITE_NAMES}, :443 {
+https://${PROXY_SITE_NAMES}, :18443 {
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy
@@ -79,13 +115,83 @@ https://${PROXY_SITE_NAMES}, :443 {
 
         redir https://${MAIN_SITE_DOMAIN}{uri} 302
     }
+
+    log {
+        output file /var/log/caddy/proxy-access.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
+    }
 }
 
 import /etc/caddy/qubite-sni-routes.caddy
 EOF_CADDY
 
+# --- sing-box Reality config ---
+
+mkdir -p /etc/singbox /var/log/singbox
+cat >/etc/singbox/config.json <<EOF_SINGBOX
+{
+  "log": {
+    "level": "info",
+    "output": "/var/log/singbox/reality.log",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-reality-in",
+      "listen": "127.0.0.1",
+      "listen_port": 18444,
+      "users": [],
+      "tls": {
+        "enabled": true,
+        "server_name": "${REALITY_TARGET_SNI}",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "${REALITY_TARGET_SNI}",
+            "server_port": 443
+          },
+          "private_key": "${REALITY_PRIVATE_KEY}",
+          "short_id": ["${REALITY_SHORT_ID}"]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    { "type": "direct", "tag": "direct" }
+  ]
+}
+EOF_SINGBOX
+chmod 600 /etc/singbox/config.json
+
+# --- nginx SNI router on port 443 ---
+
+# Ensure nginx has stream module support
+if ! nginx -V 2>&1 | grep -q "with-stream"; then
+  echo "WARNING: nginx does not have stream module. SNI routing may not work."
+fi
+
+mkdir -p /etc/nginx/stream.d
+
+# Add stream include to main nginx.conf if not present
+if ! grep -q "stream.d" /etc/nginx/nginx.conf; then
+  sed -i '/^http {/i\
+include /etc/nginx/stream.d/*.conf;' /etc/nginx/nginx.conf
+fi
+
+cp "$REPO_DIR/deploy/proxy/nginx-sni-router.conf" /etc/nginx/stream.d/sni-router.conf
+
+# Remove default nginx sites that listen on 443 (Caddy handles TLS now)
+rm -f /etc/nginx/sites-enabled/default
+
 SYNC_URL="${MASTER_API_BASE_URL%/}/api/proxy/sync/credentials"
 HEARTBEAT_URL="${MASTER_API_BASE_URL%/}/api/proxy/node/heartbeat"
+TRAFFIC_URL="${MASTER_API_BASE_URL%/}/api/proxy/node/traffic"
+
+# --- Systemd services ---
 
 cat >/etc/systemd/system/caddy-naive.service <<'EOF_SERVICE'
 [Unit]
@@ -106,9 +212,27 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF_SERVICE
 
+cat >/etc/systemd/system/singbox-reality.service <<'EOF_SERVICE'
+[Unit]
+Description=sing-box VLESS+Reality proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/local/bin/sing-box run --config /etc/singbox/config.json
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
 cat >/etc/systemd/system/qubite-proxy-sync.service <<EOF_SERVICE
 [Unit]
-Description=Sync Qubite proxy credentials into Caddy
+Description=Sync Qubite proxy credentials into Caddy and sing-box
 After=network-online.target
 
 [Service]
@@ -117,13 +241,18 @@ Environment=PROXY_NODE_TOKEN=${PROXY_NODE_TOKEN}
 Environment=PROXY_SYNC_TOKEN=${PROXY_NODE_TOKEN}
 Environment=QUBITE_PROXY_SYNC_URL=${SYNC_URL}
 Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.caddy
+Environment=SINGBOX_REALITY_CONFIG=/etc/singbox/config.json
+Environment=REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
+Environment=REALITY_SHORT_ID=${REALITY_SHORT_ID}
+Environment=REALITY_TARGET_SNI=${REALITY_TARGET_SNI}
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
 ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
+ExecStartPost=/usr/bin/systemctl restart singbox-reality.service
 EOF_SERVICE
 
 cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
 [Unit]
-Description=Refresh Qubite proxy credentials for Caddy
+Description=Refresh Qubite proxy credentials for Caddy and sing-box
 
 [Timer]
 OnBootSec=30s
@@ -161,19 +290,59 @@ Unit=qubite-proxy-heartbeat.service
 WantedBy=timers.target
 EOF_TIMER
 
+cat >/etc/systemd/system/qubite-proxy-log-reporter.service <<EOF_SERVICE
+[Unit]
+Description=Report Caddy proxy access logs to Qubite
+After=network-online.target caddy-naive.service
+
+[Service]
+Environment=PROXY_NODE_TOKEN=${PROXY_NODE_TOKEN}
+Environment=QUBITE_TRAFFIC_URL=${TRAFFIC_URL}
+Environment=CADDY_ACCESS_LOG=/var/log/caddy/proxy-access.log
+ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/proxy-log-reporter.mjs
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
+# --- Firewall ---
+
 ufw allow 22/tcp >/dev/null || true
 ufw allow 80/tcp >/dev/null || true
 ufw allow 443/tcp >/dev/null || true
 
+# --- Validate and start ---
+
 /usr/local/bin/caddy-naive validate --config /etc/caddy/Caddyfile
+nginx -t
+
 systemctl daemon-reload
-systemctl enable caddy-naive.service qubite-proxy-sync.timer qubite-proxy-heartbeat.timer >/dev/null
+systemctl enable nginx caddy-naive.service singbox-reality.service \
+  qubite-proxy-sync.timer qubite-proxy-heartbeat.timer \
+  qubite-proxy-log-reporter.service >/dev/null
+systemctl restart nginx
 systemctl restart caddy-naive.service
+systemctl restart singbox-reality.service
 systemctl restart qubite-proxy-sync.service || true
 systemctl restart qubite-proxy-heartbeat.service || true
 systemctl start qubite-proxy-sync.timer qubite-proxy-heartbeat.timer
+systemctl restart qubite-proxy-log-reporter.service
 
+echo ""
 echo "Proxy node installed."
 echo "Proxy domain: https://${PROXY_DOMAIN}"
 echo "Browser fallback: https://${MAIN_SITE_DOMAIN}"
 echo "Master API: ${MASTER_API_BASE_URL}"
+echo ""
+echo "Architecture:"
+echo "  Port 443 -> nginx SNI router"
+echo "    -> Caddy NaiveProxy on :18443 (Qubite domains)"
+echo "    -> sing-box Reality on :18444 (other SNI)"
+echo ""
+echo "Reality public key: ${REALITY_PUBLIC_KEY}"
+echo "Reality short ID:   ${REALITY_SHORT_ID}"
+echo "Reality target SNI: ${REALITY_TARGET_SNI}"
+echo ""
+echo "Add the public key and short ID to the proxy server metadata in the admin panel."

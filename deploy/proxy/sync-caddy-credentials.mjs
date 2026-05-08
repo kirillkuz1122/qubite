@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
+import crypto from "node:crypto";
 
 const apiUrl =
   process.env.QUBITE_PROXY_SYNC_URL ||
@@ -14,6 +15,14 @@ const outputPath =
 const sniRoutesOutputPath =
   process.env.CADDY_SNI_ROUTES_OUTPUT ||
   "/etc/caddy/qubite-sni-routes.caddy";
+const realityConfigPath =
+  process.env.SINGBOX_REALITY_CONFIG ||
+  "/etc/singbox/config.json";
+const realityPrivateKey = process.env.REALITY_PRIVATE_KEY || "";
+const realityShortId = process.env.REALITY_SHORT_ID || "deadbeef";
+const realityTargetSni = process.env.REALITY_TARGET_SNI || "www.microsoft.com";
+const realityTargetPort = Number(process.env.REALITY_TARGET_PORT || 443);
+const realityListenPort = Number(process.env.REALITY_LISTEN_PORT || 18444);
 
 if (!syncToken) {
   console.error("PROXY_SYNC_TOKEN is required.");
@@ -132,3 +141,76 @@ for (const route of sniRoutes) {
 }
 
 writeAtomic(sniRoutesOutputPath, `${routeLines.join("\n")}\n`);
+
+// --- sing-box Reality users config ---
+
+const VLESS_UUID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+function deriveVlessUuid(subscriptionUid) {
+  const hash = crypto.createHash("sha1")
+    .update(VLESS_UUID_NAMESPACE.replace(/-/g, ""), "hex")
+    .update(String(subscriptionUid))
+    .digest("hex");
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    "5" + hash.slice(13, 16),
+    ((parseInt(hash.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0") + hash.slice(18, 20),
+    hash.slice(20, 32),
+  ].join("-");
+}
+
+const realityUsers = Array.isArray(payload.realityUsers)
+  ? payload.realityUsers
+  : [];
+
+if (realityPrivateKey && realityUsers.length > 0) {
+  const users = realityUsers.map((u) => ({
+    uuid: u.uuid || deriveVlessUuid(u.uid || u.username),
+    flow: "xtls-rprx-vision",
+  }));
+
+  const singboxConfig = {
+    log: {
+      level: "info",
+      output: "/var/log/singbox/reality.log",
+      timestamp: true,
+    },
+    inbounds: [
+      {
+        type: "vless",
+        tag: "vless-reality-in",
+        listen: "127.0.0.1",
+        listen_port: realityListenPort,
+        users,
+        tls: {
+          enabled: true,
+          server_name: realityTargetSni,
+          reality: {
+            enabled: true,
+            handshake: {
+              server: realityTargetSni,
+              server_port: realityTargetPort,
+            },
+            private_key: realityPrivateKey,
+            short_id: [realityShortId],
+          },
+        },
+      },
+    ],
+    outbounds: [
+      { type: "direct", tag: "direct" },
+    ],
+  };
+
+  const configDir = realityConfigPath.replace(/\/[^/]+$/, "");
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+  }
+  writeAtomic(realityConfigPath, JSON.stringify(singboxConfig, null, 2) + "\n");
+  console.log(`Reality config written: ${users.length} user(s).`);
+} else if (!realityPrivateKey) {
+  console.log("REALITY_PRIVATE_KEY not set, skipping sing-box config.");
+} else {
+  console.log("No Reality users received, skipping sing-box config.");
+}
