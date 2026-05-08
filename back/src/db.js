@@ -3690,8 +3690,9 @@ async function rotateProxySessionSecret(
 
 async function listActiveProxySessionsForSync(options = {}) {
     const publicDomain = String(options.publicDomain || "").trim().toLowerCase();
+    const timestamp = nowIso();
     const domainClause = publicDomain ? "AND psv.public_domain = ?" : "";
-    const params = publicDomain ? [nowIso(), publicDomain] : [nowIso()];
+    const params = publicDomain ? [timestamp, timestamp, publicDomain] : [timestamp, timestamp];
     return all(
         `
             SELECT
@@ -3712,6 +3713,18 @@ async function listActiveProxySessionsForSync(options = {}) {
               AND pd.revoked_at IS NULL
               AND u.status = 'active'
               AND ps.secret_ciphertext != ''
+              AND (
+                  u.role = 'owner'
+                  OR EXISTS (
+                      SELECT 1
+                      FROM proxy_subscriptions psu
+                      WHERE psu.user_id = ps.user_id
+                        AND psu.status = 'active'
+                        AND psu.revoked_at IS NULL
+                        AND (psu.expires_at IS NULL OR psu.expires_at > ?)
+                      LIMIT 1
+                  )
+              )
               ${domainClause}
             ORDER BY ps.updated_at DESC
         `,
