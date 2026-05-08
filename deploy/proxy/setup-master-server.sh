@@ -17,7 +17,9 @@ ask() {
   else
     read -r -p "$prompt$suffix: " "$name"
   fi
-  [[ -z "${!name}" && -n "$default" ]] && printf -v "$name" "%s" "$default"
+  if [[ -z "${!name}" && -n "$default" ]]; then
+    printf -v "$name" "%s" "$default"
+  fi
 }
 
 REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
