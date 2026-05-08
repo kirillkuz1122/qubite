@@ -48,6 +48,7 @@ const {
     revokeProxyDevice,
     revokeProxySession,
     revokeProxySubscription,
+    revokeProxySubscriptionSessions,
     rotateProxySessionSecret,
     setProxyServerNodeToken,
     setUserProxyNoLogs,
@@ -913,7 +914,7 @@ function registerProxyRoutes(app, deps) {
             }
             await touchProxyDevice(device.id);
             let subscriptionNoLogs = false;
-            if (String(device.uid || "").startsWith("SUB-SUB-")) {
+            if (String(device.uid || "").startsWith("SUB-")) {
                 const subscription = await getProxySubscriptionByUid(String(device.uid).slice(4));
                 subscriptionNoLogs = Boolean(Number(subscription?.no_logs || 0));
             }
@@ -1169,6 +1170,9 @@ function registerProxyRoutes(app, deps) {
             if (!subscription) {
                 sendError(res, 404, "VPN-подписка не найдена.");
                 return;
+            }
+            if (["disabled", "revoked"].includes(status)) {
+                await revokeProxySubscriptionSessions(subscription.uid);
             }
             await createAuditLog({
                 actorUserId: req.auth.user.id,

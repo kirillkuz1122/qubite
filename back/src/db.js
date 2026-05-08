@@ -3357,6 +3357,7 @@ async function revokeProxySubscription(subscriptionUid) {
         `,
         [timestamp, timestamp, subscriptionUid],
     );
+    await revokeProxySubscriptionSessions(subscriptionUid);
     return get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
 }
 
@@ -3374,7 +3375,11 @@ async function updateProxySubscription(payload) {
                 status = ?,
                 no_logs = ?,
                 updated_at = ?,
-                revoked_at = CASE WHEN ? = 'revoked' THEN ? ELSE revoked_at END
+                revoked_at = CASE
+                    WHEN ? = 'revoked' THEN ?
+                    WHEN ? IN ('active', 'disabled') THEN NULL
+                    ELSE revoked_at
+                END
             WHERE uid = ?
         `,
         [
@@ -3384,10 +3389,30 @@ async function updateProxySubscription(payload) {
             timestamp,
             payload.status ?? current.status,
             timestamp,
+            payload.status ?? current.status,
             payload.uid,
         ],
     );
     return getProxySubscriptionById(current.id);
+}
+
+async function revokeProxySubscriptionSessions(subscriptionUid) {
+    const timestamp = nowIso();
+    await run(
+        `
+            UPDATE proxy_sessions
+            SET status = 'revoked',
+                revoked_at = ?,
+                updated_at = ?
+            WHERE device_id IN (
+                SELECT id
+                FROM proxy_devices
+                WHERE uid = ?
+            )
+              AND revoked_at IS NULL
+        `,
+        [timestamp, timestamp, `SUB-${subscriptionUid}`],
+    );
 }
 
 async function deleteProxySubscription(subscriptionUid) {
@@ -3395,6 +3420,7 @@ async function deleteProxySubscription(subscriptionUid) {
     if (!current) {
         return null;
     }
+    await revokeProxySubscriptionSessions(subscriptionUid);
     await run("DELETE FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
     return current;
 }
@@ -8911,6 +8937,7 @@ module.exports = {
     revokeProxyDevice,
     revokeProxySession,
     revokeProxySubscription,
+    revokeProxySubscriptionSessions,
     recordProxyServerHeartbeat,
     revokeActiveAuthChallengesForUser,
     revokeSessionById,

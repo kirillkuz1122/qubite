@@ -13425,6 +13425,14 @@ function initProxyServersInteractions(container) {
     });
 
     container.querySelector("#proxyCreateSubscriptionBtn")?.addEventListener("click", async () => {
+        if (!getAdminUsersState().length) {
+            try {
+                await apiClient.loadAdminUsers();
+            } catch (error) {
+                showRequestError("Пользователи", error);
+                return;
+            }
+        }
         const users = getAdminUsersState();
         const userHint = users.slice(0, 80).map((user, index) => `${index + 1}: @${user.login} ${user.email || ""}`).join("\n");
         const choice = window.prompt(`Кому выдать VPN-подписку? Введи номер, id или login.\n${userHint}`, "");
