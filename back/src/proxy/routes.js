@@ -151,6 +151,8 @@ function serializeProxyServer(server) {
         network: {
             ipv4: server.ipv4_address || "",
             ipv6: server.ipv6_address || "",
+            ipv4Domain: server.ipv4_domain || "",
+            ipv6Domain: server.ipv6_domain || "",
             supportsIpv4,
             supportsIpv6,
             strategy: "happy-eyeballs",
@@ -196,6 +198,8 @@ function serializeProxyServerForAdmin(server) {
         network: {
             ipv4: server.ipv4_address || "",
             ipv6: server.ipv6_address || "",
+            ipv4Domain: server.ipv4_domain || "",
+            ipv6Domain: server.ipv6_domain || "",
             supportsIpv4,
             supportsIpv6,
         },
@@ -244,10 +248,58 @@ function serializeProxySniRoute(route) {
     };
 }
 
+function normalizeCatalogLabel(value, fallback = "proxy") {
+    return String(value || fallback)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9а-яё_.:-]+/gi, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || fallback;
+}
+
+function buildProxyVariantName(server, suffix = "") {
+    const baseName = normalizeCatalogLabel(server?.name || server?.public_domain || "proxy");
+    return suffix ? `${baseName}-${suffix}` : baseName;
+}
+
+function serializeProxyCatalogServer(server, variant = "default") {
+    const base = serializeProxyServer(server);
+    if (!base) return null;
+    const familySuffix = variant === "ipv4" ? "ip4" : variant === "ipv6" ? "ip6" : "";
+    const familyDomain = variant === "ipv4"
+        ? (server.ipv4_domain || server.public_domain)
+        : variant === "ipv6"
+            ? (server.ipv6_domain || server.public_domain)
+            : server.public_domain;
+    const name = buildProxyVariantName(server, familySuffix);
+    return {
+        ...base,
+        id: `${server.uid}:${variant}`,
+        serverId: server.uid,
+        variant,
+        name,
+        displayName: name,
+        domain: familyDomain,
+        host: familyDomain,
+        url: `https://${familyDomain}`,
+        port: 443,
+        protocol: "naive",
+    };
+}
+
 function serializeProxySniRouteForClient(route) {
+    const baseServer = {
+        name: route.server_name || route.server_domain || route.route_domain,
+        public_domain: route.server_domain || route.route_domain,
+    };
+    const familySuffix = route.ip_family === "ipv4" ? "ip4-" : route.ip_family === "ipv6" ? "ip6-" : "";
+    const name = buildProxyVariantName(baseServer, `${familySuffix}sni:${normalizeCatalogLabel(route.target_sni, "target")}`);
     return {
         id: route.uid,
         type: "sni",
+        name,
+        displayName: name,
         domain: route.route_domain,
         host: route.route_domain,
         port: 443,
@@ -451,15 +503,19 @@ function registerProxyRoutes(app, deps) {
 
     app.get("/api/proxy/catalog", requireAuth, async (req, res, next) => {
         try {
-            const servers = (await listProxyServersForClient()).map(serializeProxyServer);
+            const rawServers = await listProxyServersForClient();
             const sniRoutes = (await listActiveProxySniRoutesForClient()).map(serializeProxySniRouteForClient);
             res.json({
                 version: 1,
                 generatedAt: new Date().toISOString(),
                 normal: {
-                    all: servers,
-                    ipv4: servers.filter((server) => server.network?.supportsIpv4),
-                    ipv6: servers.filter((server) => server.network?.supportsIpv6),
+                    all: rawServers.map((server) => serializeProxyCatalogServer(server, "default")),
+                    ipv4: rawServers
+                        .filter((server) => Boolean(Number(server.supports_ipv4 ?? 1)))
+                        .map((server) => serializeProxyCatalogServer(server, "ipv4")),
+                    ipv6: rawServers
+                        .filter((server) => Boolean(Number(server.supports_ipv6 ?? 1)))
+                        .map((server) => serializeProxyCatalogServer(server, "ipv6")),
                 },
                 sni: sniRoutes,
                 routingProfile: buildProxyRoutingProfile(),
@@ -740,6 +796,8 @@ function registerProxyRoutes(app, deps) {
                 proxyUrl: cleanText(req.body?.proxyUrl, 160) || `https://${publicDomain}`,
                 ipv4Address: cleanText(req.body?.ipv4Address, 64),
                 ipv6Address: cleanText(req.body?.ipv6Address, 80),
+                ipv4Domain: normalizeProxyDomain(req.body?.ipv4Domain),
+                ipv6Domain: normalizeProxyDomain(req.body?.ipv6Domain),
                 supportsIpv4: req.body?.supportsIpv4 === undefined ? true : Boolean(req.body.supportsIpv4),
                 supportsIpv6: req.body?.supportsIpv6 === undefined ? true : Boolean(req.body.supportsIpv6),
                 region: cleanText(req.body?.region, 40),
@@ -783,6 +841,8 @@ function registerProxyRoutes(app, deps) {
                 proxyUrl: req.body?.proxyUrl === undefined ? undefined : cleanText(req.body.proxyUrl, 160),
                 ipv4Address: req.body?.ipv4Address === undefined ? undefined : cleanText(req.body.ipv4Address, 64),
                 ipv6Address: req.body?.ipv6Address === undefined ? undefined : cleanText(req.body.ipv6Address, 80),
+                ipv4Domain: req.body?.ipv4Domain === undefined ? undefined : normalizeProxyDomain(req.body.ipv4Domain),
+                ipv6Domain: req.body?.ipv6Domain === undefined ? undefined : normalizeProxyDomain(req.body.ipv6Domain),
                 supportsIpv4: req.body?.supportsIpv4 === undefined ? undefined : Boolean(req.body.supportsIpv4),
                 supportsIpv6: req.body?.supportsIpv6 === undefined ? undefined : Boolean(req.body.supportsIpv6),
                 region: req.body?.region === undefined ? undefined : cleanText(req.body.region, 40),

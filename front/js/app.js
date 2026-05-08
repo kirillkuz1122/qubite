@@ -13269,7 +13269,7 @@ function renderProxyServerRow(server) {
             <div class="ops-admin-row__main">
                 <div class="ops-admin-row__title">${escapeHtml(server.name || server.domain)}</div>
                 <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "region не задан")} • ${escapeHtml(server.health || "unknown")}</div>
-                <div class="ops-admin-row__meta">IPv4 ${network.supportsIpv4 ? "on" : "off"} ${network.ipv4 ? `• ${escapeHtml(network.ipv4)}` : ""} • IPv6 ${network.supportsIpv6 ? "on" : "off"} ${network.ipv6 ? `• ${escapeHtml(network.ipv6)}` : ""}</div>
+                <div class="ops-admin-row__meta">IPv4 ${network.supportsIpv4 ? "on" : "off"} ${network.ipv4Domain ? `• ${escapeHtml(network.ipv4Domain)}` : ""} ${network.ipv4 ? `• ${escapeHtml(network.ipv4)}` : ""} • IPv6 ${network.supportsIpv6 ? "on" : "off"} ${network.ipv6Domain ? `• ${escapeHtml(network.ipv6Domain)}` : ""} ${network.ipv6 ? `• ${escapeHtml(network.ipv6)}` : ""}</div>
                 <div class="ops-admin-row__meta">Heartbeat: ${escapeHtml(server.lastHeartbeatAt ? formatDateTimeLabel(server.lastHeartbeatAt) : "нет")} • CPU ${escapeHtml(String(Math.round(Number(metrics.cpuLoad || 0) * 100) / 100))} • RAM ${escapeHtml(String(metrics.memoryUsedMb || 0))}/${escapeHtml(String(metrics.memoryTotalMb || 0))} MB</div>
                 <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumberRu(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
                 ${server.lastError ? `<div class="ops-admin-row__meta">Ошибка: ${escapeHtml(server.lastError)}</div>` : ""}
@@ -13277,6 +13277,7 @@ function renderProxyServerRow(server) {
             <div class="ops-admin-row__controls">
                 <span class="ops-admin-mini-pill">${escapeHtml(statusLabel)}</span>
                 <span class="ops-admin-mini-pill">${escapeHtml(formatNumberRu(server.activeSessions || 0))} сессий</span>
+                <button class="btn btn--muted btn--sm" type="button" data-proxy-server-edit="${escapeHtml(server.id)}">Изменить</button>
                 <button class="btn btn--muted btn--sm" type="button" data-proxy-server-logs="${escapeHtml(server.id)}">Логи</button>
                 <button class="btn btn--muted btn--sm" type="button" data-proxy-server-toggle="${escapeHtml(server.id)}" data-next-status="${server.status === "active" ? "disabled" : "active"}">${server.status === "active" ? "Выключить" : "Включить"}</button>
                 <button class="btn btn--accent btn--sm" type="button" data-proxy-server-token="${escapeHtml(server.id)}">Новый token</button>
@@ -13384,12 +13385,20 @@ function initProxyServersInteractions(container) {
     });
 
     container.querySelector("#proxyCreateSniRouteBtn")?.addEventListener("click", async () => {
+        const servers = getAdminProxyServersState();
         const routeDomain = window.prompt("SNI-поддомен, например sni.proxy.qubiteapp.online");
         if (!routeDomain) return;
         const redirectUrl = window.prompt("Куда редиректить обычный браузер, например https://www.cloudflare.com/");
         if (!redirectUrl) return;
         const targetSni = window.prompt("Target SNI для приложения. Можно оставить пустым, тогда возьмём host из redirect URL.") || "";
         const ipFamily = window.prompt("IP family: auto, ipv4 или ipv6", routeDomain.includes("6") ? "ipv6" : "auto") || "auto";
+        const serverHint = servers.map((server, index) => `${index + 1}: ${server.name || server.domain} (${server.domain})`).join("\n");
+        const serverChoice = servers.length
+            ? window.prompt(`Нода для SNI. Enter = все ноды.\n${serverHint}`, "")
+            : "";
+        const selectedServer = serverChoice
+            ? servers[Number(serverChoice) - 1] || servers.find((server) => server.id === serverChoice || server.domain === serverChoice)
+            : null;
         Loader.show();
         try {
             await apiClient.createAdminProxySniRoute({
@@ -13397,6 +13406,7 @@ function initProxyServersInteractions(container) {
                 redirectUrl,
                 targetSni,
                 ipFamily,
+                serverId: selectedServer?.id || "",
                 status: "active",
             });
             Toast.show("Прокси", "SNI-маршрут добавлен. На нодах он применится после ближайшего sync.", "success");
@@ -13414,6 +13424,8 @@ function initProxyServersInteractions(container) {
         if (!publicDomain) return;
         const ipv4Address = window.prompt("IPv4 адрес ноды. Можно оставить пустым.") || "";
         const ipv6Address = window.prompt("IPv6 адрес ноды. Можно оставить пустым.") || "";
+        const ipv4Domain = window.prompt("IPv4-only домен, например proxy4-2.qubiteapp.online. Можно оставить пустым.") || "";
+        const ipv6Domain = window.prompt("IPv6-only домен, например proxy6-2.qubiteapp.online. Можно оставить пустым.") || "";
         Loader.show();
         try {
             const data = await apiClient.createAdminProxyServer({
@@ -13422,6 +13434,8 @@ function initProxyServersInteractions(container) {
                 proxyUrl: `https://${publicDomain}`,
                 ipv4Address,
                 ipv6Address,
+                ipv4Domain,
+                ipv6Domain,
                 supportsIpv4: Boolean(ipv4Address) || !ipv6Address,
                 supportsIpv6: Boolean(ipv6Address) || !ipv4Address,
                 region: "custom",
@@ -13467,6 +13481,43 @@ function initProxyServersInteractions(container) {
                 initProxyServersInteractions(container);
             } catch (error) {
                 showRequestError("SNI-маршрут", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-server-edit]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const server = getAdminProxyServersState().find((item) => item.id === button.dataset.proxyServerEdit);
+            if (!server) return;
+            const network = server.network || {};
+            const name = window.prompt("Название для приложения, например ru1", server.name || server.domain);
+            if (name === null) return;
+            const ipv4Domain = window.prompt("IPv4-only домен для приложения", network.ipv4Domain || "");
+            if (ipv4Domain === null) return;
+            const ipv6Domain = window.prompt("IPv6-only домен для приложения", network.ipv6Domain || "");
+            if (ipv6Domain === null) return;
+            const ipv4Address = window.prompt("IPv4 адрес", network.ipv4 || "");
+            if (ipv4Address === null) return;
+            const ipv6Address = window.prompt("IPv6 адрес", network.ipv6 || "");
+            if (ipv6Address === null) return;
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxyServer(server.id, {
+                    name,
+                    ipv4Domain,
+                    ipv6Domain,
+                    ipv4Address,
+                    ipv6Address,
+                    supportsIpv4: Boolean(ipv4Domain || ipv4Address) || (!ipv4Domain && !ipv4Address && network.supportsIpv4),
+                    supportsIpv6: Boolean(ipv6Domain || ipv6Address) || (!ipv6Domain && !ipv6Address && network.supportsIpv6),
+                });
+                Toast.show("Прокси", "Нода обновлена. Новые имена появятся в proxy catalog.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Прокси", error);
             } finally {
                 Loader.hide(300);
             }

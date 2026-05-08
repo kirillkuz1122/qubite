@@ -61,6 +61,8 @@ GET /api/proxy/servers
       "network": {
         "ipv4": "193.233.91.128",
         "ipv6": "2a01:e5c0:17bc::2",
+        "ipv4Domain": "proxy4.qubiteapp.online",
+        "ipv6Domain": "proxy6.qubiteapp.online",
         "supportsIpv4": true,
         "supportsIpv6": true,
         "strategy": "happy-eyeballs"
@@ -97,14 +99,40 @@ type.
   "version": 1,
   "generatedAt": "...",
   "normal": {
-    "all": [],
-    "ipv4": [],
-    "ipv6": []
+    "all": [
+      {
+        "id": "PS-...:default",
+        "serverId": "PS-...",
+        "variant": "default",
+        "name": "ru1",
+        "displayName": "ru1",
+        "domain": "proxy.qubiteapp.online",
+        "host": "proxy.qubiteapp.online",
+        "port": 443,
+        "protocol": "naive"
+      }
+    ],
+    "ipv4": [
+      {
+        "name": "ru1-ip4",
+        "domain": "proxy4.qubiteapp.online",
+        "variant": "ipv4"
+      }
+    ],
+    "ipv6": [
+      {
+        "name": "ru1-ip6",
+        "domain": "proxy6.qubiteapp.online",
+        "variant": "ipv6"
+      }
+    ]
   },
   "sni": [
     {
       "id": "SNI-...",
       "type": "sni",
+      "name": "ru1-ip6-sni:max.ru",
+      "displayName": "ru1-ip6-sni:max.ru",
       "domain": "sni.proxy.qubiteapp.online",
       "host": "sni.proxy.qubiteapp.online",
       "port": 443,

@@ -127,6 +127,17 @@ sni.proxy.qubiteapp.online  A     193.233.91.128
 sni.proxy6.qubiteapp.online AAAA  2a01:e5c0:17bc::2
 ```
 
+In the owner "Прокси" panel, edit the node name and aliases after creation:
+
+```text
+name: ru1
+IPv4-only domain: proxy4.qubiteapp.online
+IPv6-only domain: proxy6.qubiteapp.online
+```
+
+The app catalog will expose names like `ru1`, `ru1-ip4`, `ru1-ip6`, and
+`ru1-ip6-sni:max.ru` for SNI routes tied to that node.
+
 For additional nodes, use the same pattern with numbers, for example
 `proxy2.qubiteapp.online`, `proxy2-4.qubiteapp.online`, and
 `proxy2-6.qubiteapp.online`, then enter those names in `PROXY_EXTRA_DOMAINS`.

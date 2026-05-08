@@ -507,6 +507,8 @@ async function initializeDatabase(options = {}) {
             proxy_url TEXT NOT NULL,
             ipv4_address TEXT NOT NULL DEFAULT '',
             ipv6_address TEXT NOT NULL DEFAULT '',
+            ipv4_domain TEXT NOT NULL DEFAULT '',
+            ipv6_domain TEXT NOT NULL DEFAULT '',
             supports_ipv4 INTEGER NOT NULL DEFAULT 1,
             supports_ipv6 INTEGER NOT NULL DEFAULT 1,
             region TEXT NOT NULL DEFAULT '',
@@ -1086,6 +1088,8 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_servers", "last_error", "TEXT NOT NULL DEFAULT ''");
     await ensureColumn("proxy_servers", "ipv4_address", "TEXT NOT NULL DEFAULT ''");
     await ensureColumn("proxy_servers", "ipv6_address", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "ipv4_domain", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "ipv6_domain", "TEXT NOT NULL DEFAULT ''");
     await ensureColumn("proxy_servers", "supports_ipv4", "INTEGER NOT NULL DEFAULT 1");
     await ensureColumn("proxy_servers", "supports_ipv6", "INTEGER NOT NULL DEFAULT 1");
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
@@ -2802,6 +2806,8 @@ async function upsertProxyServer(payload) {
                 proxy_url,
                 ipv4_address,
                 ipv6_address,
+                ipv4_domain,
+                ipv6_domain,
                 supports_ipv4,
                 supports_ipv6,
                 region,
@@ -2815,12 +2821,14 @@ async function upsertProxyServer(payload) {
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(public_domain) DO UPDATE SET
                 name = excluded.name,
                 proxy_url = excluded.proxy_url,
                 ipv4_address = excluded.ipv4_address,
                 ipv6_address = excluded.ipv6_address,
+                ipv4_domain = excluded.ipv4_domain,
+                ipv6_domain = excluded.ipv6_domain,
                 supports_ipv4 = excluded.supports_ipv4,
                 supports_ipv6 = excluded.supports_ipv6,
                 region = excluded.region,
@@ -2843,6 +2851,8 @@ async function upsertProxyServer(payload) {
             proxyUrl,
             payload.ipv4Address || "",
             payload.ipv6Address || "",
+            payload.ipv4Domain || "",
+            payload.ipv6Domain || "",
             payload.supportsIpv4 === false ? 0 : 1,
             payload.supportsIpv6 === false ? 0 : 1,
             payload.region || "",
@@ -2903,7 +2913,7 @@ async function getDefaultProxyServer() {
 async function listProxyServersForClient() {
     return all(
         `
-            SELECT uid, name, public_domain, proxy_url, ipv4_address, ipv6_address, supports_ipv4, supports_ipv6, region, priority, weight, health_status, updated_at
+            SELECT uid, name, public_domain, proxy_url, ipv4_address, ipv6_address, ipv4_domain, ipv6_domain, supports_ipv4, supports_ipv6, region, priority, weight, health_status, updated_at
             FROM proxy_servers
             WHERE status = 'active'
             ORDER BY priority ASC, weight DESC, id ASC
@@ -2971,6 +2981,8 @@ async function updateProxyServer(payload) {
                 proxy_url = ?,
                 ipv4_address = ?,
                 ipv6_address = ?,
+                ipv4_domain = ?,
+                ipv6_domain = ?,
                 supports_ipv4 = ?,
                 supports_ipv6 = ?,
                 region = ?,
@@ -2988,6 +3000,8 @@ async function updateProxyServer(payload) {
             payload.proxyUrl ?? current.proxy_url,
             payload.ipv4Address ?? current.ipv4_address,
             payload.ipv6Address ?? current.ipv6_address,
+            payload.ipv4Domain ?? current.ipv4_domain,
+            payload.ipv6Domain ?? current.ipv6_domain,
             payload.supportsIpv4 === undefined ? Number(current.supports_ipv4 || 0) : (payload.supportsIpv4 ? 1 : 0),
             payload.supportsIpv6 === undefined ? Number(current.supports_ipv6 || 0) : (payload.supportsIpv6 ? 1 : 0),
             payload.region ?? current.region,
