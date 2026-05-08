@@ -21,7 +21,7 @@ Client app
 
 qubiteapp.ru
   -> Caddy frontend
-  -> internal Nginx on 127.0.0.1:8080
+  -> internal Nginx on 127.0.0.1:8080 and [::1]:8080
   -> Node/Express on 127.0.0.1:3000
 
 proxy.qubiteapp.online

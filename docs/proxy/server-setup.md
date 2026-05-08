@@ -22,10 +22,10 @@ Option B moves public TLS entrypoint to Caddy:
 ```text
 public 80/443
   -> caddy-naive.service
-     -> qubiteapp.ru reverse_proxy to 127.0.0.1:8080
+     -> qubiteapp.ru reverse_proxy to localhost:8080
      -> proxy.qubiteapp.online forward_proxy with NaiveProxy support
 
-internal 127.0.0.1:8080
+internal 127.0.0.1:8080 and [::1]:8080
   -> nginx
      -> 127.0.0.1:3000 Node/PM2
 ```
@@ -73,7 +73,7 @@ pm2 save
 
 2. Install Go and build Caddy with the forwardproxy module.
 
-3. Move Nginx from public 80/443 to internal `127.0.0.1:8080`.
+3. Move Nginx from public 80/443 to internal `127.0.0.1:8080` and `[::1]:8080`.
 
 4. Validate configs before reload.
 
@@ -96,6 +96,10 @@ Expected browser behavior:
 https://proxy.qubiteapp.online without proxy credentials redirects to https://qubiteapp.ru
 NaiveProxy client with valid credentials gets CONNECT proxy access
 ```
+
+IPv4 and IPv6 are both supported at the public Caddy entrypoint. The setup
+scripts force `IPV6=yes` in `/etc/default/ufw` and open 22/80/443 for both
+families.
 
 ## Required Qubite Env
 

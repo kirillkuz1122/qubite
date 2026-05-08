@@ -17,5 +17,5 @@ https://proxy.qubiteapp.online, :443 {
 }
 
 https://qubiteapp.ru, https://www.qubiteapp.ru, https://ru.qubiteapp.online, https://www.ru.qubiteapp.online {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy localhost:8080
 }

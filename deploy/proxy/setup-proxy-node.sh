@@ -29,6 +29,10 @@ ask PROXY_NODE_TOKEN "Node token from owner panel" "" secret
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y golang-go git nodejs curl libcap2-bin ufw
 
+if [[ -f /etc/default/ufw ]]; then
+  sed -i 's/^IPV6=.*/IPV6=yes/' /etc/default/ufw
+fi
+
 if [[ ! -x /usr/local/bin/xcaddy ]]; then
   GOBIN=/usr/local/bin go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
 fi

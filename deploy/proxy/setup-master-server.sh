@@ -32,6 +32,10 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
   nodejs npm nginx git curl golang-go libcap2-bin ufw fail2ban unzip zip
 
+if [[ -f /etc/default/ufw ]]; then
+  sed -i 's/^IPV6=.*/IPV6=yes/' /etc/default/ufw
+fi
+
 if [[ -f "$REPO_DIR/back/package-lock.json" ]]; then
   npm --prefix "$REPO_DIR/back" ci
 else
@@ -111,7 +115,7 @@ https://${PROXY_DOMAIN}, :443 {
 }
 
 https://${SITE_NAMES} {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy localhost:8080
 }
 EOF_CADDY
 
