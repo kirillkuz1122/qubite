@@ -1048,6 +1048,15 @@
         return data;
     }
 
+    async function createAdminProxySubscriptionLink(payload) {
+        const data = await request("/api/admin/proxy-subscription-links", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+        syncAdminProxySubscriptions([data.item, ...state.adminProxySubscriptions]);
+        return data;
+    }
+
     async function updateAdminProxySubscription(subscriptionId, payload) {
         const data = await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}`, {
             method: "PATCH",
@@ -1748,6 +1757,7 @@
         createAdminProxyServer,
         createAdminProxySniRoute,
         createAdminProxySubscription,
+        createAdminProxySubscriptionLink,
         createTeam: createTeamRequest,
         createTournament: createTournamentRequest,
         clearTournamentRuntime,

@@ -17,6 +17,7 @@ const {
     createProxySession,
     createProxySubscription,
     createProxyTrafficLog,
+    createUser,
     deleteProxySubscription,
     deleteProxySniRoute,
     getActiveProxySessionForUser,
@@ -329,12 +330,20 @@ function serializeProxySniRouteForClient(route) {
     };
 }
 
+function buildProxySubscriptionUrl(token, format = "") {
+    if (!token) return "";
+    const url = `${APP_BASE_URL.replace(/\/$/, "")}/api/proxy/subscription/${token}`;
+    return format ? `${url}?format=${encodeURIComponent(format)}` : url;
+}
+
 function serializeProxySubscriptionForAdmin(subscription, token = "") {
     const pathToken = token || "";
     return {
         id: subscription.uid,
         label: subscription.label || "",
         status: subscription.status || "active",
+        source: subscription.source || "site_user",
+        standalone: subscription.source === "standalone_link",
         noLogs: Boolean(Number(subscription.no_logs || 0)),
         user: {
             id: subscription.user_id,
@@ -343,7 +352,8 @@ function serializeProxySubscriptionForAdmin(subscription, token = "") {
             email: subscription.user_email || "",
             status: subscription.user_status || "",
         },
-        url: pathToken ? `${APP_BASE_URL.replace(/\/$/, "")}/api/proxy/subscription/${pathToken}` : "",
+        url: buildProxySubscriptionUrl(pathToken),
+        base64Url: buildProxySubscriptionUrl(pathToken, "base64"),
         createdAt: subscription.created_at,
         updatedAt: subscription.updated_at,
         expiresAt: subscription.expires_at,
@@ -1138,6 +1148,7 @@ function registerProxyRoutes(app, deps) {
                 tokenHash: hashOpaqueToken(token),
                 label: cleanText(req.body?.label, 80) || `vpn-${user.login || user.uid}`,
                 status: "active",
+                source: "site_user",
                 noLogs: Boolean(req.body?.noLogs),
                 expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
             });
@@ -1147,6 +1158,48 @@ function registerProxyRoutes(app, deps) {
                 entityType: "proxy_subscription",
                 entityId: subscription.uid,
                 summary: `Выдана VPN-подписка ${subscription.label || subscription.uid} для @${user.login}`,
+            });
+            res.status(201).json({ item: serializeProxySubscriptionForAdmin(subscription, token), token });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/api/admin/proxy-subscription-links", requireOwner, async (req, res, next) => {
+        try {
+            const label = cleanText(req.body?.label, 80) || `vpn-link-${generateRandomToken(3)}`;
+            const suffix = generateRandomToken(5);
+            const login = `vpn_${suffix}`;
+            const user = await createUser({
+                uid: `VPN-${suffix.toUpperCase()}`,
+                login,
+                loginNormalized: login,
+                email: `${login}@vpn.local`,
+                emailNormalized: `${login}@vpn.local`,
+                role: "user",
+                passwordHash: hashOpaqueToken(`vpn-link-password:${generateRandomToken(32)}`),
+                passwordSalt: generateRandomToken(16),
+                firstName: "VPN",
+                lastName: label,
+                emailVerifiedAt: new Date().toISOString(),
+                preferredAuthProvider: "proxy_link",
+            });
+            const token = `qbs_${generateRandomToken(32)}`;
+            const subscription = await createProxySubscription({
+                userId: user.id,
+                tokenHash: hashOpaqueToken(token),
+                label,
+                status: "active",
+                source: "standalone_link",
+                noLogs: Boolean(req.body?.noLogs),
+                expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
+            });
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.subscription_link.create",
+                entityType: "proxy_subscription",
+                entityId: subscription.uid,
+                summary: `Создана VPN subscription link ${subscription.label || subscription.uid}`,
             });
             res.status(201).json({ item: serializeProxySubscriptionForAdmin(subscription, token), token });
         } catch (error) {

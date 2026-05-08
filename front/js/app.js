@@ -13222,7 +13222,8 @@ function renderProxyServersView() {
                 </div>
                 <div class="ops-header__actions">
                     <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
-                    <button class="btn btn--accent" type="button" id="proxyCreateSubscriptionBtn">Выдать VPN</button>
+                    <button class="btn btn--accent" type="button" id="proxyCreateSubscriptionLinkBtn">Ссылка Nekobox</button>
+                    <button class="btn btn--muted" type="button" id="proxyCreateSubscriptionBtn">Выдать VPN</button>
                     <button class="btn btn--muted" type="button" id="proxyCreateSniRouteBtn">Добавить SNI</button>
                     <button class="btn btn--muted" type="button" id="proxyRefreshServersBtn">Обновить</button>
                 </div>
@@ -13250,7 +13251,7 @@ function renderProxyServersView() {
                 })}
                 ${renderOpsPanel({
                     title: "VPN-подписки",
-                    desc: "Только пользователи с активной подпиской получают proxy catalog, ключи и subscription link.",
+                    desc: "VPN-доступ для аккаунтов сайта и отдельные subscription links для Nekobox/Throne.",
                     body: renderProxySubscriptionsList(subscriptions),
                     className: "ops-panel--primary",
                 })}
@@ -13328,7 +13329,7 @@ function renderProxySniRoutesList(routes) {
 
 function renderProxySubscriptionsList(subscriptions) {
     if (!subscriptions.length) {
-        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Выдай подписку пользователю сайта, чтобы он получил доступ к VPN API и subscription link.</div></div>`;
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Создай ссылку для Nekobox или выдай VPN-доступ пользователю сайта.</div></div>`;
     }
     return `
         <div class="ops-admin-list">
@@ -13338,8 +13339,8 @@ function renderProxySubscriptionsList(subscriptions) {
                     <div class="ops-admin-row glass-panel" data-view-anim>
                         <div class="ops-admin-row__main">
                             <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}</div>
-                            <div class="ops-admin-row__meta">@${escapeHtml(subscription.user?.login || "unknown")} • ${escapeHtml(subscription.user?.email || "")} • ${escapeHtml(statusLabel)}${subscription.noLogs ? " • no-log" : ""}</div>
-                            <div class="ops-admin-row__meta">${subscription.url ? escapeHtml(subscription.url) : "URL показывается только при создании или перевыпуске"}</div>
+                            <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(subscription.user?.email || "")} • ${escapeHtml(statusLabel)}${subscription.noLogs ? " • no-log" : ""}</div>
+                            <div class="ops-admin-row__meta">${subscription.url ? escapeHtml(subscription.url) : "URL показывается только при создании ссылки"}</div>
                         </div>
                         <div class="ops-admin-row__controls">
                             <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-toggle="${escapeHtml(subscription.id)}" data-next-status="${subscription.status === "active" ? "disabled" : "active"}">${subscription.status === "active" ? "Отключить" : "Включить"}</button>
@@ -13455,6 +13456,31 @@ function initProxyServersInteractions(container) {
             initProxyServersInteractions(container);
         } catch (error) {
             showRequestError("VPN-подписка", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
+    container.querySelector("#proxyCreateSubscriptionLinkBtn")?.addEventListener("click", async () => {
+        const label = window.prompt("Название ссылки для клиента, например family-main", "vpn-link") || "vpn-link";
+        const noLogs = window.confirm("Включить no-log для этой ссылки?");
+        Loader.show();
+        try {
+            const data = await apiClient.createAdminProxySubscriptionLink({
+                label,
+                noLogs,
+            });
+            const url = data.item.base64Url || data.item.url;
+            try {
+                await navigator.clipboard?.writeText(url);
+            } catch (error) {
+                console.error(error);
+            }
+            Toast.show("VPN subscription link", `Ссылка для клиента:<br><b style="word-break:break-all;">${escapeHtml(url)}</b>`, "success", 45000, { html: true });
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("VPN subscription link", error);
         } finally {
             Loader.hide(300);
         }

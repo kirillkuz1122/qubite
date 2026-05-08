@@ -550,6 +550,7 @@ async function initializeDatabase(options = {}) {
             label TEXT NOT NULL DEFAULT '',
             status TEXT NOT NULL DEFAULT 'active',
             no_logs INTEGER NOT NULL DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'site_user',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             expires_at TEXT DEFAULT NULL,
@@ -1111,6 +1112,7 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_servers", "supports_ipv6", "INTEGER NOT NULL DEFAULT 1");
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
     await ensureColumn("proxy_subscriptions", "no_logs", "INTEGER NOT NULL DEFAULT 0");
+    await ensureColumn("proxy_subscriptions", "source", "TEXT NOT NULL DEFAULT 'site_user'");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
@@ -3257,11 +3259,12 @@ async function createProxySubscription(payload) {
                 label,
                 status,
                 no_logs,
+                source,
                 created_at,
                 updated_at,
                 expires_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             payload.uid || makeUid("SUB"),
@@ -3270,6 +3273,7 @@ async function createProxySubscription(payload) {
             payload.label || "",
             payload.status || "active",
             payload.noLogs ? 1 : 0,
+            payload.source || "site_user",
             timestamp,
             timestamp,
             payload.expiresAt || null,
