@@ -623,32 +623,15 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
         }
     }
 
-    const sniRoutes = await listActiveProxySniRoutesForClient();
-    for (const route of sniRoutes) {
-        const serverUid = route.server_uid || servers[0]?.uid;
-        const credential = sessionsByServerUid.get(serverUid);
-        if (!credential) continue;
-        const baseServer = {
-            name: route.server_name || credential.server.name || route.server_domain || route.route_domain,
-            public_domain: route.server_domain || credential.server.public_domain || route.route_domain,
-        };
-        const familySuffix = route.ip_family === "ipv4" ? "ip4-" : route.ip_family === "ipv6" ? "ip6-" : "";
-        const label = buildProxyVariantName(baseServer, `${familySuffix}sni:${normalizeCatalogLabel(route.target_sni, "target")}`);
-        lines.push(buildNaiveUri({
-            host: route.route_domain,
-            username: credential.session.username,
-            password: credential.password,
-            label,
-        }));
-    }
-
     // VLESS+Reality links for servers that have Reality configured
     const vlessUuid = deriveVlessUuid(subscription.uid);
+    const realityServers = [];
     for (const server of servers) {
         let metadata = {};
         try { metadata = JSON.parse(server.metadata_json || "{}"); } catch (_) {}
         const reality = metadata.reality;
         if (!reality || !reality.publicKey || !reality.shortId) continue;
+        realityServers.push({ server, reality });
         const host = server.ipv4_domain || server.public_domain;
         const label = buildProxyVariantName(server, "reality");
         lines.push(buildVlessUri({
@@ -660,6 +643,37 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
             shortId: reality.shortId,
             port: Number(reality.port || 443),
         }));
+    }
+
+    // SNI routes: generate VLESS entries per server with custom SNI masquerade
+    const sniRoutes = await listActiveProxySniRoutesForClient();
+    for (const route of sniRoutes) {
+        const sniLabel = normalizeCatalogLabel(route.target_sni, "target");
+        const targetServers = route.server_uid
+            ? realityServers.filter((rs) => rs.server.uid === route.server_uid)
+            : realityServers;
+        for (const { server, reality } of targetServers) {
+            const variants = [
+                { host: server.public_domain, suffix: `sni:${sniLabel}` },
+            ];
+            if (Number(server.supports_ipv4 ?? 1) && server.ipv4_domain) {
+                variants.push({ host: server.ipv4_domain, suffix: `ip4-sni:${sniLabel}` });
+            }
+            if (Number(server.supports_ipv6 ?? 1) && (server.ipv6_domain || server.ipv6_address)) {
+                variants.push({ host: server.ipv6_domain || server.public_domain, suffix: `ip6-sni:${sniLabel}` });
+            }
+            for (const variant of variants) {
+                lines.push(buildVlessUri({
+                    host: variant.host,
+                    uuid: vlessUuid,
+                    label: buildProxyVariantName(server, variant.suffix),
+                    serverName: route.target_sni,
+                    publicKey: reality.publicKey,
+                    shortId: reality.shortId,
+                    port: Number(reality.port || 443),
+                }));
+            }
+        }
     }
 
     return lines;

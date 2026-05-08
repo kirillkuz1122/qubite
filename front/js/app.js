@@ -13244,8 +13244,8 @@ function renderProxyServersView() {
                     className: "ops-panel--primary",
                 })}
                 ${renderOpsPanel({
-                    title: "SNI-маршруты",
-                    desc: "Домены для маскировки: приложение получает их отдельным списком, а Caddy редиректит обычный браузер на указанный сайт.",
+                    title: "SNI-маскировка",
+                    desc: "Сайты для маскировки. Каждый SNI автоматически создаёт VLESS-записи с подменой для всех серверов.",
                     body: renderProxySniRoutesList(sniRoutes),
                     className: "ops-panel--primary",
                 })}
@@ -13301,7 +13301,7 @@ function renderProxyServerRow(server) {
 
 function renderProxySniRoutesList(routes) {
     if (!routes.length) {
-        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">SNI-маршрутов пока нет</div><div class="admin-home-feed__empty-desc">Добавьте sni-домен, target SNI и сайт для редиректа обычного браузера.</div></div>`;
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">SNI-маскировок пока нет</div><div class="admin-home-feed__empty-desc">Добавьте сайт для маскировки — VLESS-записи создадутся автоматически для каждого сервера.</div></div>`;
     }
     return `
         <div class="ops-admin-list">
@@ -13310,9 +13310,8 @@ function renderProxySniRoutesList(routes) {
                 return `
                     <div class="ops-admin-row glass-panel" data-view-anim>
                         <div class="ops-admin-row__main">
-                            <div class="ops-admin-row__title">${escapeHtml(route.domain)}</div>
-                            <div class="ops-admin-row__meta">target SNI: ${escapeHtml(route.targetSni)} • ${escapeHtml(route.ipFamily || "auto")} • ${escapeHtml(route.server?.domain || "все ноды")}</div>
-                            <div class="ops-admin-row__meta">browser redirect: ${escapeHtml(route.redirectUrl)}</div>
+                            <div class="ops-admin-row__title">${escapeHtml(route.targetSni)}</div>
+                            <div class="ops-admin-row__meta">${escapeHtml(route.server?.domain || "все серверы")} • VLESS Reality с подменой SNI</div>
                             ${route.notes ? `<div class="ops-admin-row__meta">${escapeHtml(route.notes)}</div>` : ""}
                         </div>
                         <div class="ops-admin-row__controls">
@@ -13358,10 +13357,19 @@ function renderProxyLogsList(logs) {
     if (!logs.length) {
         return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">Логов пока нет</div><div class="admin-home-feed__empty-desc">Приложение начнёт отправлять traffic events после подключения к proxy API.</div></div>`;
     }
+    const users = [...new Set(logs.map((l) => l.user?.login || "unknown"))].sort();
+    const userOptions = users.map((u) => `<option value="${escapeHtml(u)}">@${escapeHtml(u)}</option>`).join("");
     return `
-        <div class="ops-admin-list">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <input type="text" class="form-input" id="proxyLogsSearch" placeholder="Поиск по домену..." style="flex:1;min-width:180px;">
+            <select class="form-input" id="proxyLogsUserFilter" style="min-width:160px;">
+                <option value="">Все пользователи</option>
+                ${userOptions}
+            </select>
+        </div>
+        <div class="ops-admin-list" id="proxyLogsListContainer" style="max-height:440px;overflow-y:auto;">
             ${logs.slice(0, 80).map((log) => `
-                <div class="ops-admin-row glass-panel" data-view-anim>
+                <div class="ops-admin-row glass-panel proxy-log-entry" data-view-anim data-log-host="${escapeHtml(log.destinationHost || "")}" data-log-user="${escapeHtml(log.user?.login || "unknown")}">
                     <div class="ops-admin-row__main">
                         <div class="ops-admin-row__title">${escapeHtml(log.destinationHost || "unknown")}</div>
                         <div class="ops-admin-row__meta">@${escapeHtml(log.user?.login || "unknown")} • ${escapeHtml(log.device?.name || log.device?.platform || "device")} • ${escapeHtml(log.server?.domain || "server")} • ${escapeHtml(formatDateTimeLabel(log.createdAt))}</div>
@@ -13488,14 +13496,12 @@ function initProxyServersInteractions(container) {
 
     container.querySelector("#proxyCreateSniRouteBtn")?.addEventListener("click", async () => {
         const servers = getAdminProxyServersState();
-        const routeDomain = window.prompt("SNI-поддомен, например sni.proxy.qubiteapp.online");
-        if (!routeDomain) return;
-        const redirectUrl = window.prompt("Куда редиректить обычный браузер, например https://www.cloudflare.com/");
-        if (!redirectUrl) return;
-        const targetSni = window.prompt("Target SNI для приложения. Можно оставить пустым, тогда возьмём host из redirect URL.") || "";
-        const ipFamily = window.prompt("IP family: auto, ipv4 или ipv6", routeDomain.includes("6") ? "ipv6" : "auto") || "auto";
+        const targetSni = window.prompt("Сайт для маскировки SNI (например max.ru, www.microsoft.com)");
+        if (!targetSni) return;
+        const routeDomain = `sni-${targetSni.replace(/[^a-z0-9.-]/gi, "").slice(0, 40)}`;
+        const redirectUrl = window.prompt("Куда редиректить обычный браузер (опционально)", `https://${targetSni}/`) || `https://${targetSni}/`;
         const serverHint = servers.map((server, index) => `${index + 1}: ${server.name || server.domain} (${server.domain})`).join("\n");
-        const serverChoice = servers.length
+        const serverChoice = servers.length > 1
             ? window.prompt(`Нода для SNI. Enter = все ноды.\n${serverHint}`, "")
             : "";
         const selectedServer = serverChoice
@@ -13507,11 +13513,11 @@ function initProxyServersInteractions(container) {
                 routeDomain,
                 redirectUrl,
                 targetSni,
-                ipFamily,
+                ipFamily: "auto",
                 serverId: selectedServer?.id || "",
                 status: "active",
             });
-            Toast.show("Прокси", "SNI-маршрут добавлен. На нодах он применится после ближайшего sync.", "success");
+            Toast.show("Прокси", `SNI ${targetSni} добавлен. В подписках появятся VLESS-записи для каждого сервера.`, "success");
             container.innerHTML = renderProxyServersView();
             initProxyServersInteractions(container);
         } catch (error) {
@@ -13763,6 +13769,24 @@ function initProxyServersInteractions(container) {
             }
         });
     });
+
+    const logsSearch = container.querySelector("#proxyLogsSearch");
+    const logsUserFilter = container.querySelector("#proxyLogsUserFilter");
+    if (logsSearch || logsUserFilter) {
+        const filterLogs = () => {
+            const query = (logsSearch?.value || "").toLowerCase();
+            const userFilter = logsUserFilter?.value || "";
+            container.querySelectorAll(".proxy-log-entry").forEach((el) => {
+                const host = (el.dataset.logHost || "").toLowerCase();
+                const user = el.dataset.logUser || "";
+                const matchHost = !query || host.includes(query);
+                const matchUser = !userFilter || user === userFilter;
+                el.style.display = (matchHost && matchUser) ? "" : "none";
+            });
+        };
+        logsSearch?.addEventListener("input", filterLogs);
+        logsUserFilter?.addEventListener("change", filterLogs);
+    }
 }
 
 function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
