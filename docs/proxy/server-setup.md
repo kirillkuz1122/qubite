@@ -46,6 +46,7 @@ The script asks for:
 - main website domain, for example `qubiteapp.ru`;
 - extra website domains, comma separated;
 - proxy domain on this master, for example `proxy.qubiteapp.online`;
+- extra proxy domains, for example `proxy4.qubiteapp.online,proxy6.qubiteapp.online`;
 - Node app port;
 - proxy credential encryption key;
 - local sync token.
@@ -60,6 +61,7 @@ sudo ./deploy/proxy/setup-proxy-node.sh
 The child script asks for:
 
 - proxy domain of this node;
+- extra proxy domains for the same node;
 - main website domain used for browser redirects;
 - master API base URL;
 - node token from the owner panel.
@@ -100,6 +102,19 @@ NaiveProxy client with valid credentials gets CONNECT proxy access
 IPv4 and IPv6 are both supported at the public Caddy entrypoint. The setup
 scripts force `IPV6=yes` in `/etc/default/ufw` and open 22/80/443 for both
 families.
+
+For app-side IP family selection, point aliases at the same VPS:
+
+```text
+proxy.qubiteapp.online   A     193.233.91.128
+proxy.qubiteapp.online   AAAA  2a01:e5c0:17bc::2
+proxy4.qubiteapp.online  A     193.233.91.128
+proxy6.qubiteapp.online  AAAA  2a01:e5c0:17bc::2
+```
+
+For additional nodes, use the same pattern with numbers, for example
+`proxy2.qubiteapp.online`, `proxy2-4.qubiteapp.online`, and
+`proxy2-6.qubiteapp.online`, then enter those names in `PROXY_EXTRA_DOMAINS`.
 
 ## Required Qubite Env
 

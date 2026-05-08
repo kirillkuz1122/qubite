@@ -22,6 +22,7 @@ ask() {
 
 REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 ask PROXY_DOMAIN "Proxy domain of this node" "proxy.qubiteapp.online"
+ask PROXY_EXTRA_DOMAINS "Extra proxy domains, comma separated" ""
 ask MAIN_SITE_DOMAIN "Main website domain for browser redirect" "qubiteapp.ru"
 ask MASTER_API_BASE_URL "Master Qubite API base URL" "https://${MAIN_SITE_DOMAIN}"
 ask PROXY_NODE_TOKEN "Node token from owner panel" "" secret
@@ -48,13 +49,20 @@ basic_auth bootstrap bootstrap-change-me
 EOF_CREDS
 chmod 600 /etc/caddy/forwardproxy-credentials.caddy
 
+PROXY_SITE_NAMES="$PROXY_DOMAIN"
+IFS=',' read -ra PROXY_EXTRA <<<"$PROXY_EXTRA_DOMAINS"
+for domain in "${PROXY_EXTRA[@]}"; do
+  domain="$(echo "$domain" | xargs)"
+  [[ -n "$domain" ]] && PROXY_SITE_NAMES="${PROXY_SITE_NAMES}, https://${domain}"
+done
+
 cat >/etc/caddy/Caddyfile <<EOF_CADDY
 {
     order forward_proxy before reverse_proxy
     admin 127.0.0.1:2019
 }
 
-https://${PROXY_DOMAIN}, :443 {
+https://${PROXY_SITE_NAMES}, :443 {
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy

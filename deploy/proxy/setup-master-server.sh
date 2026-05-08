@@ -24,6 +24,7 @@ REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 ask MAIN_SITE_DOMAIN "Main site domain" "qubiteapp.ru"
 ask EXTRA_SITE_DOMAINS "Extra site domains, comma separated" "www.qubiteapp.ru,ru.qubiteapp.online,www.ru.qubiteapp.online"
 ask PROXY_DOMAIN "Proxy domain on master server" "proxy.qubiteapp.online"
+ask PROXY_EXTRA_DOMAINS "Extra proxy domains, comma separated" "proxy4.qubiteapp.online,proxy6.qubiteapp.online"
 ask APP_PORT "Node app port" "3000"
 ask PROXY_CREDENTIAL_ENCRYPTION_KEY "Proxy credential encryption key" "$(openssl rand -base64 32)" secret
 ask PROXY_SYNC_TOKEN "Master-local proxy sync token" "$(openssl rand -hex 32)" secret
@@ -95,13 +96,20 @@ for domain in "${EXTRA[@]}"; do
   [[ -n "$domain" ]] && SITE_NAMES="${SITE_NAMES}, https://${domain}"
 done
 
+PROXY_SITE_NAMES="$PROXY_DOMAIN"
+IFS=',' read -ra PROXY_EXTRA <<<"$PROXY_EXTRA_DOMAINS"
+for domain in "${PROXY_EXTRA[@]}"; do
+  domain="$(echo "$domain" | xargs)"
+  [[ -n "$domain" ]] && PROXY_SITE_NAMES="${PROXY_SITE_NAMES}, https://${domain}"
+done
+
 cat >/etc/caddy/Caddyfile <<EOF_CADDY
 {
     order forward_proxy before reverse_proxy
     admin 127.0.0.1:2019
 }
 
-https://${PROXY_DOMAIN}, :443 {
+https://${PROXY_SITE_NAMES}, :443 {
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy

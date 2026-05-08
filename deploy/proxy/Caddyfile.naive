@@ -3,7 +3,7 @@
     admin 127.0.0.1:2019
 }
 
-https://proxy.qubiteapp.online, :443 {
+https://proxy.qubiteapp.online, https://proxy4.qubiteapp.online, https://proxy6.qubiteapp.online, :443 {
     route {
         forward_proxy {
             import /etc/caddy/forwardproxy-credentials.caddy
