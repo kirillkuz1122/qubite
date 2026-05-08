@@ -3011,6 +3011,7 @@ async function updateProxyServer(payload) {
                 weight = ?,
                 status = ?,
                 health_status = ?,
+                metadata_json = ?,
                 updated_at = ?
             WHERE uid = ?
         `,
@@ -3030,6 +3031,7 @@ async function updateProxyServer(payload) {
             Number(payload.weight ?? current.weight ?? 100),
             payload.status ?? current.status,
             payload.healthStatus ?? current.health_status,
+            payload.metadata !== undefined ? toJsonString(payload.metadata) : current.metadata_json,
             timestamp,
             payload.uid,
         ],

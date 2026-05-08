@@ -233,6 +233,7 @@ function serializeProxyServerForAdmin(server) {
             users: Number(server.traffic_users_24h || 0),
             devices: Number(server.traffic_devices_24h || 0),
         },
+        metadata: parseMetricsJson(server.metadata_json),
         metrics: parseMetricsJson(server.metrics_json),
         lastError: server.last_error || "",
         hasNodeToken: Boolean(server.node_token_hash),
@@ -645,7 +646,7 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
     const vlessUuid = deriveVlessUuid(subscription.uid);
     for (const server of servers) {
         let metadata = {};
-        try { metadata = JSON.parse(server.metadata || "{}"); } catch (_) {}
+        try { metadata = JSON.parse(server.metadata_json || "{}"); } catch (_) {}
         const reality = metadata.reality;
         if (!reality || !reality.publicKey || !reality.shortId) continue;
         const host = server.ipv4_domain || server.public_domain;
@@ -1078,6 +1079,14 @@ function registerProxyRoutes(app, deps) {
                 sendError(res, 400, "Укажите корректный домен proxy-ноды.", "publicDomain");
                 return;
             }
+            let nextMetadata;
+            if (req.body?.metadata !== undefined) {
+                if (typeof req.body.metadata !== "object" || req.body.metadata === null || Array.isArray(req.body.metadata)) {
+                    sendError(res, 400, "metadata должен быть объектом.", "metadata");
+                    return;
+                }
+                nextMetadata = req.body.metadata;
+            }
             const server = await updateProxyServer({
                 uid: cleanText(req.params.serverUid, 80),
                 name: req.body?.name === undefined ? undefined : cleanText(req.body.name, 80),
@@ -1094,6 +1103,7 @@ function registerProxyRoutes(app, deps) {
                 priority: req.body?.priority,
                 weight: req.body?.weight,
                 status: status || undefined,
+                metadata: nextMetadata,
             });
             if (!server) {
                 sendError(res, 404, "Proxy-нода не найдена.");
