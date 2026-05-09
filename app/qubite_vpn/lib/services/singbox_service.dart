@@ -150,43 +150,18 @@ class SingboxService {
     try {
       final args = ['run', '-c', configFile.path];
 
-      _process = await Process.start(binary, args);
-
-      _process!.stdout.transform(utf8.decoder).listen((data) {
-        debugPrint('[sing-box stdout] $data');
-        if (data.contains('started') || data.contains('sing-box started')) {
-          if (_state == SingboxState.starting) {
-            _setState(SingboxState.running);
+      // Try direct launch first; if TUN fails with permission error → pkexec
+      if (!await _launch(binary, args)) {
+        final stderr = _stderrBuf.toString();
+        if (stderr.contains('not permitted') || stderr.contains('permission denied') || stderr.contains('operation not permitted')) {
+          debugPrint('[sing-box] permission error, retrying with pkexec');
+          _stderrBuf.clear();
+          _setState(SingboxState.starting);
+          if (!await _launch('pkexec', [binary, ...args])) {
+            return; // _launch already set error state
           }
-        }
-      });
-
-      _process!.stderr.transform(utf8.decoder).listen((data) {
-        debugPrint('[sing-box stderr] $data');
-        _stderrBuf.write(data);
-        _lastError = _stderrBuf.toString();
-      });
-
-      _process!.exitCode.then((code) {
-        if (_state != SingboxState.stopping) {
-          final stderr = _stderrBuf.toString().trim();
-          _lastError = stderr.isNotEmpty
-              ? 'sing-box (exit $code): $stderr'
-              : 'sing-box exited with code $code';
-          debugPrint('[sing-box] exited with code $code, stderr: $stderr');
-          _setState(SingboxState.error);
         } else {
-          _setState(SingboxState.stopped);
-        }
-        _process = null;
-      });
-
-      // Wait for startup
-      await Future.delayed(const Duration(seconds: 1));
-      if (_state == SingboxState.starting) {
-        // Check if process is still alive
-        if (_process != null) {
-          _setState(SingboxState.running);
+          return; // non-permission error, already in error state
         }
       }
     } catch (e) {
@@ -194,6 +169,58 @@ class SingboxService {
       debugPrint('[sing-box] start error: $e');
       _setState(SingboxState.error);
     }
+  }
+
+  /// Launch sing-box process. Returns true if it stays running after 1.5s.
+  Future<bool> _launch(String executable, List<String> args) async {
+    debugPrint('[sing-box] launching: $executable ${args.join(' ')}');
+    _process = await Process.start(executable, args);
+
+    _process!.stdout.transform(utf8.decoder).listen((data) {
+      debugPrint('[sing-box stdout] $data');
+      if (data.contains('started') || data.contains('sing-box started')) {
+        if (_state == SingboxState.starting) {
+          _setState(SingboxState.running);
+        }
+      }
+    });
+
+    _process!.stderr.transform(utf8.decoder).listen((data) {
+      debugPrint('[sing-box stderr] $data');
+      _stderrBuf.write(data);
+      _lastError = _stderrBuf.toString();
+    });
+
+    final exitCompleter = Completer<int>();
+    _process!.exitCode.then((code) {
+      if (!exitCompleter.isCompleted) exitCompleter.complete(code);
+      if (_state != SingboxState.stopping) {
+        final stderr = _stderrBuf.toString().trim();
+        _lastError = stderr.isNotEmpty
+            ? 'sing-box (exit $code): $stderr'
+            : 'sing-box exited with code $code';
+        debugPrint('[sing-box] exited with code $code, stderr: $stderr');
+        _setState(SingboxState.error);
+      } else {
+        _setState(SingboxState.stopped);
+      }
+      _process = null;
+    });
+
+    // Wait a bit — if it exits quickly it's an error
+    final code = await exitCompleter.future
+        .timeout(const Duration(milliseconds: 1500), onTimeout: () => -999);
+
+    if (code != -999) {
+      // Process already exited → failure
+      return false;
+    }
+
+    // Still running → success
+    if (_state == SingboxState.starting) {
+      _setState(SingboxState.running);
+    }
+    return true;
   }
 
   /// Stop sing-box process
