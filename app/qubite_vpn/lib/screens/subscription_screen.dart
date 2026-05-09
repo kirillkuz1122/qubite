@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../state/app_state.dart';
 
-/// Placeholder subscription screen — to be implemented with payment system
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final sub = state.subscription;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Подписка')),
       body: SafeArea(
@@ -15,168 +19,105 @@ class SubscriptionScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Current plan
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: QColors.accentGradient,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Текущий план',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Free',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Базовый доступ к VPN',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
+              // Current plan card
+              _buildCurrentPlan(sub),
+              const SizedBox(height: 24),
 
-              // Plans
-              const Text(
-                'ДОСТУПНЫЕ ПЛАНЫ',
-                style: TextStyle(
-                  color: QColors.fgMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              _PlanCard(
-                name: 'Premium',
-                price: '299 \u20BD/мес',
-                features: const [
-                  'Неограниченная скорость',
-                  'Все регионы',
-                  'Приоритетная поддержка',
-                  'До 5 устройств',
-                ],
-                highlighted: true,
-              ),
-              const SizedBox(height: 12),
-              _PlanCard(
-                name: 'Pro',
-                price: '499 \u20BD/мес',
-                features: const [
-                  'Всё из Premium',
-                  'Выделенный IP',
-                  'До 10 устройств',
-                  'API-доступ',
-                ],
-                highlighted: false,
-              ),
+              if (sub != null) ...[
+                _infoRow('Статус', sub['status'] == 'active' ? 'Активна' : (sub['status'] ?? '—')),
+                if (sub['isVip'] == true) _infoRow('VIP', 'Да'),
+                if (sub['maxConnections'] != null)
+                  _infoRow('Устройств', '${sub['maxConnections']}'),
+                if (sub['speedLimitMbps'] != null)
+                  _infoRow('Лимит скорости', '${sub['speedLimitMbps']} Mbps'),
+                if (sub['expiresAt'] != null)
+                  _infoRow('Действует до', _formatDate(sub['expiresAt'])),
+              ],
 
               const Spacer(),
-              Text(
-                'Оплата будет доступна в ближайшем обновлении',
-                style: TextStyle(
-                  color: QColors.fgMuted,
-                  fontSize: 12,
+              if (sub == null)
+                Text(
+                  'Подписка не найдена. Обратитесь к администратору.',
+                  style: TextStyle(color: QColors.fgMuted, fontSize: 12),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _PlanCard extends StatelessWidget {
-  final String name;
-  final String price;
-  final List<String> features;
-  final bool highlighted;
+  Widget _buildCurrentPlan(Map<String, dynamic>? sub) {
+    final isActive = sub != null && sub['status'] == 'active';
+    final planName = isActive
+        ? (sub['isVip'] == true ? 'VIP' : 'Active')
+        : 'Нет подписки';
+    final description = isActive
+        ? (sub['label'] as String? ?? 'VPN-доступ через приложение')
+        : 'Подписка не активна';
 
-  const _PlanCard({
-    required this.name,
-    required this.price,
-    required this.features,
-    required this.highlighted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: QColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: highlighted
-              ? QColors.accentFrom.withAlpha(128)
-              : QColors.border,
-        ),
+        gradient: isActive ? QColors.accentGradient : null,
+        color: isActive ? null : QColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: isActive ? null : Border.all(color: QColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  color: QColors.fgStrong,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                price,
-                style: TextStyle(
-                  color: highlighted ? QColors.accentFrom : QColors.fg,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          Text(
+            'Текущий план',
+            style: TextStyle(
+              color: isActive ? Colors.white70 : QColors.fgMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            planName,
+            style: TextStyle(
+              color: isActive ? Colors.white : QColors.fgStrong,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
-          ...features.map((f) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check, size: 14, color: QColors.green),
-                    const SizedBox(width: 6),
-                    Text(f, style: const TextStyle(color: QColors.fg, fontSize: 13)),
-                  ],
-                ),
-              )),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: highlighted
-                ? ElevatedButton(
-                    onPressed: null, // TODO: implement payment
-                    child: const Text('Скоро'),
-                  )
-                : OutlinedButton(
-                    onPressed: null,
-                    child: const Text('Скоро'),
-                  ),
+          Text(
+            description,
+            style: TextStyle(
+              color: isActive ? Colors.white70 : QColors.fgMuted,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: QColors.fgMuted, fontSize: 14)),
+          Text(value, style: const TextStyle(color: QColors.fgStrong, fontSize: 14, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String? iso) {
+    if (iso == null) return '—';
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
 }
+

@@ -1119,6 +1119,7 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_subscriptions", "is_vip", "INTEGER NOT NULL DEFAULT 0");
     await ensureColumn("proxy_subscriptions", "speed_limit_mbps", "INTEGER DEFAULT NULL");
     await ensureColumn("proxy_subscriptions", "max_connections", "INTEGER NOT NULL DEFAULT 3");
+    await ensureColumn("proxy_subscriptions", "type", "TEXT NOT NULL DEFAULT 'link'");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
@@ -3292,11 +3293,12 @@ async function createProxySubscription(payload) {
                 speed_limit_mbps,
                 max_connections,
                 source,
+                type,
                 created_at,
                 updated_at,
                 expires_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             payload.uid || makeUid("SUB"),
@@ -3309,6 +3311,7 @@ async function createProxySubscription(payload) {
             payload.speedLimitMbps || null,
             payload.maxConnections || 3,
             payload.source || "site_user",
+            payload.type || "link",
             timestamp,
             timestamp,
             payload.expiresAt ?? defaultSubscriptionExpiresAt(),
@@ -3406,6 +3409,25 @@ async function hasActiveProxySubscriptionForUser(userId) {
     return Boolean(row);
 }
 
+async function getActiveProxySubscriptionForUser(userId, type) {
+    const typeFilter = type ? `AND psu.type = '${type === "app" ? "app" : "link"}'` : "";
+    return get(
+        `
+            SELECT psu.uid, psu.label, psu.status, psu.is_vip, psu.speed_limit_mbps,
+                   psu.max_connections, psu.expires_at, psu.type, psu.source, psu.created_at
+            FROM proxy_subscriptions psu
+            WHERE psu.user_id = ?
+              AND psu.status = 'active'
+              AND psu.revoked_at IS NULL
+              AND (psu.expires_at IS NULL OR psu.expires_at > ?)
+              ${typeFilter}
+            ORDER BY psu.created_at DESC
+            LIMIT 1
+        `,
+        [userId, nowIso()],
+    );
+}
+
 async function listActiveProxySubscriptionsForSync() {
     return all(
         `
@@ -3451,6 +3473,7 @@ async function updateProxySubscription(payload) {
                 is_vip = ?,
                 speed_limit_mbps = ?,
                 max_connections = ?,
+                type = ?,
                 expires_at = ?,
                 updated_at = ?,
                 revoked_at = CASE
@@ -3467,6 +3490,7 @@ async function updateProxySubscription(payload) {
             payload.isVip === undefined ? Number(current.is_vip || 0) : (payload.isVip ? 1 : 0),
             payload.speedLimitMbps === undefined ? current.speed_limit_mbps : (payload.speedLimitMbps || null),
             payload.maxConnections === undefined ? Number(current.max_connections || 3) : Number(payload.maxConnections || 3),
+            payload.type === undefined ? (current.type || "link") : (payload.type === "app" ? "app" : "link"),
             payload.expiresAt === undefined ? current.expires_at : (payload.expiresAt || null),
             timestamp,
             newStatus,
@@ -8986,6 +9010,7 @@ module.exports = {
     getUserById,
     hasPendingOrganizerApplication,
     hasActiveProxySubscriptionForUser,
+    getActiveProxySubscriptionForUser,
     listActiveProxySubscriptionsForSync,
     incrementAuthChallengeAttempts,
     initializeDatabase,

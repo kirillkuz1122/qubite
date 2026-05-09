@@ -13352,8 +13352,8 @@ function renderProxySubscriptionsList(subscriptions) {
                 return `
                     <div class="ops-admin-row glass-panel" data-view-anim>
                         <div class="ops-admin-row__main">
-                            <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}${subscription.isVip ? ' <span style="color:var(--accent);font-weight:600;">VIP</span>' : ""}</div>
-                            <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(statusLabel)} • ${escapeHtml(badges.join(" • "))}</div>
+                            <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}${subscription.isVip ? ' <span style="color:var(--accent);font-weight:600;">VIP</span>' : ""}${subscription.type === "app" ? ' <span style="color:var(--info);font-weight:600;">APP</span>' : ""}</div>
+                            <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(statusLabel)} • ${subscription.type || "link"} • ${escapeHtml(badges.join(" • "))}</div>
                             <div class="ops-admin-row__meta">Срок: ${escapeHtml(formatProxyExpiry(subscription.expiresAt))}${subscription.expiresAt ? ` (до ${escapeHtml(new Date(subscription.expiresAt).toLocaleDateString("ru"))})` : ""}${expired ? ' <span style="color:var(--error);">⚠ истекла</span>' : ""}</div>
                             <div class="ops-admin-row__meta">${subscription.url ? escapeHtml(subscription.url) : "URL показывается только при создании ссылки"}</div>
                         </div>
@@ -13472,11 +13472,15 @@ function initProxyServersInteractions(container) {
             return;
         }
         const label = window.prompt("Название VPN-аккаунта, например family-ru1", `vpn-${selected.login}`) || `vpn-${selected.login}`;
+        const typeChoice = window.prompt("Тип подписки:\n1 — link (для внешних клиентов: Nekobox, V2rayN)\n2 — app (для приложения Qubite VPN)", "1");
+        if (typeChoice === null) return;
+        const subType = typeChoice === "2" ? "app" : "link";
         Loader.show();
         try {
             const data = await apiClient.createAdminProxySubscription({
                 userId: selected.id,
                 label,
+                type: subType,
                 noLogs: false,
             });
             Toast.show("VPN подписка", `Ссылка: <b>${escapeHtml(data.item.url)}</b>`, "success", 30000, { html: true });
@@ -13622,6 +13626,12 @@ function initProxyServersInteractions(container) {
             const network = server.network || {};
             const name = window.prompt("Название для приложения, например ru1", server.name || server.domain);
             if (name === null) return;
+            const countryCode = window.prompt("Код страны (2 буквы, напр. RU, DE, NL)", server.countryCode || "");
+            if (countryCode === null) return;
+            const city = window.prompt("Город (напр. Moscow, Frankfurt)", server.city || "");
+            if (city === null) return;
+            const displayName = window.prompt("Отображаемое имя (для приложения)", server.displayName || server.name || "");
+            if (displayName === null) return;
             const ipv4Domain = window.prompt("IPv4-only домен для приложения", network.ipv4Domain || "");
             if (ipv4Domain === null) return;
             const ipv6Domain = window.prompt("IPv6-only домен для приложения", network.ipv6Domain || "");
@@ -13634,6 +13644,9 @@ function initProxyServersInteractions(container) {
             try {
                 await apiClient.updateAdminProxyServer(server.id, {
                     name,
+                    countryCode,
+                    city,
+                    displayName,
                     ipv4Domain,
                     ipv6Domain,
                     ipv4Address,

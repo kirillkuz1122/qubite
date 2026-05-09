@@ -82,6 +82,11 @@ class AppState extends ChangeNotifier {
   bool _whitelistActive = false;
   bool get whitelistActive => _whitelistActive;
 
+  // ---------- subscription ----------
+  Map<String, dynamic>? _subscription;
+  Map<String, dynamic>? get subscription => _subscription;
+  bool get hasActiveSubscription => _subscription != null;
+
   // ---------- settings ----------
   bool _killSwitchEnabled = false;
   bool get killSwitchEnabled => _killSwitchEnabled;
@@ -529,6 +534,16 @@ class AppState extends ChangeNotifier {
   Future<void> _postLoginInit() async {
     await _ensureDevice();
     await loadServers();
+    await loadSubscription();
+  }
+
+  Future<void> loadSubscription() async {
+    try {
+      _subscription = await api.getSubscriptionStatus();
+    } catch (_) {
+      _subscription = null;
+    }
+    notifyListeners();
   }
 
   Future<void> _ensureDevice() async {

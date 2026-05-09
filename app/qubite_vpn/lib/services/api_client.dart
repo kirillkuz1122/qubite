@@ -162,6 +162,13 @@ class ApiClient {
     return RoutingProfile.fromJson(resp.data as Map<String, dynamic>);
   }
 
+  /// Returns subscription info or null if user has no active app subscription.
+  Future<Map<String, dynamic>?> getSubscriptionStatus() async {
+    final resp = await _dio.get('/api/proxy/subscription/me');
+    final data = resp.data as Map<String, dynamic>;
+    return data['subscription'] as Map<String, dynamic>?;
+  }
+
   Future<void> sendHeartbeat({
     required String deviceId,
     required String appVersion,

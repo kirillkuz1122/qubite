@@ -35,6 +35,7 @@ const {
     getProxyTrafficSummary,
     getUserById,
     hasActiveProxySubscriptionForUser,
+    getActiveProxySubscriptionForUser,
     listActiveProxySubscriptionsForSync,
     listActiveProxySessionsForSync,
     listActiveProxyServersForSubscription,
@@ -353,6 +354,7 @@ function serializeProxySubscriptionForAdmin(subscription, token = "") {
         label: subscription.label || "",
         status: subscription.status || "active",
         source: subscription.source || "site_user",
+        type: subscription.type || "link",
         standalone: subscription.source === "standalone_link",
         noLogs: Boolean(Number(subscription.no_logs || 0)),
         isVip: Boolean(Number(subscription.is_vip || 0)),
@@ -747,6 +749,30 @@ function registerProxyRoutes(app, deps) {
     app.get("/api/proxy/routing-profile", requireAuth, async (req, res) => {
         if (!(await requireProxyAccess(req, res, sendError))) return;
         res.json(buildProxyRoutingProfile());
+    });
+
+    app.get("/api/proxy/subscription/me", requireAuth, async (req, res, next) => {
+        try {
+            const sub = await getActiveProxySubscriptionForUser(req.auth.user.id, "app");
+            if (!sub) {
+                return res.json({ subscription: null });
+            }
+            res.json({
+                subscription: {
+                    uid: sub.uid,
+                    label: sub.label,
+                    status: sub.status,
+                    type: sub.type,
+                    isVip: Boolean(sub.is_vip),
+                    speedLimitMbps: sub.speed_limit_mbps || null,
+                    maxConnections: sub.max_connections || 3,
+                    expiresAt: sub.expires_at || null,
+                    createdAt: sub.created_at,
+                },
+            });
+        } catch (err) {
+            next(err);
+        }
     });
 
     app.get("/api/proxy/subscription/:token", async (req, res, next) => {
@@ -1224,12 +1250,14 @@ function registerProxyRoutes(app, deps) {
                 return;
             }
             const token = `qbs_${generateRandomToken(32)}`;
+            const subType = req.body?.type === "app" ? "app" : "link";
             const subscription = await createProxySubscription({
                 userId,
                 tokenHash: hashOpaqueToken(token),
                 label: cleanText(req.body?.label, 80) || `vpn-${user.login || user.uid}`,
                 status: "active",
                 source: "site_user",
+                type: subType,
                 noLogs: Boolean(req.body?.noLogs),
                 expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
             });
@@ -1303,6 +1331,7 @@ function registerProxyRoutes(app, deps) {
                 isVip: req.body?.isVip === undefined ? undefined : Boolean(req.body.isVip),
                 speedLimitMbps: req.body?.speedLimitMbps === undefined ? undefined : (req.body.speedLimitMbps ? Number(req.body.speedLimitMbps) : null),
                 maxConnections: req.body?.maxConnections === undefined ? undefined : Number(req.body.maxConnections),
+                type: req.body?.type === undefined ? undefined : req.body.type,
                 expiresAt: req.body?.expiresAt === undefined ? undefined : (req.body.expiresAt ? cleanText(req.body.expiresAt, 40) : null),
             });
             if (!subscription) {
