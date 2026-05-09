@@ -299,11 +299,26 @@ class AppState extends ChangeNotifier {
       }
       _activeServer = server;
 
-      // Start session
-      _session = await api.startSession(
-        deviceId: deviceId,
-        serverId: server.id,
-      );
+      // Ensure device is registered before starting a session
+      await _ensureDevice();
+
+      // Start session (retry once after re-registering if device unknown)
+      try {
+        _session = await api.startSession(
+          deviceId: deviceId,
+          serverId: server.id,
+        );
+      } catch (e) {
+        if (_isDeviceNotFoundError(e)) {
+          await _resetAndReRegisterDevice();
+          _session = await api.startSession(
+            deviceId: deviceId,
+            serverId: server.id,
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       // Get routing profile
       try {
@@ -592,6 +607,24 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       return 'Unknown Device';
     }
+  }
+
+  bool _isDeviceNotFoundError(dynamic e) {
+    if (e is DioException && e.response?.statusCode == 403) {
+      final data = e.response?.data;
+      if (data is Map<String, dynamic>) {
+        final msg = (data['error'] ?? data['message'] ?? '') as String;
+        return msg.contains('не зарегистрировано') || msg.contains('отозвано');
+      }
+    }
+    return false;
+  }
+
+  Future<void> _resetAndReRegisterDevice() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('device_id');
+    _deviceId = null;
+    await _ensureDevice();
   }
 
   // =======================================================
