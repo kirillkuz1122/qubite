@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'presentation/app.dart';
-import 'services/service_locator.dart';
+import 'package:provider/provider.dart';
+import 'state/app_state.dart';
+import 'app.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await ServiceLocator.init();
-  runApp(const ProviderScope(child: QubiteVpnApp()));
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: const QubiteVpnApp(),
+    ),
+  );
 }

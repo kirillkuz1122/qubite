@@ -11,8 +11,7 @@ dependencies:
     sdk: flutter
 
   # State management
-  riverpod: ^2.5.1
-  flutter_riverpod: ^2.5.1
+  provider: ^6.1.2
 
   # Networking
   dio: ^5.4.0
@@ -21,41 +20,19 @@ dependencies:
 
   # Storage
   shared_preferences: ^2.2.2
-  flutter_secure_storage: ^9.0.0
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-
-  # sing-box FFI integration
-  ffi: ^2.1.0
   path_provider: ^2.1.2
 
   # UI
-  flutter_svg: ^2.0.9
   google_fonts: ^6.1.0
-  shimmer: ^3.0.0
-  fl_chart: ^0.66.2
 
   # Platform
   connectivity_plus: ^5.0.2
   package_info_plus: ^5.0.1
-  device_info_plus: ^9.1.1
-  permission_handler: ^11.2.0
-  
-  # Utils
-  uuid: ^4.3.3
-  crypto: ^3.0.3
-  intl: ^0.19.0
-  logger: ^2.0.2+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
-  build_runner: ^2.4.8
-  hive_generator: ^2.0.1
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/icons/
-    - assets/fonts/

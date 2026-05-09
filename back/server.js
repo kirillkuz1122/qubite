@@ -37,6 +37,7 @@ const {
     MAX_REQUESTS_PER_SOCKET,
     OAUTH_VK_ENABLED,
     VK_APP_ID,
+    VPN_APP_TOKEN,
 } = require("./src/config");
 const {
     saveSystemStats,
@@ -5742,6 +5743,229 @@ app.delete("/api/auth/2fa/email", requireAuth, async (req, res, next) => {
         next(error);
     }
 });
+
+// ===================== VPN App Auth (без Turnstile, с X-App-Token) =====================
+
+const appAuthRateLimiter = createRateLimiter({
+    message: "Слишком много попыток. Подождите.",
+    rules: [
+        {
+            name: "app-auth-ip",
+            windowMs: 15 * 60 * 1000,
+            max: 10,
+            banMs: 30 * 60 * 1000,
+            key: (req) => `app:${getRequestIp(req)}`,
+            onLimit: ({ req, rule }) => persistTemporaryIpBlock(req, "app_auth_abuse", rule.banMs),
+        },
+        {
+            name: "app-auth-identifier",
+            windowMs: 5 * 60 * 1000,
+            max: 5,
+            key: (req) => {
+                const identifier =
+                    normalizeRequestIdentifier(req.body?.login) ||
+                    normalizeRequestEmail(req.body?.email);
+                return identifier ? `app:${getRequestIp(req)}:${identifier}` : "";
+            },
+        },
+    ],
+});
+
+function requireAppToken(req, res, next) {
+    if (!VPN_APP_TOKEN) {
+        sendError(res, 503, "VPN app auth не настроен.");
+        return;
+    }
+    const token = req.headers["x-app-token"] || "";
+    if (!token || !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(VPN_APP_TOKEN))) {
+        sendError(res, 403, "Недействительный токен приложения.");
+        return;
+    }
+    next();
+}
+
+app.post("/api/auth/app/register", requireAppToken, appAuthRateLimiter, async (req, res, next) => {
+    try {
+        const settings = getSystemSettings();
+        if (!settings.registration_enabled) {
+            sendError(res, 403, "Регистрация временно отключена.");
+            return;
+        }
+
+        const login = cleanText(req.body.login, 32);
+        const email = cleanText(req.body.email, 120);
+        const password = String(req.body.password || "");
+
+        if (!isValidLogin(login)) {
+            sendError(res, 400, "Логин должен быть длиной 2-32 символа и содержать только латиницу, цифры, '.', '_' или '-'.", "login");
+            return;
+        }
+        if (!isValidEmail(email)) {
+            sendError(res, 400, "Укажи корректный e-mail.", "email");
+            return;
+        }
+        if (!isStrongPassword(password)) {
+            sendError(res, 400, "Пароль должен содержать минимум 8 символов, латинские буквы и цифры.", "password");
+            return;
+        }
+
+        const loginNormalized = normalizeLogin(login);
+        const emailNormalized = normalizeEmail(email);
+        const blockedEmail = await findBlockedEmail(emailNormalized);
+        if (blockedEmail) {
+            sendError(res, 403, blockedEmail.reason || "Регистрация для этого e-mail ограничена.", "email");
+            return;
+        }
+
+        const { hash, salt } = await hashPassword(password);
+
+        let user;
+        try {
+            user = await createUser({
+                uid: makeUid(),
+                login,
+                loginNormalized,
+                email,
+                emailNormalized,
+                passwordHash: hash,
+                passwordSalt: salt,
+            });
+        } catch (error) {
+            if (error.code === "SQLITE_CONSTRAINT") {
+                if (String(error.message).includes("login_normalized")) {
+                    sendError(res, 409, "Этот логин уже занят.", "login");
+                    return;
+                }
+                if (String(error.message).includes("email_normalized")) {
+                    sendError(res, 409, "Этот e-mail уже используется.", "email");
+                    return;
+                }
+            }
+            throw error;
+        }
+
+        user = await getUserById(user.id);
+
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+
+        const challenge = await createAndSendChallenge({
+            userId: user.id,
+            email: user.email_normalized,
+            purpose: "email_verification",
+            title: "Qubite",
+            subtitle: "Подтверждение регистрации",
+            hint: "Введите этот код для активации аккаунта.",
+        });
+
+        res.status(201).json({
+            user: serializeUser(user),
+            emailVerificationRequired: true,
+            authChallenge: {
+                flowToken: challenge.flowToken,
+                delivery: challenge.delivery,
+                expiresAt: challenge.expiresAt,
+            },
+        });
+
+        await createAuditLog({
+            actorUserId: user.id,
+            action: "auth.app_register",
+            entityType: "user",
+            entityId: user.id,
+            summary: "Регистрация через VPN-приложение",
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/auth/app/login", requireAppToken, appAuthRateLimiter, async (req, res, next) => {
+    try {
+        const identifier = cleanText(req.body.login, 120);
+        const password = String(req.body.password || "");
+
+        if (!identifier || !password) {
+            sendError(res, 400, "Заполни логин и пароль.");
+            return;
+        }
+
+        const normalizedIdentifier = identifier.includes("@")
+            ? normalizeEmail(identifier)
+            : normalizeLogin(identifier);
+
+        const user = await findUserByLoginOrEmail(normalizedIdentifier);
+        if (!user) {
+            await consumePasswordHashTiming(password);
+            sendError(res, 401, "Неверный логин или пароль.");
+            return;
+        }
+
+        if ((user.status || "active") !== "active") {
+            if (user.status === "deleted") {
+                sendError(res, 403, "Этот аккаунт удален.");
+                return;
+            }
+            sendError(res, 403, user.blocked_reason || "Аккаунт ограничен.");
+            return;
+        }
+
+        const isValid = await verifyPassword(password, user.password_hash, user.password_salt);
+        if (!isValid) {
+            sendError(res, 401, "Неверный логин или пароль.");
+            return;
+        }
+
+        if (user.email_2fa_enabled) {
+            const challenge = await createAndSendChallenge({
+                userId: user.id,
+                email: user.email,
+                purpose: "login_email_2fa",
+                payload: {
+                    ipAddress: getRequestIp(req),
+                    userAgent: req.headers["user-agent"] || "",
+                },
+                title: "Qubite",
+                subtitle: "Код входа",
+                hint: "Введите код, чтобы завершить вход в аккаунт.",
+            });
+
+            res.json({
+                requiresTwoFactor: true,
+                flowToken: challenge.flowToken,
+                delivery: challenge.delivery,
+                ...buildDevCodeResponse(challenge.devCode),
+            });
+            return;
+        }
+
+        const rawToken = generateSessionToken();
+        await createSession({
+            userId: user.id,
+            tokenHash: hashSessionToken(rawToken),
+            ipAddress: getRequestIp(req),
+            userAgent: req.headers["user-agent"] || "",
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        });
+        await setUserLastLogin(user.id);
+
+        res.cookie(SESSION_COOKIE_NAME, rawToken, sessionCookieOptions());
+        res.json({ user: serializeUser(user) });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ===================== /VPN App Auth =====================
 
 app.post("/api/auth/logout", requireAuth, profileWriteRateLimiter, async (req, res, next) => {
     try {

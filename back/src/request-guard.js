@@ -233,7 +233,7 @@ function createOriginGuard(options = {}) {
         }
 
         const path = String(req.path || "");
-        if (path.startsWith("/api/proxy/node/") || path.startsWith("/api/proxy/sync/")) {
+        if (path.startsWith("/api/proxy/node/") || path.startsWith("/api/proxy/sync/") || path.startsWith("/api/auth/app/")) {
             next();
             return;
         }

@@ -1110,6 +1110,9 @@ async function initializeDatabase(options = {}) {
     await ensureColumn("proxy_servers", "ipv6_domain", "TEXT NOT NULL DEFAULT ''");
     await ensureColumn("proxy_servers", "supports_ipv4", "INTEGER NOT NULL DEFAULT 1");
     await ensureColumn("proxy_servers", "supports_ipv6", "INTEGER NOT NULL DEFAULT 1");
+    await ensureColumn("proxy_servers", "country_code", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "city", "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn("proxy_servers", "display_name", "TEXT NOT NULL DEFAULT ''");
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
     await ensureColumn("proxy_subscriptions", "no_logs", "INTEGER NOT NULL DEFAULT 0");
     await ensureColumn("proxy_subscriptions", "source", "TEXT NOT NULL DEFAULT 'site_user'");
@@ -2834,6 +2837,9 @@ async function upsertProxyServer(payload) {
                 supports_ipv4,
                 supports_ipv6,
                 region,
+                country_code,
+                city,
+                display_name,
                 provider,
                 priority,
                 weight,
@@ -2844,7 +2850,7 @@ async function upsertProxyServer(payload) {
                 created_at,
                 updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(public_domain) DO UPDATE SET
                 name = excluded.name,
                 proxy_url = excluded.proxy_url,
@@ -2855,6 +2861,9 @@ async function upsertProxyServer(payload) {
                 supports_ipv4 = excluded.supports_ipv4,
                 supports_ipv6 = excluded.supports_ipv6,
                 region = excluded.region,
+                country_code = excluded.country_code,
+                city = excluded.city,
+                display_name = excluded.display_name,
                 provider = excluded.provider,
                 priority = excluded.priority,
                 weight = excluded.weight,
@@ -2879,6 +2888,9 @@ async function upsertProxyServer(payload) {
             payload.supportsIpv4 === false ? 0 : 1,
             payload.supportsIpv6 === false ? 0 : 1,
             payload.region || "",
+            payload.countryCode || "",
+            payload.city || "",
+            payload.displayName || "",
             payload.provider || "",
             Number(payload.priority || 100),
             Number(payload.weight || 100),
@@ -3009,6 +3021,9 @@ async function updateProxyServer(payload) {
                 supports_ipv4 = ?,
                 supports_ipv6 = ?,
                 region = ?,
+                country_code = ?,
+                city = ?,
+                display_name = ?,
                 provider = ?,
                 priority = ?,
                 weight = ?,
@@ -3029,6 +3044,9 @@ async function updateProxyServer(payload) {
             payload.supportsIpv4 === undefined ? Number(current.supports_ipv4 || 0) : (payload.supportsIpv4 ? 1 : 0),
             payload.supportsIpv6 === undefined ? Number(current.supports_ipv6 || 0) : (payload.supportsIpv6 ? 1 : 0),
             payload.region ?? current.region,
+            payload.countryCode ?? current.country_code ?? "",
+            payload.city ?? current.city ?? "",
+            payload.displayName ?? current.display_name ?? "",
             payload.provider ?? current.provider,
             Number(payload.priority ?? current.priority ?? 100),
             Number(payload.weight ?? current.weight ?? 100),

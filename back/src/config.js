@@ -258,4 +258,5 @@ module.exports = {
   PROXY_CREDENTIAL_ENCRYPTION_KEY:
     process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY || "",
   PROXY_SYNC_TOKEN: process.env.PROXY_SYNC_TOKEN || "",
+  VPN_APP_TOKEN: process.env.VPN_APP_TOKEN || "",
 };
