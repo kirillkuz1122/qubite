@@ -8,7 +8,11 @@ import '../models/session.dart';
 import '../models/routing_profile.dart';
 
 const String _defaultBaseUrl = 'https://qubiteapp.ru';
-const String _appToken = 'CHANGE_ME';
+// Token is compiled from environment: --dart-define=VPN_APP_TOKEN=...
+const String _appToken = String.fromEnvironment(
+  'VPN_APP_TOKEN',
+  defaultValue: '',
+);
 
 class ApiClient {
   late final Dio _dio;
