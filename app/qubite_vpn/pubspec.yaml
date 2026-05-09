@@ -28,6 +28,7 @@ dependencies:
   # Platform
   connectivity_plus: ^5.0.2
   package_info_plus: ^5.0.1
+  tray_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:
@@ -36,3 +37,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/tray_icon.png

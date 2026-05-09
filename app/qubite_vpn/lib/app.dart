@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'state/app_state.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/tray_service.dart';
 
 class QubiteVpnApp extends StatefulWidget {
   const QubiteVpnApp({super.key});
@@ -13,12 +15,37 @@ class QubiteVpnApp extends StatefulWidget {
 }
 
 class _QubiteVpnAppState extends State<QubiteVpnApp> {
+  TrayService? _tray;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      context.read<AppState>().init();
+    Future.microtask(() async {
+      final state = context.read<AppState>();
+      await state.init();
+      _initTray(state);
     });
+  }
+
+  void _initTray(AppState state) {
+    if (!Platform.isLinux && !Platform.isWindows && !Platform.isMacOS) return;
+    _tray = TrayService();
+    _tray!.onConnect = () => state.connect();
+    _tray!.onDisconnect = () => state.disconnect();
+    _tray!.onQuit = () => exit(0);
+    _tray!.init();
+
+    state.addListener(() {
+      _tray?.updateStatus(
+        connected: state.vpnStatus == VpnStatus.connected,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _tray?.dispose();
+    super.dispose();
   }
 
   @override
