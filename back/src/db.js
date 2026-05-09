@@ -3356,7 +3356,7 @@ async function hasActiveProxySubscriptionForUser(userId) {
 async function listActiveProxySubscriptionsForSync() {
     return all(
         `
-            SELECT uid
+            SELECT uid, token_hash
             FROM proxy_subscriptions
             WHERE status = 'active'
               AND revoked_at IS NULL
