@@ -1057,6 +1057,15 @@
         return data;
     }
 
+    async function renewAdminProxySubscription(subscriptionId, months = 1) {
+        const data = await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}/renew`, {
+            method: "POST",
+            body: JSON.stringify({ months }),
+        });
+        syncAdminProxySubscriptions(upsertById(state.adminProxySubscriptions, data.item));
+        return data;
+    }
+
     async function updateAdminProxySubscription(subscriptionId, payload) {
         const data = await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}`, {
             method: "PATCH",
@@ -1795,6 +1804,7 @@
         updateAdminProxyServer,
         updateAdminProxySniRoute,
         updateAdminProxySubscription,
+        renewAdminProxySubscription,
         updateAdminProxyUserPrivacy,
         loadAdminTasks,
         loadAdminTeams,

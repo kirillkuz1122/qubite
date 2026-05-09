@@ -51,6 +51,7 @@ const {
     revokeProxyDevice,
     revokeProxySession,
     revokeProxySubscription,
+    renewProxySubscription,
     revokeProxySubscriptionSessions,
     rotateProxySessionSecret,
     setProxyServerNodeToken,
@@ -348,6 +349,9 @@ function serializeProxySubscriptionForAdmin(subscription, token = "") {
         source: subscription.source || "site_user",
         standalone: subscription.source === "standalone_link",
         noLogs: Boolean(Number(subscription.no_logs || 0)),
+        isVip: Boolean(Number(subscription.is_vip || 0)),
+        speedLimitMbps: subscription.speed_limit_mbps != null ? Number(subscription.speed_limit_mbps) : null,
+        maxConnections: Number(subscription.max_connections || 3),
         user: {
             id: subscription.user_id,
             uid: subscription.user_uid || "",
@@ -1284,6 +1288,10 @@ function registerProxyRoutes(app, deps) {
                 label: req.body?.label === undefined ? undefined : cleanText(req.body.label, 80),
                 status,
                 noLogs: req.body?.noLogs === undefined ? undefined : Boolean(req.body.noLogs),
+                isVip: req.body?.isVip === undefined ? undefined : Boolean(req.body.isVip),
+                speedLimitMbps: req.body?.speedLimitMbps === undefined ? undefined : (req.body.speedLimitMbps ? Number(req.body.speedLimitMbps) : null),
+                maxConnections: req.body?.maxConnections === undefined ? undefined : Number(req.body.maxConnections),
+                expiresAt: req.body?.expiresAt === undefined ? undefined : (req.body.expiresAt ? cleanText(req.body.expiresAt, 40) : null),
             });
             if (!subscription) {
                 sendError(res, 404, "VPN-подписка не найдена.");
@@ -1299,6 +1307,28 @@ function registerProxyRoutes(app, deps) {
                 entityId: subscription.uid,
                 summary: `Обновлена VPN-подписка ${subscription.label || subscription.uid}`,
                 payload: req.body || {},
+            });
+            res.json({ item: serializeProxySubscriptionForAdmin(subscription) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/api/admin/proxy-subscriptions/:subscriptionUid/renew", requireOwner, async (req, res, next) => {
+        try {
+            const months = Math.max(1, Math.min(12, Number(req.body?.months) || 1));
+            const subscription = await renewProxySubscription(cleanText(req.params.subscriptionUid, 80), months);
+            if (!subscription) {
+                sendError(res, 404, "VPN-подписка не найдена.");
+                return;
+            }
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.subscription.renew",
+                entityType: "proxy_subscription",
+                entityId: subscription.uid,
+                summary: `Продлена VPN-подписка ${subscription.label || subscription.uid} на ${months} мес.`,
+                payload: { months, newExpiresAt: subscription.expires_at },
             });
             res.json({ item: serializeProxySubscriptionForAdmin(subscription) });
         } catch (error) {
@@ -1588,6 +1618,8 @@ function registerProxyRoutes(app, deps) {
                 })),
                 realityUsers: activeSubscriptions.map((sub) => ({
                     uuid: deriveVlessUuid(sub.token_hash),
+                    isVip: Boolean(Number(sub.is_vip || 0)),
+                    speedLimitMbps: sub.speed_limit_mbps != null ? Number(sub.speed_limit_mbps) : null,
                 })),
             });
         } catch (error) {

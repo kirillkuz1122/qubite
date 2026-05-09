@@ -13326,6 +13326,15 @@ function renderProxySniRoutesList(routes) {
     `;
 }
 
+function formatProxyExpiry(expiresAt) {
+    if (!expiresAt) return "бессрочно";
+    const d = new Date(expiresAt);
+    const now = new Date();
+    if (d <= now) return "истекла";
+    const days = Math.ceil((d - now) / 86400000);
+    return `${days} дн.`;
+}
+
 function renderProxySubscriptionsList(subscriptions) {
     if (!subscriptions.length) {
         return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Создай ссылку для Nekobox или выдай VPN-доступ пользователю сайта.</div></div>`;
@@ -13334,14 +13343,25 @@ function renderProxySubscriptionsList(subscriptions) {
         <div class="ops-admin-list">
             ${subscriptions.map((subscription) => {
                 const statusLabel = subscription.status === "active" ? "Активна" : subscription.status === "disabled" ? "Отключена" : "Отозвана";
+                const expired = subscription.expiresAt && new Date(subscription.expiresAt) <= new Date();
+                const badges = [];
+                if (subscription.isVip) badges.push("VIP");
+                if (subscription.noLogs) badges.push("no-log");
+                if (subscription.speedLimitMbps) badges.push(`${subscription.speedLimitMbps} Mbps`);
+                badges.push(`max ${subscription.maxConnections || 3} устр.`);
                 return `
                     <div class="ops-admin-row glass-panel" data-view-anim>
                         <div class="ops-admin-row__main">
-                            <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}</div>
-                            <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(subscription.user?.email || "")} • ${escapeHtml(statusLabel)}${subscription.noLogs ? " • no-log" : ""}</div>
+                            <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}${subscription.isVip ? ' <span style="color:var(--accent);font-weight:600;">VIP</span>' : ""}</div>
+                            <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(statusLabel)} • ${escapeHtml(badges.join(" • "))}</div>
+                            <div class="ops-admin-row__meta">Срок: ${escapeHtml(formatProxyExpiry(subscription.expiresAt))}${subscription.expiresAt ? ` (до ${escapeHtml(new Date(subscription.expiresAt).toLocaleDateString("ru"))})` : ""}${expired ? ' <span style="color:var(--error);">⚠ истекла</span>' : ""}</div>
                             <div class="ops-admin-row__meta">${subscription.url ? escapeHtml(subscription.url) : "URL показывается только при создании ссылки"}</div>
                         </div>
-                        <div class="ops-admin-row__controls">
+                        <div class="ops-admin-row__controls" style="flex-wrap:wrap;gap:4px;">
+                            <button class="btn btn--accent btn--sm" type="button" data-proxy-sub-renew="${escapeHtml(subscription.id)}">Продлить</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-vip="${escapeHtml(subscription.id)}" data-next-vip="${subscription.isVip ? "0" : "1"}">${subscription.isVip ? "Убрать VIP" : "VIP"}</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-speed="${escapeHtml(subscription.id)}">Скорость</button>
+                            <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-connections="${escapeHtml(subscription.id)}">Устройства</button>
                             <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-toggle="${escapeHtml(subscription.id)}" data-next-status="${subscription.status === "active" ? "disabled" : "active"}">${subscription.status === "active" ? "Отключить" : "Включить"}</button>
                             <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-nolog="${escapeHtml(subscription.id)}" data-next-nolog="${subscription.noLogs ? "0" : "1"}">${subscription.noLogs ? "Логи on" : "No-log"}</button>
                             <button class="btn btn--muted btn--sm" type="button" data-proxy-sub-delete="${escapeHtml(subscription.id)}">Удалить</button>
@@ -13626,6 +13646,82 @@ function initProxyServersInteractions(container) {
                 initProxyServersInteractions(container);
             } catch (error) {
                 showRequestError("Прокси", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-renew]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                const data = await apiClient.renewAdminProxySubscription(button.dataset.proxySubRenew);
+                Toast.show("VPN подписка", `Продлена до ${new Date(data.item.expiresAt).toLocaleDateString("ru")}.`, "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-vip]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySubscription(button.dataset.proxySubVip, {
+                    isVip: button.dataset.nextVip === "1",
+                });
+                Toast.show("VPN подписка", "VIP-статус обновлён.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-speed]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const current = getAdminProxySubscriptionsState().find((s) => s.id === button.dataset.proxySubSpeed);
+            const value = window.prompt("Лимит скорости (Mbps). Пусто или 0 = без лимита.", String(current?.speedLimitMbps || ""));
+            if (value === null) return;
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySubscription(button.dataset.proxySubSpeed, {
+                    speedLimitMbps: Number(value) || null,
+                });
+                Toast.show("VPN подписка", value ? `Лимит: ${value} Mbps.` : "Лимит снят.", "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-sub-connections]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const current = getAdminProxySubscriptionsState().find((s) => s.id === button.dataset.proxySubConnections);
+            const value = window.prompt("Макс. одновременных устройств:", String(current?.maxConnections || 3));
+            if (value === null) return;
+            Loader.show();
+            try {
+                await apiClient.updateAdminProxySubscription(button.dataset.proxySubConnections, {
+                    maxConnections: Math.max(1, Number(value) || 3),
+                });
+                Toast.show("VPN подписка", `Лимит устройств: ${Math.max(1, Number(value) || 3)}.`, "success");
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("VPN-подписка", error);
             } finally {
                 Loader.hide(300);
             }

@@ -347,6 +347,27 @@ RestartSec=10s
 WantedBy=multi-user.target
 EOF_SERVICE
 
+# --- TC fair-share bandwidth (optional, enable with: systemctl enable --now qubite-tc-fair-share) ---
+
+DEFAULT_IFACE="$(ip route show default | awk '/default/ {print $5; exit}')"
+TC_BANDWIDTH="${TC_BANDWIDTH:-1gbit}"
+
+cat >/etc/systemd/system/qubite-tc-fair-share.service <<EOF_SERVICE
+[Unit]
+Description=TC CAKE fair-share bandwidth for NaiveProxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash ${REPO_DIR}/deploy/proxy/tc-fair-share.sh enable ${DEFAULT_IFACE} ${TC_BANDWIDTH}
+ExecStop=/bin/bash ${REPO_DIR}/deploy/proxy/tc-fair-share.sh disable ${DEFAULT_IFACE}
+
+[Install]
+WantedBy=multi-user.target
+EOF_SERVICE
+
 # --- Validate and start ---
 
 nginx -t

@@ -9,6 +9,7 @@ const analyticsHandler = require("./telegram/handlers/analytics");
 const moderationHandler = require("./telegram/handlers/moderation");
 const adminHandler = require("./telegram/handlers/admin");
 const accessHandler = require("./telegram/handlers/access");
+const proxyHandler = require("./telegram/handlers/proxy");
 const supportHandler = require("./telegram/handlers/support");
 
 const DENIED_TEXT = "Бот недоступен.";
@@ -97,6 +98,7 @@ function startTelegramBot({ supportChatEmitter } = {}) {
     moderationHandler.register(bot);
     adminHandler.register(bot);
     accessHandler.register(bot);
+    proxyHandler.register(bot);
 
     // Support chat handler (pass emitter for cross-channel messaging)
     if (supportChatEmitter) {
