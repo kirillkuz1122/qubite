@@ -2949,7 +2949,7 @@ async function getDefaultProxyServer() {
 async function listProxyServersForClient() {
     return all(
         `
-            SELECT uid, name, public_domain, proxy_url, ipv4_address, ipv6_address, ipv4_domain, ipv6_domain, supports_ipv4, supports_ipv6, region, priority, weight, health_status, updated_at
+            SELECT uid, name, public_domain, proxy_url, ipv4_address, ipv6_address, ipv4_domain, ipv6_domain, supports_ipv4, supports_ipv6, region, country_code, city, display_name, priority, weight, health_status, updated_at
             FROM proxy_servers
             WHERE status = 'active'
             ORDER BY priority ASC, weight DESC, id ASC

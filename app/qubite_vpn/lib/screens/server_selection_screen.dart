@@ -14,19 +14,18 @@ class ServerSelectionScreen extends StatelessWidget {
         builder: (context, state, _) {
           if (state.servers.isEmpty) {
             return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          final regions = state.availableRegions;
-          if (regions.isEmpty) {
-            return const Center(
               child: Text(
                 'Нет доступных серверов',
                 style: TextStyle(color: QColors.fgMuted),
               ),
             );
           }
+
+          final regions = state.availableRegions;
+          // Servers that have no countryCode assigned
+          final ungrouped = state.servers
+              .where((s) => s.countryCode.isEmpty)
+              .toList();
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -65,6 +64,19 @@ class ServerSelectionScreen extends StatelessWidget {
                   ),
                 );
               }),
+              // Show ungrouped servers individually
+              ...ungrouped.map((server) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _RegionTile(
+                  flag: '',
+                  label: server.displayName.isNotEmpty ? server.displayName : server.name,
+                  subtitle: server.domain,
+                  selected: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                ),
+              )),
             ],
           );
         },
