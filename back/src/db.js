@@ -1113,6 +1113,9 @@ async function initializeDatabase(options = {}) {
     await run("CREATE INDEX IF NOT EXISTS idx_proxy_servers_token ON proxy_servers (node_token_hash)");
     await ensureColumn("proxy_subscriptions", "no_logs", "INTEGER NOT NULL DEFAULT 0");
     await ensureColumn("proxy_subscriptions", "source", "TEXT NOT NULL DEFAULT 'site_user'");
+    await ensureColumn("proxy_subscriptions", "is_vip", "INTEGER NOT NULL DEFAULT 0");
+    await ensureColumn("proxy_subscriptions", "speed_limit_mbps", "INTEGER DEFAULT NULL");
+    await ensureColumn("proxy_subscriptions", "max_connections", "INTEGER NOT NULL DEFAULT 3");
 
     await ensureColumn("tournaments", "owner_user_id", "INTEGER DEFAULT NULL");
     await ensureColumn(
@@ -3250,6 +3253,12 @@ async function deleteProxySniRoute(routeUid) {
     return current;
 }
 
+function defaultSubscriptionExpiresAt() {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString();
+}
+
 async function createProxySubscription(payload) {
     const timestamp = nowIso();
     const result = await run(
@@ -3261,12 +3270,15 @@ async function createProxySubscription(payload) {
                 label,
                 status,
                 no_logs,
+                is_vip,
+                speed_limit_mbps,
+                max_connections,
                 source,
                 created_at,
                 updated_at,
                 expires_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             payload.uid || makeUid("SUB"),
@@ -3275,13 +3287,36 @@ async function createProxySubscription(payload) {
             payload.label || "",
             payload.status || "active",
             payload.noLogs ? 1 : 0,
+            payload.isVip ? 1 : 0,
+            payload.speedLimitMbps || null,
+            payload.maxConnections || 3,
             payload.source || "site_user",
             timestamp,
             timestamp,
-            payload.expiresAt || null,
+            payload.expiresAt ?? defaultSubscriptionExpiresAt(),
         ],
     );
     return getProxySubscriptionById(result.lastID);
+}
+
+async function renewProxySubscription(subscriptionUid, months = 1) {
+    const current = await get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
+    if (!current) return null;
+    const timestamp = nowIso();
+    const base = current.expires_at && new Date(current.expires_at) > new Date() ? new Date(current.expires_at) : new Date();
+    base.setMonth(base.getMonth() + months);
+    await run(
+        `
+            UPDATE proxy_subscriptions
+            SET status = 'active',
+                expires_at = ?,
+                revoked_at = NULL,
+                updated_at = ?
+            WHERE uid = ?
+        `,
+        [base.toISOString(), timestamp, subscriptionUid],
+    );
+    return getProxySubscriptionById(current.id);
 }
 
 async function getProxySubscriptionById(subscriptionId) {
@@ -3356,7 +3391,7 @@ async function hasActiveProxySubscriptionForUser(userId) {
 async function listActiveProxySubscriptionsForSync() {
     return all(
         `
-            SELECT uid, token_hash
+            SELECT uid, token_hash, is_vip, speed_limit_mbps, max_connections
             FROM proxy_subscriptions
             WHERE status = 'active'
               AND revoked_at IS NULL
@@ -3387,6 +3422,7 @@ async function updateProxySubscription(payload) {
         return null;
     }
     const timestamp = nowIso();
+    const newStatus = payload.status ?? current.status;
     await run(
         `
             UPDATE proxy_subscriptions
@@ -3394,6 +3430,10 @@ async function updateProxySubscription(payload) {
                 label = ?,
                 status = ?,
                 no_logs = ?,
+                is_vip = ?,
+                speed_limit_mbps = ?,
+                max_connections = ?,
+                expires_at = ?,
                 updated_at = ?,
                 revoked_at = CASE
                     WHEN ? = 'revoked' THEN ?
@@ -3404,12 +3444,16 @@ async function updateProxySubscription(payload) {
         `,
         [
             payload.label ?? current.label,
-            payload.status ?? current.status,
+            newStatus,
             payload.noLogs === undefined ? Number(current.no_logs || 0) : (payload.noLogs ? 1 : 0),
+            payload.isVip === undefined ? Number(current.is_vip || 0) : (payload.isVip ? 1 : 0),
+            payload.speedLimitMbps === undefined ? current.speed_limit_mbps : (payload.speedLimitMbps || null),
+            payload.maxConnections === undefined ? Number(current.max_connections || 3) : Number(payload.maxConnections || 3),
+            payload.expiresAt === undefined ? current.expires_at : (payload.expiresAt || null),
             timestamp,
-            payload.status ?? current.status,
+            newStatus,
             timestamp,
-            payload.status ?? current.status,
+            newStatus,
             payload.uid,
         ],
     );
@@ -8989,6 +9033,7 @@ module.exports = {
     revokeProxyDevice,
     revokeProxySession,
     revokeProxySubscription,
+    renewProxySubscription,
     revokeProxySubscriptionSessions,
     recordProxyServerHeartbeat,
     revokeActiveAuthChallengesForUser,

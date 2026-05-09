@@ -173,13 +173,20 @@ const uniqueSniTargets = [...new Set(
     .filter((s) => s && s.includes("."))
 )].sort();
 
+const defaultSpeedLimitMbps = Number(process.env.DEFAULT_SPEED_LIMIT_MBPS || 0);
+
 if (realityPrivateKey && realityUsers.length > 0 && uniqueSniTargets.length > 0) {
   const users = realityUsers
     .filter((u) => u.uuid)
-    .map((u) => ({
-      uuid: u.uuid,
-      flow: "xtls-rprx-vision",
-    }));
+    .map((u) => {
+      const entry = { uuid: u.uuid, flow: "xtls-rprx-vision" };
+      if (u.isVip) return entry;
+      const limitMbps = u.speedLimitMbps || defaultSpeedLimitMbps;
+      if (limitMbps > 0) {
+        entry.speed_limit = `${limitMbps} mbps`;
+      }
+      return entry;
+    });
 
   // One inbound per target SNI, each on its own port
   const inbounds = uniqueSniTargets.map((targetSni, index) => ({
