@@ -530,10 +530,10 @@ function buildNaiveUri({ host, username, password, label }) {
 
 const VLESS_UUID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
-function deriveVlessUuid(subscriptionUid) {
+function deriveVlessUuid(subscriptionSecret) {
     const hash = crypto.createHash("sha1")
         .update(Buffer.from(VLESS_UUID_NAMESPACE.replace(/-/g, ""), "hex"))
-        .update(String(subscriptionUid))
+        .update(String(subscriptionSecret))
         .digest("hex");
     return [
         hash.slice(0, 8),
@@ -624,7 +624,7 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
     }
 
     // Collect servers with Reality configured (for SNI-based VLESS generation)
-    const vlessUuid = deriveVlessUuid(subscription.uid);
+    const vlessUuid = deriveVlessUuid(subscription.token_hash);
     const realityServers = [];
     for (const server of servers) {
         let metadata = {};
@@ -826,7 +826,6 @@ function registerProxyRoutes(app, deps) {
             const server = requestedServerId
                 ? (await getProxyServerByUid(requestedServerId)) ||
                   (await getProxyServerByDomain(requestedServerId)) ||
-                  (Number.isInteger(Number(requestedServerId)) ? await getProxyServerById(Number(requestedServerId)) : null) ||
                   (await getDefaultProxyServer())
                 : await getDefaultProxyServer();
             if (!server || server.status !== "active") {
@@ -1588,8 +1587,7 @@ function registerProxyRoutes(app, deps) {
                     ipFamily: route.ip_family || "auto",
                 })),
                 realityUsers: activeSubscriptions.map((sub) => ({
-                    uid: sub.uid,
-                    uuid: deriveVlessUuid(sub.uid),
+                    uuid: deriveVlessUuid(sub.token_hash),
                 })),
             });
         } catch (error) {
@@ -1629,6 +1627,10 @@ function registerProxyRoutes(app, deps) {
 
                 const session = await getActiveProxySessionByUsername(username);
                 if (!session) continue;
+
+                // Respect proxy_no_logs privacy flag (same as client-side traffic endpoint)
+                const sessionUser = await getUserById(session.user_id);
+                if (isProxyNoLogsUser(sessionUser)) continue;
 
                 await createProxyTrafficLog({
                     userId: session.user_id,

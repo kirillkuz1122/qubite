@@ -148,10 +148,10 @@ writeAtomic(sniRoutesOutputPath, `${routeLines.join("\n")}\n`);
 
 const VLESS_UUID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
-function deriveVlessUuid(subscriptionUid) {
+function deriveVlessUuid(subscriptionSecret) {
   const hash = crypto.createHash("sha1")
     .update(VLESS_UUID_NAMESPACE.replace(/-/g, ""), "hex")
-    .update(String(subscriptionUid))
+    .update(String(subscriptionSecret))
     .digest("hex");
   return [
     hash.slice(0, 8),
@@ -174,10 +174,12 @@ const uniqueSniTargets = [...new Set(
 )].sort();
 
 if (realityPrivateKey && realityUsers.length > 0 && uniqueSniTargets.length > 0) {
-  const users = realityUsers.map((u) => ({
-    uuid: u.uuid || deriveVlessUuid(u.uid || u.username),
-    flow: "xtls-rprx-vision",
-  }));
+  const users = realityUsers
+    .filter((u) => u.uuid)
+    .map((u) => ({
+      uuid: u.uuid,
+      flow: "xtls-rprx-vision",
+    }));
 
   // One inbound per target SNI, each on its own port
   const inbounds = uniqueSniTargets.map((targetSni, index) => ({
