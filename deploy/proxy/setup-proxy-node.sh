@@ -249,6 +249,7 @@ EOF_SERVICE
 mkdir -p /etc/qubite
 cat >/etc/qubite/proxy-node.env <<EOF_ENV
 PROXY_NODE_TOKEN=${PROXY_NODE_TOKEN}
+PROXY_SYNC_TOKEN=${PROXY_NODE_TOKEN}
 REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
 REALITY_SHORT_ID=${REALITY_SHORT_ID}
 EOF_ENV
@@ -263,7 +264,6 @@ After=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=/etc/qubite/proxy-node.env
-Environment=PROXY_SYNC_TOKEN=${PROXY_NODE_TOKEN}
 Environment=QUBITE_PROXY_SYNC_URL=${SYNC_URL}
 Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.caddy
 Environment=SINGBOX_REALITY_CONFIG=/etc/singbox/config.json

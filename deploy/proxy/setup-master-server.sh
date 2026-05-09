@@ -337,7 +337,6 @@ After=network-online.target caddy-naive.service
 
 [Service]
 EnvironmentFile=/etc/qubite/proxy-master.env
-Environment=PROXY_NODE_TOKEN=${PROXY_SYNC_TOKEN}
 Environment=QUBITE_TRAFFIC_URL=${TRAFFIC_URL}
 Environment=CADDY_ACCESS_LOG=/var/log/caddy/proxy-access.log
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/proxy-log-reporter.mjs
