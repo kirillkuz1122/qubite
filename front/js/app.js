@@ -13472,18 +13472,15 @@ function initProxyServersInteractions(container) {
             return;
         }
         const label = window.prompt("Название VPN-аккаунта, например family-ru1", `vpn-${selected.login}`) || `vpn-${selected.login}`;
-        const typeChoice = window.prompt("Тип подписки:\n1 — link (для внешних клиентов: Nekobox, V2rayN)\n2 — app (для приложения Qubite VPN)", "1");
-        if (typeChoice === null) return;
-        const subType = typeChoice === "2" ? "app" : "link";
         Loader.show();
         try {
             const data = await apiClient.createAdminProxySubscription({
                 userId: selected.id,
                 label,
-                type: subType,
+                type: "app",
                 noLogs: false,
             });
-            Toast.show("VPN подписка", `Ссылка: <b>${escapeHtml(data.item.url)}</b>`, "success", 30000, { html: true });
+            Toast.show("VPN подписка", `Подписка выдана для @${escapeHtml(selected.login)}: <b>${escapeHtml(data.item.label || data.item.id)}</b>`, "success", 15000, { html: true });
             container.innerHTML = renderProxyServersView();
             initProxyServersInteractions(container);
         } catch (error) {

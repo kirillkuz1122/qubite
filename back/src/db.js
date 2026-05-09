@@ -3410,7 +3410,12 @@ async function hasActiveProxySubscriptionForUser(userId) {
 }
 
 async function getActiveProxySubscriptionForUser(userId, type) {
-    const typeFilter = type ? `AND psu.type = '${type === "app" ? "app" : "link"}'` : "";
+    const params = [userId, nowIso()];
+    let typeClause = "";
+    if (type) {
+        typeClause = "AND psu.type = ?";
+        params.push(type === "app" ? "app" : "link");
+    }
     return get(
         `
             SELECT psu.uid, psu.label, psu.status, psu.is_vip, psu.speed_limit_mbps,
@@ -3420,11 +3425,11 @@ async function getActiveProxySubscriptionForUser(userId, type) {
               AND psu.status = 'active'
               AND psu.revoked_at IS NULL
               AND (psu.expires_at IS NULL OR psu.expires_at > ?)
-              ${typeFilter}
+              ${typeClause}
             ORDER BY psu.created_at DESC
             LIMIT 1
         `,
-        [userId, nowIso()],
+        params,
     );
 }
 

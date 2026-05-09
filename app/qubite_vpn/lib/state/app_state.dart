@@ -220,7 +220,9 @@ class AppState extends ChangeNotifier {
     try {
       _servers = await api.getServers();
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AppState] loadServers error: $e');
+    }
   }
 
   void selectRegion(String? region) async {
@@ -533,14 +535,15 @@ class AppState extends ChangeNotifier {
 
   Future<void> _postLoginInit() async {
     await _ensureDevice();
-    await loadServers();
     await loadSubscription();
+    await loadServers();
   }
 
   Future<void> loadSubscription() async {
     try {
       _subscription = await api.getSubscriptionStatus();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AppState] loadSubscription error: $e');
       _subscription = null;
     }
     notifyListeners();

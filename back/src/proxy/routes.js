@@ -1300,6 +1300,7 @@ function registerProxyRoutes(app, deps) {
                 label,
                 status: "active",
                 source: "standalone_link",
+                type: "link",
                 noLogs: Boolean(req.body?.noLogs),
                 expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
             });
