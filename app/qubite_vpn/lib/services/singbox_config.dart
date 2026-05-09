@@ -92,7 +92,7 @@ class SingboxConfig {
     return {
       'servers': [
         {'type': 'tls', 'tag': 'remote-dns', 'server': server, 'detour': 'proxy'},
-        {'type': 'udp', 'tag': 'local-dns', 'server': '77.88.8.8', 'detour': 'direct'},
+        {'type': 'udp', 'tag': 'local-dns', 'server': '77.88.8.8'},
       ],
       'strategy': 'prefer_ipv4',
     };
