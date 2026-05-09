@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qubite VPN</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Qubite VPN</span>
+      </div>
+      <div class="header-status" id="headerStatus">---</div>
+    </header>
+
+    <!-- Main connect area -->
+    <section class="connect-section">
+      <div class="status-ring" id="statusRing">
+        <button class="connect-btn" id="connectBtn" onclick="toggleConnection()">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="connectIcon">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+        </button>
+      </div>
+      <div class="status-text" id="statusText">Disconnected</div>
+      <div class="status-sub" id="statusSub">Click to connect</div>
+    </section>
+
+    <!-- Server info -->
+    <section class="server-section" id="serverSection">
+      <div class="server-card" onclick="showServers()">
+        <div class="server-info">
+          <div class="server-name" id="serverName">Auto-select</div>
+          <div class="server-region" id="serverRegion">Best server</div>
+        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9,18 15,12 9,6"/>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats-section" id="statsSection" style="display:none">
+      <div class="stat-item">
+        <div class="stat-label">Uptime</div>
+        <div class="stat-value" id="statUptime">00:00:00</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Server</div>
+        <div class="stat-value" id="statServer">-</div>
+      </div>
+    </section>
+
+    <!-- Error -->
+    <section class="error-section" id="errorSection" style="display:none">
+      <div class="error-msg" id="errorMsg"></div>
+    </section>
+
+    <!-- Server list modal -->
+    <div class="modal" id="serverModal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Servers</h3>
+          <button class="modal-close" onclick="hideServers()">&times;</button>
+        </div>
+        <div class="server-list" id="serverList">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
