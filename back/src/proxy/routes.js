@@ -713,10 +713,16 @@ function registerProxyRoutes(app, deps) {
 
     app.get("/api/proxy/servers", requireAuth, async (req, res, next) => {
         try {
-            if (!(await requireProxyAccess(req, res, sendError))) return;
+            console.log("[proxy/servers] user:", req.auth?.user?.id, req.auth?.user?.login, "role:", req.auth?.user?.role);
+            if (!(await requireProxyAccess(req, res, sendError))) {
+                console.log("[proxy/servers] ACCESS DENIED for user:", req.auth?.user?.id);
+                return;
+            }
             const servers = await listProxyServersForClient();
+            console.log("[proxy/servers] returning", servers.length, "servers");
             res.json({ servers: servers.map(serializeProxyServer) });
         } catch (error) {
+            console.error("[proxy/servers] ERROR:", error.message);
             next(error);
         }
     });
