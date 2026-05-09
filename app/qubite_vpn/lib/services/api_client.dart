@@ -105,18 +105,22 @@ class ApiClient {
 
   // =================== Proxy ===================
 
-  Future<void> registerDevice({
+  /// Registers device and returns its server-assigned uid.
+  Future<String> registerDevice({
     required String deviceId,
     required String deviceName,
     required String platform,
     required String appVersion,
   }) async {
-    await _dio.post('/api/proxy/devices/register', data: {
+    final resp = await _dio.post('/api/proxy/devices/register', data: {
       'deviceId': deviceId,
       'deviceName': deviceName,
       'platform': platform,
       'appVersion': appVersion,
     });
+    final data = resp.data as Map<String, dynamic>;
+    final device = data['device'] as Map<String, dynamic>? ?? {};
+    return device['id'] as String? ?? deviceId;
   }
 
   Future<List<ProxyServer>> getServers() async {

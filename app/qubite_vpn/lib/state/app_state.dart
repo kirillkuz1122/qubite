@@ -105,7 +105,14 @@ class AppState extends ChangeNotifier {
     await api.init();
 
     final prefs = await SharedPreferences.getInstance();
-    _deviceId = prefs.getString('device_id');
+    final storedDeviceId = prefs.getString('device_id');
+    // Drop legacy invalid device IDs so _ensureDevice re-registers
+    if (storedDeviceId == 'pending') {
+      prefs.remove('device_id');
+      _deviceId = null;
+    } else {
+      _deviceId = storedDeviceId;
+    }
     _selectedRegion = prefs.getString('selected_region');
     _killSwitchEnabled = prefs.getBool('kill_switch') ?? false;
     _autoConnect = prefs.getBool('auto_connect') ?? false;
@@ -553,19 +560,19 @@ class AppState extends ChangeNotifier {
     if (_deviceId != null) return;
 
     final prefs = await SharedPreferences.getInstance();
+    final localId = 'DEV-${DateTime.now().millisecondsSinceEpoch}';
     try {
-      await api.registerDevice(
-        deviceId: 'pending',
+      final serverUid = await api.registerDevice(
+        deviceId: localId,
         deviceName: _deviceName(),
         platform: _platformName(),
         appVersion: _appVersion,
       );
-      // The backend generates the ID; for now use a local one
-      _deviceId = 'DEV-${DateTime.now().millisecondsSinceEpoch}';
+      _deviceId = serverUid;
       prefs.setString('device_id', _deviceId!);
     } catch (_) {
-      // Generate a local fallback
-      _deviceId = 'DEV-${DateTime.now().millisecondsSinceEpoch}';
+      // Fallback: use the localId we sent so at least it matches
+      _deviceId = localId;
       prefs.setString('device_id', _deviceId!);
     }
   }
