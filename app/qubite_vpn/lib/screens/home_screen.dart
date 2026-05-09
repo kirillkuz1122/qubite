@@ -150,11 +150,16 @@ class _HomeScreenState extends State<HomeScreen> {
         if (state.vpnError != null) ...[
           const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              state.vpnError!,
-              style: const TextStyle(color: QColors.danger, fontSize: 13),
-              textAlign: TextAlign.center,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  state.vpnError!,
+                  style: const TextStyle(color: QColors.danger, fontSize: 12, fontFamily: 'monospace'),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
           ),
         ],

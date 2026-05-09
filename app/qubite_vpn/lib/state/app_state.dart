@@ -353,7 +353,9 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _vpnStatus = VpnStatus.error;
-      _vpnError = _extractError(e);
+      // Prefer sing-box stderr over generic exception text
+      final sbErr = _singbox.lastError;
+      _vpnError = (sbErr != null && sbErr.isNotEmpty) ? sbErr : _extractError(e);
       notifyListeners();
     }
   }

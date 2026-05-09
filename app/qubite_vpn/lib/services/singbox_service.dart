@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/session.dart';
 import '../models/routing_profile.dart';
@@ -21,9 +22,11 @@ class SingboxService {
   final _stateController = StreamController<SingboxState>.broadcast();
   Stream<SingboxState> get stateStream => _stateController.stream;
 
+  // Accumulated stderr output for diagnostics
+  final _stderrBuf = StringBuffer();
+
   /// Find sing-box binary path
   Future<String?> findBinary() async {
-    // Check common locations
     final candidates = [
       '/usr/bin/sing-box',
       '/usr/local/bin/sing-box',
@@ -34,7 +37,6 @@ class SingboxService {
       if (await File(path).exists()) return path;
     }
 
-    // Try which/where
     try {
       final result = await Process.run(
         Platform.isWindows ? 'where' : 'which',
@@ -95,7 +97,6 @@ class SingboxService {
     int socksPort = 2080,
     int httpPort = 2081,
   }) async {
-    // Write new config and restart
     await stop();
     await startNaive(
       session: session,
@@ -111,6 +112,7 @@ class SingboxService {
     }
 
     _setState(SingboxState.starting);
+    _stderrBuf.clear();
 
     final binary = await findBinary();
     if (binary == null) {
@@ -119,26 +121,39 @@ class SingboxService {
       return;
     }
 
-    // Write config to temp file
+    // Write config to persistent file for debugging
     final dir = await getApplicationSupportDirectory();
     final configFile = File('${dir.path}/singbox-config.json');
-    await configFile.writeAsString(SingboxConfig.toJson(config));
+    final configJson = SingboxConfig.toJson(config);
+    await configFile.writeAsString(configJson);
     _configPath = configFile.path;
 
+    debugPrint('[sing-box] binary: $binary');
+    debugPrint('[sing-box] config: ${configFile.path}');
+    debugPrint('[sing-box] config content:\n$configJson');
+
+    // Validate config first
     try {
-      // sing-box requires root/admin for TUN mode
-      // On Linux, we use pkexec or expect the binary to have CAP_NET_ADMIN
-      final args = ['run', '-c', configFile.path];
-      final env = Map<String, String>.from(Platform.environment);
-
-      if (Platform.isLinux) {
-        _process = await Process.start(binary, args, environment: env);
-      } else {
-        _process = await Process.start(binary, args, environment: env);
+      final checkResult = await Process.run(binary, ['check', '-c', configFile.path]);
+      if (checkResult.exitCode != 0) {
+        final err = (checkResult.stderr as String).trim();
+        _lastError = 'sing-box check failed:\n$err\n\nConfig: ${configFile.path}';
+        debugPrint('[sing-box] check FAILED: $err');
+        _setState(SingboxState.error);
+        return;
       }
+      debugPrint('[sing-box] config check passed');
+    } catch (e) {
+      debugPrint('[sing-box] check error: $e');
+    }
 
-      // Listen for output
+    try {
+      final args = ['run', '-c', configFile.path];
+
+      _process = await Process.start(binary, args);
+
       _process!.stdout.transform(utf8.decoder).listen((data) {
+        debugPrint('[sing-box stdout] $data');
         if (data.contains('started') || data.contains('sing-box started')) {
           if (_state == SingboxState.starting) {
             _setState(SingboxState.running);
@@ -147,12 +162,18 @@ class SingboxService {
       });
 
       _process!.stderr.transform(utf8.decoder).listen((data) {
-        _lastError = data;
+        debugPrint('[sing-box stderr] $data');
+        _stderrBuf.write(data);
+        _lastError = _stderrBuf.toString();
       });
 
       _process!.exitCode.then((code) {
         if (_state != SingboxState.stopping) {
-          _lastError = 'sing-box exited with code $code';
+          final stderr = _stderrBuf.toString().trim();
+          _lastError = stderr.isNotEmpty
+              ? 'sing-box (exit $code): $stderr'
+              : 'sing-box exited with code $code';
+          debugPrint('[sing-box] exited with code $code, stderr: $stderr');
           _setState(SingboxState.error);
         } else {
           _setState(SingboxState.stopped);
@@ -160,13 +181,17 @@ class SingboxService {
         _process = null;
       });
 
-      // Give it a moment to start
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Wait for startup
+      await Future.delayed(const Duration(seconds: 1));
       if (_state == SingboxState.starting) {
-        _setState(SingboxState.running);
+        // Check if process is still alive
+        if (_process != null) {
+          _setState(SingboxState.running);
+        }
       }
     } catch (e) {
-      _lastError = e.toString();
+      _lastError = 'Не удалось запустить sing-box: $e';
+      debugPrint('[sing-box] start error: $e');
       _setState(SingboxState.error);
     }
   }
@@ -180,10 +205,8 @@ class SingboxService {
 
     _setState(SingboxState.stopping);
 
-    // Send SIGTERM first
     _process!.kill(ProcessSignal.sigterm);
 
-    // Wait up to 5 seconds for graceful shutdown
     final exited = await _process!.exitCode
         .timeout(const Duration(seconds: 5), onTimeout: () => -1);
 
@@ -193,13 +216,6 @@ class SingboxService {
 
     _process = null;
     _setState(SingboxState.stopped);
-
-    // Clean up config file
-    if (_configPath != null) {
-      try {
-        await File(_configPath!).delete();
-      } catch (_) {}
-    }
   }
 
   void _setState(SingboxState s) {
