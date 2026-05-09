@@ -2,7 +2,7 @@ import 'dart:convert';
 import '../models/session.dart';
 import '../models/routing_profile.dart';
 
-/// Generates sing-box JSON configuration for NaiveProxy or VLESS+Reality
+/// Generates sing-box 1.13.x JSON configuration for NaiveProxy or VLESS+Reality
 class SingboxConfig {
   SingboxConfig._();
 
@@ -16,52 +16,29 @@ class SingboxConfig {
   }) {
     final cred = session.credential;
     final transport = session.transport;
+    final serverHost = transport.host.isNotEmpty
+        ? transport.host
+        : session.serverDomain;
 
     return {
       'log': {'level': 'warn', 'timestamp': true},
       'dns': _dnsBlock(dnsServer),
-      'inbounds': [
-        {
-          'type': 'tun',
-          'tag': 'tun-in',
-          'interface_name': 'qubite0',
-          'inet4_address': '172.19.0.1/30',
-          'inet6_address': 'fdfe:dcba:9876::1/126',
-          'mtu': 1400,
-          'auto_route': true,
-          'strict_route': true,
-          'stack': 'system',
-          'sniff': true,
-          'sniff_override_destination': false,
-        },
-        {
-          'type': 'mixed',
-          'tag': 'mixed-in',
-          'listen': '127.0.0.1',
-          'listen_port': socksPort,
-        },
-      ],
+      'inbounds': _inbounds(socksPort),
       'outbounds': [
         {
           'type': 'naive',
           'tag': 'proxy',
-          'server': transport.host.isNotEmpty
-              ? transport.host
-              : session.serverDomain,
+          'server': serverHost,
           'server_port': transport.port,
           'username': cred.username,
           'password': cred.password,
-          'network': 'tcp',
           'tls': {
             'enabled': true,
-            'server_name': transport.host.isNotEmpty
-                ? transport.host
-                : session.serverDomain,
+            'server_name': serverHost,
           },
         },
         {'type': 'direct', 'tag': 'direct'},
         {'type': 'block', 'tag': 'block'},
-        {'type': 'dns', 'tag': 'dns-out'},
       ],
       'route': _routeBlock(routing),
     };
@@ -82,27 +59,7 @@ class SingboxConfig {
     return {
       'log': {'level': 'warn', 'timestamp': true},
       'dns': _dnsBlock(dnsServer),
-      'inbounds': [
-        {
-          'type': 'tun',
-          'tag': 'tun-in',
-          'interface_name': 'qubite0',
-          'inet4_address': '172.19.0.1/30',
-          'inet6_address': 'fdfe:dcba:9876::1/126',
-          'mtu': 1400,
-          'auto_route': true,
-          'strict_route': true,
-          'stack': 'system',
-          'sniff': true,
-          'sniff_override_destination': false,
-        },
-        {
-          'type': 'mixed',
-          'tag': 'mixed-in',
-          'listen': '127.0.0.1',
-          'listen_port': socksPort,
-        },
-      ],
+      'inbounds': _inbounds(socksPort),
       'outbounds': [
         {
           'type': 'vless',
@@ -124,59 +81,75 @@ class SingboxConfig {
         },
         {'type': 'direct', 'tag': 'direct'},
         {'type': 'block', 'tag': 'block'},
-        {'type': 'dns', 'tag': 'dns-out'},
       ],
       'route': _routeBlock(routing),
     };
   }
 
+  // ── sing-box 1.13.x DNS block (new typed format) ──
+
   static Map<String, dynamic> _dnsBlock(String server) {
     return {
       'servers': [
-        {'tag': 'remote-dns', 'address': 'https://$server/dns-query', 'detour': 'proxy'},
-        {'tag': 'local-dns', 'address': 'https://77.88.8.8/dns-query', 'detour': 'direct'},
-        {'tag': 'block-dns', 'address': 'rcode://success'},
-      ],
-      'rules': [
-        {'outbound': ['any'], 'server': 'local-dns'},
+        {'type': 'tls', 'tag': 'remote-dns', 'server': server, 'detour': 'proxy'},
+        {'type': 'udp', 'tag': 'local-dns', 'server': '77.88.8.8', 'detour': 'direct'},
       ],
       'strategy': 'prefer_ipv4',
     };
   }
 
+  // ── sing-box 1.13.x inbounds (new address field) ──
+
+  static List<Map<String, dynamic>> _inbounds(int socksPort) {
+    return [
+      {
+        'type': 'tun',
+        'tag': 'tun-in',
+        'interface_name': 'qubite0',
+        'address': ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+        'mtu': 1400,
+        'auto_route': true,
+        'strict_route': true,
+        'stack': 'mixed',
+      },
+      {
+        'type': 'mixed',
+        'tag': 'mixed-in',
+        'listen': '127.0.0.1',
+        'listen_port': socksPort,
+      },
+    ];
+  }
+
+  // ── sing-box 1.13.x route block (action-based rules) ──
+
   static Map<String, dynamic> _routeBlock(RoutingProfile routing) {
     final rules = <Map<String, dynamic>>[
-      {'protocol': 'dns', 'outbound': 'dns-out'},
+      // Sniff protocols for smarter routing
+      {'action': 'sniff'},
+      // Hijack DNS queries instead of deprecated dns outbound
+      {'protocol': 'dns', 'action': 'hijack-dns'},
       // Private networks always direct
-      {
-        'ip_cidr': [
-          '10.0.0.0/8',
-          '172.16.0.0/12',
-          '192.168.0.0/16',
-          '127.0.0.0/8',
-          'fc00::/7',
-          '::1/128',
-        ],
-        'outbound': 'direct',
-      },
+      {'ip_is_private': true, 'action': 'route', 'outbound': 'direct'},
     ];
 
     // Apply routing profile rules
     for (final rule in routing.rules) {
       final outbound = rule.action == 'direct' ? 'direct' : 'proxy';
       if (rule.type == 'domain_suffix') {
-        rules.add({'domain_suffix': rule.values, 'outbound': outbound});
+        rules.add({'domain_suffix': rule.values, 'action': 'route', 'outbound': outbound});
       } else if (rule.type == 'domain') {
-        rules.add({'domain': rule.values, 'outbound': outbound});
+        rules.add({'domain': rule.values, 'action': 'route', 'outbound': outbound});
       } else if (rule.type == 'ip_cidr') {
-        rules.add({'ip_cidr': rule.values, 'outbound': outbound});
+        rules.add({'ip_cidr': rule.values, 'action': 'route', 'outbound': outbound});
       } else if (rule.type == 'domain_keyword') {
-        rules.add({'domain_keyword': rule.values, 'outbound': outbound});
+        rules.add({'domain_keyword': rule.values, 'action': 'route', 'outbound': outbound});
       }
     }
 
     return {
       'auto_detect_interface': true,
+      'default_domain_resolver': 'local-dns',
       'final': routing.defaultAction == 'proxy' ? 'proxy' : 'direct',
       'rules': rules,
     };

@@ -129,12 +129,12 @@ class SingboxService {
       // sing-box requires root/admin for TUN mode
       // On Linux, we use pkexec or expect the binary to have CAP_NET_ADMIN
       final args = ['run', '-c', configFile.path];
+      final env = Map<String, String>.from(Platform.environment);
 
       if (Platform.isLinux) {
-        // Check if we can use the binary directly (has capabilities)
-        _process = await Process.start(binary, args);
+        _process = await Process.start(binary, args, environment: env);
       } else {
-        _process = await Process.start(binary, args);
+        _process = await Process.start(binary, args, environment: env);
       }
 
       // Listen for output
