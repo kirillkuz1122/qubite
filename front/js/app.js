@@ -13280,8 +13280,8 @@ function renderProxyServerRow(server) {
     return `
         <div class="ops-admin-row glass-panel" data-view-anim>
             <div class="ops-admin-row__main">
-                <div class="ops-admin-row__title">${escapeHtml(server.name || server.domain)}</div>
-                <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "region не задан")} • ${escapeHtml(server.health || "unknown")}</div>
+                <div class="ops-admin-row__title">${escapeHtml(server.displayName || server.name || server.domain)}${server.countryCode ? ` <span style="opacity:.6">[${escapeHtml(server.countryCode)}${server.city ? ` / ${escapeHtml(server.city)}` : ""}]</span>` : ""}</div>
+                <div class="ops-admin-row__meta">${escapeHtml(server.domain)} • ${escapeHtml(server.region || "—")} • ${escapeHtml(server.health || "unknown")}</div>
                 <div class="ops-admin-row__meta">IPv4 ${network.supportsIpv4 ? "on" : "off"} ${network.ipv4Domain ? `• ${escapeHtml(network.ipv4Domain)}` : ""} ${network.ipv4 ? `• ${escapeHtml(network.ipv4)}` : ""} • IPv6 ${network.supportsIpv6 ? "on" : "off"} ${network.ipv6Domain ? `• ${escapeHtml(network.ipv6Domain)}` : ""} ${network.ipv6 ? `• ${escapeHtml(network.ipv6)}` : ""}</div>
                 <div class="ops-admin-row__meta">Heartbeat: ${escapeHtml(server.lastHeartbeatAt ? formatDateTimeLabel(server.lastHeartbeatAt) : "нет")} • CPU ${escapeHtml(String(Math.round(Number(metrics.cpuLoad || 0) * 100) / 100))} • RAM ${escapeHtml(String(metrics.memoryUsedMb || 0))}/${escapeHtml(String(metrics.memoryTotalMb || 0))} MB</div>
                 <div class="ops-admin-row__meta">24ч: ${escapeHtml(formatCompactNumberRu(traffic.requests || 0))} запросов • ${escapeHtml(formatBytes(traffic.bytes || 0))} • ${escapeHtml(formatNumberRu(traffic.users || 0))} users • ${escapeHtml(formatNumberRu(traffic.devices || 0))} devices • disk ${escapeHtml(String(metrics.diskUsedPercent || 0))}%</div>
