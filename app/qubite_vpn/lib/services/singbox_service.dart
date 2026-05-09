@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/session.dart';
 import '../models/routing_profile.dart';
@@ -128,24 +127,16 @@ class SingboxService {
     await configFile.writeAsString(configJson);
     _configPath = configFile.path;
 
-    debugPrint('[sing-box] binary: $binary');
-    debugPrint('[sing-box] config: ${configFile.path}');
-    debugPrint('[sing-box] config content:\n$configJson');
-
     // Validate config first
     try {
       final checkResult = await Process.run(binary, ['check', '-c', configFile.path]);
       if (checkResult.exitCode != 0) {
         final err = (checkResult.stderr as String).trim();
         _lastError = 'sing-box check failed:\n$err\n\nConfig: ${configFile.path}';
-        debugPrint('[sing-box] check FAILED: $err');
         _setState(SingboxState.error);
         return;
       }
-      debugPrint('[sing-box] config check passed');
-    } catch (e) {
-      debugPrint('[sing-box] check error: $e');
-    }
+    } catch (_) {}
 
     try {
       final args = ['run', '-c', configFile.path];
@@ -154,7 +145,6 @@ class SingboxService {
       if (!await _launch(binary, args)) {
         final stderr = _stderrBuf.toString();
         if (stderr.contains('not permitted') || stderr.contains('permission denied') || stderr.contains('operation not permitted')) {
-          debugPrint('[sing-box] permission error, retrying with pkexec');
           _stderrBuf.clear();
           _setState(SingboxState.starting);
           if (!await _launch('pkexec', [binary, ...args])) {
@@ -166,18 +156,15 @@ class SingboxService {
       }
     } catch (e) {
       _lastError = 'Не удалось запустить sing-box: $e';
-      debugPrint('[sing-box] start error: $e');
       _setState(SingboxState.error);
     }
   }
 
   /// Launch sing-box process. Returns true if it stays running after 1.5s.
   Future<bool> _launch(String executable, List<String> args) async {
-    debugPrint('[sing-box] launching: $executable ${args.join(' ')}');
     _process = await Process.start(executable, args);
 
     _process!.stdout.transform(utf8.decoder).listen((data) {
-      debugPrint('[sing-box stdout] $data');
       if (data.contains('started') || data.contains('sing-box started')) {
         if (_state == SingboxState.starting) {
           _setState(SingboxState.running);
@@ -186,7 +173,6 @@ class SingboxService {
     });
 
     _process!.stderr.transform(utf8.decoder).listen((data) {
-      debugPrint('[sing-box stderr] $data');
       _stderrBuf.write(data);
       _lastError = _stderrBuf.toString();
     });
@@ -199,7 +185,6 @@ class SingboxService {
         _lastError = stderr.isNotEmpty
             ? 'sing-box (exit $code): $stderr'
             : 'sing-box exited with code $code';
-        debugPrint('[sing-box] exited with code $code, stderr: $stderr');
         _setState(SingboxState.error);
       } else {
         _setState(SingboxState.stopped);

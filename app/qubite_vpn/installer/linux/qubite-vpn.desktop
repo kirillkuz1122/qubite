@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Qubite VPN
+Comment=Secure VPN client
+Exec=/opt/qubite-vpn/qubite_vpn
+Icon=qubite-vpn
+Terminal=false
+Type=Application
+Categories=Network;VPN;Security;
+Keywords=vpn;proxy;privacy;
+StartupWMClass=qubite_vpn
