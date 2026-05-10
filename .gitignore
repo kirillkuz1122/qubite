@@ -11,3 +11,5 @@ node_modules/
 .codex
 qubite-product-intro/
 .devin/
+deploy/data/*.sqlite
+deploy/data/*.sqlite-*
