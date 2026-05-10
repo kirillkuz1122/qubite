@@ -172,6 +172,22 @@ class _HomeScreenState extends State<HomeScreen> {
             'Регион: ${state.selectedRegion}',
             style: TextStyle(color: QColors.fgMuted, fontSize: 13),
           ),
+        // Test mode badge
+        if (state.isTestMode && isConnected) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: QColors.accentFrom.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: QColors.accentFrom.withOpacity(0.3)),
+            ),
+            child: const Text(
+              'Тестовый режим',
+              style: TextStyle(color: QColors.accentFrom, fontSize: 12),
+            ),
+          ),
+        ],
         // Whitelist badge
         if (state.whitelistActive && isConnected) ...[
           const SizedBox(height: 8),
@@ -280,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case VpnStatus.connecting:
         return 'Подключение...';
       case VpnStatus.connected:
-        return 'Подключено';
+        return state.isTestMode ? 'Тест: подключено' : 'Подключено';
       case VpnStatus.disconnecting:
         return 'Отключение...';
       case VpnStatus.error:

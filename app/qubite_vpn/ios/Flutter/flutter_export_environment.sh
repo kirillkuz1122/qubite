@@ -1,9 +1,9 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=C:\Users\user\flutter"
-export "FLUTTER_APPLICATION_PATH=C:\Users\user\Desktop\Projects_new\qubite\app\qubite_vpn"
+export "FLUTTER_ROOT=/home/kirill/fvm/versions/3.38.5"
+export "FLUTTER_APPLICATION_PATH=/home/kirill/programing/qubite/app/qubite_vpn"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
-export "FLUTTER_TARGET=lib\main.dart"
+export "FLUTTER_TARGET=lib/main.dart"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=0.1.0"
 export "FLUTTER_BUILD_NUMBER=1"

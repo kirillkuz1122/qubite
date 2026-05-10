@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import 'split_tunnel_screen.dart';
 import 'subscription_screen.dart';
+import 'test_mode_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -53,6 +56,26 @@ class SettingsScreen extends StatelessWidget {
                   activeTrackColor: QColors.accentFrom,
                 ),
               ),
+              if (Platform.isAndroid && state.splitTunneling)
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SplitTunnelScreen(),
+                    ),
+                  ),
+                  child: _SettingsTile(
+                    icon: Icons.apps,
+                    title: 'Исключения приложений',
+                    subtitle: state.excludedApps.isEmpty
+                        ? 'Не выбрано'
+                        : '${state.excludedApps.length} приложений',
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: QColors.fgMuted,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 24),
 
               // Subscription section
@@ -66,6 +89,22 @@ class SettingsScreen extends StatelessWidget {
                   icon: Icons.star_outline,
                   title: 'Управление подпиской',
                   subtitle: 'Просмотр планов и оплата',
+                  trailing: Icon(Icons.chevron_right, color: QColors.fgMuted),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Test mode
+              _SectionHeader(title: 'Разработчику'),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TestModeScreen()),
+                ),
+                child: const _SettingsTile(
+                  icon: Icons.bug_report_outlined,
+                  title: 'Тестовый режим',
+                  subtitle: 'Ручной ввод сервера для отладки',
                   trailing: Icon(Icons.chevron_right, color: QColors.fgMuted),
                 ),
               ),

@@ -97,6 +97,9 @@ class AppState extends ChangeNotifier {
   bool _splitTunneling = true;
   bool get splitTunneling => _splitTunneling;
 
+  List<String> _excludedApps = [];
+  List<String> get excludedApps => List.unmodifiable(_excludedApps);
+
   // =======================================================
   //  Init
   // =======================================================
@@ -117,6 +120,7 @@ class AppState extends ChangeNotifier {
     _killSwitchEnabled = prefs.getBool('kill_switch') ?? false;
     _autoConnect = prefs.getBool('auto_connect') ?? false;
     _splitTunneling = prefs.getBool('split_tunneling') ?? true;
+    _excludedApps = prefs.getStringList('excluded_apps') ?? [];
 
     try {
       final info = await PackageInfo.fromPlatform();
@@ -325,6 +329,13 @@ class AppState extends ChangeNotifier {
         _routingProfile = await api.getRoutingProfile();
       } catch (_) {}
 
+      // Передаём excluded apps для split tunneling (Android)
+      if (Platform.isAndroid && _splitTunneling) {
+        _singbox.excludePackages = List.from(_excludedApps);
+      } else {
+        _singbox.excludePackages = [];
+      }
+
       // Start sing-box
       if (_whitelistActive) {
         // TODO: get VLESS credentials from catalog SNI routes
@@ -382,6 +393,7 @@ class AppState extends ChangeNotifier {
     _activeServer = null;
     _vpnStatus = VpnStatus.disconnected;
     _connectedSince = null;
+    _isTestMode = false;
     notifyListeners();
   }
 
@@ -524,6 +536,74 @@ class AppState extends ChangeNotifier {
   }
 
   // =======================================================
+  //  Test Mode (manual server input)
+  // =======================================================
+
+  bool _isTestMode = false;
+  bool get isTestMode => _isTestMode;
+
+  Future<void> connectTest({
+    required String protocol,
+    required String serverHost,
+    required int serverPort,
+    String? sni,
+    String? username,
+    String? password,
+    String? uuid,
+    String? publicKey,
+    String? shortId,
+    String? flow,
+    bool reality = false,
+  }) async {
+    if (_vpnStatus == VpnStatus.connected ||
+        _vpnStatus == VpnStatus.connecting) return;
+
+    _vpnStatus = VpnStatus.connecting;
+    _vpnError = null;
+    _isTestMode = true;
+    notifyListeners();
+
+    try {
+      // Передаём excluded apps для split tunneling (Android)
+      if (Platform.isAndroid && _splitTunneling) {
+        _singbox.excludePackages = List.from(_excludedApps);
+      } else {
+        _singbox.excludePackages = [];
+      }
+
+      await _singbox.startTestManual(
+        protocol: protocol,
+        serverHost: serverHost,
+        serverPort: serverPort,
+        sni: sni,
+        username: username,
+        password: password,
+        uuid: uuid,
+        publicKey: publicKey,
+        shortId: shortId,
+        flow: flow,
+        reality: reality,
+      );
+
+      if (_singbox.state == SingboxState.error) {
+        throw Exception(_singbox.lastError ?? 'Failed to start sing-box');
+      }
+
+      _vpnStatus = VpnStatus.connected;
+      _connectedSince = DateTime.now();
+      _bytesUp = 0;
+      _bytesDown = 0;
+      notifyListeners();
+    } catch (e) {
+      _vpnStatus = VpnStatus.error;
+      final sbErr = _singbox.lastError;
+      _vpnError = (sbErr != null && sbErr.isNotEmpty) ? sbErr : _extractError(e);
+      _isTestMode = false;
+      notifyListeners();
+    }
+  }
+
+  // =======================================================
   //  Settings toggles
   // =======================================================
 
@@ -551,6 +631,18 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     prefs.setBool('split_tunneling', enabled);
     notifyListeners();
+  }
+
+  Future<void> setExcludedApps(List<String> packages) async {
+    _excludedApps = List.from(packages);
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setStringList('excluded_apps', _excludedApps);
+    notifyListeners();
+  }
+
+  /// Возвращает список установленных приложений (Android only)
+  Future<List<Map<String, dynamic>>> getInstalledApps() async {
+    return _singbox.getInstalledApps();
   }
 
   // =======================================================
