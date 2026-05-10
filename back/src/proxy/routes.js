@@ -19,6 +19,7 @@ const {
     createProxyTrafficLog,
     createUser,
     deleteProxySubscription,
+    deleteProxyServer,
     deleteProxySniRoute,
     getActiveProxySessionByUsername,
     getActiveProxySessionForUser,
@@ -1214,6 +1215,26 @@ function registerProxyRoutes(app, deps) {
                 summary: `Перевыпущен токен proxy-ноды ${server.public_domain}`,
             });
             res.json({ item: serializeProxyServerForAdmin(server), nodeToken });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.delete("/api/admin/proxy-servers/:serverUid", requireOwner, async (req, res, next) => {
+        try {
+            const server = await deleteProxyServer(cleanText(req.params.serverUid, 80));
+            if (!server) {
+                sendError(res, 404, "Proxy-нода не найдена.");
+                return;
+            }
+            await createAuditLog({
+                actorUserId: req.auth.user.id,
+                action: "proxy.server.delete",
+                entityType: "proxy_server",
+                entityId: server.uid,
+                summary: `Удалена proxy-нода ${server.public_domain}`,
+            });
+            res.json({ ok: true });
         } catch (error) {
             next(error);
         }

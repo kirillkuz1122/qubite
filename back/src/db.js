@@ -3062,6 +3062,15 @@ async function updateProxyServer(payload) {
     return getProxyServerByUid(payload.uid);
 }
 
+async function deleteProxyServer(serverUid) {
+    const current = await getProxyServerByUid(serverUid);
+    if (!current) {
+        return null;
+    }
+    await run("DELETE FROM proxy_servers WHERE uid = ?", [serverUid]);
+    return current;
+}
+
 async function setProxyServerNodeToken(uid, tokenHash) {
     await run(
         `
@@ -8967,6 +8976,7 @@ module.exports = {
     deleteAdminTournament,
     deleteAdminUserHard,
     deleteProxySubscription,
+    deleteProxyServer,
     deleteProxySniRoute,
     deleteOrganizerTournament,
     ensureDailyTournamentForDate,

@@ -13300,6 +13300,7 @@ function renderProxyServerRow(server) {
                 <button class="btn btn--muted btn--sm" type="button" data-proxy-server-logs="${escapeHtml(server.id)}">Логи</button>
                 <button class="btn btn--muted btn--sm" type="button" data-proxy-server-toggle="${escapeHtml(server.id)}" data-next-status="${server.status === "active" ? "disabled" : "active"}">${server.status === "active" ? "Выключить" : "Включить"}</button>
                 <button class="btn btn--accent btn--sm" type="button" data-proxy-server-token="${escapeHtml(server.id)}">Новый token</button>
+                <button class="btn btn--muted btn--sm" type="button" data-proxy-server-delete="${escapeHtml(server.id)}">Удалить</button>
             </div>
         </div>
     `;
@@ -13892,6 +13893,25 @@ function initProxyServersInteractions(container) {
             try {
                 const data = await apiClient.rotateAdminProxyServerToken(button.dataset.proxyServerToken);
                 Toast.show("Node token", `Новый token: <b>${escapeHtml(data.nodeToken)}</b>`, "success", 20000, { html: true });
+                container.innerHTML = renderProxyServersView();
+                initProxyServersInteractions(container);
+            } catch (error) {
+                showRequestError("Прокси", error);
+            } finally {
+                Loader.hide(300);
+            }
+        });
+    });
+
+    container.querySelectorAll("[data-proxy-server-delete]").forEach((button) => {
+        button.addEventListener("click", async () => {
+            const server = getAdminProxyServersState().find((item) => item.id === button.dataset.proxyServerDelete);
+            const label = server?.displayName || server?.name || server?.domain || button.dataset.proxyServerDelete;
+            if (!window.confirm(`Удалить proxy-ноду ${label}? Активные Naive-сессии этой ноды будут удалены, SNI-маршруты отвяжутся от ноды.`)) return;
+            Loader.show();
+            try {
+                await apiClient.deleteAdminProxyServer(button.dataset.proxyServerDelete);
+                Toast.show("Прокси", "Нода удалена.", "success");
                 container.innerHTML = renderProxyServersView();
                 initProxyServersInteractions(container);
             } catch (error) {

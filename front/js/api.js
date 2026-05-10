@@ -1001,6 +1001,14 @@
         return data;
     }
 
+    async function deleteAdminProxyServer(serverId) {
+        await request(`/api/admin/proxy-servers/${encodeURIComponent(serverId)}`, {
+            method: "DELETE",
+        });
+        syncAdminProxyServers(state.adminProxyServers.filter((item) => item.id !== serverId));
+        return true;
+    }
+
     async function loadAdminProxySniRoutes() {
         const data = await request("/api/admin/proxy-sni-routes");
         syncAdminProxySniRoutes(data.items || []);
@@ -1787,6 +1795,7 @@
         generateAdminUser,
         deleteAdminUser,
         deleteAdminUserHard,
+        deleteAdminProxyServer,
         deleteAdminProxySniRoute,
         deleteAdminProxySubscription,
         restoreAdminUser,
