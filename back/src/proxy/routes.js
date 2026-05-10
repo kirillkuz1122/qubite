@@ -29,6 +29,7 @@ const {
     getProxyServerByNodeTokenHash,
     getProxyServerByUid,
     getProxySniRouteByUid,
+    getSystemSettingValue,
     getActiveProxySessionForDeviceAndServer,
     getActiveProxySubscriptionByTokenHash,
     getProxySubscriptionByUid,
@@ -64,6 +65,8 @@ const {
     upsertProxyServer,
     upsertProxySniRoute,
 } = require("../db");
+
+const PROXY_NAIVE_SETTING_KEY = "proxy_naive_enabled";
 
 function buildProxyRoutingProfile() {
     return {
@@ -536,6 +539,11 @@ async function requireProxyAccess(req, res, sendError) {
     return true;
 }
 
+async function isNaiveProxyEnabled() {
+    const value = await getSystemSettingValue(PROXY_NAIVE_SETTING_KEY, true);
+    return value === true || value === "true";
+}
+
 function buildNaiveUri({ host, username, password, label }) {
     return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=true#${encodeURIComponent(label)}`;
 }
@@ -570,68 +578,73 @@ function buildVlessUri({ host, uuid, label, serverName, publicKey, shortId, port
     return `vless://${uuid}@${host}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
 }
 
-async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken }) {
-    const device = await registerProxyDevice({
-        userId: subscription.user_id,
-        deviceUid: `SUB-${subscription.uid}`,
-        deviceName: `VPN subscription: ${subscription.label || subscription.uid}`,
-        platform: "subscription",
-        appVersion: "subscription",
-        fingerprintHash: hashOpaqueToken(`proxy-subscription:${subscription.uid}`),
-        publicKey: "",
-    });
+async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken, naiveEnabled = true }) {
     const servers = await listActiveProxyServersForSubscription();
     const sessionsByServerUid = new Map();
     const now = Date.now();
-    for (const server of servers) {
-        let session = await getActiveProxySessionForDeviceAndServer(device.id, server.id);
-        let password = session?.secret_ciphertext ? decryptProxyCredential(session.secret_ciphertext) : "";
-        if (!session || !password) {
-            password = generateRandomToken(24);
-            session = await createProxySession({
-                userId: subscription.user_id,
-                deviceId: device.id,
-                serverId: server.id,
-                username: `qbs_${subscription.id}_${server.id}_${generateRandomToken(5)}`,
-                secretHash: hashOpaqueToken(password),
-                secretCiphertext: encryptProxyCredential(password),
-                ipAddress: "",
-                userAgent: "proxy-subscription",
-                expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                refreshAfterAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                rotateDeviceSessions: false,
-            });
+
+    if (naiveEnabled) {
+        const device = await registerProxyDevice({
+            userId: subscription.user_id,
+            deviceUid: `SUB-${subscription.uid}`,
+            deviceName: `VPN subscription: ${subscription.label || subscription.uid}`,
+            platform: "subscription",
+            appVersion: "subscription",
+            fingerprintHash: hashOpaqueToken(`proxy-subscription:${subscription.uid}`),
+            publicKey: "",
+        });
+        for (const server of servers) {
+            let session = await getActiveProxySessionForDeviceAndServer(device.id, server.id);
+            let password = session?.secret_ciphertext ? decryptProxyCredential(session.secret_ciphertext) : "";
+            if (!session || !password) {
+                password = generateRandomToken(24);
+                session = await createProxySession({
+                    userId: subscription.user_id,
+                    deviceId: device.id,
+                    serverId: server.id,
+                    username: `qbs_${subscription.id}_${server.id}_${generateRandomToken(5)}`,
+                    secretHash: hashOpaqueToken(password),
+                    secretCiphertext: encryptProxyCredential(password),
+                    ipAddress: "",
+                    userAgent: "proxy-subscription",
+                    expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    refreshAfterAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    rotateDeviceSessions: false,
+                });
+            }
+            sessionsByServerUid.set(server.uid, { session, password, server });
         }
-        sessionsByServerUid.set(server.uid, { session, password, server });
     }
 
     const lines = [];
-    for (const server of servers) {
-        const credential = sessionsByServerUid.get(server.uid);
-        if (!credential) continue;
-        const variants = [
-            { host: server.public_domain, name: buildProxyVariantName(server) },
-        ];
-        if (Number(server.supports_ipv4 ?? 1)) {
-            variants.push({
-                host: server.ipv4_domain || server.public_domain,
-                name: buildProxyVariantName(server, "ip4"),
-            });
-        }
-        if (Number(server.supports_ipv6 ?? 1) && (server.ipv6_domain || server.ipv6_address)) {
-            variants.push({
-                host: server.ipv6_domain || server.public_domain,
-                name: buildProxyVariantName(server, "ip6"),
-            });
-        }
-        for (const variant of variants) {
-            if (!variant.host) continue;
-            lines.push(buildNaiveUri({
-                host: variant.host,
-                username: credential.session.username,
-                password: credential.password,
-                label: variant.name,
-            }));
+    if (naiveEnabled) {
+        for (const server of servers) {
+            const credential = sessionsByServerUid.get(server.uid);
+            if (!credential) continue;
+            const variants = [
+                { host: server.public_domain, name: buildProxyVariantName(server) },
+            ];
+            if (Number(server.supports_ipv4 ?? 1)) {
+                variants.push({
+                    host: server.ipv4_domain || server.public_domain,
+                    name: buildProxyVariantName(server, "ip4"),
+                });
+            }
+            if (Number(server.supports_ipv6 ?? 1) && (server.ipv6_domain || server.ipv6_address)) {
+                variants.push({
+                    host: server.ipv6_domain || server.public_domain,
+                    name: buildProxyVariantName(server, "ip6"),
+                });
+            }
+            for (const variant of variants) {
+                if (!variant.host) continue;
+                lines.push(buildNaiveUri({
+                    host: variant.host,
+                    username: credential.session.username,
+                    password: credential.password,
+                    label: variant.name,
+                }));
+            }
         }
     }
 
@@ -714,6 +727,10 @@ function registerProxyRoutes(app, deps) {
     app.get("/api/proxy/servers", requireAuth, async (req, res, next) => {
         try {
             if (!(await requireProxyAccess(req, res, sendError))) return;
+            if (!(await isNaiveProxyEnabled())) {
+                res.json({ servers: [] });
+                return;
+            }
             const servers = await listProxyServersForClient();
             res.json({ servers: servers.map(serializeProxyServer) });
         } catch (error) {
@@ -724,11 +741,13 @@ function registerProxyRoutes(app, deps) {
     app.get("/api/proxy/catalog", requireAuth, async (req, res, next) => {
         try {
             if (!(await requireProxyAccess(req, res, sendError))) return;
-            const rawServers = await listProxyServersForClient();
+            const naiveEnabled = await isNaiveProxyEnabled();
+            const rawServers = naiveEnabled ? await listProxyServersForClient() : [];
             const sniRoutes = (await listActiveProxySniRoutesForClient()).map(serializeProxySniRouteForClient);
             res.json({
                 version: 1,
                 generatedAt: new Date().toISOString(),
+                naiveEnabled,
                 normal: {
                     all: rawServers.map((server) => serializeProxyCatalogServer(server, "default")),
                     ipv4: rawServers
@@ -783,7 +802,11 @@ function registerProxyRoutes(app, deps) {
                 res.status(404).type("text/plain").send("Subscription not found or disabled.\n");
                 return;
             }
-            const lines = await buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken });
+            const lines = await buildSubscriptionProfiles(subscription, {
+                hashOpaqueToken,
+                generateRandomToken,
+                naiveEnabled: await isNaiveProxyEnabled(),
+            });
             const body = `${lines.join("\n")}\n`;
             res.setHeader("Cache-Control", "no-store");
             if (String(req.query.format || "").toLowerCase() === "base64") {
@@ -848,6 +871,10 @@ function registerProxyRoutes(app, deps) {
     app.post("/api/proxy/session/start", requireAuth, async (req, res, next) => {
         try {
             if (!(await requireProxyAccess(req, res, sendError))) return;
+            if (!(await isNaiveProxyEnabled())) {
+                sendError(res, 503, "NaiveProxy временно отключён. Используйте VLESS-профиль из подписки.", "protocol");
+                return;
+            }
             const deviceUid = normalizeProxyDeviceUid(req.body?.deviceId, cleanText);
             if (!deviceUid) {
                 sendError(res, 400, "Нужен deviceId.", "deviceId");
@@ -901,6 +928,10 @@ function registerProxyRoutes(app, deps) {
     app.post("/api/proxy/session/refresh", requireAuth, async (req, res, next) => {
         try {
             if (!(await requireProxyAccess(req, res, sendError))) return;
+            if (!(await isNaiveProxyEnabled())) {
+                sendError(res, 503, "NaiveProxy временно отключён. Используйте VLESS-профиль из подписки.", "protocol");
+                return;
+            }
             const sessionUid = cleanText(req.body?.sessionId, 80);
             const session = await getActiveProxySessionForUser(sessionUid, req.auth.user.id);
             if (!session) {
@@ -1634,12 +1665,14 @@ function registerProxyRoutes(app, deps) {
                 }
                 publicDomain = server.public_domain;
             }
-            const sessions = await listActiveProxySessionsForSync({ publicDomain });
+            const naiveEnabled = await isNaiveProxyEnabled();
+            const sessions = naiveEnabled ? await listActiveProxySessionsForSync({ publicDomain }) : [];
             const sniRoutes = await listActiveProxySniRoutesForSync({ publicDomain });
             const activeSubscriptions = await listActiveProxySubscriptionsForSync();
             res.json({
                 generatedAt: new Date().toISOString(),
                 domain: publicDomain || PROXY_PUBLIC_DOMAIN,
+                naiveEnabled,
                 credentials: sessions
                     .map((session) => {
                         const password = decryptProxyCredential(session.secret_ciphertext);
@@ -1690,6 +1723,10 @@ function registerProxyRoutes(app, deps) {
             }
             if (server.status !== "active") {
                 sendError(res, 403, "Proxy node is disabled.");
+                return;
+            }
+            if (!(await isNaiveProxyEnabled())) {
+                res.json({ saved: false, count: 0, reason: "naive_disabled" });
                 return;
             }
             const events = Array.isArray(req.body?.events) ? req.body.events.slice(0, 500) : [];

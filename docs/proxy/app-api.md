@@ -85,6 +85,11 @@ Client selection rule:
 3. If a server fails, try the next server and send heartbeat telemetry.
 ```
 
+If owner disables the runtime `system_settings.proxy_naive_enabled` toggle,
+this endpoint returns an empty `servers` array. The app should then avoid
+starting a Naive session and use VLESS entries from the subscription/catalog
+flow instead.
+
 ## 2.1 Connection Catalog
 
 ```http
@@ -98,6 +103,7 @@ type.
 {
   "version": 1,
   "generatedAt": "...",
+  "naiveEnabled": true,
   "normal": {
     "all": [
       {
@@ -152,6 +158,10 @@ should still test real connectivity on the device and prefer a Happy Eyeballs
 style fallback: try the best family first, then quickly fall back to the other
 family or another node.
 
+When `proxy_naive_enabled=false`, `naiveEnabled` is `false` and all `normal`
+arrays are empty. `sni` remains populated so clients that support VLESS Reality
+can keep using those profiles.
+
 ## 3. Start Proxy Session
 
 ```http
@@ -199,6 +209,10 @@ Response:
 ```
 
 The app must not display the raw proxy password to the user.
+
+When `proxy_naive_enabled=false`, this endpoint returns `503` for Naive session
+creation. That is intentional: the backend stops issuing Naive credentials
+instead of shutting down the whole proxy/VLESS contour.
 
 ## 4. Refresh Session
 

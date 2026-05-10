@@ -7058,6 +7058,7 @@ function renderAnalyticsView() {
                     ${toggleBtn('oauth_yandex_enabled', 'Вход через Yandex', settings.oauth_yandex_enabled)}
                     ${toggleBtn('oauth_vk_enabled', 'Вход через VK ID', settings.oauth_vk_enabled)}
                     ${toggleBtn('oauth_telegram_enabled', 'Вход через Telegram', settings.oauth_telegram_enabled)}
+                    ${toggleBtn('proxy_naive_enabled', 'NaiveProxy', settings.proxy_naive_enabled !== false && settings.proxy_naive_enabled !== "false")}
                 </div>
             </section>
         `;
@@ -10479,6 +10480,7 @@ function renderAdminDashboard() {
                     ${toggleBtn('oauth_yandex_enabled', 'Вход через Yandex', settings.oauth_yandex_enabled)}
                     ${toggleBtn('oauth_vk_enabled', 'Вход через VK ID', settings.oauth_vk_enabled)}
                     ${toggleBtn('oauth_telegram_enabled', 'Вход через Telegram', settings.oauth_telegram_enabled)}
+                    ${toggleBtn('proxy_naive_enabled', 'NaiveProxy', settings.proxy_naive_enabled !== false && settings.proxy_naive_enabled !== "false")}
                 </div>
             </section>
         `;
@@ -13207,6 +13209,8 @@ function renderProxyServersView() {
     const subscriptions = getAdminProxySubscriptionsState();
     const logs = getAdminProxyLogsState();
     const users = getAdminUsersState();
+    const settings = apiClient.state.adminSystemSettings || {};
+    const naiveEnabled = settings.proxy_naive_enabled !== false && settings.proxy_naive_enabled !== "false";
     const protectedUsers = users.filter((user) => user.proxyNoLogs);
     const online = servers.filter((item) => item.health === "online").length;
     const active = servers.filter((item) => item.status === "active").length;
@@ -13221,6 +13225,7 @@ function renderProxyServersView() {
                     <div class="ops-header__subtitle">Master хранит базу и ключи, дочерние ноды синхронизируются по API и редиректят браузер на основной домен.</div>
                 </div>
                 <div class="ops-header__actions">
+                    <button class="btn ${naiveEnabled ? "btn--muted" : "btn--accent"}" type="button" id="proxyNaiveToggleBtn" data-next-value="${naiveEnabled ? "false" : "true"}">${naiveEnabled ? "Отключить Naive" : "Включить Naive"}</button>
                     <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
                     <button class="btn btn--accent" type="button" id="proxyCreateSubscriptionLinkBtn">Ссылка Nekobox</button>
                     <button class="btn btn--muted" type="button" id="proxyCreateSubscriptionBtn">Выдать VPN</button>
@@ -13232,6 +13237,7 @@ function renderProxyServersView() {
                 ${renderOpsMetricCard({ icon: "analytics", tone: "accent", label: "Нод", value: formatNumberRu(servers.length), meta: "Всего зарегистрировано" })}
                 ${renderOpsMetricCard({ icon: "shield", tone: "accent", label: "Активных", value: formatNumberRu(active), meta: "Разрешены для выдачи ключей" })}
                 ${renderOpsMetricCard({ icon: "task_alt", tone: "success", label: "Online", value: formatNumberRu(online), meta: "Есть свежий heartbeat" })}
+                ${renderOpsMetricCard({ icon: "public", tone: naiveEnabled ? "accent" : "warning", label: "Naive", value: naiveEnabled ? "Вкл" : "Выкл", meta: naiveEnabled ? "Выдаётся в app/API/subscriptions" : "Скрыт, работает только VLESS" })}
                 ${renderOpsMetricCard({ icon: "groups", tone: "warning", label: "SNI", value: formatNumberRu(sniRoutes.filter((item) => item.status === "active").length), meta: `${formatNumberRu(sniRoutes.length)} маршрутов • ${formatCompactNumberRu(totalRequests)} req / ${formatBytes(totalTraffic)}` })}
             </div>
             <div class="ops-shell">
@@ -13437,9 +13443,29 @@ function renderProxyPrivacyControls(users, protectedUsers) {
 }
 
 function initProxyServersInteractions(container) {
+    container.querySelector("#proxyNaiveToggleBtn")?.addEventListener("click", async (event) => {
+        const nextValue = event.currentTarget.dataset.nextValue === "true";
+        const message = nextValue
+            ? "Включить NaiveProxy и снова выдавать его в приложении и ссылках?"
+            : "Отключить NaiveProxy? Новые Naive-сессии и credentials для Caddy перестанут выдаваться, в подписках останется VLESS.";
+        if (!window.confirm(message)) return;
+        Loader.show();
+        try {
+            await apiClient.updateAdminSystemSetting("proxy_naive_enabled", nextValue);
+            Toast.show("Прокси", nextValue ? "NaiveProxy включён." : "NaiveProxy отключён, VLESS остаётся доступен.", "success");
+            container.innerHTML = renderProxyServersView();
+            initProxyServersInteractions(container);
+        } catch (error) {
+            showRequestError("Прокси", error);
+        } finally {
+            Loader.hide(300);
+        }
+    });
+
     container.querySelector("#proxyRefreshServersBtn")?.addEventListener("click", async () => {
         Loader.show();
         try {
+            await apiClient.loadAdminSystemSettings();
             await apiClient.loadAdminProxyServers();
             await apiClient.loadAdminProxySniRoutes();
             await apiClient.loadAdminProxySubscriptions();
@@ -13961,6 +13987,7 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
         initProxyServersInteractions(ViewManager.content);
         if (isOwnerUser()) {
             Promise.all([
+                apiClient.loadAdminSystemSettings(),
                 apiClient.loadAdminProxyServers(),
                 apiClient.loadAdminProxySniRoutes(),
                 apiClient.loadAdminProxySubscriptions(),

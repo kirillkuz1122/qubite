@@ -54,7 +54,7 @@
 - `back/src/telegram/access.js` — проверка прав (owner из env, moderator из env + БД)
 - `back/src/telegram/menus.js` — inline-клавиатуры и шаблоны меню
 - `back/src/telegram/notifier.js` — push-уведомления owner'у о критичных audit-событиях
-- `back/src/telegram/handlers/settings.js` — 5 тумблеров system_settings (owner)
+- `back/src/telegram/handlers/settings.js` — owner-тумблеры system_settings
 - `back/src/telegram/handlers/analytics.js` — overview, метрики, детальная статистика
 - `back/src/telegram/handlers/moderation.js` — задачи, заявки организаторов, блокировка юзеров
 - `back/src/telegram/handlers/admin.js` — пользователи, турниры, команды, задачи, аудит (owner)
@@ -191,6 +191,7 @@
 - Лимиты body: `JSON_BODY_LIMIT=32kb`, `HEAVY_JSON_BODY_LIMIT=256kb`, `IMPORT_JSON_BODY_LIMIT=2mb` (используются в `server.js` на разных группах роутов).
 - `VK_APP_ID` — ID приложения VK ID. `VK_CLIENT_SECRET` — «Защищённый ключ» из VK Developer Console. VK OAuth использует серверный PKCE-flow (code_verifier хранится в `oauth_states`).
 - `OAUTH_GOOGLE_ENABLED`, `OAUTH_YANDEX_ENABLED`, `OAUTH_VK_ENABLED`, `OAUTH_TELEGRAM_ENABLED` — аварийные env kill-switch'и для отдельных способов входа; при `false` провайдер скрывается из UI и web-start endpoint не работает. Оперативное включение/выключение owner делает без рестарта через `system_settings`: `oauth_google_enabled`, `oauth_yandex_enabled`, `oauth_vk_enabled`, `oauth_telegram_enabled`.
+- `proxy_naive_enabled=true` — runtime-тумблер в `system_settings`; при `false` NaiveProxy не выдаётся в app server list, catalog/subscription links и sync credentials, а VLESS/SNI-профили остаются доступными.
 - `TELEGRAM_BOT_TOKEN` — токен бота; если пуст, бот не запускается и Telegram Login Widget не включается.
 - `TELEGRAM_OWNER_ID` — Telegram user ID владельца (единственный source of truth для owner-доступа в боте).
 - `TELEGRAM_MODERATOR_IDS` — CSV доп. модераторов (жёсткий whitelist, требует рестарта); динамические выдачи — через БД (`telegram_access`).

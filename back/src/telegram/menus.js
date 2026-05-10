@@ -25,6 +25,7 @@ function settingsMenu(settings) {
         { key: "oauth_yandex_enabled", label: "OAuth Yandex" },
         { key: "oauth_vk_enabled", label: "OAuth VK ID" },
         { key: "oauth_telegram_enabled", label: "OAuth Telegram" },
+        { key: "proxy_naive_enabled", label: "NaiveProxy" },
     ];
     const rows = keys.map(({ key, label }) => {
         const on = settings[key] === true || settings[key] === "true";

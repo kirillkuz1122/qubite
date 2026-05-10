@@ -66,6 +66,13 @@ request. For that reason Qubite stores active proxy passwords encrypted with
 `PROXY_CREDENTIAL_ENCRYPTION_KEY`. A local sync agent uses `PROXY_SYNC_TOKEN` to
 fetch active credentials and regenerate the Caddy `basic_auth` snippet.
 
+Owner can disable NaiveProxy at runtime with
+`system_settings.proxy_naive_enabled=false` from the web admin panel or
+Telegram bot. In that mode Qubite stops issuing Naive sessions, hides Naive
+servers from `/api/proxy/servers` and `normal` catalog entries, omits Naive
+links from subscription output, and returns an empty `credentials` list to the
+sync endpoint. VLESS Reality users and SNI routes are still returned.
+
 Required production secrets:
 
 ```env
@@ -104,6 +111,10 @@ metrics still exist because they are not tied to the protected user's browsing.
 Every proxy node is represented by `proxy_servers`. The app should always call
 `GET /api/proxy/servers` and use the returned priority/weight/health fields
 instead of hardcoding one host.
+
+If NaiveProxy is disabled by `proxy_naive_enabled`, `GET /api/proxy/servers`
+returns no servers by design; VLESS-capable clients should read the catalog or
+subscription instead.
 
 For a new VPS, the target "fast deploy" flow is:
 
