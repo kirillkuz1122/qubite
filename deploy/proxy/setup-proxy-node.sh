@@ -233,6 +233,9 @@ Wants=network-online.target
 [Service]
 User=caddy
 Group=caddy
+Environment=HOME=/var/lib/caddy
+Environment=XDG_DATA_HOME=/var/lib/caddy
+Environment=XDG_CONFIG_HOME=/var/lib/caddy/.config
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ExecStart=/usr/local/bin/caddy-naive run --environ --config /etc/caddy/Caddyfile
 ExecReload=/usr/local/bin/caddy-naive reload --config /etc/caddy/Caddyfile --force

@@ -77,6 +77,10 @@ stream routes, and sing-box Reality config atomically. It preserves the existing
 file owner and mode so services running as the `caddy` user can read the
 rewritten files after each timer run.
 
+The Caddy systemd unit sets `HOME`, `XDG_DATA_HOME`, and `XDG_CONFIG_HOME` under
+`/var/lib/caddy` so automatic TLS storage and autosave files do not fall back to
+`/home/caddy` on minimal VPS images.
+
 SNI/decoy domains are managed from the owner "Прокси" panel. Add a route such
 as:
 
