@@ -72,6 +72,11 @@ validate the SNI TCP router with `nginx -t`. If the package is unavailable on
 the VPS image, the script stops with an explicit message before starting
 services.
 
+The credential sync agent rewrites Caddy credentials, Caddy SNI routes, nginx
+stream routes, and sing-box Reality config atomically. It preserves the existing
+file owner and mode so services running as the `caddy` user can read the
+rewritten files after each timer run.
+
 SNI/decoy domains are managed from the owner "Прокси" panel. Add a route such
 as:
 

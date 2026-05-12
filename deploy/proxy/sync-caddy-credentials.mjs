@@ -87,7 +87,18 @@ function normalizeRedirectUrl(value) {
 
 function writeAtomic(filePath, content, mode = 0o600) {
   const temporaryPath = `${filePath}.tmp`;
-  fs.writeFileSync(temporaryPath, content, { mode });
+  let targetStat = null;
+  try {
+    targetStat = fs.statSync(filePath);
+  } catch (error) {
+    targetStat = null;
+  }
+  const targetMode = targetStat ? targetStat.mode & 0o777 : mode;
+  fs.writeFileSync(temporaryPath, content, { mode: targetMode });
+  if (targetStat) {
+    fs.chownSync(temporaryPath, targetStat.uid, targetStat.gid);
+    fs.chmodSync(temporaryPath, targetMode);
+  }
   fs.renameSync(temporaryPath, filePath);
 }
 
