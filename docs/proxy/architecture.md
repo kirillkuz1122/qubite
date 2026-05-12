@@ -138,3 +138,8 @@ sudo ./deploy/proxy/setup-master-server.sh
 
 It installs the website runtime, internal Nginx, Caddy/NaiveProxy, and the local
 credential sync timer.
+
+The proxy setup scripts require nginx stream support for the public 443 SNI
+router. They install `libnginx-mod-stream`, ensure the dynamic module include is
+loaded, and fail early if `/usr/lib/nginx/modules/ngx_stream_module.so` is still
+missing.

@@ -66,6 +66,12 @@ The child script asks for:
 - master API base URL;
 - node token from the owner panel.
 
+Both master and child setup scripts install `nginx` plus
+`libnginx-mod-stream`, enable `/etc/nginx/modules-enabled/*.conf`, and then
+validate the SNI TCP router with `nginx -t`. If the package is unavailable on
+the VPS image, the script stops with an explicit message before starting
+services.
+
 SNI/decoy domains are managed from the owner "Прокси" panel. Add a route such
 as:
 

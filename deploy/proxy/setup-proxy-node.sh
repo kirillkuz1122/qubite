@@ -29,8 +29,30 @@ ask MAIN_SITE_DOMAIN "Main website domain for browser redirect" "qubiteapp.ru"
 ask MASTER_API_BASE_URL "Master Qubite API base URL" "https://${MAIN_SITE_DOMAIN}"
 ask PROXY_NODE_TOKEN "Node token from owner panel" "" secret
 
+ensure_nginx_stream_module() {
+  mkdir -p /etc/nginx/modules-enabled
+
+  if [[ -f /usr/share/nginx/modules-available/mod-stream.conf ]]; then
+    ln -sfn /usr/share/nginx/modules-available/mod-stream.conf /etc/nginx/modules-enabled/50-mod-stream.conf
+  elif [[ -f /usr/lib/nginx/modules/ngx_stream_module.so ]]; then
+    cat >/etc/nginx/modules-enabled/50-mod-stream.conf <<'EOF_NGINX_STREAM_MODULE'
+load_module modules/ngx_stream_module.so;
+EOF_NGINX_STREAM_MODULE
+  fi
+
+  if ! grep -Eq 'include[[:space:]]+/etc/nginx/modules-enabled/\*\.conf;' /etc/nginx/nginx.conf; then
+    sed -i '1i include /etc/nginx/modules-enabled/*.conf;' /etc/nginx/nginx.conf
+  fi
+
+  if [[ ! -f /usr/lib/nginx/modules/ngx_stream_module.so ]]; then
+    echo "ERROR: nginx stream module is not installed." >&2
+    echo "Install package libnginx-mod-stream and rerun this script." >&2
+    exit 1
+  fi
+}
+
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y golang-go git nodejs curl libcap2-bin ufw nginx
+DEBIAN_FRONTEND=noninteractive apt-get install -y golang-go git nodejs curl libcap2-bin ufw nginx libnginx-mod-stream
 
 # --- Create dedicated service user for Caddy and sing-box ---
 
@@ -182,11 +204,7 @@ chmod 600 /etc/singbox/config.json
 
 # --- nginx SNI router on port 443 ---
 
-# Ensure nginx has stream module support
-if ! nginx -V 2>&1 | grep -q "with-stream"; then
-  echo "WARNING: nginx does not have stream module. SNI routing may not work."
-fi
-
+ensure_nginx_stream_module
 mkdir -p /etc/nginx/stream.d
 
 # Add stream include to main nginx.conf if not present

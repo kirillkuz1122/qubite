@@ -31,9 +31,31 @@ ask APP_PORT "Node app port" "3000"
 ask PROXY_CREDENTIAL_ENCRYPTION_KEY "Proxy credential encryption key" "$(openssl rand -base64 32)" secret
 ask PROXY_SYNC_TOKEN "Master-local proxy sync token" "$(openssl rand -hex 32)" secret
 
+ensure_nginx_stream_module() {
+  mkdir -p /etc/nginx/modules-enabled
+
+  if [[ -f /usr/share/nginx/modules-available/mod-stream.conf ]]; then
+    ln -sfn /usr/share/nginx/modules-available/mod-stream.conf /etc/nginx/modules-enabled/50-mod-stream.conf
+  elif [[ -f /usr/lib/nginx/modules/ngx_stream_module.so ]]; then
+    cat >/etc/nginx/modules-enabled/50-mod-stream.conf <<'EOF_NGINX_STREAM_MODULE'
+load_module modules/ngx_stream_module.so;
+EOF_NGINX_STREAM_MODULE
+  fi
+
+  if ! grep -Eq 'include[[:space:]]+/etc/nginx/modules-enabled/\*\.conf;' /etc/nginx/nginx.conf; then
+    sed -i '1i include /etc/nginx/modules-enabled/*.conf;' /etc/nginx/nginx.conf
+  fi
+
+  if [[ ! -f /usr/lib/nginx/modules/ngx_stream_module.so ]]; then
+    echo "ERROR: nginx stream module is not installed." >&2
+    echo "Install package libnginx-mod-stream and rerun this script." >&2
+    exit 1
+  fi
+}
+
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  nodejs npm nginx git curl golang-go libcap2-bin ufw fail2ban unzip zip
+  nodejs npm nginx libnginx-mod-stream git curl golang-go libcap2-bin ufw fail2ban unzip zip
 
 # --- Create dedicated service user for Caddy and sing-box ---
 
@@ -128,6 +150,7 @@ rm -f /etc/nginx/sites-enabled/default
 
 # --- nginx SNI router on port 443 ---
 
+ensure_nginx_stream_module
 mkdir -p /etc/nginx/stream.d
 
 if ! grep -q "stream.d" /etc/nginx/nginx.conf; then

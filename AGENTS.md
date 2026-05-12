@@ -63,6 +63,7 @@
 ### Deploy / Ops
 
 - `deploy/nginx/*`
+- `deploy/proxy/*`
 - `deploy/firewall/*`
 - `deploy/cloudflare/*`
 - `deploy/sysctl/*`
