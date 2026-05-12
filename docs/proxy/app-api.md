@@ -162,6 +162,10 @@ When `proxy_naive_enabled=false`, `naiveEnabled` is `false` and all `normal`
 arrays are empty. `sni` remains populated so clients that support VLESS Reality
 can keep using those profiles.
 
+SNI catalog entries are not NaiveProxy hosts. They describe VLESS Reality target
+SNI routing; Caddy must not serve them or request TLS certificates for their
+route domains.
+
 ## 3. Start Proxy Session
 
 ```http

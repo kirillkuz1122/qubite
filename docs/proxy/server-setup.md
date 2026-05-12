@@ -72,27 +72,27 @@ validate the SNI TCP router with `nginx -t`. If the package is unavailable on
 the VPS image, the script stops with an explicit message before starting
 services.
 
-The credential sync agent rewrites Caddy credentials, Caddy SNI routes, nginx
-stream routes, and sing-box Reality config atomically. It preserves the existing
-file owner and mode so services running as the `caddy` user can read the
-rewritten files after each timer run.
+The credential sync agent rewrites Caddy credentials, nginx stream routes, and
+sing-box Reality config atomically. It preserves the existing file owner and
+mode so services running as the `caddy` user can read the rewritten files after
+each timer run.
 
 The Caddy systemd unit sets `HOME`, `XDG_DATA_HOME`, and `XDG_CONFIG_HOME` under
 `/var/lib/caddy` so automatic TLS storage and autosave files do not fall back to
 `/home/caddy` on minimal VPS images.
 
-SNI/decoy domains are managed from the owner "Прокси" panel. Add a route such
-as:
+VLESS Reality target SNI values are managed from the owner "Прокси" panel. Add
+routes such as:
 
 ```text
-sni.proxy.qubiteapp.online  -> redirect https://www.cloudflare.com/
-sni.proxy6.qubiteapp.online -> redirect https://www.cloudflare.com/
+target SNI max.ru -> route domain sni-max
+target SNI vk.ru  -> route domain sni-vk
 ```
 
-The nearest credential sync writes `/etc/caddy/qubite-sni-routes.caddy` and
-reloads `caddy-naive.service`. A normal browser without proxy credentials gets
-the configured redirect, while a NaiveProxy client can use the same short-lived
-credentials on that SNI domain.
+The nearest credential sync writes nginx stream routes and sing-box Reality
+inbounds. Caddy does not serve these SNI routes and must not request public TLS
+certificates for them; `/etc/caddy/qubite-sni-routes.caddy` is kept as an empty
+compatibility import.
 
 1. Backup Nginx and current PM2 state.
 

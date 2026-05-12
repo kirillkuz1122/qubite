@@ -73,6 +73,10 @@ servers from `/api/proxy/servers` and `normal` catalog entries, omits Naive
 links from subscription output, and returns an empty `credentials` list to the
 sync endpoint. VLESS Reality users and SNI routes are still returned.
 
+SNI routes are VLESS Reality only. The sync agent maps target SNI values in
+nginx stream and generates sing-box inbounds; Caddy does not serve SNI route
+domains and does not request certificates for them.
+
 Required production secrets:
 
 ```env
