@@ -3085,6 +3085,23 @@ async function setProxyServerNodeToken(uid, tokenHash) {
 
 async function recordProxyServerHeartbeat(serverId, payload = {}) {
     const timestamp = nowIso();
+    const current = await getProxyServerById(serverId);
+    let metadataJson = current?.metadata_json || "{}";
+    if (payload.reality?.publicKey && payload.reality?.shortId) {
+        let metadata = {};
+        try {
+            metadata = JSON.parse(metadataJson || "{}");
+        } catch (error) {
+            metadata = {};
+        }
+        metadata.reality = {
+            ...(metadata.reality || {}),
+            publicKey: payload.reality.publicKey,
+            shortId: payload.reality.shortId,
+            targetSni: payload.reality.targetSni || metadata.reality?.targetSni || "www.microsoft.com",
+        };
+        metadataJson = toJsonString(metadata, {});
+    }
     await run(
         `
             UPDATE proxy_servers
@@ -3094,6 +3111,7 @@ async function recordProxyServerHeartbeat(serverId, payload = {}) {
                 last_heartbeat_at = ?,
                 metrics_json = ?,
                 last_error = ?,
+                metadata_json = ?,
                 updated_at = ?
             WHERE id = ?
         `,
@@ -3103,6 +3121,7 @@ async function recordProxyServerHeartbeat(serverId, payload = {}) {
             timestamp,
             toJsonString(payload.metrics, {}),
             payload.lastError || "",
+            metadataJson,
             timestamp,
             serverId,
         ],

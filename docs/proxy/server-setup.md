@@ -77,6 +77,11 @@ sing-box Reality config atomically. It preserves the existing file owner and
 mode so services running as the `caddy` user can read the rewritten files after
 each timer run.
 
+Child proxy nodes persist both Reality private and public keys in
+`/etc/qubite/proxy-node.env`. Heartbeat reports the public key and short ID to
+the master so subscription generation can include the node's VLESS profiles
+without a separate manual metadata edit.
+
 The Caddy systemd unit sets `HOME`, `XDG_DATA_HOME`, and `XDG_CONFIG_HOME` under
 `/var/lib/caddy` so automatic TLS storage and autosave files do not fall back to
 `/home/caddy` on minimal VPS images.

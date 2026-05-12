@@ -1644,6 +1644,11 @@ function registerProxyRoutes(app, deps) {
             const updated = await recordProxyServerHeartbeat(server.id, {
                 healthStatus: cleanText(req.body?.health || "online", 32),
                 lastError: cleanText(req.body?.lastError, 240),
+                reality: {
+                    publicKey: cleanText(req.body?.reality?.publicKey, 512),
+                    shortId: cleanText(req.body?.reality?.shortId, 32),
+                    targetSni: normalizeProxyDomain(req.body?.reality?.targetSni) || "www.microsoft.com",
+                },
                 metrics: {
                     activeConnections: Number(req.body?.activeConnections || 0),
                     cpuLoad: Number(req.body?.cpuLoad || 0),

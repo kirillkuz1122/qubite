@@ -10,6 +10,9 @@ const heartbeatUrl =
   process.env.QUBITE_PROXY_HEARTBEAT_URL ||
   "http://127.0.0.1:3000/api/proxy/node/heartbeat";
 const nodeToken = process.env.PROXY_NODE_TOKEN || process.env.PROXY_SYNC_TOKEN || "";
+const realityPublicKey = process.env.REALITY_PUBLIC_KEY || "";
+const realityShortId = process.env.REALITY_SHORT_ID || "";
+const realityTargetSni = process.env.REALITY_TARGET_SNI || "www.microsoft.com";
 
 if (!nodeToken) {
   console.error("PROXY_NODE_TOKEN is required.");
@@ -91,4 +94,11 @@ await postJson(heartbeatUrl, {
   diskUsedPercent: readDiskUsedPercent(),
   uptimeSeconds: Math.round(os.uptime()),
   caddyActive: isCaddyActive(),
+  reality: realityPublicKey && realityShortId
+    ? {
+        publicKey: realityPublicKey,
+        shortId: realityShortId,
+        targetSni: realityTargetSni,
+      }
+    : undefined,
 });

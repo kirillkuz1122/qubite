@@ -319,6 +319,7 @@ mkdir -p /etc/qubite
 cat >/etc/qubite/proxy-master.env <<EOF_ENV
 PROXY_SYNC_TOKEN=${PROXY_SYNC_TOKEN}
 REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
+REALITY_PUBLIC_KEY=${REALITY_PUBLIC_KEY}
 REALITY_SHORT_ID=${REALITY_SHORT_ID}
 EOF_ENV
 chmod 600 /etc/qubite/proxy-master.env
