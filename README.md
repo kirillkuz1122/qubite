@@ -101,12 +101,13 @@ Proxy/VPN-контур на отдельных нодах разворачива
 Они ставят `nginx`, `libnginx-mod-stream`, Caddy с NaiveProxy и `sing-box`
 для VLESS Reality, кладут нужные nginx snippets, затем валидируют SNI-router
 через `nginx -t`.
-На чистом master-сервере можно запустить установку одной командой:
+На чистом сервере можно запустить установку одной командой:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install-master.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh | bash
 ```
 
+Установщик сам спросит, что ставить: `master server` или `proxy node`.
 При установке master-сервера скрипт спрашивает `INITIAL_OWNER_EMAIL`: первый
 пользователь, который подтвердит эту почту, автоматически получает роль
 `owner`, если owner ещё не назначен.

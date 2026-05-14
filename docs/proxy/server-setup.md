@@ -41,15 +41,16 @@ For a full master server, run from the repository root:
 sudo ./deploy/proxy/setup-master-server.sh
 ```
 
-On a fresh server, you can bootstrap the repository and run the same master
-setup in one command:
+On a fresh server, you can bootstrap the repository and choose either master or
+proxy-node setup in one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install-master.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh | bash
 ```
 
 The bootstrap clones or fast-forwards the repository in
-`/var/www/qubiteapp`. Override it with `QUBITE_INSTALL_DIR=/var/qubiteapp` if a
+`/var/www/qubiteapp`, then asks whether to install `master server` or
+`proxy node`. Override the path with `QUBITE_INSTALL_DIR=/var/qubiteapp` if a
 different install path is needed.
 
 The script asks for:
@@ -63,7 +64,8 @@ The script asks for:
 - local sync token.
 
 For a child proxy-only server, first create the node in the owner panel, then
-run:
+run the same bootstrap and choose `proxy node`, or run the node setup directly
+from the repository root:
 
 ```bash
 sudo ./deploy/proxy/setup-proxy-node.sh
