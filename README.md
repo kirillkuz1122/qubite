@@ -104,7 +104,9 @@ Proxy/VPN-контур на отдельных нодах разворачива
 На чистом сервере можно запустить установку одной командой:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh -o /tmp/qubite-install.sh
+chmod +x /tmp/qubite-install.sh
+bash /tmp/qubite-install.sh
 ```
 
 Установщик сам спросит, что ставить: `master server` или `proxy node`.

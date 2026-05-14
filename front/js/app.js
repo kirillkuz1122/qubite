@@ -13691,10 +13691,20 @@ function initProxyServersInteractions(container) {
 
     container.querySelectorAll("[data-proxy-sub-renew]").forEach((button) => {
         button.addEventListener("click", async () => {
+            const value = window.prompt("На сколько дней продлить? 0 или -1 = бессрочно.", "30");
+            if (value === null) return;
+            const days = Number(String(value).trim() || "30");
+            if (!Number.isFinite(days)) {
+                Toast.show("VPN-подписка", "Введите число дней, 0 или -1 для бессрочного доступа.", "error");
+                return;
+            }
             Loader.show();
             try {
-                const data = await apiClient.renewAdminProxySubscription(button.dataset.proxySubRenew);
-                Toast.show("VPN подписка", `Продлена до ${new Date(data.item.expiresAt).toLocaleDateString("ru")}.`, "success");
+                const data = await apiClient.renewAdminProxySubscription(button.dataset.proxySubRenew, days);
+                const message = data.item.expiresAt
+                    ? `Продлена до ${new Date(data.item.expiresAt).toLocaleDateString("ru")}.`
+                    : "Теперь бессрочная.";
+                Toast.show("VPN подписка", message, "success");
                 container.innerHTML = renderProxyServersView();
                 initProxyServersInteractions(container);
             } catch (error) {

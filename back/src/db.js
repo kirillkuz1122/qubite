@@ -3349,12 +3349,26 @@ async function createProxySubscription(payload) {
     return getProxySubscriptionById(result.lastID);
 }
 
-async function renewProxySubscription(subscriptionUid, months = 1) {
+async function renewProxySubscription(subscriptionUid, renewal = { months: 1 }) {
     const current = await get("SELECT * FROM proxy_subscriptions WHERE uid = ?", [subscriptionUid]);
     if (!current) return null;
     const timestamp = nowIso();
-    const base = current.expires_at && new Date(current.expires_at) > new Date() ? new Date(current.expires_at) : new Date();
-    base.setMonth(base.getMonth() + months);
+    const options = typeof renewal === "number" ? { months: renewal } : (renewal || { months: 1 });
+    const currentExpiry = current.expires_at ? new Date(current.expires_at) : null;
+    const base = currentExpiry && currentExpiry > new Date() ? currentExpiry : new Date();
+    let expiresAt = null;
+
+    if (!options.permanent) {
+        if (options.days !== undefined) {
+            const days = Math.max(1, Math.min(36500, Math.trunc(Number(options.days) || 1)));
+            expiresAt = addDays(base, days);
+        } else {
+            const months = Math.max(1, Math.min(1200, Math.trunc(Number(options.months) || 1)));
+            base.setMonth(base.getMonth() + months);
+            expiresAt = base.toISOString();
+        }
+    }
+
     await run(
         `
             UPDATE proxy_subscriptions
@@ -3364,7 +3378,7 @@ async function renewProxySubscription(subscriptionUid, months = 1) {
                 updated_at = ?
             WHERE uid = ?
         `,
-        [base.toISOString(), timestamp, subscriptionUid],
+        [expiresAt, timestamp, subscriptionUid],
     );
     return getProxySubscriptionById(current.id);
 }

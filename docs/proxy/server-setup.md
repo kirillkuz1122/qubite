@@ -45,7 +45,9 @@ On a fresh server, you can bootstrap the repository and choose either master or
 proxy-node setup in one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install.sh -o /tmp/qubite-install.sh
+chmod +x /tmp/qubite-install.sh
+bash /tmp/qubite-install.sh
 ```
 
 The bootstrap clones or fast-forwards the repository in

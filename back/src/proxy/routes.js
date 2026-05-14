@@ -1410,8 +1410,34 @@ function registerProxyRoutes(app, deps) {
 
     app.post("/api/admin/proxy-subscriptions/:subscriptionUid/renew", requireOwner, async (req, res, next) => {
         try {
-            const months = Math.max(1, Math.min(12, Number(req.body?.months) || 1));
-            const subscription = await renewProxySubscription(cleanText(req.params.subscriptionUid, 80), months);
+            let renewal = null;
+            let auditPayload = null;
+            let summarySuffix = "";
+
+            if (req.body?.days !== undefined) {
+                const rawDays = Number(req.body.days);
+                if (!Number.isFinite(rawDays)) {
+                    sendError(res, 400, "Укажите число дней для продления.", "days");
+                    return;
+                }
+                if (rawDays <= 0) {
+                    renewal = { permanent: true };
+                    auditPayload = { permanent: true, days: null };
+                    summarySuffix = "бессрочно";
+                } else {
+                    const days = Math.max(1, Math.min(36500, Math.trunc(rawDays)));
+                    renewal = { days };
+                    auditPayload = { days };
+                    summarySuffix = `на ${days} дн.`;
+                }
+            } else {
+                const months = Math.max(1, Math.min(12, Number(req.body?.months) || 1));
+                renewal = { months };
+                auditPayload = { months };
+                summarySuffix = `на ${months} мес.`;
+            }
+
+            const subscription = await renewProxySubscription(cleanText(req.params.subscriptionUid, 80), renewal);
             if (!subscription) {
                 sendError(res, 404, "VPN-подписка не найдена.");
                 return;
@@ -1421,8 +1447,8 @@ function registerProxyRoutes(app, deps) {
                 action: "proxy.subscription.renew",
                 entityType: "proxy_subscription",
                 entityId: subscription.uid,
-                summary: `Продлена VPN-подписка ${subscription.label || subscription.uid} на ${months} мес.`,
-                payload: { months, newExpiresAt: subscription.expires_at },
+                summary: `Продлена VPN-подписка ${subscription.label || subscription.uid} ${summarySuffix}.`,
+                payload: { ...auditPayload, newExpiresAt: subscription.expires_at },
             });
             res.json({ item: serializeProxySubscriptionForAdmin(subscription) });
         } catch (error) {

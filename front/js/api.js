@@ -1065,10 +1065,10 @@
         return data;
     }
 
-    async function renewAdminProxySubscription(subscriptionId, months = 1) {
+    async function renewAdminProxySubscription(subscriptionId, days = 30) {
         const data = await request(`/api/admin/proxy-subscriptions/${encodeURIComponent(subscriptionId)}/renew`, {
             method: "POST",
-            body: JSON.stringify({ months }),
+            body: JSON.stringify({ days }),
         });
         syncAdminProxySubscriptions(upsertById(state.adminProxySubscriptions, data.item));
         return data;
