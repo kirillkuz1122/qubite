@@ -551,6 +551,15 @@ function buildNaiveUri({ host, username, password, label }) {
     return `naive+https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:443?padding=true#${encodeURIComponent(label)}`;
 }
 
+function formatProxyUriHost(host) {
+    const value = String(host || "").trim();
+    if (!value) return "";
+    if (value.includes(":") && !value.startsWith("[") && !value.endsWith("]")) {
+        return `[${value}]`;
+    }
+    return value;
+}
+
 const VLESS_UUID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
 function deriveVlessUuid(subscriptionSecret) {
@@ -578,7 +587,7 @@ function buildVlessUri({ host, uuid, label, serverName, publicKey, shortId, port
         sid: shortId,
         type: "tcp",
     });
-    return `vless://${uuid}@${host}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
+    return `vless://${uuid}@${formatProxyUriHost(host)}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
 }
 
 function getServerRealityMetadata(server) {
@@ -694,11 +703,11 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
             const variants = [
                 { host: server.public_domain, suffix: `sni:${sniLabel}` },
             ];
-            if (Number(server.supports_ipv4 ?? 1) && server.ipv4_domain) {
-                variants.push({ host: server.ipv4_domain, suffix: `ip4-sni:${sniLabel}` });
+            if (Number(server.supports_ipv4 ?? 1) && (server.ipv4_address || server.ipv4_domain)) {
+                variants.push({ host: server.ipv4_address || server.ipv4_domain, suffix: `ip4-sni:${sniLabel}` });
             }
             if (Number(server.supports_ipv6 ?? 1) && (server.ipv6_domain || server.ipv6_address)) {
-                variants.push({ host: server.ipv6_domain || server.public_domain, suffix: `ip6-sni:${sniLabel}` });
+                variants.push({ host: server.ipv6_address || server.ipv6_domain || server.public_domain, suffix: `ip6-sni:${sniLabel}` });
             }
             for (const variant of variants) {
                 lines.push(buildVlessUri({
