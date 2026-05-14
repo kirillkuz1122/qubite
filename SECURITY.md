@@ -40,7 +40,9 @@
 4. `TRUST_PROXY=1` включается только при реальном reverse proxy.
 5. Production должен работать по HTTPS.
 6. SQLite-файл, `.env` и Node-порт не должны быть публично доступны.
-7. Для privileged users используйте только CLI-операции назначения ролей.
+7. Для privileged users используйте `INITIAL_OWNER_EMAIL` только на свежей БД:
+   роль `owner` выдаётся только после подтверждения этой почты. Для ручных
+   операций используйте CLI (`back/scripts/set-owner.js`).
 
 ## Текущее состояние CAPTCHA / anti-bot
 

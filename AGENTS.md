@@ -189,6 +189,7 @@
 - `SEED_DEMO_DATA=false` — на включении создаются демо-данные в БД.
 - `NODE_ENV=dev` — влияет на режимы логирования и guard'ов.
 - `TRUST_PROXY=0` — в проде за Nginx должно быть `1`.
+- `INITIAL_OWNER_EMAIL` — bootstrap-почта owner'а: первый пользователь, подтвердивший эту почту, становится `owner`, если owner ещё не назначен.
 - Лимиты body: `JSON_BODY_LIMIT=32kb`, `HEAVY_JSON_BODY_LIMIT=256kb`, `IMPORT_JSON_BODY_LIMIT=2mb` (используются в `server.js` на разных группах роутов).
 - `VK_APP_ID` — ID приложения VK ID. `VK_CLIENT_SECRET` — «Защищённый ключ» из VK Developer Console. VK OAuth использует серверный PKCE-flow (code_verifier хранится в `oauth_states`).
 - `OAUTH_GOOGLE_ENABLED`, `OAUTH_YANDEX_ENABLED`, `OAUTH_VK_ENABLED`, `OAUTH_TELEGRAM_ENABLED` — аварийные env kill-switch'и для отдельных способов входа; при `false` провайдер скрывается из UI и web-start endpoint не работает. Оперативное включение/выключение owner делает без рестарта через `system_settings`: `oauth_google_enabled`, `oauth_yandex_enabled`, `oauth_vk_enabled`, `oauth_telegram_enabled`.

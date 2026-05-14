@@ -28,6 +28,7 @@ ask EXTRA_SITE_DOMAINS "Extra site domains, comma separated" "www.qubiteapp.ru,r
 ask PROXY_DOMAIN "Proxy domain on master server" "proxy.qubiteapp.online"
 ask PROXY_EXTRA_DOMAINS "Extra proxy domains, comma separated" "proxy4.qubiteapp.online,proxy6.qubiteapp.online"
 ask APP_PORT "Node app port" "3000"
+ask INITIAL_OWNER_EMAIL "Owner account e-mail for first verified registration" ""
 ask PROXY_CREDENTIAL_ENCRYPTION_KEY "Proxy credential encryption key" "$(openssl rand -base64 32)" secret
 ask PROXY_SYNC_TOKEN "Master-local proxy sync token" "$(openssl rand -hex 32)" secret
 
@@ -76,6 +77,17 @@ fi
 if ! command -v pm2 >/dev/null 2>&1; then
   npm install -g pm2
 fi
+PM2_BIN="$(command -v pm2 || true)"
+if [[ -z "$PM2_BIN" ]]; then
+  NPM_PREFIX="$(npm prefix -g 2>/dev/null || true)"
+  if [[ -n "$NPM_PREFIX" && -x "$NPM_PREFIX/bin/pm2" ]]; then
+    PM2_BIN="$NPM_PREFIX/bin/pm2"
+  fi
+fi
+if [[ -z "$PM2_BIN" ]]; then
+  echo "ERROR: pm2 was installed but the pm2 executable was not found in PATH." >&2
+  exit 1
+fi
 
 ENV_FILE="$REPO_DIR/.env"
 touch "$ENV_FILE"
@@ -94,6 +106,7 @@ set_env PORT "$APP_PORT"
 set_env NODE_ENV "production"
 set_env APP_BASE_URL "https://${MAIN_SITE_DOMAIN}"
 set_env TRUST_PROXY "1"
+set_env INITIAL_OWNER_EMAIL "$INITIAL_OWNER_EMAIL"
 set_env PROXY_PUBLIC_DOMAIN "$PROXY_DOMAIN"
 set_env PROXY_CREDENTIAL_ENCRYPTION_KEY "$PROXY_CREDENTIAL_ENCRYPTION_KEY"
 set_env PROXY_SYNC_TOKEN "$PROXY_SYNC_TOKEN"
@@ -144,6 +157,8 @@ fi
 
 TS="$(date +%F-%H%M%S)"
 [[ -d /etc/nginx ]] && cp -a /etc/nginx "/root/nginx-backup-${TS}"
+mkdir -p /etc/nginx/snippets
+cp "$REPO_DIR/deploy/nginx/snippets/qubite-proxy-headers.conf" /etc/nginx/snippets/qubite-proxy-headers.conf
 cp "$REPO_DIR/deploy/proxy/nginx-internal-qubite.conf" /etc/nginx/sites-available/qubiteapp.ru
 ln -sfn /etc/nginx/sites-available/qubiteapp.ru /etc/nginx/sites-enabled/qubiteapp.ru
 rm -f /etc/nginx/sites-enabled/default
@@ -266,6 +281,7 @@ cat >/etc/singbox/config.json <<EOF_SINGBOX
 }
 EOF_SINGBOX
 chmod 600 /etc/singbox/config.json
+chown -R caddy:caddy /etc/singbox /var/log/singbox
 
 # --- Systemd services ---
 
@@ -338,9 +354,9 @@ Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.c
 Environment=SINGBOX_REALITY_CONFIG=/etc/singbox/config.json
 Environment=NGINX_STREAM_CONF=/etc/nginx/stream.d/sni-router.conf
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
-ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
-ExecStartPost=/usr/bin/systemctl restart singbox-reality.service
-ExecStartPost=/usr/bin/systemctl reload nginx
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${CADDY_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl reload caddy-naive.service; fi'
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${SINGBOX_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl restart singbox-reality.service; fi'
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${NGINX_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl reload nginx; fi'
 EOF_SERVICE
 
 cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
@@ -399,11 +415,12 @@ EOF_SERVICE
 
 nginx -t
 /usr/local/bin/caddy-naive validate --config /etc/caddy/Caddyfile
+chown -R caddy:caddy /etc/caddy /var/lib/caddy /var/log/caddy /etc/singbox /var/log/singbox
 
-pm2 start "$REPO_DIR/back/server.js" --name qubiteapp --cwd "$REPO_DIR/back" --update-env || \
-  pm2 restart qubiteapp --update-env
-pm2 save
-pm2 startup systemd -u root --hp /root >/dev/null || true
+"$PM2_BIN" start "$REPO_DIR/back/server.js" --name qubiteapp --cwd "$REPO_DIR/back" --update-env || \
+  "$PM2_BIN" restart qubiteapp --update-env
+"$PM2_BIN" save
+"$PM2_BIN" startup systemd -u root --hp /root >/dev/null || true
 
 ufw allow 22/tcp >/dev/null || true
 ufw allow 80/tcp >/dev/null || true

@@ -112,6 +112,8 @@ node server.js
 - `node back/scripts/set-owner.js --email you@example.com`
 
 Они нужны не только для ops, но и для локального разворачивания привилегированных ролей.
+На свежей БД можно также задать `INITIAL_OWNER_EMAIL=you@example.com`: первый
+пользователь, подтвердивший эту почту, станет `owner`.
 
 ## Где смотреть логи
 

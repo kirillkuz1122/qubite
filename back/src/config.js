@@ -229,6 +229,7 @@ module.exports = {
   TELEGRAM_OWNER_IDS: parseCsv(process.env.TELEGRAM_OWNER_ID || ""),
   TELEGRAM_MODERATOR_IDS: parseCsv(process.env.TELEGRAM_MODERATOR_IDS || ""),
   TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),
+  INITIAL_OWNER_EMAIL: process.env.INITIAL_OWNER_EMAIL || "",
   PROXY_PUBLIC_DOMAIN: process.env.PROXY_PUBLIC_DOMAIN || "proxy.qubiteapp.online",
   PROXY_DEFAULT_REGION: process.env.PROXY_DEFAULT_REGION || "eu-test",
   PROXY_SESSION_TTL_MS: parseInteger(

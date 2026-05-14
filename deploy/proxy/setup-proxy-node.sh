@@ -201,6 +201,7 @@ cat >/etc/singbox/config.json <<EOF_SINGBOX
 }
 EOF_SINGBOX
 chmod 600 /etc/singbox/config.json
+chown -R caddy:caddy /etc/singbox /var/log/singbox
 
 # --- nginx SNI router on port 443 ---
 
@@ -291,9 +292,9 @@ Environment=CADDY_FORWARDPROXY_CREDENTIALS=/etc/caddy/forwardproxy-credentials.c
 Environment=SINGBOX_REALITY_CONFIG=/etc/singbox/config.json
 Environment=NGINX_STREAM_CONF=/etc/nginx/stream.d/sni-router.conf
 ExecStart=/usr/bin/node ${REPO_DIR}/deploy/proxy/sync-caddy-credentials.mjs
-ExecStartPost=/usr/bin/systemctl reload caddy-naive.service
-ExecStartPost=/usr/bin/systemctl restart singbox-reality.service
-ExecStartPost=/usr/bin/systemctl reload nginx
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${CADDY_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl reload caddy-naive.service; fi'
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${SINGBOX_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl restart singbox-reality.service; fi'
+ExecStartPost=/usr/bin/bash -lc '. /run/qubite-proxy-sync/changed.env 2>/dev/null || true; if [ "\${NGINX_CHANGED:-0}" = "1" ]; then /usr/bin/systemctl reload nginx; fi'
 EOF_SERVICE
 
 cat >/etc/systemd/system/qubite-proxy-sync.timer <<'EOF_TIMER'
@@ -384,6 +385,7 @@ ufw allow 443/tcp >/dev/null || true
 
 /usr/local/bin/caddy-naive validate --config /etc/caddy/Caddyfile
 nginx -t
+chown -R caddy:caddy /etc/caddy /var/lib/caddy /var/log/caddy /etc/singbox /var/log/singbox
 
 systemctl daemon-reload
 systemctl enable nginx caddy-naive.service singbox-reality.service \

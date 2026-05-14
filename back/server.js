@@ -37,6 +37,7 @@ const {
     MAX_REQUESTS_PER_SOCKET,
     OAUTH_VK_ENABLED,
     VK_APP_ID,
+    INITIAL_OWNER_EMAIL,
     VPN_APP_TOKEN,
 } = require("./src/config");
 const {
@@ -171,6 +172,7 @@ const {
     upsertTournamentTaskDraft,
     upsertTournamentRosterEntry,
     updateUserSecuritySettings,
+    setOwnerUser,
     leaveTeam,
     createSupportChat,
     getSupportChatById,
@@ -2751,6 +2753,41 @@ async function verifyChallenge(flowToken, expectedPurpose, code) {
     return { ok: true, challenge };
 }
 
+async function maybeAssignInitialOwner(user) {
+    const targetEmail = normalizeEmail(INITIAL_OWNER_EMAIL || "");
+    if (!targetEmail || !user || normalizeEmail(user.email || "") !== targetEmail) {
+        return user;
+    }
+    if (!user.email_verified_at) {
+        return user;
+    }
+
+    const currentOwner = await getOwnerUser();
+    if (currentOwner) {
+        return user;
+    }
+
+    try {
+        const result = await setOwnerUser(user.id);
+        if (result?.currentOwner) {
+            await createAuditLog({
+                actorUserId: result.currentOwner.id,
+                action: "owner.initial_assign",
+                entityType: "user",
+                entityId: result.currentOwner.id,
+                summary: "Первый owner назначен по INITIAL_OWNER_EMAIL",
+            });
+            return result.currentOwner;
+        }
+    } catch (error) {
+        if (error.code !== "OWNER_EXISTS") {
+            throw error;
+        }
+    }
+
+    return getUserById(user.id);
+}
+
 async function ensureOAuthUser(profile) {
     let user = await findUserByOAuthSubject(profile.provider, profile.subject);
 
@@ -2787,7 +2824,7 @@ async function ensureOAuthUser(profile) {
             });
         }
 
-        return getUserById(user.id);
+        return maybeAssignInitialOwner(await getUserById(user.id));
     }
 
     const login = await findNextUniqueLogin(profile.loginHint || "oauth-user");
@@ -2811,7 +2848,7 @@ async function ensureOAuthUser(profile) {
     });
 
     await linkOAuthProviderToUser(user.id, profile.provider, profile);
-    return getUserById(user.id);
+    return maybeAssignInitialOwner(await getUserById(user.id));
 }
 
 function redirectToApp(res, params) {
@@ -4766,7 +4803,7 @@ app.post("/api/auth/register", publicExpensiveRateLimiter, authRateLimiter, requ
             throw error;
         }
 
-        user = await getUserById(user.id);
+        user = await maybeAssignInitialOwner(await getUserById(user.id));
 
         const rawToken = generateSessionToken();
         await createSession({
@@ -5527,11 +5564,12 @@ app.post(
             }
 
             await consumeAuthChallenge(result.challenge.id);
-            const user = await markUserEmailVerified(req.auth.user.id);
+            let user = await markUserEmailVerified(req.auth.user.id);
+            user = await maybeAssignInitialOwner(user);
 
             res.json({
                 success: true,
-                user: serializeCurrentSessionUser(user, req.auth.user),
+                user: serializeCurrentSessionUser(user),
             });
         } catch (error) {
             next(error);
@@ -5844,7 +5882,7 @@ app.post("/api/auth/app/register", requireAppToken, appAuthRateLimiter, async (r
             throw error;
         }
 
-        user = await getUserById(user.id);
+        user = await maybeAssignInitialOwner(await getUserById(user.id));
 
         const rawToken = generateSessionToken();
         await createSession({

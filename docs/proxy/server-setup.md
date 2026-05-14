@@ -41,6 +41,17 @@ For a full master server, run from the repository root:
 sudo ./deploy/proxy/setup-master-server.sh
 ```
 
+On a fresh server, you can bootstrap the repository and run the same master
+setup in one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kirillkuz1122/qubite/main/deploy/proxy/install-master.sh | bash
+```
+
+The bootstrap clones or fast-forwards the repository in
+`/var/www/qubiteapp`. Override it with `QUBITE_INSTALL_DIR=/var/qubiteapp` if a
+different install path is needed.
+
 The script asks for:
 
 - main website domain, for example `qubiteapp.ru`;
@@ -71,6 +82,14 @@ Both master and child setup scripts install `nginx` plus
 validate the SNI TCP router with `nginx -t`. If the package is unavailable on
 the VPS image, the script stops with an explicit message before starting
 services.
+
+The master setup also installs `/etc/nginx/snippets/qubite-proxy-headers.conf`
+before enabling the internal app vhost, so a clean server has the proxy header
+snippet required by `/etc/nginx/sites-available/qubiteapp.ru`.
+
+On master installs, the script asks for `INITIAL_OWNER_EMAIL`. On an empty
+database, the first user who verifies that normalized e-mail becomes `owner`
+automatically. If an owner already exists, this env value is ignored.
 
 The credential sync agent rewrites Caddy credentials, nginx stream routes, and
 sing-box Reality config atomically. It preserves the existing file owner and
@@ -169,12 +188,15 @@ PROXY_PUBLIC_DOMAIN=proxy.qubiteapp.online
 PROXY_SESSION_TTL_MS=1800000
 PROXY_REFRESH_AFTER_MS=600000
 PROXY_MAX_ACTIVE_DEVICES=3
+INITIAL_OWNER_EMAIL=owner@example.com
 PROXY_CREDENTIAL_ENCRYPTION_KEY=<random-secret>
 PROXY_SYNC_TOKEN=<random-secret>
 ```
 
 `PROXY_CREDENTIAL_ENCRYPTION_KEY` is used so Caddy credentials are not stored as
 plain text in SQLite. `PROXY_SYNC_TOKEN` is used only by the local sync agent.
+`INITIAL_OWNER_EMAIL` is not a secret; it is only the bootstrap e-mail for the
+first verified owner account on a fresh database.
 
 ## Moving Domains Or Master Server
 

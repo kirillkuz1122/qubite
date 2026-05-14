@@ -84,6 +84,15 @@ YANDEX_CALLBACK_URL=https://qubiteapp.ru/api/auth/oauth/yandex/callback
 
 ## 3. Назначить admin и owner
 
+На свежей БД можно заранее указать в `.env`:
+
+```env
+INITIAL_OWNER_EMAIL=YOUR_EMAIL
+```
+
+Тогда первый пользователь, подтвердивший эту почту, автоматически получит роль
+`owner`.
+
 Если пользователь уже зарегистрирован:
 
 ```bash
