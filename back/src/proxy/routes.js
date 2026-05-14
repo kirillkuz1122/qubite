@@ -9,6 +9,8 @@ const {
     PROXY_REFRESH_AFTER_MS,
     PROXY_SESSION_TTL_MS,
     PROXY_SYNC_TOKEN,
+    REALITY_PUBLIC_KEY,
+    REALITY_SHORT_ID,
 } = require("../config");
 
 const {
@@ -579,6 +581,29 @@ function buildVlessUri({ host, uuid, label, serverName, publicKey, shortId, port
     return `vless://${uuid}@${host}:${port}?${params.toString()}#${encodeURIComponent(label)}`;
 }
 
+function getServerRealityMetadata(server) {
+    let metadata = {};
+    try {
+        metadata = JSON.parse(server.metadata_json || "{}");
+    } catch (_) {}
+    const reality = metadata.reality || {};
+    if (reality.publicKey && reality.shortId) {
+        return reality;
+    }
+    if (
+        REALITY_PUBLIC_KEY &&
+        REALITY_SHORT_ID &&
+        String(server.public_domain || "").toLowerCase() === String(PROXY_PUBLIC_DOMAIN || "").toLowerCase()
+    ) {
+        return {
+            publicKey: REALITY_PUBLIC_KEY,
+            shortId: REALITY_SHORT_ID,
+            targetSni: reality.targetSni || "www.microsoft.com",
+        };
+    }
+    return null;
+}
+
 async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, generateRandomToken, naiveEnabled = true }) {
     const servers = await listActiveProxyServersForSubscription();
     const sessionsByServerUid = new Map();
@@ -653,10 +678,8 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
     const vlessUuid = deriveVlessUuid(subscription.token_hash);
     const realityServers = [];
     for (const server of servers) {
-        let metadata = {};
-        try { metadata = JSON.parse(server.metadata_json || "{}"); } catch (_) {}
-        const reality = metadata.reality;
-        if (!reality || !reality.publicKey || !reality.shortId) continue;
+        const reality = getServerRealityMetadata(server);
+        if (!reality) continue;
         realityServers.push({ server, reality });
     }
 
@@ -699,6 +722,14 @@ async function ensureProxyDefaultServer() {
     if (existing) {
         return existing;
     }
+    const metadata = { managedBy: "qubite", purpose: "primary-test-node" };
+    if (REALITY_PUBLIC_KEY && REALITY_SHORT_ID) {
+        metadata.reality = {
+            publicKey: REALITY_PUBLIC_KEY,
+            shortId: REALITY_SHORT_ID,
+            targetSni: "www.microsoft.com",
+        };
+    }
     return upsertProxyServer({
         name: "Qubite Proxy",
         publicDomain: PROXY_PUBLIC_DOMAIN,
@@ -709,7 +740,7 @@ async function ensureProxyDefaultServer() {
         weight: 100,
         status: "active",
         healthStatus: "unknown",
-        metadata: { managedBy: "qubite", purpose: "primary-test-node" },
+        metadata,
     });
 }
 

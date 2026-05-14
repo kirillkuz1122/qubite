@@ -152,6 +152,8 @@ if [[ -z "$REALITY_PRIVATE_KEY" ]]; then
   echo "SAVE THESE! You need the public key and short ID for the admin panel."
   echo ""
 fi
+set_env REALITY_PUBLIC_KEY "$REALITY_PUBLIC_KEY"
+set_env REALITY_SHORT_ID "$REALITY_SHORT_ID"
 
 # --- Nginx: backup and configure ---
 

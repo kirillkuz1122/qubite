@@ -231,6 +231,8 @@ module.exports = {
   TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),
   INITIAL_OWNER_EMAIL: process.env.INITIAL_OWNER_EMAIL || "",
   PROXY_PUBLIC_DOMAIN: process.env.PROXY_PUBLIC_DOMAIN || "proxy.qubiteapp.online",
+  REALITY_PUBLIC_KEY: process.env.REALITY_PUBLIC_KEY || "",
+  REALITY_SHORT_ID: process.env.REALITY_SHORT_ID || "",
   PROXY_DEFAULT_REGION: process.env.PROXY_DEFAULT_REGION || "eu-test",
   PROXY_SESSION_TTL_MS: parseInteger(
     process.env.PROXY_SESSION_TTL_MS,
