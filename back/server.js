@@ -386,6 +386,9 @@ const ACTIVE_USER_STATUSES = new Set(["active"]);
 const ROLE_PREVIEW_HEADER = "x-qubite-role-preview";
 const SENSITIVE_API_PREFIXES = [
     "/api/auth",
+    "/api/services",
+    "/api/owner",
+    "/internal/services",
     "/api/profile",
     "/api/dashboard",
     "/api/team",
@@ -734,6 +737,8 @@ function assertActorCanManageTarget(actor, targetUser) {
 }
 
 async function requireTurnstile(req, res, next) {
+    // Invite-only installations retain auth rate limits and disable public registration.
+    if (process.env.AUTH_INVITE_ONLY === "true" && req.path === "/api/auth/login" && !getTurnstileClientConfig().enabled) return next();
     const verification = await verifyTurnstileToken({
         token: req.body?.turnstileToken,
         remoteIp: getRequestIp(req),
@@ -1511,6 +1516,7 @@ function sessionCookieOptions() {
         secure: IS_PRODUCTION,
         path: "/",
         maxAge: SESSION_TTL_MS,
+        ...(IS_PRODUCTION && process.env.SESSION_COOKIE_DOMAIN ? {domain: process.env.SESSION_COOKIE_DOMAIN} : {}),
     };
 }
 
@@ -4276,6 +4282,8 @@ function validateTaskPayload(res, payload) {
 
 app.use("/api", globalApiRateLimiter);
 app.use(attachAuth);
+app.use((req,res,next)=>{if(process.env.AUTH_INVITE_ONLY === "true" && req.path === "/api/auth/register")return res.status(403).json({error:"Регистрация по приглашению владельца."});next();});
+require("./src/services").register(app, {requireAuth, authRateLimiter, createUser, findUserByLoginOrEmail, getUserById, updateUserPassword, createSession, sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_TTL_MS, createAuditLog});
 
 // System Control Middleware
 app.use(async (req, res, next) => {
@@ -9773,7 +9781,7 @@ app.use(
             const isMutableAsset =
                 normalizedPath.endsWith(".js") || normalizedPath.endsWith(".css");
 
-            if (isHtml || (!IS_PRODUCTION && isMutableAsset)) {
+            if (isHtml || isMutableAsset) {
                 res.setHeader("Cache-Control", "no-cache");
                 return;
             }
@@ -9788,6 +9796,13 @@ app.use(
 
 function sendHtmlPage(res, pageName) {
     res.setHeader("Cache-Control", "no-cache");
+    if(pageName === "index.html") {
+        // Unfingerprinted scripts/styles must not reuse a previous browser/CDN cache entry.
+        const fs=require('fs');
+        const version=crypto.createHash('sha256').update(fs.readFileSync(path.join(FRONT_DIR,'js/app.js'))).update(fs.readFileSync(path.join(FRONT_DIR,'css/styles.css'))).digest('hex').slice(0,12);
+        const html=fs.readFileSync(path.join(ROOT_DIR,pageName),'utf8').replace(/((?:\.\/|\/)front\/[^"?]+\.(?:js|css))(?=")/g,'$1?v='+version);
+        res.type('html').send(html);return;
+    }
     res.sendFile(path.join(ROOT_DIR, pageName));
 }
 
@@ -9845,7 +9860,7 @@ app.use((error, req, res, next) => {
         return;
     }
 
-    const label = `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`;
+    const label = `[${new Date().toISOString()}] ${req.method} ${req.path}`;
     if (status >= 500) {
         console.error(label, error?.code || error?.message || error);
     } else if (!IS_PRODUCTION) {

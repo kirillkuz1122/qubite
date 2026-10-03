@@ -1,0 +1,103 @@
+{
+  "free": {
+    "label": "Gemma 4 · бесплатно",
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "providers": [
+      "google-ai-studio"
+    ],
+    "input": 0,
+    "output": 0,
+    "max_tokens": 3200,
+    "reasoning": false,
+    "fallbacks": [
+      {
+        "model": "qwen/qwen3.8-27b:free",
+        "providers": [
+          "modelrun/fp4"
+        ],
+        "json_format": false
+      },
+      {
+        "model": "thinkingmachines/inkling-small:free",
+        "providers": [
+          "thinkingmachines/nvfp4"
+        ],
+        "json_format": false
+      },
+      {
+        "model": "nvidia/nemotron-3.5-lightning:free",
+        "providers": [
+          "nvidia/nvfp4"
+        ],
+        "json_format": false
+      },
+      {
+        "model": "inclusionai/ling-3.1-flash",
+        "providers": [
+          "novita"
+        ],
+        "json_format": false
+      }
+    ],
+    "json_format": false
+  },
+  "economy": {
+    "label": "Mistral Nemo · экономный",
+    "model": "mistralai/mistral-nemo",
+    "providers": [
+      "deepinfra/fp8"
+    ],
+    "input": 0.019,
+    "output": 0.03,
+    "max_tokens": 2400,
+    "reasoning": false
+  },
+  "balanced": {
+    "label": "Ling 3.0 Flash · сбалансированный",
+    "model": "inclusionai/ling-3.0-flash",
+    "providers": [
+      "novita"
+    ],
+    "input": 0.021,
+    "output": 0.063,
+    "max_tokens": 3000,
+    "reasoning": true,
+    "json_format": false
+  },
+  "deep": {
+    "label": "GLM 5.3 Flash · сложные вопросы",
+    "model": "z-ai/glm-5.3-flash",
+    "providers": [
+      "deepinfra/fp4",
+      "novita/fp8"
+    ],
+    "input": 0.084,
+    "output": 0.28,
+    "max_tokens": 5000,
+    "reasoning": true
+  },
+  "fast": {
+    "label": "Ling 3.0 Flash · быстрый",
+    "model": "inclusionai/ling-3.0-flash",
+    "providers": [
+      "novita"
+    ],
+    "input": 0.021,
+    "output": 0.063,
+    "max_tokens": 2600,
+    "reasoning": false,
+    "json_format": false,
+    "fallbacks": [
+      {
+        "model": "mistralai/mistral-nemo",
+        "providers": [
+          "deepinfra/fp8"
+        ],
+        "input": 0.019,
+        "output": 0.03,
+        "reasoning": false,
+        "json_format": false
+      }
+    ]
+  }
+}

@@ -747,7 +747,7 @@ async function ensureProxyDefaultServer() {
         provider: "qubite",
         priority: 10,
         weight: 100,
-        status: "active",
+        status: process.env.SERVICES_VPN_ENABLED==='false'?'disabled':'active',
         healthStatus: "unknown",
         metadata,
     });
@@ -764,6 +764,10 @@ function registerProxyRoutes(app, deps) {
         requireOwner,
         sendError,
     } = deps;
+
+    require('./personal').register(app,{requireAuth,requireOwner,hashOpaqueToken,createAuditLog,encrypt:encryptProxyCredential,decrypt:decryptProxyCredential});
+
+    app.use(['/api/admin/proxy-subscriptions','/api/admin/proxy-subscription-links'],async(req,res,next)=>{try{if(!['GET','HEAD','OPTIONS'].includes(req.method)&&!await require('./availability').available())return res.status(503).json({error:'VPN не работает: нет доступной серверной ноды.'});next();}catch(e){next(e);}});
 
     app.get("/api/proxy/servers", requireAuth, async (req, res, next) => {
         try {
@@ -1353,6 +1357,7 @@ function registerProxyRoutes(app, deps) {
                 noLogs: Boolean(req.body?.noLogs),
                 expiresAt: req.body?.expiresAt ? cleanText(req.body.expiresAt, 40) : null,
             });
+            await require('./personal').save(subscription.uid,token,encryptProxyCredential);
             await createAuditLog({
                 actorUserId: req.auth.user.id,
                 action: "proxy.subscription.create",

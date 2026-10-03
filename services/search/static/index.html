@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru" data-theme="calm">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>Qubite · Поиск</title><link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><link rel="search" type="application/opensearchdescription+xml" title="Qubite Search" href="/opensearch.xml"><link rel="stylesheet" href="/static/app.css"><script src="/static/icons.js"></script><script src="/static/branding.js" defer></script><script src="/static/app.js" defer></script></head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="/" aria-label="Qubite, новый поиск"><svg
+                viewBox="0 0 40 40"
+                xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink"
+                width="40.000000"
+                height="40.000000"
+                fill="none"
+                customFrame="url(#clipPath_0)"
+              >
+                <defs>
+                  <linearGradient
+                    id="paint_linear_0"
+                    x1="0"
+                    x2="40"
+                    y1="0"
+                    y2="40"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop
+                      stop-color="rgb(244,63,94)"
+                      offset="0"
+                      stop-opacity="1"
+                    />
+                    <stop
+                      stop-color="rgb(245,158,11)"
+                      offset="1"
+                      stop-opacity="1"
+                    />
+                  </linearGradient>
+                  <clipPath id="clipPath_0">
+                    <rect
+                      width="40.000000"
+                      height="40.000000"
+                      x="0.000000"
+                      y="0.000000"
+                      rx="16.000000"
+                      fill="rgb(255,255,255)"
+                    />
+                  </clipPath>
+                  <clipPath id="clipPath_1">
+                    <rect
+                      width="24.000000"
+                      height="24.000000"
+                      x="8.000000"
+                      y="8.000000"
+                      fill="rgb(255,255,255)"
+                    />
+                  </clipPath>
+                </defs>
+                <rect
+                  id="div.flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-amber-500"
+                  width="40.000000"
+                  height="40.000000"
+                  x="0.000000"
+                  y="0.000000"
+                  rx="16.000000"
+                  fill="url(#paint_linear_0)"
+                />
+                <g
+                  id="svg"
+                  clip-path="url(#clipPath_1)"
+                  customFrame="url(#clipPath_1)"
+                >
+                  <rect
+                    id="svg"
+                    width="24.000000"
+                    height="24.000000"
+                    x="8.000000"
+                    y="8.000000"
+                  />
+                  <circle
+                    id="786"
+                    cx="20"
+                    cy="20"
+                    r="10"
+                    stroke="rgb(255,255,255)"
+                    stroke-width="2"
+                  />
+                  <line
+                    id="787"
+                    x1="0"
+                    x2="5.65685415"
+                    y1="0"
+                    y2="0"
+                    stroke="rgb(255,255,255)"
+                    stroke-linecap="round"
+                    stroke-width="2"
+                    transform="matrix(0.707107,0.707107,-0.707107,0.707107,22,22)"
+                  />
+                  <rect
+                    id="circle.[object SVGAnimatedString]"
+                    width="20.000000"
+                    height="20.000000"
+                    x="42.000000"
+                    y="42.000000"
+                  />
+                  <rect
+                    id="line.[object SVGAnimatedString]"
+                    width="4.000000"
+                    height="4.000000"
+                    x="54.000000"
+                    y="54.000000"
+                  />
+                </g>
+              </svg><span class="brand-text">Qubite<span class="brand-sub">ПОИСК</span></span></a>
+  <button class="new-search" id="new-search"><span class="ui-icon" data-icon="add" aria-hidden="true"></span> Новый поиск <kbd>⌘ K</kbd></button>
+  <nav aria-label="Разделы"><button class="nav-item active" data-view="search"><span class="ui-icon" data-icon="search" aria-hidden="true"></span> Поиск</button><button class="nav-item" data-view="ai"><span class="ui-icon" data-icon="functions" aria-hidden="true"></span> ИИ-ответ</button></nav>
+  <button id="privacy-toggle" class="new-search"><span class="ui-icon" data-icon="shield" aria-hidden="true"></span> Приватность</button><section id="history-panel" hidden><div class="section-label">НЕДАВНИЕ <button id="clear-history" title="Удалить историю" aria-label="Удалить историю">⌫</button></div><div id="history-list"></div></section>
+  <div class="sidebar-bottom"><div class="identity"><span class="avatar">К</span><div><strong id="user-name">Подключаемся…</strong><small id="user-note">Личный поиск</small></div><span class="online-dot"></span></div><div class="budget" id="budget"></div></div>
+</aside>
+<div class="app-shell">
+  <header class="toolbar"><div class="breadcrumbs"><span>Qubite</span><span class="separator">/</span><strong id="view-title">Поиск</strong></div><div class="toolbar-right"><button id="mobile-history" class="mobile-history" title="История" aria-label="История" hidden>◷</button><label class="model-select" id="model-wrap"><span class="ui-icon" data-icon="functions" aria-hidden="true"></span><select id="model" aria-label="Модель ответа"><option value="auto">Авто · по сложности</option></select></label><button class="style-toggle" id="style-toggle" aria-expanded="false"><span class="ui-icon" data-icon="settings" aria-hidden="true"></span> <span>Стиль</span></button></div></header>
+  <div class="style-panel" id="style-panel" hidden><div class="style-heading">Твой стиль <small>Сохраняется на этом устройстве</small></div><div class="theme-options"><button data-theme-choice="qubite"><span class="theme-swatch qubite"></span><strong>Qubite</strong><small>Роза · янтарь</small></button>
+    <button data-theme-choice="calm"><span class="theme-swatch calm"></span><strong>Тихий тёмный</strong><small>Графит · мята</small></button>
+    <button data-theme-choice="violet"><span class="theme-swatch violet"></span><strong>Ночной</strong><small>Чернильный · лаванда</small></button>
+    <button data-theme-choice="pixel"><span class="theme-swatch pixel"></span><strong>Пиксель</strong><small>Тёплый · моноширинный</small></button>
+    <button data-theme-choice="paper"><span class="theme-swatch paper"></span><strong>Бумага</strong><small>Светлый · зелёный</small></button>
+  </div><div class="color-settings"><label>Основной цвет<input id="background-color" type="color"></label><label>Акцент<input id="accent-color" type="color"></label><button id="reset-colors">Сбросить цвета</button></div></div>
+  <main>
+    <section class="workspace" id="workspace">
+      <div class="welcome" id="welcome"><div class="welcome-kicker">QUBITE / ПОИСК</div><h1>Что хочешь найти?</h1><p>Поиск, источники и ответ — в одном месте.</p></div>
+      <div class="search-block"><form class="search-form" id="search-form"><span class="ui-icon" data-icon="search" aria-hidden="true"></span><input id="query" name="query" type="search" maxlength="700" autocomplete="off" placeholder="Найти или задать вопрос…" aria-label="Поисковый запрос" required><button id="search-submit" type="submit" aria-label="Найти"><span class="ui-icon" data-icon="north" aria-hidden="true"></span></button></form>
+      <div class="search-under"><span id="search-hint">Короткий ответ, когда он есть. ИИ — когда нужен.</span><button class="text-button" id="ai-toggle" aria-pressed="true">✧ ИИ включён</button></div></div>
+      <div class="starter-prompts" id="starter-prompts"><button>Что такое нейросеть</button><button>Hello world на русском</button><button>Как работает солнечная батарея?</button></div>
+      <nav class="categories" id="categories" hidden aria-label="Тип результатов"><button data-category="general" class="active">Всё</button><button data-category="images">Картинки</button><button data-category="videos">Видео</button><button data-category="news">Новости</button></nav>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="search-view"><div id="correction" class="correction" hidden></div><div class="overview" id="overview" hidden></div><div class="result-info" id="result-info"></div><div id="results"></div><div id="pagination" hidden><button id="prev-page">← Назад</button><span id="page-number"></span><button id="next-page">Дальше →</button></div><div id="suggestions" class="suggestions"></div><details id="engine-status" hidden><summary>Состояние поисковых источников</summary><div></div></details></section>
+      <section id="ai-view" hidden><div class="ai-empty" id="ai-empty"><span class="ui-icon" data-icon="functions" aria-hidden="true"></span><h2>Разберёмся вместе</h2><p>Задай вопрос в поле ниже. Ответ будет связан с источниками, а разговор можно продолжить.</p></div><div id="new-chat-tools" class="chat-tools" hidden><button id="new-chat" type="button">＋ Новый чат</button><button id="chat-history" type="button">Предыдущие чаты</button></div><div id="conversation"></div><div class="chat-pending" id="chat-pending" hidden></div></section>
+    </section>
+  </main>
+  <footer class="page-footer"><span>Qubite · на твоей Raspberry</span><span>Проверяй важные сведения по источникам</span></footer>
+</div>
+<dialog id="visual-modal"><header><strong id="visual-title"></strong><button id="close-visual" aria-label="Закрыть">✕</button></header><div id="visual-content"></div></dialog>
+<dialog id="history-modal"><header><strong>Твои разговоры</strong><button id="close-mobile-history" aria-label="Закрыть историю">✕</button></header><button id="mobile-new-search" class="text-button">＋ Новый поиск</button><div id="mobile-history-list"></div></dialog>
+<div class="toast" id="toast" hidden></div>
+<dialog id="privacy-modal"><header><strong>Приватность поиска</strong><button id="close-privacy">✕</button></header><div class="privacy-settings"><label><input id="save-history" type="checkbox"> Сохранять историю и синхронизировать устройства</label><label><input id="use-context" type="checkbox"> Подключать нужный прошлый контекст через Jev</label><p>История хранится на сервере без дополнительного шифрования. Сохранение выключено по умолчанию и включается тобой. Выключение не удаляет уже сохранённые чаты: их можно удалить отдельно. Администратор сервера технически может прочитать базу. Для ответа OpenRouter получает текущий запрос и только нужный фрагмент прошлого контекста.</p><button id="open-private-history">Посмотреть историю</button><button id="import-legacy-history">Перенести старые зашифрованные чаты</button><p id="privacy-status" role="status"></p></div></dialog><script src="/static/privacy.js" defer></script></body></html>

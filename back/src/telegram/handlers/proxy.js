@@ -214,7 +214,7 @@ function register(bot) {
 
     // Handle text input for speed / connections
     bot.on("message", async (msg) => {
-        if (!msg.text || msg.text.startsWith("/")) return;
+        if (msg._qubiteServiceInput || !msg.text || msg.text.startsWith("/")) return;
         const tgId = msg.from.id;
         const pending = pendingInput.get(tgId);
         if (!pending) return;

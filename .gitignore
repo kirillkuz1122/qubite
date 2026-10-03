@@ -13,3 +13,12 @@ qubite-product-intro/
 .devin/
 deploy/data/*.sqlite
 deploy/data/*.sqlite-*
+
+# Private runtime, Python/build artifacts and browser review sessions
+services/runtime/
+services/**/.env
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+.playwright-cli/
+services/search/data/

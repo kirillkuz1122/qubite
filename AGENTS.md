@@ -205,3 +205,18 @@
 - `back/src/imports.js` и `back/src/email.js` существуют, но в карте ключевых файлов выше не перечислены как «самые важные» — заглядывать туда, только если задача касается Excel-импорта или писем соответственно.
 - `front/js/icons.js` — справочник SVG-иконок для UI.
 - Рабочая ветка разработки и мейнлайн — `main`.
+
+### Поиск / AliasVault / сервисы
+
+- `back/src/services.js`, `back/src/vault-integration.js`, `back/src/proxy/personal.js`, `back/src/proxy/availability.js`: owner grants/invites, guarded enrollment, личные VPN-ссылки и доступность нод.
+- `services/search/`: отдельное FastAPI-приложение + SQLite + статический интерфейс; source для fresh install. Не коммитить `.env`, `.venv`, search-data/runtime или browser storageState.
+- `deploy/install.sh`, `deploy/services/*`, `deploy/vault-manager.py`: компоненты/ingress/узкий Unix socket manager. Старый `setup-proxy-node.sh` остаётся рабочим.
+- Новые тесты: `node --test back/tests/services.test.js`, `python3 -m unittest discover -s deploy/services/tests`, search pytest. Старое `npm test` пока не подключено к ним.
+- Документы: `docs/services.md`, `docs/design-system.md`; `/design-system` — живой пример компонентов.
+- Native AliasVault registration нельзя открывать, обходя public proxy gate. Мастер-пароли не отправлять Qubite и не логировать. История поиска теперь хранится без дополнительного шифрования по выбору пользователя; сохранять изоляцию аккаунтов и отдельные права history у API-ключей. Старые ciphertext не удалять без успешного переноса.
+- `SERVICES_VPN_ENABLED=false`: master сам не VPN-нода, но внешние ноды можно добавлять; свежий heartbeat активной ноды включает выдачу. Не отключать управление нодами вместе с пользовательскими VPN-кнопками.
+- Корневой `index.html` содержит пользовательские незакоммиченные изменения: при работе с сервисами не включать их целиком в свои коммиты.
+
+- `back/src/telegram/handlers/services.js`: owner-only private-chat меню `/services`, бюджеты и grants через общие domain-функции. Exact reply/TTL защищают prompts от взаимного перехвата; регистрировать этот обработчик перед proxy/support message handlers. Telegram OAuth выключается отдельно от TELEGRAM_ENABLED.
+
+- `back/src/service-api.js`, `services/search/agent_api.py`: scoped/revocable search keys, API search/fetch/history; `integrations/qubite-search/` содержит MCP и переносимый skill. Токены никогда не добавлять в git, URLs или логи.

@@ -160,6 +160,7 @@ function register(bot) {
                 parse_mode: "HTML",
                 reply_markup: {
                     inline_keyboard: [
+                        [{text:"Поиск и хранилище",callback_data:`svc:user:${userId}`}],
                         roleRow,
                         actionRow,
                         [{ text: "« Назад", callback_data: "adm:users" }],

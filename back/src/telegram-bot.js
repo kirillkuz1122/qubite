@@ -74,6 +74,8 @@ function startTelegramBot({ supportChatEmitter } = {}) {
             lines.push("/grant <tg_id> [заметка] — выдать доступ модератора");
             lines.push("/revoke <tg_id> — отозвать доступ");
             lines.push("/list — список доступов");
+            lines.push("/services — поиск, хранилище, приглашения и бюджеты");
+            lines.push("/service_user <логин> — сервисы пользователя");
         }
         await bot.sendMessage(msg.chat.id, lines.join("\n"));
     });
@@ -98,6 +100,7 @@ function startTelegramBot({ supportChatEmitter } = {}) {
     moderationHandler.register(bot);
     adminHandler.register(bot);
     accessHandler.register(bot);
+    require('./telegram/handlers/services').register(bot);
     proxyHandler.register(bot);
 
     // Support chat handler (pass emitter for cross-channel messaging)

@@ -73,6 +73,8 @@ function loadEnvFile(filePath) {
     return;
   }
 
+  // Production may supply all variables through a private systemd EnvironmentFile.
+  try { fs.accessSync(filePath, fs.constants.R_OK); } catch (error) { if (error.code === "EACCES") return; throw error; }
   const raw = fs.readFileSync(filePath, "utf8");
   raw.split(/\r?\n/).forEach((line) => {
     const trimmed = line.trim();
@@ -208,7 +210,7 @@ module.exports = {
       : parseBoolean(process.env.SEED_DEMO_DATA, NODE_ENV !== "production"),
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
-  OAUTH_GOOGLE_ENABLED: parseBoolean(process.env.OAUTH_GOOGLE_ENABLED, true),
+  OAUTH_GOOGLE_ENABLED: parseBoolean(process.env.OAUTH_GOOGLE_ENABLED, false),
   GOOGLE_CALLBACK_URL:
     process.env.GOOGLE_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/google/callback`,
@@ -225,7 +227,7 @@ module.exports = {
     process.env.VK_CALLBACK_URL ||
     `${APP_BASE_URL}/api/auth/oauth/vk/callback`,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
-  OAUTH_TELEGRAM_ENABLED: parseBoolean(process.env.OAUTH_TELEGRAM_ENABLED, true),
+  OAUTH_TELEGRAM_ENABLED: parseBoolean(process.env.OAUTH_TELEGRAM_ENABLED, false),
   TELEGRAM_OWNER_IDS: parseCsv(process.env.TELEGRAM_OWNER_ID || ""),
   TELEGRAM_MODERATOR_IDS: parseCsv(process.env.TELEGRAM_MODERATOR_IDS || ""),
   TELEGRAM_ENABLED: parseBoolean(process.env.TELEGRAM_ENABLED, true),

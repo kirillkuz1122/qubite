@@ -75,7 +75,7 @@ fi
 
 case "$INSTALL_MODE" in
   master)
-    bash deploy/proxy/setup-master-server.sh
+    bash deploy/install.sh
     ;;
   node)
     bash deploy/proxy/setup-proxy-node.sh

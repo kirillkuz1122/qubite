@@ -111,3 +111,15 @@ node back/scripts/set-owner.js --email new-owner@example.com --replace
 - [`deploy/PROD_STEPS_RU.md`](deploy/PROD_STEPS_RU.md)
 - [`deploy/firewall/UFW.md`](deploy/firewall/UFW.md)
 - [`deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md`](deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md)
+
+## Дополнительные сервисы
+
+- `back/src/services.js`: owner-права по фактической роли, приглашения с хешированным одноразовым токеном, отдельные search/vault grants. Пользовательская регистрация не выдаёт сервисы автоматически.
+- Веб-поиск проверяет `qb_session` через закрытый internal API; доверять внешнему `X-Qubite-User` нельзя. Caddy удаляет его и добавляет секрет trusted proxy.
+- История поиска — opt-in хранение в базе без дополнительного шифрования, с изоляцией аккаунтов. Администратор базы технически может прочитать её. Модели передаётся только выбранный контекст. Старое шифрование оставлено только для одноразового переноса. API-ключи хешируются, отзываются и имеют отдельный scope history; право проверяется на каждом запросе. Запись query string в обычную статистику не используется.
+- AliasVault public registration может быть включена внутри контейнера только за Qubite register/validate-username gate. Native-порт и админка не публикуются. Unix-manager ограничивает UID и действия; master-пароль не попадает в платформу. Отзыв refresh tokens не гарантирует мгновенного прекращения действия уже выданного native JWT.
+- Личные VPN bearer tokens шифруются credential key; чужие подписки/устройства не выдаются через personal API. Изменение ссылки отзывает старые сессии. В отсутствие доступной ноды выдача отключена, управление инфраструктурой остаётся.
+- Production web-origin может быть защищён Caddy + Cloudflare Tunnel вместо Nginx: Node/SearXNG/AliasVault origins слушают loopback. Предыдущее требование «перед Node только Nginx» следует читать как «доверенный reverse proxy с HTTPS».
+- Секреты `.env`, runtime и тестовые storageState исключены из Git. У разных машин разные внутренние/credential keys; не распространять connector token или origin-certificate Cloudflare вместе с исходниками.
+
+- Telegram services: только фиксированный env owner в личном чате, без доступа модераторов; ответ должен относиться к точному message_id запроса и иметь TTL 5 минут. Удаление хранилища требует ввода логина, owner защищён. Общий бюджет хранится на master и проверяется поиском при запросах; статистика без содержимого доступна только по двум внутренним secret headers.

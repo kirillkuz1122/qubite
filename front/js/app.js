@@ -2960,6 +2960,8 @@ function updateWorkspaceIdentity() {
     if (supportChatsNavItem) {
         supportChatsNavItem.hidden = codeGuestMode || !isModeratorUser(user);
     }
+    const servicesOwnerNavItem=document.getElementById("servicesOwnerNavItem");
+    if(servicesOwnerNavItem)servicesOwnerNavItem.hidden=codeGuestMode||!isOwnerUser(user);
     document.body.classList.toggle("workspace-guest-code", codeGuestMode);
     workspaceView?.classList.toggle("workspace-guest-code", codeGuestMode);
     if (!user) return;
@@ -5189,7 +5191,7 @@ function setupForm(form) {
                     await loadWorkspaceData();
                     closeAnyModal();
                     switchToWorkspace();
-                    
+
                     if (shouldRequireEmailVerification(getUserState())) {
                         pendingEmailVerification = true;
                         openModal("verifyPromptModal");
@@ -5225,9 +5227,9 @@ function setupForm(form) {
                         Toast.show("Экран", "Таблица открыта в новой вкладке", "success");
                         return;
                     }
-                    
+
                     await apiClient.joinTournament(inspection.tournamentId, { accessCode: code });
-                    
+
                     closeAnyModal();
                     Toast.show("Турнир", "Успешный вход по коду", "success");
                     await loadWorkspaceData();
@@ -6057,6 +6059,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 8. Init Workspace
     void refreshLandingPublicData();
     bindLandingActionLinks();
+    initServiceNavigation();
     ViewManager.init();
     window.addEventListener("popstate", () => {
         const workspaceView = document.getElementById("workspace-view");
@@ -6082,6 +6085,7 @@ document.addEventListener("DOMContentLoaded", () => {
    ========================================= */
 
 function switchToWorkspace() {
+    if (getUserState() && returnToService()) return;
     // Reset scroll BEFORE switching to avoid layout jumps
     window.scrollTo({ top: 0, behavior: "instant" });
     document.documentElement.scrollTop = 0;
@@ -6670,7 +6674,7 @@ function renderProfileSecurity() {
                             <div class="error" data-error-for="new_pass2"></div>
                         </div>
                     </div>
-                    
+
                     <div class="sec-pass-footer-new">
                         <a href="#" class="sec-link" data-open="forgotModal">Забыли пароль?</a>
                         <button type="submit" class="btn btn--accent is-disabled" disabled style="border-radius: 12px; padding: 10px 24px;">Изменить пароль</button>
@@ -10198,6 +10202,7 @@ function renderAdminUsersSection(users) {
     }
 
     return `
+        ${isOwnerUser()?`<button class="btn btn--accent btn--sm" data-service-create-account>Пригласить пользователя</button><button class="btn btn--muted btn--sm" data-service-global-budget>Общий бюджет поиска</button>`:""}
         <div class="ops-admin-list">
             ${users
                 .map((user) => {
@@ -10229,6 +10234,7 @@ function renderAdminUsersSection(users) {
                                 }
                                 ${!isProtected && user.status !== "deleted" ? `<button class="btn btn--muted btn--sm" data-admin-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт">Удалить</button>` : ""}
                             </div>
+                            ${isOwnerUser()&&!isProtected&&user.status!=="deleted"?`<div class="admin-service-controls" data-admin-services-login="${escapeHtml(user.login)}">Загружаем доступы…</div>`:""}
                         </div>
                     `;
                 })
@@ -12218,6 +12224,7 @@ function initModerationInteractions(container) {
 }
 
 function initAdminControlInteractions(container) {
+    void hydrateAdminServices(container);
     const rerender = () => {
         container.innerHTML = renderAdminControlView();
         initAdminControlInteractions(container);
@@ -13227,7 +13234,7 @@ function renderProxyServersView() {
                 <div class="ops-header__actions">
                     <button class="btn ${naiveEnabled ? "btn--muted" : "btn--accent"}" type="button" id="proxyNaiveToggleBtn" data-next-value="${naiveEnabled ? "false" : "true"}">${naiveEnabled ? "Отключить Naive" : "Включить Naive"}</button>
                     <button class="btn btn--accent" type="button" id="proxyCreateServerBtn">Добавить ноду</button>
-                    <button class="btn btn--accent" type="button" id="proxyCreateSubscriptionLinkBtn">Ссылка Nekobox</button>
+
                     <button class="btn btn--muted" type="button" id="proxyCreateSubscriptionBtn">Выдать VPN</button>
                     <button class="btn btn--muted" type="button" id="proxyCreateSniRouteBtn">Добавить SNI</button>
                     <button class="btn btn--muted" type="button" id="proxyRefreshServersBtn">Обновить</button>
@@ -13344,7 +13351,7 @@ function formatProxyExpiry(expiresAt) {
 
 function renderProxySubscriptionsList(subscriptions) {
     if (!subscriptions.length) {
-        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Создай ссылку для Nekobox или выдай VPN-доступ пользователю сайта.</div></div>`;
+        return `<div class="admin-home-feed__empty"><div class="admin-home-feed__empty-title">VPN-подписок пока нет</div><div class="admin-home-feed__empty-desc">Выдай VPN-доступ в Админка → Пользователи.</div></div>`;
     }
     return `
         <div class="ops-admin-list">
@@ -13357,7 +13364,7 @@ function renderProxySubscriptionsList(subscriptions) {
                 if (subscription.speedLimitMbps) badges.push(`${subscription.speedLimitMbps} Mbps`);
                 badges.push(`max ${subscription.maxConnections || 3} устр.`);
                 return `
-                    <div class="ops-admin-row glass-panel" data-view-anim>
+                    <div class="ops-admin-row glass-panel" data-view-anim data-proxy-subscription-row="${escapeHtml(subscription.id)}">
                         <div class="ops-admin-row__main">
                             <div class="ops-admin-row__title">${escapeHtml(subscription.label || subscription.id)}${subscription.isVip ? ' <span style="color:var(--accent);font-weight:600;">VIP</span>' : ""}${subscription.type === "app" ? ' <span style="color:var(--info);font-weight:600;">APP</span>' : ""}</div>
                             <div class="ops-admin-row__meta">${subscription.standalone ? "standalone link" : `@${escapeHtml(subscription.user?.login || "unknown")}`} • ${escapeHtml(statusLabel)} • ${subscription.type || "link"} • ${escapeHtml(badges.join(" • "))}</div>
@@ -13444,6 +13451,7 @@ function renderProxyPrivacyControls(users, protectedUsers) {
 }
 
 function initProxyServersInteractions(container) {
+    void markUnavailableVpn(container);
     container.querySelector("#proxyNaiveToggleBtn")?.addEventListener("click", async (event) => {
         const nextValue = event.currentTarget.dataset.nextValue === "true";
         const message = nextValue
@@ -13969,7 +13977,10 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
         supportChatsState.interactionsAbortController = null;
     }
 
-    if (viewName === "dashboard") {
+    if(viewName === "services-home"){void renderMyServices(viewName);return;}
+    if (["services", "services-search", "services-vault"].includes(viewName)) {
+        void renderServiceWorkspace(viewName);
+    } else if (viewName === "dashboard") {
         if (isOrganizerUser()) {
             ViewManager.content.innerHTML = renderOrganizerDashboard();
             initOrganizerDashboardInteractions(ViewManager.content);
@@ -14028,6 +14039,7 @@ function renderWorkspaceContent(viewName, { preserveScroll = false } = {}) {
                     if (ViewManager.currentView === "proxy-servers") {
                         ViewManager.content.innerHTML = renderProxyServersView();
                         initProxyServersInteractions(ViewManager.content);
+                        focusUserProxySubscription();
                         observeRenderedWorkspaceContent(ViewManager.content);
                     }
                 })
@@ -17277,4 +17289,177 @@ function initAnalyticsChart(scope = "profile", period = "week") {
 
 function initTeamAnalyticsChart(period = "week") {
     return initAnalyticsChart("team", period);
+}
+
+// Services are added to the existing workspace; original HTML and tournament views stay intact.
+function initServiceNavigation(){
+ const nav=document.querySelector('.sidebar__nav');if(!nav)return;
+ for(const [view,label,icon] of [['services-home','Мои сервисы','security']]){
+  if(nav.querySelector(`[data-view="${view}"]`))continue;
+  const a=document.createElement('a');a.href='/?view='+view;a.className='nav-item';a.dataset.view=view;
+  a.innerHTML=window.getSVGIcon(resolveUiIcon(icon),`class="icon-svg icon-svg-${icon}"`)+`<span>${label}</span>`;
+  if(view==='services'){a.id='servicesOwnerNavItem';a.hidden=true;}
+  nav.append(a);
+ }
+}
+async function serviceRequest(path,body,method='GET'){
+ const r=await fetch(path,{method,credentials:'include',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+ const d=await r.json();if(!r.ok)throw new Error(d.error||'Сервис недоступен');return d;
+}
+async function renderServiceWorkspace(view){
+ const root=ViewManager.content;root.innerHTML='<h2>Сервисы Qubite</h2><p>Загружаем доступы…</p>';
+ try{
+  const me=await serviceRequest('/api/services/me');if(ViewManager.currentView!==view)return;
+  const isSearch=view==='services-search',isVault=view==='services-vault';
+  if(isSearch||isVault){
+   const access=me.services[isSearch?'search':'vault'];
+   root.innerHTML=`<section class="glass-panel card-accent-top ops-panel ops-panel--primary"><h2 class="ops-panel__title">${isSearch?'Поиск с ИИ':'Личное хранилище паролей'}</h2><p>${isSearch?'Поиск использует твой вход Qubite. Модели и лимиты зависят от выданного доступа.':'Хранилище шифруется отдельным мастер-паролем. Qubite и владелец его не получают.'}</p><p>${access.enabled?'Доступ выдан.':'Попроси владельца выдать доступ этому аккаунту.'}</p>${access.enabled?(isSearch?`<a class="btn btn--accent" href="${escapeHtml(me.urls.search)}">Открыть поиск</a><button class="btn btn--muted" id="my-search-api">API-ключи</button>`:`<a class="btn btn--accent" href="${escapeHtml(me.urls.vault)}/user/login">Открыть хранилище</a><button class="btn btn--muted" id="service-vault-create">Создать своё хранилище</button>`):''}<p id="service-status" role="status"></p></section>`;
+   applyServiceComposition(root,isSearch?'Поиск':'Хранилище','Сервисы твоей учётной записи Qubite');
+   document.querySelector('#service-vault-create')?.addEventListener('click',async()=>{try{const d=await serviceRequest('/api/services/vault/enroll');const message=document.querySelector('#service-status');message.replaceChildren();message.append(document.createTextNode('Твой логин AliasVault: '+d.login+'. '+d.instructions+' '));const a=document.createElement('a');a.href=d.url;a.textContent='Перейти к созданию';message.append(a);}catch(e){document.querySelector('#service-status').textContent=e.message;}});
+   return;
+  }
+  if(!me.owner){root.innerHTML='<p>Управление доступами доступно только владельцу.</p>';return;}
+  const data=await serviceRequest('/api/owner/services/users');if(ViewManager.currentView!==view)return;
+  const money=(key,access,label)=>`<label>${label}, $<input type="number" min="0" max="10000" step="0.001" name="${key}" value="${access[key]??''}" placeholder="Без ограничения"></label>`;
+  root.innerHTML=`<h2>Доступ к сервисам</h2><p>Доступы выдаются вручную. Роли платформы при этом не меняются. Нулевой денежный лимит разрешает только бесплатные запросы; пустое поле снимает отдельный лимит. Общий бюджет поиска всё равно действует.</p><form id="service-new-user" class="glass-panel card-accent-top ops-panel service-user"><h3>Пригласить нового пользователя</h3><label>Логин<input name="login" minlength="3" maxlength="32" required></label><label>Почта<input name="email" type="email" required></label><button class="btn btn--accent">Создать приглашение</button></form><p id="service-status" role="status"></p><div id="service-users">${data.users.map(u=>{
+   if(u.role==='owner')return `<section class="glass-panel card-accent-top ops-panel service-user"><h3>${escapeHtml(u.login)}</h3><p>Владелец — полный доступ. Роль изменяется через CLI.</p></section>`;
+   const a=u.access.search,v=u.access.vault;
+   return `<section class="glass-panel card-accent-top ops-panel service-user"><h3>${escapeHtml(u.login)}</h3><p>${escapeHtml(u.email)} · ${escapeHtml(u.role)}</p><form data-service-search="${u.id}"><label><input name="enabled" type="checkbox" ${a.enabled?'checked':''}> Поиск</label><label><input name="paid" type="checkbox" ${a.paid?'checked':''}> Платные модели</label><label><input name="history" type="checkbox" ${a.history?'checked':''}> Разрешить историю (пользователь включает сам)</label><label>Запросов в день<input name="daily_requests" type="number" min="0" max="10000" value="${a.daily_requests??''}" placeholder="Без ограничения"></label><label>Запросов в час<input name="hourly_requests" type="number" min="0" max="1000" value="${a.hourly_requests??''}" placeholder="Без ограничения"></label>${money('daily_usd',a,'В день')}${money('monthly_usd',a,'В месяц')}${money('lifetime_usd',a,'Всего')}<button class="btn btn--accent">Сохранить поиск</button></form><form data-service-vault="${u.id}"><label><input name="enabled" type="checkbox" ${v.enabled?'checked':''}> Хранилище</label><button class="btn btn--muted">Сохранить доступ к хранилищу</button></form><button class="btn btn--muted" data-service-invite="${u.id}">Ссылка первичной активации</button><button class="btn btn--muted" data-service-vault-delete="${u.id}" data-login="${escapeHtml(u.login)}">Удалить хранилище</button></section>`;
+  }).join('')}</div>`;
+  applyServiceComposition(root,'Доступ к сервисам','Разрешения и лимиты для каждой учётной записи');
+  const status=document.querySelector('#service-status');
+  root.querySelectorAll('form[data-service-search],form[data-service-vault]').forEach(form=>form.addEventListener('submit',async e=>{
+   e.preventDefault();const data=new FormData(form),search=form.hasAttribute('data-service-search'),id=search?form.dataset.serviceSearch:form.dataset.serviceVault;
+   const body={enabled:data.has('enabled')};if(search){Object.assign(body,{paid:data.has('paid'),history:data.has('history')});for(const k of ['daily_requests','hourly_requests','daily_usd','monthly_usd','lifetime_usd'])body[k]=data.get(k)===''?null:Number(data.get(k));}
+   try{await serviceRequest(`/api/owner/services/users/${id}/${search?'search':'vault'}`,body,'PUT');status.textContent='Доступ сохранён.';}catch(e){status.textContent=e.message;}
+  }));
+  const showInvite=d=>{status.replaceChildren(document.createTextNode('Одноразовая ссылка на 7 дней: '));const a=document.createElement('a');a.href=d.url;a.textContent=d.url;status.append(a);};
+  root.querySelector('#service-new-user').addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.target);try{showInvite(await serviceRequest('/api/owner/services/users',{login:f.get('login'),email:f.get('email')},'POST'));}catch(e){status.textContent=e.message;}});
+  root.querySelectorAll('[data-service-invite]').forEach(b=>b.addEventListener('click',async()=>{try{showInvite(await serviceRequest(`/api/owner/services/users/${b.dataset.serviceInvite}/invite`,{},'POST'));}catch(e){status.textContent=e.message;}}));
+  root.querySelectorAll('[data-service-vault-delete]').forEach(b=>b.addEventListener('click',async()=>{const confirmation=prompt('Это удалит зашифрованное хранилище пользователя. Для подтверждения введи его логин: '+b.dataset.login);if(confirmation!==b.dataset.login)return;try{await serviceRequest(`/api/owner/services/users/${b.dataset.serviceVaultDelete}/vault`,{confirm:confirmation},'DELETE');status.textContent='Хранилище удалено. Аккаунт Qubite сохранён.';}catch(e){status.textContent=e.message;}}));
+ }catch(e){if(ViewManager.currentView===view)root.textContent=e.message;}
+}
+
+function returnToService(){
+ const target=new URL(location.href).searchParams.get('return_to');if(!target)return false;
+ try{const u=new URL(target);if(['https:','http:'].includes(u.protocol)&&!u.username&&!u.password){location.replace('/services/return?url='+encodeURIComponent(u.href));return true;}}catch(e){}return false;
+}
+
+function applyServiceComposition(root,title,description){
+ const content=document.createElement('div');content.className='dash-view ops-view services-view';
+ const header=document.createElement('div');header.className='ops-header';header.dataset.viewAnim='';
+ header.innerHTML=`<div class="ops-header__copy"><h1 class="ops-header__title">${escapeHtml(title)}</h1><div class="ops-header__subtitle">${escapeHtml(description)}</div></div><div class="ops-header__actions"><a class="btn btn--muted" href="/design-system" target="_blank" rel="noopener">Дизайн-система</a></div>`;
+ content.append(header);const shell=document.createElement('div');shell.className='ops-shell services-shell';
+ while(root.firstChild)shell.append(root.firstChild);
+ if(shell.firstElementChild?.tagName==='H2')shell.firstElementChild.remove();
+ shell.querySelectorAll('.service-user h3').forEach(h=>h.classList.add('ops-panel__title'));
+ shell.querySelectorAll('.service-user input:not([type=checkbox])').forEach(i=>i.classList.add('input'));
+ shell.querySelectorAll('.service-user label').forEach(l=>l.classList.add(l.querySelector('[type=checkbox]')?'service-check':'field'));
+ shell.querySelectorAll('.service-user form,form.service-user').forEach(f=>f.classList.add('service-form'));
+ shell.querySelectorAll('.service-user').forEach(p=>{p.dataset.viewAnim='';});
+ content.append(shell);root.append(content);
+}
+
+// Owner service controls are mounted in existing Admin → Users rows.
+async function hydrateAdminServices(container){
+ if(!isOwnerUser())return;
+ const ticket={};container._serviceTicket=ticket;
+ try{
+  const [data,subs,me]=await Promise.all([serviceRequest('/api/owner/services/users'),serviceRequest('/api/admin/proxy-subscriptions'),serviceRequest('/api/services/me')]);
+  if(container._serviceTicket!==ticket||!container.isConnected)return;
+  for(const slot of container.querySelectorAll('[data-admin-services-login]')){
+   const u=data.users.find(x=>x.login===slot.dataset.adminServicesLogin);if(!u||u.role==='owner')continue;
+   slot.replaceChildren();
+   for(const [service,title] of [['search','Поиск'],['vault','Хранилище'],['vpn','VPN']]){
+    const sub=service==='vpn'?subs.items.find(s=>s.user?.login===u.login&&s.type==='app'):null;
+    const enabled=service==='vpn'?sub?.status==='active':u.access[service].enabled;
+    const group=document.createElement('div');group.className='service-access-actions';
+    const label=document.createElement('strong');label.textContent=title+': '+(enabled?'выдан':'не выдан');group.append(label);
+    const button=(text,fn,kind='muted')=>{const b=document.createElement('button');b.className='btn btn--'+kind+' btn--sm';b.textContent=text;b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){showRequestError(title,e);}finally{b.disabled=false;}};group.append(b);};
+    const refresh=()=>hydrateAdminServices(container);
+    if(service==='vpn'){
+     if(!me.vpnAvailable){label.textContent='VPN: не работает';const b=document.createElement('button');b.disabled=true;b.className='btn btn--muted btn--sm';b.textContent='Внешний доступ не настроен';group.append(b);slot.append(group);continue;}
+     if(sub){
+      button('Настройки',()=>openUserProxySubscription(sub.id));
+      button(enabled?'Блокировать':'Включить',async()=>{await apiClient.updateAdminProxySubscription(sub.id,{status:enabled?'disabled':'active'});await refresh();});
+      button('Удалить',async()=>{if(!confirm('Удалить VPN-подписку @'+u.login+'?'))return;await apiClient.deleteAdminProxySubscription(sub.id);await refresh();},'danger');
+     }else button('Выдать',()=>showServiceGrantDialog(u,service,null,refresh),'accent');
+    }else{
+     button(enabled?'Настройки':'Выдать',()=>showServiceGrantDialog(u,service,null,refresh),enabled?'muted':'accent');
+     if(enabled)button('Отозвать',async()=>{await serviceRequest(`/api/owner/services/users/${u.id}/${service}`,{...u.access[service],enabled:false},'PUT');await refresh();});
+     if(service==='search'&&enabled)button('API-ключи',()=>showSearchApiKeys(u.id));
+     if(service==='vault'&&enabled)button('Удалить',async()=>{const login=prompt('Хранилище будет удалено. Введи логин пользователя: '+u.login);if(login!==u.login)return;await serviceRequest(`/api/owner/services/users/${u.id}/vault`,{confirm:login},'DELETE');await refresh();},'danger');
+    }
+    slot.append(group);
+   }
+   const invite=document.createElement('button');invite.className='btn btn--muted btn--sm';invite.textContent='Первичная активация';invite.onclick=async()=>{try{const d=await serviceRequest(`/api/owner/services/users/${u.id}/invite`,{},'POST');showServiceLink(d.url);}catch(e){showRequestError('Приглашение',e);}};slot.append(invite);
+  }
+  const budgetButton=container.querySelector('[data-service-global-budget]');if(budgetButton&&!budgetButton._bound){budgetButton._bound=true;budgetButton.onclick=()=>showServiceGrantDialog({budget:me.searchBudgetUsd},'budget',null,()=>hydrateAdminServices(container));}
+  const inviteButton=container.querySelector('[data-service-create-account]');if(inviteButton&&!inviteButton._bound){inviteButton._bound=true;inviteButton.onclick=()=>showServiceGrantDialog(null,'account',null,()=>hydrateAdminServices(container));}
+ }catch(e){console.warn('Service controls:',e.message);}
+}
+function serviceDialog(title){
+ document.getElementById('qubiteServiceDialog')?.remove();
+ const d=document.createElement('dialog');d.id='qubiteServiceDialog';d.className='service-dialog glass-panel';
+ d.innerHTML=`<header class="service-dialog__header"><h2 class="ops-panel__title">${escapeHtml(title)}</h2><button type="button" class="btn btn--muted btn--sm" aria-label="Закрыть">${getSVGIcon('close' in window.SVGDic?'close':'chevron_left')}</button></header><div class="service-dialog__body"></div>`;
+ d.querySelector('header button').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());document.body.append(d);d.showModal();return d;
+}
+function showServiceLink(url){const d=serviceDialog('Одноразовое приглашение');const a=document.createElement('a');a.href=url;a.textContent=url;d.querySelector('.service-dialog__body').append(a);}
+function showServiceGrantDialog(user,service,sub,refresh){
+ const title={search:'Настройки поиска',vault:'Доступ к хранилищу',vpn:'Выдать VPN',account:'Пригласить пользователя',budget:'Общий бюджет поиска'}[service];
+ const d=serviceDialog(title+(user?.login?' · @'+user.login:'')),body=d.querySelector('.service-dialog__body');
+ const access=user?.access?.search||{};
+ const field=(name,label,value='',type='number',extra='')=>`<label class="field">${label}<input class="input" type="${type}" name="${name}" value="${escapeHtml(value??'')}" ${extra}></label>`;
+ const check=(name,label,value)=>`<label class="service-check"><input type="checkbox" name="${name}" ${value?'checked':''}> ${label}</label>`;
+ let content='';
+ if(service==='search')content=check('paid','Разрешить платные модели',access.paid)+check('history','Разрешить сохранение истории',access.history)+field('daily_requests','Запросов в день',access.daily_requests??'','number','min="0" max="10000" placeholder="Без ограничения"')+field('hourly_requests','Запросов в час',access.hourly_requests??'','number','min="0" max="1000" placeholder="Без ограничения"')+['daily_usd','monthly_usd','lifetime_usd'].map((k,i)=>field(k,['В день, $','В месяц, $','Всего, $'][i],access[k]??'','number',`min="0" max="${[100,1000,10000][i]}" step="0.001" placeholder="Без ограничения"`)).join('')+'<p class="service-form-note">Нулевой денежный лимит допускает только бесплатные модели. Пустое поле снимает соответствующий лимит, включая количество запросов. Общий бюджет сервиса продолжает действовать.</p>';
+ if(service==='vault')content='<p>Пользователь создаст хранилище с логином Qubite и собственным мастер-паролем. Мы его не получаем.</p>';
+ if(service==='vpn')content=field('days','Срок, дней',30,'number','min="1" max="3650" required')+field('maxConnections','Максимум подключений',3,'number','min="1" max="100" required')+field('speedLimitMbps','Скорость, Мбит/с','','number','min="1" max="10000" placeholder="Без ограничения"')+check('isVip','VIP',false)+check('noLogs','Не сохранять журналы трафика',true)+'<p class="service-form-note">Подписка использует настроенные ноды Qubite. Наличие доступа не означает, что серверная нода уже доступна из интернета.</p>';
+ if(service==='budget')content=field('limit','Долларов в день',user?.budget??.05,'number','min="0" max="100" step="0.001" required');
+ if(service==='account')content=field('login','Логин','','text','minlength="3" maxlength="32" required')+field('email','Почта','','email','required');
+ body.innerHTML='<form class="service-form">'+content+'<p class="service-form-status" role="status"></p><button class="btn btn--accent" type="submit">'+(service==='account'?'Создать приглашение':'Сохранить')+'</button></form>';
+ body.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),button=e.target.querySelector('[type=submit]');button.disabled=true;try{
+  let payload={enabled:true},url=`/api/owner/services/users/${user?.id}/${service}`,method='PUT';
+  if(service==='search'){payload.paid=f.has('paid');payload.history=f.has('history');for(const k of ['daily_requests','hourly_requests','daily_usd','monthly_usd','lifetime_usd'])payload[k]=f.get(k)===''?null:Number(f.get(k));}
+  if(service==='vpn'){method='POST';payload={days:Number(f.get('days')),maxConnections:Number(f.get('maxConnections')),speedLimitMbps:f.get('speedLimitMbps'),isVip:f.has('isVip'),noLogs:f.has('noLogs')};}
+  if(service==='account'){url='/api/owner/services/users';method='POST';payload={login:f.get('login'),email:f.get('email')};}
+  if(service==='budget'){url='/api/owner/services/search-budget';method='PUT';payload={limit:Number(f.get('limit'))};}
+  const result=await serviceRequest(url,payload,method);d.close();await refresh?.();if(result.url)showServiceLink(result.url);
+ }catch(err){e.target.querySelector('[role=status]').textContent=err.message;button.disabled=false;}};
+}
+let serviceProxyFocus=null;
+async function openUserProxySubscription(uid){serviceProxyFocus=uid;ViewManager.open('proxy-servers');}
+function focusUserProxySubscription(){
+ if(!serviceProxyFocus)return;
+ const row=Array.from(document.querySelectorAll('[data-proxy-subscription-row]')).find(e=>e.dataset.proxySubscriptionRow===serviceProxyFocus);
+ if(!row)return;row.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});row.classList.add('service-subscription-focus');row.tabIndex=-1;row.focus({preventScroll:true});serviceProxyFocus=null;
+}
+async function renderMyServices(view){
+ const root=ViewManager.content;root.textContent='Загружаем сервисы…';
+ try{
+  const [me,vpn]=await Promise.all([serviceRequest('/api/services/me'),serviceRequest('/api/proxy/personal')]);if(ViewManager.currentView!==view)return;
+  const s=me.services.search,v=me.services.vault,p=vpn.subscription;
+  root.innerHTML=`<div class="my-services-grid"><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">Поиск</h2><p>${s.enabled?'Доступ выдан':'Доступ не выдан'}</p>${s.enabled?`<p>${s.paid?'Платные и бесплатные модели':'Бесплатные модели'} · ${s.daily_requests??'без лимита'} запросов в день · ${s.hourly_requests??'без лимита'} в час</p><p>Бюджет: ${s.daily_usd??'без отдельного ограничения'} $/день, ${s.monthly_usd??'без отдельного ограничения'} $/месяц</p><a class="btn btn--accent" href="${escapeHtml(me.urls.search)}">Открыть поиск</a><button class="btn btn--muted" id="my-search-api">API-ключи</button>`:''}</section><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">Хранилище</h2><p>${v.enabled?'Доступ выдан':'Доступ не выдан'}</p><p>Логин: ${escapeHtml(me.login)}. Собственный мастер-пароль.</p>${v.enabled?`<a class="btn btn--accent" href="${escapeHtml(me.urls.vault)}/user/login">Открыть хранилище</a><button class="btn btn--muted" id="my-vault-enroll">Создать хранилище</button>`:''}</section><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">VPN</h2><p>${vpn.available===false?'Не работает: внешний доступ к Raspberry не настроен':p?(p.usable?'Доступ выдан':p.status==='active'?'Подписка истекла':'Доступ отключён'):'Доступ не выдан'}</p>${vpn.available===false?'<button class="btn btn--muted" disabled>Подключение недоступно</button>':''}${p?`<p>До: ${escapeHtml(formatProxyExpiry(p.expiresAt))} · максимум ${p.maxConnections||3} подключений${p.speedLimitMbps?' · '+p.speedLimitMbps+' Мбит/с':''}</p>${p.usable?`<label class="field">Личная ссылка<input class="input" readonly id="my-vpn-link" value="${escapeHtml(p.url||'')}" placeholder="Обнови ссылку для старой подписки"></label><button class="btn btn--muted" id="my-vpn-copy" ${p.url?'':'disabled'}>Копировать ссылку</button><button class="btn btn--muted" id="my-vpn-rotate">Обновить ссылку</button>`:''}`:''}<div id="my-vpn-devices"></div></section></div><p id="my-services-status" role="status"></p>`;
+  applyServiceComposition(root,'Мои сервисы','Доступы и настройки твоей учётной записи');
+  root.querySelector('#my-search-api')?.addEventListener('click',()=>showSearchApiKeys());
+  const status=root.querySelector('#my-services-status');
+  root.querySelector('#my-vault-enroll')?.addEventListener('click',async()=>{try{const d=await serviceRequest('/api/services/vault/enroll');location.href=d.url;}catch(e){status.textContent=e.message;}});
+  root.querySelector('#my-vpn-copy')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(p.url);status.textContent='Ссылка скопирована. Не передавай её другим.';}catch(e){status.textContent='Выдели и скопируй ссылку из поля.';}});
+  root.querySelector('#my-vpn-rotate')?.addEventListener('click',async e=>{if(!confirm('Обновить ссылку? Старые VPN-профили и подключения будут отключены; импортируй новую ссылку в клиент.'))return;e.target.disabled=true;try{await serviceRequest('/api/proxy/personal/rotate',{},'POST');await renderMyServices(view);}catch(err){status.textContent=err.message;e.target.disabled=false;}});
+  const devices=root.querySelector('#my-vpn-devices');
+  for(const device of vpn.devices){const row=document.createElement('div');row.className='service-device';const label=document.createElement('span');label.textContent=(device.name||device.uid)+' · '+device.platform+' · '+device.status;row.append(label);if(device.status==='active'){const b=document.createElement('button');b.className='btn btn--muted btn--sm';b.textContent='Отозвать устройство';b.onclick=async()=>{if(!confirm('Отозвать это устройство?'))return;try{await serviceRequest('/api/proxy/devices/'+encodeURIComponent(device.uid)+'/revoke',{},'POST');await renderMyServices(view);}catch(e){status.textContent=e.message;}};row.append(b);}devices.append(row);}
+ }catch(e){if(ViewManager.currentView===view)root.textContent=e.message;}
+}
+
+async function markUnavailableVpn(container){try{const me=await serviceRequest('/api/services/me');if(me.vpnAvailable||ViewManager.currentView!=='proxy-servers'||!container.isConnected)return;container.querySelectorAll('[data-proxy-subscription-row] button,#proxyCreateSubscriptionBtn,#proxyCreateSubscriptionLinkBtn').forEach(e=>e.disabled=true);const p=document.createElement('p');p.className='notice';p.textContent='VPN сейчас не работает: нет доступной ноды. Raspberry управляет платформой; можно добавить отдельную VPN-ноду и настроить её, после heartbeat выдача доступа включится.';container.prepend(p);}catch(e){console.warn(e.message);}}
+
+async function showSearchApiKeys(userId){
+ const dialog=serviceDialog('API поиска для агентов'),body=dialog.querySelector('.service-dialog__body');
+ const suffix=userId?'?user_id='+encodeURIComponent(userId):'';
+ const help=document.createElement('p');help.className='service-form-note';help.textContent='Ключ работает от выбранного аккаунта и наследует его доступ и бюджет. Полный ключ показывается один раз. История — отдельное право; пользователь должен включить её сохранение.';body.append(help);
+ const form=document.createElement('form');form.className='service-form';form.innerHTML='<label class="field">Название<input class="input" name="name" maxlength="80" required placeholder="Мой агент"></label><label class="field">Запросов API в день<input class="input" type="number" name="daily_requests" min="0" max="10000" value="100" placeholder="Без ограничения"></label><label class="service-check"><input type="checkbox" name="history"> Разрешить чтение истории этого аккаунта</label><button class="btn btn--accent" type="submit">Создать ключ</button><p class="service-form-status" role="status"></p>';body.append(form);
+ const list=document.createElement('div');body.append(list);
+ const reload=async()=>{const data=await serviceRequest('/api/services/search-keys'+suffix);list.replaceChildren();for(const key of data.keys){const row=document.createElement('div');row.className='service-device';const text=document.createElement('span');text.textContent=key.name+' · '+key.prefix+'… · '+key.scopes.join(', ')+' · '+(key.revoked_at?'отозван':(key.daily_requests??'без лимита')+' /день');row.append(text);if(!key.revoked_at){const b=document.createElement('button');b.className='btn btn--danger btn--sm';b.textContent='Отозвать';b.onclick=async()=>{try{await serviceRequest('/api/services/search-keys/'+key.id+suffix,{},'DELETE');await reload();}catch(e){form.querySelector('[role=status]').textContent=e.message;}};row.append(b);}list.append(row);}};
+ form.onsubmit=async e=>{e.preventDefault();const data=new FormData(form),button=form.querySelector('[type=submit]');button.disabled=true;try{const result=await serviceRequest('/api/services/search-keys',{name:data.get('name'),scopes:['search','fetch',...(data.has('history')?['history']:[])],daily_requests:data.get('daily_requests')===''?null:Number(data.get('daily_requests')),...(userId?{user_id:userId}:{})},'POST');const label=document.createElement('label');label.className='field';label.textContent='Скопируй сейчас: после закрытия ключ не показывается';const input=document.createElement('input');input.className='input';input.readOnly=true;input.value=result.token;label.append(input);const copy=document.createElement('button');copy.type='button';copy.className='btn btn--muted';copy.textContent='Копировать ключ';copy.onclick=async()=>{try{await navigator.clipboard.writeText(input.value);copy.textContent='Скопировано';}catch{input.select();}};form.after(label,copy);await reload();}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};
+ try{await reload();}catch(e){form.querySelector('[role=status]').textContent=e.message;}
 }

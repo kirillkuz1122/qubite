@@ -125,7 +125,7 @@ function register(bot) {
 
     // ── Staff: handle text reply to pending chat ──
     bot.on("message", async (msg) => {
-        if (!msg.text || msg.text.startsWith("/")) return;
+        if (msg._qubiteServiceInput || !msg.text || msg.text.startsWith("/")) return;
         const tgId = String(msg.from.id);
         const chatId = pendingReplies.get(tgId);
         if (!chatId) return; // not a pending reply
@@ -166,7 +166,7 @@ function register(bot) {
 
     // ── Visitor: non-staff user sends message → support chat ──
     bot.on("message", async (msg) => {
-        if (!msg.text || msg.text.startsWith("/")) return;
+        if (msg._qubiteServiceInput || !msg.text || msg.text.startsWith("/")) return;
         const tgId = String(msg.from.id);
         const role = await resolveRole(tgId);
 
