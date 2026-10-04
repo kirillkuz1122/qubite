@@ -4,7 +4,6 @@ const state = {me:null, view:'search', category:'general', page:1, search:null, 
 const escapeHTML = (s) => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeURL = (url) => {try {const u=new URL(url); return ['https:','http:'].includes(u.protocol)?u.href:null;} catch {return null;}};
 const domain = (url) => {try {return new URL(url).hostname.replace(/^www\./,'');} catch {return 'источник';}};
-const imageURL = (url) => '/api/image?url='+encodeURIComponent(url);
 const node = (tag, cls, text) => {const e=document.createElement(tag); if(cls)e.className=cls; if(text!==undefined)e.textContent=text; return e;};
 const sleep = (ms) => new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -41,6 +40,7 @@ $('#close-visual').addEventListener('click',()=>{$('#visual-modal').close();$('#
 $('#visual-modal').addEventListener('close',()=>$('#visual-content').replaceChildren());
 
 function setView(view){
+  if(view!=='search')QubiteMedia.stop();
   state.view=view;
   $('#search-view').hidden=view!=='search'; $('#ai-view').hidden=view!=='ai';
   $('#categories').hidden=view!=='search'||!state.search;
@@ -60,6 +60,7 @@ $('#new-chat').onclick=()=>{reset();setView('ai');$('#query').focus();};
 $('#chat-history').onclick=()=>showPrivateHistory();
 
 function reset(){
+  QubiteMedia.stop();
   history.replaceState({},'', '/');
   state.generation++; state.abort?.abort(); state.search=null; state.turns=[]; state.conversation=null;state.category='general';state.page=1;state.pending=false;
   $('#query').value='';$('#results').replaceChildren();$('#conversation').replaceChildren();$('#overview').hidden=true;
@@ -128,15 +129,17 @@ async function submitSearch(options={}){
   const follow=state.view==='ai'&&state.turns.length>0&&!options.navigation;
   if(!follow&&!options.navigation)history.replaceState({},'', '/search?q='+encodeURIComponent(query));
   if(!follow&&!options.navigation){state.conversation=null;state.turns=[];renderChat();}
+  QubiteMedia.stop();
   const seq=++state.generation;state.abort?.abort();state.abort=new AbortController();
   state.pending=true;notice('');$('#search-submit').disabled=true;
   $('#search-hint').textContent='Ищем источники…';$('#welcome').hidden=true;$('#starter-prompts').hidden=true;$('#workspace').classList.remove('empty');
   if(!options.navigation){state.page=1;state.category='general';}
+  renderEnginePicker();
   $('#overview').hidden=state.view!=='search'||state.category!=='general';
   $('#overview').replaceChildren(pending('Ищем в интернете'));
   $('#chat-pending').hidden=state.view!=='ai';$('#chat-pending').replaceChildren(pending('Ищем источники'));
   try{
-    const data=await api('/api/search',{query,category:state.category,page:state.page,correct:options.correct!==false,conversation:null},'POST',state.abort.signal);
+    const data=await api('/api/search',{query,category:state.category,page:state.page,correct:options.correct!==false,conversation:null,...searchFilterParams()},'POST',state.abort.signal);
     if(seq!==state.generation)return;
     state.search=data;state.pending=false;renderResults();setView(state.view);
     $('#search-hint').textContent='Короткий ответ, когда он есть. ИИ — когда нужен.';
@@ -151,7 +154,7 @@ async function submitSearch(options={}){
 function pending(text){const e=node('div','pending-line');e.append(node('span','spinner'),node('span','',text));return e;}
 
 function renderResults(){
-  const s=state.search;if(!s)return;const parent=$('#results');parent.replaceChildren();parent.className=s.category==='images'?'image-grid':'';
+  const s=state.search;if(!s)return;const parent=$('#results');QubiteMedia.stop();parent.replaceChildren();parent.className=s.category==='images'?'image-grid':s.category==='videos'?'video-grid':'';renderEnginePicker();
   $('#categories').hidden=state.view!=='search';document.querySelectorAll('[data-category]').forEach(b=>b.classList.toggle('active',b.dataset.category===s.category));
   const correction=$('#correction');correction.replaceChildren();correction.hidden=true;
   if(s.corrected!==s.query){
@@ -161,25 +164,31 @@ function renderResults(){
     correction.hidden=false;correction.append(document.createTextNode('Возможно, ты имел в виду: '));
     for(const q of s.corrections){const b=node('button','',q);b.addEventListener('click',()=>{$('#query').value=q;submitSearch();});correction.append(b);}
   }
-  $('#result-info').textContent=s.results.length?'Источники · страница '+s.page:'По этому запросу ничего не найдено. Попробуй другие слова.';
+  $('#result-info').textContent=s.results.length?'Источники · страница '+s.page+' · '+seconds(s.elapsed_ms):'По этому запросу ничего не найдено. Попробуй другие слова.';
   for(const item of s.results){
     const href=safeURL(item.url);if(!href)continue;
-    const article=node('article',s.category==='images'?'image-result':'result');
+    const article=node('article',s.category==='images'?'image-result':s.category==='videos'?'result video-result':'result');
     if(s.category==='images'){
       const image=safeURL(item.image||item.thumbnail);
-      if(image){const img=node('img');img.src=imageURL(image);img.alt=item.title;img.loading='lazy';img.addEventListener('error',()=>img.hidden=true);article.append(img);}
+      if(image){const img=node('img');QubiteMedia.image(img,image,filters.direct);img.alt=item.title;article.append(img);}
       const title=node('a','',item.title);title.href=href;title.target='_blank';title.rel='noopener noreferrer';article.append(title,node('small','',domain(href)));
     }else{
-      if(item.thumbnail&&safeURL(item.thumbnail)){const img=node('img','result-thumb');img.src=imageURL(item.thumbnail);img.alt='';img.loading='lazy';img.addEventListener('error',()=>img.remove());article.append(img);}
+      if(s.category==='videos')QubiteMedia.mount(article,item,filters.direct);
+      if(s.category!=='videos'&&item.thumbnail&&safeURL(item.thumbnail)){const img=node('img','result-thumb');QubiteMedia.image(img,item.thumbnail,filters.direct);img.alt='';article.append(img);}
       const top=node('div','result-domain');top.append(node('span','domain-avatar',domain(href)[0].toUpperCase()),node('span','',domain(href)));article.append(top);
       const title=node('a','result-title',item.title);title.href=href;title.target='_blank';title.rel='noopener noreferrer';article.append(title,node('p','',item.content));
     }
+    const origins=node('div','engine-badges');for(const name of item.engines||[item.engine])if(name)origins.append(node('span','engine-badge',engineName(name)));article.append(origins);
     parent.append(article);
   }
   $('#pagination').hidden=!s.results.length;$('#page-number').textContent='Страница '+s.page;$('#prev-page').disabled=s.page===1;$('#next-page').disabled=s.page>=20;
   $('#suggestions').replaceChildren();for(const suggestion of s.suggestions){const b=node('button','',suggestion);b.addEventListener('click',()=>{$('#query').value=suggestion;submitSearch();});$('#suggestions').append(b);}
-  const errors=$('#engine-status');errors.hidden=!s.unresponsive_engines.length;errors.querySelector('div').replaceChildren();
-  for(const e of s.unresponsive_engines)errors.querySelector('div').append(node('p','',e[0]+': '+e[1]));
+  const errors=$('#engine-status');errors.hidden=false;const detail=errors.querySelector('div');detail.replaceChildren();
+  errors.querySelector('summary').textContent='Поисковые системы · '+seconds(s.elapsed_ms);
+  const table=node('table','engine-table'),head=node('tr');for(const text of ['Движок','Время','Результаты','Состояние'])head.append(node('th','',text));table.append(head);
+  for(const e of s.engine_timings||[]){const row=node('tr');for(const text of [engineName(e.engine),e.elapsed_ms==null?'—':seconds(e.elapsed_ms),String(e.results),e.error||(e.elapsed_ms==null?'Время не передано':'Ответ получен')])row.append(node('td','',text));table.append(row);}
+  detail.append(table,node('p','filter-note','Движки работают параллельно: их времена не складываются. Общее время включает исправление запроса и краткий источник. Число результатов учитывает показанные ссылки; одна ссылка может быть найдена несколькими движками.'));
+  for(const warning of s.filter_warnings||[])detail.append(node('p','filter-note',warning));
 }
 function modelName(result){
   if(result.kind==='extract')return 'Готовый ответ · '+domain(result.sources[0]?.url);
@@ -189,7 +198,7 @@ function modelName(result){
 }
 function renderOverview(result){
   const box=$('#overview');box.hidden=false;box.replaceChildren();
-  const header=node('div','overview-head');header.append(node('span','',result.kind==='extract'?'◈ Коротко из источника':result.kind==='translation'?'⇄ Перевод':'✧ ИИ-обзор'),node('small','',modelName(result)));box.append(header);
+  const header=node('div','overview-head');header.append(node('span','',result.kind==='extract'?'◈ Коротко из источника':result.kind==='translation'?'⇄ Перевод':'✧ ИИ-обзор'),node('small','',modelName(result)+(result.elapsed_ms?' · '+seconds(result.elapsed_ms):'')));box.append(header);
   if(result.translation){
     const card=node('div','translation-card');
     const from=node('section'),to=node('section');
@@ -279,12 +288,12 @@ function renderChat(){
   const parent=$('#conversation');parent.replaceChildren();
   state.turns.forEach((turn,index)=>{
     const r=turn.result,article=node('article','turn');article.append(node('h2','turn-question',turn.query));
-    const meta=node('div','answer-meta');meta.append(node('span','',r.kind==='extract'?'◈':'✧'),node('span','',modelName(r)));if(r.cost)meta.append(node('span','','$'+r.cost.toFixed(5)));article.append(meta);
+    const meta=node('div','answer-meta');meta.append(node('span','',r.kind==='extract'?'◈':'✧'),node('span','',modelName(r)));if(r.elapsed_ms)meta.append(node('span','',seconds(r.elapsed_ms)));if(r.cost)meta.append(node('span','','$'+r.cost.toFixed(5)));article.append(meta);
     const answer=node('div','answer');answer.innerHTML=r.answer_html.replaceAll('href="#source-','href="#turn-'+index+'-source-');article.append(answer);
     renderVerification(article,r,()=>regenerateTurn(turn));
     if(r.truncated)article.append(node('p','notice','Ответ прервался на лимите модели. Можно запросить продолжение в чате.'));
     if(r.images?.length){
-      const images=node('div','answer-images');for(const image of r.images){const figure=node('figure'),a=node('a');a.href=safeURL(image.source_url);a.target='_blank';a.rel='noopener noreferrer';const img=node('img');img.src=imageURL(image.url);img.alt=image.title;img.loading='lazy';img.addEventListener('error',()=>figure.remove());a.append(img);figure.append(a,node('figcaption','',image.title));images.append(figure);}article.append(images);
+      const images=node('div','answer-images');for(const image of r.images){const figure=node('figure'),a=node('a');a.href=safeURL(image.source_url);a.target='_blank';a.rel='noopener noreferrer';const img=node('img');QubiteMedia.image(img,image.url,filters.direct);img.alt=image.title;a.append(img);figure.append(a,node('figcaption','',image.title));images.append(figure);}article.append(images);
     }
     for(const v of r.visuals||[]){
       const visual=node('section','answer-visual'),header=node('div','visual-header');header.append(node('span','',v.title));const expand=node('button','','Развернуть ↗');expand.addEventListener('click',()=>{$('#visual-title').textContent=v.title;$('#visual-content').replaceChildren(visualFrame(v));$('#visual-modal').showModal();});header.append(expand);visual.append(header,visualFrame(v));article.append(visual);
@@ -310,10 +319,36 @@ $('#conversation').addEventListener('click',e=>{
 });
 document.addEventListener('DOMContentLoaded',async()=>{
   try{
-    await refreshMe();const select=$('#model');select.replaceChildren();
+    await refreshMe();await initSearchFilters();const select=$('#model');select.replaceChildren();
     if(state.me.paid)select.append(new Option('Авто · по сложности','auto'));
     for(const m of state.me.models)select.append(new Option(m.label,m.id));
     select.disabled=!state.me.paid;$('#chat-history').hidden=!state.me.history_allowed;initPrivacy();await refreshHistory();setView('search');
     const q=new URL(location.href).searchParams.get('q');if(q){$('#query').value=q;await submitSearch();}
   }catch(e){notice(e.message);$('#user-name').textContent='Нет соединения';}
 },{once:true});
+
+const filters={catalogue:[],engines:{},safe:1,language:'all',time:'',direct:true};
+const seconds=ms=>Number.isFinite(ms)?(ms/1000).toFixed(2)+' с':'время недоступно';
+function engineName(name){const names={google:'Google','google cse':'Google CSE',bing:'Bing',duckduckgo:'DuckDuckGo',yandex:'Яндекс',yahoo:'Yahoo',brave:'Brave',wikipedia:'Wikipedia',wikidata:'Wikidata',youtube:'YouTube',vimeo:'Vimeo',dailymotion:'Dailymotion'};return names[name]||name;}
+function filterStorage(){return 'qubite-search-filters:'+state.me.user;}
+function saveSearchFilters(){localStorage.setItem(filterStorage(),JSON.stringify({engines:filters.engines,safe:filters.safe,language:filters.language,time:filters.time,direct:filters.direct}));}
+function categoryEngines(){return filters.catalogue.filter(e=>e.categories.includes(state.category));}
+function chosenEngines(){const available=categoryEngines();const saved=filters.engines[state.category];return Array.isArray(saved)? saved.filter(n=>available.some(e=>e.name===n)) :available.filter(e=>e.enabled).map(e=>e.name);}
+function searchFilterParams(){return {safesearch:filters.safe,language:filters.language,time_range:filters.time||null,engines:filters.catalogue.length?chosenEngines():null};}
+function renderEnginePicker(){
+  const parent=$('#engine-options');parent.replaceChildren();const chosen=chosenEngines();
+  for(const engine of categoryEngines()){
+    const label=node('label'),input=node('input');input.type='checkbox';input.value=engine.name;input.checked=chosen.includes(engine.name);input.disabled=filters.safe===2&&!engine.safesearch;
+    label.append(input,document.createTextNode(engineName(engine.name)));if(!engine.safesearch)label.title='Не поддерживает фильтр безопасного поиска';
+    input.addEventListener('change',()=>{filters.engines[state.category]=[...parent.querySelectorAll('input:checked')].map(e=>e.value);saveSearchFilters();});parent.append(label);
+  }
+}
+async function initSearchFilters(){
+  try{Object.assign(filters,JSON.parse(localStorage.getItem(filterStorage())||'{}'));}catch{}
+  if(![0,1,2].includes(filters.safe))filters.safe=1;if(!['all','ru-RU','en'].includes(filters.language))filters.language='all';if(!['','day','week','month','year'].includes(filters.time))filters.time='';if(!filters.engines||typeof filters.engines!=='object')filters.engines={};filters.direct=filters.direct!==false;
+  $('#safe-search').value=String(filters.safe);$('#search-language').value=filters.language;$('#search-time').value=filters.time;$('#direct-images').checked=filters.direct;
+  try{filters.catalogue=(await api('/api/search/config')).engines;renderEnginePicker();}catch{$('#filters-note').textContent='Список движков временно недоступен';}
+}
+for(const [id,key] of [['safe-search','safe'],['search-language','language'],['search-time','time'],['direct-images','direct']])$('#'+id).addEventListener('change',event=>{filters[key]=key==='direct'?event.target.checked:key==='safe'?Number(event.target.value):event.target.value;saveSearchFilters();renderEnginePicker();if(key==='direct'&&state.search)renderResults();});
+$('#apply-filters').addEventListener('click',()=>{if(state.search){state.page=1;submitSearch({navigation:true});}else toast('Параметры применятся к следующему поиску');});
+$('#reset-filters').addEventListener('click',()=>{localStorage.removeItem(filterStorage());Object.assign(filters,{engines:{},safe:1,language:'all',time:'',direct:true});initSearchFilters();toast('Параметры сброшены');});

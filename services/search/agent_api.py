@@ -17,6 +17,10 @@ class AgentSearch(BaseModel):
     query:str=Field(min_length=1,max_length=700)
     mode:Literal['summary','sources']='summary'
     limit:int=Field(default=4,ge=1,le=5)
+    safesearch:Literal[0,1,2]=1
+    language:Literal['all','ru-RU','en']='all'
+    time_range:Literal['day','week','month','year'] | None=None
+    engines:list[str] | None=Field(default=None,max_length=25)
     save_history:bool=False
     verify:bool | None=None
 
@@ -47,20 +51,22 @@ def register(app,a):
         try:return await asyncio.wait_for(read_page(item),timeout=12)
         except asyncio.TimeoutError:return {'title':item['title'],'url':item['url'],'text':'','snippet':item.get('content',''),'status':'unread'}
     def documents(docs):return [dict(id=i,title=d['title'],url=d['url'],status=d['status'],published_at=d.get('published_at'),modified_at=d.get('modified_at'),retrieved_at=d.get('retrieved_at'),markdown=d['text'][:8000] if d['status']=='read' else 'ТОЛЬКО ПОИСКОВЫЙ ФРАГМЕНТ: '+d.get('snippet','')) for i,d in enumerate(docs,1)]
-    def source_rows(docs):return [dict(id=i,title=d['title'],url=d['url'],status=d['status'],published_at=d.get('published_at'),modified_at=d.get('modified_at'),retrieved_at=d.get('retrieved_at')) for i,d in enumerate(docs,1)]
+    def source_rows(docs):return [dict(id=i,title=d['title'],url=d['url'],status=d['status'],engines=d.get('engines',[]),published_at=d.get('published_at'),modified_at=d.get('modified_at'),retrieved_at=d.get('retrieved_at')) for i,d in enumerate(docs,1)]
     async def search_work(jid,user,body):
         job=a['jobs'][jid]
         try:
-            search=await a['perform_search'](user,a['SearchBody'](query=body.query,correct=False),record=body.save_history)
+            search=await a['perform_search'](user,a['SearchBody'](query=body.query,correct=False,safesearch=body.safesearch,language=body.language,time_range=body.time_range,engines=body.engines),record=body.save_history)
             items=search['results'][:body.limit]
             if body.mode=='sources':result={'query':body.query,'sources':items,'search_id':search['id'],'warnings':search['unresponsive_engines']}
             else:
                 job['stage']='Читаем источники'
                 docs=await asyncio.gather(*(bounded_read(x) for x in items))
+                for doc,item in zip(docs,items):doc['engines']=item.get('engines',[])
                 if not docs:result={'query':body.query,'markdown':'Источники не найдены.','sources':[],'cost_usd':0,'warnings':search['unresponsive_engines']}
                 else:
                     job['stage']='Сжимаем данные'
                     result=await summarize(user,body.query,documents(docs),body.verify,jid);result.update(query=body.query,search_query=search.get('search_query',body.query),sources=source_rows(docs),search_id=search['id'],warnings=search['unresponsive_engines'])
+            result.update(elapsed_ms=round((time.time()-job['created'])*1000,1),search_elapsed_ms=search.get('elapsed_ms'),engine_timings=search.get('engine_timings',[]),filter_warnings=search.get('filter_warnings',[]),filters=search.get('filters',{}))
             job.update(status='done',result=result)
             asyncio.create_task(a['log_event'](user,'search.'+body.mode,200,cost_usd=result.get('cost_usd'),query=body.query))
         except (a['UpstreamError'],LimitError) as e:

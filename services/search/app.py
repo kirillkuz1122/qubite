@@ -20,6 +20,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response, RedirectResp
 from fastapi.staticfiles import StaticFiles
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, Field
+from typing import Literal
+from search_engines import catalogue, measurements
 from retrieval import Spelling, fetch_public, plain, read_page, translation_intent, validate_url, wikipedia
 from store import Store, LimitError
 from grounding import RULES, context as grounding_context, current_intent, search_query as dated_query, date_value, public_verification, warnings_for, verify
@@ -149,7 +151,7 @@ async def access(request: Request, call_next):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Cache-Control'] = 'private, no-store' if request.url.path.startswith('/api/') else 'private, max-age=60'
     if not request.url.path.startswith('/api/visual/'):
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'self' about:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; frame-src 'self' about: https://www.youtube-nocookie.com https://player.vimeo.com https://www.dailymotion.com; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'"
     return response
 
 def local_next(value):
@@ -229,26 +231,64 @@ def me(request: Request):
         'guest_remaining':store.guest_remaining(user,p.get('daily_requests',GUEST_DAILY)),
         'guest_limit':p.get('daily_requests',GUEST_DAILY),'guest_hourly':p.get('hourly_requests',GUEST_HOURLY)}
 
+engine_cache = {'expires':0, 'rows':[]}
+
+async def engine_catalogue():
+    if engine_cache['expires']>time.monotonic():return engine_cache['rows']
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            response=await client.get(SEARXNG+'/config');response.raise_for_status()
+            rows=catalogue(response.json())
+        if not rows:raise ValueError('No engines')
+        engine_cache.update(expires=time.monotonic()+60,rows=rows)
+        return rows
+    except (httpx.HTTPError,ValueError):
+        if engine_cache['rows']:return engine_cache['rows']
+        raise HTTPException(503,'Не удалось получить список поисковых систем. Попробуй позже.')
+
+@app.get('/api/search/config')
+async def search_config():
+    return {'engines':await engine_catalogue()}
+
 class SearchBody(BaseModel):
     query: str = Field(min_length=1,max_length=700)
     category: str = 'general'
     page: int = Field(default=1,ge=1,le=20)
     correct: bool = True
     conversation: str | None = None
+    safesearch: Literal[0,1,2] = 1
+    language: Literal['all','ru-RU','en'] = 'all'
+    time_range: Literal['day','week','month','year'] | None = None
+    engines: list[str] | None = Field(default=None,max_length=25)
 
 async def perform_search(user, body,record=True):
+    started=time.monotonic()
     query = body.query.strip()
     if not query:
         raise HTTPException(400,'Введи запрос.')
     if body.category not in ('general','images','videos','news'):
         raise HTTPException(400,'Неизвестная категория.')
+    available={e['name']:e for e in await engine_catalogue() if body.category in e['categories']}
+    selected=list(dict.fromkeys(body.engines)) if body.engines is not None else [n for n,e in available.items() if e['enabled']]
+    if not selected or any(n not in available for n in selected):raise HTTPException(400,'Выбери доступные поисковые системы для этой категории.')
+    skipped=[n for n in selected if body.safesearch==2 and not available[n]['safesearch']]
+    selected=[n for n in selected if n not in skipped]
+    if not selected:raise HTTPException(400,'Выбранные движки не поддерживают строгий безопасный поиск.')
+    filter_warnings=[n+': не поддерживает фильтр безопасности' for n in selected if body.safesearch and not available[n]['safesearch']]
+    filter_warnings += [n+': исключён при строгом безопасном поиске' for n in skipped]
+    if body.time_range:filter_warnings += [n+': не поддерживает фильтр даты' for n in selected if not available[n]['time_range']]
     corrected = await asyncio.to_thread(spell.correct,query) if body.correct and spell else query
     search_query = dated_query(corrected) if body.category in ('general','news') else corrected
     translate = translation_intent(query)
     candidate_task = asyncio.create_task(wikipedia(corrected)) if body.page==1 and body.category=='general' and not translate and not current_intent(query) else None
+    timing_header=''
+    params={'q':search_query[:700],'format':'json','engines':','.join(selected),'pageno':body.page,'language':body.language,'safesearch':body.safesearch}
+    # SearXNG adds category defaults when both categories and engines are supplied.
+    if body.time_range:params['time_range']=body.time_range
     try:
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(SEARXNG+'/search',params={'q':search_query[:700],'format':'json','categories':body.category,'pageno':body.page,'language':'all','safesearch':1})
+            r = await c.get(SEARXNG+'/search',params=params)
+            timing_header=r.headers.get('Server-Timing','')
             r.raise_for_status()
             data = r.json()
     except (httpx.HTTPError,ValueError):
@@ -261,7 +301,8 @@ async def perform_search(user, body,record=True):
             continue
         results.append({'title':plain(item.get('title'))[:350],'url':item['url'],'content':plain(item.get('content'))[:1800],
             'thumbnail':item.get('thumbnail') or item.get('img_src'),'image':item.get('img_src'),
-            'engine':item.get('engine',''),'category':body.category,'published_at':date_value(item.get('publishedDate') or item.get('published_date'))})
+            'engine':plain(item.get('engine','')),'engines':list(dict.fromkeys(plain(e)[:100] for e in (item.get('engines') or [item.get('engine','')]) if e)),
+            'duration':plain(item.get('length') or item.get('duration'))[:40],'category':body.category,'published_at':date_value(item.get('publishedDate') or item.get('published_date'))})
     candidate = await candidate_task if candidate_task else None
     if not candidate and body.category=='general' and not current_intent(query):
         for info in data.get('infoboxes',[])[:2]:
@@ -279,6 +320,8 @@ async def perform_search(user, body,record=True):
         'suggestions':[plain(x) for x in data.get('suggestions',[])][:8],
         'candidate':candidate,'translation':translate,'results':results,'category':body.category,'page':body.page,
         'unresponsive_engines':[[plain(x[0]),plain(x[1])] for x in data.get('unresponsive_engines',[])][:8]}
+    value.update(elapsed_ms=round((time.monotonic()-started)*1000,1),filters={'safesearch':body.safesearch,'language':body.language,'time_range':body.time_range,'engines':selected},filter_warnings=filter_warnings)
+    value['engine_timings']=measurements(timing_header,results,value['unresponsive_engines'],selected)
     searches[sid] = value
     if record and can_history(user):store.record_search(user,value)
     return {k:v for k,v in value.items() if k not in ('user','created','task','verification_input','verification_lock','manual_verified','verification_attempted')}
@@ -288,7 +331,7 @@ async def search(request: Request, body: SearchBody):
     cleanup()
     rate(request.state.user,'search',30,300)
     result=await perform_search(request.state.user,body)
-    asyncio.create_task(log_event(request.state.user,'web.search',200,query=body.query))
+    asyncio.create_task(log_event(request.state.user,'web.search',200,query=body.query,elapsed_ms=result['elapsed_ms']))
     return result
 
 async def openrouter(user, endpoint, body, input_rate, output_rate=0):
@@ -499,6 +542,7 @@ SYSTEM += '\n'+RULES
 BRIEF_SYSTEM += '\n'+RULES
 
 async def build_answer(jid,user,body,search):
+    started=time.monotonic()
     job=jobs[jid]
     try:
         context=[{'query':str(x.get('query',''))[:700],'answer':str(x.get('answer',''))[:3000]} for x in body.context]
@@ -522,6 +566,7 @@ async def build_answer(jid,user,body,search):
                 result['verification_id']=jid
                 result['verification']=await verify_answer(user,**job['verification_input'],enabled=store.verification_enabled(user) if body.verify is None else body.verify)
                 result['cost']+=result['verification']['cost_usd']
+                result['elapsed_ms']=round((time.monotonic()-started)*1000,1)
                 job.update(status='done',result=result)
                 return
         else:
@@ -605,6 +650,7 @@ async def build_answer(jid,user,body,search):
         result['cost']+=result['verification']['cost_usd']
         result.update(grounding_context(search['query']))
         register_visuals(result,user)
+        result['elapsed_ms']=round((time.monotonic()-started)*1000,1)
         job.update(status='done',result=result)
         asyncio.create_task(log_event(user,'web.answer',200,cost_usd=result.get('cost')))
     except PermissionError:

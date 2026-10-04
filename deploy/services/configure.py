@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate private service config without replacing an existing Caddy/VPN instance."""
 import json
+from searx_defaults import ENGINE_YAML
 import os
 from pathlib import Path
 import pwd
@@ -63,13 +64,13 @@ if on('INSTALL_PLATFORM'):
 services=[]
 if on('INSTALL_SEARCH'):
  settings=base/'searxng';settings.mkdir(parents=True,exist_ok=True)
- private(settings/'settings.yml','use_default_settings: true\nserver:\n  secret_key: '+secrets.token_hex(32)+'\n  limiter: false\n  image_proxy: true\nsearch:\n  formats: [html, json]\noutgoing:\n  request_timeout: 5.0\n  max_request_timeout: 8.0\n')
+ private(settings/'settings.yml','use_default_settings: true\nserver:\n  secret_key: '+secrets.token_hex(32)+'\n  limiter: false\n  image_proxy: true\nsearch:\n  formats: [html, json]\noutgoing:\n  request_timeout: 5.0\n  max_request_timeout: 8.0\n'+ENGINE_YAML)
  if subprocess.run(['docker','inspect','searxng'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
   run(['docker','run','-d','--restart','unless-stopped','--name','searxng','-p',f'127.0.0.1:{searx_port}:8080','-v',str(settings)+':/etc/searxng','ghcr.io/searxng/searxng:latest'])
  app=root/'services/search';run(['python3','-m','venv',str(app/'.venv')]);run([str(app/'.venv/bin/pip'),'install','-r',str(app/'requirements.txt')])
  searchenv={k:v for k,v in env.items() if k.startswith('SEARCH_')}
  searchenv.update(OPENROUTER_API_KEY=env.get('SEARCH_OPENROUTER_API_KEY',''),PROXY_SECRET=key,SEARXNG_URL=f'http://127.0.0.1:{searx_port}',QUBITE_INTERNAL_URL=f'http://127.0.0.1:{app_port}',SERVICES_INTERNAL_KEY=key,QUBITE_PUBLIC_URL='https://'+main,QUBITE_HOST=main,SEARCH_PUBLIC_URL=search_url,DAILY_BUDGET_USD=env.get('SEARCH_DAILY_BUDGET_USD','.05'),DATA_DIR=str(base/'search-data'))
- (settings/'settings.yml').chmod(0o644)
+ (settings/'settings.yml').chmod(0o600)
  if not searchenv['OPENROUTER_API_KEY']:raise RuntimeError('Fill SEARCH_OPENROUTER_API_KEY first')
  private(app/'.env','\n'.join(k+'='+v for k,v in searchenv.items())+'\n')
  unit('qubite-search','Qubite AI search',f'{app}/.venv/bin/uvicorn app:app --host 127.0.0.1 --port {search_port} --workers 1 --no-access-log',str(app),user)

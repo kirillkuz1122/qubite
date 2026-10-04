@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ru" data-theme="calm">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>Qubite · Поиск</title><link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><link rel="search" type="application/opensearchdescription+xml" title="Qubite Search" href="/opensearch.xml"><link rel="stylesheet" href="/static/app.css"><script src="/static/icons.js"></script><script src="/static/branding.js" defer></script><script src="/static/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>Qubite · Поиск</title><link rel="icon" href="/static/favicon.svg" type="image/svg+xml"><link rel="search" type="application/opensearchdescription+xml" title="Qubite Search" href="/opensearch.xml"><link rel="stylesheet" href="/static/app.css"><script src="/static/icons.js"></script><script src="/static/branding.js" defer></script><script src="/static/search-tools.js" defer></script><script src="/static/app.js" defer></script></head>
 <body>
 <aside class="sidebar">
   <a class="brand" href="/" aria-label="Qubite, новый поиск"><svg
@@ -126,6 +126,12 @@
       <div class="welcome" id="welcome"><div class="welcome-kicker">QUBITE / ПОИСК</div><h1>Что хочешь найти?</h1><p>Поиск, источники и ответ — в одном месте.</p></div>
       <div class="search-block"><form class="search-form" id="search-form"><span class="ui-icon" data-icon="search" aria-hidden="true"></span><input id="query" name="query" type="search" maxlength="700" autocomplete="off" placeholder="Найти или задать вопрос…" aria-label="Поисковый запрос" required><button id="search-submit" type="submit" aria-label="Найти"><span class="ui-icon" data-icon="north" aria-hidden="true"></span></button></form>
       <div class="search-under"><span id="search-hint">Короткий ответ, когда он есть. ИИ — когда нужен.</span><button class="text-button" id="ai-toggle" aria-pressed="true">✧ ИИ включён</button></div></div>
+      <details id="search-filters" class="search-filters"><summary>Параметры поиска</summary><div class="filter-controls">
+        <label>Безопасный поиск<select id="safe-search"><option value="0">Выключен</option><option value="1" selected>Умеренный</option><option value="2">Строгий</option></select></label>
+        <label>Язык<select id="search-language"><option value="all">Все языки</option><option value="ru-RU">Русский</option><option value="en">Английский</option></select></label>
+        <label>Дата<select id="search-time"><option value="">Любая</option><option value="day">За сутки</option><option value="week">За неделю</option><option value="month">За месяц</option><option value="year">За год</option></select></label>
+        <label class="direct-images"><input id="direct-images" type="checkbox" checked> Загружать картинки напрямую</label>
+      </div><p class="filter-note">Прямую загрузку видит сайт картинки; при ошибке используется сервер. Фильтры безопасности и даты зависят от движка. Строгий режим исключает движки без такого фильтра.</p><fieldset id="engine-picker"><legend>Поисковые системы для текущей категории</legend><div id="engine-options"></div></fieldset><div class="filter-actions"><button id="apply-filters" type="button">Применить</button><button id="reset-filters" type="button">Сбросить</button><span id="filters-note" role="status"></span></div></details>
       <div class="starter-prompts" id="starter-prompts"><button>Что такое нейросеть</button><button>Hello world на русском</button><button>Как работает солнечная батарея?</button></div>
       <nav class="categories" id="categories" hidden aria-label="Тип результатов"><button data-category="general" class="active">Всё</button><button data-category="images">Картинки</button><button data-category="videos">Видео</button><button data-category="news">Новости</button></nav>
       <div id="notice" class="notice" role="status" hidden></div>
