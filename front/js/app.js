@@ -10204,7 +10204,7 @@ function renderAdminUsersSection(users) {
     }
 
     return `
-        ${isOwnerUser()?`<button class="btn btn--accent btn--sm" data-service-create-account>Пригласить пользователя</button><button class="btn btn--muted btn--sm" data-service-global-budget>Общий бюджет поиска</button>`:""}
+        ${isOwnerUser()?`<button class="btn btn--accent btn--sm" data-service-create-account>Пригласить пользователя</button><button class="btn btn--muted btn--sm" data-service-global-budget>Общий бюджет поиска</button><button class="btn btn--muted btn--sm" data-search-query-logs>Запросы поиска</button>`:""}
         <div class="ops-admin-list">
             ${users
                 .map((user) => {
@@ -10236,7 +10236,7 @@ function renderAdminUsersSection(users) {
                                 }
                                 ${!isProtected && user.status !== "deleted" ? `<button class="btn btn--muted btn--sm" data-admin-user-delete="${escapeHtml(user.id)}" title="Удалить аккаунт">Удалить</button>` : ""}
                             </div>
-                            ${isOwnerUser()&&!isProtected&&user.status!=="deleted"?`<div class="admin-service-controls" data-admin-services-login="${escapeHtml(user.login)}">Загружаем доступы…</div>`:""}
+                            ${isOwnerUser()&&user.status!=="deleted"?`<div class="admin-service-controls" data-admin-services-login="${escapeHtml(user.login)}">Загружаем доступы…</div>`:""}
                         </div>
                     `;
                 })
@@ -17370,8 +17370,17 @@ async function hydrateAdminServices(container){
   const [data,subs,me]=await Promise.all([serviceRequest('/api/owner/services/users'),serviceRequest('/api/admin/proxy-subscriptions'),serviceRequest('/api/services/me')]);
   if(container._serviceTicket!==ticket||!container.isConnected)return;
   for(const slot of container.querySelectorAll('[data-admin-services-login]')){
-   const u=data.users.find(x=>x.login===slot.dataset.adminServicesLogin);if(!u||u.role==='owner')continue;
+   const u=data.users.find(x=>x.login===slot.dataset.adminServicesLogin);if(!u)continue;
    slot.replaceChildren();
+   const logGroup=document.createElement('div');logGroup.className='service-access-actions';
+   const logLabel=document.createElement('strong');logLabel.textContent='Запросы: '+(u.access.search.logs_protected?'защищены от логов':'записываются');logGroup.append(logLabel);
+   const protect=document.createElement('button');protect.className='btn btn--muted btn--sm';protect.textContent=u.access.search.logs_protected?'Разрешить логи':'Защитить от логов';
+   protect.onclick=async()=>{protect.disabled=true;try{
+    await serviceRequest(`/api/owner/services/users/${u.id}/search-log-protection`,{protected:!u.access.search.logs_protected},'PUT');
+    await apiClient.loadAdminAudit();await hydrateAdminServices(container);
+   }catch(e){showRequestError('Журнал поиска',e);}finally{protect.disabled=false;}};logGroup.append(protect);
+   const queries=document.createElement('button');queries.className='btn btn--muted btn--sm';queries.textContent='Запросы поиска';queries.onclick=()=>showSearchQueryLogs(u);logGroup.append(queries);slot.append(logGroup);
+   if(u.role==='owner')continue;
    for(const [service,title] of [['search','Поиск'],['vault','Хранилище'],['vpn','VPN']]){
     const sub=service==='vpn'?subs.items.find(s=>s.user?.login===u.login&&s.type==='app'):null;
     const enabled=service==='vpn'?sub?.status==='active':u.access[service].enabled;
@@ -17398,6 +17407,7 @@ async function hydrateAdminServices(container){
   }
   const budgetButton=container.querySelector('[data-service-global-budget]');if(budgetButton&&!budgetButton._bound){budgetButton._bound=true;budgetButton.onclick=()=>showServiceGrantDialog({budget:me.searchBudgetUsd},'budget',null,()=>hydrateAdminServices(container));}
   const inviteButton=container.querySelector('[data-service-create-account]');if(inviteButton&&!inviteButton._bound){inviteButton._bound=true;inviteButton.onclick=()=>showServiceGrantDialog(null,'account',null,()=>hydrateAdminServices(container));}
+  const queryButton=container.querySelector('[data-search-query-logs]');if(queryButton&&!queryButton._bound){queryButton._bound=true;queryButton.onclick=()=>showSearchQueryLogs();}
  }catch(e){console.warn('Service controls:',e.message);}
 }
 function serviceDialog(title){
@@ -17407,6 +17417,13 @@ function serviceDialog(title){
  d.querySelector('header button').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());document.body.append(d);d.showModal();return d;
 }
 function showServiceLink(url){const d=serviceDialog('Одноразовое приглашение');const a=document.createElement('a');a.href=url;a.textContent=url;d.querySelector('.service-dialog__body').append(a);}
+async function showSearchQueryLogs(user){
+ const d=serviceDialog('Запросы поиска'+(user?' · @'+user.login:'')),body=d.querySelector('.service-dialog__body');body.textContent='Загружаем…';
+ try{
+  const data=await serviceRequest('/api/owner/services/search-logs'+(user?'?user_id='+user.id:''));if(!d.isConnected)return;
+  body.innerHTML='<p>До 100 последних запросов за 30 дней. Защита удаляет текст из этого журнала и останавливает новые записи. Личная история пользователя и учёт расходов — отдельно.</p>'+(data.items.length?`<div class="table-scroll"><table><thead><tr><th>Аккаунт</th><th>Запрос</th><th>Время</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${escapeHtml(x.login)}</td><td>${escapeHtml(x.query)}</td><td>${escapeHtml(formatDateTimeLabel(x.created))}</td></tr>`).join('')}</tbody></table></div>`:'<p>Сохранённых запросов в журнале нет.</p>');
+ }catch(e){if(d.isConnected)body.textContent=e.message;}
+}
 function showServiceGrantDialog(user,service,sub,refresh){
  const title={search:'Настройки поиска',vault:'Доступ к хранилищу',vpn:'Выдать VPN',account:'Пригласить пользователя',budget:'Общий бюджет поиска'}[service];
  const d=serviceDialog(title+(user?.login?' · @'+user.login:'')),body=d.querySelector('.service-dialog__body');

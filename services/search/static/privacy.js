@@ -9,7 +9,7 @@ function initPrivacy(){
  $('#use-context').checked=privacy.context;
  $('#save-history').onchange=async e=>{try{const result=await api('/api/history/settings',{enabled:e.target.checked},'PUT');privacy.save=result.enabled;await refreshMe();await refreshHistory();}catch(error){e.target.checked=privacy.save;notice(error.message);}};
  $('#use-context').onchange=e=>{privacy.context=e.target.checked;localStorage.setItem('qubite-privacy:'+state.me.user,JSON.stringify({context:privacy.context}));};
- $('#privacy-status').textContent='История '+(privacy.save?'включена и синхронизируется между устройствами.':'выключена. Новые запросы не сохраняются.');
+ $('#privacy-status').textContent='История '+(privacy.save?'включена и синхронизируется между устройствами.':'выключена. Новые запросы не добавляются в личную историю.');
 }
 async function privateRecords(){if(!state.me?.history_allowed)return [];return (await api('/api/history')).records;}
 async function savePrivateHistory(){

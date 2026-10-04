@@ -84,3 +84,51 @@ test('AI analytics are owner-only and map account ids without exposing history',
   assert.equal((await call('/api/owner/services/search-analytics?user=bad%20value',owner)).status,400);
  }finally{global.fetch=original;}
 });
+
+test('query logs are owner-only; protection purges text and keeps technical audit',async()=>{
+ const logs=require('../src/search-logs');
+ assert.equal((await services.permissions(owner)).services.search.logs_protected,true);
+ assert.equal((await services.permissions(friend)).services.search.logs_protected,false);
+ const event=(u,query,operation='web.search')=>call('/internal/services/event',null,{user:'qb:'+u.id,operation,status:200,query,token:'DO NOT STORE TOKEN'},'POST',{'x-qubite-service-key':'a'.repeat(64)});
+ await event(owner,'OWNER MUST NOT LEAK');await event(friend,'PRIVATE QUERY <script>alert(1)</script>');
+ assert.equal((await call('/api/owner/services/search-logs',friend)).status,403);
+ assert.equal((await call('/api/owner/services/search-logs',friend,undefined,'GET',{'x-test-preview':'owner'})).status,403);
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/search-log-protection',friend,{protected:true},'PUT')).status,403);
+ const list=(await call('/api/owner/services/search-logs?user_id='+friend.id,owner)).data.items;
+ assert.equal(list.length,1);assert.equal(list[0].query,'PRIVATE QUERY <script>alert(1)</script>');assert.equal(list[0].login,friend.login);
+ assert.equal((await call('/api/owner/services/search-logs?user_id='+owner.id,owner)).data.items.length,0);
+ const row=await get("SELECT al.*,u.login actor_login FROM audit_log al LEFT JOIN users u ON u.id=al.actor_user_id WHERE al.actor_user_id=? AND al.entity_id='web.search' ORDER BY al.id DESC LIMIT 1",[friend.id]);
+ assert.ok(JSON.parse(row.payload_json).query_log_id);assert.ok(!JSON.stringify(row).includes('PRIVATE QUERY'));assert.ok(!JSON.stringify(row).includes('DO NOT STORE TOKEN'));
+ assert.match((await logs.enrich([row],owner))[0].summary,/PRIVATE QUERY/);
+ assert.ok(!(await logs.enrich([row],friend))[0].summary.includes('PRIVATE QUERY'));
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/search-log-protection',owner,{protected:'true'},'PUT')).status,400);
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/search-log-protection',owner,{protected:true},'PUT')).status,200);
+ assert.equal((await services.permissions(friend)).services.search.logs_protected,true);
+ assert.equal((await get('SELECT count(*) n FROM search_query_logs WHERE user_id=?',[friend.id])).n,0);
+ assert.ok(!(await logs.enrich([row],owner))[0].summary.includes('PRIVATE QUERY'));
+ await event(friend,'PROTECTED MUST NOT LEAK');
+ assert.equal((await call('/api/owner/services/search-logs?user_id='+friend.id,owner)).data.items.length,0);
+ assert.ok(await get('SELECT id FROM audit_log WHERE id=?',[row.id]));
+ await call('/api/owner/services/users/'+friend.id+'/search-log-protection',owner,{protected:false},'PUT');
+ await event(friend,'AFTER ENABLE');await event(friend,'FETCH NOT A SEARCH','fetch.markdown');
+ assert.deepEqual((await call('/api/owner/services/search-logs?user_id='+friend.id,owner)).data.items.map(x=>x.query),['AFTER ENABLE']);
+ assert.equal((await call('/api/owner/services/search-logs?user_id=bad',owner)).status,400);
+});
+
+test('owner can change own log protection; racing writes cannot bypass it',async()=>{
+ const logs=require('../src/search-logs');
+ assert.equal((await call('/api/owner/services/users/'+owner.id+'/search-log-protection',owner,{protected:false},'PUT')).status,200);
+ assert.ok(await logs.record(owner.id,'web.search','OWNER OPTED IN'));
+ await Promise.all([...Array(12)].map((_,i)=>logs.record(owner.id,'web.search','RACE '+i)).concat(logs.setProtection(owner,owner,true)));
+ assert.equal(await logs.record(owner.id,'web.search','AFTER PROTECTION'),null);
+ assert.equal((await get('SELECT count(*) n FROM search_query_logs WHERE user_id=?',[owner.id])).n,0);
+ assert.equal((await services.permissions(owner)).services.search.logs_protected,true);
+});
+
+test('expired queries are removed even without a new search',async()=>{
+ const logs=require('../src/search-logs');
+ await new Promise((r,j)=>sql.run('INSERT INTO search_query_logs(user_id,operation,query,created) VALUES (?,?,?,?)',[friend.id,'web.search','EXPIRED QUERY','2000-01-01T00:00:00.000Z'],e=>e?j(e):r()));
+ const before=(await logs.list(owner,friend.id)).map(x=>x.query);assert.ok(!before.includes('EXPIRED QUERY'));assert.ok(before.includes('AFTER ENABLE'));
+ await logs.prune();assert.equal((await get('SELECT count(*) n FROM search_query_logs WHERE query=?',['EXPIRED QUERY'])).n,0);
+ assert.ok((await logs.list(owner,friend.id)).some(x=>x.query==='AFTER ENABLE'));
+});

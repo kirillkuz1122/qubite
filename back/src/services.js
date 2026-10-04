@@ -35,7 +35,7 @@ async function permissions(user){
  const result={user:'qb:'+user.id,id:user.id,login:user.login,owner:realOwner(user),services:{},urls:urls(),vpnAvailable:await require('./proxy/availability').available(),searchBudgetUsd:await globalBudget()};
  for(const name of ['search','vault']){
   const row=await get('SELECT * FROM service_access WHERE user_id=? AND service=?',[user.id,name]);
-  result.services[name]={enabled:result.owner||Boolean(row?.enabled),...(name==='search'?limits(row?JSON.parse(row.config):{}):{} )};
+  result.services[name]={enabled:result.owner||Boolean(row?.enabled),...(name==='search'?{...limits(row?JSON.parse(row.config):{}),logs_protected:await require('./search-logs').protectedFor(user)}:{} )};
   if(result.owner&&name==='search')Object.assign(result.services[name],{paid:true,history:true,daily_requests:null,hourly_requests:null,daily_usd:null,monthly_usd:null,lifetime_usd:null});
  }
  return result;
@@ -103,6 +103,7 @@ function register(app,deps){
   if(!/^qb:[0-9]+$/.test(user||'')||!allowed.includes(operation)||!Number.isInteger(status)||status<100||status>599)return res.status(400).json({error:'Некорректное событие.'});
   const uid=Number(user.slice(3));if(!await getUserById(uid))return res.status(400).json({error:'Нет аккаунта.'});
   const details={service:'search',operation,status};if(Number.isFinite(elapsed_ms))details.elapsed_ms=Math.max(0,Math.min(600000,Math.round(elapsed_ms)));if(Number.isFinite(cost_usd))details.cost_usd=Math.max(0,Math.min(100,cost_usd));
+  const queryLog=await require('./search-logs').record(uid,operation,req.body.query);if(queryLog)details.query_log_id=queryLog;
   await (auditWriter||require('./db').createAuditLog)({actorUserId:uid,action:'search.'+(status>=400?'error':'operation'),entityType:'search_service',entityId:operation,summary:'Поиск: '+operation+' · HTTP '+status,payload:details});res.json({ok:true});
  }catch(e){next(e);}});
  app.get('/internal/services/session',internalKey,requireAuth,async(req,res,next)=>{try{res.set('Cache-Control','no-store').json(await permissions(req.auth.user));}catch(e){next(e);}});
@@ -118,6 +119,17 @@ function register(app,deps){
   for(const u of users)u.access=(await permissions(u)).services;
   res.json({users});
  }catch(e){next(e);}});
+ app.get('/api/owner/services/search-logs',requireAuth,requireOwner,async(req,res,next)=>{try{
+  const id=req.query.user_id===undefined?null:Number(req.query.user_id);
+  if(id!==null&&(!Number.isSafeInteger(id)||id<1))return res.status(400).json({error:'Некорректный аккаунт.'});
+  res.set('Cache-Control','no-store').json({items:await require('./search-logs').list(req.auth.user,id,req.query.limit)});
+ }catch(e){next(e);}});
+ app.put('/api/owner/services/users/:id/search-log-protection',requireAuth,requireOwner,async(req,res,next)=>{try{
+  const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Некорректный аккаунт.'});
+  const user=await getUserById(id);if(!user)return res.status(404).json({error:'Пользователь не найден.'});
+  const result=await require('./search-logs').setProtection(req.auth.user,user,req.body.protected);
+  await audit(req.auth.user.id,user.id,'search:logs:'+(result.protected?'protected':'enabled'));res.json(result);
+ }catch(e){e.status?res.status(e.status).json({error:e.message}):next(e);}});
  app.put('/api/owner/services/users/:id/:service',requireAuth,requireOwner,async(req,res,next)=>{try{
   await initialize();const id=Number(req.params.id),name=req.params.service;
   if(!Number.isSafeInteger(id)||!['search','vault'].includes(name))return res.status(400).json({error:'Некорректный сервис.'});

@@ -158,6 +158,8 @@ Qubite управляет доступами к SearXNG/ИИ-поиску и Ali
 
 Поиск сначала даёт короткий ответ быстрой моделью, подробности открываются отдельно в чате. Для агентов доступны отзываемые API-ключи: поиск с Markdown, список источников, чтение страницы и отдельное право на историю собственного аккаунта. Инструкция, CLI, MCP и переносимый skill: [docs/search-api.md](docs/search-api.md).
 
+Owner видит служебный журнал запросов поиска в админке. Для каждого аккаунта есть «Защитить от логов»; владельцы защищены по умолчанию. Журнал отделён от личной истории и биллинга: [docs/services.md](docs/services.md).
+
 Новый компонентный установщик: `sudo bash deploy/install.sh`; выбор platform/search/vault и белого IP либо Cloudflare Tunnel. VPN-ноды добавляются через прежний раздел Прокси, даже если основной сервер доступен только через Cloudflare. На таком master пользовательский VPN остаётся недоступен до появления активной внешней ноды с heartbeat.
 
 Инструкции и проверенные границы: [docs/services.md](docs/services.md), [docs/design-system.md](docs/design-system.md). Проверки: `node --test back/tests/services.test.js`, `python3 -m unittest discover -s deploy/services/tests`; поиск имеет отдельные pytest-тесты. Внешние секреты хранятся в `.env`/runtime, в Git — только `.env.example`.

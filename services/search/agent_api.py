@@ -62,7 +62,7 @@ def register(app,a):
                     job['stage']='Сжимаем данные'
                     result=await summarize(user,body.query,documents(docs),body.verify,jid);result.update(query=body.query,search_query=search.get('search_query',body.query),sources=source_rows(docs),search_id=search['id'],warnings=search['unresponsive_engines'])
             job.update(status='done',result=result)
-            asyncio.create_task(a['log_event'](user,'search.'+body.mode,200,cost_usd=result.get('cost_usd')))
+            asyncio.create_task(a['log_event'](user,'search.'+body.mode,200,cost_usd=result.get('cost_usd'),query=body.query))
         except (a['UpstreamError'],LimitError) as e:
             job.update(status='error',error=str(e));asyncio.create_task(a['log_event'](user,'model.error',503))
         except Exception as e:

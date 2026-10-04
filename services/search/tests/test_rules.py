@@ -38,6 +38,25 @@ def test_authentication_and_spoofing(client):
     assert client.get('/api/history',headers={'x-qubite-user':'friend'}).status_code==403
     assert len(client.get('/api/me',headers={'x-qubite-user':'friend'}).json()['models'])==1
 
+def test_query_audit_bridge_respects_protection_and_omits_secrets(monkeypatch):
+    sent=[]
+    class Client:
+        def __init__(self,*a,**kw):pass
+        async def __aenter__(self):return self
+        async def __aexit__(self,*args):pass
+        async def post(self,url,**kw):
+            sent.append(kw['json'])
+            return type('Response',(),{'status_code':200})()
+    monkeypatch.setattr(app,'QUBITE_URL','http://localhost.test')
+    monkeypatch.setattr(app,'QUBITE_KEY','unused-test-key')
+    monkeypatch.setattr(app.httpx,'AsyncClient',Client)
+    monkeypatch.setattr(app,'profiles',{'qb:46':{'logs_protected':False},'qb:47':{'logs_protected':True}})
+    for user in ['qb:46','qb:47','qb:48']:
+        asyncio.run(app.log_event(user,'web.search',query='PRIVATE QUERY'))
+    assert sent[0]['query']=='PRIVATE QUERY'
+    assert 'query' not in sent[1] and 'query' not in sent[2]
+    assert all('token' not in event and 'history' not in event for event in sent)
+
 def test_cookie_session_persists_and_logout_revokes(client):
     token=app.store.create_browser_session('kirill')
     headers={'x-qubite-user':'','cookie':app.SESSION_COOKIE+'='+token}

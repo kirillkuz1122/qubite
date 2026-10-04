@@ -2541,7 +2541,7 @@ async function buildAdminWorkspaceBootstrap(req) {
         adminTasks: adminTasks.map(serializeAdminTask),
         adminTournaments: adminTournaments.map(serializeAdminTournament),
         adminApplications: adminApplications.map(serializeOrganizerApplication),
-        adminAudit: adminAudit.map(serializeAuditEntry),
+        adminAudit: (await require('./src/search-logs').enrich(adminAudit, req.auth.user)).map(serializeAuditEntry),
     };
 }
 
@@ -9348,7 +9348,7 @@ app.get("/api/admin/audit", requireAdmin, async (req, res, next) => {
     try {
         const items = await listAuditLog(80);
         res.json({
-            items: items.map(serializeAuditEntry),
+            items: (await require('./src/search-logs').enrich(items, req.auth.user)).map(serializeAuditEntry),
         });
     } catch (error) {
         next(error);

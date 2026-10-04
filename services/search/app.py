@@ -288,7 +288,7 @@ async def search(request: Request, body: SearchBody):
     cleanup()
     rate(request.state.user,'search',30,300)
     result=await perform_search(request.state.user,body)
-    asyncio.create_task(log_event(request.state.user,'web.search',200))
+    asyncio.create_task(log_event(request.state.user,'web.search',200,query=body.query))
     return result
 
 async def openrouter(user, endpoint, body, input_rate, output_rate=0):
@@ -335,11 +335,14 @@ async def openrouter(user, endpoint, body, input_rate, output_rate=0):
             raise UpstreamError('Много запросов к моделям. Подожди минуту.')
 
 
-async def log_event(user,operation,status=200,elapsed_ms=None,cost_usd=None):
+async def log_event(user,operation,status=200,elapsed_ms=None,cost_usd=None,query=None):
     if not QUBITE_URL or not QUBITE_KEY or not user.startswith('qb:'):return
     try:
         async with httpx.AsyncClient(timeout=3,trust_env=False) as client:
-            r=await client.post(QUBITE_URL+'/internal/services/event',json={'user':user,'operation':operation,'status':status,'elapsed_ms':elapsed_ms,'cost_usd':cost_usd},headers={'X-Qubite-Service-Key':QUBITE_KEY,'Host':os.environ.get('QUBITE_HOST','qubiteapp.online')})
+            event={'user':user,'operation':operation,'status':status,'elapsed_ms':elapsed_ms,'cost_usd':cost_usd}
+            # Defense in depth; the platform independently checks the latest flag.
+            if query is not None and not profiles.get(user,{}).get('logs_protected',True):event['query']=query[:700]
+            r=await client.post(QUBITE_URL+'/internal/services/event',json=event,headers={'X-Qubite-Service-Key':QUBITE_KEY,'Host':os.environ.get('QUBITE_HOST','qubiteapp.online')})
         if r.status_code!=200:logger.warning('Service audit delivery failed: HTTP %s',r.status_code)
     except Exception:logger.warning('Service audit delivery unavailable')
 
