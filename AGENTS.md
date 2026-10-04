@@ -220,3 +220,7 @@
 - `back/src/telegram/handlers/services.js`: owner-only private-chat меню `/services`, бюджеты и grants через общие domain-функции. Exact reply/TTL защищают prompts от взаимного перехвата; регистрировать этот обработчик перед proxy/support message handlers. Telegram OAuth выключается отдельно от TELEGRAM_ENABLED.
 
 - `back/src/service-api.js`, `services/search/agent_api.py`: scoped/revocable search keys, API search/fetch/history; `integrations/qubite-search/` содержит MCP и переносимый skill. Токены никогда не добавлять в git, URLs или логи.
+
+- `services/search/grounding.py`: текущая UTC-дата, даты источников и один Jev для проверки ответа/визуализаций. Статусы advisory: не гарантировать истинность сайта, не запускать автоматические платные повторы. Free-only аккаунты не должны вызывать платную проверку.
+- `/api/owner/services/search-analytics` → `/internal/analytics`: агрегаты ledger по моделям/аккаунтам/UTC-дням, только owner и внутренние секреты. Старые суммы сохраняются с неизвестной моделью.
+- `integrations/kwork/`: независимый private bot, polling отдельно от worker. 👍/👎 — примеры предпочтений в SQLite, не обучение весов; не смешивать предыдущие отклики с контекстом новых заказов.

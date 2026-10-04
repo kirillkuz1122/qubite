@@ -12,6 +12,7 @@ import httpx
 import trafilatura
 from bs4 import BeautifulSoup
 from spellchecker import SpellChecker
+from grounding import page_dates, utc_date
 
 UA = 'QubiteSearch/1.0 (personal research; compatible; +https://search.qubiteapp.online)'
 LIMIT = 1500000
@@ -72,9 +73,10 @@ async def read_page(item):
     hit = cache.get(url)
     if hit and time.time()-hit[0] < (900 if hit[1]['status']=='read' else 60):
         return hit[1].copy()
-    result = {'url': url, 'title': item.get('title', url), 'status': 'unread', 'text': '', 'snippet': item.get('content', '')[:900]}
+    result = {'url': url, 'title': item.get('title', url), 'status': 'unread', 'text': '', 'snippet': item.get('content', '')[:900], 'retrieved_at': utc_date(), 'published_at': item.get('published_at')}
     try:
         body, ct, final = await fetch_public(url)
+        if ct=='text/html':result.update(page_dates(body))
         if ct in ('text/plain','text/markdown'):
             text = body.decode('utf-8', 'replace')
         else:

@@ -22,6 +22,7 @@ from markdown_it import MarkdownIt
 from pydantic import BaseModel, Field
 from retrieval import Spelling, fetch_public, plain, read_page, translation_intent, validate_url, wikipedia
 from store import Store, LimitError
+from grounding import RULES, context as grounding_context, current_intent, search_query as dated_query, date_value, public_verification, warnings_for, verify
 
 ROOT = Path(__file__).resolve().parent
 for line in (ROOT/'.env').read_text().splitlines() if (ROOT/'.env').exists() else []:
@@ -89,8 +90,14 @@ async def access(request: Request, call_next):
     user = request.headers.get('x-qubite-user', '')
     if not PROXY_SECRET or not secrets.compare_digest(secret, PROXY_SECRET):
         return JSONResponse({'detail':'Доступ только через защищённый вход.'}, status_code=401)
-    if request.url.path=='/internal/stats':
+    if request.url.path in ('/internal/stats','/internal/analytics'):
         if not QUBITE_KEY or not secrets.compare_digest(request.headers.get('x-qubite-service-key',''),QUBITE_KEY):return JSONResponse({'detail':'Forbidden'},status_code=403)
+        if request.url.path=='/internal/analytics':
+            try:days=max(1,min(90,int(request.query_params.get('days','30'))))
+            except ValueError:return JSONResponse({'detail':'Invalid days'},status_code=400)
+            selected=request.query_params.get('user')
+            if selected and (len(selected)>100 or not re.fullmatch(r'[a-zA-Z0-9_:.-]+',selected)):return JSONResponse({'detail':'Invalid user'},status_code=400)
+            return JSONResponse(store.analytics(days,selected))
         return JSONResponse(store.usage())
     if request.url.path.startswith('/api/v1/'):
         token=request.headers.get('authorization','')
@@ -216,7 +223,7 @@ def cleanup():
 def me(request: Request):
     user = request.state.user
     p=profiles.get(user,{})
-    return {'owner':is_owner(user),'user':user,'login':p.get('login',user),'paid':can_paid(user),'history_allowed':can_history(user),'history_enabled':store.history_enabled(user),
+    return {'owner':is_owner(user),'user':user,'login':p.get('login',user),'paid':can_paid(user),'history_allowed':can_history(user),'history_enabled':store.history_enabled(user),'verification_enabled':store.verification_enabled(user),
         'models':[{'id':k,'label':v['label'],'input':v['input'],'output':v['output']} for k,v in MODELS.items()] if can_paid(user) else [{'id':'free','label':MODELS['free']['label']}],
         'budget':store.usage() if is_owner(user) else None,
         'guest_remaining':store.guest_remaining(user,p.get('daily_requests',GUEST_DAILY)),
@@ -236,9 +243,9 @@ async def perform_search(user, body,record=True):
     if body.category not in ('general','images','videos','news'):
         raise HTTPException(400,'Неизвестная категория.')
     corrected = await asyncio.to_thread(spell.correct,query) if body.correct and spell else query
-    search_query = corrected
+    search_query = dated_query(corrected) if body.category in ('general','news') else corrected
     translate = translation_intent(query)
-    candidate_task = asyncio.create_task(wikipedia(corrected)) if body.page==1 and body.category=='general' and not translate else None
+    candidate_task = asyncio.create_task(wikipedia(corrected)) if body.page==1 and body.category=='general' and not translate and not current_intent(query) else None
     try:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(SEARXNG+'/search',params={'q':search_query[:700],'format':'json','categories':body.category,'pageno':body.page,'language':'all','safesearch':1})
@@ -254,9 +261,9 @@ async def perform_search(user, body,record=True):
             continue
         results.append({'title':plain(item.get('title'))[:350],'url':item['url'],'content':plain(item.get('content'))[:1800],
             'thumbnail':item.get('thumbnail') or item.get('img_src'),'image':item.get('img_src'),
-            'engine':item.get('engine',''),'category':body.category})
+            'engine':item.get('engine',''),'category':body.category,'published_at':date_value(item.get('publishedDate') or item.get('published_date'))})
     candidate = await candidate_task if candidate_task else None
-    if not candidate and body.category=='general':
+    if not candidate and body.category=='general' and not current_intent(query):
         for info in data.get('infoboxes',[])[:2]:
             url = next((u.get('url') for u in info.get('urls',[]) if isinstance(u,dict) and u.get('url')),None)
             if url and info.get('content'):
@@ -268,13 +275,13 @@ async def perform_search(user, body,record=True):
                 break
     sid = uuid.uuid4().hex
     value = {'id':sid,'created':time.time(),'user':user,'query':query,'search_query':search_query,
-        'corrected':corrected,'corrections':[plain(x) for x in data.get('corrections',[]) if x][:3],
+        **grounding_context(query),'corrected':corrected,'corrections':[plain(x) for x in data.get('corrections',[]) if x][:3],
         'suggestions':[plain(x) for x in data.get('suggestions',[])][:8],
         'candidate':candidate,'translation':translate,'results':results,'category':body.category,'page':body.page,
         'unresponsive_engines':[[plain(x[0]),plain(x[1])] for x in data.get('unresponsive_engines',[])][:8]}
     searches[sid] = value
     if record and can_history(user):store.record_search(user,value)
-    return {k:v for k,v in value.items() if k not in ('user','created','task')}
+    return {k:v for k,v in value.items() if k not in ('user','created','task','verification_input','verification_lock','manual_verified','verification_attempted')}
 
 @app.post('/api/search')
 async def search(request: Request, body: SearchBody):
@@ -289,6 +296,7 @@ async def openrouter(user, endpoint, body, input_rate, output_rate=0):
     raw = json.dumps(body,ensure_ascii=False)
     estimate = (len(raw.encode('utf-8'))*input_rate+body.get('max_tokens',0)*output_rate)/1e6
     ticket = store.reserve(user,endpoint,estimate)
+    store.annotate(ticket,body.get('model','unknown'))
     async with model_semaphore:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(100,connect=10)) as c:
@@ -297,13 +305,13 @@ async def openrouter(user, endpoint, body, input_rate, output_rate=0):
                     keyr.raise_for_status()
                     remaining=keyr.json()['data'].get('limit_remaining')
                     if remaining is not None and float(remaining)<estimate:
-                        store.settle(ticket,0)
+                        store.settle(ticket,0,status='error')
                         raise LimitError('Лимит выделенного ключа закончился. Поиск остаётся доступен.')
                 rate('all','models',15,60)
                 r=await c.post('https://openrouter.ai/api/'+endpoint,headers={'Authorization':'Bearer '+KEY,
                     'HTTP-Referer':'https://search.qubiteapp.online','X-Title':'Qubite Search','Content-Type':'application/json'},json=body)
                 if r.status_code>=400:
-                    store.settle(ticket,0)
+                    store.settle(ticket,0,status='error')
                     if r.status_code==402:
                         raise LimitError('OpenRouter: дневной лимит или баланс исчерпан. Поиск остаётся доступен.')
                     if r.status_code==429:
@@ -318,12 +326,12 @@ async def openrouter(user, endpoint, body, input_rate, output_rate=0):
                     actual=(usage.get('prompt_tokens',0)*input_rate+usage.get('completion_tokens',0)*output_rate)/1e6 if usage else None
                 if input_rate==output_rate==0:
                     actual=0
-                store.settle(ticket,float(actual) if actual is not None else None)
+                store.settle(ticket,float(actual) if actual is not None else None,provider=str(d.get('provider') or (body.get('provider',{}).get('only') or [''])[0]))
                 return d
         except (httpx.HTTPError,ValueError,KeyError):
             raise UpstreamError('Нет связи с OpenRouter. Обычный поиск доступен.')
         except HTTPException:
-            store.settle(ticket,0)
+            store.settle(ticket,0,status='error')
             raise UpstreamError('Много запросов к моделям. Подожди минуту.')
 
 
@@ -334,6 +342,14 @@ async def log_event(user,operation,status=200,elapsed_ms=None,cost_usd=None):
             r=await client.post(QUBITE_URL+'/internal/services/event',json={'user':user,'operation':operation,'status':status,'elapsed_ms':elapsed_ms,'cost_usd':cost_usd},headers={'X-Qubite-Service-Key':QUBITE_KEY,'Host':os.environ.get('QUBITE_HOST','qubiteapp.online')})
         if r.status_code!=200:logger.warning('Service audit delivery failed: HTTP %s',r.status_code)
     except Exception:logger.warning('Service audit delivery unavailable')
+
+async def verify_answer(user,query,answer,documents,truncated=False,enabled=True):
+    if not enabled:
+        return {'status':'not_checked','label':'Проверка Jev выключена.','warnings':warnings_for(query,answer,documents,truncated),'cost_usd':0,'retry_recommended':False}
+    result=await verify(user,query,answer,documents,paid=can_paid(user),call=openrouter,truncated=truncated)
+    if can_paid(user) and result['status']=='not_checked':
+        asyncio.create_task(log_event(user,'model.error',503,cost_usd=result.get('cost_usd')))
+    return result
 
 async def classify(user, search, context):
     d=await openrouter(user,'alpha/decisions',{'model':os.environ.get('SEARCH_JEV_MODEL','typesafe/jev-1.13'),
@@ -457,6 +473,8 @@ class AnswerBody(BaseModel):
     model: str = 'auto'
     conversation: str | None = None
     context: list[dict] = Field(default_factory=list,max_length=4)
+    verify: bool | None = None
+    regenerate: bool = False
     force: bool = False
     detail: bool = True
     history_available: bool = False
@@ -474,6 +492,9 @@ TRANSLATION_SYSTEM = '''Ты — переводчик. Верни только J
 Например: text="hello world", target="ru" → answer_markdown="Привет, мир!".
 Если исходный текст уже на целевом языке, верни его без пояснений.'''
 
+SYSTEM += '\n'+RULES
+BRIEF_SYSTEM += '\n'+RULES
+
 async def build_answer(jid,user,body,search):
     job=jobs[jid]
     try:
@@ -489,11 +510,15 @@ async def build_answer(jid,user,body,search):
             if body.model!='auto':
                 mode=body.model
             candidate=search.get('candidate')
-            if candidate and ready>=.85 and not search.get('translation') and not search['query'].rstrip().endswith(('?','？')) and not body.force and body.model=='auto' and not context:
+            if candidate and not current_intent(search['query']) and ready>=.85 and not search.get('translation') and not search['query'].rstrip().endswith(('?','？')) and not body.force and body.model=='auto' and not context:
                 sources=[{'id':1,'title':candidate['title'],'url':candidate['url'],'status':'read','kind':candidate.get('kind','search'),'snippet':candidate['text']}]
                 text=candidate['text']+' [1]'
                 result={'kind':'extract','answer_markdown':text,'answer_html':render_answer(text,sources),'sources':sources,
                     'visuals':[],'images':[],'model':None,'provider':None,'routing':routing,'overview':candidate['text'],'cost':routing.get('cost') or 0}
+                job['verification_input']={'query':search['query'],'answer':text,'documents':[{**sources[0],'markdown':candidate['text']}]}
+                result['verification_id']=jid
+                result['verification']=await verify_answer(user,**job['verification_input'],enabled=store.verification_enabled(user) if body.verify is None else body.verify)
+                result['cost']+=result['verification']['cost_usd']
                 job.update(status='done',result=result)
                 return
         else:
@@ -507,7 +532,7 @@ async def build_answer(jid,user,body,search):
             except asyncio.TimeoutError:return {'url':item['url'],'title':item['title'],'status':'unread','text':'','snippet':item.get('content','')}
         docs=[]
         if not search.get('translation'):
-            docs=await asyncio.gather(*(bounded_page(x) for x in search['results'][:n])) if body.detail else [dict(url=x['url'],title=x['title'],status='unread',text='',snippet=x.get('content','')) for x in search['results'][:3]]
+            docs=await asyncio.gather(*(bounded_page(x) for x in search['results'][:n])) if body.detail else [dict(url=x['url'],title=x['title'],status='unread',text='',snippet=x.get('content',''),published_at=x.get('published_at')) for x in search['results'][:3]]
         candidate=search.get('candidate')
         if candidate and not search.get('translation') and candidate['url'] not in {x['url'] for x in docs}:
             docs.insert(0,{'title':candidate['title'],'url':candidate['url'],'status':'read','text':candidate['text'],'snippet':candidate['text']})
@@ -515,7 +540,7 @@ async def build_answer(jid,user,body,search):
         for index,d in enumerate(docs,1):
             sources.append({k:v for k,v in dict(d,id=index).items() if k!='text'})
             documents.append({'id':index,'title':d['title'],'url':d['url'],'status':d['status'],
-                'markdown':d['text'][:8000] if d['status']=='read' else 'ТОЛЬКО ПОИСКОВЫЙ ФРАГМЕНТ: '+d.get('snippet','')})
+                'published_at':d.get('published_at'),'modified_at':d.get('modified_at'),'retrieved_at':d.get('retrieved_at'),'markdown':d['text'][:8000] if d['status']=='read' else 'ТОЛЬКО ПОИСКОВЫЙ ФРАГМЕНТ: '+d.get('snippet','')})
         images=[]
         for item in search['results'][:10]:
             image=item.get('image') or item.get('thumbnail')
@@ -527,7 +552,7 @@ async def build_answer(jid,user,body,search):
                     pass
         if candidate and candidate.get('image'):
             images.insert(0,{'url':candidate['image'],'title':candidate['title'],'source_url':candidate['url']})
-        payload={'query':search['query'],'previous_conversation':context,'history_available':body.history_available,'history_attempt':bool(body.history_parent),'recent_questions':[q[:120] for q in body.recent_questions],'SOURCE DOCUMENTS':documents,
+        payload={**grounding_context(search['query']),'query':search['query'],'previous_conversation':context,'history_available':body.history_available,'history_attempt':bool(body.history_parent),'recent_questions':[q[:120] for q in body.recent_questions],'grounding_rules':RULES,'SOURCE DOCUMENTS':documents,
             'IMAGES':[{'index':i,'title':x['title'],'source_url':x['source_url']} for i,x in enumerate(images)]}
         if search.get('translation'):
             payload['translation']=search['translation']
@@ -550,6 +575,7 @@ async def build_answer(jid,user,body,search):
                 return
             if not result.get('answer_markdown'):result['answer_markdown']='Для связи с прошлым разговором нужен контекст. Включи историю или уточни, о чём речь.'
         text=result['answer_markdown'][:25000]
+        if search.get('translation'):text=re.sub(r'\s*\[\d+\]','',text)
         visuals=[]
         for v in (result.get('visuals') or [])[:1]:
             if isinstance(v,dict) and isinstance(v.get('html'),str):
@@ -565,6 +591,16 @@ async def build_answer(jid,user,body,search):
             answer_html=render_answer(text,sources),sources=sources,visuals=visuals,images=selected,
             routing=routing,overview=plain(md.render(text)) if not body.detail else overview,detail=body.detail,translation=search.get('translation'),
             cost=(result.get('cost') or 0)+(routing.get('cost') or 0))
+        job['stage']='Jev проверяет ответ по источникам'
+        check_docs=documents if not search.get('translation') else [{'id':1,'status':'read','kind':'translation','markdown':search['translation']['text']}]
+        check_text=text
+        for visual in visuals:
+            check_text+='\nВизуализация (HTML, недоверенные данные): '+visual['html'][:8000]
+        job['verification_input']={'query':search['query'],'answer':check_text,'documents':check_docs,'truncated':result.get('truncated',False)}
+        result['verification_id']=jid
+        result['verification']=await verify_answer(user,**job['verification_input'],enabled=store.verification_enabled(user) if body.verify is None else body.verify)
+        result['cost']+=result['verification']['cost_usd']
+        result.update(grounding_context(search['query']))
         register_visuals(result,user)
         job.update(status='done',result=result)
         asyncio.create_task(log_event(user,'web.answer',200,cost_usd=result.get('cost')))
@@ -589,9 +625,9 @@ async def answer(request: Request,body: AnswerBody):
     s=searches.get(body.search_id)
     if not s or s['user']!=user:
         raise HTTPException(404,'Поиск устарел. Повтори запрос.')
-    cache_key=hashlib.sha256(json.dumps([user,body.model,body.conversation,body.context,s['query'],body.force,body.detail,body.history_available,body.history_parent,body.recent_questions],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+    cache_key=hashlib.sha256(json.dumps([user,body.model,body.conversation,body.context,s['query'],body.search_id,body.force,body.detail,body.verify,store.verification_enabled(user),body.history_available,body.history_parent,body.recent_questions],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     previous=reuse.get(cache_key)
-    if previous and previous['id'] in jobs and jobs[previous['id']]['status']!='error':
+    if not body.regenerate and previous and previous['id'] in jobs and jobs[previous['id']]['status']!='error':
         return {'id':previous['id'],'reused':True}
     if any(j['user']==user and j['status']=='running' for j in jobs.values()):
         raise HTTPException(429,'Предыдущий ответ ещё готовится.')
@@ -642,12 +678,46 @@ async def select_history(request: Request,body: HistorySelectBody):
     job['history_selected']=ids
     return {'ids':ids}
 
+class VerificationSettings(BaseModel):
+    enabled: bool
+
+@app.put('/api/settings/verification')
+def verification_settings(request:Request,body:VerificationSettings):
+    store.set_verification_enabled(request.state.user,body.enabled)
+    return {'enabled':body.enabled}
+
+async def run_verification(jid,user,key_id=None):
+    cleanup();j=jobs.get(jid)
+    if not j or j.get('user')!=user or j.get('key_id')!=key_id:raise HTTPException(404,'Ответ для проверки устарел или недоступен.')
+    if not can_paid(user):raise HTTPException(403,'Проверка Jev требует разрешения платных моделей.')
+    if j.get('status')!='done' or not j.get('verification_input'):raise HTTPException(409,'Ответ ещё не готов для проверки.')
+    rate(user,'verification',6,300)
+    async with j.setdefault('verification_lock',asyncio.Lock()):
+        current=j['result'].get('verification',{})
+        if j.get('manual_verified') or time.time()-j.get('verification_attempted',0)<30 or current.get('status') in ('supported','uncertain','unsupported'):return j['result']
+        result=await verify_answer(user,**j['verification_input'])
+        j['verification_attempted']=time.time();j['manual_verified']=result['status']!='not_checked';j['result']['verification']=result
+        if 'markdown' in j['result']:
+            text=j['verification_input']['answer']
+            j['result']['markdown']=text if result['status']=='supported' else '> '+result['label']+'\n\n'+text
+        cost_field='cost_usd' if 'cost_usd' in j['result'] else 'cost'
+        j['result'][cost_field]=(j['result'].get(cost_field) or 0)+result['cost_usd']
+        asyncio.create_task(log_event(user,'web.answer',200,cost_usd=result['cost_usd']))
+        return j['result']
+
+class CheckAnswer(BaseModel):
+    job_id: str=Field(min_length=32,max_length=32,pattern=r'^[a-f0-9]{32}$')
+
+@app.post('/api/verify')
+async def check_answer(request:Request,body:CheckAnswer):
+    return await run_verification(body.job_id,request.state.user)
+
 @app.get('/api/jobs/{jid}')
 def job(request: Request,jid: str):
     j=jobs.get(jid)
     if not j or j['user']!=request.state.user:
         raise HTTPException(404,'Ответ не найден.')
-    return {k:v for k,v in j.items() if k not in ('user','created','task')}
+    return {k:v for k,v in j.items() if k not in ('user','created','task','verification_input','verification_lock','manual_verified','verification_attempted')}
 
 def history_permission(request):
     if not can_history(request.state.user):raise HTTPException(403,'Владелец не разрешил сохранение истории.')
@@ -695,6 +765,11 @@ def safe_chat_turns(turns,user):
         result={'answer_markdown':text,'answer_html':render_answer(text,sources),'sources':sources,'kind':str(data.get('kind','ai'))[:30],
             'overview':plain(md.render(text))[:650],'model':str(data.get('model') or '')[:100],'provider':str(data.get('provider') or '')[:100],
             'detail':data.get('detail',True),'cost':0,'visuals':[],'images':[]}
+        check=public_verification(data.get('verification'))
+        if check:result['verification']=check
+        vid=str(data.get('verification_id') or '')
+        if re.fullmatch(r'[a-f0-9]{32}',vid):result['verification_id']=vid
+        result['truncated']=bool(data.get('truncated'))
         for visual in (data.get('visuals') or [])[:1]:
             if isinstance(visual,dict) and isinstance(visual.get('html'),str):result['visuals'].append({'title':str(visual.get('title','Визуализация'))[:120],'html':isolate_visual(visual['html']),'source_ids':[]})
         cleaned.append({'query':turn['query'][:700],'result':result})

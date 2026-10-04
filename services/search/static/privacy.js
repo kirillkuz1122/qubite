@@ -2,6 +2,8 @@
 const privacy={save:false,context:true};
 function initPrivacy(){
  try{privacy.context=JSON.parse(localStorage.getItem('qubite-privacy:'+state.me.user)||'{}').context!==false;}catch{}
+ $('#verify-answers').checked=!!state.me.verification_enabled&&state.me.paid;$('#verify-answers').disabled=!state.me.paid;
+ $('#verify-answers').onchange=async e=>{const previous=state.me.verification_enabled;state.me.verification_enabled=e.target.checked;try{await api('/api/settings/verification',{enabled:e.target.checked},'PUT');await refreshMe();}catch(error){state.me.verification_enabled=previous;e.target.checked=!!previous;notice(error.message);}};
  privacy.save=!!state.me.history_enabled&&state.me.history_allowed;
  $('#save-history').checked=privacy.save;$('#save-history').disabled=!state.me.history_allowed;
  $('#use-context').checked=privacy.context;

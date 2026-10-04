@@ -41,8 +41,10 @@ def call(path,payload=None):
         raise APIError('HTTP '+str(error.code)+': '+str(detail)) from None
     except (URLError,TimeoutError):raise APIError('Qubite connection failed') from None
 
-def search(query,mode='summary',limit=4):
-    result=call('/api/v1/search',{'query':query,'mode':mode,'limit':limit})
+def search(query,mode='summary',limit=4,verify=None):
+    payload={'query':query,'mode':mode,'limit':limit}
+    if verify is not None:payload['verify']=verify
+    result=call('/api/v1/search',payload)
     if result.get('job_id'):
         job_id=result['job_id'];deadline=time.monotonic()+100
         while time.monotonic()<deadline:
@@ -52,7 +54,12 @@ def search(query,mode='summary',limit=4):
         raise APIError('Job is still pending: '+job_id+'; query /api/v1/jobs/<id> later')
     return result
 
-def fetch(url,mode='markdown'):return call('/api/v1/fetch',{'url':url,'mode':mode})
+def fetch(url,mode='markdown',verify=None):
+    payload={'url':url,'mode':mode}
+    if verify is not None:payload['verify']=verify
+    return call('/api/v1/fetch',payload)
+
+def verification(result_id,source='search'):return call('/api/v1/'+('fetch/' if source=='fetch' else '')+'verify/'+quote(result_id,safe=''),{})
 def history(item_id=None):return call('/api/v1/history'+('/'+quote(item_id,safe='') if item_id else ''))
 
 def main():
@@ -60,10 +67,13 @@ def main():
     sub=parser.add_subparsers(dest='command',required=True)
     p=sub.add_parser('search');p.add_argument('query');p.add_argument('--mode',choices=['summary','sources'],default='summary');p.add_argument('--limit',type=int,default=4)
     p=sub.add_parser('fetch');p.add_argument('url');p.add_argument('--mode',choices=['markdown','summary','html'],default='markdown')
+    for command in ('search','fetch'):
+        group=sub.choices[command].add_mutually_exclusive_group();group.add_argument('--verify',dest='verify',action='store_true');group.add_argument('--no-verify',dest='verify',action='store_false');sub.choices[command].set_defaults(verify=None)
+    p=sub.add_parser('verify');p.add_argument('result_id');p.add_argument('--source',choices=['search','fetch'],default='search')
     p=sub.add_parser('history');p.add_argument('id',nargs='?')
     args=parser.parse_args()
     try:
-        result=search(args.query,args.mode,args.limit) if args.command=='search' else fetch(args.url,args.mode) if args.command=='fetch' else history(args.id)
+        result=search(args.query,args.mode,args.limit,args.verify) if args.command=='search' else fetch(args.url,args.mode,args.verify) if args.command=='fetch' else verification(args.result_id,args.source) if args.command=='verify' else history(args.id)
         print(json.dumps(result,ensure_ascii=False,indent=2))
     except APIError as error:print(str(error),file=sys.stderr);return 1
     return 0

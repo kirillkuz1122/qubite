@@ -4,7 +4,7 @@ import os
 import sqlite3
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -35,11 +35,17 @@ class Store:
             CREATE INDEX IF NOT EXISTS attempt_day ON attempts(user, day);
             CREATE TABLE IF NOT EXISTS encrypted_history(id TEXT PRIMARY KEY, user TEXT NOT NULL, ciphertext TEXT NOT NULL, updated REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS history_salts(user TEXT PRIMARY KEY, salt TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS answer_preferences(user TEXT PRIMARY KEY,verify_enabled INTEGER NOT NULL DEFAULT 1,created REAL NOT NULL,updated REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS history_preferences(user TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,updated REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS search_events(id TEXT PRIMARY KEY,user TEXT NOT NULL,query TEXT NOT NULL,results TEXT NOT NULL,created REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS search_events_user_time ON search_events(user,created);
             CREATE TABLE IF NOT EXISTS browser_sessions(token_hash TEXT PRIMARY KEY, user TEXT NOT NULL, expires REAL NOT NULL, created REAL NOT NULL);
             ''')
+            columns = {row[1] for row in c.execute('PRAGMA table_info(ledger)')}
+            for name, default in [('model','legacy/unknown'), ('provider',''), ('status','legacy')]:
+                if name not in columns:
+                    c.execute(f"ALTER TABLE ledger ADD COLUMN {name} TEXT NOT NULL DEFAULT '{default}'")
+            c.execute('CREATE INDEX IF NOT EXISTS ledger_user_day ON ledger(user,day)')
         os.chmod(self.path, 0o600)
 
     def connect(self):
@@ -80,14 +86,34 @@ class Store:
                     total=c.execute('SELECT COALESCE(SUM(reserved+cost),0) FROM ledger WHERE user=? AND '+where,[user]+args).fetchone()[0]
                     if total+amount>limit+1e-9:raise LimitError('Твой лимит расходов на ИИ исчерпан. Обычный поиск доступен.')
             key = uuid.uuid4().hex
-            c.execute('INSERT INTO ledger VALUES (?,?,?,?,?,?,?)', (key, day(), user, kind, amount, 0, time.time()))
+            c.execute('INSERT INTO ledger(id,day,user,kind,reserved,cost,created) VALUES (?,?,?,?,?,?,?)', (key, day(), user, kind, amount, 0, time.time()))
             return key
 
-    def settle(self, key, actual):
+    def settle(self, key, actual, status='success', provider=''):
         # Unknown cost after a connection loss stays reserved; never assume it was free.
         if actual is not None:
             with self.connect() as c:
-                c.execute('UPDATE ledger SET reserved=0,cost=? WHERE id=?', (max(0, actual), key))
+                c.execute('UPDATE ledger SET reserved=0,cost=?,status=?,provider=? WHERE id=?', (max(0, actual), status, provider[:100], key))
+
+    def annotate(self, key, model):
+        with self.connect() as c:
+            c.execute("UPDATE ledger SET model=?,status='pending' WHERE id=?", (str(model)[:150], key))
+
+    def analytics(self, days=30, user=None):
+        days = max(1, min(90, int(days)))
+        start = (datetime.now(timezone.utc).date()-timedelta(days=days-1)).isoformat()
+        where = 'day>=?'; args = [start]
+        if user:
+            where += ' AND user=?'; args.append(user)
+        fields = "COUNT(*) AS calls, SUM(status='success') AS successful, SUM(status='error') AS failed, SUM(status='pending') AS pending, COALESCE(SUM(cost),0) AS cost_usd, COALESCE(SUM(reserved),0) AS reserved_usd"
+        with self.connect() as c:
+            total = dict(c.execute('SELECT '+fields+' FROM ledger WHERE '+where, args).fetchone())
+            today = dict(c.execute('SELECT '+fields+' FROM ledger WHERE '+where+' AND day=?', args+[day()]).fetchone())
+            daily = [dict(r) for r in c.execute('SELECT day,'+fields+' FROM ledger WHERE '+where+' GROUP BY day ORDER BY day', args)]
+            users = [dict(r) for r in c.execute('SELECT user,'+fields+' FROM ledger WHERE '+where+' GROUP BY user ORDER BY cost_usd DESC', args)]
+            models = [dict(r) for r in c.execute('SELECT model,provider,'+fields+' FROM ledger WHERE '+where+' GROUP BY model,provider ORDER BY cost_usd DESC', args)]
+            by_user_model = [dict(r) for r in c.execute('SELECT user,model,provider,'+fields+' FROM ledger WHERE '+where+' GROUP BY user,model,provider ORDER BY cost_usd DESC', args)]
+        return {'timezone':'UTC','days':days,'from':start,'today':today,'totals':total,'daily':daily,'users':users,'models':models,'user_models':by_user_model,'selected_user':user}
 
     def usage(self):
         with self.connect() as c:
@@ -170,6 +196,15 @@ class Store:
             c.execute('INSERT OR IGNORE INTO history_salts VALUES (?,?)',(user,secrets.token_hex(16)))
             return c.execute('SELECT salt FROM history_salts WHERE user=?',(user,)).fetchone()[0]
 
+
+    def verification_enabled(self,user):
+        with self.connect() as c:
+            row=c.execute('SELECT verify_enabled FROM answer_preferences WHERE user=?',(user,)).fetchone()
+        return bool(row[0]) if row else True
+
+    def set_verification_enabled(self,user,enabled):
+        with self.connect() as c:
+            c.execute('INSERT INTO answer_preferences VALUES (?,?,?,?) ON CONFLICT(user) DO UPDATE SET verify_enabled=excluded.verify_enabled,updated=excluded.updated',(user,int(enabled),time.time(),time.time()))
 
     def history_enabled(self,user):
         with self.connect() as c:

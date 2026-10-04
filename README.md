@@ -163,3 +163,5 @@ Qubite управляет доступами к SearXNG/ИИ-поиску и Ali
 Инструкции и проверенные границы: [docs/services.md](docs/services.md), [docs/design-system.md](docs/design-system.md). Проверки: `node --test back/tests/services.test.js`, `python3 -m unittest discover -s deploy/services/tests`; поиск имеет отдельные pytest-тесты. Внешние секреты хранятся в `.env`/runtime, в Git — только `.env.example`.
 
 Telegram: `/services` и `/service_user <логин>` — owner-only grants/лимиты/приглашения/управление хранилищем и общим бюджетом. Web- и Telegram-контуры используют общие domain-функции. Telegram OAuth по умолчанию отключён независимо от управляющего бота.
+
+Поиск проверяет ответы одним вызовом Jev и показывает сомнения без автоматических платных повторов. В «Аналитике» владельца доступны расходы ИИ по моделям/аккаунтам и личные графики; подробности — [сервисы](docs/services.md) и [API](docs/search-api.md). Исходники независимого Kwork-бота с обратной связью 👍/👎 находятся в `integrations/kwork/`.

@@ -84,6 +84,12 @@ async function searchUsage(){
  if(!response.ok)throw new Error('Статистика поиска пока недоступна.');return response.json();
 }
 
+async function searchAnalytics(days=30,user=''){
+ const q=new URLSearchParams({days:String(Math.max(1,Math.min(90,Number(days)||30)))});if(user)q.set('user',user);
+ const response=await fetch((process.env.SEARCH_INTERNAL_URL||'http://127.0.0.1:9120')+'/internal/analytics?'+q,{headers:{'X-Qubite-Proxy':process.env.SERVICES_INTERNAL_KEY||'','X-Qubite-Service-Key':process.env.SERVICES_INTERNAL_KEY||''},signal:AbortSignal.timeout(5000)});
+ if(!response.ok)throw new Error('Аналитика поиска пока недоступна.');return response.json();
+}
+
 function register(app,deps){
  auditWriter=deps.createAuditLog;
  const {requireAuth,authRateLimiter,createUser,findUserByLoginOrEmail,getUserById,updateUserPassword,createSession,sessionCookieOptions,SESSION_COOKIE_NAME,SESSION_TTL_MS}=deps;
@@ -101,6 +107,12 @@ function register(app,deps){
  }catch(e){next(e);}});
  app.get('/internal/services/session',internalKey,requireAuth,async(req,res,next)=>{try{res.set('Cache-Control','no-store').json(await permissions(req.auth.user));}catch(e){next(e);}});
  app.get('/api/services/me',requireAuth,async(req,res,next)=>{try{res.json(await permissions(req.auth.user));}catch(e){next(e);}});
+ app.get('/api/owner/services/search-analytics',requireAuth,requireOwner,async(req,res,next)=>{try{
+  const user=String(req.query.user||'');if(user&&!/^[a-zA-Z0-9_:.-]{1,100}$/.test(user))return res.status(400).json({error:'Некорректный пользователь.'});
+  const data=await searchAnalytics(req.query.days,user);const users=await listUsers();
+  const names=new Map(users.map(u=>['qb:'+u.id,u.login]));for(const row of data.users)row.login=names.get(row.user)||row.user;data.selected_login=names.get(user)||user;
+  res.set('Cache-Control','no-store').json(data);
+ }catch(e){next(e);}});
  app.get('/api/owner/services/users',requireAuth,requireOwner,async(req,res,next)=>{try{
   const users=await listUsers();
   for(const u of users)u.access=(await permissions(u)).services;
@@ -137,4 +149,4 @@ function register(app,deps){
  require('./service-api').register(app,{requireAuth,internalKey});
  require('./vault-integration').register(app,{permissions,requireAuth,requireOwner,getUserById,audit,internalKey});
 }
-module.exports={initialize,permissions,limits,realOwner,invite,register,listUsers,setAccess,createAccount,inviteExisting,deleteVault,globalBudget,setGlobalBudget,searchUsage,audit};
+module.exports={initialize,permissions,limits,realOwner,invite,register,listUsers,setAccess,createAccount,inviteExisting,deleteVault,globalBudget,setGlobalBudget,searchUsage,searchAnalytics,audit};

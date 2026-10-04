@@ -12726,3 +12726,13 @@ body.loading {
 .service-form>h3{grid-column:1/-1}.service-form.service-user{border-bottom:1px solid var(--glass-border);padding:var(--space-lg)}
 /* Account services reuse the existing operations workspace tokens. */
 .admin-service-controls{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:var(--space-md);padding-top:var(--space-md);border-top:1px solid var(--border)}.service-access-actions{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-xs)}.service-access-actions strong{font-size:12px;color:var(--fg-muted)}.my-services-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-lg)}.my-services-grid .input{width:100%}.service-device{display:flex;align-items:center;gap:var(--space-xs);flex-wrap:wrap;font-size:12px;padding:var(--space-xs) 0}.service-dialog{background:var(--bg-1,#0b1220);color:var(--fg,#e2e8f0);border:1px solid var(--border,rgba(255,255,255,.1));border-radius:16px;padding:0;width:min(640px,calc(100vw - 32px));max-height:90vh}.service-dialog::backdrop{background:#0009;backdrop-filter:blur(8px)}.service-dialog__header{padding:var(--space-lg);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}.service-dialog__body{padding:var(--space-lg);overflow-wrap:anywhere}.service-form-status,.service-form-note{grid-column:1/-1}.service-subscription-focus{outline:2px solid var(--accent-from);outline-offset:4px}.service-dialog .service-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-md)}.service-dialog .service-check{grid-column:1/-1}@media(max-width:900px){.my-services-grid{grid-template-columns:1fr}}@media(max-width:520px){.service-dialog .service-form{grid-template-columns:1fr}.service-dialog__body,.service-dialog__header{padding:var(--space-md)}}
+
+/* Owner AI service analytics: scoped so existing tournament charts keep their layout. */
+#searchAiAnalytics .analytics-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:20px 0}
+#searchAiAnalytics .admin-home-chart-wrap{height:240px!important;min-height:240px!important}
+#searchAiAnalytics .admin-home-chart-wrap canvas{height:240px!important}
+#searchAiAnalytics .table-scroll{overflow-x:auto;max-width:100%;margin:16px 0}
+#searchAiAnalytics table{width:100%;min-width:580px;border-collapse:collapse}
+#searchAiAnalytics th,#searchAiAnalytics td{padding:12px;text-align:left;border-bottom:1px solid rgba(128,128,128,.2)}
+#searchAiAnalytics .card__head p,#searchAiAnalytics>p{color:var(--fg-muted);font-size:13px;line-height:1.6}
+@media(max-width:850px){#searchAiAnalytics .analytics-grid-2{grid-template-columns:minmax(0,1fr)}}

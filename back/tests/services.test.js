@@ -68,3 +68,19 @@ test('search events appear in native audit without queries, history or credentia
  assert.equal((await call('/internal/services/event',null,{...body,operation:'arbitrary.query'},'POST',{'x-qubite-service-key':'a'.repeat(64)})).status,400);
  const grant=await get("SELECT * FROM audit_log WHERE action='services.search.grant' ORDER BY id DESC LIMIT 1");assert.ok(grant);
 });
+
+test('AI analytics are owner-only and map account ids without exposing history',async()=>{
+ const original=global.fetch;let calls=0;
+ global.fetch=async(url,options)=>{
+  if(String(url).includes('/internal/analytics?')){calls++;assert.equal(options.headers['X-Qubite-Service-Key'],'a'.repeat(64));return {ok:true,json:async()=>({users:[{user:'qb:'+friend.id,calls:2,cost_usd:.001}],models:[],daily:[],totals:{calls:2,cost_usd:.001},today:{calls:2,cost_usd:.001},user_models:[]})};}
+  return original(url,options);
+ };
+ try{
+  assert.equal((await call('/api/owner/services/search-analytics',friend)).status,403);
+  assert.equal((await call('/api/owner/services/search-analytics',friend,undefined,'GET',{'x-test-preview':'owner'})).status,403);
+  assert.equal(calls,0);
+  const result=await call('/api/owner/services/search-analytics?user=qb:'+friend.id,owner);
+  assert.equal(result.status,200);assert.equal(result.data.selected_login,friend.login);assert.equal(result.data.users[0].login,friend.login);assert.equal(calls,1);
+  assert.equal((await call('/api/owner/services/search-analytics?user=bad%20value',owner)).status,400);
+ }finally{global.fetch=original;}
+});

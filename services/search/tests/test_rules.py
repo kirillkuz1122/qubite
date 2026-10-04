@@ -13,8 +13,16 @@ os.environ['QUBITE_INTERNAL_URL']=''
 os.environ['SERVICES_INTERNAL_KEY']='test-internal-key'
 from fastapi.testclient import TestClient
 import app
+ORIGINAL_VERIFY=app.verify_answer
 from store import Store,LimitError
 from retrieval import translation_intent,pinned_url,Spelling
+
+@pytest.fixture(autouse=True)
+def offline_verification(monkeypatch):
+    # Legacy routing tests do not perform paid network requests. Dedicated grounding
+    # tests exercise the decision call and verdict gates; integration tests can override.
+    async def check(*args,**kwargs):return {'status':'not_checked','label':'Offline test','warnings':[],'cost_usd':0,'retry_recommended':False}
+    monkeypatch.setattr(app,'verify_answer',check)
 
 @pytest.fixture
 def client(tmp_path,monkeypatch):
@@ -142,7 +150,7 @@ def test_translation_has_separate_prompt_and_no_search_injection(tmp_path,monkey
         assert messages[0]['content']==app.TRANSLATION_SYSTEM
         assert 'SOURCE DOCUMENTS' not in messages[1]['content']
         assert json.loads(messages[1]['content'])['text']=='hello world'
-        return {'answer_markdown':'Привет, мир!','visuals':[],'model':'free','provider':'test','cost':0}
+        return {'answer_markdown':'Привет, мир [9]!','visuals':[],'model':'free','provider':'test','cost':0}
     import json
     monkeypatch.setattr(app,'classify',classify);monkeypatch.setattr(app,'complete',complete)
     search=make_search('hello world на русском')
@@ -404,3 +412,97 @@ def test_agent_api_identity_sources_no_ai_and_history_isolation(client,monkeypat
     app.jobs['foreign']={'user':'qb:2','key_id':'different-key','status':'done','result':{}}
     assert client.get('/api/v1/jobs/foreign',headers=headers).status_code==404
     assert calls[-1]['consume'] is False
+
+def test_browser_answer_includes_verification_cost_and_dates(monkeypatch):
+    captured=[]
+    async def complete(*args,**kwargs):return {'answer_markdown':'Факт [1]','model':'test','provider':'test','cost':.001,'visuals':[]}
+    async def check(user,query,answer,documents,**kwargs):
+        captured.append(documents);return {'status':'uncertain','label':'Сомнение','warnings':['Проверить дату'],'cost_usd':.0001,'retry_recommended':True}
+    monkeypatch.setattr(app,'complete',complete);monkeypatch.setattr(app,'verify_answer',check)
+    search=make_search('Факт?');search['candidate']=None
+    app.jobs['verified']={'status':'running'}
+    asyncio.run(app.build_answer('verified','kirill',app.AnswerBody(search_id='s',detail=False),search))
+    result=app.jobs['verified']['result']
+    assert len(captured)==1 and result['verification']['status']=='uncertain'
+    assert result['cost']==pytest.approx(.0011) and result['current_date_utc']
+    clean=app.safe_chat_turns([{'query':'Факт?','result':result}],'kirill')[0]['result']
+    assert clean['verification']['retry_recommended'] and clean['verification']['warnings']==['Проверить дату']
+
+
+def test_regeneration_bypasses_answer_cache_only_when_requested(client,monkeypatch):
+    async def build(jid,*args):app.jobs[jid].update(status='done',result={'answer_markdown':'Ответ'})
+    monkeypatch.setattr(app,'build_answer',build)
+    app.searches['reg']={**make_search('Факт?'),'created':time.time(),'user':'kirill'}
+    body={'search_id':'reg','detail':False}
+    one=client.post('/api/answer',json=body).json()['id']
+    assert client.post('/api/answer',json=body).json()['id']==one
+    two=client.post('/api/answer',json={**body,'regenerate':True}).json()['id']
+    assert one!=two
+
+
+def test_internal_analytics_requires_both_secrets(client):
+    assert client.get('/internal/analytics').status_code==403
+    assert client.get('/internal/analytics',headers={'x-qubite-service-key':'wrong'}).status_code==403
+    r=client.get('/internal/analytics',headers={'x-qubite-service-key':'test-internal-key'})
+    assert r.status_code==200 and 'models' in r.json() and 'daily' in r.json()
+
+def test_agent_summary_exposes_one_check_and_total_cost(client,monkeypatch):
+    import httpx,json,agent_api
+    monkeypatch.setattr(app,'QUBITE_URL','http://platform.test');monkeypatch.setattr(app,'QUBITE_KEY','internal-key')
+    original=httpx.AsyncClient
+    async def transport(request):
+        return httpx.Response(200,json={'user':'qb:1','login':'owner','owner':True,'key_id':'key-owner','searchBudgetUsd':.05,'services':{'search':{'enabled':True,'paid':True,'history':True}}})
+    monkeypatch.setattr(app.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(transport)))
+    async def search(user,body,record=True):return {'id':'test','search_query':'модели 2026-10','results':[{'title':'Test','url':'https://example.org','content':'GPT test'}],'unresponsive_engines':[]}
+    async def read(item):return {**item,'status':'read','text':'GPT test','published_at':'2026-10-03'}
+    async def complete(user,mode,messages,**kwargs):
+        payload=json.loads(messages[1]['content']);assert payload['current_date_utc'] and payload['SOURCE DOCUMENTS'][0]['published_at']
+        return {'answer_markdown':'Факт [1]','model':'test','provider':'test','cost':.001}
+    calls=[]
+    async def check(*args,**kwargs):
+        calls.append(args);return {'status':'unsupported','label':'Возможная галлюцинация','warnings':[],'cost_usd':.0001,'retry_recommended':True,'agent_instruction':'Уточните запрос'}
+    monkeypatch.setattr(app,'perform_search',search);monkeypatch.setattr(agent_api,'read_page',read);monkeypatch.setattr(app,'complete',complete);monkeypatch.setattr(app,'verify_answer',check)
+    response=client.post('/api/v1/search',json={'query':'топ моделей сейчас'},headers={'authorization':'Bearer qbs_'+'a'*43})
+    data=response.json();assert response.status_code==200 and len(calls)==1
+    assert data['verification']['status']=='unsupported' and data['verification']['agent_instruction']
+    assert data['cost_usd']==pytest.approx(.0011) and data['generation_cost_usd']==.001
+    assert data['sources'][0]['published_at']=='2026-10-03' and data['search_query']=='модели 2026-10'
+
+def test_verification_preference_is_per_account_and_persistent(client,tmp_path,monkeypatch):
+    assert client.get('/api/me').json()['verification_enabled'] is True
+    assert client.put('/api/settings/verification',json={'enabled':False}).json()=={'enabled':False}
+    assert client.get('/api/me').json()['verification_enabled'] is False
+    assert client.get('/api/me',headers={'x-qubite-user':'friend'}).json()['verification_enabled'] is True
+    assert Store(app.store.path.parent).verification_enabled('kirill') is False
+    assert not app.store.history_enabled('kirill') # preference never opts into history
+
+
+def test_manual_check_uses_original_evidence_once_and_is_owned(client,monkeypatch):
+    jid='c'*32;calls=[]
+    app.jobs[jid]={'user':'kirill','created':time.time(),'status':'done','result':{'answer_markdown':'Ответ [1]','cost':.001,'verification':{'status':'not_checked'}},'verification_input':{'query':'Вопрос','answer':'Ответ [1]','documents':[{'id':1,'markdown':'Исходный текст'}]}}
+    async def check(*args,**kwargs):calls.append(kwargs['documents']);return {'status':'supported','label':'Подтверждён','warnings':[],'cost_usd':.0001,'retry_recommended':False}
+    monkeypatch.setattr(app,'verify_answer',check)
+    assert client.post('/api/verify',json={'job_id':jid},headers={'x-qubite-user':'friend'}).status_code==404
+    one=client.post('/api/verify',json={'job_id':jid});two=client.post('/api/verify',json={'job_id':jid})
+    assert one.status_code==two.status_code==200 and len(calls)==1
+    assert one.json()['cost']==pytest.approx(.0011) and calls[0][0]['markdown']=='Исходный текст'
+    assert 'verification_input' not in client.get('/api/jobs/'+jid).json()
+
+
+def test_manual_api_check_cannot_cross_keys_or_run_for_free_guest(monkeypatch):
+    from fastapi import HTTPException
+    jid='d'*32
+    app.jobs[jid]={'user':'qb:2','key_id':'key-one','created':time.time(),'status':'done','result':{},'verification_input':{}}
+    with pytest.raises(HTTPException) as e:asyncio.run(app.run_verification(jid,'qb:2','key-two'))
+    assert e.value.status_code==404
+    monkeypatch.setattr(app,'can_paid',lambda user:False)
+    with pytest.raises(HTTPException) as e:asyncio.run(app.run_verification(jid,'qb:2','key-one'))
+    assert e.value.status_code==403
+
+
+def test_disabled_verification_never_calls_paid_router(monkeypatch):
+    calls=[]
+    async def forbidden(*args,**kwargs):calls.append(args);raise AssertionError('Paid request')
+    monkeypatch.setattr(app,'openrouter',forbidden);monkeypatch.setattr(app,'verify_answer',ORIGINAL_VERIFY)
+    result=asyncio.run(app.verify_answer('kirill','Вопрос','Ответ [1]',[{'id':1,'status':'read','markdown':'Ответ'}],enabled=False))
+    assert not calls and result['status']=='not_checked' and result['cost_usd']==0 and 'выключена' in result['label']

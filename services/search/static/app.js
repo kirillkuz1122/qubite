@@ -118,8 +118,13 @@ $('#clear-history').addEventListener('click',async()=>{
   try{await api('/api/history',{},'DELETE');await refreshHistory();reset();toast('История удалена');}catch(e){notice(e.message);}
 });
 
+function directURL(query){
+  if(/\s/.test(query)||!(/^(https?:\/\/|www\.)/i.test(query)||/^(?:[a-z0-9а-яё-]+(?:\.[a-z0-9а-яё-]+)*\.[a-zа-яё]{2,}|(?:\d{1,3}\.){3}\d{1,3})(?:[/:?#]|$)/i.test(query)))return null;
+  try{const u=new URL(/^https?:\/\//i.test(query)?query:'https://'+query);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}
+}
 async function submitSearch(options={}){
   const query=$('#query').value.trim()||(options.navigation?state.search?.query:'');if(!query)return;
+  const destination=directURL(query);if(destination&&!options.navigation){location.assign(destination);return;}
   const follow=state.view==='ai'&&state.turns.length>0&&!options.navigation;
   if(!follow&&!options.navigation)history.replaceState({},'', '/search?q='+encodeURIComponent(query));
   if(!follow&&!options.navigation){state.conversation=null;state.turns=[];renderChat();}
@@ -198,10 +203,10 @@ function renderOverview(result){
   const foot=node('div','overview-footer'),chips=node('div','source-chips');
   for(const source of result.sources.slice(0,3)){const a=node('a','source-chip',domain(source.url));a.href=safeURL(source.url);a.target='_blank';a.rel='noopener noreferrer';chips.append(a);}
   const button=node('button','more-button','Подробнее ↗');button.addEventListener('click',()=>{setView('ai');if(!result.detail){startAnswer(state.generation,false,true);return;}$('#conversation').lastElementChild?.scrollIntoView({behavior:'smooth',block:'start'});});
-  foot.append(chips,button);box.append(foot);
+  foot.append(chips,button);box.append(foot);renderVerification(box,result,()=>regenerateTurn(state.turns.at(-1)));
 }
 
-async function startAnswer(seq,follow=false,force=false){
+async function startAnswer(seq,follow=false,force=false,options={}){
   if(!state.search||seq!==state.generation)return;
   state.pending=true;$('#search-submit').disabled=true;$('#ai-empty').hidden=true;
   $('#overview').hidden=state.view!=='search';$('#overview').replaceChildren(pending('Проверяем краткий ответ'));
@@ -209,7 +214,7 @@ async function startAnswer(seq,follow=false,force=false){
   const query=state.search.query;
   try{
     const body={search_id:state.search.id,model:state.me.paid?$('#model').value:'free',conversation:null,
-      context:[],history_available:privacy.context&&(state.turns.length>0||privacy.save&&state.me.history_allowed),recent_questions:privacy.context?state.turns.slice(-2).map(t=>t.query.slice(0,120)):[],force:force||state.view==='ai',detail:force||state.view==='ai'};
+      context:[],history_available:privacy.context&&(state.turns.length>0||privacy.save&&state.me.history_allowed),recent_questions:privacy.context?state.turns.slice(-2).map(t=>t.query.slice(0,120)):[],force:force||state.view==='ai',detail:options.detail??(force||state.view==='ai'),verify:state.me.verification_enabled,regenerate:!!options.regenerate};
     let job=await api('/api/answer',body);
     let result;
     for(let count=0;count<200;count++){
@@ -243,6 +248,30 @@ async function startAnswer(seq,follow=false,force=false){
     $('#chat-pending').hidden=state.view!=='ai';
   }finally{if(seq===state.generation){state.pending=false;$('#search-submit').disabled=false;$('#ai-empty').hidden=!!state.turns.length;}}
 }
+function renderVerification(parent,result,retry){
+  const v=result.verification;if(!v)return;
+  const box=node('section','verification verification-'+v.status);box.setAttribute('aria-label','Проверка ответа');
+  box.append(node('p','',v.label));
+  for(const warning of v.warnings||[])box.append(node('small','',warning));
+  if(v.cost_usd)box.append(node('small','','Проверка: $'+Number(v.cost_usd).toFixed(6)));
+  if(v.retry_recommended){const b=node('button','more-button','Перегенерировать');b.title='Новый ответ и проверка расходуют лимит';b.addEventListener('click',retry);box.append(b);}
+  if(v.status==='not_checked'&&state.me.paid&&result.verification_id){const b=node('button','more-button','Проверить Jev');b.title='Один платный вызов проверки, без новой генерации';b.addEventListener('click',()=>checkExistingAnswer(result,b));box.append(b);}
+  parent.append(box);
+}
+async function checkExistingAnswer(result,button){
+  if(button.disabled)return;button.disabled=true;button.textContent='Jev проверяет…';
+  try{const checked=await api('/api/verify',{job_id:result.verification_id});Object.assign(result,checked);await savePrivateHistory();renderChat();if(state.view==='search')renderOverview(result);await refreshMe();}
+  catch(e){toast(e.message);button.disabled=false;button.textContent='Проверить Jev';}
+}
+async function regenerateTurn(turn){
+  if(!turn||state.pending)return;
+  const seq=++state.generation;state.pending=true;
+  try{
+    if(!state.search||state.search.query!==turn.query){state.search=await api('/api/search',{query:turn.query,category:'general',page:1,correct:false});}
+    if(seq!==state.generation)return;
+    await startAnswer(seq,false,true,{regenerate:true,detail:turn.result.detail!==false});
+  }catch(e){notice(e.message);}finally{if(seq===state.generation)state.pending=false;}
+}
 function visualFrame(v){
   const iframe=node('iframe');iframe.src='/api/visual/'+encodeURIComponent(v.id);iframe.title=v.title;iframe.setAttribute('sandbox','allow-scripts');iframe.setAttribute('referrerpolicy','no-referrer');iframe.loading='lazy';return iframe;
 }
@@ -252,6 +281,7 @@ function renderChat(){
     const r=turn.result,article=node('article','turn');article.append(node('h2','turn-question',turn.query));
     const meta=node('div','answer-meta');meta.append(node('span','',r.kind==='extract'?'◈':'✧'),node('span','',modelName(r)));if(r.cost)meta.append(node('span','','$'+r.cost.toFixed(5)));article.append(meta);
     const answer=node('div','answer');answer.innerHTML=r.answer_html.replaceAll('href="#source-','href="#turn-'+index+'-source-');article.append(answer);
+    renderVerification(article,r,()=>regenerateTurn(turn));
     if(r.truncated)article.append(node('p','notice','Ответ прервался на лимите модели. Можно запросить продолжение в чате.'));
     if(r.images?.length){
       const images=node('div','answer-images');for(const image of r.images){const figure=node('figure'),a=node('a');a.href=safeURL(image.source_url);a.target='_blank';a.rel='noopener noreferrer';const img=node('img');img.src=imageURL(image.url);img.alt=image.title;img.loading='lazy';img.addEventListener('error',()=>figure.remove());a.append(img);figure.append(a,node('figcaption','',image.title));images.append(figure);}article.append(images);

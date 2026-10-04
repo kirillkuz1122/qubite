@@ -7105,6 +7105,7 @@ function renderAnalyticsView() {
             </div>
 
             <div class="ops-stack">
+                ${isOwnerUser()?'<section class="card dash-card" id="searchAiAnalytics"><p>Загружаем аналитику ИИ…</p></section>':''}
                 <div class="kpi-grid">
                     ${renderOpsMetricCard({
                         icon: "analytics",
@@ -7245,6 +7246,7 @@ function destroyAnalyticsCharts() {
 }
 
 async function initAnalyticsInteractions(container) {
+    void initSearchAiAnalytics(container);
     const visitsCanvas = container.querySelector('#analyticsVisitsChart');
     if (!visitsCanvas) return;
 
@@ -17462,4 +17464,36 @@ async function showSearchApiKeys(userId){
  const reload=async()=>{const data=await serviceRequest('/api/services/search-keys'+suffix);list.replaceChildren();for(const key of data.keys){const row=document.createElement('div');row.className='service-device';const text=document.createElement('span');text.textContent=key.name+' · '+key.prefix+'… · '+key.scopes.join(', ')+' · '+(key.revoked_at?'отозван':(key.daily_requests??'без лимита')+' /день');row.append(text);if(!key.revoked_at){const b=document.createElement('button');b.className='btn btn--danger btn--sm';b.textContent='Отозвать';b.onclick=async()=>{try{await serviceRequest('/api/services/search-keys/'+key.id+suffix,{},'DELETE');await reload();}catch(e){form.querySelector('[role=status]').textContent=e.message;}};row.append(b);}list.append(row);}};
  form.onsubmit=async e=>{e.preventDefault();const data=new FormData(form),button=form.querySelector('[type=submit]');button.disabled=true;try{const result=await serviceRequest('/api/services/search-keys',{name:data.get('name'),scopes:['search','fetch',...(data.has('history')?['history']:[])],daily_requests:data.get('daily_requests')===''?null:Number(data.get('daily_requests')),...(userId?{user_id:userId}:{})},'POST');const label=document.createElement('label');label.className='field';label.textContent='Скопируй сейчас: после закрытия ключ не показывается';const input=document.createElement('input');input.className='input';input.readOnly=true;input.value=result.token;label.append(input);const copy=document.createElement('button');copy.type='button';copy.className='btn btn--muted';copy.textContent='Копировать ключ';copy.onclick=async()=>{try{await navigator.clipboard.writeText(input.value);copy.textContent='Скопировано';}catch{input.select();}};form.after(label,copy);await reload();}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};
  try{await reload();}catch(e){form.querySelector('[role=status]').textContent=e.message;}
+}
+
+// Owner-only aggregates contain counts/costs, never search text or chat content.
+let searchAiCharts=[],searchAiGeneration=0,searchAiSelectedUser='';
+async function initSearchAiAnalytics(container,user=searchAiSelectedUser){
+ searchAiSelectedUser=user;
+ const root=container.querySelector('#searchAiAnalytics');if(!root||!isOwnerUser())return;
+ const generation=++searchAiGeneration;root.innerHTML='<p>Загружаем расходы ИИ…</p>';
+ searchAiCharts.forEach(c=>c.destroy());searchAiCharts=[];
+ const days=Math.max(1,Math.min(90,Math.ceil((adminUiState.statsHistoryRange||720)/24)));
+ const money=n=>'$'+Number(n||0).toFixed(6), count=n=>Number(n||0).toLocaleString('ru-RU');
+ try{
+  const data=await serviceRequest('/api/owner/services/search-analytics?'+new URLSearchParams({days,user}));
+  if(generation!==searchAiGeneration||!root.isConnected)return;
+  const summary=data.totals,today=data.today;
+  root.innerHTML=`<div class="card__head"><div class="card__title">ИИ-поиск ${user?'· '+escapeHtml(data.selected_login):'· все пользователи'}</div><p>Вызовы моделей включают ответы, маршрутизацию и проверку Jev. Дни считаются по UTC. История поиска здесь не показывается.</p></div>
+   ${user?'<button class="btn btn--muted btn--sm" data-ai-back>Все пользователи</button>':''}
+   <div class="kpi-grid"><div><strong>${money(today.cost_usd)}</strong><p>Расход сегодня · ${count(today.calls)} вызовов</p></div><div><strong>${money(summary.cost_usd)}</strong><p>Расход за ${days===1?'1 день':days+' дн.'} · ${count(summary.calls)} вызовов</p></div><div><strong>${money(summary.reserved_usd)}</strong><p>Резерв: ожидающие или неизвестная стоимость</p></div></div>
+   <div class="analytics-grid-2"><div class="admin-home-chart-wrap" style="height:240px"><canvas data-ai-cost-chart></canvas></div><div class="admin-home-chart-wrap" style="height:240px"><canvas data-ai-call-chart></canvas></div></div>
+   <h3>Модели за выбранный период</h3><div class="table-scroll"><table><thead><tr><th>Модель / провайдер</th><th>Вызовы</th><th>Успешные / ошибки</th><th>Расход</th></tr></thead><tbody>${data.models.map(m=>`<tr><td>${escapeHtml(m.model==='legacy/unknown'?'Ранние записи: модель неизвестна':m.model)} ${escapeHtml(m.provider)}</td><td>${count(m.calls)}</td><td>${count(m.successful)} / ${count(m.failed)}</td><td>${money(m.cost_usd)}</td></tr>`).join('')||'<tr><td colspan="4">Пока нет вызовов</td></tr>'}</tbody></table></div>
+   ${!user?`<h3>Пользователи</h3><div class="table-scroll"><table><thead><tr><th>Аккаунт</th><th>Вызовы</th><th>Расход</th><th>Модели</th></tr></thead><tbody>${data.users.map(u=>`<tr><td><button class="btn btn--muted btn--sm" data-ai-user="${escapeHtml(u.user)}">${escapeHtml(u.login)}</button></td><td>${count(u.calls)}</td><td>${money(u.cost_usd)}</td><td>${data.user_models.filter(m=>m.user===u.user).map(m=>escapeHtml(m.model==='legacy/unknown'?'Неизвестная':m.model)+': '+count(m.calls)+' · '+money(m.cost_usd)).join('<br>')}</td></tr>`).join('')||'<tr><td colspan="4">Пока нет вызовов</td></tr>'}</tbody></table></div>`:''}
+   <p>Ранние записи сохраняют сумму расходов, но могут не содержать модель и результат вызова.</p>`;
+  root.querySelector('[data-ai-back]')?.addEventListener('click',()=>initSearchAiAnalytics(container,''));
+  root.querySelectorAll('[data-ai-user]').forEach(b=>b.addEventListener('click',()=>initSearchAiAnalytics(container,b.dataset.aiUser)));
+  const ChartLib=await ensureChartJsLoaded();if(!ChartLib||generation!==searchAiGeneration||!root.isConnected)return;
+  const daily=new Map(data.daily.map(x=>[x.day,x])),labels=[];
+  for(let i=0;i<days;i++){const d=new Date(data.from+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+i);labels.push(d.toISOString().slice(0,10));}
+  const fg=getAdminChartColor('--fg-strong','#fff');
+  for(const [selector,field,label,color] of [['[data-ai-cost-chart]','cost_usd','Расход, $','#fbbf24'],['[data-ai-call-chart]','calls','Вызовы моделей','#f43f5e']]){
+   searchAiCharts.push(new ChartLib(root.querySelector(selector),{type:'line',data:{labels,datasets:[{label,data:labels.map(day=>Number(daily.get(day)?.[field]||0)),borderColor:color,tension:.2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:fg}}},scales:{x:{ticks:{color:fg}},y:{beginAtZero:true,ticks:{color:fg}}}}}));
+  }
+ }catch(e){if(generation===searchAiGeneration&&root.isConnected){root.replaceChildren();const p=document.createElement('p');p.textContent=e.message;root.append(p);}}
 }
