@@ -1,0 +1,116 @@
+<!doctype html><html class="writing-root" lang="ru" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Редактор · Qubite</title><link rel="stylesheet" href="/front/css/styles.css"><link rel="stylesheet" href="/writing-assets/writing.css?v=20261005.3"><script src="/writing-assets/writing.js?v=20261005.3" defer></script></head><body class="writing-page">
+<header class="writing-header"><a class="writing-brand brand" href="/"><svg
+                viewBox="0 0 40 40"
+                xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink"
+                width="40.000000"
+                height="40.000000"
+                fill="none"
+                customFrame="url(#clipPath_0)"
+              >
+                <defs>
+                  <linearGradient
+                    id="paint_linear_0"
+                    x1="0"
+                    x2="40"
+                    y1="0"
+                    y2="40"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop
+                      stop-color="rgb(244,63,94)"
+                      offset="0"
+                      stop-opacity="1"
+                    />
+                    <stop
+                      stop-color="rgb(245,158,11)"
+                      offset="1"
+                      stop-opacity="1"
+                    />
+                  </linearGradient>
+                  <clipPath id="clipPath_0">
+                    <rect
+                      width="40.000000"
+                      height="40.000000"
+                      x="0.000000"
+                      y="0.000000"
+                      rx="16.000000"
+                      fill="rgb(255,255,255)"
+                    />
+                  </clipPath>
+                  <clipPath id="clipPath_1">
+                    <rect
+                      width="24.000000"
+                      height="24.000000"
+                      x="8.000000"
+                      y="8.000000"
+                      fill="rgb(255,255,255)"
+                    />
+                  </clipPath>
+                </defs>
+                <rect
+                  id="div.flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-amber-500"
+                  width="40.000000"
+                  height="40.000000"
+                  x="0.000000"
+                  y="0.000000"
+                  rx="16.000000"
+                  fill="url(#paint_linear_0)"
+                />
+                <g
+                  id="svg"
+                  clip-path="url(#clipPath_1)"
+                  customFrame="url(#clipPath_1)"
+                >
+                  <rect
+                    id="svg"
+                    width="24.000000"
+                    height="24.000000"
+                    x="8.000000"
+                    y="8.000000"
+                  />
+                  <circle
+                    id="786"
+                    cx="20"
+                    cy="20"
+                    r="10"
+                    stroke="rgb(255,255,255)"
+                    stroke-width="2"
+                  />
+                  <line
+                    id="787"
+                    x1="0"
+                    x2="5.65685415"
+                    y1="0"
+                    y2="0"
+                    stroke="rgb(255,255,255)"
+                    stroke-linecap="round"
+                    stroke-width="2"
+                    transform="matrix(0.707107,0.707107,-0.707107,0.707107,22,22)"
+                  />
+                  <rect
+                    id="circle.[object SVGAnimatedString]"
+                    width="20.000000"
+                    height="20.000000"
+                    x="42.000000"
+                    y="42.000000"
+                  />
+                  <rect
+                    id="line.[object SVGAnimatedString]"
+                    width="4.000000"
+                    height="4.000000"
+                    x="54.000000"
+                    y="54.000000"
+                  />
+                </g>
+              </svg><span class="brand__text">Qubite</span></a><span class="writing-nav-label">Редактор</span><a class="btn btn--muted btn--sm" href="/">Вернуться в Qubite</a><span id="account"></span></header>
+<main class="writing-main ops-view"><div class="ops-header"><div class="ops-header__copy"><h1 class="ops-header__title">Редактор текста</h1><p class="ops-header__subtitle">Проверяй ошибки, меняй стиль и улучшай промпты. Текст остаётся твоим.</p></div><span class="writing-badge">Русский · English</span></div>
+<section class="editor glass-panel card-accent-top ops-panel"><div class="toolbar"><label>Язык <select class="input" id="language"><option value="ru">Русский</option><option value="auto">Авто</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option></select></label><span id="count">0 / 8000</span><label><input type="checkbox" id="automatic" checked> Автопроверка</label></div>
+<label class="sr" for="draft">Текст для редактирования</label><textarea class="input writing-draft" id="draft" maxlength="8000" placeholder="Вставь текст или начни писать…" spellcheck="false"></textarea>
+<div class="actions"><button id="check" class="btn btn--accent">Проверить локально</button><button class="btn btn--muted" data-mode="check">ИИ-проверка</button><button class="btn btn--muted" data-mode="improve">Улучшить в моём стиле</button><button class="btn btn--muted" data-mode="prompt">Улучшить промпт</button></div>
+<div class="actions"><label>Стиль <select class="input" id="style"><option>простой и понятный</option><option>дружелюбный разговорный</option><option>деловой</option><option>академический</option><option>краткий и прямой</option><option value="custom">Свой стиль</option></select></label><input class="input" id="custom-style" maxlength="200" placeholder="Опиши свой стиль" hidden><button class="btn btn--muted" data-mode="style">Сменить стиль</button><button class="btn btn--muted" id="undo" disabled>Отменить замену</button><button class="btn btn--muted" id="copy">Копировать</button><button class="btn btn--muted" id="clear">Очистить</button></div>
+<p id="status" role="status" aria-live="polite">Подключаем Qubite…</p><div id="issues"></div><div id="result" hidden><h2 class="ops-panel__title">Результат ИИ</h2><pre id="result-text"></pre><button class="btn btn--muted" id="apply-result">Заменить текущий текст</button></div></section>
+<section class="setup glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">В браузере и Linux</h2><p>Расширение добавляет кнопку возле активного поля. Текст и ИИ-ответы здесь не сохраняются в историю.</p><div class="actions"><a href="/writing-assets/firefox.xpi?v=0.1.1" class="btn btn--muted">Скачать расширение Firefox / Zen</a><a href="/writing-assets/linux.py?v=20261005.3" class="btn btn--muted">Скачать Linux-помощник</a><a href="/writing-assets/guide" class="btn btn--muted">Полная инструкция</a></div>
+<details><summary>Подключить расширение / горячую клавишу</summary><p>Создай отдельный ключ, затем вставь его в настройки расширения. Ключ показывается один раз. Для временной проверки: Firefox / Zen → about:debugging → Этот Firefox → Загрузить временное дополнение → скачанный XPI. Постоянная установка требует подписи Mozilla.</p><form id="key-form"><input class="input" name="name" maxlength="80" value="Firefox" aria-label="Название ключа"><label><input type="checkbox" name="ai" checked> Разрешить ИИ</label><button class="btn btn--muted">Создать ключ</button></form><p id="key-result"></p><div id="keys"></div><p>Linux: установи python3-tk и wl-clipboard (Wayland) или xclip (X11), запусти скачанный linux.py --configure. Назначь python3 /полный/путь/linux.py на удобную горячую клавишу в настройках клавиатуры. Выделенный текст попадёт в редактор; после принятия результат копируется в буфер.</p></details></section>
+<section id="owner-settings" class="glass-panel card-accent-top ops-panel" hidden><h2 class="ops-panel__title">Общий бюджет ИИ</h2><form id="budget-form"><label>Рублей в день <input class="input" id="budget" type="number" min="0" max="1000" step="0.1" required></label><button class="btn btn--muted">Сохранить</button></form><p id="budget-info"></p><p>Доступ друзей и их лимиты: Qubite → Администрирование → Пользователи → Редактор. Пустой лимит снимает ограничение аккаунта; общий бюджет действует всегда.</p></section>
+</main><footer class="writing-footer">Qubite Writing · LanguageTool + Mistral Small · Без сохранения текста</footer></body></html>

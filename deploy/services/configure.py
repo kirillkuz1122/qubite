@@ -19,7 +19,7 @@ env={}
 for line in (root/'.env').read_text().splitlines():
  if '=' in line and not line.lstrip().startswith('#'):
   k,v=line.split('=',1);env[k.strip()]=v.strip().strip('"\'')
-for k in ['INSTALL_PLATFORM','INSTALL_SEARCH','INSTALL_VAULT','INSTALL_VPN','INGRESS_MODE','SERVICES_VPN_ENABLED']:
+for k in ['INSTALL_PLATFORM','INSTALL_SEARCH','INSTALL_VAULT','INSTALL_VPN','INSTALL_WRITING','INGRESS_MODE','SERVICES_VPN_ENABLED']:
  if k in os.environ:env[k]=os.environ[k]
 def on(k,default=True):return env.get(k,str(default)).lower() in ('true','yes','1')
 def run(args,**kwargs):subprocess.run(args,check=True,**kwargs)
@@ -29,13 +29,13 @@ def unit(name,description,command,cwd,user):
  file=Path('/etc/systemd/system')/(name+'.service')
  if file.exists() and name not in ('qubite-platform','qubite-search','qubite-vault-manager','qubite-cloudflared'):raise RuntimeError('Service already exists: '+name)
  file.write_text(f'[Unit]\nDescription={description}\nAfter=network-online.target\n[Service]\nUser={user}\nWorkingDirectory={cwd}\nExecStart={command}\nRestart=on-failure\nRestartSec=5\nUMask=0077\nNoNewPrivileges=true\n[Install]\nWantedBy=multi-user.target\n')
-if (on('INSTALL_SEARCH') or on('INSTALL_VAULT')) and not on('INSTALL_PLATFORM'):
+if (on('INSTALL_SEARCH') or on('INSTALL_VAULT') or on('INSTALL_WRITING',False)) and not on('INSTALL_PLATFORM'):
  raise RuntimeError('Search and invited vault enrollment require the Qubite platform. Install it or configure an existing platform explicitly.')
 if on('INSTALL_SEARCH') and not env.get('SEARCH_OPENROUTER_API_KEY'):raise RuntimeError('Fill SEARCH_OPENROUTER_API_KEY first')
 if env.get('INGRESS_MODE','cloudflare') not in ('cloudflare','direct'):raise RuntimeError('INGRESS_MODE: direct or cloudflare')
 if env.get('INGRESS_MODE','cloudflare')=='cloudflare':env['SERVICES_VPN_ENABLED']='false'
 if '--check' in sys.argv:
- print(json.dumps({'platform':on('INSTALL_PLATFORM'),'search':on('INSTALL_SEARCH'),'vault':on('INSTALL_VAULT'),'vpn':on('INSTALL_VPN',False),'ingress':env.get('INGRESS_MODE','cloudflare'),'search_key_configured':bool(env.get('SEARCH_OPENROUTER_API_KEY'))}))
+ print(json.dumps({'platform':on('INSTALL_PLATFORM'),'search':on('INSTALL_SEARCH'),'vault':on('INSTALL_VAULT'),'writing':on('INSTALL_WRITING',False),'vpn':on('INSTALL_VPN',False),'ingress':env.get('INGRESS_MODE','cloudflare'),'search_key_configured':bool(env.get('SEARCH_OPENROUTER_API_KEY'))}))
  sys.exit(0)
 user=env.get('SERVICES_USER') or os.environ.get('SUDO_USER') or 'qubite'
 if user=='root':user='qubite'
@@ -56,6 +56,10 @@ env['SEARCH_INTERNAL_URL']=f'http://127.0.0.1:{search_port}'
 if not env.get('DATABASE_PATH') or env['DATABASE_PATH'].startswith('/home/kirill/programing/qubite/'):env['DATABASE_PATH']=str(base/'qubite.sqlite')
 env['VAULT_MANAGEMENT_SOCKET']='/run/qubite-vault/manage.sock'
 env['VAULT_ORIGIN_PORT']=str(vault_port)
+if on('INSTALL_WRITING',False):
+ from languagetool import install as install_languagetool
+ env['LANGUAGETOOL_URL']='http://127.0.0.1:'+env.get('LANGUAGETOOL_PORT','9091')
+ install_languagetool(base/'languagetool',user,int(env.get('LANGUAGETOOL_PORT','9091')))
 secret_path=base/'platform.env';private(secret_path,'\n'.join(k+'='+v for k,v in env.items() if '\n' not in v)+'\n')
 # Node loads this EnvironmentFile before its optional root .env.
 if on('INSTALL_PLATFORM'):

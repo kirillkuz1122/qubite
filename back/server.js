@@ -563,12 +563,11 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(
-    createOriginGuard({
-        allowedOrigins: ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : [APP_ORIGIN],
-        allowedHosts: ALLOWED_HOSTS.length > 0 ? ALLOWED_HOSTS : [APP_HOST],
-    }),
-);
+const cookieOriginGuard = createOriginGuard({
+    allowedOrigins: ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : [APP_ORIGIN],
+    allowedHosts: ALLOWED_HOSTS.length > 0 ? ALLOWED_HOSTS : [APP_HOST],
+});
+app.use((req,res,next)=>require("./src/writing").bypassCookieGuard(req) ? next() : cookieOriginGuard(req,res,next));
 
 function isAdminRole(role) {
     return role === ROLE_ADMIN || role === ROLE_OWNER;

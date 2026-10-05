@@ -1,0 +1,14 @@
+{
+ "manifest_version":2,
+ "name":"Qubite Writing",
+ "version":"0.1.1",
+ "description":"Локальная проверка LanguageTool и четыре ИИ-действия через твой Qubite.",
+ "browser_specific_settings":{"gecko":{"id":"writing@qubiteapp.online","strict_min_version":"142.0","data_collection_permissions":{"required":["websiteContent"],"optional":[]}}},
+ "permissions":["storage","contextMenus","https://qubiteapp.online/*"],
+ "optional_permissions":["https://*/*"],
+ "background":{"scripts":["background.js"]},
+ "content_scripts":[{"matches":["https://*/*","http://*/*"],"js":["content.js"],"all_frames":true,"run_at":"document_idle"}],
+ "options_ui":{"page":"options.html","open_in_tab":true},
+ "browser_action":{"default_title":"Настройки Qubite Writing"},
+ "content_security_policy":"script-src 'self'; object-src 'none'"
+}

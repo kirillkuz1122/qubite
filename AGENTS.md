@@ -215,7 +215,7 @@
 - Документы: `docs/services.md`, `docs/design-system.md`; `/design-system` — живой пример компонентов.
 - Native AliasVault registration нельзя открывать, обходя public proxy gate. Мастер-пароли не отправлять Qubite и не логировать. История поиска теперь хранится без дополнительного шифрования по выбору пользователя; сохранять изоляцию аккаунтов и отдельные права history у API-ключей. Старые ciphertext не удалять без успешного переноса.
 - `SERVICES_VPN_ENABLED=false`: master сам не VPN-нода, но внешние ноды можно добавлять; свежий heartbeat активной ноды включает выдачу. Не отключать управление нодами вместе с пользовательскими VPN-кнопками.
-- Корневой `index.html` содержит пользовательские незакоммиченные изменения: при работе с сервисами не включать их целиком в свои коммиты.
+- Корневой `index.html` может содержать пользовательские незакоммиченные изменения: при работе с сервисами не включать посторонние правки. Версию app.js меняйте точечно, если требуется обновление кеша после добавления сервиса.
 
 - `back/src/telegram/handlers/services.js`: owner-only private-chat меню `/services`, бюджеты и grants через общие domain-функции. Exact reply/TTL защищают prompts от взаимного перехвата; регистрировать этот обработчик перед proxy/support message handlers. Telegram OAuth выключается отдельно от TELEGRAM_ENABLED.
 
@@ -228,3 +228,5 @@
 
 - `services/search/search_engines.py`: ограниченный публичный каталог, реальные Server-Timing, merged engines. Не передавать одновременно `engines` и `categories`: SearXNG добавит defaults. Строгий safe search исключает неподдерживающие движки. `deploy/services/searx_defaults.py` задаёт бесплатные defaults для новой установки.
 - `services/search/static/search-tools.js`: прямые HTTPS-картинки без Referer, fallback в SSRF-защищённый прокси; клиентские плееры только по точному allowlist хостов/ID. Не вставлять iframe_src/HTML из поисковой выдачи и не проксировать видео через Pi. Тесты: search pytest и `node --test services/search/tests/test_media.cjs`.
+
+- `back/src/writing.js`, `back/public/writing.*`, `integrations/qubite-writing/`, `deploy/services/languagetool.py`: независимые grants/ключи/бюджеты редактора. Локальные запросы `check`, платные операции `ai.*` нельзя смешивать в ledger. Тексты не логировать, ИИ только по кнопке, отмена не перезаписывает последующие правки. Firefox signature нужна отдельно; unsigned XPI нельзя выдавать за постоянно установленный. `docs/writing.md` и `back/tests/writing.test.js`.

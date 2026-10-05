@@ -6,6 +6,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 read -r -p 'Основная платформа Qubite? [Y/n] ' choice_platform
 read -r -p 'Поиск SearXNG с ИИ? [Y/n] ' choice_search
 read -r -p 'Хранилище AliasVault? [Y/n] ' choice_vault
+read -r -p 'Редактор LanguageTool (Java, около 500–700 МБ RAM)? [y/N] ' choice_writing
 read -r -p 'Входящие подключения: 1 — белый IP / Nginx, 2 — Cloudflare Tunnel [2]: ' choice_ingress
 choice_vpn=n
 if [[ $choice_ingress == 1 ]]; then
@@ -13,16 +14,17 @@ if [[ $choice_ingress == 1 ]]; then
 else
  echo 'Cloudflare: эта машина — управляющий сервер; отдельные VPN-ноды можно добавлять позже.'
 fi
-export INSTALL_PLATFORM=true INSTALL_SEARCH=true INSTALL_VAULT=true INSTALL_VPN=false INGRESS_MODE=cloudflare SERVICES_VPN_ENABLED=false
+export INSTALL_PLATFORM=true INSTALL_SEARCH=true INSTALL_VAULT=true INSTALL_VPN=false INSTALL_WRITING=false INGRESS_MODE=cloudflare SERVICES_VPN_ENABLED=false
 [[ ${choice_platform,,} =~ ^(n|нет)$ ]] && INSTALL_PLATFORM=false
 [[ ${choice_search,,} =~ ^(n|нет)$ ]] && INSTALL_SEARCH=false
 [[ ${choice_vault,,} =~ ^(n|нет)$ ]] && INSTALL_VAULT=false
+[[ ${choice_writing,,} =~ ^(y|yes|да)$ ]] && INSTALL_WRITING=true
 [[ ${choice_vpn,,} =~ ^(y|yes|да)$ ]] && INSTALL_VPN=true
 [[ $choice_ingress == 1 ]] && INGRESS_MODE=direct
-if [[ $INSTALL_PLATFORM == false && ( $INSTALL_SEARCH == true || $INSTALL_VAULT == true ) ]]; then
+if [[ $INSTALL_PLATFORM == false && ( $INSTALL_SEARCH == true || $INSTALL_VAULT == true || $INSTALL_WRITING == true ) ]]; then
  echo 'Поиск и приглашённое хранилище требуют Qubite platform. Включи платформу и повтори.'; exit 1
 fi
-if [[ $INSTALL_PLATFORM == false && $INSTALL_SEARCH == false && $INSTALL_VAULT == false && $INSTALL_VPN == false ]]; then
+if [[ $INSTALL_PLATFORM == false && $INSTALL_SEARCH == false && $INSTALL_VAULT == false && $INSTALL_VPN == false && $INSTALL_WRITING == false ]]; then
  echo 'Компоненты не выбраны. Изменений нет.'; exit 0
 fi
 if [[ $INSTALL_VPN == true ]]; then

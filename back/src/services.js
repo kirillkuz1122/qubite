@@ -38,6 +38,8 @@ async function permissions(user){
   result.services[name]={enabled:result.owner||Boolean(row?.enabled),...(name==='search'?{...limits(row?JSON.parse(row.config):{}),logs_protected:await require('./search-logs').protectedFor(user)}:{} )};
   if(result.owner&&name==='search')Object.assign(result.services[name],{paid:true,history:true,daily_requests:null,hourly_requests:null,daily_usd:null,monthly_usd:null,lifetime_usd:null});
  }
+ result.services.grammar=await require('./writing').access(user);
+ result.urls.grammar=APP_BASE_URL+'/writing';
  return result;
 }
 async function invite(userId){
@@ -93,6 +95,7 @@ async function searchAnalytics(days=30,user=''){
 function register(app,deps){
  auditWriter=deps.createAuditLog;
  const {requireAuth,authRateLimiter,createUser,findUserByLoginOrEmail,getUserById,updateUserPassword,createSession,sessionCookieOptions,SESSION_COOKIE_NAME,SESSION_TTL_MS}=deps;
+ require('./writing').register(app,{requireAuth,getUserById,audit});
  app.get('/design-system',(req,res)=>res.sendFile(require('path').join(__dirname,'../../design-system.html')));
  app.get('/services/return',requireAuth,(req,res)=>{
   try{const target=new URL(req.query.url),allowed=Object.values(urls()).map(v=>new URL(v).origin);if(!allowed.includes(target.origin)||target.username||target.password)return res.status(400).end();res.redirect(target.href);}catch(e){res.status(400).end();}
