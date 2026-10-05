@@ -232,3 +232,5 @@
 
 - `back/src/writing.js`, `back/public/writing.*`, `integrations/qubite-writing/`, `deploy/services/languagetool.py`: независимые grants/ключи/бюджеты редактора. Локальные запросы `check`, платные операции `ai.*` нельзя смешивать в ledger. Тексты не логировать, ИИ только по кнопке, отмена не перезаписывает последующие правки. Firefox signature нужна отдельно; unsigned XPI нельзя выдавать за постоянно установленный. `docs/writing.md` и `back/tests/writing.test.js`.
 - В фоне расширения `me` разрешайте по собственным runtime ID и URL `options.html`, не по отсутствию `sender.tab`: настройки тоже могут быть вкладкой. Регрессия: `back/tests/writing-addon.test.js`.
+
+- `integrations/qubite-writing/firefox/highlights.js` — общий клиентский слой подчёркиваний расширения и `/writing` (через `/writing-assets/highlights.js`); UTF-16 offsets, mirror для input/textarea, Range для contenteditable. Не вставлять служебные span в DOM чужого редактора. При input снимать отметки, проверять исходный текст перед заменой, не допускать пересечения с чувствительными полями. Меню снаружи закрывать через composedPath, чтобы не закрывать его при клике внутри Shadow DOM.

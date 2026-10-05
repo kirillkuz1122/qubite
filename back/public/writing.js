@@ -1,20 +1,27 @@
 'use strict';
 const $=id=>document.getElementById(id),draft=$('draft'),status=$('status');
 let before='',after='',timer,ticket=0,aiBusy=false,access;
+const popover=$('issue-popover'),marks=new QubiteWritingMarks(showIssue);
+document.body.append(popover);
+function closeIssue(){popover.hidden=true;}
+function showIssue(m,rect){const text=draft.value;popover.replaceChildren();const title=document.createElement('strong');title.textContent=text.slice(m.offset,m.offset+m.length)||'Пропущенный знак';const message=document.createElement('p');message.textContent=m.message;popover.append(title,message);for(const r of m.replacements.slice(0,5)){const b=document.createElement('button');b.className='btn btn--muted btn--sm';b.textContent=r.value||'Удалить';b.onclick=()=>{if(draft.value!==text){closeIssue();return;}replace(text.slice(0,m.offset)+r.value+text.slice(m.offset+m.length));localCheck();};popover.append(b);}if(!m.replacements.length){const p=document.createElement('p');p.textContent='Готового варианта нет — исправь вручную.';popover.append(p);}const close=document.createElement('button');close.className='btn btn--muted btn--sm';close.textContent='Закрыть';close.onclick=closeIssue;popover.append(close);popover.hidden=false;popover.style.left=Math.max(12,Math.min(innerWidth-popover.offsetWidth-12,rect.left))+'px';popover.style.top=Math.max(12,Math.min(innerHeight-popover.offsetHeight-12,rect.bottom+8))+'px';}
+document.addEventListener('pointerdown',e=>{if(!popover.contains(e.target))closeIssue();},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeIssue();});
+addEventListener('scroll',closeIssue,true);addEventListener('resize',closeIssue);
 async function request(path,body,method=body?'POST':'GET') {
  const response=await fetch('/api/writing/'+path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
  const data=await response.json();if(!response.ok)throw new Error(data.error||'Не удалось выполнить запрос.');return data;
 }
-function changed(){ticket++;$('issues').replaceChildren();$('count').textContent=draft.value.length+' / 8000';clearTimeout(timer);if($('automatic').checked&&draft.value.trim()&&!aiBusy)timer=setTimeout(localCheck,1800);$('undo').disabled=!before||draft.value!==after;}
+function changed(){ticket++;marks.clear();closeIssue();$('issues').replaceChildren();$('count').textContent=draft.value.length+' / 8000';clearTimeout(timer);if($('automatic').checked&&draft.value.trim()&&!aiBusy)timer=setTimeout(localCheck,1800);$('undo').disabled=!before||draft.value!==after;}
 function replace(text){before=draft.value;draft.value=text;after=text;changed();$('undo').disabled=false;}
-async function localCheck(){if(!draft.value.trim())return;const text=draft.value,n=++ticket;status.textContent='Проверяем локально…';try{
+async function localCheck(){clearTimeout(timer);if(!draft.value.trim())return;const text=draft.value,n=++ticket;status.textContent='Проверяем локально…';try{
  const data=await request('check',{text,language:$('language').value});if(n!==ticket||text!==draft.value)return;
- $('issues').replaceChildren();status.textContent=data.matches.length?'Найдено замечаний: '+data.matches.length:'Локальные правила не нашли ошибок. Это не гарантирует, что текст безупречен.';
+ $('issues').replaceChildren();marks.set(draft,text,data.matches);status.textContent=data.matches.length?'Найдено замечаний: '+data.matches.length:'Локальные правила не нашли ошибок. Это не гарантирует, что текст безупречен.';
  for(const m of data.matches){const row=document.createElement('div');row.className='issue';const p=document.createElement('p');p.textContent=m.message;const q=document.createElement('code');q.textContent=text.slice(m.offset,m.offset+m.length);row.append(q,p);
-  for(const r of m.replacements.slice(0,5)){const b=document.createElement('button');b.className='btn btn--muted btn--sm';b.textContent=r.value;b.onclick=()=>{if(draft.value!==text){status.textContent='Текст изменился. Проверь ещё раз.';return;}replace(text.slice(0,m.offset)+r.value+text.slice(m.offset+m.length));};row.append(b);} $('issues').append(row);
+  for(const r of m.replacements.slice(0,5)){const b=document.createElement('button');b.className='btn btn--muted btn--sm';b.textContent=r.value||'Удалить';b.onclick=()=>{if(draft.value!==text){status.textContent='Текст изменился. Проверь ещё раз.';return;}replace(text.slice(0,m.offset)+r.value+text.slice(m.offset+m.length));};row.append(b);} $('issues').append(row);
  }
  }catch(e){if(n===ticket)status.textContent=e.message;}}
-async function ai(mode){if(aiBusy)return;const text=draft.value;if(!text.trim())return;clearTimeout(timer);const n=++ticket;aiBusy=true;document.querySelectorAll('[data-mode]').forEach(b=>b.disabled=true);status.textContent='ИИ редактирует…';try{
+async function ai(mode){if(aiBusy)return;closeIssue();const text=draft.value;if(!text.trim())return;clearTimeout(timer);const n=++ticket;aiBusy=true;document.querySelectorAll('[data-mode]').forEach(b=>b.disabled=true);status.textContent='ИИ редактирует…';try{
  const data=await request('rewrite',{text,mode,style:$('style').value==='custom'?$('custom-style').value:$('style').value});
  $('issues').replaceChildren();
  if(text===draft.value&&n===ticket&&data.text.length<=8000){replace(data.text);status.textContent='Текст заменён · '+data.model+' · $'+data.cost_usd.toFixed(6)+'. Можно отменить.';}

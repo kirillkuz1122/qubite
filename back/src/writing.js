@@ -129,6 +129,7 @@ function register(app,{requireAuth,getUserById,audit}) {
  const own=(q,s,n)=>owner(q.auth?.user)?n():s.status(403).json({error:'Только владелец.'});
  app.get('/writing',(q,s)=>s.set('Cache-Control','no-store').sendFile(path.join(__dirname,'../public/writing.html')));
  for(const file of ['writing.js','writing.css'])app.get('/writing-assets/'+file,(q,s)=>s.set('Cache-Control','no-store').sendFile(path.join(__dirname,'../public',file)));
+ app.get('/writing-assets/highlights.js',(q,s)=>s.set('Cache-Control','no-store').sendFile(path.join(__dirname,'../../integrations/qubite-writing/firefox/highlights.js')));
  app.get('/writing-assets/firefox.xpi',(q,s)=>s.download(path.join(__dirname,'../../integrations/qubite-writing/dist/qubite-writing.xpi')));
  app.get('/writing-assets/guide',(q,s)=>s.type('text/plain').sendFile(path.join(__dirname,'../../docs/writing.md')));
  app.get('/writing-assets/linux.py',(q,s)=>s.download(path.join(__dirname,'../../integrations/qubite-writing/linux.py')));
