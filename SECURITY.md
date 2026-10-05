@@ -129,4 +129,6 @@ node back/scripts/set-owner.js --email new-owner@example.com --replace
 
 ### Qubite Writing
 
+Команда расширения `me` разрешена только собственной странице `options.html`: проверяются runtime ID и URL отправителя. Наличие `sender.tab` не отличает настройки во вкладке от скрипта сайта. Ключ остаётся в фоновом скрипте.
+
 Редактор использует отдельный ключ OpenRouter, hashed/revocable `qbw_` ключи и независимые grants. Bearer API для расширения не принимает cookie как авторизацию; исключение origin guard ограничено точными `/api/writing/v1/me|check|rewrite` и extension-origin, остальные cookie API сохраняют защиту. Дневные расходы резервируются транзакционно до внешнего вызова, провайдер/цена фиксированы, fallback отключён. Тексты и ответы в БД/аудит не попадают; ИИ-текст передаётся внешнему провайдеру по кнопке. LanguageTool loopback only, fixed Java heap, input/body/concurrency limits. Детали и пределы [docs/writing.md](docs/writing.md).

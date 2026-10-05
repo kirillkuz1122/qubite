@@ -7,7 +7,9 @@ api.runtime.onMessage.addListener(async(message,sender)=>{
  const c=await api.storage.local.get({base:'https://qubiteapp.online',token:'',automatic:true,blocked:[],language:'ru'});
  if(message.kind==='config')return {automatic:c.automatic,blocked:c.blocked,configured:Boolean(c.token),language:c.language};
  if(message.kind!=='request'||!['me','check','rewrite'].includes(message.action))throw new Error('Неизвестная команда.');
- if(message.action==='me'&&sender.tab)throw new Error('Недоступная команда.');
+ // options_ui opens in a tab too; tab presence does not identify a content script.
+ const ownOptions=sender.id===api.runtime.id&&typeof sender.url==='string'&&sender.url.split(/[?#]/,1)[0]===api.runtime.getURL('options.html');
+ if(message.action==='me'&&!ownOptions)throw new Error('Недоступная команда.');
  if(!c.token)throw new Error('Открой настройки расширения и вставь ключ Qubite Writing.');
  const base=new URL(c.base);if(base.protocol!=='https:'||base.username||base.password)throw new Error('Сервер должен использовать HTTPS.');
  const text=message.body?.text;if(message.action!=='me'&&(typeof text!=='string'||!text.trim()||text.length>8000))throw new Error('Текст: от 1 до 8000 символов.');

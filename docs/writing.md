@@ -25,6 +25,8 @@
 
 Для теста:
 
+Версия 0.1.2 исправляет ошибку «Недоступная команда» при проверке подключения. Для обновления скачай новый XPI поверх предыдущего файла, затем в `about:debugging` у Qubite Writing нажми «Перезагрузить». Если файл лежит по другому пути, удали временное дополнение и загрузи новый пакет; при необходимости вставь ранее созданный ключ ещё раз. Новый ключ специально для этого исправления не требуется.
+
 1. В Firefox или Zen открой `about:debugging` → «Этот Firefox» → «Загрузить временное дополнение» → выбери скачанный `.xpi` (или распакованный `manifest.json`). Такое дополнение исчезает после закрытия браузера.
 2. В Qubite Writing раскрой «Подключить расширение / горячую клавишу», создай ключ «Zen» и скопируй его. Он начинается с `qbw_`, показывается один раз и наследует текущие права аккаунта. Не вставляй сюда ключ OpenRouter.
 3. Открой настройки Qubite Writing через его кнопку на панели расширений. Адрес — `https://qubiteapp.online`, ключ — созданный `qbw_…`. Сохрани и проверь подключение.
@@ -69,7 +71,7 @@ LanguageTool слушает только loopback 9091, снаружи порт 
 
 Свежая установка: `sudo bash deploy/install.sh` → выбрать редактор. Нужна платформа Qubite; сетевой режим остаётся общим (белый IP или Cloudflare). Дополнительный публичный порт/домен не создаётся. Инсталлятор скачивает официальный LanguageTool 6.6, проверяет SHA-256, устанавливает Java, создаёт `qubite-languagetool.service` и собирает неподписанный Firefox XPI. После изменения ключа/env перезапустите только qubite-platform.
 
-Тесты: `node --test back/tests/writing.test.js back/tests/services.test.js back/tests/telegram-services.test.js`; `npx web-ext lint --source-dir integrations/qubite-writing/firefox`; `python3 -m unittest discover -s deploy/services/tests`.
+Тесты: `node --test back/tests/writing.test.js back/tests/writing-addon.test.js back/tests/services.test.js back/tests/telegram-services.test.js`; `npx web-ext lint --source-dir integrations/qubite-writing/firefox`; `python3 -m unittest discover -s deploy/services/tests`.
 
 Визуальные компоненты редактора импортируются из канонического `front/css/styles.css`, в соответствии с [design-system.md](design-system.md): Manrope/Jura, штатный логотип, розово-янтарный акцент, glass-panel/card-accent-top. Отдельного рекламного hero и собственной палитры нет.
 
