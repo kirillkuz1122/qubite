@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -40,6 +41,9 @@ class Store:
         CREATE INDEX IF NOT EXISTS jobs_pending ON jobs(status,id);
         CREATE INDEX IF NOT EXISTS messages_session ON messages(session,id);
         ''')
+        columns={r['name'] for r in self.db.execute('PRAGMA table_info(sessions)')}
+        for name in ('client_name','client_username'):
+            if name not in columns:self.db.execute('ALTER TABLE sessions ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''")
         # Monetary accounting survives deletion of interview content.
         if self.db.execute('PRAGMA foreign_key_list(usage)').fetchone():
             self.db.executescript("""BEGIN IMMEDIATE;
@@ -95,6 +99,15 @@ class Store:
             self.db.execute("UPDATE sessions SET client=?,status=CASE WHEN status='invite' THEN 'consent' ELSE status END,updated=? WHERE id=?", (uid,time.time(),row['id']))
             return row['id']
         return self.transaction(action)
+
+    def profile(self, sid, user):
+        s=self.get(sid)
+        if s['client']!=user.get('id'):raise ValueError('Нет доступа к профилю клиента.')
+        name=' '.join(str(user.get(k) or '') for k in ('first_name','last_name')).strip()
+        name=''.join(ch for ch in name if ch.isprintable())[:150]
+        username=str(user.get('username') or '')
+        if not re.fullmatch(r'[A-Za-z0-9_]{1,32}',username):username=''
+        self.db.execute('UPDATE sessions SET client_name=?,client_username=? WHERE id=?',(name,username,sid))
 
     def messages(self, sid, limit=300):
         return [dict(r) for r in self.db.execute('SELECT * FROM (SELECT id,role,text,created FROM messages WHERE session=? ORDER BY id DESC LIMIT ?) ORDER BY id', (sid,limit))]

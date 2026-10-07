@@ -233,3 +233,23 @@ def test_full_client_interview_review_and_owner_delivery(setup):
         assert len(docs)==3 and all(row['chat']==1 for row in docs)
         assert Path(s.get(sid)['document']+'.pdf').is_file()
     asyncio.run(scenario())
+
+def test_owner_sees_invited_client_and_profile_link(setup):
+    b,s,c=setup;sid,t=s.create('Новый сайт')
+    m={'message':{'chat':{'id':2,'type':'private'},'from':{'id':2,'first_name':'Иван','last_name':'Петров','username':'ivan_petrov'},'text':'/start '+t}}
+    asyncio.run(b.handle(m));b.card(sid)
+    row=s.get(sid);assert row['client_name']=='Иван Петров' and row['client_username']=='ivan_petrov'
+    owner=[json.loads(r['payload']) for r in s.db.execute('SELECT payload FROM outbox WHERE chat=1')]
+    assert 'Иван Петров' in owner[0]['text'] and '@ivan_petrov' in owner[0]['text']
+    assert owner[0]['reply_markup']['inline_keyboard'][0][0]['url']=='https://t.me/ivan_petrov'
+    asyncio.run(b.handle(m))
+    joins=[json.loads(r['payload']) for r in s.db.execute('SELECT payload FROM outbox WHERE chat=1') if 'По приглашению вошёл' in json.loads(r['payload'])['text']]
+    assert len(joins)==1
+
+def test_client_profile_requires_bound_id_and_username_is_not_url(setup):
+    from bot import profile_button
+    b,s,c=setup;sid,_=session(s)
+    with pytest.raises(ValueError):s.profile(sid,{'id':3,'first_name':'Другой'})
+    s.profile(sid,{'id':2,'first_name':'Иван','username':'evil/path?x=1'})
+    assert s.get(sid)['client_username']==''
+    assert profile_button(s.get(sid))[0][0]['url']=='tg://user?id=2'

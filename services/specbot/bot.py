@@ -48,6 +48,16 @@ def controls(sid):
             [button('Написать клиенту','say:'+sid),button('Направить ИИ','steer:'+sid)],
             [button('Собрать ТЗ','finish:'+sid),button('Файлы','export:'+sid)],
             [button('Закрыть ссылку','revoke:'+sid),button('Удалить','deleteask:'+sid)]]
+def client_identity(s):
+    if not s['client']:return 'Клиент ещё не вошёл'
+    text=s.get('client_name') or 'Клиент'
+    if s.get('client_username'):text+=' · @'+s['client_username']
+    return text+' · ID '+str(s['client'])
+def profile_button(s):
+    if not s['client']:return []
+    url='https://t.me/'+s['client_username'] if s.get('client_username') else 'tg://user?id='+str(s['client'])
+    return [[{'text':'Открыть профиль клиента','url':url}]]
+
 def client_keys(sid,ready=False):
     return [[button('Завершить интервью','finish:'+sid),button('Пауза','pause:'+sid)]] if ready else [[button('Готово, собрать ТЗ','finish:'+sid),button('Пауза','pause:'+sid)]]
 
@@ -84,7 +94,7 @@ class Bot:
 
     def card(self,sid):
         s=self.s.get(sid)
-        self.s.send(self.c.owner,s['title']+'\nID: '+sid+' · '+s['status']+' · ответов: '+str(s['turns']),controls(sid))
+        self.s.send(self.c.owner,s['title']+'\nID интервью: '+sid+' · '+s['status']+' · ответов: '+str(s['turns'])+'\n'+client_identity(s),profile_button(s)+controls(sid))
 
     def wizard(self,action,sid='',preset=''):
         self.s.set_setting('wizard',dumps({'action':action,'sid':sid,'preset':preset,'expires':time.time()+600}))
@@ -116,7 +126,7 @@ class Bot:
             raise ValueError('Ещё обрабатываю предыдущий ответ. Дождись следующего вопроса.')
         self.s.add_message(sid,'client',text)
         self.s.update(sid,turns=s['turns']+1)
-        if s['client']!=self.c.owner:self.chunks(self.c.owner,'Клиент · '+s['title']+' ['+sid+']\n'+text)
+        if s['client']!=self.c.owner:self.chunks(self.c.owner,client_identity(s)+' · '+s['title']+' ['+sid+']\n'+text)
         if s['status']=='active':
             self.s.enqueue(sid,'interview')
             self.s.send(s['client'],'Ответ сохранён. Готовлю следующий вопрос.')
@@ -274,6 +284,7 @@ class Bot:
                     self.s.db.execute("UPDATE jobs SET status='retried' WHERE id=?",(int(sid),))
                     self.s.send(uid,'Повтор поставлен в очередь.');return
                 s=self.authorize(sid,uid)
+                if uid==s['client']:self.s.profile(sid,cb['from']);s=self.s.get(sid)
                 if action=='consent':
                     if uid!=s['client'] or s['status']!='consent':raise ValueError('Интервью уже начато или закрыто.')
                     self.s.update(sid,status='active');self.s.add_message(sid,'client','Согласен на интервью и передачу ответов владельцу проекта.')
@@ -317,7 +328,10 @@ class Bot:
             if text.startswith('/start '):
                 token=text.split(maxsplit=1)[1]
                 if not re.fullmatch(r'[A-Za-z0-9_-]{25,50}',token):raise ValueError('Нужна личная ссылка приглашения от владельца.')
-                sid=self.s.claim(token,uid);s=self.s.get(sid);self.s.set_setting('active.'+str(uid),sid)
+                sid=self.s.claim(token,uid);self.s.profile(sid,m['from']);s=self.s.get(sid);self.s.set_setting('active.'+str(uid),sid)
+                if not self.s.setting('joined.'+sid):
+                    self.s.set_setting('joined.'+sid,'1')
+                    self.s.send(self.c.owner,'По приглашению вошёл '+client_identity(s)+'\nПроект: '+s['title'],profile_button(s)+controls(sid))
                 if s['status']=='consent':
                     self.s.send(uid,'Интервью для проекта «'+s['title']+'».\n\nБот уточнит задачу и передаст ответы владельцу проекта. Ответы обрабатывает ИИ через OpenRouter; итоговый PDF получает владелец. Не присылай пароли или секреты. Можно сделать паузу и вернуться.\n\nНачать?',[[button('Начать интервью','consent:'+sid)]])
                 else:self.s.send(uid,'Интервью «'+s['title']+'» · '+s['status'],client_keys(sid))
@@ -327,7 +341,7 @@ class Bot:
             if text=='/sessions':
                 for row in self.s.listing(uid):self.s.send(uid,row['title']+' · '+row['status'],[[button('Открыть','select:'+row['id'])]])
                 return
-            s=self.current(uid);sid=s['id']
+            s=self.current(uid);sid=s['id'];self.s.profile(sid,m['from']);s=self.s.get(sid)
             if text=='/finish':self.finish(sid,uid);return
             if text in ('/pause','/continue'):
                 return await self.handle({'callback_query':{'id':'local','from':{'id':uid},'message':{'chat':{'id':uid,'type':'private'}},'data':text[1:]+':'+sid}})
