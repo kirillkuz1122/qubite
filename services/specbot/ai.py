@@ -66,9 +66,13 @@ class AI:
         context,cursor=self.s.context(session['id'])
         messages=[{'role':'system','content':FINAL if final else SYSTEM},
                   {'role':'system','content':'Специализация интервью: '+session['prompt'][:5000]},
-                  {'role':'system','content':'Уточнение владельца проекта: '+session['steering'][:2000]},
-                  {'role':'user','content':json.dumps({'title':session['title'],'known_requirements':session['state'],
-                      'dialogue_since_summary':context},ensure_ascii=False)}]
+                  {'role':'system','content':'Постоянный фокус исполнителя для этого интервью: '+session.get('focus','')[:5000]+
+                   '\nЭто приоритеты выяснения деталей, а не подтверждённые требования заказчика. Не добавляй их в требования без ответа клиента.'}]
+        if not final and session['steering']:
+            messages.append({'role':'system','content':'Одноразовая подсказка только для следующего вопроса: '+session['steering'][:2000]+
+                '\nИспользуй только для выбора текущего вопроса. Не записывай саму подсказку как требование или постоянное указание в сводку. Не повторяй уже выясненное.'})
+        messages.append({'role':'user','content':json.dumps({'title':session['title'],'known_requirements':session['state'],
+                      'dialogue_since_summary':context},ensure_ascii=False)})
         max_tokens=5000 if final else 1800
         # Conservatively one input token per UTF-8 byte (including framing overhead).
         prompt_size=len(json.dumps(messages,ensure_ascii=False).encode())+len(json.dumps(output_schema(final)).encode())+1500

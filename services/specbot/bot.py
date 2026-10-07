@@ -32,7 +32,8 @@ HELP='''Qubite Brief — твой помощник по сбору ТЗ.
 /view ID — переписка и сводка
 /take ID — ручной перехват
 /say ID текст — отправить клиенту вручную
-/steer ID текст — поправить направление ИИ
+/steer ID текст — одноразовая подсказка следующему вопросу
+/focus ID текст — постоянный фокус конкретного интервью
 /resume ID — вернуть ИИ
 /export ID — PDF, Markdown и исходный JSON
 /revoke ID — закрыть приглашение и остановить интервью
@@ -45,7 +46,8 @@ def button(text,data):return {'text':text,'callback_data':data}
 def controls(sid):
     return [[button('Переписка','view:'+sid),button('Сводка','state:'+sid)],
             [button('Перехватить','take:'+sid),button('Вернуть ИИ','resume:'+sid)],
-            [button('Написать клиенту','say:'+sid),button('Направить ИИ','steer:'+sid)],
+            [button('Написать клиенту','say:'+sid),button('Следующий вопрос','steer:'+sid)],
+            [button('Фокус интервью','focus:'+sid)],
             [button('Собрать ТЗ','finish:'+sid),button('Файлы','export:'+sid)],
             [button('Закрыть ссылку','revoke:'+sid),button('Удалить','deleteask:'+sid)]]
 def client_identity(s):
@@ -94,14 +96,25 @@ class Bot:
 
     def card(self,sid):
         s=self.s.get(sid)
-        self.s.send(self.c.owner,s['title']+'\nID интервью: '+sid+' · '+s['status']+' · ответов: '+str(s['turns'])+'\n'+client_identity(s),profile_button(s)+controls(sid))
+        text=s['title']+'\nID интервью: '+sid+' · '+s['status']+' · ответов: '+str(s['turns'])+'\n'+client_identity(s)
+        if s['focus']:text+='\nФокус: '+s['focus'][:500]
+        if s['steering']:text+='\nСледующий вопрос: '+s['steering'][:500]
+        self.s.send(self.c.owner,text,profile_button(s)+controls(sid))
 
-    def wizard(self,action,sid='',preset=''):
-        self.s.set_setting('wizard',dumps({'action':action,'sid':sid,'preset':preset,'expires':time.time()+600}))
+    def wizard(self,action,sid='',preset='',title=''):
+        ticket=os.urandom(6).hex()
+        self.s.set_setting('wizard',dumps({'action':action,'sid':sid,'preset':preset,'title':title[:150],'ticket':ticket,'expires':time.time()+600}))
+        if action=='newfocus':
+            self.s.send(self.c.owner,'Что тебе как исполнителю важно выяснить для проекта «'+title[:150]+'»?\n'
+                'Например: какой результат нужен, источники данных, интеграции, бюджет и ограничения.\n'
+                'Это постоянный фокус только этого интервью, до 5000 символов. Не передаётся клиенту как отдельное сообщение. Можно пропустить или /cancel.',
+                [[button('Пропустить','newskip:'+ticket)]])
+            return
         self.s.out(self.c.owner,'sendMessage',{'chat_id':self.c.owner,'text':{
             'new':'Напиши название проекта для приглашения. Можно /cancel.',
             'say':'Напиши сообщение клиенту. Можно /cancel.',
-            'steer':'Как направить следующие вопросы ИИ? Можно /cancel.',
+            'steer':'Что уточнить в следующем ещё не запущенном вопросе? Подсказка одноразовая, до 2000 символов. При ошибке сохранится для повтора. /clear — снять, /cancel — отменить.',
+            'focus':'Постоянный фокус этого интервью: что важно выяснить? До 5000 символов. /clear — убрать фокус, /cancel — отменить.',
             'prompt':'Пришли новый промпт шаблона. Он применяется к новым интервью. Можно /cancel.'}[action],
             'reply_markup':{'force_reply':True,'selective':True}})
 
@@ -112,8 +125,8 @@ class Bot:
         if s['client']!=uid:raise ValueError('Это интервью принадлежит другому клиенту.')
         return s
 
-    def create(self,title,preset):
-        sid,token=self.s.create(title,preset)
+    def create(self,title,preset,focus=''):
+        sid,token=self.s.create(title,preset,focus)
         self.s.send(self.c.owner,'Приглашение: '+title+'\n\nhttps://t.me/'+self.username+'?start='+token+
                     '\n\nСсылка действует 7 дней и закрепляется за первым клиентом. Его ответы будут доступны тебе. PDF получишь только ты.',controls(sid))
 
@@ -165,7 +178,7 @@ class Bot:
             if s['status']=='revoked':raise ValueError('Отозванное интервью нельзя открыть заново.')
             if not s['client'] or s['status']=='consent':raise ValueError('Дождись начала интервью клиентом.')
             self.s.mode(sid,'active');self.s.enqueue(sid,'interview');self.s.send(uid,'ИИ продолжит интервью с сохранёнными ответами.')
-        elif action in ('say','steer'):self.wizard(action,sid)
+        elif action in ('say','steer','focus'):self.wizard(action,sid)
         elif action=='revoke':
             self.s.mode(sid,'revoked');self.s.update(sid,token_hash=None)
             self.s.send(uid,'Приглашение закрыто, интервью остановлено.')
@@ -202,8 +215,8 @@ class Bot:
         elif cmd=='/new':
             if arg:
                 parts=arg.split(maxsplit=1)
-                if parts[0].lower() in ALIAS and len(parts)==2:self.create(parts[1],ALIAS[parts[0].lower()])
-                else:self.create(arg,'development')
+                if parts[0].lower() in ALIAS and len(parts)==2:self.wizard('newfocus',preset=ALIAS[parts[0].lower()],title=parts[1])
+                else:self.wizard('newfocus',preset='development',title=arg)
             else:self.s.send(self.c.owner,'Выбери шаблон интервью:',[[button(title,'new:'+key)] for key,(title,_) in PRESETS.items()])
         elif cmd=='/sessions':
             rows=self.s.listing()
@@ -223,11 +236,16 @@ class Bot:
                 if not .001<=value<=10:raise ValueError('Бюджет: от $0.001 до $10.')
                 self.s.set_setting('daily_budget',str(value))
             stats=self.s.stats();self.s.send(self.c.owner,'Сегодня: $'+format(stats['today_usd'],'.6f')+' / $'+self.s.setting('daily_budget',str(self.c.daily))+'\nВсего: $'+format(stats['total_usd'],'.6f')+'\nИнтервью: '+str(stats['sessions'])+' · задач в очереди: '+str(stats['jobs'])+'\nДень бюджета — UTC. Неопределённые после таймаута расходы учитываются с запасом.\nМеняет лимит только бота; потолок ключа OpenRouter остаётся отдельным.')
-        elif cmd in ('/view','/take','/resume','/say','/steer','/export','/revoke','/delete','/finish'):
+        elif cmd=='/clear':
+            try:w=json.loads(self.s.setting('wizard','{}'))
+            except ValueError:w={}
+            if w.get('action') not in ('focus','steer') or w.get('expires',0)<time.time():raise ValueError('Сначала открой «Фокус интервью» или «Следующий вопрос».')
+            self.owner_text(w['action'],w['sid'],'');self.s.set_setting('wizard','')
+        elif cmd in ('/view','/take','/resume','/say','/steer','/focus','/export','/revoke','/delete','/finish'):
             parts=arg.split(maxsplit=1)
             if not parts:raise ValueError('Укажи ID интервью из /sessions.')
             sid=parts[0];s=self.s.get(sid)
-            if cmd in ('/say','/steer') and len(parts)==2:self.owner_text(cmd[1:],sid,parts[1])
+            if cmd in ('/say','/steer','/focus') and len(parts)==2:self.owner_text(cmd[1:],sid,parts[1])
             elif cmd=='/finish':self.finish(sid,self.c.owner)
             elif cmd=='/delete':self.admin_action('deleteask',sid,self.c.owner)
             else:self.admin_action(cmd[1:],sid,self.c.owner)
@@ -242,7 +260,9 @@ class Bot:
                     self.accepted(sid,text);return
                 raise ValueError('Выбери действие через /new или /sessions.')
             if len(text)>5000:raise ValueError('Текст слишком длинный: до 5000 символов.')
-            if w['action']=='new':self.create(text,w['preset'])
+            if w['action']=='new':
+                self.wizard('newfocus',preset=w['preset'],title=text);return
+            elif w['action']=='newfocus':self.create(w['title'],w['preset'],text)
             elif w['action']=='prompt':
                 self.s.set_setting('prompt.'+w['preset'],text);self.s.send(self.c.owner,'Промпт обновлён для новых интервью.')
             else:self.owner_text(w['action'],w['sid'],text)
@@ -257,7 +277,11 @@ class Bot:
             self.s.add_message(sid,'owner',text);self.chunks(s['client'],text)
             self.s.send(self.c.owner,'Сообщение поставлено в очередь доставки. ИИ на паузе.')
         elif action=='steer':
-            self.s.update(sid,steering=text);self.s.send(self.c.owner,'Направление сохранено и будет учтено в следующем вопросе.')
+            if len(text)>2000:raise ValueError('Подсказка: до 2000 символов.')
+            self.s.update(sid,steering=text);self.s.send(self.c.owner,'Одноразовая подсказка сохранена для следующего ещё не запущенного вопроса.' if text else 'Одноразовая подсказка снята.')
+        elif action=='focus':
+            if len(text)>5000:raise ValueError('Фокус: до 5000 символов.')
+            self.s.update(sid,focus=text);self.s.send(self.c.owner,'Постоянный фокус интервью обновлён.' if text else 'Постоянный фокус интервью снят.')
 
     async def handle(self,u):
         cb=u.get('callback_query');m=u.get('message')
@@ -268,6 +292,11 @@ class Bot:
             try:
                 if uid==self.c.owner and text in ('new','sessions','presets','budget','test'):self.owner_message('/'+text);return
                 action,_,sid=text.partition(':')
+                if uid==self.c.owner and action=='newskip':
+                    try:w=json.loads(self.s.setting('wizard','{}'))
+                    except ValueError:w={}
+                    if w.get('action')!='newfocus' or w.get('ticket')!=sid or w.get('expires',0)<time.time():raise ValueError('Этот шаг уже завершён или истёк. Начни заново через /new.')
+                    self.create(w['title'],w['preset']);self.s.set_setting('wizard','');return
                 if uid==self.c.owner and action in ('new','preset','editprompt'):
                     if sid not in PRESETS:raise ValueError('Неизвестный шаблон.')
                     if action=='new':self.wizard('new',preset=sid)
@@ -414,18 +443,25 @@ class Bot:
             self.chunks(s['client'],'Распознал: '+text)
             self.accepted(sid,text);return
         if s['status']=='manual':return
+        if payload.get('then_final'):s={**s,'steering':''}
         result,provider=await self.ai.generate(s,final=job['kind']=='final')
         current=self.s.get(sid)
         if current['revision']!=job['revision'] or current['status']!='active':return
         cursor=result.pop('_cursor',0)
         if job['kind']=='interview':
-            self.s.set_setting('cursor.'+sid,str(cursor))
-            self.s.update(sid,state=result['state'])
-            if payload.get('then_final'):
-                self.s.db.execute("UPDATE jobs SET status='done' WHERE id=?",(job['id'],));self.s.enqueue(sid,'final');return
-            self.s.add_message(sid,'assistant',result['message'])
-            self.s.send(s['client'],result['message']+'\n\nУточнено примерно '+str(round(result['progress']))+'%.',client_keys(sid,result['ready']),session=sid,revision=job['revision'])
-            if s['client']!=self.c.owner:self.s.send(self.c.owner,'ИИ → клиент · '+s['title']+' ['+sid+']\n'+result['message']+'\nМаршрут: '+provider,controls(sid))
+            def commit_question():
+                self.s.set_setting('cursor.'+sid,str(cursor))
+                self.s.update(sid,state=result['state'])
+                self.s.db.execute("UPDATE jobs SET status='done' WHERE id=?",(job['id'],))
+                if payload.get('then_final'):
+                    self.s.enqueue(sid,'final');return
+                if s['steering']:self.s.consume_steering(sid,s['steering_version'])
+                self.s.add_message(sid,'assistant',result['message'])
+                self.s.send(s['client'],result['message']+'\n\nУточнено примерно '+str(round(result['progress']))+'%.',client_keys(sid,result['ready']),session=sid,revision=job['revision'])
+                if s['client']!=self.c.owner:self.s.send(self.c.owner,'ИИ → клиент · '+s['title']+' ['+sid+']\n'+result['message']+'\nМаршрут: '+provider,controls(sid))
+            # A crash cannot consume a one-shot instruction without preserving
+            # the generated question and its durable delivery in the same commit.
+            self.s.transaction(commit_question)
         else:
             version=self.s.db.execute("SELECT COUNT(*) FROM jobs WHERE session=? AND kind='final' AND status='done'",(sid,)).fetchone()[0]+1
             stem=await asyncio.to_thread(exports,self.c.data/'documents',sid,s['title'],result,version)

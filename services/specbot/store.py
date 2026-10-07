@@ -44,6 +44,8 @@ class Store:
         columns={r['name'] for r in self.db.execute('PRAGMA table_info(sessions)')}
         for name in ('client_name','client_username'):
             if name not in columns:self.db.execute('ALTER TABLE sessions ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''")
+        if 'focus' not in columns:self.db.execute("ALTER TABLE sessions ADD COLUMN focus TEXT NOT NULL DEFAULT ''")
+        if 'steering_version' not in columns:self.db.execute('ALTER TABLE sessions ADD COLUMN steering_version INTEGER NOT NULL DEFAULT 0')
         # Monetary accounting survives deletion of interview content.
         if self.db.execute('PRAGMA foreign_key_list(usage)').fetchone():
             self.db.executescript("""BEGIN IMMEDIATE;
@@ -84,11 +86,12 @@ class Store:
     def set_setting(self, key, value):
         self.db.execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, value))
 
-    def create(self, title, preset='development'):
+    def create(self, title, preset='development', focus=''):
         if preset not in PRESETS: raise ValueError('Неизвестный шаблон.')
         token = secrets.token_urlsafe(24); sid = secrets.token_hex(6); now=time.time()
-        self.db.execute('INSERT INTO sessions(id,title,preset,prompt,token_hash,expires,created,updated) VALUES(?,?,?,?,?,?,?,?)',
-                        (sid, title[:150], preset, self.setting('prompt.'+preset), digest(token), now+7*86400, now, now))
+        if not isinstance(focus,str) or len(focus)>5000:raise ValueError('Фокус интервью: до 5000 символов.')
+        self.db.execute('INSERT INTO sessions(id,title,preset,prompt,focus,token_hash,expires,created,updated) VALUES(?,?,?,?,?,?,?,?,?)',
+                        (sid, title[:150], preset, self.setting('prompt.'+preset), focus, digest(token), now+7*86400, now, now))
         return sid, token
 
     def claim(self, token, uid):
@@ -137,11 +140,18 @@ class Store:
         self.db.execute('INSERT INTO jobs(session,kind,payload,revision,created) VALUES(?,?,?,?,?)',(sid,kind,dumps(payload or {}),s['revision'],time.time()))
 
     def update(self, sid, **fields):
-        allowed={'status','revision','state','steering','turns','document','token_hash'}
+        allowed={'status','revision','state','steering','focus','turns','document','token_hash'}
         if set(fields)-allowed: raise ValueError('Invalid fields')
         if 'state' in fields: fields['state']=dumps(fields['state'])
         fields['updated']=time.time()
-        self.db.execute('UPDATE sessions SET '+','.join(k+'=?' for k in fields)+' WHERE id=?',(*fields.values(),sid))
+        assignments=[k+'=?' for k in fields]
+        if 'steering' in fields:assignments.append('steering_version=steering_version+1')
+        self.db.execute('UPDATE sessions SET '+','.join(assignments)+' WHERE id=?',(*fields.values(),sid))
+
+    def consume_steering(self,sid,version):
+        # A new owner instruction, even with identical text, belongs to the next
+        # question and must not be cleared by an earlier in-flight request.
+        self.db.execute("UPDATE sessions SET steering='',updated=? WHERE id=? AND steering_version=?",(time.time(),sid,version))
 
     def mode(self, sid, status):
         s=self.get(sid)

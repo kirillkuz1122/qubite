@@ -296,3 +296,113 @@ def test_client_profile_requires_bound_id_and_username_is_not_url(setup):
     s.profile(sid,{'id':2,'first_name':'Иван','username':'evil/path?x=1'})
     assert s.get(sid)['client_username']==''
     assert profile_button(s.get(sid))[0][0]['url']=='tg://user?id=2'
+
+def next_job(s,sid,kind='interview',payload=None):
+    s.enqueue(sid,kind,payload)
+    return dict(s.db.execute('SELECT * FROM jobs ORDER BY id DESC LIMIT 1').fetchone())
+
+def test_single_question_hint_consumed_once_but_focus_persists(setup):
+    b,s,c=setup;sid,_=session(s)
+    s.update(sid,focus='Постоянно выясняй условия интеграций',steering='Уточни роли пользователей')
+    cl=Client([success(),success()]);b.ai=AI(c,s,cl)
+    async def scenario():
+        await b.work(next_job(s,sid))
+        assert s.get(sid)['steering']=='' and s.get(sid)['focus']
+        await b.work(next_job(s,sid))
+    asyncio.run(scenario())
+    inputs=['\n'.join(m['content'] for m in call['json']['messages'] if m['role']=='system') for call in cl.calls]
+    assert 'Уточни роли пользователей' in inputs[0] and 'Уточни роли пользователей' not in inputs[1]
+    assert all('Постоянно выясняй условия интеграций' in x for x in inputs)
+
+def test_failed_generation_keeps_single_question_hint(setup):
+    b,s,c=setup;sid,_=session(s);s.update(sid,steering='Уточнить источники')
+    b.ai=AI(c,s,Client([Response(200,{'choices':[]})]))
+    with pytest.raises(ModelError):asyncio.run(b.work(next_job(s,sid)))
+    assert s.get(sid)['steering']=='Уточнить источники'
+    assert not s.messages(sid)
+
+def test_new_identical_hint_during_generation_not_consumed_by_old_question(setup):
+    b,s,c=setup;sid,_=session(s);b.owner_text('steer',sid,'Уточнить источники')
+    version=s.get(sid)['steering_version']
+    class ReplacingAI:
+        async def generate(self,session,final=False):
+            b.owner_text('steer',sid,'Уточнить источники')
+            return interview(),'openai/flex'
+    b.ai=ReplacingAI();asyncio.run(b.work(next_job(s,sid)))
+    assert s.get(sid)['steering']=='Уточнить источники'
+    assert s.get(sid)['steering_version']==version+1
+
+def test_question_commit_rolls_back_hint_and_state_if_delivery_queue_fails(setup,monkeypatch):
+    b,s,c=setup;sid,_=session(s);s.update(sid,steering='Уточнить источники')
+    b.ai=AI(c,s,Client([success()]))
+    def fail(*args,**kw):raise RuntimeError('mock disk failure')
+    monkeypatch.setattr(s,'send',fail)
+    with pytest.raises(RuntimeError):asyncio.run(b.work(next_job(s,sid)))
+    assert s.get(sid)['steering']=='Уточнить источники' and s.get(sid)['state']=={}
+    assert not s.messages(sid)
+    assert not s.setting('cursor.'+sid)
+
+def test_final_prompt_includes_focus_but_not_single_question_hint(setup):
+    b,s,c=setup;sid,_=session(s);s.update(sid,focus='Критерии измеримого результата',steering='Только следующий вопрос')
+    final={'title':'ТЗ','summary':'Цель','sections':[{'title':'Требования','items':['Сайт']}],
+           'modules':[],'assumptions':[],'open_questions':[],'acceptance':[]}
+    cl=Client([Response(200,{'choices':[{'message':{'content':json.dumps(final)}}],'usage':{'cost':.0001}})])
+    asyncio.run(AI(c,s,cl).generate(s.get(sid),final=True))
+    text='\n'.join(m['content'] for m in cl.calls[0]['json']['messages'])
+    assert 'Критерии измеримого результата' in text and 'Только следующий вопрос' not in text
+    assert s.get(sid)['steering']=='Только следующий вопрос'
+
+def test_manual_summary_does_not_spend_hint_without_asking_question(setup):
+    b,s,c=setup;sid,_=session(s);s.mode(sid,'manual');s.update(sid,steering='Только следующий вопрос')
+    cl=Client([success()]);b.ai=AI(c,s,cl)
+    b.finish(sid,c.owner)
+    job=dict(s.db.execute("SELECT * FROM jobs WHERE status='pending'").fetchone())
+    asyncio.run(b.work(job))
+    assert s.get(sid)['steering']=='Только следующий вопрос'
+    assert 'Только следующий вопрос' not in '\n'.join(m['content'] for m in cl.calls[0]['json']['messages'])
+    assert s.db.execute("SELECT COUNT(*) FROM jobs WHERE kind='final' AND status='pending'").fetchone()[0]==1
+
+def test_new_invitation_asks_local_focus_after_project_title(setup):
+    b,s,c=setup;b.wizard('new',preset='development')
+    b.owner_message('Бот для заявок')
+    assert not s.listing()
+    w=json.loads(s.setting('wizard'));assert w['action']=='newfocus' and w['title']=='Бот для заявок'
+    b.owner_message('Важно узнать интеграции, роли и бюджет')
+    row=s.get(s.listing()[0]['id'])
+    assert row['focus']=='Важно узнать интеграции, роли и бюджет' and row['steering']==''
+    assert s.setting('wizard')==''
+
+def test_focus_can_be_skipped_once_and_only_by_owner(setup):
+    b,s,c=setup;b.owner_message('/new разработка Проект')
+    w=json.loads(s.setting('wizard'))
+    def cb(uid):return {'callback_query':{'id':'x','from':{'id':uid},'message':{'chat':{'id':uid,'type':'private'}},'data':'newskip:'+w['ticket']}}
+    asyncio.run(b.handle(cb(2)));assert not s.listing()
+    asyncio.run(b.handle(cb(1)));assert len(s.listing())==1
+    assert s.get(s.listing()[0]['id'])['focus']==''
+    asyncio.run(b.handle(cb(1)));assert len(s.listing())==1
+
+def test_expired_focus_skip_does_not_create_invitation(setup):
+    b,s,c=setup;b.owner_message('/new Проект')
+    w=json.loads(s.setting('wizard'));w['expires']=0;s.set_setting('wizard',json.dumps(w))
+    cb={'callback_query':{'id':'x','from':{'id':1},'message':{'chat':{'id':1,'type':'private'}},'data':'newskip:'+w['ticket']}}
+    asyncio.run(b.handle(cb));assert not s.listing()
+
+def test_focus_and_hint_can_be_edited_and_cleared_separately(setup):
+    b,s,c=setup;sid,_=session(s)
+    b.owner_message('/focus '+sid+' Выяснить условия')
+    b.owner_message('/steer '+sid+' Уточнить бюджет')
+    b.admin_action('focus',sid,c.owner);b.owner_message('/clear')
+    row=s.get(sid);assert row['focus']=='' and row['steering']=='Уточнить бюджет'
+    b.admin_action('steer',sid,c.owner);b.owner_message('/clear')
+    assert s.get(sid)['steering']==''
+    with pytest.raises(ValueError):b.owner_text('steer',sid,'x'*2001)
+
+def test_focus_migration_preserves_existing_interviews_and_messages(setup):
+    b,s,c=setup;sid,_=session(s);s.add_message(sid,'client','Нужен сайт');s.update(sid,steering='Подсказка')
+    path=Path(s.db.execute('PRAGMA database_list').fetchone()[2])
+    s.db.execute('ALTER TABLE sessions DROP COLUMN focus')
+    s.db.execute('ALTER TABLE sessions DROP COLUMN steering_version');s.db.close()
+    migrated=Store(path);row=migrated.get(sid)
+    assert row['focus']=='' and row['steering']=='Подсказка' and row['steering_version']==0
+    assert migrated.messages(sid)[0]['text']=='Нужен сайт'
+    migrated.update(sid,steering='Новая');assert migrated.get(sid)['steering_version']==1
