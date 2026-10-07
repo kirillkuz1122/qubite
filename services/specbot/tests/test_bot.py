@@ -350,6 +350,7 @@ def test_final_prompt_includes_focus_but_not_single_question_hint(setup):
     asyncio.run(AI(c,s,cl).generate(s.get(sid),final=True))
     text='\n'.join(m['content'] for m in cl.calls[0]['json']['messages'])
     assert 'Критерии измеримого результата' in text and 'Только следующий вопрос' not in text
+    assert 'recent_questions' not in json.loads(cl.calls[0]['json']['messages'][-1]['content'])
     assert s.get(sid)['steering']=='Только следующий вопрос'
 
 def test_manual_summary_does_not_spend_hint_without_asking_question(setup):
@@ -406,3 +407,21 @@ def test_focus_migration_preserves_existing_interviews_and_messages(setup):
     assert row['focus']=='' and row['steering']=='Подсказка' and row['steering_version']==0
     assert migrated.messages(sid)[0]['text']=='Нужен сайт'
     migrated.update(sid,steering='Новая');assert migrated.get(sid)['steering_version']==1
+
+def test_recent_questions_are_bounded_and_isolated_without_confirmations(setup):
+    b,s,c=setup;sid,_=session(s);other,_=session(s,uid=3)
+    s.add_message(sid,'client','PRIVATE ANSWER?')
+    s.add_message(other,'assistant','OTHER INTERVIEW?')
+    for i in range(20):s.add_message(sid,'assistant',f'Понял: подробная сводка. Вопрос номер {i}? Ещё вопрос {i}?')
+    questions=s.recent_questions(sid)
+    assert len(questions)==12 and questions[-1]=='Ещё вопрос 19?'
+    assert all('Понял' not in q and 'PRIVATE ANSWER' not in q and 'OTHER INTERVIEW' not in q for q in questions)
+    assert 'Вопрос номер 0?' not in questions
+
+def test_interview_prompt_gets_question_memory_and_answer_count(setup):
+    b,s,c=setup;sid,_=session(s);s.add_message(sid,'assistant','Как часто обновлять данные?')
+    s.update(sid,turns=14);cl=Client([success()])
+    asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    payload=json.loads(cl.calls[0]['json']['messages'][-1]['content'])
+    assert payload['recent_questions']==['Как часто обновлять данные?']
+    assert payload['client_answers_count']==14

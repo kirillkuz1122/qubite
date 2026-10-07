@@ -121,6 +121,14 @@ class Store:
         fresh=[dict(r) for r in self.db.execute('SELECT id,role,text FROM messages WHERE session=? AND id>? ORDER BY id',(sid,cursor))]
         return recent+fresh, max([cursor]+[r['id'] for r in fresh])
 
+    def recent_questions(self,sid):
+        # Small question-only reminder, not another copy of the entire dialogue.
+        rows=list(self.db.execute("SELECT text FROM messages WHERE session=? AND role='assistant' ORDER BY id DESC LIMIT 8",(sid,)))
+        questions=[]
+        for row in reversed(rows):
+            questions.extend(x.strip()[:350] for x in re.findall(r'[^.!?\n]*\?',row['text']) if x.strip())
+        return questions[-12:]
+
     def add_message(self, sid, role, text):
         self.db.execute('INSERT INTO messages(session,role,text,created) VALUES(?,?,?,?)',(sid,role,text,time.time()))
 
