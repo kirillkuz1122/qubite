@@ -82,6 +82,49 @@ def test_no_fallback_on_key_budget_failure(setup):
     with pytest.raises(ModelError):asyncio.run(AI(c,s,cl).generate(s.get(sid)))
     assert len(cl.calls)==1 and s.stats()['today_usd']==0
 
+def test_http_200_upstream_error_uses_standard_route_and_keeps_unknown_cost(setup,caplog):
+    b,s,c=setup;sid,_=session(s)
+    cl=Client([Response(200,{'error':{'code':503,'message':'PRIVATE CLIENT TEXT'}}),success()])
+    result,provider=asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert provider=='openai' and result['message']
+    assert len(cl.calls)==2
+    rows=list(s.db.execute('SELECT cost,status FROM usage ORDER BY id'))
+    assert rows[0]['status']=='uncertain' and rows[0]['cost']>0
+    assert rows[1]['status']=='ok'
+    assert 'PRIVATE CLIENT TEXT' not in caplog.text
+
+def test_http_200_credit_error_never_falls_back(setup):
+    b,s,c=setup;sid,_=session(s)
+    cl=Client([Response(200,{'error':{'code':402},'usage':{'cost':0}})])
+    with pytest.raises(ModelError,match='402'):asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert len(cl.calls)==1 and s.stats()['today_usd']==0
+
+def test_http_200_finish_error_falls_back_without_parsing_partial_answer(setup):
+    b,s,c=setup;sid,_=session(s)
+    cl=Client([Response(200,{'choices':[{'finish_reason':'error','message':{'content':'partial'}}],'usage':{'cost':.00001}}),success()])
+    _,provider=asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert provider=='openai' and s.stats()['today_usd']==pytest.approx(.00011)
+
+@pytest.mark.parametrize('data',[{'usage':None,'choices':None},{'usage':[], 'choices':[None]}, {'choices':[{'message':None}]}])
+def test_malformed_envelope_is_safe_and_does_not_automatically_spend_again(setup,data):
+    b,s,c=setup;sid,_=session(s);cl=Client([Response(200,data)])
+    with pytest.raises(ModelError,match='формат'):asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert len(cl.calls)==1
+
+def test_format_diagnostics_name_field_and_request_without_customer_content(setup,caplog):
+    b,s,c=setup;sid,_=session(s);bad=interview();bad['state']['budget']={'secret':'PRIVATE CUSTOMER TEXT'}
+    cl=Client([Response(200,{'id':'gen-safe123','choices':[{'message':{'content':json.dumps(bad)}}],'usage':{'cost':.0001}})])
+    with pytest.raises(ModelError):asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert 'request=gen-safe123' in caplog.text and 'detail=state.budget.text_type' in caplog.text
+    assert 'PRIVATE CUSTOMER TEXT' not in caplog.text
+
+def test_unknown_field_or_unsafe_request_id_does_not_leak_into_diagnostics(setup,caplog):
+    b,s,c=setup;sid,_=session(s);bad=interview();bad['state']['PRIVATE CUSTOMER TEXT']='secret'
+    cl=Client([Response(200,{'id':'PRIVATE CUSTOMER TEXT','choices':[{'message':{'content':json.dumps(bad)}}]})])
+    with pytest.raises(ModelError):asyncio.run(AI(c,s,cl).generate(s.get(sid)))
+    assert 'request=unknown' in caplog.text and 'state.unknown_fields' in caplog.text
+    assert 'PRIVATE CUSTOMER TEXT' not in caplog.text
+
 def test_timeout_keeps_reserve_before_fallback(setup):
     import httpx
     b,s,c=setup;sid,_=session(s)

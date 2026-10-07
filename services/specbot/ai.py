@@ -1,10 +1,14 @@
 """Explicit Luna Flex -> OpenAI fallback. Every attempt is separately accounted."""
 import json
+import logging
 import math
+import re
 import httpx
 
 MODEL='openai/gpt-6-luna'
 URL='https://openrouter.ai/api/v1/chat/completions'
+log=logging.getLogger('specbot.ai')
+RETRYABLE_CODES={404,408,429,500,502,503,504}
 SYSTEM='''Ты проводишь интервью заказчика для составления технического задания.
 Задавай один-два конкретных вопроса за ход, без длинных анкет и канцелярита.
 Если ответ расплывчатый, объясни на примере и уточни. Не навязывай функции и стек.
@@ -51,6 +55,7 @@ def output_schema(final):
     return obj({'message':text,'state':obj(state),'ready':{'type':'boolean'},'progress':{'type':'number'}})
 
 class ModelError(RuntimeError): pass
+class FormatError(ValueError): pass
 
 class AI:
     def __init__(self, config, store, client=None):
@@ -73,6 +78,7 @@ class AI:
             daily=float(self.s.setting('daily_budget',str(self.c.daily)))
             row=self.s.reserve(session['id'],ceiling,provider,daily,self.c.session)
             billed=ceiling
+            request_id='unknown'
             try:
                 if not self.c.key: raise ModelError('Ключ OpenRouter не настроен.')
                 response=await self.client.post(URL,headers={'Authorization':'Bearer '+self.c.key,
@@ -84,15 +90,47 @@ class AI:
                     timeout=self.c.flex_timeout if i==0 else self.c.standard_timeout)
                 if response.status_code!=200:
                     billed=0
-                    if response.status_code in (404,408,429,500,502,503,504) and i==0:
+                    log.warning('Provider failure: route=%s http=%s',provider,response.status_code)
+                    if response.status_code in RETRYABLE_CODES and i==0:
                         self.s.settle(row,0,'rejected');continue
                     raise ModelError('OpenRouter недоступен (HTTP '+str(response.status_code)+').')
                 data=response.json()
-                cost=data.get('usage',{}).get('cost')
-                if isinstance(cost,(int,float)) and math.isfinite(cost) and cost>=0: billed=cost
-                choice=data.get('choices',[{}])[0]
-                if choice.get('finish_reason')=='length': raise ModelError('Ответ обрезан. Попробуй снова или уточни объём.')
-                result=json.loads(choice['message']['content'])
+                if not isinstance(data,dict):raise FormatError('envelope.object')
+                if isinstance(data.get('id'),str) and re.fullmatch(r'[A-Za-z0-9_-]{1,160}',data['id']):request_id=data['id']
+                usage=data.get('usage')
+                cost=usage.get('cost') if isinstance(usage,dict) else None
+                cost_known=isinstance(cost,(int,float)) and not isinstance(cost,bool) and math.isfinite(cost) and cost>=0
+                if cost_known:billed=cost
+                # OpenRouter can report an upstream failure in a HTTP 200 body.
+                # Headers have already been sent; the HTTP status alone is not enough.
+                if data.get('error'):
+                    error=data['error']
+                    code=error.get('code') if isinstance(error,dict) else None
+                    try:code=int(code)
+                    except (TypeError,ValueError):code=None
+                    log.warning('Provider failure: route=%s request=%s http=200 code=%s',provider,request_id,code)
+                    if code in RETRYABLE_CODES and i==0:
+                        # Generation may have begun. Keep the reserve unless usage
+                        # reports its actual cost, just as for a transport timeout.
+                        self.s.settle(row,billed,'rejected' if cost_known else 'uncertain');continue
+                    raise ModelError('Провайдер ИИ сообщил об ошибке'+(' (код '+str(code)+')' if code else '')+'. Ответ клиента сохранён.')
+                choices=data.get('choices')
+                if not isinstance(choices,list) or not choices or not isinstance(choices[0],dict):raise FormatError('envelope.choices')
+                choice=choices[0]
+                if choice.get('finish_reason')=='error':
+                    log.warning('Provider failure: route=%s request=%s finish_reason=error',provider,request_id)
+                    if i==0:
+                        self.s.settle(row,billed,'uncertain');continue
+                    raise ModelError('Провайдер ИИ прервал ответ. Ответ клиента сохранён.')
+                if choice.get('finish_reason')=='length':
+                    log.warning('Incomplete AI response: route=%s request=%s reason=length',provider,request_id)
+                    raise ModelError('Ответ обрезан. Попробуй снова или уточни объём.')
+                message=choice.get('message')
+                if not isinstance(message,dict):raise FormatError('envelope.message')
+                if message.get('refusal'):
+                    log.warning('Incomplete AI response: route=%s request=%s reason=refusal',provider,request_id)
+                    raise ModelError('ИИ отказался обработать этот запрос. Ответ клиента сохранён.')
+                result=json.loads(message['content'])
                 validate(result,final)
                 self.s.settle(row,billed,'ok')
                 result['_cursor']=cursor
@@ -100,40 +138,54 @@ class AI:
             except (httpx.TimeoutException,httpx.TransportError):
                 # Timeout may have been billed: retain conservative reserve before fallback.
                 self.s.settle(row,billed,'uncertain')
+                log.warning('Provider failure: route=%s request=%s reason=transport',provider,request_id)
                 if i==0: continue
                 raise ModelError('ИИ не ответил вовремя. Ответ сохранён, можно повторить.') from None
-            except (ValueError,KeyError,IndexError,TypeError):
+            except (ValueError,KeyError,IndexError,TypeError) as e:
                 self.s.settle(row,billed,'invalid')
+                # Fixed categories only: never log response bodies, prompts, or
+                # provider error messages that may contain customer text/secrets.
+                category='invalid_json' if isinstance(e,json.JSONDecodeError) else 'invalid_schema' if isinstance(e,FormatError) else 'invalid_envelope'
+                detail=str(e) if isinstance(e,FormatError) else 'line='+str(e.lineno)+',column='+str(e.colno) if isinstance(e,json.JSONDecodeError) else type(e).__name__
+                log.warning('Invalid AI response: route=%s request=%s category=%s detail=%s',provider,request_id,category,detail)
                 raise ModelError('ИИ вернул неподходящий формат. Ответ клиента сохранён.') from None
             except ModelError:
                 self.s.settle(row,billed if self.c.key else 0,'error');raise
 
 
 def validate(data,final=False):
-    if not isinstance(data,dict): raise ValueError('Invalid object')
-    if len(json.dumps(data,ensure_ascii=False))>35000: raise ValueError('Too large')
-    def string(v,limit=3000):
-        if not isinstance(v,str) or len(v)>limit: raise ValueError('Invalid text')
-    def strings(v,limit=50):
-        if not isinstance(v,list) or len(v)>limit: raise ValueError('Invalid list')
-        for x in v: string(x)
+    if not isinstance(data,dict): raise FormatError('result.object')
+    if len(json.dumps(data,ensure_ascii=False))>35000: raise FormatError('result.size')
+    def string(v,limit=3000,path='result'):
+        if not isinstance(v,str):raise FormatError(path+'.text_type')
+        if len(v)>limit:raise FormatError(path+'.text_length')
+    def strings(v,limit=50,path='result'):
+        if not isinstance(v,list):raise FormatError(path+'.list_type')
+        if len(v)>limit:raise FormatError(path+'.list_length')
+        for i,x in enumerate(v):string(x,path=path+'.'+str(i))
     if final:
-        string(data.get('title'),200);string(data.get('summary'))
-        if not isinstance(data.get('sections'),list) or not 1<=len(data['sections'])<=12: raise ValueError('Invalid sections')
-        for s in data['sections']: string(s['title'],200);strings(s['items'],12)
-        if not isinstance(data.get('modules'),list) or len(data['modules'])>12: raise ValueError('Invalid modules')
-        for m in data['modules']:
-            for k in ('name','scope','reason'): string(m[k])
-            if m['complexity'] not in ('низкая','средняя','высокая'): raise ValueError('Invalid complexity')
-        for k in ('assumptions','open_questions','acceptance'): strings(data.get(k),30)
+        string(data.get('title'),200,'title');string(data.get('summary'),path='summary')
+        if not isinstance(data.get('sections'),list) or not 1<=len(data['sections'])<=12: raise FormatError('sections.list')
+        for i,s in enumerate(data['sections']):
+            path='sections.'+str(i)
+            if not isinstance(s,dict):raise FormatError(path+'.object')
+            string(s.get('title'),200,path+'.title');strings(s.get('items'),12,path+'.items')
+        if not isinstance(data.get('modules'),list) or len(data['modules'])>12: raise FormatError('modules.list')
+        for i,m in enumerate(data['modules']):
+            path='modules.'+str(i)
+            if not isinstance(m,dict):raise FormatError(path+'.object')
+            for k in ('name','scope','reason'):string(m.get(k),path=path+'.'+k)
+            if m.get('complexity') not in ('низкая','средняя','высокая'): raise FormatError(path+'.complexity')
+        for k in ('assumptions','open_questions','acceptance'): strings(data.get(k),30,k)
     else:
-        string(data.get('message'),1800)
-        if not isinstance(data.get('state'),dict) or not isinstance(data.get('ready'),bool): raise ValueError('Invalid state')
+        string(data.get('message'),1800,'message')
+        if not isinstance(data.get('state'),dict):raise FormatError('state.object')
+        if not isinstance(data.get('ready'),bool):raise FormatError('ready.boolean')
         state=data['state']
         allowed={'goal','audience','scope','scenarios','constraints','integrations','budget','deadline','acceptance','confirmed','assumptions','open_questions'}
-        if set(state)-allowed: raise ValueError('Unknown state fields')
+        if set(state)-allowed: raise FormatError('state.unknown_fields')
         for k,v in state.items():
-            if isinstance(v,list): strings(v,30)
-            else: string(v,5000)
-        for k in ('confirmed','assumptions','open_questions'): strings(state.get(k,[]),30)
-        if not isinstance(data.get('progress'),(int,float)) or not math.isfinite(data['progress']) or not 0<=data['progress']<=100: raise ValueError('Invalid progress')
+            if isinstance(v,list): strings(v,30,'state.'+k)
+            else: string(v,5000,'state.'+k)
+        for k in ('confirmed','assumptions','open_questions'): strings(state.get(k,[]),30,'state.'+k)
+        if not isinstance(data.get('progress'),(int,float)) or isinstance(data['progress'],bool) or not math.isfinite(data['progress']) or not 0<=data['progress']<=100: raise FormatError('progress.range')
