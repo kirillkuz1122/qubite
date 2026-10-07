@@ -22,3 +22,5 @@ services/**/.env
 **/.venv/
 .playwright-cli/
 services/search/data/
+services/specbot/data/
+services/**/private.env
