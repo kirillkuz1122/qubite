@@ -30,7 +30,9 @@ function register(app,deps){
   const target=validateTarget(process.env['SERVICES_'+q.query.service.toUpperCase()+'_BASE_URL']);
   if(!q.auth?.user)return s.redirect(APP_BASE_URL+'/auth?return_to='+encodeURIComponent(target));
   const p=await require('./knowledge-services').access(q.auth.user,q.query.service);
-  return p.enabled?s.status(200).end():s.status(403).send('Доступ к сервису не выдан владельцем Qubite.');
+  if(!p.enabled)return s.status(403).send('Доступ к сервису не выдан владельцем Qubite.');
+  if(process.env.KNOWLEDGE_MANAGEMENT_SOCKET){const info=await require('./knowledge-enrollment').manage('info',q.auth.user,q.query.service);if(!info.ready)return s.redirect(APP_BASE_URL+'/service-enroll?service='+q.query.service);}
+  return s.status(200).end();
  }catch(e){n(e);}});
 }
 module.exports={validateTarget,register};

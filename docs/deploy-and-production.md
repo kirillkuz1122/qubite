@@ -134,3 +134,7 @@ PM2 используется как process manager.
 ## Разделённый runtime Raspberry
 
 Новые unit Auth/control bot и ограниченный root-менеджер устанавливает `deploy/services/runtime.py`; Caddy отделяет core/service/Writing маршруты от main workspace. Search internal auth URL должен вести на Auth, а не на выключаемый platform. [Полная схема, env и backup](runtime-and-knowledge.md).
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](knowledge-client-guide.md).
+
+- `back/src/knowledge-api.js`: нативный login/Bearer/refresh проверяется по активной привязке и Qubite grant; не открывать общий API анонимно. Tunnel ingress должен сохранять прежние hostname+path маршруты, включая Kwork tracking.

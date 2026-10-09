@@ -191,3 +191,7 @@ Specbot обрабатывает ошибки OpenRouter внутри HTTP 200: 
 ## Независимый вход и управление Raspberry
 
 `/auth` использует прежние формы Qubite без лендинга и продолжает работать при выключенном основном сайте. Telegram `/power` управляет только разрешёнными приложениями. Memos и Vikunja установлены отдельно, с внешним разрешением Qubite и своими аккаунтами; Hermes подключён через ограниченный MCP-мост. [Архитектура, доступы и эксплуатация](docs/runtime-and-knowledge.md).
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](docs/knowledge-client-guide.md).
+
+- `back/src/knowledge-api.js`: нативный login/Bearer/refresh проверяется по активной привязке и Qubite grant; не открывать общий API анонимно. Tunnel ingress должен сохранять прежние hostname+path маршруты, включая Kwork tracking.

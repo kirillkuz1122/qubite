@@ -167,3 +167,5 @@ API и переносимый skill описаны в [search-api.md](search-api
 ## Независимый вход и новые сервисы
 
 Поиск и Writing направляют на `/auth` с проверенным `return_to`, а не на лендинг. Auth/control bot независимы от выключаемого Qubite. Memos/Vikunja появились в выдаче доступа и «Моих сервисах»; им требуется также собственный нативный аккаунт. [Управление `/power`, архитектура, Hermes и ограничения](runtime-and-knowledge.md).
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](knowledge-client-guide.md).

@@ -32,3 +32,5 @@
 - [Переход сервисов на Haiku 5.5](haiku-migration.md) — маршруты, потолки цены, сохранённые изменения Kwork и результаты проверки.
 
 - [Независимый Auth, питание приложений, Memos/Vikunja и Hermes](runtime-and-knowledge.md)
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](knowledge-client-guide.md).

@@ -16,8 +16,18 @@ def install(root,account,run,env_file=None,auth_port=9131):
  dropin=system/'qubite-platform.service.d';dropin.mkdir(exist_ok=True)
  (dropin/'runtime.conf').write_text('[Service]\nEnvironment=QUBITE_PROCESS_ROLE=platform\nEnvironment=RUNTIME_MANAGEMENT_SOCKET=/run/qubite-runtime/manage.sock\n')
  (system/'qubite-runtime-manager.service').write_text(f'[Unit]\nDescription=Restricted Qubite service power manager\nAfter=network-online.target docker.service\n[Service]\nExecStart=/usr/bin/python3 {manager}\nEnvironment=QUBITE_UID={account.pw_uid}\nEnvironment=QUBITE_GID={account.pw_gid}\nEnvironment=QUBITE_USER={account.pw_name}\nRuntimeDirectory=qubite-runtime\nRuntimeDirectoryMode=0755\nRestart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\n[Install]\nWantedBy=multi-user.target\n')
+ if Path('/etc/qubite/knowledge-management.json').exists():install_knowledge_manager(root,account,run)
  run(['systemctl','daemon-reload'])
  # The old process owns the polling connection; stop it before starting the worker.
  run(['systemctl','stop','qubite-platform'])
  run(['systemctl','enable','--now','qubite-runtime-manager','qubite-auth','qubite-control-bot'])
  run(['systemctl','start','qubite-platform'])
+
+
+def install_knowledge_manager(root,account,run):
+ """Optional enrollment: native services/config are provisioned separately."""
+ target=Path('/usr/local/lib/qubite/knowledge-manager.py')
+ target.parent.mkdir(parents=True,exist_ok=True)
+ shutil.copy2(Path(root)/'deploy/knowledge-manager.py',target);os.chown(target,0,0);target.chmod(0o755)
+ Path('/etc/systemd/system/qubite-knowledge-manager.service').write_text(f'[Unit]\nDescription=Restricted Qubite native account enrollment\nAfter=docker.service\n[Service]\nExecStart=/usr/bin/python3 {target}\nEnvironment=QUBITE_UID={account.pw_uid}\nEnvironment=QUBITE_GID={account.pw_gid}\nRuntimeDirectory=qubite-knowledge\nRuntimeDirectoryMode=0755\nStateDirectory=qubite-knowledge\nStateDirectoryMode=0700\nRestart=on-failure\nRestartSec=3\nUMask=0077\nNoNewPrivileges=true\n[Install]\nWantedBy=multi-user.target\n')
+ run(['systemctl','daemon-reload']);run(['systemctl','enable','--now','qubite-knowledge-manager'])

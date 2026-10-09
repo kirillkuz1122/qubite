@@ -256,3 +256,7 @@
 - `back/src/knowledge-services.js`: только внешний доступ Memos/Vikunja; нативные аккаунты отдельные. `integrations/qubite-knowledge` — ограниченный MCP и skill Hermes.
 - Есть целевые Node/Python тесты (`node --test back/tests/*.test.js`, `python3 -m unittest discover -s deploy/services/tests`); прежняя фраза о полном отсутствии тестов устарела. `npm test` по-прежнему не агрегирует их.
 - [Операционная документация](docs/runtime-and-knowledge.md), включая новые env, cookie SSO, cgroup ограничения и backup.
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](docs/knowledge-client-guide.md).
+
+- `back/src/knowledge-api.js`: нативный login/Bearer/refresh проверяется по активной привязке и Qubite grant; не открывать общий API анонимно. Tunnel ingress должен сохранять прежние hostname+path маршруты, включая Kwork tracking.

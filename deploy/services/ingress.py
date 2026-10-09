@@ -98,7 +98,7 @@ def install(root,base,env,account,run,private,unit):
      import yaml
      prior=yaml.safe_load(config_path.read_text())
     if prior.get('tunnel') not in (None,tid,name):raise RuntimeError('Config belongs to another tunnel')
-   ingress=[r for r in prior.get('ingress',[]) if r.get('hostname') not in {r['hostname'] for r in routes} and r.get('hostname')]
+   ingress=preserve_ingress(prior.get('ingress',[]),routes)
    prior.update(tunnel=tid,**{'credentials-file':str(credential),'protocol':'http2','ingress':ingress+routes+[{'service':'http_status:404'}]})
    if config_path.exists():shutil.copy2(config_path,base/'cloudflared.previous')
    private(config_path,json.dumps(prior,indent=2));os.chown(config_path,account.pw_uid,account.pw_gid)
@@ -146,3 +146,9 @@ def finalize_vault(root,base,env,run,private):
   subprocess.run(['docker','rm','-f','aliasvault'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   run(['docker','rename',old_name,'aliasvault']);run(['docker','start','aliasvault']);raise
  print('AliasVault enrollment enabled behind authenticated Qubite grant checks. Previous stopped container retained for rollback.')
+
+
+def preserve_ingress(previous,routes):
+ """Keep host+path overrides before replacing a hostname catch-all."""
+ hosts={r['hostname'] for r in routes}
+ return [r for r in previous if r.get('hostname') and (r.get('path') or r['hostname'] not in hosts)]

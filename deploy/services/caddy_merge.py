@@ -2,7 +2,7 @@
 import re
 
 def portal_routes(app_port,auth_port,expected_host=None):
-    content=f''' @auth path /privacy.html /terms.html /acceptable-use.html /security.html /auth /auth/* /services/return /service-invite /api/auth/* /api/public/config /api/status /internal/services/* /api/services/* /api/owner/services/* /writing /writing-assets/* /api/writing/* /front/* /design-system
+    content=f''' @auth path /service-enroll /knowledge-enroll.js /privacy.html /terms.html /acceptable-use.html /security.html /auth /auth/* /services/return /service-invite /api/auth/* /api/public/config /api/status /internal/services/* /api/services/* /api/owner/services/* /writing /writing-assets/* /api/writing/* /front/* /design-system
  handle @auth {{
   reverse_proxy 127.0.0.1:{auth_port}
  }}
@@ -23,15 +23,57 @@ def portal_routes(app_port,auth_port,expected_host=None):
 
 def knowledge_route(host, service, auth_port, native_port, key):
     if service not in ('memos','vikunja'):raise ValueError('Unknown knowledge service')
+    login='/api/v1/auth/signin' if service=='memos' else '/api/v1/login'
+    info='/api/v1/instance/profile' if service=='memos' else '/api/v1/info /api/v2/info'
+    refresh=f'''
+  handle @nativeRefresh {{
+   rewrite * /internal/services/knowledge-refresh?service={service}
+   reverse_proxy 127.0.0.1:{auth_port} {{
+    header_up X-Qubite-Service-Key {key}
+   }}
+  }}''' if service=='memos' else ''
     return f''' @wrongHost not host {host}
+ @nativeInfo {{
+  method GET
+  path {info}
+ }}
+ @nativeLogin {{
+  method POST
+  path {login}
+ }}
+ @nativeRefresh {{
+  method POST
+  path /api/v1/auth/refresh
+ }}
+ @nativeApi path /api/*
  route {{
   respond @wrongHost "Unknown host" 404
-  forward_auth 127.0.0.1:{auth_port} {{
-   uri /internal/services/browser-access?service={service}
-   header_up X-Qubite-Service-Key {key}
+  handle @nativeInfo {{
+   reverse_proxy 127.0.0.1:{native_port}
   }}
-  reverse_proxy 127.0.0.1:{native_port} {{
-   header_up X-Forwarded-Proto https
+  handle @nativeLogin {{
+   rewrite * /internal/services/knowledge-login?service={service}
+   reverse_proxy 127.0.0.1:{auth_port} {{
+    header_up X-Qubite-Service-Key {key}
+   }}
+  }}{refresh}
+  handle @nativeApi {{
+   forward_auth 127.0.0.1:{auth_port} {{
+    uri /internal/services/knowledge-api?service={service}
+    header_up X-Qubite-Service-Key {key}
+   }}
+   reverse_proxy 127.0.0.1:{native_port} {{
+    header_up X-Forwarded-Proto https
+   }}
+  }}
+  handle {{
+   forward_auth 127.0.0.1:{auth_port} {{
+    uri /internal/services/browser-access?service={service}
+    header_up X-Qubite-Service-Key {key}
+   }}
+   reverse_proxy 127.0.0.1:{native_port} {{
+    header_up X-Forwarded-Proto https
+   }}
   }}
  }}'''
 

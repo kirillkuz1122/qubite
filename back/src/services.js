@@ -99,6 +99,8 @@ function register(app,deps){
  const {requireAuth,authRateLimiter,createUser,findUserByLoginOrEmail,getUserById,updateUserPassword,createSession,sessionCookieOptions,SESSION_COOKIE_NAME,SESSION_TTL_MS}=deps;
  require('./writing').register(app,{requireAuth,getUserById,audit});
  require('./knowledge-services').register(app,{requireAuth,requireOwner,getUserById,audit});
+ require('./knowledge-enrollment').register(app,{requireAuth,authRateLimiter,audit});
+ require('./knowledge-api').register(app,{internalKey,authRateLimiter});
  app.get('/design-system',(req,res)=>res.sendFile(require('path').join(__dirname,'../../design-system.html')));
  app.get('/services/return',requireAuth,(req,res)=>{
   const target=require('./auth-surface').validateTarget(req.query.url);if(!target)return res.status(400).end();res.set('Cache-Control','no-store').redirect(target);

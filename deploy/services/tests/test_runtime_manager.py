@@ -8,7 +8,7 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 class RuntimeTests(unittest.TestCase):
  def test_core_services_cannot_be_stopped(self):
-  for service in ['qubite-auth','qubite-control-bot','tailscaled','sing-box','cloudflared','caddy','ssh','memos; reboot','../qubite-auth']:
+  for service in ['qubite-auth','qubite-control-bot','qubite-knowledge-manager','tailscaled','sing-box','cloudflared','caddy','ssh','memos; reboot','../qubite-auth']:
    with self.subTest(service=service),patch.object(m,'run') as run:
     with self.assertRaises(ValueError):m.manage({'action':'set','id':service,'enabled':False})
     run.assert_not_called()

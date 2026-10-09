@@ -24,3 +24,10 @@ class SplitAuth(unittest.TestCase):
   native=knowledge_route('memos.example','memos',9131,5230,'test-key')
   self.assertLess(native.index('respond @wrongHost'),native.index('forward_auth'))
   with self.assertRaises(ValueError):knowledge_route('evil.example','auth',1,2,'key')
+
+class TunnelMerge(unittest.TestCase):
+ def test_preserves_path_before_replaced_catchall(self):
+  from ingress import preserve_ingress
+  special={'hostname':'qubite.example','path':'^/kwork/go/','service':'http://127.0.0.1:9285'}
+  old=[special,{'hostname':'qubite.example','service':'old'},{'hostname':'other.example','service':'keep'},{'service':'http_status:404'}]
+  self.assertEqual(preserve_ingress(old,[{'hostname':'qubite.example','service':'new'}]),[special,old[2]])
