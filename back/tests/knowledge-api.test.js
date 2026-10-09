@@ -28,3 +28,11 @@ test('anonymous requests cannot reach protected API or login arbitrary upstream'
  assert.equal((await call('login',{username:'friend',password:'not-real'},{'x-key':'wrong'})).status,403);
  assert.equal((await call('login',{username:'friend',password:'not-real'},{Origin:'https://evil.example'})).status,403);
 });
+
+test('Memos REST refresh cookie becomes a standard secure cookie without splitting Expires comma',()=>{
+ const value='memos_refresh=synthetic; Path=/; HttpOnly; Expires=Wed, 10 Oct 2027 00:00:00 GMT; SameSite=Lax';
+ const h=new Headers({'grpc-metadata-set-cookie':value});assert.deepEqual(gateway.nativeCookies('memos',h),[value+'; Secure']);
+ assert.deepEqual(gateway.nativeCookies('memos',new Headers({'grpc-metadata-set-cookie':'unexpected=synthetic'})),[]);
+ assert.deepEqual(gateway.nativeCookies('vikunja',h),[]);
+ const direct=new Headers({'Set-Cookie':value+'; Secure'});assert.deepEqual(gateway.nativeCookies('memos',direct),[value+'; Secure']);
+});

@@ -1,10 +1,17 @@
 // Native API clients use their own token, still subject to the Qubite grant.
 const db=require('./db'),grants=require('./knowledge-services'),enrollment=require('./knowledge-enrollment');
 const origins={memos:'http://127.0.0.1:5230',vikunja:'http://127.0.0.1:3456'};
+function nativeCookies(service,headers){
+ const values=headers.getSetCookie();const metadata=headers.get('grpc-metadata-set-cookie');
+ // Memos' REST grpc-gateway returns its single refresh cookie as metadata.
+ if(service==='memos'&&!values.length&&metadata?.startsWith('memos_refresh='))values.push(metadata);
+ const secure=new URL(grants.urls()[service]).protocol==='https:';
+ return values.map(c=>secure&&!/;\s*Secure(?:;|$)/i.test(c)?c+'; Secure':c);
+}
 async function native(service,path,options={}){
  const r=await fetch(origins[service]+path,{...options,signal:AbortSignal.timeout(12000),redirect:'error'});
  const text=await r.text();if(text.length>65536)throw Error('Oversized native authentication response');
- return {status:r.status,data:JSON.parse(text||'{}'),cookies:r.headers.getSetCookie()};
+ return {status:r.status,data:JSON.parse(text||'{}'),cookies:nativeCookies(service,r.headers)};
 }
 async function account(service,login,identity){
  const binding=await enrollment.lookup(service,login);if(!binding.ready)return false;
@@ -48,4 +55,4 @@ function register(app,d,api=native){
   if(r.cookies.length)s.setHeader('Set-Cookie',r.cookies);s.set('Cache-Control','no-store').json(r.data);
  }catch{denied(s,503);}});
 }
-module.exports={register,account,identity};
+module.exports={register,account,identity,nativeCookies};
