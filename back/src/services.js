@@ -40,6 +40,7 @@ async function permissions(user){
  }
  for(const name of require('./knowledge-services').NAMES)result.services[name]=await require('./knowledge-services').access(user,name);
  Object.assign(result.urls,require('./knowledge-services').urls());
+ if(process.env.SIYUAN_PRIVATE_FILE){result.services.siyuan={enabled:result.owner};result.urls.siyuan=require('./siyuan').url();}
  result.services.grammar=await require('./writing').access(user);
  result.urls.grammar=APP_BASE_URL+'/writing';
  return result;
@@ -101,6 +102,7 @@ function register(app,deps){
  require('./knowledge-services').register(app,{requireAuth,requireOwner,getUserById,audit});
  require('./knowledge-enrollment').register(app,{requireAuth,authRateLimiter,audit});
  require('./knowledge-api').register(app,{internalKey,authRateLimiter});
+ require('./siyuan').register(app,{internalKey});
  app.get('/design-system',(req,res)=>res.sendFile(require('path').join(__dirname,'../../design-system.html')));
  app.get('/services/return',requireAuth,(req,res)=>{
   const target=require('./auth-surface').validateTarget(req.query.url);if(!target)return res.status(400).end();res.set('Cache-Control','no-store').redirect(target);

@@ -22,6 +22,7 @@ SERVICES = {
     'search': ('system', 'qubite-search.service'),
     'brief': ('system', 'qubite-specbot.service'),
     'memos': ('docker', 'memos'),
+    'siyuan': ('docker', 'qubite-siyuan'),
     'vikunja': ('docker', 'vikunja'),
     'kwork_poll': ('system', 'kwork-bot-poll.service'),
     'kwork_work': ('system', 'kwork-bot-work.service'),

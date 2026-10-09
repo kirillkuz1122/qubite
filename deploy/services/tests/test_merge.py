@@ -31,3 +31,13 @@ class TunnelMerge(unittest.TestCase):
   special={'hostname':'qubite.example','path':'^/kwork/go/','service':'http://127.0.0.1:9285'}
   old=[special,{'hostname':'qubite.example','service':'old'},{'hostname':'other.example','service':'keep'},{'service':'http_status:404'}]
   self.assertEqual(preserve_ingress(old,[{'hostname':'qubite.example','service':'new'}]),[special,old[2]])
+
+class SiYuanRouteTests(unittest.TestCase):
+ def test_personal_gate_is_before_upstream_and_session_uses_internal_key(self):
+  from caddy_merge import siyuan_route
+  fragment=siyuan_route('siyuan.example',9131,6806,'not-real')
+  self.assertLess(fragment.index('forward_auth'),fragment.index('reverse_proxy 127.0.0.1:6806'))
+  self.assertIn('/internal/services/siyuan-access',fragment)
+  self.assertIn('/internal/services/siyuan-session?{query}',fragment)
+  self.assertIn('not host siyuan.example',fragment)
+  self.assertNotIn('header_up Authorization',fragment)

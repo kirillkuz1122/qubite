@@ -2,7 +2,7 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {APP_BASE_URL}=require('./config');
 function validateTarget(value){
  const main=new URL(APP_BASE_URL);
- const allowed=[main.origin,...Object.values(require('./knowledge-services').urls()).map(v=>new URL(v).origin),...['SERVICES_SEARCH_BASE_URL','SERVICES_VAULT_BASE_URL','SERVICES_MEMOS_BASE_URL','SERVICES_VIKUNJA_BASE_URL'].map(k=>process.env[k]).filter(Boolean).map(v=>new URL(v).origin)];
+ const allowed=[main.origin,require('./siyuan').url(),...Object.values(require('./knowledge-services').urls()).map(v=>new URL(v).origin),...['SERVICES_SEARCH_BASE_URL','SERVICES_VAULT_BASE_URL','SERVICES_MEMOS_BASE_URL','SERVICES_VIKUNJA_BASE_URL'].map(k=>process.env[k]).filter(Boolean).map(v=>new URL(v).origin)];
  try{const u=new URL(value||'/',main);if(u.username||u.password||!allowed.includes(u.origin)||!['http:','https:'].includes(u.protocol)||(u.origin===main.origin&&(/^\/auth(?:\/|$)/.test(u.pathname)||u.pathname==='/services/return')))return null;return u.href;}catch{return null;}
 }
 function nativeTarget(service,value='/',relativeOnly=false){

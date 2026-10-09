@@ -86,3 +86,5 @@ Memos v0.31 REST grpc-gateway выдаёт refresh cookie в `grpc-metadata-set-
 Для REST refresh Memos cookie также передаётся во входной `Grpc-Metadata-Cookie`, который gateway переводит в ожидаемую сервером metadata `cookie`. После обмена токен проверяется штатным /auth/me и Qubite grant до возврата клиенту.
 
 - Вход нативных клиентов Vikunja: Qubite сохраняет путь и параметры `/oauth/authorize` через вход/первый пароль. Обмен PKCE-кода, вращение OAuth refresh и нативный cookie refresh проверяют активную привязку и grant перед возвратом токена. Переходы остаются на точном origin сервиса; callback в приложение выполняет сам Vikunja.
+
+SiYuan добавлен как отдельный фиксированный контейнер `qubite-siyuan` в `/power`; общий блокнот Hermes и owner-only auth описаны в [siyuan.md](siyuan.md). Не смешивать с многопользовательским enrollment Memos/Vikunja.

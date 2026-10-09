@@ -105,3 +105,26 @@ def merge_master(original,main,app_port,auth_port=None):
     if not count and re.search(r'(?m)^(?:https://)?'+host+r'(?:[,\s]|\{)',original):
         raise ValueError('Main hostname already has a custom Caddy vhost: merge its upstream manually')
     return updated,bool(count)
+
+
+def siyuan_route(host, auth_port, native_port, key):
+    return f''' @wrongHost not host {host}
+ @session path /_qubite/session
+ route {{
+  respond @wrongHost "Unknown host" 404
+  handle @session {{
+   rewrite * /internal/services/siyuan-session?{{query}}
+   reverse_proxy 127.0.0.1:{auth_port} {{
+    header_up X-Qubite-Service-Key {key}
+   }}
+  }}
+  handle {{
+   forward_auth 127.0.0.1:{auth_port} {{
+    uri /internal/services/siyuan-access
+    header_up X-Qubite-Service-Key {key}
+   }}
+   reverse_proxy 127.0.0.1:{native_port} {{
+    header_up X-Forwarded-Proto https
+   }}
+  }}
+ }}'''

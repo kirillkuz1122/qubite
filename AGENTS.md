@@ -262,3 +262,5 @@
 - `back/src/knowledge-api.js`: нативный login/Bearer/refresh проверяется по активной привязке и Qubite grant; не открывать общий API анонимно. Tunnel ingress должен сохранять прежние hostname+path маршруты, включая Kwork tracking.
 
 - Вход нативных клиентов Vikunja: Qubite сохраняет путь и параметры `/oauth/authorize` через вход/первый пароль. Обмен PKCE-кода, вращение OAuth refresh и нативный cookie refresh проверяют активную привязку и grant перед возвратом токена. Переходы остаются на точном origin сервиса; callback в приложение выполняет сам Vikunja.
+
+- `back/src/siyuan.js`: отдельный owner-only gate и серверная выдача native cookie; не добавлять SiYuan в grants/первый пароль Memos/Vikunja. `integrations/qubite-siyuan` ограничивает доступ одним блокнотом, не выставлять нативный токен/SQL модели. Native Docker-порт только loopback, Caddy проверяет каждую HTTP/WS сессию; [инструкция](docs/siyuan.md).
