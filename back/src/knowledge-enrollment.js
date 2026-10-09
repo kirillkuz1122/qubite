@@ -22,7 +22,7 @@ function register(app,d){
  app.get('/knowledge-enroll.js',(q,s)=>s.set('Cache-Control','no-store').type('application/javascript').sendFile(path.join(__dirname,'../public/knowledge-enroll.js')));
  app.get('/api/services/knowledge/:name/enroll',d.requireAuth,async(q,s,n)=>{try{await permitted(q.auth.user,q.params.name);s.set('Cache-Control','no-store').json({...await manage('info',q.auth.user,q.params.name),url:grants.urls()[q.params.name]});}catch(e){failure(e,s,n);}});
  app.post('/api/services/knowledge/:name/enroll',d.requireAuth,d.authRateLimiter,async(q,s,n)=>{try{
-  await permitted(q.auth.user,q.params.name);if((!q.body||Array.isArray(q.body)||typeof q.body!=='object')||Object.keys(q.body).some(k=>k!=='password')||!require('./security').isStrongPassword(q.body.password)||Buffer.byteLength(q.body.password,'utf8')>72)return s.status(400).json({error:'Пароль: 8–72 байта UTF-8, латинская буква и цифра, без пробелов.'});
+  await permitted(q.auth.user,q.params.name);if((!q.body||Array.isArray(q.body)||typeof q.body!=='object')||Object.keys(q.body).some(k=>k!=='password')||typeof q.body.password!=='string'||!require('./security').isStrongPassword(q.body.password)||Buffer.byteLength(q.body.password,'utf8')>72)return s.status(400).json({error:'Пароль: 8–72 байта UTF-8, латинская буква и цифра, без пробелов.'});
   const result=await manage('enroll',q.auth.user,q.params.name,q.body.password);await d.audit(q.auth.user.id,q.auth.user.id,q.params.name+':enrolled');s.set('Cache-Control','no-store').json({...result,url:grants.urls()[q.params.name]});
  }catch(e){failure(e,s,n);}});
 }

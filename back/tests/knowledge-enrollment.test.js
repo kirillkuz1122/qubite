@@ -19,6 +19,7 @@ test('no anonymous or ungranted account can invoke privileged enrollment',async(
 });
 test('identity comes exclusively from Qubite and payload cannot change it',async()=>{
  assert.equal((await request(2,{password:'SamplePass731',user_id:1})).status,400);
+ assert.equal((await request(2,{password:['SamplePass731']})).status,400);
  const r=await request(2,{password:'SamplePass731'});assert.equal(r.status,200);assert.deepEqual(calls.at(-1),{action:'enroll',service:'memos',user_id:2,login:'friend',email:'friend@example.org',password:'SamplePass731'});assert.deepEqual(audits.at(-1),[2,2,'memos:enrolled']);
 });
 test('replay returns safe conflict and no extra audit',async()=>{
