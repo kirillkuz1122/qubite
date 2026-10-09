@@ -193,7 +193,7 @@ function renderResults(){
 function modelName(result){
   if(result.kind==='extract')return 'Готовый ответ · '+domain(result.sources[0]?.url);
   if(!result.model)return 'ИИ-ответ';
-  const names={'google/gemini-3.5-flash-lite':'Gemini 3.5 Flash-Lite','google/gemma-4-26b-a4b-it:free':'Gemma 4 · бесплатно','qwen/qwen3.8-27b:free':'Qwen 3.8 · бесплатно','thinkingmachines/inkling-small:free':'Inkling Small · бесплатно','nvidia/nemotron-3.5-lightning:free':'Nemotron 3.5 · бесплатно','inclusionai/ling-3.1-flash':'Ling 3.1 · бесплатно','mistralai/mistral-nemo':'Mistral Nemo','inclusionai/ling-3.0-flash':'Ling 3.0 Flash','z-ai/glm-5.3-flash':'GLM 5.3 Flash'};
+  const names={'google/gemini-3.5-flash-lite':'Gemini 3.5 Flash-Lite','google/gemma-4-26b-a4b-it:free':'Gemma 4 · бесплатно','qwen/qwen3.8-27b:free':'Qwen 3.8 · бесплатно','thinkingmachines/inkling-small:free':'Inkling Small · бесплатно','nvidia/nemotron-3.5-lightning:free':'Nemotron 3.5 · бесплатно','inclusionai/ling-3.1-flash':'Ling 3.1 · бесплатно','mistralai/mistral-nemo':'Mistral Nemo','inclusionai/ling-3.0-flash':'Ling 3.0 Flash','anthropic/claude-haiku-5.5':'Claude Haiku 5.5'};
   return names[result.model]||result.model;
 }
 function renderOverview(result){

@@ -14,7 +14,7 @@ from document import exports
 @pytest.fixture
 def setup(tmp_path):
     s=Store(tmp_path/'data'/'test.sqlite')
-    c=SimpleNamespace(owner=1,data=tmp_path/'data',daily=.05,session=.05,key='fake',flex_timeout=.1,standard_timeout=.1,stt_python='',stt_script='',send_client=False)
+    c=SimpleNamespace(owner=1,data=tmp_path/'data',daily=.05,session=.05,key='fake',primary_timeout=.1,standard_timeout=.1,stt_python='',stt_script='',send_client=False)
     b=Bot(c,s,SimpleNamespace())
     b.username='test_bot'
     return b,s,c
@@ -50,9 +50,9 @@ def test_claim_inside_update_transaction(setup):
 
 def test_budget_reserve_uncertain_and_day(setup):
     b,s,c=setup;sid,_=session(s)
-    id=s.reserve(sid,.03,'openai/flex',.05,.05)
+    id=s.reserve(sid,.03,'anthropic',.05,.05)
     s.settle(id,.03,'uncertain')
-    with pytest.raises(ValueError):s.reserve(sid,.03,'openai',.05,.05)
+    with pytest.raises(ValueError):s.reserve(sid,.03,'google-vertex/global',.05,.05)
     assert s.stats()['today_usd']==.03
 
 class Response:
@@ -71,8 +71,8 @@ def success():return Response(200,{'choices':[{'finish_reason':'stop','message':
 def test_fallback_only_two_explicit_providers(setup):
     b,s,c=setup;sid,_=session(s);cl=Client([Response(503),success()])
     result,provider=asyncio.run(AI(c,s,cl).generate(s.get(sid)))
-    assert provider=='openai'
-    assert [r['json']['provider']['only'] for r in cl.calls]==[['openai/flex'],['openai']]
+    assert provider=='google-vertex/global'
+    assert [r['json']['provider']['only'] for r in cl.calls]==[['anthropic'],['google-vertex/global']]
     assert all(not r['json']['provider']['allow_fallbacks'] for r in cl.calls)
     assert s.stats()['today_usd']==.0001
     assert result['message']
@@ -86,7 +86,7 @@ def test_http_200_upstream_error_uses_standard_route_and_keeps_unknown_cost(setu
     b,s,c=setup;sid,_=session(s)
     cl=Client([Response(200,{'error':{'code':503,'message':'PRIVATE CLIENT TEXT'}}),success()])
     result,provider=asyncio.run(AI(c,s,cl).generate(s.get(sid)))
-    assert provider=='openai' and result['message']
+    assert provider=='google-vertex/global' and result['message']
     assert len(cl.calls)==2
     rows=list(s.db.execute('SELECT cost,status FROM usage ORDER BY id'))
     assert rows[0]['status']=='uncertain' and rows[0]['cost']>0
@@ -103,7 +103,7 @@ def test_http_200_finish_error_falls_back_without_parsing_partial_answer(setup):
     b,s,c=setup;sid,_=session(s)
     cl=Client([Response(200,{'choices':[{'finish_reason':'error','message':{'content':'partial'}}],'usage':{'cost':.00001}}),success()])
     _,provider=asyncio.run(AI(c,s,cl).generate(s.get(sid)))
-    assert provider=='openai' and s.stats()['today_usd']==pytest.approx(.00011)
+    assert provider=='google-vertex/global' and s.stats()['today_usd']==pytest.approx(.00011)
 
 @pytest.mark.parametrize('data',[{'usage':None,'choices':None},{'usage':[], 'choices':[None]}, {'choices':[{'message':None}]}])
 def test_malformed_envelope_is_safe_and_does_not_automatically_spend_again(setup,data):
@@ -155,7 +155,7 @@ def test_manual_takeover_discards_inflight_ai(setup):
     class LateAI:
         async def generate(self,session,final=False):
             b.admin_action('take',sid,1)
-            return interview(),'openai/flex'
+            return interview(),'anthropic'
     b.ai=LateAI()
     asyncio.run(b.work(job))
     assert s.get(sid)['status']=='manual'
@@ -226,7 +226,7 @@ def test_failed_voice_retry_is_voice_not_empty_model_call(setup):
 
 def test_delete_preserves_money_accounting(setup):
     b,s,c=setup;sid,_=session(s)
-    id=s.reserve(sid,.01,'openai',.05,.05);s.settle(id,.01,'ok')
+    id=s.reserve(sid,.01,'google-vertex/global',.05,.05);s.settle(id,.01,'ok')
     b.admin_action('delete',sid,1)
     assert s.stats()['today_usd']==.01
     assert s.db.execute('SELECT COUNT(*) FROM messages').fetchone()[0]==0
@@ -258,7 +258,7 @@ def test_full_client_interview_review_and_owner_delivery(setup):
         'assumptions':[],'open_questions':['Срок'],'acceptance':['Заявка доставлена']}
     class FakeAI:
         async def generate(self,session,final=False):
-            return (globals_for_test['final'] if final else interview()).copy(),'openai/flex'
+            return (globals_for_test['final'] if final else interview()).copy(),'anthropic'
     globals_for_test={'final':final};b.ai=FakeAI()
     async def scenario():
         await b.handle(message('/start '+token));assert s.get(sid)['status']=='consent'
@@ -327,7 +327,7 @@ def test_new_identical_hint_during_generation_not_consumed_by_old_question(setup
     class ReplacingAI:
         async def generate(self,session,final=False):
             b.owner_text('steer',sid,'Уточнить источники')
-            return interview(),'openai/flex'
+            return interview(),'anthropic'
     b.ai=ReplacingAI();asyncio.run(b.work(next_job(s,sid)))
     assert s.get(sid)['steering']=='Уточнить источники'
     assert s.get(sid)['steering_version']==version+1

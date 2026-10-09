@@ -58,9 +58,9 @@ test('local check uses fixed loopback and stores no input; overflow fails immedi
  }finally{release();global.fetch=original;delete process.env.LANGUAGETOOL_URL;}
 });
 test('parallel AI requests reserve budget atomically, enforce price and never retry',async()=>{
- await native.updateSystemSetting('writing_daily_budget_rub',0.025);
+ await native.updateSystemSetting('writing_daily_budget_rub',0.07);
  const original=global.fetch;let count=0,release;const wait=new Promise(r=>release=r);
- global.fetch=async(url,opt)=>{if(String(url).startsWith('https://openrouter.ai/')){count++;const body=JSON.parse(opt.body);assert.equal(body.provider.allow_fallbacks,false);assert.deepEqual(body.provider.only,['deepinfra/fp8']);assert.equal(body.provider.max_price.completion,.08);assert.ok(!JSON.stringify(body.messages).includes('PRIVATE previous'));await wait;return {ok:true,json:async()=>({usage:{cost:.000001},choices:[{finish_reason:'stop',message:{content:JSON.stringify({text:'Привет!',notes:[],questions:[]})}}]})};}return original(url,opt);};
+ global.fetch=async(url,opt)=>{if(String(url).startsWith('https://openrouter.ai/')){count++;const body=JSON.parse(opt.body);assert.equal(body.provider.allow_fallbacks,false);assert.deepEqual(body.provider.only,['anthropic']);assert.equal(body.provider.max_price.completion,.50);assert.ok(!JSON.stringify(body.messages).includes('PRIVATE previous'));await wait;return {ok:true,json:async()=>({usage:{cost:.000001},choices:[{finish_reason:'stop',message:{content:JSON.stringify({text:'Привет!',notes:[],questions:[]})}}]})};}return original(url,opt);};
  try{
   const first=writing.rewrite(owner,{text:'PRIVATE current',mode:'improve'});await new Promise(r=>setTimeout(r,40));
   await assert.rejects(writing.rewrite(owner,{text:'PRIVATE next',mode:'check'}),e=>e.status===429);release();assert.equal((await first).text,'Привет!');assert.equal(count,1);

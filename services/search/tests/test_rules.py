@@ -17,6 +17,13 @@ ORIGINAL_VERIFY=app.verify_answer
 from store import Store,LimitError
 from retrieval import translation_intent,pinned_url,Spelling
 
+def test_haiku_long_context_rejected_before_budget_reservation(monkeypatch):
+    def reserve(*args):raise AssertionError('Oversized context reserved money')
+    monkeypatch.setattr(app.store,'reserve',reserve)
+    body={'model':'anthropic/claude-haiku-5.5','messages':[{'role':'user','content':'я'*50000}]}
+    with pytest.raises(LimitError,match='Контекст слишком большой'):
+        asyncio.run(app.openrouter('kirill','v1/chat/completions',body,.1,.5))
+
 @pytest.fixture(autouse=True)
 def offline_verification(monkeypatch):
     # Legacy routing tests do not perform paid network requests. Dedicated grounding
@@ -209,7 +216,7 @@ def test_guest_never_calls_jev_or_paid_and_never_saves(tmp_path,monkeypatch):
     assert s.history('friend')==[]
     assert 'conversation' not in app.jobs['guest']['result']
 
-def test_glm_provider_order_and_no_arbitrary_fallback(monkeypatch):
+def test_haiku_provider_order_and_no_arbitrary_fallback(monkeypatch):
     calls=[]
     async def router(user,path,body,*rates):
         calls.append(body)
@@ -217,9 +224,9 @@ def test_glm_provider_order_and_no_arbitrary_fallback(monkeypatch):
         return {'choices':[{'message':{'content':'{"answer_markdown":"OK","visuals":[]}'},'finish_reason':'stop'}],'usage':{'cost':.001}}
     monkeypatch.setattr(app,'openrouter',router)
     result=asyncio.run(app.complete('kirill','deep',[]))
-    assert [c['provider']['only'] for c in calls]==[['deepinfra/fp4'],['novita/fp8']]
+    assert [c['provider']['only'] for c in calls]==[['anthropic'],['google-vertex/global']]
     assert all(c['provider']['allow_fallbacks'] is False for c in calls)
-    assert result['provider']=='novita/fp8'
+    assert result['provider']=='google-vertex/global'
 
 def test_limit_never_retries_paid_provider(monkeypatch):
     calls=[]

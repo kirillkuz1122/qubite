@@ -65,16 +65,16 @@
     "json_format": false
   },
   "deep": {
-    "label": "GLM 5.3 Flash · сложные вопросы",
-    "model": "z-ai/glm-5.3-flash",
+    "label": "Claude Haiku 5.5 · сложные вопросы",
+    "model": "anthropic/claude-haiku-5.5",
     "providers": [
-      "deepinfra/fp4",
-      "novita/fp8"
+      "anthropic",
+      "google-vertex/global"
     ],
-    "input": 0.084,
-    "output": 0.28,
+    "input": 0.1,
+    "output": 0.5,
     "max_tokens": 5000,
-    "reasoning": true
+    "reasoning": false
   },
   "fast": {
     "label": "Ling 3.0 Flash · быстрый",

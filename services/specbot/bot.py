@@ -39,7 +39,7 @@ HELP='''Qubite Brief — твой помощник по сбору ТЗ.
 /revoke ID — закрыть приглашение и остановить интервью
 /delete ID — удалить интервью и файлы
 
-ИИ: Luna, Flex → обычный OpenAI. Клиенты без приглашения не допускаются.
+ИИ: Haiku 5.5, Anthropic → Google. Клиенты без приглашения не допускаются.
 В PDF предположения и открытые вопросы отделены от требований.'''
 ALIAS={'разработка':'development','дизайн':'design','маркетинг':'marketing','общий':'general',**{k:k for k in PRESETS}}
 def button(text,data):return {'text':text,'callback_data':data}

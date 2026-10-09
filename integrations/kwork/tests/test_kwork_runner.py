@@ -9,12 +9,12 @@ def order(oid):
 def result():
     return {'reply':'Здравствуйте! '+('Конкретное решение задачи и вопросы заказчику. '*15),'suggested_price':'8000 ₽','time_estimate':'5 дней'}
 
-def test_isolated_requests_and_flex_only():
+def test_isolated_requests_and_anthropic_only():
     a,b=runner.request_body(order('1')),runner.request_body(order('2'))
     assert len(a['messages'])==len(b['messages'])==2
     assert 'Сайт 1' not in b['messages'][1]['content']
-    assert b['provider']['only']==['openai/flex'] and b['provider']['allow_fallbacks'] is False
-    assert b['model']=='openai/gpt-6-luna'
+    assert b['provider']['only']==['anthropic'] and b['provider']['allow_fallbacks'] is False
+    assert b['model']=='anthropic/claude-haiku-5.5'
     assert b['prompt_cache_options']=={'mode':'explicit'}
 
 def test_cached_draft_avoids_second_charge(tmp_path,monkeypatch):

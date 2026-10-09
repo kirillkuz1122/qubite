@@ -1,11 +1,11 @@
-"""Explicit Luna Flex -> OpenAI fallback. Every attempt is separately accounted."""
+"""Explicit Haiku Anthropic -> Google fallback. Every attempt is separately accounted."""
 import json
 import logging
 import math
 import re
 import httpx
 
-MODEL='openai/gpt-6-luna'
+MODEL='anthropic/claude-haiku-5.5'
 URL='https://openrouter.ai/api/v1/chat/completions'
 log=logging.getLogger('specbot.ai')
 RETRYABLE_CODES={404,408,429,500,502,503,504}
@@ -124,8 +124,8 @@ class AI:
         # Conservatively one input token per UTF-8 byte (including framing overhead).
         prompt_size=len(json.dumps(messages,ensure_ascii=False).encode())+len(json.dumps(output_schema(final)).encode())+1500
         if prompt_size>65000: raise ModelError('Сводка стала слишком большой. Нужна ручная правка.')
-        for i,provider in enumerate(('openai/flex','openai')):
-            ceiling=(prompt_size*(.05 if i==0 else .10)+max_tokens*(.25 if i==0 else .50))/1_000_000
+        for i,provider in enumerate(('anthropic','google-vertex/global')):
+            ceiling=(prompt_size*.10+max_tokens*.50)/1_000_000
             daily=float(self.s.setting('daily_budget',str(self.c.daily)))
             row=self.s.reserve(session['id'],ceiling,provider,daily,self.c.session)
             billed=ceiling
@@ -135,10 +135,10 @@ class AI:
                 response=await self.client.post(URL,headers={'Authorization':'Bearer '+self.c.key,
                     'X-Title':'Qubite Brief','HTTP-Referer':'https://qubiteapp.online'},
                     json={'model':MODEL,'provider':{'only':[provider],'allow_fallbacks':False,
-                        'max_price':{'prompt':.05 if i==0 else .10,'completion':.25 if i==0 else .50}},
-                        'messages':messages,'max_tokens':max_tokens,'reasoning':{'effort':'none'},
+                        'max_price':{'prompt':.10,'completion':.50},'require_parameters':True},
+                        'messages':messages,'max_tokens':max_tokens,'reasoning':{'enabled':False},
                         'response_format':{'type':'json_schema','json_schema':{'name':'technical_spec' if final else 'interview','strict':True,'schema':output_schema(final)}},'usage':{'include':True}},
-                    timeout=self.c.flex_timeout if i==0 else self.c.standard_timeout)
+                    timeout=self.c.primary_timeout if i==0 else self.c.standard_timeout)
                 if response.status_code!=200:
                     billed=0
                     log.warning('Provider failure: route=%s http=%s',provider,response.status_code)

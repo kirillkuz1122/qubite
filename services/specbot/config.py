@@ -17,7 +17,7 @@ class Config:
         self.data = Path(os.environ.get('DATA_DIR', './data')).resolve()
         self.daily = float(os.environ.get('DAILY_BUDGET_USD', '.05'))
         self.session = float(os.environ.get('SESSION_BUDGET_USD', '.05'))
-        self.flex_timeout = float(os.environ.get('FLEX_TIMEOUT', '18'))
+        self.primary_timeout = float(os.environ.get('PRIMARY_TIMEOUT', os.environ.get('FLEX_TIMEOUT', '18')))
         self.standard_timeout = float(os.environ.get('STANDARD_TIMEOUT', '55'))
         self.stt_python = os.environ.get('STT_PYTHON', '')
         self.stt_script = os.environ.get('STT_SCRIPT', '')

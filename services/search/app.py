@@ -337,6 +337,10 @@ async def search(request: Request, body: SearchBody):
 async def openrouter(user, endpoint, body, input_rate, output_rate=0):
     if user.startswith('qb:') and not profiles.get(user,{}).get('enabled'):raise LimitError('Доступ к поиску отозван.')
     raw = json.dumps(body,ensure_ascii=False)
+    # One UTF-8 byte per token is conservative. Leave room for provider framing;
+    # Haiku's long-context price tier starts at 100k prompt tokens.
+    if body.get('model')=='anthropic/claude-haiku-5.5' and len(raw.encode('utf-8'))>90000:
+        raise LimitError('Контекст слишком большой для дешёвого тарифа Haiku. Начни новый чат или сократи запрос.')
     estimate = (len(raw.encode('utf-8'))*input_rate+body.get('max_tokens',0)*output_rate)/1e6
     ticket = store.reserve(user,endpoint,estimate)
     store.annotate(ticket,body.get('model','unknown'))
@@ -492,6 +496,7 @@ async def complete(user,mode,messages,brief=False):
         if not brief and spec.get('json_format',True):
             body['response_format']={'type':'json_object'}
         body['reasoning']={'effort':'low'} if spec.get('reasoning') and not brief else {'enabled':False}
+        if spec['model']=='anthropic/claude-haiku-5.5':body['provider']['require_parameters']=True
         try:
             data=await asyncio.wait_for(openrouter(user,'v1/chat/completions',body,spec['input'],spec['output']),timeout=min(remaining,10 if mode=='free' else (18 if brief else 65)))
             choice=data.get('choices',[{}])[0]
