@@ -3,9 +3,9 @@ const enrollment=require('../src/knowledge-enrollment'),db=require('../src/db'),
 let server,base,granted=true,active=true,mapped=true,tokenId=9,calls=[];
 const original={lookup:enrollment.lookup,manage:enrollment.manage,get:db.getUserById,access:grants.access};
 test.before(async()=>{
- enrollment.lookup=async()=>({ready:mapped,user_id:1,native_id:'9'});enrollment.manage=async()=>({ready:true});db.getUserById=async()=>({id:1,status:active?'active':'blocked'});grants.access=async()=>({enabled:granted});
+ enrollment.lookup=async service=>({ready:mapped,user_id:1,native_id:service==='memos'?'users/friend':'9'});enrollment.manage=async()=>({ready:true});db.getUserById=async()=>({id:1,status:active?'active':'blocked'});grants.access=async()=>({enabled:granted});
  const app=express();app.use(express.json());app.use((q,s,n)=>{if(q.headers['x-browser'])q.auth={user:{id:1}};n();});
- gateway.register(app,{internalKey:(q,s,n)=>q.headers['x-key']==='private-test'?n():s.status(403).end(),authRateLimiter:(q,s,n)=>n()},async(service,path,options)=>{calls.push({service,path,options});return {status:200,data:path.endsWith('/user')?{id:tokenId,username:'friend'}:{token:'synthetic-native-token'},cookies:[]};});
+ gateway.register(app,{internalKey:(q,s,n)=>q.headers['x-key']==='private-test'?n():s.status(403).end(),authRateLimiter:(q,s,n)=>n()},async(service,path,options)=>{calls.push({service,path,options});return {status:200,data:path.endsWith('/user')?{id:tokenId,username:'friend'}:path.endsWith('/auth/me')?{user:{name:'users/friend'}}:path.endsWith('/auth/refresh')?{accessToken:'synthetic-refreshed-token'}:{token:'synthetic-native-token'},cookies:[]};});
  server=await new Promise(r=>{const x=app.listen(0,'127.0.0.1',()=>r(x));});base='http://127.0.0.1:'+server.address().port;
 });
 test.after(async()=>{await new Promise(r=>server.close(r));enrollment.lookup=original.lookup;enrollment.manage=original.manage;db.getUserById=original.get;grants.access=original.access;});
@@ -35,4 +35,10 @@ test('Memos REST refresh cookie becomes a standard secure cookie without splitti
  assert.deepEqual(gateway.nativeCookies('memos',new Headers({'grpc-metadata-set-cookie':'unexpected=synthetic'})),[]);
  assert.deepEqual(gateway.nativeCookies('vikunja',h),[]);
  const direct=new Headers({'Set-Cookie':value+'; Secure'});assert.deepEqual(gateway.nativeCookies('memos',direct),[value+'; Secure']);
+});
+
+test('refresh maps native cookie to grpc metadata and never returns a token after revocation',async()=>{
+ const url=base+'/internal/services/knowledge-refresh?service=memos',options={method:'POST',headers:{'x-key':'private-test',Cookie:'memos_refresh=synthetic','Content-Type':'application/json'},body:'{}'};
+ let r=await fetch(url,options);assert.equal(r.status,200);assert.equal(calls.at(-2).options.headers['Grpc-Metadata-Cookie'],'memos_refresh=synthetic');
+ granted=false;r=await fetch(url,options);assert.equal(r.status,403);assert.equal((await r.json()).accessToken,undefined);assert.equal(r.headers.get('set-cookie'),null);granted=true;
 });

@@ -48,7 +48,7 @@ function register(app,d,api=native){
  app.post('/internal/services/knowledge-refresh',d.internalKey,valid,async(q,s)=>{try{
   if(q.query.service!=='memos')return denied(s);
   // Validate the resulting identity before returning any refreshed token/cookie.
-  const r=await api('memos','/api/v1/auth/refresh',{method:'POST',headers:{Cookie:q.headers.cookie||'','Content-Type':'application/json','X-Forwarded-Proto':'https'},body:'{}'});
+  const r=await api('memos','/api/v1/auth/refresh',{method:'POST',headers:{Cookie:q.headers.cookie||'','Grpc-Metadata-Cookie':q.headers.cookie||'','Content-Type':'application/json','X-Forwarded-Proto':'https'},body:'{}'});
   if(r.status!==200||typeof r.data.accessToken!=='string')return denied(s);
   const me=await api('memos','/api/v1/auth/me',{headers:{Authorization:'Bearer '+r.data.accessToken}});const u=identity('memos',me.data);
   if(me.status!==200||!u.login||!await account('memos',u.login,u.id))return denied(s,403);
