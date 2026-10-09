@@ -2985,6 +2985,7 @@ function updateWorkspaceIdentity() {
 }
 
 async function loadWorkspaceData() {
+    if (document.body.dataset.authSurface) return;
     if (!apiClient) {
         return;
     }
@@ -2996,6 +2997,10 @@ async function loadWorkspaceData() {
 }
 
 async function bootstrapAuthSession() {
+    if (!document.body.dataset.authSurface && new URL(location.href).searchParams.has("oauth") && sessionStorage.getItem("qubite_auth_return")) {
+        location.replace("/auth?return_to=" + encodeURIComponent(sessionStorage.getItem("qubite_auth_return")));
+        return;
+    }
     if (!apiClient || window.location.protocol === "file:") {
         return;
     }
@@ -3019,9 +3024,10 @@ async function bootstrapAuthSession() {
                 openModal("profileModal");
             }
         } else {
-            await refreshLandingPublicData();
+            if (!document.body.dataset.authSurface) await refreshLandingPublicData();
             await apiClient.loadOAuthProviders();
             hydrateOAuthButtons();
+            if (document.body.dataset.authSurface) openModal("loginModal");
         }
 
         const params = new URLSearchParams(window.location.search);
@@ -3108,6 +3114,7 @@ function hydrateOAuthButtons() {
                 return;
             }
 
+            if (document.body.dataset.authSurface) sessionStorage.setItem("qubite_auth_return", new URL(location.href).searchParams.get("return_to") || location.origin + "/");
             window.location.href = provider.startUrl;
         });
     });
@@ -4290,6 +4297,10 @@ function resetForm(form) {
 }
 
 function openModal(id) {
+    if (id === "loginModal" && !document.body.dataset.authSurface && !getUserState() && window.location.protocol !== "file:") {
+        location.assign("/auth?return_to=" + encodeURIComponent(location.href));
+        return;
+    }
     const el = document.getElementById(id);
     if (!el) return;
 
@@ -6057,7 +6068,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 7. Scroll Logic fix - Moved to initDragScroll to avoid Duplication
 
     // 8. Init Workspace
-    void refreshLandingPublicData();
+    if (!document.body.dataset.authSurface) void refreshLandingPublicData();
     bindLandingActionLinks();
     initServiceNavigation();
     ViewManager.init();
@@ -6085,6 +6096,7 @@ document.addEventListener("DOMContentLoaded", () => {
    ========================================= */
 
 function switchToWorkspace() {
+    if (document.body.dataset.authSurface && getUserState()) {void finishServiceLogin();return;}
     if (getUserState() && returnToService()) return;
     // Reset scroll BEFORE switching to avoid layout jumps
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -17381,14 +17393,16 @@ async function hydrateAdminServices(container){
    }catch(e){showRequestError('Журнал поиска',e);}finally{protect.disabled=false;}};logGroup.append(protect);
    const queries=document.createElement('button');queries.className='btn btn--muted btn--sm';queries.textContent='Запросы поиска';queries.onclick=()=>showSearchQueryLogs(u);logGroup.append(queries);slot.append(logGroup);
    if(u.role==='owner')continue;
-   for(const [service,title] of [['search','Поиск'],['vault','Хранилище'],['grammar','Редактор'],['vpn','VPN']]){
+   for(const [service,title] of [['search','Поиск'],['vault','Хранилище'],['grammar','Редактор'],['memos','Memos'],['vikunja','Vikunja'],['vpn','VPN']]){
     const sub=service==='vpn'?subs.items.find(s=>s.user?.login===u.login&&s.type==='app'):null;
     const enabled=service==='vpn'?sub?.status==='active':u.access[service].enabled;
     const group=document.createElement('div');group.className='service-access-actions';
     const label=document.createElement('strong');label.textContent=title+': '+(enabled?'выдан':'не выдан');group.append(label);
     const button=(text,fn,kind='muted')=>{const b=document.createElement('button');b.className='btn btn--'+kind+' btn--sm';b.textContent=text;b.onclick=async()=>{b.disabled=true;try{await fn();}catch(e){showRequestError(title,e);}finally{b.disabled=false;}};group.append(b);};
     const refresh=()=>hydrateAdminServices(container);
-    if(service==='vpn'){
+    if(['memos','vikunja'].includes(service)){
+     button(enabled?'Отозвать':'Выдать',async()=>{await serviceRequest(`/api/owner/services/users/${u.id}/knowledge/${service}`,{enabled:!enabled},'PUT');await refresh();});
+    }else if(service==='vpn'){
      if(!me.vpnAvailable){label.textContent='VPN: не работает';const b=document.createElement('button');b.disabled=true;b.className='btn btn--muted btn--sm';b.textContent='Внешний доступ не настроен';group.append(b);slot.append(group);continue;}
      if(sub){
       button('Настройки',()=>openUserProxySubscription(sub.id));
@@ -17462,6 +17476,7 @@ async function renderMyServices(view){
   const s=me.services.search,v=me.services.vault,p=vpn.subscription;
   root.innerHTML=`<div class="my-services-grid"><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">Поиск</h2><p>${s.enabled?'Доступ выдан':'Доступ не выдан'}</p>${s.enabled?`<p>${s.paid?'Платные и бесплатные модели':'Бесплатные модели'} · ${s.daily_requests??'без лимита'} запросов в день · ${s.hourly_requests??'без лимита'} в час</p><p>Бюджет: ${s.daily_usd??'без отдельного ограничения'} $/день, ${s.monthly_usd??'без отдельного ограничения'} $/месяц</p><a class="btn btn--accent" href="${escapeHtml(me.urls.search)}">Открыть поиск</a><button class="btn btn--muted" id="my-search-api">API-ключи</button>`:''}</section><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">Хранилище</h2><p>${v.enabled?'Доступ выдан':'Доступ не выдан'}</p><p>Логин: ${escapeHtml(me.login)}. Собственный мастер-пароль.</p>${v.enabled?`<a class="btn btn--accent" href="${escapeHtml(me.urls.vault)}/user/login">Открыть хранилище</a><button class="btn btn--muted" id="my-vault-enroll">Создать хранилище</button>`:''}</section><section class="glass-panel card-accent-top ops-panel"><h2 class="ops-panel__title">VPN</h2><p>${vpn.available===false?'Не работает: внешний доступ к Raspberry не настроен':p?(p.usable?'Доступ выдан':p.status==='active'?'Подписка истекла':'Доступ отключён'):'Доступ не выдан'}</p>${vpn.available===false?'<button class="btn btn--muted" disabled>Подключение недоступно</button>':''}${p?`<p>До: ${escapeHtml(formatProxyExpiry(p.expiresAt))} · максимум ${p.maxConnections||3} подключений${p.speedLimitMbps?' · '+p.speedLimitMbps+' Мбит/с':''}</p>${p.usable?`<label class="field">Личная ссылка<input class="input" readonly id="my-vpn-link" value="${escapeHtml(p.url||'')}" placeholder="Обнови ссылку для старой подписки"></label><button class="btn btn--muted" id="my-vpn-copy" ${p.url?'':'disabled'}>Копировать ссылку</button><button class="btn btn--muted" id="my-vpn-rotate">Обновить ссылку</button>`:''}`:''}<div id="my-vpn-devices"></div></section></div><p id="my-services-status" role="status"></p>`;
   const grammarCard=document.createElement('section');grammarCard.className='glass-panel card-accent-top ops-panel';grammarCard.innerHTML='<h2 class="ops-panel__title">Редактор</h2><p>LanguageTool локально · ИИ по кнопке · без сохранения текста</p><p>'+(me.services.grammar.enabled?'Доступ выдан':'Доступ не выдан')+'</p>'+(me.services.grammar.enabled?'<a class="btn btn--accent" href="/writing">Открыть редактор</a><p>Расширение Firefox, ключи и настройка Linux — внутри редактора.</p>':'');root.querySelector('.my-services-grid').append(grammarCard);
+  for(const name of ['memos','vikunja']){const c=document.createElement('section');c.className='glass-panel card-accent-top ops-panel';const h=document.createElement('h2');h.className='ops-panel__title';h.textContent=name==='memos'?'Memos · заметки':'Vikunja · задачи';c.append(h);const p=document.createElement('p');p.textContent=me.services[name].enabled?'Доступ выдан. Личные данные находятся в твоём аккаунте приложения.':'Доступ не выдан.';c.append(p);if(me.services[name].enabled){const a=document.createElement('a');a.className='btn btn--accent';a.textContent='Открыть';a.href=me.urls[name];c.append(a);}root.querySelector('.my-services-grid').append(c);}
   applyServiceComposition(root,'Мои сервисы','Доступы и настройки твоей учётной записи');
   root.querySelector('#my-search-api')?.addEventListener('click',()=>showSearchApiKeys());
   const status=root.querySelector('#my-services-status');
@@ -17516,4 +17531,20 @@ async function initSearchAiAnalytics(container,user=searchAiSelectedUser){
    searchAiCharts.push(new ChartLib(root.querySelector(selector),{type:'line',data:{labels,datasets:[{label,data:labels.map(day=>Number(daily.get(day)?.[field]||0)),borderColor:color,tension:.2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:fg}}},scales:{x:{ticks:{color:fg}},y:{beginAtZero:true,ticks:{color:fg}}}}}));
   }
  }catch(e){if(generation===searchAiGeneration&&root.isConnected){root.replaceChildren();const p=document.createElement('p');p.textContent=e.message;root.append(p);}}
+}
+
+async function finishServiceLogin(){
+ const target=new URL(location.href).searchParams.get('return_to')||sessionStorage.getItem('qubite_auth_return')||location.origin+'/';
+ try{
+  const response=await fetch('/api/auth/destination?url='+encodeURIComponent(target));const result=await response.json();if(!response.ok)throw Error(result.error||'Не удалось завершить вход.');
+  sessionStorage.removeItem('qubite_auth_return');
+  if(!result.paused){location.replace('/services/return?url='+encodeURIComponent(result.target));return;}
+  document.querySelectorAll('.modal').forEach(m=>{m.hidden=true;m.classList.remove('modal--open');});
+  let hub=document.getElementById('authServices');if(hub)return;
+  hub=document.createElement('section');hub.id='authServices';hub.className='glass-panel auth-services';
+  const title=document.createElement('h1');title.textContent='Qubite Auth';hub.append(title);
+  const text=document.createElement('p');text.textContent='Вход выполнен · '+result.login+'. Основной сайт выключен; доступные сервисы работают.';hub.append(text);
+  for(const service of result.services){const a=document.createElement('a');a.className='btn btn--accent';a.href=service.url;a.textContent=({search:'Поиск',vault:'Хранилище',grammar:'Редактор',memos:'Memos',vikunja:'Vikunja'})[service.name]||service.name;hub.append(a);}
+  document.body.append(hub);
+ }catch(e){Toast.show('Вход',e.message,'error');openModal('loginModal');}
 }

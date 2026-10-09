@@ -108,7 +108,7 @@ loadEnvFile(path.join(ROOT_DIR, "back", ".env"));
 
 const NODE_ENV = process.env.NODE_ENV || "development";
 const HOST = process.env.HOST || "127.0.0.1";
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.QUBITE_PROCESS_ROLE === 'auth' ? process.env.AUTH_PORT || 9131 : process.env.PORT || 3000);
 const PUBLIC_HOST =
   process.env.PUBLIC_HOST || (HOST === "0.0.0.0" ? "127.0.0.1" : HOST);
 const DEFAULT_APP_PROTOCOL = NODE_ENV === "production" ? "https" : "http";

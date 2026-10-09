@@ -4283,6 +4283,8 @@ app.use("/api", globalApiRateLimiter);
 app.use(attachAuth);
 app.use((req,res,next)=>{if(process.env.AUTH_INVITE_ONLY === "true" && req.path === "/api/auth/register")return res.status(403).json({error:"Регистрация по приглашению владельца."});next();});
 require("./src/services").register(app, {requireAuth, authRateLimiter, createUser, findUserByLoginOrEmail, getUserById, updateUserPassword, createSession, sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_TTL_MS, createAuditLog});
+require("./src/auth-surface").register(app, {internalKey:require("./src/services").internalKey,requireAuth});
+require("./src/service-runtime").registerGate(app);
 
 // System Control Middleware
 app.use(async (req, res, next) => {
@@ -4308,7 +4310,7 @@ app.use(async (req, res, next) => {
     const hasBypass = Boolean(settings.maintenance_token) && cookies?.qubite_bypass === settings.maintenance_token;
 
     // Режим обслуживания (отправляем на спец страницу)
-    if (isMaintenance && !hasBypass) {
+    if (isMaintenance && !hasBypass && !require("./src/service-runtime").corePath(path)) {
         if (path === "/api/proxy/sync/credentials") {
             return next();
         }
@@ -8953,10 +8955,19 @@ try {
 } catch (_) {}
 
 supportChatEmitter.on("chat:new", (chat) => {
-    if (notifySupportNewChatFn) {
+    if (notifySupportNewChatFn && !chat.__fromWorker) {
         notifySupportNewChatFn(chat);
     }
 });
+
+if (process.env.QUBITE_PROCESS_ROLE === 'platform') {
+    const events = require('./src/process-events');
+    supportChatEmitter.on('tg:reply', payload => events.relay('bot', 'tg:reply', payload));
+    events.listen('platform', (type, payload) => {
+        if (!['chat:new', 'message'].includes(type)) throw new Error('Unsupported support event');
+        supportChatEmitter.emit(type, { ...payload, __fromWorker: true });
+    }).catch(() => { console.error('[IPC] Не удалось подключить события поддержки.'); process.exit(1); });
+}
 
 const SUPPORT_COOKIE_NAME = "qb_support_id";
 
@@ -9883,9 +9894,10 @@ server.on("clientError", (error, socket) => {
 
 async function start() {
     await initializeDatabase();
-    await ensureProxyDefaultServerRuntime();
+    const authOnly = process.env.QUBITE_PROCESS_ROLE === "auth";
+    if (!authOnly) await ensureProxyDefaultServerRuntime();
     const privilegedUsers = await bootstrapAdminUsers();
-    await ensureDailyTournamentForDate();
+    if (!authOnly) await ensureDailyTournamentForDate();
 
     if (!privilegedUsers.length) {
         console.warn(
@@ -9904,7 +9916,7 @@ async function start() {
         cleanupExpiredArtifacts().catch((error) => {
             console.error("Не удалось очистить истекшие данные:", error);
         });
-        ensureDailyTournamentForDate().catch((error) => {
+        if (!authOnly) ensureDailyTournamentForDate().catch((error) => {
             console.error("Не удалось подготовить ежедневный турнир:", error);
         });
     }, 60 * 60 * 1000).unref();
@@ -9912,7 +9924,7 @@ async function start() {
     // Telegram bot (long-polling, не блокирует старт)
     try {
         const { startTelegramBot } = require("./src/telegram-bot");
-        startTelegramBot({ supportChatEmitter });
+        if (!process.env.QUBITE_PROCESS_ROLE) startTelegramBot({ supportChatEmitter });
     } catch (err) {
         console.error("[TG bot] Не удалось запустить:", err.message);
     }

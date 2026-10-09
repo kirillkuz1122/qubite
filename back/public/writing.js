@@ -41,6 +41,6 @@ async function load(){try{const info=await request('me');access=info.access;cons
  document.querySelectorAll('[data-mode]').forEach(b=>b.disabled=!access.ai||!info.ai_configured);status.textContent='Готово. Текст не сохраняется в историю.';
  if(me.owner){$('owner-settings').hidden=false;$('budget').value=info.budget_rub;$('budget-info').textContent='Сегодня: '+info.today_rub.toFixed(4)+' ₽. Расчётный курс: '+info.rub_per_usd+' ₽/$ ('+info.rate_date+').';}
  await keys();
- }catch(e){status.textContent=e.message;$('draft').disabled=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);const a=document.createElement('a');a.href='/';a.textContent='Войти в Qubite';status.append(' ',a);}}
+ }catch(e){status.textContent=e.message;$('draft').disabled=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);const a=document.createElement('a');a.href='/auth?return_to='+encodeURIComponent(location.origin+'/writing');a.textContent='Войти в Qubite';status.append(' ',a);}}
 $('budget-form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/api/owner/services/writing-budget',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({limit:Number($('budget').value)})});const d=await r.json();if(!r.ok)throw new Error(d.error);status.textContent='Бюджет сохранён.';await load();}catch(e){status.textContent=e.message;}};
 load();

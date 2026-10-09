@@ -18,9 +18,13 @@ function attachNotifier(botInstance) {
 }
 
 function notifyAudit(payload) {
-    if (!bot || !TELEGRAM_OWNER_IDS.length) return;
     if (!payload || !payload.action) return;
     if (!CRITICAL_ACTIONS.has(payload.action)) return;
+    if (!bot) {
+        if (['auth', 'platform'].includes(process.env.QUBITE_PROCESS_ROLE)) require('../process-events').relay('bot', 'audit', payload);
+        return;
+    }
+    if (!TELEGRAM_OWNER_IDS.length) return;
 
     // Extract TG id of the actor (if action was done via bot)
     const tgMatch = payload.summary && payload.summary.match(/\[TG:(\d+)]/);
@@ -50,7 +54,10 @@ async function getStaffTgIds() {
 }
 
 async function notifySupportNewChat(chat) {
-    if (!bot) return;
+    if (!bot) {
+        if (process.env.QUBITE_PROCESS_ROLE === 'platform') require('../process-events').relay('bot', 'support:new', chat);
+        return;
+    }
     const staffIds = await getStaffTgIds();
     if (!staffIds.length) return;
 

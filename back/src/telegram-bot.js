@@ -75,6 +75,7 @@ function startTelegramBot({ supportChatEmitter } = {}) {
             lines.push("/revoke <tg_id> — отозвать доступ");
             lines.push("/list — список доступов");
             lines.push("/services — поиск, хранилище, приглашения и бюджеты");
+            lines.push("/power — включить/выключить приложения Raspberry");
             lines.push("/service_user <логин> — сервисы пользователя");
         }
         await bot.sendMessage(msg.chat.id, lines.join("\n"));
@@ -101,6 +102,7 @@ function startTelegramBot({ supportChatEmitter } = {}) {
     adminHandler.register(bot);
     accessHandler.register(bot);
     require('./telegram/handlers/services').register(bot);
+    require('./telegram/handlers/runtime').register(bot);
     proxyHandler.register(bot);
 
     // Support chat handler (pass emitter for cross-channel messaging)

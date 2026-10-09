@@ -73,7 +73,7 @@ if on('INSTALL_SEARCH'):
   run(['docker','run','-d','--restart','unless-stopped','--name','searxng','-p',f'127.0.0.1:{searx_port}:8080','-v',str(settings)+':/etc/searxng','ghcr.io/searxng/searxng:latest'])
  app=root/'services/search';run(['python3','-m','venv',str(app/'.venv')]);run([str(app/'.venv/bin/pip'),'install','-r',str(app/'requirements.txt')])
  searchenv={k:v for k,v in env.items() if k.startswith('SEARCH_')}
- searchenv.update(OPENROUTER_API_KEY=env.get('SEARCH_OPENROUTER_API_KEY',''),PROXY_SECRET=key,SEARXNG_URL=f'http://127.0.0.1:{searx_port}',QUBITE_INTERNAL_URL=f'http://127.0.0.1:{app_port}',SERVICES_INTERNAL_KEY=key,QUBITE_PUBLIC_URL='https://'+main,QUBITE_HOST=main,SEARCH_PUBLIC_URL=search_url,DAILY_BUDGET_USD=env.get('SEARCH_DAILY_BUDGET_USD','.05'),DATA_DIR=str(base/'search-data'))
+ searchenv.update(OPENROUTER_API_KEY=env.get('SEARCH_OPENROUTER_API_KEY',''),PROXY_SECRET=key,SEARXNG_URL=f'http://127.0.0.1:{searx_port}',QUBITE_INTERNAL_URL=f'http://127.0.0.1:{int(env.get("AUTH_PORT","9131"))}',SERVICES_INTERNAL_KEY=key,QUBITE_PUBLIC_URL='https://'+main,QUBITE_HOST=main,SEARCH_PUBLIC_URL=search_url,DAILY_BUDGET_USD=env.get('SEARCH_DAILY_BUDGET_USD','.05'),DATA_DIR=str(base/'search-data'))
  (settings/'settings.yml').chmod(0o600)
  if not searchenv['OPENROUTER_API_KEY']:raise RuntimeError('Fill SEARCH_OPENROUTER_API_KEY first')
  private(app/'.env','\n'.join(k+'='+v for k,v in searchenv.items())+'\n')
@@ -95,6 +95,9 @@ private(base/'caddy-services.generated',f'{main} {{\n reverse_proxy 127.0.0.1:{a
 run(['systemctl','daemon-reload'])
 for name,flag in [('qubite-platform','INSTALL_PLATFORM'),('qubite-search','INSTALL_SEARCH')]:
  if on(flag):run(['systemctl','enable','--now',name])
+if on('INSTALL_PLATFORM'):
+ from runtime import install as install_runtime
+ install_runtime(root,account,run,secret_path,int(env.get('AUTH_PORT','9131')))
 from ingress import install
 install(root,base,env,account,run,private,unit)
 print('Компоненты установлены. Завершите HTTPS/туннель и приглашение владельца по docs/services.md.')

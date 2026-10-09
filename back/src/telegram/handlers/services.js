@@ -24,6 +24,7 @@ function register(bot,deps={}){
    rows.push([{text:a.enabled?'Отозвать поиск':'Выдать поиск',callback_data:`svc:search:${id}`}]);
    rows.push([{text:a.paid?'Платные: да':'Платные: нет',callback_data:`svc:paid:${id}`},{text:a.history?'История: разрешена':'История: запрещена',callback_data:`svc:history:${id}`}]);
    for(const key of KEYS)rows.push([{text:LABELS[key]+': '+(a[key]??'без лимита'),callback_data:`svc:field:${id}:${key}`}]);
+   for(const name of ['memos','vikunja'])rows.push([{text:(p.services[name]?.enabled?'Отозвать ':'Выдать ')+name,callback_data:`svc:knowledge:${id}:${name}`}]);
    rows.push([{text:v.enabled?'Отозвать хранилище':'Выдать хранилище',callback_data:`svc:vault:${id}`}]);
    rows.push([{text:'Удалить хранилище',callback_data:`svc:delete:${id}`},{text:'Первичная активация',callback_data:`svc:invite:${id}`}]);
   }
@@ -76,7 +77,8 @@ function register(bot,deps={}){
    const a=await actor();
    if(parts[1]==='invite'){const result=await s.inviteExisting(a,u);return await bot.sendMessage(chat,result.url,{disable_web_page_preview:true,reply_markup:back});}
    const p=await s.permissions(u);
-   if(parts[1]==='vault')await s.setAccess(a,u,'vault',{enabled:!p.services.vault.enabled});
+   if(parts[1]==='knowledge'){const k=require('../../knowledge-services');await k.set(a,u,parts[3],!p.services[parts[3]]?.enabled);await s.audit?.(a.id,u.id,parts[3]+':access');}
+   else if(parts[1]==='vault')await s.setAccess(a,u,'vault',{enabled:!p.services.vault.enabled});
    else if(['search','paid','history'].includes(parts[1])){const key=parts[1]==='search'?'enabled':parts[1];await s.setAccess(a,u,'search',{...p.services.search,[key]:!p.services.search[key]});}
    else throw new Error('Неизвестное действие.');
    await card(chat,id);

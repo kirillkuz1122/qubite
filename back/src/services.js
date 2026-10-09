@@ -38,6 +38,8 @@ async function permissions(user){
   result.services[name]={enabled:result.owner||Boolean(row?.enabled),...(name==='search'?{...limits(row?JSON.parse(row.config):{}),logs_protected:await require('./search-logs').protectedFor(user)}:{} )};
   if(result.owner&&name==='search')Object.assign(result.services[name],{paid:true,history:true,daily_requests:null,hourly_requests:null,daily_usd:null,monthly_usd:null,lifetime_usd:null});
  }
+ for(const name of require('./knowledge-services').NAMES)result.services[name]=await require('./knowledge-services').access(user,name);
+ Object.assign(result.urls,require('./knowledge-services').urls());
  result.services.grammar=await require('./writing').access(user);
  result.urls.grammar=APP_BASE_URL+'/writing';
  return result;
@@ -96,9 +98,10 @@ function register(app,deps){
  auditWriter=deps.createAuditLog;
  const {requireAuth,authRateLimiter,createUser,findUserByLoginOrEmail,getUserById,updateUserPassword,createSession,sessionCookieOptions,SESSION_COOKIE_NAME,SESSION_TTL_MS}=deps;
  require('./writing').register(app,{requireAuth,getUserById,audit});
+ require('./knowledge-services').register(app,{requireAuth,requireOwner,getUserById,audit});
  app.get('/design-system',(req,res)=>res.sendFile(require('path').join(__dirname,'../../design-system.html')));
  app.get('/services/return',requireAuth,(req,res)=>{
-  try{const target=new URL(req.query.url),allowed=Object.values(urls()).map(v=>new URL(v).origin);if(!allowed.includes(target.origin)||target.username||target.password)return res.status(400).end();res.redirect(target.href);}catch(e){res.status(400).end();}
+  const target=require('./auth-surface').validateTarget(req.query.url);if(!target)return res.status(400).end();res.set('Cache-Control','no-store').redirect(target);
  });
  app.post('/internal/services/event',internalKey,async(req,res,next)=>{try{
   const {user,operation,status,elapsed_ms,cost_usd}=req.body;
@@ -164,4 +167,4 @@ function register(app,deps){
  require('./service-api').register(app,{requireAuth,internalKey});
  require('./vault-integration').register(app,{permissions,requireAuth,requireOwner,getUserById,audit,internalKey});
 }
-module.exports={initialize,permissions,limits,realOwner,invite,register,listUsers,setAccess,createAccount,inviteExisting,deleteVault,globalBudget,setGlobalBudget,searchUsage,searchAnalytics,audit};
+module.exports={initialize,permissions,limits,realOwner,invite,register,listUsers,setAccess,createAccount,inviteExisting,deleteVault,globalBudget,setGlobalBudget,searchUsage,searchAnalytics,audit,internalKey};

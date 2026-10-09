@@ -132,3 +132,14 @@ test('expired queries are removed even without a new search',async()=>{
  await logs.prune();assert.equal((await get('SELECT count(*) n FROM search_query_logs WHERE query=?',['EXPIRED QUERY'])).n,0);
  assert.ok((await logs.list(owner,friend.id)).some(x=>x.query==='AFTER ENABLE'));
 });
+
+test('knowledge grants require real owner, isolate accounts and are reversible',async()=>{
+ assert.equal((await services.permissions(friend)).services.memos.enabled,false);
+ assert.equal((await services.permissions(owner)).services.memos.enabled,true);
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/knowledge/memos',second,{enabled:true},'PUT',{'x-test-preview':'owner'})).status,403);
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/knowledge/memos',owner,{enabled:true},'PUT')).status,200);
+ assert.equal((await services.permissions(friend)).services.memos.enabled,true);
+ assert.equal((await services.permissions(second)).services.memos.enabled,false);
+ assert.equal((await call('/api/owner/services/users/'+friend.id+'/knowledge/memos',owner,{enabled:false},'PUT')).status,200);
+ assert.equal((await services.permissions(friend)).services.memos.enabled,false);
+});

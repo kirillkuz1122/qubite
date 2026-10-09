@@ -166,7 +166,7 @@ class LoginBody(BaseModel):
 
 @app.get('/login')
 def login_page(request:Request):
-    if QUBITE_URL:return RedirectResponse(os.environ.get('QUBITE_PUBLIC_URL','https://qubiteapp.online')+'/?return_to='+quote(os.environ.get('SEARCH_PUBLIC_URL','https://search.qubiteapp.online')+local_next(request.query_params.get('next','/')),safe=''),status_code=303)
+    if QUBITE_URL:return RedirectResponse(os.environ.get('QUBITE_PUBLIC_URL','https://qubiteapp.online')+'/auth?return_to='+quote(os.environ.get('SEARCH_PUBLIC_URL','https://search.qubiteapp.online')+local_next(request.query_params.get('next','/')),safe=''),status_code=303)
     return FileResponse(ROOT/'static/login.html')
 
 @app.post('/auth/login')

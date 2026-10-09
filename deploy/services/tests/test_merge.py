@@ -14,3 +14,13 @@ class Merge(unittest.TestCase):
   source='other.example {\n reverse_proxy localhost:8080\n}'
   self.assertEqual(merge_master(source,'example.org',9130),(source,False))
 if __name__=='__main__':unittest.main()
+
+class SplitAuth(unittest.TestCase):
+ def test_guard_is_ordered_before_auth_and_proxy(self):
+  from caddy_merge import portal_routes,knowledge_route
+  portal=portal_routes(9130,9131,'qubite.example')
+  self.assertIn('route {',portal);self.assertLess(portal.index('respond @wrongHost'),portal.index('handle @auth'))
+  self.assertIn('/privacy.html',portal);self.assertIn('127.0.0.1:9131',portal)
+  native=knowledge_route('memos.example','memos',9131,5230,'test-key')
+  self.assertLess(native.index('respond @wrongHost'),native.index('forward_auth'))
+  with self.assertRaises(ValueError):knowledge_route('evil.example','auth',1,2,'key')

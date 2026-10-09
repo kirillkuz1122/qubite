@@ -29,19 +29,20 @@ def install(root,base,env,account,run,private,unit):
   with Path('/etc/systemd/system/qubite-vault-manager.service').open('a') as f:f.write(f'\n[Service]\nEnvironment=QUBITE_UID={account.pw_uid}\nEnvironment=QUBITE_GID={account.pw_gid}\nRuntimeDirectory=qubite-vault\nRuntimeDirectoryMode=0755\n')
  config=Path(env.get('SERVICES_CADDY_INCLUDE') or '/etc/caddy/Caddyfile')
  original=config.read_text() if config.exists() else '';previous_original=original
- from caddy_merge import merge_master
- original,reuse_main=merge_master(original,main,app_port) if on('INSTALL_PLATFORM') else (original,False)
+ from caddy_merge import merge_master,portal_routes
+ auth_port=int(env.get('AUTH_PORT','9131'))
+ original,reuse_main=merge_master(original,main,app_port,auth_port) if on('INSTALL_PLATFORM') else (original,False)
  blocks=[];routes=[]
  for host,target,port,kind,flag in [(main,app_port,9284,'portal','INSTALL_PLATFORM'),(search,search_port,9281,'search','INSTALL_SEARCH'),(vault,vault_port,9280,'vault','INSTALL_VAULT')]:
   if not on(flag):continue
   if kind=='portal' and reuse_main and mode=='direct':continue
   address=host if mode=='direct' else f'http://127.0.0.1:{port}'
   lines=[address+' {']
-  if mode!='direct':lines+=[' @wrongHost not host '+host,' respond @wrongHost "Unknown host" 404']
+  if mode!='direct' and kind!='portal':lines+=[' @wrongHost not host '+host,' respond @wrongHost "Unknown host" 404']
   if kind=='search':lines += [f' reverse_proxy 127.0.0.1:{target} {{','  header_up -X-Qubite-User','  header_up X-Qubite-Proxy '+key,' }']
   elif kind=='vault':
-   lines += [' @admin path /admin* /api/admin*',' respond @admin "Private administration only" 403',' @registration path_regexp vault_register (?i)^/api/+v[^/]+/+auth/+(register|validate-username)/*$',' handle @registration {','  rewrite * /internal/services/vault/{re.vault_register.1}',f'  reverse_proxy 127.0.0.1:{app_port} {{','   header_up Host '+main,'   header_up X-Qubite-Service-Key '+key,'  }',' }',f' reverse_proxy https://127.0.0.1:{target} {{','  transport http {','   tls_trusted_ca_certs '+str(ca),'  }',' }']
-  else:lines += [f' reverse_proxy 127.0.0.1:{target}']
+   lines += [' @admin path /admin* /api/admin*',' respond @admin "Private administration only" 403',' @registration path_regexp vault_register (?i)^/api/+v[^/]+/+auth/+(register|validate-username)/*$',' handle @registration {','  rewrite * /internal/services/vault/{re.vault_register.1}',f'  reverse_proxy 127.0.0.1:{auth_port} {{','   header_up Host '+main,'   header_up X-Qubite-Service-Key '+key,'  }',' }',f' reverse_proxy https://127.0.0.1:{target} {{','  transport http {','   tls_trusted_ca_certs '+str(ca),'  }',' }']
+  else:lines += [portal_routes(target,auth_port,host if mode!='direct' else None)]
   lines.append('}');blocks.append('\n'.join(lines));routes.append({'hostname':host,'service':f'http://127.0.0.1:{port}'})
  fragment=base/'Caddyfile.services';previous_fragment=fragment.read_text() if fragment.exists() else None;fragment.write_text('\n'.join(blocks)+'\n');fragment.chmod(0o640)
  caddy_gid=__import__('grp').getgrnam('caddy').gr_gid;os.chown(fragment,0,caddy_gid)

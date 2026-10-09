@@ -246,3 +246,13 @@
 - В Specbot recent_questions ограничены 12 фразами из 8 последних assistant-реплик, изолированы по session и не передаются в FINAL. Политика вопросов сверяет known_requirements и счётчик ответов, допускает черновик с открытыми деталями; не выдавать изменения промпта за гарантию отсутствия смысловых повторов.
 
 - Haiku 5.5: $0.10/$0.50 за 1M вход/выход до 100k входных токенов, выше тариф растёт в пять раз. Specbot ограничен 65k байт, поиск — 90k байт сериализованного запроса; Writing и Kwork имеют короткие ограничения текста. При изменении модели пересчитывать резерв/ledger и max_price, не только строку model. Writing: Anthropic без платных повторов; поиск deep и Brief: Anthropic → Google, явные only, max_price и allow_fallbacks:false. MiMo Hermes и Jev не менять вместе с сервисами.
+
+### Независимые процессы Auth и управление сервисами (09.10.2026)
+
+- `back/src/auth-surface.js` переиспользует index/app.js для `/auth`; `front/auth.css` использует реальные токены темы Qubite. Не создавать вторую урезанную реализацию входа.
+- `QUBITE_PROCESS_ROLE=auth` запускает отдельный Auth без основного workspace/бота. Platform не запускает embedded polling; `back/telegram-worker.js` — единственный control bot. Сервисы/редактор регистрируются до workspace gate.
+- `back/src/service-runtime.js`, `back/src/telegram/handlers/runtime.js`, `deploy/runtime-manager.py`: фиксированный allowlist, owner/private chat, подтверждение, root-owned менеджер. Auth/сеть/SSH не выключать.
+- `back/src/process-events.js` сохраняет поддержку/критичные уведомления при разделении процессов, private Unix sockets, без durable очереди.
+- `back/src/knowledge-services.js`: только внешний доступ Memos/Vikunja; нативные аккаунты отдельные. `integrations/qubite-knowledge` — ограниченный MCP и skill Hermes.
+- Есть целевые Node/Python тесты (`node --test back/tests/*.test.js`, `python3 -m unittest discover -s deploy/services/tests`); прежняя фраза о полном отсутствии тестов устарела. `npm test` по-прежнему не агрегирует их.
+- [Операционная документация](docs/runtime-and-knowledge.md), включая новые env, cookie SSO, cgroup ограничения и backup.

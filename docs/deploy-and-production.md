@@ -130,3 +130,7 @@ PM2 используется как process manager.
 - [`../deploy/PROD_STEPS_RU.md`](../deploy/PROD_STEPS_RU.md) — практический серверный чеклист
 - [`../SECURITY.md`](../SECURITY.md) — безопасность и ограничения
 - [`development.md`](development.md) — локальная разработка и dev-режим
+
+## Разделённый runtime Raspberry
+
+Новые unit Auth/control bot и ограниченный root-менеджер устанавливает `deploy/services/runtime.py`; Caddy отделяет core/service/Writing маршруты от main workspace. Search internal auth URL должен вести на Auth, а не на выключаемый platform. [Полная схема, env и backup](runtime-and-knowledge.md).

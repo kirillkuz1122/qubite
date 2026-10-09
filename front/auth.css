@@ -1,0 +1,9 @@
+/* Same Qubite palette/forms; the landing stays in the normal site. */
+body[data-auth-surface] {min-height:100dvh;padding:0;background:radial-gradient(ellipse at 18% 18%,rgba(244,63,94,.13),transparent 48%),radial-gradient(ellipse at 83% 78%,rgba(245,158,11,.12),transparent 50%),var(--bg-dark,#070b15);}
+body[data-auth-surface] #landing-view,body[data-auth-surface] #workspace-view {display:none!important;}
+body[data-auth-surface] .modal__backdrop {background:transparent;backdrop-filter:none;}
+body[data-auth-surface] .modal__panel {border:1px solid transparent;background:linear-gradient(var(--bg-1,#111827),var(--bg-1,#111827)) padding-box,linear-gradient(135deg,rgba(244,63,94,.75),rgba(245,158,11,.65)) border-box;box-shadow:0 32px 100px #0007;}
+body[data-auth-surface] #loginModal .modal__close {display:none;}
+@media(max-width:600px){body[data-auth-surface] .modal__panel{max-height:calc(100dvh - 24px);margin:12px;}}
+
+.auth-services{width:min(520px,calc(100% - 32px));margin:10dvh auto;padding:32px;display:grid;gap:20px;}

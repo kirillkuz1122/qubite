@@ -1,11 +1,46 @@
 """Merge Qubite web routes into the existing NaiveProxy master configuration."""
 import re
 
-def merge_master(original,main,app_port):
+def portal_routes(app_port,auth_port,expected_host=None):
+    content=f''' @auth path /privacy.html /terms.html /acceptable-use.html /security.html /auth /auth/* /services/return /service-invite /api/auth/* /api/public/config /api/status /internal/services/* /api/services/* /api/owner/services/* /writing /writing-assets/* /api/writing/* /front/* /design-system
+ handle @auth {{
+  reverse_proxy 127.0.0.1:{auth_port}
+ }}
+ handle {{
+  reverse_proxy 127.0.0.1:{app_port}
+ }}
+ handle_errors {{
+  @home path / /index.html
+  redir @home /auth 302
+  respond "Основной сайт временно выключен. Qubite Auth и другие сервисы доступны." 503
+ }}'''
+
+
+    if expected_host:
+        routes, errors = content.split(' handle_errors', 1)
+        content = f' @wrongHost not host {expected_host}\n route {{\n respond @wrongHost "Unknown host" 404\n'+routes+'\n }\n handle_errors'+errors
+    return content
+
+def knowledge_route(host, service, auth_port, native_port, key):
+    if service not in ('memos','vikunja'):raise ValueError('Unknown knowledge service')
+    return f''' @wrongHost not host {host}
+ route {{
+  respond @wrongHost "Unknown host" 404
+  forward_auth 127.0.0.1:{auth_port} {{
+   uri /internal/services/browser-access?service={service}
+   header_up X-Qubite-Service-Key {key}
+  }}
+  reverse_proxy 127.0.0.1:{native_port} {{
+   header_up X-Forwarded-Proto https
+  }}
+ }}'''
+
+def merge_master(original,main,app_port,auth_port=None):
     # The legacy installer owns one main-site vhost through localhost:8080.
     host=re.escape(main)
     pattern=r'(?m)^https://'+host+r'(?P<extra>[^\n{]*)\s*\{\s*\n\s*reverse_proxy localhost:8080\s*\n\}'
-    updated,count=re.subn(pattern,lambda m:'https://'+main+m.group('extra')+' {\n reverse_proxy 127.0.0.1:'+str(app_port)+'\n}',original)
+    route=portal_routes(app_port,auth_port) if auth_port else ' reverse_proxy 127.0.0.1:'+str(app_port)
+    updated,count=re.subn(pattern,lambda m:'https://'+main+m.group('extra')+' {\n'+route+'\n}',original)
     if count>1:raise ValueError('Ambiguous master site configuration')
     if not count and re.search(r'(?m)^(?:https://)?'+host+r'(?:[,\s]|\{)',original):
         raise ValueError('Main hostname already has a custom Caddy vhost: merge its upstream manually')
