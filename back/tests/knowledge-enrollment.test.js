@@ -29,3 +29,11 @@ test('registration stays available with main workspace disabled',async()=>{
  reply={ready:false,login:'friend'};await db.updateSystemSetting('workspace_enabled',false);
  assert.equal((await request(2)).status,200);const r=await fetch(base+'/service-enroll?service=memos',{headers:{'x-user':'2'}});assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');assert.ok((await r.text()).includes('new-password'));
 });
+
+test('first password continuation stays on native origin through login and registration',async()=>{
+ const destination=grants.urls().memos+'/oauth/authorize?state=synthetic';
+ const r=await fetch(base+'/service-enroll?service=memos&return_to='+encodeURIComponent(destination),{redirect:'manual'});
+ const nested=new URL(new URL(r.headers.get('location')).searchParams.get('return_to'));assert.equal(nested.searchParams.get('return_to'),destination);
+ const api=await fetch(base+'/api/services/knowledge/memos/enroll?return_to='+encodeURIComponent(destination),{headers:{'x-user':'2'}});assert.equal(api.status,200);assert.equal((await api.json()).url,destination);
+ assert.equal((await fetch(base+'/service-enroll?service=memos&return_to=https://evil.org')).status,400);
+});

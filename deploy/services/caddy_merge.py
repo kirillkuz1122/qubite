@@ -32,6 +32,20 @@ def knowledge_route(host, service, auth_port, native_port, key):
     header_up X-Qubite-Service-Key {key}
    }}
   }}''' if service=='memos' else ''
+    refresh=refresh if service=='memos' else f"""
+  handle @nativeRefresh {{
+   rewrite * /internal/services/knowledge-refresh?service={service}
+   reverse_proxy 127.0.0.1:{auth_port} {{
+    header_up X-Qubite-Service-Key {key}
+   }}
+  }}
+  handle @nativeOAuthToken {{
+   rewrite * /internal/services/knowledge-oauth-token?service={service}
+   reverse_proxy 127.0.0.1:{auth_port} {{
+    header_up X-Qubite-Service-Key {key}
+   }}
+  }}"""
+    refresh_path='/api/v1/auth/refresh' if service=='memos' else '/api/v1/user/token/refresh'
     return f''' @wrongHost not host {host}
  @nativeInfo {{
   method GET
@@ -43,7 +57,11 @@ def knowledge_route(host, service, auth_port, native_port, key):
  }}
  @nativeRefresh {{
   method POST
-  path /api/v1/auth/refresh
+  path {refresh_path}
+ }}
+ @nativeOAuthToken {{
+  method POST
+  path /api/v1/oauth/token
  }}
  @nativeApi path /api/*
  route {{

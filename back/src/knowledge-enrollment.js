@@ -13,17 +13,18 @@ function manage(action,user,service,password){return rpc({action,service,user_id
 function lookup(service,login){return rpc({action:'lookup',service,login});}
 async function permitted(user,name){if(!grants.NAMES.includes(name))throw Object.assign(Error('Неизвестный сервис.'),{status:400});if(!(await grants.access(user,name)).enabled)throw Object.assign(Error('Владелец ещё не выдал доступ к сервису.'),{status:403});}
 function failure(e,s,n){if([400,403,409,503].includes(e.status))return s.status(e.status).set('Cache-Control','no-store').json({error:e.message});n(e);}
+function target(q,service){return require('./auth-surface').nativeTarget(service,q.query.return_to||'/');}
 function register(app,d){
  app.get('/service-enroll',(q,s)=>{
-  if(!grants.NAMES.includes(q.query.service))return s.status(400).end();
-  if(!q.auth?.user)return s.redirect(APP_BASE_URL+'/auth?return_to='+encodeURIComponent(APP_BASE_URL+'/service-enroll?service='+q.query.service));
+  if(!grants.NAMES.includes(q.query.service)||!target(q,q.query.service))return s.status(400).end();
+  if(!q.auth?.user)return s.redirect(APP_BASE_URL+'/auth?return_to='+encodeURIComponent(APP_BASE_URL+'/service-enroll?service='+q.query.service+'&return_to='+encodeURIComponent(target(q,q.query.service))));
   s.set('Cache-Control','no-store').sendFile(path.join(__dirname,'../public/knowledge-enroll.html'));
  });
  app.get('/knowledge-enroll.js',(q,s)=>s.set('Cache-Control','no-store').type('application/javascript').sendFile(path.join(__dirname,'../public/knowledge-enroll.js')));
- app.get('/api/services/knowledge/:name/enroll',d.requireAuth,async(q,s,n)=>{try{await permitted(q.auth.user,q.params.name);s.set('Cache-Control','no-store').json({...await manage('info',q.auth.user,q.params.name),url:grants.urls()[q.params.name]});}catch(e){failure(e,s,n);}});
+ app.get('/api/services/knowledge/:name/enroll',d.requireAuth,async(q,s,n)=>{try{if(!target(q,q.params.name))return s.status(400).end();await permitted(q.auth.user,q.params.name);s.set('Cache-Control','no-store').json({...await manage('info',q.auth.user,q.params.name),url:target(q,q.params.name)});}catch(e){failure(e,s,n);}});
  app.post('/api/services/knowledge/:name/enroll',d.requireAuth,d.authRateLimiter,async(q,s,n)=>{try{
-  await permitted(q.auth.user,q.params.name);if((!q.body||Array.isArray(q.body)||typeof q.body!=='object')||Object.keys(q.body).some(k=>k!=='password')||typeof q.body.password!=='string'||!require('./security').isStrongPassword(q.body.password)||Buffer.byteLength(q.body.password,'utf8')>72)return s.status(400).json({error:'Пароль: 8–72 байта UTF-8, латинская буква и цифра, без пробелов.'});
-  const result=await manage('enroll',q.auth.user,q.params.name,q.body.password);await d.audit(q.auth.user.id,q.auth.user.id,q.params.name+':enrolled');s.set('Cache-Control','no-store').json({...result,url:grants.urls()[q.params.name]});
+  if(!target(q,q.params.name))return s.status(400).end();await permitted(q.auth.user,q.params.name);if((!q.body||Array.isArray(q.body)||typeof q.body!=='object')||Object.keys(q.body).some(k=>k!=='password')||typeof q.body.password!=='string'||!require('./security').isStrongPassword(q.body.password)||Buffer.byteLength(q.body.password,'utf8')>72)return s.status(400).json({error:'Пароль: 8–72 байта UTF-8, латинская буква и цифра, без пробелов.'});
+  const result=await manage('enroll',q.auth.user,q.params.name,q.body.password);await d.audit(q.auth.user.id,q.auth.user.id,q.params.name+':enrolled');s.set('Cache-Control','no-store').json({...result,url:target(q,q.params.name)});
  }catch(e){failure(e,s,n);}});
 }
 module.exports={manage,lookup,permitted,register};

@@ -2,8 +2,13 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const {APP_BASE_URL}=require('./config');
 function validateTarget(value){
  const main=new URL(APP_BASE_URL);
- const allowed=[main.origin,...['SERVICES_SEARCH_BASE_URL','SERVICES_VAULT_BASE_URL','SERVICES_MEMOS_BASE_URL','SERVICES_VIKUNJA_BASE_URL'].map(k=>process.env[k]).filter(Boolean).map(v=>new URL(v).origin)];
- try{const u=new URL(value||'/',main);if(u.username||u.password||!allowed.includes(u.origin)||!['http:','https:'].includes(u.protocol)||/^\/auth(?:\/|$)/.test(u.pathname)||u.pathname==='/services/return')return null;return u.href;}catch{return null;}
+ const allowed=[main.origin,...Object.values(require('./knowledge-services').urls()).map(v=>new URL(v).origin),...['SERVICES_SEARCH_BASE_URL','SERVICES_VAULT_BASE_URL','SERVICES_MEMOS_BASE_URL','SERVICES_VIKUNJA_BASE_URL'].map(k=>process.env[k]).filter(Boolean).map(v=>new URL(v).origin)];
+ try{const u=new URL(value||'/',main);if(u.username||u.password||!allowed.includes(u.origin)||!['http:','https:'].includes(u.protocol)||(u.origin===main.origin&&(/^\/auth(?:\/|$)/.test(u.pathname)||u.pathname==='/services/return')))return null;return u.href;}catch{return null;}
+}
+function nativeTarget(service,value='/',relativeOnly=false){
+ if(!['memos','vikunja'].includes(service)||typeof value!=='string'||value.length>8192||/[\\\x00-\x20\x7f]/.test(value))return null;
+ if(relativeOnly&&(!value.startsWith('/')||value.startsWith('//')))return null;
+ try{const base=new URL(require('./knowledge-services').urls()[service]);const target=validateTarget(new URL(value,base).href);return target&&new URL(target).origin===base.origin?target:null;}catch{return null;}
 }
 function register(app,deps){
  app.get('/api/auth/destination',deps.requireAuth,async(q,s,n)=>{try{
@@ -27,12 +32,13 @@ function register(app,deps){
  });
  app.get('/internal/services/browser-access',deps.internalKey,async(q,s,n)=>{try{
   if(!['memos','vikunja'].includes(q.query.service))return s.status(400).end();
-  const target=validateTarget(process.env['SERVICES_'+q.query.service.toUpperCase()+'_BASE_URL']);
+  const target=nativeTarget(q.query.service,q.headers['x-forwarded-uri']||'/',true);
+  if(!target)return s.status(400).end();
   if(!q.auth?.user)return s.redirect(APP_BASE_URL+'/auth?return_to='+encodeURIComponent(target));
   const p=await require('./knowledge-services').access(q.auth.user,q.query.service);
   if(!p.enabled)return s.status(403).send('Доступ к сервису не выдан владельцем Qubite.');
-  if(process.env.KNOWLEDGE_MANAGEMENT_SOCKET){const info=await require('./knowledge-enrollment').manage('info',q.auth.user,q.query.service);if(!info.ready)return s.redirect(APP_BASE_URL+'/service-enroll?service='+q.query.service);}
+  if(process.env.KNOWLEDGE_MANAGEMENT_SOCKET){const info=await require('./knowledge-enrollment').manage('info',q.auth.user,q.query.service);if(!info.ready)return s.redirect(APP_BASE_URL+'/service-enroll?service='+q.query.service+'&return_to='+encodeURIComponent(target));}
   return s.status(200).end();
  }catch(e){n(e);}});
 }
-module.exports={validateTarget,register};
+module.exports={validateTarget,nativeTarget,register};

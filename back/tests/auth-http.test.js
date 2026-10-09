@@ -29,3 +29,10 @@ test('native services are protected before their own login, and never redirect t
  r=await fetch(base+'/internal/services/browser-access?service=memos',{headers:{...h,'x-test-owner':'1'}});assert.equal(r.status,200);
  assert.equal((await fetch(base+'/internal/services/browser-access?service=auth',{headers:h})).status,400);
 });
+
+test('browser auth preserves original native OAuth query rather than landing at home',async()=>{
+ const uri='/oauth/authorize?client_id=test&state=one&code_challenge=two';
+ const r=await fetch(base+'/internal/services/browser-access?service=memos',{headers:{'x-qubite-service-key':'test-service-key','x-forwarded-uri':uri},redirect:'manual'});
+ assert.equal(new URL(r.headers.get('location')).searchParams.get('return_to'),'https://memos.example'+uri);
+ const bad=await fetch(base+'/internal/services/browser-access?service=memos',{headers:{'x-qubite-service-key':'test-service-key','x-forwarded-uri':'//evil.example'},redirect:'manual'});assert.equal(bad.status,400);
+});

@@ -46,13 +46,25 @@ function register(app,d,api=native){
   if(r.status!==200)return denied(s);if(r.cookies.length)s.setHeader('Set-Cookie',r.cookies);s.set('Cache-Control','no-store').json(r.data);
  }catch{denied(s,503);}});
  app.post('/internal/services/knowledge-refresh',d.internalKey,valid,async(q,s)=>{try{
-  if(q.query.service!=='memos')return denied(s);
+  const service=q.query.service,path=service==='memos'?'/api/v1/auth/refresh':'/api/v1/user/token/refresh';
   // Validate the resulting identity before returning any refreshed token/cookie.
-  const r=await api('memos','/api/v1/auth/refresh',{method:'POST',headers:{Cookie:q.headers.cookie||'','Grpc-Metadata-Cookie':q.headers.cookie||'','Content-Type':'application/json','X-Forwarded-Proto':'https'},body:'{}'});
-  if(r.status!==200||typeof r.data.accessToken!=='string')return denied(s);
-  const me=await api('memos','/api/v1/auth/me',{headers:{Authorization:'Bearer '+r.data.accessToken}});const u=identity('memos',me.data);
-  if(me.status!==200||!u.login||!await account('memos',u.login,u.id))return denied(s,403);
+  const r=await api(service,path,{method:'POST',headers:{Cookie:q.headers.cookie||'','Grpc-Metadata-Cookie':q.headers.cookie||'','Content-Type':'application/json','X-Forwarded-Proto':'https'},body:'{}'});
+  const token=service==='memos'?r.data.accessToken:r.data.token;
+  if(r.status!==200||typeof token!=='string')return denied(s);
+  const me=await api(service,service==='memos'?'/api/v1/auth/me':'/api/v1/user',{headers:{Authorization:'Bearer '+token}});const u=identity(service,me.data);
+  if(me.status!==200||!u.login||!await account(service,u.login,u.id))return denied(s,403);
   if(r.cookies.length)s.setHeader('Set-Cookie',r.cookies);s.set('Cache-Control','no-store').json(r.data);
+ }catch{denied(s,503);}});
+ app.post('/internal/services/knowledge-oauth-token',d.internalKey,d.authRateLimiter,valid,async(q,s)=>{try{
+  if(q.query.service!=='vikunja')return denied(s);const b=q.body;
+  const fields=b?.grant_type==='authorization_code'?['grant_type','code','client_id','redirect_uri','code_verifier']:b?.grant_type==='refresh_token'?['grant_type','refresh_token']:null;
+  if(!fields||!b||Array.isArray(b)||Object.keys(b).some(k=>!fields.includes(k))||fields.some(k=>typeof b[k]!=='string'||!b[k]||b[k].length>4096))return denied(s);
+  // PKCE / single-use code or rotating refresh token is validated by Vikunja.
+  const r=await api('vikunja','/api/v1/oauth/token',{method:'POST',headers:{'Content-Type':'application/json','X-Forwarded-Proto':'https'},body:JSON.stringify(b)});
+  if(r.status!==200||typeof r.data.access_token!=='string')return denied(s);
+  const me=await api('vikunja','/api/v1/user',{headers:{Authorization:'Bearer '+r.data.access_token}});const u=identity('vikunja',me.data);
+  if(me.status!==200||!u.login||!await account('vikunja',u.login,u.id))return denied(s,403);
+  s.set('Cache-Control','no-store').json(r.data);
  }catch{denied(s,503);}});
 }
 module.exports={register,account,identity,nativeCookies};

@@ -42,3 +42,15 @@ test('refresh maps native cookie to grpc metadata and never returns a token afte
  let r=await fetch(url,options);assert.equal(r.status,200);assert.equal(calls.at(-2).options.headers['Grpc-Metadata-Cookie'],'memos_refresh=synthetic');
  granted=false;r=await fetch(url,options);assert.equal(r.status,403);assert.equal((await r.json()).accessToken,undefined);assert.equal(r.headers.get('set-cookie'),null);granted=true;
 });
+
+test('Vikunja OAuth PKCE exchange/refresh validates grant before releasing token',async()=>{
+ const b={grant_type:'authorization_code',code:'synthetic-code',client_id:'test',redirect_uri:'vikunja-test://callback',code_verifier:'synthetic-verifier'};
+ // Replace only the synthetic upstream response in this fixture via dedicated app.
+ const app=express();app.use(express.json());gateway.register(app,{internalKey:(q,s,n)=>n(),authRateLimiter:(q,s,n)=>n()},async(service,path)=>({status:200,data:path.endsWith('/oauth/token')?{access_token:'synthetic-token',refresh_token:'synthetic-refresh'}:{username:'friend',id:9},cookies:[]}));
+ const x=await new Promise(r=>{const x=app.listen(0,'127.0.0.1',()=>r(x));});const url='http://127.0.0.1:'+x.address().port+'/internal/services/knowledge-oauth-token?service=vikunja';
+ try{const send=body=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await send(b)).status,200);granted=false;const r=await send(b);assert.equal(r.status,403);assert.equal((await r.json()).access_token,undefined);granted=true;
+ assert.equal((await send({...b,url:'http://foreign'})).status,401);
+ assert.equal((await send({grant_type:'refresh_token',refresh_token:'synthetic-refresh'})).status,200);
+ }finally{granted=true;await new Promise(r=>x.close(r));}
+});
