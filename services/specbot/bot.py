@@ -121,7 +121,7 @@ class Bot:
     def current(self,uid):
         sid=self.s.setting('active.'+str(uid))
         if not sid:raise ValueError('Открой приглашение или выбери интервью командой /sessions.')
-        s=self.s.get(sid)
+        s=self.authorize(sid,uid)
         if s['client']!=uid:raise ValueError('Это интервью принадлежит другому клиенту.')
         return s
 
@@ -146,6 +146,7 @@ class Bot:
 
     def authorize(self,sid,uid):
         s=self.s.get(sid)
+        if uid!=self.c.owner and self.s.is_lead(sid):raise ValueError('Для интервью открой отдельное приглашение Brief.')
         if uid!=self.c.owner and s['client']!=uid:raise ValueError('Нет доступа к этому интервью.')
         return s
 

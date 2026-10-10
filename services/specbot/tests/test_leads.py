@@ -500,3 +500,15 @@ def test_legacy_cleanup_only_deletes_our_bot_stale_cards(setup,monkeypatch,tmp_p
     monkeypatch.setattr('requests.post',lambda *a,**kw:(deleted.append(kw['json']['message_id']) or NS(json=lambda:{'ok':True})))
     asyncio.run(p.cleanup_legacy_cards(Client(),lambda *a:True))
     assert deleted==[42,44] and s.setting('lead_cleanup_legacy')=='complete:2'
+
+
+def test_lead_accounting_session_does_not_grant_brief_interview(setup,monkeypatch):
+    from bot import Bot
+    s,l,row=generate(setup,monkeypatch)
+    assert s.listing(2)==[] and s.listing()==[]
+    b=Bot.__new__(Bot);b.s=s;b.c=NS(owner=1)
+    s.set_setting('active.2',row['sid'])
+    with pytest.raises(ValueError):b.current(2)
+    assert b.authorize(row['sid'],1)['id']==row['sid']
+    invitation,token=s.create('Настоящее интервью');s.claim(token,2)
+    assert [r['id'] for r in s.listing(2)]==[invitation]

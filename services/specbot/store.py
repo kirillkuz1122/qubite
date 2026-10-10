@@ -76,8 +76,15 @@ class Store:
 
     def listing(self, client=None):
         q = 'SELECT id,title,preset,status,client,turns,created,updated FROM sessions '
-        rows = self.db.execute(q + ('WHERE client=? ' if client else '') + 'ORDER BY updated DESC LIMIT 100', (client,) if client else ())
+        filters=['client=?'] if client else []
+        if self.db.execute("SELECT 1 FROM sqlite_master WHERE name='telegram_leads'").fetchone():
+            filters.append('NOT EXISTS (SELECT 1 FROM telegram_leads l WHERE l.sid=sessions.id)')
+        rows = self.db.execute(q + ('WHERE '+' AND '.join(filters)+' ' if filters else '') + 'ORDER BY updated DESC LIMIT 100', (client,) if client else ())
         return [dict(r) for r in rows]
+
+    def is_lead(self,sid):
+        if not self.db.execute("SELECT 1 FROM sqlite_master WHERE name='telegram_leads'").fetchone():return False
+        return bool(self.db.execute('SELECT 1 FROM telegram_leads WHERE sid=?',(sid,)).fetchone())
 
     def setting(self, key, default=''):
         row = self.db.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()

@@ -182,7 +182,7 @@ async def process_one(leads, config):
         sid=lead['sid']
         if not sid:sid,_=leads.s.create('Telegram-заявка '+str(lead['id']),'general')
         leads.s.db.execute('UPDATE telegram_leads SET sid=? WHERE id=?',(sid,lead['id']))
-        leads.s.db.execute("UPDATE sessions SET client=?,status='active',client_username=? WHERE id=?",(lead['client'],lead['username'],sid))
+        leads.s.db.execute("UPDATE sessions SET client=?,status='lead',client_username=?,token_hash=NULL,expires=0 WHERE id=?",(lead['client'],lead['username'],sid))
         return sid
     sid=leads.s.transaction(claim)
     if not sid:return False
