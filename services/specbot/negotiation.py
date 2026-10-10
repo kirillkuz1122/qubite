@@ -147,8 +147,8 @@ class Negotiations:
         self.s.db.execute("UPDATE negotiations SET status='active',revision=revision+1,updated=? WHERE sid=?",(time.time(),sid))
         self.owner_notice(sid, 'Владелец возобновил переговоры · '+brief['title'])
 
-    def close(self, sid):
-        self.get(sid);self.pause(sid,'Владелец закрыл переговоры')
+    def close(self, sid, announce=True):
+        self.get(sid);self.pause(sid,'Владелец закрыл переговоры',announce=announce)
         self.s.db.execute("UPDATE negotiations SET status='closed' WHERE sid=?",(sid,))
 
     def offer_text(self, sid, scope, price, days):
@@ -170,11 +170,11 @@ class Negotiations:
                           (message_id, sid, conversation['revision'], proposal, kind, text, random_id, time.time()))
         return message_id
 
-    def pause(self, sid, reason='Пауза владельца'):
+    def pause(self, sid, reason='Пауза владельца',announce=True):
         self.s.db.execute("UPDATE negotiations SET status='paused',revision=revision+1,updated=? WHERE sid=?", (time.time(), sid))
         self.s.db.execute("UPDATE negotiation_personal_outbox SET status='cancelled' WHERE sid=? AND status='pending'", (sid,))
         self.s.db.execute("UPDATE negotiation_proposals SET status='stale' WHERE sid=? AND status='draft'", (sid,))
-        self.owner_notice(sid, reason + ' · ' + self.s.get(sid)['title'])
+        if announce:self.owner_notice(sid, reason + ' · ' + self.s.get(sid)['title'])
 
     def discover(self, since, now=None):
         now = now or time.time()

@@ -115,10 +115,10 @@ async def forward(event, policy):
         reply=getattr(event.message,'reply_to',None)
         key=(event.chat_id,getattr(reply,'reply_to_top_id',None) or (getattr(reply,'reply_to_msg_id',None) if getattr(reply,'forum_topic',False) else None))
         if key not in RECENT and len(RECENT)>=256:RECENT.pop(next(iter(RECENT)))
-        context='\n'.join(RECENT[key])
+        context='\n'.join(text for author,text in RECENT[key] if author==uid)
         text=event.raw_text or ''
         accepted=l.capture(event.chat_id,event.id,uid,username,text,context)
-        RECENT[key].append(text[:250])
+        RECENT[key].append((uid,text[:250]))
         return accepted
     finally:s.db.close()
 
@@ -170,4 +170,44 @@ async def folders(client, policy, notify):
             l.notice('Не удалось обновить папки заказчика: '+type(error).__name__+'. Сообщение повторно не отправляю.')
         seconds=getattr(error,'seconds',None)
         s.set_setting('lead_folder_cooldown',str(time.time()+(seconds+5 if isinstance(seconds,int) else 300)))
+    finally:s.db.close()
+
+
+async def cleanup_legacy_cards(client, policy):
+    """One requested cleanup of our own lead bot's old messages, never other chats."""
+    s,l=opened()
+    if not s:return
+    try:
+        if s.setting('lead_cleanup_legacy')!='requested':return
+        from pathlib import Path
+        private=json.loads((Path.home()/'services/qubite-specbot/lead-bot-private.json').read_text())
+        uid=int(private['token'].split(':')[0]);username='Gdhdhdjdjbtnbot'
+        if not policy(uid,username):raise ValueError('Bot blocked')
+        if (await client.get_me()).id!=l.c['owner']:raise ValueError('Wrong owner')
+        peer=await client.get_entity(username)
+        if peer.id!=uid or not getattr(peer,'bot',False):raise ValueError('Wrong bot identity')
+        rows=list(s.db.execute("SELECT l.id,l.status,s.title FROM telegram_leads l LEFT JOIN sessions s ON s.id=l.sid WHERE l.first_sent=0 AND l.status IN ('rejected','uncertain')"))
+        rejected={r['id'] for r in rows if r['status']=='rejected'}
+        stale_ids={r['id'] for r in rows};titles={r['title'] for r in rows if r['title']}
+        known={r[0] for r in s.db.execute("SELECT p.message_id FROM negotiation_proposals p JOIN telegram_leads l ON l.sid=p.sid WHERE l.status='rejected' AND l.first_sent=0 AND p.message_id IS NOT NULL")}
+        keep={int(s.setting('lead.card.'+str(r['id']))) for r in rows if r['status']!='rejected' and s.setting('lead.card.'+str(r['id']))}
+        messages=await client.get_messages(peer,limit=100)
+        targets=[]
+        import re
+        for m in messages:
+            if m.sender_id!=uid or m.id in keep or m.date.timestamp()<float(l.c['training_started']):continue
+            text=m.raw_text or '';match=re.match(r'^Telegram-заявка (\d+)',text)
+            duplicate=bool(match and int(match[1]) in stale_ids)
+            closed=text.startswith('Владелец закрыл переговоры · ') and text.split(' · ',1)[-1] in titles
+            if m.id in known or duplicate or closed:targets.append(m.id)
+        def remove():
+            import requests
+            for mid in targets:
+                r=requests.post('https://api.telegram.org/bot'+private['token']+'/deleteMessage',json={'chat_id':l.c['owner'],'message_id':mid},timeout=12).json()
+                if not r.get('ok') and 'message to delete not found' not in r.get('description',''):raise ValueError('Delete unavailable')
+        await asyncio.to_thread(remove)
+        s.set_setting('lead_cleanup_legacy','complete:'+str(len(targets)))
+    except Exception as error:
+        s.set_setting('lead_cleanup_legacy','failed:'+type(error).__name__)
+        l.notice('Не завершена очистка старых карточек: '+type(error).__name__+'. Новые карточки работают отдельно; переписка с клиентами не удалялась.')
     finally:s.db.close()

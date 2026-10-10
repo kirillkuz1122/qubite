@@ -27,7 +27,7 @@ def capture(l,mid=1,uid=2,text='Ищу разработчика, нужен бо
     assert l.capture(-100123,mid,uid,'client_user',text,now=now)
 
 
-@pytest.mark.parametrize('chat,uid,text',[(-100456,2,'Нужен бот'),(-100123,1,'Нужен бот'),(-100123,-5,'Нужен бот'),(-100123,2,'Предлагаю разработку ботов'),(-100123,2,'Нужен сантехник')])
+@pytest.mark.parametrize('chat,uid,text',[(-100456,2,'Нужен бот'),(-100123,1,'Нужен бот'),(-100123,-5,'Нужен бот'),(-100123,2,'Предлагаю разработку ботов'),(-100123,2,'Нужен сантехник'),(-100123,2,'Курьер, свободный график работы, оплата за работу'),(-100123,2,'Подскажите когда заработает банана')])
 def test_scope_owner_anonymous_and_free_prefilter(setup,chat,uid,text):
     _,l=setup
     assert not l.capture(chat,1,uid,'some_user',text)
@@ -454,3 +454,49 @@ def test_rejection_during_model_wait_cannot_restore_or_send_card(setup,monkeypat
     assert not asyncio.run(process_one(l,NS(key='test',daily=1,session=1)))
     assert s.db.execute('select status from telegram_leads').fetchone()[0]=='rejected'
     assert s.db.execute('select count(*) from negotiation_personal_outbox').fetchone()[0]==0
+
+
+def test_uncertain_advice_does_not_generate_paid_draft(setup,monkeypatch):
+    s,l=setup;capture(l,text='Подскажите, как исправить лица на фото?',uid=2)
+    class Advice(FakeAI):
+        async def post(self,*args,**kw):
+            assert 'context' not in kw['json']['state']
+            return await super().post(*args,**kw)
+        async def complete(self,*args,**kw):raise AssertionError('Advice must not draft')
+    monkeypatch.setattr('leads.AI',Advice)
+    assert asyncio.run(process_one(l,NS(key='test',daily=1,session=1)))
+    assert s.db.execute('select status from telegram_leads').fetchone()[0]=='uncertain'
+    assert s.db.execute('select count(*) from negotiation_proposals').fetchone()[0]==0
+
+
+def test_negative_feedback_is_quiet_and_not_a_reply_style_example(setup,monkeypatch):
+    s,l,row=generate(setup,monkeypatch)
+    before=s.db.execute('select count(*) from negotiation_owner_outbox').fetchone()[0]
+    l.feedback(1,'not_order')
+    assert s.db.execute('select count(*) from negotiation_owner_outbox').fetchone()[0]==before
+    assert l.examples()[0]['reply_example']==''
+
+
+def test_legacy_cleanup_only_deletes_our_bot_stale_cards(setup,monkeypatch,tmp_path):
+    import leads_personal as p
+    from datetime import datetime,timezone
+    s,l,row=generate(setup,monkeypatch);l.feedback(1,'not_order')
+    s.db.execute('update negotiation_proposals set message_id=42')
+    s.set_setting('lead_cleanup_legacy','requested')
+    path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    def opened():
+        fresh=Store(path);return fresh,Leads(fresh,l.c)
+    monkeypatch.setattr(p,'opened',opened)
+    monkeypatch.setattr(Path,'home',lambda:tmp_path)
+    root=tmp_path/'services/qubite-specbot';root.mkdir(parents=True)
+    (root/'lead-bot-private.json').write_text(json.dumps({'token':'123456789:dummy','owner':1}))
+    now=datetime.now(timezone.utc)
+    messages=[NS(id=42,sender_id=123456789,raw_text='Старая карточка',date=now),NS(id=43,sender_id=1,raw_text='Telegram-заявка 1',date=now),NS(id=44,sender_id=123456789,raw_text='Telegram-заявка 1',date=now),NS(id=45,sender_id=123456789,raw_text='Другое сообщение',date=now)]
+    class Client:
+        async def get_me(self):return NS(id=1)
+        async def get_entity(self,name):assert name=='Gdhdhdjdjbtnbot';return NS(id=123456789,bot=True)
+        async def get_messages(self,peer,limit):assert peer.id==123456789 and limit==100;return messages
+    deleted=[]
+    monkeypatch.setattr('requests.post',lambda *a,**kw:(deleted.append(kw['json']['message_id']) or NS(json=lambda:{'ok':True})))
+    asyncio.run(p.cleanup_legacy_cards(Client(),lambda *a:True))
+    assert deleted==[42,44] and s.setting('lead_cleanup_legacy')=='complete:2'

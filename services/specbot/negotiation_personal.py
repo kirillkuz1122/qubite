@@ -144,6 +144,8 @@ async def outbound_loop(client, policy):
         try:
             await send_one(client, policy)
             await notify_sent()
+            from leads_personal import cleanup_legacy_cards
+            await cleanup_legacy_cards(client,policy)
             from leads_personal import folders
             from tg_common import notify
             if time.time()-last_sources>30:

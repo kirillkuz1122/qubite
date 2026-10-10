@@ -157,10 +157,11 @@ class Bot:
                         s.set_setting(stagekey,stage)
             for r in list(s.db.execute("SELECT * FROM lead_bot_outbox WHERE status='pending' LIMIT 5")):
                 self.send(r['text']);s.db.execute("UPDATE lead_bot_outbox SET status='sent' WHERE id=?",(r['id'],))
-            for r in list(s.db.execute("SELECT * FROM telegram_leads WHERE status IN ('filtered','failed','expired') ORDER BY created_at DESC LIMIT 20")):
+            for r in list(s.db.execute("SELECT * FROM telegram_leads WHERE status IN ('filtered','uncertain','failed','expired') ORDER BY created_at DESC LIMIT 20")):
                 key='lead.notice.'+str(r['id'])+'.'+r['status']
                 if s.setting(key):continue
-                base=str(r['id'])+' · '+r['status']+'\n'+r['link']+'\n\n'+r['text'][:2400]+'\n\nЕсли это нормальная заявка — кнопка разрешит попытку отклика. Проверки автора, текста, blacklist и бюджета сохраняются.'
+                label={'filtered':'Jev считает, что это не заказ','uncertain':'Неясно: заказ или обсуждение','failed':'Ошибка подбора','expired':'Заявка устарела'}[r['status']]
+                base=str(r['id'])+' · '+label+'\n'+r['link']+'\n\n'+r['text'][:2400]+'\n\nЕсли это нормальная заявка — кнопка разрешит попытку отклика. Проверки автора, текста, blacklist и бюджета сохраняются.'
                 rows=[
                     [button('Нормальный заказ → написать','lead:good:'+str(r['id'])+':open')],
                     [button('Не заказ','lead:no:'+str(r['id'])+':not_order'),button('Не наша услуга','lead:no:'+str(r['id'])+':not_service')]]
