@@ -67,6 +67,13 @@ async def setup(client, policy, notify):
                 from telethon.utils import get_peer_id
                 cid=get_peer_id(entity)
                 if not policy(cid,getattr(entity,'username','') or entity.title):raise ValueError('Source blocked')
+                previous=s.db.execute('SELECT * FROM lead_sources WHERE chat_id=? AND username!=?',(cid,ref)).fetchone()
+                if previous:
+                    if previous['status']=='disabled':
+                        s.db.execute("UPDATE lead_sources SET status='joined',updated_at=? WHERE username=?",(time.time(),previous['username']))
+                    s.db.execute('DELETE FROM lead_sources WHERE username=?',(ref,))
+                    l.notice('Группа «'+entity.title+'» уже есть в источниках. Дубликат не создан'+('; наблюдение включено снова.' if previous['status']=='disabled' else '.'))
+                    continue
                 if not ref.startswith(('title_','id_')):await client(JoinChannelRequest(entity))
                 full=await client(GetFullChannelRequest(entity))
                 about=getattr(full.full_chat,'about','') or ''

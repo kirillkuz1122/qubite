@@ -367,3 +367,34 @@ def test_only_successful_send_creates_complete_audit_once(setup,monkeypatch):
     asyncio.run(p.notify_sent());first=len(calls)
     assert first==2 and 'Тестовый текст' in calls[0]
     asyncio.run(p.notify_sent());assert len(calls)==first
+
+
+@pytest.mark.parametrize('ambiguous',[False,True])
+def test_exact_title_resolution_uses_metadata_and_avoids_duplicate_source(setup,monkeypatch,ambiguous):
+    import leads_personal as p
+    from datetime import datetime,timezone
+    from telethon.tl.types import DialogFilter,TextWithEntities,InputPeerUser,Channel,ChatPhotoEmpty
+    from telethon.tl.functions.messages import GetDialogFiltersRequest
+    s,l=setup;path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    s.db.execute('update lead_sources set chat_id=-1001234567890')
+    s.db.execute("INSERT INTO lead_sources(username,title,created_at,updated_at) VALUES('title_test','Без username',1,1)")
+    def opened():
+        fresh=Store(path);return fresh,Leads(fresh,l.c)
+    monkeypatch.setattr(p,'opened',opened)
+    group=Channel(id=1234567890,title='Без username',photo=ChatPhotoEmpty(),date=datetime.now(timezone.utc),megagroup=True)
+    fs=[DialogFilter(id=3,title=TextWithEntities('💰',[]),pinned_peers=[],include_peers=[InputPeerUser(2,22)],exclude_peers=[]),
+        DialogFilter(id=4,title=TextWithEntities('❤️',[]),pinned_peers=[],include_peers=[InputPeerUser(3,33)],exclude_peers=[InputPeerUser(2,22)])]
+    class Client:
+        async def get_me(self):return NS(id=1)
+        async def get_entity(self,ref):return NS(id=2 if ref=='mbemlin' else 3,username=ref,contact=False)
+        async def __call__(self,req):
+            assert isinstance(req,GetDialogFiltersRequest), 'Must not join or read messages for duplicate/ambiguous title'
+            return NS(filters=fs)
+        async def iter_dialogs(self):
+            yield NS(name='Без username',entity=group)
+            if ambiguous:
+                other=Channel(id=1234567891,title='Без username',photo=ChatPhotoEmpty(),date=datetime.now(timezone.utc),megagroup=True)
+                yield NS(name='Без username',entity=other)
+    asyncio.run(p.setup(Client(),lambda *a:True,lambda *a:pytest.fail('No read notifications')))
+    row=s.db.execute("select * from lead_sources where username='title_test'").fetchone()
+    assert (row['status']=='unavailable') if ambiguous else row is None
