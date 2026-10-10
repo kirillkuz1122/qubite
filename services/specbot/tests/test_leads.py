@@ -56,7 +56,7 @@ class FakeAI:
         return NS(status_code=200,json=lambda:{'answers':{k:{'noul':.99} for k in ['suitable','buyer','direct']}})
     async def complete(self,sid,messages,schema,max_tokens,validator,**kw):
         out={'title':'Бот для заявки','reply':'Какие функции нужны боту и есть ли описание задачи?','reason':'Запрошена разработка бота, деталей пока мало.'}
-        validator(out);return out
+        validator(out);return out,'test-provider'
     async def aclose(self):pass
 
 
