@@ -362,7 +362,8 @@ class Bot:
                     self.s.set_setting('joined.'+sid,'1')
                     self.s.send(self.c.owner,'По приглашению вошёл '+client_identity(s)+'\nПроект: '+s['title'],profile_button(s)+controls(sid))
                 if s['status']=='consent':
-                    self.s.send(uid,'Интервью для проекта «'+s['title']+'».\n\nБот уточнит задачу и передаст ответы владельцу проекта. Ответы обрабатывает ИИ через OpenRouter; итоговый PDF получает владелец. Не присылай пароли или секреты. Можно сделать паузу и вернуться.\n\nНачать?',[[button('Начать интервью','consent:'+sid)]])
+                    from negotiation import personal_contact_notice
+                    self.s.send(uid,'Интервью для проекта «'+s['title']+'».\n\nБот уточнит задачу и передаст ответы владельцу проекта. Ответы обрабатывает ИИ через OpenRouter; итоговый PDF получает владелец. Не присылай пароли или секреты. Можно сделать паузу и вернуться.'+personal_contact_notice(self.s,sid)+'\n\nНачать?',[[button('Начать интервью','consent:'+sid)]])
                 else:self.s.send(uid,'Интервью «'+s['title']+'» · '+s['status'],client_keys(sid))
                 return
             if text in ('/start','/help'):

@@ -121,13 +121,18 @@ class AI:
         if not final:payload.update(recent_questions=self.s.recent_questions(session['id']),client_answers_count=session['turns'])
         messages.append({'role':'user','content':json.dumps(payload,ensure_ascii=False)})
         max_tokens=5000 if final else 1800
+        return await self.complete(session['id'],messages,output_schema(final),max_tokens,
+            lambda result: validate(result,final),cursor,'technical_spec' if final else 'interview')
+
+    async def complete(self,sid,messages,schema,max_tokens,validator,cursor=0,name='negotiation'):
+        """Shared accounting/fallback transport; callers supply their own bounded schema."""
         # Conservatively one input token per UTF-8 byte (including framing overhead).
-        prompt_size=len(json.dumps(messages,ensure_ascii=False).encode())+len(json.dumps(output_schema(final)).encode())+1500
+        prompt_size=len(json.dumps(messages,ensure_ascii=False).encode())+len(json.dumps(schema).encode())+1500
         if prompt_size>65000: raise ModelError('Сводка стала слишком большой. Нужна ручная правка.')
         for i,provider in enumerate(('anthropic','google-vertex/global')):
             ceiling=(prompt_size*.10+max_tokens*.50)/1_000_000
             daily=float(self.s.setting('daily_budget',str(self.c.daily)))
-            row=self.s.reserve(session['id'],ceiling,provider,daily,self.c.session)
+            row=self.s.reserve(sid,ceiling,provider,daily,self.c.session)
             billed=ceiling
             request_id='unknown'
             try:
@@ -137,7 +142,7 @@ class AI:
                     json={'model':MODEL,'provider':{'only':[provider],'allow_fallbacks':False,
                         'max_price':{'prompt':.10,'completion':.50},'require_parameters':True},
                         'messages':messages,'max_tokens':max_tokens,'reasoning':{'enabled':False},
-                        'response_format':{'type':'json_schema','json_schema':{'name':'technical_spec' if final else 'interview','strict':True,'schema':output_schema(final)}},'usage':{'include':True}},
+                        'response_format':{'type':'json_schema','json_schema':{'name':name,'strict':True,'schema':schema}},'usage':{'include':True}},
                     timeout=self.c.primary_timeout if i==0 else self.c.standard_timeout)
                 if response.status_code!=200:
                     billed=0
@@ -182,7 +187,7 @@ class AI:
                     log.warning('Incomplete AI response: route=%s request=%s reason=refusal',provider,request_id)
                     raise ModelError('ИИ отказался обработать этот запрос. Ответ клиента сохранён.')
                 result=json.loads(message['content'])
-                validate(result,final)
+                validator(result)
                 self.s.settle(row,billed,'ok')
                 result['_cursor']=cursor
                 return result,provider

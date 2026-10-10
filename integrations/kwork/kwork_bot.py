@@ -9,6 +9,7 @@ import re
 import sqlite3
 import time
 import requests
+import kwork_negotiation as negotiation_integration
 import kwork_brief as brief_integration
 
 ROOT = Path(os.environ.get('KWORK_BOT_ROOT', str(Path.home()/'services/kwork-bot')))
@@ -116,6 +117,8 @@ class State:
 
 
 def handle_callback(state,cb,owner):
+    negotiation_result=negotiation_integration.callback(state,cb,owner,api)
+    if negotiation_result is not None:return negotiation_result
     brief_result=brief_integration.callback(state,cb,owner)
     if brief_result is not None:return brief_result
     if cb.get('from',{}).get('id')!=owner or cb.get('message',{}).get('chat',{}).get('id')!=owner:
@@ -136,6 +139,8 @@ def poll():
                     try:api('answerCallbackQuery',{'callback_query_id':cb['id'],'text':text},8)
                     except RuntimeError:pass
                 elif update.get('message',{}).get('chat',{}).get('id')==owner:
+                    if negotiation_integration.message(state,update['message'],owner,api):
+                        state.offset(update['update_id']+1);continue
                     api('sendMessage',{'chat_id':owner,'text':'Здесь будут заказы Kwork. «Удалить» убирает прочитанную карточку; для спорных заказов можно запросить отклик кнопкой. 👍/👎 сохраняют твои предпочтения для следующих подборов; оценку можно изменить.'},10)
                 state.offset(update['update_id']+1)
         except Exception as e:
@@ -148,6 +153,7 @@ def work():
     state=State();owner=int(config()['owner_chat_id'])
     with state.db() as c:c.execute("UPDATE jobs SET status='pending' WHERE status='running'")
     while True:
+        negotiation_integration.tick(state,owner,api)
         job=state.claim()
         if not job:time.sleep(.5);continue
         row=state.get(job['oid'])
