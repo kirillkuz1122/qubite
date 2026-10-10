@@ -268,3 +268,5 @@
 - Вход нативных клиентов Vikunja: Qubite сохраняет путь и параметры `/oauth/authorize` через вход/первый пароль. Обмен PKCE-кода, вращение OAuth refresh и нативный cookie refresh проверяют активную привязку и grant перед возвратом токена. Переходы остаются на точном origin сервиса; callback в приложение выполняет сам Vikunja.
 
 - `back/src/siyuan.js`: отдельный owner-only gate и серверная выдача native cookie; не добавлять SiYuan в grants/первый пароль Memos/Vikunja. `integrations/qubite-siyuan` ограничивает доступ одним блокнотом, не выставлять нативный токен/SQL модели. Native Docker-порт только loopback, Caddy проверяет каждую HTTP/WS сессию; [инструкция](docs/siyuan.md).
+
+- Нативный AI SiYuan 3.8.6: `providers[]`, `/api/setting/setAI`, отдельные `agent.modelId`/`editing.modelId`. OpenRouter/Haiku подготовлены с пустым API key; не подставлять ключ другого сервиса. Нативный API канонизирует ID: проверять фактические привязки после записи. Сохранять остальные AI-разделы и policy, приватный backup 600; MCP Hermes не получает административные операции. Без ключа нельзя считать генерацию проверенной.
