@@ -15,7 +15,13 @@ from store import Store
 def notification_events(store,channel,separated):
     if separated:
         clause='EXISTS' if channel=='leads' else 'NOT EXISTS'
-        return [dict(r) for r in store.db.execute("SELECT o.* FROM negotiation_owner_outbox o WHERE o.status='pending' AND "+clause+" (SELECT 1 FROM telegram_leads l WHERE l.sid=o.sid) ORDER BY o.id LIMIT 5")]
+        items=[dict(r) for r in store.db.execute("SELECT o.* FROM negotiation_owner_outbox o WHERE o.status='pending' AND "+clause+" (SELECT 1 FROM telegram_leads l WHERE l.sid=o.sid) ORDER BY o.id LIMIT 5")]
+        if channel=='leads':
+            for item in items:
+                row=store.db.execute('SELECT id FROM telegram_leads WHERE sid=?',(item['sid'],)).fetchone()
+                if row and item['proposal']:
+                    item['lead_id']=row['id'];item['card_mid']=store.setting('lead.card.'+str(row['id']))
+        return items
     return [dict(r) for r in store.db.execute("SELECT * FROM negotiation_owner_outbox WHERE status='pending' ORDER BY id LIMIT 5")]
 
 
@@ -41,6 +47,11 @@ async def execute(request):
                 if row['proposal']:
                     s.db.execute('UPDATE negotiation_proposals SET message_id=? WHERE id=? AND version=?',
                                  (int(request['message_id']), row['proposal'], row['version']))
+                    lead=n.lead(row['sid'])
+                    if lead:
+                        s.set_setting('lead.card.'+str(lead['id']),str(request['message_id']))
+                        s.set_setting('lead.cardtext.'+str(lead['id']),row['text'])
+                        s.set_setting('lead.cardstage.'+str(lead['id']),'')
         else:
             if request.get('uid') != c.owner or request.get('chat') != c.owner:
                 raise ValueError('Owner required')

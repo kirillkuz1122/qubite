@@ -19,6 +19,9 @@ from leads import configuration,Leads
 from store import Store
 
 
+class MessageGone(ValueError):pass
+
+
 class State:
     def __init__(self,path):
         self.path=path
@@ -49,9 +52,16 @@ class Bot:
     def api(self,method,payload,timeout=15):
         # No response bodies or request URLs in logs/raised errors.
         try:
+            payload=dict(payload)
+            if isinstance(payload.get('text'),str):payload['text']=payload['text'].encode('utf-16-le')[:7600].decode('utf-16-le',errors='ignore')
             r=httpx.post('https://api.telegram.org/bot'+self.token+'/'+method,json=payload,timeout=timeout).json()
         except Exception:raise RuntimeError('Telegram transport unavailable') from None
-        if not r.get('ok'):raise RuntimeError('Telegram request rejected')
+        if not r.get('ok'):
+            desc=r.get('description','')
+            if method=='editMessageText' and 'message is not modified' in desc:return {'message_id':payload['message_id']}
+            if method=='editMessageText' and ('message to edit not found' in desc or "message can't be edited" in desc):raise MessageGone()
+            if method=='deleteMessage' and 'message to delete not found' in desc:return True
+            raise RuntimeError('Telegram request rejected')
         return r['result']
     def send(self,text,rows=None):
         p={'chat_id':self.owner,'text':text[:3900]}
@@ -94,6 +104,15 @@ class Bot:
                     answer=ui.callback(self.state,cb,self.owner,self.api)
                     if answer is None:answer=negotiations_ui.callback(self.state,cb,self.owner,self.api)
                     if answer is None:answer='Неизвестная кнопка'
+                    if data.startswith('lead:no:') and answer.startswith('Оценка сохранена'):
+                        self.api('deleteMessage',{'chat_id':self.owner,'message_id':cb['message']['message_id']})
+                    if data.startswith('lead:good:') and answer.startswith('Сохранено'):
+                        cfg=configuration();s=Store(Path(cfg['data_dir'])/'specbot.sqlite')
+                        try:
+                            ident=data.split(':')[2];base=cb['message'].get('text','')
+                            s.set_setting('lead.cardtext.'+ident,base)
+                            self.api('editMessageText',{'chat_id':self.owner,'message_id':cb['message']['message_id'],'text':base+'\n\n⏳ Отклик в очереди'})
+                        finally:s.db.close()
             except Exception:answer='Не удалось обработать кнопку. Проверь актуальную карточку или /sources.'
             try:self.api('answerCallbackQuery',{'callback_query_id':cb['id'],'text':answer[:190]})
             except Exception:pass
@@ -117,15 +136,42 @@ class Bot:
         s=Store(Path(cfg['data_dir'])/'specbot.sqlite')
         try:
             Leads(s,cfg)
+            for r in list(s.db.execute('SELECT * FROM telegram_leads ORDER BY updated_at DESC LIMIT 100')):
+                key='lead.card.'+str(r['id']);mid=s.setting(key)
+                if not mid:continue
+                active=s.db.execute("SELECT 1 FROM negotiation_proposals WHERE sid=? AND status IN ('draft','approved')",(r['sid'],)).fetchone()
+                if r['status']=='rejected' or (r['first_sent'] and not active):
+                    self.api('deleteMessage',{'chat_id':self.owner,'message_id':int(mid)})
+                    s.set_setting(key,'');continue
+                stage={'processing':'⏳ Готовлю отклик','approved':'⏳ Отправляю с личного Telegram','pending':'⏳ Отклик в очереди'}.get(r['status'])
+                if r['sid']:
+                    n=s.db.execute('SELECT status FROM negotiations WHERE sid=?',(r['sid'],)).fetchone()
+                    failed=s.db.execute("SELECT 1 FROM negotiation_personal_outbox WHERE sid=? AND status IN ('failed','uncertain') LIMIT 1",(r['sid'],)).fetchone()
+                    if (n and n['status']=='paused') or failed:stage='⚠️ Отправка остановлена. Проверь /negoview '+r['sid']+'. Не повторяю неизвестную отправку.'
+                if stage and (r['manual_override'] or r['status']=='approved'):
+                    base=s.setting('lead.cardtext.'+str(r['id']))
+                    stagekey='lead.cardstage.'+str(r['id'])
+                    if base and s.setting(stagekey)!=stage:
+                        try:self.api('editMessageText',{'chat_id':self.owner,'message_id':int(mid),'text':base+'\n\n'+stage})
+                        except MessageGone:s.set_setting(key,'')
+                        s.set_setting(stagekey,stage)
             for r in list(s.db.execute("SELECT * FROM lead_bot_outbox WHERE status='pending' LIMIT 5")):
                 self.send(r['text']);s.db.execute("UPDATE lead_bot_outbox SET status='sent' WHERE id=?",(r['id'],))
             for r in list(s.db.execute("SELECT * FROM telegram_leads WHERE status IN ('filtered','failed','expired') ORDER BY created_at DESC LIMIT 20")):
                 key='lead.notice.'+str(r['id'])+'.'+r['status']
                 if s.setting(key):continue
-                mid=self.send(str(r['id'])+' · '+r['status']+'\n'+r['link']+'\n\n'+r['text'][:2400]+'\n\nЕсли это нормальная заявка — кнопка разрешит попытку отклика. Проверки автора, текста, blacklist и бюджета сохраняются.',[
+                base=str(r['id'])+' · '+r['status']+'\n'+r['link']+'\n\n'+r['text'][:2400]+'\n\nЕсли это нормальная заявка — кнопка разрешит попытку отклика. Проверки автора, текста, blacklist и бюджета сохраняются.'
+                rows=[
                     [button('Нормальный заказ → написать','lead:good:'+str(r['id'])+':open')],
-                    [button('Не заказ','lead:no:'+str(r['id'])+':not_order'),button('Не наша услуга','lead:no:'+str(r['id'])+':not_service')]])['message_id']
+                    [button('Не заказ','lead:no:'+str(r['id'])+':not_order'),button('Не наша услуга','lead:no:'+str(r['id'])+':not_service')]]
+                oldmid=s.setting('lead.card.'+str(r['id']))
+                if oldmid:
+                    try:sent=self.api('editMessageText',{'chat_id':self.owner,'message_id':int(oldmid),'text':base,'reply_markup':{'inline_keyboard':rows}})
+                    except MessageGone:sent=self.send(base,rows)
+                else:sent=self.send(base,rows)
+                mid=sent['message_id']
                 s.set_setting(key,str(mid));s.set_setting('lead.card.'+str(r['id']),str(mid))
+                s.set_setting('lead.cardtext.'+str(r['id']),base)
         finally:s.db.close()
     def worker(self):
         while not self.stop.is_set():

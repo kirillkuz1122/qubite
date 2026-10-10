@@ -285,7 +285,7 @@ class Negotiations:
                          {'text':'Не наша услуга','callback_data':'lead:no:'+str(lead['id'])+':not_service'}])
             rows.append([{'text':'Плохой отклик','callback_data':'lead:no:'+str(lead['id'])+':bad_draft'},
                          {'text':'Создать Brief','callback_data':'lead:brief:'+str(lead['id'])+':open'}])
-        self.owner_notice(p['sid'], 'Предложение клиенту · ' + self.s.get(p['sid'])['title'] + '\n\n' + p['text'] +
+        self.owner_notice(p['sid'], ('Telegram-заявка '+str(lead['id'])+'\n'+lead['link']+'\n\n'+lead['text'][:1200]+'\n\n' if lead else '')+'Предложение клиенту · ' + self.s.get(p['sid'])['title'] + '\n\n' + p['text'] +
                           ('\n\nБриф ещё не завершён: оцени полноту данных перед отправкой.' if self.s.get(p['sid'])['status']!='done' else '') +
                           '\n\nПочему такая оценка / что уточнить:\n' + p['reason'][:1000],
                           {'inline_keyboard': rows}, ident, p['version'])

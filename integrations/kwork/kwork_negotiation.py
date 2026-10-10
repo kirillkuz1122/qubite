@@ -32,7 +32,14 @@ def notification_tick(state,owner,api):
             if not c.execute("SELECT 1 FROM negotiation_owner_outbox WHERE status='pending' LIMIT 1").fetchone():return
         result=helper(state,{'action':'notifications'})
         for item in result.get('events',[]):
-            sent=api('sendMessage',{'chat_id':owner,'text':item['text'],'reply_markup':item['markup']},10)
+            payload={'chat_id':owner,'text':item['text'],'reply_markup':item['markup']}
+            if item.get('card_mid'):
+                payload['message_id']=int(item['card_mid'])
+                try:sent=api('editMessageText',payload,10)
+                except Exception as error:
+                    if type(error).__name__!='MessageGone':raise
+                    payload.pop('message_id');sent=api('sendMessage',payload,10)
+            else:sent=api('sendMessage',payload,10)
             helper(state,{'action':'ack','id':item['id'],'message_id':sent['message_id']})
     except Exception as error:print('Negotiation notifications: '+type(error).__name__,flush=True)
 

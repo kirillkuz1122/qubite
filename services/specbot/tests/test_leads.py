@@ -398,3 +398,59 @@ def test_exact_title_resolution_uses_metadata_and_avoids_duplicate_source(setup,
     asyncio.run(p.setup(Client(),lambda *a:True,lambda *a:pytest.fail('No read notifications')))
     row=s.db.execute("select * from lead_sources where username='title_test'").fetchone()
     assert (row['status']=='unavailable') if ambiguous else row is None
+
+
+def lifecycle_bot(s,l,monkeypatch):
+    import lead_bot as module
+    path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    monkeypatch.setattr(module,'configuration',lambda:dict(l.c,data_dir=str(path.parent)))
+    b=module.Bot.__new__(module.Bot);b.owner=1;calls=[]
+    def api(method,payload,timeout=15):
+        calls.append((method,payload));return {'message_id':payload.get('message_id',100)}
+    b.api=api;b.send=lambda text,rows=None:api('sendMessage',{'text':text,'reply_markup':rows})
+    return b,calls
+
+
+@pytest.mark.parametrize('reason',['not_order','not_service'])
+def test_rejected_card_is_deleted_once_and_training_retained(setup,monkeypatch,reason):
+    s,l,row=generate(setup,monkeypatch)
+    s.set_setting('lead.card.1','42');l.feedback(1,reason)
+    b,calls=lifecycle_bot(s,l,monkeypatch);b.notices();b.notices()
+    assert [m for m,p in calls]==['deleteMessage']
+    assert s.db.execute('select feedback from telegram_leads').fetchone()[0]==-1
+    assert s.setting('lead.card.1')==''
+
+
+def test_good_status_edits_same_card_then_deletes_after_delivery(setup,monkeypatch):
+    s,l,row=generate(setup,monkeypatch)
+    s.set_setting('lead.card.1','42');s.set_setting('lead.cardtext.1','Исходная карточка')
+    l.good(1);b,calls=lifecycle_bot(s,l,monkeypatch)
+    b.notices();b.notices()
+    assert [m for m,p in calls]==['editMessageText'] and calls[0][1]['message_id']==42
+    item,_=l.n.dispatchable();l.n.delivered(item['id'],55)
+    b.notices();assert [m for m,p in calls]==['editMessageText','deleteMessage']
+
+
+def test_failed_status_reuses_card_and_does_not_hide_paused_send(setup,monkeypatch):
+    s,l,row=generate(setup,monkeypatch)
+    s.set_setting('lead.card.1','42');s.set_setting('lead.cardtext.1','Исходная карточка')
+    l.good(1);l.n.pause(row['sid'],'Остановлено')
+    b,calls=lifecycle_bot(s,l,monkeypatch);b.notices()
+    assert [m for m,p in calls]==['editMessageText'] and 'остановлена' in calls[0][1]['text']
+
+
+def test_good_double_click_does_not_create_second_attempt(setup,monkeypatch):
+    s,l,row=generate(setup,monkeypatch);l.good(1)
+    with pytest.raises(ValueError):l.good(1)
+    assert s.db.execute('select count(*) from negotiation_personal_outbox').fetchone()[0]==1
+
+
+def test_rejection_during_model_wait_cannot_restore_or_send_card(setup,monkeypatch):
+    s,l=setup;capture(l);s.db.execute('update telegram_leads set manual_override=1')
+    class Cancelled(FakeAI):
+        async def complete(self,*args,**kw):
+            l.feedback(1,'not_order');return await super().complete(*args,**kw)
+    monkeypatch.setattr('leads.AI',Cancelled)
+    assert not asyncio.run(process_one(l,NS(key='test',daily=1,session=1)))
+    assert s.db.execute('select status from telegram_leads').fetchone()[0]=='rejected'
+    assert s.db.execute('select count(*) from negotiation_personal_outbox').fetchone()[0]==0
