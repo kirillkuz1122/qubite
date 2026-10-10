@@ -4,8 +4,11 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 _last_tick = 0
+_pending = None
+_executor = None
 
 
 def cfg(state):
@@ -84,14 +87,22 @@ def message(state, msg, owner, api):
 
 
 def tick(state, owner, api):
-    global _last_tick
-    if time.monotonic() - _last_tick < 60 or not cfg(state): return
-    _last_tick = time.monotonic()
-    try:
-        result = helper(state, {'action': 'tick'}, 100)
-        for item in result.get('events', []):
-            sent = api('sendMessage', {'chat_id': owner, 'text': item['text'], 'reply_markup': item['markup']})
-            helper(state, {'action': 'ack', 'id': item['id'], 'message_id': sent['message_id']})
-    except Exception as e:
-        # No user text or secret-bearing subprocess output in logs.
-        print('Negotiation tick: ' + type(e).__name__, flush=True)
+    global _last_tick,_pending,_executor
+    if not cfg(state): return
+    if _pending is not None:
+        if not _pending.done():return
+        try:
+            result = _pending.result()
+            for item in result.get('events', []):
+                sent = api('sendMessage', {'chat_id': owner, 'text': item['text'], 'reply_markup': item['markup']})
+                helper(state, {'action': 'ack', 'id': item['id'], 'message_id': sent['message_id']})
+        except Exception as e:
+            # No user text or secret-bearing subprocess output in logs.
+            print('Negotiation tick: ' + type(e).__name__, flush=True)
+        finally:_pending=None
+        return
+    if time.monotonic() - _last_tick < 60:return
+    _last_tick=time.monotonic()
+    if _executor is None:_executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix='brief-helper')
+    # Model IO never occupies the Kwork job queue or the callback poll process.
+    _pending=_executor.submit(helper,state,{'action':'tick'},100)

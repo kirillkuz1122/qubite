@@ -40,3 +40,26 @@ def test_control_checks_owner_and_force_reply_matches_prompt(tmp_path,monkeypatc
     assert not nego.message(state,{**msg,'reply_to_message':{'message_id':999}},1,api)
     assert nego.message(state,{**msg,'reply_to_message':{'message_id':123}},1,api)
     assert calls[-1]['action']=='edit' and calls[-1]['text']==msg['text']
+
+
+def test_model_tick_does_not_block_kwork_job_processing(tmp_path,monkeypatch):
+    state=kwork_bot.State(tmp_path)
+    monkeypatch.setattr(nego,'cfg',lambda *args:{'enabled':True})
+    monkeypatch.setattr(nego,'_last_tick',0)
+    monkeypatch.setattr(nego,'_pending',None)
+    monkeypatch.setattr(nego.time,'monotonic',lambda:100)
+    class Future:
+        ready=False
+        def done(self):return self.ready
+        def result(self):return {'events':[]}
+    future=Future();calls=[]
+    class Executor:
+        def submit(self,*args):calls.append(args);return future
+    monkeypatch.setattr(nego,'_executor',Executor())
+    nego.tick(state,1,lambda *args:None)
+    assert len(calls)==1 and nego._pending is future
+    nego.tick(state,1,lambda *args:None)
+    assert len(calls)==1
+    future.ready=True
+    nego.tick(state,1,lambda *args:None)
+    assert nego._pending is None and len(calls)==1
