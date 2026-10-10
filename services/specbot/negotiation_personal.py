@@ -31,6 +31,9 @@ async def forward_event(event, policy, text=None):
     s, n = open_store(cfg)
     try:
         if not s.db.execute("SELECT 1 FROM negotiations WHERE client=? AND status='active'", (uid,)).fetchone(): return False
+        conversation=s.db.execute("SELECT sid FROM negotiations WHERE client=? AND status='active'",(uid,)).fetchone()
+        lead=n.lead(conversation['sid'])
+        if lead and not lead['first_sent']:return False
         sender = await event.get_sender()
         if getattr(sender, 'bot', False) or sender.id != uid or not policy(uid, getattr(sender, 'username', '') or ''): return False
         return n.receive(uid, event.id, text if text is not None else (event.raw_text or ''))
@@ -48,6 +51,11 @@ async def send_one(client, policy):
         me = await client.get_me()
         if me.id != int(cfg['owner']): raise ValueError('Wrong personal Telegram account')
         item, conversation = candidate; uid = conversation['client']; username = conversation['username']
+        if n.lead(conversation['sid']):
+            from leads_personal import source_current
+            if not await source_current(client,s,conversation['sid'],policy):
+                n.pause(conversation['sid'],'Исходная Telegram-заявка удалена/изменена/устарела или папки не определены. Старый отклик не отправлен.')
+                return False
         if not policy(uid, username):
             n.pause(conversation['sid'], 'Чат заблокирован политикой личного Telegram')
             return False
@@ -81,6 +89,12 @@ async def send_one(client, policy):
             return True
         except Exception as e:
             seconds = getattr(e, 'seconds', None)
+            if type(e).__name__ == 'PeerFloodError':
+                s.set_setting('lead_mode','paused')
+                s.set_setting('negotiation_transport_cooldown',str(time.time()+86400))
+                s.db.execute("UPDATE negotiation_personal_outbox SET status='failed' WHERE id=?",(item['id'],))
+                n.pause(conversation['sid'],'Telegram сообщил об ограничении новых личных сообщений. Поиск/отправки приостановлены; аккаунты и прокси не меняю.')
+                return False
             if isinstance(seconds, int) and seconds > 0:
                 s.set_setting('negotiation_transport_cooldown', str(time.time() + seconds + 5))
                 s.db.execute("UPDATE negotiation_personal_outbox SET status='pending' WHERE id=?", (item['id'],))
@@ -105,7 +119,11 @@ async def outbound_loop(client, policy):
             logging.warning('Negotiation account check deferred: %s',type(e).__name__)
     last_error=0
     while True:
-        try: await send_one(client, policy)
+        try:
+            await send_one(client, policy)
+            from leads_personal import folders
+            from tg_common import notify
+            await folders(client,policy,notify)
         except asyncio.CancelledError: raise
         except Exception as e:
             if time.monotonic()-last_error>60:

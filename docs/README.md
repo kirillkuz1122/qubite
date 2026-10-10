@@ -30,6 +30,7 @@
 - [Редактор текста, Firefox и Linux](writing.md) — локальный LanguageTool, ИИ, права, ключи и бюджеты.
 - [Личный Telegram-бот для ТЗ](specbot.md) — приглашения, промпты, интервью, ручное управление и документы.
 - [Переговоры по Brief в Kwork-боте](kwork-negotiations.md) — оценка ТЗ, подтверждения, личный Telegram и ограничения.
+- [Заявки из сообществ Telegram](telegram-leads.md) — источники, обучение, первые обращения и папки; [схема SQLite](telegram-leads-schema.md).
 - [Переход сервисов на Haiku 5.5](haiku-migration.md) — маршруты, потолки цены, сохранённые изменения Kwork и результаты проверки.
 
 - [Независимый Auth, питание приложений, Memos/Vikunja и Hermes](runtime-and-knowledge.md)

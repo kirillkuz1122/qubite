@@ -9,7 +9,7 @@ if [[ ! -s "$service_root/private.env" ]]; then
   echo "Заполни $service_root/private.env и повтори установку."
   exit 1
 fi
-for f in bot.py ai.py config.py document.py store.py bridge.py negotiation.py negotiation_cli.py negotiation_personal.py requirements.txt; do
+for f in bot.py ai.py config.py document.py store.py bridge.py negotiation.py negotiation_cli.py negotiation_personal.py leads.py leads_cli.py leads_personal.py requirements.txt; do
   install -m 600 "$(dirname "$0")/$f" "$service_root/app/$f"
 done
 uv_bin="$(command -v uv || true)"

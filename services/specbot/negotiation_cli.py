@@ -24,6 +24,9 @@ async def execute(request):
             ai = AI(c, s)
             try: await generate_one(n, ai)
             finally: await ai.client.aclose()
+            return {'enabled':True,'events':[]}  # Notifications have a separate short path.
+        elif action == 'notifications':
+            pass
         elif action == 'ack':
             row = s.db.execute('SELECT * FROM negotiation_owner_outbox WHERE id=?', (int(request['id']),)).fetchone()
             if row:
@@ -40,10 +43,17 @@ async def execute(request):
                 if not p or p['version'] != version or p['message_id'] != mid:
                     raise ValueError('Старая карточка предложения')
                 op = request['op']
-                if op == 'send': n.approve(ident, version, mid)
+                if op == 'send':
+                    n.approve(ident, version, mid)
+                    lead=n.lead(p['sid'])
+                    if lead and not lead['first_sent']:
+                        s.db.execute("UPDATE telegram_leads SET feedback=1,feedback_reason='owner_send',updated_at=? WHERE id=?",(time.time(),lead['id']))
                 elif op == 'pause': n.pause(p['sid'])
                 elif op == 'reject':
                     s.db.execute("UPDATE negotiation_proposals SET status='rejected' WHERE id=? AND status='draft'", (ident,))
+                    lead=n.lead(p['sid'])
+                    if lead and not lead['first_sent']:
+                        s.db.execute("UPDATE telegram_leads SET feedback=-1,feedback_reason='owner_reject',updated_at=? WHERE id=?",(time.time(),lead['id']))
                 elif op == 'edit': return {'edit': ident, 'version': version, 'kind': p['kind']}
                 else: raise ValueError('Неизвестная операция')
             elif action == 'edit':

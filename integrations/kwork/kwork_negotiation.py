@@ -4,11 +4,37 @@ from pathlib import Path
 import re
 import subprocess
 import time
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 _last_tick = 0
 _pending = None
 _executor = None
+_last_notice = 0
+
+
+def data_path(state):
+    settings=cfg(state)
+    if not settings:return None
+    root=Path(settings['script']).parent.parent
+    c=json.loads((root/'negotiation-config.json').read_text())
+    return Path(c['data_dir'])/'specbot.sqlite'
+
+
+def notification_tick(state,owner,api):
+    global _last_notice
+    if time.monotonic()-_last_notice<1:return
+    _last_notice=time.monotonic()
+    try:
+        path=data_path(state)
+        if not path or not path.exists():return
+        with sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True,timeout=.2) as c:
+            if not c.execute("SELECT 1 FROM negotiation_owner_outbox WHERE status='pending' LIMIT 1").fetchone():return
+        result=helper(state,{'action':'notifications'})
+        for item in result.get('events',[]):
+            sent=api('sendMessage',{'chat_id':owner,'text':item['text'],'reply_markup':item['markup']},10)
+            helper(state,{'action':'ack','id':item['id'],'message_id':sent['message_id']})
+    except Exception as error:print('Negotiation notifications: '+type(error).__name__,flush=True)
 
 
 def cfg(state):
@@ -89,6 +115,7 @@ def message(state, msg, owner, api):
 def tick(state, owner, api):
     global _last_tick,_pending,_executor
     if not cfg(state): return
+    notification_tick(state,owner,api)
     if _pending is not None:
         if not _pending.done():return
         try:

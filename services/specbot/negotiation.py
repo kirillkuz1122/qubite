@@ -96,6 +96,9 @@ class Negotiations:
         CREATE TABLE IF NOT EXISTS negotiation_attempts(
           sid TEXT REFERENCES negotiations(sid) ON DELETE CASCADE,revision INTEGER,mode TEXT,
           status TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(sid,revision,mode));
+        CREATE TABLE IF NOT EXISTS negotiation_folder_jobs(
+          client INTEGER PRIMARY KEY,username TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT 'pending',
+          created_at REAL NOT NULL,updated_at REAL NOT NULL);
         ''')
         if 'sending_started' not in {r['name'] for r in self.s.db.execute('PRAGMA table_info(negotiation_personal_outbox)')}:
             self.s.db.execute('ALTER TABLE negotiation_personal_outbox ADD COLUMN sending_started REAL NOT NULL DEFAULT 0')
@@ -105,8 +108,17 @@ class Negotiations:
         if not row: raise ValueError('Переговоры не найдены')
         return dict(row)
 
+    def lead(self, sid):
+        if not self.s.db.execute("SELECT 1 FROM sqlite_master WHERE name='telegram_leads'").fetchone(): return None
+        row=self.s.db.execute('SELECT * FROM telegram_leads WHERE sid=?',(sid,)).fetchone()
+        return dict(row) if row else None
+
     def intro(self, sid):
         title = self.s.get(sid)['title'][:150]
+        lead=self.lead(sid)
+        if lead:
+            return ('Здравствуйте! Пишет ИИ-помощник Кирилла по вашей Telegram-заявке «'+title+'». '
+                    'Профиль исполнителя: '+self.profile+'\n\n')
         return ('Здравствуйте! Пишет ИИ-помощник Кирилла по вашему проекту «' + title + '» с Kwork. '
                 'Профиль исполнителя: ' + self.profile + '\n\n')
 
@@ -221,6 +233,10 @@ class Negotiations:
         rows = list(self.s.db.execute("SELECT n.* FROM negotiations n WHERE n.status='active' ORDER BY n.updated"))
         for n in rows:
             s = self.s.get(n['sid'])
+            lead=self.lead(n['sid'])
+            if lead and not lead['first_sent']:continue
+            if lead and lead['brief_id'] and self.s.get(lead['brief_id'])['status'] not in ('done','revoked','manual','paused'):
+                continue  # Let the interview finish without two agents competing.
             if s['status'] in ('paused', 'manual', 'revoked'): continue
             unhandled = self.s.db.execute("SELECT count(*) FROM negotiation_messages WHERE sid=? AND role='client' AND handled=0", (n['sid'],)).fetchone()[0]
             mode = 'offer' if s['status'] == 'done' and not n['initial_offer'] else 'reply' if unhandled else None
@@ -259,6 +275,12 @@ class Negotiations:
                  {'text': 'Изменить', 'callback_data': 'nego:edit:' + ident + ':' + str(p['version'])}],
                 [{'text': 'Не отправлять', 'callback_data': 'nego:reject:' + ident + ':' + str(p['version'])},
                  {'text': 'Пауза', 'callback_data': 'nego:pause:' + ident + ':' + str(p['version'])}]]
+        lead=self.lead(p['sid'])
+        if lead and not lead['first_sent']:
+            rows.append([{'text':'Не заказ','callback_data':'lead:no:'+str(lead['id'])+':not_order'},
+                         {'text':'Не наша услуга','callback_data':'lead:no:'+str(lead['id'])+':not_service'}])
+            rows.append([{'text':'Плохой отклик','callback_data':'lead:no:'+str(lead['id'])+':bad_draft'},
+                         {'text':'Создать Brief','callback_data':'lead:brief:'+str(lead['id'])+':open'}])
         self.owner_notice(p['sid'], 'Предложение клиенту · ' + self.s.get(p['sid'])['title'] + '\n\n' + p['text'] +
                           ('\n\nБриф ещё не завершён: оцени полноту данных перед отправкой.' if self.s.get(p['sid'])['status']!='done' else '') +
                           '\n\nПочему такая оценка / что уточнить:\n' + p['reason'][:1000],
@@ -342,6 +364,12 @@ class Negotiations:
             self.s.db.execute('INSERT INTO negotiation_messages(sid,telegram_id,role,text,handled,created) VALUES(?,?,?,?,1,?)',
                               (item['sid'], message_id, 'assistant', item['text'], time.time()))
             self.owner_notice(item['sid'], 'Отправлено из личного Telegram · ' + self.s.get(item['sid'])['title'] + '\n\n' + item['text'])
+            conversation=self.get(item['sid'])
+            self.s.db.execute('INSERT OR IGNORE INTO negotiation_folder_jobs(client,username,created_at,updated_at) VALUES(?,?,?,?)',
+                              (conversation['client'],conversation['username'],time.time(),time.time()))
+            lead=self.lead(item['sid'])
+            if lead and not lead['first_sent']:
+                self.s.db.execute("UPDATE telegram_leads SET first_sent=1,status='contacted',updated_at=? WHERE id=?",(time.time(),lead['id']))
         self.s.transaction(action)
 
 
