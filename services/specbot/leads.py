@@ -53,13 +53,34 @@ class Leads:
         CREATE INDEX IF NOT EXISTS lead_queue ON telegram_leads(status,created_at);
         CREATE INDEX IF NOT EXISTS lead_person ON telegram_leads(client,created_at);
         CREATE INDEX IF NOT EXISTS lead_feedback_time ON telegram_leads(feedback,updated_at);
+        CREATE TABLE IF NOT EXISTS lead_bot_outbox(id INTEGER PRIMARY KEY,text TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending');
         ''')
+        columns={r['name'] for r in self.s.db.execute('PRAGMA table_info(telegram_leads)')}
+        if 'manual_override' not in columns:self.s.db.execute('ALTER TABLE telegram_leads ADD COLUMN manual_override INTEGER NOT NULL DEFAULT 0')
         now = time.time()
         for username in cfg.get('sources', []):
             self.s.db.execute('INSERT OR IGNORE INTO lead_sources(username,created_at,updated_at) VALUES(?,?,?)', (username.lower().lstrip('@'), now, now))
 
     def source(self, chat_id):
         return self.s.db.execute("SELECT * FROM lead_sources WHERE chat_id=? AND status='joined'", (chat_id,)).fetchone()
+
+    def notice(self, text):
+        self.s.db.execute('INSERT INTO lead_bot_outbox(text) VALUES(?)',(text[:3800],))
+
+    def good(self, ident):
+        row=self.s.db.execute('SELECT * FROM telegram_leads WHERE id=?',(ident,)).fetchone()
+        if not row or row['first_sent'] or row['status']=='processing':raise ValueError('Lead unavailable')
+        if not self.source(row['chat_id']):raise ValueError('Source disabled')
+        if time.time()-row['created_at']>86400:raise ValueError('Заявка старше суток')
+        if row['proposal']:
+            p=self.s.db.execute('SELECT * FROM negotiation_proposals WHERE id=?',(row['proposal'],)).fetchone()
+            if p and p['status']=='draft':
+                self.n.approve(p['id'],p['version'],p['message_id'])
+                self.s.db.execute("UPDATE telegram_leads SET manual_override=1,feedback=1,feedback_reason='owner_good',status='approved',updated_at=? WHERE id=?",(time.time(),ident));return
+        if row['sid']:
+            self.n.close(row['sid']) if self.s.db.execute('SELECT 1 FROM negotiations WHERE sid=?',(row['sid'],)).fetchone() else None
+            self.s.db.execute('DELETE FROM negotiations WHERE sid=?',(row['sid'],))
+        self.s.db.execute("UPDATE telegram_leads SET manual_override=1,feedback=1,feedback_reason='owner_good',status='pending',updated_at=? WHERE id=?",(time.time(),ident))
 
     def capture(self, chat_id, mid, uid, username, text, context='', now=None):
         now = time.time() if now is None else now
@@ -79,7 +100,7 @@ class Leads:
         if self.s.db.execute('SELECT 1 FROM telegram_leads WHERE hash=? AND created_at>?', (h, now-86400)).fetchone(): return False
         self.s.db.execute('''INSERT INTO telegram_leads(source,chat_id,message_id,client,username,text,context,hash,link,created_at,updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?)''', (source['username'],chat_id,mid,uid,username or '',text,context[:1500],h,
-          'https://t.me/'+source['username']+'/'+str(mid),now,now))
+          ('https://t.me/c/'+str(abs(chat_id)-1000000000000)+'/'+str(mid) if source['username'].startswith(('title_','id_')) else 'https://t.me/'+source['username']+'/'+str(mid)),now,now))
         return True
 
     def examples(self):
@@ -141,7 +162,7 @@ async def process_one(leads, config):
     row = leads.s.db.execute("SELECT * FROM telegram_leads WHERE status='pending' ORDER BY created_at DESC LIMIT 1").fetchone()
     if not row:return False
     lead = dict(row)
-    if time.time()-lead['created_at']>1800:
+    if time.time()-lead['created_at']>(86400 if lead['manual_override'] else 1800):
         leads.s.db.execute("UPDATE telegram_leads SET status='expired' WHERE id=?",(lead['id'],));return False
     day=datetime.now(timezone.utc).date().isoformat()
     spent=leads.s.db.execute('SELECT COALESCE(sum(u.cost),0) FROM usage u JOIN telegram_leads l ON l.sid=u.session WHERE u.day=?',(day,)).fetchone()[0]
@@ -149,13 +170,14 @@ async def process_one(leads, config):
         leads.s.db.execute("UPDATE telegram_leads SET status='budget_wait' WHERE id=?",(lead['id'],))
         if leads.s.setting('lead_budget_notice')!=day:
             leads.s.set_setting('lead_budget_notice',day)
-            leads.s.send(leads.c['owner'],'Дневной предел Telegram-поиска исчерпан. Заявки сохраняются, платные вызовы остановлены. Общий бюджет Brief не увеличивал.')
+            leads.notice('Дневной предел Telegram-поиска исчерпан. Заявки сохраняются, платные вызовы остановлены. Общий бюджет Brief не увеличивал.')
         return False
     # Atomic claim, including creation of the accounting session. One worker owns generation.
     def claim():
         cur=leads.s.db.execute("UPDATE telegram_leads SET status='processing' WHERE id=? AND status='pending'",(lead['id'],))
         if not cur.rowcount:return None
-        sid,_=leads.s.create('Telegram-заявка '+str(lead['id']),'general')
+        sid=lead['sid']
+        if not sid:sid,_=leads.s.create('Telegram-заявка '+str(lead['id']),'general')
         leads.s.db.execute('UPDATE telegram_leads SET sid=? WHERE id=?',(sid,lead['id']))
         leads.s.db.execute("UPDATE sessions SET client=?,status='active',client_username=? WHERE id=?",(lead['client'],lead['username'],sid))
         return sid
@@ -185,7 +207,7 @@ async def process_one(leads, config):
         leads.s.settle(reserve,billed,'done');reserve=None
         leads.s.db.execute('UPDATE telegram_leads SET probability=?,buyer=?,direct=? WHERE id=?',(values['suitable'],values['buyer'],values['direct'],lead['id']))
         lead.update(probability=values['suitable'],buyer=values['buyer'],direct=values['direct'])
-        if min(values['suitable'],values['buyer'])<.35:
+        if min(values['suitable'],values['buyer'])<.35 and not lead['manual_override']:
             leads.s.db.execute("UPDATE telegram_leads SET status='filtered' WHERE id=?",(lead['id'],));return True
         schema={'type':'object','additionalProperties':False,'required':['title','reply','reason'],'properties':{k:{'type':'string'} for k in ['title','reply','reason']}}
         def validate(d):
@@ -196,11 +218,13 @@ async def process_one(leads, config):
         leads.s.db.execute('UPDATE sessions SET title=? WHERE id=?',(result['title'],sid))
         leads.s.update(sid,state={'source_request':lead['text'],'source_url':lead['link']})
         leads.s.db.execute('INSERT INTO negotiations(sid,client,username,initial_offer,updated) VALUES(?,?,?,?,?)',(sid,lead['client'],lead['username'],1,time.time()))
-        text='Здравствуйте! Я ИИ-помощник Кирилла. Увидел вашу просьбу в @'+lead['source']+'.\n'+result['reply']+'\n\nПрофиль исполнителя: '+leads.c['profile_url']
+        source=leads.source(lead['chat_id'])
+        label=source['title'] if lead['source'].startswith(('title_','id_')) else '@'+lead['source']
+        text='Здравствуйте! Я ИИ-помощник Кирилла. Увидел вашу просьбу в '+label+'.\n'+result['reply']+'\n\nПрофиль исполнителя: '+leads.c['profile_url']
         proposal=leads.n.propose(sid,{'reply':text,'scope':'','price_rub':0,'days':0,'reason':result['reason']+'\nИсточник: '+lead['link']},'reply')
         leads.s.db.execute("UPDATE telegram_leads SET proposal=?,status='draft',updated_at=? WHERE id=?",(proposal,time.time(),lead['id']))
         leads.n.owner_notice(sid,'Telegram-заявка '+str(lead['id'])+' · @'+lead['source']+'\n'+lead['link']+'\n\n'+lead['text'][:2000]+'\n\nJev: подходит '+str(round(values['suitable'],2))+', заказ '+str(round(values['buyer'],2))+'.\nКоманды: /leadno '+str(lead['id'])+' not_order|not_service|bad_draft · /leadbrief '+str(lead['id']))
-        if leads.eligible_auto(lead) and not COMMERCIAL.search(result['reply']):
+        if (lead['manual_override'] or leads.eligible_auto(lead)) and not COMMERCIAL.search(result['reply']):
             p=leads.s.db.execute('SELECT * FROM negotiation_proposals WHERE id=?',(proposal,)).fetchone()
             leads.n.approve(proposal,p['version'],p['message_id'])
             leads.s.db.execute("UPDATE telegram_leads SET status='approved' WHERE id=?",(lead['id'],))
@@ -209,6 +233,6 @@ async def process_one(leads, config):
         if reserve:leads.s.settle(reserve,billed,'uncertain')
         leads.s.db.execute("UPDATE telegram_leads SET status='failed',updated_at=? WHERE id=?",(time.time(),lead['id']))
         # No automatic paid retry; the source remains available for owner inspection.
-        leads.s.send(leads.c['owner'],'Не обработана Telegram-заявка '+str(lead['id'])+' ('+type(e).__name__+').\n'+lead['link']+'\nАвтоматического платного повтора не будет.')
+        leads.notice('Не обработана Telegram-заявка '+str(lead['id'])+' ('+type(e).__name__+').\n'+lead['link']+'\nАвтоматического платного повтора не будет.')
         return False
     finally:await ai.client.aclose()

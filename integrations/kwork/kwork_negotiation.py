@@ -47,6 +47,7 @@ def cfg(state):
 def helper(state, request, timeout=10):
     settings = cfg(state)
     if not settings: raise ValueError('Переговоры ещё не включены')
+    request=dict(request,channel='leads' if state.path.name=='lead-bot.sqlite' else 'kwork')
     result = subprocess.run([settings['python'], settings['script']], cwd=str(Path(settings['script']).parent),
                             input=json.dumps(request, ensure_ascii=False), capture_output=True, text=True, timeout=timeout)
     if result.returncode: raise RuntimeError('Локальный агент переговоров недоступен')

@@ -106,6 +106,27 @@ async def send_one(client, policy):
     finally: s.db.close()
 
 
+async def notify_sent():
+    cfg=configuration()
+    if not cfg:return
+    s,n=open_store(cfg)
+    try:
+        row=s.db.execute("SELECT o.*,n.client,n.username FROM negotiation_personal_outbox o JOIN negotiations n ON n.sid=o.sid WHERE o.status='sent' AND o.audit_notified=0 AND o.created>=? ORDER BY o.created LIMIT 1",(float(s.setting('negotiation_audit_since','0')),)).fetchone()
+        if not row:return
+        def deliver():
+            from tg_common import require
+            import requests
+            token,chat=require('NOTIFY_BOT_TOKEN','NOTIFY_CHAT_ID')
+            title='📨 Отправлено клиенту '+('@'+row['username']+' · ' if row['username'] else '')+'ID '+str(row['client'])+'\n'
+            text=row['text']
+            for start in range(0,len(text),1700):
+                response=requests.post('https://api.telegram.org/bot'+token+'/sendMessage',json={'chat_id':chat,'text':title+text[start:start+1700]},timeout=15).json()
+                if not response.get('ok'):raise ValueError('Notification unavailable')
+        await asyncio.to_thread(deliver)
+        s.db.execute('UPDATE negotiation_personal_outbox SET audit_notified=1 WHERE id=?',(row['id'],))
+    finally:s.db.close()
+
+
 async def outbound_loop(client, policy):
     cfg=configuration()
     if cfg:
@@ -118,11 +139,20 @@ async def outbound_loop(client, policy):
         except Exception as e:
             logging.warning('Negotiation account check deferred: %s',type(e).__name__)
     last_error=0
+    last_sources=0
     while True:
         try:
             await send_one(client, policy)
+            await notify_sent()
             from leads_personal import folders
             from tg_common import notify
+            if time.time()-last_sources>30:
+                last_sources=time.time()
+                from leads_personal import opened,setup
+                sources,_=opened()
+                if sources:
+                    pending=sources.db.execute("SELECT 1 FROM lead_sources WHERE status='pending' LIMIT 1").fetchone();sources.db.close()
+                    if pending:await setup(client,policy,notify)
             await folders(client,policy,notify)
         except asyncio.CancelledError: raise
         except Exception as e:

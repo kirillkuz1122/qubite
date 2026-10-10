@@ -1,0 +1,31 @@
+[Unit]
+Description=Qubite Telegram community leads owner bot
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+User=kirill
+Group=kirill
+WorkingDirectory=/home/kirill/services/qubite-specbot/app
+ExecStart=/home/kirill/services/qubite-specbot/.venv/bin/python /home/kirill/services/qubite-specbot/app/lead_bot.py
+Environment=PYTHONUNBUFFERED=1
+Environment=OMP_NUM_THREADS=1
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/kirill/services/qubite-specbot/data /home/kirill/services/kwork-bot
+MemoryHigh=150M
+MemoryMax=250M
+MemorySwapMax=64M
+CPUQuota=50%
+TasksMax=40
+
+[Install]
+WantedBy=multi-user.target

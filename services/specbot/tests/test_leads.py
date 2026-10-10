@@ -256,3 +256,114 @@ def test_cli_rejects_foreign_owner_before_controls(setup,monkeypatch):
     monkeypatch.setattr(cli,'Config',lambda:NS(owner=1,data=path.parent))
     with pytest.raises(ValueError):asyncio.run(cli.execute({'action':'mode','uid':2,'chat':1,'mode':'paused'}))
     assert s.setting('lead_mode','training')=='training'
+
+
+def test_good_existing_card_approves_current_draft_and_labels(setup,monkeypatch):
+    s,l,row=generate(setup,monkeypatch)
+    l.good(row['id'])
+    assert l.n.dispatchable()
+    r=s.db.execute('select * from telegram_leads').fetchone()
+    assert r['manual_override']==1 and r['feedback']==1
+
+
+def test_good_filtered_reuses_ledger_session_and_overrides_jev(setup,monkeypatch):
+    s,l=setup;capture(l,now=time.time()-7000)
+    sid,_=s.create('Тестовая заявка')
+    s.db.execute("UPDATE telegram_leads SET sid=?,status='filtered'",(sid,))
+    charge=s.reserve(sid,.0001,'earlier',1,1);s.settle(charge,.0001,'done')
+    row=s.db.execute('select * from telegram_leads').fetchone();l.good(row['id'])
+    class Low(FakeAI):
+        async def post(self,*args,**kw):return NS(status_code=200,json=lambda:{'answers':{k:{'noul':.1} for k in ['suitable','buyer','direct']}})
+    monkeypatch.setattr('leads.AI',Low)
+    assert asyncio.run(process_one(l,NS(key='test',daily=1,session=1)))
+    r=s.db.execute('select * from telegram_leads').fetchone()
+    assert r['sid']==sid and r['status']=='approved'
+    assert l.n.dispatchable()
+    assert s.db.execute('select count(*) from usage where session=?',(sid,)).fetchone()[0]==2
+
+
+def test_good_cannot_contact_old_or_disabled_source(setup):
+    s,l=setup;capture(l,now=time.time()-86401)
+    with pytest.raises(ValueError):l.good(1)
+    s.db.execute('update telegram_leads set created_at=?',(time.time(),))
+    s.db.execute("update lead_sources set status='disabled'")
+    with pytest.raises(ValueError):l.good(1)
+
+
+def test_notifications_separate_leads_and_kwork(setup,monkeypatch):
+    from negotiation_cli import notification_events
+    s,l,row=generate(setup,monkeypatch)
+    other,_=s.create('Kwork-заявка')
+    s.db.execute('INSERT INTO negotiations(sid,client,updated) VALUES(?,?,?)',(other,3,time.time()))
+    l.n.owner_notice(other,'Только Kwork')
+    assert all(r['sid']==row['sid'] for r in notification_events(s,'leads',True))
+    assert [r['sid'] for r in notification_events(s,'kwork',True)]==[other]
+
+
+def test_source_add_and_disable_are_owner_scoped(setup,monkeypatch):
+    import leads_cli as cli
+    s,l=setup;path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    monkeypatch.setattr(cli,'configuration',lambda:l.c)
+    monkeypatch.setattr(cli,'load_env',lambda p:None)
+    monkeypatch.setattr(cli,'Config',lambda:NS(owner=1,data=path.parent))
+    req={'action':'source','uid':1,'chat':1,'username':'https://t.me/new_group','op':'add'}
+    asyncio.run(cli.execute(req))
+    assert s.db.execute("select status from lead_sources where username='new_group'").fetchone()[0]=='pending'
+    asyncio.run(cli.execute(dict(req,op='off')))
+    assert s.db.execute("select status from lead_sources where username='new_group'").fetchone()[0]=='disabled'
+    with pytest.raises(ValueError):asyncio.run(cli.execute(dict(req,username='https://evil.test/not-a-group')))
+    asyncio.run(cli.execute(dict(req,username='Группа без username',op='add')))
+    assert s.db.execute("select status from lead_sources where title='Группа без username'").fetchone()[0]=='pending'
+    asyncio.run(cli.execute(dict(req,username='-1001234567890',op='add')))
+    assert s.db.execute("select status from lead_sources where username='id_1001234567890'").fetchone()[0]=='pending'
+
+
+def test_separate_bot_denies_other_users_and_requires_prompt_reply(tmp_path):
+    from lead_bot import Bot,State
+    b=Bot.__new__(Bot);b.owner=1;b.state=State(tmp_path/'lead-bot.sqlite')
+    calls=[];b.send=lambda text,rows=None:calls.append(text);b.source=lambda *a:calls.append(a)
+    b.handle({'message':{'from':{'id':2},'chat':{'id':1},'text':'/start'}})
+    assert calls==[]
+    b.state.set('add_source_prompt','42')
+    b.handle({'message':{'from':{'id':1},'chat':{'id':1},'text':'@new_group','reply_to_message':{'message_id':42}}})
+    assert calls==[('@new_group','add')] and b.state.get('add_source_prompt')==''
+
+
+def test_source_current_rejects_disabled_source_even_with_manual_override(setup,monkeypatch):
+    import leads_personal as p
+    s,l=setup;capture(l);sid,_=s.create('Тест')
+    s.db.execute('update telegram_leads set sid=?,manual_override=1',(sid,))
+    s.set_setting('lead_money_folder','3');s.set_setting('lead_heart_folder','4')
+    s.db.execute("update lead_sources set status='disabled'")
+    monkeypatch.setattr(p,'configuration',lambda:l.c)
+    assert not asyncio.run(p.source_current(NS(),s,sid,lambda *a:True))
+
+
+def test_group_capture_does_not_notify_reads(setup,monkeypatch):
+    from datetime import datetime,timezone
+    import leads_personal as p
+    s,l=setup;path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    def opened():
+        other=Store(path);return other,Leads(other,l.c)
+    monkeypatch.setattr(p,'opened',opened)
+    async def sender():return NS(id=2,first_name='Автор',username='user',bot=False)
+    ev=NS(out=False,is_private=False,chat_id=-100123,date=datetime.now(timezone.utc),get_sender=sender,message=NS(reply_to=None),raw_text='Ищу разработчика. Нужен бот.',id=1)
+    assert asyncio.run(p.forward(ev,lambda *a:True))
+    assert s.db.execute('select count(*) from telegram_leads').fetchone()[0]==1
+
+
+def test_only_successful_send_creates_complete_audit_once(setup,monkeypatch):
+    import negotiation_personal as p
+    s,l=setup;path=Path(s.db.execute('pragma database_list').fetchone()[2])
+    sid,_=s.create('Тестовая отправка')
+    s.db.execute('INSERT INTO negotiations(sid,client,username,updated) VALUES(?,?,?,?)',(sid,2,'user',time.time()))
+    l.n.queue(sid,'reply','Тестовый текст без обрезки '*100)
+    calls=[]
+    monkeypatch.setattr(p,'configuration',lambda:{'enabled':True,'data_dir':str(path.parent),'owner':1,'profile_url':l.c['profile_url']})
+    monkeypatch.setitem(sys.modules,'tg_common',NS(require=lambda *a:('dummy','1')))
+    monkeypatch.setattr('requests.post',lambda *a,**kw:(calls.append(kw['json']['text']) or NS(json=lambda:{'ok':True})))
+    asyncio.run(p.notify_sent());assert not calls
+    item,_=l.n.dispatchable();l.n.delivered(item['id'],55)
+    asyncio.run(p.notify_sent());first=len(calls)
+    assert first==2 and 'Тестовый текст' in calls[0]
+    asyncio.run(p.notify_sent());assert len(calls)==first

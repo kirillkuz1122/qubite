@@ -12,6 +12,13 @@ from negotiation import Negotiations, generate_one
 from store import Store
 
 
+def notification_events(store,channel,separated):
+    if separated:
+        clause='EXISTS' if channel=='leads' else 'NOT EXISTS'
+        return [dict(r) for r in store.db.execute("SELECT o.* FROM negotiation_owner_outbox o WHERE o.status='pending' AND "+clause+" (SELECT 1 FROM telegram_leads l WHERE l.sid=o.sid) ORDER BY o.id LIMIT 5")]
+    return [dict(r) for r in store.db.execute("SELECT * FROM negotiation_owner_outbox WHERE status='pending' ORDER BY id LIMIT 5")]
+
+
 async def execute(request):
     root = Path(__file__).resolve().parent.parent
     cfg = json.loads((root / 'negotiation-config.json').read_text())
@@ -83,7 +90,9 @@ async def execute(request):
                 rows = list(s.db.execute('SELECT n.sid,n.status,s.title FROM negotiations n JOIN sessions s ON s.id=n.sid ORDER BY n.updated DESC LIMIT 20'))
                 return {'text': '\n'.join(r['sid'] + ' · ' + r['status'] + ' · ' + r['title'] for r in rows) or 'Переговоров пока нет.'}
             else: raise ValueError('Unknown helper action')
-        events = [dict(r) for r in s.db.execute("SELECT * FROM negotiation_owner_outbox WHERE status='pending' ORDER BY id LIMIT 5")]
+        scope=request.get('channel','kwork')
+        separated=(root/'lead-bot-private.json').exists()
+        events=notification_events(s,scope,separated)
         for item in events: item['markup'] = json.loads(item['markup'])
         return {'enabled': True, 'events': events}
     finally: s.db.close()

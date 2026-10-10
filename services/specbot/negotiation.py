@@ -102,6 +102,9 @@ class Negotiations:
         ''')
         if 'sending_started' not in {r['name'] for r in self.s.db.execute('PRAGMA table_info(negotiation_personal_outbox)')}:
             self.s.db.execute('ALTER TABLE negotiation_personal_outbox ADD COLUMN sending_started REAL NOT NULL DEFAULT 0')
+        if 'audit_notified' not in {r['name'] for r in self.s.db.execute('PRAGMA table_info(negotiation_personal_outbox)')}:
+            self.s.db.execute('ALTER TABLE negotiation_personal_outbox ADD COLUMN audit_notified INTEGER NOT NULL DEFAULT 0')
+        if not self.s.setting('negotiation_audit_since'):self.s.set_setting('negotiation_audit_since',str(time.time()))
 
     def get(self, sid):
         row = self.s.db.execute('SELECT * FROM negotiations WHERE sid=?', (sid,)).fetchone()
@@ -277,6 +280,7 @@ class Negotiations:
                  {'text': 'Пауза', 'callback_data': 'nego:pause:' + ident + ':' + str(p['version'])}]]
         lead=self.lead(p['sid'])
         if lead and not lead['first_sent']:
+            rows.append([{'text':'Нормальный заказ → написать','callback_data':'lead:good:'+str(lead['id'])+':open'}])
             rows.append([{'text':'Не заказ','callback_data':'lead:no:'+str(lead['id'])+':not_order'},
                          {'text':'Не наша услуга','callback_data':'lead:no:'+str(lead['id'])+':not_service'}])
             rows.append([{'text':'Плохой отклик','callback_data':'lead:no:'+str(lead['id'])+':bad_draft'},

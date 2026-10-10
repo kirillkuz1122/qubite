@@ -26,10 +26,10 @@ def callback(state,cb,owner,api):
     data=cb.get('data','')
     if not data.startswith('lead:'):return None
     if cb.get('from',{}).get('id')!=owner or cb.get('message',{}).get('chat',{}).get('id')!=owner:return 'Только владелец'
-    m=re.fullmatch(r'lead:(no|brief):(\d{1,10}):(not_order|not_service|bad_draft|open)',data)
+    m=re.fullmatch(r'lead:(no|brief|good):(\d{1,10}):(not_order|not_service|bad_draft|open)',data)
     if not m:return 'Неизвестная кнопка'
     try:
-        result=helper(state,{'action':'reject' if m[1]=='no' else 'brief','id':int(m[2]),'reason':m[3],
+        result=helper(state,{'action':'reject' if m[1]=='no' else m[1],'id':int(m[2]),'reason':m[3],
                       'uid':owner,'chat':owner,'proposal_mid':cb['message']['message_id']})
         return result['text']
     except Exception:return 'Карточка устарела или недоступна'
@@ -59,6 +59,7 @@ def tick(state,owner,api):
         _pending=None
     if time.monotonic()-_last<2:return
     _last=time.monotonic()
+    if state.path.name!='lead-bot.sqlite' and (Path.home()/'services/qubite-specbot/lead-bot-private.json').exists():return
     try:
         from kwork_negotiation import data_path
         path=data_path(state)
