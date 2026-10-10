@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import requests
+import kwork_brief as brief_integration
 import kwork_parser as parser
 from kwork_bot import State
 
@@ -35,6 +36,7 @@ reply — готовый текст клиенту, 100–180 слов, до 230
 Не объясняй отбор объявления: он уже выполнен Jev. Никаких HTML/Markdown-блоков кода.'''
 
 
+@brief_integration.draft_metadata
 def request_body(order):
     allowed = ('id','title','description','desired_price','max_price','responses','max_days','detail_complete')
     data = {k:order.get(k) for k in allowed}
@@ -92,6 +94,7 @@ def draft(order, keys, cache_dir):
     return result
 
 
+@brief_integration.notification
 def notification(order, result=None):
     esc = lambda x:html.escape(str(x if x is not None else 'Не указано'))
     price = order.get('desired_price')

@@ -9,6 +9,7 @@ import re
 import sqlite3
 import time
 import requests
+import kwork_brief as brief_integration
 
 ROOT = Path(os.environ.get('KWORK_BOT_ROOT', str(Path.home()/'services/kwork-bot')))
 
@@ -38,7 +39,7 @@ def keyboard(oid, ready=False):
     if not ready:rows.append([{'text':'Сгенерировать отклик','callback_data':'gen:'+str(oid),'style':'primary'}])
     rows.append([{'text':'👍 Подходит','callback_data':'like:'+str(oid)},{'text':'👎 Не подходит','callback_data':'dislike:'+str(oid)}])
     rows.append([{'text':'Удалить','callback_data':'del:'+str(oid),'style':'danger'}])
-    return {'inline_keyboard':rows}
+    return brief_integration.keyboard({'inline_keyboard':rows},oid,ready,ROOT)
 
 
 class State:
@@ -53,6 +54,7 @@ class State:
             CREATE TABLE IF NOT EXISTS feedback(oid TEXT PRIMARY KEY, rating INTEGER NOT NULL CHECK(rating IN (-1,1)), data TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS feedback_time ON feedback(updated);''')
         os.chmod(self.path,0o600)
+        brief_integration.initialize(self)
 
     def db(self):
         c=sqlite3.connect(self.path,timeout=10);c.row_factory=sqlite3.Row;return c
@@ -114,6 +116,8 @@ class State:
 
 
 def handle_callback(state,cb,owner):
+    brief_result=brief_integration.callback(state,cb,owner)
+    if brief_result is not None:return brief_result
     if cb.get('from',{}).get('id')!=owner or cb.get('message',{}).get('chat',{}).get('id')!=owner:
         return 'Этот бот доступен только владельцу'
     m=re.fullmatch(r'(gen|del|like|dislike):(\d{1,20})',cb.get('data',''))
@@ -154,6 +158,8 @@ def work():
                     except RuntimeError as e:
                         if 'message to delete not found' not in str(e):
                             api('editMessageText',{'chat_id':owner,'message_id':row['message_id'],'text':'Просмотрено. Карточка удалена из очереди.','reply_markup':{'inline_keyboard':[]}})
+            elif job['kind']=='brief':
+                brief_integration.process(state,row,owner,api,runner,parser,keyboard)
             elif row and not row['deleted']:
                 order=json.loads(row['data'])
                 result=runner.draft(order,parser.env_keys(),parser.DATA/'kwork_drafts')
@@ -170,6 +176,10 @@ def work():
             state.retry(job)
             print('Job failed: '+str(job['id'])+' '+type(e).__name__,flush=True)
             if job['attempts']>=4 and row and not row['deleted']:
+                if job['kind']=='brief':
+                    try:api('sendMessage',{'chat_id':owner,'text':'Не удалось добавить Brief для заказа '+job['oid']+'. Отклик сохранён. Можно повторить кнопку; платной генерации не было.'})
+                    except RuntimeError:pass
+                    continue
                 try:api('sendMessage',{'chat_id':owner,'text':'Не удалось подготовить отклик для заказа '+job['oid']+'. Заказ сохранён; повторные запросы не отправлялись другому дорогому провайдеру.'})
                 except RuntimeError:pass
 
