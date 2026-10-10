@@ -95,11 +95,14 @@ async def send_one(client, policy):
 async def outbound_loop(client, policy):
     cfg=configuration()
     if cfg:
-        me=await client.get_me()
-        if me.id != int(cfg['owner']):
-            logging.error('Negotiation personal account verification failed')
-            return
-        logging.warning('Negotiation personal account verified; scoped transport started')
+        try:
+            me=await client.get_me()
+            if me.id != int(cfg['owner']):
+                logging.error('Negotiation personal account verification failed')
+                return
+            logging.warning('Negotiation personal account verified; scoped transport started')
+        except Exception as e:
+            logging.warning('Negotiation account check deferred: %s',type(e).__name__)
     last_error=0
     while True:
         try: await send_one(client, policy)

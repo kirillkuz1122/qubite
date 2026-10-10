@@ -125,6 +125,8 @@ class Negotiations:
     def resume(self, sid):
         n=self.get(sid)
         if n['status']=='closed': raise ValueError('Переговоры закрыты')
+        if self.s.db.execute("SELECT 1 FROM negotiation_personal_outbox WHERE sid=? AND status IN ('sending','uncertain')",(sid,)).fetchone():
+            raise ValueError('Есть отправка с неизвестным исходом: требуется ручная проверка')
         brief=self.s.get(sid)
         if brief['status'] in ('paused','manual','revoked'): raise ValueError('Сначала возобнови Brief')
         self.s.db.execute("UPDATE negotiations SET status='active',revision=revision+1,updated=? WHERE sid=?",(time.time(),sid))
