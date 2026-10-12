@@ -1,10 +1,14 @@
 # Roadmap с зависимостями
 
-Статус RECOMMENDED. Сначала owner/default-deny/mock cost guard, затем notes end-to-end. Архитектура не approved; ни одна product task не ready. [20 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
+Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [34 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
-  AUD[QUB-001 audit/approval] --> CORE[CORE-001]
+  AUD[QUB-001 done] --> CORE[CORE-001]
+  AUD --> DESIGN[DESIGN-001 new theme/auth UX]
+  AUD --> DEP[DEPLOY-001 specification]
+  DEP --> INST[DEPLOY-002 isolated installer]
+  CORE --> INST
   OPS[OPS-001 inventory] --> BK[OPS-002 restore]
   AUD --> AT[TEST-001 auth]
   AT --> TT[TEST-002 runtime/rating]
@@ -14,6 +18,16 @@ flowchart LR
   POL --> AI[AI-001 reserve]
   AI --> DISP[AI-002 dispatcher]
   POL --> UI[UI-001 shell]
+  DESIGN --> UI
+  AT --> CODE[AUTH-005 disable code-entry]
+  AT --> REG[AUTH-006 minimal register]
+  DESIGN --> REG
+  UI --> LOGIN[AUTH-007 React auth]
+  CODE --> LOGIN
+  REG --> LOGIN
+  LOGIN --> DESK[DESKTOP-001 Linux POC]
+  LOGIN --> CUT[AUTH-008 identity cutover spec]
+  ID --> CUT
   DISP --> OC[AUTH-004 console]
   UI --> OC
   OC --> ACC[AUTH-001 acceptance]
@@ -33,3 +47,7 @@ INK-001 отдельный research track с аппаратным approval; по
 Поздние релизы: Teams ACL/share→comments→CRDT→team replay; AI memory inspector→skill proposal sandbox→Hermes; Pulse deterministic dry-run→bounded execution; Plugin SDK/MCP project capsule→marketplace позже; Life key recovery/E2EE→reflection; Finance balanced ledger→Kwork reports; Focus timer→consent Guardian/device POC; Studio/performance animation; open-source dependency/license audit. Все 48 идей и дополнения представлены [требованиями](../product/REQUIREMENTS.md), без удаления.
 
 Не назначаем сроки по числу сгенерированных файлов. Каждая поздняя capability перед реализацией дробится на bounded cycle карточки с файлами/acceptance/командами. Состояния feature backlog не считать ready coding task. Milestone проходит при интегрированном сценарии/проверке данных/UX acceptance, а не закрытых checklist строках.
+
+Клиентский scope утверждён: сайт и общий React desktop UI, Linux release первым; Windows/macOS packaging/sign/tests позже. Android native Ink track развивается параллельно, остальные экраны/hybrid после POC. Новый deploy/qubite2 не заменяет legacy installer до compatibility проверки. Сервер и backup destination отложены до live этапа.
+
+Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG answers уточняют этот track; four ready foundation задачи продолжаются. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.

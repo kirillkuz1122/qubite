@@ -15,3 +15,7 @@ CONFIRMED: Настройки → Управление Qubite, только veri
 User settings показывают свои grants/limits без mutation других пользователей. Tournaments management внутри Tournaments: users/teams/results/tasks турнира; global grants/budgets туда не попадают. Runtime/deploy capability отдельно от обычного модульного toggle: production deployment остаётся отдельной процедурой с разрешением, не автоматическая кнопка arbitrary shell.
 
 QUB-AUTH-001 — umbrella acceptance scenario, разбит на AUTH-002/003/004 и AI-001/002: owner normal home → console → test user → Docs only → Search/Tournaments/AI denied → mock allowance → cap exhausted → revoke. Негативные API вызовы + UI owner/nonowner. Все critical mutations используют versioned config/If-Match, audit и idempotency; no secrets in list/export. Confirmation только для фактических sensitive операций с конкретным diff.
+
+## Telegram, аналитика и сервер (уточнение 12.10.2026)
+
+Control bot обязателен и перерабатывается полностью. Общие Users/Grants/AI/Audit/Platform analytics/Infrastructure находятся в Console; bot вызывает те же scoped API. Metrics/история нагрузки/сервисные статусы сохраняются с корректными единицами и collector scopes. Все tournament switches, organizer applications/task moderation/team/results/rating/турнирная аналитика — управление/настройки Qubite Tournaments, без global account capabilities модератору. Support самостоятельный scoped контур. [Полная матрица функций и нюансы](../architecture/TELEGRAM_AND_OBSERVABILITY.md). Режимы bot users/capture/support/alerts требуют ответов владельца.

@@ -29,3 +29,5 @@ RECOMMENDED: логические модули, а не процесс на ка
 Для каждого модуля: installed/enabled/configured — глобальное состояние, granted/revoked — пользовательское. Command и Today не рендерят недоступный ресурс в title/snippet/count. Модули не публикуют secret payload в event bus. Search внешний web research отделён от внутреннего поиска объектов.
 
 Спецификации поздних модулей: Life требует key recovery до хранения реальных записей; Finance balances/compensation до импорта денег; School адаптер manual-first; Studio после Ink benchmark; Teams после ACL revocation tests; Pulse после durable jobs. Подробности сохранены в master и requirement source map; API этих поздних модулей не объявляется уже стабильным.
+
+Telegram control bot — отдельный process adapter Core/Owner/Support/module commands, без собственного permission/budget engine. Platform Analytics/Infrastructure — Owner Console, tournament analytics/settings/moderation — Tournaments. Support roles отделены от турниров. Существующие функции и split матрица: [Telegram и наблюдаемость](TELEGRAM_AND_OBSERVABILITY.md).

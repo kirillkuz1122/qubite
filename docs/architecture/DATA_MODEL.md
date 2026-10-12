@@ -1,6 +1,6 @@
 # Модель данных и invariants
 
-RECOMMENDED: новый core Postgres, legacy SQLite остаётся authority Tournaments/Auth в переходе. Это logical schema; SQL миграции создаются после approval. Не одна гигантская JSON objects таблица.
+CONFIRMED выбор storage 12.10.2026: новый core Postgres, legacy SQLite остаётся authority Tournaments/Auth в переходе. Target identity переносится отдельно в Postgres после compatibility/restore gates. Это logical schema; SQL миграции создаются небольшими approved задачами. Не одна гигантская JSON objects таблица.
 
 ## Связи MVP
 

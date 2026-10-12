@@ -1,10 +1,10 @@
-# Исполнимые задачи
+# Карточки небольших задач
 
-Источник статусов — [tasks.json](tasks.json). Названия future paths/commands обозначены явно: их сейчас нет. Статусы backlog → ready → in_progress → review/testing → done, также blocked. QUB-001 review/testing до архитектурного обсуждения; product implementation ready отсутствуют. QUB-AUTH-001 — acceptance umbrella, реальные небольшие реализации AUTH-002/003/004, AI-001/002.
+Источник состояния — [tasks.json](tasks.json). Стек согласован 12.10.2026. Ready задачи доступны для локального bounded cycle; backlog не является разрешением на массовую реализацию. Live deploy/миграция отдельно.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
-Модуль: core; P0; статус review/testing. Зависимости: нет.
+Модуль: core; P0; статус done; architecture approved: true. Зависимости: нет.
 
 Причина: Зафиксировать фактический legacy, целевые требования и границы согласования до изменения runtime.
 
@@ -17,11 +17,13 @@ Acceptance:
 
 Проверка: python3 scripts/engineering/check.py.
 
-Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: ae3f71e0ae29ef10a6f772027b48addba9d508fc. Evidence: origin archive refs verified 12.10.2026; QUB-001 report contains local test results; 12.10.2026 ответы владельца 1–6; ADR-0001/0005/0006 фиксируют стек и scope; 332 baseline checks; GitHub Actions run 38197926998 passed.
 
 ## QUB-OPS-001 — Read-only production inventory и drift
 
-Модуль: ops; P0; статус backlog. Зависимости: нет.
+Модуль: ops; P0; статус backlog; architecture approved: false. Зависимости: нет.
 
 Причина: Репозиторий не доказывает текущую версию/ресурсы production; исключить overwrite drift и скрытый autodeploy.
 
@@ -34,11 +36,13 @@ Acceptance:
 
 Проверка: Проверка redacted manifest; сравнение с INVENTORY.json.
 
-Риск: Не раскрыть private configs; restore не посылает outbox и не перезаписывает production. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не раскрыть private configs; restore не посылает outbox и не перезаписывает production. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-OPS-002 — Backup manifest и disposable restore
 
-Модуль: ops; P0; статус backlog. Зависимости: QUB-OPS-001.
+Модуль: ops; P0; статус backlog; architecture approved: false. Зависимости: QUB-OPS-001.
 
 Причина: Git не хранит рабочие БД/attachments/keys; восстановление должно быть доказано до миграций.
 
@@ -51,11 +55,13 @@ Acceptance:
 
 Проверка: Будущий restore drill с synthetic fixtures + integrity_check.
 
-Риск: Не раскрыть private configs; restore не посылает outbox и не перезаписывает production. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не раскрыть private configs; restore не посылает outbox и не перезаписывает production. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-TEST-001 — Auth HTTP characterization
 
-Модуль: identity; P0; статус backlog. Зависимости: QUB-001.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Текущие auth suites проверяют helper/router fixtures, но не весь register/login server.js.
 
@@ -68,11 +74,13 @@ Acceptance:
 
 Проверка: python3 scripts/engineering/verify.py --suite node.
 
-Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-TEST-002 — Tournament runtime и rating regression
 
-Модуль: tournaments; P0; статус backlog. Зависимости: QUB-TEST-001.
+Модуль: tournaments; P0; статус backlog; architecture approved: false. Зависимости: QUB-TEST-001.
 
 Причина: Сохранить сложный join/submission/rating flow до выделения турниров в модуль.
 
@@ -85,11 +93,13 @@ Acceptance:
 
 Проверка: verify.py --suite node; будущий Playwright fixture.
 
-Риск: Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-CORE-001 — Изолированный core health и contract skeleton
 
-Модуль: core; P0; статус backlog. Зависимости: QUB-001. OPS-001 нужен перед серверной миграцией/деплоем, не перед локальным core.
+Модуль: core; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Проверить выбранный runtime/storage контракт без write доступа к legacy данным.
 
@@ -97,16 +107,18 @@ Acceptance:
 
 Acceptance:
 
-- Только выбранный стек, health и migration version, no legacy DB writes
+- FastAPI health и Postgres versioned migration на disposable DB; no legacy DB writes
 - Contract validation и no-network startup tests
 
 Проверка: Будущий core pytest + verify.py --suite all.
 
-Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-002 — Legacy identity bridge и stable subject mapping
 
-Модуль: identity; P0; статус backlog. Зависимости: QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
 Причина: Сохранить авторизацию существующих сервисов и однозначное соответствие субъектов.
 
@@ -116,14 +128,17 @@ Acceptance:
 
 - Session introspection audience/status/revoke fail-closed
 - Mapping stable, roles не platform privileges, owner verified
+- Reuse текущего Auth только в переходе; target cutover отдельно по ADR-0005
 
 Проверка: Будущий core pytest identity + auth compatibility suite.
 
-Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
-Модуль: policy; P0; статус backlog. Зависимости: QUB-AUTH-002.
+Модуль: policy; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002.
 
 Причина: Старые глобальные роли и owner bypass не подходят новой default-deny модели.
 
@@ -136,11 +151,13 @@ Acceptance:
 
 Проверка: Будущий core pytest policy; provider counter 0.
 
-Риск: Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AI-001 — Atomic mock budget reservation
 
-Модуль: ai; P0; статус backlog. Зависимости: QUB-AUTH-003.
+Модуль: ai; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-003.
 
 Причина: Раздельные float ledgers не защищают общий cap при параллельном расходе.
 
@@ -153,11 +170,13 @@ Acceptance:
 
 Проверка: Будущий core pytest budgets с disposable DB, two processes.
 
-Риск: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AI-002 — Mock dispatcher crash/revoke/fallback checks
 
-Модуль: ai; P0; статус backlog. Зависимости: QUB-AI-001.
+Модуль: ai; P0; статус backlog; architecture approved: false. Зависимости: QUB-AI-001.
 
 Причина: Crash/timeout/revoke не должны давать двойной платный вызов или бесплатное освобождение unknown reserve.
 
@@ -170,11 +189,13 @@ Acceptance:
 
 Проверка: Будущий core pytest dispatcher fault injection.
 
-Риск: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 
-Модуль: ui; P0; статус backlog. Зависимости: QUB-AUTH-003.
+Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-003, QUB-DESIGN-001.
 
 Причина: Отделить обычный user outcome от legacy role dashboard и показать denied/unavailable состояния.
 
@@ -187,11 +208,13 @@ Acceptance:
 
 Проверка: Будущий npm typecheck/build + Playwright shell tests.
 
-Риск: Скрытие UI не authorization; optimistic sync статус обязан быть честным. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Скрытие UI не authorization; optimistic sync статус обязан быть честным. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-004 — Owner Console users/grants/budgets UI
 
-Модуль: owner; P0; статус backlog. Зависимости: QUB-UI-001, QUB-AI-002.
+Модуль: owner; P0; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AI-002.
 
 Причина: Дать владельцу ручные независимые grants/budgets без предоставления всем доступа.
 
@@ -204,11 +227,13 @@ Acceptance:
 
 Проверка: Будущий core integration + Playwright console tests.
 
-Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-001 — Приёмка Owner Console/Docs-only/mock AI
 
-Модуль: owner; P0; статус backlog. Зависимости: QUB-AUTH-004.
+Модуль: owner; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-004.
 
 Причина: Проверить целостный owner→Docs-only→mock cap→revoke сценарий до полезных платных функций.
 
@@ -221,11 +246,13 @@ Acceptance:
 
 Проверка: Будущий owner E2E+negative integration matrix.
 
-Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-DOC-001 — Typed note/revision API и local durable draft
 
-Модуль: docs; P1; статус backlog. Зависимости: QUB-AUTH-001.
+Модуль: docs; P1; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-001.
 
 Причина: Первый ручной полезный документ требует typed ownership и durable local draft.
 
@@ -238,11 +265,13 @@ Acceptance:
 
 Проверка: Будущие docs API integration + local-store unit tests.
 
-Риск: Durable draft/private attachment не теряются и не доступны чужому subject. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Durable draft/private attachment не теряются и не доступны чужому subject. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-SYNC-001 — Idempotent push/pull и конфликт двух устройств
 
-Модуль: sync; P1; статус backlog. Зависимости: QUB-DOC-001.
+Модуль: sync; P1; статус backlog; architecture approved: false. Зависимости: QUB-DOC-001.
 
 Причина: Offline edits не должны теряться/дублироваться на повторе и двух устройствах.
 
@@ -255,11 +284,13 @@ Acceptance:
 
 Проверка: Будущий two-device offline Playwright + sync pytest.
 
-Риск: Revoke/expired cursor/конфликт не удаляет собственный draft; tombstones не GC преждевременно. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Revoke/expired cursor/конфликт не удаляет собственный draft; tombstones не GC преждевременно. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-SEARCH-001 — Связь note/project и ACL keyword search
 
-Модуль: knowledge; P1; статус backlog. Зависимости: QUB-SYNC-001.
+Модуль: knowledge; P1; статус backlog; architecture approved: false. Зависимости: QUB-SYNC-001.
 
 Причина: Связанный граф и поиск нужны первому срезу, но могут раскрыть private titles/edges.
 
@@ -272,11 +303,13 @@ Acceptance:
 
 Проверка: Будущий ACL search/graph pytest + Command E2E.
 
-Риск: Title/snippet/count/edge/derived index leaks и stale authorization. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Title/snippet/count/edge/derived index leaks и stale authorization. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-HISTORY-001 — Diff и restore в новую revision
 
-Модуль: history; P1; статус backlog. Зависимости: QUB-SEARCH-001.
+Модуль: history; P1; статус backlog; architecture approved: false. Зависимости: QUB-SEARCH-001.
 
 Причина: Пользователь должен сравнить и восстановить заметку без потери последующих edits.
 
@@ -289,13 +322,15 @@ Acceptance:
 
 Проверка: Будущий history API+restore concurrency+Playwright vertical slice.
 
-Риск: Restore не перезаписывает новые edits; external action нельзя отменить DB rollback. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Restore не перезаписывает новые edits; external action нельзя отменить DB rollback. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-INK-001 — Hardware input probe и benchmark plan
 
-Модуль: ink; P0; статус backlog. Зависимости: нет.
+Модуль: ink; P0; статус backlog; architecture approved: false. Зависимости: нет.
 
-Причина: Аппаратный input/latency риск нельзя решить документацией или web-only прототипом.
+Причина: Аппаратный input/latency риск нельзя решить документацией или web-only прототипом; устройство владельца Lenovo Xiaoxin Pad 2025, точный model ID/перо не проверены.
 
 Файлы/контракты: `clients/android-ink/probe (будущий)`, `docs/reports/INK-HARDWARE.md (будущий)`.
 
@@ -306,11 +341,13 @@ Acceptance:
 
 Проверка: Будущий Gradle test/lint/assembleDebug + реальный планшет.
 
-Риск: Не обещать pressure/tilt без измерения; pen crash/recovery/latency и sensitive образцы. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не обещать pressure/tilt без измерения; pen crash/recovery/latency и sensitive образцы. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-TOUR-001 — Scoped role compatibility adapter
 
-Модуль: tournaments; P1; статус backlog. Зависимости: QUB-AUTH-001, QUB-TEST-002, QUB-OPS-002.
+Модуль: tournaments; P1; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-001, QUB-TEST-002, QUB-OPS-002.
 
 Причина: Изолировать роли/навигацию турниров при полном сохранении результатов и старых URL.
 
@@ -323,11 +360,13 @@ Acceptance:
 
 Проверка: verify.py --suite all + tournament E2E + policy diff.
 
-Риск: Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
 
 ## QUB-INT-001 — Service/Shade connector contract POC
 
-Модуль: integrations; P2; статус backlog. Зависимости: QUB-AUTH-001.
+Модуль: integrations; P2; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-001.
 
 Причина: Контракт внешних сервисов и локального Shade должен ограничивать действия/credentials до подключения.
 
@@ -340,4 +379,286 @@ Acceptance:
 
 Проверка: Будущий connector fixture pytest; verify.py --suite all.
 
-Риск: Не вызвать HA/TG/paid API, не читать домашние сессии; unknown sends не повторять. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Не вызвать HA/TG/paid API, не читать домашние сессии; unknown sends не повторять. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+
+Commit: после выполнения. Evidence: .
+
+## QUB-DESIGN-001 — Новый visual direction и auth UX specification
+
+Модуль: design; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
+
+Причина: Владелец явно отверг старый дизайн и попросил сократить регистрацию.
+
+Файлы/контракты: `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md (будущий)`.
+
+Acceptance:
+
+- Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему
+- Email/password/согласия; display name optional; нет code-entry/турнирных полей
+- Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией
+
+Проверка: Проверка docs/links; просмотр макета владельцем.
+
+Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
+
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-TEST-001.
+
+Причина: Убрать старый вход по коду по прямому указанию владельца.
+
+Файлы/контракты: `back/server.js (code-entry точечно)`, `front/js/app.js (auth entry точечно)`, `docs/architecture/AUTH_AND_PERMISSIONS.md`.
+
+Acceptance:
+
+- Карта потребителей inspect/code-entry и прежних аккаунтов
+- Новый вход по account code-entry не выдаёт сессию; сохранены tournament join codes/email verify/2FA/reset
+- Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают
+
+Проверка: Isolated auth HTTP negative+positive matrix; tournament code join regression.
+
+Риск: Не смешать authentication code-entry с турнирным join/verification. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-006 — Минимальный register DTO и legacy login compatibility
+
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-TEST-001, QUB-DESIGN-001.
+
+Причина: Снять обязательные турнирные/лишние данные с платформенной регистрации.
+
+Файлы/контракты: `back/server.js (register точечно)`, `back/src/db.js (alias contract точечно)`, `contracts/registration-v1.json (будущий)`.
+
+Acceptance:
+
+- Email/password+согласия, старые аккаунты сохраняются
+- Внутренний alias стабилен/уникален и не обязателен в форме; optional display name после входа
+- Не требуются school/class/ФИО; invite policy/verification/reset/duplicate guards работают
+
+Проверка: Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests.
+
+Риск: Старые native clients/username collisions; не удалять профильные данные. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-007 — Новые React auth экраны поверх проверенного Auth
+
+Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006.
+
+Причина: Переиспользовать работающий backend при полном обновлении интерфейса.
+
+Файлы/контракты: `apps/web/auth (будущий)`, `docs/design/AUTH_UX.md (будущий)`.
+
+Acceptance:
+
+- Новая тема/формы email/password/OAuth/reset без account code-entry
+- Единый серверный Auth, безопасные cookies/CSRF/return target, никакой второй insecure login
+- Web+desktop navigation/keyboard/mobile и реальная UX приёмка
+
+Проверка: Playwright login/register/reset/revoke; no secret logging; screenshots.
+
+Риск: Open redirect/token storage/две расходящиеся реализации. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-008 — Identity cutover specification в Python/Postgres
+
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002, QUB-AUTH-007.
+
+Причина: Перенести identity в целевой стек без одновременного удаления старого Auth.
+
+Файлы/контракты: `docs/migration/IDENTITY_CUTOVER.md (будущий)`, `contracts/identity-v2.json (будущий)`.
+
+Acceptance:
+
+- Полная карта потребителей cookie/OAuth/password/native clients с source/target authority
+- Verifier test vectors, UUID/owner mapping, staged session/revoke plan и reconciliation
+- Live cutover отдельной задачей после OPS-002 и approval; в этой задаче нет live writes
+
+Проверка: Synthetic cross-runtime vectors; contract/migration rehearsal план.
+
+Риск: SSO/refresh breakage; legacy owner bypass не наследовать. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-DEPLOY-001 — Specification нового deploy/qubite2 и installer modes
+
+Модуль: ops; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
+
+Причина: Владелец потребовал deploy папку и скрипт установки нового Qubite.
+
+Файлы/контракты: `deploy/qubite2/README.md (будущий)`, `docs/engineering/DEPLOYMENT_AND_BACKUPS.md`.
+
+Acceptance:
+
+- Выбрать/обосновать server OS и packaging POC, manifest services/ports/data/env
+- Отдельные fresh/upgrade/dry-run/rollback/backup/restore, explicit secrets input
+- Legacy deploy/install.sh сохраняется; нет autodeploy; VPS hostname отложен
+
+Проверка: Manifest validation; synthetic install/upgrade acceptance matrix.
+
+Риск: Не подменять рабочий installer или секреты; не делать production deployment. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-DEPLOY-002 — Installer fresh-install dry-run в disposable окружении
+
+Модуль: ops; P0; статус backlog; architecture approved: false. Зависимости: QUB-DEPLOY-001, QUB-CORE-001.
+
+Причина: Подготовить работающий installer постепенно без live доступа.
+
+Файлы/контракты: `deploy/qubite2/install.sh (будущий)`, `deploy/qubite2/env.example (будущий)`, `deploy/qubite2/tests (будущий)`.
+
+Acceptance:
+
+- Idempotent fresh install, dry-run/preflight/dependency checks; refuse existing dirty/data paths
+- Pin versions/SHA, secret permissions, health и redacted report
+- Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются
+
+Проверка: Disposable container/VM install twice, interrupted install, existing-data refusal, no real credentials.
+
+Риск: Не считать контейнерные mocks доказательством production совместимости. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-DESKTOP-001 — Tauri Linux POC и portable OS adapter boundary
+
+Модуль: desktop; P1; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-007.
+
+Причина: Desktop Linux обязателен, последующие OS без переписывания продукта.
+
+Файлы/контракты: `clients/desktop (будущий)`, `contracts/client-capabilities-v1.json (будущий)`.
+
+Acceptance:
+
+- Общий React UI и Linux artifact; restricted native commands, secure session and local drafts
+- Offline/restart/logout/auth deep-link tests; platform paths/dialog adapters
+- Windows/macOS build+sign roadmap, не заявлять их проверенными
+
+Проверка: Linux build+smoke; webview/keyboard/offline checks; desktop capability negative tests.
+
+Риск: WebView differences/native privileges; Windows/macOS потребуют своих runners. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-TG-001 — Bot parity/command specification и mock characterization
+
+Модуль: telegram; P0; статус backlog; architecture approved: false. Зависимости: QUB-001.
+
+Причина: Подготовить полный новый bot flow без потери функций и смешения ролей.
+
+Файлы/контракты: `docs/architecture/TELEGRAM_AND_OBSERVABILITY.md`, `contracts/telegram-commands-v1.json (будущий)`, `back/tests/telegram-parity.test.js (будущий)`.
+
+Acceptance:
+
+- TG-1..6 ответы записаны; каждую legacy функцию map keep/module/retire с обоснованием
+- Owner/platform/support/tournament capabilities и callbacks/TTL/action matrix
+- Synthetic handlers tests без сети/токена; period and scope mismatches зафиксированы
+
+Проверка: Mock update/send transport tests; check.py.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-TG-002 — Новый control worker read-only status/menu POC
+
+Модуль: telegram; P0; статус backlog; architecture approved: false. Зависимости: QUB-TG-001, QUB-AUTH-003.
+
+Причина: Первый bounded новый бот slice до management mutations.
+
+Файлы/контракты: `core/qubite/telegram (будущий)`, `contracts/telegram-commands-v1.json (будущий)`.
+
+Acceptance:
+
+- Python worker с общими policy API, platform subject linking и owner private menu
+- Статусы/сводки/deep links; no mutations/real sends в POC
+- Tampered/unlinked/revoked/module moderator → deny; single consumer startup contract
+
+Проверка: Fixture bot update integration; transport mock; revoke/expiry negative tests.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-TG-003 — Mutating bot commands и delivery/cutover runbook
+
+Модуль: telegram; P0; статус backlog; architecture approved: false. Зависимости: QUB-TG-002, QUB-AUTH-004, QUB-OBS-001.
+
+Причина: Заменить старый bot management после read-only POC и общего API.
+
+Файлы/контракты: `core/qubite/telegram/commands (будущий)`, `docs/migration/TELEGRAM_CUTOVER.md (будущий)`.
+
+Acceptance:
+
+- Согласованные grants/budgets/module/settings commands, common domain API, confirmation/idempotency
+- Exact reply/TTL, unknown delivery/no retry, restart/outbox tests
+- План single-consumer cutover + сохранение username/history где применимо; live switch отдельно
+
+Проверка: Mock transport fault injection; command scope parity; no arbitrary shell.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-OBS-001 — Metrics contract и isolated Infrastructure collector
+
+Модуль: observability; P0; статус backlog; architecture approved: false. Зависимости: QUB-CORE-001.
+
+Причина: Сохранить текущий мониторинг и устранить неверные трактовки показателей.
+
+Файлы/контракты: `core/qubite/observability (будущий)`, `contracts/metrics-v1.json (будущий)`.
+
+Acceptance:
+
+- Отдельные host/cgroup/process/node, loadavg и CPU%, relevant DB/blob volume
+- Timestamp/source/reset/stale/missing/retention, requests/traffic scoped process counters
+- Согласовать retained history и alerts policy до scheduled notifications
+
+Проверка: Synthetic metric fixtures; counter reset/two-source dedup/units/UTC tests.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-ANALYTICS-001 — Owner analytics/Infrastructure UI и Tournaments split
+
+Модуль: analytics; P0; статус backlog; architecture approved: false. Зависимости: QUB-OBS-001, QUB-UI-001.
+
+Причина: Перенести все реальные analytics capabilities в правильные scopes.
+
+Файлы/контракты: `apps/web/owner/analytics (будущий)`, `core/qubite/analytics (будущий)`.
+
+Acceptance:
+
+- Global activity/AI costs/server graphs в Console; submissions/teams/rating внутри Tournaments
+- Legacy report period contract corrected; missing/stale не ноль; protected texts не aggregates payload
+- Owner vs tournament moderator/direct URL/API negative checks, retention и source/history mapping
+
+Проверка: Disposable legacy adapters + Playwright graphs/policy tests; UTC duration regression.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SUPPORT-001 — Support scope и Telegram/web conversation adapter POC
+
+Модуль: support; P0; статус backlog; architecture approved: false. Зависимости: QUB-TG-001, QUB-AUTH-003.
+
+Причина: Не потерять поддержку и не отправить ответ неверному собеседнику.
+
+Файлы/контракты: `core/qubite/support (будущий)`, `apps/web/support (будущий)`.
+
+Acceptance:
+
+- TG-4 guest/staff policy resolved, support grant отдельно от турниров
+- Chat/source/IDs/history migration map; read/reply/close/reopen common API
+- Exact reply/TTL/cross-chat/revoke/outcome tests без реальных сообщений
+
+Проверка: Synthetic conversation API + bot transport tests; history map roundtrip.
+
+Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .

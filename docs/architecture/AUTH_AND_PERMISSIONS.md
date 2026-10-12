@@ -1,6 +1,6 @@
 # Identity и permissions
 
-CONFIRMED: только один platform_owner на старте, owner status не переключаемый role slug. Global organizer/moderator/admin отсутствуют. RECOMMENDED: legacy Auth authoritative в первом release; trusted internal introspection с timeout, audience, revoke/status проверкой; нельзя доверять forwarded user header из интернета. Bridge failure → deny.
+CONFIRMED: только один platform_owner на старте, owner status не переключаемый role slug. Global organizer/moderator/admin отсутствуют. Делегированное решение 12.10.2026: legacy Auth authoritative в переходе, новый React UI и минимальная регистрация, account code-entry убрать; затем отдельный identity cutover в Python/Postgres ([ADR-0005](decisions/0005-identity-transition.md)); trusted internal introspection с timeout, audience, revoke/status проверкой; нельзя доверять forwarded user header из интернета. Bridge failure → deny.
 
 Authorization цепочка: authenticated active subject → global module installed/enabled → explicit module entitlement → action capability → workspace membership + object ACL + explicit deny → tool/provider/model allowlist → quotas/reserved budget. Все REST/WS/jobs/MCP/plugins проходят её. Роли workspace editor/viewer и tournament organizer не дают platform capabilities.
 

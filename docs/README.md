@@ -1,13 +1,13 @@
 # Документация Qubite 2.0 и legacy
 
-Новый комплект проектирует платформу; legacy-код продолжает существовать. Не считать рекомендации реализацией или принятым стеком.
+Новый комплект проектирует платформу; legacy-код продолжает существовать. Стек согласован 12.10.2026; механика и клиентские POC описаны в ADR. Не считать планы реализацией.
 
 - [Отчёт QUB-001](reports/QUB-001.md), [текущее состояние и inventory](architecture/CURRENT_STATE.md), [security audit](architecture/SECURITY_AUDIT.md), [ShadeAI read-only](architecture/SHADEAI_INTEGRATION.md).
 - [Видение](product/VISION.md), [требования и 48 идеи](product/REQUIREMENTS.md), [полная source trace](product/SOURCE_TRACE.md), [Owner Console](product/OWNER_CONSOLE.md).
 - [Архитектурные альтернативы](architecture/TARGET_ARCHITECTURE.md), [модули](architecture/MODULES_AND_BOUNDARIES.md), [данные](architecture/DATA_MODEL.md), [permissions](architecture/AUTH_AND_PERMISSIONS.md), [cost guard](architecture/AI_COST_GUARD.md).
 - [Sync/history](architecture/SYNC_AND_HISTORY.md), [AI memory/skills](architecture/AI_MEMORY_SKILLS_AND_TOOLS.md), [Plugins/MCP](architecture/PLUGINS_AND_MCP.md), [ADR](architecture/decisions/README.md).
 - [Миграция](migration/LEGACY_TO_QUBITE.md), [backup/deploy](engineering/DEPLOYMENT_AND_BACKUPS.md), [тесты](engineering/TEST_STRATEGY.md), [harness](engineering/AGENT_HARNESS.md), [дизайн](design/DESIGN_SYSTEM_PLAN.md).
-- [Roadmap](plan/ROADMAP.md), [20 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
+- [Roadmap](plan/ROADMAP.md), [34 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
 
 Ниже сохранён прежний индекс документации работающего проекта. Новая архитектура не отменяет операционные ограничения существующих сервисов.
 
@@ -51,3 +51,5 @@
 - [Независимый Auth, питание приложений, Memos/Vikunja и Hermes](runtime-and-knowledge.md)
 
 - Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](knowledge-client-guide.md).
+
+- [Telegram, аналитика и мониторинг: parity matrix](architecture/TELEGRAM_AND_OBSERVABILITY.md).

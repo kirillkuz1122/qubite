@@ -112,3 +112,5 @@
 ## Qubite 2.0 — приоритет перед рефакторингом
 
 Новый backlog: [ROADMAP](docs/plan/ROADMAP.md), [TASKS](docs/plan/TASKS.md), [machine state](docs/plan/tasks.json). Сейчас audit/design review/testing; стек и migration authority ожидают обсуждения. Сначала полный legacy auth/runtime/rating characterization, read-only server drift и backup/restore, затем approved Owner Console/default-deny/mock budgets и note→sync→search→restore. Все 48 идеи сохранены в требованиях. Не менять legacy roles/DB/сервисы по одному roadmap пункту без утверждённой маленькой задачи.
+
+Qubite 2.0: полный control-bot redesign с capability parity, split Tournaments settings vs Owner Console, scoped Support, analytics/Infrastructure collector+UI. Исправить при переносе load average label и Telegram duration contract, exact reply/TTL support, process resets/gaps. Подробности в docs/architecture/TELEGRAM_AND_OBSERVABILITY.md и task registry; live изменения отдельно.

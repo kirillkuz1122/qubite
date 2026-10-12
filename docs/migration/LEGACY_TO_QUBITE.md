@@ -4,6 +4,8 @@ CONFIRMED: archive origin/tournaments + qubite-v1.0 = 96f0457. Не коммит
 
 ## Этапы и контрольные точки
 
+Локальная foundation разработка после согласования стека не ждёт серверных этапов M1. Перед live переносом M1 обязателен.
+
 M0: Git archive подтверждён. M1: read-only production inventory/drift + encrypted backup и restore drill. M2: critical legacy characterization/HTTP regression, staging fixture. M3: отдельный policy/owner/mock cost core, authority остаётся legacy Auth. M4: opt-in new shell, old URL продолжают работать. M5: Docs local-first vertical slice. M6: Tournaments navigation isolation/role adapter по частям. M7: возможный identity authority cutover и SQLite→Postgres отдельных доменов — отдельное approval, не следствие установки core.
 
 Каждый этап: explicit migration ID/checksum, source/target writer, invariant report, compatibility tests, data backup reference, approval, feature routing switch, rollback script/manual recipe, stop conditions. Без dual writes одной сущности между SQLite/Postgres. Outbox/reconciliation только после выделенного POC.
@@ -34,3 +36,5 @@ Identity migration позже: password algorithm/salt не перехеширо
 Rollback после новых записей: routing rollback не означает стереть новую БД. Сохраняем new writes и export/reconcile plan; users могут временно видеть read-only новых документов. Для irreversible внешних sends нет DB rollback. Любые drop/cleanup old columns после retention + verified export + отдельного согласования.
 
 Stop: counts/FK/hash/policy discrepancy, unknown expenses, failed login, missing attachments, duplicate polling, unverified backup, memory pressure, unexpected public endpoint. Деплой не был выполнен. Подробности [backup/runbook](../engineering/DEPLOYMENT_AND_BACKUPS.md).
+
+Уточнение 12.10.2026: старый control bot полностью переделывается с сохранением необходимых capabilities; целевой отдельный worker/API adapters. Нельзя одновременно запускать два consumer одного token. Турнирные controls/аналитика переходят в настройки/управление модуля; platform/AI analytics и инфраструктура — Owner Console; Support отдельный scope. Сохранять history/source IDs/notification outcomes. [Parity matrix](../architecture/TELEGRAM_AND_OBSERVABILITY.md).

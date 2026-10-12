@@ -2,7 +2,7 @@
 
 ## Переход к Qubite 2.0
 
-Текущий runtime остаётся legacy платформой турниров и сервисов. Новая универсальная платформа находится на этапе аудита/проектирования; архитектура ещё не согласована. [Baseline и документы](docs/architecture/CURRENT_STATE.md), [план](docs/plan/ROADMAP.md), [Owner Console и доступы](docs/product/OWNER_CONSOLE.md), [память сессий](docs/project/PROJECT_CONTEXT.md), [Development Harness](docs/engineering/AGENT_HARNESS.md). Старый код сохранён в `tournaments` и `qubite-v1.0` на коммите `96f0457`; Git не заменяет резервные копии данных.
+Текущий runtime остаётся legacy платформой турниров и сервисов. Новая универсальная платформа находится на этапе аудита/проектирования; стек согласован 12.10.2026: Python/FastAPI, React/TypeScript и PostgreSQL нового ядра; турниры сохраняют SQLite. Сайт, Android и desktop Linux запланированы, новый Auth UI/дизайн и deploy/installer ещё не реализованы. [Baseline и документы](docs/architecture/CURRENT_STATE.md), [план](docs/plan/ROADMAP.md), [Owner Console и доступы](docs/product/OWNER_CONSOLE.md), [память сессий](docs/project/PROJECT_CONTEXT.md), [Development Harness](docs/engineering/AGENT_HARNESS.md). Старый код сохранён в `tournaments` и `qubite-v1.0` на коммите `96f0457`; Git не заменяет резервные копии данных.
 
 Qubite — рабочий MVP-прототип платформы для учебных соревнований. Текущий репозиторий описывает русскоязычную версию проекта, где главный фокус сделан на участнике: вход, попадание в турнир, решение задач, рейтинг и базовую аналитику.
 
@@ -210,3 +210,7 @@ Specbot обрабатывает ошибки OpenRouter внутри HTTP 200: 
 - Telegram-заявки: группы → бесплатный фильтр → Jev → короткий Haiku-отклик в Kwork-боте; первые два дня и до порога оценок — согласование, затем ограниченный авто-контакт. Существующий listener/переговорщик, папки 💰/❤️, приватная SQLite и общий прежний бюджет Brief. [Инструкция](docs/telegram-leads.md).
 
 - Технические сессии учёта заявок Telegram скрыты из Brief и не предоставляют клиентам доступ к интервью; для интервью требуется отдельное приглашение.
+
+### Планируемый Telegram и наблюдаемость Qubite 2.0
+
+Сохранение функций управляющего бота при полной переработке, аналитики и мониторинга сервера включено в архитектуру; runtime пока legacy. Турнирное управление — настройки модуля, общие controls/аналитика/инфраструктура — Owner Console. [Инвентарь функций и нюансы переноса](docs/architecture/TELEGRAM_AND_OBSERVABILITY.md).

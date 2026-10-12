@@ -187,3 +187,5 @@ Telethon-слушатель проверяет личный incoming, client ID 
 ## Переход 2.0: целевые security gates
 
 [Аудит текущих границ](docs/architecture/SECURITY_AUDIT.md) отличается от [целевой модели](docs/architecture/AUTH_AND_PERMISSIONS.md). Legacy owner auto-paid и глобальные tournament roles пока существуют; новая модель default-deny/common AI budget ещё не реализована. [Cost guard](docs/architecture/AI_COST_GUARD.md) требует отрицательных и конкурентных mock tests до платных вызовов. Миграции/backup/restore и production rollout проходят отдельно, secrets и private data не включаются в audit artifacts.
+
+Qubite 2.0 bot redesign: global staff whitelist не наследуется как module/platform grant; verified subject binding, exact reply/TTL, callback payload allowlist + reauthorization, sensitive diff/confirmation, no arbitrary shell, single consumer, notification unknown outcome без автоматического повтора. Private support/query text не telemetry. Filled deploy/.env подтверждён локально 12.10.2026 без чтения значений (600, не tracked); использование при необходимости разрешено владельцем, актуальность credentials этим не подтверждена.

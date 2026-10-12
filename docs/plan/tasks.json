@@ -22,12 +22,14 @@
       "Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "review/testing",
-    "commit": null,
-    "architecture_approved": false,
+    "status": "done",
+    "commit": "ae3f71e0ae29ef10a6f772027b48addba9d508fc",
+    "architecture_approved": true,
     "verification": [
       "origin archive refs verified 12.10.2026",
-      "QUB-001 report contains local test results"
+      "QUB-001 report contains local test results",
+      "12.10.2026 ответы владельца 1–6; ADR-0001/0005/0006 фиксируют стек и scope",
+      "332 baseline checks; GitHub Actions run 38197926998 passed"
     ]
   },
   {
@@ -108,9 +110,9 @@
       "Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
     "verification": []
   },
   {
@@ -156,7 +158,7 @@
       "contracts/core-v1.json (будущий)"
     ],
     "acceptance": [
-      "Только выбранный стек, health и migration version, no legacy DB writes",
+      "FastAPI health и Postgres versioned migration на disposable DB; no legacy DB writes",
       "Contract validation и no-network startup tests"
     ],
     "tests": [
@@ -166,9 +168,9 @@
       "Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
     "verification": []
   },
   {
@@ -187,7 +189,8 @@
     ],
     "acceptance": [
       "Session introspection audience/status/revoke fail-closed",
-      "Mapping stable, roles не platform privileges, owner verified"
+      "Mapping stable, roles не platform privileges, owner verified",
+      "Reuse текущего Auth только в переходе; target cutover отдельно по ADR-0005"
     ],
     "tests": [
       "Будущий core pytest identity + auth compatibility suite"
@@ -293,7 +296,8 @@
     "module": "ui",
     "priority": "P0",
     "dependencies": [
-      "QUB-AUTH-003"
+      "QUB-AUTH-003",
+      "QUB-DESIGN-001"
     ],
     "files": [
       "apps/web (будущий)",
@@ -493,7 +497,7 @@
   {
     "id": "QUB-INK-001",
     "title": "Hardware input probe и benchmark plan",
-    "reason": "Аппаратный input/latency риск нельзя решить документацией или web-only прототипом",
+    "reason": "Аппаратный input/latency риск нельзя решить документацией или web-only прототипом; устройство владельца Lenovo Xiaoxin Pad 2025, точный model ID/перо не проверены",
     "module": "ink",
     "priority": "P0",
     "dependencies": [],
@@ -572,6 +576,441 @@
       "Не вызвать HA/TG/paid API, не читать домашние сессии; unknown sends не повторять"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-DESIGN-001",
+    "title": "Новый visual direction и auth UX specification",
+    "reason": "Владелец явно отверг старый дизайн и попросил сократить регистрацию",
+    "module": "design",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001"
+    ],
+    "files": [
+      "docs/design/DESIGN_SYSTEM_PLAN.md",
+      "docs/design/AUTH_UX.md (будущий)"
+    ],
+    "acceptance": [
+      "Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему",
+      "Email/password/согласия; display name optional; нет code-entry/турнирных полей",
+      "Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией"
+    ],
+    "tests": [
+      "Проверка docs/links; просмотр макета владельцем"
+    ],
+    "risks": [
+      "Дизайн-макет не выдавать за реализованный auth"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "ready",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-005",
+    "title": "Отключение account code-entry после compatibility audit",
+    "reason": "Убрать старый вход по коду по прямому указанию владельца",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TEST-001"
+    ],
+    "files": [
+      "back/server.js (code-entry точечно)",
+      "front/js/app.js (auth entry точечно)",
+      "docs/architecture/AUTH_AND_PERMISSIONS.md"
+    ],
+    "acceptance": [
+      "Карта потребителей inspect/code-entry и прежних аккаунтов",
+      "Новый вход по account code-entry не выдаёт сессию; сохранены tournament join codes/email verify/2FA/reset",
+      "Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают"
+    ],
+    "tests": [
+      "Isolated auth HTTP negative+positive matrix; tournament code join regression"
+    ],
+    "risks": [
+      "Не смешать authentication code-entry с турнирным join/verification"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-006",
+    "title": "Минимальный register DTO и legacy login compatibility",
+    "reason": "Снять обязательные турнирные/лишние данные с платформенной регистрации",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TEST-001",
+      "QUB-DESIGN-001"
+    ],
+    "files": [
+      "back/server.js (register точечно)",
+      "back/src/db.js (alias contract точечно)",
+      "contracts/registration-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Email/password+согласия, старые аккаунты сохраняются",
+      "Внутренний alias стабилен/уникален и не обязателен в форме; optional display name после входа",
+      "Не требуются school/class/ФИО; invite policy/verification/reset/duplicate guards работают"
+    ],
+    "tests": [
+      "Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests"
+    ],
+    "risks": [
+      "Старые native clients/username collisions; не удалять профильные данные"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-007",
+    "title": "Новые React auth экраны поверх проверенного Auth",
+    "reason": "Переиспользовать работающий backend при полном обновлении интерфейса",
+    "module": "ui",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-UI-001",
+      "QUB-AUTH-005",
+      "QUB-AUTH-006"
+    ],
+    "files": [
+      "apps/web/auth (будущий)",
+      "docs/design/AUTH_UX.md (будущий)"
+    ],
+    "acceptance": [
+      "Новая тема/формы email/password/OAuth/reset без account code-entry",
+      "Единый серверный Auth, безопасные cookies/CSRF/return target, никакой второй insecure login",
+      "Web+desktop navigation/keyboard/mobile и реальная UX приёмка"
+    ],
+    "tests": [
+      "Playwright login/register/reset/revoke; no secret logging; screenshots"
+    ],
+    "risks": [
+      "Open redirect/token storage/две расходящиеся реализации"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-008",
+    "title": "Identity cutover specification в Python/Postgres",
+    "reason": "Перенести identity в целевой стек без одновременного удаления старого Auth",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-002",
+      "QUB-AUTH-007"
+    ],
+    "files": [
+      "docs/migration/IDENTITY_CUTOVER.md (будущий)",
+      "contracts/identity-v2.json (будущий)"
+    ],
+    "acceptance": [
+      "Полная карта потребителей cookie/OAuth/password/native clients с source/target authority",
+      "Verifier test vectors, UUID/owner mapping, staged session/revoke plan и reconciliation",
+      "Live cutover отдельной задачей после OPS-002 и approval; в этой задаче нет live writes"
+    ],
+    "tests": [
+      "Synthetic cross-runtime vectors; contract/migration rehearsal план"
+    ],
+    "risks": [
+      "SSO/refresh breakage; legacy owner bypass не наследовать"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-DEPLOY-001",
+    "title": "Specification нового deploy/qubite2 и installer modes",
+    "reason": "Владелец потребовал deploy папку и скрипт установки нового Qubite",
+    "module": "ops",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001"
+    ],
+    "files": [
+      "deploy/qubite2/README.md (будущий)",
+      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md"
+    ],
+    "acceptance": [
+      "Выбрать/обосновать server OS и packaging POC, manifest services/ports/data/env",
+      "Отдельные fresh/upgrade/dry-run/rollback/backup/restore, explicit secrets input",
+      "Legacy deploy/install.sh сохраняется; нет autodeploy; VPS hostname отложен"
+    ],
+    "tests": [
+      "Manifest validation; synthetic install/upgrade acceptance matrix"
+    ],
+    "risks": [
+      "Не подменять рабочий installer или секреты; не делать production deployment"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "ready",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-DEPLOY-002",
+    "title": "Installer fresh-install dry-run в disposable окружении",
+    "reason": "Подготовить работающий installer постепенно без live доступа",
+    "module": "ops",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-DEPLOY-001",
+      "QUB-CORE-001"
+    ],
+    "files": [
+      "deploy/qubite2/install.sh (будущий)",
+      "deploy/qubite2/env.example (будущий)",
+      "deploy/qubite2/tests (будущий)"
+    ],
+    "acceptance": [
+      "Idempotent fresh install, dry-run/preflight/dependency checks; refuse existing dirty/data paths",
+      "Pin versions/SHA, secret permissions, health и redacted report",
+      "Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются"
+    ],
+    "tests": [
+      "Disposable container/VM install twice, interrupted install, existing-data refusal, no real credentials"
+    ],
+    "risks": [
+      "Не считать контейнерные mocks доказательством production совместимости"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-DESKTOP-001",
+    "title": "Tauri Linux POC и portable OS adapter boundary",
+    "reason": "Desktop Linux обязателен, последующие OS без переписывания продукта",
+    "module": "desktop",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-UI-001",
+      "QUB-AUTH-007"
+    ],
+    "files": [
+      "clients/desktop (будущий)",
+      "contracts/client-capabilities-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Общий React UI и Linux artifact; restricted native commands, secure session and local drafts",
+      "Offline/restart/logout/auth deep-link tests; platform paths/dialog adapters",
+      "Windows/macOS build+sign roadmap, не заявлять их проверенными"
+    ],
+    "tests": [
+      "Linux build+smoke; webview/keyboard/offline checks; desktop capability negative tests"
+    ],
+    "risks": [
+      "WebView differences/native privileges; Windows/macOS потребуют своих runners"
+    ],
+    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TG-001",
+    "title": "Bot parity/command specification и mock characterization",
+    "reason": "Подготовить полный новый bot flow без потери функций и смешения ролей",
+    "module": "telegram",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001"
+    ],
+    "files": [
+      "docs/architecture/TELEGRAM_AND_OBSERVABILITY.md",
+      "contracts/telegram-commands-v1.json (будущий)",
+      "back/tests/telegram-parity.test.js (будущий)"
+    ],
+    "acceptance": [
+      "TG-1..6 ответы записаны; каждую legacy функцию map keep/module/retire с обоснованием",
+      "Owner/platform/support/tournament capabilities и callbacks/TTL/action matrix",
+      "Synthetic handlers tests без сети/токена; period and scope mismatches зафиксированы"
+    ],
+    "tests": [
+      "Mock update/send transport tests; check.py"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TG-002",
+    "title": "Новый control worker read-only status/menu POC",
+    "reason": "Первый bounded новый бот slice до management mutations",
+    "module": "telegram",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TG-001",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/telegram (будущий)",
+      "contracts/telegram-commands-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Python worker с общими policy API, platform subject linking и owner private menu",
+      "Статусы/сводки/deep links; no mutations/real sends в POC",
+      "Tampered/unlinked/revoked/module moderator → deny; single consumer startup contract"
+    ],
+    "tests": [
+      "Fixture bot update integration; transport mock; revoke/expiry negative tests"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TG-003",
+    "title": "Mutating bot commands и delivery/cutover runbook",
+    "reason": "Заменить старый bot management после read-only POC и общего API",
+    "module": "telegram",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TG-002",
+      "QUB-AUTH-004",
+      "QUB-OBS-001"
+    ],
+    "files": [
+      "core/qubite/telegram/commands (будущий)",
+      "docs/migration/TELEGRAM_CUTOVER.md (будущий)"
+    ],
+    "acceptance": [
+      "Согласованные grants/budgets/module/settings commands, common domain API, confirmation/idempotency",
+      "Exact reply/TTL, unknown delivery/no retry, restart/outbox tests",
+      "План single-consumer cutover + сохранение username/history где применимо; live switch отдельно"
+    ],
+    "tests": [
+      "Mock transport fault injection; command scope parity; no arbitrary shell"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-OBS-001",
+    "title": "Metrics contract и isolated Infrastructure collector",
+    "reason": "Сохранить текущий мониторинг и устранить неверные трактовки показателей",
+    "module": "observability",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-CORE-001"
+    ],
+    "files": [
+      "core/qubite/observability (будущий)",
+      "contracts/metrics-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Отдельные host/cgroup/process/node, loadavg и CPU%, relevant DB/blob volume",
+      "Timestamp/source/reset/stale/missing/retention, requests/traffic scoped process counters",
+      "Согласовать retained history и alerts policy до scheduled notifications"
+    ],
+    "tests": [
+      "Synthetic metric fixtures; counter reset/two-source dedup/units/UTC tests"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-ANALYTICS-001",
+    "title": "Owner analytics/Infrastructure UI и Tournaments split",
+    "reason": "Перенести все реальные analytics capabilities в правильные scopes",
+    "module": "analytics",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-OBS-001",
+      "QUB-UI-001"
+    ],
+    "files": [
+      "apps/web/owner/analytics (будущий)",
+      "core/qubite/analytics (будущий)"
+    ],
+    "acceptance": [
+      "Global activity/AI costs/server graphs в Console; submissions/teams/rating внутри Tournaments",
+      "Legacy report period contract corrected; missing/stale не ноль; protected texts не aggregates payload",
+      "Owner vs tournament moderator/direct URL/API negative checks, retention и source/history mapping"
+    ],
+    "tests": [
+      "Disposable legacy adapters + Playwright graphs/policy tests; UTC duration regression"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SUPPORT-001",
+    "title": "Support scope и Telegram/web conversation adapter POC",
+    "reason": "Не потерять поддержку и не отправить ответ неверному собеседнику",
+    "module": "support",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TG-001",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/support (будущий)",
+      "apps/web/support (будущий)"
+    ],
+    "acceptance": [
+      "TG-4 guest/staff policy resolved, support grant отдельно от турниров",
+      "Chat/source/IDs/history migration map; read/reply/close/reopen common API",
+      "Exact reply/TTL/cross-chat/revoke/outcome tests без реальных сообщений"
+    ],
+    "tests": [
+      "Synthetic conversation API + bot transport tests; history map roundtrip"
+    ],
+    "risks": [
+      "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
+    ],
+    "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,

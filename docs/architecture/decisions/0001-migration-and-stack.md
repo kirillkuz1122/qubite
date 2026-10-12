@@ -1,9 +1,9 @@
-# ADR-0001: новый core и legacy authority
+# ADR-0001: стек нового core и границы legacy
 
-Статус RECOMMENDED, OPEN QUESTION до обсуждения. Context: текущие Node/SQLite монолиты и самостоятельные сервисы уже работают, предпочтения владельца Python/React, выбор хостинга отложен владельцем 12.10.2026, возможен VPS. Ограничения Raspberry Pi не являются архитектурным gate.
+CONFIRMED 12.10.2026 ответами владельца 1–2: Python/FastAPI, React/TypeScript, PostgreSQL для нового core. Qubite Tournaments сохраняет SQLite и текущий Node writer на этапе выделения модуля. Новый modular monolith и bounded worker рядом с legacy; pgvector отдельным POC позже, без обязательных Kafka/Redis/Kubernetes.
 
-Рекомендация: FastAPI modular monolith + React/TS PWA, новый Postgres в изолированном dev-окружении после согласования стека; legacy Auth и Tournaments authority сохраняются. pgvector не в первом slice. Небольшой worker jobs, без Kafka/Redis.
+Согласование стека позволяет готовить небольшие локальные foundation задачи. Оно не разрешает массовую перепись, перенос live данных или деплой. Выбор хостинга отложен; возможен VPS. Raspberry Pi не определяет архитектуру.
 
-Альтернатива: сначала policy/core в Express/SQLite. Меньше RAM/runtime/bridge сложности, больше coupling к текущим ролям и migrations. Этот путь остаётся альтернативой при выборе владельцем более простого перехода; нехватка ресурсов Raspberry Pi сейчас не основание выбирать его.
+Auth: делегированное владельцем решение — сначала переиспользовать серверный Auth с новым UI и упрощением flow, затем отдельный перенос identity authority в Python/Postgres. Подробности и критерии в [ADR-0005](0005-identity-transition.md).
 
-Последствия: bridge/audience/revoke mapping обязательны; два datastore временно; no dual writes. Перед миграцией/деплоем на выбранный сервер выполнить OPS-001 и backup/restore POC. Проверить: simultaneous idle/peak RSS, queue age, swap pressure, free disk и restore время. Числовые budgets/performance target согласовать, не считать запуск доказательством устойчивости. Reversal routing без уничтожения original DB.
+Альтернатива Express/SQLite foundation рассмотрена, не выбрана. Последствия выбранного пути: временно два runtime/store, explicit identity mapping, no dual writes. Перед миграцией/деплоем — inventory/drift, ресурсы фактически выбранного сервера, backup/restore, staging и rollback; локальный core этих серверных проверок не ждёт.

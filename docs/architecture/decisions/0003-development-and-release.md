@@ -4,4 +4,4 @@ CONFIRMED прямым указанием пользователя: current main
 
 RECOMMENDED для сложных migration tasks: task branch/PR даёт staged diff и тесты до merge, при этом canonical main остаётся мейнлайном. В этой baseline задаче docs/tests/harness commit в main. Нет самовольного force-push/reset/архив cleanup.
 
-Push не deployment. CI содержит проверки без server credentials, но внешний autodeploy надо подтвердить OPS-001. Release включает verified backup/restore/staging/rollback и отдельное live approval. Тесты/документация не разрешают production migrations. При fail tests задача остаётся review/blocked с evidence, сломанный код не пушится.
+Push не deployment. CI содержит проверки без server credentials, автодеплоя нет по ответу владельца 12.10.2026; OPS-001 проверяет актуальный release путь перед выкладкой. Release включает verified backup/restore/staging/rollback и отдельное live approval. Тесты/документация не разрешают production migrations. При fail tests задача остаётся review/blocked с evidence, сломанный код не пушится.

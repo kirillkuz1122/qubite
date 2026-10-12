@@ -36,3 +36,7 @@ RECOMMENDED цели для обсуждения: RPO 24h для обычных 
 7. Report deployed SHA/data migration ID/checks/results/open acceptance, owner release decision.
 
 Zero-downtime возможен для additive schema/routing, но не обещается SQLite DDL/identity cutover. PostgreSQL методы backup выбирать по [официальной документации](https://www.postgresql.org/docs/current/backup.html), не объявлять WAL/PITR настроенным заранее. Не включать autodeploy GitHub push.
+
+## Дополнение владельца 12.10.2026
+
+Автодеплоя нет; GitHub доступен для кода, отдельного backup destination пока нет. Не загружать туда live базы/вложения/ключи/сессии. Выбрать приватное off-host storage до live migration. Новый deploy/qubite2 с installer обязателен; свежая установка, upgrade/rollback и backup/restore развиваются отдельными проверяемыми slice. Существующий deploy/install.sh не переписывать новой версией автоматически. [Клиенты и deployment ADR](../architecture/decisions/0006-clients-and-deployment.md).
