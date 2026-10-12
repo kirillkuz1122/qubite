@@ -678,7 +678,7 @@
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
     "status": "review/testing",
-    "commit": "0173d747b954c25ff48310a9b79ed8033918250a",
+    "commit": "2b10ba365f6035bdfb92cdbd34e56a6829095c5c",
     "architecture_approved": true,
     "verification": [
       "47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass",
@@ -688,7 +688,8 @@
       "Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress",
       "Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done",
       "Итерация2 existing386 regression+harness pass; check53 tasks/46 docs; archive refs SHA96f0457 unchanged verified origin",
-      "Milo02 private Sites version2/deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded19:09:35UTC; source5c6fd389cf432cab56fd8fa7f57c698704cab707 pushed/verified; archive transfer403, remote build fallback"
+      "Milo02 private Sites version2/deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded19:09:35UTC; source5c6fd389cf432cab56fd8fa7f57c698704cab707 pushed/verified; archive transfer403, remote build fallback",
+      "Milo02 main 2b10ba365f6035bdfb92cdbd34e56a6829095c5c pushed; remote main exact SHA verified; CI38295994465/38295994336 completed/success for exact implementation SHA"
     ]
   },
   {

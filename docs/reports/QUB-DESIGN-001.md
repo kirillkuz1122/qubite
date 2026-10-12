@@ -34,7 +34,7 @@ Milo base подтверждён. Податливость — настройк�
 
 Локальный архив build output приготовлен из pushed checkout, но его передача через file endpoint получила 403 Forbidden. Сохранённая version2 опубликована через remote build fallback из того же source SHA; локальный tar не выдан за загруженный. Токен краткоживущий, только process memory, не записан в Git/URL/файлы. Ни site, ни access gate, ни hostname не заменялись; CI без автопубликации.
 
-Локальные visual/browser проверки подтверждают поведение исходника; внешний browser по-прежнему требует ChatGPT входа. Владелец подтвердил доступность первой версии сам; post-login/physical phone acceptance именно новой механики ждёт его оценки. Публикация подтверждена Sites, это отдельное статическое демо, не deploy работающего Qubite. Main implementation SHA/CI добавляются отдельным evidence commit после push.
+Локальные visual/browser проверки подтверждают поведение исходника; внешний browser по-прежнему требует ChatGPT входа. Владелец подтвердил доступность первой версии сам; post-login/physical phone acceptance именно новой механики ждёт его оценки. Публикация подтверждена Sites, это отдельное статическое демо, не deploy работающего Qubite. Main implementation **2b10ba365f6035bdfb92cdbd34e56a6829095c5c** pushed/remote exact SHA verified. GitHub Actions [Material Lab38295994465](https://github.com/kirillkuz1122/qubite/actions/runs/38295994465) и [verification38295994336](https://github.com/kirillkuz1122/qubite/actions/runs/38295994336) **completed/success** для точного implementation SHA. Это подтверждает код этого выпуска; последующий docs-only evidence commit не меняет bundle.
 
 ## Первое исследование — история
 

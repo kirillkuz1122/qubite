@@ -14,6 +14,8 @@
 
 ## Публикация и продолжение
 
+Main implementation **2b10ba365f6035bdfb92cdbd34e56a6829095c5c** pushed/remote verified; CI38295994465/38295994336 completed/success для этого SHA. Полное состояние report/tasks.json.
+
 **Выпуск2 опубликован:** source5c6fd389cf432cab56fd8fa7f57c698704cab707, remote verified; saved version2/source verified; deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded2026-10-12T19:09:35UTC. Archive upload403, remote build fallback того же SHA успешно. Точные IDs/evidence в report.
 
 Reuse owner-private Sites **appgprj_6acd2105bee8819190dbdce429d5a541**, `assets/design-lab/.openai/hosting.json`. Второй site не создавать; tokens только process memory. Source repository отдельный, только demo, pushed fullSHA и build из него; комбинированный save/deploy, terminal status проверить. CI tests-only, без autodeploy. Предыдущий main0173d74: Material Lab38289913101 и verification38289913120 success. Предыдущая sourcef5fa089/deployment18:08:19UTC сохранены в report как история.

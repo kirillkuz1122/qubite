@@ -405,9 +405,9 @@ Acceptance:
 
 Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
 
-Commit: 0173d747b954c25ff48310a9b79ed8033918250a. Evidence: 47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass; 386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services; Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001; Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success; Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress; Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done.
+Commit: 2b10ba365f6035bdfb92cdbd34e56a6829095c5c. Evidence: 47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass; 386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services; Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001; Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success; Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress; Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done.
 
-Publication: Milo02 private version2/source5c6fd389cf432cab56fd8fa7f57c698704cab707, deployment succeeded19:09:35UTC, полный report.
+Publication: Milo02 private version2/source5c6fd389cf432cab56fd8fa7f57c698704cab707, deployment succeeded19:09:35UTC, полный report. CI Material Lab38295994465 и verification38295994336 completed/success для implementation SHA2b10ba3.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
