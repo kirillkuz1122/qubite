@@ -169,3 +169,7 @@
 - `services/specbot/tests/test_bridge.py`
 - `services/specbot/tests/test_leads.py`
 - `services/specbot/tests/test_negotiation.py`
+
+## Реальный Auth HTTP baseline
+
+`back/tests/auth-legacy-baseline.test.js` + `back/tests/fixtures/auth-server.cjs`: настоящий legacy server, 25 сценариев, собственная source-copy изоляция даже при прямом запуске. Включён автоматически в `python3 scripts/engineering/verify.py --suite node`. `QUBITE_AUTH_FIXTURE_ROOT` — только тестовый safety marker для preload, не production настройка. Fictive env/SQLite/loopback, внешние transport mocks. [Результат и ограничения QUB-TEST-001](../reports/QUB-TEST-001.md).

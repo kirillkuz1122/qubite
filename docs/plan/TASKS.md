@@ -61,11 +61,11 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-TEST-001 — Auth HTTP characterization
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Текущие auth suites проверяют helper/router fixtures, но не весь register/login server.js.
 
-Файлы/контракты: `back/tests/auth-legacy-baseline.test.js (будущий)`.
+Файлы/контракты: `back/tests/auth-legacy-baseline.test.js`, `back/tests/fixtures/auth-server.cjs`, `docs/reports/QUB-TEST-001.md`, `docs/architecture/ENV_AND_TESTS.md`, `docs/engineering/TEST_STRATEGY.md`, `docs/plan/tasks.json`, `docs/plan/TASKS.md`, `docs/project/PROJECT_CONTEXT.md`, `docs/project/LAST_HANDOFF.md`, `README.md`, `SECURITY.md`, `AGENTS.md`, `CLAUDE.md`, `docs/README.md`, `docs/architecture/AUTH_AND_PERMISSIONS.md`, `docs/plan/ROADMAP.md`, `docs/reports/STATUS-2026-10-12.md`.
 
 Acceptance:
 
@@ -76,7 +76,7 @@ Acceptance:
 
 Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: 12.10.2026: verify.py --suite all --python /tmp/qubite-audit-venv/bin/python: Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5 =353 pass; harness unittest4 =357. No skipped/failed.; 25 real-server Auth HTTP cases; runtime unchanged; synthetic external transport only. AUTH-L01..03 retained legacy defects, P0 account linking cutover gate in report/SECURITY.; check.py и git diff --check прошли; commit/remote/CI evidence заполняется после commit..
 
 ## QUB-TEST-002 — Tournament runtime и rating regression
 
@@ -477,6 +477,7 @@ Acceptance:
 - Полная карта потребителей cookie/OAuth/password/native clients с source/target authority
 - Verifier test vectors, UUID/owner mapping, staged session/revoke plan и reconciliation
 - Live cutover отдельной задачей после OPS-002 и approval; в этой задаче нет live writes
+- AUTH-L01..03 из QUB-TEST-001: дефекты не считать compatibility; unverified email linking P0 gate до identity cutover
 
 Проверка: Synthetic cross-runtime vectors; contract/migration rehearsal план.
 
@@ -678,6 +679,7 @@ Acceptance:
 - Postgres sessions/credentials, hash-only tokens, isolated verifier compatibility vectors
 - Login/logout/logout-all/revoke/blocked/expiry/CSRF/secure cookie negative cases
 - No code-entry, no owner/global-role bypass; реальные пароли не читать в модель
+- AUTH-L01: malformed percent cookie не вызывает 500; безопасный credential отказ и server survives
 
 Проверка: Disposable Postgres auth integration; old verifier synthetic cross-runtime vectors.
 
@@ -698,6 +700,8 @@ Acceptance:
 - Configured Google/Yandex/VK/Telegram contract с state/PKCE/audience/expiry/unique subject
 - No linking чужого account по непроверенной email; provider kill switches
 - Только mock transport/local secrets reference, native redirect allowlist
+- AUTH-L02: current provider permission recheck в callback до exchange/session для всех providers
+- AUTH-L03: email_verified=false/отсутствующий trusted claim не привязывает чужой существующий аккаунт; safe explicit linking + stable provider subject
 
 Проверка: Provider fixture state/PKCE/replay/link collision/unconfigured tests.
 

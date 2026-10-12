@@ -17,3 +17,11 @@ GitHub Actions baseline ae3f71e успешно прошёл [run 38197926998](ht
 Последнее steering: FastAPI для нужных shared функций legacy (Auth/users/settings/support/analytics/observability/control APIs); Node/Auth лишь временная совместимость, не permanent backend нового UI. Tournament engine Node/SQLite optional, full rewrite вне текущего scope. TG вопросы закрыты, добавлен auto capture/voice/notifications contract ADR-0007. Пользовательские ответы не требуют новых повторных вопросов или чтения токенов для docs.
 
 Уточнение React scope 12.10.2026: все собственные included services, включая VPN/Writing/Search, получают React/TS и полностью новый дизайн; Tournaments сохраняет legacy Node/SQLite/Vanilla UI. ADR-0008 и SVC-* parity/API→UI задачи, roadmap now 49 tasks. Первая coding задача QUB-TEST-001, затем CORE-001; текущая reporting итерация код нового runtime не создавала. Сводный актуальный отчёт docs/reports/STATUS-2026-10-12.md.
+
+## Выполненная первая coding задача — QUB-TEST-001
+
+25 новых HTTP tests на настоящем скопированном server.js, temporary SQLite и fake external transports. Полный runner 353 pass + harness4 = 357, Node94. Runtime/live DB/credentials/services не менялись. Новое ядро не создавалось. Отчёт [QUB-TEST-001](../reports/QUB-TEST-001.md).
+
+AUTH-L01 malformed cookie500, AUTH-L02 pending Google callback после disable, AUTH-L03 unverified email linking подтверждены, не исправлены. Security/linking P0 gates в report/SECURITY/identity docs и QUB-AUTH-008/009/010. Нельзя копировать дефектные expectations в новый Auth. Реальные providers, browser, backup/deploy/device не проверялись.
+
+Текущий цикл: tests/docs прошли, commit/push/CI evidence заполняется после сохранения. Следующая основная ready QUB-CORE-001, отдельный FastAPI/Postgres health/contract/migration foundation на disposable DB, не подключать writable legacy SQLite. Только одна primary задача в этом цикле.

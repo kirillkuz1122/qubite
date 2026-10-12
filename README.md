@@ -218,3 +218,7 @@ Specbot обрабатывает ошибки OpenRouter внутри HTTP 200: 
 Актуальное решение: необходимые общие функции старой платформы реализуются на FastAPI/Postgres; Node/SQLite сохраняется для специализированного Qubite Tournaments. Bot сохраняет имя, получает text/voice auto capture, поддержку и общие уведомления: [ADR-0007](docs/architecture/decisions/0007-platform-extraction-and-capture.md). Всё перечисленное target, не готовый новый runtime.
 
 React/new design scope включает собственные VPN/Writing/Search интерфейсы, не только shell; турнирный интерфейс остаётся Vanilla/Node/SQLite. [Актуальный отчёт и порядок реализации](docs/reports/STATUS-2026-10-12.md), [ADR-0008](docs/architecture/decisions/0008-react-service-surfaces.md).
+
+### Проверка legacy Auth перед переносом
+
+QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего server.js с временной SQLite и synthetic mail/OAuth/CAPTCHA. Запуск: `python3 scripts/engineering/verify.py --suite node`; полный runner+harness — 357 pass. [Отчёт](docs/reports/QUB-TEST-001.md) фиксирует три нерешённых legacy дефекта; тесты не заменяют реальный provider/UI/production acceptance. Следующая основная задача — изолированный FastAPI/Postgres foundation QUB-CORE-001.

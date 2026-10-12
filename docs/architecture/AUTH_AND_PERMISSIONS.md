@@ -24,3 +24,7 @@ users.role=user → subject, grants по audited legacy services. organizer/mode
 Тесты: все 10 кейсов access document; anonymous/blocked/revoked session, cross workspace, owner без budget, hidden UI + прямой URL/API, WS reuse после revoke, grant изменён во время job, model allowed but action denied, cache title/count/edge leakage. Проверять provider call counter==0 на deny. Public share создаёт view capability с resource/expiry, не обычную paid session.
 
 Support grants отдельно support.read/reply/manage, owner выдаёт выбранным сотрудникам, не global/tournament moderator role. Linked Telegram capture reauthorizes each action/model/budget; guest сообщения лишь Support. Никакого автоматического Docs/AI grant из факта сообщения боту.
+
+## Проверенный legacy baseline — 12.10.2026
+
+[QUB-TEST-001](../reports/QUB-TEST-001.md) проверяет 25 сценариев настоящего server.js в disposable fixtures. Совместимость сохраняет данные/subjects/сессии потребителей, но не дефекты: malformed cookie безопасно отклонять, runtime OAuth switch перепроверять в callback, email-only account linking с `email_verified=false` запрещать. AUTH-L03 — P0 gate identity cutover/account linking; реальная эксплуатация provider не проверялась. Эти negative requirements относятся к QUB-AUTH-008/009/010, без изменения действующего runtime в baseline задаче.
