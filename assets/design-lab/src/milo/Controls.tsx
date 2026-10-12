@@ -222,7 +222,13 @@ export function LivingTabs({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const pill = useRef<HTMLSpanElement>(null);
-  const physics = usePhysics(pill, { pillX: 0, pillWidth: 100, pillPull: 0 });
+  const physics = usePhysics(pill, {
+    pillX: 0,
+    pillY: 4,
+    pillWidth: 100,
+    pillHeight: 44,
+    pillPull: 0,
+  });
   const initial = useRef(true);
   const drag = useRef<{
     x: number;
@@ -236,22 +242,44 @@ export function LivingTabs({
       `button[data-id="${value}"]`,
     );
   }
+  const c = useContext(MotionContext);
   function layout(instant = false) {
     const b = selected();
-    if (b)
-      physics.to(
-        { pillX: b.offsetLeft, pillWidth: b.offsetWidth, pillPull: 0 },
-        instant,
-      );
+    if (!b) return;
+    const next = {
+      pillX: b.offsetLeft,
+      pillY: b.offsetTop,
+      pillWidth: b.offsetWidth,
+      pillHeight: b.offsetHeight,
+      pillPull: 0,
+    };
+    if (instant) physics.to(next, true);
+    else if (c?.profile.id === "flux") physics.flow(next);
+    else physics.to(next);
   }
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   useLayoutEffect(() => {
     layout(initial.current);
     initial.current = false;
-    const resize = new ResizeObserver(() => layout(true));
-    if (ref.current) resize.observe(ref.current);
-    return () => resize.disconnect();
   }, [value, items.length]);
-  const c = useContext(MotionContext);
+  useLayoutEffect(() => {
+    // Observe geometry for the lifetime of the group, not each selection.
+    // ResizeObserver's initial notification must not cancel a click animation.
+    let first = true;
+    const resize = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        return;
+      }
+      layoutRef.current(false);
+    });
+    if (ref.current) {
+      resize.observe(ref.current);
+      ref.current.querySelectorAll("button").forEach((b) => resize.observe(b));
+    }
+    return () => resize.disconnect();
+  }, [items.length]);
   return (
     <div className="living-tabs" ref={ref} role="group" aria-label={label}>
       <span className="living-pill" ref={pill} aria-hidden="true" />
@@ -328,7 +356,7 @@ export function LivingTabs({
               onChange(d.target);
             }
             drag.current = null;
-            layout();
+            if (!d?.moved) layout();
             if (e.currentTarget.hasPointerCapture(e.pointerId))
               e.currentTarget.releasePointerCapture(e.pointerId);
           }}
@@ -338,8 +366,10 @@ export function LivingTabs({
             layout();
           }}
           onLostPointerCapture={() => {
-            drag.current = null;
-            layout();
+            if (drag.current) {
+              drag.current = null;
+              layout();
+            }
           }}
         >
           {item.icon}
@@ -369,31 +399,44 @@ export function LivingNavigation({
     navH: 0,
     navOpacity: 0,
   });
-  useLayoutEffect(() => {
+  function layout(instant = false) {
     if (!c) return;
-    const layout = (instant = false) => {
-      const b = ref.current?.querySelector<HTMLButtonElement>(
-        'button[aria-current="page"]',
-      );
-      physics.to(
-        b
-          ? {
-              navX: b.offsetLeft,
-              navY: b.offsetTop,
-              navW: b.offsetWidth,
-              navH: b.offsetHeight,
-              navOpacity: 1,
-            }
-          : { navOpacity: 0 },
-        instant,
-      );
-    };
+    const b = ref.current?.querySelector<HTMLButtonElement>(
+      'button[aria-current="page"]',
+    );
+    const next: Record<string, number> = b
+      ? {
+          navX: b.offsetLeft,
+          navY: b.offsetTop,
+          navW: b.offsetWidth,
+          navH: b.offsetHeight,
+          navOpacity: 1,
+        }
+      : { navOpacity: 0 };
+    if (instant) physics.to(next, true);
+    else if (c.profile.id === "flux") physics.flow(next);
+    else physics.to(next);
+  }
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  useLayoutEffect(() => {
     layout(initial.current);
     initial.current = false;
-    const resize = new ResizeObserver(() => layout(true));
-    if (ref.current) resize.observe(ref.current);
-    return () => resize.disconnect();
   }, [value, !!c]);
+  useLayoutEffect(() => {
+    if (!c || !ref.current) return;
+    let first = true;
+    const resize = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        return;
+      }
+      layoutRef.current(false);
+    });
+    resize.observe(ref.current);
+    ref.current.querySelectorAll("button").forEach((b) => resize.observe(b));
+    return () => resize.disconnect();
+  }, [!!c]);
   return (
     <nav ref={ref} aria-label={label} className={c ? "living-navigation" : ""}>
       {c && (

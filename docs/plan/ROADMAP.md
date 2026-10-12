@@ -92,3 +92,7 @@ flowchart LR
 ```
 
 Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр: 53 карточки, 3 done /1 review-testing /3 ready /46 backlog.
+
+## Поток и витрина — уточнение 13.10.2026
+
+Flux selected; [компонентный контракт](../design/FLUX_DESIGN_SYSTEM.md), ADR-0012. Завершить DESIGN-001 после owner выбора palette/type/marks и проверки на слабом телефоне. Следующая рекомендуемая ready задача AUTH-008 (identity cutover specification), далее утверждённые identity/policy задачи перед React shell. PET-001/002 содержат edge peek/hidden/contextual appearance/retreat: места/условия выбираются при реализации экранов. Static prototype не финальная IA и не product implementation; UI/AI/deploy gates сохраняются.

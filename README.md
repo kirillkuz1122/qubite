@@ -228,3 +228,7 @@ QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего 
 ### Созданное ядро Qubite 2.0
 
 В `core/qubite` реализован отдельный FastAPI foundation 0.1.0: health/readiness/OpenAPI, explicit PostgreSQL migration и 29 тестов с настоящей временной базой. [Локальный запуск](core/README.md), [контракт](contracts/core-v1.json), [отчёт CORE-001](docs/reports/QUB-CORE-001.md). Auth/Owner Console/React/бот ещё следующие задачи, legacy сервисы работают отдельно. Full runner+harness локально386 pass; deploy не выполнялся.
+
+### Поток / дизайн-система (13.10.2026)
+
+Владелец выбрал Flux внутри Milo. [Приватная витрина](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), [контракт](docs/design/FLUX_DESIGN_SYSTEM.md), [код/запуск](assets/design-lab/README.md): компоненты и motion, пять палитр, независимые шрифты заголовков/текста, пять семейств знаков существующих сервисов, refined персонажи/сценарное общение. Это design specimen, не final product layout или работающие AI-агенты. Выбор palette/type/marks и physical acceptance ещё открыты; legacy сервисы не менялись.

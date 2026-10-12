@@ -635,8 +635,8 @@
   },
   {
     "id": "QUB-DESIGN-001",
-    "title": "Milo: живой материал controls и auth UX",
-    "reason": "Владелец выбрал Milo, попросил пять механик controls с настройкой податливости и четыре разных помощника",
+    "title": "Поток: компонентная дизайн-система и мобильный material UX",
+    "reason": "Владелец выбрал Milo → Flux, попросил плавность на телефоне, selectable palettes/fonts/logo families и refined companions; final IA отдельно.",
     "module": "design",
     "priority": "P0",
     "dependencies": [
@@ -658,7 +658,9 @@
       "docs/architecture/decisions/0010-material-lab.md",
       "docs/architecture/decisions/README.md",
       "docs/design/MILO_MATERIAL_AND_COMPANIONS.md",
-      "docs/architecture/decisions/0011-milo-live-controls.md"
+      "docs/architecture/decisions/0011-milo-live-controls.md",
+      "docs/design/FLUX_DESIGN_SYSTEM.md",
+      "docs/architecture/decisions/0012-flux-design-system.md"
     ],
     "acceptance": [
       "Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему",
@@ -666,12 +668,14 @@
       "Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией",
       "Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026",
       "Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review",
-      "Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами"
+      "Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами",
+      "13.10.2026: Flux selected; пять palette, 5 heading/5 body choices, 5 logo families ×12 назначения; mobile motion/overlap review. Final owner selections/physical acceptance before done."
     ],
     "tests": [
       "Проверка docs/links; просмотр макета владельцем",
       "TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API",
-      "98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle"
+      "98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle",
+      "Flux browser: actual intermediate click geometry/duration, 2D mobile pill, 25 font combinations, 60 glyphs, 10 palette-theme WCAG matrices, gaze/touch/4× CPU slowdown/quiet."
     ],
     "risks": [
       "Дизайн-макет не выдавать за реализованный auth"
@@ -689,7 +693,10 @@
       "Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done",
       "Итерация2 existing386 regression+harness pass; check53 tasks/46 docs; archive refs SHA96f0457 unchanged verified origin",
       "Milo02 private Sites version2/deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded19:09:35UTC; source5c6fd389cf432cab56fd8fa7f57c698704cab707 pushed/verified; archive transfer403, remote build fallback",
-      "Milo02 main 2b10ba365f6035bdfb92cdbd34e56a6829095c5c pushed; remote main exact SHA verified; CI38295994465/38295994336 completed/success for exact implementation SHA"
+      "Milo02 main 2b10ba365f6035bdfb92cdbd34e56a6829095c5c pushed; remote main exact SHA verified; CI38295994465/38295994336 completed/success for exact implementation SHA",
+      "13.10.2026: владелец выбрал Поток/Flux; разрешена итерация 3: mobile motion, пять палитр, независимые heading/body fonts, пять семейств знаков всех существующих сервисов и refined companions; только assets/design-lab и docs, acceptance после выбора владельца.",
+      "13.10.2026 Flux03:120/120 browser pass187.9s; final optical Flux22/22 pass57.4s; existing386/harness pass; default fonts4, no APIs/storage; owner palette/type/marks/physical acceptance pending.",
+      "13.10.2026 private Sites version3 published/source c12223d37f0fa3135b742243b8e64def43dc485a remote/version verified; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded; local archive uploaded; root-source0 mismatch."
     ]
   },
   {
@@ -1606,7 +1613,8 @@
     ],
     "acceptance": [
       "Луми/Кип/Пип/Сэйдж persona table; own error vs user/service error; bounded allowed context",
-      "Owner review initiative/cooldown/dismiss/voice; no focus steal or rights widening"
+      "Owner review initiative/cooldown/dismiss/voice; no focus steal or rights widening",
+      "13.10.2026 owner: scenarios hidden/edge peek/contextual appearance/dialogue/retreat; placement, safe-area/keyboard, cooldown/event arbitration by screen/persona, manual summon, privacy/accessibility; final conditions discussed during implementation."
     ],
     "tests": [
       "Contract validation; scenario table owner review; zero provider calls"
@@ -1637,7 +1645,8 @@
     ],
     "acceptance": [
       "Different speech/gestures/context, global hints off/quiet, no interrupt/overlay critical action",
-      "Revision/revoke/dedup/stale response, errors factual, no provider calls or sensitive telemetry"
+      "Revision/revoke/dedup/stale response, errors factual, no provider calls or sensitive telemetry",
+      "Edge appearance/retreat from PET-001 contract; no occlusion of controls/keyboard, touch alternative to hover, bounded gestures/cancel, quiet/reduced motion and stale busy completion."
     ],
     "tests": [
       "Mock event browser tests; cross-scope/privacy/revoke/rapid switch/undo/cancel/accessibility"

@@ -1,6 +1,41 @@
-# QUB-DESIGN-001 — Milo и живой материал интерфейса
+# QUB-DESIGN-001 — Поток / дизайн-система, итерация 03
 
-12.10.2026. **Текущая итерация 2 — review/testing до приёмки новой механики.** Milo выбран владельцем как стилистическая основа; новая физика не выбрана автоматически. Skills, субагенты и quota reset не использовались.
+13.10.2026. **Review/testing: реализация витрины завершена, owner palette/fonts/marks и физическая оценка плавности ещё открыты.** Владелец выбрал Flux/Поток внутри Milo, этот выбор закрыт. Не считать компонентный пример финальной раскладкой product приложения. Skills, subagents и quota reset не использовались.
+
+[Открыть Поток](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), [контракт](../design/FLUX_DESIGN_SYSTEM.md), [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [код/запуск](../../assets/design-lab/README.md).
+
+## Что изменилось и зачем
+
+- Единая витрина Материал/Образ/Знаки/Помощники/Пример/Вход; default FluxStudio. Прежние hash-сцены сохранены. Это компоненты, состояния и сочетания для последующей сборки экранов.
+- Устранено прерывание selection новым ResizeObserver: stable observer, initial notification не отменяет flow, active font weight не меняет размеры. Click/keyboard selection проходят промежуточные позиции/размеры, 250–900 мс (initial520), направление и 2D mobile nav. Нажатие на дальний пункт больше не означает мгновенный snap.
+- Один sleeping RAF scheduler, small-step spring при разной частоте кадров, только изменившиеся style variables. Мобильный лёгкий рендеринг по coarse pointer, вручную переключаемый; во время drag меньше перерисовки краёв/градиента. Отдельный большой silhouette без CSS transition-retarget на каждый кадр. No blur. Snapshot перехода один на сцену; inert уходящий слой заморожен.
+- Пять палитр с dark counterparts без dominant purple: Прилив/Команда/Берег/Терракота/Графит. Пять заголовочных и пять текстовых шрифтов, 25 сочетаний; кириллица/латиница self-hosted/OFL, дополнительные Fontsource versions pinned. На начальном экране реально загружаются только четыре файла Onest/Golos (109.56kB), все 13 files в build362.95kB. Экран font сравнения использует дополнительные видимые семьи.
+- Пять собственных SVG families Лента/Орбита/Зерно/Связи/Портал. 12 назначений ×5 =60 знаков, выбранная семья всех сервисов, сравнительная матрица, wordmark/app icon/inverse/маленькие размеры. Интеграционные разделы не присваивают upstream бренды. Optical finalization знаков после выбора.
+- Библиотека22 UI glyph, action busy/complete/disabled и input, palette/type proof; Components native/keyboard/touch/cancel semantics сохранены.
+- Refined округлённые silhouettes/брови/малые детали, Пип синий вместо фиолетового. Отдельная pose поверх мягкого idle, восемь scripted состояний, shared mouse/touch gaze без React render на move, offscreen idle paused. Три speech patterns, dismiss/own error examples; contextual hints в normal flow не закрывают mobile controls. AI не подключён.
+- Дополнение владельца: hidden/edge peek/contextual entry/dialogue/retreat, safe-area/keyboard/cooldown/privacy/manual summon зафиксированы в spec и PET-001/002 acceptance. Точные места/условия будут решены при реализации экранов; эти появления ещё не product dispatcher.
+
+## Проверка итерации 03
+
+**120/120 Playwright Chromium pass, 187.9s, zero skip/retry/flaky.** 47 первоначальных +51 Milo +22 Flux. После двух завершающих оптических CSS правок дополнительно **22/22 Flux pass,57.4s**. Полный прогон использовал отдельный artifact directory; промежуточный конфликт двух одновременно запущенных default test-results directories устранён последовательным финальным запуском, это не отключённая проверка. Исторический default-route тест направлен на явный Milo v2 hash: default теперь Flux.
+
+Новые checks: 6 разделов ×5 размеров320/360/768/1440/844×390 без page errors/outside requests/overflow; ten palette×theme axe matrices для всех6 разделов; промежуточная click geometry и настройка900ms; 2D mobile pill; 25 font combinations; пять families всех12/матрица60; touch/coarse/gaze и реальное bounded touch drag при4× CPU slowdown с возвратом/no accidental click; восемь states и gaze; speech no overlap на320px; quiet; default+22glyphs/busy/complete/no POST/cookies/storage. Старые cancel/native submit/keyboard/focus/quiet suites сохранены. WCAG rules не отключались. При первом новом прогоне исправлены контраст focus card и header overflow с Unbounded; размер текста selection стабилизирован.
+
+**Existing386/386 regression+harness pass** (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29+harness4), native isolated PG18.6/source-copy, внешние APIs/production не запускались. Combined506 разных автоматических проверок. Известное Starlette/httpx deprecation warning сохраняется. Format/build/diff/check pass. JS343.56kB/gzip104.56kB; CSS133.30kB/gzip26.76kB. Physical weak hardware/Android/Safari/FPS/energy acceptance не измерены; CPU slowdown не доказывает60FPS. Prototype no real agents/Auth/services/DB.
+
+## Выпуск 3 / provenance
+
+Private owner-only project **appgprj_6acd2105bee8819190dbdce429d5a541** reused, audience не менялась. Pushed source **c12223d37f0fa3135b742243b8e64def43dc485a**, remote full SHA verified. Deployment archive строится из этого exact source checkout, содержит только .openai/hosting.json+dist; source checkout clean. Runtime env/DB/secrets/browser state не копировались. CI tests-only, no autodeploy.
+
+**Saved version3** appgprj_6acd2105bee8819190dbdce429d5a541~appgver_4884756d78a08191a57cb87552e95a12; source SHA verified get_site_version. **Deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded**, provider terminal response/failure_message=null. В этой итерации local deployment archive успешно загружен, remote-build fallback не понадобился. Local tar901120bytes, raw SHA2564e1e095f6ba04f0e175a2e55dbbfd0c61e0fb1d0d6ff8e43d117868efd2f9df9. Sites archive_storage:24 files/901120bytes, content_hash sha256:d7a2cc6d46042601caeacf71a2f27527a9eddc1b1e951190abeb1e4ec233bed6 (server metadata, не утверждение равенства raw hash). Сравнение всех demo source files с root:0 mismatch. Public URL тот же; внешний вход в браузере агента не повторялся. Владелец уже подтвердил доступность прежнего site; новые ощущения/визуальный выбор он проверяет самостоятельно.
+
+Main/CI evidence дополняется после commit/push. Следующая рекомендованная ready задача AUTH-008: identity cutover specification для нового FastAPI/Postgres с картой consumers/сессий/verifier/rollback, без live cutover. UI-001 gates AUTH-003+DESIGN-001 сохраняются. В этой задаче следующие этапы не начинались.
+
+---
+
+# История: итерация 2 — Milo и живой материал интерфейса
+
+12.10.2026. **Историческая итерация 2 — review/testing до приёмки новой механики.** Milo выбран владельцем как стилистическая основа; новая физика не выбрана автоматически. Skills, субагенты и quota reset не использовались.
 
 ## Новое решение и реализация
 

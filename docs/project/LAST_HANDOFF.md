@@ -1,28 +1,24 @@
-# Передача следующей сессии — 13.10.2026
+# Передача следующей сессии — 13.10.2026 / Flux03
 
-**QUB-DESIGN-001 review/testing, итерация 2.** Владелец подтвердил, что прежнее приватное демо открывается, выбрал пятый стиль **Milo**, но отверг понимание живого материала как скульптуры. Нужен материал всех controls/переходов. Не переспрашивать выбор базового стиля, фиксированную силу или browser sign-in. Финальная механика пока не принята.
+**QUB-DESIGN-001 review/testing, итерация03.** Владелец выбрал **Поток/Flux**, второй материал Milo. Не переспрашивать base style/силу/sign-in. Нужны mobile smoothness и material controls, а не только питомцы. Компонентная витрина реализована; palette/heading/body/logo family и оценка движения на слабом телефоне ещё открыты. Final product layout не выбирался.
 
-[Новый Milo](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/milo/v2/souffle/controls), [код/запуск](../../assets/design-lab/README.md), [спецификация](../design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0011](../architecture/decisions/0011-milo-live-controls.md), [отчёт с publication/CI evidence](../reports/QUB-DESIGN-001.md).
+[Открыть Поток](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), [контракт](../design/FLUX_DESIGN_SYSTEM.md), [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [отчёт/evidence](../reports/QUB-DESIGN-001.md), [код/запуск](../../assets/design-lab/README.md).
 
-## Реально сделано
+## Что реально готово
 
-Пять механик внутри Milo: Суфле/Поток/Ореол/Магнит/Лепестки. Spring buttons с bounded drag/cancel/no accidental click, range с живой головкой, drag switch, движущийся pill tabs/navigation, menu expansion и dialog из trigger, section/auth continuity. Податливость 0–100, quiet/system reduced motion, hints toggle, light/dark/device widths. Новая версия default/маршруты `#/milo/v2/{profile}/{screen}`; старая галерея оставлена для истории.
+Default FluxStudio: Материал/Образ/Знаки/Помощники/Пример/Вход. Пять light/dark palettes без dominant purple; 5 heading/5 body choices независимы; 5 SVG families ×12 назначения =60 знаков, матрица/wordmark/app/inverse/small proofs. 22 UI glyph и busy/complete/disabled/input. Native controls, единый sleeping RAF, stable ResizeObserver/timed click interpolation250–900ms/2D pill, coarse/manual lightweight renderer, strength/quiet/hints. Старые original/Milo v2 routes сохранены и явно тестируются. Все настройки in-memory, real APIs нет.
 
-Четыре scripted помощника со своими idle rhythms и фразами: Луми/Life, Кип/Projects, Пип/Notes, Сэйдж/Diary+очки/блокнот. События idle/focus/success/error/agentError, contextual hint dismiss/10sec/hints off. Это прототип будущих AI-агентов, ни одна модель не подключена. Новые UI-002/PET-001..003 backlog, условия контекста/права/бюджеты/инициатива в спецификации.
+Четыре rounded companions/брови/детали/глаза, Пип синий; smooth pose поверх idle, mouse/touch gaze, offscreen paused,8 scripted states,3 speech modes. AI не подключён. Дополнение пользователя «из края вылазит» сохранено в Flux spec и PET-001/002 acceptance: hidden/edge peek/contextual entry/dialogue/retreat/cooldown/safe-area/keyboard/privacy/manual summon. **Места/условия решаются при реализации экранов**, не выдавать сейчас за ready product dispatcher.
 
-**98/98 browser tests pass (2.2min)**, format/build pass. Старые47 + новые51; обе темы/axe, 25 сцен по пяти размерам, drag/cancel/keyboard/touch/quiet/focus/RAF stops/no APIs/storage. Fonts self-hosted/OFL. Existing386 regression+harness pass; combined484. Подробная evidence source publish/main SHA/CI — report; current refs проверить git/remote. No physical device/Safari/Ink/real-service/AI acceptance. Skills/reset/subagents не использовались по прямому указанию владельца.
+**120/120 browser pass,187.9s, no retries/skips/flaky; после оптической CSS доводки22/22 Flux повторно pass57.4s.** Existing386 suites+harness pass, combined506 unique checks. Format/build/check/diff pass. Native temporary PG18.6, synthetic source-copy; no live API/device/paid calls. Physical weak hardware/Safari/FPS acceptance отдельно. Default font requests4 (Onest/Golos109.56kB), CSS133.30/gzip26.76kB/JS343.56/gzip104.56kB. Подробности/ошибки промежуточных прогонов/границы в report.
 
 ## Публикация и продолжение
 
-Main implementation **2b10ba365f6035bdfb92cdbd34e56a6829095c5c** pushed/remote verified; CI38295994465/38295994336 completed/success для этого SHA. Полное состояние report/tasks.json.
+**Выпуск3 успешно опубликован** на прежнем owner-private site. Pushed source **c12223d37f0fa3135b742243b8e64def43dc485a**, remote fullSHA verified, source mirrors root demo0 mismatch; saved version3 source verified. Deployment **appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded**; archive загрузился, fallback не понадобился. Все IDs/raw archive hash/metadata в report. Reuse **appgprj_6acd2105bee8819190dbdce429d5a541** из assets/design-lab/.openai/hosting.json; no new site/audience changes/tokens persisted. CI tests-only. Внешний sign-in агента ранее rejected, его не повторять; владелец уже сам открывал демо.
 
-**Выпуск2 опубликован:** source5c6fd389cf432cab56fd8fa7f57c698704cab707, remote verified; saved version2/source verified; deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded2026-10-12T19:09:35UTC. Archive upload403, remote build fallback того же SHA успешно. Точные IDs/evidence в report.
+Main commit/push/CI evidence в report после завершения. Skills/reset/subagents не использовались по указанию владельца. Legacy runtime/.env/DB/services/ShadeAI/архив не менялись. Production Qubite deploy отдельно.
 
-Reuse owner-private Sites **appgprj_6acd2105bee8819190dbdce429d5a541**, `assets/design-lab/.openai/hosting.json`. Второй site не создавать; tokens только process memory. Source repository отдельный, только demo, pushed fullSHA и build из него; комбинированный save/deploy, terminal status проверить. CI tests-only, без autodeploy. Предыдущий main0173d74: Material Lab38289913101 и verification38289913120 success. Предыдущая sourcef5fa089/deployment18:08:19UTC сохранены в report как история.
-
-Внешний browser вход ранее отклонён automatic review; владелец уже сам подтвердил доступность. Не повторять auth действие. Новая mechanics acceptance на устройстве остаётся отдельной оценкой владельца. Secrets/.env/production DB/legacy runtime/tournaments archive/работающие сервисы и ShadeAI не менялись. Local preview4317 только demo; временные venv/PG/source checkout могут исчезнуть.
-
-Первый следующий шаг — feedback по пяти механикам на регулируемой силе, конкретные правки и acceptance. DESIGN-001 не done до этого, product UI по dependencies. Реестр53: **3 done /1 review-testing /3 ready /46 backlog**. Ready AUTH-008/DEPLOY-001/TG-001 отдельные bounded specs, не начинались. Один primary cycle; read AGENTS/CLAUDE/context/tasks/ADR/harness, русский commit и немедленный pushmain. Live deploy отдельно.
+**Следующий шаг после выбора владельца: рекомендован QUB-AUTH-008** (ready; CORE-001/TEST-001 done), identity cutover specification FastAPI/Postgres с consumers/verifier/session/revoke/rollback, без live cutover. Не начинать без нового bounded cycle. UI-001 требует AUTH-003+DESIGN-001; UI-002/PET-001..003 backlog. Registry53:3done/1review-testing/3ready/46backlog. AUTH-008/DEPLOY-001/TG-001 ready — specification ещё не исполнены.
 
 ## Сохранённые foundation и решения
 

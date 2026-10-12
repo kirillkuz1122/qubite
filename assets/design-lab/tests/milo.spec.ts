@@ -224,7 +224,7 @@ test("Milo: настройки 0/100 и системное уменьшение 
   page,
   context,
 }) => {
-  await page.goto("/");
+  await page.goto("/#/milo/v2/souffle/controls");
   await expect(page.locator(".milo-lab")).toHaveAttribute(
     "data-material",
     "souffle",

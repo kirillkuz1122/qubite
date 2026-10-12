@@ -1,3 +1,5 @@
+> Актуально 13.10.2026: владелец выбрал **Поток** внутри Milo. [Витрина дизайн-системы](FLUX_DESIGN_SYSTEM.md) — components/tokens/palette/type/marks/companions; palette/fonts/logo family и physical-device acceptance открыты. История и ранние рекомендации ниже не заменяют это решение. UI-001/002 gates сохраняются.
+
 # План дизайн-системы
 
 CONFIRMED 12.10.2026: новая React/TS shell alongside legacy и полностью новый дизайн, собственные visual tokens; existing docs/design-system.md и /design-system — референс действующих компонентов, не новая платформа. В данном этапе никаких UI файлов runtime не меняем.

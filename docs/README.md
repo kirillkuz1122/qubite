@@ -63,3 +63,5 @@
 [Первая coding задача QUB-TEST-001: реальный Auth HTTP baseline, evidence и известные дефекты](reports/QUB-TEST-001.md).
 
 [Созданный core foundation](architecture/CORE_FOUNDATION.md), [запуск](../core/README.md), [отчёт QUB-CORE-001](reports/QUB-CORE-001.md).
+
+- [Поток / витрина компонентов, палитры, типографика, знаки и появление помощников](design/FLUX_DESIGN_SYSTEM.md) — актуальная DESIGN-001 итерация 03.

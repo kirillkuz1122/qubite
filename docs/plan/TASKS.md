@@ -384,7 +384,7 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## QUB-DESIGN-001 — Milo: живой материал controls и auth UX
+## QUB-DESIGN-001 — Поток: компонентная дизайн-система и мобильный material UX
 
 Модуль: design; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
 
@@ -1049,3 +1049,7 @@ Acceptance:
 Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
 
 Commit: после выполнения. Evidence: .
+
+## Уточнение DESIGN/PET 13.10.2026
+
+Выбран Flux/Поток внутри Milo. [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [specimen contract](../design/FLUX_DESIGN_SYSTEM.md). DESIGN-001 review/testing: пять palette, 5 heading/5 body choices, 5 SVG families ×12 назначения, 22 UI icons, mobile continuous selection/lightweight и refined pets/gaze/8 events/3 speech modes. Final owner palette/type/marks/weak-device acceptance открыт; базовый material не переспрашивать. PET-001/002 дополнены hidden/edge peek/contextual entry/dialogue/retreat, safe-area/keyboard/visibility/cooldown/accessibility, конкретное placement обсудить при разработке. Рекомендуемый следующий ready cycle AUTH-008, UI-001 deps AUTH-003+DESIGN-001 остаются. Точные evidence и актуальные статусы — tasks.json/report/handoff; ранние цифры выше исторические.

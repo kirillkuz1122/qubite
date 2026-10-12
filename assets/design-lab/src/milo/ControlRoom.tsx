@@ -8,7 +8,7 @@ import {
 } from "./Controls";
 import { MotionContext } from "./motion";
 import { Icon } from "../Icons";
-export function ControlRoom() {
+export function ControlRoom({ studio = false }: { studio?: boolean }) {
   const c = useContext(MotionContext)!;
   const [value, setValue] = useState(45),
     [tone, setTone] = useState(2);
@@ -73,11 +73,14 @@ export function ControlRoom() {
     <div className="control-room">
       <header className="control-intro">
         <div>
-          <span className="eyebrow">MILO / {c.profile.name.toUpperCase()}</span>
+          <span className="eyebrow">
+            {studio ? "QUBITE / МАТЕРИАЛ" : "MILO"} /{" "}
+            {c.profile.name.toUpperCase()}
+          </span>
           <h1>
-            Не смотри.
+            {studio ? "Мягко." : "Не смотри."}
             <br />
-            <em>Потрогай.</em>
+            <em>{studio ? "По-твоему." : "Потрогай."}</em>
           </h1>
           <p>{c.profile.detail}</p>
         </div>

@@ -111,9 +111,12 @@ export function MorphContent({
       ghost.replaceChildren();
     }
     previous.current = identity;
-    snapshot.current = Array.from(content.childNodes).map((n) =>
-      n.cloneNode(true),
-    );
+    // A visual snapshot is needed once per scene, not on every keystroke.
+    // Freeze decorative animation in the departing layer as well.
+    if (changed)
+      snapshot.current = Array.from(content.childNodes).map((n) =>
+        n.cloneNode(true),
+      );
   });
   useLayoutEffect(
     () => () => {
