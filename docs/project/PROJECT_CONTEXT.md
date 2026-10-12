@@ -13,3 +13,5 @@ State: QUB-001 review/testing, product tasks backlog, ready отсутствуе
 Проверки/границы: 332 проверки прошли (полный isolated runner + harness), текущий report содержит реальные результаты; архив code-only, runtime data backups ещё не создано. Production environment неизвестен локально; docs Pi snapshot не current verification. Test runner копирует source без .env/секретов/real HOME и блокирует внешнюю сеть. Paid/TG sends/HA actions не запускать.
 
 Next: обсуждение 6 ключевых вопросов, read-only OPS-001/backup drill и full auth/tournament regression, затем owner/mock foundation. Новый функционал идёт небольшими approved задачами; один writer на домен, no dual DB writes. Commit/push на main разрешён для baseline; production отдельно.
+
+CI baseline ae3f71e успешно завершился на GitHub (run 38197926998), результаты сохранены report/handoff. На сервер ничего не раскатывалось. Архитектура всё ещё требует решения владельца; CI green не снимает этот gate.

@@ -9,3 +9,5 @@
 Продолжить: git status/log → project context/report → tasks.json/ADR/open questions. Implementation tasks пока не ready; дождаться архитектурного решения владельца. Обсудить core A/B, Postgres capacity, identity authority, staging/routing/prod reference, backup/recovery/offline policy, планшет. Затем TEST-001/OPS-001/Owner Console foundation без самовольного live deploy.
 
 Commit для этой работы находится через git log --grep='Подготовлен архитектурный baseline Qubite 2.0'. После push проверить remote main. Не пытаться встроить hash самого handoff в тот же commit: это циклическая ссылка. Завершение/approval фиксировать отдельным follow-up docs task, не объявлять done сейчас.
+
+GitHub Actions baseline ae3f71e успешно прошёл [run 38197926998](https://github.com/kirillkuz1122/qubite/actions/runs/38197926998); отдельным docs-коммитом сохранено подтверждение. Runtime/deployment не выполнялись. Последний main SHA брать из git log, archive остаётся 96f0457.
