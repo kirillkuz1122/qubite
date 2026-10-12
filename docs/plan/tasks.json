@@ -538,7 +538,8 @@
     ],
     "acceptance": [
       "Старые URLs/results/team roles сохранены, API alias tested",
-      "Tournaments отдельная navigation, no global admin elevation"
+      "Tournaments отдельная navigation, no global admin elevation",
+      "Сохранить Node/SQLite и старый Vanilla UI; React только outer module entry/status, не перепись tournament UI"
     ],
     "tests": [
       "verify.py --suite all + tournament E2E + policy diff"
@@ -1289,6 +1290,186 @@
       "Spam/quiet-hours/неверный scope или повтор уведомления"
     ],
     "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-SEARCH-001",
+    "title": "Search parity и FastAPI service API contract",
+    "reason": "Search собственный сервис новой платформы, не ссылка на старый HTML",
+    "module": "search",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-001"
+    ],
+    "files": [
+      "core/qubite/services/search (будущий)",
+      "contracts/search-service-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Матрица search/fetch/history/free-paid/media/keys/log protection/grounding/usage по source",
+      "FastAPI platform adapter к рабочему Search engine, scoped keys и ACL, deny before paid calls",
+      "History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001"
+    ],
+    "tests": [
+      "Search adapter fixtures, owner/free/paid/revoked/history/privacy negative tests"
+    ],
+    "risks": [
+      "SSRF/private history/cost double accounting"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-SEARCH-002",
+    "title": "React Search интерфейс в новой дизайн-системе",
+    "reason": "Полностью обновить собственный Search UI",
+    "module": "search",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-SVC-SEARCH-001",
+      "QUB-UI-001"
+    ],
+    "files": [
+      "apps/web/services/search (будущий)"
+    ],
+    "acceptance": [
+      "Search input/results/history/answer/media/status/permissions новое React UI",
+      "Нет unsafe iframe/HTML; cancellation/new query ordering; mobile/keyboard",
+      "Parity+UX acceptance со старым Search, старый route сохраняется до switch"
+    ],
+    "tests": [
+      "React unit/typecheck/build; Playwright search/media/history/deny/revoke/cancel"
+    ],
+    "risks": [
+      "Stale answer race/private history leakage/media unsafe sources"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-WRITING-001",
+    "title": "Writing parity и FastAPI grammar/AI API contract",
+    "reason": "Writing engine использовать через целевой API без потери существующих функций",
+    "module": "writing",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-001"
+    ],
+    "files": [
+      "core/qubite/services/writing (будущий)",
+      "contracts/writing-service-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Separate local check и paid AI actions/grants/keys/budgets",
+      "LanguageTool adapter + shared cost guard, cancel/version/UTF16-compatible offsets",
+      "Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён"
+    ],
+    "tests": [
+      "Grammar/AI/budget/revoke/UTF16/cancel and addon fixtures"
+    ],
+    "risks": [
+      "Addon breakage/text leaks/UTF16 edits overwrite"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-WRITING-002",
+    "title": "React Writing editor с новым UI и highlights",
+    "reason": "Сервисный editor привести к общему Qubite UX",
+    "module": "writing",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-SVC-WRITING-001",
+      "QUB-UI-001"
+    ],
+    "files": [
+      "apps/web/services/writing (будущий)"
+    ],
+    "acceptance": [
+      "Новый editor/check/AI-diff/accept/undo interface на React",
+      "Async result не перезаписывает последующие edits; offsets и safe highlight handling",
+      "Draft autosave/keyboard/mobile и parity со старым /writing; addon redesign отдельным slice"
+    ],
+    "tests": [
+      "React build/typecheck; Playwright text edits/cancel/check/AI diff/undo"
+    ],
+    "risks": [
+      "Потеря текста/несовпадение offsets/stale update"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-VPN-001",
+    "title": "VPN parity и FastAPI node/subscription API contract",
+    "reason": "VPN platform domain на FastAPI с сохранением network engines",
+    "module": "vpn",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-001"
+    ],
+    "files": [
+      "core/qubite/services/vpn (будущий)",
+      "contracts/vpn-service-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Node heartbeat/status/profile/NaiveProxy toggle/subscription/device lifecycle mapping",
+      "Grants отдельно node management, protected credentials и Auth/app compatibility",
+      "Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные"
+    ],
+    "tests": [
+      "Synthetic node/credential/revoke/device/stale/kill-switch fixture tests"
+    ],
+    "risks": [
+      "Потеря connectivity/credential exposure/node authority confusion"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-VPN-002",
+    "title": "React VPN workspace и owner node/settings UI",
+    "reason": "VPN включён в новый React Qubite, не legacy services страница",
+    "module": "vpn",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-SVC-VPN-001",
+      "QUB-UI-001"
+    ],
+    "files": [
+      "apps/web/services/vpn (будущий)"
+    ],
+    "acceptance": [
+      "Новый React server/device/subscription/settings UI и общий design tokens",
+      "User vs owner node controls, heartbeat/disabled/missing states корректны",
+      "Пароли/tokens не URLs/logs; copy/QR только своих scoped credentials; existing native app работает"
+    ],
+    "tests": [
+      "React build/typecheck; Playwright owner/user/deny/stale/profile flows"
+    ],
+    "risks": [
+      "Leak scoped credentials/UI privilege bypass"
+    ],
+    "rollback": "Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": true,

@@ -11,3 +11,5 @@ POC 1: owner/nonowner shell и modules unavailable/denied/budget states, без 
 Acceptance viewport 360/768/1280+ и реальное устройство; табуляция/screenreader/zoom 200%, контраст, reduced motion, нет horizontal overflow. Frequent capture ≤3 действий как design goal; измерить на реальном UX. Screenshot baseline перед переносом legacy. Оптимистичный UI не пишет synced без ack; AI edits diff/accept/reject/undo. Hardware latency Ink фиксировать после benchmark, не обещать цифры заранее.
 
 Отдельный slice: новые login/register/reset/OAuth экраны, email/password и минимум согласий, optional display name после входа. Без account code-entry и обязательных турнирных ФИО/школы/класса; security verification codes сохраняются. Сначала конкретный макет/UX acceptance, затем UI реализация. Сайт/desktop используют общие tokens/components, Android согласованный visual language и native Ink.
+
+Уточнение UI scope: новый дизайн/React всех собственных включённых сервисов VPN/Writing/Search; Tournaments сохраняет Vanilla legacy UI. [ADR-0008](../architecture/decisions/0008-react-service-surfaces.md).

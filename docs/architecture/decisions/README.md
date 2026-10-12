@@ -11,3 +11,4 @@
 | [0005](0005-identity-transition.md) | Обновлено владельцем 12.10.2026 | FastAPI Auth, временная legacy compatibility, новая UI/регистрация |
 | [0006](0006-clients-and-deployment.md) | CONFIRMED scope / POC механизм | web/Android/Linux desktop, portable clients, deploy + installer |
 | [0007](0007-platform-extraction-and-capture.md) | CONFIRMED 12.10.2026 | нужные shared функции FastAPI, optional legacy Tournaments, automatic capture/support/notifications |
+| [0008](0008-react-service-surfaces.md) | CONFIRMED 12.10.2026 | собственные VPN/Writing/Search и остальные included UI на React; Tournaments сохраняет Vanilla/Node/SQLite |

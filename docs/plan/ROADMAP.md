@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [43 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
+Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [49 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
@@ -61,3 +61,15 @@ INK-001 отдельный research track с аппаратным approval; по
 Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG ответы получены; пять ready задач продолжают foundation/specification. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.
 
 Shared extraction: CORE/identity plan → FastAPI sessions → OAuth/verify/reset/minimal register → React Auth → staged consumer cutover после backup/restore. CORE-002 general/module settings на target core. Полный tournament engine rewrite исключён из текущего roadmap. Capture: TG-002 → CAPTURE-001 durable text → CAPTURE-002 AI routing (после AI guard/Docs); CAPTURE-003 durable voice + STT parallel. Notifications: policy/TG-002 → NOTIFY-001 event/outbox/deep links → NOTIFY-002 daily/critical policies.
+
+## Порядок начала реализации
+
+1. QUB-TEST-001 — первая задача: isolated HTTP characterization старого Auth (register/login/logout/revoke/reset, OAuth mock, блокировки/CSRF). Фиксируем нужную совместимость перед переносом.
+2. QUB-CORE-001 — изолированное FastAPI/Postgres ядро: запуск/health/versioned migration/contract checks, без real accounts или записи в legacy SQLite.
+3. QUB-DESIGN-001 — visual direction и reviewable Auth/основной navigation UX; затем React shell по dependency gates. На этом шаге не рисовать сразу все поздние модули.
+4. QUB-DEPLOY-001 и TG-001 — installer/service manifest specification и bot command/capability parity; доступные дополнительные tracks, без отвлечения от одной primary coding task.
+5. Identity plan/protocol → FastAPI sessions/OAuth/reset/register → policy/settings/atomic mock budgets → React shell/Owner Console → целостная access acceptance.
+6. Новые сервисы: SVC-SEARCH-001→002, SVC-WRITING-001→002, SVC-VPN-001→002. Каждый сначала contract/parity/API, затем React UI и отдельный tested switch. SEARCH-001 в knowledge track — внутренний поиск документов, другой сервис.
+7. Docs/capture/sync/notifications вертикальными slices; desktop/Linux и Android Ink POC по готовым API/UX и device gates. Tournaments low-priority compatibility track, сохраняя старый UI.
+
+Ready означает разрешённую задачу, не начатую и не готовую функцию. Сейчас primary coding задача ещё не переведена in_progress: этот цикл завершает отчёт/план, не скрыто запускает реализацию.

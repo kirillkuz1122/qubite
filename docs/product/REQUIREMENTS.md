@@ -108,3 +108,5 @@
 Для первых задач mapping: QUB-AUTH-* → REQ-CORE/OWNER/AI/NFR-SEC; DOC/SYNC/SEARCH/HISTORY → REQ-DOC/SYNC/SEARCH/HIST; INK-001 → REQ-INK/NFR-PERF; OPS → NFR-DATA/REQ-MIG; TEST → NFR-ENG. TASKS acceptance конкретизирует scope, а source остается неизменным baseline. При расхождении access policy и старых глобальных roles приоритет у policy. Coverage checker должен найти 48 IDEA IDs и каждый source section; final acceptance соответствующего требования требует test evidence + user/device где применимо.
 
 Уточнение 12.10.2026: общий Auth/settings/support/analytics/observability/command backend на FastAPI/Postgres; optional tournament engine остаётся Node/SQLite. Telegram auto capture без выбора раздела + guest Support с отдельными staff grants + daily/critical notifications с app links. Это дополнение к source trace, оригинальные master/access документы не изменены.
+
+Уточнение frontend scope 12.10.2026: все собственные интерфейсы included services VPN/Writing/Search и прочие части нового Qubite на React/TS/новом design system. Исключение Qubite Tournaments — legacy Vanilla UI/Node/SQLite. Соответствующие SVC-* API/parity и UI task pairs в registry.

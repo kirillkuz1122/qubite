@@ -1,6 +1,6 @@
 # Карточки небольших задач
 
-Источник состояния — [tasks.json](tasks.json). Последнее решение 12.10.2026: нужные shared legacy функции FastAPI, tournament engine Node/SQLite отдельно; capture/Support/уведомления подтверждены. Только ready задачи для bounded cycle; live миграция/deploy отдельно.
+Источник состояния — [tasks.json](tasks.json). Shared APIs FastAPI/Postgres; собственные included service UI React/new design; Tournaments legacy Node/SQLite/Vanilla. Только ready задачи для bounded cycle; live migration/deploy отдельно. Первая реализация QUB-TEST-001.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -357,6 +357,7 @@ Acceptance:
 
 - Старые URLs/results/team roles сохранены, API alias tested
 - Tournaments отдельная navigation, no global admin elevation
+- Сохранить Node/SQLite и старый Vanilla UI; React только outer module entry/status, не перепись tournament UI
 
 Проверка: verify.py --suite all + tournament E2E + policy diff.
 
@@ -841,5 +842,125 @@ Acceptance:
 Проверка: Clock/DST/UTC/missed/revoke/dedup/unknown-delivery fixtures.
 
 Риск: Spam/quiet-hours/неверный scope или повтор уведомления. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-SEARCH-001 — Search parity и FastAPI service API contract
+
+Модуль: search; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+
+Причина: Search собственный сервис новой платформы, не ссылка на старый HTML.
+
+Файлы/контракты: `core/qubite/services/search (будущий)`, `contracts/search-service-v1.json (будущий)`.
+
+Acceptance:
+
+- Матрица search/fetch/history/free-paid/media/keys/log protection/grounding/usage по source
+- FastAPI platform adapter к рабочему Search engine, scoped keys и ACL, deny before paid calls
+- History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001
+
+Проверка: Search adapter fixtures, owner/free/paid/revoked/history/privacy negative tests.
+
+Риск: SSRF/private history/cost double accounting. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-SEARCH-002 — React Search интерфейс в новой дизайн-системе
+
+Модуль: search; P1; статус backlog; architecture approved: true. Зависимости: QUB-SVC-SEARCH-001, QUB-UI-001.
+
+Причина: Полностью обновить собственный Search UI.
+
+Файлы/контракты: `apps/web/services/search (будущий)`.
+
+Acceptance:
+
+- Search input/results/history/answer/media/status/permissions новое React UI
+- Нет unsafe iframe/HTML; cancellation/new query ordering; mobile/keyboard
+- Parity+UX acceptance со старым Search, старый route сохраняется до switch
+
+Проверка: React unit/typecheck/build; Playwright search/media/history/deny/revoke/cancel.
+
+Риск: Stale answer race/private history leakage/media unsafe sources. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-WRITING-001 — Writing parity и FastAPI grammar/AI API contract
+
+Модуль: writing; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+
+Причина: Writing engine использовать через целевой API без потери существующих функций.
+
+Файлы/контракты: `core/qubite/services/writing (будущий)`, `contracts/writing-service-v1.json (будущий)`.
+
+Acceptance:
+
+- Separate local check и paid AI actions/grants/keys/budgets
+- LanguageTool adapter + shared cost guard, cancel/version/UTF16-compatible offsets
+- Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён
+
+Проверка: Grammar/AI/budget/revoke/UTF16/cancel and addon fixtures.
+
+Риск: Addon breakage/text leaks/UTF16 edits overwrite. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-WRITING-002 — React Writing editor с новым UI и highlights
+
+Модуль: writing; P1; статус backlog; architecture approved: true. Зависимости: QUB-SVC-WRITING-001, QUB-UI-001.
+
+Причина: Сервисный editor привести к общему Qubite UX.
+
+Файлы/контракты: `apps/web/services/writing (будущий)`.
+
+Acceptance:
+
+- Новый editor/check/AI-diff/accept/undo interface на React
+- Async result не перезаписывает последующие edits; offsets и safe highlight handling
+- Draft autosave/keyboard/mobile и parity со старым /writing; addon redesign отдельным slice
+
+Проверка: React build/typecheck; Playwright text edits/cancel/check/AI diff/undo.
+
+Риск: Потеря текста/несовпадение offsets/stale update. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-VPN-001 — VPN parity и FastAPI node/subscription API contract
+
+Модуль: vpn; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+
+Причина: VPN platform domain на FastAPI с сохранением network engines.
+
+Файлы/контракты: `core/qubite/services/vpn (будущий)`, `contracts/vpn-service-v1.json (будущий)`.
+
+Acceptance:
+
+- Node heartbeat/status/profile/NaiveProxy toggle/subscription/device lifecycle mapping
+- Grants отдельно node management, protected credentials и Auth/app compatibility
+- Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные
+
+Проверка: Synthetic node/credential/revoke/device/stale/kill-switch fixture tests.
+
+Риск: Потеря connectivity/credential exposure/node authority confusion. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-SVC-VPN-002 — React VPN workspace и owner node/settings UI
+
+Модуль: vpn; P1; статус backlog; architecture approved: true. Зависимости: QUB-SVC-VPN-001, QUB-UI-001.
+
+Причина: VPN включён в новый React Qubite, не legacy services страница.
+
+Файлы/контракты: `apps/web/services/vpn (будущий)`.
+
+Acceptance:
+
+- Новый React server/device/subscription/settings UI и общий design tokens
+- User vs owner node controls, heartbeat/disabled/missing states корректны
+- Пароли/tokens не URLs/logs; copy/QR только своих scoped credentials; existing native app работает
+
+Проверка: React build/typecheck; Playwright owner/user/deny/stale/profile flows.
+
+Риск: Leak scoped credentials/UI privilege bypass. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
 
 Commit: после выполнения. Evidence: .

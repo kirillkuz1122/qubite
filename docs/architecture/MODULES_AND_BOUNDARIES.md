@@ -31,3 +31,5 @@ RECOMMENDED: логические модули, а не процесс на ка
 Спецификации поздних модулей: Life требует key recovery до хранения реальных записей; Finance balances/compensation до импорта денег; School адаптер manual-first; Studio после Ink benchmark; Teams после ACL revocation tests; Pulse после durable jobs. Подробности сохранены в master и requirement source map; API этих поздних модулей не объявляется уже стабильным.
 
 Telegram control bot — отдельный process adapter Core/Owner/Support/module commands, без собственного permission/budget engine. Platform Analytics/Infrastructure — Owner Console, tournament analytics/settings/moderation — Tournaments. Support roles отделены от турниров. Существующие функции и split матрица: [Telegram и наблюдаемость](TELEGRAM_AND_OBSERVABILITY.md).
+
+Уточнение UI scope 12.10.2026: собственные интерфейсы включённых сервисов VPN/Writing/Search и всех прочих частей нового Qubite переписываются на React/TS с новым дизайном, не только landing shell. Qubite Tournaments сохраняет текущий Vanilla UI/Node/SQLite. Platform APIs FastAPI; рабочие native engines через adapters. [ADR-0008](decisions/0008-react-service-surfaces.md).
