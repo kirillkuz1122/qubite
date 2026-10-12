@@ -10,6 +10,7 @@
 - ShadeAI `/home/kirill/programing/ShadeAI` только read-only для будущего connector, без import/merge/secrets/cloud runtime changes.
 - Проверки: `python3 scripts/engineering/check.py`; `python3 scripts/engineering/verify.py --suite all --python <test-venv-python>`. Runner использует source-copy без .env, isolated HOME/DB и no external network. Итоги в [QUB-001](docs/reports/QUB-001.md); pass mocks не означает real API/device/production acceptance.
 - Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
+- DESIGN-001 review/testing: отдельный React/TS/Vite [Material Lab](assets/design-lab/README.md), пять направлений и 20 сцен, 47 browser tests; final style ещё не выбран. [Спецификация](docs/design/MATERIAL_DIRECTIONS.md), [Auth UX](docs/design/AUTH_UX.md), [report](docs/reports/QUB-DESIGN-001.md). По прямому запросу владельца для этого дизайн-цикла не использовать skills/quota reset. Separate private static Sites publication разрешена для демо, не означает разрешение live Qubite deploy. Reuse exact project_id из assets/design-lab/.openai/hosting.json; краткоживущие tokens не сохранять. CI design-lab только tests, без автопубликации.
 
 ---
 
@@ -29,7 +30,7 @@
 
 ## Не делайте ложных предположений
 
-- Это не React/Vite/Next-проект.
+- Legacy runtime не React/Vite/Next. Новый независимый React/TS дизайн-прототип — `assets/design-lab/`, собственный package.json/lock/toolchain, не product frontend.
 - Фронтенд здесь в основном живёт в:
   - `index.html`
   - `front/css/styles.css`
@@ -145,7 +146,7 @@
 ### Стек и запуск
 
 - Node.js + Express 5 + `sqlite3` + `xlsx`. CommonJS (`"type": "commonjs"`).
-- `package.json` только один — в `back/`. В корне проекта его нет.
+- Legacy `package.json` — в `back/`; новый отдельный prototype package — `assets/design-lab/`. В корне package.json нет. Не запускать React команды в back или корне.
 - Запуск локально: `cd back && npm install && node server.js`.
 - Production-запуск: `npm start` (`node server.js`), обычно под PM2 + Nginx.
 - По умолчанию слушает `127.0.0.1:3000` (см. `.env` → `HOST`, `PORT`, `APP_BASE_URL`).
@@ -302,8 +303,8 @@ Control bot полностью переделать с сохранением н
 
 Последнее решение 12.10.2026 (ADR-0007): нужные общие legacy функции реализуем на FastAPI/Postgres; permanent shared JS adapter отменён, Node/Auth лишь до verified cutover, tournament engine отдельно Node/SQLite. TG-1..6 закрыты: прежний bot, text/voice auto capture без меню (durable raw+scoped budget/undo), guest support+independent staff grants, service controls с confirmation, critical+daily уведомления с app links, агрегированная analytics. Читать TELEGRAM_CAPTURE_AND_NOTIFICATIONS. Не выдавать docs за работающий bot/UI.
 
-Уточнение React scope 12.10.2026: все собственные included services, включая VPN/Writing/Search, получают React/TS и полностью новый дизайн; Tournaments сохраняет legacy Node/SQLite/Vanilla UI. ADR-0008 и SVC-* parity/API→UI задачи, roadmap now 49 tasks. TEST-001 и CORE-001 завершены; independent core foundation создан. Следующая DESIGN-001, новый UI/Auth/domain пока не реализованы. Сводный актуальный отчёт docs/reports/STATUS-2026-10-12.md.
+Уточнение React scope 12.10.2026: все собственные included services, включая VPN/Writing/Search, получают React/TS и полностью новый дизайн; Tournaments сохраняет legacy Node/SQLite/Vanilla UI. ADR-0008 и SVC-* parity/API→UI задачи, roadmap now 49 tasks. TEST-001 и CORE-001 завершены; independent core foundation создан. DESIGN-001: пять самостоятельных React-прототипов опубликованы, review/testing до выбора владельцем. Product UI/Auth/domain пока не реализованы. Сводный актуальный отчёт docs/reports/STATUS-2026-10-12.md.
 
 QUB-TEST-001 done (12.10.2026, commit 6952277, CI run 38207835631 success): 25 настоящих server.js Auth HTTP tests с temp SQLite/source-copy и mocked external transport. Полный runner+harness 357 pass (Node94); [отчёт](docs/reports/QUB-TEST-001.md). Три `legacy defect` tests фиксируют нерешённые cookie/OAuth switch/unverified linking ошибки, не считать их безопасными требованиями нового Auth. Linking — P0 cutover gate. Legacy runtime не изменён; далее CORE-001 foundation завершён, registry/handoff источник статуса.
 
-QUB-CORE-001 done (a85f047, CI38211426535 success): создан независимый `core/qubite` FastAPI foundation (live/ready/OpenAPI + explicit SQL migrations), пока без identity/domain/UI. [Документация](docs/architecture/CORE_FOUNDATION.md), [запуск](core/README.md), [report](docs/reports/QUB-CORE-001.md). Core tests требуют native initdb/postgres: verify.py --suite core/all --python <test-python> [--postgres-bin <bin>], missing binaries fail/no skip, fresh private cluster в /tmp. API startup не вызывает migration и не открывает legacy DB. Full local runner+harness386 pass; последующие migrations/cutover/deploy отдельно. Next primary DESIGN-001, данные/React ещё не реализованы.
+QUB-CORE-001 done (a85f047, CI38211426535 success): создан независимый `core/qubite` FastAPI foundation (live/ready/OpenAPI + explicit SQL migrations), пока без identity/domain/UI. [Документация](docs/architecture/CORE_FOUNDATION.md), [запуск](core/README.md), [report](docs/reports/QUB-CORE-001.md). Core tests требуют native initdb/postgres: verify.py --suite core/all --python <test-python> [--postgres-bin <bin>], missing binaries fail/no skip, fresh private cluster в /tmp. API startup не вызывает migration и не открывает legacy DB. Full local runner+harness386 pass; последующие migrations/cutover/deploy отдельно. DESIGN-001 Material Lab review/testing; product данные/React migration ещё не реализованы.

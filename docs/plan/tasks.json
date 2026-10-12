@@ -643,25 +643,45 @@
       "QUB-001"
     ],
     "files": [
+      "assets/design-lab/",
       "docs/design/DESIGN_SYSTEM_PLAN.md",
-      "docs/design/AUTH_UX.md (будущий)"
+      "docs/design/AUTH_UX.md",
+      "docs/design/MATERIAL_DIRECTIONS.md",
+      "docs/reports/QUB-DESIGN-001.md",
+      "docs/project/",
+      "docs/plan/",
+      "README.md",
+      "docs/README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".github/workflows/design-lab.yml",
+      "docs/architecture/decisions/0010-material-lab.md",
+      "docs/architecture/decisions/README.md"
     ],
     "acceptance": [
       "Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему",
       "Email/password/согласия; display name optional; нет code-entry/турнирных полей",
-      "Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией"
+      "Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией",
+      "Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026",
+      "Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review"
     ],
     "tests": [
-      "Проверка docs/links; просмотр макета владельцем"
+      "Проверка docs/links; просмотр макета владельцем",
+      "TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API"
     ],
     "risks": [
       "Дизайн-макет не выдавать за реализованный auth"
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
-    "status": "ready",
+    "status": "review/testing",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass",
+      "386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services",
+      "Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001",
+      "Owner visual selection/physical phone acceptance pending; do not mark done or start downstream UI"
+    ]
   },
   {
     "id": "QUB-AUTH-005",

@@ -1,0 +1,38 @@
+name: Qubite Material Lab
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['assets/design-lab/**', '.github/workflows/design-lab.yml']
+  pull_request:
+    branches: [main]
+    paths: ['assets/design-lab/**', '.github/workflows/design-lab.yml']
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: assets/design-lab/package-lock.json
+      - run: npm ci
+        working-directory: assets/design-lab
+      - run: npm run format:check
+        working-directory: assets/design-lab
+      - run: npm run build
+        working-directory: assets/design-lab
+      - run: npx playwright install --with-deps chromium
+        working-directory: assets/design-lab
+      - run: npm test
+        working-directory: assets/design-lab
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: material-lab-browser-evidence
+          path: assets/design-lab/test-results/
+          retention-days: 7
+# Tests and synthetic screenshots only. No tokens or automatic deployment.

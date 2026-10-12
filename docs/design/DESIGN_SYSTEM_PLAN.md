@@ -2,6 +2,8 @@
 
 CONFIRMED 12.10.2026: новая React/TS shell alongside legacy и полностью новый дизайн, собственные visual tokens; existing docs/design-system.md и /design-system — референс действующих компонентов, не новая платформа. В данном этапе никаких UI файлов runtime не меняем.
 
+**QUB-DESIGN-001 review/testing**: созданы пять самостоятельных React-прототипов в [assets/design-lab](../../assets/design-lab/README.md), [опубликованы для телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site). [Направления и motion contract](MATERIAL_DIRECTIONS.md), [auth UX](AUTH_UX.md), [реальные проверки и границы](../reports/QUB-DESIGN-001.md). Nacre/Ferro/Folio/Prism/Milo ещё не approved production style; требуется выбор/доработка владельца перед переносом в product UI. Новый prototype toolchain существует, actual platform UI пока отсутствует.
+
 Tokens: semantic colors background/surface/text/muted/accent/danger, typography, spacing/radius/elevation, motion timings, focus ring, tap targets. Light/dark/reduced motion/high contrast. Components: Button/Input/Select/Popover/Menu/Dialog/Drawer/Tabs/Card/Toast/Empty/Error/Loading/Offline/Conflict/PermissionDenied/BudgetExceeded/ModuleUnavailable; consistent keyboard focus/escape/return focus.
 
 Навигация: Today, Command, Docs, Projects; каталоги остальных модулей постепенно. Owner Console только Settings; Tournaments в modules/services. Layout phone single column + quick capture, tablet Ink-first paper, desktop multi-panel. Неподвижная системная navigation; AI наполняет только approved widget slots. Profile/access UI показывает собственные grants без управления чужими.

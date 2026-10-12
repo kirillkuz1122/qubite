@@ -8,6 +8,7 @@
 - [Sync/history](architecture/SYNC_AND_HISTORY.md), [AI memory/skills](architecture/AI_MEMORY_SKILLS_AND_TOOLS.md), [Plugins/MCP](architecture/PLUGINS_AND_MCP.md), [ADR](architecture/decisions/README.md).
 - [Миграция](migration/LEGACY_TO_QUBITE.md), [backup/deploy](engineering/DEPLOYMENT_AND_BACKUPS.md), [тесты](engineering/TEST_STRATEGY.md), [harness](engineering/AGENT_HARNESS.md), [дизайн](design/DESIGN_SYSTEM_PLAN.md).
 - [Roadmap](plan/ROADMAP.md), [49 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
+- [Пять живых React-направлений](design/MATERIAL_DIRECTIONS.md), [Auth UX](design/AUTH_UX.md), [запуск Material Lab](../assets/design-lab/README.md), [отчёт DESIGN-001](reports/QUB-DESIGN-001.md). [Опубликованное приватное демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site); owner style review открыт.
 
 Ниже сохранён прежний индекс документации работающего проекта. Новая архитектура не отменяет операционные ограничения существующих сервисов.
 

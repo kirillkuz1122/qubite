@@ -6,7 +6,9 @@
 
 Qubite — рабочий MVP-прототип платформы для учебных соревнований. Текущий репозиторий описывает русскоязычную версию проекта, где главный фокус сделан на участнике: вход, попадание в турнир, решение задач, рейтинг и базовую аналитику.
 
-Рабочая legacy часть использует обычные `HTML + CSS + JavaScript` и `Node.js + Express + SQLite`. Новый независимый FastAPI/Postgres foundation находится в `core/`; React UI ещё не создан.
+Рабочая legacy часть использует обычные `HTML + CSS + JavaScript` и `Node.js + Express + SQLite`. Новый независимый FastAPI/Postgres foundation находится в `core/`. Пять отдельных React/TS дизайн-прототипов находятся в `assets/design-lab/`; product UI/Auth migration ещё не реализованы.
+
+**Новый дизайн: [Material Lab — смотреть с телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site)** (private, вход ChatGPT владельца). Nacre/Ferro/Folio/Prism/Milo: 20 сцен, живые CSS/SVG материалы, landing/workspace/auth, обе темы и responsive previews. [Запуск/код](assets/design-lab/README.md), [спецификации](docs/design/MATERIAL_DIRECTIONS.md), [Auth UX](docs/design/AUTH_UX.md), [отчёт DESIGN-001](docs/reports/QUB-DESIGN-001.md). Макеты синтетические; финальный стиль ожидает выбора владельца.
 
 ## Что это за проект
 

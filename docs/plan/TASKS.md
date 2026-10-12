@@ -386,23 +386,25 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-DESIGN-001 — Новый visual direction и auth UX specification
 
-Модуль: design; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
+Модуль: design; P0; статус review/testing; architecture approved для scope: true. Финальный стиль ещё не выбран. Зависимости: QUB-001.
 
-Причина: Владелец явно отверг старый дизайн и попросил сократить регистрацию.
+Причина: прямой запрос владельца 12.10.2026 — пять оригинальных живых React-концепций и ссылка для телефона.
 
-Файлы/контракты: `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md (будущий)`.
+Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`.
 
 Acceptance:
 
 - Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему
 - Email/password/согласия; display name optional; нет code-entry/турнирных полей
 - Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией
+- Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026
+- Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review
 
-Проверка: Проверка docs/links; просмотр макета владельцем.
+Проверка: 47/47 browser tests + 386/386 existing regression; TypeScript/build/format/docs/links. Owner choice и реальный телефон pending.
 
-Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+Риск: прототип не реализует Auth/API/VPN/AI; роль и гранты синтетические. Откат: не использовать отдельный prototype/site, legacy остаётся самостоятельным.
 
-Commit: после выполнения. Evidence: .
+Commit: implementation evidence в [отчёте](../reports/QUB-DESIGN-001.md), registry/handoff обновляются после push. [Демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site) private.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
