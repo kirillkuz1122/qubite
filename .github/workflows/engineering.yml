@@ -1,0 +1,28 @@
+name: Qubite verification
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: back/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: npm ci --prefix back
+      - run: python -m pip install -r scripts/engineering/test-requirements.lock
+      - run: python -m unittest discover -s tests/engineering
+      - run: python scripts/engineering/verify.py --suite all --python python
+      - run: git diff --exit-code
+# Tests only. No production credentials, SSH or deployment step.

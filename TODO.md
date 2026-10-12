@@ -26,7 +26,7 @@
 ### Auth / Integrations
 
 - Миграция CAPTCHA-слоя с Cloudflare Turnstile на Яндекс SmartCaptcha для российского контура.
-- Добавление Telegram login / integration surface (бот управления уже есть, login — нет).
+- Production-регрессия существующего Telegram OAuth: login уже реализован, не считать его отсутствующей функцией.
 
 ### Ops / Docs
 
@@ -108,3 +108,7 @@
 - [ ] Проверить реальный поток выбранных сообществ и собрать оценки владельца; подтвердить точный Godshop. Оценить качество/задержки перед расширением автоматических контактов.
 
 - Telegram-заявки: отдельный owner-бот, добавление источников @username/точное название/ID, кнопка ручного разрешения первого контакта и журнал отправок реализованы; 141 сценарий проверены. Точность на реальных заказах и готовность перехода после обучения пока не подтверждены.
+
+## Qubite 2.0 — приоритет перед рефакторингом
+
+Новый backlog: [ROADMAP](docs/plan/ROADMAP.md), [TASKS](docs/plan/TASKS.md), [machine state](docs/plan/tasks.json). Сейчас audit/design review/testing; стек и migration authority ожидают обсуждения. Сначала полный legacy auth/runtime/rating characterization, read-only server drift и backup/restore, затем approved Owner Console/default-deny/mock budgets и note→sync→search→restore. Все 48 идеи сохранены в требованиях. Не менять legacy roles/DB/сервисы по одному roadmap пункту без утверждённой маленькой задачи.

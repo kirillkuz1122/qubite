@@ -1,0 +1,581 @@
+[
+  {
+    "id": "QUB-001",
+    "title": "Аудит и архитектурный baseline",
+    "reason": "Зафиксировать фактический legacy, целевые требования и границы согласования до изменения runtime",
+    "module": "core",
+    "priority": "P0",
+    "dependencies": [],
+    "files": [
+      "docs/architecture",
+      "docs/product",
+      "scripts/engineering"
+    ],
+    "acceptance": [
+      "Архивные refs проверены; инвентари, требования/ADR/план и безопасный harness подготовлены",
+      "Пользователь выбирает архитектуру, отчёт различает code/docs/server/proposal"
+    ],
+    "tests": [
+      "python3 scripts/engineering/check.py"
+    ],
+    "risks": [
+      "Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "review/testing",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "origin archive refs verified 12.10.2026",
+      "QUB-001 report contains local test results"
+    ]
+  },
+  {
+    "id": "QUB-OPS-001",
+    "title": "Read-only production inventory и drift",
+    "reason": "Репозиторий не доказывает текущую версию/ресурсы production; исключить overwrite drift и скрытый autodeploy",
+    "module": "ops",
+    "priority": "P0",
+    "dependencies": [],
+    "files": [
+      "docs/reports/PRODUCTION_INVENTORY.md"
+    ],
+    "acceptance": [
+      "SHA/dirty paths/units/routes/data sizes и RAM/swap/disk собраны без секретов",
+      "Autodeploy и один polling проверены; никаких restart/write"
+    ],
+    "tests": [
+      "Проверка redacted manifest; сравнение с INVENTORY.json"
+    ],
+    "risks": [
+      "Не раскрыть private configs; restore не посылает outbox и не перезаписывает production"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-OPS-002",
+    "title": "Backup manifest и disposable restore",
+    "reason": "Git не хранит рабочие БД/attachments/keys; восстановление должно быть доказано до миграций",
+    "module": "ops",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-OPS-001"
+    ],
+    "files": [
+      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md",
+      "scripts/engineering/restore-drill.py (будущий)"
+    ],
+    "acceptance": [
+      "Согласованный SQLite+attachments+keys backup off-host",
+      "Восстановление isolated; counts/FK/hash/grants/ledger совпали"
+    ],
+    "tests": [
+      "Будущий restore drill с synthetic fixtures + integrity_check"
+    ],
+    "risks": [
+      "Не раскрыть private configs; restore не посылает outbox и не перезаписывает production"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TEST-001",
+    "title": "Auth HTTP characterization",
+    "reason": "Текущие auth suites проверяют helper/router fixtures, но не весь register/login server.js",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001"
+    ],
+    "files": [
+      "back/tests/auth-legacy-baseline.test.js (будущий)"
+    ],
+    "acceptance": [
+      "Реальный server isolated register/login/logout/revoke/reset + OAuth transport mock",
+      "Blocked user/CSRF/state/PKCE/cookie malformed negative cases"
+    ],
+    "tests": [
+      "python3 scripts/engineering/verify.py --suite node"
+    ],
+    "risks": [
+      "Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TEST-002",
+    "title": "Tournament runtime и rating regression",
+    "reason": "Сохранить сложный join/submission/rating flow до выделения турниров в модуль",
+    "module": "tournaments",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-TEST-001"
+    ],
+    "files": [
+      "back/tests/tournament-http.test.js (будущий)",
+      "back/tests/rating-baseline.test.js (будущий)"
+    ],
+    "acceptance": [
+      "Join individual/team/roster/code, submit/draft/deadline/penalty покрыты",
+      "Rating/history/bonus/decay повтор не дублирует; baseline UI screenshot"
+    ],
+    "tests": [
+      "verify.py --suite node; будущий Playwright fixture"
+    ],
+    "risks": [
+      "Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-CORE-001",
+    "title": "Изолированный core health и contract skeleton",
+    "reason": "Проверить выбранный runtime/storage контракт без write доступа к legacy данным",
+    "module": "core",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001",
+      "QUB-OPS-001"
+    ],
+    "files": [
+      "core/qubite (будущий)",
+      "contracts/core-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Только выбранный стек, health и migration version, no legacy DB writes",
+      "Contract validation и no-network startup tests"
+    ],
+    "tests": [
+      "Будущий core pytest + verify.py --suite all"
+    ],
+    "risks": [
+      "Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-002",
+    "title": "Legacy identity bridge и stable subject mapping",
+    "reason": "Сохранить авторизацию существующих сервисов и однозначное соответствие субъектов",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-CORE-001",
+      "QUB-TEST-001"
+    ],
+    "files": [
+      "core/qubite/identity (будущий)",
+      "contracts/identity-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Session introspection audience/status/revoke fail-closed",
+      "Mapping stable, roles не platform privileges, owner verified"
+    ],
+    "tests": [
+      "Будущий core pytest identity + auth compatibility suite"
+    ],
+    "risks": [
+      "Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-003",
+    "title": "Module entitlements и scoped policy gate",
+    "reason": "Старые глобальные роли и owner bypass не подходят новой default-deny модели",
+    "module": "policy",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-002"
+    ],
+    "files": [
+      "core/qubite/policy (будущий)",
+      "contracts/policy-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Default deny и intersection REST/job/tool/WS реализованы",
+      "Owner/tournament/cross-resource/revoke/API bypass negative matrix"
+    ],
+    "tests": [
+      "Будущий core pytest policy; provider counter 0"
+    ],
+    "risks": [
+      "Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AI-001",
+    "title": "Atomic mock budget reservation",
+    "reason": "Раздельные float ledgers не защищают общий cap при параллельном расходе",
+    "module": "ai",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/ai/budgets (будущий)"
+    ],
+    "acceptance": [
+      "Integer buckets/idempotency/reserve/settle/unknown states",
+      "2 workers concurrent cap и double settle pass"
+    ],
+    "tests": [
+      "Будущий core pytest budgets с disposable DB, two processes"
+    ],
+    "risks": [
+      "Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AI-002",
+    "title": "Mock dispatcher crash/revoke/fallback checks",
+    "reason": "Crash/timeout/revoke не должны давать двойной платный вызов или бесплатное освобождение unknown reserve",
+    "module": "ai",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AI-001"
+    ],
+    "files": [
+      "core/qubite/ai/dispatcher (будущий)"
+    ],
+    "acceptance": [
+      "No grant/price/budget/revoked → 0 provider calls",
+      "Unknown delivery reserve retained, no automatic paid retry"
+    ],
+    "tests": [
+      "Будущий core pytest dispatcher fault injection"
+    ],
+    "risks": [
+      "Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-UI-001",
+    "title": "Today shell и owner/nonowner navigation",
+    "reason": "Отделить обычный user outcome от legacy role dashboard и показать denied/unavailable состояния",
+    "module": "ui",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "apps/web (будущий)",
+      "docs/design/DESIGN_SYSTEM_PLAN.md"
+    ],
+    "acceptance": [
+      "Owner ordinary home; console hidden entry; module denied/degraded states",
+      "Viewport keyboard/focus checks и Playwright direct URL tests"
+    ],
+    "tests": [
+      "Будущий npm typecheck/build + Playwright shell tests"
+    ],
+    "risks": [
+      "Скрытие UI не authorization; optimistic sync статус обязан быть честным"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-004",
+    "title": "Owner Console users/grants/budgets UI",
+    "reason": "Дать владельцу ручные независимые grants/budgets без предоставления всем доступа",
+    "module": "owner",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-UI-001",
+      "QUB-AI-002"
+    ],
+    "files": [
+      "apps/web/owner (будущий)",
+      "core/qubite/owner (будущий)"
+    ],
+    "acceptance": [
+      "Manual account grants/revoke/budget with audit+If-Match",
+      "Nonowner owner API denied, no self-service paid grant"
+    ],
+    "tests": [
+      "Будущий core integration + Playwright console tests"
+    ],
+    "risks": [
+      "Обычный user не вызывает management API; manual grants audit; owner singleton защищён"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-001",
+    "title": "Приёмка Owner Console/Docs-only/mock AI",
+    "reason": "Проверить целостный owner→Docs-only→mock cap→revoke сценарий до полезных платных функций",
+    "module": "owner",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-004"
+    ],
+    "files": [
+      "docs/reports/QUB-AUTH-001.md (будущий)",
+      "tests/e2e/owner-flow (будущий)"
+    ],
+    "acceptance": [
+      "Все 10 access policy случаев включая exhausted mock cap",
+      "Реальный UI принят owner; paid endpoint provider calls не выполнялись"
+    ],
+    "tests": [
+      "Будущий owner E2E+negative integration matrix"
+    ],
+    "risks": [
+      "Обычный user не вызывает management API; manual grants audit; owner singleton защищён"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-DOC-001",
+    "title": "Typed note/revision API и local durable draft",
+    "reason": "Первый ручной полезный документ требует typed ownership и durable local draft",
+    "module": "docs",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-001"
+    ],
+    "files": [
+      "core/qubite/docs (будущий)",
+      "apps/web/docs/local (будущий)"
+    ],
+    "acceptance": [
+      "Создать/открыть note с AST/revision; server ACL и local atomic persist",
+      "Reload/kill не теряет draft; чужой doc denied"
+    ],
+    "tests": [
+      "Будущие docs API integration + local-store unit tests"
+    ],
+    "risks": [
+      "Durable draft/private attachment не теряются и не доступны чужому subject"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SYNC-001",
+    "title": "Idempotent push/pull и конфликт двух устройств",
+    "reason": "Offline edits не должны теряться/дублироваться на повторе и двух устройствах",
+    "module": "sync",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-DOC-001"
+    ],
+    "files": [
+      "core/qubite/sync (будущий)",
+      "apps/web/sync (будущий)"
+    ],
+    "acceptance": [
+      "Retry не дублирует, 409 сохраняет варианты, tombstones",
+      "Offline/reconnect/revoke/expired cursor scenarios"
+    ],
+    "tests": [
+      "Будущий two-device offline Playwright + sync pytest"
+    ],
+    "risks": [
+      "Revoke/expired cursor/конфликт не удаляет собственный draft; tombstones не GC преждевременно"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SEARCH-001",
+    "title": "Связь note/project и ACL keyword search",
+    "reason": "Связанный граф и поиск нужны первому срезу, но могут раскрыть private titles/edges",
+    "module": "knowledge",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-SYNC-001"
+    ],
+    "files": [
+      "core/qubite/objects/relations (будущий)",
+      "core/qubite/knowledge (будущий)"
+    ],
+    "acceptance": [
+      "Note linked to project found via Command",
+      "Cross-scope title/snippet/count/edges не раскрываются"
+    ],
+    "tests": [
+      "Будущий ACL search/graph pytest + Command E2E"
+    ],
+    "risks": [
+      "Title/snippet/count/edge/derived index leaks и stale authorization"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-HISTORY-001",
+    "title": "Diff и restore в новую revision",
+    "reason": "Пользователь должен сравнить и восстановить заметку без потери последующих edits",
+    "module": "history",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-SEARCH-001"
+    ],
+    "files": [
+      "core/qubite/history (будущий)",
+      "apps/web/history (будущий)"
+    ],
+    "acceptance": [
+      "Две revision compare/restore; новый edit не перетёрт",
+      "Roundtrip export/restore и author audit"
+    ],
+    "tests": [
+      "Будущий history API+restore concurrency+Playwright vertical slice"
+    ],
+    "risks": [
+      "Restore не перезаписывает новые edits; external action нельзя отменить DB rollback"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-INK-001",
+    "title": "Hardware input probe и benchmark plan",
+    "reason": "Аппаратный input/latency риск нельзя решить документацией или web-only прототипом",
+    "module": "ink",
+    "priority": "P0",
+    "dependencies": [],
+    "files": [
+      "clients/android-ink/probe (будущий)",
+      "docs/reports/INK-HARDWARE.md (будущий)"
+    ],
+    "acceptance": [
+      "Модель устройства/pressure/tilt/sample/frame/latency реальные",
+      "APK и safe kill/autosave, no cloud calls; ощущения подтверждает owner"
+    ],
+    "tests": [
+      "Будущий Gradle test/lint/assembleDebug + реальный планшет"
+    ],
+    "risks": [
+      "Не обещать pressure/tilt без измерения; pen crash/recovery/latency и sensitive образцы"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-TOUR-001",
+    "title": "Scoped role compatibility adapter",
+    "reason": "Изолировать роли/навигацию турниров при полном сохранении результатов и старых URL",
+    "module": "tournaments",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-001",
+      "QUB-TEST-002",
+      "QUB-OPS-002"
+    ],
+    "files": [
+      "core/qubite/integrations/tournaments (будущий)",
+      "back/server.js (точечно после approval)"
+    ],
+    "acceptance": [
+      "Старые URLs/results/team roles сохранены, API alias tested",
+      "Tournaments отдельная navigation, no global admin elevation"
+    ],
+    "tests": [
+      "verify.py --suite all + tournament E2E + policy diff"
+    ],
+    "risks": [
+      "Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-INT-001",
+    "title": "Service/Shade connector contract POC",
+    "reason": "Контракт внешних сервисов и локального Shade должен ограничивать действия/credentials до подключения",
+    "module": "integrations",
+    "priority": "P2",
+    "dependencies": [
+      "QUB-AUTH-001"
+    ],
+    "files": [
+      "contracts/connectors-v1.json (будущий)",
+      "docs/architecture/SHADEAI_INTEGRATION.md"
+    ],
+    "acceptance": [
+      "Source contracts Search/Writer/Shade mocks status+allowlist",
+      "Revoke/unknown outcome, no Shade writes/real HA/network calls"
+    ],
+    "tests": [
+      "Будущий connector fixture pytest; verify.py --suite all"
+    ],
+    "risks": [
+      "Не вызвать HA/TG/paid API, не читать домашние сессии; unknown sends не повторять"
+    ],
+    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  }
+]

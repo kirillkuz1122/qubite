@@ -104,7 +104,7 @@ npm run dev
 node server.js
 ```
 
-Тестового контура как полноценной автоматической системы в этом репозитории пока нет.
+Есть targeted Node/Python suites и изолированный [Development Harness](engineering/AGENT_HARNESS.md). `npm test` пока не агрегирует их; реальные команды и ограничения — [TEST_STRATEGY](engineering/TEST_STRATEGY.md).
 
 ## Полезные CLI-скрипты
 

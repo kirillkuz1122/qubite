@@ -1,3 +1,17 @@
+## Qubite 2.0 — актуальный старт сессии (12.10.2026)
+
+Текущий код ниже описывает legacy Qubite; новая универсальная платформа ещё проектируется. Перед задачей читать [память проекта](docs/project/PROJECT_CONTEXT.md), [handoff](docs/project/LAST_HANDOFF.md), [kickoff](QUBITE_AGENT_KICKOFF_PROMPT.md), полностью master/access документы в корне, [аудит](docs/architecture/CURRENT_STATE.md), [ADR](docs/architecture/decisions/README.md), [tasks.json](docs/plan/tasks.json). Точный kickoff с суффиксом V2 отсутствует; не объявлять его прочитанным и не переименовывать пользовательский источник без причины.
+
+- Продуктовые правила access policy имеют приоритет над старой глобальной моделью ролей: normal home для owner, separate Owner Console, tournament-only organizer/moderator/admin, manual module/model grants и budgets, default deny. Эти правила целевые, в legacy ещё есть owner auto-paid bypass.
+- Архитектура RECOMMENDED/OPEN QUESTION; до согласования не начинать новый core/массовый рефакторинг. Выбирать только ready задачи с done dependencies и approval, один bounded cycle. [Harness](docs/engineering/AGENT_HARNESS.md) задаёт проверки/документацию/evidence/коммит/push.
+- Архив `tournaments` и тег `qubite-v1.0` на GitHub указывают на `96f0457a523b6b79f21c4092056d8fa8fa69a680`; не менять/удалять/force-push. Разработка main, временные task branches разрешены с tested merge. Русские коммиты и немедленный push после commit сохраняются.
+- Git archive не backup runtime. Production deployment отдельно после явного разрешения, backup/restore/staging/checks; push не считать deploy. Не перезапускать live services по факту изменения docs.
+- ShadeAI `/home/kirill/programing/ShadeAI` только read-only для будущего connector, без import/merge/secrets/cloud runtime changes.
+- Проверки: `python3 scripts/engineering/check.py`; `python3 scripts/engineering/verify.py --suite all --python <test-venv-python>`. Runner использует source-copy без .env, isolated HOME/DB и no external network. Итоги в [QUB-001](docs/reports/QUB-001.md); pass mocks не означает real API/device/production acceptance.
+- Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
+
+---
+
 # Qubite Agent Notes
 
 Этот файл предназначен для ИИ-ассистентов и новых разработчиков, которые впервые читают репозиторий.
@@ -138,8 +152,8 @@
 
 ### Тесты и верификация
 
-- Автоматических тестов в проекте нет: `npm test` в `back/` намеренно возвращает ошибку.
-- Верификация изменений = ручной прогон сценариев через UI (`index.html`) или через API-клиент `front/js/api.js`.
+- Есть targeted Node/Python suites; `npm test` в `back/` пока намеренно возвращает ошибку. Список и команды: `docs/architecture/ENV_AND_TESTS.md`, `docs/engineering/TEST_STRATEGY.md`.
+- Верификация: targeted автоматические проверки плюс ручной UI/API прогон там, где acceptance требует реального поведения.
 - Для e2e/UI-проверок подходит skill `webapp-testing` / `playwright`.
 
 ### Витрина турниров для участника

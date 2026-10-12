@@ -1,5 +1,9 @@
 # Qubite
 
+## Переход к Qubite 2.0
+
+Текущий runtime остаётся legacy платформой турниров и сервисов. Новая универсальная платформа находится на этапе аудита/проектирования; архитектура ещё не согласована. [Baseline и документы](docs/architecture/CURRENT_STATE.md), [план](docs/plan/ROADMAP.md), [Owner Console и доступы](docs/product/OWNER_CONSOLE.md), [память сессий](docs/project/PROJECT_CONTEXT.md), [Development Harness](docs/engineering/AGENT_HARNESS.md). Старый код сохранён в `tournaments` и `qubite-v1.0` на коммите `96f0457`; Git не заменяет резервные копии данных.
+
 Qubite — рабочий MVP-прототип платформы для учебных соревнований. Текущий репозиторий описывает русскоязычную версию проекта, где главный фокус сделан на участнике: вход, попадание в турнир, решение задач, рейтинг и базовую аналитику.
 
 Важно: это не React/Vite/Next-проект. Фронтенд здесь реализован на обычных `HTML + CSS + JavaScript`, а бэкенд — на `Node.js + Express + SQLite`.
@@ -43,7 +47,7 @@ Qubite нужен как единая форма для проведения с�
 - AI-проверка ответов как готовая продуктовая функция;
 - апелляции;
 - визуальные drag-and-drop типы задач;
-- Telegram login (бот управления есть, login через TG — нет).
+- Полная production-проверка всех OAuth-провайдеров в baseline 2.0 не выполнялась; Telegram login уже реализован в коде.
 
 ## Для кого проект
 
@@ -125,7 +129,7 @@ TELEGRAM_BOT_TOKEN=<токен от @BotFather>
 TELEGRAM_OWNER_ID=<ваш Telegram user ID>
 ```
 
-Бот запускается автоматически вместе с сервером (long-polling). Без токена сервер работает штатно, бот просто не стартует.
+Без `QUBITE_PROCESS_ROLE` бот запускается вместе с сервером; в разделённой конфигурации используется единственный `back/telegram-worker.js`/control-bot. Не запускать два polling-процесса с одним токеном. Без токена сервер работает штатно.
 
 Отдельные способы OAuth-входа owner может скрывать без рестарта через админку или Telegram-тумблеры. Там же есть runtime-тумблер `proxy_naive_enabled`: при выключении NaiveProxy не выдаётся в списке серверов, catalog и subscription links, а sync отдаёт пустой список Naive credentials, оставляя VLESS-профили. Env-переменные `OAUTH_GOOGLE_ENABLED=false`, `OAUTH_YANDEX_ENABLED=false`, `OAUTH_VK_ENABLED=false`, `OAUTH_TELEGRAM_ENABLED=false` остаются аварийными kill-switch'ами.
 
