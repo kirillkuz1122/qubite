@@ -19,8 +19,8 @@
 flowchart TD
   W[React PWA: local store/outbox] --> G[Ingress: exact route map]
   A[Android Ink: Room/files] --> G
-  G --> AU[Legacy Auth authority]
-  G --> C[New Core: policy / objects / Docs / sync]
+  G --> AU[Legacy Auth: temporary compatibility]
+  G --> C[FastAPI Core: identity / policy / objects / Docs / sync]
   G --> L[Legacy Node Tournaments + services]
   C --> P[(New PostgreSQL)]
   C --> B[Private blobs]
@@ -38,3 +38,5 @@ Postgres для нового core с versioned migrations; SQLite legacy не з
 Проверены первоисточники 12.10.2026: [Postgres locking](https://www.postgresql.org/docs/current/explicit-locking.html), [backup](https://www.postgresql.org/docs/current/backup.html), [pgvector](https://github.com/pgvector/pgvector), [Android Ink](https://developer.android.com/develop/ui/compose/touch-input/stylus-input/about-ink-api). Row locks позволяют сериализовать budget reservations; поддержка библиотек не доказывает производительность выбранного сервера/планшета. Версии/лицензии остальных кандидатов проверять в отдельных POC до фиксации.
 
 Клиенты: сайт, Android и desktop Linux с будущими Windows/macOS. Общий React UI сайта/desktop, Tauri POC; Android native Ink + общие contracts. Auth переиспользуется временно, новые дизайн/регистрация/code-entry removal и отдельный identity cutover: [ADR-0005](decisions/0005-identity-transition.md), [ADR-0006](decisions/0006-clients-and-deployment.md).
+
+Обновление 12.10.2026 (ADR-0007): необходимые общие legacy возможности, включая identity/settings/support/analytics, реализуем на FastAPI. Legacy Auth в схеме — временный compatibility authority до tested cutover, а не backend нового продукта навсегда. Специфический tournament engine Node/SQLite остаётся отдельным optional модулем. Telegram automatic capture/voice и единые event links — подтверждённый scope.

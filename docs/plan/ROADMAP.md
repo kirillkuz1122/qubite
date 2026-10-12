@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [34 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
+Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [43 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
@@ -26,8 +26,16 @@ flowchart LR
   CODE --> LOGIN
   REG --> LOGIN
   LOGIN --> DESK[DESKTOP-001 Linux POC]
-  LOGIN --> CUT[AUTH-008 identity cutover spec]
-  ID --> CUT
+  CORE --> CUT[AUTH-008 identity cutover spec]
+  AT --> CUT
+  CUT --> PASS[AUTH-009 FastAPI sessions]
+  ID --> PASS
+  PASS --> OAUTH[AUTH-010 OAuth]
+  PASS --> VERIFY[AUTH-011 verify/reset]
+  OAUTH --> LOGIN
+  VERIFY --> LOGIN
+  PASS --> REG
+  PASS --> CODE
   DISP --> OC[AUTH-004 console]
   UI --> OC
   OC --> ACC[AUTH-001 acceptance]
@@ -50,4 +58,6 @@ INK-001 отдельный research track с аппаратным approval; по
 
 Клиентский scope утверждён: сайт и общий React desktop UI, Linux release первым; Windows/macOS packaging/sign/tests позже. Android native Ink track развивается параллельно, остальные экраны/hybrid после POC. Новый deploy/qubite2 не заменяет legacy installer до compatibility проверки. Сервер и backup destination отложены до live этапа.
 
-Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG answers уточняют этот track; four ready foundation задачи продолжаются. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.
+Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG ответы получены; пять ready задач продолжают foundation/specification. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.
+
+Shared extraction: CORE/identity plan → FastAPI sessions → OAuth/verify/reset/minimal register → React Auth → staged consumer cutover после backup/restore. CORE-002 general/module settings на target core. Полный tournament engine rewrite исключён из текущего roadmap. Capture: TG-002 → CAPTURE-001 durable text → CAPTURE-002 AI routing (после AI guard/Docs); CAPTURE-003 durable voice + STT parallel. Notifications: policy/TG-002 → NOTIFY-001 event/outbox/deep links → NOTIFY-002 daily/critical policies.

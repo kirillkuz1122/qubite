@@ -214,3 +214,5 @@ Specbot обрабатывает ошибки OpenRouter внутри HTTP 200: 
 ### Планируемый Telegram и наблюдаемость Qubite 2.0
 
 Сохранение функций управляющего бота при полной переработке, аналитики и мониторинга сервера включено в архитектуру; runtime пока legacy. Турнирное управление — настройки модуля, общие controls/аналитика/инфраструктура — Owner Console. [Инвентарь функций и нюансы переноса](docs/architecture/TELEGRAM_AND_OBSERVABILITY.md).
+
+Актуальное решение: необходимые общие функции старой платформы реализуются на FastAPI/Postgres; Node/SQLite сохраняется для специализированного Qubite Tournaments. Bot сохраняет имя, получает text/voice auto capture, поддержку и общие уведомления: [ADR-0007](docs/architecture/decisions/0007-platform-extraction-and-capture.md). Всё перечисленное target, не готовый новый runtime.

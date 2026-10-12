@@ -43,9 +43,9 @@ Runtime allowlist сейчас: Qubite, Hermes, AliasVault, LanguageTool, OmniRo
 
 ## Предложение новой структуры (механика пока RECOMMENDED)
 
-Отдельный Python control-bot worker, один polling/webhook consumer на bot token. Bot — adapter общих domain API/command envelopes, не своя реализация grants/budget/SQL. Старый consumer выключается лишь при tested cutover, два consumer одновременно запрещены. Сохранение текущего bot username/token предлагается, но выбор владельца ещё нужен; секрет в config reference, не в коде/документах.
+Отдельный Python control-bot worker, один polling/webhook consumer на bot token. Bot — adapter общих domain API/command envelopes, не своя реализация grants/budget/SQL. Старый consumer выключается лишь при tested cutover, два consumer одновременно запрещены. Сохранение текущего bot/username согласовано владельцем; actual token используется только локально при integration acceptance; секрет в config reference, не в коде/документах.
 
-Owner меню: Users/Grants, Modules, AI budgets/report, Infrastructure/status, Audit/Alerts, Support, Modules → Tournaments/VPN/... . Турнирные настройки/roles/moderation/stats внутри Tournaments. Обычный linked account получает только собственные команды и grants. Unlinked visitor support и everyday capture/voice/AI не определены ответом владельца, не включать автоматически. Hermes/Brief/Kwork/личный listener остаются отдельными процессами, не объединяются автоматически с control bot.
+Owner меню: Users/Grants, Modules, AI budgets/report, Infrastructure/status, Audit/Alerts, Support, Modules → Tournaments/VPN/... . Турнирные настройки/roles/moderation/stats внутри Tournaments. Обычный linked account получает только собственные команды и grants. Ответы TG получены: guest Support, linked-user text/voice automatic capture, critical alerts + daily digest и event deep links. Support staff grants отдельны; analytics агрегированная. Hermes/Brief/Kwork/личный listener остаются отдельными процессами, не объединяются автоматически с control bot.
 
 Global analytics и Infrastructure принадлежат Owner Console. В бот идут summaries/status/deep links, графики в web/desktop Console. Configurable aggregation/retention, timezone/UTC contract, disabled/stale/missing источники не рисуются нулями. Server capacity выбор отложен до actual deployment; feature specification не зависит от Raspberry Pi.
 
@@ -54,3 +54,5 @@ Global analytics и Infrastructure принадлежат Owner Console. В бо
 Feature parity checklist каждая строка матрицы → test/отдельное решение retirement. Synthetic bot update fixtures без токена и sendMessage, owner/nonowner/module moderator negative cases, tampered/expired/replayed callback, stolen linking token, exact reply/TTL, restart/unknown send/outbox, one consumer. Stats: unit correctness, process reset, two-source dedup, stale/missing/unsupported scope, periods/UTC/retention and scoped ACL. Service power: fixed IDs/diff/confirmation/unknown outcome, no arbitrary shell, Auth/bot immune. Support: scoped staff/cross-chat, old history mapping, no mistaken reply.
 
 План миграции каждой capabilities использует source IDs и mappings; private support/query contents и env values не копировать в audit artifacts. Открытые вопросы по scope/уведомлениям/аналитике см. [вопросы](../project/OPEN_QUESTIONS.md).
+
+Нужные общие функции реализуются на FastAPI (ADR-0007); Node хранит специфический tournament engine и временно обслуживает ещё не migrated consumers. TG-1..6 закрыты; [quick capture и уведомления](TELEGRAM_CAPTURE_AND_NOTIFICATIONS.md) дополняют parity matrix.

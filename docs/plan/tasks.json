@@ -175,7 +175,7 @@
   },
   {
     "id": "QUB-AUTH-002",
-    "title": "Legacy identity bridge и stable subject mapping",
+    "title": "Stable subject mapping и временный legacy compatibility protocol",
     "reason": "Сохранить авторизацию существующих сервисов и однозначное соответствие субъектов",
     "module": "identity",
     "priority": "P0",
@@ -190,7 +190,7 @@
     "acceptance": [
       "Session introspection audience/status/revoke fail-closed",
       "Mapping stable, roles не platform privileges, owner verified",
-      "Reuse текущего Auth только в переходе; target cutover отдельно по ADR-0005"
+      "Новый identity target FastAPI/Postgres; legacy bridge только до consumer cutover, не permanent authority"
     ],
     "tests": [
       "Будущий core pytest identity + auth compatibility suite"
@@ -618,16 +618,17 @@
     "module": "identity",
     "priority": "P0",
     "dependencies": [
+      "QUB-AUTH-009",
       "QUB-TEST-001"
     ],
     "files": [
-      "back/server.js (code-entry точечно)",
-      "front/js/app.js (auth entry точечно)",
+      "core/qubite/identity (будущий)",
+      "contracts/auth-v1.json (будущий)",
       "docs/architecture/AUTH_AND_PERMISSIONS.md"
     ],
     "acceptance": [
       "Карта потребителей inspect/code-entry и прежних аккаунтов",
-      "Новый вход по account code-entry не выдаёт сессию; сохранены tournament join codes/email verify/2FA/reset",
+      "Новый FastAPI Auth не реализует account code-entry; сохранены tournament join codes/email verify/2FA/reset",
       "Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают"
     ],
     "tests": [
@@ -644,17 +645,16 @@
   },
   {
     "id": "QUB-AUTH-006",
-    "title": "Минимальный register DTO и legacy login compatibility",
+    "title": "Минимальная FastAPI регистрация и legacy alias compatibility",
     "reason": "Снять обязательные турнирные/лишние данные с платформенной регистрации",
     "module": "identity",
     "priority": "P0",
     "dependencies": [
-      "QUB-TEST-001",
+      "QUB-AUTH-009",
       "QUB-DESIGN-001"
     ],
     "files": [
-      "back/server.js (register точечно)",
-      "back/src/db.js (alias contract точечно)",
+      "core/qubite/identity/registration (будущий)",
       "contracts/registration-v1.json (будущий)"
     ],
     "acceptance": [
@@ -676,14 +676,16 @@
   },
   {
     "id": "QUB-AUTH-007",
-    "title": "Новые React auth экраны поверх проверенного Auth",
-    "reason": "Переиспользовать работающий backend при полном обновлении интерфейса",
+    "title": "Новые React auth экраны поверх FastAPI Auth",
+    "reason": "Новый Python identity backend и React дизайн, legacy обслуживает только неперенесённые consumers",
     "module": "ui",
     "priority": "P0",
     "dependencies": [
       "QUB-UI-001",
       "QUB-AUTH-005",
-      "QUB-AUTH-006"
+      "QUB-AUTH-006",
+      "QUB-AUTH-010",
+      "QUB-AUTH-011"
     ],
     "files": [
       "apps/web/auth (будущий)",
@@ -691,7 +693,7 @@
     ],
     "acceptance": [
       "Новая тема/формы email/password/OAuth/reset без account code-entry",
-      "Единый серверный Auth, безопасные cookies/CSRF/return target, никакой второй insecure login",
+      "FastAPI Auth, безопасные cookies/CSRF/return target, verifier/session compatibility; live cutover отдельно",
       "Web+desktop navigation/keyboard/mobile и реальная UX приёмка"
     ],
     "tests": [
@@ -713,8 +715,8 @@
     "module": "identity",
     "priority": "P0",
     "dependencies": [
-      "QUB-AUTH-002",
-      "QUB-AUTH-007"
+      "QUB-CORE-001",
+      "QUB-TEST-001"
     ],
     "files": [
       "docs/migration/IDENTITY_CUTOVER.md (будущий)",
@@ -734,7 +736,7 @@
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
     "status": "backlog",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
     "verification": []
   },
   {
@@ -856,10 +858,12 @@
       "Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes"
     ],
     "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "TG-1..6 ответы 12.10.2026, ADR-0007"
+    ]
   },
   {
     "id": "QUB-TG-002",
@@ -878,7 +882,8 @@
     "acceptance": [
       "Python worker с общими policy API, platform subject linking и owner private menu",
       "Статусы/сводки/deep links; no mutations/real sends в POC",
-      "Tampered/unlinked/revoked/module moderator → deny; single consumer startup contract"
+      "Tampered/unlinked/revoked/module moderator → deny; single consumer startup contract",
+      "Существующий bot identity сохраняется; automatic capture реализуется отдельным slice"
     ],
     "tests": [
       "Fixture bot update integration; transport mock; revoke/expiry negative tests"
@@ -982,7 +987,7 @@
     "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
     "status": "backlog",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
     "verification": []
   },
   {
@@ -1000,7 +1005,7 @@
       "apps/web/support (будущий)"
     ],
     "acceptance": [
-      "TG-4 guest/staff policy resolved, support grant отдельно от турниров",
+      "FastAPI guest Support, owner и owner-granted support.read/reply/manage отдельно от tournament role",
       "Chat/source/IDs/history migration map; read/reply/close/reopen common API",
       "Exact reply/TTL/cross-chat/revoke/outcome tests без реальных сообщений"
     ],
@@ -1013,7 +1018,280 @@
     "rollback": "Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи.",
     "status": "backlog",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-009",
+    "title": "FastAPI password login/logout/session core",
+    "reason": "Нужный новой платформе Auth реализовать на Python, не permanent JS adapter",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-008",
+      "QUB-AUTH-002"
+    ],
+    "files": [
+      "core/qubite/identity/auth (будущий)"
+    ],
+    "acceptance": [
+      "Postgres sessions/credentials, hash-only tokens, isolated verifier compatibility vectors",
+      "Login/logout/logout-all/revoke/blocked/expiry/CSRF/secure cookie negative cases",
+      "No code-entry, no owner/global-role bypass; реальные пароли не читать в модель"
+    ],
+    "tests": [
+      "Disposable Postgres auth integration; old verifier synthetic cross-runtime vectors"
+    ],
+    "risks": [
+      "Session fixation/пароли/legacy consumer breakage"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-010",
+    "title": "FastAPI OAuth provider adapter и account linking",
+    "reason": "Сохранить необходимые способы входа в новом Auth",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-009"
+    ],
+    "files": [
+      "core/qubite/identity/oauth (будущий)"
+    ],
+    "acceptance": [
+      "Configured Google/Yandex/VK/Telegram contract с state/PKCE/audience/expiry/unique subject",
+      "No linking чужого account по непроверенной email; provider kill switches",
+      "Только mock transport/local secrets reference, native redirect allowlist"
+    ],
+    "tests": [
+      "Provider fixture state/PKCE/replay/link collision/unconfigured tests"
+    ],
+    "risks": [
+      "OAuth takeover/open redirect; не реальный провайдерский acceptance"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-011",
+    "title": "FastAPI verification/password reset/email-2FA contract",
+    "reason": "Не потерять security flows при переносе auth",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-009"
+    ],
+    "files": [
+      "core/qubite/identity/challenges (будущий)"
+    ],
+    "acceptance": [
+      "Одноразовые hashed challenges, TTL/replay/rate caps; reset/revoke/verify flows",
+      "Email transport mock, configured feature behavior, security code не account code-entry",
+      "Согласованный register/verify owner bootstrap mapping, no arbitrary owner promotion"
+    ],
+    "tests": [
+      "Challenge expiry/replay/exhaustion/reset/session revoke tests"
+    ],
+    "risks": [
+      "Mail leak/race/reset takeover"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-CORE-002",
+    "title": "FastAPI platform settings и module command controls",
+    "reason": "Общие настройки старого Qubite перенести в target core",
+    "module": "core",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/settings (будущий)",
+      "contracts/settings-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Platform/Auth controls отдельно от tournament/VPN/module settings",
+      "Typed allowlist settings, version+idempotency+owner policy/audit",
+      "Legacy config source/mapping, no arbitrary key write or bearer bypass URL"
+    ],
+    "tests": [
+      "Settings invalid key/revoke/concurrency/command ACL tests"
+    ],
+    "risks": [
+      "Изменения scopes/kill switches, no implicit service restart"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-CAPTURE-001",
+    "title": "Telegram text durable Inbox ingress",
+    "reason": "Быстро сохранить мысль без предварительной категории",
+    "module": "capture",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-TG-002",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/capture (будущий)",
+      "contracts/capture-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Linked user text без меню → durable private CaptureItem, dedup/update fingerprint",
+      "Guest → Support, exact admin/support replies не capture; raw source/provenance сохранён",
+      "ACK только после commit; restart/duplicate/cross-account/deny cases"
+    ],
+    "tests": [
+      "Mock updates + disposable Postgres persist/restart/duplicate tests"
+    ],
+    "risks": [
+      "Потеря исходника/неверный recipient/intercept admin input"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-CAPTURE-002",
+    "title": "AI auto classify/format и safe note/task routing",
+    "reason": "AI сам определяет назначение и оформление входящего",
+    "module": "capture",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-CAPTURE-001",
+      "QUB-AI-002",
+      "QUB-DOC-001"
+    ],
+    "files": [
+      "core/qubite/capture/router (будущий)"
+    ],
+    "acceptance": [
+      "Validated typed output, только available grants/ACL/budgets и текущий scoped context",
+      "Automatic new personal note/task без выбора/лишних confirmations; source + undo/correction/link",
+      "Low confidence/нет бюджета/AI fail → raw Inbox retained, no silent paid retries; ambiguous reminder remains draft"
+    ],
+    "tests": [
+      "Mock provider parse/injection/deny/undo-concurrent/idempotency tests"
+    ],
+    "risks": [
+      "Content injection/cross-scope/duplicate payment/overwriting existing docs"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-CAPTURE-003",
+    "title": "Voice durable attachment и существующий STT adapter",
+    "reason": "Голосовое так же сохраняется без меню и не теряется при ASR ошибке",
+    "module": "capture",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-CAPTURE-001",
+      "QUB-AI-002"
+    ],
+    "files": [
+      "core/qubite/capture/voice (будущий)",
+      "contracts/stt-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Private audio persist + original metadata до saved ACK, media/type/size bounds",
+      "Existing voice/Hermes service adapter, no second Telethon session/polling/own model download",
+      "ASR failure original retained; successful transcript routes via capture pipeline; cancellation/retry bounded"
+    ],
+    "tests": [
+      "Mock Telegram download+STT failure/restart/partial file/ACL/budget tests"
+    ],
+    "risks": [
+      "Untrusted file/SSRF/private voice/billing unknown"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-NOTIFY-001",
+    "title": "Unified event/outbox и безопасные app deep links",
+    "reason": "Уведомления связаны с Qubite событиями и ведут в нужный раздел",
+    "module": "notifications",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-003",
+      "QUB-TG-002"
+    ],
+    "files": [
+      "core/qubite/notifications (будущий)",
+      "contracts/notification-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Общие event/resource IDs для Qubite и Telegram; per-channel status и preference",
+      "Owner alerts/scoped recipient, revoke recheck, authenticated web fallback link без secret",
+      "Crash/duplicate/unknown-send/replayed link; no automatic paid retry or false delivered"
+    ],
+    "tests": [
+      "Mock send/outbox restart/idempotency/scope/deep-link tests"
+    ],
+    "risks": [
+      "Private content leak/unknown sends/native deep-link unsafe commands"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-NOTIFY-002",
+    "title": "Daily digest schedule и critical alert policies",
+    "reason": "Ежедневная сводка и важные уведомления подтверждены владельцем",
+    "module": "notifications",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-NOTIFY-001",
+      "QUB-ANALYTICS-001"
+    ],
+    "files": [
+      "core/qubite/notifications/digest (будущий)",
+      "apps/web/settings/notifications (будущий)"
+    ],
+    "acceptance": [
+      "Critical deterministic alerts и daily aggregated digest, без обязательного LLM",
+      "Настраиваемые channels/timezone/time/quiet hours; unique recipient+period digest, no restart duplicates",
+      "Preview/test fixtures; реальное расписание и sends не включать в local tests"
+    ],
+    "tests": [
+      "Clock/DST/UTC/missed/revoke/dedup/unknown-delivery fixtures"
+    ],
+    "risks": [
+      "Spam/quiet-hours/неверный scope или повтор уведомления"
+    ],
+    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
     "verification": []
   }
 ]

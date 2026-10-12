@@ -16,13 +16,15 @@
 
 Уже определено: ordinary owner home, manual grants/no tariffs, scoped tournament roles, собственные Docs/Planner, Shade только connector, paid test/deploy отдельно. Root kickoff V2 отсутствует; доступный kickoff задаёт цели. Если появится другой V2, сравнить требования перед исполнением.
 
-## Дополнение: бот и аналитика — pending ответы
+## Дополнение: бот и аналитика — ответы получены 12.10.2026
 
-- TG-1: сохраняем существующий control bot/username и делаем отдельные owner/user меню, или новый bot? Рекомендация прежний bot + scoped menus. Никаких токенов в ответах не нужно.
-- TG-2: everyday capture (заметки/задачи/напоминания/voice) и AI/Hermes commands в этом боте нужны, или только management/support/status? Рекомендация сначала management/support/status; capture отдельным bounded slice, Hermes не дублировать.
-- TG-3: start/stop/restart по fixed allowlist разрешать из Telegram с подтверждением? Hard account/data deletion и live deploy оставить web Console/отдельному release runbook? Рекомендация да start/stop после review; destructive/deploy не включать в basic bot flow.
-- TG-4: Support доступен незарегистрированным посетителям? Отвечает только owner или отдельный support staff grant? Не наследовать support от tournament role.
-- TG-5: критичные alerts сразу (отказы/backup/budget/security), плюс дневная сводка или только вручную? Период/timezone/quiet hours согласовать до scheduled sends.
-- TG-6: аналитика агрегатов пользователей/модулей/AI и серверов достаточна, или нужны подробные события посещений отдельных аккаунтов? Retention и protected/private content не угадывать; рекомендация агрегаты, минимальные отдельные security logs.
+| Вопрос | Ответ |
+|---|---|
+| TG-1 | Сохранить прежнего control bot/имя |
+| TG-2 | Текст/голос в обычный чат без выбора раздела; AI auto capture/format/route в доступные личные объекты, raw persist до AI |
+| TG-3 | Allowlisted service controls с подтверждением; destructive/deploy отдельным flow |
+| TG-4 | Гостевая поддержка, сейчас owner; позже owner выдаёт отдельные support grants выбранным пользователям |
+| TG-5 | Critical alerts и daily digest; события/ссылки ведут в Qubite, каналы/время настраиваемы |
+| TG-6 | Агрегированная аналитика, без подробных private content logs по умолчанию |
 
-Эти ответы уточняют bot/analytics задачи, не останавливают уже согласованный локальный foundation/design/deploy specification.
+Последнее уточнение: нужные новой платформе общие функции старого Qubite реализовать на FastAPI. Node/Auth только временно для непрерывности; специфический tournament engine Node/SQLite не переписываем полностью сейчас. [ADR-0007](../architecture/decisions/0007-platform-extraction-and-capture.md). Bot/capture/job mechanics и event deep links: [контракт](../architecture/TELEGRAM_CAPTURE_AND_NOTIFICATIONS.md). Реальное время ежедневной сводки/каналы настраиваются перед отправками, не блокируют проектирование.

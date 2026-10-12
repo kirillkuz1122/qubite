@@ -1,6 +1,6 @@
 # Карточки небольших задач
 
-Источник состояния — [tasks.json](tasks.json). Стек согласован 12.10.2026. Ready задачи доступны для локального bounded cycle; backlog не является разрешением на массовую реализацию. Live deploy/миграция отдельно.
+Источник состояния — [tasks.json](tasks.json). Последнее решение 12.10.2026: нужные shared legacy функции FastAPI, tournament engine Node/SQLite отдельно; capture/Support/уведомления подтверждены. Только ready задачи для bounded cycle; live миграция/deploy отдельно.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -116,7 +116,7 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## QUB-AUTH-002 — Legacy identity bridge и stable subject mapping
+## QUB-AUTH-002 — Stable subject mapping и временный legacy compatibility protocol
 
 Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
@@ -128,7 +128,7 @@ Acceptance:
 
 - Session introspection audience/status/revoke fail-closed
 - Mapping stable, roles не platform privileges, owner verified
-- Reuse текущего Auth только в переходе; target cutover отдельно по ADR-0005
+- Новый identity target FastAPI/Postgres; legacy bridge только до consumer cutover, не permanent authority
 
 Проверка: Будущий core pytest identity + auth compatibility suite.
 
@@ -405,16 +405,16 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-TEST-001.
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-TEST-001.
 
 Причина: Убрать старый вход по коду по прямому указанию владельца.
 
-Файлы/контракты: `back/server.js (code-entry точечно)`, `front/js/app.js (auth entry точечно)`, `docs/architecture/AUTH_AND_PERMISSIONS.md`.
+Файлы/контракты: `core/qubite/identity (будущий)`, `contracts/auth-v1.json (будущий)`, `docs/architecture/AUTH_AND_PERMISSIONS.md`.
 
 Acceptance:
 
 - Карта потребителей inspect/code-entry и прежних аккаунтов
-- Новый вход по account code-entry не выдаёт сессию; сохранены tournament join codes/email verify/2FA/reset
+- Новый FastAPI Auth не реализует account code-entry; сохранены tournament join codes/email verify/2FA/reset
 - Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают
 
 Проверка: Isolated auth HTTP negative+positive matrix; tournament code join regression.
@@ -423,13 +423,13 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## QUB-AUTH-006 — Минимальный register DTO и legacy login compatibility
+## QUB-AUTH-006 — Минимальная FastAPI регистрация и legacy alias compatibility
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-TEST-001, QUB-DESIGN-001.
+Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-DESIGN-001.
 
 Причина: Снять обязательные турнирные/лишние данные с платформенной регистрации.
 
-Файлы/контракты: `back/server.js (register точечно)`, `back/src/db.js (alias contract точечно)`, `contracts/registration-v1.json (будущий)`.
+Файлы/контракты: `core/qubite/identity/registration (будущий)`, `contracts/registration-v1.json (будущий)`.
 
 Acceptance:
 
@@ -443,18 +443,18 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## QUB-AUTH-007 — Новые React auth экраны поверх проверенного Auth
+## QUB-AUTH-007 — Новые React auth экраны поверх FastAPI Auth
 
-Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006.
+Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-011.
 
-Причина: Переиспользовать работающий backend при полном обновлении интерфейса.
+Причина: Новый Python identity backend и React дизайн, legacy обслуживает только неперенесённые consumers.
 
 Файлы/контракты: `apps/web/auth (будущий)`, `docs/design/AUTH_UX.md (будущий)`.
 
 Acceptance:
 
 - Новая тема/формы email/password/OAuth/reset без account code-entry
-- Единый серверный Auth, безопасные cookies/CSRF/return target, никакой второй insecure login
+- FastAPI Auth, безопасные cookies/CSRF/return target, verifier/session compatibility; live cutover отдельно
 - Web+desktop navigation/keyboard/mobile и реальная UX приёмка
 
 Проверка: Playwright login/register/reset/revoke; no secret logging; screenshots.
@@ -465,7 +465,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-008 — Identity cutover specification в Python/Postgres
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002, QUB-AUTH-007.
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
 Причина: Перенести identity в целевой стек без одновременного удаления старого Auth.
 
@@ -545,7 +545,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-TG-001 — Bot parity/command specification и mock characterization
 
-Модуль: telegram; P0; статус backlog; architecture approved: false. Зависимости: QUB-001.
+Модуль: telegram; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Подготовить полный новый bot flow без потери функций и смешения ролей.
 
@@ -561,7 +561,7 @@ Acceptance:
 
 Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: TG-1..6 ответы 12.10.2026, ADR-0007.
 
 ## QUB-TG-002 — Новый control worker read-only status/menu POC
 
@@ -576,6 +576,7 @@ Acceptance:
 - Python worker с общими policy API, platform subject linking и owner private menu
 - Статусы/сводки/deep links; no mutations/real sends в POC
 - Tampered/unlinked/revoked/module moderator → deny; single consumer startup contract
+- Существующий bot identity сохраняется; automatic capture реализуется отдельным slice
 
 Проверка: Fixture bot update integration; transport mock; revoke/expiry negative tests.
 
@@ -625,7 +626,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-ANALYTICS-001 — Owner analytics/Infrastructure UI и Tournaments split
 
-Модуль: analytics; P0; статус backlog; architecture approved: false. Зависимости: QUB-OBS-001, QUB-UI-001.
+Модуль: analytics; P0; статус backlog; architecture approved: true. Зависимости: QUB-OBS-001, QUB-UI-001.
 
 Причина: Перенести все реальные analytics capabilities в правильные scopes.
 
@@ -645,7 +646,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-SUPPORT-001 — Support scope и Telegram/web conversation adapter POC
 
-Модуль: support; P0; статус backlog; architecture approved: false. Зависимости: QUB-TG-001, QUB-AUTH-003.
+Модуль: support; P0; статус backlog; architecture approved: true. Зависимости: QUB-TG-001, QUB-AUTH-003.
 
 Причина: Не потерять поддержку и не отправить ответ неверному собеседнику.
 
@@ -653,12 +654,192 @@ Commit: после выполнения. Evidence: .
 
 Acceptance:
 
-- TG-4 guest/staff policy resolved, support grant отдельно от турниров
+- FastAPI guest Support, owner и owner-granted support.read/reply/manage отдельно от tournament role
 - Chat/source/IDs/history migration map; read/reply/close/reopen common API
 - Exact reply/TTL/cross-chat/revoke/outcome tests без реальных сообщений
 
 Проверка: Synthetic conversation API + bot transport tests; history map roundtrip.
 
 Риск: Не потерять legacy capabilities/history; не наследовать global moderator; без real bot credentials/send/production writes. Откат: Отключить новый adapter/route/worker, сохранить источник и mappings; один consumer, не стирать новые записи..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-009 — FastAPI password login/logout/session core
+
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
+
+Причина: Нужный новой платформе Auth реализовать на Python, не permanent JS adapter.
+
+Файлы/контракты: `core/qubite/identity/auth (будущий)`.
+
+Acceptance:
+
+- Postgres sessions/credentials, hash-only tokens, isolated verifier compatibility vectors
+- Login/logout/logout-all/revoke/blocked/expiry/CSRF/secure cookie negative cases
+- No code-entry, no owner/global-role bypass; реальные пароли не читать в модель
+
+Проверка: Disposable Postgres auth integration; old verifier synthetic cross-runtime vectors.
+
+Риск: Session fixation/пароли/legacy consumer breakage. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
+
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009.
+
+Причина: Сохранить необходимые способы входа в новом Auth.
+
+Файлы/контракты: `core/qubite/identity/oauth (будущий)`.
+
+Acceptance:
+
+- Configured Google/Yandex/VK/Telegram contract с state/PKCE/audience/expiry/unique subject
+- No linking чужого account по непроверенной email; provider kill switches
+- Только mock transport/local secrets reference, native redirect allowlist
+
+Проверка: Provider fixture state/PKCE/replay/link collision/unconfigured tests.
+
+Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
+
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009.
+
+Причина: Не потерять security flows при переносе auth.
+
+Файлы/контракты: `core/qubite/identity/challenges (будущий)`.
+
+Acceptance:
+
+- Одноразовые hashed challenges, TTL/replay/rate caps; reset/revoke/verify flows
+- Email transport mock, configured feature behavior, security code не account code-entry
+- Согласованный register/verify owner bootstrap mapping, no arbitrary owner promotion
+
+Проверка: Challenge expiry/replay/exhaustion/reset/session revoke tests.
+
+Риск: Mail leak/race/reset takeover. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-CORE-002 — FastAPI platform settings и module command controls
+
+Модуль: core; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-003.
+
+Причина: Общие настройки старого Qubite перенести в target core.
+
+Файлы/контракты: `core/qubite/settings (будущий)`, `contracts/settings-v1.json (будущий)`.
+
+Acceptance:
+
+- Platform/Auth controls отдельно от tournament/VPN/module settings
+- Typed allowlist settings, version+idempotency+owner policy/audit
+- Legacy config source/mapping, no arbitrary key write or bearer bypass URL
+
+Проверка: Settings invalid key/revoke/concurrency/command ACL tests.
+
+Риск: Изменения scopes/kill switches, no implicit service restart. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-CAPTURE-001 — Telegram text durable Inbox ingress
+
+Модуль: capture; P1; статус backlog; architecture approved: true. Зависимости: QUB-TG-002, QUB-AUTH-003.
+
+Причина: Быстро сохранить мысль без предварительной категории.
+
+Файлы/контракты: `core/qubite/capture (будущий)`, `contracts/capture-v1.json (будущий)`.
+
+Acceptance:
+
+- Linked user text без меню → durable private CaptureItem, dedup/update fingerprint
+- Guest → Support, exact admin/support replies не capture; raw source/provenance сохранён
+- ACK только после commit; restart/duplicate/cross-account/deny cases
+
+Проверка: Mock updates + disposable Postgres persist/restart/duplicate tests.
+
+Риск: Потеря исходника/неверный recipient/intercept admin input. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-CAPTURE-002 — AI auto classify/format и safe note/task routing
+
+Модуль: capture; P1; статус backlog; architecture approved: true. Зависимости: QUB-CAPTURE-001, QUB-AI-002, QUB-DOC-001.
+
+Причина: AI сам определяет назначение и оформление входящего.
+
+Файлы/контракты: `core/qubite/capture/router (будущий)`.
+
+Acceptance:
+
+- Validated typed output, только available grants/ACL/budgets и текущий scoped context
+- Automatic new personal note/task без выбора/лишних confirmations; source + undo/correction/link
+- Low confidence/нет бюджета/AI fail → raw Inbox retained, no silent paid retries; ambiguous reminder remains draft
+
+Проверка: Mock provider parse/injection/deny/undo-concurrent/idempotency tests.
+
+Риск: Content injection/cross-scope/duplicate payment/overwriting existing docs. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-CAPTURE-003 — Voice durable attachment и существующий STT adapter
+
+Модуль: capture; P1; статус backlog; architecture approved: true. Зависимости: QUB-CAPTURE-001, QUB-AI-002.
+
+Причина: Голосовое так же сохраняется без меню и не теряется при ASR ошибке.
+
+Файлы/контракты: `core/qubite/capture/voice (будущий)`, `contracts/stt-v1.json (будущий)`.
+
+Acceptance:
+
+- Private audio persist + original metadata до saved ACK, media/type/size bounds
+- Existing voice/Hermes service adapter, no second Telethon session/polling/own model download
+- ASR failure original retained; successful transcript routes via capture pipeline; cancellation/retry bounded
+
+Проверка: Mock Telegram download+STT failure/restart/partial file/ACL/budget tests.
+
+Риск: Untrusted file/SSRF/private voice/billing unknown. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-NOTIFY-001 — Unified event/outbox и безопасные app deep links
+
+Модуль: notifications; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-003, QUB-TG-002.
+
+Причина: Уведомления связаны с Qubite событиями и ведут в нужный раздел.
+
+Файлы/контракты: `core/qubite/notifications (будущий)`, `contracts/notification-v1.json (будущий)`.
+
+Acceptance:
+
+- Общие event/resource IDs для Qubite и Telegram; per-channel status и preference
+- Owner alerts/scoped recipient, revoke recheck, authenticated web fallback link без secret
+- Crash/duplicate/unknown-send/replayed link; no automatic paid retry or false delivered
+
+Проверка: Mock send/outbox restart/idempotency/scope/deep-link tests.
+
+Риск: Private content leak/unknown sends/native deep-link unsafe commands. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-NOTIFY-002 — Daily digest schedule и critical alert policies
+
+Модуль: notifications; P1; статус backlog; architecture approved: true. Зависимости: QUB-NOTIFY-001, QUB-ANALYTICS-001.
+
+Причина: Ежедневная сводка и важные уведомления подтверждены владельцем.
+
+Файлы/контракты: `core/qubite/notifications/digest (будущий)`, `apps/web/settings/notifications (будущий)`.
+
+Acceptance:
+
+- Critical deterministic alerts и daily aggregated digest, без обязательного LLM
+- Настраиваемые channels/timezone/time/quiet hours; unique recipient+period digest, no restart duplicates
+- Preview/test fixtures; реальное расписание и sends не включать в local tests
+
+Проверка: Clock/DST/UTC/missed/revoke/dedup/unknown-delivery fixtures.
+
+Риск: Spam/quiet-hours/неверный scope или повтор уведомления. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
 
 Commit: после выполнения. Evidence: .
