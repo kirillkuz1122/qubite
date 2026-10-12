@@ -6,7 +6,7 @@
 
 Qubite — рабочий MVP-прототип платформы для учебных соревнований. Текущий репозиторий описывает русскоязычную версию проекта, где главный фокус сделан на участнике: вход, попадание в турнир, решение задач, рейтинг и базовую аналитику.
 
-Важно: это не React/Vite/Next-проект. Фронтенд здесь реализован на обычных `HTML + CSS + JavaScript`, а бэкенд — на `Node.js + Express + SQLite`.
+Рабочая legacy часть использует обычные `HTML + CSS + JavaScript` и `Node.js + Express + SQLite`. Новый независимый FastAPI/Postgres foundation находится в `core/`; React UI ещё не создан.
 
 ## Что это за проект
 
@@ -221,7 +221,7 @@ React/new design scope включает собственные VPN/Writing/Searc
 
 ### Проверка legacy Auth перед переносом
 
-QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего server.js с временной SQLite и synthetic mail/OAuth/CAPTCHA. Запуск: `python3 scripts/engineering/verify.py --suite node`; полный runner+harness — 357 pass. [Отчёт](docs/reports/QUB-TEST-001.md) фиксирует три нерешённых legacy дефекта; тесты не заменяют реальный provider/UI/production acceptance. Следующая основная задача — изолированный FastAPI/Postgres foundation QUB-CORE-001.
+QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего server.js с временной SQLite и synthetic mail/OAuth/CAPTCHA. Запуск: `python3 scripts/engineering/verify.py --suite node`; полный runner+harness — 357 pass. [Отчёт](docs/reports/QUB-TEST-001.md) фиксирует три нерешённых legacy дефекта; тесты не заменяют реальный provider/UI/production acceptance. CORE-001 foundation затем реализован; следующая основная DESIGN-001.
 
 ### Созданное ядро Qubite 2.0
 

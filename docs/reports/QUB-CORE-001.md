@@ -1,6 +1,6 @@
 # QUB-CORE-001 — отдельный FastAPI/PostgreSQL foundation
 
-12.10.2026. Следующая задача по прямому запросу владельца после QUB-TEST-001. Создан отдельный `core/qubite`, legacy runtime не менялся. Пока review/testing до commit/remote/CI evidence.
+12.10.2026. Следующая задача по прямому запросу владельца после QUB-TEST-001. Создан отдельный `core/qubite`, legacy runtime не менялся. Задача done; commit/remote/CI evidence ниже.
 
 ## Сделано
 
@@ -34,3 +34,9 @@ Core tests используют настоящий private PostgreSQL cluster: �
 Рабочие DB/files/credentials/services, archived tournaments/tag, ShadeAI и production не изменены. Нет live API/paid calls/TG/HA/device tests/deploy; push только код. Backup/restore/cutover всё ещё отдельный этап. Skill db-schema-change прочитан, но специфичен Drizzle/SQLite и его pnpm/schema файлы неприменимы; Postgres metadata/transaction tests/ERD оформлены в core docs.
 
 Следующая primary **QUB-DESIGN-001**: reviewable новый стиль и auth/navigation макет до React implementation/owner acceptance. После done CORE-001 также доступны dependencies уже согласованной AUTH-008 — identity cutover specification, без live writes. Этот цикл выполняет только CORE-001. Commit и GitHub evidence дополняются после сохранения отдельным docs follow-up, без self-hash цикла.
+
+## Завершение и GitHub evidence
+
+**done**. Commit `a85f047e7e54c07a6f780a127988b14d9c623a74` опубликован origin/main, remote SHA подтверждён. [CI run 38211426535](https://github.com/kirillkuz1122/qubite/actions/runs/38211426535) success: PostgreSQL **16.15 (Ubuntu16.15-1.pgdg24.04+2)**, core29 + legacy suites + harness4, total386. Native cluster создан тестами отдельно, системный сервис не запускался. Локально PostgreSQL18.6 тот же acceptance прошёл.
+
+Archive origin/tournaments и qubite-v1.0 повторно проверен на 96f0457a523b6b79f21c4092056d8fa8fa69a680 и не изменён. Completion registry/handoff сохраняются отдельным docs-коммитом, его SHA брать из git log, без self-hash. Следующая primary DESIGN-001; ранее approved AUTH-008 теперь ready по done dependencies, не начата.

@@ -215,13 +215,13 @@
       "Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "a85f047e7e54c07a6f780a127988b14d9c623a74",
     "architecture_approved": true,
     "verification": [
       "12.10.2026: all isolated runner Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29=382 pass; harness4=386; no failed/skipped.",
       "Real native PostgreSQL18.6 + Uvicorn HTTP, checksum/drift/rollback/concurrent/read-only role/no-env/no-network startup; only temp DB, no legacy/runtime/deploy changes.",
-      "check.py/git diff --check/harness checks required; commit/remote/CI evidence after commit."
+      "check.py/git diff --check/harness4 passed; commit a85f047e7e54c07a6f780a127988b14d9c623a74 pushed/remote SHA verified; CI run 38211426535 success incl PostgreSQL16.15/core29/all suites, local PostgreSQL18.6."
     ]
   },
   {
@@ -787,10 +787,12 @@
       "SSO/refresh breakage; legacy owner bypass не наследовать"
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes."
+    ]
   },
   {
     "id": "QUB-DEPLOY-001",

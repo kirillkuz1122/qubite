@@ -99,7 +99,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-CORE-001 — Изолированный core health и contract skeleton
 
-Модуль: core; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
+Модуль: core; P0; статус done; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Проверить выбранный runtime/storage контракт без write доступа к legacy данным.
 
@@ -114,7 +114,7 @@ Acceptance:
 
 Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
 
-Commit: после выполнения. Evidence: 12.10.2026: all isolated runner Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29=382 pass; harness4=386; no failed/skipped.; Real native PostgreSQL18.6 + Uvicorn HTTP, checksum/drift/rollback/concurrent/read-only role/no-env/no-network startup; only temp DB, no legacy/runtime/deploy changes.; check.py/git diff --check/harness checks required; commit/remote/CI evidence after commit..
+Commit: a85f047e7e54c07a6f780a127988b14d9c623a74. Evidence: 12.10.2026: all isolated runner Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29=382 pass; harness4=386; no failed/skipped.; Real native PostgreSQL18.6 + Uvicorn HTTP, checksum/drift/rollback/concurrent/read-only role/no-env/no-network startup; only temp DB, no legacy/runtime/deploy changes.; check.py/git diff --check/harness4 passed; commit a85f047e7e54c07a6f780a127988b14d9c623a74 pushed/remote SHA verified; CI run 38211426535 success incl PostgreSQL16.15/core29/all suites, local PostgreSQL18.6..
 
 ## QUB-AUTH-002 — Stable subject mapping и временный legacy compatibility protocol
 
@@ -466,7 +466,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-008 — Identity cutover specification в Python/Postgres
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
 Причина: Перенести identity в целевой стек без одновременного удаления старого Auth.
 
@@ -483,7 +483,7 @@ Acceptance:
 
 Риск: SSO/refresh breakage; legacy owner bypass не наследовать. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: 12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes..
 
 ## QUB-DEPLOY-001 — Specification нового deploy/qubite2 и installer modes
 
