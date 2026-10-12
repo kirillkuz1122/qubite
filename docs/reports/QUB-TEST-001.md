@@ -52,3 +52,9 @@ git diff --check
 Реальные почтовые/OAuth/CAPTCHA/Telegram endpoints, TLS reverse proxy, браузерный UX, production DB/backup, платные модели, физические устройства не использовались. Этот baseline не даёт разрешения на live identity cutover или production deploy. Account code-entry/native VPN auth, полная tournament HTTP/rating матрица и browser E2E не входят в acceptance этой задачи; их отдельные QUB-AUTH-005/SVC-VPN/QUB-TEST-002 gates остаются открытыми.
 
 Следующая основная задача **QUB-CORE-001**: отдельный FastAPI/Postgres foundation, health/контракты/версионированная миграция в disposable storage, без записи в legacy SQLite. Базовый стек уже согласован; детальные cutover/UX/device/deploy gates сохраняются. Эта итерация выполняет только QUB-TEST-001.
+
+## Завершение и GitHub evidence
+
+Статус **done**. Реализация/тесты/отчёт сохранены коммитом `695227792e6ab7a09cdad67b56d8acbad4cc0ad9`, push origin/main и remote SHA проверены. [GitHub Actions run 38207835631](https://github.com/kirillkuz1122/qubite/actions/runs/38207835631) **success** на этом точном SHA: полный isolated runner + harness, без deployment. `origin/tournaments` и `qubite-v1.0` повторно подтверждены на `96f0457a523b6b79f21c4092056d8fa8fa69a680`, не изменялись.
+
+Registry done/commit/verification и актуальный handoff сохраняются отдельным последующим docs-коммитом. Его SHA брать из git log/remote; это исключает циклическое самоцитирование. Следующая primary задача QUB-CORE-001; в этой итерации она не начиналась.

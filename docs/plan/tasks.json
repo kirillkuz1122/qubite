@@ -126,13 +126,13 @@
       "Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "695227792e6ab7a09cdad67b56d8acbad4cc0ad9",
     "architecture_approved": true,
     "verification": [
       "12.10.2026: verify.py --suite all --python /tmp/qubite-audit-venv/bin/python: Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5 =353 pass; harness unittest4 =357. No skipped/failed.",
       "25 real-server Auth HTTP cases; runtime unchanged; synthetic external transport only. AUTH-L01..03 retained legacy defects, P0 account linking cutover gate in report/SECURITY.",
-      "check.py и git diff --check прошли; commit/remote/CI evidence заполняется после commit."
+      "check.py и git diff --check passed; implementation commit 695227792e6ab7a09cdad67b56d8acbad4cc0ad9 pushed/remote main verified; GitHub Actions run 38207835631 success."
     ]
   },
   {

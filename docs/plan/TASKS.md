@@ -61,7 +61,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-TEST-001 — Auth HTTP characterization
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Текущие auth suites проверяют helper/router fixtures, но не весь register/login server.js.
 
@@ -76,7 +76,7 @@ Acceptance:
 
 Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
 
-Commit: после выполнения. Evidence: 12.10.2026: verify.py --suite all --python /tmp/qubite-audit-venv/bin/python: Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5 =353 pass; harness unittest4 =357. No skipped/failed.; 25 real-server Auth HTTP cases; runtime unchanged; synthetic external transport only. AUTH-L01..03 retained legacy defects, P0 account linking cutover gate in report/SECURITY.; check.py и git diff --check прошли; commit/remote/CI evidence заполняется после commit..
+Commit: 695227792e6ab7a09cdad67b56d8acbad4cc0ad9. Evidence: 12.10.2026: verify.py --suite all --python /tmp/qubite-audit-venv/bin/python: Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5 =353 pass; harness unittest4 =357. No skipped/failed.; 25 real-server Auth HTTP cases; runtime unchanged; synthetic external transport only. AUTH-L01..03 retained legacy defects, P0 account linking cutover gate in report/SECURITY.; check.py и git diff --check passed; implementation commit 695227792e6ab7a09cdad67b56d8acbad4cc0ad9 pushed/remote main verified; GitHub Actions run 38207835631 success..
 
 ## QUB-TEST-002 — Tournament runtime и rating regression
 
