@@ -6,12 +6,14 @@
 
 Порядок входа: root AGENTS/CLAUDE → QUBITE_AGENT_KICKOFF_PROMPT.md (V2 имя отсутствует) → QUBITE_MASTER_CONTEXT.md → QUBITE_ACCESS_AND_OWNER_CONSOLE.md → CURRENT_STATE → TARGET_ARCHITECTURE/ADR → tasks.json → LAST_HANDOFF/QUB-001 report → git status/log. Если другой V2 появится, сначала compare требований, не подменять молча baseline.
 
-Согласовано продуктом: ordinary owner home, separate Console, scoped tournament roles, default deny/manual grants, no tariffs, cost guard before paid calls, собственные Docs/Planner, local-first, все 48 ideas retained, ShadeAI independent connector/read-only сейчас. Предложено, но не одобрено: вариант B FastAPI/React alongside legacy, new Postgres after Pi capacity gate, legacy Auth authority первого release.
+Согласовано продуктом: ordinary owner home, separate Console, scoped tournament roles, default deny/manual grants, no tariffs, cost guard before paid calls, собственные Docs/Planner, local-first, все 48 ideas retained, ShadeAI independent connector/read-only сейчас. Предложено, но не одобрено: вариант B FastAPI/React alongside legacy, new Postgres для изолированного core, legacy Auth authority первого release.
 
 State: QUB-001 review/testing, product tasks backlog, ready отсутствует. Архитектуру/права не менять до решения владельца. Open questions и ADR — источник pending choices; принять решение можно только по пользовательскому ответу с записью даты.
 
 Проверки/границы: 332 проверки прошли (полный isolated runner + harness), текущий report содержит реальные результаты; архив code-only, runtime data backups ещё не создано. Production environment неизвестен локально; docs Pi snapshot не current verification. Test runner копирует source без .env/секретов/real HOME и блокирует внешнюю сеть. Paid/TG sends/HA actions не запускать.
 
-Next: обсуждение 6 ключевых вопросов, read-only OPS-001/backup drill и full auth/tournament regression, затем owner/mock foundation. Новый функционал идёт небольшими approved задачами; один writer на домен, no dual DB writes. Commit/push на main разрешён для baseline; production отдельно.
+Согласовано 12.10.2026: Raspberry Pi и выбор сервера сейчас не обсуждаем; возможен VPS, решение по хостингу отложено. OPS-001/capacity/backup drill нужны перед серверным этапом, не перед локальным core. Стек/БД/identity пока не утверждены.
+
+Next: обсуждение архитектуры/БД/identity и full auth/tournament regression, затем локальный owner/mock foundation после approval. Новый функционал идёт небольшими approved задачами; один writer на домен, no dual DB writes. Commit/push на main разрешён для baseline; production отдельно.
 
 CI baseline ae3f71e успешно завершился на GitHub (run 38197926998), результаты сохранены report/handoff. На сервер ничего не раскатывалось. Архитектура всё ещё требует решения владельца; CI green не снимает этот gate.

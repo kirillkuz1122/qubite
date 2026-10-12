@@ -5,8 +5,7 @@
 ```mermaid
 flowchart LR
   AUD[QUB-001 audit/approval] --> CORE[CORE-001]
-  OPS[OPS-001 inventory] --> CORE
-  OPS --> BK[OPS-002 restore]
+  OPS[OPS-001 inventory] --> BK[OPS-002 restore]
   AUD --> AT[TEST-001 auth]
   AT --> TT[TEST-002 runtime/rating]
   CORE --> ID[AUTH-002 bridge]

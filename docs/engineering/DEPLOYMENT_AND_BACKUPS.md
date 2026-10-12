@@ -4,6 +4,8 @@
 
 Dev — isolated env/fixtures/temp SQLite, no provider keys. CI — source copy/no-network tests. Staging — отдельные ports/DB/blob paths/hostnames/test bot tokens, outgoing sends disabled, mock AI. Production — фиксированный проверенный SHA/artifact, exact ingress routes, migrations отдельно. git push не deploy; новый CI не содержит SSH/secrets/restart/pull.
 
+Хостинг отложен по решению владельца от 12.10.2026; возможен VPS. Ограничения текущей Raspberry Pi не блокируют проектирование и локальную разработку. Этот runbook применяется к фактически выбранному серверу перед миграцией/деплоем.
+
 ## Inventory перед server этапом
 
 Собрать без секретов: deployed SHA и dirty paths каждого приложения, unit/container version/image digest, listening ports/routes/TLS/Cloudflare config paths, db/volume/attachments paths и size/count, RAM/swap/disk/CPU, memory cgroup support, единственный tg-listener/polling, cron/timers/backup destinations. Сравнить production hashes с repository, не overwriting dirty Kwork hooks. Не читать токены/сессии/интервью в модель. Server environment не выведен из локального Git.
@@ -19,7 +21,7 @@ Dev — isolated env/fixtures/temp SQLite, no provider keys. CI — source copy/
 | Infrastructure | unit overrides/Caddy/Nginx/Cloudflare/firewall routes/config + credential keys | exact ingress, Auth independent, no public management port |
 | New core позже | Postgres backup + WAL policy, blob manifest + content + key envelopes | schema version/count/revisions/ACL/hash/restore + no orphan blobs |
 
-Один manifest: backup ID/time UTC, application/schema SHA, components paths/checksums/size, consistent checkpoint, encrypted storage reference, retention, key-recovery reference, restore result. Сам manifest в Git только redacted; backup/keys не в Git. Off-host копия обязательна: Pi единственный диск не backup.
+Один manifest: backup ID/time UTC, application/schema SHA, components paths/checksums/size, consistent checkpoint, encrypted storage reference, retention, key-recovery reference, restore result. Сам manifest в Git только redacted; backup/keys не в Git. Off-host копия обязательна: единственный диск сервера не backup.
 
 RECOMMENDED цели для обсуждения: RPO 24h для обычных notes; tighter для ledger/outbox перед критическими действиями. RTO 4h как начальная цель, не проверенное обещание. Перед каждой миграцией fresh snapshot независимо от schedule. Daily/weekly/monthly retention надо согласовать с private deletion policy.
 

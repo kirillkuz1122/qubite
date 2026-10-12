@@ -17,7 +17,7 @@ Acceptance:
 
 Проверка: python3 scripts/engineering/check.py.
 
-Риск: Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
 
 ## QUB-OPS-001 — Read-only production inventory и drift
 
@@ -89,7 +89,7 @@ Acceptance:
 
 ## QUB-CORE-001 — Изолированный core health и contract skeleton
 
-Модуль: core; P0; статус backlog. Зависимости: QUB-001, QUB-OPS-001.
+Модуль: core; P0; статус backlog. Зависимости: QUB-001. OPS-001 нужен перед серверной миграцией/деплоем, не перед локальным core.
 
 Причина: Проверить выбранный runtime/storage контракт без write доступа к legacy данным.
 
@@ -102,7 +102,7 @@ Acceptance:
 
 Проверка: Будущий core pytest + verify.py --suite all.
 
-Риск: Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
+Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change. Commit/PR: после выполнения, сейчас нет.
 
 ## QUB-AUTH-002 — Legacy identity bridge и stable subject mapping
 

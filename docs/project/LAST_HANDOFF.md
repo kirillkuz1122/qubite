@@ -6,7 +6,7 @@
 
 Что проверено: полный isolated runner Node69 + deploy18 + Search95 + Brief112 + Kwork29 + SiYuan5, harness4; всего 332 pass. Подробности/ограничения см. QUB-001 report. Local no-network/source-copy isolation защищает от auto .env loading. Нельзя трактовать локальные mocks как paid integration/production/device acceptance.
 
-Продолжить: git status/log → project context/report → tasks.json/ADR/open questions. Implementation tasks пока не ready; дождаться архитектурного решения владельца. Обсудить core A/B, Postgres capacity, identity authority, staging/routing/prod reference, backup/recovery/offline policy, планшет. Затем TEST-001/OPS-001/Owner Console foundation без самовольного live deploy.
+Продолжить: git status/log → project context/report → tasks.json/ADR/open questions. Implementation tasks пока не ready; дождаться архитектурного решения владельца. Обсудить core A/B, Postgres как БД нового core, identity authority, UI routing, recovery/offline policy, планшет. По указанию владельца 12.10.2026 Raspberry Pi/хостинг отложены, возможен VPS. OPS-001 не блокирует локальный CORE-001; inventory/capacity/backup drill обязательны перед миграцией и деплоем. Затем TEST-001/локальный Owner Console foundation после архитектурного approval, без самовольного live deploy.
 
 Commit для этой работы находится через git log --grep='Подготовлен архитектурный baseline Qubite 2.0'. После push проверить remote main. Не пытаться встроить hash самого handoff в тот же commit: это циклическая ссылка. Завершение/approval фиксировать отдельным follow-up docs task, не объявлять done сейчас.
 

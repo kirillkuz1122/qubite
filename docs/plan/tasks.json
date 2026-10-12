@@ -19,7 +19,7 @@
       "python3 scripts/engineering/check.py"
     ],
     "risks": [
-      "Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция"
+      "Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
     "status": "review/testing",
@@ -149,8 +149,7 @@
     "module": "core",
     "priority": "P0",
     "dependencies": [
-      "QUB-001",
-      "QUB-OPS-001"
+      "QUB-001"
     ],
     "files": [
       "core/qubite (будущий)",
@@ -164,7 +163,7 @@
       "Будущий core pytest + verify.py --suite all"
     ],
     "risks": [
-      "Новый процесс не открывает legacy writable DB; capacity/изолированная schema миграция"
+      "Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
     "status": "backlog",
