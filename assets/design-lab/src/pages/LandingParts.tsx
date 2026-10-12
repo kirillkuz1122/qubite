@@ -1,3 +1,4 @@
+import { LivingButton } from "../milo/Controls";
 import { Icon } from "../Icons";
 import type { PageProps } from "../types";
 export function BrandNav({
@@ -12,18 +13,18 @@ export function BrandNav({
       className={`brand-nav ${light ? "brand-light" : ""}`}
       aria-label="Навигация концепции"
     >
-      <button
+      <LivingButton
         className="wordmark"
         onClick={() => open("landing")}
         aria-label="Qubite — лендинг"
       >
         <span className="brand-symbol">q</span>qubite
         <span className="brand-dot">®</span>
-      </button>
+      </LivingButton>
       <span className="nav-caption">Твоё пространство. Твои правила.</span>
-      <button className="nav-login" onClick={() => open("auth")}>
+      <LivingButton className="nav-login" onClick={() => open("auth")}>
         Войти <Icon name="arrow" size={16} />
-      </button>
+      </LivingButton>
     </nav>
   );
 }
@@ -36,13 +37,13 @@ export function CTA({
 }) {
   return (
     <div className="hero-actions">
-      <button className="primary" onClick={() => open("workspace")}>
+      <LivingButton className="primary" onClick={() => open("workspace")}>
         {label}
         <Icon name="arrow" />
-      </button>
-      <button className="text-action" onClick={() => open("material")}>
+      </LivingButton>
+      <LivingButton className="text-action" onClick={() => open("material")}>
         Потрогать материал <Icon name="plus" size={16} />
-      </button>
+      </LivingButton>
     </div>
   );
 }
@@ -66,7 +67,7 @@ export function Capabilities({ open }: { open: PageProps["open"] }) {
           text: "Поиск, Writer и VPN рядом, когда нужны.",
         },
       ].map((x, i) => (
-        <button
+        <LivingButton
           className="capability"
           key={x.title}
           onClick={() => open("workspace")}
@@ -76,7 +77,7 @@ export function Capabilities({ open }: { open: PageProps["open"] }) {
           <h3>{x.title}</h3>
           <p>{x.text}</p>
           <Icon name="arrow" size={17} />
-        </button>
+        </LivingButton>
       ))}
     </div>
   );

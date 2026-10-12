@@ -384,13 +384,13 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## QUB-DESIGN-001 — Новый visual direction и auth UX specification
+## QUB-DESIGN-001 — Milo: живой материал controls и auth UX
 
-Модуль: design; P0; статус review/testing; architecture approved для scope: true. Финальный стиль ещё не выбран. Зависимости: QUB-001.
+Модуль: design; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
 
-Причина: прямой запрос владельца 12.10.2026 — пять оригинальных живых React-концепций и ссылка для телефона.
+Причина: Владелец выбрал Milo, попросил пять механик controls с настройкой податливости и четыре разных помощника.
 
-Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`.
+Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`.
 
 Acceptance:
 
@@ -399,12 +399,15 @@ Acceptance:
 - Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией
 - Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026
 - Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review
+- Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами
 
-Проверка: 47/47 browser tests + 386/386 existing regression; TypeScript/build/format/docs/links. Owner choice и реальный телефон pending.
+Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API; 98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle.
 
-Риск: прототип не реализует Auth/API/VPN/AI; роль и гранты синтетические. Откат: не использовать отдельный prototype/site, legacy остаётся самостоятельным.
+Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
 
-Commit: implementation evidence в [отчёте](../reports/QUB-DESIGN-001.md), registry/handoff обновляются после push. [Демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site) private.
+Commit: 0173d747b954c25ff48310a9b79ed8033918250a. Evidence: 47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass; 386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services; Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001; Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success; Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress; Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done.
+
+Publication: Milo02 private version2/source5c6fd389cf432cab56fd8fa7f57c698704cab707, deployment succeeded19:09:35UTC, полный report.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
@@ -968,5 +971,81 @@ Acceptance:
 Проверка: React build/typecheck; Playwright owner/user/deny/stale/profile flows.
 
 Риск: Leak scoped credentials/UI privilege bypass. Откат: Отключить новый client/API route flag, сохранить legacy engines/данные/URL и новые записи; migration/routing switch отдельно после acceptance..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-UI-002 — Production material слой Milo и сохранённые настройки
+
+Модуль: design; P1; статус backlog; architecture approved: false. Зависимости: QUB-DESIGN-001, QUB-UI-001.
+
+Причина: Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами.
+
+Файлы/контракты: `web/src/ui/material (будущий)`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`.
+
+Acceptance:
+
+- Согласованный profile перенесён в controls shell; exact values/native semantic и stable gestures
+- Saved strength/quiet preference, OS reduced motion, cancellation/keyboard/focus; unreadable glass отсутствует
+
+Проверка: Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression.
+
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+
+Commit: после выполнения. Evidence: .
+
+## QUB-PET-001 — Контракт событий, характеров и инициативы четырёх помощников
+
+Модуль: ai; P1; статус backlog; architecture approved: false. Зависимости: QUB-DESIGN-001.
+
+Причина: Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами.
+
+Файлы/контракты: `contracts/companions-v1.json (будущий)`, `docs/design/COMPANION_EVENTS.md (будущий)`.
+
+Acceptance:
+
+- Луми/Кип/Пип/Сэйдж persona table; own error vs user/service error; bounded allowed context
+- Owner review initiative/cooldown/dismiss/voice; no focus steal or rights widening
+
+Проверка: Contract validation; scenario table owner review; zero provider calls.
+
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+
+Commit: после выполнения. Evidence: .
+
+## QUB-PET-002 — Scoped помощники в product UI на mock событиях
+
+Модуль: design; P1; статус backlog; architecture approved: false. Зависимости: QUB-PET-001, QUB-UI-002, QUB-DOC-001.
+
+Причина: Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами.
+
+Файлы/контракты: `web/src/companions (будущий)`, `web/tests/companions (будущий)`.
+
+Acceptance:
+
+- Different speech/gestures/context, global hints off/quiet, no interrupt/overlay critical action
+- Revision/revoke/dedup/stale response, errors factual, no provider calls or sensitive telemetry
+
+Проверка: Mock event browser tests; cross-scope/privacy/revoke/rapid switch/undo/cancel/accessibility.
+
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+
+Commit: после выполнения. Evidence: .
+
+## QUB-PET-003 — Dispatcher помощников с budget/policy и mock tools
+
+Модуль: ai; P1; статус backlog; architecture approved: false. Зависимости: QUB-PET-002, QUB-AI-002, QUB-CAPTURE-002.
+
+Причина: Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами.
+
+Файлы/контракты: `core/qubite/companions (будущий)`, `contracts/companions-tools-v1.json (будущий)`.
+
+Acceptance:
+
+- Typed event to scoped dispatcher, grants/models/budget checked; no owner bypass/idle paid polling
+- Tool proposal accept/undo, own errors, revoke/stale revision safe; real provider acceptance separately
+
+Проверка: Core disposable DB/mock provider counter, concurrent cap/idempotency/revoke/stale/tool permission matrix.
+
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
 
 Commit: после выполнения. Evidence: .

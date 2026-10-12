@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [49 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
+Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [53 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
@@ -72,4 +72,23 @@ Shared extraction: CORE/identity plan → FastAPI sessions → OAuth/verify/rese
 6. Новые сервисы: SVC-SEARCH-001→002, SVC-WRITING-001→002, SVC-VPN-001→002. Каждый сначала contract/parity/API, затем React UI и отдельный tested switch. SEARCH-001 в knowledge track — внутренний поиск документов, другой сервис.
 7. Docs/capture/sync/notifications вертикальными slices; desktop/Linux и Android Ink POC по готовым API/UX и device gates. Tournaments low-priority compatibility track, сохраняя старый UI.
 
-QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан и опубликован, review/testing до выбора стиля владельцем. Ready означает разрешённую задачу, не готовую функцию; core foundation существует, product UI/identity пока отсутствует.
+QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан и опубликован, review/testing до приёмки материала Milo владельцем. Ready означает разрешённую задачу, не готовую функцию; core foundation существует, product UI/identity пока отсутствует.
+
+## Milo и помощники — уточнение 12.10.2026
+
+Владелец выбрал пятый стиль Milo; живость нужна во всех controls и переходах, не только у фигур. [Спецификация](../design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0011](../architecture/decisions/0011-milo-live-controls.md). DESIGN-001: пять физических вариантов в одной стилистике, strength 0–100, четыре независимых характера; review/testing до новой приёмки. Доступность предыдущей публикации подтверждена владельцем.
+
+```mermaid
+flowchart LR
+  D[DESIGN-001 acceptance] --> M[UI-002 material]
+  U[UI-001 shell] --> M
+  D --> P[PET-001 event/persona contract]
+  P --> C[PET-002 mock companions]
+  M --> C
+  N[DOC-001] --> C
+  C --> A[PET-003 dispatcher mock tools]
+  B[AI-002 guard] --> A
+  CAP[CAPTURE-002] --> A
+```
+
+Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр: 53 карточки, 3 done /1 review-testing /3 ready /46 backlog.

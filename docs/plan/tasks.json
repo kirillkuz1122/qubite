@@ -635,8 +635,8 @@
   },
   {
     "id": "QUB-DESIGN-001",
-    "title": "Новый visual direction и auth UX specification",
-    "reason": "Владелец явно отверг старый дизайн и попросил сократить регистрацию",
+    "title": "Milo: живой материал controls и auth UX",
+    "reason": "Владелец выбрал Milo, попросил пять механик controls с настройкой податливости и четыре разных помощника",
     "module": "design",
     "priority": "P0",
     "dependencies": [
@@ -656,31 +656,39 @@
       "CLAUDE.md",
       ".github/workflows/design-lab.yml",
       "docs/architecture/decisions/0010-material-lab.md",
-      "docs/architecture/decisions/README.md"
+      "docs/architecture/decisions/README.md",
+      "docs/design/MILO_MATERIAL_AND_COMPANIONS.md",
+      "docs/architecture/decisions/0011-milo-live-controls.md"
     ],
     "acceptance": [
       "Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему",
       "Email/password/согласия; display name optional; нет code-entry/турнирных полей",
       "Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией",
       "Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026",
-      "Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review"
+      "Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review",
+      "Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами"
     ],
     "tests": [
       "Проверка docs/links; просмотр макета владельцем",
-      "TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API"
+      "TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API",
+      "98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle"
     ],
     "risks": [
       "Дизайн-макет не выдавать за реализованный auth"
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
     "status": "review/testing",
-    "commit": null,
+    "commit": "0173d747b954c25ff48310a9b79ed8033918250a",
     "architecture_approved": true,
     "verification": [
       "47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass",
       "386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services",
       "Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001",
-      "Owner visual selection/physical phone acceptance pending; do not mark done or start downstream UI"
+      "Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success",
+      "Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress",
+      "Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done",
+      "Итерация2 existing386 regression+harness pass; check53 tasks/46 docs; archive refs SHA96f0457 unchanged verified origin",
+      "Milo02 private Sites version2/deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded19:09:35UTC; source5c6fd389cf432cab56fd8fa7f57c698704cab707 pushed/verified; archive transfer403, remote build fallback"
     ]
   },
   {
@@ -1550,6 +1558,127 @@
     "status": "backlog",
     "commit": null,
     "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-UI-002",
+    "title": "Production material слой Milo и сохранённые настройки",
+    "reason": "Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами",
+    "module": "design",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-DESIGN-001",
+      "QUB-UI-001"
+    ],
+    "files": [
+      "web/src/ui/material (будущий)",
+      "docs/design/MILO_MATERIAL_AND_COMPANIONS.md"
+    ],
+    "acceptance": [
+      "Согласованный profile перенесён в controls shell; exact values/native semantic и stable gestures",
+      "Saved strength/quiet preference, OS reduced motion, cancellation/keyboard/focus; unreadable glass отсутствует"
+    ],
+    "tests": [
+      "Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression"
+    ],
+    "risks": [
+      "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
+    ],
+    "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
+    "status": "backlog",
+    "commit": "",
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-PET-001",
+    "title": "Контракт событий, характеров и инициативы четырёх помощников",
+    "reason": "Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами",
+    "module": "ai",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-DESIGN-001"
+    ],
+    "files": [
+      "contracts/companions-v1.json (будущий)",
+      "docs/design/COMPANION_EVENTS.md (будущий)"
+    ],
+    "acceptance": [
+      "Луми/Кип/Пип/Сэйдж persona table; own error vs user/service error; bounded allowed context",
+      "Owner review initiative/cooldown/dismiss/voice; no focus steal or rights widening"
+    ],
+    "tests": [
+      "Contract validation; scenario table owner review; zero provider calls"
+    ],
+    "risks": [
+      "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
+    ],
+    "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
+    "status": "backlog",
+    "commit": "",
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-PET-002",
+    "title": "Scoped помощники в product UI на mock событиях",
+    "reason": "Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами",
+    "module": "design",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-PET-001",
+      "QUB-UI-002",
+      "QUB-DOC-001"
+    ],
+    "files": [
+      "web/src/companions (будущий)",
+      "web/tests/companions (будущий)"
+    ],
+    "acceptance": [
+      "Different speech/gestures/context, global hints off/quiet, no interrupt/overlay critical action",
+      "Revision/revoke/dedup/stale response, errors factual, no provider calls or sensitive telemetry"
+    ],
+    "tests": [
+      "Mock event browser tests; cross-scope/privacy/revoke/rapid switch/undo/cancel/accessibility"
+    ],
+    "risks": [
+      "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
+    ],
+    "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
+    "status": "backlog",
+    "commit": "",
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-PET-003",
+    "title": "Dispatcher помощников с budget/policy и mock tools",
+    "reason": "Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами",
+    "module": "ai",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-PET-002",
+      "QUB-AI-002",
+      "QUB-CAPTURE-002"
+    ],
+    "files": [
+      "core/qubite/companions (будущий)",
+      "contracts/companions-tools-v1.json (будущий)"
+    ],
+    "acceptance": [
+      "Typed event to scoped dispatcher, grants/models/budget checked; no owner bypass/idle paid polling",
+      "Tool proposal accept/undo, own errors, revoke/stale revision safe; real provider acceptance separately"
+    ],
+    "tests": [
+      "Core disposable DB/mock provider counter, concurrent cap/idempotency/revoke/stale/tool permission matrix"
+    ],
+    "risks": [
+      "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
+    ],
+    "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
+    "status": "backlog",
+    "commit": "",
+    "architecture_approved": false,
     "verification": []
   }
 ]

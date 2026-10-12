@@ -14,4 +14,5 @@
 | [0008](0008-react-service-surfaces.md) | CONFIRMED 12.10.2026 | собственные VPN/Writing/Search и остальные included UI на React; Tournaments сохраняет Vanilla/Node/SQLite |
 
 | [0009](0009-core-foundation.md) | Engineering decision в одобренной CORE-001 | independent factory/contract, explicit SQL migration, native disposable PG tests |
-| [0010](0010-material-lab.md) | CONFIRMED scope / OPEN стиль | пять отдельных живых React-концепций, static private demo, без runtime integration |
+| [0010](0010-material-lab.md) | CONFIRMED scope / историческое исследование | пять отдельных живых React-концепций, static private demo, без runtime integration |
+| [0011](0011-milo-live-controls.md) | CONFIRMED Milo/настройка/характеры; OPEN финальная физика | материал controls во всём интерфейсе, пять механик Milo, четыре scoped помощника |

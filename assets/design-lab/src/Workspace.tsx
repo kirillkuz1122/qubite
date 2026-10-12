@@ -1,3 +1,5 @@
+import { MorphContent } from "./milo/Transition";
+import { LivingButton, LivingNavigation } from "./milo/Controls";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icons";
 import { Material } from "./Materials";
@@ -43,15 +45,18 @@ export function Workspace(p: PageProps) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setSection("search");
-        p.react("search");
+        respond("search");
       }
     };
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
   }, [p.react]);
+  function respond(mood: import("./types").Mood) {
+    p.react(mood, section);
+  }
   function change(next: Section) {
     setSection(next);
-    p.react(
+    respond(
       next === "search"
         ? "search"
         : next === "vpn" && vpn
@@ -67,7 +72,7 @@ export function Workspace(p: PageProps) {
   }
   function save() {
     if (!capture.trim()) {
-      p.react("error");
+      respond("error");
       notify("Сначала добавь мысль.");
       captureRef.current?.focus();
       return;
@@ -75,18 +80,18 @@ export function Workspace(p: PageProps) {
     const value = capture.trim();
     setNotes((n) => [value, ...n]);
     setCapture("");
-    p.react("success");
+    respond("success");
     notify("Заметка добавлена в макет.", () => {
       setNotes((n) => n.filter((_, i) => i !== 0));
       setCapture(value);
-      p.react("idle");
+      respond("idle");
     });
   }
   function taskToggle(id: number) {
     setTasks((ts) =>
       ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
     );
-    p.react("success");
+    respond("success");
   }
   const title =
     sections.find((x) => x.id === section)?.name ||
@@ -95,18 +100,18 @@ export function Workspace(p: PageProps) {
   return (
     <div className="workspace">
       <aside className="sidebar">
-        <button className="wordmark" onClick={() => p.open("landing")}>
+        <LivingButton className="wordmark" onClick={() => p.open("landing")}>
           <span className="brand-symbol">q</span>qubite
-        </button>
+        </LivingButton>
         <div className="space-label">
           <span className="avatar">Я</span>
           <span>
             Личное пространство<small>Только твоё</small>
           </span>
         </div>
-        <nav aria-label="Разделы рабочего пространства">
+        <LivingNavigation value={section} label="Разделы рабочего пространства">
           {sections.map((s) => (
-            <button
+            <LivingButton
               className={section === s.id ? "active" : ""}
               aria-current={section === s.id ? "page" : undefined}
               aria-label={s.name}
@@ -116,21 +121,21 @@ export function Workspace(p: PageProps) {
               <Icon name={s.icon} />
               <span>{s.name}</span>
               {s.id === "today" && <i>3</i>}
-            </button>
+            </LivingButton>
           ))}
-        </nav>
+        </LivingNavigation>
         <div className="sidebar-bottom">
           <div className="private-label">
             <Icon name="lock" size={14} /> Свои мысли. Свои границы.
           </div>
-          <button
+          <LivingButton
             className={`sidebar-settings ${section === "settings" || section === "console" ? "active" : ""}`}
             aria-label="Настройки"
             onClick={() => change("settings")}
           >
             <Icon name="settings" />
             <span>Настройки</span>
-          </button>
+          </LivingButton>
         </div>
       </aside>
       <main className="workspace-main">
@@ -138,20 +143,23 @@ export function Workspace(p: PageProps) {
           <span className="breadcrumb">
             Личное <span>/</span> {title}
           </span>
-          <button className="command-button" onClick={() => change("search")}>
+          <LivingButton
+            className="command-button"
+            onClick={() => change("search")}
+          >
             <Icon name="search" size={17} />
             <span>Найти в пространстве</span>
             <kbd>⌘ K</kbd>
-          </button>
-          <button
+          </LivingButton>
+          <LivingButton
             className="avatar avatar-button"
             onClick={() => change("settings")}
             aria-label="Открыть настройки профиля"
           >
             Я
-          </button>
+          </LivingButton>
         </header>
-        <div className="workspace-content" key={section}>
+        <MorphContent className="workspace-content" identity={section}>
           {section === "today" && (
             <>
               <section className="greeting">
@@ -189,28 +197,28 @@ export function Workspace(p: PageProps) {
                     placeholder="Что у тебя сейчас в голове?"
                     onChange={(e) => {
                       setCapture(e.target.value);
-                      p.react("capture");
+                      respond("capture");
                     }}
-                    onFocus={() => p.react("focus")}
+                    onFocus={() => respond("focus")}
                     aria-label="Быстрая заметка"
                   />
                   <div className="capture-bottom">
-                    <button
+                    <LivingButton
                       className="icon-button"
                       aria-label="Попробовать голосовую заметку"
                       onClick={() => {
-                        p.react("capture");
+                        respond("capture");
                         notify(
                           "В будущем здесь будет голосовой ввод. Микрофон в демо не включается.",
                         );
                       }}
                     >
                       <Icon name="mic" />
-                    </button>
+                    </LivingButton>
                     <span>Останется только в этой сессии</span>
-                    <button className="primary compact" onClick={save}>
+                    <LivingButton className="primary compact" onClick={save}>
                       Сохранить <Icon name="arrow" size={17} />
-                    </button>
+                    </LivingButton>
                   </div>
                 </section>
                 <section className="panel tasks-panel">
@@ -244,12 +252,12 @@ export function Workspace(p: PageProps) {
                 <section className="panel recent-panel">
                   <div className="panel-heading">
                     <span className="panel-label">Рядом с тобой</span>
-                    <button
+                    <LivingButton
                       className="text-action"
                       onClick={() => change("docs")}
                     >
                       Все документы <Icon name="arrow" size={15} />
-                    </button>
+                    </LivingButton>
                   </div>
                   <div className="document-grid">
                     {[
@@ -257,7 +265,7 @@ export function Workspace(p: PageProps) {
                       "Пространство для идей",
                       "Карта следующего проекта",
                     ].map((name, i) => (
-                      <button
+                      <LivingButton
                         className="document-card"
                         key={name}
                         onClick={() => {
@@ -280,7 +288,7 @@ export function Workspace(p: PageProps) {
                             ][i]
                           }
                         </small>
-                      </button>
+                      </LivingButton>
                     ))}
                   </div>
                   {notes.length > 0 && (
@@ -304,17 +312,17 @@ export function Workspace(p: PageProps) {
                     <br />
                     Чуть больше внимания.
                   </p>
-                  <button
+                  <LivingButton
                     className="secondary"
                     onClick={() => {
-                      p.react("focus");
+                      respond("focus");
                       notify(
                         "Фокус выбран. Таймер в этом макете демонстрационный.",
                       );
                     }}
                   >
                     Настроить фокус <Icon name="arrow" size={16} />
-                  </button>
+                  </LivingButton>
                 </section>
               </div>
             </>
@@ -327,23 +335,23 @@ export function Workspace(p: PageProps) {
               <div className="document-editor panel">
                 <div className="editor-toolbar">
                   <span>Текстовый документ</span>
-                  <button
+                  <LivingButton
                     className="text-action"
                     onClick={() => {
-                      p.react("success");
+                      respond("success");
                       notify("Правка остаётся в этой сессии макета.");
                     }}
                   >
                     Сохранить <Icon name="check" size={16} />
-                  </button>
+                  </LivingButton>
                 </div>
                 <textarea
                   aria-label="Текст документа"
                   defaultValue={
                     "Самые важные идеи часто появляются между делами.\n\nМне хочется замечать их, оставлять место для размышлений и возвращаться к тому, что действительно имеет смысл.\n\nНе больше информации — больше связей."
                   }
-                  onChange={() => p.react("capture")}
-                  onFocus={() => p.react("focus")}
+                  onChange={() => respond("capture")}
+                  onFocus={() => respond("focus")}
                 />
                 <div className="editor-meta">
                   <Icon name="lock" size={15} /> Личный документ ·
@@ -372,7 +380,7 @@ export function Workspace(p: PageProps) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   setSearched(true);
-                  p.react("search");
+                  respond("search");
                 }}
               >
                 <Icon name="search" />
@@ -382,12 +390,12 @@ export function Workspace(p: PageProps) {
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value);
-                    p.react("capture");
+                    respond("capture");
                   }}
                 />
-                <button className="primary compact">
+                <LivingButton className="primary compact">
                   Найти <Icon name="arrow" size={17} />
-                </button>
+                </LivingButton>
               </form>
               <p className="demo-note">
                 Локальный макет поиска. Никаких внешних запросов.
@@ -402,7 +410,7 @@ export function Workspace(p: PageProps) {
                     "Почему внимание важнее количества информации",
                     "Личный граф знаний: маленькое начало",
                   ].map((s, i) => (
-                    <button
+                    <LivingButton
                       key={s}
                       className="search-result panel"
                       onClick={() => {
@@ -419,7 +427,7 @@ export function Workspace(p: PageProps) {
                         следующий шаг.
                       </p>
                       <Icon name="arrow" />
-                    </button>
+                    </LivingButton>
                   ))}
                 </div>
               ) : (
@@ -446,31 +454,31 @@ export function Workspace(p: PageProps) {
                     onChange={(e) => {
                       setWriting(e.target.value);
                       setChecked(false);
-                      p.react("capture");
+                      respond("capture");
                     }}
-                    onFocus={() => p.react("focus")}
+                    onFocus={() => respond("focus")}
                   />
                   <div className="writing-actions">
-                    <button
+                    <LivingButton
                       className="primary compact"
                       onClick={() => {
                         setChecked(true);
-                        p.react("search");
+                        respond("search");
                       }}
                     >
                       Проверить текст <Icon name="check" size={16} />
-                    </button>
-                    <button
+                    </LivingButton>
+                    <LivingButton
                       className="secondary compact"
                       onClick={() => {
-                        p.react("error");
+                        respond("error");
                         notify(
                           "AI не запущен: в демо нет разрешённой модели и бюджета.",
                         );
                       }}
                     >
                       Помочь с AI <Icon name="spark" size={16} />
-                    </button>
+                    </LivingButton>
                   </div>
                 </div>
                 <aside className="panel writing-suggestions">
@@ -483,7 +491,7 @@ export function Workspace(p: PageProps) {
                         <br />
                         <del>Мне нравиться</del> → <strong>Мне нравится</strong>
                       </p>
-                      <button
+                      <LivingButton
                         className="secondary"
                         onClick={() => {
                           const old = writing;
@@ -492,7 +500,7 @@ export function Workspace(p: PageProps) {
                             .replace(/Мне нравиться/g, "Мне нравится");
                           setWriting(replacement);
                           setChecked(false);
-                          p.react("success");
+                          respond("success");
                           notify("Пример правки применён.", () =>
                             setWriting((latest) =>
                               latest === replacement ? old : latest,
@@ -501,7 +509,7 @@ export function Workspace(p: PageProps) {
                         }}
                       >
                         Применить пример <Icon name="arrow" size={15} />
-                      </button>
+                      </LivingButton>
                       <small>Это фиксированный пример, не LanguageTool.</small>
                     </>
                   ) : (
@@ -545,16 +553,16 @@ export function Workspace(p: PageProps) {
                     <br />
                     Реальный VPN не запускается.
                   </p>
-                  <button
+                  <LivingButton
                     className="primary"
                     onClick={() => {
                       setVpn(!vpn);
-                      p.react(!vpn ? "connect" : "idle");
+                      respond(!vpn ? "connect" : "idle");
                     }}
                   >
                     {vpn ? "Отключить в макете" : "Подключить в макете"}
                     <Icon name="vpn" />
-                  </button>
+                  </LivingButton>
                 </div>
               </div>
             </section>
@@ -601,13 +609,13 @@ export function Workspace(p: PageProps) {
                     s: "",
                   },
                 ].map((m) => (
-                  <button
+                  <LivingButton
                     key={m.name}
                     className="module-card panel"
                     onClick={() => {
                       if (m.s) change(m.s as Section);
                       else {
-                        p.react("error");
+                        respond("error");
                         notify(
                           `${m.name}: ${m.state.toLowerCase()}. Настройки турниров останутся внутри модуля.`,
                         );
@@ -624,7 +632,7 @@ export function Workspace(p: PageProps) {
                       {m.state}
                     </span>
                     <Icon name={m.s ? "arrow" : "lock"} size={17} />
-                  </button>
+                  </LivingButton>
                 ))}
               </div>
               <p className="demo-note">
@@ -650,7 +658,7 @@ export function Workspace(p: PageProps) {
                   value={owner ? "owner" : "member"}
                   onChange={(e) => {
                     setOwner(e.target.value === "owner");
-                    p.react("focus");
+                    respond("focus");
                   }}
                 >
                   <option value="owner">Владелец</option>
@@ -668,7 +676,7 @@ export function Workspace(p: PageProps) {
                 <Icon name="lock" size={28} />
               </div>
               {owner && (
-                <button
+                <LivingButton
                   className="settings-card panel console-link"
                   onClick={() => change("console")}
                 >
@@ -680,7 +688,7 @@ export function Workspace(p: PageProps) {
                     </p>
                   </div>
                   <Icon name="arrow" />
-                </button>
+                </LivingButton>
               )}
               <p className="demo-note">
                 Выбор роли — только проверка дизайна. Серверная авторизация
@@ -690,12 +698,12 @@ export function Workspace(p: PageProps) {
           )}
           {section === "console" && owner && (
             <section className="section-page console-page">
-              <button
+              <LivingButton
                 className="text-action"
                 onClick={() => change("settings")}
               >
                 ← К настройкам
-              </button>
+              </LivingButton>
               <span className="eyebrow">OWNER CONSOLE / ОТДЕЛЬНЫЙ КОНТУР</span>
               <h1>
                 Ясность.
@@ -723,18 +731,18 @@ export function Workspace(p: PageProps) {
                     По умолчанию платные действия закрыты, в том числе для
                     владельца.
                   </p>
-                  <button
+                  <LivingButton
                     className="secondary"
                     onClick={() => {
                       setGrant(!grant);
-                      p.react(!grant ? "success" : "private");
+                      respond(!grant ? "success" : "private");
                       notify(
                         "Изменён только визуальный пример гранта. Провайдеры не вызываются.",
                       );
                     }}
                   >
                     {grant ? "Отозвать пример гранта" : "Выдать пример гранта"}
-                  </button>
+                  </LivingButton>
                   <span className="grant-state">
                     {grant
                       ? "Пример: грант выдан, бюджет всё ещё $0.00"
@@ -765,7 +773,7 @@ export function Workspace(p: PageProps) {
               </div>
             </section>
           )}
-        </div>
+        </MorphContent>
         <footer className="workspace-footer">
           <span>
             <span className="status-dot" /> Интерактивный макет · данные
@@ -781,7 +789,7 @@ export function Workspace(p: PageProps) {
           <Icon name={p.mood === "error" ? "lock" : "check"} size={18} />
           <span>{toast}</span>
           {undo && (
-            <button
+            <LivingButton
               onClick={() => {
                 undo();
                 setToast("Действие отменено.");
@@ -789,15 +797,15 @@ export function Workspace(p: PageProps) {
               }}
             >
               Отменить
-            </button>
+            </LivingButton>
           )}
-          <button
+          <LivingButton
             className="icon-button"
             aria-label="Закрыть сообщение"
             onClick={() => setToast("")}
           >
             <Icon name="close" size={16} />
-          </button>
+          </LivingButton>
         </div>
       )}
     </div>

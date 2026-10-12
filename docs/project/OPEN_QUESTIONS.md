@@ -14,7 +14,7 @@
 
 Отложено: сервер/VPS, production hostname/routes, backup destination/retention/RPO/RTO, физическая проверка пера. Life key recovery/offline revoke retention, Docs engine и визуальный дизайн требуют отдельных POC/решений перед соответствующей реализацией. Не блокируют изолированный core и characterization tests.
 
-**Q-DESIGN, owner review 12.10.2026:** [пять React-направлений Nacre/Ferro/Folio/Prism/Milo](../design/MATERIAL_DIRECTIONS.md) реализованы и опубликованы. Выбор направления, сочетание деталей/правки и проверка физического телефона ещё открыты. Не объявлять один стиль approved и не начинать массовый UI перенос до ответа. Все новые included Search/Writer/VPN surfaces следуют будущему выбранному стилю; legacy Tournaments остаётся со своим интерфейсом.
+**Q-DESIGN, ответы 12.10.2026:** владелец подтвердил доступность демо, выбрал Milo (пятый стиль) и отверг прежнюю трактовку живости как декора. [Milo 02](../design/MILO_MATERIAL_AND_COMPANIONS.md) исследует пять механик самих controls и переходов. Податливость — настройка 0–100. Четыре помощника олицетворяют scoped AI-агентов личной жизни/проектов/заметок/дневника, разные характеры и инициативные реакции, четвёртый с очками/блокнотом. OPEN: окончательная физика, точные настройки инициативы/cooldown/voice, имена/детали персонажей, physical device acceptance новой версии. Повторно не спрашивать базовый стиль или фиксированную силу; сначала показать рабочие варианты. Legacy Tournaments сохраняет прежний UI.
 
 Уже определено: ordinary owner home, manual grants/no tariffs, scoped tournament roles, собственные Docs/Planner, Shade только connector, paid test/deploy отдельно. Root kickoff V2 отсутствует; доступный kickoff задаёт цели. Если появится другой V2, сравнить требования перед исполнением.
 

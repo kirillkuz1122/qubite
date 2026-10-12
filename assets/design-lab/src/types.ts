@@ -37,5 +37,5 @@ export interface PageProps {
   open: (view: View) => void;
   mood: Mood;
   event: number;
-  react: (mood: Mood) => void;
+  react: (mood: Mood, scope?: string) => void;
 }

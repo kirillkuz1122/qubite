@@ -1,3 +1,5 @@
+import { MorphContent } from "./milo/Transition";
+import { LivingButton } from "./milo/Controls";
 import { useEffect, useRef, useState } from "react";
 import { Material } from "./Materials";
 import { Icon } from "./Icons";
@@ -69,171 +71,179 @@ export function Auth(p: PageProps) {
         </aside>
         <section className="auth-form-panel">
           <span className="eyebrow">ТВОЁ ЛИЧНОЕ ПРОСТРАНСТВО</span>
-          <h1>
-            {mode === "login"
-              ? "С возвращением."
-              : mode === "register"
-                ? "Начнём с тебя."
-                : "Вернём доступ."}
-          </h1>
-          <p className="muted">
-            {mode === "login"
-              ? "Хорошие мысли уже ждут тебя."
-              : mode === "register"
-                ? "Почта, пароль — и место для твоих идей."
-                : "Отправим ссылку для восстановления на почту."}
-          </p>
-          <div className="auth-tabs">
-            <button
-              aria-pressed={mode === "login"}
-              onClick={() => switchMode("login")}
-            >
-              Вход
-            </button>
-            <button
-              aria-pressed={mode === "register"}
-              onClick={() => switchMode("register")}
-            >
-              Регистрация
-            </button>
-          </div>
-          {complete ? (
-            <div className="auth-complete" role="status">
-              <span className="success-icon">
-                <Icon name="check" size={30} />
-              </span>
-              <h3>
-                {mode === "reset"
-                  ? "Так выглядит подтверждение отправки."
-                  : "Так выглядит успешное действие."}
-              </h3>
-              <p>
-                Это дизайн-макет: аккаунт не создан, письмо не отправлено.
-                Используй только выдуманные данные.
-              </p>
-              <button className="primary" onClick={() => p.open("workspace")}>
-                Посмотреть интерфейс <Icon name="arrow" />
-              </button>
-              <button
-                className="text-action"
-                onClick={() => setComplete(false)}
+          <MorphContent
+            identity={`${mode}-${complete}`}
+            className="auth-state-morph"
+          >
+            <h1>
+              {mode === "login"
+                ? "С возвращением."
+                : mode === "register"
+                  ? "Начнём с тебя."
+                  : "Вернём доступ."}
+            </h1>
+            <p className="muted">
+              {mode === "login"
+                ? "Хорошие мысли уже ждут тебя."
+                : mode === "register"
+                  ? "Почта, пароль — и место для твоих идей."
+                  : "Отправим ссылку для восстановления на почту."}
+            </p>
+            <div className="auth-tabs">
+              <LivingButton
+                aria-pressed={mode === "login"}
+                onClick={() => switchMode("login")}
               >
-                Повторить
-              </button>
+                Вход
+              </LivingButton>
+              <LivingButton
+                aria-pressed={mode === "register"}
+                onClick={() => switchMode("register")}
+              >
+                Регистрация
+              </LivingButton>
             </div>
-          ) : (
-            <form onSubmit={submit} noValidate>
-              <label>
-                Почта
-                <input
-                  name="email"
-                  type="email"
-                  autoComplete="off"
-                  placeholder="hello@example.com"
-                  onFocus={() => p.react("focus")}
-                  onInput={() => {
-                    p.react("capture");
-                    setError("");
-                  }}
-                  aria-describedby="auth-demo-note auth-error"
-                />
-              </label>
-              {mode !== "reset" && (
-                <label>
-                  Пароль
-                  <div className="password-field">
-                    <input
-                      name="password"
-                      type={shown ? "text" : "password"}
-                      autoComplete="off"
-                      placeholder="Не меньше 8 символов"
-                      onFocus={() => p.react(shown ? "private" : "focus")}
-                      onInput={() => p.react(shown ? "private" : "capture")}
-                      aria-describedby="auth-demo-note auth-error"
-                    />
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={shown ? "Скрыть пароль" : "Показать пароль"}
-                      aria-pressed={shown}
-                      onClick={() => {
-                        setShown(!shown);
-                        p.react(!shown ? "private" : "focus");
-                      }}
-                    >
-                      <Icon name={shown ? "lock" : "eye"} />
-                    </button>
-                  </div>
-                </label>
-              )}
-              {mode === "register" && (
-                <label className="consent">
-                  <input name="consent" type="checkbox" />{" "}
-                  <span>
-                    Принимаю условия использования и политику конфиденциальности
-                    демо
-                  </span>
-                </label>
-              )}
-              {mode === "login" && (
-                <button
-                  type="button"
-                  className="forgot"
-                  onClick={() => switchMode("reset")}
+            {complete ? (
+              <div className="auth-complete" role="status">
+                <span className="success-icon">
+                  <Icon name="check" size={30} />
+                </span>
+                <h3>
+                  {mode === "reset"
+                    ? "Так выглядит подтверждение отправки."
+                    : "Так выглядит успешное действие."}
+                </h3>
+                <p>
+                  Это дизайн-макет: аккаунт не создан, письмо не отправлено.
+                  Используй только выдуманные данные.
+                </p>
+                <LivingButton
+                  className="primary"
+                  onClick={() => p.open("workspace")}
                 >
-                  Не помню пароль
-                </button>
-              )}
-              <div id="auth-error" className="form-error" role="alert">
-                {error}
+                  Посмотреть интерфейс <Icon name="arrow" />
+                </LivingButton>
+                <LivingButton
+                  className="text-action"
+                  onClick={() => setComplete(false)}
+                >
+                  Повторить
+                </LivingButton>
               </div>
-              <button className="primary auth-submit" disabled={busy}>
-                {busy ? (
-                  <>
-                    <span className="spinner" /> Проверяем…
-                  </>
-                ) : (
-                  <>
-                    {mode === "login"
-                      ? "Войти"
-                      : mode === "register"
-                        ? "Создать пространство"
-                        : "Получить ссылку"}
-                    <Icon name="arrow" />
-                  </>
-                )}
-              </button>
-              {mode !== "reset" && (
-                <>
-                  <div className="auth-separator">
-                    <span />
-                    или
-                    <span />
-                  </div>
-                  <div className="oauth-options">
-                    {["Google", "Яндекс", "Telegram"].map((name) => (
-                      <button
+            ) : (
+              <form onSubmit={submit} noValidate>
+                <label>
+                  Почта
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="off"
+                    placeholder="hello@example.com"
+                    onFocus={() => p.react("focus")}
+                    onInput={() => {
+                      p.react("capture");
+                      setError("");
+                    }}
+                    aria-describedby="auth-demo-note auth-error"
+                  />
+                </label>
+                {mode !== "reset" && (
+                  <label>
+                    Пароль
+                    <div className="password-field">
+                      <input
+                        name="password"
+                        type={shown ? "text" : "password"}
+                        autoComplete="off"
+                        placeholder="Не меньше 8 символов"
+                        onFocus={() => p.react(shown ? "private" : "focus")}
+                        onInput={() => p.react(shown ? "private" : "capture")}
+                        aria-describedby="auth-demo-note auth-error"
+                      />
+                      <LivingButton
                         type="button"
-                        key={name}
+                        className="icon-button"
+                        aria-label={shown ? "Скрыть пароль" : "Показать пароль"}
+                        aria-pressed={shown}
                         onClick={() => {
-                          setError(
-                            `${name}: демонстрация недоступного провайдера. Внешний запрос не выполняется.`,
-                          );
-                          p.react("error");
+                          setShown(!shown);
+                          p.react(!shown ? "private" : "focus");
                         }}
                       >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              <p className="demo-note" id="auth-demo-note">
-                <Icon name="lock" size={13} /> Демо. Ввод не отправляется и не
-                сохраняется.
-              </p>
-            </form>
-          )}
+                        <Icon name={shown ? "lock" : "eye"} />
+                      </LivingButton>
+                    </div>
+                  </label>
+                )}
+                {mode === "register" && (
+                  <label className="consent">
+                    <input name="consent" type="checkbox" />{" "}
+                    <span>
+                      Принимаю условия использования и политику
+                      конфиденциальности демо
+                    </span>
+                  </label>
+                )}
+                {mode === "login" && (
+                  <LivingButton
+                    type="button"
+                    className="forgot"
+                    onClick={() => switchMode("reset")}
+                  >
+                    Не помню пароль
+                  </LivingButton>
+                )}
+                <div id="auth-error" className="form-error" role="alert">
+                  {error}
+                </div>
+                <LivingButton className="primary auth-submit" disabled={busy}>
+                  {busy ? (
+                    <>
+                      <span className="spinner" /> Проверяем…
+                    </>
+                  ) : (
+                    <>
+                      {mode === "login"
+                        ? "Войти"
+                        : mode === "register"
+                          ? "Создать пространство"
+                          : "Получить ссылку"}
+                      <Icon name="arrow" />
+                    </>
+                  )}
+                </LivingButton>
+                {mode !== "reset" && (
+                  <>
+                    <div className="auth-separator">
+                      <span />
+                      или
+                      <span />
+                    </div>
+                    <div className="oauth-options">
+                      {["Google", "Яндекс", "Telegram"].map((name) => (
+                        <LivingButton
+                          type="button"
+                          key={name}
+                          onClick={() => {
+                            setError(
+                              `${name}: демонстрация недоступного провайдера. Внешний запрос не выполняется.`,
+                            );
+                            p.react("error");
+                          }}
+                        >
+                          {name}
+                        </LivingButton>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <p className="demo-note" id="auth-demo-note">
+                  <Icon name="lock" size={13} /> Демо. Ввод не отправляется и не
+                  сохраняется.
+                </p>
+              </form>
+            )}
+          </MorphContent>
         </section>
       </div>
     </div>

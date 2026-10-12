@@ -8,7 +8,7 @@ Qubite — рабочий MVP-прототип платформы для уче�
 
 Рабочая legacy часть использует обычные `HTML + CSS + JavaScript` и `Node.js + Express + SQLite`. Новый независимый FastAPI/Postgres foundation находится в `core/`. Пять отдельных React/TS дизайн-прототипов находятся в `assets/design-lab/`; product UI/Auth migration ещё не реализованы.
 
-**Новый дизайн: [Material Lab — смотреть с телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site)** (private, вход ChatGPT владельца). Nacre/Ferro/Folio/Prism/Milo: 20 сцен, живые CSS/SVG материалы, landing/workspace/auth, обе темы и responsive previews. [Запуск/код](assets/design-lab/README.md), [спецификации](docs/design/MATERIAL_DIRECTIONS.md), [Auth UX](docs/design/AUTH_UX.md), [отчёт DESIGN-001](docs/reports/QUB-DESIGN-001.md). Макеты синтетические; финальный стиль ожидает выбора владельца.
+**Новый дизайн: [Milo 02 — открыть с телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/milo/v2/souffle/controls)** (private, ChatGPT владельца). Milo выбран как основа: пять механик кнопок/ползунков/переходов, настройка податливости 0–100, четыре характера помощников. [Код/запуск](assets/design-lab/README.md), [спецификация](docs/design/MILO_MATERIAL_AND_COMPANIONS.md), [отчёт](docs/reports/QUB-DESIGN-001.md). 98 browser tests; реальные AI/API не подключены. Финальная механика на owner review; прежняя галерея сохранена.
 
 ## Что это за проект
 
