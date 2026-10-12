@@ -1,0 +1,4 @@
+# Runtime only. Exact transitive dependencies are in requirements.lock.
+fastapi==0.143.0
+uvicorn==0.54.0
+psycopg[binary]==3.3.6

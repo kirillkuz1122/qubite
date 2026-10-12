@@ -8,7 +8,9 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Native PostgreSQL 16 binaries are provided by this runner image.
+    # Tests initialize a new private cluster; no system service is started.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +24,8 @@ jobs:
           python-version: '3.14'
       - run: npm ci --prefix back
       - run: python -m pip install -r scripts/engineering/test-requirements.lock
+      - run: /usr/lib/postgresql/16/bin/postgres --version
       - run: python -m unittest discover -s tests/engineering
-      - run: python scripts/engineering/verify.py --suite all --python python
+      - run: python scripts/engineering/verify.py --suite all --python python --postgres-bin /usr/lib/postgresql/16/bin
       - run: git diff --exit-code
 # Tests only. No production credentials, SSH or deployment step.

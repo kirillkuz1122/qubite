@@ -23,8 +23,9 @@ def run(argv, cwd, env):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan'], default='all')
+    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core'], default='all')
     parser.add_argument('--python', default=sys.executable, help='Python с pytest и зависимостями сервисов')
+    parser.add_argument('--postgres-bin', help='Каталог native initdb/postgres только для disposable core fixture')
     args = parser.parse_args()
     run([sys.executable, 'scripts/engineering/check.py'], ROOT, os.environ.copy())
     with tempfile.TemporaryDirectory(prefix='qubite-harness-') as directory:
@@ -32,8 +33,8 @@ if __name__ == '__main__':
         code = root / 'code'
         code.mkdir()
         names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
-        allowed = {'back', 'front', 'deploy', 'services', 'integrations', 'scripts', 'tests'}
-        suffixes = {'.js', '.cjs', '.mjs', '.py', '.json', '.html', '.css', '.txt', '.md', '.svg', '.ttf'}
+        allowed = {'back', 'front', 'deploy', 'services', 'integrations', 'scripts', 'tests', 'core', 'contracts'}
+        suffixes = {'.js', '.cjs', '.mjs', '.py', '.json', '.html', '.css', '.txt', '.md', '.svg', '.ttf', '.sql'}
         for name in sorted(set(names)):
             p = Path(name)
             if not name or '.env' in p.name or p.suffix not in suffixes:
@@ -87,7 +88,7 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                    SEED_DEMO_DATA='false', TELEGRAM_ENABLED='false', PYTHONDONTWRITEBYTECODE='1',
                    PYTEST_DISABLE_PLUGIN_AUTOLOAD='1', DATA_DIR=str(root/'data'),
                    NODE_OPTIONS=f'--require={policy}/offline.cjs')
-        suites = ['node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan'] if args.suite == 'all' else [args.suite]
+        suites = ['node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core'] if args.suite == 'all' else [args.suite]
         for suite in suites:
             print('SUITE:', suite, flush=True)
             if suite == 'node':
@@ -95,6 +96,12 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                 run(['node', '--test', '--test-reporter=tap', *files, 'services/search/tests/test_media.cjs'], code, env)
             elif suite == 'deploy':
                 run([args.python, '-m', 'unittest', 'discover', '-s', 'deploy/services/tests'], code, {**env, 'PYTHONPATH':str(policy)})
+            elif suite == 'core':
+                folder = code / 'core'
+                core_env = {**env, 'PYTHONPATH': os.pathsep.join([str(policy), str(folder)])}
+                if args.postgres_bin:
+                    core_env['QUBITE_TEST_POSTGRES_BIN'] = str(Path(args.postgres_bin).resolve())
+                run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests'], folder, core_env)
             else:
                 folders = {'search':'services/search', 'specbot':'services/specbot', 'kwork':'integrations/kwork', 'siyuan':'integrations/qubite-siyuan'}
                 folder = code / folders[suite]

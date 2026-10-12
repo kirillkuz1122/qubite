@@ -24,3 +24,11 @@ services/**/.env
 services/search/data/
 services/specbot/data/
 services/**/private.env
+
+# Independent core local credentials / environments / packaging / PG runtime
+core/**/.env*
+core/**/postgres-data/
+core/**/data/
+core/**/dist/
+core/**/build/
+core/**/*.egg-info/

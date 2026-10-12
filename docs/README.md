@@ -59,3 +59,5 @@
 - [Полный актуальный отчёт 12.10.2026](reports/STATUS-2026-10-12.md), [React scope сервисов](architecture/decisions/0008-react-service-surfaces.md).
 
 [Первая coding задача QUB-TEST-001: реальный Auth HTTP baseline, evidence и известные дефекты](reports/QUB-TEST-001.md).
+
+[Созданный core foundation](architecture/CORE_FOUNDATION.md), [запуск](../core/README.md), [отчёт QUB-CORE-001](reports/QUB-CORE-001.md).

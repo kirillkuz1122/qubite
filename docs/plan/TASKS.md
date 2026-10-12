@@ -99,22 +99,22 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-CORE-001 — Изолированный core health и contract skeleton
 
-Модуль: core; P0; статус ready; architecture approved: true. Зависимости: QUB-001.
+Модуль: core; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Проверить выбранный runtime/storage контракт без write доступа к legacy данным.
 
-Файлы/контракты: `core/qubite (будущий)`, `contracts/core-v1.json (будущий)`.
+Файлы/контракты: `core/`, `contracts/core-v1.json`, `scripts/engineering/verify.py`, `scripts/engineering/test-requirements.lock`, `tests/engineering/`, `.github/workflows/engineering.yml`, `.gitignore`, `README.md`, `SECURITY.md`, `AGENTS.md`, `CLAUDE.md`, `docs/architecture/CORE_FOUNDATION.md`, `docs/architecture/TARGET_ARCHITECTURE.md`, `docs/architecture/DATA_MODEL.md`, `docs/architecture/decisions/0009-core-foundation.md`, `docs/architecture/decisions/README.md`, `docs/engineering/TEST_STRATEGY.md`, `docs/engineering/AGENT_HARNESS.md`, `docs/architecture/ENV_AND_TESTS.md`, `docs/reports/QUB-CORE-001.md`, `docs/reports/STATUS-2026-10-12.md`, `docs/project/PROJECT_CONTEXT.md`, `docs/project/LAST_HANDOFF.md`, `docs/plan/tasks.json`, `docs/plan/TASKS.md`, `docs/plan/ROADMAP.md`, `docs/README.md`.
 
 Acceptance:
 
 - FastAPI health и Postgres versioned migration на disposable DB; no legacy DB writes
 - Contract validation и no-network startup tests
 
-Проверка: Будущий core pytest + verify.py --suite all.
+Проверка: python3 scripts/engineering/verify.py --suite core --python <venv-python> --postgres-bin <bin>; python3 scripts/engineering/verify.py --suite all --python <venv-python> --postgres-bin <bin>; python3 -m unittest discover -s tests/engineering; check.py; git diff --check.
 
 Риск: Новый процесс не открывает legacy writable DB; изолированная schema миграция; capacity перед деплоем. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: 12.10.2026: all isolated runner Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29=382 pass; harness4=386; no failed/skipped.; Real native PostgreSQL18.6 + Uvicorn HTTP, checksum/drift/rollback/concurrent/read-only role/no-env/no-network startup; only temp DB, no legacy/runtime/deploy changes.; check.py/git diff --check/harness checks required; commit/remote/CI evidence after commit..
 
 ## QUB-AUTH-002 — Stable subject mapping и временный legacy compatibility protocol
 

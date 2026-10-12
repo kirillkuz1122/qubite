@@ -193,3 +193,7 @@ Qubite 2.0 bot redesign: global staff whitelist не наследуется ка
 ## Воспроизводимые Auth проблемы — 12.10.2026
 
 В source-copy тестах реального server.js подтверждены: malformed percent-encoded cookie → 500; Google runtime disable блокирует start, но не pending callback; Google profile с `email_verified=false` связывается по существующему email и получает его session. Последнее — риск чужого account access при таком claim, реальный provider exploit не проверялся. Все три остаются в legacy, runtime не исправлялся. [Сценарии, mitigation requirements и P0 linking gate](docs/reports/QUB-TEST-001.md); не переносить дефекты в FastAPI и не считать passing characterization security fix.
+
+## Core foundation — 12.10.2026
+
+Новый core не читает legacy SQLite/.env и не исполняет DDL при API startup. Readiness read-only, driver/DSN errors sanitized; dedicated loopback PostgreSQL config, `.pgpass` отключён, PGSERVICE отклоняется. Explicit migration отдельным operator action, SHA256 history/advisory lock/transaction rollback; no automatic down/repair. Runtime DB role может быть read-only. [Границы и реальные tests](docs/architecture/CORE_FOUNDATION.md). Health не реализует authentication/policy; user endpoints ещё отсутствуют, AUTH-L01..03 legacy не исправлялись. Production routing/remote DB/TLS/backups/cutover отдельные gates.

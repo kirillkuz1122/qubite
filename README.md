@@ -222,3 +222,7 @@ React/new design scope включает собственные VPN/Writing/Searc
 ### Проверка legacy Auth перед переносом
 
 QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего server.js с временной SQLite и synthetic mail/OAuth/CAPTCHA. Запуск: `python3 scripts/engineering/verify.py --suite node`; полный runner+harness — 357 pass. [Отчёт](docs/reports/QUB-TEST-001.md) фиксирует три нерешённых legacy дефекта; тесты не заменяют реальный provider/UI/production acceptance. Следующая основная задача — изолированный FastAPI/Postgres foundation QUB-CORE-001.
+
+### Созданное ядро Qubite 2.0
+
+В `core/qubite` реализован отдельный FastAPI foundation 0.1.0: health/readiness/OpenAPI, explicit PostgreSQL migration и 29 тестов с настоящей временной базой. [Локальный запуск](core/README.md), [контракт](contracts/core-v1.json), [отчёт CORE-001](docs/reports/QUB-CORE-001.md). Auth/Owner Console/React/бот ещё следующие задачи, legacy сервисы работают отдельно. Full runner+harness локально386 pass; deploy не выполнялся.

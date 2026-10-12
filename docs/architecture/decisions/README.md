@@ -12,3 +12,5 @@
 | [0006](0006-clients-and-deployment.md) | CONFIRMED scope / POC механизм | web/Android/Linux desktop, portable clients, deploy + installer |
 | [0007](0007-platform-extraction-and-capture.md) | CONFIRMED 12.10.2026 | нужные shared функции FastAPI, optional legacy Tournaments, automatic capture/support/notifications |
 | [0008](0008-react-service-surfaces.md) | CONFIRMED 12.10.2026 | собственные VPN/Writing/Search и остальные included UI на React; Tournaments сохраняет Vanilla/Node/SQLite |
+
+| [0009](0009-core-foundation.md) | Engineering decision в одобренной CORE-001 | independent factory/contract, explicit SQL migration, native disposable PG tests |

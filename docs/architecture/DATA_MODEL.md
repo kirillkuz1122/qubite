@@ -41,3 +41,7 @@ users integer ID → subjects UUID через явную таблицу; session
 ## Миграции/retention
 
 Каждая versioned migration: expand → backfill idempotent → validate counts/FK/hash/ACL/ledger → switch one writer → contract позже. Migrations версии/checksum фиксируются, нет авто destructive start-up. Согласовать retention audit/history/media/private deletions и RPO/RTO до live данных. Export JSON/Markdown/media manifest versioned; schema roundtrip tests и encrypted blob restore обязательны.
+
+## Реализованная technical schema — CORE-001
+
+В `qubite_meta.schema_migrations` version PK, SHA256 checksum hex CHECK, created_at/updated_at timestamptz NOT NULL; applied history проверяется на exact shipped prefix. Migration 0001 создаёт пустой namespace qubite_core, без subjects/grants/domain tables. FK отсутствуют, PK index достаточен для маленького ledger. [ERD/transaction/recovery boundaries](CORE_FOUNDATION.md). Не считать logical MVP таблицы выше реализованными.

@@ -29,3 +29,7 @@ Bot/analytics migration требует отдельного feature-parity revie
 ## HTTP baseline Auth — QUB-TEST-001
 
 Настоящий server.js в source-copy/temp SQLite; 25 сценариев register/login/session/reset/email-2FA/OAuth/CSRF/expiry/blocked/PKCE/Telegram signature. Только внешний transport mock, no real env/providers. Node suite теперь 94 pass; полный runner+harness 357 pass. [Отчёт и три воспроизводимых legacy дефекта](../reports/QUB-TEST-001.md). Characterization ожидания `legacy defect` нельзя переносить в новый Auth: это migration negative requirements, а не accepted behavior. Browser/provider/production acceptance остаются открытыми.
+
+## PostgreSQL core foundation — QUB-CORE-001
+
+29 real core cases: contracts/no-network startup/config denial/read-only readiness, actual native PG DDL+rollback/concurrency/drift/CLI, readonly runtime role и дочерний uvicorn HTTP smoke. `verify.py --suite core --python <venv-python> [--postgres-bin <native-bin>]` и required all. Missing binaries/dependencies fail без skip; fresh private cluster/database, no Docker/live storage. Локальный all+harness теперь386 pass. [Scope/evidence](../reports/QUB-CORE-001.md); migration history не полный semantic schema diff и не production acceptance.

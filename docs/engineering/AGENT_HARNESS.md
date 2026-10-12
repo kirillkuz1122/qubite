@@ -18,6 +18,8 @@ Unapproved architecture/data authority/schema switch/role expansion, failed requ
 
 ## Честные ограничения
 
-Runner пока запускает legacy/test suites и checks, не создаёт core/React/Android/real Postgres. Он не коммитит и не пушит сам: агент проверяет результат и делает эти шаги. Не установлены global hooks, не изменены сервисы. Архитектура отмечается approved только решением пользователя с ADR/date; ready task dependencies проверяются machine schema.
+Runner запускает legacy suites и core tests с настоящим native disposable PostgreSQL cluster; production storage/React/Android не создаёт. Он не коммитит и не пушит сам: агент проверяет результат и делает эти шаги. Не установлены global hooks, не изменены сервисы. Архитектура отмечается approved только решением пользователя с ADR/date; ready task dependencies проверяются machine schema.
 
 CI Python 3.14/Node 22 — отдельное окружение; локальный прогон 3.14/Node 22.22.2, CI actual green проверять на GitHub. Hardware/manual acceptance не превращать в CI skip. Параллельные агенты допускаются только по явной команде/разрешённому workflow и с file ownership.
+
+CORE-001 расширяет --suite all required core suite. Test prerequisites: Psycopg lock + native initdb/postgres, можно указать --postgres-bin. Никаких automatic downloads/Docker/system services: missing prerequisite fail. Source-copy включает core/contracts/SQL, core-specific fixture address не наследуется из production env, PG cluster новый в /tmp. Core API startup никогда не вызывает migration apply.

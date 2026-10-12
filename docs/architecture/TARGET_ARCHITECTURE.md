@@ -1,6 +1,6 @@
 # Целевая архитектура: согласованный стек и поэтапная реализация
 
-Стек CONFIRMED 12.10.2026: Python/FastAPI + React/TS + новый PostgreSQL, SQLite турниров сохраняется. Механика отдельных модулей требует task-level проверки; реализация ядра не начата. CONFIRMED: Tournaments отдельный модуль, обычная главная owner, default deny, независимые budgets, сохранение legacy, ShadeAI read-only.
+Стек CONFIRMED 12.10.2026: Python/FastAPI + React/TS + новый PostgreSQL, SQLite турниров сохраняется. Механика отдельных модулей требует task-level проверки; foundation ядра реализован в QUB-CORE-001; identity/policy/domain/UI ещё не реализованы. CONFIRMED: Tournaments отдельный модуль, обычная главная owner, default deny, независимые budgets, сохранение legacy, ShadeAI read-only.
 
 ## Два пути
 
@@ -42,3 +42,5 @@ Postgres для нового core с versioned migrations; SQLite legacy не з
 Обновление 12.10.2026 (ADR-0007): необходимые общие legacy возможности, включая identity/settings/support/analytics, реализуем на FastAPI. Legacy Auth в схеме — временный compatibility authority до tested cutover, а не backend нового продукта навсегда. Специфический tournament engine Node/SQLite остаётся отдельным optional модулем. Telegram automatic capture/voice и единые event links — подтверждённый scope.
 
 Уточнение UI scope 12.10.2026: собственные интерфейсы включённых сервисов VPN/Writing/Search и всех прочих частей нового Qubite переписываются на React/TS с новым дизайном, не только landing shell. Qubite Tournaments сохраняет текущий Vanilla UI/Node/SQLite. Platform APIs FastAPI; рабочие native engines через adapters. [ADR-0008](decisions/0008-react-service-surfaces.md).
+
+Реальный foundation: [CORE_FOUNDATION](CORE_FOUNDATION.md), `core/qubite`, [OpenAPI contract](../../contracts/core-v1.json); explicit migrations/native isolated PG tests. Это не rollout shared services и не новая Auth.

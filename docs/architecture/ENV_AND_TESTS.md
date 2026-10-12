@@ -173,3 +173,7 @@
 ## Реальный Auth HTTP baseline
 
 `back/tests/auth-legacy-baseline.test.js` + `back/tests/fixtures/auth-server.cjs`: настоящий legacy server, 25 сценариев, собственная source-copy изоляция даже при прямом запуске. Включён автоматически в `python3 scripts/engineering/verify.py --suite node`. `QUBITE_AUTH_FIXTURE_ROOT` — только тестовый safety marker для preload, не production настройка. Fictive env/SQLite/loopback, внешние transport mocks. [Результат и ограничения QUB-TEST-001](../reports/QUB-TEST-001.md).
+
+## Qubite Core foundation
+
+`QUBITE_CORE_DATABASE_URL` — только explicit dedicated loopback PostgreSQL, `QUBITE_CORE_DB_TIMEOUT_SECONDS` — 1..10s connection timeout. Без .env autoload/legacy fallback. `QUBITE_TEST_POSTGRES_BIN` — только test fixture, harness задаёт через --postgres-bin, не production env. Tests `core/tests/conftest.py`, `core/tests/test_foundation.py`; included required --suite core/all. [29 scenarios и prerequisites](CORE_FOUNDATION.md), [report](../reports/QUB-CORE-001.md).

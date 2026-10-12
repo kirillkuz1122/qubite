@@ -27,3 +27,7 @@ Tests запускают source-copy без .env с temp SQLite/HOME/loopback; �
 - Filled deploy/.env проверен только existence/mode600/untracked, values не читались. Владелец разрешил локальное использование при необходимости; текущие tests используют только fixtures. Не выводить/коммитить env/DB/private messages/browser state.
 
 Решения/память только в docs/project и ADR; личная память агента не заменяет registry/report. Предыдущая audit task QUB-001 done (ae3f71e, CI38197926998), baseline332; итог первой coding task теперь357, как указано выше.
+
+## Новый текущий цикл — CORE-001
+
+Реализован independent core foundation + explicit SQL metadata migration + API v1 contract; native PG29 tests и full runner386 checks прошли локально. Commit/remote/CI evidence заполняется после push, registry пока review/testing. [CORE-001 отчёт](../reports/QUB-CORE-001.md). Следующая primary DESIGN-001, AUTH-008 только specification после done dependencies. Legacy/Auth дефекты/live backups/device/React gates прежние; никакого deploy/data migration.
