@@ -1,6 +1,6 @@
 # QUB-AUTH-005 — вход без account code-entry
 
-13.10.2026. Статус: review/testing; local898pass подтверждено, implementation commit/push и exact-SHA GitHub CI ещё ожидаются. Scope подтверждён ответом владельца до реализации. До изменений main/origin **d6c15e16b8f6505715f17914c966dc528485fff5**, checkout чистый; remote archive tournaments/qubite-v1.0 **96f0457a523b6b79f21c4092056d8fa8fa69a680** подтверждён. Постоянный аккаунт/пароль владельца не создаётся.
+13.10.2026. Статус: **done**; local+CI898pass, implementation commit/push/remote exact и CI success подтверждены. Scope подтверждён ответом владельца до реализации. До изменений main/origin **d6c15e16b8f6505715f17914c966dc528485fff5**, checkout чистый; remote archive tournaments/qubite-v1.0 **96f0457a523b6b79f21c4092056d8fa8fa69a680** подтверждён. Постоянный аккаунт/пароль владельца не создаётся.
 
 ## Что сделано
 
@@ -38,8 +38,12 @@ Rollback: снять артефакты обычным commit, сохранит�
 
 Полный изолированный all завершился exit0: **892 passed** = Node97/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core504. Core504 = foundation29+identity59+Web Auth120+OAuth100+email65+policy86+account-login45; три группы208/24.97s +165/46.59s +131/52.79s, сумма124.35s, лимит180s каждой сохранён. Engineering unittest6pass, всего **898 проверок**. No failures/skips/cancelled в финальном запуске; Starlette TestClient warning advisory. Python3.13.13, PostgreSQL18.6, Node22.22.2 проверены локально.
 
-check.py56tasks/63docs и git diff --check pass. Git diff подтвердил отсутствие изменений core/qubite, core/identity OpenAPI, identity-v2, SQL и root master/access. Sources/services/секреты/демо/удалённые серверы не менялись. Только48 новых security/module regression cases плюс contract/docs; реальные provider/mail calls0. После этого только docs/evidence metadata, повторные runtime suites без новых code changes не нужны.
+check.py56tasks/63docs и git diff --check pass. Git diff подтвердил отсутствие изменений core/qubite, core/identity OpenAPI, identity-v2, SQL и root master/access. Sources/services/секреты/демо/удалённые серверы не менялись. Только48 новых security/module regression cases плюс contract/docs; реальные provider/mail calls0. После этого изменялась только docs/evidence metadata; runtime suites без новых code changes повторно не требуются.
 
 ## GitHub и статус
 
-Implementation SHA, remote refs и exact-SHA tests-only CI записываются после commit/push. Пока AUTH-005 review/testing; task done только после подтверждения CI. Registry56:10done/4ready/1review-testing/41backlog. AUTH-006 остаётся backlog/approvalfalse, сначала вопросы и ответы, никакой автоматической следующей реализации.
+Implementation **cf302d9e05579f417886a8ee87136352a3f53fa0** commit/push и remote main exact подтверждены. Remote tournaments/qubite-v1.0 immutable96f0457a523b6b79f21c4092056d8fa8fa69a680. [CI38385240872](https://github.com/kirillkuz1122/qubite/actions/runs/38385240872) для exact SHA завершился completed/success **13.10.2026 10:47:23UTC** (job completed10:47:22UTC), task done. Registry56:11done/4ready/41backlog. AUTH-006 остаётся backlog/approvalfalse, сначала вопросы и ответы, никакой автоматической следующей реализации.
+
+CI подтвердил **892 all +6 engineering =898pass**, те же suites/числа, без failures/skips. Фактические Python3.14.8/PostgreSQL16.15/Node22.23.3; core208/44.33s +165/77.02s +131/84.32s, сумма205.67s, каждый subprocess укладывается в180s. Никакого увеличения timeout/снятия проверок. Starlette TestClient и GitHub Actions Node20 deprecation — advisory, не failures; обновление action runtime не часть AUTH-005.
+
+Завершение: docs-only evidence commit/push сохраняет актуальные task status, report, project memory/handoff, AGENTS/CLAUDE. Для этих metadata проверены check.py/harness/diff; application/test/contract files остаются точной версией успешного implementation CI. Новые ready задачи не начинались. Следующая AUTH-006 требует отдельного обсуждения и ответов владельца.

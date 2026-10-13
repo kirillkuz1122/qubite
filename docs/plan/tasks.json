@@ -799,15 +799,17 @@
       "Не смешать authentication code-entry с турнирным join/verification"
     ],
     "rollback": "Снять contract/tests/docs последующим commit. Runtime/schema в AUTH-005 не менялись; сохранить PostgreSQL UUID/credentials/sessions/grants/audit. Не возвращать account code-entry и не restore старые SQLite пароли/сессии поверх новой identity; ingress/deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "cf302d9e05579f417886a8ee87136352a3f53fa0",
     "architecture_approved": true,
     "verification": [
       "13.10.2026: владелец ответил «Да, закрываем AUTH-005 по этим границам»: контракт/негативные и позитивные проверки существующего нового API; registration/UI/Search/Writing/VPN отдельно. Вход AUTH-009 уже реализован, нового дублирующего Auth runtime не создаём.",
       "Baseline main/origin d6c15e16b8f6505715f17914c966dc528485fff5, чистый checkout; remote tournaments и qubite-v1.0 immutable96f0457a523b6b79f21c4092056d8fa8fa69a680 проверены перед изменениями.",
       "Финальный isolated all892pass + engineering6pass =898local checks; Node97,deploy18,Search95,Brief112,Kwork29,SiYuan5,identity32,core504 (208+165+131). New account-login45 + tournament3=48. No failures/skips. Python3.13.13/PG18.6/Node22.22.2.",
       "Две bounded repair batches только test configuration/assertions: auth-only workspace503, manual OAuth query absent in OpenAPI parameters, mixed cookie/bearer400. Runtime guards/schema без изменений; final all exit0.",
-      "check.py56tasks/63docs и diff pass; core/qubite/OpenAPI/identity-v2/SQL/root master-access unchanged. Implementation/push/exact-SHA CI pending; no deploy."
+      "check.py56tasks/63docs и diff pass; core/qubite/OpenAPI/identity-v2/SQL/root master-access unchanged. Implementation/push/exact-SHA CI pending; no deploy.",
+      "Implementation cf302d9e05579f417886a8ee87136352a3f53fa0 commit/push и remote main exact подтверждены; tournaments/qubite-v1.0 immutable96f0457a523b6b79f21c4092056d8fa8fa69a680.",
+      "GitHub Actions38385240872 exact implementation SHA cf302d9e05579f417886a8ee87136352a3f53fa0 completed/success13.10.2026 10:47:23UTC (job10:47:22UTC). CI all892+harness6=898pass; Python3.14.8/PG16.15/Node22.23.3, core208/44.33s+165/77.02s+131/84.32s; sum205.67s, each subprocess<180s. Tests-only, no deploy; final docs-only evidence commit/push closes cycle."
     ]
   },
   {
