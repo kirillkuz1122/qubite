@@ -434,7 +434,8 @@
     ],
     "acceptance": [
       "Manual account grants/revoke/budget with audit+If-Match",
-      "Nonowner owner API denied, no self-service paid grant"
+      "Nonowner owner API denied, no self-service paid grant",
+      "Переключатель регистрации/режимы и оба типа invite через AUTH-006 API; global login/maintenance/provider toggles только после AUTH-015. ChatGPT personal plan vs owner API отдельные карточки/права."
     ],
     "tests": [
       "Будущий core integration + Playwright console tests"
@@ -820,11 +821,30 @@
     "priority": "P0",
     "dependencies": [
       "QUB-AUTH-009",
+      "QUB-AUTH-011",
+      "QUB-AUTH-003",
       "QUB-DESIGN-001"
     ],
     "files": [
-      "core/qubite/identity/registration (будущий)",
-      "contracts/registration-v1.json (будущий)"
+      "core/qubite/identity/registration/",
+      "core/qubite/sql/0007_registration.sql",
+      "core/qubite/app.py",
+      "core/qubite/migrations.py",
+      "core/qubite/identity/auth/http.py",
+      "core/qubite/identity/challenges/store.py",
+      "core/tests/",
+      "contracts/registration-v1.json",
+      "contracts/core-v1.json",
+      "contracts/identity-v2.json",
+      "docs/",
+      "README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md",
+      "core/README.md",
+      "core/qubite/__init__.py",
+      "tests/identity/test_contract.py"
     ],
     "acceptance": [
       "Email/password/согласия, display name optional; без обязательного login alias/ФИО/школы/класса",
@@ -832,16 +852,20 @@
       "PG uniqueness/validation/consent version/verification; fresh identity без импорта старых DTO"
     ],
     "tests": [
-      "Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests"
+      "Real disposable PG/HTTP: invite/public/disabled, verified login/reset, canonical collision, consent, strict legacy DTO rejection; OAuth linking regression; concurrency/revoke/version/CSRF/rates/atomic failure; full harness"
     ],
     "risks": [
       "Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "review/testing",
     "commit": null,
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "13.10.2026: перед задачей вопросы заданы, ответы получены. Owner-controlled registration switch; оба типа приглашений; вход после подтверждения email. Bounded API/PG slice, React переключатели/общий login kill-switch/maintenance/ChatGPT отдельные задачи; mock-only delivery, no deploy.",
+      "13.10.2026: local full source-copy all963+harness6=969 pass; core575=208+165+202 including registration71. Python3.13.13/PG18.6/Node22.22.2; groups26.72/48.79/75.31s (<180 each). First full failed2 due OpenAPI400/obsolete register404 oracle; corrected bounded batch. After full pass DTO renamed to RegistrationAccepted to preserve all earlier OpenAPI operations/schema names; final3 targeted contract tests pass1.45s, no HTTP behavior change. CI exact SHA pending. No real mail/providers/deploy/owner credentials."
+    ],
+    "approval": "13.10.2026: ответы перед AUTH-006 — владелец управляет регистрацией, оба типа invite, вход после email verification; глобальные switches и ChatGPT разрешено зафиксировать в backlog."
   },
   {
     "id": "QUB-AUTH-007",
@@ -2000,5 +2024,106 @@
     "commit": null,
     "architecture_approved": true,
     "verification": []
+  },
+  {
+    "id": "QUB-AUTH-015",
+    "title": "Глобальные переключатели входа, регистрации, техработ и провайдеров",
+    "reason": "Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices",
+    "module": "owner",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-006",
+      "QUB-AUTH-010",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/platform_controls (будущий)",
+      "docs/architecture/PLATFORM_CONTROLS.md"
+    ],
+    "acceptance": [
+      "Owner-managed login/registration/maintenance/OAuth/email controls; server enforcement, audit/versions and anti-lockout recovery",
+      "Режим регистрации AUTH-006 уже реализован; login/maintenance/OAuth Console API и UI не считать готовыми",
+      "Турнирные creation/participation switches только в Tournaments; bot invokes same scoped commands"
+    ],
+    "tests": [
+      "Concurrent switch/callback/session issuance/job gates; owner recovery and user503 UI tests; no external providers"
+    ],
+    "risks": [
+      "Не перенести legacy bypass_token в URL; продумать trusted recovery при отключённом входе"
+    ],
+    "rollback": "Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей."
+    ]
+  },
+  {
+    "id": "QUB-AUTH-016",
+    "title": "Sign in with ChatGPT: eligibility и контракт Web/Android/Desktop",
+    "reason": "Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices",
+    "module": "identity",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-006",
+      "QUB-AUTH-010"
+    ],
+    "files": [
+      "docs/architecture/CHATGPT_INTEGRATION.md",
+      "contracts/chatgpt-identity (будущий)"
+    ],
+    "acceptance": [
+      "Проверить официальный SIWC trial/client registration для сайта и OSS/local eligibility для native; не считать приложение допущенным",
+      "Согласовать stable issuer/client/sub, PKCE/nonce/state, explicit enrollment/linking, verified email policy и separate plan-use consent",
+      "Матрица клиентов/хранение/refresh/revoke/provider toggle, никаких tokens чужого Codex/ChatGPT"
+    ],
+    "tests": [
+      "Документированный официальный flow и ограничения, signed fixtures после одобрения; real acceptance отдельно"
+    ],
+    "risks": [
+      "Website limited trial; нельзя использовать dynamic OSS registration как обход допуска общего hosted сервера"
+    ],
+    "rollback": "Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей."
+    ]
+  },
+  {
+    "id": "QUB-AI-003",
+    "title": "Личный ChatGPT план и owner API: независимые источники AI",
+    "reason": "Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices",
+    "module": "ai",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-AUTH-016",
+      "QUB-AI-002",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/ai/funding (будущий)",
+      "docs/architecture/CHATGPT_INTEGRATION.md"
+    ],
+    "acceptance": [
+      "Личный план требует eligible profile и отдельного provider scope; signin не выдаёт module/action права",
+      "Owner-funded API только manual provider/model/action grants+atomic budget; два источника доступны независимо",
+      "В UI источник и квота; expiry/revoke/exhaustion/unknown fail closed, no silent owner API fallback; поддерживаемые Responses features проверяются"
+    ],
+    "tests": [
+      "Mock profile/scope/quota exhaustion/account switch/revoke/cross-user/source isolation/concurrent reserve; native/device/live provider отдельно"
+    ],
+    "risks": [
+      "Plan-use preview имеет неподдерживаемые ASR/tools; нельзя обещать все AI-функции за личную подписку"
+    ],
+    "rollback": "Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей."
+    ]
   }
 ]

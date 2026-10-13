@@ -1,10 +1,12 @@
 # Карточки небольших задач
 
+**AUTH-00613.10.2026 — review/testing:** core0.6.0/current0007_registration; owner-controlled invite/default/public/disabled API, оба одноразовых invite, strict minimal enrollment/consents, pending→email verify→login, no module/AI grants. [Контракт](../architecture/REGISTRATION.md), [отчёт](../reports/QUB-AUTH-006.md), [ADR-0020](../architecture/decisions/0020-owner-controlled-registration.md). Вопросы заданы и ответы получены до реализации. React controls/mail/legal/deploy отдельно. AUTH-015 глобальные switches, AUTH-016 ChatGPT eligibility/identity, AI-003 personal plan vs owner API сохранены в backlog. Далее обсудить UI-001 shell, затем AUTH-007 auth UI; перед каждым task снова вопросы. Current evidence в tasks.json/LAST_HANDOFF, milestones ниже исторические.
+
 **AUTH-005, 13.10.2026 — done:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](../architecture/ACCOUNT_LOGIN.md), [отчёт](../reports/QUB-AUTH-005.md), [ADR-0019](../architecture/decisions/0019-account-login-boundary.md). Core0.5.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local+CI all892+harness6=898pass; implementationcf302d9 / CI38385240872 completed-success10:47:23UTC. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
 
 **AUTH-01113.10.2026 done:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](../architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](../reports/QUB-AUTH-011.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md). Final local+CI762 passed; implementationf3d4b6c/CI38373075395 success; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
 
-Источник состояния — [tasks.json](tasks.json). 56 карточек; список ниже отражает machine registry. Shared APIs FastAPI/Postgres; included UI React/new design; optional Tournaments Node/SQLite/Vanilla. Fresh identity без импорта/bridge по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Одна ready approved задача за цикл, deploy отдельно.
+Источник состояния — [tasks.json](tasks.json). 59 карточек; список ниже отражает machine registry. Shared APIs FastAPI/Postgres; included UI React/new design; optional Tournaments Node/SQLite/Vanilla. Fresh identity без импорта/bridge по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Одна ready approved задача за цикл, deploy отдельно.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -231,10 +233,11 @@ Acceptance:
 
 - Manual account grants/revoke/budget with audit+If-Match
 - Nonowner owner API denied, no self-service paid grant
+- Переключатель регистрации/режимы и оба типа invite через AUTH-006 API; global login/maintenance/provider toggles только после AUTH-015. ChatGPT personal plan vs owner API отдельные карточки/права.
 
 Проверка: Будущий core integration + Playwright console tests.
 
-Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+Риск: Обычный user не вызывает management API; manual grants audit; owner singleton защищён. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
 Commit: после выполнения. Evidence: .
 
@@ -435,11 +438,11 @@ Implementation cf302d9e05579f417886a8ee87136352a3f53fa0 pushed/remote verified; 
 
 ## QUB-AUTH-006 — Минимальная FastAPI регистрация без legacy alias
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-DESIGN-001.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-011, QUB-AUTH-003, QUB-DESIGN-001.
 
 Причина: Снять обязательные турнирные/лишние данные с платформенной регистрации.
 
-Файлы/контракты: `core/qubite/identity/registration (будущий)`, `contracts/registration-v1.json (будущий)`.
+Файлы/контракты: `core/qubite/identity/registration/`, `core/qubite/sql/0007_registration.sql`, `core/qubite/app.py`, `core/qubite/migrations.py`, `core/qubite/identity/auth/http.py`, `core/qubite/identity/challenges/store.py`, `core/tests/`, `contracts/registration-v1.json`, `contracts/core-v1.json`, `contracts/identity-v2.json`, `docs/`, `README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`, `core/README.md`, `core/qubite/__init__.py`, `tests/identity/test_contract.py`.
 
 Acceptance:
 
@@ -447,11 +450,11 @@ Acceptance:
 - Invite/manual default, public отдельно; no module/model grant из регистрации
 - PG uniqueness/validation/consent version/verification; fresh identity без импорта старых DTO
 
-Проверка: Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests.
+Проверка: Real disposable PG/HTTP: invite/public/disabled, verified login/reset, canonical collision, consent, strict legacy DTO rejection; OAuth linking regression; concurrency/revoke/version/CSRF/rates/atomic failure; full harness.
 
-Риск: Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
+Риск: Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: 13.10.2026: перед задачей вопросы заданы, ответы получены. Owner-controlled registration switch; оба типа приглашений; вход после подтверждения email. Bounded API/PG slice, React переключатели/общий login kill-switch/maintenance/ChatGPT отдельные задачи; mock-only delivery, no deploy..
 
 ## QUB-AUTH-007 — Новые React auth экраны поверх FastAPI Auth
 
@@ -1129,3 +1132,62 @@ Commit: после выполнения. Evidence: .
 Текущий core0.3.0/schema0004: Web Auth AUTH-009 и OAuth AUTH-010; итог/evidence в карточках и handoff. Следующая AUTH-011 verification/reset; AUTH-003 approval=false, UI/native/keys/policy/services отдельные. Identity не выдаёт module/AI grants; push не deploy.
 
 Актуальный AUTH-003 done: core0.5.0/schema0006, implementationd4c813e/CI38381905595success/850checks. Registry56:10done/4ready/42backlog. Прежние runtime statements выше исторические; перед каждой новой задачей вопросы/ответы владельца. AUTH-005/006 approvalfalse, paid AI/real modules/UI/native/services/deploy отдельно.
+## QUB-AUTH-015 — Глобальные переключатели входа, регистрации, техработ и провайдеров
+
+Модуль: owner; P1; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-003.
+
+Причина: Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices.
+
+Файлы/контракты: `core/qubite/platform_controls (будущий)`, `docs/architecture/PLATFORM_CONTROLS.md`.
+
+Acceptance:
+
+- Owner-managed login/registration/maintenance/OAuth/email controls; server enforcement, audit/versions and anti-lockout recovery
+- Режим регистрации AUTH-006 уже реализован; login/maintenance/OAuth Console API и UI не считать готовыми
+- Турнирные creation/participation switches только в Tournaments; bot invokes same scoped commands
+
+Проверка: Concurrent switch/callback/session issuance/job gates; owner recovery and user503 UI tests; no external providers.
+
+Риск: Не перенести legacy bypass_token в URL; продумать trusted recovery при отключённом входе. Откат: Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно
+
+Commit: после выполнения. Evidence: 13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей..
+
+## QUB-AUTH-016 — Sign in with ChatGPT: eligibility и контракт Web/Android/Desktop
+
+Модуль: identity; P1; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-006, QUB-AUTH-010.
+
+Причина: Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices.
+
+Файлы/контракты: `docs/architecture/CHATGPT_INTEGRATION.md`, `contracts/chatgpt-identity (будущий)`.
+
+Acceptance:
+
+- Проверить официальный SIWC trial/client registration для сайта и OSS/local eligibility для native; не считать приложение допущенным
+- Согласовать stable issuer/client/sub, PKCE/nonce/state, explicit enrollment/linking, verified email policy и separate plan-use consent
+- Матрица клиентов/хранение/refresh/revoke/provider toggle, никаких tokens чужого Codex/ChatGPT
+
+Проверка: Документированный официальный flow и ограничения, signed fixtures после одобрения; real acceptance отдельно.
+
+Риск: Website limited trial; нельзя использовать dynamic OSS registration как обход допуска общего hosted сервера. Откат: Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно
+
+Commit: после выполнения. Evidence: 13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей..
+
+## QUB-AI-003 — Личный ChatGPT план и owner API: независимые источники AI
+
+Модуль: ai; P1; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-016, QUB-AI-002, QUB-AUTH-003.
+
+Причина: Уточнение владельца 13.10.2026; сохранить в плане без реализации несогласованных будущих slices.
+
+Файлы/контракты: `core/qubite/ai/funding (будущий)`, `docs/architecture/CHATGPT_INTEGRATION.md`.
+
+Acceptance:
+
+- Личный план требует eligible profile и отдельного provider scope; signin не выдаёт module/action права
+- Owner-funded API только manual provider/model/action grants+atomic budget; два источника доступны независимо
+- В UI источник и квота; expiry/revoke/exhaustion/unknown fail closed, no silent owner API fallback; поддерживаемые Responses features проверяются
+
+Проверка: Mock profile/scope/quota exhaustion/account switch/revoke/cross-user/source isolation/concurrent reserve; native/device/live provider отдельно.
+
+Риск: Plan-use preview имеет неподдерживаемые ASR/tools; нельзя обещать все AI-функции за личную подписку. Откат: Отключить новый adapter/control, сохранить identity/UUID/consents/grants/budgets/audit; forward recovery, no legacy authority fallback; deploy отдельно
+
+Commit: после выполнения. Evidence: 13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей..

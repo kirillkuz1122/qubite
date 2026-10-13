@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Qubite Core",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/api/v1/auth/csrf": {
@@ -1546,6 +1546,394 @@
         }
       }
     },
+    "/api/v1/auth/registration": {
+      "get": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Config",
+        "operationId": "registration_config",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Register",
+        "operationId": "registration_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Register"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/owner/registration": {
+      "get": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Owner Config",
+        "operationId": "owner_registration_config",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Mode",
+        "operationId": "owner_registration_mode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Mode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/owner/registration/invites": {
+      "get": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Invites",
+        "operationId": "owner_registration_invites",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invites"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Invite",
+        "operationId": "owner_registration_invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Invite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedInvite"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/owner/registration/invites/{invite_id}": {
+      "delete": {
+        "tags": [
+          "registration"
+        ],
+        "summary": "Revoke",
+        "operationId": "owner_registration_revoke",
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "4XX": {
+            "description": "Controlled client error; no submitted values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/auth/oauth/providers": {
       "get": {
         "tags": [
@@ -2611,6 +2999,152 @@
         "type": "object",
         "title": "Health"
       },
+      "Invite": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 320
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Ttl Seconds",
+            "default": 604800
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Invite"
+      },
+      "InviteMetadata": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "redeemed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redeemed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "created_at",
+          "expires_at",
+          "revoked_at",
+          "redeemed_at"
+        ],
+        "title": "InviteMetadata"
+      },
+      "Invites": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InviteMetadata"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Invites"
+      },
+      "IssuedInvite": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "token",
+          "email",
+          "expires_at"
+        ],
+        "title": "IssuedInvite"
+      },
       "Linked": {
         "properties": {
           "provider": {
@@ -2741,6 +3275,25 @@
           "enabled"
         ],
         "title": "MembershipCommand"
+      },
+      "Mode": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "invite",
+              "public"
+            ],
+            "title": "Mode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "Mode"
       },
       "ModuleCommand": {
         "properties": {
@@ -3010,6 +3563,105 @@
           "revision"
         ],
         "title": "Receipt"
+      },
+      "Register": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Password"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "consent_version": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Consent Version"
+          },
+          "consent_accepted": {
+            "type": "boolean",
+            "title": "Consent Accepted"
+          },
+          "invite_token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invite Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "consent_version",
+          "consent_accepted"
+        ],
+        "title": "Register"
+      },
+      "RegistrationAccepted": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "const": "registration_accepted",
+            "title": "Code",
+            "default": "registration_accepted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RegistrationAccepted"
+      },
+      "RegistrationConfig": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "invite",
+              "public"
+            ],
+            "title": "Mode"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "consent_version": {
+            "type": "string",
+            "title": "Consent Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "revision",
+          "consent_version"
+        ],
+        "title": "RegistrationConfig"
       },
       "ResetProof": {
         "properties": {

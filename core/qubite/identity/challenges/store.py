@@ -90,6 +90,15 @@ class ChallengeStore(AuthStore):
         except InvalidAccount:
             canonical=None
         self._authorize(kind,raw,csrf,ip,purpose+':'+(canonical or 'invalid-email'),confirm=False)
+        self._deliver(purpose, canonical)
+
+    def _deliver(self, purpose, canonical):
+        """Trusted internal dispatch after an authorized request or fresh enrollment.
+
+        Not a route or independent public bypass. Registration reserves its own
+        attempt/CSRF budget and calls this only for an account it just committed.
+        """
+        self._gate(purpose)
         now=self.clock(); token=issue(PREFIX[purpose]); cid=uuid4(); envelope=None
         with database(self.settings) as db:
             subject=self._subject_snapshot(db,canonical=canonical)

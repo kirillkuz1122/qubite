@@ -106,6 +106,14 @@ def validate_schema(connection, migrations):
         if tables != required:
             raise MigrationError('Core policy schema is missing; explicit recovery required')
 
+    if '0007_registration' in versions:
+        required = {'registration_state', 'registration_invites', 'registration_consents', 'registration_audit'}
+        tables = {r[0] for r in connection.execute("""SELECT c.relname FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='qubite_core'
+            AND c.relkind IN ('r','p') AND c.relname=ANY(%s)""", (list(required),)).fetchall()}
+        if tables != required:
+            raise MigrationError('Core registration schema is missing; explicit recovery required')
+
 
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""

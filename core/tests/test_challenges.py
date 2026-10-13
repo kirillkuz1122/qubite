@@ -326,7 +326,7 @@ def test_forward_migration_preserves_existing_subject_password_and_sessions(data
         db.execute('INSERT INTO qubite_core.password_credentials(subject_id,password_hash) VALUES (%s,%s)',(uid,phc))
     # No implicit schema repair on startup or request.
     with TestClient(create_app(settings),base_url=ORIGIN) as c:assert c.get('/api/v1/health/ready').status_code==503
-    assert apply(settings)==('0005_challenges','0006_policy') and apply(settings)==()
+    assert apply(settings)==('0005_challenges','0006_policy','0007_registration') and apply(settings)==()
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT id FROM qubite_core.subjects').fetchone()[0]==uid
         assert db.execute('SELECT password_hash FROM qubite_core.password_credentials').fetchone()[0]==phc
@@ -341,7 +341,7 @@ def test_failed_challenge_migration_rolls_back_rate_constraint_and_account_data(
         assert db.execute('SELECT count(*) FROM qubite_meta.schema_migrations').fetchone()[0]==4
         definition=db.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='auth_rate_limits_scope_check'").fetchone()[0]
         assert 'email_' not in definition
-    assert apply(settings)==('0005_challenges','0006_policy')
+    assert apply(settings)==('0005_challenges','0006_policy','0007_registration')
 
 
 def test_schema_missing_not_ready_or_repaired(email):

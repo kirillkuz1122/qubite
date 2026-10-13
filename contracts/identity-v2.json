@@ -261,14 +261,16 @@
       "request": {
         "email": "string",
         "password": "string",
+        "display_name": "optional string/null",
         "consent_version": "string",
-        "invite": "optional; required when invite-only"
+        "consent_accepted": "strict bool true",
+        "invite_token": "optional string; required when mode=invite"
       },
       "response": {
         "status": 202,
         "grants": []
       },
-      "status": "planned"
+      "status": "implemented"
     },
     {
       "method": "GET",
@@ -618,7 +620,8 @@
   "implemented_tasks": [
     "QUB-AUTH-009",
     "QUB-AUTH-010",
-    "QUB-AUTH-011"
+    "QUB-AUTH-011",
+    "QUB-AUTH-006"
   ],
   "email_challenges": {
     "status": "implemented",
@@ -664,5 +667,17 @@
     "reset_disables_2fa": false,
     "security_assurance": "email is not phishing-resistant MFA or NIST out-of-band authenticator",
     "implementation_gate": "approved follow-up task for login integration/enrollment/recovery; AUTH-011 covers protocol contract"
+  },
+  "registration": {
+    "contract": "registration-v1.json",
+    "mode_default": "invite",
+    "login_after_email_verification": true,
+    "owner_controls": "runtime API; UI separately",
+    "invites": [
+      "email_bound",
+      "transferable_single_use"
+    ],
+    "module_grants": false,
+    "model_grants": false
   }
 }

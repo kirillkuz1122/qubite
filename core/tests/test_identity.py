@@ -101,7 +101,7 @@ def test_explicit_owner_bootstrap_is_atomic_repeat_refuses_and_uuid_is_preserved
     assert owner.status == "active" and owner.email_verified_at is None and owner.display_name == "Owner"
     for email in ("owner@example.test", "other@example.test"):
         with pytest.raises(OwnerAlreadyExists): bootstrap_owner(identity, email)
-    assert apply(identity) == () and check(identity) == "0006_policy"
+    assert apply(identity) == () and check(identity) == "0007_registration"
     assert counts(identity.database_url) == (1, 1)
     with psycopg.connect(identity.database_url) as connection:
         row = connection.execute("SELECT singleton_id, subject_id, subject_status, bootstrap_source, bootstrapped_at FROM qubite_core.platform_owner").fetchone()
@@ -232,7 +232,7 @@ def test_explicit_upgrade_from_foundation_and_failed_identity_ddl_preserve_origi
         assert connection.execute("SELECT count(*) FROM qubite_meta.schema_migrations").fetchone()[0] == 1
         assert connection.execute("SELECT to_regclass('qubite_core.subjects')").fetchone()[0] is None
         assert connection.execute("SELECT to_regclass('qubite_core.platform_owner')").fetchone()[0] is None
-    assert apply(settings) == ("0002_identity", "0003_auth", "0004_oauth", "0005_challenges", "0006_policy") and apply(settings) == ()
+    assert apply(settings) == ("0002_identity", "0003_auth", "0004_oauth", "0005_challenges", "0006_policy", "0007_registration") and apply(settings) == ()
     assert bootstrap_owner(settings, "owner@example.test").status == "active"
 
 
@@ -301,5 +301,7 @@ def test_no_public_bootstrap_or_account_creation_on_api_startup(monkeypatch):
     with TestClient(create_app(Settings())) as client:
         assert client.get("/api/v1/health/live").status_code == 200
         assert client.post("/api/v1/auth/session", json={"email":"owner@example.test"}).status_code == 503
-        for path in ("/api/v1/owner/bootstrap", "/api/v1/auth/register"):
-            assert client.post(path, json={"email":"owner@example.test"}).status_code == 404
+        assert client.post('/api/v1/owner/bootstrap', json={"email":"owner@example.test"}).status_code == 404
+        # Registration exists after AUTH-006, but no configured Auth origin means
+        # a closed503 gate, still without connecting/creating anything at startup.
+        assert client.post('/api/v1/auth/register', json={"email":"owner@example.test"}).status_code == 503
