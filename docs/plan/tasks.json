@@ -1359,10 +1359,10 @@
       "Mail leak/race/reset takeover"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "review/testing",
-    "commit": "completion marker: docs/reports/QUB-AUTH-011.md (implementation SHA после commit)",
+    "status": "done",
+    "commit": "f3d4b6c01a20536ce31017e309119d1fe2a792e7",
     "architecture_approved": true,
-    "verification": "13.10.2026: final local762 checks =all758+harness4, core373 incl email65/64.02s; source-copy/native disposablePG18.6/Python3.13.13/Node22.22.2/no external network. Strict origin/CSRF/body/rates/TTL/replay/exhaustion/concurrency/metadata skip-lock/DB rollback/UUID/session revoke pass. Email mock-only default off; email-2FA contract-only, SMTP/UI/registration/production отдельно. Check/diff pass. Await implementation push/exact-SHA CI then final evidence."
+    "verification": "13.10.2026: implementation f3d4b6c01a20536ce31017e309119d1fe2a792e7 pushed/remote exact verified; CI38373075395 completed/success 2026-10-13T09:03:14Z https://github.com/kirillkuz1122/qubite/actions/runs/38373075395. 762 local+CI checks =all758+harness4; core373 (foundation29/identity59/Auth120/OAuth100/email65), no failures/skips. Local Python3.13.13/PG18.6/Node22.22.2/core64.02s; CI Python3.14.8/PG16.15/Node22.23.3/core156.06s, suite timeout180 unchanged. Native disposable PG+mock mail/source-copy/no external APIs. UUID/owner/session revoke/TTL/replay/attempt/rates/resend/concurrency/live version/hash/transport races/atomic failure/skip-lock cleanup/guards pass. Three bounded repair batches corrected test fixtures/OpenAPI/oracle. Archive tournaments/qubite-v1.0 unchanged96f0457. Email-2FA contract-only; real mail/SMTP queue/timing/enrollment/registration/UI/native/provider/production not acceptance. Final docs-only evidence commit separately; push not deploy."
   },
   {
     "id": "QUB-CORE-002",

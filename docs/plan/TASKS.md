@@ -1,6 +1,6 @@
 # Карточки небольших задач
 
-**AUTH-01113.10.2026 review/testing:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](../architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](../reports/QUB-AUTH-011.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md). Задача закрывается только после final local+exact-SHA CI evidence; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
+**AUTH-01113.10.2026 done:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](../architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](../reports/QUB-AUTH-011.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md). Final local+CI762 passed; implementationf3d4b6c/CI38373075395 success; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
 
 Источник состояния — [tasks.json](tasks.json). 56 карточек; список ниже отражает machine registry. Shared APIs FastAPI/Postgres; included UI React/new design; optional Tournaments Node/SQLite/Vanilla. Fresh identity без импорта/bridge по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Одна ready approved задача за цикл, deploy отдельно.
 
@@ -720,11 +720,11 @@ Commit: d93affac786033668dd4ac74f69218d0928ca388. Evidence: 13.10.2026: dependen
 
 ## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-009.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-009.
 
 Причина: Не потерять security flows при переносе auth.
 
-Файлы/контракты: `core/qubite/identity/challenges (будущий)`.
+Файлы/контракты: `core/qubite/identity/challenges/`, `core/qubite/sql/0005_challenges.sql`, auth guard/config/migrations/OpenAPI и tests; полный allowed scope в tasks.json.
 
 Acceptance:
 
@@ -732,11 +732,13 @@ Acceptance:
 - Email transport mock, configured feature behavior, security code не account code-entry
 - Новая register/verify policy, proof не назначает owner; owner только явным local bootstrap, existing UUID не меняется
 
-Проверка: Challenge expiry/replay/exhaustion/reset/session revoke tests.
+Проверка: all758+harness4=762 local+CI pass/core373/email65; CI38373075395 success. Детали в [отчёте](../reports/QUB-AUTH-011.md).
 
 Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
-Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом..
+Commit: f3d4b6c01a20536ce31017e309119d1fe2a792e7. Evidence: 13.10.2026: implementation f3d4b6c01a20536ce31017e309119d1fe2a792e7 pushed/remote exact verified; CI38373075395 completed/success 2026-10-13T09:03:14Z https://github.com/kirillkuz1122/qubite/actions/runs/38373075395. 762 local+CI checks =all758+harness4; core373 (foundation29/identity59/Auth120/OAuth100/email65), no failures/skips. Local Python3.13.13/PG18.6/Node22.22.2/core64.02s; CI Python3.14.8/PG16.15/Node22.23.3/core156.06s, suite timeout180 unchanged. Native disposable PG+mock mail/source-copy/no external APIs. UUID/owner/session revoke/TTL/replay/attempt/rates/resend/concurrency/live version/hash/transport races/atomic failure/skip-lock cleanup/guards pass. Three bounded repair batches corrected test fixtures/OpenAPI/oracle. Archive tournaments/qubite-v1.0 unchanged96f0457. Email-2FA contract-only; real mail/SMTP queue/timing/enrollment/registration/UI/native/provider/production not acceptance. Final docs-only evidence commit separately; push not deploy.
+
+Email-2FA — contract-only, runtime/enrollment/recovery ещё не реализованы; registration AUTH-006 отдельно.
 
 ## QUB-CORE-002 — FastAPI platform settings и module command controls
 

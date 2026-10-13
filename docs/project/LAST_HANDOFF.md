@@ -1,6 +1,6 @@
 # Handoff — AUTH-011, 13.10.2026
 
-AUTH-011 в review/testing: четыре POST email verify/reset маршрута, core0.4.0/current0005_challenges; identity-v2 partial runtime AUTH-009/010/011. [Контракт](../architecture/EMAIL_CHALLENGES.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md), [отчёт](../reports/QUB-AUTH-011.md). Implementation commit/CI ещё ожидаются, done не объявлен.
+AUTH-011 **done**: четыре POST email verify/reset маршрута, core0.4.0/current0005_challenges; identity-v2 partial runtime AUTH-009/010/011. [Контракт](../architecture/EMAIL_CHALLENGES.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md), [отчёт](../reports/QUB-AUTH-011.md). Implementation `f3d4b6c01a20536ce31017e309119d1fe2a792e7` pushed/remote exact verified; [CI38373075395](https://github.com/kirillkuz1122/qubite/actions/runs/38373075395) completed/success13.10.2026 09:03:14UTC,762 local+CI pass; CI Python3.14.8/PG16.15/Node22.23.3/core373/156.06s.
 
 ## Код и ограничения
 
@@ -10,7 +10,7 @@ Mail transport только injected test callable, off default; env=true без
 
 ## Проверки / следующий шаг
 
-Final local all758 +harness4 =762pass; core373/64.02s/email65. Python3.13.13/PG18.6/Node22.22.2, real tempPG/source-copy/no external network. Target core372/64.00s исторический до последнего cleanup test; три bounded repair batches исправили test-fixture/OpenAPI/identity-oracle status. Check/diff pass. Далее русский implementation commit/immediate push, exact-SHA CI, затем docs-only final evidence commit/push. До CI статус review/testing. Skills/quota reset/subagents не использованы. Legacy/service/deploy/env/ShadeAI и Material Lab не менялись; browser133 historical, не rerun.
+Final local all758 +harness4 =762pass; core373/64.02s/email65. Python3.13.13/PG18.6/Node22.22.2, real tempPG/source-copy/no external network. Target core372/64.00s исторический до последнего cleanup test; три bounded repair batches исправили test-fixture/OpenAPI/identity-oracle status. Check/diff pass. Implementation commit/immediate push и exact-SHA CI success подтверждены; final docs-only evidence commit/push закрывает цикл. Registry56:9done/2ready/45backlog, readyDEPLOY-001/TG-001. Skills/quota reset/subagents не использованы. Legacy/service/deploy/env/ShadeAI и Material Lab не менялись; browser133 historical, не rerun.
 
 Следующие ready после завершения — **QUB-DEPLOY-001**, specification нового deploy/qubite2 и installer modes; альтернативный QUB-TG-001, bot domain/parity. Одна основная задача за cycle; не снимать policy/registration/UI approvals автоматически. Перед реализацией их policy/UX — согласовать открытые вопросы. Push не deploy, production rollout отдельный explicit approval/backup/restore/staging.
 
