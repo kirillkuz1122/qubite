@@ -1,4 +1,41 @@
-# QUB-DESIGN-001 — Поток / дизайн-система, итерация 03
+# QUB-DESIGN-001 — цветной пластик, итерация04
+
+13.10.2026. **Review/testing:** владелец выбрал Ленту, Unbounded/Manrope и прислал ритм100/503. Прежняя цветовая схема не принята; пять новых ярких наборов пластика и их иерархия подготовлены для выбора. Final product layout и физическая оценка движения отдельно.
+
+[Демо / Образ](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance), [правила цвета](../design/COLOR_PLASTIC.md), [материал/питомцы](../design/FLUX_DESIGN_SYSTEM.md), [код](../../assets/design-lab/README.md).
+
+## Что изменилось
+
+- Игрушечная/Аква/Поп/Лимон/Блоки: пять наборов, две темы, четыре функциональных роли цвета и отдельная ошибка/readable ink. Разное распределение заливки: детали/лотки/шапки/блоки/рамки. Выбор сразу применяется к buttons/tabs/navigation/sliders/switches/cards/results по всей витрине; дополнительные нейтральные поверхности сохраняют читаемость.
+- Рабочий пример на «Образ»: цветовая легенда, tabs, поле сырой мысли, сохранение→зелёный результат, progress, switch, error/dismiss без потери черновика. Пять прежних спокойных палитр раскрываются отдельно.
+- Defaults по скриншотам: Лента, Unbounded, Manrope, податливость100%, выбор503мс. Lightweight автоматически для touch, ручной toggle сохранён, quiet/system preference выше эффектов. Выбор нового набора не сбрасывает typography/family.
+- Scoped CSS role tokens отделены от цвета ссылок/текста. Дополнительных packages/blur/physics/AI/API/хранения нет. Прежние персонажи, физика и исторические маршруты сохраняются.
+- Исправлена доступная подпись мобильной кнопки поиска в **prototype Workspace**, обнаруженная новым mobile axe. Тёмная заливка Лимона уменьшена для контраста мелких подписей. Проверки не отключались.
+- Обновлены контракт цвета, ADR, AGENTS/CLAUDE, реестр, память проекта и handoff; права/product roles/Auth/runtime/архив не менялись. Skills, subagents, quota reset не использовались.
+
+## Проверки
+
+**133/133 Playwright Chromium pass, 238.6s, zero skip/retry/flaky.** 47 первоначальных +51 Milo +22 Flux +13 Plastic. Existing386+harness включены отдельно ниже: итого **519 различных автоматических проверок**. npm format:check/build, check.py53 tasks/49 docs/links/dependencies и git diff --check pass. Итоговый bundle из опубликованного source: JS353.28kB/gzip107.43kB, CSS142.70kB/gzip28.19kB; все шрифты self-hosted, новых зависимостей нет.
+
+**386/386** existing regression+harness pass: Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29+harness4. Команды verify.py --suite all с /tmp/qubite-design-tests/bin/python и native /tmp/qubite-design-postgres/usr/bin; source-copy, отдельные HOME/SQLite/PG18.6, без внешних API/production. Известное Starlette/httpx предупреждение сохраняется.
+
+Новый suite проверяет10 набор×тема×6 разделов на360px, пять наборов на320px/844×390, actual action/pill/slider/switch/success fills, owner defaults и их сохранение, error без потери текста, отсутствие внешних requests/POST/cookies/storage. Новый error state дополнительно проверен axe. Визуально просмотрены все пять рабочих примеров в browser; CSS layering после base styles явный в main.tsx.
+
+Промежуточные результаты: первый новый прогон выявил mobile button-name/контраст и неоднозначный тестовый поиск «Поп» внутри «Попробовать»; исправлены реальные UI проблемы и добавлены явные названия kit buttons. Targeted13/13 затем pass53.1s. Первый общий прогон131/133 выявил старый test envelope18px для прежних60% и gaze point до загрузки новых fonts. При выбранных100% Flux ограничен28px; negative click/cancel/settle проверка сохранена, верхняя граница29 с численным запасом. Взгляд проверяется после document.fonts.ready, прокрутки самого pet и подтверждения data-visible=true от IntersectionObserver: единственный mousemove до observer delivery игнорировался. Gaze assertion не ослаблен; targeted1/1 pass1.96s после уточнения синхронизации. Итоговый общий результат указан выше. Physical weak phone/Android/Safari/FPS не измерены; эмуляция не заменяет оценку владельца.
+
+## Публикация и Git
+
+Переиспользован owner-private project **appgprj_6acd2105bee8819190dbdce429d5a541**, audience не менялась. Source **8e8aba31a64452344ed82764ca76a92f7ca0d075** отправлен в Sites Git, полный remote SHA проверен; сравнение demo source с основным checkout: **0 mismatch**. Чистый source checkout собран после push, архив содержит только `.openai/hosting.json` и `dist`. Runtime env, базы, секреты и browser state не копировались; CI не публикует сайт автоматически.
+
+**Версия4**, id **appgprj_6acd2105bee8819190dbdce429d5a541~appgver_82bec8a67bec819192113abefca28881**; `get_site_version` подтвердил точный source SHA. **Deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded**, failure_message=null, завершён **2026-10-13T03:04:14.170540+00:00** (08:04:14 Asia/Yekaterinburg). Local archive успешно передан: raw tar921600bytes, SHA256135ce0730387beb07a0bdb4e7a80f9a341c83796ad6b5059a24d6528a1333508. Server archive_storage:24files/911360bytes, content_hash sha256:384764d9a7a94ce839f19755e873b62dffd8795fabee51d764b2d0d9ccdc9c97 — отдельные серверные метаданные, не равенство raw tar hash/размера.
+
+По внешнему URL проверено сохранение ChatGPT gate без входа агента; authenticated visual acceptance нового выпуска остаётся владельцу. Локальный UI exact source просмотрен. Скриншот витрины сохранён в `/tmp/qubite-plastic04-preview.jpg`; временные артефакты не добавляются в Git.
+
+Новая палитра остаётся на выборе владельца. DESIGN-001 review/testing, типографика/Лента уже подтверждены; не возвращать их в открытые вопросы. Следующая рекомендованная отдельная задача QUB-AUTH-008, безопасная identity/session cutover specification FastAPI/Postgres, без live migration. В этом цикле не начата.
+
+---
+
+## Итерация03 — история: Поток / дизайн-система
 
 13.10.2026. **Review/testing: реализация витрины завершена, owner palette/fonts/marks и физическая оценка плавности ещё открыты.** Владелец выбрал Flux/Поток внутри Milo, этот выбор закрыт. Не считать компонентный пример финальной раскладкой product приложения. Skills, subagents и quota reset не использовались.
 

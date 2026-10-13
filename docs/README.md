@@ -65,3 +65,5 @@
 [Созданный core foundation](architecture/CORE_FOUNDATION.md), [запуск](../core/README.md), [отчёт QUB-CORE-001](reports/QUB-CORE-001.md).
 
 - [Поток / витрина компонентов, палитры, типографика, знаки и появление помощников](design/FLUX_DESIGN_SYSTEM.md) — актуальная DESIGN-001 итерация 03.
+
+- [Цветной пластик / итерация04](design/COLOR_PLASTIC.md): подтверждённые шрифты/знаки, пять новых наборов и семантическая иерархия цветов.

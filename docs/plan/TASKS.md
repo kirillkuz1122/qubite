@@ -390,9 +390,11 @@ Commit: после выполнения. Evidence: .
 
 Причина: Владелец выбрал Milo → Поток, попросил плавность на телефоне, варианты цветов/шрифтов/знаков и доработку помощников; расположение экранов выбирается отдельно.
 
-Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`, `docs/design/FLUX_DESIGN_SYSTEM.md`, `docs/architecture/decisions/0012-flux-design-system.md`.
+Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`, `docs/design/FLUX_DESIGN_SYSTEM.md`, `docs/architecture/decisions/0012-flux-design-system.md`, `docs/design/COLOR_PLASTIC.md`.
 
 Acceptance:
+
+- Итерация04: владелец выбрал Ленту/Unbounded/Manrope; пять новых ярких наборов пластика с action/select/idea/success hierarchy, full specimen examples; только палитра/physical acceptance ещё открыты
 
 - Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему
 - Email/password/согласия; display name optional; нет code-entry/турнирных полей
@@ -402,13 +404,13 @@ Acceptance:
 - Итерация 3: Поток выбран; пять палитр, независимые 5 заголовочных/5 текстовых шрифтов, пять семейств знаков ×12 назначений, мобильное перетекание, refined companions; выбор владельца и физическая оценка плавности до done
 - Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами
 
-Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; 120 browser tests: old47 + Milo51 + Flux22; mobile/tablet/desktop, drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle, промежуточная click geometry/длительность, 2D mobile pill, 25 font combinations, 60 знаков, 10 palette-theme WCAG matrices, gaze/4× CPU slowdown/quiet.
+Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; 133 browser tests: old47 + Milo51 + Flux22 + Plastic13; mobile/tablet/desktop, drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle, промежуточная click geometry/длительность, 2D mobile pill, 25 font combinations, 60 знаков, palette-theme WCAG matrices, gaze/4× CPU slowdown/quiet; десять plastic kit/theme ×6 разделов, цвета по ролям и error без потери черновика, сохранение выбранных настроек, пять наборов на320/844px.
 
 Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
 
-Commit: 74ad2efcae25b52e04b59cab148e8317b0a735aa. Evidence: 120/120 browser pass, после оптической доводки 22/22 Flux повторно pass; 386/386 isolated regression+harness pass. Format/build/check/diff pass. Main pushed/remote exact SHA verified, CI Material Lab38303757824 и verification38303758010 completed/success. Полные и исторические доказательства в tasks.json и report.
+Commit: 74ad2efcae25b52e04b59cab148e8317b0a735aa (исторический Flux03). Evidence текущего Plastic04: 133/133 browser pass238.6s; 386/386 isolated regression+harness pass, итого519 различных проверок. Format/build/check/diff pass. Полные и исторические доказательства в tasks.json и report; SHA текущего main/CI дописываются после push.
 
-Publication: Flux03 private version3/source c12223d37f0fa3135b742243b8e64def43dc485a; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded12.10.2026 20:20:13UTC, версия/source проверены. Archive загружен, full report. Final owner palette/type/marks/physical acceptance pending; material choice закрыт.
+Publication: Plastic04 private version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC, версия/source проверены, archive загружен. Palette/physical acceptance pending; Поток, Лента, Unbounded/Manrope выбраны владельцем.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
@@ -1054,3 +1056,5 @@ Commit: после выполнения. Evidence: .
 ## Уточнение DESIGN/PET 13.10.2026
 
 Выбран Flux/Поток внутри Milo. [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [specimen contract](../design/FLUX_DESIGN_SYSTEM.md). DESIGN-001 review/testing: пять palette, 5 heading/5 body choices, 5 SVG families ×12 назначения, 22 UI icons, mobile continuous selection/lightweight и refined pets/gaze/8 events/3 speech modes. Final owner palette/type/marks/weak-device acceptance открыт; базовый material не переспрашивать. PET-001/002 дополнены hidden/edge peek/contextual entry/dialogue/retreat, safe-area/keyboard/visibility/cooldown/accessibility, конкретное placement обсудить при разработке. Рекомендуемый следующий ready cycle AUTH-008, UI-001 deps AUTH-003+DESIGN-001 остаются. Точные evidence и актуальные статусы — tasks.json/report/handoff; ранние цифры выше исторические.
+
+13.10.2026, актуальное дополнение: Лента/Unbounded/Manrope выбраны; palette review продолжен пятью plastic kits по COLOR_PLASTIC. Старые сообщения о выборе шрифтов/семейства выше исторические. Точные технические evidence текущего выпуска — tasks.json/report.

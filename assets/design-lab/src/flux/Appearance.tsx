@@ -1,8 +1,16 @@
 import type { CSSProperties } from "react";
 import { LivingButton, LivingSlider, LivingSwitch } from "../milo/Controls";
-import { palettes, fonts, bodyFonts } from "./preferences";
+import {
+  plasticPalettes,
+  legacyPalettes,
+  fonts,
+  bodyFonts,
+  themeVariables,
+} from "./preferences";
+import { ColorPlayground } from "./ColorPlayground";
 export function Appearance({
   palette,
+  night,
   onPalette,
   heading,
   body,
@@ -21,6 +29,7 @@ export function Appearance({
   systemQuiet,
 }: {
   palette: string;
+  night: boolean;
   onPalette: (v: string) => void;
   heading: string;
   body: string;
@@ -38,41 +47,83 @@ export function Appearance({
   onHints: (v: boolean) => void;
   systemQuiet: boolean;
 }) {
+  const selected = plasticPalettes.find((p) => p.id === palette);
   return (
     <div className="specimen-section appearance-section">
       <header className="section-heading">
         <span className="eyebrow">02 / ОБРАЗ И ОЩУЩЕНИЯ</span>
         <h1>Собери свой поток.</h1>
         <p>
-          Цвет, голос и ритм. Все изменения сразу применяются ко всей витрине.
-          Фиолетового в основных схемах нет.
+          Пять наборов цветного пластика. Выбранные тобой Unbounded, Manrope и
+          «Лента» уже стоят по умолчанию. Нажми вариант: его правила сразу
+          применятся ко всей витрине.
         </p>
       </header>
       <section className="choice-block" aria-labelledby="palette-title">
         <div className="choice-title">
-          <h2 id="palette-title">Цветовая схема</h2>
-          <span>01 — 05</span>
+          <h2 id="palette-title">Цветной пластик</h2>
+          <span>Пять новых вариантов</span>
         </div>
-        <div className="palette-choices">
-          {palettes.map((p, i) => (
+        <div className="palette-choices plastic-palette-choices">
+          {plasticPalettes.map((p, i) => (
             <LivingButton
-              className="palette-choice"
+              className="palette-choice plastic-palette-choice"
+              aria-label={`Цветной пластик: ${p.name}`}
               aria-pressed={palette === p.id}
               key={p.id}
               onClick={() => onPalette(p.id)}
+              style={themeVariables(p, night) as CSSProperties}
+              data-choice={p.id}
             >
-              <div className="palette-swatches">
-                {p.colors.map((c) => (
-                  <i key={c} style={{ background: c }} />
-                ))}
+              <div className="plastic-choice-art" aria-hidden="true">
+                <i style={{ background: p.roles.idea }} />
+                <i style={{ background: p.roles.select }} />
+                <i style={{ background: p.roles.action }} />
+                <i style={{ background: p.roles.success }} />
+                <span>Q</span>
               </div>
-              <small>0{i + 1}</small>
+              <small>
+                0{i + 1} / {palette === p.id ? "Выбран" : "Попробовать"}
+              </small>
               <strong>{p.name}</strong>
               <span>{p.note}</span>
+              <span className="plastic-choice-order">
+                {["action", "select", "idea", "success"].map((r, i) => (
+                  <span key={r}>
+                    <i
+                      style={{ background: p.roles[r as keyof typeof p.roles] }}
+                    />
+                    {["Действие", "Выбор", "Мысль", "Готово"][i]}
+                  </span>
+                ))}
+              </span>
             </LivingButton>
           ))}
         </div>
+        <details className="legacy-palettes">
+          <summary>Прежние спокойные палитры</summary>
+          <div className="palette-choices">
+            {legacyPalettes.map((p, i) => (
+              <LivingButton
+                className="palette-choice"
+                aria-pressed={palette === p.id}
+                key={p.id}
+                onClick={() => onPalette(p.id)}
+              >
+                <div className="palette-swatches">
+                  {p.colors.map((c) => (
+                    <i key={c} style={{ background: c }} />
+                  ))}
+                </div>
+                <small>0{i + 1}</small>
+                <strong>{p.name}</strong>
+                <span>{p.note}</span>
+              </LivingButton>
+            ))}
+          </div>
+        </details>
       </section>
+      {selected && <ColorPlayground palette={selected} />}
       <div className="font-groups">
         {[
           {

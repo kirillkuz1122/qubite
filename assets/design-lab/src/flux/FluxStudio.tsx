@@ -35,12 +35,12 @@ const getSection = () => {
 };
 export function FluxStudio() {
   const [section, setSection] = useState(getSection),
-    [palette, setPalette] = useState("crew"),
-    [heading, setHeading] = useState("onest"),
-    [body, setBody] = useState("golos"),
+    [palette, setPalette] = useState("toy"),
+    [heading, setHeading] = useState("unbounded"),
+    [body, setBody] = useState("manrope"),
     [family, setFamily] = useState<MarkFamily>("ribbon");
-  const [strength, setStrength] = useState(60),
-    [duration, setDuration] = useState(520),
+  const [strength, setStrength] = useState(100),
+    [duration, setDuration] = useState(503),
     [quiet, setQuiet] = useState(false),
     [hints, setHints] = useState(true),
     [night, setNight] = useState(false);
@@ -126,6 +126,7 @@ export function FluxStudio() {
         data-palette={palette}
         data-heading={heading}
         data-body={body}
+        data-plastic={"treatment" in p ? p.treatment : undefined}
       >
         <a
           className="skip-link"
@@ -172,7 +173,7 @@ export function FluxStudio() {
             <i />
             Непрозрачный. Отзывчивый. Твой.
           </span>
-          <span>Исследование 03 · выбран Поток</span>
+          <span>Исследование 04 · цветной пластик</span>
         </div>
         <nav className="flux-page-nav" aria-label="Разделы дизайн-системы">
           <LivingTabs
@@ -238,6 +239,7 @@ export function FluxStudio() {
               <Appearance
                 palette={palette}
                 onPalette={setPalette}
+                night={night}
                 heading={heading}
                 body={body}
                 onHeading={setHeading}

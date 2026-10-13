@@ -70,6 +70,7 @@ export function Atoms() {
             <LivingButton
               className="primary"
               aria-busy={busy}
+              data-complete={complete}
               disabled={busy}
               onClick={() => {
                 setBusy(true);

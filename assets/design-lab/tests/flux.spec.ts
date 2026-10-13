@@ -65,6 +65,7 @@ for (const palette of ["Прилив", "Команда", "Берег", "Терр
       page,
     }) => {
       await page.goto("/#/flux/appearance");
+      await page.locator(".legacy-palettes summary").click();
       if (night)
         await page.getByRole("button", { name: "Тёмный режим" }).click();
       await page
@@ -162,6 +163,7 @@ test("Flux: independent fonts, palettes and logo families apply across screens",
       ).toBe(true);
     }
   }
+  await page.locator(".legacy-palettes summary").click();
   await page.locator(".palette-choice").filter({ hasText: "Берег" }).click();
   await page.locator('.flux-page-nav button[data-id="marks"]').click();
   await expect(page.locator(".flux-studio")).toHaveAttribute(
@@ -236,7 +238,8 @@ test("Flux touch: lightweight rendering, eyes follow touch and bounded drag rema
   await page.waitForTimeout(180);
   const displacement = Math.abs(await number(button, "dragX"));
   expect(displacement).toBeGreaterThan(2);
-  expect(displacement).toBeLessThan(18);
+  // At the owner-selected 100%, the Flux envelope is 28px (was 16.8px at 60%).
+  expect(displacement).toBeLessThan(29);
   await client.send("Input.dispatchTouchEvent", {
     type: "touchEnd",
     touchPoints: [],
@@ -252,9 +255,11 @@ test("Flux companions: cursor gaze, eight states and three speech modes without 
   page,
 }) => {
   await page.goto("/#/flux/pets");
-  await page.locator(".crew-card").first().scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator(".crew-card .companion").first().scrollIntoViewIfNeeded();
   const pet = page.locator(".crew-card .companion").first(),
     box = (await pet.boundingBox())!;
+  await expect(pet).toHaveAttribute("data-visible", "true");
   await page.mouse.move(box.x + box.width + 60, box.y + 35);
   await expect.poll(() => number(pet, "gazeX")).toBeGreaterThan(1);
   const events = page.getByRole("group", { name: "Событие для помощника" });
@@ -323,7 +328,7 @@ test("Flux default and reusable atoms: glyph choices and action states are local
   );
   await expect(page.locator(".flux-studio")).toHaveAttribute(
     "data-palette",
-    "crew",
+    "toy",
   );
   expect(await page.locator(".glyph-grid button").count()).toBe(22);
   await page.getByRole("button", { name: "Иконка: Соединение" }).click();

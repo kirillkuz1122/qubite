@@ -145,6 +145,7 @@ export function Workspace(p: PageProps) {
           </span>
           <LivingButton
             className="command-button"
+            aria-label="Найти в пространстве"
             onClick={() => change("search")}
           >
             <Icon name="search" size={17} />

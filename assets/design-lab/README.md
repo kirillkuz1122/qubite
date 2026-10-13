@@ -4,7 +4,7 @@
 
 ## Смотреть
 
-[Поток / витрина 03](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), доступ через ChatGPT владельца. Разделы **Материал / Образ / Знаки / Помощники / Пример / Вход**. На «Образ»: пять палитр (Прилив/Команда/Берег/Терракота/Графит), пять heading и пять body шрифтов отдельно, податливость 0–100, время перетекания 250–900 мс, лёгкий рендеринг, quiet и hints. Настройки действуют на все разделы, живут в памяти просмотра, system reduced motion приоритетен. На телефоне lightweight по умолчанию.
+[Поток / витрина 04](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance), доступ через ChatGPT владельца. Разделы **Материал / Образ / Знаки / Помощники / Пример / Вход**. На «Образ»: пять новых наборов цветного пластика (Игрушечная/Аква/Поп/Лимон/Блоки) с ролью цветов и живым примером; пять прежних спокойных схем раскрываются отдельно, пять heading и пять body шрифтов отдельно, податливость 0–100, время перетекания 250–900 мс, лёгкий рендеринг, quiet и hints. Настройки действуют на все разделы, живут в памяти просмотра, system reduced motion приоритетен. На телефоне lightweight по умолчанию.
 
 На «Знаки»: Лента/Орбита/Зерно/Связи/Портал, 12 назначений ×5 семейств, wordmark/app icon/inverse/16–32px/матрица. На «Помощники»: четыре уточнённых силуэта, mouse/touch gaze, восемь состояний, три манеры общения. Реплики сценарные. Появление/уход из края — будущие product сценарии в спецификации, а не готовый dispatcher.
 
@@ -12,7 +12,7 @@
 
 Native controls с bounded drag/cancel/keyboard/no accidental submit; единый sleeping scheduler, непрерывное timed selection с движением по двум осям, menu/dialog/section/auth transitions. Библиотека 22 UI icons, action busy/complete/disabled и field. Workspace сохраняет capture/undo/tasks/Search/Writer/VPN/modules/Settings→Owner Console примеры; role selector не авторизация, quota не вызывает AI.
 
-[Контракт Потока](../../docs/design/FLUX_DESIGN_SYSTEM.md), [персоны/будущие AI границы](../../docs/design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0012](../../docs/architecture/decisions/0012-flux-design-system.md), [отчёт](../../docs/reports/QUB-DESIGN-001.md). Выбор палитры/типографики/знаков и оценка на устройстве остаются владельцу.
+[Контракт Потока](../../docs/design/FLUX_DESIGN_SYSTEM.md), [персоны/будущие AI границы](../../docs/design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0012](../../docs/architecture/decisions/0012-flux-design-system.md), [отчёт](../../docs/reports/QUB-DESIGN-001.md). Выбор владельца: **Лента, Unbounded/Manrope**, ритм100/503; новые defaults. Цветной набор и оценка на устройстве ещё открыты. [Правила пластика](../../docs/design/COLOR_PLASTIC.md).
 
 ## Запуск
 
@@ -34,7 +34,7 @@ npx playwright install chromium
 npm test
 ```
 
-При уже установленном Chromium: `QUBITE_LAB_CHROMIUM=/usr/bin/chromium npm test`. В Linux CI установка зависимостей браузера: `npx playwright install --with-deps chromium`. 120 браузерных тестов (47 первоначальных + 51 Milo 02 + 22 Flux 03): пять размеров × четыре экрана × пять концепций, сценарии, формы, отсутствие API/storage/cookies, отмена устаревшего ответа, keyboard/reduced motion и axe WCAG для обеих тем. Это автоматическая проверка, а не сертификат доступности или проверка настоящего телефона.
+При уже установленном Chromium: `QUBITE_LAB_CHROMIUM=/usr/bin/chromium npm test`. В Linux CI установка зависимостей браузера: `npx playwright install --with-deps chromium`. 133 браузерных теста (47 первоначальных + 51 Milo 02 + 22 Flux 03 + 13 Plastic04): пять размеров × четыре экрана × пять концепций, сценарии, формы, отсутствие API/storage/cookies, отмена устаревшего ответа, keyboard/reduced motion и axe WCAG для обеих тем. Это автоматическая проверка, а не сертификат доступности или проверка настоящего телефона.
 
 ## Код
 
@@ -46,7 +46,7 @@ npm test
 - `src/styles.css` — визуальные системы, отдельные реакции и responsive container queries.
 - `src/Workspace.tsx`, `Auth.tsx`, `Playground.tsx` — общие тестовые сценарии в каждом визуальном языке.
 - `src/concepts.ts`, `fonts.css` — палитры, описание и self-hosted variable fonts.
-- `tests/gallery.spec.ts`, `tests/milo.spec.ts` — браузерная верификация; `.github/workflows/design-lab.yml` в корне репозитория — CI без автопубликации.
+- `tests/gallery.spec.ts`, `tests/milo.spec.ts`, `tests/flux.spec.ts`, `tests/plastic.spec.ts` — браузерная верификация; `.github/workflows/design-lab.yml` в корне репозитория — CI без автопубликации.
 
 Manrope и Lora имеют кириллицу; Space Grotesk используется для латиницы с Manrope fallback. Лицензии OFL сохранены в `public/licenses/`. Нет скопированного SDK Liquid Glass, WebGPU, внешних fonts/CDN, аналитики или сохранения browser state. Материалы декоративные и исключены из accessibility tree; текст остаётся на непрозрачных поверхностях.
 
