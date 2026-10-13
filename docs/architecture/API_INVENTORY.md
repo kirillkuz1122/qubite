@@ -1,5 +1,7 @@
 # Фактические маршруты legacy
 
+**Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
+
 ПРОВЕРЕНО КОДОМ: статическое извлечение строковых регистраций; наличие маршрута не доказывает успешное выполнение или защиту. Middleware до регистрации тоже имеет значение. Dynamic/loop-generated paths не полностью раскрыты. Вложенные Python router prefixes надо учитывать отдельно (ShadeAI — отдельный отчёт).
 
 | Метод | Путь | Источник:строка | Локальные аргументы guard (подсказка) |

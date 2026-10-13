@@ -1,8 +1,8 @@
 # Qubite
 
-**AUTH-009:** реальный Web Auth на FastAPI/PostgreSQL: пароль Argon2id, csrf/login/profile/sessions/reauth/logout/revoke, initial owner password через local getpass CLI. [API/схема/лимиты](docs/architecture/WEB_AUTH.md), [отчёт](docs/reports/QUB-AUTH-009.md), [запуск core](core/README.md). React формы/OAuth/reset/политика ещё отдельно; постоянный owner не создавался, только disposable fixtures.
+**AUTH-010:** добавлены OAuth adapters Google/Yandex/VK/Telegram и явная привязка к аккаунту Qubite по собственному паролю. Core0.3.0/schema0004; [API/настройка/границы](docs/architecture/OAUTH_IDENTITY.md), [отчёт](docs/reports/QUB-AUTH-010.md), [запуск](core/README.md). По умолчанию network и providers выключены; signed fixtures/MockTransport проверяют контракт, реальные providers отдельно. Web Auth/Argon2id/session из AUTH-009 сохранён; следующий slice AUTH-011 verify/reset. React UI/policy/native/service cutover ещё не выполнены.
 
-**Единый вход — AUTH-008:** [fresh-install спецификация](docs/migration/IDENTITY_CUTOVER.md), [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт](docs/reports/QUB-AUTH-008.md). Новый FastAPI/Postgres identity для всех собственных сервисов, без импорта старых аккаунтов. Owner создаётся явным local bootstrap. Контракт теперь partial_implementation: AUTH-009 web routes implemented, native/keys/introspection/OAuth ещё planned. Service cutover не выполнялся. AUTH-002 PG accounts/bootstrap и AUTH-009 login/session API реализованы, дальше AUTH-010/011.
+**Единый вход — AUTH-008:** [fresh-install спецификация](docs/migration/IDENTITY_CUTOVER.md), [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт](docs/reports/QUB-AUTH-008.md). Новый FastAPI/Postgres identity для всех собственных сервисов, без импорта старых аккаунтов. Owner создаётся явным local bootstrap. Контракт теперь partial_implementation: AUTH-009/010 web/OAuth routes implemented, registration/reset/native/keys/introspection ещё planned. Service cutover не выполнялся. AUTH-002 PG accounts/bootstrap и AUTH-009 login/session API реализованы, дальше AUTH-011.
 
 ## Переход к Qubite 2.0
 

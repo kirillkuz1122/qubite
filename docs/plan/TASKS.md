@@ -133,7 +133,7 @@ Acceptance:
 
 Проверка: python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>; python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>; python3 -m unittest discover -s tests/engineering; python3 scripts/engineering/check.py; git diff --check.
 
-Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
+Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: 0dff63e9bb3cbabf6c2b10628db12c228ee54413. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.; 13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.; 13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases.; 13.10.2026: implementation 0dff63e9bb3cbabf6c2b10628db12c228ee54413 pushed, origin/main/archive refs verified; GitHub Actions38348273457 completed/success 04:50:13UTC, Python3.14.8/Postgres16.15, all473+harness4=477 pass; no failed/skipped. Public Auth/UI/real owner/deploy вне scope..
 
@@ -690,17 +690,17 @@ Acceptance:
 
 Проверка: python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>; python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>; python3 -m unittest discover -s tests/engineering; python3 scripts/engineering/check.py; git diff --check; Argon2id benchmark на synthetic пароль, HTTPS secure-cookie HTTP integration и actual concurrent PostgreSQL connections.
 
-Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
+Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: 1dc57cb4c980b111acbf5ccadb28f25871149c98. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались.; 13.10.2026: прямое указание владельца «Делай след задачу»; выбран AUTH-009. Границы: web password/session API/local owner password setup, без React/OAuth/reset/native/service cutover/production DB; только fixtures. Источник паролей owner — getpass локальной CLI, реальные значения агенту не передаются.; 13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются.; 13.10.2026: implementation 1dc57cb4c980b111acbf5ccadb28f25871149c98 pushed; origin/main exact SHA и tournaments/tag qubite-v1.0 на96f0457a523b6b79f21c4092056d8fa8fa69a680 проверены. CI38354136689 completed/success 2026-10-13T05:59:47Z,597 checks (all593+harness4/core208), Python3.14.8/PostgreSQL16.15, no failed/skipped; https://github.com/kirillkuz1122/qubite/actions/runs/38354136689. Финальный docs-only evidence commit отдельно, runtime/deploy не меняется..
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-009.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-009.
 
 Причина: Сохранить необходимые способы входа в новом Auth.
 
-Файлы/контракты: `core/qubite/identity/oauth (будущий)`.
+Файлы/контракты: `core/qubite/identity/`, `core/qubite/sql/0004_oauth.sql`, `core/qubite/app.py`, `core/qubite/config.py`, `core/qubite/migrations.py`, `core/qubite/__init__.py`, `core/tests/`, `core/requirements.in`, `core/requirements.lock`, `core/README.md`, `contracts/core-v1.json`, `contracts/identity-v2.json`, `tests/identity/test_contract.py`, `scripts/engineering/test-requirements.lock`, `docs/architecture/`, `docs/design/AUTH_UX.md`, `docs/migration/IDENTITY_CUTOVER.md`, `docs/project/`, `docs/plan/`, `docs/engineering/`, `docs/reports/QUB-AUTH-010.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`.
 
 Acceptance:
 
@@ -710,11 +710,11 @@ Acceptance:
 - AUTH-L02: current provider permission recheck в callback до exchange/session для всех providers
 - AUTH-L03: email_verified=false/отсутствующий trusted claim не привязывает чужой существующий аккаунт; safe explicit linking + stable provider subject
 
-Проверка: Provider fixture state/PKCE/replay/link collision/unconfigured tests.
+Проверка: verify.py --suite core/all --python <test-python> --postgres-bin <native-bin>; check.py; unittest tests/engineering; git diff --check; MockTransport + real RSA signatures/JWKS, real PostgreSQL state/replay/link/revoke/disable/config race; no real providers.
 
-Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
+Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
-Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом..
+Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом.; 13.10.2026: прямое поручение следующей задачи; выбран approved ready AUTH-010 после verified AUTH-009. Только local core/fixtures, без чтения реальных ключей/деплоя/UI/native tokens. Provider docs проверяются; неизвестная provider identity не создаёт/не связывает аккаунт автоматически. Реальная сеть выключена по умолчанию, тесты только MockTransport.; 13.10.2026: финальный verify.py all693+harness4=697 passed, core308 (foundation29/identity59/Auth120/OAuth100), no failed/skipped. Local Python3.13.13/PG18.6/Node22.22.2, signed RSA/JWKS/MockTransport и real disposable PG. После промежуточных fixtures/readiness corrections повторный full run green; check.py/diff check passed. Implementation push/exact-SHA CI ещё ожидаются; real providers не acceptance..
 
 ## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
 
@@ -732,7 +732,7 @@ Acceptance:
 
 Проверка: Challenge expiry/replay/exhaustion/reset/session revoke tests.
 
-Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
+Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом..
 
@@ -1117,8 +1117,4 @@ Acceptance:
 
 Commit: после выполнения. Evidence: .
 
-## Принятые UI решения и текущий шаг
-
-DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope,100/503. PET edge peek/hidden/appearance/retreat сохранены; scripted prototype, real agents нет. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
-
-AUTH-009 — реальный Web Auth/core0.2.0/schema0003, статус/evidence выше; React/OAuth/reset/native/keys/policy ещё отдельные. Следующий bounded cycle AUTH-010 OAuth, затем AUTH-011 verification/reset; AUTH-003 ждёт approval. Auth не выдаёт module/AI grants, legacy/runtime/service ingress не переключён.
+Текущий core0.3.0/schema0004: Web Auth AUTH-009 и OAuth AUTH-010; итог/evidence в карточках и handoff. Следующая AUTH-011 verification/reset; AUTH-003 approval=false, UI/native/keys/policy/services отдельные. Identity не выдаёт module/AI grants; push не deploy.

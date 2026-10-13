@@ -1,5 +1,7 @@
 # Development Harness Codex/Claude
 
+**AUTH-01013.10.2026:** текущий partial runtime включает AUTH-009 и AUTH-010, core0.3.0/schema0004. OAuth suites используют signed RSA/JWKS + MockTransport, никакой real provider сети/keys; runtime/test locks включают httpx/PyJWT/cryptography. [API/SQL/ограничения](../architecture/OAUTH_IDENTITY.md), [evidence](../reports/QUB-AUTH-010.md). Дальше AUTH-011 отдельным cycle; прежний порядок next AUTH-010 ниже — исторический. Production/provider enable и личная память не меняются по успешным fixtures.
+
 **Identity уточнение13.10.2026:** AUTH-008 source specification сохранена; identity-v2 теперь partial runtime (AUTH-009 web routes), vectors/introspection oracle не полный verifier. Identity suite входит в all, actual Web Auth интеграции проверяет core suite. Новый путь fresh install без users/password/session import/bridge; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Не требовать server backup для локального slice без существующего data source. По-прежнему одна ready approved задача на цикл, тесты→evidence→русский commit→push; AUTH-002 storage/bootstrap и AUTH-009 password/session отдельные verified slices; next AUTH-010 OAuth, затем AUTH-011 verify/reset. Требуемые runtime/test locks включают Argon2id. Найденные старые данные не удалять; deploy отдельно.
 
 Минимальный harness готов: tasks.json + check.py + verify.py + CI + project context/ADR/report. Это не автономный unlimited agent runner и не production deployer.

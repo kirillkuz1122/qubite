@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован12.10.2026;13.10 владелец разрешил fresh единый identity/API без переноса аккаунтов/bridge, текущего деплоя нет по его сообщению. [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Audit/TEST/CORE/DESIGN/AUTH-008/002/009 завершены; реестр56:7done/4ready/45backlog. AUTH-009: рабочий web password/session API, implementation1dc57cb/CI38354136689 success/597 local+CI checks. Следующая ready AUTH-010 OAuth, затем отдельная AUTH-011 verify/reset; DEPLOY-001/TG-001 альтернативные tracks. [56 задач](TASKS.md) и [machine state](tasks.json) — текущий backlog, не всё долгосрочное видение.
+Базовый стек согласован12.10.2026, fresh единый identity/API13.10 по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Завершены audit/TEST/CORE/DESIGN/AUTH-008/002/009, AUTH-010 текущий bounded OAuth cycle; ready AUTH-011 verify/reset, DEPLOY-001/TG-001 альтернативные tracks. Core0.3.0/schema0004, [OAuth](../architecture/OAUTH_IDENTITY.md)/[evidence](../reports/QUB-AUTH-010.md); real providers/React/native/services/deploy отдельно. Точные56статусов/commits — [tasks.json](tasks.json), [карточки](TASKS.md), не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
@@ -81,7 +81,7 @@ Shared extraction: fresh identity plan → PG accounts/local bootstrap → FastA
 6. Новые сервисы: SVC-SEARCH-001→002, SVC-WRITING-001→002, SVC-VPN-001→002. Каждый сначала contract/parity/API, затем React UI и отдельный tested switch. SEARCH-001 в knowledge track — внутренний поиск документов, другой сервис.
 7. Docs/capture/sync/notifications вертикальными slices; desktop/Linux и Android Ink POC по готовым API/UX и device gates. Tournaments low-priority compatibility track, сохраняя старый UI.
 
-QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан, опубликован и принят владельцем13.10.2026: Поток/Игрушечная/Лента/Unbounded/Manrope. Ready означает разрешённую задачу, не готовую функцию; core foundation/account storage/Web Auth существуют; product UI/OAuth/reset/native/policy пока отдельными задачами.
+QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан, опубликован и принят владельцем13.10.2026: Поток/Игрушечная/Лента/Unbounded/Manrope. Ready означает разрешённую задачу, не готовую функцию; core foundation/account storage/Web Auth существуют; OAuth добавлен AUTH-010; product UI/reset/native/policy отдельными задачами.
 
 ## Milo и помощники — уточнение 12.10.2026
 

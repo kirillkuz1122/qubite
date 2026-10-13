@@ -139,8 +139,6 @@ class AuthStore:
             raise AuthError(429, 'rate_limited')
         # Attempt reservation is committed even for wrong passwords; no row lock during Argon2.
         self._verify(snapshot, password)
-        raw = issue('qbt_s_')
-        now = self.clock()
         with database(self.settings) as connection:
             try:
                 subject = self._subject(connection, snapshot[0])
@@ -149,17 +147,23 @@ class AuthStore:
             current = connection.execute('SELECT password_hash,credential_version FROM qubite_core.password_credentials WHERE subject_id=%s FOR UPDATE', (subject['id'],)).fetchone()
             if subject['auth_version'] != snapshot[2] or current != snapshot[3:]:
                 raise AuthError(401, 'invalid_credentials')
-            count = connection.execute('''SELECT count(*) FROM qubite_core.sessions
-                WHERE subject_id=%s AND revoked_at IS NULL AND expires_at>%s AND absolute_expires_at>%s''', (subject['id'],now,now)).fetchone()[0]
-            if count >= 20:
-                raise AuthError(429, 'rate_limited')
-            row = connection.execute('''INSERT INTO qubite_core.sessions
-                (id,subject_id,token_hash,csrf_hash,auth_version,created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                RETURNING id,created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at''',
-                (uuid4(),subject['id'],digest(raw),digest(csrf_for(raw)),subject['auth_version'],now,now,now+IDLE,now+ABSOLUTE,now)).fetchone()
-            result = {'subject':self._profile(subject), 'session':self._metadata(row, row[0])}
+            return self._issue_session(connection, subject, password_proven=True)
+
+    def _issue_session(self, connection, subject, *, password_proven):
+        raw = issue('qbt_s_')
+        now = self.clock()
+        count = connection.execute('''SELECT count(*) FROM qubite_core.sessions
+            WHERE subject_id=%s AND revoked_at IS NULL AND expires_at>%s AND absolute_expires_at>%s''', (subject['id'],now,now)).fetchone()[0]
+        if count >= 20:
+            raise AuthError(429, 'rate_limited')
+        row = connection.execute('''INSERT INTO qubite_core.sessions
+            (id,subject_id,token_hash,csrf_hash,auth_version,created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at,password_proven)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id,created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at''',
+            (uuid4(),subject['id'],digest(raw),digest(csrf_for(raw)),subject['auth_version'],now,now,now+IDLE,now+ABSOLUTE,now,password_proven)).fetchone()
+        result = {'subject':self._profile(subject), 'session':self._metadata(row, row[0])}
         return raw, result
+
 
     @staticmethod
     def _subject(connection, subject_id):
@@ -185,7 +189,7 @@ class AuthStore:
         # Subject before session lock: logout-all/login/reauth cannot create branches.
         subject = self._subject(connection, row[0])
         row = connection.execute('''SELECT id,created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at,auth_version,revoked_at,csrf_hash
-            FROM qubite_core.sessions WHERE token_hash=%s FOR UPDATE''', (digest(raw),)).fetchone()
+            ,password_proven FROM qubite_core.sessions WHERE token_hash=%s FOR UPDATE''', (digest(raw),)).fetchone()
         if not row or row[7] or row[6] != subject['auth_version'] or now >= min(row[3],row[4]):
             raise AuthError(401, 'unauthenticated')
         expiry = min(now+IDLE,row[4])
@@ -216,7 +220,7 @@ class AuthStore:
                     ORDER BY created_at DESC,id LIMIT 20''', (subject['id'],self.clock(),self.clock())).fetchall()
                 return {'items':[self._metadata(r,row[0]) for r in rows]}
             if action == 'logout-all':
-                if self.clock()-row[5] > REAUTH:
+                if not row[9] or self.clock()-row[5] > REAUTH:
                     raise AuthError(403, 'reauth_required')
                 connection.execute('UPDATE qubite_core.subjects SET auth_version=auth_version+1,updated_at=%s WHERE id=%s', (self.clock(),subject['id']))
                 connection.execute('UPDATE qubite_core.sessions SET revoked_at=%s WHERE subject_id=%s AND revoked_at IS NULL', (self.clock(),subject['id']))
@@ -245,4 +249,4 @@ class AuthStore:
             if (row[0] != session_id or subject['auth_version'] != snapshot[2] or current != snapshot[3:]
                     or not hmac.compare_digest(bytes(row[8]), digest(csrf))):
                 raise AuthError(401, 'unauthenticated')
-            connection.execute('UPDATE qubite_core.sessions SET reauthed_at=%s WHERE id=%s', (self.clock(),session_id))
+            connection.execute('UPDATE qubite_core.sessions SET reauthed_at=%s,password_proven=true WHERE id=%s', (self.clock(),session_id))

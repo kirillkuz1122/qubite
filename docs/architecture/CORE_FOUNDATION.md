@@ -1,5 +1,7 @@
 # Реализованный core foundation — QUB-CORE-001
 
+**Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
+
 **Текущее исполнение AUTH-00913.10.2026:** FastAPI0.2.0/OpenAPI дополнен реальными web Auth routes; current0003_auth и шесть tables, readiness catalog-only/history. [Web Auth](WEB_AUTH.md), [report](../reports/QUB-AUTH-009.md). Ниже исторический foundation0.1/0001 и отдельный account slice0002, не текущая полная schema.
 
 **Обновление13.10.2026, AUTH-002:** добавлена explicit0002_identity — subjects/platform_owner и local bootstrap. Current schema0002, readiness проверяет обе реальные таблицы. Историческое описание0001 ниже сохраняется; [реализованная identity](IDENTITY_SCHEMA.md)/[отчёт](../reports/QUB-AUTH-002.md) — текущие детали. Public HTTP API по-прежнему только health/OpenAPI, пароли/login ещё AUTH-009.

@@ -1248,7 +1248,33 @@
       "QUB-AUTH-009"
     ],
     "files": [
-      "core/qubite/identity/oauth (будущий)"
+      "core/qubite/identity/",
+      "core/qubite/sql/0004_oauth.sql",
+      "core/qubite/app.py",
+      "core/qubite/config.py",
+      "core/qubite/migrations.py",
+      "core/qubite/__init__.py",
+      "core/tests/",
+      "core/requirements.in",
+      "core/requirements.lock",
+      "core/README.md",
+      "contracts/core-v1.json",
+      "contracts/identity-v2.json",
+      "tests/identity/test_contract.py",
+      "scripts/engineering/test-requirements.lock",
+      "docs/architecture/",
+      "docs/design/AUTH_UX.md",
+      "docs/migration/IDENTITY_CUTOVER.md",
+      "docs/project/",
+      "docs/plan/",
+      "docs/engineering/",
+      "docs/reports/QUB-AUTH-010.md",
+      "README.md",
+      "docs/README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md"
     ],
     "acceptance": [
       "Configured Google/Yandex/VK/Telegram contract с state/PKCE/audience/expiry/unique subject",
@@ -1258,17 +1284,21 @@
       "AUTH-L03: email_verified=false/отсутствующий trusted claim не привязывает чужой существующий аккаунт; safe explicit linking + stable provider subject"
     ],
     "tests": [
-      "Provider fixture state/PKCE/replay/link collision/unconfigured tests"
+      "verify.py --suite core/all --python <test-python> --postgres-bin <native-bin>",
+      "check.py; unittest tests/engineering; git diff --check",
+      "MockTransport + real RSA signatures/JWKS, real PostgreSQL state/replay/link/revoke/disable/config race; no real providers"
     ],
     "risks": [
       "OAuth takeover/open redirect; не реальный провайдерский acceptance"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "ready",
+    "status": "review/testing",
     "commit": null,
     "architecture_approved": true,
     "verification": [
-      "13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом."
+      "13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом.",
+      "13.10.2026: прямое поручение следующей задачи; выбран approved ready AUTH-010 после verified AUTH-009. Только local core/fixtures, без чтения реальных ключей/деплоя/UI/native tokens. Provider docs проверяются; неизвестная provider identity не создаёт/не связывает аккаунт автоматически. Реальная сеть выключена по умолчанию, тесты только MockTransport.",
+      "13.10.2026: финальный verify.py all693+harness4=697 passed, core308 (foundation29/identity59/Auth120/OAuth100), no failed/skipped. Local Python3.13.13/PG18.6/Node22.22.2, signed RSA/JWKS/MockTransport и real disposable PG. После промежуточных fixtures/readiness corrections повторный full run green; check.py/diff check passed. Implementation push/exact-SHA CI ещё ожидаются; real providers не acceptance."
     ]
   },
   {

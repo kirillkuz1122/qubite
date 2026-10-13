@@ -1,6 +1,8 @@
-# Qubite Core — FastAPI0.2.0
+# Qubite Core — FastAPI0.3.0
 
-Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001/0002/0003, fresh accounts/local owner bootstrap и рабочий Web Auth (AUTH-009). Есть login/profile/session list/CSRF/reauth/logout/revoke. React формы, Owner Console, module policy/OAuth/verify/reset/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
+OAuth network false, provider rows disabled по умолчанию. Новые QUBITE_CORE_OAUTH_<PROVIDER>_CLIENT_ID/CLIENT_SECRET и explicit network flag, локальные enable/disable команды, schema/HTTP/границы — [OAuth runtime](../docs/architecture/OAUTH_IDENTITY.md), [отчёт AUTH-010](../docs/reports/QUB-AUTH-010.md). Неизвестная identity не создаёт аккаунт; привязка/отвязка по собственному паролю, email не объединяет accounts. Реальные ключи/providers в этой задаче не использованы.
+
+Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0004, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) и OAuth adapters/explicit account linking (AUTH-010). React формы, Owner Console, module policy/verify/reset/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
 
 ## Установка и конфигурация
 
@@ -11,7 +13,7 @@ python3 -m venv core/.venv
 core/.venv/bin/python -m pip install -r core/requirements.lock
 ```
 
-Если venv создан через uv без pip, использовать `uv pip install --python core/.venv/bin/python -r core/requirements.lock`. Pinned runtime включает Argon2id/Psycopg; тестовый lock отдельный в scripts/engineering. Системный PostgreSQL не устанавливается этими командами.
+Если venv создан через uv без pip, использовать `uv pip install --python core/.venv/bin/python -r core/requirements.lock`. Pinned runtime включает Argon2id/Psycopg/httpx/PyJWT/cryptography; тестовый lock отдельный в scripts/engineering. Системный PostgreSQL не устанавливается этими командами.
 
 QUBITE_CORE_DATABASE_URL хранить приватно, без реального пароля в argv/истории/Git. Требуется dedicated PostgreSQL qubite_core или qubite_core_<suffix>, явные user/loopback IP/port. Существующие DATABASE_PATH/PG service files/.env не загружаются. Remote DB/TLS/pooling прорабатываются при deploy. Без DB config liveness200, storage readiness503.
 
@@ -30,7 +32,7 @@ PYTHONPATH=core core/.venv/bin/python -m qubite.identity set-owner-password
 
 Bootstrap спрашивает email и CREATE OWNER; initial password только interactive TTY/getpass дважды и SET OWNER PASSWORD. Никаких password/email options. Повтор owner/password setup не перезаписывает данные; existing pending account не повышается. Пароль12..256 codepoints/<=1024 UTF8 bytes, exact без trim/нормализации; Argon2id PHC. Email пока unverified, никакие grants/budgets не выдаются. Постоянный owner в engineering задачах ещё не создавался: только fixtures.
 
-Apply транзакционный под migration advisory lock; current0003_auth, шесть domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0002 не станет ready на ahead0003, данные сохранять и использовать совместимый forward recovery.
+Apply транзакционный под migration advisory lock; current0004_oauth, десять domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0003 не станет ready на ahead0004, данные сохранять и использовать совместимый forward recovery.
 
 ## Запуск и HTTP
 
@@ -53,6 +55,6 @@ python3 -m unittest discover -s tests/engineering
 python3 scripts/engineering/check.py
 ```
 
-Missing prerequisites fail/no skip. Real fresh private PG cluster/DB и isolated HOME/source-copy, no external network/.env. HTTPS TestClient/cookie checks и actual local Uvicorn HTTP smoke; физические браузеры/OAuth/native/providers/production отдельно.
+Missing prerequisites fail/no skip. Real fresh private PG cluster/DB и isolated HOME/source-copy, no external network/.env. HTTPS TestClient/cookie checks и actual local Uvicorn HTTP smoke; signed RSA/MockTransport OAuth и restricted runtime DB role; физические браузеры/native/live providers/production отдельно.
 
 [Web Auth/схема/API/лимиты](../docs/architecture/WEB_AUTH.md), [accounts/owner](../docs/architecture/IDENTITY_SCHEMA.md), [отчёт AUTH-009](../docs/reports/QUB-AUTH-009.md), [foundation](../docs/architecture/CORE_FOUNDATION.md). Prototype design-lab и legacy product UI не менялись.

@@ -99,8 +99,8 @@ def valid_response(payload, audience='search', auth_version=1,
 
 def test_fresh_install_records_partial_runtime_without_legacy_import():
     assert CONTRACT['status'] == 'partial_implementation' and CONTRACT['runtime_implemented']
-    assert CONTRACT['implemented_tasks'] == ['QUB-AUTH-009']
-    assert all(r['status'] == ('implemented' if r['task']=='QUB-AUTH-009' else 'planned') for r in CONTRACT['routes'])
+    assert CONTRACT['implemented_tasks'] == ['QUB-AUTH-009', 'QUB-AUTH-010']
+    assert all(r['status'] == ('implemented' if r['task'] in CONTRACT['implemented_tasks'] else 'planned') for r in CONTRACT['routes'])
     install = CONTRACT['installation']
     assert install['mode'] == 'fresh_install'
     assert not any(install[k] for k in (
@@ -199,7 +199,7 @@ def test_endpoint_boundary_native_flow_and_response_hygiene():
     seen = set()
     for r in CONTRACT['routes']:
         key = (r['method'], r['path'])
-        assert key not in seen and r['status'] == ('implemented' if r['task']=='QUB-AUTH-009' else 'planned')
+        assert key not in seen and r['status'] == ('implemented' if r['task'] in CONTRACT['implemented_tasks'] else 'planned')
         seen.add(key)
         assert not any(x in r['path'] for x in ('code-entry', 'app/login', 'owner/bootstrap'))
     introspection = next(r for r in CONTRACT['routes'] if r['path'] == CONTRACT['internal']['path'])

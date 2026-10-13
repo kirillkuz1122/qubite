@@ -15,13 +15,40 @@ class ConfigurationError(ValueError):
 
 
 @dataclass(frozen=True)
+class OAuthClient:
+    provider: str
+    client_id: str | None = field(default=None, repr=False)
+    secret: str | None = field(default=None, repr=False)
+
+    def __post_init__(self):
+        if self.provider not in {'google', 'yandex', 'vk', 'telegram'}:
+            raise ConfigurationError('Invalid core OAuth provider')
+        for value in (self.client_id, self.secret):
+            if value is not None and (not isinstance(value, str) or not 1 <= len(value) <= 512
+                                      or not all(32 < ord(c) < 127 for c in value)):
+                raise ConfigurationError('Invalid core OAuth credentials')
+        if self.provider == 'telegram' and self.client_id and not re.fullmatch(r'[1-9][0-9]{0,19}', self.client_id):
+            raise ConfigurationError('Invalid core OAuth client ID')
+
+    @property
+    def configured(self):
+        return bool(self.client_id and (self.secret or self.provider == 'vk'))
+
+
+@dataclass(frozen=True)
 class Settings:
     database_url: str | None = field(default=None, repr=False)
     database_timeout_seconds: int = 2
     auth_origin: str | None = None
     auth_local_http: bool = False
+    oauth_clients: tuple[OAuthClient, ...] = field(default=(), repr=False)
+    oauth_network_enabled: bool = False
 
     def __post_init__(self):
+        if (type(self.oauth_network_enabled) is not bool or not isinstance(self.oauth_clients, tuple)
+                or any(not isinstance(c, OAuthClient) for c in self.oauth_clients)
+                or len({c.provider for c in self.oauth_clients}) != len(self.oauth_clients)):
+            raise ConfigurationError('Invalid core OAuth configuration')
         if type(self.auth_local_http) is not bool:
             raise ConfigurationError("Invalid core Auth local mode")
         if self.auth_origin is not None:
@@ -84,8 +111,21 @@ class Settings:
         local = source.get("QUBITE_CORE_AUTH_LOCAL_HTTP", "false")
         if local not in {"true", "false"}:
             raise ConfigurationError("Invalid core Auth local mode")
+        network = source.get('QUBITE_CORE_OAUTH_NETWORK_ENABLED', 'false')
+        if network not in {'true', 'false'}:
+            raise ConfigurationError('Invalid core OAuth network mode')
+        clients = tuple(OAuthClient(p, source.get(f'QUBITE_CORE_OAUTH_{p.upper()}_CLIENT_ID') or None,
+                                   source.get(f'QUBITE_CORE_OAUTH_{p.upper()}_CLIENT_SECRET') or None)
+                        for p in ('google', 'yandex', 'vk', 'telegram'))
         return cls(source.get("QUBITE_CORE_DATABASE_URL") or None, timeout,
-                   source.get("QUBITE_CORE_AUTH_ORIGIN") or None, local == "true")
+                   source.get("QUBITE_CORE_AUTH_ORIGIN") or None, local == "true", clients, network == 'true')
+
+    def oauth_client(self, provider):
+        return next((c for c in self.oauth_clients if c.provider == provider), OAuthClient(provider))
+
+    @property
+    def oauth_cookie(self):
+        return 'qubite_local_oauth' if self.auth_local_http else '__Host-qubite_oauth'
 
     @property
     def session_cookie(self):

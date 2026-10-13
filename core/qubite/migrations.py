@@ -77,6 +77,19 @@ def validate_schema(connection, migrations):
         """).fetchall()}
         if tables != required:
             raise MigrationError("Core Auth schema is missing; explicit recovery required")
+    if '0004_oauth' in versions:
+        required = {'oauth_providers','oauth_identities','oauth_states','oauth_audit'}
+        tables = {r[0] for r in connection.execute("""
+            SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='qubite_core' AND c.relkind IN ('r','p')
+                AND c.relname IN ('oauth_providers','oauth_identities','oauth_states','oauth_audit')
+        """).fetchall()}
+        column = connection.execute("""SELECT 1 FROM pg_attribute a
+            JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='qubite_core' AND c.relname='sessions' AND a.attname='password_proven'
+                AND a.atttypid='boolean'::regtype AND a.attnotnull AND NOT a.attisdropped""").fetchone()
+        if tables != required or not column:
+            raise MigrationError('Core OAuth schema is missing; explicit recovery required')
 
 
 def ensure_current(connection, migrations):

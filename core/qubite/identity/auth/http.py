@@ -14,7 +14,9 @@ ALL_COOKIES = LEGACY | {'__Host-qubite_session','__Host-qubite_preauth','qubite_
 
 
 def sensitive(path):
-    return path in PATHS or path.startswith('/api/v1/auth/sessions/')
+    return (path in PATHS or path.startswith('/api/v1/auth/sessions/') or path == '/api/v1/auth/oauth/providers'
+            or re.fullmatch(r'/api/v1/auth/oauth/[^/]+/(start|callback)', path) is not None
+            or path == '/api/v1/me/oauth' or re.fullmatch(r'/api/v1/me/oauth/[^/]+', path) is not None)
 
 
 def headers(scope, name):
@@ -89,9 +91,10 @@ class AuthGuard:
                 raise AuthError(400,'invalid_request')
             if host[0]!=urlsplit(self.settings.auth_origin).netloc:
                 raise AuthError(403,'csrf_failed')
-            if scope.get('query_string'):
+            callback = scope['method'] == 'GET' and re.fullmatch(r'/api/v1/auth/oauth/[^/]+/callback', scope['path']) is not None
+            if scope.get('query_string') and not callback:
                 raise AuthError(400,'invalid_request')
-            if 'cross-site' in headers(scope,'sec-fetch-site'):
+            if 'cross-site' in headers(scope,'sec-fetch-site') and not (callback and headers(scope,'sec-fetch-mode') == ['navigate']):
                 raise AuthError(403,'csrf_failed')
             if origin and origin[0]!=self.settings.auth_origin:
                 raise AuthError(403,'csrf_failed')
@@ -115,7 +118,8 @@ class AuthGuard:
                 content=headers(scope,'content-type')
                 if body and (len(content)!=1 or content[0].split(';')[0].strip().lower()!='application/json'):
                     raise AuthError(400,'invalid_request')
-                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'}:
+                oauth_json = re.fullmatch(r'/api/v1/auth/oauth/[^/]+/start|/api/v1/me/oauth/[^/]+',scope['path']) is not None
+                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'} and not oauth_json:
                     raise AuthError(400,'invalid_request')
                 async def replay():
                     return {'type':'http.request','body':bytes(body),'more_body':False}

@@ -1,5 +1,7 @@
 # AUTH-008 — единый вход Qubite, fresh-install
 
+**Актуальное AUTH-01013.10.2026:** core0.3.0/schema0004, [OAuth runtime](../architecture/OAUTH_IDENTITY.md). implemented AUTH-009/010, остальные routes planned. Unknown provider identity не регистрирует/не объединяет account, even verified email игнорируется; explicit own-password link/unlink. Only fixed web callback allowlist, native AUTH-012 позже. Сведения AUTH-008/002/009 ниже — прежние snapshots. Не выполнялись service cutover/real provider/production migration.
+
 **Текущее исполнение AUTH-00913.10.2026:** реальный Web Auth в core0.2.0/schema0003, [API/безопасность](../architecture/WEB_AUTH.md). identity-v2 теперь partial_implementation/runtime_implemented=true: implemented только AUTH-009 routes, остальные planned. Ниже source specification AUTH-008 и прошлые milestones; сведения «все routes planned» относятся к прежнему снимку, не текущему runtime. Services/native/OAuth/UI ещё не переключены.
 
 **Исполнение13.10.2026:** AUTH-002 реализует [subjects/platform_owner/local bootstrap](../architecture/IDENTITY_SCHEMA.md), current migration0002. HTTP identity-v2 routes пока planned/runtime_implemented=false; следующий password/session API AUTH-009. Owner настоящий не bootstraped в постоянной среде, real CLI проверен на disposable accounts.

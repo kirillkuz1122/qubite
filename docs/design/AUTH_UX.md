@@ -1,5 +1,7 @@
 # Новый Auth UX — reviewable спецификация
 
+**API уточнение AUTH-01013.10.2026:** [фактический OAuth](../architecture/OAUTH_IDENTITY.md) в core0.3.0: GET provider availability, POST same-origin start (anonymous login либо own-password link), внешняя browser navigation/fixed callback. Неизвестная provider identity требует сначала account Qubite, email не объединяет accounts. Будущий UI должен отдельно показывать unavailable/unlinked/conflict, own link/unlink и повторный password login после unlink; формы/demo ниже остаются specimen, не API integration. Не добавлять старый login-by-code.
+
 12.10.2026, QUB-DESIGN-001. [Пять рабочих React-макетов](../../assets/design-lab/README.md), [выбор материалов](MATERIAL_DIRECTIONS.md). Target backend — FastAPI/Postgres; никакие identity endpoints этой задачей не реализованы и не мигрированы. Уточнение13.10.2026 [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md): аккаунтов/текущего деплоя нет по сообщению владельца; новый единый core Auth создаётся с нуля. Legacy password/session import/bridge/login alias не нужен. [Контракт](../migration/IDENTITY_CUTOVER.md).
 
 ## Потоки

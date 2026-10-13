@@ -57,3 +57,5 @@ tzlocal==5.4.4
 urllib3==2.8.0
 uvicorn==0.54.0
 webencodings==0.6.1
+cryptography==50.0.2
+PyJWT==2.15.1

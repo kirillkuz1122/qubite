@@ -73,7 +73,7 @@ def test_settings_repr_hides_credentials_and_explicit_options_override_pg_env(da
     settings = Settings(database_url)
     assert "postgresql" not in repr(settings)
     assert settings.connection_options()["passfile"] != str(Path.home() / ".pgpass")
-    assert apply(settings) == ("0001_foundation", "0002_identity", "0003_auth")
+    assert apply(settings) == ("0001_foundation", "0002_identity", "0003_auth", "0004_oauth")
 
 
 def test_pg_service_cannot_redirect_storage_or_read_private_service_files(monkeypatch):
@@ -89,14 +89,14 @@ def test_readiness_is_read_only_pending_then_ready_and_migration_is_idempotent(d
         assert client.get("/api/v1/health/ready").status_code == 503
         with psycopg.connect(database_url) as connection:
             assert connection.execute("SELECT to_regclass('qubite_meta.schema_migrations')").fetchone()[0] is None
-        assert apply(settings) == ("0001_foundation", "0002_identity", "0003_auth")
+        assert apply(settings) == ("0001_foundation", "0002_identity", "0003_auth", "0004_oauth")
         assert apply(settings) == ()
         ready = client.get("/api/v1/health/ready")
         assert ready.status_code == 200 and ready.headers["cache-control"] == "no-store"
-        assert Readiness.model_validate(ready.json()).schema_version == "0003_auth"
+        assert Readiness.model_validate(ready.json()).schema_version == "0004_oauth"
         with psycopg.connect(database_url) as connection:
-            assert connection.execute("SELECT count(*) FROM qubite_meta.schema_migrations").fetchone()[0] == 3
-            assert connection.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema='qubite_core'").fetchone()[0] == 6
+            assert connection.execute("SELECT count(*) FROM qubite_meta.schema_migrations").fetchone()[0] == 4
+            assert connection.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema='qubite_core'").fetchone()[0] == 10
 
 
 def test_driver_failure_returns_sanitized_503_and_keeps_liveness(monkeypatch):
@@ -142,8 +142,8 @@ def test_failed_batch_rolls_back_ddl_and_preserves_previous_ledger_and_existing_
     with psycopg.connect(database_url) as connection:
         assert connection.execute("SELECT to_regclass('qubite_core.partial')").fetchone()[0] is None
         assert connection.execute("SELECT value FROM public.sentinel").fetchone()[0] == "preserve me"
-        assert connection.execute("SELECT count(*) FROM qubite_meta.schema_migrations").fetchone()[0] == 3
-    assert check(settings) == "0003_auth"
+        assert connection.execute("SELECT count(*) FROM qubite_meta.schema_migrations").fetchone()[0] == 4
+    assert check(settings) == "0004_oauth"
 
 
 def test_failed_initial_batch_rolls_back_bootstrap_and_schema(database_url):
@@ -158,8 +158,8 @@ def test_concurrent_migrators_apply_exactly_once(database_url):
     settings = Settings(database_url)
     with ThreadPoolExecutor(max_workers=2) as workers:
         results = list(workers.map(lambda _: apply(settings), range(2)))
-    assert sorted(results, key=len) == [(), ("0001_foundation", "0002_identity", "0003_auth")]
-    assert check(settings) == "0003_auth"
+    assert sorted(results, key=len) == [(), ("0001_foundation", "0002_identity", "0003_auth", "0004_oauth")]
+    assert check(settings) == "0004_oauth"
 
 
 def test_explicit_cli_check_never_applies_and_apply_then_check_work(database_url, monkeypatch, capsys):
@@ -194,7 +194,7 @@ def test_readiness_works_with_a_read_only_runtime_role(database_url, postgres_cl
         with TestClient(create_app(reader)) as client:
             assert client.get("/api/v1/health/ready").status_code == 200
         with pytest.raises(MigrationError): apply(reader)
-        assert check(settings) == "0003_auth"
+        assert check(settings) == "0004_oauth"
     finally:
         with psycopg.connect(database_url) as connection:
             connection.execute(sql.SQL("DROP OWNED BY {}").format(sql.Identifier(role)))
@@ -233,7 +233,7 @@ def test_real_uvicorn_http_startup_preserves_pending_storage_until_explicit_migr
                 assert connection.execute("SELECT to_regclass('qubite_meta.schema_migrations')").fetchone()[0] is None
             apply(Settings(database_url))
             status, body = request("/api/v1/health/ready")
-            assert status == 200 and body["schema_version"] == "0003_auth"
+            assert status == 200 and body["schema_version"] == "0004_oauth"
         finally:
             child.terminate()
             try: child.wait(timeout=10)

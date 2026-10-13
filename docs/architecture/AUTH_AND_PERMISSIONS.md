@@ -1,5 +1,7 @@
 # Identity и permissions
 
+**Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
+
 **AUTH-00913.10.2026:** фактические password/CSRF/session/reauth/revoke API реализованы; [контракт/границы](WEB_AUTH.md). Identity возвращает только own profile/session metadata, platform_owner не module/AI grant. Policy/Console/OAuth/native/keys остаются отдельными задачами; прежние статусы реализации ниже исторические.
 
 **AUTH-00213.10.2026:** [account storage/local bootstrap](IDENTITY_SCHEMA.md) реализованы; owner active singleton ограничен БД, новая ordinary account pending/unverified. Пароли/сессии/public Auth/entitlements/budgets ещё не реализованы, никакого paid bypass/grant bootstrap не назначает.

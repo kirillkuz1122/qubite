@@ -12,6 +12,8 @@ from .migrations import MigrationError, check
 from .identity.auth.http import AuthGuard
 from .identity.auth.routes import create_router
 from .identity.auth.store import AuthError
+from .identity.oauth.providers import Exchange
+from .identity.oauth.routes import create_router as oauth_router
 
 
 class Health(BaseModel):
@@ -31,12 +33,13 @@ class Readiness(BaseModel):
     code: Literal["ready", "storage_not_configured", "storage_not_ready"]
 
 
-def create_app(settings: Settings | None = None, *, auth_clock=None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, auth_clock=None, oauth_transport=None) -> FastAPI:
     settings = settings if settings is not None else Settings.from_env()
     app = FastAPI(title="Qubite Core", version=__version__, docs_url=None, redoc_url=None,
                   openapi_url="/api/v1/openapi.json")
     app.add_middleware(AuthGuard, settings=settings)
     app.include_router(create_router(settings, auth_clock))
+    app.include_router(oauth_router(settings,auth_clock,Exchange(transport=oauth_transport,network_enabled=settings.oauth_network_enabled)))
 
     @app.exception_handler(AuthError)
     async def auth_error(request: Request, error: AuthError):

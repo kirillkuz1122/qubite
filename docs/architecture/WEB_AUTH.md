@@ -1,6 +1,8 @@
 # Реальный Web Auth — AUTH-009
 
-13.10.2026. FastAPI core0.2.0, explicit schema0003_auth. Реализованы email/password login, профиль, browser sessions, CSRF, reauth и revoke. [OpenAPI](../../contracts/core-v1.json) — фактический HTTP API. [Identity-v2](../../contracts/identity-v2.json) — частично реализованный протокол: implemented только AUTH-009; OAuth/регистрация/reset/native/keys/introspection остаются planned. React формы и Owner Console ещё не созданы; identity не разрешает модули или платный AI.
+AUTH-010 добавляет sessions.password_proven: старые0003/password logins=true, новые OAuth sessions=false, настоящий reauth=true. Logout-all требует этого признака и recent proof. OAuth cookie/own linking/limits описаны отдельно; описание Argon/password API ниже сохраняется.
+
+13.10.2026. Web Auth AUTH-009 сохранён в текущем core0.3.0/schema0004_oauth, [OAuth дополнение AUTH-010](OAUTH_IDENTITY.md). Реализованы email/password login, профиль, browser sessions, CSRF, reauth/revoke и configured provider linking/login. [OpenAPI](../../contracts/core-v1.json) — фактический API. [Identity-v2](../../contracts/identity-v2.json) — partial runtime AUTH-009/010; регистрация/reset/native/keys/introspection остаются planned. React формы/Console ещё не созданы; identity не разрешает модули или платный AI.
 
 ## Настройка и локальный owner
 
@@ -51,7 +53,7 @@ Production cookie __Host-qubite_session: Secure/HttpOnly/SameSite=Lax/Path=/, б
 
 Authorization Bearer пока не поддерживается; cookie+Authorization, duplicate credentials/headers и две identity cookie одновременно отвергаются. Legacy qb_session/__Host-qubite_search, local cookie в production, refresh/key как session и malformed percent tokens не декодируются и не дают identity. Повреждённый cookie — контролируемый401/400, процесс продолжает отвечать.
 
-Все Auth responses no-store/no-referrer/nosniff. JSON extra fields запрещены, validation ошибки возвращают только code и никогда input/password. Mutation body<=8192 bytes, Content-Length bounded ASCII и actual chunks проверяются; только JSON, query arguments не принимаются. Application не логирует body/cookie/CSRF/password; ingress/access logs должны быть отключены/редактированы отдельно. OpenAPI отражает400, не стандартный422 с исходным input.
+Все Auth responses no-store/no-referrer/nosniff. JSON extra fields запрещены, validation ошибки возвращают только code и никогда input/password. Mutation body<=8192 bytes, Content-Length bounded ASCII и actual chunks проверяются; только JSON. Query arguments запрещены кроме bounded GET OAuth callback с code/state из AUTH-010; cross-site top-level navigation разрешён только для этого callback. Application не логирует body/cookie/CSRF/password; ingress/access logs должны быть отключены/редактированы отдельно. OpenAPI отражает400, не стандартный422 с исходным input.
 
 ## Пароли, лимиты, retention
 
@@ -60,7 +62,7 @@ Exact UTF8,12..256 codepoints,<=1024 bytes; без trim/casefold/normalization/t
 | Защита | Текущий предел |
 |---|---|
 | Login+reauth по canonical identifier |8 попыток/300s, неудачные тоже учитываются; один бюджет |
-| Login+reauth по socket IP |30/300s; forwarded IP не доверяется |
+| Login+reauth+OAuth start/callback по socket IP |30/300s; forwarded IP не доверяется |
 | Новый anonymous challenge по IP |60/300s |
 | Argon2 concurrency |2 на процесс, отказ429 без очереди; рабочие buffers примерно38MiB плюс runtime, это не измеренный RSS/OOM limit |
 | Активные browser sessions одного subject |20, дальнейший login429 |
@@ -73,6 +75,6 @@ Synthetic local benchmark10hash+10verify: median15.76/15.93ms, max18.49/16.88ms.
 
 Real disposable PostgreSQL/HTTP: cookies, CSRF/Origin/replay, malformed credentials, status/expiry/version, cross-account revoke, Argon limits, shared counters, concurrent setup/login/logout-all/block/credential change, rollback/schema drift и ограниченная SQL role. TestClient HTTPS проверяет cookie semantics; actual Uvicorn loopback HTTP проверяет весь сетевой сценарий в explicit local mode. Это не physical browser/native/OAuth/TLS ingress acceptance.
 
-Readiness проверяет history и шесть actual tables, не полный semantic fingerprint. Не выполнять автоматический down/drop/restore старых SQLite passwords. При rollback сохранить accounts/credentials/sessions/ledger0003; старый binary/schema0002 откажет ready, нужен compatible forward recovery. Старые back/front/services/deploy и архив не заменены, новые HTTP не подключены к live ingress.
+Readiness проверяет history/десять actual tables и password_proven field, не полный semantic fingerprint. Не выполнять автоматический down/drop/restore старых SQLite passwords. При rollback сохранить accounts/credentials/sessions/bindings/audit/ledger0004; старый binary/schema0003 откажет ready, нужен compatible forward recovery. Старые back/front/services/deploy и архив не заменены, новые HTTP не подключены к live ingress.
 
-Дальше AUTH-010 OAuth и AUTH-011 verify/reset (разрешённые bounded slices), затем policy/React по approval/dependencies. [Первичные источники Argon2](https://argon2-cffi.readthedocs.io/en/stable/parameters.html), [API/PHC](https://argon2-cffi.readthedocs.io/en/stable/api.html), [OWASP session](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), [CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) проверены13.10.2026; runtime evidence отдельно от рекомендаций.
+AUTH-010 OAuth добавлен отдельным slice; дальше AUTH-011 verify/reset (разрешённые bounded slices), затем policy/React по approval/dependencies. [Первичные источники Argon2](https://argon2-cffi.readthedocs.io/en/stable/parameters.html), [API/PHC](https://argon2-cffi.readthedocs.io/en/stable/api.html), [OWASP session](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html), [CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) проверены13.10.2026; runtime evidence отдельно от рекомендаций.

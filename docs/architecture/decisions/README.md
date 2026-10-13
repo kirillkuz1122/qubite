@@ -24,3 +24,5 @@
 | [0014](0014-fresh-accounts-and-owner-bootstrap.md) | Engineering decision в approved AUTH-002 | explicit fresh schema, canonical email, active singleton FK, local transactional bootstrap и readonly schema gates |
 
 | [0015](0015-web-password-sessions.md) | Engineering decision в approved AUTH-009 | Argon2id, одноразовый preauth/CSRF, PG sessions/rates/reauth, partial runtime contract и explicit local password setup |
+
+| [0016](0016-explicit-oauth-identities.md) | Engineering decision в approved AUTH-010 | явная stable provider identity, own-password linking, disabled/network-off default, browser state/PKCE/version gates, forward0004 |

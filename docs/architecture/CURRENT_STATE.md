@@ -1,5 +1,7 @@
 # Qubite: аудит исходного состояния
 
+**Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
+
 **Актуальное условие13.10.2026:** владелец сообщил, что проект нигде не запущен, аккаунтов для переноса нет, прежний owner можно создать заново. Это не remote/server verification. Кодовые факты legacy аудита ниже сохраняются; текущий план [ADR-0013](decisions/0013-fresh-identity-and-unified-login.md)/[fresh identity](../migration/IDENTITY_CUTOVER.md) не требует live Auth bridge/import.
 
 Дата: 12.10.2026. База аудита: `96f0457a523b6b79f21c4092056d8fa8fa69a680`. Архивные refs `origin/tournaments` и `qubite-v1.0` проверены через git ls-remote и совпадают с этой базой. Рабочая ветка main. В начале были только три untracked документа QUBITE*.md; исходники без локальных изменений. Архив намеренно не содержит новый контекст. Root CLAUDE.md и точный kickoff V2 отсутствовали; игнорируемый qubite-product-intro/CLAUDE.md относится к другому артефакту.

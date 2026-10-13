@@ -1,5 +1,9 @@
 # Модель данных и invariants
 
+0004 фактически добавляет oauth_providers(enabled/version), oauth_identities(unique provider/issuer/subject + own provider), oauth_states(hash-only browser-bound one-use context), oauth_audit(minimal security metadata), sessions.password_proven. [Поля/constraints/privileges](OAUTH_IDENTITY.md). Логические domain таблицы ниже ещё backlog.
+
+**Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
+
 **AUTH-00913.10.2026:** кроме subjects/owner реализованы password_credentials, sessions(web), auth_preauth и auth_rate_limits в0003_auth. [Поля/индексы/invariants](WEB_AUTH.md). Прочие domain/native/keys/permissions таблицы ниже logical backlog.
 
 **Реализовано AUTH-00213.10.2026:** subjects/platform_owner в0002_identity, UUID/canonical email/status/version и local owner bootstrap. [Фактические поля/FK/индексы](IDENTITY_SCHEMA.md). Остальные таблицы ниже logical backlog, password/session позже AUTH-009; technical namespace0001 не является текущей полной schema.

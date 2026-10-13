@@ -1,5 +1,7 @@
 # TODO / Roadmap / Known Issues
 
+**AUTH-01013.10.2026:** OAuth/explicit linking реализованы локальным bounded slice, [контракт](docs/architecture/OAUTH_IDENTITY.md)/[report](docs/reports/QUB-AUTH-010.md). Следующая AUTH-011 verify/reset. Real provider app/keys/redirect registration/roundtrips, React/Auth UX/native/keys/policy/service cutover остаются своими задачами; network/providers default off. Ниже предыдущие milestones и legacy backlog, current tasks.json определяет порядок.
+
 **AUTH-00913.10.2026:** рабочий password/session API и local owner password setup реализованы. Далее AUTH-010 OAuth, AUTH-011 verify/reset и approved policy/UI slices. [Runtime](docs/architecture/WEB_AUTH.md), [report](docs/reports/QUB-AUTH-009.md). Ниже предыдущие записи/legacy backlog; current tasks.json определяет порядок.
 
 **AUTH-002 реализована:** fresh PG account schema/local owner bootstrap. Next AUTH-009 password/session/CSRF/revoke, затем AUTH-003 policy; никакой legacy verifier/import. [Отчёт](docs/reports/QUB-AUTH-002.md).

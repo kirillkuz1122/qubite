@@ -376,6 +376,41 @@
         ]
       },
       "status": "planned"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/oauth/providers",
+      "auth": "public availability; configured same-origin Host",
+      "task": "QUB-AUTH-010",
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/oauth/{provider}/start",
+      "auth": "login: one-use anonymous cookie + CSRF; link: own web session + password + CSRF; exact Origin",
+      "task": "QUB-AUTH-010",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/oauth/{provider}/callback",
+      "auth": "one-use browser-bound state; link also current own session/password-proof snapshot; fixed web callback",
+      "task": "QUB-AUTH-010",
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/oauth",
+      "auth": "own active web session only",
+      "task": "QUB-AUTH-010",
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/oauth/{provider}",
+      "auth": "own active web session + own password + CSRF + exact Origin",
+      "task": "QUB-AUTH-010",
+      "status": "implemented"
     }
   ],
   "$defs": {
@@ -505,9 +540,21 @@
     "callback_rechecks_enabled": true,
     "identity_binding": "unique (provider, issuer, subject)",
     "automatic_email_linking": false,
-    "link_requires": "active authenticated subject + recent reauth + provider proof; pair collision rejects"
+    "link_requires": "active authenticated subject + recent reauth + provider proof; pair collision rejects",
+    "registration": "no implicit account creation; first register then explicit link",
+    "state_ttl_seconds": 300,
+    "pkce": "S256; verifier/nonce derived from HttpOnly browser cookie, never stored raw",
+    "external_network_default": false,
+    "enabled_default": false,
+    "return_uri": "fixed same-origin provider callback; native clients remain AUTH-012",
+    "link_password": "required at each start; final active session/version/credential/recent password recheck",
+    "unlink": "own provider only; password/CSRF; revoke all own web sessions/auth_version bump",
+    "oidc_algorithms": [
+      "RS256"
+    ]
   },
   "implemented_tasks": [
-    "QUB-AUTH-009"
+    "QUB-AUTH-009",
+    "QUB-AUTH-010"
   ]
 }
