@@ -2,6 +2,10 @@
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.
 
+## 13.10.2026 — QUB-UI-002
+
+Выбранные живые controls/physics/SVG перенесены из assets в apps/web0.2.0. Flow503мс, bounded viscous drag, native sliders/drag switches, scene/dialog transitions, lite/quiet/strength/duration prefs. [Отчёт](../reports/QUB-UI-002.md).49browser/976regression; exactSHA/hosting в handoff после проверки. Следующая AUTH-007 разрешена, вопросы отправлены и ответы ожидаются.
+
 ## 13.10.2026 — QUB-UI-001
 
 Первая React shell в apps/web, live read identity/access и separate fictional demo; Command fixed bottom, owner entry Settings. Hidden/locked owner UI preview, server persistence UI003 новая зависимость полной Console. Локально36browser+976regression; real device/full login ещё отдельно. [Отчёт](../reports/QUB-UI-001.md); Implementation23b6119, exact-SHA CI38424077786/38424077501 success. Private demo v1 succeeded; Git/hosting evidence в отчёте. Next AUTH007, сначала вопросы.

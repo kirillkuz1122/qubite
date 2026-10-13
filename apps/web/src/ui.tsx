@@ -1,4 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { LivingButton } from "./material/Controls";
+import { Mark } from "./material/Marks";
 const paths: Record<string, string> = {
   home: "M3 10l9-7 9 7v10H3z M9 20v-7h6v7",
   grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
@@ -43,23 +45,7 @@ export function Icon({ name, size = 22 }: { name: string; size?: number }) {
   );
 }
 export function Brand() {
-  // Approved Ribbon mark, re-used independently of the design-lab runtime.
-  return (
-    <svg
-      className="brand-mark"
-      viewBox="0 0 74 74"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        stroke="currentColor"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M50 48C39 59 19 53 18 36c-2-18 20-29 34-16 11 10 6 23-3 25-7 2-12-6-7-10 5-5 14 7 18 18"
-      />
-    </svg>
-  );
+  return <Mark />;
 }
 export function Dialog({
   title,
@@ -120,9 +106,13 @@ export function Dialog({
     >
       <div className="dialog-head">
         <h2 id="dialog-title">{title}</h2>
-        <button className="icon-button" aria-label="Закрыть" onClick={onClose}>
+        <LivingButton
+          className="icon-button"
+          aria-label="Закрыть"
+          onClick={onClose}
+        >
           <Icon name="close" />
-        </button>
+        </LivingButton>
       </div>
       {children}
     </dialog>

@@ -6,13 +6,13 @@ Qubite — универсальное персональное простран�
 
 В `core/` работает независимое FastAPI/PostgreSQL ядро 0.6.0: explicit migrations0001..0007, аккаунты и local owner bootstrap, Web Auth, OAuth linking, verification/reset protocol, ручные разрешения и регистрация с приглашениями. Реальная почта, production ingress и интерфейс Owner Console ещё не созданы.
 
-В `assets/design-lab/` — принятая React/TypeScript витрина Поток/Игрушечная/Лента, Unbounded/Manrope. В `apps/web/` создана первая оболочка приложения с проверкой аккаунта/прав через API. Формы входа, настоящие входящие, каталог настроек на сервере и сервисные модули — следующие задачи. Сайт, Android и Linux desktop обязательны; Windows/macOS — дальнейший portable track.
+В `assets/design-lab/` — принятая React/TypeScript витрина Поток/Игрушечная/Лента, Unbounded/Manrope. В `apps/web/` создана оболочка приложения с проверкой аккаунта/прав через API и перенесённым живым материалом Поток из выбранных assets. Формы входа, настоящие входящие, каталог настроек на сервере и сервисные модули — следующие задачи. Сайт, Android и Linux desktop обязательны; Windows/macOS — дальнейший portable track.
 
 ## Карта репозитория
 
 | Каталог | Статус и назначение |
 |---|---|
-| `apps/web/` | Новая React оболочка0.1.0; live/demo отдельны, ещё без auth forms/domain writes |
+| `apps/web/` | Новая React оболочка0.2.0; live/demo отдельны, ещё без auth forms/domain writes |
 | `core/`, `contracts/` | Новое ядро и проверяемые API-контракты; planned routes обозначены отдельно |
 | `docs/` | Требования, архитектура, задачи, решения, отчёты и память проекта |
 | `assets/design-lab/` | Дизайн-прототип, не рабочий клиент API |

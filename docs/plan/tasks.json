@@ -924,7 +924,10 @@
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,
-    "verification": []
+    "verification": [
+      "Questions pending: separate auth screen vs modal; new terms/privacy drafts vs placeholders; invitation by link plus manual paste vs link-only. Existing backend/auth decisions remain in force."
+    ],
+    "approval": "13.10.2026: прямо разрешена следующей после исправления материала; вопросы заданы до реализации, ответы ожидаются. Повторного разрешения на задачу не требуется."
   },
   {
     "id": "QUB-AUTH-008",
@@ -1853,8 +1856,24 @@
       "QUB-UI-001"
     ],
     "files": [
-      "apps/web/src/ui/material (будущий)",
-      "docs/design/FLUX_DESIGN_SYSTEM.md"
+      "apps/web/src/material",
+      "apps/web/src/App.tsx",
+      "apps/web/src/ui.tsx",
+      "apps/web/src/styles.css",
+      "apps/web/tests",
+      "docs/design",
+      "docs/project",
+      "docs/reports",
+      "docs/plan",
+      "apps/web/package.json",
+      "apps/web/package-lock.json",
+      "apps/web/README.md",
+      "apps/web/public/licenses",
+      "apps/web/playwright.config.ts",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "README.md",
+      "docs/architecture/decisions"
     ],
     "acceptance": [
       "Согласованный profile перенесён в controls shell; exact values/native semantic и stable gestures",
@@ -1867,10 +1886,15 @@
       "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
     ],
     "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
-    "status": "backlog",
+    "status": "review/testing",
     "commit": "",
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "Local format/live+demo build passed; Playwright49 passed (17desktop+18phone+14live fixtures), no skipped; touch Input.dispatchTouchEvent/cancel/native value/flow retarget/idle RAF/reduced motion/axe/viewport.",
+      "Full isolated source-copy all965+engineering11=976pass; real disposable PG18.6, core groups208/165/202 passed27.37/50.90/88.85s; no env/provider/runtime modifications.",
+      "Implementation push/exact SHA CI/private demo update pending; physical device acceptance open."
+    ],
+    "approval": "13.10.2026: владелец потребовал перенести выбранные живые элементы и анимации из готовых assets, исправить UI-001 и затем выполнить AUTH-007 после вопросов."
   },
   {
     "id": "QUB-PET-001",

@@ -1674,3 +1674,190 @@ dialog .button {
     scroll-behavior: auto !important;
   }
 }
+
+/* The chosen Flux material, graduated from the approved design-lab specimen. */
+.qubite-material {
+  --surface2: var(--soft);
+  --pigment: var(--blue);
+  --ink: #18252c;
+  --accent: #08749e;
+  --strength: 1;
+}
+.qubite-material[data-theme="dark"] {
+  --accent: #a8d9ff;
+}
+.qubite-material .alive {
+  --ink: #18252c;
+}
+.qubite-material .alive:not(:disabled) {
+  transform: translate(calc(var(--dragX) * 1px), calc(var(--dragY) * 1px))
+    rotate(calc(var(--turn) * 1deg)) scale(var(--stretchX), var(--stretchY));
+  transition:
+    background-color 0.35s,
+    color 0.35s,
+    border-color 0.35s,
+    border-radius 0.45s;
+}
+.qubite-material .alive[data-moving],
+.qubite-material .living-pill[data-moving],
+.qubite-material .nav-material-pill[data-moving] {
+  will-change: transform;
+}
+.qubite-material .alive::after {
+  background: linear-gradient(110deg, transparent, #ffffff5c, transparent);
+}
+.qubite-material[data-lite="true"] .alive {
+  border-radius: 22px;
+}
+.qubite-material[data-lite="true"] .alive::after {
+  background: linear-gradient(110deg, transparent, #ffffff4a, transparent);
+  transform: none;
+}
+.qubite-material[data-lite="true"] .slider-thumb {
+  border-radius: 50%;
+  box-shadow:
+    inset 0 2px 0 #ffffff88,
+    0 2px 0 #00000016;
+}
+.qubite-material[data-lite="true"] .living-pill {
+  border-radius: 18px;
+  box-shadow: inset 0 2px 0 #ffffff55;
+}
+.qubite-material .living-navigation {
+  position: relative;
+  isolation: isolate;
+}
+.qubite-material .main-navigation a {
+  z-index: 1;
+}
+.qubite-material .main-navigation a.selected {
+  background: transparent;
+  box-shadow: none;
+  color: #18252c;
+}
+.qubite-material .nav-material-pill {
+  border-radius: 18px;
+  pointer-events: none;
+}
+.qubite-material .living-pill {
+  top: 0;
+  bottom: auto;
+  height: calc(var(--pillHeight, 44) * 1px);
+  transform: translate(calc(var(--pillX) * 1px), calc(var(--pillY, 4) * 1px))
+    skewX(calc(var(--pillPull) * -5deg));
+  pointer-events: none;
+}
+.qubite-material .living-tabs > button,
+.qubite-material .living-tabs > button[aria-pressed="true"] {
+  font-weight: 650;
+}
+.qubite-material .living-switch {
+  --pigment: var(--green);
+  width: 76px;
+  height: 44px;
+  border-radius: 24px;
+}
+.qubite-material .living-switch > i {
+  background: #18252c;
+  top: 5px;
+  left: 5px;
+  width: 32px;
+  height: 32px;
+  transform: translateX(calc(var(--position) * 32px))
+    scaleX(calc(1 + var(--grip) * 0.18 * var(--strength)))
+    scaleY(calc(1 - var(--grip) * 0.12 * var(--strength)));
+}
+.qubite-material .switch-row {
+  font-size: 15px;
+  padding: 14px 0;
+  min-height: 76px;
+  border-bottom: 1px solid var(--line);
+}
+.qubite-material .slider-label {
+  font-size: 14px;
+}
+.qubite-material .living-slider {
+  margin-block: 26px 18px;
+}
+.qubite-material .living-slider input:focus {
+  box-shadow: none;
+  outline: none;
+}
+.qubite-material .slider-thumb {
+  border-color: #18252c;
+}
+.qubite-material .card-symbol .brand-mark {
+  width: 46px;
+  height: 46px;
+}
+.qubite-material .page-content {
+  animation: none;
+}
+.qubite-material .morph-host {
+  overflow: clip;
+  overflow-clip-margin: 0;
+}
+.qubite-material .morph-ghost * {
+  animation: none !important;
+  transition: none !important;
+}
+.qubite-material dialog[open] {
+  animation: material-open var(--selection-ms, 503ms)
+    cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes material-open {
+  from {
+    opacity: 0.3;
+    transform: translateY(24px) scale(0.95, 1.02);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.004, 0.996);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.qubite-material[data-quiet="true"] .alive {
+  transform: none !important;
+}
+.qubite-material[data-quiet="true"] .morph-ghost {
+  display: none;
+}
+.qubite-material[data-quiet="true"] dialog[open] {
+  animation: none;
+}
+.qubite-material .living-tabs {
+  --pigment: var(--blue);
+  --ink: #18252c;
+}
+@media (max-width: 760px) {
+  .qubite-material .living-switch {
+    min-width: 76px;
+  }
+  .qubite-material .living-tabs {
+    flex-wrap: wrap;
+  }
+  .qubite-material .living-tabs > button {
+    min-width: 0;
+    padding: 12px 8px;
+  }
+}
+.qubite-material .visibility-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.qubite-material .visibility-row .living-tabs {
+  width: 250px;
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .qubite-material .visibility-row .living-tabs {
+    grid-column: 1/-1;
+    width: 100%;
+    margin-top: 8px;
+  }
+}

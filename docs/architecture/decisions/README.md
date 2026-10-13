@@ -27,3 +27,5 @@
 
 | [0021](0021-repository-layout-and-standalone-tournaments.md) | CONFIRMED13.10.2026 | Чистый новый корень, legacy/reference классификация, поддомены, independent optional турниры и env preservation |
 | [0022](0022-web-shell-and-command.md) | CONFIRMED13.10.2026 UI-001 scope | React shell/Command fixed bottom/owner entry; preview visibility, server catalog UI-003 отдельно |
+
+| [0023](0023-approved-flux-material-in-web.md) | CONFIRMED13.10.2026 UI-002 | Готовые controls/physics/SVG из выбранной витрины в приложении; AUTH-007 вопросы отправлены |

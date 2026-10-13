@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import {
   modules,
   demoVisibility,
@@ -14,6 +14,19 @@ import {
   type Session,
 } from "./identity";
 import { Brand, Dialog, Empty, Icon } from "./ui";
+import {
+  LivingButton,
+  LivingLink,
+  LivingSlider,
+  LivingSwitch,
+  LivingTabs,
+  LivingNavigation,
+} from "./material/Controls";
+import { MotionContext } from "./material/motion";
+import { profiles } from "./material/profiles";
+import { MorphContent } from "./material/Transition";
+import { Mark } from "./material/Marks";
+import "./material/material.css";
 
 const navigation = [
   { path: "/", name: "Главная", icon: "home" },
@@ -29,13 +42,38 @@ function navigate(route: string) {
   location.hash = route;
 }
 type Note = { id: number; text: string };
-type Preferences = { quiet: boolean; dark: boolean };
+type Preferences = {
+  quiet: boolean;
+  dark: boolean;
+  strength: number;
+  duration: number;
+  lite: boolean;
+};
 function readPreferences(): Preferences {
   try {
     const value = JSON.parse(localStorage.getItem("qubite.ui.v1") || "null");
-    return { quiet: value?.quiet === true, dark: value?.dark === true };
+    return {
+      quiet: value?.quiet === true,
+      dark: value?.dark === true,
+      strength: Number.isFinite(value?.strength)
+        ? Math.max(0, Math.min(100, value.strength))
+        : 100,
+      duration: Number.isFinite(value?.duration)
+        ? Math.max(250, Math.min(900, value.duration))
+        : 503,
+      lite:
+        typeof value?.lite === "boolean"
+          ? value.lite
+          : matchMedia("(pointer: coarse)").matches,
+    };
   } catch {
-    return { quiet: false, dark: false };
+    return {
+      quiet: false,
+      dark: false,
+      strength: 100,
+      duration: 503,
+      lite: matchMedia("(pointer: coarse)").matches,
+    };
   }
 }
 
@@ -73,9 +111,9 @@ function Runtime() {
           icon={loading ? "orbit" : "lock"}
         >
           {!loading && (
-            <button className="button orange" onClick={refresh}>
+            <LivingButton className="button orange" onClick={refresh}>
               Проверить снова <Icon name="arrow" />
-            </button>
+            </LivingButton>
           )}
         </Empty>
         {!loading && (
@@ -125,10 +163,59 @@ function Shell({
     [draft, setDraft] = useState("");
   const [notice, setNotice] = useState(""),
     [prefs, setPrefs] = useState(readPreferences);
+  const [systemQuiet, setSystemQuiet] = useState(
+    () => matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  useEffect(() => {
+    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setSystemQuiet(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const stopped = prefs.quiet || systemQuiet || prefs.strength === 0;
+  const motion = useMemo(
+    () => ({
+      profile: profiles[1],
+      strength: prefs.strength / 100,
+      quiet: stopped,
+      selectionMs: prefs.duration,
+      lite: prefs.lite,
+    }),
+    [prefs.strength, prefs.duration, prefs.lite, stopped],
+  );
   const root = useRef<HTMLDivElement>(null),
     heading = useRef<HTMLHeadingElement>(null),
     dock = useRef<HTMLFormElement>(null),
     initial = useRef(true);
+  const closing = useRef(false);
+  function dismissDialog(after?: () => void) {
+    if (closing.current) return;
+    const el = root.current?.querySelector<HTMLDialogElement>("dialog");
+    const finish = () => {
+      closing.current = false;
+      setDialog(null);
+      after?.();
+    };
+    if (!el || stopped) {
+      finish();
+      return;
+    }
+    closing.current = true;
+    const animation = el.animate(
+      [
+        { opacity: 1, transform: "none" },
+        { opacity: 0, transform: "translateY(16px) scale(.96,1.02)" },
+      ],
+      {
+        duration: Math.min(300, prefs.duration * 0.45),
+        easing: "cubic-bezier(.3,0,.7,1)",
+        fill: "forwards",
+      },
+    );
+    void animation.finished.then(finish).catch(() => {
+      closing.current = false;
+    });
+  }
   const canReadInbox = hasGrant(session, "inbox", "read"),
     canWriteInbox = hasGrant(session, "inbox", "write");
   useEffect(() => {
@@ -235,9 +322,12 @@ function Shell({
         title={`${m.name} — скоро в твоём пространстве`}
         text="Доступ выдан. Сам модуль ещё готовится и пока не открывает твои данные."
       >
-        <button className="button blue" onClick={() => navigate("/modules")}>
+        <LivingButton
+          className="button blue"
+          onClick={() => navigate("/modules")}
+        >
           К модулям <Icon name="arrow" />
-        </button>
+        </LivingButton>
       </Empty>
     );
   };
@@ -261,9 +351,12 @@ function Shell({
                 <br className="desktop-break" /> Можно двигаться маленькими
                 шагами.
               </p>
-              <a className="text-link" href="#/modules">
+              <LivingButton
+                className="button orange"
+                onClick={() => navigate("/modules")}
+              >
                 Посмотреть модули <Icon name="arrow" size={18} />
-              </a>
+              </LivingButton>
             </div>
             <div className="assembly" aria-hidden="true">
               <div className="assembly-orbit" />
@@ -281,27 +374,27 @@ function Shell({
           </section>
           <div className="section-heading">
             <h2>Под рукой</h2>
-            <a href="#/modules">
+            <LivingLink href="#/modules">
               Все модули <Icon name="arrow" size={17} />
-            </a>
+            </LivingLink>
           </div>
           {grantedModules.length ? (
             <div className="quick-grid">
               {grantedModules.slice(0, 3).map((m) => (
-                <a
+                <LivingLink
                   href={`#/modules/${m.id}`}
                   className={`quick-card ${m.tone}`}
                   key={m.id}
                 >
                   <span className="card-symbol">
-                    <Icon name={m.icon} size={25} />
+                    <Mark service={m.id} />
                   </span>
                   <span>
                     <strong>{m.name}</strong>
                     <small>Модуль готовится</small>
                   </span>
                   <Icon name="arrow" size={18} />
-                </a>
+                </LivingLink>
               ))}
             </div>
           ) : (
@@ -311,9 +404,9 @@ function Shell({
                 <h3>Пока только твой аккаунт</h3>
                 <p>Когда владелец выдаст доступ, здесь появятся твои модули.</p>
               </div>
-              <a href="#/profile">
+              <LivingLink href="#/profile">
                 К профилю <Icon name="arrow" size={18} />
-              </a>
+              </LivingLink>
             </div>
           )}
           <div className="home-columns">
@@ -321,9 +414,9 @@ function Shell({
               <div className="section-heading">
                 <h2>Входящие</h2>
                 {canReadInbox && (
-                  <a href="#/inbox">
+                  <LivingLink href="#/inbox">
                     Открыть <Icon name="arrow" size={17} />
-                  </a>
+                  </LivingLink>
                 )}
               </div>
               {canReadInbox ? (
@@ -396,14 +489,14 @@ function Shell({
               {visible.map((m) => {
                 const locked = !hasGrant(session, m.id, "read");
                 return (
-                  <a
+                  <LivingLink
                     className={`module-card ${m.tone}`}
                     href={`#/modules/${m.id}`}
                     key={m.id}
                   >
                     <div className="module-card-top">
                       <span className="card-symbol">
-                        <Icon name={m.icon} size={30} />
+                        <Mark service={m.id} />
                       </span>
                       <span className="module-status">
                         <Icon name={locked ? "lock" : "orbit"} size={14} />
@@ -417,7 +510,7 @@ function Shell({
                       {locked ? "О доступе" : "Подробнее"}
                       <Icon name="arrow" size={18} />
                     </span>
-                  </a>
+                  </LivingLink>
                 );
               })}
             </div>
@@ -487,9 +580,9 @@ function Shell({
               <Icon name="user" size={15} />
               {demo ? "Демонстрационный аккаунт" : "Аккаунт Qubite"}
             </span>
-            <a href="#/settings" className="button blue">
+            <LivingLink href="#/settings" className="button blue">
               Настройки <Icon name="settings" size={18} />
-            </a>
+            </LivingLink>
           </section>
           <section className="plain-card">
             <span className="eyebrow">ТВОИ РАЗРЕШЕНИЯ</span>
@@ -531,34 +624,34 @@ function Shell({
           <section className="plain-card">
             <span className="eyebrow">НА ТВОЙ ВКУС</span>
             <h2>Вид и настроение</h2>
-            <div className="setting-row">
-              <label htmlFor="dark">
-                <Icon name="sun" />
-                Тёмная тема
-              </label>
-              <input
-                id="dark"
-                type="checkbox"
-                role="switch"
-                checked={prefs.dark}
-                onChange={(e) => setPrefs({ ...prefs, dark: e.target.checked })}
-              />
-            </div>
-            <div className="setting-row">
-              <label htmlFor="quiet">
-                <Icon name="orbit" />
-                Спокойное движение
-              </label>
-              <input
-                id="quiet"
-                type="checkbox"
-                role="switch"
-                checked={prefs.quiet}
-                onChange={(e) =>
-                  setPrefs({ ...prefs, quiet: e.target.checked })
-                }
-              />
-            </div>
+            <LivingSwitch
+              label="Тёмная тема"
+              checked={prefs.dark}
+              onChange={(dark) => setPrefs({ ...prefs, dark })}
+            />
+            <LivingSwitch
+              label="Спокойное движение"
+              checked={prefs.quiet}
+              onChange={(quiet) => setPrefs({ ...prefs, quiet })}
+            />
+            <LivingSwitch
+              label="Лёгкий рендеринг"
+              checked={prefs.lite}
+              onChange={(lite) => setPrefs({ ...prefs, lite })}
+            />
+            <LivingSlider
+              label="Податливость интерфейса"
+              value={prefs.strength}
+              onChange={(strength) => setPrefs({ ...prefs, strength })}
+            />
+            <LivingSlider
+              label="Перетекание выбора"
+              value={prefs.duration}
+              min={250}
+              max={900}
+              suffix=" мс"
+              onChange={(duration) => setPrefs({ ...prefs, duration })}
+            />
             <p className="muted small">
               Выбранный вид сохраняется в этом браузере. Настройка уменьшения
               движения системы тоже учитывается.
@@ -566,24 +659,24 @@ function Shell({
           </section>
           <section className="plain-card">
             <span className="eyebrow">АККАУНТ</span>
-            <a href="#/profile" className="settings-link">
+            <LivingLink href="#/profile" className="settings-link">
               <span>
                 <Icon name="user" />
                 Профиль и мои разрешения
               </span>
               <Icon name="arrow" />
-            </a>
+            </LivingLink>
           </section>
           {session.profile.platform_owner && (
             <section className="plain-card owner-entry">
               <span className="eyebrow">ДЛЯ ВЛАДЕЛЬЦА</span>
-              <a href="#/settings/owner" className="settings-link">
+              <LivingLink href="#/settings/owner" className="settings-link">
                 <span>
                   <Icon name="shield" />
                   Управление Qubite
                 </span>
                 <Icon name="arrow" />
-              </a>
+              </LivingLink>
               <p className="muted small">
                 Отдельное пространство для настройки платформы.
               </p>
@@ -612,29 +705,30 @@ function Shell({
                 {modules.map((m) => (
                   <div className="visibility-row" key={m.id}>
                     <span className={`note-icon ${m.tone}`}>
-                      <Icon name={m.icon} />
+                      <Mark service={m.id} />
                     </span>
-                    <label htmlFor={`visibility-${m.id}`}>
+                    <div className="visibility-label">
                       <strong>{m.name}</strong>
                       <small>{m.label}</small>
-                    </label>
-                    <select
-                      id={`visibility-${m.id}`}
+                    </div>
+                    <LivingTabs
+                      label={`${m.name}: без доступа`}
+                      items={[
+                        { id: "hidden", label: "Скрывать" },
+                        { id: "locked", label: "С замком" },
+                      ]}
                       value={visibility[m.id]}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setVisibility({
                           ...visibility,
-                          [m.id]: e.target.value as "hidden" | "locked",
+                          [m.id]: value as "hidden" | "locked",
                         })
                       }
-                    >
-                      <option value="hidden">Скрывать</option>
-                      <option value="locked">Показывать с замком</option>
-                    </select>
+                    />
                   </div>
                 ))}
               </section>
-              <button
+              <LivingButton
                 className="button blue"
                 onClick={() => {
                   onPersona?.("new");
@@ -642,7 +736,7 @@ function Shell({
                 }}
               >
                 Посмотреть новым пользователем <Icon name="arrow" />
-              </button>
+              </LivingButton>
             </>
           ) : (
             <Empty
@@ -662,270 +756,294 @@ function Shell({
     );
   };
   return (
-    <div
-      className="app-shell"
-      ref={root}
-      data-theme={prefs.dark ? "dark" : "light"}
-      data-quiet={prefs.quiet}
-    >
-      <a
-        className="skip-link"
-        href="#main"
-        onClick={(e) => {
-          e.preventDefault();
-          heading.current?.focus();
-        }}
-      >
-        К содержимому
-      </a>
-      <aside className="sidebar">
-        <a href="#/" className="brand" aria-label="Qubite — главная">
-          <Brand />
-          <span>
-            Qubite
-            <i />
-          </span>
-        </a>
-        <nav aria-label="Главная навигация" className="main-navigation">
-          {navigation.map((n) => (
-            <a
-              key={n.path}
-              className={route === n.path ? "selected" : ""}
-              aria-current={route === n.path ? "page" : undefined}
-              href={`#${n.path}`}
-            >
-              <Icon name={n.icon} />
-              <span>{n.name}</span>
-              <i />
-            </a>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <a href="#/settings" className="settings-link">
-            <span>
-              <Icon name="settings" />
-              Настройки
-            </span>
-          </a>
-          <div className="sidebar-caption">
-            <span className="colored-dots">
-              <i />
-              <i />
-              <i />
-            </span>
-            Одно пространство.
-            <br />
-            Много возможностей.
-          </div>
-        </div>
-      </aside>
-      <div className="workspace">
-        <header className="topbar">
-          <div>
-            <span className="context-label">ТВОЁ ПРОСТРАНСТВО</span>
-            <span className="greeting">
-              Привет, {session.profile.display_name || "друг"}
-              <span className="greeting-dot" />
-            </span>
-          </div>
-          <div className="header-actions">
-            {demo && (
-              <button
-                className="preview-button"
-                onClick={() => setDialog("preview")}
-              >
-                <span className="demo-dot" />
-                Демо <span className="demo-button-detail">/ роли</span>
-              </button>
-            )}
-            <a href="#/profile" className="avatar" aria-label="Открыть профиль">
-              {session.profile.display_name?.[0] || "Q"}
-            </a>
-          </div>
-        </header>
-        <main id="main" className="content">
-          <div className="page-heading">
-            <div>
-              <span className="eyebrow">
-                {route === "/"
-                  ? new Intl.DateTimeFormat("ru", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    }).format(new Date())
-                  : "QUBITE / ТВОЁ ПРОСТРАНСТВО"}
-              </span>
-              <h1 ref={heading} tabIndex={-1}>
-                {title}
-              </h1>
-            </div>
-            {route === "/" && (
-              <span className="day-marker">
-                <Icon name="sun" size={19} />В своём темпе
-              </span>
-            )}
-          </div>
-          <div className="page-content" key={route}>
-            {page()}
-          </div>
-          <footer className="page-footer">
-            {demo
-              ? "Демо оболочки • данные вымышлены"
-              : "Твоё пространство Qubite"}
-            <span className="colored-dots">
-              <i />
-              <i />
-              <i />
-            </span>
-          </footer>
-        </main>
-      </div>
-      <form
-        className="command-dock"
-        ref={dock}
-        aria-label="Qubite Command"
-        onSubmit={(e) => {
-          e.preventDefault();
-          capture();
-        }}
-      >
-        <div className="command-meta">
-          <span>
-            <Brand />
-            <strong>Qubite Command</strong>
-            <span className="lite-label">LITE</span>
-          </span>
-          <small>
-            {demo
-              ? canWriteInbox
-                ? "Демо / текст во входящие"
-                : "Доступ выдаёт владелец"
-              : "Сохранение пока недоступно"}
-          </small>
-        </div>
-        <div className="command-input">
-          <label className="sr-only" htmlFor="command">
-            Скинь мысль в Qubite Command
-          </label>
-          <textarea
-            id="command"
-            rows={1}
-            maxLength={4000}
-            value={draft}
-            disabled={!canWriteInbox}
-            placeholder={
-              canWriteInbox
-                ? "Мысль, ссылка, план — просто скинь сюда…"
-                : "Входящие пока недоступны"
-            }
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (
-                (e.ctrlKey || e.metaKey) &&
-                e.key === "Enter" &&
-                !e.nativeEvent.isComposing
-              ) {
-                e.preventDefault();
-                capture();
-              }
-            }}
-          />
-          <button
-            className="icon-button voice-button"
-            type="button"
-            aria-label="Голосовой ввод"
-            disabled={!canWriteInbox}
-            onClick={() => setDialog("voice")}
-          >
-            <Icon name="mic" />
-          </button>
-          <button
-            className="send-button"
-            type="submit"
-            aria-label="Добавить мысль"
-            disabled={!demo || !canReadInbox || !canWriteInbox || !draft.trim()}
-          >
-            <Icon name="up" />
-          </button>
-        </div>
-      </form>
+    <MotionContext.Provider value={motion}>
       <div
-        className={`toast ${notice ? "visible" : ""}`}
-        role="status"
-        aria-live="polite"
+        className="app-shell qubite-material"
+        ref={root}
+        data-theme={prefs.dark ? "dark" : "light"}
+        data-quiet={stopped}
+        data-material="flux"
+        data-lite={prefs.lite}
+        style={
+          {
+            "--selection-ms": `${prefs.duration}ms`,
+            "--strength": prefs.strength / 100,
+          } as React.CSSProperties
+        }
       >
-        {notice}
-      </div>
-      {dialog === "preview" && (
-        <Dialog
-          title="Посмотреть другими глазами"
-          onClose={() => setDialog(null)}
+        <LivingLink
+          className="skip-link"
+          href="#main"
+          onClick={(e) => {
+            e.preventDefault();
+            heading.current?.focus();
+          }}
         >
-          <p>
-            Вымышленные аккаунты для проверки оболочки. Выбор роли доступен
-            только в демо-сборке.
-          </p>
-          <div className="persona-list">
-            {(["owner", "member", "new"] as Persona[]).map((p) => (
-              <button
-                className={`persona-choice ${persona === p ? "chosen" : ""}`}
-                key={p}
-                onClick={() => {
-                  setDialog(null);
-                  onPersona?.(p);
-                }}
+          К содержимому
+        </LivingLink>
+        <aside className="sidebar">
+          <LivingLink href="#/" className="brand" aria-label="Qubite — главная">
+            <Brand />
+            <span>
+              Qubite
+              <i />
+            </span>
+          </LivingLink>
+          <LivingNavigation
+            label="Главная навигация"
+            className="main-navigation"
+            value={route}
+          >
+            {navigation.map((n) => (
+              <LivingLink
+                key={n.path}
+                className={route === n.path ? "selected" : ""}
+                aria-current={route === n.path ? "page" : undefined}
+                href={`#${n.path}`}
               >
-                <span className="note-icon blue">
-                  <Icon name={p === "owner" ? "shield" : "user"} />
-                </span>
-                <span>
-                  <strong>
-                    {
-                      {
-                        owner: "Владелец",
-                        member: "Пользователь",
-                        new: "Новый пользователь",
-                      }[p]
-                    }
-                  </strong>
-                  <small>
-                    {
-                      {
-                        owner: "Обычная главная + управление в настройках",
-                        member: "Документы и входящие по отдельным разрешениям",
-                        new: "Только аккаунт, без модулей",
-                      }[p]
-                    }
-                  </small>
-                </span>
-                {persona === p && <Icon name="check" />}
-              </button>
+                <Icon name={n.icon} />
+                <span>{n.name}</span>
+                <i />
+              </LivingLink>
             ))}
+          </LivingNavigation>
+          <div className="sidebar-bottom">
+            <LivingLink href="#/settings" className="settings-link">
+              <span>
+                <Icon name="settings" />
+                Настройки
+              </span>
+            </LivingLink>
+            <div className="sidebar-caption">
+              <span className="colored-dots">
+                <i />
+                <i />
+                <i />
+              </span>
+              Одно пространство.
+              <br />
+              Много возможностей.
+            </div>
           </div>
-          <p className="muted small">
-            Записи Command в этом примере очищаются при смене аккаунта.
-            Настройки видимости остаются в демо до перезагрузки.
-          </p>
-        </Dialog>
-      )}
-      {dialog === "voice" && (
-        <Dialog title="Голос — тоже мысль" onClose={() => setDialog(null)}>
-          <div className="voice-art">
-            <Icon name="mic" size={42} />
+        </aside>
+        <div className="workspace">
+          <header className="topbar">
+            <div>
+              <span className="context-label">ТВОЁ ПРОСТРАНСТВО</span>
+              <span className="greeting">
+                Привет, {session.profile.display_name || "друг"}
+                <span className="greeting-dot" />
+              </span>
+            </div>
+            <div className="header-actions">
+              {demo && (
+                <LivingButton
+                  className="preview-button"
+                  onClick={() => setDialog("preview")}
+                >
+                  <span className="demo-dot" />
+                  Демо <span className="demo-button-detail">/ роли</span>
+                </LivingButton>
+              )}
+              <LivingLink
+                href="#/profile"
+                className="avatar"
+                aria-label="Открыть профиль"
+              >
+                {session.profile.display_name?.[0] || "Q"}
+              </LivingLink>
+            </div>
+          </header>
+          <main id="main" className="content">
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">
+                  {route === "/"
+                    ? new Intl.DateTimeFormat("ru", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      }).format(new Date())
+                    : "QUBITE / ТВОЁ ПРОСТРАНСТВО"}
+                </span>
+                <h1 ref={heading} tabIndex={-1}>
+                  {title}
+                </h1>
+              </div>
+              {route === "/" && (
+                <span className="day-marker">
+                  <Icon name="sun" size={19} />В своём темпе
+                </span>
+              )}
+            </div>
+            <MorphContent className="page-content" identity={route}>
+              {page()}
+            </MorphContent>
+            <footer className="page-footer">
+              {demo
+                ? "Демо оболочки • данные вымышлены"
+                : "Твоё пространство Qubite"}
+              <span className="colored-dots">
+                <i />
+                <i />
+                <i />
+              </span>
+            </footer>
+          </main>
+        </div>
+        <form
+          className="command-dock"
+          ref={dock}
+          aria-label="Qubite Command"
+          onSubmit={(e) => {
+            e.preventDefault();
+            capture();
+          }}
+        >
+          <div className="command-meta">
+            <span>
+              <Brand />
+              <strong>Qubite Command</strong>
+              <span className="lite-label">LITE</span>
+            </span>
+            <small>
+              {demo
+                ? canWriteInbox
+                  ? "Демо / текст во входящие"
+                  : "Доступ выдаёт владелец"
+                : "Сохранение пока недоступно"}
+            </small>
           </div>
-          <p>
-            Голосовой ввод пока не подключён. Можно сохранить мысль текстом в
-            демонстрации.
-          </p>
-          <p className="muted small">
-            Микрофон не включается, звук не записывается и никуда не
-            отправляется.
-          </p>
-          <button className="button orange" onClick={() => setDialog(null)}>
-            Вернуться к тексту <Icon name="arrow" />
-          </button>
-        </Dialog>
-      )}
-    </div>
+          <div className="command-input">
+            <label className="sr-only" htmlFor="command">
+              Скинь мысль в Qubite Command
+            </label>
+            <textarea
+              id="command"
+              rows={1}
+              maxLength={4000}
+              value={draft}
+              disabled={!canWriteInbox}
+              placeholder={
+                canWriteInbox
+                  ? "Мысль, ссылка, план — просто скинь сюда…"
+                  : "Входящие пока недоступны"
+              }
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (
+                  (e.ctrlKey || e.metaKey) &&
+                  e.key === "Enter" &&
+                  !e.nativeEvent.isComposing
+                ) {
+                  e.preventDefault();
+                  capture();
+                }
+              }}
+            />
+            <LivingButton
+              className="icon-button voice-button"
+              type="button"
+              aria-label="Голосовой ввод"
+              disabled={!canWriteInbox}
+              onClick={() => setDialog("voice")}
+            >
+              <Icon name="mic" />
+            </LivingButton>
+            <LivingButton
+              className="send-button"
+              type="submit"
+              aria-label="Добавить мысль"
+              disabled={
+                !demo || !canReadInbox || !canWriteInbox || !draft.trim()
+              }
+            >
+              <Icon name="up" />
+            </LivingButton>
+          </div>
+        </form>
+        <div
+          className={`toast ${notice ? "visible" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          {notice}
+        </div>
+        {dialog === "preview" && (
+          <Dialog
+            title="Посмотреть другими глазами"
+            onClose={() => dismissDialog()}
+          >
+            <p>
+              Вымышленные аккаунты для проверки оболочки. Выбор роли доступен
+              только в демо-сборке.
+            </p>
+            <div className="persona-list">
+              {(["owner", "member", "new"] as Persona[]).map((p) => (
+                <LivingButton
+                  className={`persona-choice ${persona === p ? "chosen" : ""}`}
+                  key={p}
+                  onClick={() => {
+                    setDialog(null);
+                    onPersona?.(p);
+                  }}
+                >
+                  <span className="note-icon blue">
+                    <Icon name={p === "owner" ? "shield" : "user"} />
+                  </span>
+                  <span>
+                    <strong>
+                      {
+                        {
+                          owner: "Владелец",
+                          member: "Пользователь",
+                          new: "Новый пользователь",
+                        }[p]
+                      }
+                    </strong>
+                    <small>
+                      {
+                        {
+                          owner: "Обычная главная + управление в настройках",
+                          member:
+                            "Документы и входящие по отдельным разрешениям",
+                          new: "Только аккаунт, без модулей",
+                        }[p]
+                      }
+                    </small>
+                  </span>
+                  {persona === p && <Icon name="check" />}
+                </LivingButton>
+              ))}
+            </div>
+            <p className="muted small">
+              Записи Command в этом примере очищаются при смене аккаунта.
+              Настройки видимости остаются в демо до перезагрузки.
+            </p>
+          </Dialog>
+        )}
+        {dialog === "voice" && (
+          <Dialog title="Голос — тоже мысль" onClose={() => dismissDialog()}>
+            <div className="voice-art">
+              <Icon name="mic" size={42} />
+            </div>
+            <p>
+              Голосовой ввод пока не подключён. Можно сохранить мысль текстом в
+              демонстрации.
+            </p>
+            <p className="muted small">
+              Микрофон не включается, звук не записывается и никуда не
+              отправляется.
+            </p>
+            <LivingButton
+              className="button orange"
+              onClick={() => dismissDialog()}
+            >
+              Вернуться к тексту <Icon name="arrow" />
+            </LivingButton>
+          </Dialog>
+        )}
+      </div>
+    </MotionContext.Provider>
   );
 }

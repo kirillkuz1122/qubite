@@ -25,7 +25,7 @@ export default defineConfig({
     },
     {
       name: "phone",
-      testMatch: "shell.spec.ts",
+      testMatch: ["shell.spec.ts", "touch.spec.ts"],
       use: {
         baseURL: "http://127.0.0.1:4321",
         viewport: { width: 390, height: 844 },

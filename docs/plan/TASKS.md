@@ -455,11 +455,11 @@ Commit: 2035e1e5298ad94fd9c9aa33586e6c3ad5acda04. Evidence: ["13.10.2026: пер
 
 ## QUB-AUTH-007 — Новые React auth экраны поверх FastAPI Auth
 
-Статус: backlog; модуль: ui; приоритет: P0; approval: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-011.
+Статус: backlog; approval: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-011.
 
 Новый Python identity backend и React дизайн, legacy обслуживает только неперенесённые consumers
 
-Файлы: `apps/web/auth (будущий)`, `docs/design/AUTH_UX.md (будущий)`.
+13.10.2026: прямо разрешена следующей после исправления материала; вопросы заданы до реализации, ответы ожидаются. Повторного разрешения на задачу не требуется.
 
 Acceptance:
 
@@ -467,11 +467,9 @@ Acceptance:
 - FastAPI Auth, безопасные cookies/CSRF/return target, fresh core session/status/revoke; единый вход сервиса, без legacy verifier
 - Web+desktop navigation/keyboard/mobile и реальная UX приёмка
 
-Проверки: Playwright login/register/reset/revoke; no secret logging; screenshots.
+Проверки: Playwright login/register/reset/revoke; no secret logging; screenshots
 
-Риски: Open redirect/token storage/две расходящиеся реализации. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
-
-Commit: None. Evidence: [].
+Evidence: Questions pending: separate auth screen vs modal; new terms/privacy drafts vs placeholders; invitation by link plus manual paste vs link-only. Existing backend/auth decisions remain in force.
 
 ## QUB-AUTH-008 — Единый вход Qubite: fresh-install контракт FastAPI/Postgres
 
@@ -991,22 +989,20 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-002 — Production материал Поток и сохранённые настройки
 
-Статус: backlog; модуль: design; приоритет: P1; approval: false. Зависимости: QUB-DESIGN-001, QUB-UI-001.
+Статус: review/testing; approval: true. Зависимости: QUB-DESIGN-001, QUB-UI-001.
 
 Утверждены Поток/Игрушечная/Лента/Unbounded/Manrope; физика controls отдельно от UI-001 shell
 
-Файлы: `apps/web/src/ui/material (будущий)`, `docs/design/FLUX_DESIGN_SYSTEM.md`.
+13.10.2026: владелец потребовал перенести выбранные живые элементы и анимации из готовых assets, исправить UI-001 и затем выполнить AUTH-007 после вопросов.
 
 Acceptance:
 
 - Согласованный profile перенесён в controls shell; exact values/native semantic и stable gestures
 - Saved strength/quiet preference, OS reduced motion, cancellation/keyboard/focus; unreadable glass отсутствует
 
-Проверки: Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression.
+Проверки: Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression
 
-Риски: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
-
-Commit: . Evidence: [].
+Evidence: Local format/live+demo build passed; Playwright49 passed (17desktop+18phone+14live fixtures), no skipped; touch Input.dispatchTouchEvent/cancel/native value/flow retarget/idle RAF/reduced motion/axe/viewport. Full isolated source-copy all965+engineering11=976pass; real disposable PG18.6, core groups208/165/202 passed27.37/50.90/88.85s; no env/provider/runtime modifications. Implementation push/exact SHA CI/private demo update pending; physical device acceptance open.
 
 ## QUB-PET-001 — Контракт событий, характеров и инициативы четырёх помощников
 

@@ -62,8 +62,14 @@ test("owner hidden/locked preview changes catalog without granting access", asyn
   page,
 }) => {
   await page.goto("/#/settings/owner");
-  await page.getByLabel(/^Поиск/).selectOption("hidden");
-  await page.getByLabel(/^Соединение/).selectOption("locked");
+  await page
+    .getByRole("group", { name: "Поиск: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
+  await page
+    .getByRole("group", { name: "Соединение: без доступа" })
+    .getByRole("button", { name: "С замком" })
+    .click();
   await page
     .getByRole("button", { name: "Посмотреть новым пользователем" })
     .click();
@@ -254,7 +260,9 @@ test("light and dark surfaces pass WCAG checks including owner controls and dial
       await page.goto("/#" + route);
       await expect(page.locator("h1")).toBeVisible();
       await page.locator(".page-content").evaluate(async (e) => {
-        await Promise.all(e.getAnimations().map((a) => a.finished));
+        await Promise.all(
+          e.getAnimations({ subtree: true }).map((a) => a.finished),
+        );
       });
       const result = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -279,4 +287,169 @@ test("light and dark surfaces pass WCAG checks including owner controls and dial
     ).toEqual([]);
     await page.keyboard.press("Escape");
   }
+});
+
+test("Flux navigation flows for 503ms instead of teleporting, and retargets mid-flight", async ({
+  page,
+}) => {
+  const pill = page.locator(".nav-material-pill");
+  const values = () =>
+    pill.evaluate((e) => ({
+      x: parseFloat((e as HTMLElement).style.getPropertyValue("--navX")),
+      y: parseFloat((e as HTMLElement).style.getPropertyValue("--navY")),
+    }));
+  const start = await values();
+  await page.getByRole("link", { name: "Профиль", exact: true }).click();
+  await expect(pill).toHaveAttribute("data-moving", "true");
+  await page.waitForTimeout(140);
+  const midway = await values();
+  const target = await page
+    .locator('.main-navigation a[aria-current="page"]')
+    .evaluate((e) => ({
+      x: (e as HTMLElement).offsetLeft,
+      y: (e as HTMLElement).offsetTop,
+    }));
+  expect(Math.hypot(midway.x - start.x, midway.y - start.y)).toBeGreaterThan(1);
+  expect(Math.hypot(midway.x - target.x, midway.y - target.y)).toBeGreaterThan(
+    1,
+  );
+  await page.getByRole("link", { name: "Главная", exact: true }).click();
+  await expect(pill).not.toHaveAttribute("data-moving", "true");
+  const end = await values();
+  expect(Math.abs(end.x - start.x) + Math.abs(end.y - start.y)).toBeLessThan(
+    0.05,
+  );
+});
+test("Flux settings retain native exact values and the slider/switch react to drag and keyboard", async ({
+  page,
+}) => {
+  await page.goto("/#/settings");
+  const slider = page.getByRole("slider", { name: "Перетекание выбора" });
+  await expect(slider).toHaveValue("503");
+  await slider.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(slider).toHaveValue("504");
+  const sw = page.getByRole("switch", { name: "Тёмная тема" });
+  const b = (await sw.boundingBox())!;
+  await page.mouse.move(b.x + 18, b.y + 22);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 61, b.y + 22, { steps: 8 });
+  await page.mouse.up();
+  await expect(sw).toBeChecked();
+  await page.reload();
+  await expect(slider).toHaveValue("504");
+  await expect(sw).toBeChecked();
+  await sw.focus();
+  await page.keyboard.press("Space");
+  await expect(sw).not.toBeChecked();
+});
+test("bounded material drag cannot activate a button; cancellation restores the surface", async ({
+  page,
+}) => {
+  const button = page.getByRole("button", { name: "Демо", exact: false });
+  const b = (await button.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 220, b.y + b.height / 2, {
+    steps: 10,
+  });
+  await page.waitForTimeout(150);
+  const displacement = await button.evaluate((e) =>
+    parseFloat((e as HTMLElement).style.getPropertyValue("--dragX")),
+  );
+  expect(displacement).toBeGreaterThan(0);
+  expect(displacement).toBeLessThanOrEqual(28.1);
+  await page.mouse.up();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(button).not.toHaveAttribute("data-moving", "true");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+test("quiet/reduced motion snaps semantic selection and stationary controls schedule no frames", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await page.getByRole("link", { name: "Профиль", exact: true }).click();
+  await expect(page.locator(".app-shell")).toHaveAttribute(
+    "data-quiet",
+    "true",
+  );
+  expect(
+    await page
+      .locator(".content")
+      .evaluate(
+        (e) =>
+          e
+            .getAnimations({ subtree: true })
+            .filter((a) => a.playState === "running").length,
+      ),
+  ).toBe(0);
+  await expect(page.locator("[data-moving]")).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.waitForTimeout(1200);
+  const count = await page.evaluate(async () => {
+    let count = 0;
+    const original = requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      count++;
+      return original(callback);
+    };
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    window.requestAnimationFrame = original;
+    return count;
+  });
+  expect(count).toBe(0);
+});
+test("cancelled switch drag never commits a preference", async ({ page }) => {
+  await page.goto("/#/settings");
+  const sw = page.getByRole("switch", { name: "Тёмная тема" });
+  const bounds = (await sw.boundingBox())!;
+  await page.mouse.move(bounds.x + 15, bounds.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 65, bounds.y + 20, { steps: 8 });
+  await sw.dispatchEvent("pointercancel", {
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await page.mouse.up();
+  await expect(sw).not.toBeChecked();
+  await expect(sw).not.toHaveAttribute("data-moving", "true");
+});
+test("selected material can be dragged between options; cancelled drag preserves the choice", async ({
+  page,
+}) => {
+  await page.goto("/#/settings/owner");
+  const group = page.getByRole("group", { name: "Поиск: без доступа" });
+  const hidden = group.getByRole("button", { name: "Скрывать" });
+  const locked = group.getByRole("button", { name: "С замком" });
+  await group.scrollIntoViewIfNeeded();
+  const a = (await hidden.boundingBox())!,
+    b = (await locked.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 9 });
+  await page.mouse.up();
+  await expect(hidden).toHaveAttribute("aria-pressed", "true");
+  await expect(group.locator(".living-pill")).not.toHaveAttribute(
+    "data-moving",
+    "true",
+  );
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 9 });
+  await hidden.dispatchEvent("pointercancel", {
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await page.mouse.up();
+  await expect(hidden).toHaveAttribute("aria-pressed", "true");
+  await expect(group.locator(".living-pill")).not.toHaveAttribute(
+    "data-moving",
+    "true",
+  );
+  await hidden.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(locked).toHaveAttribute("aria-pressed", "true");
 });
