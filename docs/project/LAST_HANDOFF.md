@@ -1,9 +1,13 @@
-# Handoff — QUB-UI-001, 13.10.2026, review/testing
+# Handoff — QUB-UI-001, 13.10.2026, done
 
 Вопросы до реализации, owner ответы1–3 получены. [Отчёт](../reports/QUB-UI-001.md), [ADR-0022](../architecture/decisions/0022-web-shell-and-command.md), [apps/web](../../apps/web/README.md). React shell0.1.0 separate live/demo, approved Toy/Flux/Ribbon/fonts; five sections, Command fixed bottom, settings-only owner entry. Live me/access read adapter, grants exact and no owner bypass; domain writes/auth forms/catalog persistence отсутствуют. Demo owner/member/new, ephemeral text/visibility preview, no paid/provider/mic calls. Local cosmetic settings only.
 
-Local36 browser checks +965 all+11engineering=1012. Browser live tests fixtures, not real browser/core/device acceptance; PG18.6 disposable tested separately. Core0.6.0/0007/legacy/design-lab unchanged. Git exact SHA/CI пока ожидаются; статус не done до успешных результатов. ui001 architecture approved по ответам владельца, новая ui003 scope записана, detailed server decisions ещё вопросы. AUTH-004 зависит UI003+AI002.
+Local36 browser checks +965 all+11engineering=1012. Browser live tests fixtures, not real browser/core/device acceptance; PG18.6 disposable tested separately. Core0.6.0/0007/legacy/design-lab unchanged. Implementation **23b61190de2795060c08fa8b7f5e9a29bffafae4** pushed/origin verified. Оба exact-SHA CI success: web38424077786 15:41:42UTC (36checks), engineering38424077501 15:45:58UTC (976checks),13.10.2026. ui001 architecture approved по ответам владельца, новая ui003 scope записана, detailed server decisions ещё вопросы. AUTH-004 зависит UI003+AI002.
 
 Следующая для обсуждения **AUTH-007** React auth forms email/password/register/verify/reset/OAuth на existing core; до начала новые вопросы и ответы. UI002 физика Потока/сохранённые material prefs, UI003 backend per-module hidden/locked, PET и реальные domain modules отдельные. Tournaments independent optional без core SSO и отсутствует в shell catalog. Никакой установки/постоянного owner/real provider/production deploy.
 
 Base main7da65e0edc5f9aecd0bc3de1f3e5c220be0bbd00. Existing external .antigravitycli deletion исключить. Secrets/env/build/browser state ignored; заполненный deploy/.env не трогать. Skills/subagents/quota reset/личная память writes не применять. Старые snapshots не текущий runtime статус.
+
+[Приватное демо оболочки](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site) v1 успешно опубликовано (appgdep_6ace5ec036b08191a22eafc8daf7399a), owner-only. Старый material-lab не заменён. Publication copy sourcef28554425ee5bd4278a6827d632ddb2899bb9bc6, только новый UI; не API/DB deploy. Сайт не повторно создавать: ignored apps/web/.openai/hosting.json хранит project_idappgprj_6ace5114ca9c8191adc1bd33365fc909. Provider static.directory=dist; публикация требует explicit demo build в отдельной copy, нельзя deploy default live output как демо.
+
+Archive refs повторно verified96f0457a523b6b79f21c4092056d8fa8fa69a680. 68tasks14done/4ready/50backlog; completion docs commit следует после CI, следующую задачу автоматически не начинать.

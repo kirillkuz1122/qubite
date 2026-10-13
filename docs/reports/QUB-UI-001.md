@@ -1,6 +1,6 @@
 # QUB-UI-001 — первая оболочка приложения
 
-13.10.2026. Согласован один bounded task, вопросы/ответы до реализации: состав навигации, закреплённый Command/Lite, owner per-module hidden/locked. [ADR-0022](../architecture/decisions/0022-web-shell-and-command.md). Base main7da65e0edc5f9aecd0bc3de1f3e5c220be0bbd00. Implementation Git/CI evidence дополняется после push, task пока review/testing.
+13.10.2026. Согласован один bounded task, вопросы/ответы до реализации: состав навигации, закреплённый Command/Lite, owner per-module hidden/locked. [ADR-0022](../architecture/decisions/0022-web-shell-and-command.md). Base main7da65e0edc5f9aecd0bc3de1f3e5c220be0bbd00. Задача done в указанных ниже границах; implementation и оба exact-SHA CI подтверждены.
 
 ## Реализовано
 
@@ -29,3 +29,13 @@ Owner интерфейс per-module hidden/locked **preview только в де
 .env, core SQL/contracts, legacy code, design-lab и ShadeAI не изменены. Постороннее удаление .antigravitycli JSON не включать в commit. Archive refs immutable96f0457a523b6b79f21c4092056d8fa8fa69a680; remote verification записывается ниже. CIweb.yml отдельно от engineering.yml; оба обязаны пройти на implementation exactSHA. No system service install/restart/migrations/account bootstrap, real provider calls или production Qubite deploy.
 
 Демо для владельца публикуется отдельно с вымышленными данными; старую material-lab витрину не заменять. URL/version/deployment подтверждать только по successful status. Следующую задачу не начинать автоматически.
+
+## Подтверждённый Git/CI и демо
+
+Implementation **23b61190de2795060c08fa8b7f5e9a29bffafae4**, pushed main/origin verified. [Web CI38424077786](https://github.com/kirillkuz1122/qubite/actions/runs/38424077786) completed/success **2026-10-13T15:41:42Z**: independent npm ci32 packages, format/две сборки, Chromium Playwright36 за31.7s. [Core/legacy CI38424077501](https://github.com/kirillkuz1122/qubite/actions/runs/38424077501) completed/success **15:45:58Z**, all965+engineering11, PostgreSQL16/Python3.14.8. CI суммарно1012checks; failure-only trace upload step skipped по условию, тесты не skipped. Docs completion отдельным commit после evidence, его SHA не заменяет implementation proof.
+
+[Приватное демо оболочки](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site) — Sites version1, deployment **appgdep_6ace5ec036b08191a22eafc8daf7399a succeeded**. Project appgprj_6ace5114ca9c8191adc1bd33365fc909: current user owner, custom access, один allowed owner viewer,0groups. Источник publication **f28554425ee5bd4278a6827d632ddb2899bb9bc6** — только apps/web source из implementation и hosting metadata, без core/legacy/env. Static archive13files/583680bytes; demo mode собран в поддерживаемый Sites каталог dist в отдельной /tmp копии. Локальные product dist/live и dist-demo/demo не смешаны; .openai metadata ignored. Старый material-lab site не заменён. Адрес successful publication не означает запуск рабочего Qubite API или физическую приёмку пользователя.
+
+Первая автоматическая проверка source push отклонена из-за неподтверждённого конкретного destination; ownership/access проверены через Sites get_site (owner only), после этого повторное согласование разрешило push. Токен только в памяти и getpass, не в файлах/коммитах/выводе. Invalid archive directory dist-demo исправлен на поддерживаемый dist в publication copy перед успешным save/deploy; прежние failed попытки не считать публикацией. Token уничтожен в памяти после push. Ни user browser authentication, ни обход private audience не выполнялись.
+
+Remote immutable archive branch/tag повторно проверены на96f0457a523b6b79f21c4092056d8fa8fa69a680. 68tasks:14done/4ready/50backlog. AUTH-007 следующий цикл **только после новых вопросов/ответов владельца**.

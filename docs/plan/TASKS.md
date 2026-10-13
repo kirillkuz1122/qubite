@@ -196,7 +196,7 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 
-Статус: review/testing; модуль: ui; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003, QUB-AUTH-009, QUB-DESIGN-001, QUB-REPO-001.
+Статус: done; модуль: ui; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003, QUB-AUTH-009, QUB-DESIGN-001, QUB-REPO-001.
 
 Отделить обычный user outcome от legacy role dashboard и показать denied/unavailable состояния
 
@@ -213,7 +213,7 @@ Acceptance:
 
 Риски: Скрытие UI не authorization; optimistic sync статус обязан быть честным. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: None. Evidence: ["13.10.2026 owner answers before implementation: agreed navigation, fixed-bottom Qubite Command/Lite, per-module owner hidden/locked setting."].
+Commit: 23b61190de2795060c08fa8b7f5e9a29bffafae4. Evidence: ["13.10.2026 owner answers before implementation: agreed navigation, fixed-bottom Qubite Command/Lite, per-module owner hidden/locked setting.", "Local final: format/typecheck/live+demo builds; Playwright36 (11desktop+11phone+14live HTTP fixtures), axe light/dark/modal/direct URL/expiry/revoke/async race/keyboard signal; all965 + engineering11 real disposable PG18.6; total1012 checks.", "Origin main implementation23b61190de2795060c08fa8b7f5e9a29bffafae4 verified; immutable tournaments/qubite-v1.0 remain96f0457a523b6b79f21c4092056d8fa8fa69a680.", "Exact SHA GitHub web38424077786 completed/success 2026-10-13T15:41:42Z: npm ci/builds/format/Playwright36; engineering38424077501 completed/success15:45:58Z: all965+engineering11.", "Private demo v1 deployment appgdep_6ace5ec036b08191a22eafc8daf7399a succeeded; https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site; publishing sourcef28554425ee5bd4278a6827d632ddb2899bb9bc6 copied from implementation apps/web; synthetic data only.", "No full-stack browser/core/native keyboard/physical-device acceptance; no auth forms, persistent server catalog/inbox/AI/providers/mic/production Qubite install. UI-003 backend visibility before AUTH-004; next AUTH-007 questions first."].
 
 ## QUB-AUTH-004 — Owner Console users/grants/budgets UI
 

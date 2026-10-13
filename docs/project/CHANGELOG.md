@@ -4,7 +4,7 @@
 
 ## 13.10.2026 — QUB-UI-001
 
-Первая React shell в apps/web, live read identity/access и separate fictional demo; Command fixed bottom, owner entry Settings. Hidden/locked owner UI preview, server persistence UI003 новая зависимость полной Console. Локально36browser+976regression; real device/full login ещё отдельно. [Отчёт](../reports/QUB-UI-001.md); exactSHA Git/CI evidence дополняется после push. Next AUTH007, сначала вопросы.
+Первая React shell в apps/web, live read identity/access и separate fictional demo; Command fixed bottom, owner entry Settings. Hidden/locked owner UI preview, server persistence UI003 новая зависимость полной Console. Локально36browser+976regression; real device/full login ещё отдельно. [Отчёт](../reports/QUB-UI-001.md); Implementation23b6119, exact-SHA CI38424077786/38424077501 success. Private demo v1 succeeded; Git/hosting evidence в отчёте. Next AUTH007, сначала вопросы.
 
 ## 13.10.2026 — QUB-REPO-001
 
