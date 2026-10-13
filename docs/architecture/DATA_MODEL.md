@@ -1,5 +1,7 @@
 # Модель данных и invariants
 
+**AUTH-00913.10.2026:** кроме subjects/owner реализованы password_credentials, sessions(web), auth_preauth и auth_rate_limits в0003_auth. [Поля/индексы/invariants](WEB_AUTH.md). Прочие domain/native/keys/permissions таблицы ниже logical backlog.
+
 **Реализовано AUTH-00213.10.2026:** subjects/platform_owner в0002_identity, UUID/canonical email/status/version и local owner bootstrap. [Фактические поля/FK/индексы](IDENTITY_SCHEMA.md). Остальные таблицы ниже logical backlog, password/session позже AUTH-009; technical namespace0001 не является текущей полной schema.
 
 CONFIRMED storage: новый core Postgres, SQLite турниров. **ADR-0013/13.10.2026:** fresh core identity, новые UUID/accounts без legacy mapping/import; у владельца нет действующих аккаунтов/деплоя по его сообщению. Legacy SQLite Auth больше не целевой authority. [Identity schema/credentials/invariants](../migration/IDENTITY_CUTOVER.md). Это logical schema; SQL миграции создаются небольшими approved задачами. Не одна гигантская JSON objects таблица.

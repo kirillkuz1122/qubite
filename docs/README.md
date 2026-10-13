@@ -1,5 +1,7 @@
 # Документация Qubite 2.0 и legacy
 
+Текущее ядро: [реальный Web Auth](architecture/WEB_AUTH.md), [отчёт AUTH-009](reports/QUB-AUTH-009.md), [core запуск](../core/README.md). Частичная реализация продолжается по задачам; документация legacy и прежних milestones ниже сохраняется.
+
 Новый комплект проектирует платформу; legacy-код продолжает существовать. Стек согласован 12.10.2026; механика и клиентские POC описаны в ADR. Не считать планы реализацией.
 
 - [Отчёт QUB-001](reports/QUB-001.md), [текущее состояние и inventory](architecture/CURRENT_STATE.md), [security audit](architecture/SECURITY_AUDIT.md), [ShadeAI read-only](architecture/SHADEAI_INTEGRATION.md).

@@ -4,3 +4,4 @@ uvicorn==0.54.0
 psycopg[binary]==3.3.6
 # Already pinned transitively in requirements.lock; identity uses IDNA2008 directly.
 idna==3.20
+argon2-cffi==25.1.0

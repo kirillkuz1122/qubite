@@ -1,5 +1,7 @@
 # Тестовая стратегия
 
+**AUTH-00913.10.2026:** core208 (29foundation+59identity+120new Auth), финальный all593+harness4=597 pass. HTTPS cookie semantics/TestClient, actual local Uvicorn, real PG races/limited SQL role и negative CSRF/status/expiry/throttle/malformed/body cases. Protocol32 различает implemented AUTH-009 и planned будущие routes; introspection oracle остаётся synthetic. [Evidence](../reports/QUB-AUTH-009.md), [scope](../architecture/WEB_AUTH.md). Исторические числа ниже относятся к прежним milestones; physical browser/OAuth/native/production отдельно.
+
 Baseline 12.10.2026: existing 65 Node tests и 18 deploy unittest прошли вне filesystem/socket sandbox; подробный итог изолированного harness см. [отчёт](../reports/QUB-001.md). npm test пока не агрегирует suites. Новые tests — catalog + grading characterization; полный tournament HTTP/E2E пока не готов.
 
 ## Пирамида и release gates
@@ -9,7 +11,7 @@ Baseline 12.10.2026: existing 65 Node tests и 18 deploy unittest прошли �
 | Docs/tasks harness | schema/states/dependency cycles/approved ready/done evidence | python3 scripts/engineering/check.py; unittest tests/engineering |
 | Legacy unit/domain | security/task-runtime/catalog/schema, grants/usage/keys | verify.py --suite node |
 | Service contract/integration | auth/native enrollment/revoke, Search fetch/auth/ledger, Brief outbox/AI mocks, Kwork hooks, managers | verify.py --suite all --python <test-venv-python> |
-| Новое Core integration | actual API + disposable Postgres migrations + concurrent locks + fake provider | отдельные test commands появятся после реализации core; два процесса для budget race |
+| Новое Core integration | actual API + disposable Postgres migrations + concurrent locks + fake provider | verify.py --suite core --python <test-python> --postgres-bin <native-bin>; настоящие Auth/migrations/PG race fixtures, будущие budget races отдельно |
 | UI/E2E | owner/nonowner/denied direct URL, capture/offline/two-device/restore, legacy tournaments | Playwright fixtures + isolated HTTP, screenshot/viewports; команды создаются QUB-TEST-002/QUB-UI-001 |
 | Hardware/performance | Android pen, crash/autosave/PDF/frame pacing; Pi simultaneous load | реальные устройство/нагрузка; fake device не закрывает acceptance |
 | Ops | backup/restore/schema rollout/canary/rollback | disposable restore + read-only checks, production отдельно |

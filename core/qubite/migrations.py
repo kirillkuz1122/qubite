@@ -68,6 +68,15 @@ def validate_schema(connection, migrations):
         """).fetchall()}
         if tables != {"subjects", "platform_owner"}:
             raise MigrationError("Core identity schema is missing; explicit recovery required")
+    if "0003_auth" in versions:
+        required = {"password_credentials", "sessions", "auth_preauth", "auth_rate_limits"}
+        tables = {r[0] for r in connection.execute("""
+            SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'qubite_core' AND c.relkind IN ('r', 'p')
+              AND c.relname IN ('password_credentials', 'sessions', 'auth_preauth', 'auth_rate_limits')
+        """).fetchall()}
+        if tables != required:
+            raise MigrationError("Core Auth schema is missing; explicit recovery required")
 
 
 def ensure_current(connection, migrations):

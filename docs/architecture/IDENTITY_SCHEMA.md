@@ -1,6 +1,8 @@
 # Реализованное хранилище аккаунтов — AUTH-002
 
-13.10.2026. Fresh identity из [ADR-0013](decisions/0013-fresh-identity-and-unified-login.md). Реализованы PostgreSQL subjects/singleton owner, внутреннее создание pending account и explicit local bootstrap. **Пароли, login/session API, OAuth и разрешения модулей ещё не реализованы.** Не создан пользовательский owner в постоянной среде: тестовые аккаунты живут в disposable DB и удаляются вместе с ней.
+**Текущее исполнение AUTH-00913.10.2026:** credentials/web sessions/CSRF/rate counters добавлены explicit0003; current схема0003_auth, core0.2.0. [Рабочий Auth/owner password CLI](WEB_AUTH.md), [report](../reports/QUB-AUTH-009.md). Поля0002 ниже сохранены; прежние указания «пароль следующей задачей» описывают момент AUTH-002, сейчас initial getpass команда и web login реализованы. Настоящий owner постоянной среды ещё не создавался.
+
+13.10.2026. Fresh identity из [ADR-0013](decisions/0013-fresh-identity-and-unified-login.md). Реализованы PostgreSQL subjects/singleton owner, внутреннее создание pending account и explicit local bootstrap. Это срез AUTH-002: passwords/login/session добавлены в AUTH-009/0003; OAuth и разрешения модулей остаются отдельными задачами. Не создан пользовательский owner в постоянной среде: тестовые аккаунты живут в disposable DB и удаляются вместе с ней.
 
 ## SQL и связи
 

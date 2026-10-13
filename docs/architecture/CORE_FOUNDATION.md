@@ -1,5 +1,7 @@
 # Реализованный core foundation — QUB-CORE-001
 
+**Текущее исполнение AUTH-00913.10.2026:** FastAPI0.2.0/OpenAPI дополнен реальными web Auth routes; current0003_auth и шесть tables, readiness catalog-only/history. [Web Auth](WEB_AUTH.md), [report](../reports/QUB-AUTH-009.md). Ниже исторический foundation0.1/0001 и отдельный account slice0002, не текущая полная schema.
+
 **Обновление13.10.2026, AUTH-002:** добавлена explicit0002_identity — subjects/platform_owner и local bootstrap. Current schema0002, readiness проверяет обе реальные таблицы. Историческое описание0001 ниже сохраняется; [реализованная identity](IDENTITY_SCHEMA.md)/[отчёт](../reports/QUB-AUTH-002.md) — текущие детали. Public HTTP API по-прежнему только health/OpenAPI, пароли/login ещё AUTH-009.
 
 12.10.2026. Engineering slice согласован пользователем как следующая задача; подтверждённый стек FastAPI/Python/Postgres из ADR-0001. `core/qubite` создан отдельно от Node/SQLite. Это foundation 0.1.0, не готовая universal platform/Auth.

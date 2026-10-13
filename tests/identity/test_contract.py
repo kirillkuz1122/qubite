@@ -1,4 +1,4 @@
-"""Protocol specification tests. No runtime authentication or production data.
+"""Protocol vectors/oracle tests; real web Auth is checked separately in core/tests. No production data.
 
 The response oracle below describes the target contract; it is deliberately
 test-only. Passing it does not mean that the planned endpoints are implemented.
@@ -97,8 +97,10 @@ def valid_response(payload, audience='search', auth_version=1,
     return p['session_id'] is not None
 
 
-def test_fresh_install_does_not_claim_a_working_auth_or_import_legacy():
-    assert CONTRACT['status'] == 'specification' and not CONTRACT['runtime_implemented']
+def test_fresh_install_records_partial_runtime_without_legacy_import():
+    assert CONTRACT['status'] == 'partial_implementation' and CONTRACT['runtime_implemented']
+    assert CONTRACT['implemented_tasks'] == ['QUB-AUTH-009']
+    assert all(r['status'] == ('implemented' if r['task']=='QUB-AUTH-009' else 'planned') for r in CONTRACT['routes'])
     install = CONTRACT['installation']
     assert install['mode'] == 'fresh_install'
     assert not any(install[k] for k in (
@@ -197,7 +199,7 @@ def test_endpoint_boundary_native_flow_and_response_hygiene():
     seen = set()
     for r in CONTRACT['routes']:
         key = (r['method'], r['path'])
-        assert key not in seen and r['status'] == 'planned'
+        assert key not in seen and r['status'] == ('implemented' if r['task']=='QUB-AUTH-009' else 'planned')
         seen.add(key)
         assert not any(x in r['path'] for x in ('code-entry', 'app/login', 'owner/bootstrap'))
     introspection = next(r for r in CONTRACT['routes'] if r['path'] == CONTRACT['internal']['path'])

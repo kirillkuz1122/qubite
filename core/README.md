@@ -1,51 +1,58 @@
-# Qubite Core — foundation 0.1.0
+# Qubite Core — FastAPI0.2.0
 
-## Локальное создание owner — AUTH-002
+Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001/0002/0003, fresh accounts/local owner bootstrap и рабочий Web Auth (AUTH-009). Есть login/profile/session list/CSRF/reauth/logout/revoke. React формы, Owner Console, module policy/OAuth/verify/reset/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
 
-После explicit migration в dedicated core DB и приватной настройки QUBITE_CORE_DATABASE_URL:
+## Установка и конфигурация
 
-```sh
-PYTHONPATH=core core/.venv/bin/python -m qubite.identity bootstrap-owner
-```
-
-Введите email и CREATE OWNER в prompt. Команда создаёт fresh UUID/active subject +singleton owner атомарно, печатает UUID; повторный запуск отказывает без перезаписи. Пароль/usable login добавляются AUTH-009; email пока unverified, module/model grants не выдаются. Public bootstrap endpoint и startup side effects отсутствуют. Команда требует trusted operator DB privileges; API runtime не должен иметь INSERT/UPDATE/DELETE platform_owner. Данные настоящего владельца в этом engineering cycle не создавались. [Schema/constraints/границы](../docs/architecture/IDENTITY_SCHEMA.md), [отчёт](../docs/reports/QUB-AUTH-002.md).
-
-Отдельное FastAPI-приложение Qubite 2.0. Есть health/readiness/OpenAPI, explicit PostgreSQL migrations0001/0002 и fresh account storage/local singleton owner bootstrap (AUTH-002). Пароли/login/session API, Owner Console, остальные доменные таблицы/React/Telegram ещё не реализованы. Legacy Node/SQLite работает отдельно, импортов или подключения к нему нет.
-
-## Локальный запуск
-
-Из корня checkout, в отдельном виртуальном окружении:
+Из корня checkout, отдельное окружение:
 
 ```sh
 python3 -m venv core/.venv
 core/.venv/bin/python -m pip install -r core/requirements.lock
-PYTHONPATH=core core/.venv/bin/python -m uvicorn qubite.app:create_app --factory --host 127.0.0.1 --port 9210
 ```
 
-Без `QUBITE_CORE_DATABASE_URL` liveness возвращает 200, readiness — 503 `storage_not_configured`. Приложение не загружает .env, не открывает БД при import/startup и не выполняет миграции автоматически. Нужны только core-specific переменные. Если у отдельного локального PostgreSQL уже создана пустая dedicated база, URL хранить приватно, не публиковать и не вставлять пароль в командную историю. Формат: `postgresql://<user>:<password>@127.0.0.1:<port>/qubite_core` (или `qubite_core_<suffix>`), с явными user/IP/port/database. Foundation допускает только loopback IP; remote DB/TLS/секреты/пулы прорабатываются перед deploy отдельно. SQLite URL и существующий legacy DATABASE_PATH не используются.
+Если venv создан через uv без pip, использовать `uv pip install --python core/.venv/bin/python -r core/requirements.lock`. Pinned runtime включает Argon2id/Psycopg; тестовый lock отдельный в scripts/engineering. Системный PostgreSQL не устанавливается этими командами.
 
-## Явная миграция
+QUBITE_CORE_DATABASE_URL хранить приватно, без реального пароля в argv/истории/Git. Требуется dedicated PostgreSQL qubite_core или qubite_core_<suffix>, явные user/loopback IP/port. Существующие DATABASE_PATH/PG service files/.env не загружаются. Remote DB/TLS/pooling прорабатываются при deploy. Без DB config liveness200, storage readiness503.
 
-После задания core URL в приватном окружении:
+QUBITE_CORE_AUTH_ORIGIN — точный HTTPS origin без пути/credentials/query/fragment/wildcard, например synthetic https://qubite.example.test. Без него Auth503 identity_unavailable, health/OpenAPI работают. Для локального HTTP указать explicit http://127.0.0.1:9210 (либо localhost/::1) и QUBITE_CORE_AUTH_LOCAL_HTTP=true; отдельные cookie имена qubite_local_*, публичный hostname/insecure production запрещены.
+
+## Миграция и локальный owner
+
+На подготовленной dedicated базе, перед запуском API:
 
 ```sh
 PYTHONPATH=core core/.venv/bin/python -m qubite.migrations check
 PYTHONPATH=core core/.venv/bin/python -m qubite.migrations apply
-PYTHONPATH=core core/.venv/bin/python -m qubite.migrations check
+PYTHONPATH=core core/.venv/bin/python -m qubite.identity bootstrap-owner
+PYTHONPATH=core core/.venv/bin/python -m qubite.identity set-owner-password
 ```
 
-`check` только читает, при pending/drift/unavailable/missing identity tables возвращает код 1; current schema0002_identity. `apply` выполняет транзакцию SQL+ledger под advisory lock. Повторный apply возвращает already current; неизвестная/изменённая история и потерянный core schema требуют явного recovery, автоматически не ремонтируются. API account может быть read-only, migration account отдельно. Никакой автоматической down/delete команды нет; restore/cutover требуют отдельного runbook/backup. Не запускать миграции на live данных по факту появления нового кода.
+Bootstrap спрашивает email и CREATE OWNER; initial password только interactive TTY/getpass дважды и SET OWNER PASSWORD. Никаких password/email options. Повтор owner/password setup не перезаписывает данные; existing pending account не повышается. Пароль12..256 codepoints/<=1024 UTF8 bytes, exact без trim/нормализации; Argon2id PHC. Email пока unverified, никакие grants/budgets не выдаются. Постоянный owner в engineering задачах ещё не создавался: только fixtures.
 
-## API v1
+Apply транзакционный под migration advisory lock; current0003_auth, шесть domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0002 не станет ready на ahead0003, данные сохранять и использовать совместимый forward recovery.
 
-- `GET /api/v1/health/live` — процесс способен отвечать, без БД.
-- `GET /api/v1/health/ready` — только 200 ready при доступной PostgreSQL и актуальной migration history/core namespace и subjects/platform_owner tables; иначе 503 с общим кодом. Нет DSN/SQL/user/private error в ответе.
-- `GET /api/v1/openapi.json` — OpenAPI; версионированный контракт `contracts/core-v1.json` должен совпадать с runtime.
-
-## Проверка
+## Запуск и HTTP
 
 ```sh
-python3 scripts/engineering/verify.py --suite core --python <test-venv-python> --postgres-bin <path-to-initdb-and-postgres>
+PYTHONPATH=core core/.venv/bin/python -m uvicorn qubite.app:create_app --factory --host 127.0.0.1 --port 9210 --no-access-log --no-proxy-headers
 ```
 
-Harness требует pytest/runtime зависимости из `scripts/engineering/test-requirements.lock`. Native PostgreSQL может быть установлен заранее или извлечён в отдельный /tmp; тесты сами создают/завершают private cluster с ephemeral loopback port и отдельной БД для каждого сценария. Ничего не скачивают автоматически, не требуют Docker/system service/реальных credentials. В Ubuntu CI native binaries обнаруживаются в `/usr/lib/postgresql/*/bin`; при отсутствии prerequisite тесты fail, не skip. Детали: [foundation](../docs/architecture/CORE_FOUNDATION.md), [отчёт](../docs/reports/QUB-CORE-001.md).
+Health: GET /api/v1/health/live, /health/ready; OpenAPI /api/v1/openapi.json. Storage readiness проверяет ledger/namespaces/table existence/type, не complete semantic fingerprint/owner setup/TLS ingress.
+
+Web сценарий: GET /api/v1/auth/csrf → POST /auth/session (JSON email/password + exact Origin/X-CSRF-Token + preauth cookie) → GET /api/v1/me. Browser cookie __Host-qubite_session Secure/HttpOnly/Lax/Path=/, Domain отсутствует; raw token не в JSON/localStorage/URL. GET /auth/sessions только собственная metadata; DELETE /auth/sessions/{UUID}, POST /auth/logout требуют session-bound proof. Logout-all требует recent reauth<=300s; POST /auth/reauth проверяет собственный password. Каждый запрос перепроверяет actual status/version/revoke/idle7d/absolute30d. Validation400 не печатает body/password, responses no-store. Bearer/native/API keys в этом slice не поддерживаются.
+
+Нет CORS/forwarded trust; runtime API loopback. Ingress TLS/firewall/proxy/log redaction/trusted client-IP/workers/backup проверяются отдельно перед deploy. Не объявлять localhost smoke проверкой публичного сервера.
+
+## Проверки и документация
+
+```sh
+python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>
+python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>
+python3 -m unittest discover -s tests/engineering
+python3 scripts/engineering/check.py
+```
+
+Missing prerequisites fail/no skip. Real fresh private PG cluster/DB и isolated HOME/source-copy, no external network/.env. HTTPS TestClient/cookie checks и actual local Uvicorn HTTP smoke; физические браузеры/OAuth/native/providers/production отдельно.
+
+[Web Auth/схема/API/лимиты](../docs/architecture/WEB_AUTH.md), [accounts/owner](../docs/architecture/IDENTITY_SCHEMA.md), [отчёт AUTH-009](../docs/reports/QUB-AUTH-009.md), [foundation](../docs/architecture/CORE_FOUNDATION.md). Prototype design-lab и legacy product UI не менялись.

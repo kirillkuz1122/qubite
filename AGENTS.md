@@ -9,7 +9,7 @@
 - Хостинг отложен владельцем 12.10.2026, возможен VPS. Не блокировать локальное проектирование/разработку ресурсами Raspberry Pi; inventory/capacity/backup/restore остаются обязательными перед миграцией и деплоем. Ответами позднее 12.10.2026 стек согласован; локальные задачи разрешены по harness, live migration/deploy отдельно.
 - ShadeAI `/home/kirill/programing/ShadeAI` только read-only для будущего connector, без import/merge/secrets/cloud runtime changes.
 - Проверки: `python3 scripts/engineering/check.py`; `python3 scripts/engineering/verify.py --suite all --python <test-venv-python>`. Runner использует source-copy без .env, isolated HOME/DB и no external network. Итоги в [QUB-001](docs/reports/QUB-001.md); pass mocks не означает real API/device/production acceptance.
-- AUTH-008 — контракт/план/synthetic protocol tests, не работающий Auth. AUTH-002 done: новые PG accounts/explicit local singleton owner bootstrap,477 local+CI checks; [схема/CLI](docs/architecture/IDENTITY_SCHEMA.md), [отчёт](docs/reports/QUB-AUTH-002.md). Current migration0002_identity, startup не пишет БД; постоянный owner не создавался, только disposable fixtures. Следующая AUTH-009 password/login/session и local owner password setup, status в tasks.json. Search/Writing/VPN/native переходят в своих bounded задачах; unified login не объединяет vault master secrets/bot/node credentials. Identity suite включена в verify.py all. Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
+- AUTH-009: реальный Web Auth/core0.2.0/explicit0003_auth, Argon2id/local initial owner password, CSRF/session/reauth/revoke; [runtime](docs/architecture/WEB_AUTH.md), [отчёт](docs/reports/QUB-AUTH-009.md). Identity-v2 partial_implementation, implemented только AUTH-009, остальные planned. AUTH-008 source specification/oracle не полный verifier. AUTH-002 done: новые PG accounts/explicit local singleton owner bootstrap,477 local+CI checks; [схема/CLI](docs/architecture/IDENTITY_SCHEMA.md), [отчёт](docs/reports/QUB-AUTH-002.md). Current migration0003_auth, startup не пишет БД/не вычисляет password hash; постоянный owner/пароль не создавались, только disposable fixtures. Следующая AUTH-010 OAuth, затем AUTH-011 verify/reset, status в tasks.json. Политика/React/native/keys/ingress ещё отдельные. Search/Writing/VPN/native переходят в своих bounded задачах; unified login не объединяет vault master secrets/bot/node credentials. Identity suite включена в verify.py all. Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
 - DESIGN-001 done: **Поток/Игрушечная/Лента/Unbounded/Manrope и ритм100/503 подтверждены владельцем после просмотра версии4.** [Color Plastic04](docs/design/COLOR_PLASTIC.md), [Flux contract](docs/design/FLUX_DESIGN_SYSTEM.md), [ADR-0012](docs/architecture/decisions/0012-flux-design-system.md): пять ярких наборов с semantic roles, выбран toy; production layout/device checks остаются UI-002. [Лаборатория](assets/design-lab/README.md), [report](docs/reports/QUB-DESIGN-001.md), 133 browser tests. Старые сцены/Milo сохранены. Не использовать skills/quota reset/subagents по прямому запросу. Reuse owner-private project_id из hosting.json, tokens не хранить; CI tests-only, отдельное demo publish разрешено, production Qubite отдельно. UI-002/PET-* backlog, реальные agents отсутствуют.
 
 ---
@@ -42,7 +42,7 @@
   - `back/src/task-runtime.js`
   - `back/src/security.js`
   - `back/src/config.js`
-- Legacy использует `SQLite`; новый core storage PostgreSQL с explicit migrations0001/0002, subjects/platform_owner (без password/session API пока).
+- Legacy использует `SQLite`; новый core storage PostgreSQL с explicit migrations0001/0002/0003, subjects/platform_owner/credentials/web sessions/security metadata.
 - Текущий CAPTCHA-слой — `Cloudflare Turnstile`, но в roadmap есть переход на `Yandex SmartCaptcha`.
 
 ## Ключевые файлы
@@ -68,6 +68,8 @@
 
 - `core/qubite/migrations.py`, `core/qubite/sql/0002_identity.sql` — explicit transactional schema/history gates.
 - `core/qubite/identity/accounts.py` — fresh subjects и owner bootstrap; `__main__.py` — local CLI, no public signup/bootstrap.
+- `core/qubite/identity/auth/` — passwords/tokens/store/http/routes, `0003_auth.sql` — actual Web Auth schema; config Auth origin/local mode explicit, bearer/OAuth/native ещё отсутствуют.
+- `core/tests/test_auth.py` — real PG/HTTP/race/role/secret-free negative cases; `set-owner-password` только local TTY/getpass, никакой пароль в argv/модель.
 - `core/tests/test_identity.py` — real disposable PostgreSQL cases; [CLI/schema](docs/architecture/IDENTITY_SCHEMA.md), [core запуск](core/README.md).
 
 ### Telegram Bot

@@ -1,12 +1,17 @@
 """Small typed API foundation. Construction/startup perform no network or DDL."""
 from typing import Literal
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from . import __version__
 from .config import ConfigurationError, Settings
 from .migrations import MigrationError, check
+from .identity.auth.http import AuthGuard
+from .identity.auth.routes import create_router
+from .identity.auth.store import AuthError
 
 
 class Health(BaseModel):
@@ -26,10 +31,31 @@ class Readiness(BaseModel):
     code: Literal["ready", "storage_not_configured", "storage_not_ready"]
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, auth_clock=None) -> FastAPI:
     settings = settings if settings is not None else Settings.from_env()
     app = FastAPI(title="Qubite Core", version=__version__, docs_url=None, redoc_url=None,
                   openapi_url="/api/v1/openapi.json")
+    app.add_middleware(AuthGuard, settings=settings)
+    app.include_router(create_router(settings, auth_clock))
+
+    @app.exception_handler(AuthError)
+    async def auth_error(request: Request, error: AuthError):
+        headers = {"Cache-Control": "no-store"}
+        if error.status == 429:
+            headers["Retry-After"] = "300"
+        response = JSONResponse({"code": error.code}, status_code=error.status, headers=headers)
+        if error.status == 401 and error.code == "unauthenticated":
+            # Expired/revoked cookies must not block the next anonymous login challenge.
+            # A wrong password during reauth is invalid_credentials and keeps the session.
+            response.delete_cookie(settings.session_cookie, path="/", httponly=True,
+                                   secure=not settings.auth_local_http, samesite="lax")
+        return response
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, error: RequestValidationError):
+        # Default validation errors can include plaintext password/body values.
+        return JSONResponse({"code": "invalid_request"}, status_code=400,
+                            headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v1/health/live", response_model=Health, operation_id="core_liveness", tags=["health"])
     def live() -> Health:

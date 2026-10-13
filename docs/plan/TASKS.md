@@ -675,11 +675,11 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-009 — FastAPI password login/logout/session core
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
 
 Причина: Нужный новой платформе Auth реализовать на Python, не permanent JS adapter.
 
-Файлы/контракты: `core/qubite/identity/auth (будущий)`.
+Файлы/контракты: `core/qubite/identity/`, `core/qubite/sql/0003_auth.sql`, `core/qubite/app.py`, `core/qubite/config.py`, `core/qubite/migrations.py`, `core/qubite/__init__.py`, `core/tests/`, `core/requirements.in`, `core/requirements.lock`, `core/README.md`, `contracts/core-v1.json`, `contracts/identity-v2.json`, `tests/identity/test_contract.py`, `scripts/engineering/check.py`, `scripts/engineering/test-requirements.lock`, `tests/engineering/`, `docs/architecture/`, `docs/migration/IDENTITY_CUTOVER.md`, `docs/project/`, `docs/plan/`, `docs/engineering/`, `docs/reports/QUB-AUTH-009.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`.
 
 Acceptance:
 
@@ -688,11 +688,11 @@ Acceptance:
 - No code-entry, no owner/global-role bypass; реальные пароли не читать в модель
 - AUTH-L01: malformed percent cookie не вызывает 500; безопасный credential отказ и server survives
 
-Проверка: Disposable Postgres password/session/CSRF/expiry/concurrency/reauth/blocked/revoke integration; identity-v2 protocol vectors, no old-password compatibility.
+Проверка: python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>; python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>; python3 -m unittest discover -s tests/engineering; python3 scripts/engineering/check.py; git diff --check; Argon2id benchmark на synthetic пароль, HTTPS secure-cookie HTTP integration и actual concurrent PostgreSQL connections.
 
 Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались..
+Commit: после выполнения. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались.; 13.10.2026: прямое указание владельца «Делай след задачу»; выбран AUTH-009. Границы: web password/session API/local owner password setup, без React/OAuth/reset/native/service cutover/production DB; только fixtures. Источник паролей owner — getpass локальной CLI, реальные значения агенту не передаются.; 13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются..
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
@@ -712,9 +712,9 @@ Acceptance:
 
 Проверка: Provider fixture state/PKCE/replay/link collision/unconfigured tests.
 
-Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
+Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: ещё не получены.
 
 ## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
 
@@ -732,9 +732,9 @@ Acceptance:
 
 Проверка: Challenge expiry/replay/exhaustion/reset/session revoke tests.
 
-Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
+Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: ещё не получены.
 
 ## QUB-CORE-002 — FastAPI platform settings и module command controls
 
@@ -1119,6 +1119,6 @@ Commit: после выполнения. Evidence: .
 
 ## Принятые UI решения и текущий шаг
 
-DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. PET-001/002 сохраняют hidden/edge peek/contextual appearance/dialogue/retreat; placement выбирается при реализации screens. Prototype scripted, реальные agents отсутствуют. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
+DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope,100/503. PET edge peek/hidden/appearance/retreat сохранены; scripted prototype, real agents нет. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
 
-AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success. AUTH-002 done: PG subjects/singleton owner, локальное назначение,477 local+CI checks/implementation0dff63e. Следующий ready bounded cycle AUTH-009 — password setup/login/session. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.
+AUTH-009 — реальный Web Auth/core0.2.0/schema0003, статус/evidence выше; React/OAuth/reset/native/keys/policy ещё отдельные. Следующий bounded cycle AUTH-010 OAuth, затем AUTH-011 verification/reset; AUTH-003 ждёт approval. Auth не выдаёт module/AI grants, legacy/runtime/service ingress не переключён.

@@ -22,3 +22,5 @@
 | [0013](0013-fresh-identity-and-unified-login.md) | CONFIRMED fresh identity 13.10.2026 / engineering protocol | новый единый FastAPI/Postgres Auth, явный local owner bootstrap, без импорта/bridge legacy аккаунтов |
 
 | [0014](0014-fresh-accounts-and-owner-bootstrap.md) | Engineering decision в approved AUTH-002 | explicit fresh schema, canonical email, active singleton FK, local transactional bootstrap и readonly schema gates |
+
+| [0015](0015-web-password-sessions.md) | Engineering decision в approved AUTH-009 | Argon2id, одноразовый preauth/CSRF, PG sessions/rates/reauth, partial runtime contract и explicit local password setup |
