@@ -1,0 +1,37 @@
+name: Qubite web verification
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['apps/web/**', '.github/workflows/web.yml']
+  pull_request:
+    branches: [main]
+    paths: ['apps/web/**', '.github/workflows/web.yml']
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm run build:demo
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: web-test-traces
+          path: apps/web/test-results
+      - run: git diff --exit-code
+# Build-time demo is tested separately. No production credentials or deploy.

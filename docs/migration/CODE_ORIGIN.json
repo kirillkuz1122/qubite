@@ -10,6 +10,11 @@
       "policy": "FastAPI/Postgres; implemented/planned routes различать"
     },
     {
+      "path": "apps/web",
+      "status": "new_runtime_partial",
+      "policy": "React/TS live shell reads core identity/grants; compile-time demo isolated, auth screens/server catalog/inbox future tasks"
+    },
+    {
       "path": "contracts",
       "status": "new_contract",
       "policy": "Only implemented task IDs imply runtime"
@@ -86,5 +91,6 @@
     ".env": "new blank template ignored",
     "legacy/qubite-v1/.env": "previous root env preserved ignored"
   },
-  "unknown_source_policy": "Не подключать к core до явной классификации и task approval."
+  "unknown_source_policy": "Не подключать к core до явной классификации и task approval.",
+  "updated_by": "QUB-UI-001"
 }

@@ -8,7 +8,7 @@ NEW RUNTIME: core/qubite, migrations/SQL, core/tests; contracts реализов
 
 LEGACY ARCHIVED: legacy/qubite-v1 (back/front/11 HTML/legal/.env.example/старый deploy/docs); legacy/qubite-vpn (Flutter, native источники, старые binary builds); legacy/integrations/qubite-siyuan (исключён из нового продукта). LEGACY REFERENCE: services/search, services/specbot, integrations/kwork/qubite-search/qubite-writing/qubite-knowledge; нужен новый interview/design/core API до подключения. [Карта](../legacy-services/README.md).
 
-modules/tournaments — metadata/инструкции optional standalone package. Единственная копия runtime в legacy/qubite-v1, без симлинков и без дублирования. Описание само не устанавливает компонент/не регистрирует его в core. Новая apps/web ещё не создана; не плодить пустые scaffolds вместо UI-001.
+modules/tournaments — metadata/инструкции optional standalone package. Единственная копия runtime в legacy/qubite-v1, без симлинков и без дублирования. Описание само не устанавливает компонент/не регистрирует его в core. Новая apps/web создана UI-001: partial React runtime с existing me/access, отдельными live/demo artifacts. Auth forms, server catalog и domain modules ещё не реализованы. [ADR-0022](decisions/0022-web-shell-and-command.md).
 
 ## Domains и данные
 

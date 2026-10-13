@@ -4,6 +4,7 @@
 
 - [Видение](product/VISION.md), [требования](product/REQUIREMENTS.md), [Owner Console](product/OWNER_CONSOLE.md).
 - [Карта репозитория и статусов](architecture/REPOSITORY_LAYOUT.md), [архитектура](architecture/TARGET_ARCHITECTURE.md), [модули](architecture/MODULES_AND_BOUNDARIES.md), [ADR](architecture/decisions/README.md).
+- [Оболочка приложения](../apps/web/README.md), [её решение](architecture/decisions/0022-web-shell-and-command.md), [отчёт UI-001](reports/QUB-UI-001.md).
 - [Core запуск/owner](../core/README.md), [Web Auth](architecture/WEB_AUTH.md), [OAuth](architecture/OAUTH_IDENTITY.md), [email](architecture/EMAIL_CHALLENGES.md), [policy](architecture/POLICY_GATE.md), [регистрация](architecture/REGISTRATION.md).
 - [Development Harness](engineering/AGENT_HARNESS.md), [тесты](engineering/TEST_STRATEGY.md), [будущий deploy и backup](engineering/DEPLOYMENT_AND_BACKUPS.md).
 - [План](plan/ROADMAP.md), [карточки](plan/TASKS.md), [память проекта](project/PROJECT_CONTEXT.md), [журнал задач](project/CHANGELOG.md), [отчёты](reports/).

@@ -10,8 +10,9 @@
 
 ## Фактическое состояние
 
-- Новый runtime: `core/qubite/`, FastAPI/Python + PostgreSQL, 0.6.0/schema0007_registration. AUTH-002/009/010/011/003/005/006 реализованы в своих границах, identity-v2 partial; реальные providers/SMTP/native/React product UI ещё отдельно.
+- Новый runtime: `core/qubite/`, FastAPI/Python + PostgreSQL, 0.6.0/schema0007_registration. AUTH-002/009/010/011/003/005/006 реализованы в своих границах, identity-v2 partial; реальные providers/SMTP/native/auth screens ещё отдельно.
 - Нет действующих аккаунтов/деплоя по сообщению владельца13.10; fresh identity, без импорта паролей/сессий/legacy bridge. Singleton owner создаётся explicit local CLI, пароль только TTY/getpass; startup не создаёт owner и не мигрирует БД.
+- Новый UI: `apps/web/`0.1.0 partial shell, live identity/grants через core API; demo roles/capture/visibility только compile-time dist-demo, не runtime permission switch. Fixed Qubite Command/Lite; owner entry settings. Server catalog hidden/locked UI-003 перед Console AUTH-004; следующая AUTH-007 требует новых вопросов. [ADR-0022](docs/architecture/decisions/0022-web-shell-and-command.md).
 - Новый UI — React/TypeScript; утверждены Поток/Игрушечная/Лента/Unbounded/Manrope100/503. `assets/design-lab/` — прототип, не production приложение. Web/Android/Linux desktop и новый deploy/installer обязательны, механизм после своих POC.
 - Owner использует обычную главную; отдельная Owner Console. До ручных grants только аккаунт/профиль/настройки; read/write/manage раздельны. Общий server gate и default deny; paid AI закрыт до budget/dispatcher задач. Owner не получает paid bypass.
 - `services/` и `integrations/` — старые реализации с [реестром](docs/legacy-services/README.md). До нового API/прав/дизайна/test acceptance не подключать их напрямую к core. Search/Writing/VPN/Brief/Kwork сначала новое обсуждение/проектирование; не ограничиваться сменой стиля. Старый Knowledge — адаптер native Memos/Vikunja, не готовый новый Atlas; SiYuan не включать в продукт.
@@ -19,11 +20,13 @@
 
 ## Пути, данные и проверки
 
-Корень: новая документация/core/contracts/assets/scripts/tests. Старые HTML/legal, back/front и deploy в `legacy/qubite-v1/`. Старый Flutter клиент в `legacy/qubite-vpn/`. Старые инструкции сайта в `legacy/qubite-v1/docs/`; сервисные справки в `docs/legacy-services/`. Карта каждого переноса и контрольные суммы — [manifest](docs/migration/RELOCATION_MANIFEST.json).
+Корень: новая документация/apps/web/core/contracts/assets/scripts/tests. Старые HTML/legal, back/front и deploy в `legacy/qubite-v1/`. Старый Flutter клиент в `legacy/qubite-vpn/`. Старые инструкции сайта в `legacy/qubite-v1/docs/`; сервисные справки в `docs/legacy-services/`. Карта каждого переноса и контрольные суммы — [manifest](docs/migration/RELOCATION_MANIFEST.json).
 
 Не удалять заполненный `deploy/.env`. Корневой `.env` по прямому запросу владельца заменён незаполненным новым шаблоном; прежний сохранён в `legacy/qubite-v1/.env`. Все секретные env/DB/runtime/uploads/browser state вне Git. Core не загружает env-файлы автоматически. Не переносить секреты между новым и старым Auth. Не запускать installers, polling, network providers/платные запросы или live migrations по результатам source tests.
 
 `python3 scripts/engineering/check.py`; `python3 -m unittest discover -s tests/engineering`; `python3 scripts/engineering/verify.py --suite all --python <test-python>`. Runner использует source-copy без env, isolated HOME/SQLite/реальный disposable PostgreSQL и no external network. Legacy Node dependencies: `npm ci --prefix legacy/qubite-v1/back`. Node `npm test` не проверка; использовать harness. Не создавать тесты, которые лишь повторяют реализацию; relocation checks нужны против потери файлов/путей.
+
+UI дополнительно: npm ci / format:check / build / build:demo / Playwright в apps/web; web.yml и engineering.yml exact SHA обязательны. Browser API fixtures не real browser/backend/device acceptance.
 
 Подробные старые операционные заметки сохранены в [историческом AGENTS](legacy/qubite-v1/docs/repository-notes/AGENTS.md). Для изменений legacy читать также `legacy/qubite-v1/AGENTS.md`; монолиты server/db/app не перечитывать целиком, использовать rg по сигнатурам. Не переносить их глобальные роли/paid bypass в core.
 

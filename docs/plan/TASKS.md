@@ -1,6 +1,6 @@
 # Карточки задач Qubite 2.0
 
-67 карточек. Актуальный machine registry — [tasks.json](tasks.json). Перед каждым следующим task вопросы и ответы владельца. Runtime/tests/live acceptance разделены; standalone Tournaments по ADR-0021.
+68 карточек. Актуальный machine registry — [tasks.json](tasks.json). Перед каждым следующим task вопросы и ответы владельца. Runtime/tests/live acceptance разделены; standalone Tournaments по ADR-0021.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -196,26 +196,28 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 
-Статус: backlog; модуль: ui; приоритет: P0; approval: false. Зависимости: QUB-AUTH-003, QUB-AUTH-009, QUB-DESIGN-001, QUB-REPO-001.
+Статус: review/testing; модуль: ui; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003, QUB-AUTH-009, QUB-DESIGN-001, QUB-REPO-001.
 
 Отделить обычный user outcome от legacy role dashboard и показать denied/unavailable состояния
 
-Файлы: `apps/web (будущий)`, `docs/design/DESIGN_SYSTEM_PLAN.md`.
+Файлы: `apps/web/`, `.github/workflows/web.yml`, `docs/design/`, `docs/project/`, `docs/architecture/`, `docs/engineering/AGENT_HARNESS.md`, `docs/plan/`, `docs/reports/QUB-UI-001.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/migration/CODE_ORIGIN.json`, `docs/README.md`.
 
 Acceptance:
 
 - Owner ordinary home; console hidden entry; module denied/degraded states
 - Viewport keyboard/focus checks и Playwright direct URL tests
+- Compile-time separated live/demo; live identity from me+me/access; no simulated production writes
+- Demo visibility controls explicitly preview only; trusted server catalog separate UI-003 before full Console
 
-Проверки: Будущий npm typecheck/build + Playwright shell tests.
+Проверки: npm ci / format:check / build / build:demo; Playwright desktop/phone/live + axe; python3 scripts/engineering/check.py; unittest engineering; verify.py --suite all (real disposable PostgreSQL).
 
 Риски: Скрытие UI не authorization; optimistic sync статус обязан быть честным. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: None. Evidence: [].
+Commit: None. Evidence: ["13.10.2026 owner answers before implementation: agreed navigation, fixed-bottom Qubite Command/Lite, per-module owner hidden/locked setting."].
 
 ## QUB-AUTH-004 — Owner Console users/grants/budgets UI
 
-Статус: backlog; модуль: owner; приоритет: P0; approval: false. Зависимости: QUB-UI-001, QUB-AI-002.
+Статус: backlog; модуль: owner; приоритет: P0; approval: false. Зависимости: QUB-UI-001, QUB-AI-002, QUB-UI-003.
 
 Дать владельцу ручные независимые grants/budgets без предоставления всем доступа
 
@@ -987,13 +989,13 @@ Acceptance:
 
 Commit: None. Evidence: [].
 
-## QUB-UI-002 — Production material слой Milo и сохранённые настройки
+## QUB-UI-002 — Production материал Поток и сохранённые настройки
 
 Статус: backlog; модуль: design; приоритет: P1; approval: false. Зависимости: QUB-DESIGN-001, QUB-UI-001.
 
-Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами
+Утверждены Поток/Игрушечная/Лента/Unbounded/Manrope; физика controls отдельно от UI-001 shell
 
-Файлы: `web/src/ui/material (будущий)`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`.
+Файлы: `apps/web/src/ui/material (будущий)`, `docs/design/FLUX_DESIGN_SYSTEM.md`.
 
 Acceptance:
 
@@ -1205,13 +1207,7 @@ Acceptance:
 
 Риски: Сломанные относительные пути после переноса; Случайный коммит приватных .env/DB/build files; Старые разрешения и API ошибочно приняты за новый core. Откат: Обратный перенос по RELOCATION_MANIFEST до deploy; сохранять private .env/DB и immutable archive; дальнейший git revert только без потери данных
 
-Commit: 66c7b46c4e573255b509024e7b4ceb4ed9a2239a. Evidence:
-
-- 13.10.2026 local: all965 + engineering11 =976 passed, no failed/skipped; Node99/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core575; real disposable PostgreSQL18.6.
-- 368 tracked relocations preserved in committed tree, allowed path/docs changes recorded; core/contracts/design sources unchanged. Private deploy env and archived root env SHA256 match; new root env blank/ignored; no private values committed.
-- check.py67tasks/82docs;19 bash syntax; nonmutating installer plan/explicit fixture configure-check; diff checks passed. Legacy HTTP/static/Writing paths covered.
-- Implementation 66c7b46c4e573255b509024e7b4ceb4ed9a2239a pushed and origin verified. Exact SHA GitHub CI38401965245 completed/success 2026-10-13T13:08:52Z; engineering11 + all965 =976 passed. https://github.com/kirillkuz1122/qubite/actions/runs/38401965245
-- Remote tournaments/qubite-v1.0 remain96f0457a523b6b79f21c4092056d8fa8fa69a680. New UI/installer/provider/native/deploy/data migration are separate tasks; no skills/subagents/quota reset/personal memory writes.
+Commit: 66c7b46c4e573255b509024e7b4ceb4ed9a2239a. Evidence: ["13.10.2026 local: all965 + engineering11 =976 passed, no failed/skipped; Node99/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core575; real disposable PostgreSQL18.6.", "368 tracked relocations preserved in committed tree, allowed path/docs changes recorded; core/contracts/design sources unchanged. Private deploy env and archived root env SHA256 match; new root env blank/ignored; no private values committed.", "check.py67tasks/82docs;19 bash syntax; nonmutating installer plan/explicit fixture configure-check; diff checks passed. Legacy HTTP/static/Writing paths covered.", "Implementation 66c7b46c4e573255b509024e7b4ceb4ed9a2239a pushed and origin verified. Exact SHA GitHub CI38401965245 completed/success 2026-10-13T13:08:52Z; engineering11 + all965 =976 passed. https://github.com/kirillkuz1122/qubite/actions/runs/38401965245", "Remote tournaments/qubite-v1.0 remain96f0457a523b6b79f21c4092056d8fa8fa69a680. New UI/installer/provider/native/deploy/data migration are separate tasks; no skills/subagents/quota reset/personal memory writes."].
 
 ## QUB-SVC-SEARCH-000 — Search: вопросы владельцу и новое проектирование модуля
 
@@ -1359,3 +1355,23 @@ Acceptance:
 Риски: Privilege escalation и data loss при установке/обновлении. Откат: Прекратить bounded operator job, восстановить проверенный backup, сохранить новые пользовательские данные
 
 Commit: None. Evidence: [].
+
+## QUB-UI-003 — Серверный каталог и owner hidden/locked visibility
+
+Статус: backlog; модуль: owner; приоритет: P0; approval: false. Зависимости: QUB-UI-001, QUB-AUTH-003.
+
+Ответ владельца13.10.2026: выбирать для каждого модуля скрытие или замок до выдачи доступа; UI-001 только preview
+
+Файлы: `core/qubite/policy (будущий)`, `apps/web/src/catalog.ts`, `docs/architecture/MODULE_CATALOG.md (будущий)`.
+
+Acceptance:
+
+- Перед реализацией обсудить default policy, unavailable/installed/public metadata и режимы отображения
+- Trusted server persistence hidden/locked с owner gate, CSRF, reauth, audit, If-Match/idempotency; исключить выдачу grants через visibility
+- Filtered user catalog/direct URLs: hidden generic missing, locked denied, read grant отдельный server gate; owner no paid bypass
+
+Проверки: Disposable PostgreSQL HTTP negative/race/revoke + live React Playwright catalog tests.
+
+Риски: Скрытие не авторизация; не выдавать metadata скрытых модулей; catalog refresh при revoke. Откат: Отключить catalog feature; grants/data сохранить; explicit migration rollback plan до schema switch
+
+Commit: None. Evidence: ["Scope requested by owner; detailed server architecture/task questions remain open."].

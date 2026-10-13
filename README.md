@@ -6,12 +6,13 @@ Qubite — универсальное персональное простран�
 
 В `core/` работает независимое FastAPI/PostgreSQL ядро 0.6.0: explicit migrations0001..0007, аккаунты и local owner bootstrap, Web Auth, OAuth linking, verification/reset protocol, ручные разрешения и регистрация с приглашениями. Реальная почта, production ingress и интерфейс Owner Console ещё не созданы.
 
-В `assets/design-lab/` — принятая React/TypeScript витрина Поток/Игрушечная/Лента, Unbounded/Manrope. Основной интерфейс приложения и новые сервисные модули находятся в плане. Сайт, Android и Linux desktop обязательны; Windows/macOS — дальнейший portable track.
+В `assets/design-lab/` — принятая React/TypeScript витрина Поток/Игрушечная/Лента, Unbounded/Manrope. В `apps/web/` создана первая оболочка приложения с проверкой аккаунта/прав через API. Формы входа, настоящие входящие, каталог настроек на сервере и сервисные модули — следующие задачи. Сайт, Android и Linux desktop обязательны; Windows/macOS — дальнейший portable track.
 
 ## Карта репозитория
 
 | Каталог | Статус и назначение |
 |---|---|
+| `apps/web/` | Новая React оболочка0.1.0; live/demo отдельны, ещё без auth forms/domain writes |
 | `core/`, `contracts/` | Новое ядро и проверяемые API-контракты; planned routes обозначены отдельно |
 | `docs/` | Требования, архитектура, задачи, решения, отчёты и память проекта |
 | `assets/design-lab/` | Дизайн-прототип, не рабочий клиент API |
@@ -26,6 +27,7 @@ Qubite — универсальное персональное простран�
 ## Начало работы
 
 - [Запуск нового core и создание owner](core/README.md).
+- [Запуск оболочки и её демо](apps/web/README.md).
 - [Дизайн-витрина](assets/design-lab/README.md).
 - [Самостоятельные турниры и их legacy installer](modules/tournaments/README.md).
 - [Карта оставшихся старых сервисов](docs/legacy-services/README.md).

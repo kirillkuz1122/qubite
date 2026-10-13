@@ -400,24 +400,40 @@
       "QUB-REPO-001"
     ],
     "files": [
-      "apps/web (будущий)",
-      "docs/design/DESIGN_SYSTEM_PLAN.md"
+      "apps/web/",
+      ".github/workflows/web.yml",
+      "docs/design/",
+      "docs/project/",
+      "docs/architecture/",
+      "docs/engineering/AGENT_HARNESS.md",
+      "docs/plan/",
+      "docs/reports/QUB-UI-001.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "README.md",
+      "docs/migration/CODE_ORIGIN.json",
+      "docs/README.md"
     ],
     "acceptance": [
       "Owner ordinary home; console hidden entry; module denied/degraded states",
-      "Viewport keyboard/focus checks и Playwright direct URL tests"
+      "Viewport keyboard/focus checks и Playwright direct URL tests",
+      "Compile-time separated live/demo; live identity from me+me/access; no simulated production writes",
+      "Demo visibility controls explicitly preview only; trusted server catalog separate UI-003 before full Console"
     ],
     "tests": [
-      "Будущий npm typecheck/build + Playwright shell tests"
+      "npm ci / format:check / build / build:demo; Playwright desktop/phone/live + axe",
+      "python3 scripts/engineering/check.py; unittest engineering; verify.py --suite all (real disposable PostgreSQL)"
     ],
     "risks": [
       "Скрытие UI не authorization; optimistic sync статус обязан быть честным"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "backlog",
+    "status": "review/testing",
     "commit": null,
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "13.10.2026 owner answers before implementation: agreed navigation, fixed-bottom Qubite Command/Lite, per-module owner hidden/locked setting."
+    ]
   },
   {
     "id": "QUB-AUTH-004",
@@ -427,7 +443,8 @@
     "priority": "P0",
     "dependencies": [
       "QUB-UI-001",
-      "QUB-AI-002"
+      "QUB-AI-002",
+      "QUB-UI-003"
     ],
     "files": [
       "apps/web/owner (будущий)",
@@ -1822,8 +1839,8 @@
   },
   {
     "id": "QUB-UI-002",
-    "title": "Production material слой Milo и сохранённые настройки",
-    "reason": "Уточнение владельца 12.10.2026: живой интерфейс Milo и самостоятельные помощники с разными характерами",
+    "title": "Production материал Поток и сохранённые настройки",
+    "reason": "Утверждены Поток/Игрушечная/Лента/Unbounded/Manrope; физика controls отдельно от UI-001 shell",
     "module": "design",
     "priority": "P1",
     "dependencies": [
@@ -1831,8 +1848,8 @@
       "QUB-UI-001"
     ],
     "files": [
-      "web/src/ui/material (будущий)",
-      "docs/design/MILO_MATERIAL_AND_COMPANIONS.md"
+      "apps/web/src/ui/material (будущий)",
+      "docs/design/FLUX_DESIGN_SYSTEM.md"
     ],
     "acceptance": [
       "Согласованный profile перенесён в controls shell; exact values/native semantic и stable gestures",
@@ -2429,5 +2446,39 @@
     "commit": null,
     "architecture_approved": false,
     "verification": []
+  },
+  {
+    "id": "QUB-UI-003",
+    "title": "Серверный каталог и owner hidden/locked visibility",
+    "reason": "Ответ владельца13.10.2026: выбирать для каждого модуля скрытие или замок до выдачи доступа; UI-001 только preview",
+    "module": "owner",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-UI-001",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/policy (будущий)",
+      "apps/web/src/catalog.ts",
+      "docs/architecture/MODULE_CATALOG.md (будущий)"
+    ],
+    "acceptance": [
+      "Перед реализацией обсудить default policy, unavailable/installed/public metadata и режимы отображения",
+      "Trusted server persistence hidden/locked с owner gate, CSRF, reauth, audit, If-Match/idempotency; исключить выдачу grants через visibility",
+      "Filtered user catalog/direct URLs: hidden generic missing, locked denied, read grant отдельный server gate; owner no paid bypass"
+    ],
+    "tests": [
+      "Disposable PostgreSQL HTTP negative/race/revoke + live React Playwright catalog tests"
+    ],
+    "risks": [
+      "Скрытие не авторизация; не выдавать metadata скрытых модулей; catalog refresh при revoke"
+    ],
+    "rollback": "Отключить catalog feature; grants/data сохранить; explicit migration rollback plan до schema switch",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "Scope requested by owner; detailed server architecture/task questions remain open."
+    ]
   }
 ]

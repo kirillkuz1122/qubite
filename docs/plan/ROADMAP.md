@@ -1,3 +1,7 @@
+# Следующий цикл после UI-001
+
+UI-001 — оболочка нового apps/web; фактические проверки и Git/CI в [отчёте](../reports/QUB-UI-001.md) и [handoff](../project/LAST_HANDOFF.md). Следующая для обсуждения **AUTH-007**: React вход/регистрация/email verify/reset/OAuth поверх существующего API. Перед её реализацией новые вопросы владельцу. Затем отдельные UI-002 (физика Потока), UI-003 (server catalog/owner visibility) и профильные slices; полная AUTH-004 Console зависит от UI-003 и AI-002. Ни один следующий task не разрешён этим cycle.
+
 # Актуальный порядок13.10.2026
 
 Завершён QUB-REPO-001: source relocation/legacy isolation/docs/env/harness, без переписи нового runtime. Затем **обсудить UI-001** shell и AUTH-007 auth screens. Не начинать следующую задачу без новых вопросов/ответов. Все зависимости/статусы в tasks.json; старые snapshots ниже исторические.

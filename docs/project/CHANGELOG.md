@@ -2,6 +2,10 @@
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.
 
+## 13.10.2026 — QUB-UI-001
+
+Первая React shell в apps/web, live read identity/access и separate fictional demo; Command fixed bottom, owner entry Settings. Hidden/locked owner UI preview, server persistence UI003 новая зависимость полной Console. Локально36browser+976regression; real device/full login ещё отдельно. [Отчёт](../reports/QUB-UI-001.md); exactSHA Git/CI evidence дополняется после push. Next AUTH007, сначала вопросы.
+
 ## 13.10.2026 — QUB-REPO-001
 
 Перенос старого сайта/deploy/HTML/учебных материалов и Flutter VPN в legacy; standalone optional Tournaments без нового SSO; оставшиеся сервисы маркированы reference. Корневые инструкции описывают универсальную платформу. Filled deploy env сохранён, root env новый пустой, предыдущий root env сохранён приватно. Добавлены discovery задач сервисов и будущие installer/operator требования. Задача done: local+CI976 pass; implementation66c7b46, CI38401965245 completed/success 2026-10-13T13:08:52Z. Подробности — [полный отчёт](../reports/QUB-REPO-001.md). Реальный installer/deploy и новый UI не исполнялись.

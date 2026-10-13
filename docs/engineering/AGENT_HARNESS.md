@@ -1,3 +1,7 @@
+**UI-001, 13.10.2026:** создана новая React/TS оболочка `apps/web/`0.1.0: Главная/Модули/Входящие/Профиль/Настройки, desktop left/mobile bottom, Qubite Command/Lite fixed bottom, owner entry в настройках. [ADR-0022](../architecture/decisions/0022-web-shell-and-command.md), [отчёт](../reports/QUB-UI-001.md). Live читает existing me/access, не симулирует writes; demo roles/capture/visibility временные. Backend catalog+owner hidden/locked — новая UI-003 перед AUTH-004; auth screens следующая AUTH-007. Core0.6.0/0007, legacy и design-lab unchanged. Новые задачи только после вопросов/ответов. Старые milestones ниже исторические.
+
+Для apps/web отдельный обязательный CI web.yml: npm ci, format:check, build, build:demo, Chromium Playwright. Python --suite all не включает UI; нужны оба exact-SHA workflow. Не запускать web tests при занятом4321/4322. UI fixtures не серверная или физическая приёмка.
+
 # Development Harness Codex/Claude
 
 **Актуальный repository cycle QUB-REPO-001, 13.10.2026:** [структура](../architecture/REPOSITORY_LAYOUT.md) и [ADR-0021](../architecture/decisions/0021-repository-layout-and-standalone-tournaments.md): legacy сайт/deploy/VPN отдельно, Tournaments самостоятельный optional без core SSO. `verify.py` копирует новые пути и public docs, исключает env/runtime; Node deps в `legacy/qubite-v1/back/node_modules`. [Текущий handoff](../project/LAST_HANDOFF.md) заменяет milestones ниже. Перед следующим UI-001 снова вопросы владельцу; redesign/installer/provider/deploy этим переносом не реализуются.

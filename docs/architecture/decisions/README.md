@@ -26,3 +26,4 @@
 | [0020](0020-owner-controlled-registration.md) | CONFIRMED AUTH-006 answers / bounded engineering | owner enrollment modes, both invites, verification-first login, atomic consent/redemption |
 
 | [0021](0021-repository-layout-and-standalone-tournaments.md) | CONFIRMED13.10.2026 | Чистый новый корень, legacy/reference классификация, поддомены, independent optional турниры и env preservation |
+| [0022](0022-web-shell-and-command.md) | CONFIRMED13.10.2026 UI-001 scope | React shell/Command fixed bottom/owner entry; preview visibility, server catalog UI-003 отдельно |

@@ -1,3 +1,7 @@
+**UI-001, 13.10.2026:** создана новая React/TS оболочка `apps/web/`0.1.0: Главная/Модули/Входящие/Профиль/Настройки, desktop left/mobile bottom, Qubite Command/Lite fixed bottom, owner entry в настройках. [ADR-0022](../architecture/decisions/0022-web-shell-and-command.md), [отчёт](../reports/QUB-UI-001.md). Live читает existing me/access, не симулирует writes; demo roles/capture/visibility временные. Backend catalog+owner hidden/locked — новая UI-003 перед AUTH-004; auth screens следующая AUTH-007. Core0.6.0/0007, legacy и design-lab unchanged. Новые задачи только после вопросов/ответов. Старые milestones ниже исторические.
+
+UI-001 закрепляет только начальную оболочку, не окончательные размещения всего приложения. Цвет используется по роли; физика live material/питомцы отдельно UI-002/PET. Современные standalone Tournaments не встроены в навигацию и не получают новый SSO. Прежний Today/Command/Tournaments adapter план ниже исторический.
+
 > Актуально 13.10.2026: владелец выбрал **Поток** внутри Milo. [Витрина дизайн-системы](FLUX_DESIGN_SYSTEM.md) — components/tokens/palette/type/marks/companions; palette/fonts/logo family и physical-device acceptance открыты. История и ранние рекомендации ниже не заменяют это решение. UI-001/002 gates сохраняются.
 
 # План дизайн-системы
