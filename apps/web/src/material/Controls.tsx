@@ -18,7 +18,7 @@ export function LivingButton({
   const motion = useLiving(ref);
   if (!motion.active)
     return (
-      <button className={className} onClick={onClick} {...props}>
+      <button type="button" className={className} onClick={onClick} {...props}>
         {children}
       </button>
     );
@@ -189,10 +189,12 @@ export function LivingSwitch({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (n: boolean) => void;
+  disabled?: boolean;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const physics = usePhysics(ref, { position: checked ? 1 : 0, grip: 0 });
@@ -218,6 +220,7 @@ export function LivingSwitch({
         ref={ref}
         type="button"
         role="switch"
+        disabled={disabled}
         aria-label={label}
         aria-checked={checked}
         className="living-switch"
@@ -227,7 +230,7 @@ export function LivingSwitch({
           consumed.current = false;
         }}
         onPointerDown={(e) => {
-          if (e.button !== 0 || drag.current) return;
+          if (disabled || e.button !== 0 || drag.current) return;
           consumed.current = false;
           drag.current = {
             x: e.clientX,

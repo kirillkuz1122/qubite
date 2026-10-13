@@ -514,3 +514,57 @@ def test_runtime_database_role_can_use_oauth_but_cannot_enable_providers_or_gran
     finally:
         with psycopg.connect(oauth[0].database_url) as db:db.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
         with psycopg.connect(**postgres_cluster,autocommit=True) as admin:admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))
+
+
+@pytest.mark.parametrize('name', list(PROVIDERS))
+def test_browser_callback_fixed_completion_preserves_cookie_and_json_contract(oauth, name):
+    navigation = {'Sec-Fetch-Mode':'navigate', 'Accept':'text/html'}
+    with browser(oauth) as c:
+        assert login(c).status_code == 200
+        original = c.cookies.get('__Host-qubite_session')
+        state = begin(c, oauth, name)
+        query = {'state':state, 'code':state}
+        if name == 'vk': query['device_id'] = 'synthetic-device'
+        r = c.get(f'/api/v1/auth/oauth/{name}/callback', params=query,
+                  headers=navigation, follow_redirects=False)
+        assert r.status_code == 303 and r.headers['location'] == '/#/auth/linked'
+        assert c.cookies.get('__Host-qubite_session') == original
+        assert 'qbt_' not in r.text and state not in r.headers['location']
+        assert mutate(c, '/api/v1/auth/logout').status_code == 204
+        state = begin(c, oauth, name, 'login')
+        query.update(state=state, code=state)
+        r = c.get(f'/api/v1/auth/oauth/{name}/callback', params=query,
+                  headers=navigation, follow_redirects=False)
+        assert r.status_code == 303 and r.headers['location'] == '/#/auth/complete'
+        assert c.get('/api/v1/me').json()['id'] == str(oauth[1].id)
+        assert c.cookies.get('__Host-qubite_oauth') is None
+        assert r.headers['cache-control'] == 'no-store' and r.headers['referrer-policy'] == 'no-referrer'
+        assert '__Host-qubite_session' in r.headers['set-cookie']
+        assert 'httponly' in r.headers['set-cookie'].lower()
+
+
+@pytest.mark.parametrize('failure', ['unlinked','denied','invalid','wrong_state','bad_signature'])
+def test_browser_callback_errors_strip_proofs_and_refuse_return_targets(oauth, failure):
+    with browser(oauth) as c:
+        state = begin(c, oauth, 'google', 'login')
+        query = {'state':state, 'code':state}
+        if failure == 'denied': query = {'state':state, 'error':'access_denied','error_description':'untrusted private details'}
+        if failure == 'invalid': query['return_to'] = 'https://evil.example.test/private'
+        if failure == 'wrong_state': query['state'] = issue('qbt_o_')
+        if failure == 'bad_signature': oauth[4].bad_signature = True
+        r = c.get('/api/v1/auth/oauth/google/callback', params=query,
+                  headers={'Sec-Fetch-Mode':'navigate','Accept':'text/html'}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers['location'].startswith('/#/auth/login?error=')
+        assert all(x not in r.headers['location'] + r.text for x in [state, 'evil.example', 'untrusted', 'synthetic-secret'])
+        assert c.cookies.get('__Host-qubite_oauth') is None
+        assert c.get('/api/v1/me').status_code == 401
+        if failure == 'invalid': assert oauth[4].calls == []
+
+
+def test_callback_json_client_does_not_redirect_when_accept_html_without_navigation(oauth):
+    with browser(oauth) as c:
+        state = begin(c, oauth, 'google', 'login')
+        r = c.get('/api/v1/auth/oauth/google/callback', params={'state':state,'code':state},
+                  headers={'Accept':'text/html'}, follow_redirects=False)
+        assert r.status_code == 409 and r.json() == {'code':'oauth_identity_unlinked'}
+        assert 'location' not in r.headers

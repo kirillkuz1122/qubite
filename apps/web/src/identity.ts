@@ -111,7 +111,9 @@ export function useIdentity(): { identity: Identity; refresh: () => void } {
     const current = new AbortController();
     controller.current = current;
     // Drop private data while rechecking, rather than keeping a stale owner.
-    setIdentity({ status: "loading" });
+    setIdentity((previous) =>
+      previous.status === "authenticated" ? { status: "loading" } : previous,
+    );
     const timeout = setTimeout(() => current.abort(), 8000);
     (async () => {
       try {

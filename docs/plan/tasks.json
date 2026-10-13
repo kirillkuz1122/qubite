@@ -906,28 +906,44 @@
       "QUB-AUTH-011"
     ],
     "files": [
-      "apps/web/auth (будущий)",
-      "docs/design/AUTH_UX.md (будущий)"
+      "apps/web/",
+      "core/qubite/identity/oauth/routes.py",
+      "core/tests/test_oauth.py",
+      "contracts/core-v1.json",
+      "scripts/engineering/ (browser fixture)",
+      "docs/legal/",
+      "docs/design/AUTH_UX.md",
+      "docs/architecture/decisions/",
+      "docs/project/",
+      "docs/reports/QUB-AUTH-007.md",
+      ".github/workflows/web.yml"
     ],
     "acceptance": [
-      "Новая тема/формы email/password/OAuth/reset без account code-entry",
-      "FastAPI Auth, безопасные cookies/CSRF/return target, fresh core session/status/revoke; единый вход сервиса, без legacy verifier",
-      "Web+desktop navigation/keyboard/mobile и реальная UX приёмка"
+      "Анонимный сайт: лендинг → отдельный Qubite Auth → обычная главная после server identity; выбранные material assets, adaptive/keyboard/reduced motion",
+      "Email/password, registration public/invite/disabled, invite ссылка и ручная вставка, verification/reset explicit POST, fresh CSRF, HttpOnly session/revoke/logout-all; без legacy code-entry",
+      "OAuth availability/start/link/unlink через core, browser callback fixed route; неизвестный provider identity не создаёт account/не связывается по email",
+      "Новые terms/privacy/cookies/data consent и отдельные unchecked UI choices; заполнение оператора/юрисдикции и publication acceptance — QUB-LEGAL-001",
+      "Playwright fixtures и настоящий browser/FastAPI/disposable PostgreSQL, обе themes/phone/landscape/desktop; physical/native/SMTP/provider production приёмка отдельно"
     ],
     "tests": [
-      "Playwright login/register/reset/revoke; no secret logging; screenshots"
+      "npm ci/format:check/build/build:demo и Playwright71; includes11 real browser/core checks",
+      "check.py; unittest tests/engineering11; verify.py all975; OAuth browser callback10 signed mock cases; exact-SHA web/engineering CI"
     ],
     "risks": [
       "Open redirect/token storage/две расходящиеся реализации"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "review/testing",
     "commit": null,
-    "architecture_approved": false,
+    "architecture_approved": true,
     "verification": [
-      "Questions pending: separate auth screen vs modal; new terms/privacy drafts vs placeholders; invitation by link plus manual paste vs link-only. Existing backend/auth decisions remain in force."
+      "13.10.2026: финальный полный локальный web run71pass, включая два demo no-submit; core/legacy975+harness11=986pass; format/typecheck/live+demo builds passed. Реальный browser/core/disposable PG отдельно от HTTP fixtures.",
+      "Новые legal тексты доступны; оператор/страны/контакт pending, publication_ready=false; native/SMTP/provider/TLS/physical acceptance отдельно. Commit и exact-SHA CI проверяются перед закрытием."
     ],
-    "approval": "13.10.2026: прямо разрешена следующей после исправления материала; вопросы заданы до реализации, ответы ожидаются. Повторного разрешения на задачу не требуется."
+    "approval": {
+      "date": "2026-10-13",
+      "source": "Владелец ответил: сайт — публичный лендинг → отдельный Qubite Auth → главная; Android — системный браузер, native возврат отдельно; новые legal/cookies/data documents; invite link и ручная вставка."
+    }
   },
   {
     "id": "QUB-AUTH-008",
@@ -1038,7 +1054,8 @@
       "Pin versions/SHA, secret permissions, health и redacted report",
       "Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются",
       "Optional standalone Tournaments install flag, independent data/auth/unit; все модули selective install/subdomains",
-      "Explicit core PG migrations + interactive owner bootstrap/set-password; никаких owner secrets в argv/env"
+      "Explicit core PG migrations + interactive owner bootstrap/set-password; никаких owner secrets в argv/env",
+      "Публичная регистрация/публикация legal после QUB-LEGAL-001; локальный disposable dry-run не требует опубликованных правовых текстов"
     ],
     "tests": [
       "Disposable container/VM install twice, interrupted install, existing-data refusal, no real credentials"
@@ -2508,6 +2525,41 @@
     "architecture_approved": false,
     "verification": [
       "Scope requested by owner; detailed server architecture/task questions remain open."
+    ]
+  },
+  {
+    "id": "QUB-LEGAL-001",
+    "title": "Публичный запуск: реквизиты, правовые основания и раздельное evidence",
+    "reason": "Новые тексты AUTH-007 подготовлены; неизвестны оператор/страны/получатели/сроки, API пока фиксирует технический пакет",
+    "module": "legal",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-007"
+    ],
+    "files": [
+      "docs/legal/",
+      "apps/web/src/legal/",
+      "core/qubite/identity/registration/ (после своего согласования)",
+      "contracts/ (отдельный consent контракт)"
+    ],
+    "acceptance": [
+      "До задачи вопросы владельцу: оператор/контакт/страны/хостинг/дети/подрядчики/сроки, затем актуальная проверка права выбранных стран",
+      "Заполненные и утверждённые тексты соответствуют реальным способам обработки; publication_ready=true только после проверки",
+      "Если нужны отдельные согласия: version/purpose/document hash/evidence и withdraw; technical старый bool не преобразуется задним числом",
+      "Cookie inventory, optional off until choice, отдельные AI/distribution/marketing основания; запросы/удаление/backup проверены до public launch"
+    ],
+    "tests": [
+      "legal/UI/API evidence review; consent/offline/stale version/withdraw tests; cookie inventory; owner publication acceptance"
+    ],
+    "risks": [
+      "Выдуманные реквизиты/правовые основания; blanket consent вместо отдельных целей; удаление без учёта backup"
+    ],
+    "rollback": "Остановить публичную регистрацию, сохранить аккаунты/существующие consent records, восстановить проверенные документы с forward fix",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": [
+      "AUTH-007: full text package available but operator question pending; no production approval."
     ]
   }
 ]

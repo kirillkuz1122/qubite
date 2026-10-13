@@ -2310,6 +2310,9 @@
           },
           "204": {
             "description": "Identity linked; no new session"
+          },
+          "303": {
+            "description": "Browser navigation only: fixed same-origin completion route, no credentials"
           }
         }
       }

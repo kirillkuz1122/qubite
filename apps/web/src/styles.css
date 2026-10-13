@@ -82,7 +82,8 @@ p {
   white-space: nowrap;
   border: 0;
 }
-.app-shell {
+.app-shell,
+.public-shell {
   --bg: #f1f2ec;
   --surface: #fffdf6;
   --text: #202b2e;
@@ -102,7 +103,8 @@ p {
   background: var(--bg);
   min-height: 100dvh;
 }
-.app-shell[data-theme="dark"] {
+.app-shell[data-theme="dark"],
+.public-shell[data-theme="dark"] {
   --bg: #18262b;
   --surface: #223239;
   --text: #f5f6ed;
@@ -1860,4 +1862,22 @@ dialog .button {
     width: 100%;
     margin-top: 8px;
   }
+}
+
+/* Auth/landing controls keep their structural position while the material moves. */
+.public-shell .alive.password-toggle {
+  position: absolute;
+}
+.public-shell .alive.skip-link {
+  position: fixed;
+  transform: translateY(-150%);
+}
+.public-shell .alive.skip-link:focus {
+  transform: none;
+}
+.public-shell[data-quiet="true"] *,
+.public-shell[data-quiet="true"] *::before,
+.public-shell[data-quiet="true"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
 }

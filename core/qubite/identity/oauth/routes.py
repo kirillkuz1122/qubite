@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import Field, StrictStr
 
 from ..auth.http import credential, csrf_header, headers
@@ -78,34 +79,52 @@ def create_router(settings, clock=None, exchange=None):
         return result
 
     @router.get('/api/v1/auth/oauth/{provider}/callback', response_model=SessionResult,
-                responses={204: {'description': 'Identity linked; no new session'}}, operation_id='oauth_callback')
+                responses={204: {'description': 'Identity linked; no new session'},
+                           303: {'description': 'Browser navigation only: fixed same-origin completion route, no credentials'}}, operation_id='oauth_callback')
     def callback(provider: ProviderName, request: Request, response: Response):
-        # Queries exist only here; neither URLs nor caller-selected redirect targets are accepted elsewhere.
-        pairs = request.query_params.multi_items()
-        query = dict(pairs)
-        allowed = {'code', 'state', 'device_id', 'error', 'error_description', 'iss'}
-        if (len(request.scope.get('query_string', b'')) > 4096 or len(pairs) != len(query)
-                or set(query) - allowed or 'state' not in query or ('code' in query) == ('error' in query)
-                or any(not v or len(v) > 1024 or not all(32 <= ord(c) < 127 for c in v) for v in query.values())
-                or ('device_id' in query and (provider != 'vk' or len(query['device_id']) > 128))):
-            raise AuthError(400, 'invalid_request')
-        from .providers import provider as definition
-        if query.get('iss', definition(provider).issuer) != definition(provider).issuer:
-            raise AuthError(403, 'oauth_state_failed')
-        kind, raw = credential(request.scope, settings)
-        token, result = store.complete(provider, query['state'], browser_cookie(request, settings), raw, kind,
-            query.get('code'), query.get('device_id'), query.get('error'), request.client.host)
+        html = (headers(request.scope, 'sec-fetch-mode') == ['navigate']
+                and any('text/html' in value for value in headers(request.scope, 'accept')))
+        try:
+            # Queries exist only here. Never accept a caller-selected return target.
+            pairs = request.query_params.multi_items()
+            query = dict(pairs)
+            allowed = {'code', 'state', 'device_id', 'error', 'error_description', 'iss'}
+            if (len(request.scope.get('query_string', b'')) > 4096 or len(pairs) != len(query)
+                    or set(query) - allowed or 'state' not in query or ('code' in query) == ('error' in query)
+                    or any(not v or len(v) > 1024 or not all(32 <= ord(c) < 127 for c in v) for v in query.values())
+                    or ('device_id' in query and (provider != 'vk' or len(query['device_id']) > 128))):
+                raise AuthError(400, 'invalid_request')
+            from .providers import provider as definition
+            if query.get('iss', definition(provider).issuer) != definition(provider).issuer:
+                raise AuthError(403, 'oauth_state_failed')
+            kind, raw = credential(request.scope, settings)
+            token, result = store.complete(provider, query['state'], browser_cookie(request, settings), raw, kind,
+                query.get('code'), query.get('device_id'), query.get('error'), request.client.host)
+        except AuthError as error:
+            if not html:
+                raise
+            safe = error.code if error.code in {
+                'oauth_identity_unlinked', 'oauth_identity_conflict', 'oauth_context_changed',
+                'oauth_state_failed', 'provider_denied', 'provider_disabled', 'provider_not_configured',
+                'provider_invalid_response', 'rate_limited', 'identity_unavailable'
+            } else 'oauth_state_failed'
+            response = RedirectResponse('/#/auth/login?error=' + safe, status_code=303)
+            response.delete_cookie(settings.oauth_cookie, path='/', httponly=True,
+                                   secure=not settings.auth_local_http, samesite='lax')
+            return response
+        if html:
+            response = RedirectResponse('/#/auth/complete' if token is not None else '/#/auth/linked', status_code=303)
         response.delete_cookie(settings.oauth_cookie, path='/', httponly=True,
                                secure=not settings.auth_local_http, samesite='lax')
         if token is None:
-            # Preserve the existing session on linking; only login issues a fresh cookie.
-            response.status_code = 204
+            if not html:
+                response.status_code = 204
             return response
         response.set_cookie(settings.session_cookie, token, max_age=2592000, httponly=True,
                             secure=not settings.auth_local_http, samesite='lax', path='/')
         response.delete_cookie(settings.preauth_cookie, path='/', httponly=True,
                                secure=not settings.auth_local_http, samesite='lax')
-        return result
+        return response if html else result
 
     @router.get('/api/v1/me/oauth', response_model=LinkedList, operation_id='oauth_identities')
     def identities(request: Request):

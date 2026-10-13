@@ -16,3 +16,5 @@ UI-002, 13.10.2026. Дизайн уже выбран владельцем: По�
 Это осознанное выделение утверждённых assets в production-слой. Не импортировать FluxStudio/Workspace/Auth/демо-аккаунты из витрины и не копировать новый UI заново для каждого модуля. Новые screens используют эту же библиотеку. Изменения витрины не должны автоматически попадать в рабочий клиент без review/проверки выбранного поведения.
 
 [Контракт дизайна](FLUX_DESIGN_SYSTEM.md), [решение](../architecture/decisions/0023-approved-flux-material-in-web.md), [отчёт](../reports/QUB-UI-002.md). Питомцы и их event/AI dispatcher отдельно; живость материала не заменяется декоративным помощником.
+
+AUTH-007: тот же src/material обслуживает Public landing/Auth, tabs/submit/password toggle/legal switches/profile sessions, shared useAppearance. Sensitive forms privateContent не создают departing DOM snapshots; layout fields стабильны. Quiet LivingButton сохраняет type=button (submit только явно), disabled switches не меняют consent во время отправки.

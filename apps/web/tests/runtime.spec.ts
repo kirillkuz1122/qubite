@@ -121,7 +121,7 @@ for (const status of [401, 403, 429, 503])
     await expect(
       page.getByRole("heading", {
         name: [401, 403].includes(status)
-          ? "Начнём с твоего аккаунта"
+          ? "Твоя жизнь. Связно."
           : "Не удалось открыть пространство",
       }),
     ).toBeVisible();
@@ -154,7 +154,7 @@ for (const scenario of [
       page.getByRole("heading", {
         name:
           scenario === "access error"
-            ? "Начнём с твоего аккаунта"
+            ? "Твоя жизнь. Связно."
             : "Не удалось открыть пространство",
       }),
     ).toBeVisible();
@@ -175,7 +175,7 @@ test("revalidation clears stale owner and rechecks revoked grants", async ({
   await page.route("**/api/v1/me", (r) => r.fulfill({ status: 401, json: {} }));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
-    page.getByRole("heading", { name: "Начнём с твоего аккаунта" }),
+    page.getByRole("heading", { name: "Твоя жизнь. Связно." }),
   ).toBeVisible();
   await expect(page.locator(".app-shell")).toHaveCount(0);
 });
@@ -205,7 +205,7 @@ test("aborted response from an older refresh cannot restore owner", async ({
   await expect.poll(() => delayed).toBe(true);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
-    page.getByRole("heading", { name: "Начнём с твоего аккаунта" }),
+    page.getByRole("heading", { name: "Твоя жизнь. Связно." }),
   ).toBeVisible();
   release();
   await expect(page.locator(".app-shell")).toHaveCount(0);

@@ -16,6 +16,16 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "auth-core",
+      testMatch: "auth-core.spec.ts",
+      use: {
+        baseURL: "http://127.0.0.1:4323",
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
       name: "desktop",
       testMatch: "shell.spec.ts",
       use: {
@@ -35,7 +45,7 @@ export default defineConfig({
     },
     {
       name: "live",
-      testMatch: "runtime.spec.ts",
+      testMatch: ["runtime.spec.ts", "auth.spec.ts"],
       use: {
         baseURL: "http://127.0.0.1:4322",
         viewport: { width: 1280, height: 900 },
@@ -43,6 +53,12 @@ export default defineConfig({
     },
   ],
   webServer: [
+    {
+      command: `${process.env.QUBITE_WEB_TEST_PYTHON || "python3"} ../../scripts/engineering/web_auth_fixture.py`,
+      url: "http://127.0.0.1:4323/api/v1/health/live",
+      reuseExistingServer: false,
+      timeout: 60000,
+    },
     {
       command:
         "npx vite preview --host 127.0.0.1 --port 4321 --strictPort --outDir dist-demo",

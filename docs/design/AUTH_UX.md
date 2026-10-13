@@ -1,3 +1,25 @@
+# AUTH-007 — фактический интерфейс нового Qubite Auth
+
+13.10.2026, apps/web0.3.0. Ответы владельца получены до реализации: website landing → отдельный Auth → home, Android системный browser target, новые legal, invite link+manual. [ADR-0024](../architecture/decisions/0024-public-landing-and-qubite-auth.md). Историческая спецификация прототипа ниже не текущий статус.
+
+Live: /#/ без сессии — landing; /#/auth/login, register, reset, verify-request, verify, reset-confirm — отдельные формы. После успешного POST session — свежие GET me/access, обычная главная. Только API subject/grants, no owner/module/paid bypass; no legacy auth. Hash router сохраняет фиксированную форму, даже при повторном proof для того же пути сбрасывает прежнее состояние.
+
+Для приглашений /#/auth/register?invite=qbt_ri_… (параметр внутри fragment) или ручная вставка typed token/той же same-origin ссылки. Verify/reset ссылки содержат challenge_id и token в fragment. До первого React/API URL очищается; private proof остаётся только в памяти формы. GET ничего не подтверждает; явный POST, затем новый вход. Duplicate params/return_to/чужой origin/type не используются. Ссылка не становится login credential.
+
+CSRF GET перед каждым намеренным POST/DELETE, cookie HttpOnly/Origin exact/no-store/redirect error, strict DTO and bounded errors, 10s timeout, dedup busy/Abort/generation на выходе. Не повторять мутации автоматически. Generic recovery/enrollment responses не утверждают наличие аккаунта или доставку. Mail503 — честный недоступный transport. Подтверждение/пароль не копируются в departing MorphContent; clearSecrets при завершении, unmount при смене формы.
+
+Provider buttons — server availability; fixed HTTPS authorize endpoint allowlist. Explicit own-password reauth/link/unlink в профиле; совпадение email не объединяет identities. Browser callback fixed303 completion, свежий GET identity/grants; JSON contract unchanged. ChatGPT не выдуман как доступный provider: AUTH-016 отдельно.
+
+Профиль: list sessions с реальной current меткой/датой, revoke own other/current, logout, logout-all только после явного password reauth. Изменение пароля отзывает все сессии и не автоматически входит. Native/browser return ещё AUTH-012/Android POC; public auth поддомен/TLS/broker ещё deploy. Same-origin screen уже есть, не domain-wide shared cookie.
+
+UI использует существующий src/material и shared appearance100/503; selected Toy/Ribbon/fonts, stable fields, плавные tabs/scenes, native Enter/show-hide/autocomplete, focus/skip links, responsive phone/landscape/desktop, OS reduce/user quiet/lite. Sign-in не открывает Command до сессии. Landing/main final product contents могут уточняться, no fake domain writes.
+
+[Legal пакет](../legal/README.md) доступен без входа; условия и data consent отдельно, оба unchecked. Consent_version сверяется с API; mismatch blocks registration. Текущий DB evidence технический пакет, не granular consents; публичная готовность QUB-LEGAL-001. Никакой регистрации всех AI/marketing/tracking целей одним checkbox.
+
+Compile-time demo: /#/welcome, auth и legal для визуального просмотра, без credential POST/cookies/token storage/fake email. В live URL/localStorage не включает demo actor. Chromium→реальный FastAPI/disposable PostgreSQL/in-memory mail отдельно от fixture tests; actual phone/SMTP/provider/TLS acceptance отдельно.
+
+---
+
 # Новый Auth UX — reviewable спецификация
 
 **API уточнение AUTH-01013.10.2026:** [фактический OAuth](../architecture/OAUTH_IDENTITY.md) в core0.3.0: GET provider availability, POST same-origin start (anonymous login либо own-password link), внешняя browser navigation/fixed callback. Неизвестная provider identity требует сначала account Qubite, email не объединяет accounts. Будущий UI должен отдельно показывать unavailable/unlinked/conflict, own link/unlink и повторный password login после unlink; формы/demo ниже остаются specimen, не API integration. Не добавлять старый login-by-code.

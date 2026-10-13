@@ -1,6 +1,6 @@
 # Карточки задач Qubite 2.0
 
-68 карточек. Актуальный machine registry — [tasks.json](tasks.json). Перед каждым следующим task вопросы и ответы владельца. Runtime/tests/live acceptance разделены; standalone Tournaments по ADR-0021.
+69 карточек. Актуальный machine registry — [tasks.json](tasks.json). Перед каждым следующим task вопросы и ответы владельца. Runtime/tests/live acceptance разделены; standalone Tournaments по ADR-0021.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -455,21 +455,25 @@ Commit: 2035e1e5298ad94fd9c9aa33586e6c3ad5acda04. Evidence: ["13.10.2026: пер
 
 ## QUB-AUTH-007 — Новые React auth экраны поверх FastAPI Auth
 
-Статус: backlog; approval: false. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-011.
+Статус: review/testing; модуль: ui; приоритет: P0; approval: true. Зависимости: QUB-UI-001, QUB-AUTH-005, QUB-AUTH-006, QUB-AUTH-010, QUB-AUTH-011.
 
 Новый Python identity backend и React дизайн, legacy обслуживает только неперенесённые consumers
 
-13.10.2026: прямо разрешена следующей после исправления материала; вопросы заданы до реализации, ответы ожидаются. Повторного разрешения на задачу не требуется.
+Файлы: `apps/web/`, `core/qubite/identity/oauth/routes.py`, `core/tests/test_oauth.py`, `contracts/core-v1.json`, `scripts/engineering/ (browser fixture)`, `docs/legal/`, `docs/design/AUTH_UX.md`, `docs/architecture/decisions/`, `docs/project/`, `docs/reports/QUB-AUTH-007.md`, `.github/workflows/web.yml`.
 
 Acceptance:
 
-- Новая тема/формы email/password/OAuth/reset без account code-entry
-- FastAPI Auth, безопасные cookies/CSRF/return target, fresh core session/status/revoke; единый вход сервиса, без legacy verifier
-- Web+desktop navigation/keyboard/mobile и реальная UX приёмка
+- Анонимный сайт: лендинг → отдельный Qubite Auth → обычная главная после server identity; выбранные material assets, adaptive/keyboard/reduced motion
+- Email/password, registration public/invite/disabled, invite ссылка и ручная вставка, verification/reset explicit POST, fresh CSRF, HttpOnly session/revoke/logout-all; без legacy code-entry
+- OAuth availability/start/link/unlink через core, browser callback fixed route; неизвестный provider identity не создаёт account/не связывается по email
+- Новые terms/privacy/cookies/data consent и отдельные unchecked UI choices; заполнение оператора/юрисдикции и publication acceptance — QUB-LEGAL-001
+- Playwright fixtures и настоящий browser/FastAPI/disposable PostgreSQL, обе themes/phone/landscape/desktop; physical/native/SMTP/provider production приёмка отдельно
 
-Проверки: Playwright login/register/reset/revoke; no secret logging; screenshots
+Проверки: npm ci/format:check/build/build:demo и Playwright71; includes11 real browser/core checks; check.py; unittest tests/engineering11; verify.py all975; OAuth browser callback10 signed mock cases; exact-SHA web/engineering CI.
 
-Evidence: Questions pending: separate auth screen vs modal; new terms/privacy drafts vs placeholders; invitation by link plus manual paste vs link-only. Existing backend/auth decisions remain in force.
+Риски: Open redirect/token storage/две расходящиеся реализации. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
+
+Commit: None. Evidence: ["13.10.2026: финальный полный локальный web run71pass, включая два demo no-submit; core/legacy975+harness11=986pass; format/typecheck/live+demo builds passed. Реальный browser/core/disposable PG отдельно от HTTP fixtures.", "Новые legal тексты доступны; оператор/страны/контакт pending, publication_ready=false; native/SMTP/provider/TLS/physical acceptance отдельно. Commit и exact-SHA CI проверяются перед закрытием."].
 
 ## QUB-AUTH-008 — Единый вход Qubite: fresh-install контракт FastAPI/Postgres
 
@@ -530,6 +534,7 @@ Acceptance:
 - Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются
 - Optional standalone Tournaments install flag, independent data/auth/unit; все модули selective install/subdomains
 - Explicit core PG migrations + interactive owner bootstrap/set-password; никаких owner secrets в argv/env
+- Публичная регистрация/публикация legal после QUB-LEGAL-001; локальный disposable dry-run не требует опубликованных правовых текстов
 
 Проверки: Disposable container/VM install twice, interrupted install, existing-data refusal, no real credentials.
 
@@ -1373,3 +1378,24 @@ Acceptance:
 Риски: Скрытие не авторизация; не выдавать metadata скрытых модулей; catalog refresh при revoke. Откат: Отключить catalog feature; grants/data сохранить; explicit migration rollback plan до schema switch
 
 Commit: None. Evidence: ["Scope requested by owner; detailed server architecture/task questions remain open."].
+
+## QUB-LEGAL-001 — Публичный запуск: реквизиты, правовые основания и раздельное evidence
+
+Статус: backlog; модуль: legal; приоритет: P0; approval: false. Зависимости: QUB-AUTH-007.
+
+Новые тексты AUTH-007 подготовлены; неизвестны оператор/страны/получатели/сроки, API пока фиксирует технический пакет
+
+Файлы: `docs/legal/`, `apps/web/src/legal/`, `core/qubite/identity/registration/ (после своего согласования)`, `contracts/ (отдельный consent контракт)`.
+
+Acceptance:
+
+- До задачи вопросы владельцу: оператор/контакт/страны/хостинг/дети/подрядчики/сроки, затем актуальная проверка права выбранных стран
+- Заполненные и утверждённые тексты соответствуют реальным способам обработки; publication_ready=true только после проверки
+- Если нужны отдельные согласия: version/purpose/document hash/evidence и withdraw; technical старый bool не преобразуется задним числом
+- Cookie inventory, optional off until choice, отдельные AI/distribution/marketing основания; запросы/удаление/backup проверены до public launch
+
+Проверки: legal/UI/API evidence review; consent/offline/stale version/withdraw tests; cookie inventory; owner publication acceptance.
+
+Риски: Выдуманные реквизиты/правовые основания; blanket consent вместо отдельных целей; удаление без учёта backup. Откат: Остановить публичную регистрацию, сохранить аккаунты/существующие consent records, восстановить проверенные документы с forward fix
+
+Commit: None. Evidence: ["AUTH-007: full text package available but operator question pending; no production approval."].

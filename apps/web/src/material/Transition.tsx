@@ -5,10 +5,12 @@ export function MorphContent({
   identity,
   children,
   className = "",
+  privateContent = false,
 }: {
   identity: string;
   children: ReactNode;
   className?: string;
+  privateContent?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const old = useRef<HTMLDivElement>(null);
@@ -115,18 +117,20 @@ export function MorphContent({
     // A visual snapshot is needed once per scene, not on every keystroke.
     // Freeze decorative animation in the departing layer as well.
     if (changed)
-      snapshot.current = Array.from(content.childNodes).map((n) => {
-        const clone = n.cloneNode(true);
-        if (clone instanceof Element)
-          clone
-            .querySelectorAll<HTMLInputElement>("input, textarea")
-            .forEach((field) => {
-              field.value = "";
-              field.removeAttribute("value");
-              if (field.tagName === "TEXTAREA") field.textContent = "";
-            });
-        return clone;
-      });
+      snapshot.current = privateContent
+        ? []
+        : Array.from(content.childNodes).map((n) => {
+            const clone = n.cloneNode(true);
+            if (clone instanceof Element)
+              clone
+                .querySelectorAll<HTMLInputElement>("input, textarea")
+                .forEach((field) => {
+                  field.value = "";
+                  field.removeAttribute("value");
+                  if (field.tagName === "TEXTAREA") field.textContent = "";
+                });
+            return clone;
+          });
   });
   useLayoutEffect(
     () => () => {

@@ -2,10 +2,10 @@ name: Qubite web verification
 on:
   push:
     branches: [main, 'codex/**']
-    paths: ['apps/web/**', '.github/workflows/web.yml']
+    paths: ['apps/web/**', 'core/**', 'contracts/**', 'scripts/engineering/web_auth_fixture.py', 'scripts/engineering/test-requirements.lock', '.github/workflows/web.yml']
   pull_request:
     branches: [main]
-    paths: ['apps/web/**', '.github/workflows/web.yml']
+    paths: ['apps/web/**', 'core/**', 'contracts/**', 'scripts/engineering/web_auth_fixture.py', 'scripts/engineering/test-requirements.lock', '.github/workflows/web.yml']
 permissions:
   contents: read
 jobs:
@@ -22,12 +22,19 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python -m pip install -r ../../scripts/engineering/test-requirements.lock
+      - run: /usr/lib/postgresql/16/bin/postgres --version
       - run: npm ci
       - run: npm run format:check
       - run: npm run build
       - run: npm run build:demo
       - run: npx playwright install --with-deps chromium
       - run: npm test
+        env:
+          QUBITE_TEST_POSTGRES_BIN: /usr/lib/postgresql/16/bin
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

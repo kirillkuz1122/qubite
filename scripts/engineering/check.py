@@ -47,6 +47,18 @@ if __name__ == '__main__':
         for route in contract['routes']:
             assert route['task'] in by_id, 'Неизвестная identity задача'
             assert route['status'] == ('implemented' if route['task'] in implemented else 'planned'), 'Неверный runtime status identity route'
+    legal_bundle = ROOT / 'docs/legal/BUNDLE.json'
+    if legal_bundle.exists():
+        manifest = json.loads(legal_bundle.read_text())
+        source = ROOT / manifest['source']
+        packet = json.loads(source.read_text())
+        assert manifest['sha256'] == hashlib.sha256(source.read_bytes()).hexdigest(), 'Legal packet changed without evidence update'
+        assert manifest['version'] == packet['bundle_version']
+        assert manifest['publication_ready'] == packet['publication_ready']
+        for doc in packet['documents']:
+            markdown = (ROOT / ('docs/legal/' + doc['id'].upper() + '.md')).read_text()
+            assert doc['title'] in markdown
+            assert all(paragraph in markdown for section in doc['sections'] for paragraph in section['paragraphs']), 'Legal source/markdown diverged'
     trace = json.loads((ROOT / 'docs/product/source-trace.json').read_text())
     for source in ['QUBITE_MASTER_CONTEXT.md', 'QUBITE_ACCESS_AND_OWNER_CONSOLE.md']:
         expected = [(i, hashlib.sha256(line.encode()).hexdigest()) for i, line in enumerate((ROOT/source).read_text().splitlines(), 1) if line.strip()]
@@ -56,7 +68,7 @@ if __name__ == '__main__':
     assert ideas == {f'{i:02}' for i in range(1, 49)}, 'Потеря идеи из 48'
     count = 0
     for directory in ['docs/product', 'docs/architecture', 'docs/migration', 'docs/design',
-                      'docs/engineering', 'docs/plan', 'docs/project', 'docs/legacy-services']:
+                      'docs/engineering', 'docs/plan', 'docs/project', 'docs/legacy-services', 'docs/legal']:
         for p in (ROOT / directory).rglob('*.md'):
             assert len(p.read_text().strip()) > 150, f'Пустой документ {p}'
             markdown = re.sub(r'`[^`\n]*`', '', p.read_text())

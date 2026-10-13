@@ -2,9 +2,13 @@
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.
 
+## 13.10.2026 — QUB-AUTH-007, review/testing
+
+apps/web0.3.0: публичный лендинг, отдельный Qubite Auth, регистрация/invite/verify/reset и безопасность профиля поверх FastAPI. Существующий живой Поток используется без смены дизайна. Browser OAuth fixed303 completion, JSON API сохранён. Новые четыре legal текста; сведения оператора/страны перед public launch в QUB-LEGAL-001. Локально71browser/986regression, commit/CI/private demo evidence — [отчёт](../reports/QUB-AUTH-007.md).
+
 ## 13.10.2026 — QUB-UI-002
 
-Выбранные живые controls/physics/SVG перенесены из assets в apps/web0.2.0. Flow503мс, bounded viscous drag, native sliders/drag switches, scene/dialog transitions, lite/quiet/strength/duration prefs. [Отчёт](../reports/QUB-UI-002.md).49browser/976regression; implementation2d0a8e0, exact-SHA web38441106776/engineering38441107010 success, private demo version2 succeeded. Следующая AUTH-007 разрешена, вопросы отправлены и ответы ожидаются.
+Выбранные живые controls/physics/SVG перенесены из assets в apps/web0.2.0. Flow503мс, bounded viscous drag, native sliders/drag switches, scene/dialog transitions, lite/quiet/strength/duration prefs. [Отчёт](../reports/QUB-UI-002.md).49browser/976regression; implementation2d0a8e0, exact-SHA web38441106776/engineering38441107010 success, private demo version2 succeeded. Историческое состояние до AUTH-007: задача была разрешена, затем ответы получены и реализован следующий slice.
 
 ## 13.10.2026 — QUB-UI-001
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   modules,
   demoVisibility,
@@ -23,7 +23,10 @@ import {
   LivingNavigation,
 } from "./material/Controls";
 import { MotionContext } from "./material/motion";
-import { profiles } from "./material/profiles";
+import { useAppearance } from "./appearance";
+import { Public } from "./auth/Public";
+import { consumeAuthLink, type AuthEntry } from "./auth/routes";
+import { Security } from "./auth/Security";
 import { MorphContent } from "./material/Transition";
 import { Mark } from "./material/Marks";
 import "./material/material.css";
@@ -42,93 +45,75 @@ function navigate(route: string) {
   location.hash = route;
 }
 type Note = { id: number; text: string };
-type Preferences = {
-  quiet: boolean;
-  dark: boolean;
-  strength: number;
-  duration: number;
-  lite: boolean;
-};
-function readPreferences(): Preferences {
-  try {
-    const value = JSON.parse(localStorage.getItem("qubite.ui.v1") || "null");
-    return {
-      quiet: value?.quiet === true,
-      dark: value?.dark === true,
-      strength: Number.isFinite(value?.strength)
-        ? Math.max(0, Math.min(100, value.strength))
-        : 100,
-      duration: Number.isFinite(value?.duration)
-        ? Math.max(250, Math.min(900, value.duration))
-        : 503,
-      lite:
-        typeof value?.lite === "boolean"
-          ? value.lite
-          : matchMedia("(pointer: coarse)").matches,
-    };
-  } catch {
-    return {
-      quiet: false,
-      dark: false,
-      strength: 100,
-      duration: 503,
-      lite: matchMedia("(pointer: coarse)").matches,
-    };
-  }
+export function App({ initialEntry }: { initialEntry: AuthEntry }) {
+  const [entry, setEntry] = useState(initialEntry);
+  useEffect(() => {
+    const update = () => setEntry(consumeAuthLink());
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  return __QUBITE_DEMO__ ? <Demo entry={entry} /> : <Runtime entry={entry} />;
 }
-
-export function App() {
-  // Build-time branch: no demo actor can be selected in the live artifact.
-  return __QUBITE_DEMO__ ? <Demo /> : <Runtime />;
-}
-function Runtime() {
+function Runtime({ entry }: { entry: AuthEntry }) {
   const { identity, refresh } = useIdentity();
-  if (identity.status === "authenticated")
-    return <Shell session={identity.session} demo={false} />;
-  const loading = identity.status === "loading";
+  const route = entry.route;
+  useEffect(() => {
+    if (route === "/auth/complete" || route === "/auth/linked") refresh();
+  }, [route, refresh]);
+  useEffect(() => {
+    if (
+      identity.status === "authenticated" &&
+      [
+        "/auth/login",
+        "/auth/register",
+        "/auth/complete",
+        "/auth/linked",
+      ].includes(route)
+    )
+      navigate(route === "/auth/linked" ? "/profile" : "/");
+  }, [identity.status, route]);
+  if (
+    identity.status === "authenticated" &&
+    !route.startsWith("/auth/") &&
+    !route.startsWith("/legal/")
+  )
+    return (
+      <Shell
+        key={identity.session.profile.id}
+        session={identity.session}
+        demo={false}
+        onIdentityChange={refresh}
+      />
+    );
   return (
-    <div className="entry-screen">
-      <div className="brand">
-        <Brand />
-        <span>Qubite</span>
-      </div>
-      <main>
-        <Empty
-          title={
-            loading
-              ? "Открываем твоё пространство"
-              : identity.status === "anonymous"
-                ? "Начнём с твоего аккаунта"
-                : "Не удалось открыть пространство"
-          }
-          text={
-            loading
-              ? "Проверяем подключение и доступ."
-              : identity.status === "anonymous"
-                ? "Войди, чтобы открыть профиль и доступные тебе модули."
-                : "Подключение недоступно. Попробуй ещё раз, когда связь восстановится."
-          }
-          icon={loading ? "orbit" : "lock"}
-        >
-          {!loading && (
-            <LivingButton className="button orange" onClick={refresh}>
-              Проверить снова <Icon name="arrow" />
-            </LivingButton>
-          )}
-        </Empty>
-        {!loading && (
-          <p className="release-note">
-            Экран входа появится в следующем этапе. Аккаунт проверяется через
-            единый API Qubite.
-          </p>
-        )}
-      </main>
-    </div>
+    <Public
+      route={route}
+      entry={entry}
+      status={identity.status}
+      refresh={refresh}
+      onAuthenticated={() => {
+        navigate("/");
+        refresh();
+      }}
+    />
   );
 }
-function Demo() {
+function Demo({ entry }: { entry: AuthEntry }) {
   const [persona, setPersona] = useState<Persona>("owner"),
     [visibility, setVisibility] = useState(demoVisibility);
+  if (
+    entry.route === "/welcome" ||
+    entry.route.startsWith("/auth/") ||
+    entry.route.startsWith("/legal/")
+  )
+    return (
+      <Public
+        demo
+        route={entry.route}
+        entry={entry}
+        onAuthenticated={() => {}}
+      />
+    );
   return (
     <Shell
       key={persona}
@@ -149,6 +134,7 @@ function Shell({
   setVisibility,
   persona,
   onPersona,
+  onIdentityChange,
 }: {
   session: Session;
   demo: boolean;
@@ -156,33 +142,14 @@ function Shell({
   setVisibility?: (v: VisibilityMap) => void;
   persona?: Persona;
   onPersona?: (v: Persona) => void;
+  onIdentityChange?: () => void;
 }) {
   const [route, setRoute] = useState(readRoute),
     [dialog, setDialog] = useState<"preview" | "voice" | null>(null);
   const [notes, setNotes] = useState<Note[]>([]),
     [draft, setDraft] = useState("");
-  const [notice, setNotice] = useState(""),
-    [prefs, setPrefs] = useState(readPreferences);
-  const [systemQuiet, setSystemQuiet] = useState(
-    () => matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const media = matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setSystemQuiet(media.matches);
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  const stopped = prefs.quiet || systemQuiet || prefs.strength === 0;
-  const motion = useMemo(
-    () => ({
-      profile: profiles[1],
-      strength: prefs.strength / 100,
-      quiet: stopped,
-      selectionMs: prefs.duration,
-      lite: prefs.lite,
-    }),
-    [prefs.strength, prefs.duration, prefs.lite, stopped],
-  );
+  const [notice, setNotice] = useState("");
+  const { prefs, setPrefs, stopped, motion } = useAppearance();
   const root = useRef<HTMLDivElement>(null),
     heading = useRef<HTMLHeadingElement>(null),
     dock = useRef<HTMLFormElement>(null),
@@ -231,13 +198,6 @@ function Shell({
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [route]);
-  useEffect(() => {
-    try {
-      localStorage.setItem("qubite.ui.v1", JSON.stringify(prefs));
-    } catch {
-      /* Browser may disallow preference storage. */
-    }
-  }, [prefs]);
   useLayoutEffect(() => {
     const measure = () => {
       const v = window.visualViewport;
@@ -616,6 +576,10 @@ function Shell({
             </ul>
             {!session.grants.length && <p>Разрешений на модули пока нет.</p>}
           </section>
+          <Security
+            demo={demo}
+            onIdentityChange={onIdentityChange || (() => {})}
+          />
         </div>
       );
     if (route === "/settings")
@@ -836,6 +800,11 @@ function Shell({
               </span>
             </div>
             <div className="header-actions">
+              {demo && (
+                <LivingLink className="text-link" href="#/welcome">
+                  Лендинг и вход
+                </LivingLink>
+              )}
               {demo && (
                 <LivingButton
                   className="preview-button"

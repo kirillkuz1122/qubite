@@ -453,3 +453,32 @@ test("selected material can be dragged between options; cancelled drag preserves
   await page.keyboard.press("ArrowRight");
   await expect(locked).toHaveAttribute("aria-pressed", "true");
 });
+
+test("demo Auth previews never submit credentials or pretend to create an account", async ({
+  page,
+}) => {
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() !== "GET") posts.push(r.url());
+  });
+  await page.goto("/#/welcome");
+  await page.getByRole("link", { name: "Войти в Qubite" }).click();
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("fictional@example.test");
+  await page
+    .getByLabel("Пароль", { exact: true })
+    .fill("Synthetic preview password 42!");
+  await page.getByRole("button", { name: "Войти", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Аккаунт не создан");
+  await expect(page.getByLabel("Пароль", { exact: true })).toHaveValue("");
+  expect(posts).toEqual([]);
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify({
+        local: { ...localStorage },
+        session: { ...sessionStorage },
+      }),
+    ),
+  ).not.toContain("Synthetic preview password");
+});
