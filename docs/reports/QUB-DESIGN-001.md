@@ -1,6 +1,6 @@
 # QUB-DESIGN-001 — цветной пластик, итерация04
 
-13.10.2026. **Review/testing:** владелец выбрал Ленту, Unbounded/Manrope и прислал ритм100/503. Прежняя цветовая схема не принята; пять новых ярких наборов пластика и их иерархия подготовлены для выбора. Final product layout и физическая оценка движения отдельно.
+13.10.2026. **DONE: после просмотра опубликованной версии4 владелец выбрал Игрушечную и поручил сохранить выбор.** Итоговая дизайн-система: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. Final product layout и проверка производственного UI/целевых устройств — следующие отдельные задачи.
 
 [Демо / Образ](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance), [правила цвета](../design/COLOR_PLASTIC.md), [материал/питомцы](../design/FLUX_DESIGN_SYSTEM.md), [код](../../assets/design-lab/README.md).
 
@@ -25,13 +25,15 @@
 
 ## Публикация и Git
 
-Переиспользован owner-private project **appgprj_6acd2105bee8819190dbdce429d5a541**, audience не менялась. Source **8e8aba31a64452344ed82764ca76a92f7ca0d075** отправлен в Sites Git, полный remote SHA проверен; сравнение demo source с основным checkout: **0 mismatch**. Чистый source checkout собран после push, архив содержит только `.openai/hosting.json` и `dist`. Runtime env, базы, секреты и browser state не копировались; CI не публикует сайт автоматически.
+Основной implementation commit **9262e3c0c89db7b6343b6ce90c0e62213e515ffa** сразу отправлен в origin/main, полный remote SHA проверен. GitHub Actions [Material Lab38340403176](https://github.com/kirillkuz1122/qubite/actions/runs/38340403176) и [Qubite verification38340403192](https://github.com/kirillkuz1122/qubite/actions/runs/38340403192) — **completed/success** для этого точного headSha. `origin/tournaments` и `qubite-v1.0` одновременно повторно проверены: оба96f0457a523b6b79f21c4092056d8fa8fa69a680. Последующее закрепление приёмки меняет только документы; опубликованный код/версия остаются теми же.
+
+Переиспользован owner-private project **appgprj_6acd2105bee8819190dbdce429d5a541**, audience не менялась. Source **8e8aba31a64452344ed82764ca76a92f7ca0d075** отправлен в Sites Git, полный remote SHA проверен; сравнение demo source с основным checkout на момент публикации: **0 mismatch**; последующее закрепление выбора меняет только документацию. Чистый source checkout собран после push, архив содержит только `.openai/hosting.json` и `dist`. Runtime env, базы, секреты и browser state не копировались; CI не публикует сайт автоматически.
 
 **Версия4**, id **appgprj_6acd2105bee8819190dbdce429d5a541~appgver_82bec8a67bec819192113abefca28881**; `get_site_version` подтвердил точный source SHA. **Deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded**, failure_message=null, завершён **2026-10-13T03:04:14.170540+00:00** (08:04:14 Asia/Yekaterinburg). Local archive успешно передан: raw tar921600bytes, SHA256135ce0730387beb07a0bdb4e7a80f9a341c83796ad6b5059a24d6528a1333508. Server archive_storage:24files/911360bytes, content_hash sha256:384764d9a7a94ce839f19755e873b62dffd8795fabee51d764b2d0d9ccdc9c97 — отдельные серверные метаданные, не равенство raw tar hash/размера.
 
-По внешнему URL проверено сохранение ChatGPT gate без входа агента; authenticated visual acceptance нового выпуска остаётся владельцу. Локальный UI exact source просмотрен. Скриншот витрины сохранён в `/tmp/qubite-plastic04-preview.jpg`; временные артефакты не добавляются в Git.
+По внешнему URL проверено сохранение ChatGPT gate без входа агента; владелец затем сам просмотрел новый выпуск и подтвердил выбор Игрушечной. Локальный UI exact source просмотрен. Скриншот витрины сохранён в `/tmp/qubite-plastic04-preview.jpg`; временные артефакты не добавляются в Git.
 
-Новая палитра остаётся на выборе владельца. DESIGN-001 review/testing, типографика/Лента уже подтверждены; не возвращать их в открытые вопросы. Следующая рекомендованная отдельная задача QUB-AUTH-008, безопасная identity/session cutover specification FastAPI/Postgres, без live migration. В этом цикле не начата.
+Владелец просмотрел демо и подтвердил: «игрушечная палитра мне нравится ее берём». **DESIGN-001 done**, все выборы подтверждены; не возвращать их в открытые вопросы. Этот отзыв закрывает выбор витрины, не является измерением FPS/Safari. Следующая рекомендованная отдельная задача QUB-AUTH-008, безопасная identity/session cutover specification FastAPI/Postgres, без live migration. В этом цикле не начата.
 
 ---
 

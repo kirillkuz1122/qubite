@@ -72,7 +72,7 @@ Shared extraction: CORE/identity plan → FastAPI sessions → OAuth/verify/rese
 6. Новые сервисы: SVC-SEARCH-001→002, SVC-WRITING-001→002, SVC-VPN-001→002. Каждый сначала contract/parity/API, затем React UI и отдельный tested switch. SEARCH-001 в knowledge track — внутренний поиск документов, другой сервис.
 7. Docs/capture/sync/notifications вертикальными slices; desktop/Linux и Android Ink POC по готовым API/UX и device gates. Tournaments low-priority compatibility track, сохраняя старый UI.
 
-QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан и опубликован, review/testing до приёмки материала Milo владельцем. Ready означает разрешённую задачу, не готовую функцию; core foundation существует, product UI/identity пока отсутствует.
+QUB-TEST-001 реализована и локально проверена: 25 новых HTTP Auth cases, 357 checks в полном runner+harness. Evidence/commit/remote status: [отчёт](../reports/QUB-TEST-001.md), [handoff](../project/LAST_HANDOFF.md), tasks.json. CORE-001 foundation реализован и локально проверен; DESIGN-001 Material Lab создан, опубликован и принят владельцем13.10.2026: Поток/Игрушечная/Лента/Unbounded/Manrope. Ready означает разрешённую задачу, не готовую функцию; core foundation существует, product UI/identity пока отсутствует.
 
 ## Milo и помощники — уточнение 12.10.2026
 
@@ -91,8 +91,10 @@ flowchart LR
   CAP[CAPTURE-002] --> A
 ```
 
-Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр: 53 карточки, 3 done /1 review-testing /3 ready /46 backlog.
+Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр: 53 карточки, 4 done /3 ready /46 backlog.
 
 ## Поток и витрина — уточнение 13.10.2026
 
-Flux selected; [компонентный контракт](../design/FLUX_DESIGN_SYSTEM.md), ADR-0012. Завершить DESIGN-001 после owner выбора palette/type/marks и проверки на слабом телефоне. Следующая рекомендуемая ready задача AUTH-008 (identity cutover specification), далее утверждённые identity/policy задачи перед React shell. PET-001/002 содержат edge peek/hidden/contextual appearance/retreat: места/условия выбираются при реализации экранов. Static prototype не финальная IA и не product implementation; UI/AI/deploy gates сохраняются.
+Flux selected; [компонентный контракт](../design/FLUX_DESIGN_SYSTEM.md), ADR-0012. DESIGN-001 завершён после просмотра версии4 и выбора владельцем Игрушечной, Ленты и Unbounded/Manrope. Production device checks остаются UI-002. Следующая рекомендуемая ready задача AUTH-008 (identity cutover specification), далее утверждённые identity/policy задачи перед React shell. PET-001/002 содержат edge peek/hidden/contextual appearance/retreat: места/условия выбираются при реализации экранов. Static prototype не финальная IA и не product implementation; UI/AI/deploy gates сохраняются.
+
+13.10.2026, приёмка версии4: владелец выбрал **Игрушечную**; DESIGN-001 done. Следующая рекомендуемая задача **QUB-AUTH-008**, проектирование безопасного identity/session cutover FastAPI/Postgres; не live переключение и не реализация всего UI. Ранее указанные review gates Milo — история до этой приёмки.

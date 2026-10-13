@@ -671,7 +671,8 @@
       "Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review",
       "Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами",
       "13.10.2026: Flux selected; пять palette, 5 heading/5 body choices, 5 logo families ×12 назначения; mobile motion/overlap review. Final owner selections/physical acceptance before done.",
-      "13.10.2026 iteration04: owner selected Ribbon/Unbounded/Manrope; five bright plastic kits with semantic action/select/idea/success hierarchy and whole-specimen examples. Palette/physical acceptance pending."
+      "13.10.2026 iteration04: owner selected Ribbon/Unbounded/Manrope; five bright plastic kits with semantic action/select/idea/success hierarchy and whole-specimen examples. Palette/physical acceptance pending.",
+      "13.10.2026 после просмотра опубликованной версии4 владелец выбрал Игрушечную; Поток/Лента/Unbounded/Manrope/ритм100/503 закреплены. DESIGN-001 accepted; production layout/device checks отдельно UI-001/002."
     ],
     "tests": [
       "Проверка docs/links; просмотр макета владельцем",
@@ -684,8 +685,8 @@
       "Дизайн-макет не выдавать за реализованный auth"
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
-    "status": "review/testing",
-    "commit": "74ad2efcae25b52e04b59cab148e8317b0a735aa",
+    "status": "done",
+    "commit": "9262e3c0c89db7b6343b6ce90c0e62213e515ffa",
     "architecture_approved": true,
     "verification": [
       "47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass",
@@ -702,7 +703,9 @@
       "13.10.2026 private Sites version3 published/source c12223d37f0fa3135b742243b8e64def43dc485a remote/version verified; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded; local archive uploaded; root-source0 mismatch.",
       "Flux03 main 74ad2efcae25b52e04b59cab148e8317b0a735aa pushed; git ls-remote exact SHA verified; CI Material Lab38303757824/verification38303758010 completed/success for exact implementation SHA; origin archive refs96f0457 unchanged.",
       "Iteration04 authorized by owner screenshots: Ribbon/Unbounded/Manrope confirmed, rhythm100/503; previous palette rejected, five semantic plastic kits requested. Final133/133 browser pass238.6s/no retries/skips/flaky; existing386/harness pass, combined519. Palette/physical acceptance pending.",
-      "Plastic04 private Sites version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075 pushed/remote/version verified; root-source0 mismatch; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC; exact source archive uploaded, private audience preserved."
+      "Plastic04 private Sites version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075 pushed/remote/version verified; root-source0 mismatch; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC; exact source archive uploaded, private audience preserved.",
+      "Plastic04 main9262e3c0c89db7b6343b6ce90c0e62213e515ffa pushed; remote exact SHA verified. Owner viewed version4 and explicitly selected Игрушечная: DESIGN-001 done. Toy was already published default; acceptance changes documentation only.",
+      "GitHub Actions Material Lab38340403176 and Qubite verification38340403192 completed/success for exact implementation SHA9262e3c0c89db7b6343b6ce90c0e62213e515ffa; origin archive branch/tag96f0457 unchanged, verified together with main."
     ]
   },
   {

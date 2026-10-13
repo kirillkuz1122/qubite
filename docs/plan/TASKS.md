@@ -386,7 +386,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-DESIGN-001 — Поток: компонентная дизайн-система и мобильный material UX
 
-Модуль: design; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
+Модуль: design; P0; статус done; architecture approved: true. Зависимости: QUB-001.
 
 Причина: Владелец выбрал Milo → Поток, попросил плавность на телефоне, варианты цветов/шрифтов/знаков и доработку помощников; расположение экранов выбирается отдельно.
 
@@ -394,7 +394,7 @@ Commit: после выполнения. Evidence: .
 
 Acceptance:
 
-- Итерация04: владелец выбрал Ленту/Unbounded/Manrope; пять новых ярких наборов пластика с action/select/idea/success hierarchy, full specimen examples; только палитра/physical acceptance ещё открыты
+- Итерация04: владелец выбрал Ленту/Unbounded/Manrope; пять новых ярких наборов пластика с action/select/idea/success hierarchy, full specimen examples; после просмотра версии4 владелец выбрал Игрушечную, DESIGN-001 принят; production layout/device checks отдельно
 
 - Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему
 - Email/password/согласия; display name optional; нет code-entry/турнирных полей
@@ -408,9 +408,9 @@ Acceptance:
 
 Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
 
-Commit: 74ad2efcae25b52e04b59cab148e8317b0a735aa (исторический Flux03). Evidence текущего Plastic04: 133/133 browser pass238.6s; 386/386 isolated regression+harness pass, итого519 различных проверок. Format/build/check/diff pass. Полные и исторические доказательства в tasks.json и report; SHA текущего main/CI дописываются после push.
+Commit: 9262e3c0c89db7b6343b6ce90c0e62213e515ffa. Evidence: 133/133 browser pass238.6s; 386/386 isolated regression+harness pass, итого519 различных проверок. Format/build/check/diff pass; main pushed/remote exact SHA verified; CI Material Lab38340403176/verification38340403192 completed/success для этого SHA. Владелец просмотрел опубликованную версию4 и выбрал Игрушечную; DESIGN-001 done. Полные и исторические доказательства в tasks.json и report.
 
-Publication: Plastic04 private version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC, версия/source проверены, archive загружен. Palette/physical acceptance pending; Поток, Лента, Unbounded/Manrope выбраны владельцем.
+Publication: Plastic04 private version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC, версия/source проверены, archive загружен. Поток/Игрушечная/Лента/Unbounded/Manrope приняты владельцем; production UI/device checks отдельно.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 

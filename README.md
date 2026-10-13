@@ -8,7 +8,7 @@ Qubite — рабочий MVP-прототип платформы для уче�
 
 Рабочая legacy часть использует обычные `HTML + CSS + JavaScript` и `Node.js + Express + SQLite`. Новый независимый FastAPI/Postgres foundation находится в `core/`. Пять отдельных React/TS дизайн-прототипов находятся в `assets/design-lab/`; product UI/Auth migration ещё не реализованы.
 
-**Новый дизайн: [Поток / цветной пластик — открыть с телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance)** (private, ChatGPT владельца). Выбраны Поток, Лента и Unbounded/Manrope; пять новых цветовых наборов с иерархией действия/выбора/черновика/результата ещё выбираются. [Код/запуск](assets/design-lab/README.md), [правила цвета](docs/design/COLOR_PLASTIC.md), [отчёт](docs/reports/QUB-DESIGN-001.md). Сценарный React specimen, реальные AI/API не подключены; окончательная раскладка продукта отдельно.
+**Новый дизайн: [Поток / цветной пластик — открыть с телефона](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance)** (private, ChatGPT владельца). Выбраны Поток, **Игрушечная палитра**, Лента и Unbounded/Manrope; DESIGN-001 принят владельцем13.10.2026. [Код/запуск](assets/design-lab/README.md), [правила цвета](docs/design/COLOR_PLASTIC.md), [отчёт](docs/reports/QUB-DESIGN-001.md). Сценарный React specimen, реальные AI/API не подключены; окончательная раскладка продукта отдельно.
 
 ## Что это за проект
 
@@ -231,4 +231,4 @@ QUB-TEST-001 добавляет 25 HTTP-сценариев настоящего 
 
 ### Поток / дизайн-система (13.10.2026)
 
-Владелец выбрал Flux внутри Milo. [Приватная витрина](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), [контракт](docs/design/FLUX_DESIGN_SYSTEM.md), [код/запуск](assets/design-lab/README.md): компоненты и motion, пять палитр, независимые шрифты заголовков/текста, пять семейств знаков существующих сервисов, refined персонажи/сценарное общение. Это design specimen, не final product layout или работающие AI-агенты. Лента/Unbounded/Manrope выбраны; пять новых plastic kits по [контракту](docs/design/COLOR_PLASTIC.md), палитра и physical acceptance ещё открыты; legacy сервисы не менялись.
+Владелец выбрал Flux внутри Milo. [Приватная витрина](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/components), [контракт](docs/design/FLUX_DESIGN_SYSTEM.md), [код/запуск](assets/design-lab/README.md): компоненты и motion, пять палитр, независимые шрифты заголовков/текста, пять семейств знаков существующих сервисов, refined персонажи/сценарное общение. Это design specimen, не final product layout или работающие AI-агенты. Поток/Игрушечная/Лента/Unbounded/Manrope выбраны, DESIGN-001 принят владельцем; правила по [контракту](docs/design/COLOR_PLASTIC.md), production UI и device performance — следующие отдельные задачи; legacy сервисы не менялись.

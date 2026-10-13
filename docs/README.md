@@ -9,7 +9,7 @@
 - [Миграция](migration/LEGACY_TO_QUBITE.md), [backup/deploy](engineering/DEPLOYMENT_AND_BACKUPS.md), [тесты](engineering/TEST_STRATEGY.md), [harness](engineering/AGENT_HARNESS.md), [дизайн](design/DESIGN_SYSTEM_PLAN.md).
 - [Roadmap](plan/ROADMAP.md), [53 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
 - [Milo 02: материал controls и помощники](design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0011](architecture/decisions/0011-milo-live-controls.md).
-- [Первое исследование: пять React-направлений](design/MATERIAL_DIRECTIONS.md), [Auth UX](design/AUTH_UX.md), [запуск Material Lab](../assets/design-lab/README.md), [отчёт DESIGN-001](reports/QUB-DESIGN-001.md). [Опубликованное приватное демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site); Milo выбран как основа, review механики открыт.
+- [Первое исследование: пять React-направлений](design/MATERIAL_DIRECTIONS.md), [Auth UX](design/AUTH_UX.md), [запуск Material Lab](../assets/design-lab/README.md), [отчёт DESIGN-001](reports/QUB-DESIGN-001.md). [Опубликованное приватное демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site); Итоговый Поток/Игрушечная/Лента/Unbounded/Manrope принят владельцем13.10.2026.
 
 Ниже сохранён прежний индекс документации работающего проекта. Новая архитектура не отменяет операционные ограничения существующих сервисов.
 
@@ -64,6 +64,6 @@
 
 [Созданный core foundation](architecture/CORE_FOUNDATION.md), [запуск](../core/README.md), [отчёт QUB-CORE-001](reports/QUB-CORE-001.md).
 
-- [Поток / витрина компонентов, палитры, типографика, знаки и появление помощников](design/FLUX_DESIGN_SYSTEM.md) — актуальная DESIGN-001 итерация 03.
+- [Поток / витрина компонентов, палитры, типографика, знаки и появление помощников](design/FLUX_DESIGN_SYSTEM.md) — итерации03/04, DESIGN-001 принят владельцем.
 
 - [Цветной пластик / итерация04](design/COLOR_PLASTIC.md): подтверждённые шрифты/знаки, пять новых наборов и семантическая иерархия цветов.

@@ -1,22 +1,24 @@
 # Передача следующей сессии — 13.10.2026 / Plastic04
 
-**QUB-DESIGN-001 review/testing, итерация04.** Владелец прислал четыре скриншота выбранных настроек: **Лента, Unbounded для заголовков, Manrope для текста, ритм100/503**. Это defaults, не переспрашивать. Пять прежних приглушённых схем не приняты: нужен яркий цветной игрушечный пластик с несколькими функциональными цветами и понятной иерархией. Final product layout по-прежнему отдельно.
+**QUB-DESIGN-001 done, итерация04 принята владельцем13.10.2026.** Владелец прислал четыре скриншота выбранных настроек: **Лента, Unbounded для заголовков, Manrope для текста, ритм100/503**. После просмотра опубликованного демо владелец выбрал **Игрушечную**: «игрушечная палитра мне нравится ее берём». Всё это defaults, не переспрашивать. Пять прежних приглушённых схем не приняты: нужен яркий цветной игрушечный пластик с несколькими функциональными цветами и понятной иерархией. Final product layout по-прежнему отдельно.
 
 [Открыть цветной пластик](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/flux/appearance), [контракт](../design/COLOR_PLASTIC.md), [материал/питомцы](../design/FLUX_DESIGN_SYSTEM.md), [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [отчёт](../reports/QUB-DESIGN-001.md), [код](../../assets/design-lab/README.md).
 
 ## Что реально готово
 
-Пять новых наборов **Игрушечная/Аква/Поп/Лимон/Блоки**, светлая и тёмная темы; отдельные роли action/select/idea/success/error и readable ink/text accent. Разное распределение заливки: molded/inset/caps/tiles/outline. Выбор меняет controls и поверхности всех шести разделов. На «Образ»: роль цветов и рабочий пример tabs/raw note/save→success/progress/switch/error; прежние пять спокойных палитр раскрываются отдельно. Выбранные fonts/family при этом не сбрасываются. Настройки только in-memory. Светлая Игрушечная — предложение, не финальный выбор владельца.
+Пять новых наборов **Игрушечная/Аква/Поп/Лимон/Блоки**, светлая и тёмная темы; отдельные роли action/select/idea/success/error и readable ink/text accent. Разное распределение заливки: molded/inset/caps/tiles/outline. Выбор меняет controls и поверхности всех шести разделов. На «Образ»: роль цветов и рабочий пример tabs/raw note/save→success/progress/switch/error; прежние пять спокойных палитр раскрываются отдельно. Выбранные fonts/family при этом не сбрасываются. Настройки только in-memory. Игрушечная подтверждена владельцем после просмотра версии4.
 
-Физика Потока/auto coarse lightweight/manual strength/quiet/reduced motion сохранены. Дополнительных dependencies/blur/idle loops/real APIs нет. **133/133 browser pass238.6s**, 13 новых Plastic; existing386/harness pass, combined519. Format/build/check/diff pass. Технические доказательства текущего выпуска/CI/source/publication в report. Physical weak phone/Safari/FPS acceptance остаётся открытым. Все legacy/runtime/.env/БД/службы/ShadeAI/архив не затрагиваются.
+Физика Потока/auto coarse lightweight/manual strength/quiet/reduced motion сохранены. Дополнительных dependencies/blur/idle loops/real APIs нет. **133/133 browser pass238.6s**, 13 новых Plastic; existing386/harness pass, combined519. Format/build/check/diff pass. Технические доказательства текущего выпуска/CI/source/publication в report. Владелец просмотрел демо и принял дизайн; измеренные FPS/Safari не заявляются. Проверка производственного UI/целевых устройств остаётся UI-002. Все legacy/runtime/.env/БД/службы/ShadeAI/архив не затрагиваются.
 
 Питомцы: прежние four characters/gaze/8 scripted events/3 speech examples. Сценарии hidden/edge peek/contextual appearance/dialogue/retreat уже зафиксированы в PET-001/002; места/условия решать при реализации product screens, настоящий agent dispatcher не реализован.
+
+Implementation main9262e3c0c89db7b6343b6ce90c0e62213e515ffa pushed/remote verified; CI Material Lab38340403176 и Qubite verification38340403192 completed/success для точного SHA. Archive refs96f0457 повторно проверены на origin. Приёмка/доказательства сохраняются отдельным docs-only коммитом, без нового кода или публикации.
 
 ## Публикация и продолжение
 
 Reuse existing owner-private project **appgprj_6acd2105bee8819190dbdce429d5a541** из hosting.json; не создавать новый site/не менять audience, не сохранять краткоживущие credentials. CI tests-only, no auto publication. **Версия4 опубликована**, source8e8aba31a64452344ed82764ca76a92f7ca0d075 pushed/remote/version verified, deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC. Полные provenance/archive метаданные в report. Внешний ChatGPT gate сохранён; владелец сам открывает его, не повторять agent sign-in.
 
-Next: владелец выбирает один из пяти новых kits и оценивает phone motion. Typography/mark family/base material уже выбраны. Следующая отдельная ready задача рекомендована **QUB-AUTH-008**, спецификация безопасного перехода identity/session на FastAPI/Postgres, без live cutover. Не начинать её в дизайн-цикле. UI-001 gates AUTH-003+DESIGN-001 остаются. Registry53:3done/1review-testing/3ready/46backlog. Skills/reset/subagents не использовать по прямому указанию владельца.
+Next: выбор дизайна закрыт: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. Следующая отдельная ready задача рекомендована **QUB-AUTH-008**, спецификация безопасного перехода identity/session на FastAPI/Postgres, без live cutover. Не начинать её в дизайн-цикле. UI-001 gates AUTH-003+DESIGN-001 остаются. Registry53:4done/3ready/46backlog. Skills/reset/subagents не использовать по прямому указанию владельца.
 
 ## Сохранённые foundation и решения
 

@@ -4,7 +4,7 @@
 
 CONFIRMED 12.10.2026: новая React/TS shell alongside legacy и полностью новый дизайн, собственные visual tokens; existing docs/design-system.md и /design-system — референс действующих компонентов, не новая платформа. В данном этапе никаких UI файлов runtime не меняем.
 
-**QUB-DESIGN-001 review/testing**: Milo выбран владельцем как основа. [Milo 02 — материал controls/помощники](MILO_MATERIAL_AND_COMPANIONS.md): пять физических вариантов, податливость 0–100, непрерывные переходы и четыре характера. [Демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site/#/milo/v2/souffle/controls), [проверки](../reports/QUB-DESIGN-001.md), [Auth UX](AUTH_UX.md). Первая галерея сохранена как история; product UI ещё отсутствует. Финальная механика требует приёмки владельца.
+**QUB-DESIGN-001 done13.10.2026:** владелец просмотрел версию4 и выбрал Поток/Игрушечную/Ленту/Unbounded/Manrope, ритм100/503. [Текущий контракт цвета](COLOR_PLASTIC.md), [Поток](FLUX_DESIGN_SYSTEM.md), [отчёт](../reports/QUB-DESIGN-001.md), [Auth UX](AUTH_UX.md). Исторические исследования сохранены; final product layout и реализация UI/агентов отдельно.
 
 Tokens: semantic colors background/surface/text/muted/accent/danger, typography, spacing/radius/elevation, motion timings, focus ring, tap targets. Light/dark/reduced motion/high contrast. Components: Button/Input/Select/Popover/Menu/Dialog/Drawer/Tabs/Card/Toast/Empty/Error/Loading/Offline/Conflict/PermissionDenied/BudgetExceeded/ModuleUnavailable; consistent keyboard focus/escape/return focus.
 

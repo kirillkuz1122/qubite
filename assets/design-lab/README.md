@@ -12,7 +12,7 @@
 
 Native controls с bounded drag/cancel/keyboard/no accidental submit; единый sleeping scheduler, непрерывное timed selection с движением по двум осям, menu/dialog/section/auth transitions. Библиотека 22 UI icons, action busy/complete/disabled и field. Workspace сохраняет capture/undo/tasks/Search/Writer/VPN/modules/Settings→Owner Console примеры; role selector не авторизация, quota не вызывает AI.
 
-[Контракт Потока](../../docs/design/FLUX_DESIGN_SYSTEM.md), [персоны/будущие AI границы](../../docs/design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0012](../../docs/architecture/decisions/0012-flux-design-system.md), [отчёт](../../docs/reports/QUB-DESIGN-001.md). Выбор владельца: **Лента, Unbounded/Manrope**, ритм100/503; новые defaults. Цветной набор и оценка на устройстве ещё открыты. [Правила пластика](../../docs/design/COLOR_PLASTIC.md).
+[Контракт Потока](../../docs/design/FLUX_DESIGN_SYSTEM.md), [персоны/будущие AI границы](../../docs/design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0012](../../docs/architecture/decisions/0012-flux-design-system.md), [отчёт](../../docs/reports/QUB-DESIGN-001.md). Выбор владельца после просмотра версии4: **Поток, Игрушечная, Лента, Unbounded/Manrope**, ритм100/503; DESIGN-001 принят и завершён. Эти значения уже defaults опубликованного UI. Проверки производственного UI/целевых устройств относятся к UI-002. [Правила пластика](../../docs/design/COLOR_PLASTIC.md).
 
 ## Запуск
 
