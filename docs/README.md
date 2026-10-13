@@ -1,5 +1,7 @@
 # Документация Qubite 2.0 и legacy
 
+**AUTH-01113.10.2026 review/testing:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](reports/QUB-AUTH-011.md), [ADR-0017](architecture/decisions/0017-email-challenges-and-recovery.md). Задача закрывается только после final local+exact-SHA CI evidence; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
+
 Текущее ядро: [Web Auth](architecture/WEB_AUTH.md), [OAuth и account linking](architecture/OAUTH_IDENTITY.md), [отчёт AUTH-010](reports/QUB-AUTH-010.md), [core запуск](../core/README.md), [ADR-0016](architecture/decisions/0016-explicit-oauth-identities.md). Core0.3.0/current0004; остальные задачи и старые milestones ниже различать.
 
 Новый комплект проектирует платформу; legacy-код продолжает существовать. Стек согласован 12.10.2026; механика и клиентские POC описаны в ADR. Не считать планы реализацией.

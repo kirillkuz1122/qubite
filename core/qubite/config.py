@@ -43,8 +43,11 @@ class Settings:
     auth_local_http: bool = False
     oauth_clients: tuple[OAuthClient, ...] = field(default=(), repr=False)
     oauth_network_enabled: bool = False
+    email_challenges_enabled: bool = False
 
     def __post_init__(self):
+        if type(self.email_challenges_enabled) is not bool:
+            raise ConfigurationError('Invalid core email challenge mode')
         if (type(self.oauth_network_enabled) is not bool or not isinstance(self.oauth_clients, tuple)
                 or any(not isinstance(c, OAuthClient) for c in self.oauth_clients)
                 or len({c.provider for c in self.oauth_clients}) != len(self.oauth_clients)):
@@ -114,11 +117,14 @@ class Settings:
         network = source.get('QUBITE_CORE_OAUTH_NETWORK_ENABLED', 'false')
         if network not in {'true', 'false'}:
             raise ConfigurationError('Invalid core OAuth network mode')
+        email = source.get('QUBITE_CORE_EMAIL_CHALLENGES_ENABLED', 'false')
+        if email not in {'true','false'}:
+            raise ConfigurationError('Invalid core email challenge mode')
         clients = tuple(OAuthClient(p, source.get(f'QUBITE_CORE_OAUTH_{p.upper()}_CLIENT_ID') or None,
                                    source.get(f'QUBITE_CORE_OAUTH_{p.upper()}_CLIENT_SECRET') or None)
                         for p in ('google', 'yandex', 'vk', 'telegram'))
         return cls(source.get("QUBITE_CORE_DATABASE_URL") or None, timeout,
-                   source.get("QUBITE_CORE_AUTH_ORIGIN") or None, local == "true", clients, network == 'true')
+                   source.get("QUBITE_CORE_AUTH_ORIGIN") or None, local == "true", clients, network == 'true', email == 'true')
 
     def oauth_client(self, provider):
         return next((c for c in self.oauth_clients if c.provider == provider), OAuthClient(provider))

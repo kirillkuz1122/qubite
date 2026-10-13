@@ -9,6 +9,9 @@ from .tokens import valid_token
 
 PATHS = {'/api/v1/auth/csrf', '/api/v1/auth/session', '/api/v1/me',
          '/api/v1/auth/sessions', '/api/v1/auth/logout', '/api/v1/auth/logout-all', '/api/v1/auth/reauth'}
+EMAIL_PATHS = {f'/api/v1/auth/email/{purpose}/{action}'
+               for purpose in ('verify','reset') for action in ('request','confirm')}
+PATHS |= EMAIL_PATHS
 LEGACY = {'qb_session', '__Host-qubite_search'}
 ALL_COOKIES = LEGACY | {'__Host-qubite_session','__Host-qubite_preauth','qubite_local_session','qubite_local_preauth'}
 
@@ -119,7 +122,7 @@ class AuthGuard:
                 if body and (len(content)!=1 or content[0].split(';')[0].strip().lower()!='application/json'):
                     raise AuthError(400,'invalid_request')
                 oauth_json = re.fullmatch(r'/api/v1/auth/oauth/[^/]+/start|/api/v1/me/oauth/[^/]+',scope['path']) is not None
-                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'} and not oauth_json:
+                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'} | EMAIL_PATHS and not oauth_json:
                     raise AuthError(400,'invalid_request')
                 async def replay():
                     return {'type':'http.request','body':bytes(body),'more_body':False}

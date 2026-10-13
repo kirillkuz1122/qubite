@@ -1,5 +1,7 @@
 # TODO / Roadmap / Known Issues
 
+**AUTH-01113.10.2026 — review/testing:** core0.4.0/schema0005, verify/reset API для существующих UUID, mock-only delivery/off default, one-use/TTL/attempt/rate/version gates и atomic password/session revoke. [Контракт](docs/architecture/EMAIL_CHALLENGES.md), [отчёт](docs/reports/QUB-AUTH-011.md), [ADR-0017](docs/architecture/decisions/0017-email-challenges-and-recovery.md). Email-2FA только protocol contract, не runtime; registration/policy/UI/SMTP/deploy отдельно. Current status/evidence в tasks.json/LAST_HANDOFF; прежние milestones ниже исторические.
+
 **AUTH-01013.10.2026:** OAuth/explicit linking реализованы локальным bounded slice, [контракт](docs/architecture/OAUTH_IDENTITY.md)/[report](docs/reports/QUB-AUTH-010.md). Следующая AUTH-011 verify/reset. Real provider app/keys/redirect registration/roundtrips, React/Auth UX/native/keys/policy/service cutover остаются своими задачами; network/providers default off. Ниже предыдущие milestones и legacy backlog, current tasks.json определяет порядок.
 
 **AUTH-00913.10.2026:** рабочий password/session API и local owner password setup реализованы. Далее AUTH-010 OAuth, AUTH-011 verify/reset и approved policy/UI slices. [Runtime](docs/architecture/WEB_AUTH.md), [report](docs/reports/QUB-AUTH-009.md). Ниже предыдущие записи/legacy backlog; current tasks.json определяет порядок.

@@ -1312,7 +1312,36 @@
       "QUB-AUTH-009"
     ],
     "files": [
-      "core/qubite/identity/challenges (будущий)"
+      "core/qubite/identity/challenges/",
+      "core/qubite/sql/0005_challenges.sql",
+      "core/qubite/config.py",
+      "core/qubite/app.py",
+      "core/qubite/migrations.py",
+      "core/qubite/identity/auth/http.py",
+      "core/tests/",
+      "contracts/identity-v2.json",
+      "docs/architecture/EMAIL_CHALLENGES.md",
+      "docs/architecture/decisions/0017-email-challenges-and-recovery.md",
+      "docs/reports/QUB-AUTH-011.md",
+      "docs/project/",
+      "docs/plan/",
+      "README.md",
+      "core/README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md",
+      "docs/README.md",
+      "docs/engineering/",
+      "contracts/core-v1.json",
+      "core/qubite/__init__.py",
+      "docs/architecture/IDENTITY_SCHEMA.md",
+      "docs/architecture/WEB_AUTH.md",
+      "docs/architecture/OAUTH_IDENTITY.md",
+      "docs/architecture/CURRENT_STATE.md",
+      "docs/architecture/DATA_MODEL.md",
+      "docs/README.md",
+      "tests/identity/test_contract.py"
     ],
     "acceptance": [
       "Одноразовые hashed challenges, TTL/replay/rate caps; reset/revoke/verify flows",
@@ -1320,18 +1349,20 @@
       "Новая register/verify policy, proof не назначает owner; owner только явным local bootstrap, existing UUID не меняется"
     ],
     "tests": [
-      "Challenge expiry/replay/exhaustion/reset/session revoke tests"
+      "Core real PG/HTTP email65 tests: expiry/replay/exhaustion/resend/purpose/config/rates/races/DB rollback/cleanup/session revoke/UUID/owner/default deny; metadata readonly readiness через existing foundation suite",
+      "python3 scripts/engineering/verify.py --suite all --python <test-venv-python> --postgres-bin <native-bin>",
+      "python3 -m unittest discover -s tests/engineering",
+      "python3 scripts/engineering/check.py; git diff --check",
+      "GitHub exact-SHA Qubite verification CI success before done"
     ],
     "risks": [
       "Mail leak/race/reset takeover"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "ready",
-    "commit": null,
+    "status": "review/testing",
+    "commit": "completion marker: docs/reports/QUB-AUTH-011.md (implementation SHA после commit)",
     "architecture_approved": true,
-    "verification": [
-      "13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом."
-    ]
+    "verification": "13.10.2026: final local762 checks =all758+harness4, core373 incl email65/64.02s; source-copy/native disposablePG18.6/Python3.13.13/Node22.22.2/no external network. Strict origin/CSRF/body/rates/TTL/replay/exhaustion/concurrency/metadata skip-lock/DB rollback/UUID/session revoke pass. Email mock-only default off; email-2FA contract-only, SMTP/UI/registration/production отдельно. Check/diff pass. Await implementation push/exact-SHA CI then final evidence."
   },
   {
     "id": "QUB-CORE-002",

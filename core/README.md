@@ -1,8 +1,10 @@
-# Qubite Core — FastAPI0.3.0
+# Qubite Core — FastAPI0.4.0
 
 OAuth network false, provider rows disabled по умолчанию. Новые QUBITE_CORE_OAUTH_<PROVIDER>_CLIENT_ID/CLIENT_SECRET и explicit network flag, локальные enable/disable команды, schema/HTTP/границы — [OAuth runtime](../docs/architecture/OAUTH_IDENTITY.md), [отчёт AUTH-010](../docs/reports/QUB-AUTH-010.md). Неизвестная identity не создаёт аккаунт; привязка/отвязка по собственному паролю, email не объединяет accounts. Реальные ключи/providers в этой задаче не использованы.
 
-Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0004, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) и OAuth adapters/explicit account linking (AUTH-010). React формы, Owner Console, module policy/verify/reset/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
+Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0005, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) OAuth adapters/explicit account linking (AUTH-010) и verification/reset (AUTH-011). React формы, Owner Console, module policy/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
+
+Email: explicit `QUBITE_CORE_EMAIL_CHALLENGES_ENABLED=false` по умолчанию; true без injected mock transport всё равно503. Четыре POST verify/reset request/confirm, TTL/attempt/revoke — [email contract](../docs/architecture/EMAIL_CHALLENGES.md). Настоящая доставка/enrollment email-2FA/React/native не включены. Core0.3 binary на ahead0005 fail closed; forward recovery сохраняет UUID/hashes/sessions.
 
 ## Установка и конфигурация
 
@@ -32,7 +34,7 @@ PYTHONPATH=core core/.venv/bin/python -m qubite.identity set-owner-password
 
 Bootstrap спрашивает email и CREATE OWNER; initial password только interactive TTY/getpass дважды и SET OWNER PASSWORD. Никаких password/email options. Повтор owner/password setup не перезаписывает данные; existing pending account не повышается. Пароль12..256 codepoints/<=1024 UTF8 bytes, exact без trim/нормализации; Argon2id PHC. Email пока unverified, никакие grants/budgets не выдаются. Постоянный owner в engineering задачах ещё не создавался: только fixtures.
 
-Apply транзакционный под migration advisory lock; current0004_oauth, десять domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0003 не станет ready на ahead0004, данные сохранять и использовать совместимый forward recovery.
+Apply транзакционный под migration advisory lock; current0005_challenges, одиннадцать domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0003 не станет ready на ahead0004, данные сохранять и использовать совместимый forward recovery.
 
 ## Запуск и HTTP
 

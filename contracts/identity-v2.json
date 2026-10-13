@@ -145,7 +145,10 @@
     "invalid_request": 400,
     "rate_limited": 429,
     "identity_unavailable": 503,
-    "not_found": 404
+    "not_found": 404,
+    "invalid_challenge": 400,
+    "invalid_password": 400,
+    "email_unavailable": 503
   },
   "routes": [
     {
@@ -411,6 +414,65 @@
       "auth": "own active web session + own password + CSRF + exact Origin",
       "task": "QUB-AUTH-010",
       "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email/verify/request",
+      "auth": "web_session or anonymous preauth + exact Origin/CSRF",
+      "task": "QUB-AUTH-011",
+      "request": {
+        "email": "string"
+      },
+      "response": {
+        "status": 202,
+        "Set-Cookie": "clear only on confirm; no auto login"
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email/verify/confirm",
+      "auth": "web_session or anonymous preauth + exact Origin/CSRF",
+      "task": "QUB-AUTH-011",
+      "request": {
+        "challenge_id": "UUID",
+        "token": "purpose-specific opaque email proof"
+      },
+      "response": {
+        "status": 204,
+        "Set-Cookie": "clear only on confirm; no auto login"
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email/reset/request",
+      "auth": "web_session or anonymous preauth + exact Origin/CSRF",
+      "task": "QUB-AUTH-011",
+      "request": {
+        "email": "string"
+      },
+      "response": {
+        "status": 202,
+        "Set-Cookie": "clear only on confirm; no auto login"
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/email/reset/confirm",
+      "auth": "web_session or anonymous preauth + exact Origin/CSRF",
+      "task": "QUB-AUTH-011",
+      "request": {
+        "challenge_id": "UUID",
+        "token": "purpose-specific opaque email proof",
+        "password": "new Argon2id password"
+      },
+      "response": {
+        "status": 204,
+        "Set-Cookie": "clear only on confirm; no auto login"
+      },
+      "status": "implemented"
     }
   ],
   "$defs": {
@@ -555,6 +617,52 @@
   },
   "implemented_tasks": [
     "QUB-AUTH-009",
-    "QUB-AUTH-010"
-  ]
+    "QUB-AUTH-010",
+    "QUB-AUTH-011"
+  ],
+  "email_challenges": {
+    "status": "implemented",
+    "decision": "ADR-0017",
+    "enabled_default": false,
+    "transport": "injected_mock_only; no SMTP implementation",
+    "random_bytes": 32,
+    "token_storage": "SHA-256",
+    "verify_ttl_seconds": 1800,
+    "reset_ttl_seconds": 900,
+    "attempt_limit": 5,
+    "rate_window_seconds": 300,
+    "request_ip_limit": 30,
+    "request_identifier_limit": 3,
+    "confirm_ip_limit": 30,
+    "confirm_identifier_limit": 8,
+    "confirmation": "POST JSON challenge_id/token; no GET/query tokens",
+    "verify_creates_subject": false,
+    "verify_assigns_owner": false,
+    "verify_activates_pending": true,
+    "verify_revokes_sessions": true,
+    "reset_requires_previously_verified_email": true,
+    "reset_auto_login": false,
+    "reset_revokes_all_subject_sessions": true,
+    "reset_preserves_subject_id": true,
+    "account_enumeration_response": "202 request_accepted for unknown/ineligible/delivery failure; timing acceptance deferred to real queue transport"
+  },
+  "email_2fa": {
+    "status": "contract_only",
+    "runtime_implemented": false,
+    "enable_default": false,
+    "pending_login_ttl_seconds": 300,
+    "code_ttl_seconds": 300,
+    "attempt_limit": 5,
+    "required_proofs": [
+      "actual password for active verified subject",
+      "independent email possession proof",
+      "browser-bound pending-login cookie/CSRF"
+    ],
+    "session_before_all_proofs": false,
+    "proof_reuse_from_verify_reset": false,
+    "oauth_bypass": false,
+    "reset_disables_2fa": false,
+    "security_assurance": "email is not phishing-resistant MFA or NIST out-of-band authenticator",
+    "implementation_gate": "approved follow-up task for login integration/enrollment/recovery; AUTH-011 covers protocol contract"
+  }
 }

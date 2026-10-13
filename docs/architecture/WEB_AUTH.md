@@ -1,5 +1,7 @@
 # Реальный Web Auth — AUTH-009
 
+**Актуальный AUTH-011 runtime:** core0.4.0/current0005_challenges,11 domain/security tables; verification/reset existing UUID и mock-only email transport. [API/SQL/ограничения](EMAIL_CHALLENGES.md), [evidence](../reports/QUB-AUTH-011.md). Identity-v2 partial AUTH-009/010/011; email-2FA contract-only, registration/policy/native/UI/provider/deploy отдельно. Снимки прошлых задач ниже исторические.
+
 AUTH-010 добавляет sessions.password_proven: старые0003/password logins=true, новые OAuth sessions=false, настоящий reauth=true. Logout-all требует этого признака и recent proof. OAuth cookie/own linking/limits описаны отдельно; описание Argon/password API ниже сохраняется.
 
 13.10.2026. Web Auth AUTH-009 сохранён в текущем core0.3.0/schema0004_oauth, [OAuth дополнение AUTH-010](OAUTH_IDENTITY.md). Реализованы email/password login, профиль, browser sessions, CSRF, reauth/revoke и configured provider linking/login. [OpenAPI](../../contracts/core-v1.json) — фактический API. [Identity-v2](../../contracts/identity-v2.json) — partial runtime AUTH-009/010; регистрация/reset/native/keys/introspection остаются planned. React формы/Console ещё не созданы; identity не разрешает модули или платный AI.

@@ -1,5 +1,7 @@
 # Модель данных и invariants
 
+**Актуальный AUTH-011 runtime:** core0.4.0/current0005_challenges,11 domain/security tables; verification/reset existing UUID и mock-only email transport. [API/SQL/ограничения](EMAIL_CHALLENGES.md), [evidence](../reports/QUB-AUTH-011.md). Identity-v2 partial AUTH-009/010/011; email-2FA contract-only, registration/policy/native/UI/provider/deploy отдельно. Снимки прошлых задач ниже исторические.
+
 0004 фактически добавляет oauth_providers(enabled/version), oauth_identities(unique provider/issuer/subject + own provider), oauth_states(hash-only browser-bound one-use context), oauth_audit(minimal security metadata), sessions.password_proven. [Поля/constraints/privileges](OAUTH_IDENTITY.md). Логические domain таблицы ниже ещё backlog.
 
 **Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.

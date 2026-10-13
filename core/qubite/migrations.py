@@ -90,6 +90,11 @@ def validate_schema(connection, migrations):
                 AND a.atttypid='boolean'::regtype AND a.attnotnull AND NOT a.attisdropped""").fetchone()
         if tables != required or not column:
             raise MigrationError('Core OAuth schema is missing; explicit recovery required')
+    if '0005_challenges' in versions:
+        table = connection.execute("""SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='qubite_core' AND c.relname='email_challenges' AND c.relkind IN ('r','p')""").fetchone()
+        if not table:
+            raise MigrationError('Core email challenge schema is missing; explicit recovery required')
 
 
 def ensure_current(connection, migrations):

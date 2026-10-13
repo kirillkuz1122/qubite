@@ -1,5 +1,7 @@
 # OAuth нового core — AUTH-010
 
+**Актуальный AUTH-011 runtime:** core0.4.0/current0005_challenges,11 domain/security tables; verification/reset existing UUID и mock-only email transport. [API/SQL/ограничения](EMAIL_CHALLENGES.md), [evidence](../reports/QUB-AUTH-011.md). Identity-v2 partial AUTH-009/010/011; email-2FA contract-only, registration/policy/native/UI/provider/deploy отдельно. Снимки прошлых задач ниже исторические.
+
 13.10.2026. FastAPI core0.3.0, explicit migration0004_oauth. Реализованы Google/Yandex/VK/Telegram adapters, web login по заранее привязанной identity, explicit link/unlink и локальные provider switches. [OpenAPI](../../contracts/core-v1.json), [identity-v2](../../contracts/identity-v2.json), [ADR-0016](decisions/0016-explicit-oauth-identities.md), [отчёт](../reports/QUB-AUTH-010.md). Внешний transport проверен только через MockTransport и подписанные RSA fixtures; реальные приложения/ключи/провайдеры/браузеры не проверялись. React/Auth UX и native exchange ещё отдельные задачи.
 
 ## Идентичность и сценарий

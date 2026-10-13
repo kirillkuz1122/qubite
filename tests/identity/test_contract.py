@@ -99,7 +99,7 @@ def valid_response(payload, audience='search', auth_version=1,
 
 def test_fresh_install_records_partial_runtime_without_legacy_import():
     assert CONTRACT['status'] == 'partial_implementation' and CONTRACT['runtime_implemented']
-    assert CONTRACT['implemented_tasks'] == ['QUB-AUTH-009', 'QUB-AUTH-010']
+    assert CONTRACT['implemented_tasks'] == ['QUB-AUTH-009', 'QUB-AUTH-010', 'QUB-AUTH-011']
     assert all(r['status'] == ('implemented' if r['task'] in CONTRACT['implemented_tasks'] else 'planned') for r in CONTRACT['routes'])
     install = CONTRACT['installation']
     assert install['mode'] == 'fresh_install'

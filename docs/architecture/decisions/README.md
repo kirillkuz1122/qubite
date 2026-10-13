@@ -26,3 +26,5 @@
 | [0015](0015-web-password-sessions.md) | Engineering decision в approved AUTH-009 | Argon2id, одноразовый preauth/CSRF, PG sessions/rates/reauth, partial runtime contract и explicit local password setup |
 
 | [0016](0016-explicit-oauth-identities.md) | Engineering decision в approved AUTH-010 | явная stable provider identity, own-password linking, disabled/network-off default, browser state/PKCE/version gates, forward0004 |
+
+| [0017](0017-email-challenges-and-recovery.md) | Engineering decision в approved AUTH-011 | hash-only one-use verify/reset, existing UUID/verified recovery, atomic version+revoke, mock-only mail; email-2FA contract отдельно от runtime |
