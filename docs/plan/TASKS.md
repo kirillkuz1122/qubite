@@ -141,7 +141,7 @@ Commit: 0dff63e9bb3cbabf6c2b10628db12c228ee54413. Evidence: ADR-0013/13.10.2026:
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
-Модуль: policy; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-002, QUB-AUTH-009.
+Модуль: policy; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-002, QUB-AUTH-009.
 
 Причина: Старые глобальные роли и owner bypass не подходят новой default-deny модели.
 
@@ -156,9 +156,9 @@ Acceptance:
 
 Approval: 13.10.2026: владелец поручил AUTH-003; ответы: только аккаунт до manual grants, раздельные read/write/manage; перед каждой новой задачей сначала вопросы, затем выполнение.
 
-Риск: Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+Риск: Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета. Откат: Отключить policy consumers/module enabled, сохранить schema0006/UUID/grants/audit/new data и backup, применить tested forward fix. Не down/drop и не запускать old core против ahead schema; production migration/deploy отдельно..
 
-Commit: после successful all/CI. Evidence: [отчёт](../reports/QUB-AUTH-003.md).
+Commit: d4c813eb7aa02fd2b07a72ec90192efbc6209c9f. Evidence: local+CI850pass, [CI38381905595](https://github.com/kirillkuz1122/qubite/actions/runs/38381905595), [отчёт](../reports/QUB-AUTH-003.md).
 
 ## QUB-AI-001 — Atomic mock budget reservation
 
@@ -744,7 +744,7 @@ Email-2FA — contract-only, runtime/enrollment/recovery ещё не реали�
 
 ## QUB-CORE-002 — FastAPI platform settings и module command controls
 
-Модуль: core; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-003.
+Модуль: core; P1; статус ready; architecture approved: true. Зависимости: QUB-AUTH-003.
 
 Причина: Общие настройки старого Qubite перенести в target core.
 
@@ -761,6 +761,8 @@ Acceptance:
 Риск: Изменения scopes/kill switches, no implicit service restart. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
 
 Commit: после выполнения. Evidence: .
+
+Перед выполнением: вопросы владельцу и ответы обязательны; ready отражает done dependencies, не автоматический старт.
 
 ## QUB-CAPTURE-001 — Telegram text durable Inbox ingress
 
@@ -1085,7 +1087,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-013 — Scoped API keys расширений и агентов
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-003.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-003.
 
 Причина: Единый новый вход всех клиентов и сервисов по ADR-0013.
 
@@ -1102,6 +1104,8 @@ Acceptance:
 Риск: Credential leakage/privilege escalation; synthetic contract не runtime acceptance. Откат: Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно..
 
 Commit: после выполнения. Evidence: .
+
+Перед выполнением: вопросы владельцу и ответы обязательны; ready отражает done dependencies, не автоматический старт.
 
 ## QUB-AUTH-014 — Private core introspection для отдельных service engines
 
@@ -1124,3 +1128,5 @@ Acceptance:
 Commit: после выполнения. Evidence: .
 
 Текущий core0.3.0/schema0004: Web Auth AUTH-009 и OAuth AUTH-010; итог/evidence в карточках и handoff. Следующая AUTH-011 verification/reset; AUTH-003 approval=false, UI/native/keys/policy/services отдельные. Identity не выдаёт module/AI grants; push не deploy.
+
+Актуальный AUTH-003 done: core0.5.0/schema0006, implementationd4c813e/CI38381905595success/850checks. Registry56:10done/4ready/42backlog. Прежние runtime statements выше исторические; перед каждой новой задачей вопросы/ответы владельца. AUTH-005/006 approvalfalse, paid AI/real modules/UI/native/services/deploy отдельно.

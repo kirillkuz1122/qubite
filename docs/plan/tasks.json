@@ -321,12 +321,13 @@
       "Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета"
     ],
     "rollback": "Отключить policy consumers/module enabled, сохранить schema0006/UUID/grants/audit/new data и backup, применить tested forward fix. Не down/drop и не запускать old core против ahead schema; production migration/deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "d4c813eb7aa02fd2b07a72ec90192efbc6209c9f",
     "architecture_approved": true,
     "verification": [
       "13.10.2026: direct AUTH-003 authorization and answers account-only/manual independent read-write-manage; questions before every future task.",
-      "13.10.2026: final isolated all844+harness6=850 pass (core459=208+165+86); local Python3.13.13/PostgreSQL18.6/Node22.22.2. Core groups25.24s/45.62s/43.33s; no failed/skipped, external/provider calls0. Implementation/push/exact-SHA CI pending."
+      "13.10.2026: final isolated all844+harness6=850 pass (core459=208+165+86); local Python3.13.13/PostgreSQL18.6/Node22.22.2. Core groups25.24s/45.62s/43.33s; no failed/skipped, external/provider calls0. Implementation/CI success подтверждены отдельной записью ниже.",
+      "13.10.2026: implementation d4c813eb7aa02fd2b07a72ec90192efbc6209c9f pushed, origin/main exact and archive refs96f0457a verified; CI38381905595 completed/success10:17:52UTC. All844+harness6=850 pass, core459=208+165+86; CI Python3.14.8/PG16.15/Node22.23.3, core43.26s/72.64s/65.00s. No failed/skipped, tests-only/no deploy."
     ],
     "approval": "13.10.2026: владелец поручил AUTH-003; ответы: только аккаунт до manual grants, раздельные read/write/manage; перед каждой новой задачей сначала вопросы, затем выполнение."
   },
@@ -1407,10 +1408,12 @@
       "Изменения scopes/kill switches, no implicit service restart"
     ],
     "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "13.10.2026: dependencies done после AUTH-003; ready означает готовые зависимости, перед выполнением требуются вопросы/ответы владельца по новому процессу."
+    ]
   },
   {
     "id": "QUB-CAPTURE-001",
@@ -1934,10 +1937,12 @@
       "Credential leakage/privilege escalation; synthetic contract не runtime acceptance"
     ],
     "rollback": "Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "13.10.2026: dependencies done после AUTH-003; ready означает готовые зависимости, перед выполнением требуются вопросы/ответы владельца по новому процессу."
+    ]
   },
   {
     "id": "QUB-AUTH-014",
