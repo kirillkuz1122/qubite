@@ -858,12 +858,13 @@
       "Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "2035e1e5298ad94fd9c9aa33586e6c3ad5acda04",
     "architecture_approved": true,
     "verification": [
       "13.10.2026: перед задачей вопросы заданы, ответы получены. Owner-controlled registration switch; оба типа приглашений; вход после подтверждения email. Bounded API/PG slice, React переключатели/общий login kill-switch/maintenance/ChatGPT отдельные задачи; mock-only delivery, no deploy.",
-      "13.10.2026: local full source-copy all963+harness6=969 pass; core575=208+165+202 including registration71. Python3.13.13/PG18.6/Node22.22.2; groups26.72/48.79/75.31s (<180 each). First full failed2 due OpenAPI400/obsolete register404 oracle; corrected bounded batch. After full pass DTO renamed to RegistrationAccepted to preserve all earlier OpenAPI operations/schema names; final3 targeted contract tests pass1.45s, no HTTP behavior change. CI exact SHA pending. No real mail/providers/deploy/owner credentials."
+      "13.10.2026: local full source-copy all963+harness6=969 pass; core575=208+165+202 including registration71. Python3.13.13/PG18.6/Node22.22.2; groups26.72/48.79/75.31s (<180 each). First full failed2 due OpenAPI400/obsolete register404 oracle; corrected bounded batch. After full pass DTO renamed to RegistrationAccepted to preserve all earlier OpenAPI operations/schema names; final3 targeted contract tests pass1.45s, no HTTP behavior change. CI exact SHA pending. No real mail/providers/deploy/owner credentials.",
+      "13.10.2026: implementation2035e1e5298ad94fd9c9aa33586e6c3ad5acda04 pushed, remote main exact+archive96f0457 verified; CI38390796988 completed/success11:36:36UTC https://github.com/kirillkuz1122/qubite/actions/runs/38390796988. Local+CI all963+harness6=969 pass, core575=208+165+202 including71 registration. CI Python3.14.8/PG16.15/Node22.23.3, core48.75/78.23/116.02s (<180 each), no failed/skipped. Final code preserved all previous OpenAPI operations/schema objects; no real delivery/providers/permanent accounts/deploy. Final docs-only receipt commit separately."
     ],
     "approval": "13.10.2026: ответы перед AUTH-006 — владелец управляет регистрацией, оба типа invite, вход после email verification; глобальные switches и ChatGPT разрешено зафиксировать в backlog."
   },
@@ -2108,7 +2109,7 @@
       "docs/architecture/CHATGPT_INTEGRATION.md"
     ],
     "acceptance": [
-      "Личный план требует eligible profile и отдельного provider scope; signin не выдаёт module/action права",
+      "Личный AI доступен после eligible ChatGPT profile и отдельного plan-use consent в пределах личных квот; basic chat vs AI inside owner-granted modules согласуется перед задачей. Signin не выдаёт owner-funded API grant.",
       "Owner-funded API только manual provider/model/action grants+atomic budget; два источника доступны независимо",
       "В UI источник и квота; expiry/revoke/exhaustion/unknown fail closed, no silent owner API fallback; поддерживаемые Responses features проверяются"
     ],

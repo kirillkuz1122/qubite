@@ -1,6 +1,6 @@
 # Отчёт QUB-AUTH-006 — управляемая регистрация
 
-Дата13.10.2026. Один bounded cycle. Перед реализацией вопросы заданы, владелец ответил: registration switch, оба вида приглашений, вход после email verification. Общие switches и ChatGPT он разрешил сохранить в плане. **Текущий статус review/testing; commit/CI evidence добавляется после проверок.**
+Дата13.10.2026. Один bounded cycle. Перед реализацией вопросы заданы, владелец ответил: registration switch, оба вида приглашений, вход после email verification. Общие switches и ChatGPT он разрешил сохранить в плане. **Done: implementation2035e1e, exact-SHA CI38390796988 success. Final evidence ниже.**
 
 Старт main/origin6293a5907d14fc78905b16a4662c59a3ce979662, clean. Remote tournaments/qubite-v1.0 оба96f0457a523b6b79f21c4092056d8fa8fa69a680 до изменений; immutable archive. Root master/access не изменены, source trace сохраняется. V2 kickoff отсутствует, актуальный kickoff без V2. No skills/subagents/quota reset/личная память writes.
 
@@ -22,7 +22,7 @@ React signup/login/Owner Console toggle ещё отсутствуют; реал�
 
 ## Проверки и Git evidence
 
-Первый targeted disposable PG/HTTP71 cases (final result ниже); предыдущий64 pass18.90s до усиления owner invite idempotency. Проверяются positive verify/login/reset/OAuth linking, оба invitation типа, strict DTO/consents, guards, owner/reauth/session, current mode/revoke/consent races, same invite/public canonical concurrency, atomic SQL failure, migration rollback/preserve и storage drift. Full source-copy no .env/external network harness и exact-SHA GitHub tests-only CI обязательны до done.
+Первый targeted disposable PG/HTTP64 pass18.90s; после усиления owner invite idempotency итоговые71 случаев входят в финальную full suite ниже. Проверяются positive verify/login/reset/OAuth linking, оба invitation типа, strict DTO/consents, guards, owner/reauth/session, current mode/revoke/consent races, same invite/public canonical concurrency, atomic SQL failure, migration rollback/preserve и storage drift. Full source-copy no .env/external network harness и exact-SHA GitHub tests-only CI выполнены, evidence ниже.
 
 Постоянные accounts/data/servers не создавались; реальные provider/device/production acceptance остаются открыты. Rollback disabled mode/consumer off, сохранить forward0007/UUID/credentials/consents/invites/audit, tested forward recovery. No down/drop/old SQLite restoration.
 
@@ -32,4 +32,12 @@ React signup/login/Owner Console toggle ещё отсутствуют; реал�
 
 Одна bounded correction batch после первого full: явно указать400 нового endpoint в OpenAPI и обновить obsolete no-public-registration404 oracle на503 при unconfigured Auth. Отдельная финальная contract correction: уникальное имя RegistrationAccepted вместо коллизии с email Accepted, прежние paths/DTO OpenAPI побайтно как JSON objects unchanged. Это не изменение HTTP поведения; дополнительно3 contract checks pass1.45s. Полный CI на финальном коде обязателен.
 
-Commit/push и exact-SHA CI ещё не подтверждены на момент implementation report; финальный evidence добавляется отдельной docs-only записью.
+На момент implementation report commit/CI ожидались; теперь подтверждены в следующей финальной записи.
+
+### Финальный GitHub evidence
+
+Implementation **2035e1e5298ad94fd9c9aa33586e6c3ad5acda04** committed/pushed в main; remote SHA verified. [CI38390796988](https://github.com/kirillkuz1122/qubite/actions/runs/38390796988) exact SHA **completed/success13.10.2026 11:36:36UTC**, job11:36:35UTC. All963+harness6=**969pass**, те же suites/counts, core575=208+165+202. CI Python3.14.8/PostgreSQL16.15/Node22.23.3; core48.75/78.23/116.02s, every<180s. Runtime/test dependencies/таймауты не менялись. Есть advisory о Node actions runtime и Starlette/httpx deprecation; tests не failed/skipped.
+
+После полного local+CI pass сделаны только docs/registry evidence updates: status done,59cards=12done/4ready/43backlog, [handoff](../project/LAST_HANDOFF.md)/AGENTS/CLAUDE/project context/roadmap. Final docs-only commit немедленно push, application/test/SQL/contracts соответствуют implementation CI. Immutable tournaments/qubite-v1.0 оба96f0457a523b6b79f21c4092056d8fa8fa69a680 проверены после implementation push; перед завершением проверяются снова.
+
+Next discussion: UI-001 ordinary Today/shell → AUTH-007 registration/login/reset UI. Owner Console требует AI-001/002 и собственный UI slice. AUTH-015/016/AI-003 остаются backlog/question gates; никакой следующий runtime task не начат. Форма публичной регистрации/реальная почта/ChatGPT integration/production release этим done не объявляются готовыми.

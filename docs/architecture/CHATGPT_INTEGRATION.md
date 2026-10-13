@@ -18,7 +18,7 @@
 
 AUTH-016: client matrix/eligibility, approved provider identity, issuer/client/sub + state/nonce/PKCE, revocation/refresh и защищённое хранение. Identity не email matching; существующий UUID связывается явно. Новая registration через provider должна явно пройти режим/invite/consents/подтверждение по согласованной policy, не создавать owner/grants через случайный callback. Детальный standalone signup/password/recovery UX обсуждается в этой задаче; текущий AUTH-006 — email/password.
 
-AI-003: личный ChatGPT источник с отдельным согласованным scope и eligible model capability; owner-funded источник — только ручной provider/model/action grant и собственный atomic budget AI-001/002. Оба могут быть разрешены одному человеку. Module/action/resource доступ проверяется независимо даже при собственном плане.
+AI-003: личный ChatGPT источник с отдельным согласованным scope и eligible model capability; owner-funded источник — только ручной provider/model/action grant и собственный atomic budget AI-001/002. Оба могут быть разрешены одному человеку. Resource ACL/изоляция проверяются независимо даже при собственном плане. Перед AI-003 уточнить, должен ли eligible личный план сразу открывать отдельный базовый чат или AI только внутри вручную разрешённых модулей; желание владельца — личный AI по его квотам, без обязательного owner API гранта.
 
 Показать выбранный источник, доступность и реальные ограничения. При исчерпании/неизвестной квоте/revoke личного плана остановить запрос и предложить явный выбор разрешённой owner API; никаких молчаливых fallback или списаний владельцу. Credential/profile/user/workspace/host isolation, переключение профиля/выход не смешивают чужие квоты. Реальные provider tokens/тексты не попадут в Git/audit/export.
 

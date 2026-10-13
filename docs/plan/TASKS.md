@@ -1,6 +1,6 @@
 # Карточки небольших задач
 
-**AUTH-00613.10.2026 — review/testing:** core0.6.0/current0007_registration; owner-controlled invite/default/public/disabled API, оба одноразовых invite, strict minimal enrollment/consents, pending→email verify→login, no module/AI grants. [Контракт](../architecture/REGISTRATION.md), [отчёт](../reports/QUB-AUTH-006.md), [ADR-0020](../architecture/decisions/0020-owner-controlled-registration.md). Вопросы заданы и ответы получены до реализации. React controls/mail/legal/deploy отдельно. AUTH-015 глобальные switches, AUTH-016 ChatGPT eligibility/identity, AI-003 personal plan vs owner API сохранены в backlog. Далее обсудить UI-001 shell, затем AUTH-007 auth UI; перед каждым task снова вопросы. Current evidence в tasks.json/LAST_HANDOFF, milestones ниже исторические.
+**AUTH-00613.10.2026 — done:** core0.6.0/current0007_registration; owner-controlled invite/default/public/disabled API, оба одноразовых invite, strict minimal enrollment/consents, pending→email verify→login, no module/AI grants. [Контракт](../architecture/REGISTRATION.md), [отчёт](../reports/QUB-AUTH-006.md), [ADR-0020](../architecture/decisions/0020-owner-controlled-registration.md). Вопросы заданы и ответы получены до реализации. React controls/mail/legal/deploy отдельно. AUTH-015 глобальные switches, AUTH-016 ChatGPT eligibility/identity, AI-003 personal plan vs owner API сохранены в backlog. Далее обсудить UI-001 shell, затем AUTH-007 auth UI; перед каждым task снова вопросы. Implementation2035e1e / CI38390796988 exact SHA success11:36:36UTC;969 local+CI checks. Current evidence в tasks.json/LAST_HANDOFF, milestones ниже исторические.
 
 **AUTH-005, 13.10.2026 — done:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](../architecture/ACCOUNT_LOGIN.md), [отчёт](../reports/QUB-AUTH-005.md), [ADR-0019](../architecture/decisions/0019-account-login-boundary.md). Core0.5.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local+CI all892+harness6=898pass; implementationcf302d9 / CI38385240872 completed-success10:47:23UTC. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
 
@@ -438,7 +438,7 @@ Implementation cf302d9e05579f417886a8ee87136352a3f53fa0 pushed/remote verified; 
 
 ## QUB-AUTH-006 — Минимальная FastAPI регистрация без legacy alias
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-011, QUB-AUTH-003, QUB-DESIGN-001.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-011, QUB-AUTH-003, QUB-DESIGN-001.
 
 Причина: Снять обязательные турнирные/лишние данные с платформенной регистрации.
 
@@ -454,7 +454,7 @@ Acceptance:
 
 Риск: Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: 13.10.2026: перед задачей вопросы заданы, ответы получены. Owner-controlled registration switch; оба типа приглашений; вход после подтверждения email. Bounded API/PG slice, React переключатели/общий login kill-switch/maintenance/ChatGPT отдельные задачи; mock-only delivery, no deploy..
+Commit: 2035e1e5298ad94fd9c9aa33586e6c3ad5acda04. Evidence: 13.10.2026: перед задачей вопросы заданы, ответы получены. Owner-controlled registration switch; оба типа приглашений; вход после подтверждения email. Bounded API/PG slice, React переключатели/общий login kill-switch/maintenance/ChatGPT отдельные задачи; mock-only delivery, no deploy.; 13.10.2026: local full source-copy all963+harness6=969 pass; core575=208+165+202 including registration71. Python3.13.13/PG18.6/Node22.22.2; groups26.72/48.79/75.31s (<180 each). First full failed2 due OpenAPI400/obsolete register404 oracle; corrected bounded batch. After full pass DTO renamed to RegistrationAccepted to preserve all earlier OpenAPI operations/schema names; final3 targeted contract tests pass1.45s, no HTTP behavior change. CI exact SHA pending. No real mail/providers/deploy/owner credentials.; 13.10.2026: implementation2035e1e5298ad94fd9c9aa33586e6c3ad5acda04 pushed, remote main exact+archive96f0457 verified; CI38390796988 completed/success11:36:36UTC https://github.com/kirillkuz1122/qubite/actions/runs/38390796988. Local+CI all963+harness6=969 pass, core575=208+165+202 including71 registration. CI Python3.14.8/PG16.15/Node22.23.3, core48.75/78.23/116.02s (<180 each), no failed/skipped. Final code preserved all previous OpenAPI operations/schema objects; no real delivery/providers/permanent accounts/deploy. Final docs-only receipt commit separately..
 
 ## QUB-AUTH-007 — Новые React auth экраны поверх FastAPI Auth
 
@@ -1182,7 +1182,7 @@ Commit: после выполнения. Evidence: 13.10.2026: пожелани�
 
 Acceptance:
 
-- Личный план требует eligible profile и отдельного provider scope; signin не выдаёт module/action права
+- Личный AI доступен после eligible ChatGPT profile и отдельного plan-use consent в пределах личных квот; basic chat vs AI inside owner-granted modules согласуется перед задачей. Signin не выдаёт owner-funded API grant.
 - Owner-funded API только manual provider/model/action grants+atomic budget; два источника доступны независимо
 - В UI источник и квота; expiry/revoke/exhaustion/unknown fail closed, no silent owner API fallback; поддерживаемые Responses features проверяются
 
