@@ -1,5 +1,7 @@
 # ADR-0001: стек нового core и границы legacy
 
+**Уточнение 13.10.2026:** [ADR-0013](0013-fresh-identity-and-unified-login.md) отменяет обязательный legacy Auth bridge/password/session import/login alias. Владелец сообщил об отсутствии аккаунтов и текущего деплоя; новый identity создаётся с нуля, owner bootstrap локальный. Ниже сохранено историческое решение12.10; стек/границы модулей и продуктовая access policy сохраняются.
+
 CONFIRMED 12.10.2026 ответами владельца 1–2: Python/FastAPI, React/TypeScript, PostgreSQL для нового core. Qubite Tournaments сохраняет SQLite и текущий Node writer на этапе выделения модуля. Новый modular monolith и bounded worker рядом с legacy; pgvector отдельным POC позже, без обязательных Kafka/Redis/Kubernetes.
 
 Согласование стека позволяет готовить небольшие локальные foundation задачи. Оно не разрешает массовую перепись, перенос live данных или деплой. Выбор хостинга отложен; возможен VPS. Raspberry Pi не определяет архитектуру.

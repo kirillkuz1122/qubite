@@ -23,7 +23,7 @@ def run(argv, cwd, env):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core'], default='all')
+    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core', 'identity'], default='all')
     parser.add_argument('--python', default=sys.executable, help='Python с pytest и зависимостями сервисов')
     parser.add_argument('--postgres-bin', help='Каталог native initdb/postgres только для disposable core fixture')
     args = parser.parse_args()
@@ -88,7 +88,7 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                    SEED_DEMO_DATA='false', TELEGRAM_ENABLED='false', PYTHONDONTWRITEBYTECODE='1',
                    PYTEST_DISABLE_PLUGIN_AUTOLOAD='1', DATA_DIR=str(root/'data'),
                    NODE_OPTIONS=f'--require={policy}/offline.cjs')
-        suites = ['node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core'] if args.suite == 'all' else [args.suite]
+        suites = ['node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'identity', 'core'] if args.suite == 'all' else [args.suite]
         for suite in suites:
             print('SUITE:', suite, flush=True)
             if suite == 'node':
@@ -96,6 +96,9 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                 run(['node', '--test', '--test-reporter=tap', *files, 'services/search/tests/test_media.cjs'], code, env)
             elif suite == 'deploy':
                 run([args.python, '-m', 'unittest', 'discover', '-s', 'deploy/services/tests'], code, {**env, 'PYTHONPATH':str(policy)})
+            elif suite == 'identity':
+                run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/identity'], code,
+                    {**env, 'PYTHONPATH':str(policy)})
             elif suite == 'core':
                 folder = code / 'core'
                 core_env = {**env, 'PYTHONPATH': os.pathsep.join([str(policy), str(folder)])}

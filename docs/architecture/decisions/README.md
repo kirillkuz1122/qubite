@@ -17,4 +17,6 @@
 | [0010](0010-material-lab.md) | CONFIRMED scope / историческое исследование | пять отдельных живых React-концепций, static private demo, без runtime integration |
 | [0011](0011-milo-live-controls.md) | CONFIRMED Milo/настройка/характеры; OPEN финальная физика | материал controls во всём интерфейсе, пять механик Milo, четыре scoped помощника |
 
-| [0012](0012-flux-design-system.md) | CONFIRMED Flux; OPEN palette/fonts/marks | мобильная витрина компонентов, пять палитр и семейств знаков, независимая типографика, сценарии появления помощников |
+| [0012](0012-flux-design-system.md) | CONFIRMED Поток/Игрушечная/Лента/Unbounded/Manrope | мобильная витрина компонентов, пять палитр и семейств знаков, независимая типографика, сценарии появления помощников |
+
+| [0013](0013-fresh-identity-and-unified-login.md) | CONFIRMED fresh identity 13.10.2026 / engineering protocol | новый единый FastAPI/Postgres Auth, явный local owner bootstrap, без импорта/bridge legacy аккаунтов |

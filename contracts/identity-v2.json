@@ -1,0 +1,480 @@
+{
+  "contract_version": "identity-v2",
+  "status": "specification",
+  "runtime_implemented": false,
+  "decision": "ADR-0013",
+  "installation": {
+    "mode": "fresh_install",
+    "legacy_import": false,
+    "legacy_password_verification": false,
+    "legacy_session_acceptance": false,
+    "legacy_login_alias": false,
+    "owner_bootstrap": "explicit_local_operator_transaction",
+    "public_registration_default": false
+  },
+  "authority": {
+    "runtime": "FastAPI",
+    "storage": "PostgreSQL",
+    "subject_id": "UUID",
+    "passwords": "Argon2id",
+    "password_memory_kib_min": 19456,
+    "password_iterations_min": 2,
+    "password_parallelism_min": 1,
+    "password_min_codepoints": 12,
+    "password_max_codepoints": 256,
+    "password_normalization": "none; exact UTF-8; never truncate",
+    "hash_storage": "PHC string",
+    "single_active_owner": true,
+    "owner_paid_bypass": false,
+    "registration_grants_modules": false,
+    "password_max_utf8_bytes": 1024
+  },
+  "web": {
+    "api_base": "/api/v1",
+    "cookie": {
+      "name": "__Host-qubite_session",
+      "path": "/",
+      "domain": null,
+      "secure": true,
+      "httponly": true,
+      "samesite": "lax"
+    },
+    "same_origin": true,
+    "csrf": "exact configured Origin and session-bound X-CSRF-Token; login has anonymous bootstrap token",
+    "credential_precedence": "reject multiple credentials; cookie + Authorization is 400",
+    "session_idle_seconds": 604800,
+    "session_absolute_seconds": 2592000,
+    "reauth_seconds": 300,
+    "localstorage_secrets": false,
+    "legacy_cookies": [
+      "qb_session",
+      "__Host-qubite_search"
+    ],
+    "login_bootstrap_cookie": {
+      "name": "__Host-qubite_preauth",
+      "path": "/",
+      "domain": null,
+      "secure": true,
+      "httponly": true,
+      "samesite": "lax",
+      "ttl_seconds": 300,
+      "grants_session": false
+    }
+  },
+  "tokens": {
+    "random_bytes": 32,
+    "encoding": "base64url-no-padding",
+    "digest": "SHA-256 over exact ASCII token incl prefix",
+    "kinds": {
+      "web_session": "qbt_s_",
+      "access_token": "qbt_a_",
+      "refresh_token": "qbt_r_",
+      "api_key": "qbt_k_"
+    },
+    "access_ttl_seconds": 600,
+    "refresh_idle_seconds": 604800,
+    "refresh_absolute_seconds": 2592000,
+    "api_key_max_seconds": 7776000,
+    "refresh_rotation": "atomic one-use; replay revokes family and its access tokens",
+    "credential_cache_seconds": 0,
+    "store_plaintext": false
+  },
+  "native": {
+    "flow": "authorization_code + PKCE S256 via external browser",
+    "client_secret": false,
+    "password_grant": false,
+    "implicit_grant": false,
+    "dynamic_client_registration": false,
+    "code_ttl_seconds": 60,
+    "code_single_use": true,
+    "redirect_matching": "registered exact URI; no wildcard and no caller-provided public origin",
+    "granted_scope": "requested intersect client_allowlist intersect current subject grants; never role expansion",
+    "refresh_requires_current_account_and_grants": true,
+    "fixture_origin": "https://qubite.example.test",
+    "actual_domains_configured": false
+  },
+  "internal": {
+    "path": "/internal/v1/identity/introspect",
+    "service_auth": "per-service secret from secret reference, bound to audience; private network/TLS or Unix transport",
+    "timeout_seconds": 2,
+    "public_route": false,
+    "forwarded_headers_trusted": false,
+    "principal_is_not_budget_or_resource_authorization": true,
+    "inactive_response": {
+      "active": false
+    },
+    "unknown_or_revoked_credential": "inactive",
+    "unavailable_authority": "503 identity_unavailable, no stale positive cache",
+    "raw_credential_logs": false
+  },
+  "scopes": [
+    "profile.read",
+    "profile.sessions.manage",
+    "docs.access",
+    "search.query",
+    "search.fetch",
+    "search.history.read",
+    "search.history.write",
+    "search.ai",
+    "writing.check",
+    "writing.ai",
+    "vpn.use",
+    "tournaments.access"
+  ],
+  "errors": {
+    "invalid_credentials": 401,
+    "unauthenticated": 401,
+    "forbidden": 403,
+    "csrf_failed": 403,
+    "invalid_request": 400,
+    "rate_limited": 429,
+    "identity_unavailable": 503,
+    "not_found": 404
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/csrf",
+      "auth": "anonymous bootstrap or web_session",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "csrf_token": "session/preauth bound",
+        "Cache-Control": "no-store"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/session",
+      "auth": "anonymous + Origin/CSRF/rate-limit",
+      "task": "QUB-AUTH-009",
+      "request": {
+        "email": "string",
+        "password": "string"
+      },
+      "response": {
+        "subject": "public profile",
+        "session": "metadata only",
+        "Set-Cookie": "fresh random session"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me",
+      "auth": "one authenticated credential",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "id": "UUID",
+        "email": "own email",
+        "display_name": "optional",
+        "platform_owner": "server-resolved bool"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "auth": "web_session",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "items": "own session metadata only; no token hashes"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/auth/sessions/{session_id}",
+      "auth": "own web_session + CSRF",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "status": 204
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "auth": "web_session + CSRF or access_token",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "status": 204,
+        "revoke": "current session/family and access tokens"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout-all",
+      "auth": "web_session + CSRF + recent reauth",
+      "task": "QUB-AUTH-009",
+      "request": {},
+      "response": {
+        "status": 204,
+        "revoke": "all browser/device sessions; auth_version increment; API keys separate list/revoke"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "auth": "registration mode/invite + Origin/CSRF",
+      "task": "QUB-AUTH-006",
+      "request": {
+        "email": "string",
+        "password": "string",
+        "consent_version": "string",
+        "invite": "optional; required when invite-only"
+      },
+      "response": {
+        "status": 202,
+        "grants": []
+      },
+      "status": "planned"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/authorize",
+      "auth": "external browser; known client; consent page",
+      "task": "QUB-AUTH-012",
+      "request": {
+        "response_type": "code",
+        "client_id": "registered",
+        "redirect_uri": "exact",
+        "state": "required",
+        "code_challenge": "S256",
+        "code_challenge_method": "S256",
+        "scope": "requested"
+      },
+      "response": {
+        "action": "render login/consent; GET never approves a grant"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/authorize",
+      "auth": "web_session + CSRF + explicit native approval",
+      "task": "QUB-AUTH-012",
+      "request": {
+        "request_id": "validated pending request"
+      },
+      "response": {
+        "redirect": "registered callback with one-use code + same state; no bearer"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/token",
+      "auth": "registered public native client + one-use code/refresh",
+      "task": "QUB-AUTH-012",
+      "request": {
+        "grant_type": "authorization_code or refresh_token",
+        "client_id": "registered",
+        "code_verifier": "required for code",
+        "redirect_uri": "required for code",
+        "code": "or refresh_token"
+      },
+      "response": {
+        "access_token": "qbt_a_*",
+        "token_type": "Bearer",
+        "expires_in": 600,
+        "refresh_token": "qbt_r_*",
+        "scope": "granted"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/api-keys",
+      "auth": "web_session + CSRF + recent reauth",
+      "task": "QUB-AUTH-013",
+      "request": {
+        "name": "string",
+        "audience": "one module",
+        "scopes": "explicit subset",
+        "expires_at": "<=90 days"
+      },
+      "response": {
+        "token": "one-time qbt_k_*",
+        "id": "UUID",
+        "metadata": "no password"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/api-keys",
+      "auth": "web_session",
+      "task": "QUB-AUTH-013",
+      "request": {},
+      "response": {
+        "items": "own key metadata only"
+      },
+      "status": "planned"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/auth/api-keys/{key_id}",
+      "auth": "own web_session + CSRF",
+      "task": "QUB-AUTH-013",
+      "request": {},
+      "response": {
+        "status": 204
+      },
+      "status": "planned"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/identity/introspect",
+      "auth": "private per-service authentication",
+      "task": "QUB-AUTH-014",
+      "request": {
+        "credential": "opaque token; never URL",
+        "audience": "service-bound expected audience"
+      },
+      "response": {
+        "oneOf": [
+          "inactive",
+          "active principal"
+        ]
+      },
+      "status": "planned"
+    }
+  ],
+  "$defs": {
+    "principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "credential_id",
+        "session_id",
+        "credential_kind",
+        "audience",
+        "subject_status",
+        "platform_owner",
+        "scopes",
+        "expires_at",
+        "auth_version",
+        "policy_version"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "credential_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "credential_kind": {
+          "enum": [
+            "web_session",
+            "access_token",
+            "api_key"
+          ]
+        },
+        "audience": {
+          "enum": [
+            "qubite-api",
+            "search",
+            "writing",
+            "vpn",
+            "tournaments"
+          ]
+        },
+        "subject_status": {
+          "const": "active"
+        },
+        "platform_owner": {
+          "type": "boolean"
+        },
+        "scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "profile.read",
+              "profile.sessions.manage",
+              "docs.access",
+              "search.query",
+              "search.fetch",
+              "search.history.read",
+              "search.history.write",
+              "search.ai",
+              "writing.check",
+              "writing.ai",
+              "vpn.use",
+              "tournaments.access"
+            ]
+          }
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "auth_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "policy_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "introspection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "active"
+          ],
+          "properties": {
+            "active": {
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "active",
+            "principal"
+          ],
+          "properties": {
+            "active": {
+              "const": true
+            },
+            "principal": {
+              "$ref": "#/$defs/principal"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "oauth": {
+    "configured_provider_only": true,
+    "callback_rechecks_enabled": true,
+    "identity_binding": "unique (provider, issuer, subject)",
+    "automatic_email_linking": false,
+    "link_requires": "active authenticated subject + recent reauth + provider proof; pair collision rejects"
+  }
+}

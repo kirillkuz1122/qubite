@@ -1,12 +1,12 @@
 # Модель данных и invariants
 
-CONFIRMED выбор storage 12.10.2026: новый core Postgres, legacy SQLite остаётся authority Tournaments/Auth в переходе. Target identity переносится отдельно в Postgres после compatibility/restore gates. Это logical schema; SQL миграции создаются небольшими approved задачами. Не одна гигантская JSON objects таблица.
+CONFIRMED storage: новый core Postgres, SQLite турниров. **ADR-0013/13.10.2026:** fresh core identity, новые UUID/accounts без legacy mapping/import; у владельца нет действующих аккаунтов/деплоя по его сообщению. Legacy SQLite Auth больше не целевой authority. [Identity schema/credentials/invariants](../migration/IDENTITY_CUTOVER.md). Это logical schema; SQL миграции создаются небольшими approved задачами. Не одна гигантская JSON objects таблица.
 
 ## Связи MVP
 
 | Таблица | Ключевые поля/связи | Ограничения/индексы |
 |---|---|---|
-| subjects | id UUID, legacy_instance/id, status | UNIQUE(instance,legacy_id); стабильная mapping, owner не role slug |
+| subjects | id UUID, canonical_email, status, auth_version | UNIQUE canonical_email; UUID не меняется при смене почты, owner не role slug |
 | platform_owner | singleton_id=1, subject_id | один active owner; change через особый verified процесс |
 | workspaces/memberships | id, owner; workspace+subject, role | composite unique; роли scoped; revoked_at |
 | modules | id, installed/version/state/config_version | installed/disabled/enabled, secret refs отдельно |
@@ -34,9 +34,11 @@ Planning: Project→Task→Dependency/Milestone; CalendarEvent/Recurrence/Remind
 
 Agent: AgentProfile→Conversation/MemoryItem/SkillVersion/ToolInvocation; память содержит provenance, confidence, owner/scope, freshness/expiry, consent. Plugin/PluginGrant/ExternalAccount/ExternalMapping — отдельные scopes; импорт сохраняет external source ID.
 
-## Legacy mapping
+## Identity и legacy references
 
-users integer ID → subjects UUID через явную таблицу; sessions/password salt/hash/OAuth sub остаются старому authority. Старые team_members — tournament team memberships, не новые workspace memberships. tournament_* и rating_changes остаются legacy, в core только module/resource references. service_access/writing_access/knowledge grants импортируются отдельно с provenance и effective-policy diff; paid/owner bypass не переносится.
+AUTH-002 добавляет subjects и singleton platform_owner, explicit local bootstrap без public endpoint. AUTH-009 отдельно добавляет Argon2id credentials/web sessions; AUTH-012 native authorization codes/device token families; AUTH-013 scoped API keys. Hashes/expiry/status/version/revocation сохраняются в Postgres; plaintext токены и пароли не сохраняются. Конкретные SQL constraints создаются и проверяются в соответствующей задаче; текущая migration0001 их не содержит.
+
+Турниры/team_members/rating_changes остаются optional Node/SQLite. Новые core subjects не импортируются в старую users глобальную модель ролей; будущий явный adapter хранит ссылки core UUID и tournament-scoped membership. Выбор переноса обнаруженных tournament/history/ledger/attachments данных отдельной задачей, не уничтожать локальные артефакты. service_access/writing_access grants не импортируются автоматически, owner явно выдаёт новый доступ.
 
 ## Миграции/retention
 

@@ -1,8 +1,10 @@
 # Qubite
 
+**Единый вход — AUTH-008:** [fresh-install спецификация](docs/migration/IDENTITY_CUTOVER.md), [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт](docs/reports/QUB-AUTH-008.md). Новый FastAPI/Postgres identity для всех собственных сервисов, без импорта старых аккаунтов. Owner создаётся явным local bootstrap. Контракт/план/протокольные тесты готовы, работающий login/service cutover ещё впереди. Следующая задача AUTH-002 — PG accounts и bootstrap, затем AUTH-009 — password/session API.
+
 ## Переход к Qubite 2.0
 
-Текущий runtime остаётся legacy платформой турниров и сервисов. Новая универсальная платформа находится на этапе аудита/проектирования; стек согласован 12.10.2026: Python/FastAPI, React/TypeScript и PostgreSQL нового ядра; турниры сохраняют SQLite. Сайт, Android и desktop Linux запланированы, новый Auth UI/дизайн и deploy/installer ещё не реализованы. [Baseline и документы](docs/architecture/CURRENT_STATE.md), [план](docs/plan/ROADMAP.md), [Owner Console и доступы](docs/product/OWNER_CONSOLE.md), [память сессий](docs/project/PROJECT_CONTEXT.md), [Development Harness](docs/engineering/AGENT_HARNESS.md). Старый код сохранён в `tournaments` и `qubite-v1.0` на коммите `96f0457`; Git не заменяет резервные копии данных.
+Код legacy турниров и сервисов сохранён. По сообщению владельца13.10.2026 проект нигде не запущен и аккаунтов для переноса нет. Новая универсальная платформа развивается небольшими задачами; стек согласован 12.10.2026: Python/FastAPI, React/TypeScript и PostgreSQL нового ядра; турниры сохраняют SQLite. Сайт, Android и desktop Linux запланированы, новый Auth UI/дизайн и deploy/installer ещё не реализованы. [Baseline и документы](docs/architecture/CURRENT_STATE.md), [план](docs/plan/ROADMAP.md), [Owner Console и доступы](docs/product/OWNER_CONSOLE.md), [память сессий](docs/project/PROJECT_CONTEXT.md), [Development Harness](docs/engineering/AGENT_HARNESS.md). Старый код сохранён в `tournaments` и `qubite-v1.0` на коммите `96f0457`; Git не заменяет резервные копии данных.
 
 Qubite — рабочий MVP-прототип платформы для учебных соревнований. Текущий репозиторий описывает русскоязычную версию проекта, где главный фокус сделан на участнике: вход, попадание в турнир, решение задач, рейтинг и базовую аналитику.
 

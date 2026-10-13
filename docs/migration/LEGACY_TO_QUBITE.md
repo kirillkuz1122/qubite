@@ -1,5 +1,13 @@
 # План миграции и отката
 
+## Актуальный путь13.10.2026: fresh install
+
+[ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md) и [единый вход](IDENTITY_CUTOVER.md) имеют приоритет. Владелец сообщил: текущего деплоя/аккаунтов нет, owner можно создать заново. Не требуется password/session import, Auth bridge, mapping старых user IDs, сохранение старого login alias и reconciliation пользователей. Новый core сразу единственный authority. AUTH-008 контракт → AUTH-002 PG accounts/local owner bootstrap → AUTH-009 password/sessions → policy и native/keys/private introspection → bounded service adapters/React UI. Старый Node Tournaments optional.
+
+Не удалять исходные БД/файлы/env и архив по этой причине. Если обнаружен нужный data source, его перенос/backup/restore оформляется отдельной задачей; без доказанного источника не заявлять выполненную миграцию. При первом серверном запуске проверить выбранный host/ingress/storage/staging и настроить backup новых данных. Никакого production переключения в AUTH-008.
+
+**Ниже исторический план переноса работавшей версии12.10.2026, условный runbook при наличии реальных источников. Это не обязательная последовательность fresh identity.**
+
 CONFIRMED: archive origin/tournaments + qubite-v1.0 = 96f0457. Не коммитить туда, не force-push/delete. main — новый проект; task branches допустимы с последующим tested merge. Архив — код, не полный production backup. Исходные QUBITE документы добавляются только main.
 
 ## Этапы и контрольные точки

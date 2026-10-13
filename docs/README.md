@@ -7,7 +7,7 @@
 - [Архитектурные альтернативы](architecture/TARGET_ARCHITECTURE.md), [модули](architecture/MODULES_AND_BOUNDARIES.md), [данные](architecture/DATA_MODEL.md), [permissions](architecture/AUTH_AND_PERMISSIONS.md), [cost guard](architecture/AI_COST_GUARD.md).
 - [Sync/history](architecture/SYNC_AND_HISTORY.md), [AI memory/skills](architecture/AI_MEMORY_SKILLS_AND_TOOLS.md), [Plugins/MCP](architecture/PLUGINS_AND_MCP.md), [ADR](architecture/decisions/README.md).
 - [Миграция](migration/LEGACY_TO_QUBITE.md), [backup/deploy](engineering/DEPLOYMENT_AND_BACKUPS.md), [тесты](engineering/TEST_STRATEGY.md), [harness](engineering/AGENT_HARNESS.md), [дизайн](design/DESIGN_SYSTEM_PLAN.md).
-- [Roadmap](plan/ROADMAP.md), [53 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
+- [Roadmap](plan/ROADMAP.md), [56 task cards](plan/TASKS.md), [machine tasks](plan/tasks.json), [project memory](project/PROJECT_CONTEXT.md), [handoff](project/LAST_HANDOFF.md), [open questions](project/OPEN_QUESTIONS.md).
 - [Milo 02: материал controls и помощники](design/MILO_MATERIAL_AND_COMPANIONS.md), [ADR-0011](architecture/decisions/0011-milo-live-controls.md).
 - [Первое исследование: пять React-направлений](design/MATERIAL_DIRECTIONS.md), [Auth UX](design/AUTH_UX.md), [запуск Material Lab](../assets/design-lab/README.md), [отчёт DESIGN-001](reports/QUB-DESIGN-001.md). [Опубликованное приватное демо](https://qubite-material-lab-kirill.kuzmichevkonstantin9.chatgpt.site); Итоговый Поток/Игрушечная/Лента/Unbounded/Manrope принят владельцем13.10.2026.
 
@@ -67,3 +67,5 @@
 - [Поток / витрина компонентов, палитры, типографика, знаки и появление помощников](design/FLUX_DESIGN_SYSTEM.md) — итерации03/04, DESIGN-001 принят владельцем.
 
 - [Цветной пластик / итерация04](design/COLOR_PLASTIC.md): подтверждённые шрифты/знаки, пять новых наборов и семантическая иерархия цветов.
+
+- [Единый вход / fresh identity](migration/IDENTITY_CUTOVER.md), [машинный контракт](../contracts/identity-v2.json), [ADR-0013](architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт AUTH-008](reports/QUB-AUTH-008.md). Следом AUTH-002 PG accounts/local owner bootstrap; Search и другие потребители переходят в отдельных slices.

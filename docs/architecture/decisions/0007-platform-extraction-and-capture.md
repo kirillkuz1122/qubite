@@ -1,5 +1,7 @@
 # ADR-0007: необходимые legacy возможности на FastAPI и Telegram capture
 
+**Уточнение 13.10.2026:** [ADR-0013](0013-fresh-identity-and-unified-login.md) отменяет обязательный legacy Auth bridge/password/session import/login alias. Владелец сообщил об отсутствии аккаунтов и текущего деплоя; новый identity создаётся с нуля, owner bootstrap локальный. Ниже сохранено историческое решение12.10; стек/границы модулей и продуктовая access policy сохраняются.
+
 CONFIRMED 12.10.2026 последним уточнением владельца: нужные новой платформе функции старого Qubite реализуются на FastAPI. Предложение сделать legacy JS adapter постоянной основой этих функций отменено. Новое ядро — Python/PostgreSQL, frontend React/TS. Старый Node/Auth служит только непрерывности существующих сервисов до verified cutover.
 
 ## Граница Tournaments

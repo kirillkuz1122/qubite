@@ -33,3 +33,11 @@ Bot/analytics migration требует отдельного feature-parity revie
 ## PostgreSQL core foundation — QUB-CORE-001
 
 29 real core cases: contracts/no-network startup/config denial/read-only readiness, actual native PG DDL+rollback/concurrency/drift/CLI, readonly runtime role и дочерний uvicorn HTTP smoke. `verify.py --suite core --python <venv-python> [--postgres-bin <native-bin>]` и required all. Missing binaries/dependencies fail без skip; fresh private cluster/database, no Docker/live storage. Локальный all+harness теперь386 pass. [Scope/evidence](../reports/QUB-CORE-001.md); migration history не полный semantic schema diff и не production acceptance.
+
+## Единый identity contract — QUB-AUTH-008
+
+32 synthetic protocol cases в tests/identity: свежий authority/no import, SHA256/PKCE fixtures в Python+Node, strict credential types/ambiguity, UUID/status/audience/expiry/version/scopes, secret/role field rejection, owner без расширения scopes, native/cookie/private route boundaries. Тестовый oracle **не runtime verifier**; real password/session/CSRF/rotation/concurrency/provider/device tests появятся AUTH-002/009/010/012/013/014. check.py проверяет route→task references по реестру.
+
+`python3 scripts/engineering/verify.py --suite identity --python <test-python>`; эта suite входит в обязательную all и CI. Source-copy без .env/real HOME/DB, внешняя сеть запрещена, vectors синтетические. Целевые protocol requirements не исправляют три старых legacy Auth дефекта; Search/Writing/VPN runtime пока остаётся прежним. [Отчёт](../reports/QUB-AUTH-008.md), [контракт](../migration/IDENTITY_CUTOVER.md).
+
+13.10.2026 AUTH-008: full all414 +harness4 =418 passed (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29), без failed/skipped; native PG18.6. Две прежние deprecation warnings не errors; будущая Auth runtime acceptance не выполнена.

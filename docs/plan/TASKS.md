@@ -1,6 +1,6 @@
 # Карточки небольших задач
 
-Источник состояния — [tasks.json](tasks.json). Shared APIs FastAPI/Postgres; собственные included service UI React/new design; Tournaments legacy Node/SQLite/Vanilla. Только ready задачи для bounded cycle; live migration/deploy отдельно. Первая реализация QUB-TEST-001.
+Источник состояния — [tasks.json](tasks.json). 56 карточек; список ниже отражает machine registry. Shared APIs FastAPI/Postgres; included UI React/new design; optional Tournaments Node/SQLite/Vanilla. Fresh identity без импорта/bridge по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Одна ready approved задача за цикл, deploy отдельно.
 
 ## QUB-001 — Аудит и архитектурный baseline
 
@@ -116,29 +116,30 @@ Acceptance:
 
 Commit: a85f047e7e54c07a6f780a127988b14d9c623a74. Evidence: 12.10.2026: all isolated runner Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/core29=382 pass; harness4=386; no failed/skipped.; Real native PostgreSQL18.6 + Uvicorn HTTP, checksum/drift/rollback/concurrent/read-only role/no-env/no-network startup; only temp DB, no legacy/runtime/deploy changes.; check.py/git diff --check/harness4 passed; commit a85f047e7e54c07a6f780a127988b14d9c623a74 pushed/remote SHA verified; CI run 38211426535 success incl PostgreSQL16.15/core29/all suites, local PostgreSQL18.6..
 
-## QUB-AUTH-002 — Stable subject mapping и временный legacy compatibility protocol
+## QUB-AUTH-002 — Новые PostgreSQL аккаунты и локальный owner bootstrap
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
 
-Причина: Сохранить авторизацию существующих сервисов и однозначное соответствие субъектов.
+Причина: Создать fresh identity нового core без импорта/bridge старых аккаунтов.
 
-Файлы/контракты: `core/qubite/identity (будущий)`, `contracts/identity-v1.json (будущий)`.
+Файлы/контракты: `core/qubite/identity/ (будущий)`, `core/qubite/sql/0002_identity.sql (будущий)`, `core/tests/test_identity.py (будущий)`, `docs/reports/QUB-AUTH-002.md (будущий)`.
 
 Acceptance:
 
-- Session introspection audience/status/revoke fail-closed
-- Mapping stable, roles не platform privileges, owner verified
-- Новый identity target FastAPI/Postgres; legacy bridge только до consumer cutover, не permanent authority
+- Explicit subjects UUID/email/status/auth_version + singleton platform_owner schema, checksum/transactional migrations
+- Локальный явный bootstrap owner: no public endpoint/first-register privilege, atomic repeat/concurrency rejection, preserve same UUID
+- Нет old password/session/role/grant import, integer-ID mapping и обязательного alias; password setup/login следующая AUTH-009
+- Readiness/migration/invariants и existing foundation negative tests; secrets/passwords не записываются в argv/logs
 
-Проверка: Будущий core pytest identity + auth compatibility suite.
+Проверка: Disposable PostgreSQL: migration twice/drift/rollback, canonical email collision, bootstrap race/repeat, singleton FK/constraints; isolated all suites.
 
-Риск: Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
+Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice..
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
-Модуль: policy; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002.
+Модуль: policy; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002, QUB-AUTH-009.
 
 Причина: Старые глобальные роли и owner bypass не подходят новой default-deny модели.
 
@@ -195,7 +196,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 
-Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-003, QUB-DESIGN-001.
+Модуль: ui; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-003, QUB-AUTH-009, QUB-DESIGN-001.
 
 Причина: Отделить обычный user outcome от legacy role dashboard и показать denied/unavailable состояния.
 
@@ -388,51 +389,48 @@ Commit: после выполнения. Evidence: .
 
 Модуль: design; P0; статус done; architecture approved: true. Зависимости: QUB-001.
 
-Причина: Владелец выбрал Milo → Поток, попросил плавность на телефоне, варианты цветов/шрифтов/знаков и доработку помощников; расположение экранов выбирается отдельно.
+Причина: Владелец выбрал Milo → Flux, попросил плавность на телефоне, selectable palettes/fonts/logo families и refined companions; final IA отдельно..
 
 Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`, `docs/design/FLUX_DESIGN_SYSTEM.md`, `docs/architecture/decisions/0012-flux-design-system.md`, `docs/design/COLOR_PLASTIC.md`.
 
 Acceptance:
-
-- Итерация04: владелец выбрал Ленту/Unbounded/Manrope; пять новых ярких наборов пластика с action/select/idea/success hierarchy, full specimen examples; после просмотра версии4 владелец выбрал Игрушечную, DESIGN-001 принят; production layout/device checks отдельно
 
 - Новые tokens/layout и reviewable макет login/register/reset, не копировать старую тему
 - Email/password/согласия; display name optional; нет code-entry/турнирных полей
 - Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией
 - Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026
 - Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review
-- Итерация 3: Поток выбран; пять палитр, независимые 5 заголовочных/5 текстовых шрифтов, пять семейств знаков ×12 назначений, мобильное перетекание, refined companions; выбор владельца и физическая оценка плавности до done
 - Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами
+- 13.10.2026: Flux selected; пять palette, 5 heading/5 body choices, 5 logo families ×12 назначения; mobile motion/overlap review. Final owner selections/physical acceptance before done.
+- 13.10.2026 iteration04: owner selected Ribbon/Unbounded/Manrope; five bright plastic kits with semantic action/select/idea/success hierarchy and whole-specimen examples. Palette/physical acceptance pending.
+- 13.10.2026 после просмотра опубликованной версии4 владелец выбрал Игрушечную; Поток/Лента/Unbounded/Manrope/ритм100/503 закреплены. DESIGN-001 accepted; production layout/device checks отдельно UI-001/002.
 
-Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; 133 browser tests: old47 + Milo51 + Flux22 + Plastic13; mobile/tablet/desktop, drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle, промежуточная click geometry/длительность, 2D mobile pill, 25 font combinations, 60 знаков, palette-theme WCAG matrices, gaze/4× CPU slowdown/quiet; десять plastic kit/theme ×6 разделов, цвета по ролям и error без потери черновика, сохранение выбранных настроек, пять наборов на320/844px.
+Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API; 98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle; Flux browser: actual intermediate click geometry/duration, 2D mobile pill, 25 font combinations, 60 glyphs, 10 palette-theme WCAG matrices, gaze/touch/4× CPU slowdown/quiet.; Plastic: ten kit/theme matrices ×six screens at360px; actual role fills/results/errors and no data loss, chosen defaults, five kits at320/844px; old neutral palettes preserved..
 
-Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
+Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
 
-Commit: 9262e3c0c89db7b6343b6ce90c0e62213e515ffa. Evidence: 133/133 browser pass238.6s; 386/386 isolated regression+harness pass, итого519 различных проверок. Format/build/check/diff pass; main pushed/remote exact SHA verified; CI Material Lab38340403176/verification38340403192 completed/success для этого SHA. Владелец просмотрел опубликованную версию4 и выбрал Игрушечную; DESIGN-001 done. Полные и исторические доказательства в tasks.json и report.
+Commit: 9262e3c0c89db7b6343b6ce90c0e62213e515ffa. Evidence: 47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass; 386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services; Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001; Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success; Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress; Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done; Итерация2 existing386 regression+harness pass; check53 tasks/46 docs; archive refs SHA96f0457 unchanged verified origin; Milo02 private Sites version2/deployment appgdep_6acd3047a53c8191bcde1e643dfe55be succeeded19:09:35UTC; source5c6fd389cf432cab56fd8fa7f57c698704cab707 pushed/verified; archive transfer403, remote build fallback; Milo02 main 2b10ba365f6035bdfb92cdbd34e56a6829095c5c pushed; remote main exact SHA verified; CI38295994465/38295994336 completed/success for exact implementation SHA; 13.10.2026: владелец выбрал Поток/Flux; разрешена итерация 3: mobile motion, пять палитр, независимые heading/body fonts, пять семейств знаков всех существующих сервисов и refined companions; только assets/design-lab и docs, acceptance после выбора владельца.; 13.10.2026 Flux03:120/120 browser pass187.9s; final optical Flux22/22 pass57.4s; existing386/harness pass; default fonts4, no APIs/storage; owner palette/type/marks/physical acceptance pending.; 13.10.2026 private Sites version3 published/source c12223d37f0fa3135b742243b8e64def43dc485a remote/version verified; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded; local archive uploaded; root-source0 mismatch.; Flux03 main 74ad2efcae25b52e04b59cab148e8317b0a735aa pushed; git ls-remote exact SHA verified; CI Material Lab38303757824/verification38303758010 completed/success for exact implementation SHA; origin archive refs96f0457 unchanged.; Iteration04 authorized by owner screenshots: Ribbon/Unbounded/Manrope confirmed, rhythm100/503; previous palette rejected, five semantic plastic kits requested. Final133/133 browser pass238.6s/no retries/skips/flaky; existing386/harness pass, combined519. Palette/physical acceptance pending.; Plastic04 private Sites version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075 pushed/remote/version verified; root-source0 mismatch; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC; exact source archive uploaded, private audience preserved.; Plastic04 main9262e3c0c89db7b6343b6ce90c0e62213e515ffa pushed; remote exact SHA verified. Owner viewed version4 and explicitly selected Игрушечная: DESIGN-001 done. Toy was already published default; acceptance changes documentation only.; GitHub Actions Material Lab38340403176 and Qubite verification38340403192 completed/success for exact implementation SHA9262e3c0c89db7b6343b6ce90c0e62213e515ffa; origin archive branch/tag96f0457 unchanged, verified together with main..
 
-Publication: Plastic04 private version4/source8e8aba31a64452344ed82764ca76a92f7ca0d075; deployment appgdep_6acd9fa05db08191b83a91968a2a70e6 succeeded13.10.2026 03:04:14UTC, версия/source проверены, archive загружен. Поток/Игрушечная/Лента/Unbounded/Manrope приняты владельцем; production UI/device checks отдельно.
-
-## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
+## QUB-AUTH-005 — Account login без code-entry в новом API
 
 Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-TEST-001.
 
-Причина: Убрать старый вход по коду по прямому указанию владельца.
+Причина: Новый login не принимает старые account access codes; tournament join и email verification отдельные.
 
 Файлы/контракты: `core/qubite/identity (будущий)`, `contracts/auth-v1.json (будущий)`, `docs/architecture/AUTH_AND_PERMISSIONS.md`.
 
 Acceptance:
 
-- Карта потребителей inspect/code-entry и прежних аккаунтов
-- Новый FastAPI Auth не реализует account code-entry; сохранены tournament join codes/email verify/2FA/reset
-- Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают
+- В новой Auth surface отсутствуют code-entry/account session grant routes; known legacy routes rejected
+- Tournament join codes/invites/email/reset/2FA challenges не удалены или смешаны с password login
 
 Проверка: Isolated auth HTTP negative+positive matrix; tournament code join regression.
 
-Риск: Не смешать authentication code-entry с турнирным join/verification. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+Риск: Не смешать authentication code-entry с турнирным join/verification. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
-## QUB-AUTH-006 — Минимальная FastAPI регистрация и legacy alias compatibility
+## QUB-AUTH-006 — Минимальная FastAPI регистрация без legacy alias
 
 Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-DESIGN-001.
 
@@ -442,13 +440,13 @@ Commit: после выполнения. Evidence: .
 
 Acceptance:
 
-- Email/password+согласия, старые аккаунты сохраняются
-- Внутренний alias стабилен/уникален и не обязателен в форме; optional display name после входа
-- Не требуются school/class/ФИО; invite policy/verification/reset/duplicate guards работают
+- Email/password/согласия, display name optional; без обязательного login alias/ФИО/школы/класса
+- Invite/manual default, public отдельно; no module/model grant из регистрации
+- PG uniqueness/validation/consent version/verification; fresh identity без импорта старых DTO
 
 Проверка: Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests.
 
-Риск: Старые native clients/username collisions; не удалять профильные данные. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+Риск: Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
@@ -463,35 +461,36 @@ Commit: после выполнения. Evidence: .
 Acceptance:
 
 - Новая тема/формы email/password/OAuth/reset без account code-entry
-- FastAPI Auth, безопасные cookies/CSRF/return target, verifier/session compatibility; live cutover отдельно
+- FastAPI Auth, безопасные cookies/CSRF/return target, fresh core session/status/revoke; единый вход сервиса, без legacy verifier
 - Web+desktop navigation/keyboard/mobile и реальная UX приёмка
 
 Проверка: Playwright login/register/reset/revoke; no secret logging; screenshots.
 
-Риск: Open redirect/token storage/две расходящиеся реализации. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+Риск: Open redirect/token storage/две расходящиеся реализации. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
-## QUB-AUTH-008 — Identity cutover specification в Python/Postgres
+## QUB-AUTH-008 — Единый вход Qubite: fresh-install контракт FastAPI/Postgres
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
-Причина: Перенести identity в целевой стек без одновременного удаления старого Auth.
+Причина: После уточнения владельца13.10.2026 нет аккаунтов для переноса и текущего деплоя; спроектировать один вход для всех новых сервисов.
 
-Файлы/контракты: `docs/migration/IDENTITY_CUTOVER.md (будущий)`, `contracts/identity-v2.json (будущий)`.
+Файлы/контракты: `docs/migration/IDENTITY_CUTOVER.md`, `contracts/identity-v2.json`, `contracts/identity-vectors.json`, `tests/identity/`, `scripts/engineering/verify.py`, `docs/architecture/`, `docs/project/`, `docs/plan/`, `docs/engineering/TEST_STRATEGY.md`, `docs/reports/QUB-AUTH-008.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`, `scripts/engineering/check.py`, `docs/engineering/DEPLOYMENT_AND_BACKUPS.md`, `docs/engineering/AGENT_HARNESS.md`.
 
 Acceptance:
 
-- Полная карта потребителей cookie/OAuth/password/native clients с source/target authority
-- Verifier test vectors, UUID/owner mapping, staged session/revoke plan и reconciliation
-- Live cutover отдельной задачей после OPS-002 и approval; в этой задаче нет live writes
-- AUTH-L01..03 из QUB-TEST-001: дефекты не считать compatibility; unverified email linking P0 gate до identity cutover
+- Полная карта legacy потребителей и целевого единого Auth: Web/Search/Writing/VPN/native/API/Tournaments/TG/upstream connectors
+- Fresh Postgres UUID subject/owner bootstrap, единые session/revoke/API boundaries; без legacy password/session/import/bridge
+- Машинный контракт новых endpoint/принципала/scopes и synthetic межъязыковые token/PKCE vectors/negative cases
+- AUTH-L01..03 остаются negative requirements: malformed credentials/OAuth kill switch/no email-only linking
+- Только контракт/план/проверки; runtime Auth и новые UI не выдавать за реализованные; пользователь разрешил менять потребителей в следующих срезах
 
-Проверка: Synthetic cross-runtime vectors; contract/migration rehearsal план.
+Проверка: pytest tests/identity: synthetic SHA256/PKCE Python+Node, contract/session/security negative matrix; isolated --suite identity/all; check.py.
 
-Риск: SSO/refresh breakage; legacy owner bypass не наследовать. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook..
+Риск: SSO/refresh breakage; legacy owner bypass не наследовать. Откат: Сохранить архив96f0457 и локальные старые артефакты; fresh core изолирован. При будущих изменениях включать новый сервис после tests, при откате не восстанавливать старый snapshot поверх новых записей..
 
-Commit: после выполнения. Evidence: 12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes..
+Commit: после выполнения. Evidence: 12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes.; 13.10.2026 владелец прямо подтвердил: существующих аккаунтов нет, прежнего owner можно создать заново, проект нигде не запущен/деплоя нет. Разрешил единый новый вход/API и изменения Search/остальных сервисов. Старые сведения о live migration заменяются ADR-0013; данные/секреты не удаляются по одному этому сообщению.; 13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push..
 
 ## QUB-DEPLOY-001 — Specification нового deploy/qubite2 и installer modes
 
@@ -535,7 +534,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-DESKTOP-001 — Tauri Linux POC и portable OS adapter boundary
 
-Модуль: desktop; P1; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-007.
+Модуль: desktop; P1; статус backlog; architecture approved: false. Зависимости: QUB-UI-001, QUB-AUTH-007, QUB-AUTH-012.
 
 Причина: Desktop Linux обязателен, последующие OS без переписывания продукта.
 
@@ -684,14 +683,14 @@ Commit: после выполнения. Evidence: .
 
 Acceptance:
 
-- Postgres sessions/credentials, hash-only tokens, isolated verifier compatibility vectors
+- Postgres sessions/Argon2id credentials, typed opaque token/hash-only storage, owner password setup и revoke/status/auth_version
 - Login/logout/logout-all/revoke/blocked/expiry/CSRF/secure cookie negative cases
 - No code-entry, no owner/global-role bypass; реальные пароли не читать в модель
 - AUTH-L01: malformed percent cookie не вызывает 500; безопасный credential отказ и server survives
 
-Проверка: Disposable Postgres auth integration; old verifier synthetic cross-runtime vectors.
+Проверка: Disposable Postgres password/session/CSRF/expiry/concurrency/reauth/blocked/revoke integration; identity-v2 protocol vectors, no old-password compatibility.
 
-Риск: Session fixation/пароли/legacy consumer breakage. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
@@ -713,7 +712,7 @@ Acceptance:
 
 Проверка: Provider fixture state/PKCE/replay/link collision/unconfigured tests.
 
-Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
@@ -729,11 +728,11 @@ Acceptance:
 
 - Одноразовые hashed challenges, TTL/replay/rate caps; reset/revoke/verify flows
 - Email transport mock, configured feature behavior, security code не account code-entry
-- Согласованный register/verify owner bootstrap mapping, no arbitrary owner promotion
+- Новая register/verify policy, proof не назначает owner; owner только явным local bootstrap, existing UUID не меняется
 
 Проверка: Challenge expiry/replay/exhaustion/reset/session revoke tests.
 
-Риск: Mail leak/race/reset takeover. Откат: Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно..
+Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
 Commit: после выполнения. Evidence: .
 
@@ -859,7 +858,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-SVC-SEARCH-001 — Search parity и FastAPI service API contract
 
-Модуль: search; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+Модуль: search; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001, QUB-AUTH-014.
 
 Причина: Search собственный сервис новой платформы, не ссылка на старый HTML.
 
@@ -870,6 +869,7 @@ Acceptance:
 - Матрица search/fetch/history/free-paid/media/keys/log protection/grounding/usage по source
 - FastAPI platform adapter к рабочему Search engine, scoped keys и ACL, deny before paid calls
 - History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001
+- Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013
 
 Проверка: Search adapter fixtures, owner/free/paid/revoked/history/privacy negative tests.
 
@@ -899,7 +899,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-SVC-WRITING-001 — Writing parity и FastAPI grammar/AI API contract
 
-Модуль: writing; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+Модуль: writing; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001, QUB-AUTH-014.
 
 Причина: Writing engine использовать через целевой API без потери существующих функций.
 
@@ -910,6 +910,7 @@ Acceptance:
 - Separate local check и paid AI actions/grants/keys/budgets
 - LanguageTool adapter + shared cost guard, cancel/version/UTF16-compatible offsets
 - Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён
+- Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013
 
 Проверка: Grammar/AI/budget/revoke/UTF16/cancel and addon fixtures.
 
@@ -939,7 +940,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-SVC-VPN-001 — VPN parity и FastAPI node/subscription API contract
 
-Модуль: vpn; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001.
+Модуль: vpn; P1; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-001, QUB-AUTH-014, QUB-AUTH-012.
 
 Причина: VPN platform domain на FastAPI с сохранением network engines.
 
@@ -950,6 +951,7 @@ Acceptance:
 - Node heartbeat/status/profile/NaiveProxy toggle/subscription/device lifecycle mapping
 - Grants отдельно node management, protected credentials и Auth/app compatibility
 - Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные
+- Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013
 
 Проверка: Synthetic node/credential/revoke/device/stale/kill-switch fixture tests.
 
@@ -992,7 +994,7 @@ Acceptance:
 
 Проверка: Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression.
 
-Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy..
 
 Commit: после выполнения. Evidence: .
 
@@ -1008,10 +1010,11 @@ Acceptance:
 
 - Луми/Кип/Пип/Сэйдж persona table; own error vs user/service error; bounded allowed context
 - Owner review initiative/cooldown/dismiss/voice; no focus steal or rights widening
+- 13.10.2026 owner: scenarios hidden/edge peek/contextual appearance/dialogue/retreat; placement, safe-area/keyboard, cooldown/event arbitration by screen/persona, manual summon, privacy/accessibility; final conditions discussed during implementation.
 
 Проверка: Contract validation; scenario table owner review; zero provider calls.
 
-Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy..
 
 Commit: после выполнения. Evidence: .
 
@@ -1027,10 +1030,11 @@ Acceptance:
 
 - Different speech/gestures/context, global hints off/quiet, no interrupt/overlay critical action
 - Revision/revoke/dedup/stale response, errors factual, no provider calls or sensitive telemetry
+- Edge appearance/retreat from PET-001 contract; no occlusion of controls/keyboard, touch alternative to hover, bounded gestures/cancel, quiet/reduced motion and stale busy completion.
 
 Проверка: Mock event browser tests; cross-scope/privacy/revoke/rapid switch/undo/cancel/accessibility.
 
-Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy..
 
 Commit: после выполнения. Evidence: .
 
@@ -1049,12 +1053,72 @@ Acceptance:
 
 Проверка: Core disposable DB/mock provider counter, concurrent cap/idempotency/revoke/stale/tool permission matrix.
 
-Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.
+Риск: Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки. Откат: Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy..
 
 Commit: после выполнения. Evidence: .
 
-## Уточнение DESIGN/PET 13.10.2026
+## QUB-AUTH-012 — Native authorization code/PKCE и rotating device tokens
 
-Выбран Flux/Поток внутри Milo. [ADR-0012](../architecture/decisions/0012-flux-design-system.md), [specimen contract](../design/FLUX_DESIGN_SYSTEM.md). DESIGN-001 review/testing: пять palette, 5 heading/5 body choices, 5 SVG families ×12 назначения, 22 UI icons, mobile continuous selection/lightweight и refined pets/gaze/8 events/3 speech modes. Final owner palette/type/marks/weak-device acceptance открыт; базовый material не переспрашивать. PET-001/002 дополнены hidden/edge peek/contextual entry/dialogue/retreat, safe-area/keyboard/visibility/cooldown/accessibility, конкретное placement обсудить при разработке. Рекомендуемый следующий ready cycle AUTH-008, UI-001 deps AUTH-003+DESIGN-001 остаются. Точные evidence и актуальные статусы — tasks.json/report/handoff; ранние цифры выше исторические.
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-007.
 
-13.10.2026, актуальное дополнение: Лента/Unbounded/Manrope выбраны; palette review продолжен пятью plastic kits по COLOR_PLASTIC. Старые сообщения о выборе шрифтов/семейства выше исторические. Точные технические evidence текущего выпуска — tasks.json/report.
+Причина: Единый новый вход всех клиентов и сервисов по ADR-0013.
+
+Файлы/контракты: `core/qubite/identity/native (будущий)`, `core/tests/test_native_auth.py (будущий)`.
+
+Acceptance:
+
+- Registered first-party clients/exact callback, external browser, state/PKCE S256, code60s single-use; no password grant/static app secret
+- Access10min/refresh idle7d absolute30d, hash-only storage, scope intersection/current grants; DB atomic consume+rotation
+- Replay/concurrent refresh revokes family/access, client serialized refresh; no bearer in URL; OS secure storage boundary
+
+Проверка: Real disposable PG code/refresh concurrency, client/redirect/PKCE mismatch, replay/scope/revoke/expiry negative tests.
+
+Риск: Credential leakage/privilege escalation; synthetic contract не runtime acceptance. Откат: Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-013 — Scoped API keys расширений и агентов
+
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-003.
+
+Причина: Единый новый вход всех клиентов и сервисов по ADR-0013.
+
+Файлы/контракты: `core/qubite/identity/api_keys (будущий)`, `core/tests/test_api_keys.py (будущий)`.
+
+Acceptance:
+
+- Own reauthenticated key creation, one module audience/scopes subset/current grants, explicit expiry<=90d and request cap
+- Hash-only at rest, plaintext return once, metadata list/revoke; no wildcard owner/admin bypass
+- Search history/read/write и AI отдельно, Writing check/AI отдельно; provider counter0 на deny
+
+Проверка: PG expiry/revoke/own-vs-other keys/role/scope/quota concurrency tests.
+
+Риск: Credential leakage/privilege escalation; synthetic contract не runtime acceptance. Откат: Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## QUB-AUTH-014 — Private core introspection для отдельных service engines
+
+Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-AUTH-003, QUB-AUTH-013.
+
+Причина: Единый новый вход всех клиентов и сервисов по ADR-0013.
+
+Файлы/контракты: `core/qubite/identity/introspection (будущий)`, `core/tests/test_introspection.py (будущий)`.
+
+Acceptance:
+
+- Private per-service auth bound audience, POST opaque credentials, strict identity-v2 reply, no forwarded user/owner trust
+- Active/current auth_version/policy_version/status/scopes, no positive stale cache, timeout/unavailable fail-closed
+- Private route/engine ports excluded from public ingress, module/object/budget gates separate from principal
+
+Проверка: Local HTTP strict schema/service audience/blocked/revoke/timeout/forged headers plus ingress contract checks.
+
+Риск: Credential leakage/privilege escalation; synthetic contract не runtime acceptance. Откат: Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно..
+
+Commit: после выполнения. Evidence: .
+
+## Принятые UI решения и текущий шаг
+
+DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. PET-001/002 сохраняют hidden/edge peek/contextual appearance/dialogue/retreat; placement выбирается при реализации screens. Prototype scripted, реальные agents отсутствуют. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
+
+AUTH-008 сейчас контракт/план/protocol fixtures; затем AUTH-002 PG accounts/local owner bootstrap и AUTH-009 usable password/login. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.

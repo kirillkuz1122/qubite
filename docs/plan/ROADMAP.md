@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован 12.10.2026. Ready: isolated auth tests/core foundation, design/auth UX и deploy specification. Затем owner/default-deny/mock cost guard и notes end-to-end. [53 небольших задач](TASKS.md) и [machine state](tasks.json) — первый backlog, не всё долгосрочное видение.
+Базовый стек согласован12.10.2026;13.10 владелец разрешил fresh единый identity/API без переноса аккаунтов/bridge, текущего деплоя нет по его сообщению. [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Audit/TEST/CORE/DESIGN завершены, AUTH-008 контракт перед реализацией; следующая AUTH-002 PG accounts/local owner bootstrap, затем AUTH-009 password/session API. [56 задач](TASKS.md) и [machine state](tasks.json) — текущий backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR
@@ -12,12 +12,14 @@ flowchart LR
   OPS[OPS-001 inventory] --> BK[OPS-002 restore]
   AUD --> AT[TEST-001 auth]
   AT --> TT[TEST-002 runtime/rating]
-  CORE --> ID[AUTH-002 bridge]
+  CORE --> ID[AUTH-002 fresh accounts / owner]
   AT --> ID
   ID --> POL[AUTH-003 policy]
+  PASS --> POL
   POL --> AI[AI-001 reserve]
   AI --> DISP[AI-002 dispatcher]
   POL --> UI[UI-001 shell]
+  PASS --> UI
   DESIGN --> UI
   AT --> CODE[AUTH-005 disable code-entry]
   AT --> REG[AUTH-006 minimal register]
@@ -26,14 +28,21 @@ flowchart LR
   CODE --> LOGIN
   REG --> LOGIN
   LOGIN --> DESK[DESKTOP-001 Linux POC]
-  CORE --> CUT[AUTH-008 identity cutover spec]
+  CORE --> CUT[AUTH-008 fresh identity spec]
   AT --> CUT
   CUT --> PASS[AUTH-009 FastAPI sessions]
+  CUT --> ID
   ID --> PASS
   PASS --> OAUTH[AUTH-010 OAuth]
   PASS --> VERIFY[AUTH-011 verify/reset]
   OAUTH --> LOGIN
   VERIFY --> LOGIN
+  PASS --> KEYS[AUTH-013 scoped keys]
+  POL --> KEYS
+  KEYS --> INT[AUTH-014 private introspection]
+  LOGIN --> NATIVE[AUTH-012 native PKCE]
+  PASS --> NATIVE
+  NATIVE --> DESK
   PASS --> REG
   PASS --> CODE
   DISP --> OC[AUTH-004 console]
@@ -58,9 +67,9 @@ INK-001 отдельный research track с аппаратным approval; по
 
 Клиентский scope утверждён: сайт и общий React desktop UI, Linux release первым; Windows/macOS packaging/sign/tests позже. Android native Ink track развивается параллельно, остальные экраны/hybrid после POC. Новый deploy/qubite2 не заменяет legacy installer до compatibility проверки. Сервер и backup destination отложены до live этапа.
 
-Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG ответы получены; пять ready задач продолжают foundation/specification. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.
+Telegram/observability track: TG-001 parity/questions → TG-002 read-only worker → TG-003 mutations/cutover plan. CORE-001 → OBS-001 contract/collector → ANALYTICS-001 Console/graphs/module split. TG-001 + AUTH-003 → SUPPORT-001. TG ответы получены; готовые specification tracks сохраняются, одна primary задача за цикл. Реальные credentials нужны только отдельному integration acceptance, не проектированию/fixtures.
 
-Shared extraction: CORE/identity plan → FastAPI sessions → OAuth/verify/reset/minimal register → React Auth → staged consumer cutover после backup/restore. CORE-002 general/module settings на target core. Полный tournament engine rewrite исключён из текущего roadmap. Capture: TG-002 → CAPTURE-001 durable text → CAPTURE-002 AI routing (после AI guard/Docs); CAPTURE-003 durable voice + STT parallel. Notifications: policy/TG-002 → NOTIFY-001 event/outbox/deep links → NOTIFY-002 daily/critical policies.
+Shared extraction: fresh identity plan → PG accounts/local bootstrap → FastAPI password/sessions → policy + OAuth/verify/reset/minimal register → React Auth → scoped keys/private introspection/native PKCE → tested consumers. Live account import отсутствует; первый deploy/backup новых данных отдельным release. CORE-002 general/module settings на target core. Полный tournament engine rewrite исключён из текущего roadmap. Capture: TG-002 → CAPTURE-001 durable text → CAPTURE-002 AI routing (после AI guard/Docs); CAPTURE-003 durable voice + STT parallel. Notifications: policy/TG-002 → NOTIFY-001 event/outbox/deep links → NOTIFY-002 daily/critical policies.
 
 ## Порядок начала реализации
 
@@ -91,10 +100,10 @@ flowchart LR
   CAP[CAPTURE-002] --> A
 ```
 
-Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр: 53 карточки, 4 done /3 ready /46 backlog.
+Четыре новые backlog карточки, без автоматического approval реализации. Сначала принять материал, затем bounded product UI по прежним policy/identity dependencies. Реальные модели и tool execution требуют отдельных проверок. Реестр56; точные done/ready/backlog в tasks.json. Проверки протокола не означают реализованный Auth.
 
 ## Поток и витрина — уточнение 13.10.2026
 
-Flux selected; [компонентный контракт](../design/FLUX_DESIGN_SYSTEM.md), ADR-0012. DESIGN-001 завершён после просмотра версии4 и выбора владельцем Игрушечной, Ленты и Unbounded/Manrope. Production device checks остаются UI-002. Следующая рекомендуемая ready задача AUTH-008 (identity cutover specification), далее утверждённые identity/policy задачи перед React shell. PET-001/002 содержат edge peek/hidden/contextual appearance/retreat: места/условия выбираются при реализации экранов. Static prototype не финальная IA и не product implementation; UI/AI/deploy gates сохраняются.
+Flux selected; [компонентный контракт](../design/FLUX_DESIGN_SYSTEM.md), ADR-0012. DESIGN-001 завершён после просмотра версии4 и выбора владельцем Игрушечной, Ленты и Unbounded/Manrope. Production device checks остаются UI-002. AUTH-008 fresh identity specification, затем AUTH-002 accounts/bootstrap и AUTH-009 перед policy/React shell. PET-001/002 содержат edge peek/hidden/contextual appearance/retreat: места/условия выбираются при реализации экранов. Static prototype не финальная IA и не product implementation; UI/AI/deploy gates сохраняются.
 
-13.10.2026, приёмка версии4: владелец выбрал **Игрушечную**; DESIGN-001 done. Следующая рекомендуемая задача **QUB-AUTH-008**, проектирование безопасного identity/session cutover FastAPI/Postgres; не live переключение и не реализация всего UI. Ранее указанные review gates Milo — история до этой приёмки.
+13.10.2026, приёмка версии4: **Игрушечная**, DESIGN-001 done. AUTH-008 переработана по последнему сообщению: единый fresh Auth без legacy import/bridge. Далее AUTH-002 — реальная PG identity schema/local owner bootstrap, AUTH-009 — password/login. Ранее review gates Milo — история; никакого server switch/Auth runtime в specification задаче.

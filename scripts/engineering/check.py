@@ -33,7 +33,16 @@ def validate(tasks):
 
 if __name__ == '__main__':
     tasks = json.loads((ROOT / 'docs/plan/tasks.json').read_text())
-    validate(tasks)
+    by_id = validate(tasks)
+    identity = ROOT / 'contracts/identity-v2.json'
+    if identity.exists():
+        contract = json.loads(identity.read_text())
+        assert contract['status'] == 'specification' and not contract['runtime_implemented']
+        routes = [(r['method'], r['path']) for r in contract['routes']]
+        assert len(routes) == len(set(routes)), 'Повтор identity route'
+        for route in contract['routes']:
+            assert route['task'] in by_id, 'Неизвестная identity задача'
+            assert route['status'] == 'planned', 'Specification не runtime implementation'
     trace = json.loads((ROOT / 'docs/product/source-trace.json').read_text())
     for source in ['QUBITE_MASTER_CONTEXT.md', 'QUBITE_ACCESS_AND_OWNER_CONSOLE.md']:
         expected = [(i, hashlib.sha256(line.encode()).hexdigest()) for i, line in enumerate((ROOT/source).read_text().splitlines(), 1) if line.strip()]

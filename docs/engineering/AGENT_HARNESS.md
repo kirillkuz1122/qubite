@@ -1,5 +1,7 @@
 # Development Harness Codex/Claude
 
+**Identity уточнение13.10.2026:** AUTH-008 — specification только; identity suite входит в all, синтетические vectors/test oracle не runtime Auth. Новый путь fresh install без users/password/session import/bridge; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Не требовать server backup для локального slice без существующего data source. По-прежнему одна ready approved задача на цикл, тесты→evidence→русский commit→push; next AUTH-002 schema/bootstrap, login отдельно AUTH-009. Найденные старые данные не удалять; deploy отдельно.
+
 Минимальный harness готов: tasks.json + check.py + verify.py + CI + project context/ADR/report. Это не автономный unlimited agent runner и не production deployer.
 
 ## Запуск цикла

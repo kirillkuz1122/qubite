@@ -226,34 +226,40 @@
   },
   {
     "id": "QUB-AUTH-002",
-    "title": "Stable subject mapping и временный legacy compatibility protocol",
-    "reason": "Сохранить авторизацию существующих сервисов и однозначное соответствие субъектов",
+    "title": "Новые PostgreSQL аккаунты и локальный owner bootstrap",
+    "reason": "Создать fresh identity нового core без импорта/bridge старых аккаунтов",
     "module": "identity",
     "priority": "P0",
     "dependencies": [
+      "QUB-AUTH-008",
       "QUB-CORE-001",
       "QUB-TEST-001"
     ],
     "files": [
-      "core/qubite/identity (будущий)",
-      "contracts/identity-v1.json (будущий)"
+      "core/qubite/identity/ (будущий)",
+      "core/qubite/sql/0002_identity.sql (будущий)",
+      "core/tests/test_identity.py (будущий)",
+      "docs/reports/QUB-AUTH-002.md (будущий)"
     ],
     "acceptance": [
-      "Session introspection audience/status/revoke fail-closed",
-      "Mapping stable, roles не platform privileges, owner verified",
-      "Новый identity target FastAPI/Postgres; legacy bridge только до consumer cutover, не permanent authority"
+      "Explicit subjects UUID/email/status/auth_version + singleton platform_owner schema, checksum/transactional migrations",
+      "Локальный явный bootstrap owner: no public endpoint/first-register privilege, atomic repeat/concurrency rejection, preserve same UUID",
+      "Нет old password/session/role/grant import, integer-ID mapping и обязательного alias; password setup/login следующая AUTH-009",
+      "Readiness/migration/invariants и existing foundation negative tests; secrets/passwords не записываются в argv/logs"
     ],
     "tests": [
-      "Будущий core pytest identity + auth compatibility suite"
+      "Disposable PostgreSQL: migration twice/drift/rollback, canonical email collision, bootstrap race/repeat, singleton FK/constraints; isolated all suites"
     ],
     "risks": [
-      "Не читать пароли в модель; blocked/revoked/OAuth subject не превращается в owner; sessions не теряются"
+      "Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login"
     ],
-    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice."
+    ]
   },
   {
     "id": "QUB-AUTH-003",
@@ -262,7 +268,8 @@
     "module": "policy",
     "priority": "P0",
     "dependencies": [
-      "QUB-AUTH-002"
+      "QUB-AUTH-002",
+      "QUB-AUTH-009"
     ],
     "files": [
       "core/qubite/policy (будущий)",
@@ -348,6 +355,7 @@
     "priority": "P0",
     "dependencies": [
       "QUB-AUTH-003",
+      "QUB-AUTH-009",
       "QUB-DESIGN-001"
     ],
     "files": [
@@ -710,8 +718,8 @@
   },
   {
     "id": "QUB-AUTH-005",
-    "title": "Отключение account code-entry после compatibility audit",
-    "reason": "Убрать старый вход по коду по прямому указанию владельца",
+    "title": "Account login без code-entry в новом API",
+    "reason": "Новый login не принимает старые account access codes; tournament join и email verification отдельные",
     "module": "identity",
     "priority": "P0",
     "dependencies": [
@@ -724,9 +732,8 @@
       "docs/architecture/AUTH_AND_PERMISSIONS.md"
     ],
     "acceptance": [
-      "Карта потребителей inspect/code-entry и прежних аккаунтов",
-      "Новый FastAPI Auth не реализует account code-entry; сохранены tournament join codes/email verify/2FA/reset",
-      "Данные аккаунтов/результатов не удалены, OAuth/password/старые сервисы работают"
+      "В новой Auth surface отсутствуют code-entry/account session grant routes; known legacy routes rejected",
+      "Tournament join codes/invites/email/reset/2FA challenges не удалены или смешаны с password login"
     ],
     "tests": [
       "Isolated auth HTTP negative+positive matrix; tournament code join regression"
@@ -734,7 +741,7 @@
     "risks": [
       "Не смешать authentication code-entry с турнирным join/verification"
     ],
-    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,
@@ -742,7 +749,7 @@
   },
   {
     "id": "QUB-AUTH-006",
-    "title": "Минимальная FastAPI регистрация и legacy alias compatibility",
+    "title": "Минимальная FastAPI регистрация без legacy alias",
     "reason": "Снять обязательные турнирные/лишние данные с платформенной регистрации",
     "module": "identity",
     "priority": "P0",
@@ -755,17 +762,17 @@
       "contracts/registration-v1.json (будущий)"
     ],
     "acceptance": [
-      "Email/password+согласия, старые аккаунты сохраняются",
-      "Внутренний alias стабилен/уникален и не обязателен в форме; optional display name после входа",
-      "Не требуются school/class/ФИО; invite policy/verification/reset/duplicate guards работают"
+      "Email/password/согласия, display name optional; без обязательного login alias/ФИО/школы/класса",
+      "Invite/manual default, public отдельно; no module/model grant из регистрации",
+      "PG uniqueness/validation/consent version/verification; fresh identity без импорта старых DTO"
     ],
     "tests": [
       "Register/login/reset/OAuth linking roundtrip; alias collision and old native clients tests"
     ],
     "risks": [
-      "Старые native clients/username collisions; не удалять профильные данные"
+      "Register/login/reset/OAuth linking roundtrip; canonical email collision, invite misuse и default-deny; legacy alias не создаётся"
     ],
-    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,
@@ -790,7 +797,7 @@
     ],
     "acceptance": [
       "Новая тема/формы email/password/OAuth/reset без account code-entry",
-      "FastAPI Auth, безопасные cookies/CSRF/return target, verifier/session compatibility; live cutover отдельно",
+      "FastAPI Auth, безопасные cookies/CSRF/return target, fresh core session/status/revoke; единый вход сервиса, без legacy verifier",
       "Web+desktop navigation/keyboard/mobile и реальная UX приёмка"
     ],
     "tests": [
@@ -799,7 +806,7 @@
     "risks": [
       "Open redirect/token storage/две расходящиеся реализации"
     ],
-    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,
@@ -807,8 +814,8 @@
   },
   {
     "id": "QUB-AUTH-008",
-    "title": "Identity cutover specification в Python/Postgres",
-    "reason": "Перенести identity в целевой стек без одновременного удаления старого Auth",
+    "title": "Единый вход Qubite: fresh-install контракт FastAPI/Postgres",
+    "reason": "После уточнения владельца13.10.2026 нет аккаунтов для переноса и текущего деплоя; спроектировать один вход для всех новых сервисов",
     "module": "identity",
     "priority": "P0",
     "dependencies": [
@@ -816,27 +823,47 @@
       "QUB-TEST-001"
     ],
     "files": [
-      "docs/migration/IDENTITY_CUTOVER.md (будущий)",
-      "contracts/identity-v2.json (будущий)"
+      "docs/migration/IDENTITY_CUTOVER.md",
+      "contracts/identity-v2.json",
+      "contracts/identity-vectors.json",
+      "tests/identity/",
+      "scripts/engineering/verify.py",
+      "docs/architecture/",
+      "docs/project/",
+      "docs/plan/",
+      "docs/engineering/TEST_STRATEGY.md",
+      "docs/reports/QUB-AUTH-008.md",
+      "README.md",
+      "docs/README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md",
+      "scripts/engineering/check.py",
+      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md",
+      "docs/engineering/AGENT_HARNESS.md"
     ],
     "acceptance": [
-      "Полная карта потребителей cookie/OAuth/password/native clients с source/target authority",
-      "Verifier test vectors, UUID/owner mapping, staged session/revoke plan и reconciliation",
-      "Live cutover отдельной задачей после OPS-002 и approval; в этой задаче нет live writes",
-      "AUTH-L01..03 из QUB-TEST-001: дефекты не считать compatibility; unverified email linking P0 gate до identity cutover"
+      "Полная карта legacy потребителей и целевого единого Auth: Web/Search/Writing/VPN/native/API/Tournaments/TG/upstream connectors",
+      "Fresh Postgres UUID subject/owner bootstrap, единые session/revoke/API boundaries; без legacy password/session/import/bridge",
+      "Машинный контракт новых endpoint/принципала/scopes и synthetic межъязыковые token/PKCE vectors/negative cases",
+      "AUTH-L01..03 остаются negative requirements: malformed credentials/OAuth kill switch/no email-only linking",
+      "Только контракт/план/проверки; runtime Auth и новые UI не выдавать за реализованные; пользователь разрешил менять потребителей в следующих срезах"
     ],
     "tests": [
-      "Synthetic cross-runtime vectors; contract/migration rehearsal план"
+      "pytest tests/identity: synthetic SHA256/PKCE Python+Node, contract/session/security negative matrix; isolated --suite identity/all; check.py"
     ],
     "risks": [
       "SSO/refresh breakage; legacy owner bypass не наследовать"
     ],
-    "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
-    "status": "ready",
+    "rollback": "Сохранить архив96f0457 и локальные старые артефакты; fresh core изолирован. При будущих изменениях включать новый сервис после tests, при откате не восстанавливать старый snapshot поверх новых записей.",
+    "status": "review/testing",
     "commit": null,
     "architecture_approved": true,
     "verification": [
-      "12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes."
+      "12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes.",
+      "13.10.2026 владелец прямо подтвердил: существующих аккаунтов нет, прежнего owner можно создать заново, проект нигде не запущен/деплоя нет. Разрешил единый новый вход/API и изменения Search/остальных сервисов. Старые сведения о live migration заменяются ADR-0013; данные/секреты не удаляются по одному этому сообщению.",
+      "13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push."
     ]
   },
   {
@@ -909,7 +936,8 @@
     "priority": "P1",
     "dependencies": [
       "QUB-UI-001",
-      "QUB-AUTH-007"
+      "QUB-AUTH-007",
+      "QUB-AUTH-012"
     ],
     "files": [
       "clients/desktop (будущий)",
@@ -1135,18 +1163,18 @@
       "core/qubite/identity/auth (будущий)"
     ],
     "acceptance": [
-      "Postgres sessions/credentials, hash-only tokens, isolated verifier compatibility vectors",
+      "Postgres sessions/Argon2id credentials, typed opaque token/hash-only storage, owner password setup и revoke/status/auth_version",
       "Login/logout/logout-all/revoke/blocked/expiry/CSRF/secure cookie negative cases",
       "No code-entry, no owner/global-role bypass; реальные пароли не читать в модель",
       "AUTH-L01: malformed percent cookie не вызывает 500; безопасный credential отказ и server survives"
     ],
     "tests": [
-      "Disposable Postgres auth integration; old verifier synthetic cross-runtime vectors"
+      "Disposable Postgres password/session/CSRF/expiry/concurrency/reauth/blocked/revoke integration; identity-v2 protocol vectors, no old-password compatibility"
     ],
     "risks": [
-      "Session fixation/пароли/legacy consumer breakage"
+      "Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging"
     ],
-    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": true,
@@ -1177,7 +1205,7 @@
     "risks": [
       "OAuth takeover/open redirect; не реальный провайдерский acceptance"
     ],
-    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": true,
@@ -1198,7 +1226,7 @@
     "acceptance": [
       "Одноразовые hashed challenges, TTL/replay/rate caps; reset/revoke/verify flows",
       "Email transport mock, configured feature behavior, security code не account code-entry",
-      "Согласованный register/verify owner bootstrap mapping, no arbitrary owner promotion"
+      "Новая register/verify policy, proof не назначает owner; owner только явным local bootstrap, existing UUID не меняется"
     ],
     "tests": [
       "Challenge expiry/replay/exhaustion/reset/session revoke tests"
@@ -1206,7 +1234,7 @@
     "risks": [
       "Mail leak/race/reset takeover"
     ],
-    "rollback": "Отключить новый API/worker/route; сохранить оригинальные данные и новые записи, не допускать dual writer. Live миграция отдельно.",
+    "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
     "status": "backlog",
     "commit": null,
     "architecture_approved": true,
@@ -1404,7 +1432,8 @@
     "module": "search",
     "priority": "P1",
     "dependencies": [
-      "QUB-AUTH-001"
+      "QUB-AUTH-001",
+      "QUB-AUTH-014"
     ],
     "files": [
       "core/qubite/services/search (будущий)",
@@ -1413,7 +1442,8 @@
     "acceptance": [
       "Матрица search/fetch/history/free-paid/media/keys/log protection/grounding/usage по source",
       "FastAPI platform adapter к рабочему Search engine, scoped keys и ACL, deny before paid calls",
-      "History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001"
+      "History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001",
+      "Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013"
     ],
     "tests": [
       "Search adapter fixtures, owner/free/paid/revoked/history/privacy negative tests"
@@ -1464,7 +1494,8 @@
     "module": "writing",
     "priority": "P1",
     "dependencies": [
-      "QUB-AUTH-001"
+      "QUB-AUTH-001",
+      "QUB-AUTH-014"
     ],
     "files": [
       "core/qubite/services/writing (будущий)",
@@ -1473,7 +1504,8 @@
     "acceptance": [
       "Separate local check и paid AI actions/grants/keys/budgets",
       "LanguageTool adapter + shared cost guard, cancel/version/UTF16-compatible offsets",
-      "Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён"
+      "Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён",
+      "Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013"
     ],
     "tests": [
       "Grammar/AI/budget/revoke/UTF16/cancel and addon fixtures"
@@ -1524,7 +1556,9 @@
     "module": "vpn",
     "priority": "P1",
     "dependencies": [
-      "QUB-AUTH-001"
+      "QUB-AUTH-001",
+      "QUB-AUTH-014",
+      "QUB-AUTH-012"
     ],
     "files": [
       "core/qubite/services/vpn (будущий)",
@@ -1533,7 +1567,8 @@
     "acceptance": [
       "Node heartbeat/status/profile/NaiveProxy toggle/subscription/device lifecycle mapping",
       "Grants отдельно node management, protected credentials и Auth/app compatibility",
-      "Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные"
+      "Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные",
+      "Единый core login/UUID и module-scoped policy; нет нового автономного local login/user store или owner auto-paid; ADR-0013"
     ],
     "tests": [
       "Synthetic node/credential/revoke/device/stale/kill-switch fixture tests"
@@ -1698,6 +1733,100 @@
     "status": "backlog",
     "commit": "",
     "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-012",
+    "title": "Native authorization code/PKCE и rotating device tokens",
+    "reason": "Единый новый вход всех клиентов и сервисов по ADR-0013",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-009",
+      "QUB-AUTH-007"
+    ],
+    "files": [
+      "core/qubite/identity/native (будущий)",
+      "core/tests/test_native_auth.py (будущий)"
+    ],
+    "acceptance": [
+      "Registered first-party clients/exact callback, external browser, state/PKCE S256, code60s single-use; no password grant/static app secret",
+      "Access10min/refresh idle7d absolute30d, hash-only storage, scope intersection/current grants; DB atomic consume+rotation",
+      "Replay/concurrent refresh revokes family/access, client serialized refresh; no bearer in URL; OS secure storage boundary"
+    ],
+    "tests": [
+      "Real disposable PG code/refresh concurrency, client/redirect/PKCE mismatch, replay/scope/revoke/expiry negative tests"
+    ],
+    "risks": [
+      "Credential leakage/privilege escalation; synthetic contract не runtime acceptance"
+    ],
+    "rollback": "Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-013",
+    "title": "Scoped API keys расширений и агентов",
+    "reason": "Единый новый вход всех клиентов и сервисов по ADR-0013",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-009",
+      "QUB-AUTH-003"
+    ],
+    "files": [
+      "core/qubite/identity/api_keys (будущий)",
+      "core/tests/test_api_keys.py (будущий)"
+    ],
+    "acceptance": [
+      "Own reauthenticated key creation, one module audience/scopes subset/current grants, explicit expiry<=90d and request cap",
+      "Hash-only at rest, plaintext return once, metadata list/revoke; no wildcard owner/admin bypass",
+      "Search history/read/write и AI отдельно, Writing check/AI отдельно; provider counter0 на deny"
+    ],
+    "tests": [
+      "PG expiry/revoke/own-vs-other keys/role/scope/quota concurrency tests"
+    ],
+    "risks": [
+      "Credential leakage/privilege escalation; synthetic contract не runtime acceptance"
+    ],
+    "rollback": "Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": []
+  },
+  {
+    "id": "QUB-AUTH-014",
+    "title": "Private core introspection для отдельных service engines",
+    "reason": "Единый новый вход всех клиентов и сервисов по ADR-0013",
+    "module": "identity",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-AUTH-009",
+      "QUB-AUTH-003",
+      "QUB-AUTH-013"
+    ],
+    "files": [
+      "core/qubite/identity/introspection (будущий)",
+      "core/tests/test_introspection.py (будущий)"
+    ],
+    "acceptance": [
+      "Private per-service auth bound audience, POST opaque credentials, strict identity-v2 reply, no forwarded user/owner trust",
+      "Active/current auth_version/policy_version/status/scopes, no positive stale cache, timeout/unavailable fail-closed",
+      "Private route/engine ports excluded from public ingress, module/object/budget gates separate from principal"
+    ],
+    "tests": [
+      "Local HTTP strict schema/service audience/blocked/revoke/timeout/forged headers plus ingress contract checks"
+    ],
+    "risks": [
+      "Credential leakage/privilege escalation; synthetic contract не runtime acceptance"
+    ],
+    "rollback": "Отключить новый boundary/route, сохранить новые core данные; no legacy fallback/dual writer. Deploy отдельно.",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": true,
     "verification": []
   }
 ]

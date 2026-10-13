@@ -1,5 +1,7 @@
 # Окружения, деплой и резервные копии
 
+**13.10.2026, уточнение владельца:** действующего деплоя/аккаунтов нет; следующий серверный этап — первая fresh установка, не live identity migration. Старые БД/файлы не удаляются. Backup/restore применяются к реально найденным нужным источникам и новым данным core; нельзя требовать снимок несуществующей production DB как gate локального identity разработки. Перед первым deploy остаются exact artifact/host/routes/storage/staging/restore/approval проверки; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md).
+
 Статус: план, не выполненный production restore. Git archive готов; actual runtime backups ещё не созданы. Read-only server inspection отдельная маленькая задача, live changes требуют явного разрешения владельца.
 
 Dev — isolated env/fixtures/temp SQLite, no provider keys. CI — source copy/no-network tests. Staging — отдельные ports/DB/blob paths/hostnames/test bot tokens, outgoing sends disabled, mock AI. Production — фиксированный проверенный SHA/artifact, exact ingress routes, migrations отдельно. git push не deploy; новый CI не содержит SSH/secrets/restart/pull.
