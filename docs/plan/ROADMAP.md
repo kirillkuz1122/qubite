@@ -1,6 +1,14 @@
-# Следующий цикл после UI-001
+# Следующий цикл после AUTH-007, 14.10.2026
 
-UI-001 — оболочка нового apps/web; фактические проверки и Git/CI в [отчёте](../reports/QUB-UI-001.md) и [handoff](../project/LAST_HANDOFF.md). Следующая для обсуждения **AUTH-007**: React вход/регистрация/email verify/reset/OAuth поверх существующего API. Перед её реализацией новые вопросы владельцу. Затем отдельные UI-002 (физика Потока), UI-003 (server catalog/owner visibility) и профильные slices; полная AUTH-004 Console зависит от UI-003 и AI-002. Ни один следующий task не разрешён этим cycle.
+apps/web0.3.0 включает выбранный материал Поток (UI-002) и отдельные landing/Auth/legal экраны с реальным FastAPI identity (AUTH-007). Фактическое завершение/CI — [отчёт](../reports/QUB-AUTH-007.md), [handoff](../project/LAST_HANDOFF.md), tasks.json.
+
+Следующая для обсуждения **QUB-UI-003**: server catalog, owner настройка hidden/locked, filtered metadata по независимым grants. Затем AUTH-004 Owner Console после UI-003 и AI-002; полноценные бюджеты до платного AI. Перед каждой новой задачей вопросы владельцу и ответы, текущий approval не разрешает следующий slice.
+
+QUB-LEGAL-001 — фактические реквизиты/юрисдикция/получатели/сроки и отдельное необходимое consent evidence до публичной регистрации. AUTH-012/native POC — внешний browser Auth/PKCE/verified return, настоящие SMTP/provider enable и ingress отдельно. DEPLOY-001→002 может подготовить disposable dry-run без публичного запуска; production отложен до своих checks/approval. Ни одна из этих задач не реализована текущим cycle.
+
+## Исторические snapshots порядка задач
+
+Дальнейшие датированные записи сохранены для истории; следующие задачи определяются верхним блоком и актуальным registry.
 
 # Актуальный порядок13.10.2026
 

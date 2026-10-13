@@ -1,6 +1,6 @@
-# AUTH-007 — Новый Qubite Auth, 13.10.2026
+# AUTH-007 — Новый Qubite Auth, 13–14.10.2026
 
-Статус: review/testing, локальная реализация готова; commit/CI/publication evidence будет добавлен после проверки. [ADR-0024](../architecture/decisions/0024-public-landing-and-qubite-auth.md).
+Статус: done в согласованных границах, Git/CI/private demo подтверждены. [ADR-0024](../architecture/decisions/0024-public-landing-and-qubite-auth.md).
 
 ## Согласованные решения и результат
 
@@ -33,3 +33,15 @@ Core/legacy regression975+harness11=986pass. Core groups208/175/202 (27.38/54.07
 Base4239201de7c957f7b95a67cf316bc54fe7b7e636. Unrelated .antigravitycli deletion excluded. После staged review/test evidence: русский commit, немедленный push main; web.yml и engineering.yml exact codeSHA. Existing owner-private shell site обновляется, прежний material-lab не меняется. Результаты в completion evidence.
 
 Следующая согласуемая задача — UI-003 server module catalog/owner hidden-vs-locked, затем Owner Console AUTH-004. Перед ней новые вопросы и ответы. AUTH-007 разрешение не распространяется на эти slices. QUB-LEGAL-001 отдельный production gate; runtime SMTP/native/deployment не объявлены завершёнными.
+
+## Подтверждённое завершение, 14.10.2026 местное время
+
+Implementation **ac2c8ef4e895ed690e5f545e0b5f8b82cb6b0950**: русский commit, немедленный push origin main, remote SHA подтверждён. Перед commit/staged review без чужого .antigravitycli удаления, секретов/DB/build/browser state. origin/tournaments и tagqubite-v1.0 повторно проверены96f0457a523b6b79f21c4092056d8fa8fa69a680, без изменения архива.
+
+Exact-SHA [web CI](https://github.com/kirillkuz1122/qubite/actions/runs/38451493363) completed/success2026-10-13T19:03:38Z:71passed1.1m, independent npmci/typecheck/live+demo builds; [engineering CI](https://github.com/kirillkuz1122/qubite/actions/runs/38451493360) completed/success19:06:53Z:975+harness11=986pass. CI PostgreSQL16.15, core groups208/175/202 (48.55/86.46/122.92s). Итого1057 проверок локально и1057 в CI. Expected dependency/action deprecation annotations не ошибки тестов. Это CI implementation SHA; последующий completion docs commit отдельный, не выдаётся за проверенный новым web run.
+
+Existing [private demo](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site) **version3**, source**9c0707a40dc3c504747d4543eab4a3c55e19fb76** из git archive implementation/apps/web. Исходник pushed в прежний Sites Git, compiled demo mode in dist, archive только .openai/hosting.json+dist. Локальный gzip sha256976872be2dd9cf86cb248127650f74e55ea61c794c528eb77917a466f4ffea6c; server-normalized tar content sha2561a0abc8a8fa05a5ca0b42e5dec7a8626c7c7ae28a1d2532ac1912825803d21d1,15files/686080bytes. Saved versionappgprj_6ace5114ca9c8191adc1bd33365fc909~appgver_27af424a26c08191ad220f6e699d0f65; deploymentappgdep_6ace8192efb08191ae7bb0ca82a71245 **succeeded2026-10-13T19:08:19.269750+00:00**. get_site после публикации подтверждает version3/owner/custom/один owner viewer/0groups. Runtime env revision0, filledenv/core/PG не публиковались. Старый material-lab unchanged.
+
+Для телефона: [лендинг](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site/#/welcome), [Auth](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site/#/auth/login); defaultURL по-прежнему fictional shell. Формы просмотра не посылают credentials/POST и прямо объясняют отсутствие real account/email. Реальные API flow проверены отдельным loopback browser/core fixture, не через внешний хостинг.
+
+69tasks:16done/4ready/49backlog. Следующий **UI-003** сначала обсудить; AUTH-007 approval исчерпан этим slice. Operator legal question pending, public launch не выполнен, return-to-native и real mail/provider/ingress отдельно.

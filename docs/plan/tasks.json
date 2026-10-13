@@ -933,12 +933,15 @@
       "Open redirect/token storage/две расходящиеся реализации"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "ac2c8ef4e895ed690e5f545e0b5f8b82cb6b0950",
     "architecture_approved": true,
     "verification": [
-      "13.10.2026: финальный полный локальный web run71pass, включая два demo no-submit; core/legacy975+harness11=986pass; format/typecheck/live+demo builds passed. Реальный browser/core/disposable PG отдельно от HTTP fixtures.",
-      "Новые legal тексты доступны; оператор/страны/контакт pending, publication_ready=false; native/SMTP/provider/TLS/physical acceptance отдельно. Commit и exact-SHA CI проверяются перед закрытием."
+      "13–14.10.2026: ответы владельца и ADR-0024; apps/web0.3.0 approved Flux material/landing/Auth/legal/session UI, existing core0.6.0/schema0007, browser OAuth fixed303, JSON unchanged.",
+      "Final local71browser (18desktop+19phone+23live fixtures+11real Chromium/FastAPI/disposable PG),975 core/legacy+harness11=986, failed/skipped0. Format/live+demo builds and final light/dark phone/desktop screenshots inspected.",
+      "Implementation ac2c8ef4e895ed690e5f545e0b5f8b82cb6b0950 pushed; remote main/archive refs verified. GitHub web38451493363 completed/success2026-10-13T19:03:38Z,71pass; engineering38451493360 completed/success19:06:53Z,986pass; both exact implementation SHA.",
+      "Existing owner-private shell demo version3/source9c0707a40dc3c504747d4543eab4a3c55e19fb76/deploymentappgdep_6ace8192efb08191ae7bb0ca82a71245 succeeded2026-10-13T19:08:19.269750+00:00; owner/custom/one owner/zero groups; no Auth POST/secret storage/fake success. Material-lab unchanged.",
+      "Full legal texts with explicit missing operator/jurisdiction/contact, publication_ready=false; QUB-LEGAL-001 before public launch. Native/browser return/real SMTP/providers/TLS/physical device/legal acceptance separate. Next UI-003 requires new owner questions/answers."
     ],
     "approval": {
       "date": "2026-10-13",
