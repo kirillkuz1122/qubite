@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован12.10.2026, fresh единый identity/API13.10 по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Завершены audit/TEST/CORE/DESIGN/AUTH-008/002/009, AUTH-010 текущий bounded OAuth cycle; ready AUTH-011 verify/reset, DEPLOY-001/TG-001 альтернативные tracks. Core0.3.0/schema0004, [OAuth](../architecture/OAUTH_IDENTITY.md)/[evidence](../reports/QUB-AUTH-010.md); real providers/React/native/services/deploy отдельно. Точные56статусов/commits — [tasks.json](tasks.json), [карточки](TASKS.md), не всё долгосрочное видение.
+Базовый стек согласован12.10.2026, fresh единый identity/API13.10 по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Завершены audit/TEST/CORE/DESIGN/AUTH-008/002/009, AUTH-010 OAuth done (implementationd93affa/CI38364255314 success/697 local+CI checks), реестр56:8done/3ready/45backlog; ready AUTH-011 verify/reset, DEPLOY-001/TG-001 альтернативные tracks. Core0.3.0/schema0004, [OAuth](../architecture/OAUTH_IDENTITY.md)/[evidence](../reports/QUB-AUTH-010.md); real providers/React/native/services/deploy отдельно. Точные56статусов/commits — [tasks.json](tasks.json), [карточки](TASKS.md), не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR

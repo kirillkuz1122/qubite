@@ -1,6 +1,6 @@
 # Передача следующей сессии —13.10.2026 / AUTH-010
 
-**AUTH-010 review/testing:** реализация OAuth проверена локально, implementation commit/push/exact-SHA CI ещё ожидаются. Core0.3.0/current0004_oauth, Google/Yandex/VK/Telegram adapters, explicit own-password link/unlink и stable-pair web login. [Контракт/команды/границы](../architecture/OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md), [ADR-0016](../architecture/decisions/0016-explicit-oauth-identities.md), [tasks](../plan/tasks.json). Реальные provider keys/network/owner/deploy не использованы. AUTH-0091dc57cb/CI38354136689 success597 — предыдущий verified slice.
+**AUTH-010 done:** implementation `d93affac786033668dd4ac74f69218d0928ca388` pushed/remote verified, [CI38364255314](https://github.com/kirillkuz1122/qubite/actions/runs/38364255314) completed/success 2026-10-13T07:43:22Z; все697 checks прошли локально и CI. Core0.3.0/current0004_oauth, Google/Yandex/VK/Telegram adapters, explicit own-password link/unlink и stable-pair web login. [Контракт/команды/границы](../architecture/OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md), [ADR-0016](../architecture/decisions/0016-explicit-oauth-identities.md), [tasks](../plan/tasks.json). Реальные provider keys/network/owner/deploy не использованы. AUTH-0091dc57cb/CI38354136689 success597 — предыдущий verified slice.
 
 ## Реализация и проверки
 
@@ -13,9 +13,9 @@
 
 ## Следующая задача
 
-После implementation push/green exact-SHA CI оформить done evidence docs-only commit/push; не начинать другой task в этом cycle. Далее AUTH-011 verification/reset, отдельный ready slice. AUTH-003 policy approval=false; React/Auth UI/Owner Console/native/keys/service adapters после dependencies/approval. Registry56:7done/1review-testing/3ready/45backlog; ready AUTH-011/DEPLOY-001/TG-001.
+Implementation push/green exact-SHA CI подтверждены; final docs-only evidence commit/push закрывает этот cycle. Не начинать другой task автоматически. Далее AUTH-011 verification/reset, отдельный ready slice. AUTH-003 policy approval=false; React/Auth UI/Owner Console/native/keys/service adapters после dependencies/approval. Registry56:8done/3ready/45backlog; ready AUTH-011/DEPLOY-001/TG-001.
 
-Main в начале6c803cb2cbe004145bdff1e6e0fb1f88b1a63e7d, архив refs verified96f0457a523b6b79f21c4092056d8fa8fa69a680. Русский commit→immediate push, GitHub CI same implementation SHA, потом docs-only evidence. Push не deploy; rollback сохраняет0004/new UUID/passwords/bindings/sessions/audit, старый0.2 binary fail closed на ahead schema. Никаких down/drop/restore old SQLite credentials.
+Main в начале6c803cb2cbe004145bdff1e6e0fb1f88b1a63e7d, архив refs verified96f0457a523b6b79f21c4092056d8fa8fa69a680. Русский implementation commit→immediate push/remote SHA/CI38364255314 success проверены; final docs-only evidence commit отдельно. CI Python3.14.8/PG16.15, no failed/skipped. Push не deploy; rollback сохраняет0004/new UUID/passwords/bindings/sessions/audit, старый0.2 binary fail closed на ahead schema. Никаких down/drop/restore old SQLite credentials.
 
 ## Сохранённые решения и evidence
 

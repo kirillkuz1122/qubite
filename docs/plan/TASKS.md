@@ -696,7 +696,7 @@ Commit: 1dc57cb4c980b111acbf5ccadb28f25871149c98. Evidence: 13.10.2026: AUTH-008
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-009.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-009.
 
 Причина: Сохранить необходимые способы входа в новом Auth.
 
@@ -714,7 +714,7 @@ Acceptance:
 
 Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
 
-Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом.; 13.10.2026: прямое поручение следующей задачи; выбран approved ready AUTH-010 после verified AUTH-009. Только local core/fixtures, без чтения реальных ключей/деплоя/UI/native tokens. Provider docs проверяются; неизвестная provider identity не создаёт/не связывает аккаунт автоматически. Реальная сеть выключена по умолчанию, тесты только MockTransport.; 13.10.2026: финальный verify.py all693+harness4=697 passed, core308 (foundation29/identity59/Auth120/OAuth100), no failed/skipped. Local Python3.13.13/PG18.6/Node22.22.2, signed RSA/JWKS/MockTransport и real disposable PG. После промежуточных fixtures/readiness corrections повторный full run green; check.py/diff check passed. Implementation push/exact-SHA CI ещё ожидаются; real providers не acceptance..
+Commit: d93affac786033668dd4ac74f69218d0928ca388. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом.; 13.10.2026: прямое поручение следующей задачи; выбран approved ready AUTH-010 после verified AUTH-009. Только local core/fixtures, без чтения реальных ключей/деплоя/UI/native tokens. Provider docs проверяются; неизвестная provider identity не создаёт/не связывает аккаунт автоматически. Реальная сеть выключена по умолчанию, тесты только MockTransport.; 13.10.2026: финальный verify.py all693+harness4=697 passed, core308 (foundation29/identity59/Auth120/OAuth100), no failed/skipped. Local Python3.13.13/PG18.6/Node22.22.2, signed RSA/JWKS/MockTransport и real disposable PG. После промежуточных fixtures/readiness corrections повторный full run green; check.py/diff check passed. Implementation push/exact-SHA CI ещё ожидаются; real providers не acceptance.; 13.10.2026: implementation d93affac786033668dd4ac74f69218d0928ca388 pushed/remote exact SHA verified; archive tournaments/qubite-v1.0 unchanged96f0457a523b6b79f21c4092056d8fa8fa69a680. GitHub CI38364255314 completed/success 2026-10-13T07:43:22Z,697 checks (all693+harness4/core308/OAuth100) no failed/skipped; https://github.com/kirillkuz1122/qubite/actions/runs/38364255314. CI Python3.14.8/PG16.15, local Python3.13.13/PG18.6. Real providers/keys/deploy не acceptance. Финальный docs-only evidence commit отдельно..
 
 ## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
 
