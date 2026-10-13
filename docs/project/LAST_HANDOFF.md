@@ -1,6 +1,6 @@
 # Передача следующей сессии —13.10.2026 / AUTH-002
 
-**AUTH-002 реализована, review/testing: финальные477 локальных проверок passed; Git/CI evidence продолжаются.** Новые PostgreSQL subjects/platform_owner, explicit local owner CLI, canonical email и default pending accounts. Источник решения: user «Делай след задачу», ADR-0013 fresh identity без существующих аккаунтов/деплоя по сообщению владельца; не remote server verification.
+**AUTH-002 done: implementation0dff63e9bb3cbabf6c2b10628db12c228ee54413 pushed/remote verified;477 checks local+CI passed.** Новые PostgreSQL subjects/platform_owner, explicit local owner CLI, canonical email и default pending accounts. Источник решения: user «Делай след задачу», ADR-0013 fresh identity без существующих аккаунтов/деплоя по сообщению владельца; не remote server verification.
 
 [Schema/CLI/privileges/rollback](../architecture/IDENTITY_SCHEMA.md), [ADR-0014](../architecture/decisions/0014-fresh-accounts-and-owner-bootstrap.md), [report](../reports/QUB-AUTH-002.md), [tasks](../plan/tasks.json), [core запуск](../../core/README.md). **Настоящий owner постоянной среды не создавался**, только disposable accounts. Password/login/session API ещё не реализованы.
 
@@ -14,9 +14,11 @@
 
 ## Проверки и следующий шаг
 
-Финальный core88 (29foundation+59identity) passed на native PG18.6: real CLI subprocess, actual concurrent DB connections, SQL constraints/direct invalid binding, owner deactivation/deletion, canonical duplicate, pending/drift/missing gates, partial bootstrap/DDL rollback и role restrictions. All473 +harness4 =477 passed, без ошибок/пропусков, Python3.13. Exact-SHA CI/commit в report после подтверждения. Source-copy без .env/real HOME/DB, external network denied; 133 browser tests прежнего дизайна не повторялись, UI untouched. Known FastAPI/httpx deprecation warning не повод менять lock.
+Финальный core88 (29foundation+59identity) passed на native PG18.6: real CLI subprocess, actual concurrent DB connections, SQL constraints/direct invalid binding, owner deactivation/deletion, canonical duplicate, pending/drift/missing gates, partial bootstrap/DDL rollback и role restrictions. All473 +harness4 =477 passed, без ошибок/пропусков, Python3.13. Exact-SHA CI38348273457 completed/success13.10.2026 04:50:13UTC, Python3.14.8/PG16.15, те же477 checks; [report](../reports/QUB-AUTH-002.md). Source-copy без .env/real HOME/DB, external network denied; 133 browser tests прежнего дизайна не повторялись, UI untouched. Known FastAPI/httpx deprecation warning не повод менять lock.
 
-**Next AUTH-009:** Argon2id credentials +local owner password setup, actual web login/session/revoke/CSRF/logout/reset security gates на disposable PG. AUTH-003 ждёт AUTH-009; native/keys/introspection AUTH-012/013/014 отдельно, service adapters позже. Одна bounded задача/cycle, не начинать всю платформу или второй slice автоматически. DEPLOY-001/TG-001 дополнительные specification tracks; live deploy отдельно.
+**Next ready AUTH-009:** Argon2id credentials +local owner password setup, actual web login/session/revoke/CSRF/logout и security gates на disposable PG. AUTH-003 ждёт AUTH-009; native/keys/introspection AUTH-012/013/014 отдельно, service adapters позже. Одна bounded задача/cycle, не начинать всю платформу или второй slice автоматически. DEPLOY-001/TG-001 дополнительные specification tracks; live deploy отдельно.
+
+Реестр56:6done/3ready/47backlog. Ready: AUTH-009 (primary), DEPLOY-001, TG-001. AUTH-002 закрыта; новый цикл ещё не начат.
 
 ## Сохранённые решения и evidence
 

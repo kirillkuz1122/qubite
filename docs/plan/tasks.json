@@ -272,13 +272,14 @@
       "Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "0dff63e9bb3cbabf6c2b10628db12c228ee54413",
     "architecture_approved": true,
     "verification": [
       "ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.",
       "13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.",
-      "13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases; exact-SHA CI/Git evidence ещё ожидаются."
+      "13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases.",
+      "13.10.2026: implementation 0dff63e9bb3cbabf6c2b10628db12c228ee54413 pushed, origin/main/archive refs verified; GitHub Actions38348273457 completed/success 04:50:13UTC, Python3.14.8/Postgres16.15, all473+harness4=477 pass; no failed/skipped. Public Auth/UI/real owner/deploy вне scope."
     ]
   },
   {
@@ -1197,10 +1198,12 @@
       "Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались."
+    ]
   },
   {
     "id": "QUB-AUTH-010",

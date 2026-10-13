@@ -1,6 +1,6 @@
 # QUB-AUTH-002 — аккаунты PostgreSQL и локальное назначение owner
 
-13.10.2026. Реализация и локальные проверки завершены; статус **review/testing**, ожидаются commit/push и CI для точного коммита.
+13.10.2026. **Завершено (done):** реализация0dff63e9bb3cbabf6c2b10628db12c228ee54413 отправлена в main, remote SHA и архивные refs проверены. Локальные тесты и CI этого коммита прошли.
 
 ## Что сделано
 
@@ -25,13 +25,13 @@ python3 scripts/engineering/check.py
 git diff --check
 ```
 
-**477 проверок прошли: all473 + harness4, без ошибок и пропусков.** Локально: Python3.13, Node22.22.2, native PostgreSQL18.6. Разбивка: Node94, deploy18, Search95, Brief112, Kwork29, SiYuan5, identity protocol32, core88. Core содержит29 прежних foundation и59 новых identity cases.
+**477 проверок прошли: all473 + harness4, без ошибок и пропусков.** Локально: Python3.13.13, Node22.22.2, native PostgreSQL18.6. Разбивка: Node94, deploy18, Search95, Brief112, Kwork29, SiYuan5, identity protocol32, core88. Core содержит29 прежних foundation и59 новых identity cases.
 
 Проверены реальные конкурентные подключения к PostgreSQL, repeat/collision, ограничения SQL и запрет удаления/смены статуса owner, ограниченная роль без права назначать owner, rollback частично выполненного bootstrap и DDL, pending/drift/missing schema gates. CLI проверена дочерним процессом; отдельно отмена/EOF и отсутствие приватных значений в ошибках argv. Публичные bootstrap/register/login маршруты отсутствуют.
 
 Первый targeted прогон:85 pass/2 fail — тест ожидал ForeignKeyViolation, а PostgreSQL18 возвращает RestrictViolation для RESTRICT. Проверка уточнена до SQLSTATE23001/23503 и подтверждает сохранение owner; защита не ослаблялась. Повторный targeted прогон прошёл87 cases за4.11s. После добавления проверки argv финальный all подтвердил88 core cases за4.05s. Две существующие deprecation warnings FastAPI/httpx не errors; из-за них зависимости не менялись.
 
-Runner использует source-copy без .env, отдельный HOME и временные БД; внешняя сеть запрещена. Не запускались реальные AI/provider/Telegram/HA/VPN вызовы. Дизайн и browser UI не менялись, прежние browser tests не повторялись. Git/CI для implementation SHA будут записаны после подтверждения.
+Runner использует source-copy без .env, отдельный HOME и временные БД; внешняя сеть запрещена. Не запускались реальные AI/provider/Telegram/HA/VPN вызовы. Дизайн и browser UI не менялись, прежние browser tests не повторялись. **[GitHub Actions38348273457](https://github.com/kirillkuz1122/qubite/actions/runs/38348273457)** для implementation0dff63e9bb3cbabf6c2b10628db12c228ee54413 завершён success13.10.2026 04:50:13UTC. CI Python3.14.8/PostgreSQL16.15 подтвердил те же477 checks: all473+harness4, core88 за7.26s; без failed/skipped. Шаг git diff --exit-code также прошёл. Это проверка реализации, отдельный итоговый commit содержит только документацию/evidence.
 
 ## Git, данные и ограничения
 

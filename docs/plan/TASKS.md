@@ -118,7 +118,7 @@ Commit: a85f047e7e54c07a6f780a127988b14d9c623a74. Evidence: 12.10.2026: all isol
 
 ## QUB-AUTH-002 — Новые PostgreSQL аккаунты и локальный owner bootstrap
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
 
 Причина: Создать fresh identity нового core без импорта/bridge старых аккаунтов.
 
@@ -135,7 +135,7 @@ Acceptance:
 
 Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.; 13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.; 13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases; exact-SHA CI/Git evidence ещё ожидаются..
+Commit: 0dff63e9bb3cbabf6c2b10628db12c228ee54413. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.; 13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.; 13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases.; 13.10.2026: implementation 0dff63e9bb3cbabf6c2b10628db12c228ee54413 pushed, origin/main/archive refs verified; GitHub Actions38348273457 completed/success 04:50:13UTC, Python3.14.8/Postgres16.15, all473+harness4=477 pass; no failed/skipped. Public Auth/UI/real owner/deploy вне scope..
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
@@ -675,7 +675,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-009 — FastAPI password login/logout/session core
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
 
 Причина: Нужный новой платформе Auth реализовать на Python, не permanent JS adapter.
 
@@ -692,7 +692,7 @@ Acceptance:
 
 Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: ещё не получены.
+Commit: после выполнения. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались..
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
@@ -1121,4 +1121,4 @@ Commit: после выполнения. Evidence: .
 
 DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. PET-001/002 сохраняют hidden/edge peek/contextual appearance/dialogue/retreat; placement выбирается при реализации screens. Prototype scripted, реальные agents отсутствуют. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
 
-AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success. AUTH-002 — PG subjects/singleton owner и локальная команда назначения, статус и доказательства выше. Следующий bounded cycle AUTH-009 — password setup/login/session. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.
+AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success. AUTH-002 done: PG subjects/singleton owner, локальное назначение,477 local+CI checks/implementation0dff63e. Следующий ready bounded cycle AUTH-009 — password setup/login/session. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.
