@@ -675,7 +675,7 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-009 — FastAPI password login/logout/session core
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-AUTH-002.
 
 Причина: Нужный новой платформе Auth реализовать на Python, не permanent JS adapter.
 
@@ -692,11 +692,11 @@ Acceptance:
 
 Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались.; 13.10.2026: прямое указание владельца «Делай след задачу»; выбран AUTH-009. Границы: web password/session API/local owner password setup, без React/OAuth/reset/native/service cutover/production DB; только fixtures. Источник паролей owner — getpass локальной CLI, реальные значения агенту не передаются.; 13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются..
+Commit: 1dc57cb4c980b111acbf5ccadb28f25871149c98. Evidence: 13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались.; 13.10.2026: прямое указание владельца «Делай след задачу»; выбран AUTH-009. Границы: web password/session API/local owner password setup, без React/OAuth/reset/native/service cutover/production DB; только fixtures. Источник паролей owner — getpass локальной CLI, реальные значения агенту не передаются.; 13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются.; 13.10.2026: implementation 1dc57cb4c980b111acbf5ccadb28f25871149c98 pushed; origin/main exact SHA и tournaments/tag qubite-v1.0 на96f0457a523b6b79f21c4092056d8fa8fa69a680 проверены. CI38354136689 completed/success 2026-10-13T05:59:47Z,597 checks (all593+harness4/core208), Python3.14.8/PostgreSQL16.15, no failed/skipped; https://github.com/kirillkuz1122/qubite/actions/runs/38354136689. Финальный docs-only evidence commit отдельно, runtime/deploy не меняется..
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-009.
 
 Причина: Сохранить необходимые способы входа в новом Auth.
 
@@ -714,11 +714,11 @@ Acceptance:
 
 Риск: OAuth takeover/open redirect; не реальный провайдерский acceptance. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: ещё не получены.
+Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом..
 
 ## QUB-AUTH-011 — FastAPI verification/password reset/email-2FA contract
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-009.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-009.
 
 Причина: Не потерять security flows при переносе auth.
 
@@ -734,7 +734,7 @@ Acceptance:
 
 Риск: Mail leak/race/reset takeover. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: ещё не получены.
+Commit: после выполнения. Evidence: 13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом..
 
 ## QUB-CORE-002 — FastAPI platform settings и module command controls
 

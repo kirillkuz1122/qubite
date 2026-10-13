@@ -1,6 +1,6 @@
 # Roadmap с зависимостями
 
-Базовый стек согласован12.10.2026;13.10 владелец разрешил fresh единый identity/API без переноса аккаунтов/bridge, текущего деплоя нет по его сообщению. [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Audit/TEST/CORE/DESIGN/AUTH-008 завершены; реестр56:6done/2ready/47backlog/1review-testing; AUTH-009 web password/session API реализована и проходит Git/CI evidence, следующие AUTH-010/011 после done. [56 задач](TASKS.md) и [machine state](tasks.json) — текущий backlog, не всё долгосрочное видение.
+Базовый стек согласован12.10.2026;13.10 владелец разрешил fresh единый identity/API без переноса аккаунтов/bridge, текущего деплоя нет по его сообщению. [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Audit/TEST/CORE/DESIGN/AUTH-008/002/009 завершены; реестр56:7done/4ready/45backlog. AUTH-009: рабочий web password/session API, implementation1dc57cb/CI38354136689 success/597 local+CI checks. Следующая ready AUTH-010 OAuth, затем отдельная AUTH-011 verify/reset; DEPLOY-001/TG-001 альтернативные tracks. [56 задач](TASKS.md) и [machine state](tasks.json) — текущий backlog, не всё долгосрочное видение.
 
 ```mermaid
 flowchart LR

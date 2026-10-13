@@ -1228,13 +1228,14 @@
       "Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "1dc57cb4c980b111acbf5ccadb28f25871149c98",
     "architecture_approved": true,
     "verification": [
       "13.10.2026: AUTH-008 и AUTH-002 done, новая fresh password/session API одобрена ADR-0013 и владельцем; ready следующий bounded cycle. В AUTH-002 пароль/runtime login не реализовывались.",
       "13.10.2026: прямое указание владельца «Делай след задачу»; выбран AUTH-009. Границы: web password/session API/local owner password setup, без React/OAuth/reset/native/service cutover/production DB; только fixtures. Источник паролей owner — getpass локальной CLI, реальные значения агенту не передаются.",
-      "13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются."
+      "13.10.2026: финальный all593+harness4=597 passed, core208 (29foundation+59identity+120Auth), без failed/skipped; native PG18.6/Python3.13.13/Node22.22.2. Проверены очистка expired/revoked cookies с повторным входом и отказ getpass echo fallback, restricted runtime SQL role, actual Uvicorn/HTTPS-cookie fixtures и PG races; synthetic Argon2 benchmark. Exact-SHA CI/push ещё ожидаются.",
+      "13.10.2026: implementation 1dc57cb4c980b111acbf5ccadb28f25871149c98 pushed; origin/main exact SHA и tournaments/tag qubite-v1.0 на96f0457a523b6b79f21c4092056d8fa8fa69a680 проверены. CI38354136689 completed/success 2026-10-13T05:59:47Z,597 checks (all593+harness4/core208), Python3.14.8/PostgreSQL16.15, no failed/skipped; https://github.com/kirillkuz1122/qubite/actions/runs/38354136689. Финальный docs-only evidence commit отдельно, runtime/deploy не меняется."
     ]
   },
   {
@@ -1263,10 +1264,12 @@
       "OAuth takeover/open redirect; не реальный провайдерский acceptance"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом."
+    ]
   },
   {
     "id": "QUB-AUTH-011",
@@ -1292,10 +1295,12 @@
       "Mail leak/race/reset takeover"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
-    "verification": []
+    "verification": [
+      "13.10.2026: dependency AUTH-009 done, implementation1dc57cb/CI38354136689 success/597 checks. Fresh Auth scope approved; ready отдельный bounded cycle, actual providers/email/production ещё не acceptance. Следующей рекомендована AUTH-010; AUTH-011 выполняется отдельным циклом."
+    ]
   },
   {
     "id": "QUB-CORE-002",
