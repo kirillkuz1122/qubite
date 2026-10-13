@@ -4,7 +4,7 @@
 
 ## 13.10.2026 — QUB-UI-002
 
-Выбранные живые controls/physics/SVG перенесены из assets в apps/web0.2.0. Flow503мс, bounded viscous drag, native sliders/drag switches, scene/dialog transitions, lite/quiet/strength/duration prefs. [Отчёт](../reports/QUB-UI-002.md).49browser/976regression; exactSHA/hosting в handoff после проверки. Следующая AUTH-007 разрешена, вопросы отправлены и ответы ожидаются.
+Выбранные живые controls/physics/SVG перенесены из assets в apps/web0.2.0. Flow503мс, bounded viscous drag, native sliders/drag switches, scene/dialog transitions, lite/quiet/strength/duration prefs. [Отчёт](../reports/QUB-UI-002.md).49browser/976regression; implementation2d0a8e0, exact-SHA web38441106776/engineering38441107010 success, private demo version2 succeeded. Следующая AUTH-007 разрешена, вопросы отправлены и ответы ожидаются.
 
 ## 13.10.2026 — QUB-UI-001
 

@@ -1,10 +1,10 @@
-# Handoff — QUB-UI-002, 13.10.2026, review/testing
+# Handoff — QUB-UI-002, 13.10.2026, done в границах material implementation
 
 Владелец потребовал вернуть настоящий выбранный материал: UI-001 перенёс цвета/шрифты, но оставил физику до следующей задачи; это не удовлетворило владельца. Сделана UI-002 по прямому запросу, не новый дизайн. [Отчёт](../reports/QUB-UI-002.md), [ADR-0023](../architecture/decisions/0023-approved-flux-material-in-web.md), [карта готовых assets](../design/MATERIAL_PROVENANCE.md).
 
 apps/web0.2.0: src/material выделен из assets/design-lab — scheduler/spring/buttons/slider/switch/tabs/navigation/morph и Ribbon SVG. Новый app не импортирует prototype Auth/демо runtime/legacy сервисы. Default100%/503мс, косметические prefs сохранены; OS reduce/quiet/0/lite/coarse pointer, native semantics/gesture cancel/no idle RAF. IA/Command/owner entry остаются согласованными; catalog visibility demo-preview до UI003, grants только core API и no owner bypass. Диалоги плавно открываются/закрываются, закрытие возвращает focus.
 
-Local49browser:17desktop+18phone включая Chromium Input.dispatchTouchEvent+14live API fixtures, no failed/skipped; format/две сборки/axe/screenshots. Это не физическая приёмка телефона/FPS или full browser/core auth. Регрессия all965+engineering11=976pass, disposable PostgreSQL18.6/SQLite/source-copy без env/network; core groups27.37/50.90/88.85s. Core0.6.0/schema0007/legacy/design-lab не изменены. Exact-SHA CI/push/hosting ещё подтвердить в completion evidence.
+Local49browser:17desktop+18phone включая Chromium Input.dispatchTouchEvent+14live API fixtures, no failed/skipped; format/две сборки/axe/screenshots. Это не физическая приёмка телефона/FPS или full browser/core auth. Регрессия all965+engineering11=976pass, disposable PostgreSQL18.6/SQLite/source-copy без env/network; core groups27.37/50.90/88.85s. Core0.6.0/schema0007/legacy/design-lab не изменены. Implementation2d0a8e02728cf281d0ec8d66108396b7ea88aec8 pushed/origin verified. Exact-SHA web38441106776 completed/success17:46:06UTC (49checks), engineering38441107010 completed/success17:50:00UTC (976checks).
 
 ## Следующая задача уже разрешена, ответы ожидаются
 
@@ -21,3 +21,5 @@ AUTH-007 прямо разрешена владельцем в том же со�
 Base4f3d113b5d7a76b817585181da0159e049cb5c25. Existing external .antigravitycli deletion исключить. Секретные env/DB/build/browser state вне Git; deploy/.env не изменён. ShadeAI/личная память/skills/subagents/quota reset не менялись.
 
 Существующее [owner-private shell demo](https://qubite-app-shell-kirill.kuzmichevkonstantin9.chatgpt.site) обновить, не создавать другой site. Project из ignored apps/web/.openai/hosting.json appgprj_6ace5114ca9c8191adc1bd33365fc909; Sitesget_site подтвердил owner/custom/один owner viewer/0groups. Static.directory=dist: публикация требует demo-mode build в отдельной source copy, нельзя публиковать live dist как demo. Старый material-lab остаётся отдельной неизменной витриной. Push и demo publication не устанавливают production core/DB.
+
+Подтверждённая публикация: demo **version2**, deploymentappgdep_6ace6eb65328819192aedadeeca763ed succeeded17:47:50UTC. Source3f29bb8ffb80e31fd2c55e46611b158c17d76ba6 из implementation apps/web;15files/624640bytes. Owner/custom/один owner viewer/0groups повторно проверены; старый material-lab и env/core не менялись. Archive refs повторно origin-verified96f0457a523b6b79f21c4092056d8fa8fa69a680.68tasks15done/4ready/49backlog; AUTH007 ещё backlog/questions pending, повторное разрешение не нужно, требуются ответы. Completion docs CI отдельно от подтверждённого code SHA.

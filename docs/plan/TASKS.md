@@ -989,7 +989,7 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-002 — Production материал Поток и сохранённые настройки
 
-Статус: review/testing; approval: true. Зависимости: QUB-DESIGN-001, QUB-UI-001.
+Статус: done; approval: true. Зависимости: QUB-DESIGN-001, QUB-UI-001.
 
 Утверждены Поток/Игрушечная/Лента/Unbounded/Manrope; физика controls отдельно от UI-001 shell
 
@@ -1002,7 +1002,9 @@ Acceptance:
 
 Проверки: Playwright pointer/touch/keyboard/cancel/dialog; axe/mobile/reduced motion; legacy regression
 
-Evidence: Local format/live+demo build passed; Playwright49 passed (17desktop+18phone+14live fixtures), no skipped; touch Input.dispatchTouchEvent/cancel/native value/flow retarget/idle RAF/reduced motion/axe/viewport. Full isolated source-copy all965+engineering11=976pass; real disposable PG18.6, core groups208/165/202 passed27.37/50.90/88.85s; no env/provider/runtime modifications. Implementation push/exact SHA CI/private demo update pending; physical device acceptance open.
+Evidence: Local format/live+demo build passed; Playwright49 passed (17desktop+18phone+14live fixtures), no skipped; touch Input.dispatchTouchEvent/cancel/native value/flow retarget/idle RAF/reduced motion/axe/viewport. Full isolated source-copy all965+engineering11=976pass; real disposable PG18.6, core groups208/165/202 passed27.37/50.90/88.85s; no env/provider/runtime modifications. Origin implementation2d0a8e02728cf281d0ec8d66108396b7ea88aec8 verified; archive refs unchanged96f0457a523b6b79f21c4092056d8fa8fa69a680. Exact-SHA web38441106776 success17:46:06UTC/49checks and engineering38441107010 success17:50:00UTC/976checks,13.10.2026. Private demo version2 deploymentappgdep_6ace6eb65328819192aedadeeca763ed succeeded; publish source3f29bb8ffb80e31fd2c55e46611b158c17d76ba6 from apps/web implementation. Physical device/user acceptance open; AUTH007 questions pending.
+
+Commit: 2d0a8e02728cf281d0ec8d66108396b7ea88aec8.
 
 ## QUB-PET-001 — Контракт событий, характеров и инициативы четырёх помощников
 

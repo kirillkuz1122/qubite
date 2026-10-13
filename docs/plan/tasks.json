@@ -1886,13 +1886,13 @@
       "Характер не расширяет права; no paid calls до guard/приёмки; не терять пользовательские правки"
     ],
     "rollback": "Выключить feature/companion layer; сохранить записи и drafts; отключить event subscription без изменения legacy.",
-    "status": "review/testing",
-    "commit": "",
+    "status": "done",
+    "commit": "2d0a8e02728cf281d0ec8d66108396b7ea88aec8",
     "architecture_approved": true,
     "verification": [
       "Local format/live+demo build passed; Playwright49 passed (17desktop+18phone+14live fixtures), no skipped; touch Input.dispatchTouchEvent/cancel/native value/flow retarget/idle RAF/reduced motion/axe/viewport.",
       "Full isolated source-copy all965+engineering11=976pass; real disposable PG18.6, core groups208/165/202 passed27.37/50.90/88.85s; no env/provider/runtime modifications.",
-      "Implementation push/exact SHA CI/private demo update pending; physical device acceptance open."
+      "Origin implementation2d0a8e02728cf281d0ec8d66108396b7ea88aec8 verified; archive refs unchanged96f0457a523b6b79f21c4092056d8fa8fa69a680. Exact-SHA web38441106776 success17:46:06UTC/49checks and engineering38441107010 success17:50:00UTC/976checks,13.10.2026. Private demo version2 deploymentappgdep_6ace6eb65328819192aedadeeca763ed succeeded; publish source3f29bb8ffb80e31fd2c55e46611b158c17d76ba6 from apps/web implementation. Physical device/user acceptance open; AUTH007 questions pending."
     ],
     "approval": "13.10.2026: владелец потребовал перенести выбранные живые элементы и анимации из готовых assets, исправить UI-001 и затем выполнить AUTH-007 после вопросов."
   },
