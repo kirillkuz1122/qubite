@@ -28,3 +28,5 @@
 | [0016](0016-explicit-oauth-identities.md) | Engineering decision в approved AUTH-010 | явная stable provider identity, own-password linking, disabled/network-off default, browser state/PKCE/version gates, forward0004 |
 
 | [0017](0017-email-challenges-and-recovery.md) | Engineering decision в approved AUTH-011 | hash-only one-use verify/reset, existing UUID/verified recovery, atomic version+revoke, mock-only mail; email-2FA contract отдельно от runtime |
+
+| [0018](0018-scoped-policy-gate.md) | CONFIRMED ответы AUTH-003 / инженерная реализация | manual independent grants, exact resource gate REST/job/tool/WS, owner no paid bypass |

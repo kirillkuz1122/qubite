@@ -21,9 +21,16 @@ def run(argv, cwd, env):
         print(result.stderr[-6000:])
         raise SystemExit(result.returncode)
 
+def core_groups(files):
+    first = {'tests/test_foundation.py', 'tests/test_identity.py', 'tests/test_auth.py'}
+    # Every discovered file occurs exactly once; future/nested suites use group three.
+    second = {'tests/test_oauth.py', 'tests/test_challenges.py'}
+    return [[f for f in files if f in first], [f for f in files if f in second],
+            [f for f in files if f not in first | second]]
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core', 'identity'], default='all')
+    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core', 'policy', 'identity'], default='all')
     parser.add_argument('--python', default=sys.executable, help='Python с pytest и зависимостями сервисов')
     parser.add_argument('--postgres-bin', help='Каталог native initdb/postgres только для disposable core fixture')
     args = parser.parse_args()
@@ -99,12 +106,18 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
             elif suite == 'identity':
                 run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/identity'], code,
                     {**env, 'PYTHONPATH':str(policy)})
-            elif suite == 'core':
+            elif suite in {'core', 'policy'}:
                 folder = code / 'core'
                 core_env = {**env, 'PYTHONPATH': os.pathsep.join([str(policy), str(folder)])}
                 if args.postgres_bin:
                     core_env['QUBITE_TEST_POSTGRES_BIN'] = str(Path(args.postgres_bin).resolve())
-                run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests'], folder, core_env)
+                files = sorted(str(p.relative_to(folder)) for p in (folder/'tests').rglob('*.py')
+                               if p.name.startswith('test_') or p.name.endswith('_test.py'))
+                if suite == 'policy':
+                    files = ['tests/test_policy.py']
+                for group in core_groups(files):
+                    if group:
+                        run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', *group], folder, core_env)
             else:
                 folders = {'search':'services/search', 'specbot':'services/specbot', 'kwork':'integrations/kwork', 'siyuan':'integrations/qubite-siyuan'}
                 folder = code / folders[suite]

@@ -545,7 +545,7 @@ def test_local_http_cookies_are_separate_and_production_secure_is_never_downgrad
 
 @pytest.mark.parametrize('table',['password_credentials','sessions','auth_preauth','auth_rate_limits'])
 def test_missing_auth_table_is_not_ready_and_never_repaired(auth,table):
-    with psycopg.connect(auth[0].database_url) as db: db.execute(sql.SQL('DROP TABLE qubite_core.{}').format(sql.Identifier(table)))
+    with psycopg.connect(auth[0].database_url) as db: db.execute(sql.SQL('DROP TABLE qubite_core.{} CASCADE').format(sql.Identifier(table)))
     with client(auth) as c:
         assert c.get('/api/v1/health/ready').status_code==503
         assert c.get('/api/v1/auth/csrf').json()=={'code':'identity_unavailable'}
@@ -566,7 +566,7 @@ def test_auth_migration_failure_preserves_identity_and_recovery_is_explicit(data
         assert db.execute('SELECT id FROM qubite_core.subjects').fetchone()[0]==sid
         assert db.execute('SELECT count(*) FROM qubite_meta.schema_migrations').fetchone()[0]==2
         assert db.execute("SELECT to_regclass('qubite_core.sessions')").fetchone()[0] is None
-    assert apply(settings)==('0003_auth','0004_oauth','0005_challenges') and check(settings)=='0005_challenges'
+    assert apply(settings)==('0003_auth','0004_oauth','0005_challenges','0006_policy') and check(settings)=='0006_policy'
 
 
 def test_password_insert_failure_is_atomic_and_driver_detail_not_returned(auth):

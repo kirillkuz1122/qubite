@@ -1,5 +1,11 @@
 # Development Harness Codex/Claude
 
+**AUTH-00313.10.2026 — review/testing:** core0.5.0/schema0006_policy; раздельные ручные module/action grants, workspace/resource intersection, owner-only metadata commands с If-Match/idempotency/reauth/audit. Общий REST/job/tool/WS gate, live revoke/session/expiry/version; paid AI закрыт до AI-001/002. [Контракт](../architecture/POLICY_GATE.md), [отчёт](../reports/QUB-AUTH-003.md). Только аккаунт до grants подтверждено владельцем; перед каждой будущей задачей сначала вопросы и ответы. UI/registration/real modules/installer/native/provider/deploy отдельно. Final local all844+harness6=850pass, implementation/push/CI ещё проверяются; точные evidence в tasks.json/LAST_HANDOFF. Прежние snapshots ниже исторические.
+
+## Вопросы перед каждой задачей
+
+13.10.2026 владелец уточнил: **перед выполнением каждой следующей задачи сначала задать ему вопросы по решениям/нюансам и только после его ответов начинать реализацию**. Не переносить согласование одной задачи на следующую. Если открытых решений нет, кратко уточнить границу результата. По AUTH-003 вопросы заданы и ответы получены: до ручной выдачи модулей только аккаунт/профиль/настройки; read/write/manage раздельны. Эта задача разрешена; будущие задачи автоматически не утверждены.
+
 **AUTH-01113.10.2026 done:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](../architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](../reports/QUB-AUTH-011.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md). Final local+CI762 passed; implementationf3d4b6c/CI38373075395 success; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
 
 **AUTH-01013.10.2026:** текущий partial runtime включает AUTH-009 и AUTH-010, core0.3.0/schema0004. OAuth suites используют signed RSA/JWKS + MockTransport, никакой real provider сети/keys; runtime/test locks включают httpx/PyJWT/cryptography. [API/SQL/ограничения](../architecture/OAUTH_IDENTITY.md), [evidence](../reports/QUB-AUTH-010.md). Дальше AUTH-011 отдельным cycle; прежний порядок next AUTH-010 ниже — исторический. Production/provider enable и личная память не меняются по успешным fixtures.

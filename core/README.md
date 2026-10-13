@@ -1,8 +1,8 @@
-# Qubite Core — FastAPI0.4.0
+# Qubite Core0.5.0 — FastAPI
 
 OAuth network false, provider rows disabled по умолчанию. Новые QUBITE_CORE_OAUTH_<PROVIDER>_CLIENT_ID/CLIENT_SECRET и explicit network flag, локальные enable/disable команды, schema/HTTP/границы — [OAuth runtime](../docs/architecture/OAUTH_IDENTITY.md), [отчёт AUTH-010](../docs/reports/QUB-AUTH-010.md). Неизвестная identity не создаёт аккаунт; привязка/отвязка по собственному паролю, email не объединяет accounts. Реальные ключи/providers в этой задаче не использованы.
 
-Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0005, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) OAuth adapters/explicit account linking (AUTH-010) и verification/reset (AUTH-011). React формы, Owner Console, module policy/native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
+Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0006, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) OAuth adapters/explicit account linking (AUTH-010) verification/reset (AUTH-011) и scoped policy gate (AUTH-003). React формы, Owner Console UI, native/keys/introspection ещё не созданы. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
 
 Email: explicit `QUBITE_CORE_EMAIL_CHALLENGES_ENABLED=false` по умолчанию; true без injected mock transport всё равно503. Четыре POST verify/reset request/confirm, TTL/attempt/revoke — [email contract](../docs/architecture/EMAIL_CHALLENGES.md). Настоящая доставка/enrollment email-2FA/React/native не включены. Core0.3 binary на ahead0005 fail closed; forward recovery сохраняет UUID/hashes/sessions.
 
@@ -34,7 +34,7 @@ PYTHONPATH=core core/.venv/bin/python -m qubite.identity set-owner-password
 
 Bootstrap спрашивает email и CREATE OWNER; initial password только interactive TTY/getpass дважды и SET OWNER PASSWORD. Никаких password/email options. Повтор owner/password setup не перезаписывает данные; existing pending account не повышается. Пароль12..256 codepoints/<=1024 UTF8 bytes, exact без trim/нормализации; Argon2id PHC. Email пока unverified, никакие grants/budgets не выдаются. Постоянный owner в engineering задачах ещё не создавался: только fixtures.
 
-Apply транзакционный под migration advisory lock; current0005_challenges, одиннадцать domain/security tables. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0003 не станет ready на ahead0004, данные сохранять и использовать совместимый forward recovery.
+Apply транзакционный под migration advisory lock; current0006_policy, двадцать одна domain/security table. Check readonly, pending/drift/ahead/missing namespace/table даёт код1; никаких startup migrations, implicit repair, down/drop/delete. Operator/runtime privileges отдельно; [фактические ограничения и privilege fixture](../docs/architecture/WEB_AUTH.md). Старый binary/schema0003 не станет ready на ahead0004, данные сохранять и использовать совместимый forward recovery.
 
 ## Запуск и HTTP
 
@@ -60,3 +60,9 @@ python3 scripts/engineering/check.py
 Missing prerequisites fail/no skip. Real fresh private PG cluster/DB и isolated HOME/source-copy, no external network/.env. HTTPS TestClient/cookie checks и actual local Uvicorn HTTP smoke; signed RSA/MockTransport OAuth и restricted runtime DB role; физические браузеры/native/live providers/production отдельно.
 
 [Web Auth/схема/API/лимиты](../docs/architecture/WEB_AUTH.md), [accounts/owner](../docs/architecture/IDENTITY_SCHEMA.md), [отчёт AUTH-009](../docs/reports/QUB-AUTH-009.md), [foundation](../docs/architecture/CORE_FOUNDATION.md). Prototype design-lab и legacy product UI не менялись.
+
+## Scoped policy
+
+[Policy API/SQL/adapters](../docs/architecture/POLICY_GATE.md), [машинный контракт](../contracts/policy-v1.json). GET /api/v1/me/access — свои module grants; GET /api/v1/owner/policy — owner catalog/revision; POST /policy/check — exact resource target; POST /owner/policy/commands — owner own-password reauth/CSRF/If-Match/idempotency/audit. Read/write/manage независимы. Owner/tournament/workspace owner не обходят resource ACL/paid AI. Catalog installed/enabled false; metadata enable не устанавливает модуль. Hooks для DB effects/jobs/tools и read-only WS probe — primitives; real domain/jobs/feed/AI отдельно.
+
+Targeted: `python3 scripts/engineering/verify.py --suite policy --python <test-python> --postgres-bin <native-bin>`. All/core включает все files в трёх exhaustive groups с прежним180s timeout каждой: foundation/identity/auth; OAuth/challenges; policy и future/nested. Recovery forward, сохранять новые UUID/grants/audit, old core не ready против0006.

@@ -1,5 +1,7 @@
 # Owner Console: спецификация первого среза
 
+**AUTH-00313.10.2026 — review/testing:** core0.5.0/schema0006_policy; раздельные ручные module/action grants, workspace/resource intersection, owner-only metadata commands с If-Match/idempotency/reauth/audit. Общий REST/job/tool/WS gate, live revoke/session/expiry/version; paid AI закрыт до AI-001/002. [Контракт](../architecture/POLICY_GATE.md), [отчёт](../reports/QUB-AUTH-003.md). Только аккаунт до grants подтверждено владельцем; перед каждой будущей задачей сначала вопросы и ответы. UI/registration/real modules/installer/native/provider/deploy отдельно. Final local all844+harness6=850pass, implementation/push/CI ещё проверяются; точные evidence в tasks.json/LAST_HANDOFF. Прежние snapshots ниже исторические.
+
 CONFIRMED: Настройки → Управление Qubite, только verified platform_owner. Главная owner — обычный Today. Скрытие ссылки дополняет API authorization, не заменяет её. На старте без глобальной hierarchy/admin помощников и без оплаты/тарифов.
 
 Экраны и команды:

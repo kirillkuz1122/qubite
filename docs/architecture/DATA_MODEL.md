@@ -1,5 +1,7 @@
 # Модель данных и invariants
 
+**AUTH-00313.10.2026 — review/testing:** core0.5.0/schema0006_policy; раздельные ручные module/action grants, workspace/resource intersection, owner-only metadata commands с If-Match/idempotency/reauth/audit. Общий REST/job/tool/WS gate, live revoke/session/expiry/version; paid AI закрыт до AI-001/002. [Контракт](POLICY_GATE.md), [отчёт](../reports/QUB-AUTH-003.md). Только аккаунт до grants подтверждено владельцем; перед каждой будущей задачей сначала вопросы и ответы. UI/registration/real modules/installer/native/provider/deploy отдельно. Final local all844+harness6=850pass, implementation/push/CI ещё проверяются; точные evidence в tasks.json/LAST_HANDOFF. Прежние snapshots ниже исторические.
+
 **Актуальный AUTH-011 runtime:** core0.4.0/current0005_challenges,11 domain/security tables; verification/reset existing UUID и mock-only email transport. [API/SQL/ограничения](EMAIL_CHALLENGES.md), [evidence](../reports/QUB-AUTH-011.md). Identity-v2 partial AUTH-009/010/011; email-2FA contract-only, registration/policy/native/UI/provider/deploy отдельно. Снимки прошлых задач ниже исторические.
 
 0004 фактически добавляет oauth_providers(enabled/version), oauth_identities(unique provider/issuer/subject + own provider), oauth_states(hash-only browser-bound one-use context), oauth_audit(minimal security metadata), sessions.password_proven. [Поля/constraints/privileges](OAUTH_IDENTITY.md). Логические domain таблицы ниже ещё backlog.
@@ -57,3 +59,5 @@ AUTH-002 добавляет subjects и singleton platform_owner, explicit local
 ## Реализованная technical schema — CORE-001
 
 В `qubite_meta.schema_migrations` version PK, SHA256 checksum hex CHECK, created_at/updated_at timestamptz NOT NULL; applied history проверяется на exact shipped prefix. Migration 0001 создаёт пустой namespace qubite_core, без subjects/grants/domain tables. FK отсутствуют, PK index достаточен для маленького ledger. [ERD/transaction/recovery boundaries](CORE_FOUNDATION.md). Не считать logical MVP таблицы выше реализованными.
+
+0006 фактически добавляет policy_state/modules/entitlements/workspaces/memberships/resources/acl/ai_grants/audit/delegations. Domain content/budgets/job queue не добавлены; все constraints в0006 SQL и POLICY_GATE.

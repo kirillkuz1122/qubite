@@ -96,6 +96,16 @@ def validate_schema(connection, migrations):
         if not table:
             raise MigrationError('Core email challenge schema is missing; explicit recovery required')
 
+    if '0006_policy' in versions:
+        required = {'policy_state', 'policy_modules', 'policy_entitlements', 'policy_workspaces',
+                    'policy_memberships', 'policy_resources', 'policy_acl', 'policy_ai_grants',
+                    'policy_audit', 'policy_delegations'}
+        tables = {r[0] for r in connection.execute("""SELECT c.relname FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='qubite_core'
+            AND c.relkind IN ('r','p') AND c.relname=ANY(%s)""", (list(required),)).fetchall()}
+        if tables != required:
+            raise MigrationError('Core policy schema is missing; explicit recovery required')
+
 
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""

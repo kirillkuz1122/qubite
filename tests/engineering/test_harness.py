@@ -23,3 +23,26 @@ class HarnessTest(unittest.TestCase):
         with self.assertRaises(AssertionError):m.validate([self.task('a',status='done')])
     def test_ready_requires_architecture_approval(self):
         with self.assertRaises(AssertionError):m.validate([self.task('a',status='ready')])
+
+
+class CoreGroupingTest(unittest.TestCase):
+    @staticmethod
+    def runner():
+        source = Path(__file__).resolve().parents[2] / 'scripts/engineering/verify.py'
+        spec = importlib.util.spec_from_file_location('harness_verify', source)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        return runner
+
+    def test_partition_includes_current_and_future_nested_files_exactly_once(self):
+        files = ['tests/test_auth.py', 'tests/test_foundation.py', 'tests/test_identity.py',
+                 'tests/test_oauth.py', 'tests/test_challenges.py', 'tests/test_policy.py',
+                 'tests/future/adapter_test.py']
+        groups = self.runner().core_groups(files)
+        self.assertEqual(len(groups), 3)
+        self.assertCountEqual([item for group in groups for item in group], files)
+        self.assertEqual(len(set(groups[0]) & set(groups[1])), 0)
+        self.assertIn('tests/future/adapter_test.py', groups[2])
+
+    def test_empty_group_is_retained_without_losing_future_tests(self):
+        self.assertEqual(self.runner().core_groups(['tests/test_new.py']), [[], [], ['tests/test_new.py']])

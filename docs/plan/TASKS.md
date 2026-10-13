@@ -141,22 +141,24 @@ Commit: 0dff63e9bb3cbabf6c2b10628db12c228ee54413. Evidence: ADR-0013/13.10.2026:
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
-Модуль: policy; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-002, QUB-AUTH-009.
+Модуль: policy; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-002, QUB-AUTH-009.
 
 Причина: Старые глобальные роли и owner bypass не подходят новой default-deny модели.
 
-Файлы/контракты: `core/qubite/policy (будущий)`, `contracts/policy-v1.json (будущий)`.
+Файлы/контракты: `core/qubite/policy/`, `core/qubite/sql/0006_policy.sql`, `core/qubite/app.py`, `core/qubite/identity/auth/http.py`, `core/qubite/migrations.py`, `core/tests/`, `contracts/policy-v1.json`, `contracts/core-v1.json`, `scripts/engineering/verify.py`, `docs/`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `SECURITY.md`, `TODO.md`.
 
 Acceptance:
 
 - Default deny и intersection REST/job/tool/WS реализованы
 - Owner/tournament/cross-resource/revoke/API bypass negative matrix
 
-Проверка: Будущий core pytest policy; provider counter 0.
+Проверка: Изолированный core pytest: PostgreSQL/HTTP/WS/job/tool, grant/revoke/expiry/version/owner/cross-resource negative matrix; external/provider calls 0; verify.py all + tests/engineering + exact-SHA tests-only CI.
+
+Approval: 13.10.2026: владелец поручил AUTH-003; ответы: только аккаунт до manual grants, раздельные read/write/manage; перед каждой новой задачей сначала вопросы, затем выполнение.
 
 Риск: Cross-scope/guest/plugin/job могут обходить UI; owner не bypass бюджета. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change.
 
-Commit: после выполнения. Evidence: .
+Commit: после successful all/CI. Evidence: [отчёт](../reports/QUB-AUTH-003.md).
 
 ## QUB-AI-001 — Atomic mock budget reservation
 
