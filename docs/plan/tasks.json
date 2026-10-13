@@ -682,7 +682,7 @@
     ],
     "rollback": "Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.",
     "status": "review/testing",
-    "commit": "2b10ba365f6035bdfb92cdbd34e56a6829095c5c",
+    "commit": "74ad2efcae25b52e04b59cab148e8317b0a735aa",
     "architecture_approved": true,
     "verification": [
       "47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass",
@@ -696,7 +696,8 @@
       "Milo02 main 2b10ba365f6035bdfb92cdbd34e56a6829095c5c pushed; remote main exact SHA verified; CI38295994465/38295994336 completed/success for exact implementation SHA",
       "13.10.2026: владелец выбрал Поток/Flux; разрешена итерация 3: mobile motion, пять палитр, независимые heading/body fonts, пять семейств знаков всех существующих сервисов и refined companions; только assets/design-lab и docs, acceptance после выбора владельца.",
       "13.10.2026 Flux03:120/120 browser pass187.9s; final optical Flux22/22 pass57.4s; existing386/harness pass; default fonts4, no APIs/storage; owner palette/type/marks/physical acceptance pending.",
-      "13.10.2026 private Sites version3 published/source c12223d37f0fa3135b742243b8e64def43dc485a remote/version verified; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded; local archive uploaded; root-source0 mismatch."
+      "13.10.2026 private Sites version3 published/source c12223d37f0fa3135b742243b8e64def43dc485a remote/version verified; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded; local archive uploaded; root-source0 mismatch.",
+      "Flux03 main 74ad2efcae25b52e04b59cab148e8317b0a735aa pushed; git ls-remote exact SHA verified; CI Material Lab38303757824/verification38303758010 completed/success for exact implementation SHA; origin archive refs96f0457 unchanged."
     ]
   },
   {

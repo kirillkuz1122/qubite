@@ -388,9 +388,9 @@ Commit: после выполнения. Evidence: .
 
 Модуль: design; P0; статус review/testing; architecture approved: true. Зависимости: QUB-001.
 
-Причина: Владелец выбрал Milo, попросил пять механик controls с настройкой податливости и четыре разных помощника.
+Причина: Владелец выбрал Milo → Поток, попросил плавность на телефоне, варианты цветов/шрифтов/знаков и доработку помощников; расположение экранов выбирается отдельно.
 
-Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`.
+Файлы/контракты: `assets/design-lab/`, `docs/design/DESIGN_SYSTEM_PLAN.md`, `docs/design/AUTH_UX.md`, `docs/design/MATERIAL_DIRECTIONS.md`, `docs/reports/QUB-DESIGN-001.md`, `docs/project/`, `docs/plan/`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/design-lab.yml`, `docs/architecture/decisions/0010-material-lab.md`, `docs/architecture/decisions/README.md`, `docs/design/MILO_MATERIAL_AND_COMPANIONS.md`, `docs/architecture/decisions/0011-milo-live-controls.md`, `docs/design/FLUX_DESIGN_SYSTEM.md`, `docs/architecture/decisions/0012-flux-design-system.md`.
 
 Acceptance:
 
@@ -399,15 +399,16 @@ Acceptance:
 - Responsive/keyboard/error/OAuth/loading/denied states, owner review перед UI реализацией
 - Пять самостоятельных React/TS концепций с разными материалами, анимациями, landing/workspace/auth и responsive preview; прямой запрос владельца 12.10.2026
 - Опубликованное отдельное демо для просмотра с телефона; финальный стиль остаётся на owner review
+- Итерация 3: Поток выбран; пять палитр, независимые 5 заголовочных/5 текстовых шрифтов, пять семейств знаков ×12 назначений, мобильное перетекание, refined companions; выбор владельца и физическая оценка плавности до done
 - Итерация 2 по feedback: Milo выбран как stylistic base; пять механик живых controls, регулируемая податливость, непрерывные переходы, drag bounds/cancel; питомцы отдельно с индивидуальными характерами
 
-Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; браузерные сценарии пяти концепций, мобильный/планшет/desktop, reduced motion/keyboard/действия/отсутствие внешних API; 98 browser tests: old47 + Milo51; drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle.
+Проверка: Проверка docs/links; просмотр макета владельцем; TypeScript/build; 120 browser tests: old47 + Milo51 + Flux22; mobile/tablet/desktop, drag/cancel/keyboard/slider/switch/tabs/dialog/reduced motion/touch/axe/no storage/RAF settle, промежуточная click geometry/длительность, 2D mobile pill, 25 font combinations, 60 знаков, 10 palette-theme WCAG matrices, gaze/4× CPU slowdown/quiet.
 
 Риск: Дизайн-макет не выдавать за реализованный auth. Откат: Отключить новый flow/route/artifact; сохранить старые данные и writer. Live перенос только по отдельному runbook.
 
-Commit: 2b10ba365f6035bdfb92cdbd34e56a6829095c5c. Evidence: 47/47 Playwright Chromium pass, 20 scenes /5 sizes, 2-theme axe/keyboard/reduced motion; format/build pass; 386/386 existing isolated suites + harness pass, temporary native PG18.6; no live APIs/services; Private static Sites deploy succeeded, source f5fa089bc899db5747b4ebfac40abd7d7afc2073 remote verified; report QUB-DESIGN-001; Initial main 0173d74 pushed; CI Material Lab38289913101 and verification38289913120 success; Владелец подтвердил доступность опубликованного демо, отверг исходное понимание материала; выбрал Milo base, новая mechanics iteration in_progress; Milo 02: 98/98 local Chromium pass (2.2m); final mechanics owner acceptance pending, not done.
+Commit: 74ad2efcae25b52e04b59cab148e8317b0a735aa. Evidence: 120/120 browser pass, после оптической доводки 22/22 Flux повторно pass; 386/386 isolated regression+harness pass. Format/build/check/diff pass. Main pushed/remote exact SHA verified, CI Material Lab38303757824 и verification38303758010 completed/success. Полные и исторические доказательства в tasks.json и report.
 
-Publication: Milo02 private version2/source5c6fd389cf432cab56fd8fa7f57c698704cab707, deployment succeeded19:09:35UTC, полный report. CI Material Lab38295994465 и verification38295994336 completed/success для implementation SHA2b10ba3.
+Publication: Flux03 private version3/source c12223d37f0fa3135b742243b8e64def43dc485a; deployment appgdep_6acd40ebec8881918310f4218d8ed1b9 succeeded12.10.2026 20:20:13UTC, версия/source проверены. Archive загружен, full report. Final owner palette/type/marks/physical acceptance pending; material choice закрыт.
 
 ## QUB-AUTH-005 — Отключение account code-entry после compatibility audit
 
