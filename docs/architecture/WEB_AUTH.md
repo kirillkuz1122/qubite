@@ -1,5 +1,7 @@
 # Реальный Web Auth — AUTH-009
 
+**AUTH-005, 13.10.2026 — review/testing:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](../architecture/ACCOUNT_LOGIN.md), [отчёт](../reports/QUB-AUTH-005.md), [ADR-0019](../architecture/decisions/0019-account-login-boundary.md). Core0.5.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local all892+harness6=898pass; exact-SHA CI ещё ожидается. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
+
 **Актуальный AUTH-011 runtime:** core0.4.0/current0005_challenges,11 domain/security tables; verification/reset existing UUID и mock-only email transport. [API/SQL/ограничения](EMAIL_CHALLENGES.md), [evidence](../reports/QUB-AUTH-011.md). Identity-v2 partial AUTH-009/010/011; email-2FA contract-only, registration/policy/native/UI/provider/deploy отдельно. Снимки прошлых задач ниже исторические.
 
 AUTH-010 добавляет sessions.password_proven: старые0003/password logins=true, новые OAuth sessions=false, настоящий reauth=true. Logout-all требует этого признака и recent proof. OAuth cookie/own linking/limits описаны отдельно; описание Argon/password API ниже сохраняется.

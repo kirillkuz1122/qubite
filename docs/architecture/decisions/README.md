@@ -30,3 +30,5 @@
 | [0017](0017-email-challenges-and-recovery.md) | Engineering decision в approved AUTH-011 | hash-only one-use verify/reset, existing UUID/verified recovery, atomic version+revoke, mock-only mail; email-2FA contract отдельно от runtime |
 
 | [0018](0018-scoped-policy-gate.md) | CONFIRMED ответы AUTH-003 / инженерная реализация | manual independent grants, exact resource gate REST/job/tool/WS, owner no paid bypass |
+
+| [0019](0019-account-login-boundary.md) | CONFIRMED границы AUTH-005 / проверяемый контракт | существующий email/password без account code-entry, отдельные tournament/email/OAuth протоколы |

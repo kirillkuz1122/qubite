@@ -1,5 +1,7 @@
 # Карточки небольших задач
 
+**AUTH-005, 13.10.2026 — review/testing:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](../architecture/ACCOUNT_LOGIN.md), [отчёт](../reports/QUB-AUTH-005.md), [ADR-0019](../architecture/decisions/0019-account-login-boundary.md). Core0.5.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local all892+harness6=898pass; exact-SHA CI ещё ожидается. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
+
 **AUTH-01113.10.2026 done:** core0.4.0/schema0005 verify/reset и mock-only delivery; email-2FA contract-only, registration/policy/UI/native/deploy отдельные. [EMAIL_CHALLENGES](../architecture/EMAIL_CHALLENGES.md), [AUTH-011 report](../reports/QUB-AUTH-011.md), [ADR-0017](../architecture/decisions/0017-email-challenges-and-recovery.md). Final local+CI762 passed; implementationf3d4b6c/CI38373075395 success; прежние snapshots ниже исторические. После этого ready DEPLOY-001/TG-001, не начинать новый task в том же cycle.
 
 Источник состояния — [tasks.json](tasks.json). 56 карточек; список ниже отражает machine registry. Shared APIs FastAPI/Postgres; included UI React/new design; optional Tournaments Node/SQLite/Vanilla. Fresh identity без импорта/bridge по [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Одна ready approved задача за цикл, deploy отдельно.
@@ -417,22 +419,19 @@ Commit: 9262e3c0c89db7b6343b6ce90c0e62213e515ffa. Evidence: 47/47 Playwright Chr
 
 ## QUB-AUTH-005 — Account login без code-entry в новом API
 
-Модуль: identity; P0; статус backlog; architecture approved: false. Зависимости: QUB-AUTH-009, QUB-TEST-001.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-009, QUB-TEST-001 — done.
 
-Причина: Новый login не принимает старые account access codes; tournament join и email verification отдельные.
+Scope подтверждён владельцем13.10.2026 после вопроса. Существующий Web Auth переиспользован; новый contract/реальные HTTP/PG и module join tests. [Границы](../architecture/ACCOUNT_LOGIN.md), [отчёт](../reports/QUB-AUTH-005.md). Runtime/schema без изменений.
 
-Файлы/контракты: `core/qubite/identity (будущий)`, `contracts/auth-v1.json (будущий)`, `docs/architecture/AUTH_AND_PERMISSIONS.md`.
+Acceptance: old code-entry/account-session routes отвергаются; strict email/password без alias/code. Tournament invitations и email/reset/OAuth имеют отдельные протоколы; email-2FA ещё contract-only. Регистрация/UI/consumer migration отдельно.
 
-Acceptance:
+Файлы: contracts/auth-v1.json, core/tests/test_account_login.py, back/tests/auth-legacy-baseline.test.js и guarded fixture, docs/architecture/ACCOUNT_LOGIN.md, ADR-0019, project/harness/plan docs.
 
-- В новой Auth surface отсутствуют code-entry/account session grant routes; known legacy routes rejected
-- Tournament join codes/invites/email/reset/2FA challenges не удалены или смешаны с password login
+Проверка: Isolated harness all: actual HTTP/PG login boundary matrix + existing Web Auth/OAuth/email/policy, SQLite tournament shared/personal join via real server.js, all service regressions; harness unittest/check.py/diff; exact-SHA GitHub tests-only CI.
 
-Проверка: Isolated auth HTTP negative+positive matrix; tournament code join regression.
+Риск: не смешать вход аккаунта с приглашением в турнир или provider/email proof. Откат: Снять contract/tests/docs последующим commit. Runtime/schema в AUTH-005 не менялись; сохранить PostgreSQL UUID/credentials/sessions/grants/audit. Не возвращать account code-entry и не restore старые SQLite пароли/сессии поверх новой identity; ingress/deploy отдельно.
 
-Риск: Не смешать authentication code-entry с турнирным join/verification. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
-
-Commit: после выполнения. Evidence: .
+Commit/evidence после local+CI verification; актуальная карточка в tasks.json. Следующая AUTH-006 сначала требует вопросы/ответы владельца.
 
 ## QUB-AUTH-006 — Минимальная FastAPI регистрация без legacy alias
 

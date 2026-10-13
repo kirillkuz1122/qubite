@@ -72,6 +72,11 @@ process.on('message', async message => {
             result = await new Promise((resolve, reject) => {
                 connection.all(message.sql, message.params || [], (error, rows) => error ? reject(error) : resolve(rows));
             });
+        } else if (message.kind === 'tournamentWorkspace') {
+            // Startup remains auth-only: no proxy/daily/bot workers. In this
+            // guarded source-copy fixture only, let the real workspace gate run.
+            process.env.QUBITE_PROCESS_ROLE = 'fixture-tournaments';
+            result = true;
         } else if (message.kind === 'state') {
             Object.assign(state, message.patch || {});
             result = state;

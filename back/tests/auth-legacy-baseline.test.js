@@ -100,7 +100,8 @@ async function startFixture(options = {}) {
             req.on('error', reject); req.end(payload);
         });
     }
-    return { directory, request, stop, sql: (sql, params) => rpc('sql', { sql, params }),
+    return { directory, request, stop, tournamentWorkspace: () => rpc('tournamentWorkspace'),
+        sql: (sql, params) => rpc('sql', { sql, params }),
         state: patch => rpc('state', { patch }) };
 }
 const captcha = { turnstileToken: 'fixture-captcha' };
@@ -132,6 +133,86 @@ async function codeFor(email) {
 }
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const oauthError = res => new URL(res.headers.location, 'https://auth.test').searchParams.get('oauthError');
+
+// AUTH-005 boundary: these are module invitations, not a new platform login.
+async function codeTournament(mode = 'shared') {
+    await fixture.tournamentWorkspace();
+    const now = new Date().toISOString();
+    const start = new Date(Date.now() + 86400000).toISOString();
+    const end = new Date(Date.now() + 172800000).toISOString();
+    await fixture.sql(`INSERT INTO tournaments
+        (slug,title,description,status,time_label,icon,action_label,action_type,category,start_at,end_at,
+         access_scope,access_code,code_mode,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        ['fixture-code-' + mode, 'Fixture invitation', 'Synthetic tournament', 'published', 'Soon', 'flag',
+            'Join', 'join', 'other', start, end, 'code', mode === 'shared' ? 'SHARED42' : null, mode, now, now]);
+    return (await fixture.sql('SELECT id FROM tournaments WHERE slug=?', ['fixture-code-' + mode]))[0].id;
+}
+async function tournamentAccount(name, verified = true) {
+    const account = await register(name);
+    if (verified) await fixture.sql('UPDATE users SET email_verified_at=? WHERE id=?',
+        [new Date().toISOString(), account.json.user.id]);
+    return account;
+}
+async function tournamentIdentitySnapshot() {
+    return {
+        users: await fixture.sql('SELECT id,role,email_verified_at FROM users ORDER BY id'),
+        sessions: await fixture.sql('SELECT id,user_id FROM sessions ORDER BY id'),
+    };
+}
+
+test('AUTH-005 shared tournament invitation requires the right code and preserves the authenticated account', async () => {
+    const account = await tournamentAccount('sharedparticipant');
+    const id = await codeTournament();
+    const before = await tournamentIdentitySnapshot();
+    const join = accessCode => fixture.request(`/api/tournaments/${id}/join`,
+        { method: 'POST', cookie: account.cookie, body: { accessCode } });
+    for (const code of ['', 'WRONG42']) {
+        assert.equal((await join(code)).status, 403);
+        assert.equal((await fixture.sql('SELECT count(*) AS n FROM tournament_entries'))[0].n, 0);
+    }
+    const response = await join('shared-42');
+    assert.equal(response.status, 200, response.text);
+    assert.equal(response.json.success, true);
+    assert.equal(response.cookie, undefined);
+    assert.deepEqual(await tournamentIdentitySnapshot(), before);
+    assert.deepEqual((await fixture.sql('SELECT user_id FROM tournament_entries')), [{ user_id: account.json.user.id }]);
+});
+
+test('AUTH-005 personal tournament invitation remains bound to its roster participant', async () => {
+    const account = await tournamentAccount('rosterparticipant');
+    const stranger = await tournamentAccount('rosterstranger');
+    const id = await codeTournament('personal');
+    const now = new Date().toISOString();
+    await fixture.sql(`INSERT INTO tournament_roster_entries
+        (tournament_id,user_id,login,email,invite_code,created_at,updated_at) VALUES (?,?,?,?,?,?,?)`,
+        [id, account.json.user.id, 'rosterparticipant', 'rosterparticipant@example.test', 'PERSONAL42', now, now]);
+    const before = await tournamentIdentitySnapshot();
+    const join = (cookie, accessCode) => fixture.request(`/api/tournaments/${id}/join`,
+        { method: 'POST', cookie, body: { accessCode } });
+    assert.equal((await join(account.cookie, 'WRONG42')).status, 403);
+    assert.equal((await join(stranger.cookie, 'PERSONAL42')).status, 403);
+    assert.equal((await fixture.sql('SELECT count(*) AS n FROM tournament_entries'))[0].n, 0);
+    const response = await join(account.cookie, 'personal-42');
+    assert.equal(response.status, 200, response.text);
+    assert.equal(response.cookie, undefined);
+    assert.deepEqual(await tournamentIdentitySnapshot(), before);
+    assert.deepEqual((await fixture.sql('SELECT user_id FROM tournament_entries')), [{ user_id: account.json.user.id }]);
+});
+
+test('AUTH-005 tournament code alone does not replace authentication or email verification at module join', async () => {
+    const account = await tournamentAccount('unverifiedparticipant', false);
+    const id = await codeTournament();
+    const before = await tournamentIdentitySnapshot();
+    for (const [cookie, status] of [[undefined, 401], [account.cookie, 403]]) {
+        const response = await fixture.request(`/api/tournaments/${id}/join`,
+            { method: 'POST', cookie, body: { accessCode: 'SHARED42' } });
+        assert.equal(response.status, status, response.text);
+        assert.equal(response.cookie, undefined);
+    }
+    assert.deepEqual(await tournamentIdentitySnapshot(), before);
+    assert.equal((await fixture.sql('SELECT count(*) AS n FROM tournament_entries'))[0].n, 0);
+});
 
 test('register/login use real SQLite and password hashes, secure cookie and email verification', async () => {
     const registration = await register();
