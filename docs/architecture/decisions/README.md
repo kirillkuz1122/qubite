@@ -24,3 +24,5 @@
 | [0018](0018-scoped-policy-gate.md) | CONFIRMED ответы AUTH-003 / инженерная реализация | manual independent grants, exact resource gate REST/job/tool/WS, owner no paid bypass |
 | [0019](0019-account-login-boundary.md) | CONFIRMED границы AUTH-005 / проверяемый контракт | существующий email/password без account code-entry, отдельные tournament/email/OAuth протоколы |
 | [0020](0020-owner-controlled-registration.md) | CONFIRMED AUTH-006 answers / bounded engineering | owner enrollment modes, both invites, verification-first login, atomic consent/redemption |
+
+| [0021](0021-repository-layout-and-standalone-tournaments.md) | CONFIRMED13.10.2026 | Чистый новый корень, legacy/reference классификация, поддомены, independent optional турниры и env preservation |

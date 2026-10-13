@@ -1,3 +1,5 @@
+> Актуально13.10.2026: [ADR-0021](decisions/0021-repository-layout-and-standalone-tournaments.md) / [карта исходников](REPOSITORY_LAYOUT.md). Tournaments — самостоятельная опциональная legacy-платформа без shared identity/SSO/grants нового core. Старые back/front/deploy теперь в legacy/qubite-v1; остальные старые сервисы reference и требуют нового interview/design/core API. Все новые модули планируются на поддоменах, ingress ещё не реализован. Исторические положения ниже о tournament adapter/общем управлении больше не текущая цель.
+
 # Модули и контракты
 
 RECOMMENDED: логические модули, а не процесс на каждый. Публичный контракт не разрешает читать соседнюю БД. Identity/policy доступны всем модулям через typed API; доменные данные принадлежат ровно одному writer. Контракты версии v1 фиксируются JSON Schema/OpenAPI после approval.

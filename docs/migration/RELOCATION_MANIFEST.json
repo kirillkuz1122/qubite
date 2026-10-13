@@ -1,0 +1,1890 @@
+{
+  "task": "QUB-REPO-001",
+  "base_commit": "e83ba0fc08dea44682ba45d2990f085b2321e7d4",
+  "archive_commit": "96f0457a523b6b79f21c4092056d8fa8fa69a680",
+  "files": [
+    {
+      "old_path": ".env.example",
+      "new_path": "legacy/qubite-v1/.env.example",
+      "original_sha256": "ee562b4e6ab7c1ad99c3b230639ff446f1cbbc9ff56b78be347f36eccdd2f43e"
+    },
+    {
+      "old_path": "404.html",
+      "new_path": "legacy/qubite-v1/404.html",
+      "original_sha256": "e62bda4bc677db246ab711fffda6aa9a6e89f5869144caa904656599a7c9f6cb"
+    },
+    {
+      "old_path": "4041.html",
+      "new_path": "legacy/qubite-v1/4041.html",
+      "original_sha256": "0473dd98836532003d0b8bc074b5fa6ea647155bc188fdddd1027cd778786b8b"
+    },
+    {
+      "old_path": "SMARTCAPTCHA_THEME.md",
+      "new_path": "legacy/qubite-v1/SMARTCAPTCHA_THEME.md",
+      "original_sha256": "d7cfffeb5c175d296e3077a9cac03cf47c9b4f0d4ddba7197313ef964095fb89",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "about.html",
+      "new_path": "legacy/qubite-v1/about.html",
+      "original_sha256": "3b0dfd07c4848328cb2a1f81ddb05126b6936befe173244d1553fe88182874c0"
+    },
+    {
+      "old_path": "acceptable-use.html",
+      "new_path": "legacy/qubite-v1/acceptable-use.html",
+      "original_sha256": "6b7fd3d543a8b756112510b18d14c49ec2e078584153cd5cd9af212a3491ce57"
+    },
+    {
+      "old_path": "app/app.md",
+      "new_path": "legacy/qubite-vpn/docs/app.md",
+      "original_sha256": "9f6fb98cf77ee134510b24819eba13060584216547e40e032f1821105729bc66",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "app/proxy-system.md",
+      "new_path": "legacy/qubite-vpn/docs/proxy-system.md",
+      "original_sha256": "6cd6c0d0d8cee7e1fd1baab98f1ac3462de8d0263dc8046b5a5d42857f6b4c4f",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "app/qubite_vpn/.gitignore",
+      "new_path": "legacy/qubite-vpn/.gitignore",
+      "original_sha256": "1dbd15ae2a799e8aa7fe2fca4f556164543dfd36f3c03a1ae93d90227d453760"
+    },
+    {
+      "old_path": "app/qubite_vpn/.metadata",
+      "new_path": "legacy/qubite-vpn/.metadata",
+      "original_sha256": "61f42b3de7b7b31f398ca4ce5dbef48351ac6903cdc66f5e6e5cabee7298b23d"
+    },
+    {
+      "old_path": "app/qubite_vpn/README.md",
+      "new_path": "legacy/qubite-vpn/README.md",
+      "original_sha256": "41d8be0c728ad3e53133564d9a4f74ca2ca54a619de38b87c69e58b8ce5fad7f",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "app/qubite_vpn/analysis_options.yaml",
+      "new_path": "legacy/qubite-vpn/analysis_options.yaml",
+      "original_sha256": "a52bf45b4ccf9176e2900862089bb5bb6eb14a4e100c5597a13cd274ab5e1862"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/.gitignore",
+      "new_path": "legacy/qubite-vpn/android/.gitignore",
+      "original_sha256": "b97dd21ea377acd068ce45903e6bd983dee58a3522bcea558e674821af080495"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/build.gradle",
+      "new_path": "legacy/qubite-vpn/android/app/build.gradle",
+      "original_sha256": "8d3076fbef236801d7e34df8803166ba9e337db94c953c8324fc02d999ccb4f7"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/proguard-rules.pro",
+      "new_path": "legacy/qubite-vpn/android/app/proguard-rules.pro",
+      "original_sha256": "498d0d4ac4ee3d5d0f68f3fed7bbc07ad8bf4d105ac59a74d75c7d81e2f04711"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/debug/AndroidManifest.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/debug/AndroidManifest.xml",
+      "original_sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/AndroidManifest.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/AndroidManifest.xml",
+      "original_sha256": "94195186c327bf486ac3930002d5478d5a3555f7eb50825c431a350790de74bf"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/kotlin/ru/qubite/qubite_vpn/MainActivity.kt",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/kotlin/ru/qubite/qubite_vpn/MainActivity.kt",
+      "original_sha256": "25f677f16c34b7f5c259f57d51a28603dcb026643914e16659feb5b1499d1dde"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/kotlin/ru/qubite/vpn/BootReceiver.kt",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/kotlin/ru/qubite/vpn/BootReceiver.kt",
+      "original_sha256": "f354e6562ec8c28f0bbd0f20c12c7da603ed1328069ca90883c69ea02a9f5aa6"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/kotlin/ru/qubite/vpn/MainActivity.kt",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/kotlin/ru/qubite/vpn/MainActivity.kt",
+      "original_sha256": "c33cc633a8212a068a27494b77fec9c710edcda40763ef6e3dafe641e8f344c6"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/kotlin/ru/qubite/vpn/QubiteVpnService.kt",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/kotlin/ru/qubite/vpn/QubiteVpnService.kt",
+      "original_sha256": "2e01965b284c8384a0343bfc835530648adfcbb6cc4fc49b60e35b198c04d6b0"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/kotlin/ru/qubite/vpn/QubiteVpnTileService.kt",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/kotlin/ru/qubite/vpn/QubiteVpnTileService.kt",
+      "original_sha256": "eb3854d58570339a3fad748a8f30fd2045174035e4c8d695c84a00afd8b88e81"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/drawable-v21/launch_background.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/drawable-v21/launch_background.xml",
+      "original_sha256": "7ca6d5cec2169c5a98661a119db23a6f3399c8fef2256ff04f3a642831282478"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/drawable/ic_vpn_tile.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/drawable/ic_vpn_tile.xml",
+      "original_sha256": "5ca8475c2d4ebc2a8044397cdbabecbb77bd04914aab540e20c1faac31f3e78e"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/drawable/launch_background.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/drawable/launch_background.xml",
+      "original_sha256": "94433756fe10005ddd6fc55cc5c0b1e9f3c10b66a08ceac795ece6713d34e28a"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "original_sha256": "27398c65e381bc720518cec88cb74576e12a7dfd9084e867b3701fcbb49372d4"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "original_sha256": "4c257fb28f677a4ba4a5e2238bbb5d19946b4b2cf9ceed79b9e3a4909d1ba8f2"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "original_sha256": "4d41f89b561a743f8f2de1b4207f527ab20be01d0fcba226c949e21c9a7b7fe4"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "original_sha256": "4a2911ad203e591e2280b7152f61f20ccda87b7aabe69b0731094601e8e679bf"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "original_sha256": "3f6c5b43fcf6ae7de1c8ddb6823715204146c4401fadc6ce7718d82e935f94c1"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/values-night/styles.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/values-night/styles.xml",
+      "original_sha256": "8c5bad5152f217e837519f9c15211d19f39bd45f5f67faf6dd81cb4b299e518f"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/values/styles.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/values/styles.xml",
+      "original_sha256": "937d7c82f539c72eb94fd3a3773f29b3d3fef1997213c92cb632298cedf4bda9"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/main/res/xml/network_security_config.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/main/res/xml/network_security_config.xml",
+      "original_sha256": "dbc726438a7e99c69fdfc39146cd51ef8300dacb236843bbce3ecd2a1712a80f"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/app/src/profile/AndroidManifest.xml",
+      "new_path": "legacy/qubite-vpn/android/app/src/profile/AndroidManifest.xml",
+      "original_sha256": "30b0832ed8b92dfbd6ae2abfa939ccf26333d37600056b1572bd4a397a18a74b"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/build.gradle",
+      "new_path": "legacy/qubite-vpn/android/build.gradle",
+      "original_sha256": "64be722bcdcf79cec7f4f201f09a1ec732fffe0e665f709aafe99718715ed8a9"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/gradle.properties",
+      "new_path": "legacy/qubite-vpn/android/gradle.properties",
+      "original_sha256": "2e9015cab377cd1254baab3970d47395dd0a674cc735c1a96caf8b9e0ee54930"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/gradle/wrapper/gradle-wrapper.properties",
+      "new_path": "legacy/qubite-vpn/android/gradle/wrapper/gradle-wrapper.properties",
+      "original_sha256": "b00bce270ab40aa29758d7fe51c356a1bf8dc9a9a0d15e2a5d9a8a6609a749be"
+    },
+    {
+      "old_path": "app/qubite_vpn/android/settings.gradle",
+      "new_path": "legacy/qubite-vpn/android/settings.gradle",
+      "original_sha256": "5067821bb4528ab6bf2ebc1c10ae462ed12ed9da09973bbb04f05950bd70cee4"
+    },
+    {
+      "old_path": "app/qubite_vpn/assets/icon.png",
+      "new_path": "legacy/qubite-vpn/assets/icon.png",
+      "original_sha256": "488e3a9b2ecb0665c325902d30391be79385723256a3dd9cde2978ba7d79cb41"
+    },
+    {
+      "old_path": "app/qubite_vpn/assets/tray_icon.png",
+      "new_path": "legacy/qubite-vpn/assets/tray_icon.png",
+      "original_sha256": "b8e3efbf2f68afebc7320233da0673acbf551e0988570d3ef4c7917aae04847d"
+    },
+    {
+      "old_path": "app/qubite_vpn/core_build/build_singbox.sh",
+      "new_path": "legacy/qubite-vpn/core_build/build_singbox.sh",
+      "original_sha256": "abfa59394583beaf7f61a65887503031a8d0c4eac0106aee5a046506bbecc583"
+    },
+    {
+      "old_path": "app/qubite_vpn/core_build/windows/sing-box.exe",
+      "new_path": "legacy/qubite-vpn/core_build/windows/sing-box.exe",
+      "original_sha256": "30e7b29f2c3061f88516176d20d858d577588fde42ab50822ba06c6338728c95"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/install.bat",
+      "new_path": "legacy/qubite-vpn/installer/install.bat",
+      "original_sha256": "553d6601483732768c3f04183309ab3885a385606a11b35a03404c0018447095"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/install.ps1",
+      "new_path": "legacy/qubite-vpn/installer/install.ps1",
+      "original_sha256": "a2ee59676861e8070527b17e9ce89b5f9d6d132cbac3e8c0214fe74dbfa77f2f"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/install.sh",
+      "new_path": "legacy/qubite-vpn/installer/install.sh",
+      "original_sha256": "bf2ac723bff24ea9013fbed5cec736f3c1acee29bd73c18446db5adbb50db41f"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/linux/build-deb.sh",
+      "new_path": "legacy/qubite-vpn/installer/linux/build-deb.sh",
+      "original_sha256": "50db6c65965b22be7e86c2b81407cac51924df91aa98e7a2600fcbe180a1d155"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/linux/install.sh",
+      "new_path": "legacy/qubite-vpn/installer/linux/install.sh",
+      "original_sha256": "90167dc64126c1ab7056addb8c37eff26ba66d4bc7387e3036271ed786bde51c"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/linux/qubite-vpn.desktop",
+      "new_path": "legacy/qubite-vpn/installer/linux/qubite-vpn.desktop",
+      "original_sha256": "3df479bc984e3e399ba514f666e501660d3c8dc3fb7b6827011a97a4f4dad71c"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/linux/qubite-vpn_1.0.0_amd64.deb",
+      "new_path": "legacy/qubite-vpn/installer/linux/qubite-vpn_1.0.0_amd64.deb",
+      "original_sha256": "6a6d472be8e1a4a90c133b0b2d96cb4e8a80fba60ab8e93df8e27a11ec3e029f"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/windows/BUILD.md",
+      "new_path": "legacy/qubite-vpn/installer/windows/BUILD.md",
+      "original_sha256": "b655a805b2425663e1ef3cdc4ba966f24f26be772ea6d59c0524fda0d9846aef",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "app/qubite_vpn/installer/windows/setup.iss",
+      "new_path": "legacy/qubite-vpn/installer/windows/setup.iss",
+      "original_sha256": "7637bdfd49e13c6c1364f0c2d600a15f401de4f2a32230c8e198da9203e9bf03"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Flutter/Generated.xcconfig",
+      "new_path": "legacy/qubite-vpn/ios/Flutter/Generated.xcconfig",
+      "original_sha256": "ad9b260a39be6350a6a967fd97376988710f5d468e4e76ef22e6b60281831c5c"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Flutter/ephemeral/flutter_lldb_helper.py",
+      "new_path": "legacy/qubite-vpn/ios/Flutter/ephemeral/flutter_lldb_helper.py",
+      "original_sha256": "05cfe3977fdee593efad2049a4f62d374e55c69cedc8aabeee5566b37acb8384"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Flutter/ephemeral/flutter_lldbinit",
+      "new_path": "legacy/qubite-vpn/ios/Flutter/ephemeral/flutter_lldbinit",
+      "original_sha256": "eaec5f5268e3a5024d9703046f4097701107d574d0de7a2d8d81f0bf4644a333"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Flutter/flutter_export_environment.sh",
+      "new_path": "legacy/qubite-vpn/ios/Flutter/flutter_export_environment.sh",
+      "original_sha256": "c2e9ed1b9067e666990925c34a1cf0308c846d837954a13bd8509a75673167c8"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Podfile",
+      "new_path": "legacy/qubite-vpn/ios/Podfile",
+      "original_sha256": "b8f1e69d9a107bbcdc1fd636ce20cf70cfa62e46ba89df1f7732b08303b280a2"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/QubiteVPNTunnel/Info.plist",
+      "new_path": "legacy/qubite-vpn/ios/QubiteVPNTunnel/Info.plist",
+      "original_sha256": "49987d2e793c41678c2d840eea6679a82d641f712735e8e0c7fed1706dffbee6"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/QubiteVPNTunnel/PacketTunnelProvider.swift",
+      "new_path": "legacy/qubite-vpn/ios/QubiteVPNTunnel/PacketTunnelProvider.swift",
+      "original_sha256": "dc8234bd7472ef59f940e938263a49d7ebf0edac05cdcf29a8373436272ef1d3"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/QubiteVPNTunnel/QubiteVPNTunnel.entitlements",
+      "new_path": "legacy/qubite-vpn/ios/QubiteVPNTunnel/QubiteVPNTunnel.entitlements",
+      "original_sha256": "582c0dc77573ea95caea9b6cc722ecfaf2d6c14745bd73563d54e937e107c7f4"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Runner/GeneratedPluginRegistrant.h",
+      "new_path": "legacy/qubite-vpn/ios/Runner/GeneratedPluginRegistrant.h",
+      "original_sha256": "a5f88cc6415d2e639d2cb549348b84e02a7fdd0261603b0063abef6fa11f075a"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Runner/GeneratedPluginRegistrant.m",
+      "new_path": "legacy/qubite-vpn/ios/Runner/GeneratedPluginRegistrant.m",
+      "original_sha256": "d075ca20c14724b37301a6017b99a0310397b749c730d5df25ed502b2a89750b"
+    },
+    {
+      "old_path": "app/qubite_vpn/ios/Runner/Info.plist",
+      "new_path": "legacy/qubite-vpn/ios/Runner/Info.plist",
+      "original_sha256": "05c3f50c901ef848c672752e5afc0a2ee4a9a34b9d95a93f2013ccb4ad97273f"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/app.dart",
+      "new_path": "legacy/qubite-vpn/lib/app.dart",
+      "original_sha256": "28cfa2373eb8a9db4a926628bcd581e8bdb9ffad2933ef5c2a4fe5d20af8ddfa"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/main.dart",
+      "new_path": "legacy/qubite-vpn/lib/main.dart",
+      "original_sha256": "7fe9c8566de64a639a1b82551546411d4ebd60e146eceac81f03eab1aa61381d"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/models/routing_profile.dart",
+      "new_path": "legacy/qubite-vpn/lib/models/routing_profile.dart",
+      "original_sha256": "d64398824d90ca07f83ee56ab108272ac6ac8a8a0bc9b461fd0b123e40dafcf2"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/models/server.dart",
+      "new_path": "legacy/qubite-vpn/lib/models/server.dart",
+      "original_sha256": "c4a0edf4589c1b068932997009043c777897219f9e84da47486803614cbe4a1c"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/models/session.dart",
+      "new_path": "legacy/qubite-vpn/lib/models/session.dart",
+      "original_sha256": "2784970f076839d1df652e765b2a4832d94622373bfe5ab5f88b72cbb193ffd2"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/models/user.dart",
+      "new_path": "legacy/qubite-vpn/lib/models/user.dart",
+      "original_sha256": "1d28adeb7f8208c24660368c573ded5af1115f97bc9d112f663552b65f855402"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/home_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/home_screen.dart",
+      "original_sha256": "140d1a8d8c9fbf1f2b3862197d46f96ae03d13e7878bdad84352dc00545d3a6a"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/login_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/login_screen.dart",
+      "original_sha256": "8d9bc25df271508f14181b96a9102064d0304db33f8f212583e5c7bfc4424b02"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/register_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/register_screen.dart",
+      "original_sha256": "b3ae4dee71f634f78650e1fe208badaf42347f3e067042775e35254172e65288"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/server_selection_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/server_selection_screen.dart",
+      "original_sha256": "e9c33d734091f39441aabe90ff580f2fc978c1517895d87240b8c7c3ad8eec94"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/settings_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/settings_screen.dart",
+      "original_sha256": "e8473cb28861a9fa2a6cdb08351a24f5e60469372df9986cb6eca8181141645e"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/split_tunnel_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/split_tunnel_screen.dart",
+      "original_sha256": "bcf2aaf281e8454c3b85f26ac9a6cf9c2615a778ee10c6f3553538fdd2f0b7ad"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/subscription_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/subscription_screen.dart",
+      "original_sha256": "09dcbbaa0ce917bf606bd192a8754f34c3b90f8576f63bcd4d5937b3fbfd6c59"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/test_mode_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/test_mode_screen.dart",
+      "original_sha256": "a20ea96c61f5c4d6c40bc59c95689b270bd7fedc252bbc0e586f9cd63db311a5"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/screens/verify_screen.dart",
+      "new_path": "legacy/qubite-vpn/lib/screens/verify_screen.dart",
+      "original_sha256": "f4255ceec55dcc5801f8bfcce771a8115e43139561d7e2fe2716100e1f8e8f75"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/services/api_client.dart",
+      "new_path": "legacy/qubite-vpn/lib/services/api_client.dart",
+      "original_sha256": "23fcdff09ee12f8f4d7a7b9bc3bd9a0e2bbabdafe782168d4c3fbc5e997c9bbc"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/services/kill_switch.dart",
+      "new_path": "legacy/qubite-vpn/lib/services/kill_switch.dart",
+      "original_sha256": "50e1535ab6b12b39966ecbe9717a9ac2d651ccbef68108998d5b6309c51978b6"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/services/singbox_config.dart",
+      "new_path": "legacy/qubite-vpn/lib/services/singbox_config.dart",
+      "original_sha256": "48fde01fe5aac7e374c624365b9a635c64f9c4ac3826a1fc8ef106f85da06d9a"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/services/singbox_service.dart",
+      "new_path": "legacy/qubite-vpn/lib/services/singbox_service.dart",
+      "original_sha256": "f811792de0e8d533441b8635345d3b90507ced96ad07db5a33c9d60fdd863618"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/services/tray_service.dart",
+      "new_path": "legacy/qubite-vpn/lib/services/tray_service.dart",
+      "original_sha256": "6eda1718b3f3be38427c55747253c82ad459b740d8b32278d9dad6e8a05ed3ba"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/state/app_state.dart",
+      "new_path": "legacy/qubite-vpn/lib/state/app_state.dart",
+      "original_sha256": "cd64537d03d0a0f5fb2d04f72bc9cb37b24fbc96472ca93a95a031b266ef0737"
+    },
+    {
+      "old_path": "app/qubite_vpn/lib/theme.dart",
+      "new_path": "legacy/qubite-vpn/lib/theme.dart",
+      "original_sha256": "33081025a22a370d0ee458dc2f308e984f7dd2462d2981515d3ca7863c5f9561"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/.gitignore",
+      "new_path": "legacy/qubite-vpn/linux/.gitignore",
+      "original_sha256": "5ded4f1a9d10d34bf6ee5beb0711d88ee2ef07b0f07ace9ed77935a246e8eb82"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/linux/CMakeLists.txt",
+      "original_sha256": "d93b7b483d3bbc95a796d558217e28a5df006c252df524da8bd290c8eda94839"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/flutter/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/linux/flutter/CMakeLists.txt",
+      "original_sha256": "787189e2623313cfee590a0b553338eb9fc68b3af922ddd77c5d39c75f989aeb"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/flutter/generated_plugin_registrant.cc",
+      "new_path": "legacy/qubite-vpn/linux/flutter/generated_plugin_registrant.cc",
+      "original_sha256": "70f7fff9a9c6723c5a7f3c9e0165c7d8c1996867fb429152f164d101daa6b2cf"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/flutter/generated_plugin_registrant.h",
+      "new_path": "legacy/qubite-vpn/linux/flutter/generated_plugin_registrant.h",
+      "original_sha256": "00f93bb5b1faefdede8f6065df327522900fb0b8efee86bacf424fd947ed14bb"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/flutter/generated_plugins.cmake",
+      "new_path": "legacy/qubite-vpn/linux/flutter/generated_plugins.cmake",
+      "original_sha256": "c044a0cfa3ad278161fdf9068adae09e4f951f844f1c9f8449c2ac54d8c2f890"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/runner/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/linux/runner/CMakeLists.txt",
+      "original_sha256": "8cdcfd911e770fd7d511c97c7bce6559486a815352a47c953f7ef632e236d2cc"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/runner/main.cc",
+      "new_path": "legacy/qubite-vpn/linux/runner/main.cc",
+      "original_sha256": "ea23f7cdf74091d63bba29ef60486370b766157b848f0cfe62bd8b1c1695a0c1"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/runner/my_application.cc",
+      "new_path": "legacy/qubite-vpn/linux/runner/my_application.cc",
+      "original_sha256": "312bbc4493fd472fd929241bcc7b16dc885636a79840944b8795f477623ac1ae"
+    },
+    {
+      "old_path": "app/qubite_vpn/linux/runner/my_application.h",
+      "new_path": "legacy/qubite-vpn/linux/runner/my_application.h",
+      "original_sha256": "a4218d7ac0db8a9a6716daf216b2d4fc6bdc7ac647e3183078b2c962ebdfcf70"
+    },
+    {
+      "old_path": "app/qubite_vpn/macos/Flutter/GeneratedPluginRegistrant.swift",
+      "new_path": "legacy/qubite-vpn/macos/Flutter/GeneratedPluginRegistrant.swift",
+      "original_sha256": "42f8039de48a3c5872d1629a26d45ef2a19184a606ec7f8151e7e046273940a0"
+    },
+    {
+      "old_path": "app/qubite_vpn/macos/Flutter/ephemeral/Flutter-Generated.xcconfig",
+      "new_path": "legacy/qubite-vpn/macos/Flutter/ephemeral/Flutter-Generated.xcconfig",
+      "original_sha256": "be1ffc3c831a13885d8d8e412e29718bddbbf59438c44c21a23d7bacd8a3c2f8"
+    },
+    {
+      "old_path": "app/qubite_vpn/macos/Flutter/ephemeral/flutter_export_environment.sh",
+      "new_path": "legacy/qubite-vpn/macos/Flutter/ephemeral/flutter_export_environment.sh",
+      "original_sha256": "9b753164b0e632374a440910453c81a34a13a35ab8f4df6e6f795a330f048417"
+    },
+    {
+      "old_path": "app/qubite_vpn/pubspec.lock",
+      "new_path": "legacy/qubite-vpn/pubspec.lock",
+      "original_sha256": "f5ea9bd39abc4bbd4f0853d0f208d63c395c00a16ec0215179e12815b422874e"
+    },
+    {
+      "old_path": "app/qubite_vpn/pubspec.yaml",
+      "new_path": "legacy/qubite-vpn/pubspec.yaml",
+      "original_sha256": "4ef6238dc4028d31d265faabe7721d0d8a80cad4ef2c12f7fd8dc94c51c5e8c2"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/linux/clean.sh",
+      "new_path": "legacy/qubite-vpn/scripts/linux/clean.sh",
+      "original_sha256": "f5551d4512d422785450405c69b305fb4104548ddf041e29628c39327653bd38"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/linux/loader.sh",
+      "new_path": "legacy/qubite-vpn/scripts/linux/loader.sh",
+      "original_sha256": "4950eaca29cfae9870ddad592bd09b71e59fe2fb5b1e8099cd156938ec60f586"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/linux/runner.sh",
+      "new_path": "legacy/qubite-vpn/scripts/linux/runner.sh",
+      "original_sha256": "1dc34b73eb3989ba8b00d5600222376ed77dcb2a556bd931595a4eb989c09972"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/macos/clean.sh",
+      "new_path": "legacy/qubite-vpn/scripts/macos/clean.sh",
+      "original_sha256": "c6376e980679e498706283da93a77e60faf552710237e422bae9d182747f3756"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/macos/loader.sh",
+      "new_path": "legacy/qubite-vpn/scripts/macos/loader.sh",
+      "original_sha256": "b6ea63da3888fe1d0f19b4d9b21d8dcab4a866583047507b44a792dc012da7df"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/macos/runner.sh",
+      "new_path": "legacy/qubite-vpn/scripts/macos/runner.sh",
+      "original_sha256": "b53ee7005a853e0aab291d562ad65cf47306f4341213c24e2e1bece0e0a4387a"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/windows/clean.bat",
+      "new_path": "legacy/qubite-vpn/scripts/windows/clean.bat",
+      "original_sha256": "98f077370a545292fedbb0624ee9cf9b684986ebff2f881d23b6631ccd1e3eb2"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/windows/clean.ps1",
+      "new_path": "legacy/qubite-vpn/scripts/windows/clean.ps1",
+      "original_sha256": "2de956b3eec905d394ab051a4081c9f37c3d90908ce59764a8fe8a9e13486c5a"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/windows/loader.bat",
+      "new_path": "legacy/qubite-vpn/scripts/windows/loader.bat",
+      "original_sha256": "37c23ef1b7e3501d417510400d978fd2956d864d0e33872d72623046298625ea"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/windows/loader.ps1",
+      "new_path": "legacy/qubite-vpn/scripts/windows/loader.ps1",
+      "original_sha256": "8b7c5b090e6623c562af9f0a619bc5844bd0c5b6710b80bd52438cae0c344a34"
+    },
+    {
+      "old_path": "app/qubite_vpn/scripts/windows/runner.bat",
+      "new_path": "legacy/qubite-vpn/scripts/windows/runner.bat",
+      "original_sha256": "79acad9d26d9bcc7cab8b7bd792474e999039b67d8babb5413f4111cbef21cc1"
+    },
+    {
+      "old_path": "app/qubite_vpn/setup.sh",
+      "new_path": "legacy/qubite-vpn/setup.sh",
+      "original_sha256": "410fd5389a2c16ff56bc3ebfd9a3185f6987c056c1337aea5f8941c78b7df3fb"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/.gitignore",
+      "new_path": "legacy/qubite-vpn/windows/.gitignore",
+      "original_sha256": "96345475f1a3c66bd32d28178fba151ab1506b35b1f7857b8f7651863093ea11"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/windows/CMakeLists.txt",
+      "original_sha256": "e8f8b4b746e8ed6ca3ca91af55865eb1ec267ace7727ab000b65cfb915a47e04"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/flutter/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/windows/flutter/CMakeLists.txt",
+      "original_sha256": "1fe418971b6f41bb35ceb3d64113a835f3f6f171ecaa707bf232492b57a588d6"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/flutter/generated_plugin_registrant.cc",
+      "new_path": "legacy/qubite-vpn/windows/flutter/generated_plugin_registrant.cc",
+      "original_sha256": "cb0332adbb6298b6b16bf7e52842d628d5c2952d18d02eecdab3636f4339eb08"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/flutter/generated_plugin_registrant.h",
+      "new_path": "legacy/qubite-vpn/windows/flutter/generated_plugin_registrant.h",
+      "original_sha256": "dbc11635d7b1ba1887adf40df5b83d634e9c3ab0bee34510c71528bb4d73602a"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/flutter/generated_plugins.cmake",
+      "new_path": "legacy/qubite-vpn/windows/flutter/generated_plugins.cmake",
+      "original_sha256": "9b50448a4ab106d34c39bb8a71261772ade094b7989d959f39a42ffaf43858b5"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/CMakeLists.txt",
+      "new_path": "legacy/qubite-vpn/windows/runner/CMakeLists.txt",
+      "original_sha256": "491bc7ee49117961ec7481858c0c3ab1b8cb1c8c34493a536a3fb1b57f3d6d3d"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/Runner.rc",
+      "new_path": "legacy/qubite-vpn/windows/runner/Runner.rc",
+      "original_sha256": "ef5f3ff9194d6f7ff52962290caa0fe908e1c685fb01342d7ae91ef67b420b91"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/flutter_window.cpp",
+      "new_path": "legacy/qubite-vpn/windows/runner/flutter_window.cpp",
+      "original_sha256": "e9a3f9190bc16563a2b84d77c2038553392d87dba32705aead0326de587084c6"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/flutter_window.h",
+      "new_path": "legacy/qubite-vpn/windows/runner/flutter_window.h",
+      "original_sha256": "b772d537cbb900bd4cc53add3addf43855790fbafc0dbc770b90cb247c4c587e"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/main.cpp",
+      "new_path": "legacy/qubite-vpn/windows/runner/main.cpp",
+      "original_sha256": "129d3d1d8acce8517769f290733f11fe8b003bd84f3e963b31efb33aee29781b"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/resource.h",
+      "new_path": "legacy/qubite-vpn/windows/runner/resource.h",
+      "original_sha256": "2a9e0c4a3f355fdd8a888e43994edfca95df13b4ceec9a252e65023e10d13ac3"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/resources/app_icon.ico",
+      "new_path": "legacy/qubite-vpn/windows/runner/resources/app_icon.ico",
+      "original_sha256": "c098d3fc85cacff98b8e69811b48e9f0d852fcee278132d794411d978869cbf8"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/runner.exe.manifest",
+      "new_path": "legacy/qubite-vpn/windows/runner/runner.exe.manifest",
+      "original_sha256": "825d243e9fa1542619909c1b72d09b3ed7c1f3b225bb8367c125835e5dc3f8aa"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/utils.cpp",
+      "new_path": "legacy/qubite-vpn/windows/runner/utils.cpp",
+      "original_sha256": "4981914ebd0d6f87b03591c9f495fd2db75ba15149bb8a754991a4e86c059cd5"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/utils.h",
+      "new_path": "legacy/qubite-vpn/windows/runner/utils.h",
+      "original_sha256": "f26a6cf563b9c81e60a76f210e2765f264795c902ccade58ab0024d7b8e0c814"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/win32_window.cpp",
+      "new_path": "legacy/qubite-vpn/windows/runner/win32_window.cpp",
+      "original_sha256": "8ec03be4072747e7d2d447797915b56168a1fa8a215a6d120940860641bd8f89"
+    },
+    {
+      "old_path": "app/qubite_vpn/windows/runner/win32_window.h",
+      "new_path": "legacy/qubite-vpn/windows/runner/win32_window.h",
+      "original_sha256": "3c5c695995ea20c2c4addfcfe58945437f465e442e6a1f12b40cced0dc478c17"
+    },
+    {
+      "old_path": "app/task.md",
+      "new_path": "legacy/qubite-vpn/docs/task.md",
+      "original_sha256": "399f69a766c6a97929a266a5a7fbcdc7efa626866e461ee84b869c1044d1221d",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "back/package-lock.json",
+      "new_path": "legacy/qubite-v1/back/package-lock.json",
+      "original_sha256": "523211ff8059899b54514a92ed392a1fed6abc580452cae6667339d612f9dbda"
+    },
+    {
+      "old_path": "back/package.json",
+      "new_path": "legacy/qubite-v1/back/package.json",
+      "original_sha256": "9a46dbec11276fb8def60f33424168e6ade19d3229e81dbb029ca77055d71fbf"
+    },
+    {
+      "old_path": "back/public/knowledge-enroll.html",
+      "new_path": "legacy/qubite-v1/back/public/knowledge-enroll.html",
+      "original_sha256": "6af1d403daf15e33b693215da7ebcda61d17c1a0dc38a9aee45ec0898818be97"
+    },
+    {
+      "old_path": "back/public/knowledge-enroll.js",
+      "new_path": "legacy/qubite-v1/back/public/knowledge-enroll.js",
+      "original_sha256": "fb727998f7a0c2ed1cef4b6abd98e5290ea992cb3d7f8de097fbdc916c62d0e1"
+    },
+    {
+      "old_path": "back/public/service-invite.html",
+      "new_path": "legacy/qubite-v1/back/public/service-invite.html",
+      "original_sha256": "57ba214c061f204cc4c91969ed78d0e9d90cd5caa2c9708e869c30341535de0a"
+    },
+    {
+      "old_path": "back/public/writing.css",
+      "new_path": "legacy/qubite-v1/back/public/writing.css",
+      "original_sha256": "d6875a79dd612a7887e82975ad303ce553d17f21a20f4be90302cf4deeaf484d"
+    },
+    {
+      "old_path": "back/public/writing.html",
+      "new_path": "legacy/qubite-v1/back/public/writing.html",
+      "original_sha256": "8738554a49e86e4fe8741c8ef0cf12eed16a3b4ab316932a2bc992851482465f"
+    },
+    {
+      "old_path": "back/public/writing.js",
+      "new_path": "legacy/qubite-v1/back/public/writing.js",
+      "original_sha256": "2bfdc98e59fe84e544ea1c9f993fffe6b5c05601e282ec2857f833eeba86a0e3"
+    },
+    {
+      "old_path": "back/scripts/invite-owner.js",
+      "new_path": "legacy/qubite-v1/back/scripts/invite-owner.js",
+      "original_sha256": "c968bb90b778ff0e20fb97b6569e4e1500e30a8b8d117df60cffb5717252ed72"
+    },
+    {
+      "old_path": "back/scripts/maintenance-off.js",
+      "new_path": "legacy/qubite-v1/back/scripts/maintenance-off.js",
+      "original_sha256": "09ab15e5a55359235d7571ec3c1ae595751156b43e34e7c78b5428527140e64d"
+    },
+    {
+      "old_path": "back/scripts/promote-admin.js",
+      "new_path": "legacy/qubite-v1/back/scripts/promote-admin.js",
+      "original_sha256": "429d3be0574fc4a63e53b759341f93a21a2eb7bacb3814b3eedb770d33dc2d6b"
+    },
+    {
+      "old_path": "back/scripts/seed-demo-screenshot.js",
+      "new_path": "legacy/qubite-v1/back/scripts/seed-demo-screenshot.js",
+      "original_sha256": "e14c69a053f09d76b663eebe71b914c36c43c3017afa9fced5cffa7301e27a95"
+    },
+    {
+      "old_path": "back/scripts/set-owner.js",
+      "new_path": "legacy/qubite-v1/back/scripts/set-owner.js",
+      "original_sha256": "b60058c25f6fbddfb7b13de6b58334d896d8d93870188ece609bfc4fcc44f20c"
+    },
+    {
+      "old_path": "back/server.js",
+      "new_path": "legacy/qubite-v1/back/server.js",
+      "original_sha256": "3225aa710a3acfc1cc9d1847795e7dc84c7c00e9f53cfc43ceba47e52779f915"
+    },
+    {
+      "old_path": "back/src/auth-surface.js",
+      "new_path": "legacy/qubite-v1/back/src/auth-surface.js",
+      "original_sha256": "afa5b9a7970f757be18bf480cf5aef84ec37c22ab56905c3a7d2be8cdf97ae09"
+    },
+    {
+      "old_path": "back/src/config.js",
+      "new_path": "legacy/qubite-v1/back/src/config.js",
+      "original_sha256": "40b8f193e1f1e13af3efb8e55bf08b836eea7aba589c745c9ef1bce4c3b909e3",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "back/src/db.js",
+      "new_path": "legacy/qubite-v1/back/src/db.js",
+      "original_sha256": "2387c532b0ab05a2b6285451b7fd3568501c05fe27f9922823da8e8a4bcd17d5"
+    },
+    {
+      "old_path": "back/src/email.js",
+      "new_path": "legacy/qubite-v1/back/src/email.js",
+      "original_sha256": "71dfe6af96a9d265d8accb1549bbad9203b0a07ce1bc4f0c088c241196d18c36"
+    },
+    {
+      "old_path": "back/src/imports.js",
+      "new_path": "legacy/qubite-v1/back/src/imports.js",
+      "original_sha256": "c2710fc18d66951a986cb0e73352fcf75a3e9ce1367e9e7f84bb17afdfc79f00"
+    },
+    {
+      "old_path": "back/src/knowledge-api.js",
+      "new_path": "legacy/qubite-v1/back/src/knowledge-api.js",
+      "original_sha256": "5a6defec5c877089aec8a0293981f68f49a2b45c0d444f00349442ca1fa7d165"
+    },
+    {
+      "old_path": "back/src/knowledge-enrollment.js",
+      "new_path": "legacy/qubite-v1/back/src/knowledge-enrollment.js",
+      "original_sha256": "0a9cba97ea8c0c8aa68ca615dc5f81fe4464877612dd8d925ceb156703888575"
+    },
+    {
+      "old_path": "back/src/knowledge-services.js",
+      "new_path": "legacy/qubite-v1/back/src/knowledge-services.js",
+      "original_sha256": "fbff48c2375186fcdd02687ab568f591ae6dd0af6100338660b62e4a8ebe145f"
+    },
+    {
+      "old_path": "back/src/oauth.js",
+      "new_path": "legacy/qubite-v1/back/src/oauth.js",
+      "original_sha256": "e4ddecd192774bf8698eb3d088ab0a86d47d2158159da7c045ee4347c961532b"
+    },
+    {
+      "old_path": "back/src/process-events.js",
+      "new_path": "legacy/qubite-v1/back/src/process-events.js",
+      "original_sha256": "ea276e1cf8cda4f38bd1cee9abfc9c7c7d3e91e1ae0726bdb26f47b2b4666419"
+    },
+    {
+      "old_path": "back/src/proxy/availability.js",
+      "new_path": "legacy/qubite-v1/back/src/proxy/availability.js",
+      "original_sha256": "9a9944ee75fe547382a300c1a08fdad75f124ceea011a0dd9529da9f26f6f045"
+    },
+    {
+      "old_path": "back/src/proxy/personal.js",
+      "new_path": "legacy/qubite-v1/back/src/proxy/personal.js",
+      "original_sha256": "16e430b5bbc0d22c7c9bbfacd8de82e309e9876e454d44764d018fa536a45d70"
+    },
+    {
+      "old_path": "back/src/proxy/routes.js",
+      "new_path": "legacy/qubite-v1/back/src/proxy/routes.js",
+      "original_sha256": "bfed07f7dde26a94b33acc70b61fda984bef041f43b933a74df47217fb8b8583"
+    },
+    {
+      "old_path": "back/src/request-guard.js",
+      "new_path": "legacy/qubite-v1/back/src/request-guard.js",
+      "original_sha256": "9d9378172852e71c7dc61be2f6c01a8ee48408afff203149094c64a8817db9c4"
+    },
+    {
+      "old_path": "back/src/search-logs.js",
+      "new_path": "legacy/qubite-v1/back/src/search-logs.js",
+      "original_sha256": "ef34cec960f71868a7b23422ca4939a2bf1fb25c469bda04c026235edcdd1a9f"
+    },
+    {
+      "old_path": "back/src/security.js",
+      "new_path": "legacy/qubite-v1/back/src/security.js",
+      "original_sha256": "8050956ab3e95598f07821e0614a2aab9630b4f52b671413dcda3ee101bfde89"
+    },
+    {
+      "old_path": "back/src/service-api.js",
+      "new_path": "legacy/qubite-v1/back/src/service-api.js",
+      "original_sha256": "7da78de8e24fe9fced064f07970749db5c4146af4f4cbfbd2bcbb19e86ceb67d"
+    },
+    {
+      "old_path": "back/src/service-runtime.js",
+      "new_path": "legacy/qubite-v1/back/src/service-runtime.js",
+      "original_sha256": "e3a7b32229f56ce7b7ab66fe2153caa1779c1e66efdfd9cb93b56af397f0187a"
+    },
+    {
+      "old_path": "back/src/services.js",
+      "new_path": "legacy/qubite-v1/back/src/services.js",
+      "original_sha256": "a90568390277cd618837cd550e2cb36a35ea47ee0a6ab151b8a2ffd1d2add142"
+    },
+    {
+      "old_path": "back/src/siyuan.js",
+      "new_path": "legacy/qubite-v1/back/src/siyuan.js",
+      "original_sha256": "863208f59dcd78b2e74ef9c5410245170b6054f6f6100f7a0ed0dc727ed0a11c"
+    },
+    {
+      "old_path": "back/src/task-runtime.js",
+      "new_path": "legacy/qubite-v1/back/src/task-runtime.js",
+      "original_sha256": "440b612a780551b9adfdcfd05ddb182fdc8376572693569347ae341bdcb0f57b"
+    },
+    {
+      "old_path": "back/src/telegram-bot.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram-bot.js",
+      "original_sha256": "58256182df6306eeace37189c6dc4cb63899e14454b6e0c156d752e18fdcf292"
+    },
+    {
+      "old_path": "back/src/telegram/access.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/access.js",
+      "original_sha256": "57865888e88a2315961c677649a0305bc49ac984cda4ad2cb4672520f29eed67"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/access.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/access.js",
+      "original_sha256": "907d8e01bfc9acf3bcb004f421c20e7c40d23d445828d91c6b6d0b19ba0bb582"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/admin.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/admin.js",
+      "original_sha256": "11f871e5bfb1c8b116c4235143957b1bdfcf0a701c08c5a8e22f71a140f4d879"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/analytics.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/analytics.js",
+      "original_sha256": "13de2a63451ea95d6477d50056a19d3effa584500b771f88bfeb5bf4cb050b56"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/moderation.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/moderation.js",
+      "original_sha256": "61dae076b085be37ae380a2757c1e0c15b6e84a0a42a2d809075993a53c50b63"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/proxy.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/proxy.js",
+      "original_sha256": "bc2ea7d16e5c3c935f422742f6fe1fd5995c06434e58c7ba682382e737ce758e"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/runtime.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/runtime.js",
+      "original_sha256": "ef56efc5ee63009fb5903d09a154df163288bf4c9b3a69c30ced0d95be60cd02"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/services.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/services.js",
+      "original_sha256": "868eed75e4cbdf14e8eff5d29a4b182f778a9528416f07c7038e8ba250cdf67c"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/settings.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/settings.js",
+      "original_sha256": "cb9190cbeadc8cc718d0b4bf54ca9371c8ed9187a26aa0e0632c72b67362c11c"
+    },
+    {
+      "old_path": "back/src/telegram/handlers/support.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/handlers/support.js",
+      "original_sha256": "068cf5b295641bfd67fc22c7f7b1ad2d68db19773d3845ae890dfa19732b3315"
+    },
+    {
+      "old_path": "back/src/telegram/menus.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/menus.js",
+      "original_sha256": "5b152169ce95b586aae3be2e571192c8397f59d41ad3095f9676f003ad5f4a5e"
+    },
+    {
+      "old_path": "back/src/telegram/notifier.js",
+      "new_path": "legacy/qubite-v1/back/src/telegram/notifier.js",
+      "original_sha256": "c47f2f1150dd08d690b54141135b06f9e57dbb00e8d0efe69ef17938ab955d0e"
+    },
+    {
+      "old_path": "back/src/turnstile.js",
+      "new_path": "legacy/qubite-v1/back/src/turnstile.js",
+      "original_sha256": "0e201fe6b7e6825a0f1268573f5e49f42692637f94dcafcac6702a4a5852b04b"
+    },
+    {
+      "old_path": "back/src/vault-integration.js",
+      "new_path": "legacy/qubite-v1/back/src/vault-integration.js",
+      "original_sha256": "ea528ac177915846720ceed3f084407fb0a8d3caa434577896c12065473b236a"
+    },
+    {
+      "old_path": "back/src/writing.js",
+      "new_path": "legacy/qubite-v1/back/src/writing.js",
+      "original_sha256": "1978b585b83cf0359b85a64d6f666d71804f8eb92cb695799d3a9e68a3d429d2",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "back/telegram-worker.js",
+      "new_path": "legacy/qubite-v1/back/telegram-worker.js",
+      "original_sha256": "708977c0f80761be006ae3691a8438dc5cbbdc32a3c19a3b0ab7e27f5afa00c1"
+    },
+    {
+      "old_path": "back/tests/auth-config.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/auth-config.test.js",
+      "original_sha256": "613c438b24b63649c9eec4b05f219323ea82ffdc83ea97a481ee14d2ca528c31"
+    },
+    {
+      "old_path": "back/tests/auth-http.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/auth-http.test.js",
+      "original_sha256": "3a7b7785394141d4901fd29d8e1b3fe47c01fe95451d3ae9db5ba522af4d2cbb"
+    },
+    {
+      "old_path": "back/tests/auth-legacy-baseline.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/auth-legacy-baseline.test.js",
+      "original_sha256": "a3e19e3c415754a11eb26908643f59bc1ea14edeedaac7342b5b035f7a492564",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "back/tests/auth-surface.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/auth-surface.test.js",
+      "original_sha256": "3251db19cd28ccfb23cc1711ba90a16c88f2731ccc87a78a1b1177eb5660ad8c"
+    },
+    {
+      "old_path": "back/tests/fixtures/auth-server.cjs",
+      "new_path": "legacy/qubite-v1/back/tests/fixtures/auth-server.cjs",
+      "original_sha256": "6de20c47103fe0a1dc0784b596404d602eb02df1849032a467f3d5923803a47e",
+      "change_reason": "Test fixture: HTTP readiness ignores the standalone platform Unix IPC listener; no runtime change."
+    },
+    {
+      "old_path": "back/tests/knowledge-api.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/knowledge-api.test.js",
+      "original_sha256": "cbf95ccfcccb3ead20493f81f86646ff17d3fcf3e0d406650b5d0b67d4208f29"
+    },
+    {
+      "old_path": "back/tests/knowledge-enrollment.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/knowledge-enrollment.test.js",
+      "original_sha256": "53b99e1715d31e6ee2bcb3cad06aeef01cc3848956ce56d699b3893eccc1bb67"
+    },
+    {
+      "old_path": "back/tests/process-events.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/process-events.test.js",
+      "original_sha256": "f87342b21342268e527afcc55f1f9228127fd7f896f6b5f721f0381437081118"
+    },
+    {
+      "old_path": "back/tests/services.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/services.test.js",
+      "original_sha256": "e423612bcc221f8b03749100f2585525feadbb79dea6f88789ba0220dad2e2c9"
+    },
+    {
+      "old_path": "back/tests/siyuan.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/siyuan.test.js",
+      "original_sha256": "56ea6e7cc5d15738759231e3166dd6dfaf820535932f35a713265c17de46a3bd"
+    },
+    {
+      "old_path": "back/tests/telegram-runtime.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/telegram-runtime.test.js",
+      "original_sha256": "2823c6e315df53806d5389cac6ec8f4ee5adc346278832fa1b848d8824241b6a"
+    },
+    {
+      "old_path": "back/tests/telegram-services.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/telegram-services.test.js",
+      "original_sha256": "635adcdb3c5d18315c1745ce3369cd4bc5a3b40170c5b81283775752280e4acd"
+    },
+    {
+      "old_path": "back/tests/tournaments-baseline.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/tournaments-baseline.test.js",
+      "original_sha256": "a2eba2a72a6820b1895b2cd0f0c089890f5d26cb3add4b7883c05bceb6084e0e"
+    },
+    {
+      "old_path": "back/tests/writing-addon.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/writing-addon.test.js",
+      "original_sha256": "a187b1b708592d5436657e05e9cd694d4462c16745ec1407bcf8c605eace9c95",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "back/tests/writing.test.js",
+      "new_path": "legacy/qubite-v1/back/tests/writing.test.js",
+      "original_sha256": "97709f9d0b395cad7828631a260239c5fa1a7a9b645f278bb1ad44eeae783e48"
+    },
+    {
+      "old_path": "deploy/PROD_STEPS_RU.md",
+      "new_path": "legacy/qubite-v1/deploy/PROD_STEPS_RU.md",
+      "original_sha256": "0c1c4d9cd077d43e07944988887aa6f3646240c1471d9c4bff553a1ca83890ea",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md",
+      "new_path": "legacy/qubite-v1/deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md",
+      "original_sha256": "01020d23dcfdff338968e0975f626732e42ab5665306818c7e187ff66144cde7",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "deploy/default",
+      "new_path": "legacy/qubite-v1/deploy/default",
+      "original_sha256": "e51d48915cfedd09a3691cdea92f4cd873bc3b72e610b7be9480b6bf264adc05"
+    },
+    {
+      "old_path": "deploy/firewall/UFW.md",
+      "new_path": "legacy/qubite-v1/deploy/firewall/UFW.md",
+      "original_sha256": "80a26f4536d9167a2ba0283526fbf3da974af2e8c7e8715a99931434a28997f6",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "deploy/firewall/nftables-qubite.nft",
+      "new_path": "legacy/qubite-v1/deploy/firewall/nftables-qubite.nft",
+      "original_sha256": "670496ed39f1ab00f3879654e8c9c86d9ffaf07bc5ca1d23073951e8e1051c36"
+    },
+    {
+      "old_path": "deploy/install.sh",
+      "new_path": "legacy/qubite-v1/deploy/install.sh",
+      "original_sha256": "0b8ec59141c9388ff2db88657dd4e4490bb8f5f653b7978adb89689d1543cac8",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "deploy/knowledge-manager.py",
+      "new_path": "legacy/qubite-v1/deploy/knowledge-manager.py",
+      "original_sha256": "ec0a76bee0d25030f7c778d982b819abea195ecf19423898a49b09c616a73b64"
+    },
+    {
+      "old_path": "deploy/nginx/qubite.conf",
+      "new_path": "legacy/qubite-v1/deploy/nginx/qubite.conf",
+      "original_sha256": "79a11c1fb0567c316c84995c79b740688409f0cd2e33efa01ebbfb329a7323f8"
+    },
+    {
+      "old_path": "deploy/nginx/snippets/qubite-proxy-headers.conf",
+      "new_path": "legacy/qubite-v1/deploy/nginx/snippets/qubite-proxy-headers.conf",
+      "original_sha256": "0d38b20c83e7285576cc6ef60afc6ae22cd9ff2af6e41fd8afd1519d21476d29"
+    },
+    {
+      "old_path": "deploy/proxy/Caddyfile.naive",
+      "new_path": "legacy/qubite-v1/deploy/proxy/Caddyfile.naive",
+      "original_sha256": "20f8941f6f5b6577f5fb3382c782bf9d31a3c5b4393cf67f3f5f562d4c9e811d"
+    },
+    {
+      "old_path": "deploy/proxy/install.sh",
+      "new_path": "legacy/qubite-v1/deploy/proxy/install.sh",
+      "original_sha256": "f282dd12492b38a29c4926a6fe6db0fc561292f217c47122664988ee12c29486",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "deploy/proxy/nginx-internal-qubite.conf",
+      "new_path": "legacy/qubite-v1/deploy/proxy/nginx-internal-qubite.conf",
+      "original_sha256": "0c61f5818490b5a2ae1723a4e59561fd41a82233bba2da300397db67717774eb"
+    },
+    {
+      "old_path": "deploy/proxy/nginx-sni-router.conf",
+      "new_path": "legacy/qubite-v1/deploy/proxy/nginx-sni-router.conf",
+      "original_sha256": "ab39a02a5e1da23cb7a94e7147f79a75a93a07cc1dcea428883a3474c97cbd03"
+    },
+    {
+      "old_path": "deploy/proxy/proxy-log-reporter.mjs",
+      "new_path": "legacy/qubite-v1/deploy/proxy/proxy-log-reporter.mjs",
+      "original_sha256": "8a317dd00daeef5cf9553641d0c57ad33c0f5645e9a77dcc26403738d126b50f"
+    },
+    {
+      "old_path": "deploy/proxy/proxy-node-heartbeat.mjs",
+      "new_path": "legacy/qubite-v1/deploy/proxy/proxy-node-heartbeat.mjs",
+      "original_sha256": "3252eb35b73e8707ff588a0f1b271bb967285c0b86b8e571d3151a8d05d1b102"
+    },
+    {
+      "old_path": "deploy/proxy/setup-master-server.sh",
+      "new_path": "legacy/qubite-v1/deploy/proxy/setup-master-server.sh",
+      "original_sha256": "129a559a53501c54ba667bedf6426a2bf00e5032c77265ff81127c5385247c86",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "deploy/proxy/setup-proxy-node.sh",
+      "new_path": "legacy/qubite-v1/deploy/proxy/setup-proxy-node.sh",
+      "original_sha256": "1b68b9bb70743e2c925fe638dd317d75ea6a235a09d799d2c1b58045e492b109"
+    },
+    {
+      "old_path": "deploy/proxy/singbox-reality-config.json",
+      "new_path": "legacy/qubite-v1/deploy/proxy/singbox-reality-config.json",
+      "original_sha256": "9fb0aa403c9eaeb0293a9a90227cc403f4750e81b2e14f525e59a8be6b71fab0"
+    },
+    {
+      "old_path": "deploy/proxy/sync-caddy-credentials.mjs",
+      "new_path": "legacy/qubite-v1/deploy/proxy/sync-caddy-credentials.mjs",
+      "original_sha256": "70cc9d9a88001d74486378806ac2f821eafbe1fb9398e75d935267dcd5844384"
+    },
+    {
+      "old_path": "deploy/proxy/tc-fair-share.sh",
+      "new_path": "legacy/qubite-v1/deploy/proxy/tc-fair-share.sh",
+      "original_sha256": "4222ac93da500915000df071a026a03ebcf68a84007090d81b77be4aae4ff959"
+    },
+    {
+      "old_path": "deploy/qubite-proxy-headers.conf",
+      "new_path": "legacy/qubite-v1/deploy/qubite-proxy-headers.conf",
+      "original_sha256": "0d38b20c83e7285576cc6ef60afc6ae22cd9ff2af6e41fd8afd1519d21476d29"
+    },
+    {
+      "old_path": "deploy/runtime-manager.py",
+      "new_path": "legacy/qubite-v1/deploy/runtime-manager.py",
+      "original_sha256": "d8091df4578032fb4e1cb54288e9fec581ab7692a6e86cbd03616867dabec376"
+    },
+    {
+      "old_path": "deploy/services/caddy_merge.py",
+      "new_path": "legacy/qubite-v1/deploy/services/caddy_merge.py",
+      "original_sha256": "2b09e7903c65789797413e4d1950225825fb40f4d4e0fff7164b0a387366c265"
+    },
+    {
+      "old_path": "deploy/services/configure.py",
+      "new_path": "legacy/qubite-v1/deploy/services/configure.py",
+      "original_sha256": "6c716a41ed9aba57032b480c5c04a778093c1399c8681a6e4ec8b8e9ad46bfac",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "deploy/services/ingress.py",
+      "new_path": "legacy/qubite-v1/deploy/services/ingress.py",
+      "original_sha256": "ca3c8ba37b506e835fd759ec57e78df43773e64febe217c921edcbe0bef33972"
+    },
+    {
+      "old_path": "deploy/services/install.sh",
+      "new_path": "legacy/qubite-v1/deploy/services/install.sh",
+      "original_sha256": "96638ebea820ca6476cafa64f64db0b54ab5182f1154fdabc29b9f7e1aa7b6bd",
+      "change_reason": "Явный runtime/installer/test путь после переноса; domain/auth/scoring logic не переписывается"
+    },
+    {
+      "old_path": "deploy/services/languagetool.py",
+      "new_path": "legacy/qubite-v1/deploy/services/languagetool.py",
+      "original_sha256": "fb7497684321f0e26754c14f99bd660fb3919a94d6fed9f38357b0263d58b46d"
+    },
+    {
+      "old_path": "deploy/services/qubite-leadbot.service",
+      "new_path": "legacy/qubite-v1/deploy/services/qubite-leadbot.service",
+      "original_sha256": "adc0b632e5a3ed32865054a89f93f0932389c3b563e4263215480d05cb6f88cb"
+    },
+    {
+      "old_path": "deploy/services/runtime.py",
+      "new_path": "legacy/qubite-v1/deploy/services/runtime.py",
+      "original_sha256": "cb1470acc1bf79445b440b56d793eccb6f05d1fd2f71c1146180ef1fa46bac32"
+    },
+    {
+      "old_path": "deploy/services/searx_defaults.py",
+      "new_path": "legacy/qubite-v1/deploy/services/searx_defaults.py",
+      "original_sha256": "86874c9e702cf40002bd1971a205590ecd4ca54ef82f44ebe9c1367e8c021d61"
+    },
+    {
+      "old_path": "deploy/services/tests/test_knowledge_manager.py",
+      "new_path": "legacy/qubite-v1/deploy/services/tests/test_knowledge_manager.py",
+      "original_sha256": "40fcd2045cd2c468bcf6e60911ec46d11d6a21843aab920916b57a618f4944cf"
+    },
+    {
+      "old_path": "deploy/services/tests/test_merge.py",
+      "new_path": "legacy/qubite-v1/deploy/services/tests/test_merge.py",
+      "original_sha256": "103d70e19408eac473de9edb5e8e292f9463ecc00bcce7c0c8913645c86885b9"
+    },
+    {
+      "old_path": "deploy/services/tests/test_runtime_manager.py",
+      "new_path": "legacy/qubite-v1/deploy/services/tests/test_runtime_manager.py",
+      "original_sha256": "2aa4a82bdc5c69c15fd769ff846b2a79e0fb2c9e4c2ad007ced22f90ce72998f"
+    },
+    {
+      "old_path": "deploy/sysctl/99-qubite-security.conf",
+      "new_path": "legacy/qubite-v1/deploy/sysctl/99-qubite-security.conf",
+      "original_sha256": "5e22743bb6b4742b637772cf4931ca369c3f437607dc41bceb10c29817dccc6c"
+    },
+    {
+      "old_path": "deploy/vault-manager.py",
+      "new_path": "legacy/qubite-v1/deploy/vault-manager.py",
+      "original_sha256": "4e22c9a559408e4bc7ab0adfaac62469775b51d24221f268d19a85a884f29ec7"
+    },
+    {
+      "old_path": "design-system.html",
+      "new_path": "legacy/qubite-v1/design-system.html",
+      "original_sha256": "1294d9337c0ddbbfbf20f879fd9e0cc4f86d15095757f7a327ad3d115ab55917"
+    },
+    {
+      "old_path": "docs/architecture.md",
+      "new_path": "legacy/qubite-v1/docs/architecture.md",
+      "original_sha256": "645c78053396ad85605aaf368ec3adb069b3639c7e455e3973b8a1bf7da7fff1",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/deploy-and-production.md",
+      "new_path": "legacy/qubite-v1/docs/deploy-and-production.md",
+      "original_sha256": "52ad76fa27e4b4cfb08e180c97b851834ba0d8db6009e0c553a75e192b6e3660",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/design-system.md",
+      "new_path": "legacy/qubite-v1/docs/design-system.md",
+      "original_sha256": "0ee3f143b5bd8db4723c54b8226cacb0e6ab341634139dca2ca6ffd10f56cb55",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/development.md",
+      "new_path": "legacy/qubite-v1/docs/development.md",
+      "original_sha256": "54dcbc31d5184d957b646ead0e65b552e0a1afd3715366d98293e5a10130d072",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/README.md",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/README.md",
+      "original_sha256": "d4d1b2ae5979024acfe381788551f2ea117319c392062821af9490628ffbb9f5",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Jura-Bold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Jura-Bold.ttf",
+      "original_sha256": "0b5cc5b9856646d023359bed3dbd00f5383c9bc00a6ebdb8430c371753ab417d"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Jura-Light.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Jura-Light.ttf",
+      "original_sha256": "ae143c062374c4611f0a627de5d20c544fb8cda003bfa967e21cb29383e936f7"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Jura-Medium.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Jura-Medium.ttf",
+      "original_sha256": "e58c99ba9df5990ccade58bcae85e6013bf5446ae88ec4195fb218d770a41542"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Jura-Regular.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Jura-Regular.ttf",
+      "original_sha256": "17f7f6845c15abc3390819964682f6022866a45c3e64f23d38302a125921843e"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Jura-SemiBold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Jura-SemiBold.ttf",
+      "original_sha256": "2a325366e04c2f3e544fe3561f78831094c2239cd905a6e2222124cc32eb4dd0"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-Bold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-Bold.ttf",
+      "original_sha256": "0c8fde238099c5a8a0877a7628bca477f089eba9708668cb1b984d5ffcda812f"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-ExtraBold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-ExtraBold.ttf",
+      "original_sha256": "bc134c9a103f5e14b841b6785561ec74bf075de77b8f6bceb2402dc5b96e449b"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-Light.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-Light.ttf",
+      "original_sha256": "f6d9645e0a03ff38df488efb8e51ec9d98f5bec980daacc081850240bf220ee0"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-Medium.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-Medium.ttf",
+      "original_sha256": "d1b04d584a93ce853a876cc3ccc28cc07e2c2e8539783e1bfb316c3004ec3469"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-Regular.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-Regular.ttf",
+      "original_sha256": "67490872c2a5b266114263dcad1fea6275a16d606e2cffa8a6656e5187b20180"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/Manrope-SemiBold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/Manrope-SemiBold.ttf",
+      "original_sha256": "5aa80a962f5b9f1ff5e1ecf65ff30f68d7630d9cb0a7d3da80310428c0ae18ee"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/OFL.txt",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/OFL.txt",
+      "original_sha256": "d6227adcf031a9899e0f4fd017cfa4d9c88a1e223a4f08a64af10979802c06b9"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Light.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Light.ttf",
+      "original_sha256": "4ea1b1687f9c1994228e842ef35941c72f125e97da80dacdcbecd9184d0ae185"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Medium.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Medium.ttf",
+      "original_sha256": "d8135bce6603398f3d0cdb478a018d7fa869b0168d037a9408cad23e030bfa7a"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Regular.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-Regular.ttf",
+      "original_sha256": "637578d47b0e70e02b3eb5056847dd9add17bd683234d28f5d11a6cf66ff2725"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-SemiBold.ttf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/fonts/SpaceGrotesk-SemiBold.ttf",
+      "original_sha256": "279a5d22b8ab377f41706af566610667db3941b069b50187b98af09ca3b08f91"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/01-landing.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/01-landing.png",
+      "original_sha256": "39976c35d97bfd59c9f559442230df3e231392340405e21c6242e69a0c324172"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/02-landing-features.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/02-landing-features.png",
+      "original_sha256": "31fa36fc3eb00ea599f49b01a6df1bdbe3a593d0bb42bdf78cc96b48df0b8471"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/02-login-modal.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/02-login-modal.png",
+      "original_sha256": "70b80b12f5cefa6ea67165bb024d83cd25d5af0edfee64f0c0d32ae7bb1d4023"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/02-login.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/02-login.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/03-dashboard.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/03-dashboard.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/03-login-modal.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/03-login-modal.png",
+      "original_sha256": "70334c5fbea7ff148b32a1b5517fbe000e400401b61d68743fa156f440e8910d"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/03-user-dashboard.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/03-user-dashboard.png",
+      "original_sha256": "d55a58f3e620dccdc6ed36618afaebe88ed9e4ccebf8b4a7e850506f52d01f35"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/04-dashboard.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/04-dashboard.png",
+      "original_sha256": "c9832fbad7708fe6ba6607e8faba26b2e466bd4fe9ea9df1395766f243d57367"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/04-tournaments-list.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/04-tournaments-list.png",
+      "original_sha256": "9473dd28bebe501012623f2cd525ff548f7256cbfab8e23d895fbea3fce15246"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/04-tournaments.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/04-tournaments.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/05-task.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/05-task.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/05-tournament-overview.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/05-tournament-overview.png",
+      "original_sha256": "c65e1ec3e1d9c74d16ec16b63001a3ef2f10e5a64d006af7879efa6c0b413b72"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/05-tournaments.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/05-tournaments.png",
+      "original_sha256": "5b27d9ae4e35a4ae6406c1cae5be7a172e4ffefa4bdfa5a72a7470285e57a67e"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/06-profile.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/06-profile.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/06-tournament-rating.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/06-tournament-rating.png",
+      "original_sha256": "db309001d8748974dcdbfa07011bade60f249793735ffd4fc82cf6c8a202aae1"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/07-profile-personal.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/07-profile-personal.png",
+      "original_sha256": "7616dce0b18ea399cc20b2f6bad88e5281db651da20b8cd00ef52045133f18ae"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/07-team.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/07-team.png",
+      "original_sha256": "7cda60e8f76d71086340bc9d4582aa54bdf1489e22b038709235bfd8bec7bc21"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/08-profile-security.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/08-profile-security.png",
+      "original_sha256": "ae1d504f29a6a9bcba43136f4c7160afc3ed2d2a069e9a9ec9eff496d75311b9"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/09-profile-analytics-summary.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/09-profile-analytics-summary.png",
+      "original_sha256": "60bf5da782ba3fed708219f1617513a376638f55033cd6b43ba21665529ec1b3"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/10-profile-analytics-history.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/10-profile-analytics-history.png",
+      "original_sha256": "4ab85280004a0a7f7126441811fdb1515a3f8b65d796db30b47f1ab3e5044f16"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_35.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_35.png",
+      "original_sha256": "2c3170a9a4857ef16a143edf8a13add9a24c281540dc696e5f87cf759e7ad258"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_41.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_41.png",
+      "original_sha256": "c31d256da36b79fca353afc098c77aa555ff479866b3e76e2c7700c612acef61"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_46.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/ChatGPT Image 29 апр. 2026 г., 22_23_46.png",
+      "original_sha256": "5420959dd49483f3d2159e1aaf7daf952183a4bedf59347f653bed945935f882"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/architecture.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/architecture.png",
+      "original_sha256": "c31d256da36b79fca353afc098c77aa555ff479866b3e76e2c7700c612acef61"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/home.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/home.png",
+      "original_sha256": "995ce048168bd00814442c7b6ca80fa81d7c1abea799cfe0b43a6b1c5c24ef63"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/idea-tournament.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/idea-tournament.png",
+      "original_sha256": "2c3170a9a4857ef16a143edf8a13add9a24c281540dc696e5f87cf759e7ad258"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/methods-workflow.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/methods-workflow.png",
+      "original_sha256": "b8a193f7c20181f714260ed7a13c66367403086faa127b7b9e8ab269ab8484ed"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/problem-to-platform.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/problem-to-platform.png",
+      "original_sha256": "5420959dd49483f3d2159e1aaf7daf952183a4bedf59347f653bed945935f882"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/profile-analytics.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/profile-analytics.png",
+      "original_sha256": "363057e062b0af839865515fd36bfad2b9e5c408ea4387ecd3d7674025a40d14"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/roles-hierarchy.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/roles-hierarchy.png",
+      "original_sha256": "25f180bf369f52eb8a6c351e3d2ec71b7d8f1151a6e07c4979a5423606c4f673"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/security-shield.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/security-shield.png",
+      "original_sha256": "aa70d9e63ad21cda7ed0d50af9a65a47f7e2345d347b8ee99cbf6fb505d6c384"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/team-analytics.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/team-analytics.png",
+      "original_sha256": "46e2e717421817d888371a78c4dc2414e4925c6d519bbc485c465e4884275540"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/screenshots/tournaments.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/screenshots/tournaments.png",
+      "original_sha256": "0a5054ff61399c70fce90f7da625ce344f4ae78b2691d2ab8be7de29d8fcc45c"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/architecture.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/architecture.svg",
+      "original_sha256": "2d7e0c19b5a879a9476ac9554d49db7d5972b492b155ab05631954c586cbb07b"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/idea-tournament.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/idea-tournament.svg",
+      "original_sha256": "4722d235150b2b2a823d194c51cdde50b7dc79b24b4a282ebf6080b47f34356a"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/mvp-roadmap.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/mvp-roadmap.svg",
+      "original_sha256": "1961a8d3e1a0d62cf7a81735bc73b93210b9f24ca4c9986ea99f7302c3966d03"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/problem-to-platform.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/problem-to-platform.svg",
+      "original_sha256": "f3b8ec82e571777fdfcc14203801a682120069e81b0836461ffb25d8d67bc759"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/qubite-icon.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/qubite-icon.svg",
+      "original_sha256": "667725333f38524454a1131756b78b2ad6f0b3df7e5c90621358b7cbb8f53d9d"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/qubite-qr.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/qubite-qr.svg",
+      "original_sha256": "9b94d546c11064f035f61508adc778d1fe16670eec9085d90e518b1164fcc4e3"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/roles.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/roles.svg",
+      "original_sha256": "98e0be6d5ac43c451c5e9a6a7c9f1159fe2ceb37346321bb88a12c2a682291ef"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/title-product-mockup.svg",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/title-product-mockup.svg",
+      "original_sha256": "2329442ddfb57116b902be7aa6556336698e50fab2ac7069706d001068ec5cdb"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/assets/slides/title-tournaments.png",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/assets/slides/title-tournaments.png",
+      "original_sha256": "c5e6184b9185fcc25339e4e060dd7b3356e33e26fd6d730eb732469dc497cbb0"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/config/metadata.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/config/metadata.typ",
+      "original_sha256": "bd8a3cd21a648d67fe16843f043a5320ab90162489a81d0772d3744ac284e1ca"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/defense-speech.md",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/defense-speech.md",
+      "original_sha256": "0654fbab8f50599b08d7de2054b941c8c6ad7c455309f7c9f71d011e1d23a1ca",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/defense-speech.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/defense-speech.typ",
+      "original_sha256": "852efbdfb44e0a4ac7120ce37199e7caba3f62c67dc054048a4178c2682bb6b8"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/main.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/main.typ",
+      "original_sha256": "555f589d099d69eb687507413ed997db9982ce4c018d2bc144273c73ac0a8c1f"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/notebooklm-prompt.md",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/notebooklm-prompt.md",
+      "original_sha256": "74643d77a9e2424ee61696a452a6c51504e3c06aa25c2489bc001c8f3e9fe0d3",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/output/defense-speech.pdf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/output/defense-speech.pdf",
+      "original_sha256": "8e44c16920ce40c7046275acfa1ff931d163e70fe4ee70df5e318a4f11ef8dc8"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/output/individual-project-note.pdf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/output/individual-project-note.pdf",
+      "original_sha256": "4d69c1ebce73721c7ee1176bb5f83cb63a1a9d0c8e460b153174af942e9d6288"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/output/qubite-defense-presentation.pdf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/output/qubite-defense-presentation.pdf",
+      "original_sha256": "f9ae61988c2e971506c407e5688b665c1ffa7f361a0362f022fa32971a6ff928"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/output/qubite-defense-presentation2.pdf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/output/qubite-defense-presentation2.pdf",
+      "original_sha256": "9af6677ee8bf9ada83ddd767acc1e5f5a331ab700628a116ded06ca3dfb585f1"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/presentation.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/presentation.typ",
+      "original_sha256": "a67dd46b5d3ad108cd6fd312485b0faf1fc689ec90d7b0a24bae0ce1d3dc7a8b"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/01-introduction.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/01-introduction.typ",
+      "original_sha256": "afcd995d11eb3a510d3a26e823fec78a442366171639d13fc3048dc1158231e4"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/02-purpose-and-domain.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/02-purpose-and-domain.typ",
+      "original_sha256": "02115b2f63d0de00651f9d293dae847c5be529d232fe0204cc2d05ded7249baa"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/03-project-structure.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/03-project-structure.typ",
+      "original_sha256": "d029b591760bb92735dba5a2910bc4b0dd437204b4f17ec2764b5a25a6972e5f"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/04-architecture.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/04-architecture.typ",
+      "original_sha256": "8876145e50c2e5e3cc966a2ecef21b37cc2151ca40d5d8c83c602232b1f21fd0"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/05-technologies.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/05-technologies.typ",
+      "original_sha256": "bb159b37a58a1767f523209ce59e22de0858e52fcf8ba5aecb87850185c5be7d"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/06-functionality.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/06-functionality.typ",
+      "original_sha256": "fa16ea6bd2d99aa4b92d82dd04759b251dede0e1be717905000ef7815439006b"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/sections/07-appendix.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/sections/07-appendix.typ",
+      "original_sha256": "0ddf75a08aacb9ddcff1bad0aba31d8103ca13fed311d6d91759be13fea77b86"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/styles/template.typ",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/styles/template.typ",
+      "original_sha256": "c8569bf663360b240d2989b1a52cd9a3229e85bd4a1c4c1503841cbd61d0c196"
+    },
+    {
+      "old_path": "docs/explanatory-note-typst/Положение ИП 8 класс.pdf",
+      "new_path": "legacy/qubite-v1/docs/explanatory-note-typst/Положение ИП 8 класс.pdf",
+      "original_sha256": "2ef3a584681f71255261d78e01f136abb7b4453c83f0bbfe8d1bb7466520d164"
+    },
+    {
+      "old_path": "docs/haiku-migration.md",
+      "new_path": "legacy/qubite-v1/docs/haiku-migration.md",
+      "original_sha256": "2c96b2a41d53cd8f0f155ffca14c36869d0de93116608e24cee63ba062ada4b5",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/knowledge-client-guide.md",
+      "new_path": "docs/legacy-services/knowledge-client-guide.md",
+      "original_sha256": "5f804b432d1d83904b4711b0ed7558a6749efcd10b70da95d415616bb48bb720",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/kwork-brief.md",
+      "new_path": "docs/legacy-services/kwork-brief.md",
+      "original_sha256": "b9ed531fc01214d00506f8532a945bec2d928dc7dc7419c287f8c149ff90861e",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/kwork-negotiations.md",
+      "new_path": "docs/legacy-services/kwork-negotiations.md",
+      "original_sha256": "ec4625dec7109ea4a685b776fa684948b1a37d2fb48bd13bb3745c9fedf62c22",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/product-and-roles.md",
+      "new_path": "legacy/qubite-v1/docs/product-and-roles.md",
+      "original_sha256": "d8775502285f13a83c49a6f972421f3f85d359f1f96b6e1aa6fa5b471a862dff",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/proxy/app-api.md",
+      "new_path": "legacy/qubite-vpn/docs/proxy/app-api.md",
+      "original_sha256": "bcf04e803d10ffef255456e66895629beb939b7506798b1f5fea5ed435666d7f",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/proxy/architecture.md",
+      "new_path": "legacy/qubite-vpn/docs/proxy/architecture.md",
+      "original_sha256": "130942057f60dbf90b6aed1e4bcac82d6d6c76f397883da76e49d5248aced876",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/proxy/server-setup.md",
+      "new_path": "legacy/qubite-vpn/docs/proxy/server-setup.md",
+      "original_sha256": "4bb94ee0988c0912761aa3dc2ab8ab0f9165459eb3a2777fa08d4787804a9c55",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/runtime-and-knowledge.md",
+      "new_path": "docs/legacy-services/runtime-and-knowledge.md",
+      "original_sha256": "377b5fa04a3df0037d0fca44998a82e589dc48ab5c68f8137950f6f269a16cc2",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/search-api.md",
+      "new_path": "docs/legacy-services/search-api.md",
+      "original_sha256": "2e604915214a933fb22f9becf38a210b75e0c9634c63c3bd1d29316698f0eade",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/services.md",
+      "new_path": "docs/legacy-services/services.md",
+      "original_sha256": "a96259e63e145d231149c08b36556abe936f403ccf2a52fa8fc8e86d416a9d39",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/siyuan.md",
+      "new_path": "legacy/integrations/qubite-siyuan/LEGACY_GUIDE.md",
+      "original_sha256": "8b2c522747fe703ea8624f98bd2601ad6a7de02fbe286ec57b09339792038aed",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/specbot.md",
+      "new_path": "docs/legacy-services/specbot.md",
+      "original_sha256": "2dff9e6b96657033f36ff7d7ecb61c69c3f37ecc71aa407a2510ffd27dfdfd09",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/telegram-leads-schema.md",
+      "new_path": "docs/legacy-services/telegram-leads-schema.md",
+      "original_sha256": "036fc212a39136faae29e0ecf3ed661b89cc326cdc1846a921ec802e36875cc4",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/telegram-leads.md",
+      "new_path": "docs/legacy-services/telegram-leads.md",
+      "original_sha256": "4b1f2a72456af5c31963093c5f505f780cc7837c196a934f6bd6f999f19bde81",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "docs/writing.md",
+      "new_path": "docs/legacy-services/writing.md",
+      "original_sha256": "a8ecd4c6127e622e63350fea62d3f4950055ba4ecba8f5677ef9fb998f42d563",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "front/auth.css",
+      "new_path": "legacy/qubite-v1/front/auth.css",
+      "original_sha256": "6844ffb7d54eea254dce4bc736ebb3efe2d4f7364cacc49f6105f769926ee8c0"
+    },
+    {
+      "old_path": "front/css/design-system.css",
+      "new_path": "legacy/qubite-v1/front/css/design-system.css",
+      "original_sha256": "bf760f018bb69f9656c7627db7585ec45da2db8bc9927651d89de809f8999c94"
+    },
+    {
+      "old_path": "front/css/service-invite.css",
+      "new_path": "legacy/qubite-v1/front/css/service-invite.css",
+      "original_sha256": "1d1e325dba74edefe3908456e1d14086e8ea8f0203e73e001ed9f0aeaa1ad34a"
+    },
+    {
+      "old_path": "front/css/styles.css",
+      "new_path": "legacy/qubite-v1/front/css/styles.css",
+      "original_sha256": "2d2e228d7eb55a12b1e031436dd9d3d2c66ce9531c78873c8619f82328966de1"
+    },
+    {
+      "old_path": "front/fonts/Jura/Jura-VariableFont_wght.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/Jura-VariableFont_wght.ttf",
+      "original_sha256": "92c5a50b359ffb0a2154e7e6eb2bb3ea3112018bf025a36efa3bba9bc4a9145d"
+    },
+    {
+      "old_path": "front/fonts/Jura/static/Jura-Bold.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/static/Jura-Bold.ttf",
+      "original_sha256": "0b5cc5b9856646d023359bed3dbd00f5383c9bc00a6ebdb8430c371753ab417d"
+    },
+    {
+      "old_path": "front/fonts/Jura/static/Jura-Light.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/static/Jura-Light.ttf",
+      "original_sha256": "ae143c062374c4611f0a627de5d20c544fb8cda003bfa967e21cb29383e936f7"
+    },
+    {
+      "old_path": "front/fonts/Jura/static/Jura-Medium.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/static/Jura-Medium.ttf",
+      "original_sha256": "e58c99ba9df5990ccade58bcae85e6013bf5446ae88ec4195fb218d770a41542"
+    },
+    {
+      "old_path": "front/fonts/Jura/static/Jura-Regular.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/static/Jura-Regular.ttf",
+      "original_sha256": "17f7f6845c15abc3390819964682f6022866a45c3e64f23d38302a125921843e"
+    },
+    {
+      "old_path": "front/fonts/Jura/static/Jura-SemiBold.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Jura/static/Jura-SemiBold.ttf",
+      "original_sha256": "2a325366e04c2f3e544fe3561f78831094c2239cd905a6e2222124cc32eb4dd0"
+    },
+    {
+      "old_path": "front/fonts/Manrope/Manrope-VariableFont_wght.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/Manrope-VariableFont_wght.ttf",
+      "original_sha256": "2b7a1ebc80c79246faa1b6e7093c7b91de2a4ceedb9b9a2b2fa05cf9bf8c77cd"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-Bold.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-Bold.ttf",
+      "original_sha256": "0c8fde238099c5a8a0877a7628bca477f089eba9708668cb1b984d5ffcda812f"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-ExtraBold.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-ExtraBold.ttf",
+      "original_sha256": "bc134c9a103f5e14b841b6785561ec74bf075de77b8f6bceb2402dc5b96e449b"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-Light.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-Light.ttf",
+      "original_sha256": "f6d9645e0a03ff38df488efb8e51ec9d98f5bec980daacc081850240bf220ee0"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-Medium.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-Medium.ttf",
+      "original_sha256": "d1b04d584a93ce853a876cc3ccc28cc07e2c2e8539783e1bfb316c3004ec3469"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-Regular.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-Regular.ttf",
+      "original_sha256": "67490872c2a5b266114263dcad1fea6275a16d606e2cffa8a6656e5187b20180"
+    },
+    {
+      "old_path": "front/fonts/Manrope/static/Manrope-SemiBold.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Manrope/static/Manrope-SemiBold.ttf",
+      "original_sha256": "5aa80a962f5b9f1ff5e1ecf65ff30f68d7630d9cb0a7d3da80310428c0ae18ee"
+    },
+    {
+      "old_path": "front/fonts/Roboto/Roboto-VariableFont_wdth,wght.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/Roboto/Roboto-VariableFont_wdth,wght.ttf",
+      "original_sha256": "0fe599aba604c33d7ac9bb5f642dd15198bf7fbf037b0bbb78b4dcb89d340fc5"
+    },
+    {
+      "old_path": "front/fonts/SpaceGrotesk/SpaceGrotesk-VariableFont_wght.ttf",
+      "new_path": "legacy/qubite-v1/front/fonts/SpaceGrotesk/SpaceGrotesk-VariableFont_wght.ttf",
+      "original_sha256": "697a7905c71f7c61d071648bc73449541796af865b51c86a672795f3b452b142"
+    },
+    {
+      "old_path": "front/img/icon.svg",
+      "new_path": "legacy/qubite-v1/front/img/icon.svg",
+      "original_sha256": "00302ef1e0bdd049ac5fcaf1b383ac1caaf9f99e86fe33cb39aa5133afc29152"
+    },
+    {
+      "old_path": "front/img/sprites.png",
+      "new_path": "legacy/qubite-v1/front/img/sprites.png",
+      "original_sha256": "21b8c3fd34d3bddc754e6b31ac0de4fd5dfccf21bc56fe2d414ee4a7092534ca"
+    },
+    {
+      "old_path": "front/img/sprites_v2.png",
+      "new_path": "legacy/qubite-v1/front/img/sprites_v2.png",
+      "original_sha256": "17768332ec7f64553367b4faf2945819b86aa049ff08271e01d09fea6c3eaa70"
+    },
+    {
+      "old_path": "front/img/sprites_v3.png",
+      "new_path": "legacy/qubite-v1/front/img/sprites_v3.png",
+      "original_sha256": "837476de84e98911ffbe786435385186c2bcecb0d9576f0ea323c5f3b3c84674"
+    },
+    {
+      "old_path": "front/js/api.js",
+      "new_path": "legacy/qubite-v1/front/js/api.js",
+      "original_sha256": "c1aec279b1890f1d6ef1b7fdd741decebea118348ba5a4d3916dc2e9f4de4e9e"
+    },
+    {
+      "old_path": "front/js/app.js",
+      "new_path": "legacy/qubite-v1/front/js/app.js",
+      "original_sha256": "518542d05d1bef3c5359d5a5e544693d4ee0b91ff0bb31d58c7ac38977947d2d"
+    },
+    {
+      "old_path": "front/js/design-system.js",
+      "new_path": "legacy/qubite-v1/front/js/design-system.js",
+      "original_sha256": "67da24f857cc8fe03bf49a69bbb6ae8641530e5298bf12c49d87b5380f371e21"
+    },
+    {
+      "old_path": "front/js/icons.js",
+      "new_path": "legacy/qubite-v1/front/js/icons.js",
+      "original_sha256": "c1af943a860040f3353b5dbff58b35c66abff3188f19b03f59eea989e44518e3"
+    },
+    {
+      "old_path": "front/js/service-invite.js",
+      "new_path": "legacy/qubite-v1/front/js/service-invite.js",
+      "original_sha256": "66b7e6e7bc64dd2e16ca1409a2e543066a9596e58783ab21a31a4d276ad964fb"
+    },
+    {
+      "old_path": "index.html",
+      "new_path": "legacy/qubite-v1/index.html",
+      "original_sha256": "e2dc73132b08c261da79740f0accc792859d345e81c43b4f5c582c703e23a7e0"
+    },
+    {
+      "old_path": "integrations/qubite-siyuan/SKILL.md",
+      "new_path": "legacy/integrations/qubite-siyuan/SKILL.md",
+      "original_sha256": "d5b4c0efb31b43aee2418d95a52030fbd3ffa0bb915b88b68747caed88597340",
+      "change_reason": "Markdown статус/ссылки после переноса"
+    },
+    {
+      "old_path": "integrations/qubite-siyuan/server.py",
+      "new_path": "legacy/integrations/qubite-siyuan/server.py",
+      "original_sha256": "dfbc2ee58380ffd25bf5d65d6109e5046833e89dc35f97b514125c6d0dbd53d0"
+    },
+    {
+      "old_path": "integrations/qubite-siyuan/tests/test_scope.py",
+      "new_path": "legacy/integrations/qubite-siyuan/tests/test_scope.py",
+      "original_sha256": "dac6debb536b1266a9ceb8d6e26cffc4df733b09a789c4bc82c2369bd3028093"
+    },
+    {
+      "old_path": "maintenance.html",
+      "new_path": "legacy/qubite-v1/maintenance.html",
+      "original_sha256": "af8d162ebba79c3e64cd7b3b1067637581c90c82994ff7bd165c5853c72534db"
+    },
+    {
+      "old_path": "privacy.html",
+      "new_path": "legacy/qubite-v1/privacy.html",
+      "original_sha256": "79be9ece81c95f43867251eb6650d254f2a7a62a24e700e8c70025feb46db112"
+    },
+    {
+      "old_path": "security.html",
+      "new_path": "legacy/qubite-v1/security.html",
+      "original_sha256": "e512236ff1a7c15bc8a5c0c66ed9e6a5eb837507678a1ef96b16528ae5c68474"
+    },
+    {
+      "old_path": "support.html",
+      "new_path": "legacy/qubite-v1/support.html",
+      "original_sha256": "a458706f18cc26a13ee0c77d09a91d38f94bad657b5a1fe06e20bb08562d16e8"
+    },
+    {
+      "old_path": "terms.html",
+      "new_path": "legacy/qubite-v1/terms.html",
+      "original_sha256": "557b5ff5d5c6118c9f610ee447e39c50a8b56c77111b38b2b09ce4bc3e27a046"
+    }
+  ]
+}

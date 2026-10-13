@@ -1,0 +1,219 @@
+> ИСТОРИЧЕСКИЙ СНИМОК перед QUB-REPO-001 (13.10.2026). Пути и milestones ниже относятся к прежней структуре; не инструкции нового Qubite.
+
+# Безопасность Qubite
+
+**AUTH-00613.10.2026 — done:** core0.6.0/current0007_registration; owner-controlled invite/default/public/disabled API, оба одноразовых invite, strict minimal enrollment/consents, pending→email verify→login, no module/AI grants. [Контракт](docs/architecture/REGISTRATION.md), [отчёт](docs/reports/QUB-AUTH-006.md), [ADR-0020](docs/architecture/decisions/0020-owner-controlled-registration.md). Вопросы заданы и ответы получены до реализации. React controls/mail/legal/deploy отдельно. AUTH-015 глобальные switches, AUTH-016 ChatGPT eligibility/identity, AI-003 personal plan vs owner API сохранены в backlog. Далее обсудить UI-001 shell, затем AUTH-007 auth UI; перед каждым task снова вопросы. Implementation2035e1e / CI38390796988 exact SHA success11:36:36UTC;969 local+CI checks. Current evidence в tasks.json/LAST_HANDOFF, milestones ниже исторические.
+
+**AUTH-005, 13.10.2026 — done:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](docs/architecture/ACCOUNT_LOGIN.md), [отчёт](docs/reports/QUB-AUTH-005.md), [ADR-0019](docs/architecture/decisions/0019-account-login-boundary.md). Core0.5.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local+CI all892+harness6=898pass; implementationcf302d9 / CI38385240872 completed-success10:47:23UTC. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
+
+Для будущего ingress нового Qubite account Auth направляется только в core; fallback к Node на404/503 запрещён. AUTH-005 проверяет FastAPI и disposable module fixtures, реальный reverse proxy/staging этим slice не настроен. Старый standalone Node code-entry ещё существует в исходниках; не публиковать его как запасной вход новой платформы. Email proofs/OAuth/tournament invitations остаются отдельными протоколами — [ACCOUNT_LOGIN](docs/architecture/ACCOUNT_LOGIN.md).
+
+**AUTH-00313.10.2026 — done:** core0.5.0/schema0006_policy; раздельные ручные module/action grants, workspace/resource intersection, owner-only metadata commands с If-Match/idempotency/reauth/audit. Общий REST/job/tool/WS gate, live revoke/session/expiry/version; paid AI закрыт до AI-001/002. [Контракт](docs/architecture/POLICY_GATE.md), [отчёт](docs/reports/QUB-AUTH-003.md). Только аккаунт до grants подтверждено владельцем; перед каждой будущей задачей сначала вопросы и ответы. UI/registration/real modules/installer/native/provider/deploy отдельно. Final local+CI all844+harness6=850pass; implementationd4c813e/CI38381905595 completed-success10:17:52UTC. Registry56:10done/4ready/42backlog, evidence в tasks.json/LAST_HANDOFF. Прежние snapshots ниже исторические.
+
+**AUTH-01113.10.2026 — done:** core0.4.0/schema0005, verify/reset API для существующих UUID, mock-only delivery/off default, one-use/TTL/attempt/rate/version gates и atomic password/session revoke. [Контракт](docs/architecture/EMAIL_CHALLENGES.md), [отчёт](docs/reports/QUB-AUTH-011.md), [ADR-0017](docs/architecture/decisions/0017-email-challenges-and-recovery.md). Email-2FA только protocol contract, не runtime; registration/policy/UI/SMTP/deploy отдельно. Implementationf3d4b6c/CI38373075395 success,762 local+CI checks. Current status/evidence в tasks.json/LAST_HANDOFF; прежние milestones ниже исторические.
+
+**AUTH-01013.10.2026:** новый core запрещает AUTH-L02 disabled callback и AUTH-L03 email-only linking. Stable issuer/sub, own password/CSRF link/unlink, signed Google/Telegram/JWKS и bound Yandex/VK server userinfo, TTL/PKCE/one-use/replay/version/status/config checks. [Runtime/границы/SQL](docs/architecture/OAUTH_IDENTITY.md), [evidence](docs/reports/QUB-AUTH-010.md). Default network false/providers disabled; реальных ключей/логинов нет. Unlink отзывает собственные sessions; provider disable только новые flows, existing session revoke отдельно. Callback access logs/code/state необходимо редактировать до deploy. Legacy source defects и исторические statements ниже сохранены; новая identity partial AUTH-009/010, не полная authorization.
+
+**AUTH-00913.10.2026:** реальный Web Auth/Argon2id/hash-only sessions, explicit local initial password без overwrite, Secure __Host cookies/exact Origin/CSRF, PG rate limits/revoke/version/reauth. No module/AI/owner paid bypass; corrupted/ambiguous cookie и secret-free validation проверены. [Runtime и ограничения](docs/architecture/WEB_AUTH.md), [evidence](docs/reports/QUB-AUTH-009.md). Это исправляет AUTH-L01 в новом core; legacy дефекты/роль-модель ниже не переписывались. Ingress/roles/backup/UI/OAuth/native ещё отдельные проверки.
+
+**Реализовано AUTH-002:** новый UUID/canonical-email account storage и active singleton owner через explicit local CLI/transaction/DB FK. Public bootstrap/startup promotion отсутствует; обычный account writer не получает owner из регистрации. [SQL/privileges/rollback](docs/architecture/IDENTITY_SCHEMA.md). Email остаётся unverified, password/login/session и модульная authorization ещё будущие; ограничения verified на disposable PG, не production.
+
+**Qubite2 identity13.10.2026:** [контракт](docs/migration/IDENTITY_CUTOVER.md)/[ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md) — specification, не реализованная защита. Fresh UUID/accounts, explicit local owner, Argon2id credentials, web CSRF, native PKCE, rotating device tokens и scoped keys планируются отдельными задачами; без legacy verifier/session import. Owner всё ещё требует module/model grants/budgets. Старый scrypt/owner-by-email/глобальные роли ниже — факты legacy кода, не target Auth. AUTH-L01..03 не исправлены этой задачей; отрицательные требования для нового Auth обязательны.
+
+Этот файл описывает не “идеальную модель безопасности”, а то, что реально подтверждается кодом и инфраструктурными файлами текущего репозитория.
+
+## Что уже реализовано в коде
+
+- роли `admin` и `owner` разделены, `owner` защищён отдельно;
+- назначение `admin` и `owner` вынесено в CLI-скрипты:
+  - `back/scripts/promote-admin.js`
+  - `back/scripts/set-owner.js`
+- пароли хешируются через `scrypt`;
+- токены сессий и одноразовые токены дополнительно хешируются;
+- есть session-based auth и управление сессиями;
+- есть email verification flow;
+- есть email-based challenge flows для password reset и 2FA-подобных сценариев;
+- есть route-specific rate limiting и duplicate request guards;
+- есть same-origin защита для state-changing cookie-based запросов;
+- есть request/body/timeout hardening;
+- есть более аккуратная работа с proxy headers через `trust proxy`;
+- есть audit log для чувствительных действий;
+- текст поисковых запросов хранится отдельно от технического аудита и доступен только owner. «Защитить от логов» очищает этот журнал аккаунта и атомарно запрещает новые записи; владельцы защищены по умолчанию. Это не отключает личную историю, обработку запроса провайдером или расходы; резервные копии имеют отдельный срок хранения;
+- текущий anti-bot слой — `Cloudflare Turnstile`;
+- есть role checks для organizer/moderation/admin операций;
+- есть скрытие чувствительных полей и owner-protection в web/API потоке;
+- рейтинговая система с таблицей `rating_changes` — история изменений рейтинга не содержит чувствительных данных (email, пароли), только числовые значения и ссылки на турниры.
+
+## Что поддерживается инфраструктурой
+
+- reverse proxy через `Nginx`
+- firewall rules в `deploy/firewall/*`
+- sysctl hardening в `deploy/sysctl/*`
+- Cloudflare как edge/proxy/TLS/abuse layer
+
+Эти меры нельзя считать “частью кода”, но для production они критичны.
+
+## Обязательные production-условия
+
+1. Node должен слушать только локальный адрес, например `127.0.0.1:3000`.
+2. Перед Node должен стоять Nginx.
+3. Наружу должны быть открыты только `22`, `80`, `443`.
+4. `TRUST_PROXY=1` включается только при реальном reverse proxy.
+5. Production должен работать по HTTPS.
+6. SQLite-файл, `.env` и Node-порт не должны быть публично доступны.
+7. Для privileged users используйте `INITIAL_OWNER_EMAIL` только на свежей БД:
+   роль `owner` выдаётся только после подтверждения этой почты. Для ручных
+   операций используйте CLI (`back/scripts/set-owner.js`).
+
+## Текущее состояние CAPTCHA / anti-bot
+
+Сейчас код использует `Cloudflare Turnstile` на register/login/forgot-password flows.
+
+Это нужно понимать честно:
+
+- текущая интеграция существует и работает в коде;
+- но для российского пользовательского контура она не идеальна;
+- планируемое направление — миграция на `Яндекс SmartCaptcha`, потому что Cloudflare может быть нестабильным или блокируемым в РФ.
+
+Этот переход пока не реализован и должен отражаться как roadmap, а не как текущий факт.
+
+## Что уже уязвимо или требует усиления
+
+- регистрация и verify-flow нуждаются в усилении и более жёсткой антибот-логике;
+- email verification встроен в систему, но не формирует ещё максимально строгий onboarding gate;
+- часть abuse controls помогает против простого спама, но не является полноценной защитой от серьёзного целевого злоупотребления;
+- organizer/admin/moderation UX пока сырой, а это увеличивает риск ошибок в операциях;
+- монолитность `back/src/db.js` и `front/js/app.js` усложняет безопасные изменения.
+
+## Отдельный важный риск
+
+Старые заметки ссылались на `deploy/.env` с возможными секретами. На baseline 12.10.2026 текущий `git ls-files` не содержит этот файл; содержимое приватных env не читалось. Это не доказывает отсутствие исторической утечки: redacted history scan и ротация при подтверждении остаются отдельной задачей.
+
+Рекомендуемая позиция для проекта:
+
+- не хранить реальные production secrets в Git;
+- считать такие секреты подлежащими ротации и переносу в нормальное secret storage;
+- не использовать `deploy/.env` как “безопасный source of truth”.
+
+## Telegram Bot — модель безопасности
+
+Встроенный Telegram-бот позволяет owner'у и модераторам управлять платформой через мессенджер.
+
+**Контроль доступа:**
+- Owner определяется **только** по `TELEGRAM_OWNER_ID` из `.env`. Выдать owner-доступ через бота невозможно.
+- Модераторы определяются двумя источниками: `TELEGRAM_MODERATOR_IDS` из `.env` (жёсткий whitelist) и таблицей `telegram_access` в БД (динамические выдачи через `/grant`).
+- Все остальные Telegram-пользователи получают отказ без деталей.
+
+**Риски и компромиссы:**
+- Действия через TG обходят web-based rate limiter'ы и email-2FA. Компенсация: жёсткий whitelist, audit log на каждое действие, двухшаговое подтверждение деструктивных операций.
+- `TELEGRAM_BOT_TOKEN` — секрет, дающий доступ к привилегированным операциям. Должен быть только в `.env`, никогда в Git.
+- Telegram Login Widget использует тот же токен только для HMAC-проверки callback-параметров; polling-конфликт Telegram-бота не должен ломать web-login.
+- Все действия бота записываются в `audit_log` с пометкой `[TG:<id>]` и видны в web-админке.
+- Push-уведомления owner'у отправляются при критичных audit-событиях: `system.setting.update`, `user.role.change`, `user.block`, `user.delete.hard`, `moderation.task.reject`.
+
+## Оставшиеся ограничения
+
+- application hardening не спасает от крупной L3/L4 DDoS-нагрузки;
+- free-tier edge protections и rate limits уменьшают шум, но не гарантируют защиту от целевого злоупотребления;
+- локальный CLI-доступ к серверу остаётся сверхпривилегированным;
+- SQLite удобен и практичен, но его нужно сопровождать аккуратно: бэкапы, права доступа, single-process assumptions.
+
+## Практические команды для привилегированных ролей
+
+```bash
+node back/scripts/promote-admin.js --email you@example.com
+node back/scripts/set-owner.js --email you@example.com
+node back/scripts/set-owner.js --email new-owner@example.com --replace
+```
+
+## Куда смотреть дальше
+
+- [`docs/deploy-and-production.md`](docs/deploy-and-production.md)
+- [`deploy/PROD_STEPS_RU.md`](deploy/PROD_STEPS_RU.md)
+- [`deploy/firewall/UFW.md`](deploy/firewall/UFW.md)
+- [`deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md`](deploy/cloudflare/CLOUDFLARE_FREE_CHECKLIST.md)
+
+## Дополнительные сервисы
+
+- `back/src/services.js`: owner-права по фактической роли, приглашения с хешированным одноразовым токеном, отдельные search/vault grants. Пользовательская регистрация не выдаёт сервисы автоматически.
+- Веб-поиск проверяет `qb_session` через закрытый internal API; доверять внешнему `X-Qubite-User` нельзя. Caddy удаляет его и добавляет секрет trusted proxy.
+- История поиска — opt-in хранение в базе без дополнительного шифрования, с изоляцией аккаунтов. Администратор базы технически может прочитать её. Модели передаётся только выбранный контекст. Старое шифрование оставлено только для одноразового переноса. API-ключи хешируются, отзываются и имеют отдельный scope history; право проверяется на каждом запросе. Запись query string в обычную статистику не используется.
+- AliasVault public registration может быть включена внутри контейнера только за Qubite register/validate-username gate. Native-порт и админка не публикуются. Unix-manager ограничивает UID и действия; master-пароль не попадает в платформу. Отзыв refresh tokens не гарантирует мгновенного прекращения действия уже выданного native JWT.
+- Личные VPN bearer tokens шифруются credential key; чужие подписки/устройства не выдаются через personal API. Изменение ссылки отзывает старые сессии. В отсутствие доступной ноды выдача отключена, управление инфраструктурой остаётся.
+- Production web-origin может быть защищён Caddy + Cloudflare Tunnel вместо Nginx: Node/SearXNG/AliasVault origins слушают loopback. Предыдущее требование «перед Node только Nginx» следует читать как «доверенный reverse proxy с HTTPS».
+- Секреты `.env`, runtime и тестовые storageState исключены из Git. У разных машин разные внутренние/credential keys; не распространять connector token или origin-certificate Cloudflare вместе с исходниками.
+
+- Telegram services: только фиксированный env owner в личном чате, без доступа модераторов; ответ должен относиться к точному message_id запроса и иметь TTL 5 минут. Удаление хранилища требует ввода логина, owner защищён. Общий бюджет хранится на master и проверяется поиском при запросах; статистика без содержимого доступна только по двум внутренним secret headers.
+
+- Search media: `img-src` допускает HTTPS-изображения для прямой клиентской загрузки (без Referer; сайт видит IP клиента). Пользователь может выбрать ограниченный SSRF-защищённый proxy. Видео загружается только после hover/click, iframe URL строится из точного allowlist YouTube/Vimeo/Dailymotion + проверенного ID; upstream HTML/iframe_src не исполняется. CSP `frame-src` расширен только на эти плееры, frame имеет sandbox без top-navigation/forms. Плееры получают только origin в Referer (для идентификации встраивающего приложения), без query/path. Исполняемый HTML ИИ по-прежнему изолирован и не получает такое разрешение. Safe-search — фильтр движка, не гарантия модерации; unsupported движки исключаются из строгого режима.
+
+### Qubite Writing
+
+Команда расширения `me` разрешена только собственной странице `options.html`: проверяются runtime ID и URL отправителя. Наличие `sender.tab` не отличает настройки во вкладке от скрипта сайта. Ключ остаётся в фоновом скрипте.
+
+Редактор использует отдельный ключ OpenRouter, hashed/revocable `qbw_` ключи и независимые grants. Bearer API для расширения не принимает cookie как авторизацию; исключение origin guard ограничено точными `/api/writing/v1/me|check|rewrite` и extension-origin, остальные cookie API сохраняют защиту. Дневные расходы резервируются транзакционно до внешнего вызова, провайдер/цена фиксированы, fallback отключён. Тексты и ответы в БД/аудит не попадают; ИИ-текст передаётся внешнему провайдеру по кнопке. LanguageTool loopback only, fixed Java heap, input/body/concurrency limits. Детали и пределы [docs/writing.md](docs/writing.md).
+
+## Личный бот для ТЗ
+
+`services/specbot` не открывает публичный HTTP/API. Управление только OWNER_ID в private chat; ссылки для клиентов случайные, хешируются в SQLite, истекают и закрепляются за Telegram ID первого получателя. Каждый callback повторно проверяет доступ и состояние. PDF, исходные документы и журнал интервью доступны только владельцу; приглашённому клиенту перед началом объясняется передача ответов владельцу и обработка ИИ. Рабочая БД/аудио/документы приватны, секреты хранятся вне git. Временное аудио удаляется; удаление интервью не стирает денежный ledger. Очередь отправки чистит payload после подтверждения доставки. ИИ-данные валидируются, в PDF текст экранируется, произвольный HTML/код не исполняется. Уведомления не раскрывают секреты в journal. Конкурентный перехват инвалидирует поздний результат по revision. Стабильность под нагрузкой STT необходимо проверять отдельно; наличие systemd MemoryMax не доказывает ограничение памяти при отключённом memory cgroup.
+
+Имя и username клиента Specbot обновляются только из подтверждённых Telegram updates для привязанного ID. Они видны владельцу интервью и не включаются в запросы ИИ; ссылка профиля строится из валидированного username или числового ID.
+
+Specbot различает отказ провайдера внутри HTTP 200 и неверный формат сгенерированного текста. Fallback ограничен временными ошибками и одним обычным маршрутом OpenAI; ошибки ключа/денег не обходятся. Неизвестная стоимость учитывается консервативно. Диагностика пишет только фиксированные категории/числовые коды, без тел ответов и произвольных сообщений провайдера.
+
+Постоянный focus и одноразовый steering Specbot изменяются только владельцем. Фокус используется как приоритет выяснения деталей, а не доказательство требований клиента. Одноразовая подсказка исключена из финального промпта и служебного сжатия ручной переписки; очистка подсказки, запись вопроса и постановка в outbox выполняются одной SQLite-транзакцией. Версия подсказки предотвращает удаление нового указания старым запросом. Кнопка пропуска фокуса при создании приглашения защищена owner, TTL и одноразовым ticket.
+
+### Qubite Auth и питание приложений
+
+Auth и control bot работают отдельно от выключаемого platform. Возврат после входа ограничен точными настроенными origins и исключает login loops; сессия остаётся Secure/HttpOnly cookie, не URL-токеном. Это собственное доменное SSO, не универсальный OIDC. Не обходить существующие CAPTCHA/OAuth/registration настройки в core middleware.
+
+Менеджер принимает только фиксированный allowlist и boolean состояния через Unix socket с проверкой UID; его код root-owned. Telegram: только реальный owner в личном чате, одноразовое подтверждение с TTL и привязкой к сообщению. Сеть/Auth/бот/SSH исключены. Данные не удаляются. Локальный IPC событий имеет 0600 и ограничения размера/типов; один системный UID остаётся общей доверенной границей.
+
+Memos/Vikunja доступны после внешней проверки Qubite и собственной авторизации; регистрация закрыта. Выдача внешнего grant не создаёт нативного пользователя и не расшаривает записи. Hermes использует отдельного обычного Memos user и ограниченный Vikunja key, мост исключает удаления/администрирование. Vikunja key ограничен операциями, а не конкретным проектом. Секреты в приватных runtime файлах вне git; payload заметок не включать в диагностику.
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](docs/knowledge-client-guide.md).
+
+- `back/src/knowledge-api.js`: нативный login/Bearer/refresh проверяется по активной привязке и Qubite grant; не открывать общий API анонимно. Tunnel ingress должен сохранять прежние hostname+path маршруты, включая Kwork tracking.
+
+- Вход нативных клиентов Vikunja: Qubite сохраняет путь и параметры `/oauth/authorize` через вход/первый пароль. Обмен PKCE-кода, вращение OAuth refresh и нативный cookie refresh проверяют активную привязку и grant перед возвратом токена. Переходы остаются на точном origin сервиса; callback в приложение выполняет сам Vikunja.
+
+SiYuan: реальный Qubite owner на каждом запросе, exact Origin для изменений/WS, host-only Secure HttpOnly native cookie. API-токен технически широкий, скрыт в private stdio bridge с фиксированными операциями и одним блокнотом; это не OS-sandbox для других процессов того же пользователя. [Границы и backup](docs/siyuan.md).
+
+Нативный агент/редактор SiYuan настроены на OpenRouter с пустым отдельным API key; существующие ключи не переиспользованы. Будущий ключ хранится в приватной конфигурации workspace, backup раздела AI тоже считать секретным. Нативный агент имеет собственную политику подтверждений и не наследует ограничения notebook bridge Hermes. Его обращения к OpenRouter не входят в бюджеты поиска/Brief; лимит нового ключа задаётся отдельно. Генерация до добавления ключа не проверена.
+
+Telegram-заявки читаются только в выбранных сообществах существующим личным listener после разрешения владельца. Blacklist действует на источник и автора, анонимные сообщения/боты не получают личный отклик. Перед первым DM повторно проверяются исходник/автор/hash/свежесть и папки. Первые два дня и до порога отзывов требуется согласование; допустимый автоматический первый текст не содержит цены/сроков/обязательств. Коммерческие условия всегда owner-approved. Не считать вероятность Jev гарантией намерения пользователя или разрешения Telegram. PeerFlood останавливает новые отправки, unknown send не повторять. Данные/feedback/тексты приватны в SQLite, провайдерским моделям передаётся только ограниченный контекст; нет токенов/карты/секретов и самостоятельных платежей. [Политика и пределы](docs/telegram-leads.md).
+## Приватные приглашения Kwork → Brief
+
+Интеграция создаёт черновик по owner-only кнопке и не отправляет сообщения заказчику от личного
+аккаунта. Локальный helper не открывает HTTP API и не читает Telegram updates. В Brief хранится
+хеш приглашения; HMAC-ключ и настройки имеют права `600`. В Kwork `brief_links` содержит исходную
+ссылку для повторной доставки — защищать и не публиковать SQLite/backup. Повтор не продлевает
+истёкший токен и не снимает отзыв. Детали: [docs/kwork-brief.md](docs/kwork-brief.md).
+
+Переговоры включаются отдельно, только для новых принятых интервью Kwork. Единственный существующий
+Telethon-слушатель проверяет личный incoming, client ID и host blocklist; разрешение peer должно
+совпадать с привязанным ID, username не даёт права сменить получателя. Коммерческая отправка
+требует owner/private callback, точной версии, message ID карточки и неизменного контекста Brief.
+Фильтр обычных уточнений не является доказательством отсутствия всех смысловых ошибок ИИ.
+Неизвестный исход личной отправки блокирует повтор. Приватная база содержит переписку и предложения;
+тексты/сессии/ключи не выводить в журнал и не коммитить. [Операционные границы](docs/kwork-negotiations.md).
+
+- По выбору владельца чтение разрешённых групп не рассылает уведомления; успешные личные отправки имеют отдельный журнал с адресатом и полным текстом. Название группы без username разрешается только среди уже доступных групп аккаунта, неоднозначность не позволяет выбрать чат случайно. `qubite-leadbot` имеет свой токен/offset, личные credentials читает только прежний listener.
+
+- Первый запуск Telegram-подборщика обнаружил ошибочный перенос предмета заказа из соседних сообщений: вход Jev/Haiku теперь только current request и размеченные примеры; соседний контекст исключён. Неясные просьбы о советах не создают платный черновик до ручного разрешения. Legacy-cleanup читает максимум 100 сообщений только собственного owner-бота, проверяет его ID и удаляет только сообщения бота, а не владельца/клиентов.
+
+- Учётные `telegram_leads.sid` не авторизуют пользователя в Brief: скрыты из listing, защищены client authorize и не имеют действующего invite/token. Их общий бюджет не создаёт общий доступ к интервью.
+
+## Переход 2.0: целевые security gates
+
+[Аудит текущих границ](docs/architecture/SECURITY_AUDIT.md) отличается от [целевой модели](docs/architecture/AUTH_AND_PERMISSIONS.md). Legacy owner auto-paid и глобальные tournament roles пока существуют; новая модель default-deny/common AI budget ещё не реализована. [Cost guard](docs/architecture/AI_COST_GUARD.md) требует отрицательных и конкурентных mock tests до платных вызовов. Миграции/backup/restore и production rollout проходят отдельно, secrets и private data не включаются в audit artifacts.
+
+Qubite 2.0 bot redesign: global staff whitelist не наследуется как module/platform grant; verified subject binding, exact reply/TTL, callback payload allowlist + reauthorization, sensitive diff/confirmation, no arbitrary shell, single consumer, notification unknown outcome без автоматического повтора. Private support/query text не telemetry. Filled deploy/.env подтверждён локально 12.10.2026 без чтения значений (600, не tracked); использование при необходимости разрешено владельцем, актуальность credentials этим не подтверждена.
+
+## Воспроизводимые Auth проблемы — 12.10.2026
+
+В source-copy тестах реального server.js подтверждены: malformed percent-encoded cookie → 500; Google runtime disable блокирует start, но не pending callback; Google profile с `email_verified=false` связывается по существующему email и получает его session. Последнее — риск чужого account access при таком claim, реальный provider exploit не проверялся. Все три остаются в legacy, runtime не исправлялся. [Сценарии, mitigation requirements и P0 linking gate](docs/reports/QUB-TEST-001.md); не переносить дефекты в FastAPI и не считать passing characterization security fix.
+
+## Core foundation — 12.10.2026
+
+Новый core не читает legacy SQLite/.env и не исполняет DDL при API startup. Readiness read-only, driver/DSN errors sanitized; dedicated loopback PostgreSQL config, `.pgpass` отключён, PGSERVICE отклоняется. Explicit migration отдельным operator action, SHA256 history/advisory lock/transaction rollback; no automatic down/repair. Runtime DB role может быть read-only. [Границы и реальные tests](docs/architecture/CORE_FOUNDATION.md). Health не реализует authentication/policy; user endpoints ещё отсутствуют, AUTH-L01..03 legacy не исправлялись. Production routing/remote DB/TLS/backups/cutover отдельные gates.

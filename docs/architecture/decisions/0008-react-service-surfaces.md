@@ -1,3 +1,5 @@
+> Уточнение владельца13.10.2026: [ADR-0021](0021-repository-layout-and-standalone-tournaments.md) отменяет обязательный SSO/identity adapter с турнирами; standalone optional platform без core accounts/grants. Остальные границы FastAPI/React сохраняются.
+
 # ADR-0008: React для сервисов нового Qubite, старый UI турниров
 
 CONFIRMED 12.10.2026 прямым уточнением владельца: все собственные пользовательские интерфейсы сервисов, вошедших в Qubite 2.0, создаются на React/TypeScript и новой дизайн-системе. Это включает VPN, Writing, Search, общий Auth/Profile, настройки, Owner Console/analytics/support и новые модули. Не ограничиваться новой оболочкой со ссылками на прежние HTML страницы.

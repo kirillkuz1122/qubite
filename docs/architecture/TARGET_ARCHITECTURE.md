@@ -1,3 +1,5 @@
+> Актуально13.10.2026: [ADR-0021](decisions/0021-repository-layout-and-standalone-tournaments.md) / [карта исходников](REPOSITORY_LAYOUT.md). Tournaments — самостоятельная опциональная legacy-платформа без shared identity/SSO/grants нового core. Старые back/front/deploy теперь в legacy/qubite-v1; остальные старые сервисы reference и требуют нового interview/design/core API. Все новые модули планируются на поддоменах, ingress ещё не реализован. Исторические положения ниже о tournament adapter/общем управлении больше не текущая цель.
+
 # Целевая архитектура: согласованный стек и поэтапная реализация
 
 Стек CONFIRMED 12.10.2026: Python/FastAPI + React/TS + новый PostgreSQL, SQLite турниров сохраняется. Механика отдельных модулей требует task-level проверки; foundation ядра реализован в QUB-CORE-001; identity/policy/domain/UI ещё не реализованы. CONFIRMED: Tournaments отдельный модуль, обычная главная owner, default deny, независимые budgets, сохранение legacy, ShadeAI read-only.
@@ -20,7 +22,7 @@ flowchart TD
   W[React PWA: local store/outbox] --> G[Ingress: exact route map]
   A[Android Ink: Room/files] --> G
   G --> C[FastAPI Core: identity / policy / objects / Docs / sync]
-  C --> L[Optional Node Tournaments: scoped identity adapter]
+  L[Standalone optional Tournaments: Node / own Auth / SQLite]
   C --> P[(New PostgreSQL)]
   C --> B[Private blobs]
   C --> J[DB outbox/jobs worker]

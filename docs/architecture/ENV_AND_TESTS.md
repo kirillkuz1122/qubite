@@ -1,5 +1,7 @@
 # Конфигурация и проверки
 
+**Актуально после QUB-REPO-001, 13.10.2026:** новый core0.6.0/schema0007_registration, конфигурация только `QUBITE_CORE_*` из корневого `.env.example`; core читает env процесса. Старые `back/`, `front/`, `deploy/` пути в таблице ниже относятся к historical audit и теперь находятся под `legacy/qubite-v1/`; SiYuan integration — `legacy/integrations/qubite-siyuan/`. `deploy/.env` сохранён приватно для старого installer; прежний root env — `legacy/qubite-v1/.env`. Текущие команды проверок и evidence в [handoff](../project/LAST_HANDOFF.md); [карта структуры](REPOSITORY_LAYOUT.md). Ниже прошлые snapshots, не инструкции подключения legacy конфигурации к core.
+
 **Актуальное AUTH-01013.10.2026:** core0.3.0/current0004_oauth, [OAuth adapters/explicit link/unlink](OAUTH_IDENTITY.md), [report](../reports/QUB-AUTH-010.md). Identity-v2 partial runtime AUTH-009/010, текущих core tables10, metadata readonly readiness/old password sessions проверяются. Реальные provider keys/network/deploy/UI не использованы; снимки AUTH-002/009 и legacy audit ниже исторические. Policy/native/registration/reset/keys/services ещё отдельные задачи.
 
 Только имена env из исходников; значения .env не извлекались. Динамические префиксы SEARCH_<TIER>_* и ключи через config могут не попасть в список.

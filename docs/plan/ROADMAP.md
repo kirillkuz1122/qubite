@@ -1,3 +1,11 @@
+# Актуальный порядок13.10.2026
+
+Текущий согласованный QUB-REPO-001: source relocation/legacy isolation/docs/env/harness, без переписи нового runtime. Затем **обсудить UI-001** shell и AUTH-007 auth screens. Не начинать следующую задачу без новых вопросов/ответов. Все зависимости/статусы в tasks.json; старые snapshots ниже исторические.
+
+Service tracks: SVC-SEARCH-000→001→002, SVC-WRITING-000→001→002, SVC-VPN-000→001→002; Brief/Kwork/Knowledge каждый отдельное000 discovery с владельцем. Старый смысл — reference, сценарии/UI/API проектировать заново, общие Objects/Docs/Projects/Inbox/Command и core API. SiYuan excluded. Tournaments independent optional, без SSO/core integration, отдельный install/release после TEST-002 и DEPLOY-001. Поддомены всех модулей; core/shared React общие.
+
+Deploy track DEPLOY-001→002: новые install.sh/selectable modules/subdomains/backup/rollback/explicit owner CLI; DEPLOY-003 после Console — restricted operator module installation. Legacy installer теперь только legacy/qubite-v1/deploy. Filled deploy/.env сохранён, новый root template separate. [Решение](../architecture/decisions/0021-repository-layout-and-standalone-tournaments.md).
+
 # Roadmap с зависимостями
 
 **AUTH-00613.10.2026 — done:** core0.6.0/current0007_registration; owner-controlled invite/default/public/disabled API, оба одноразовых invite, strict minimal enrollment/consents, pending→email verify→login, no module/AI grants. [Контракт](../architecture/REGISTRATION.md), [отчёт](../reports/QUB-AUTH-006.md), [ADR-0020](../architecture/decisions/0020-owner-controlled-registration.md). Вопросы заданы и ответы получены до реализации. React controls/mail/legal/deploy отдельно. AUTH-015 глобальные switches, AUTH-016 ChatGPT eligibility/identity, AI-003 personal plan vs owner API сохранены в backlog. Далее обсудить UI-001 shell, затем AUTH-007 auth UI; перед каждым task снова вопросы. Implementation2035e1e / CI38390796988 exact SHA success11:36:36UTC;969 local+CI checks. Current evidence в tasks.json/LAST_HANDOFF, milestones ниже исторические.

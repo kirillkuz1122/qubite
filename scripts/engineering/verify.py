@@ -10,6 +10,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+LEGACY_SITE = Path('legacy/qubite-v1')
+LEGACY_DEPLOY = LEGACY_SITE / 'deploy'
 
 def run(argv, cwd, env):
     result = subprocess.run(argv, cwd=cwd, env=env, timeout=180, capture_output=True, text=True)
@@ -40,7 +42,7 @@ if __name__ == '__main__':
         code = root / 'code'
         code.mkdir()
         names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
-        allowed = {'back', 'front', 'deploy', 'services', 'integrations', 'scripts', 'tests', 'core', 'contracts'}
+        allowed = {'legacy', 'modules', 'deploy', 'services', 'integrations', 'scripts', 'tests', 'core', 'contracts', 'docs'}
         suffixes = {'.js', '.cjs', '.mjs', '.py', '.json', '.html', '.css', '.txt', '.md', '.svg', '.ttf', '.sql'}
         for name in sorted(set(names)):
             p = Path(name)
@@ -54,9 +56,9 @@ if __name__ == '__main__':
             target = code / p
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-        modules = ROOT / 'back/node_modules'
+        modules = ROOT / LEGACY_SITE / 'back/node_modules'
         if modules.is_dir():
-            (code / 'back/node_modules').symlink_to(modules, target_is_directory=True)
+            (code / LEGACY_SITE / 'back/node_modules').symlink_to(modules, target_is_directory=True)
         home = root / 'home'
         home.mkdir()
         policy = root / 'policy'
@@ -99,10 +101,10 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
         for suite in suites:
             print('SUITE:', suite, flush=True)
             if suite == 'node':
-                files = sorted(str(p.relative_to(code)) for p in (code/'back/tests').glob('*.test.js'))
+                files = sorted(str(p.relative_to(code)) for p in (code/LEGACY_SITE/'back/tests').glob('*.test.js'))
                 run(['node', '--test', '--test-reporter=tap', *files, 'services/search/tests/test_media.cjs'], code, env)
             elif suite == 'deploy':
-                run([args.python, '-m', 'unittest', 'discover', '-s', 'deploy/services/tests'], code, {**env, 'PYTHONPATH':str(policy)})
+                run([args.python, '-m', 'unittest', 'discover', '-s', str(LEGACY_DEPLOY/'services/tests')], code, {**env, 'PYTHONPATH':str(policy)})
             elif suite == 'identity':
                 run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/identity'], code,
                     {**env, 'PYTHONPATH':str(policy)})
@@ -119,7 +121,7 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                     if group:
                         run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', *group], folder, core_env)
             else:
-                folders = {'search':'services/search', 'specbot':'services/specbot', 'kwork':'integrations/kwork', 'siyuan':'integrations/qubite-siyuan'}
+                folders = {'search':'services/search', 'specbot':'services/specbot', 'kwork':'integrations/kwork', 'siyuan':'legacy/integrations/qubite-siyuan'}
                 folder = code / folders[suite]
                 run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests'], folder,
                     {**env, 'PYTHONPATH': os.pathsep.join([str(policy), str(folder), str(code/'integrations/kwork')])})

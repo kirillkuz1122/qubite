@@ -56,7 +56,7 @@ if __name__ == '__main__':
     assert ideas == {f'{i:02}' for i in range(1, 49)}, 'Потеря идеи из 48'
     count = 0
     for directory in ['docs/product', 'docs/architecture', 'docs/migration', 'docs/design',
-                      'docs/engineering', 'docs/plan', 'docs/project']:
+                      'docs/engineering', 'docs/plan', 'docs/project', 'docs/legacy-services']:
         for p in (ROOT / directory).rglob('*.md'):
             assert len(p.read_text().strip()) > 150, f'Пустой документ {p}'
             markdown = re.sub(r'`[^`\n]*`', '', p.read_text())

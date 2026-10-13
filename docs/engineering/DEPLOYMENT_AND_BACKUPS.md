@@ -1,3 +1,5 @@
+> Решение13.10.2026: [ADR-0021](../architecture/decisions/0021-repository-layout-and-standalone-tournaments.md). Tournaments — independent optional Node/SQLite/Vanilla со своим Auth, без core SSO/UUID/grants; Console future operator управляет установкой, не данными старых аккаунтов. Поддомены всех новых модулей и selectable installer/interactive owner setup — deploy track. Legacy installer в legacy/qubite-v1/deploy, filled root deploy/.env сохранён; core не читает env автоматически.
+
 # Окружения, деплой и резервные копии
 
 **13.10.2026, уточнение владельца:** действующего деплоя/аккаунтов нет; следующий серверный этап — первая fresh установка, не live identity migration. Старые БД/файлы не удаляются. Backup/restore применяются к реально найденным нужным источникам и новым данным core; нельзя требовать снимок несуществующей production DB как gate локального identity разработки. Перед первым deploy остаются exact artifact/host/routes/storage/staging/restore/approval проверки; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md).

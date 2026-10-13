@@ -145,8 +145,8 @@
       "QUB-TEST-001"
     ],
     "files": [
-      "back/tests/tournament-http.test.js (будущий)",
-      "back/tests/rating-baseline.test.js (будущий)"
+      "legacy/qubite-v1/back/tests/tournament-http.test.js (будущий)",
+      "legacy/qubite-v1/back/tests/rating-baseline.test.js (будущий)"
     ],
     "acceptance": [
       "Join individual/team/roster/code, submit/draft/deadline/penalty покрыты",
@@ -396,7 +396,8 @@
     "dependencies": [
       "QUB-AUTH-003",
       "QUB-AUTH-009",
-      "QUB-DESIGN-001"
+      "QUB-DESIGN-001",
+      "QUB-REPO-001"
     ],
     "files": [
       "apps/web (будущий)",
@@ -623,31 +624,32 @@
   },
   {
     "id": "QUB-TOUR-001",
-    "title": "Scoped role compatibility adapter",
-    "reason": "Изолировать роли/навигацию турниров при полном сохранении результатов и старых URL",
+    "title": "Самостоятельная optional установка Qubite Tournaments",
+    "reason": "Последнее решение владельца: отдельная старая платформа без связи аккаунтов/SSO с Qubite 2.0",
     "module": "tournaments",
     "priority": "P1",
     "dependencies": [
-      "QUB-AUTH-001",
+      "QUB-REPO-001",
       "QUB-TEST-002",
-      "QUB-OPS-002"
+      "QUB-DEPLOY-001"
     ],
     "files": [
-      "core/qubite/integrations/tournaments (будущий)",
-      "back/server.js (точечно после approval)"
+      "modules/tournaments/",
+      "legacy/qubite-v1/",
+      "deploy/ (новый installer после DEPLOY-001)"
     ],
     "acceptance": [
-      "Старые URLs/results/team roles сохранены, API alias tested",
-      "Tournaments отдельная navigation, no global admin elevation",
-      "Сохранить Node/SQLite и старый Vanilla UI; React только outer module entry/status, не перепись tournament UI"
+      "Optional install/uninstall/disabled без влияния на core, отдельные service/env/data/backup и tournament subdomain",
+      "Node/SQLite/Vanilla UI со своим Auth; никакого общего UUID/cookie/core grants/SSO",
+      "Tournament scoring/results/roster/team/rating и статические пути проверены; explicit release approval и backup before live"
     ],
     "tests": [
-      "verify.py --suite all + tournament E2E + policy diff"
+      "harness all; standalone install plan; tournament runtime regression; no core identity/DB integration checks"
     ],
     "risks": [
-      "Сохранить roster/codes/team/results/rating; не допустить глобальной эскалации"
+      "Legacy defects и installer assumptions; не выдавать систему за новый core module"
     ],
-    "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
+    "rollback": "Отключить отдельный tournament unit/ingress; сохранить его DB/env/uploads; core не затронут",
     "status": "backlog",
     "commit": null,
     "architecture_approved": false,
@@ -968,13 +970,16 @@
       "QUB-001"
     ],
     "files": [
-      "deploy/qubite2/README.md (будущий)",
-      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md"
+      "deploy/ (новая спецификация)",
+      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md",
+      "legacy/qubite-v1/deploy/ (reference)"
     ],
     "acceptance": [
       "Выбрать/обосновать server OS и packaging POC, manifest services/ports/data/env",
       "Отдельные fresh/upgrade/dry-run/rollback/backup/restore, explicit secrets input",
-      "Legacy deploy/install.sh сохраняется; нет autodeploy; VPS hostname отложен"
+      "Legacy deploy/install.sh сохраняется; нет autodeploy; VPS hostname отложен",
+      "Все module hosts — поддомены общего домена, fixed ingress/session/callback design; standalone турниры opt-in без shared Auth",
+      "Interactive singleton owner setup через существующие local CLI; module installation из Console отдельный operator task; deploy/.env сохранять"
     ],
     "tests": [
       "Manifest validation; synthetic install/upgrade acceptance matrix"
@@ -1006,7 +1011,9 @@
     "acceptance": [
       "Idempotent fresh install, dry-run/preflight/dependency checks; refuse existing dirty/data paths",
       "Pin versions/SHA, secret permissions, health и redacted report",
-      "Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются"
+      "Upgrade/rollback не выдавать за готовые пока нет отдельного tested slice; legacy unit/env не меняются",
+      "Optional standalone Tournaments install flag, independent data/auth/unit; все модули selective install/subdomains",
+      "Explicit core PG migrations + interactive owner bootstrap/set-password; никаких owner secrets в argv/env"
     ],
     "tests": [
       "Disposable container/VM install twice, interrupted install, existing-data refusal, no real credentials"
@@ -1064,7 +1071,7 @@
     "files": [
       "docs/architecture/TELEGRAM_AND_OBSERVABILITY.md",
       "contracts/telegram-commands-v1.json (будущий)",
-      "back/tests/telegram-parity.test.js (будущий)"
+      "legacy/qubite-v1/back/tests/telegram-parity.test.js (будущий)"
     ],
     "acceptance": [
       "TG-1..6 ответы записаны; каждую legacy функцию map keep/module/retire с обоснованием",
@@ -1623,10 +1630,11 @@
   {
     "id": "QUB-SVC-SEARCH-001",
     "title": "Search parity и FastAPI service API contract",
-    "reason": "Search собственный сервис новой платформы, не ссылка на старый HTML",
+    "reason": "Реализация нового service API только после отдельного interview/design; старый код — reference, не обязательный UX",
     "module": "search",
     "priority": "P1",
     "dependencies": [
+      "QUB-SVC-SEARCH-000",
       "QUB-AUTH-001",
       "QUB-AUTH-014"
     ],
@@ -1635,6 +1643,7 @@
       "contracts/search-service-v1.json (будущий)"
     ],
     "acceptance": [
+      "Одобренная новая спецификация/scenarios/linking/core API по discovery task; old endpoints не новый authority",
       "Матрица search/fetch/history/free-paid/media/keys/log protection/grounding/usage по source",
       "FastAPI platform adapter к рабочему Search engine, scoped keys и ACL, deny before paid calls",
       "History/old ciphertext/ledger mapping и no-data-loss routing plan; не internal objects SEARCH-001",
@@ -1685,10 +1694,11 @@
   {
     "id": "QUB-SVC-WRITING-001",
     "title": "Writing parity и FastAPI grammar/AI API contract",
-    "reason": "Writing engine использовать через целевой API без потери существующих функций",
+    "reason": "Реализация нового service API только после отдельного interview/design; старый код — reference, не обязательный UX",
     "module": "writing",
     "priority": "P1",
     "dependencies": [
+      "QUB-SVC-WRITING-000",
       "QUB-AUTH-001",
       "QUB-AUTH-014"
     ],
@@ -1697,6 +1707,7 @@
       "contracts/writing-service-v1.json (будущий)"
     ],
     "acceptance": [
+      "Одобренная новая спецификация/scenarios/linking/core API по discovery task; old endpoints не новый authority",
       "Separate local check и paid AI actions/grants/keys/budgets",
       "LanguageTool adapter + shared cost guard, cancel/version/UTF16-compatible offsets",
       "Firefox addon DTO/key/endpoint compatibility; texts не logs; native highlights bridge сохранён",
@@ -1747,10 +1758,11 @@
   {
     "id": "QUB-SVC-VPN-001",
     "title": "VPN parity и FastAPI node/subscription API contract",
-    "reason": "VPN platform domain на FastAPI с сохранением network engines",
+    "reason": "Реализация нового service API только после отдельного interview/design; старый код — reference, не обязательный UX",
     "module": "vpn",
     "priority": "P1",
     "dependencies": [
+      "QUB-SVC-VPN-000",
       "QUB-AUTH-001",
       "QUB-AUTH-014",
       "QUB-AUTH-012"
@@ -1760,6 +1772,7 @@
       "contracts/vpn-service-v1.json (будущий)"
     ],
     "acceptance": [
+      "Одобренная новая спецификация/scenarios/linking/core API по discovery task; old endpoints не новый authority",
       "Node heartbeat/status/profile/NaiveProxy toggle/subscription/device lifecycle mapping",
       "Grants отдельно node management, protected credentials и Auth/app compatibility",
       "Не меняются работающие VPN engines/firewall/SSH/туннель автоматически; stale nodes явные",
@@ -2126,5 +2139,293 @@
     "verification": [
       "13.10.2026: пожелание владельца записано; детальная реализация требует вопросов перед своей задачей."
     ]
+  },
+  {
+    "id": "QUB-REPO-001",
+    "title": "Отделение legacy и навигация универсального Qubite",
+    "reason": "Подтверждённый владельцем перенос старого сайта, VPN, deploy и документации; самостоятельные опциональные турниры и поддомены модулей",
+    "module": "repository",
+    "priority": "P0",
+    "dependencies": [
+      "QUB-001",
+      "QUB-TEST-001"
+    ],
+    "files": [
+      "legacy/",
+      "modules/tournaments/",
+      "deploy/README.md",
+      "README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md",
+      "docs/",
+      "scripts/engineering/",
+      "tests/engineering/",
+      ".github/workflows/engineering.yml",
+      ".gitignore",
+      ".env.example",
+      ".env (private local only)",
+      "services/*/README.md",
+      "integrations/*/README.md"
+    ],
+    "acceptance": [
+      "Старые исходники, HTML/legal, материалы и deployment сохранены в legacy с картой old→new и хешами; private deploy/.env сохранён по прежнему пути",
+      "Legacy site/static/auth/writing и installer paths проверены после переноса; core/contracts/design sources не меняются",
+      "Tournaments самостоятельная optional платформа без shared identity/SSO/data/платных обходов нового core; install selection будущего deploy отдельно",
+      "Root docs и агентный старт описывают Qubite 2.0; старые сервисы явно reference с отдельными discovery tasks и вопросами до реализации",
+      "Поддомены согласованы; DNS/TLS/new installer/native/UI/rewrite modules не выполняются"
+    ],
+    "tests": [
+      "check.py; relocation coverage and integrity; bash syntax + installer dry plan; verify.py all; tests/engineering; exact SHA CI"
+    ],
+    "risks": [
+      "Сломанные относительные пути после переноса",
+      "Случайный коммит приватных .env/DB/build files",
+      "Старые разрешения и API ошибочно приняты за новый core"
+    ],
+    "rollback": "Обратный перенос по RELOCATION_MANIFEST до deploy; сохранять private .env/DB и immutable archive; дальнейший git revert только без потери данных",
+    "status": "review/testing",
+    "commit": null,
+    "architecture_approved": true,
+    "verification": [
+      "13.10.2026 local: verify.py --suite all --python /tmp/qubite-design-tests/bin/python --postgres-bin /tmp/qubite-design-postgres/usr/bin: all965 + engineering11 =976 passed; no failed/skipped.",
+      "368 relocation entries preserved; allowed path/docs changes recorded, core/contracts/design runtime unchanged; private env digests match and ignored; standalone Tournaments no core SSO.",
+      "check.py67tasks/82docs; bash syntax19 scripts; installer --plan and explicit fixture configure --check no mutations. Commit/push/exact SHA CI pending."
+    ],
+    "approval": {
+      "date": "2026-10-13",
+      "source": "Ответы владельца в текущей сессии: перенос legacy сайта/app/deploy/docs; сервисы оставить как reference; турниры standalone; все модули поддомены; deploy/.env не удалять"
+    }
+  },
+  {
+    "id": "QUB-SVC-SEARCH-000",
+    "title": "Search: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "search",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "services/search/",
+      "integrations/qubite-search/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-WRITING-000",
+    "title": "Writing: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "writing",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "legacy/qubite-v1/back/src/writing.js",
+      "integrations/qubite-writing/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-VPN-000",
+    "title": "VPN: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "vpn",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "legacy/qubite-v1/back/src/proxy/",
+      "legacy/qubite-v1/deploy/proxy/",
+      "legacy/qubite-vpn/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-BRIEF-000",
+    "title": "Brief/specbot: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "brief",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "services/specbot/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-KWORK-000",
+    "title": "Kwork: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "kwork",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "integrations/kwork/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-SVC-KNOWLEDGE-000",
+    "title": "Knowledge/native bridge: вопросы владельцу и новое проектирование модуля",
+    "reason": "Старый сервис существует как reference; проектировать сценарии/UI/API заново и связывать с другими модулями Qubite",
+    "module": "knowledge",
+    "priority": "P1",
+    "dependencies": [
+      "QUB-REPO-001"
+    ],
+    "files": [
+      "integrations/qubite-knowledge/",
+      "docs/architecture/ (новая спецификация сервиса после ответов)",
+      "docs/plan/tasks.json"
+    ],
+    "acceptance": [
+      "Перед проектированием получены отдельные ответы владельца: что оставить/убрать/добавить и основные сценарии",
+      "Карта reference feature→новая функция; сценарии Docs/Projects/Inbox/Command/Finance где нужны",
+      "Typed новый core API, UUID/permissions/budget/events/source links/data authority, upstream native capabilities отдельно",
+      "Маленькие implementation tasks с deps/tests/rollback; никакой автоматической активации legacy API/платных calls"
+    ],
+    "tests": [
+      "check.py; source parity inventory; spec/API/permission review; owner acceptance"
+    ],
+    "risks": [
+      "Старые интерфейсы/глобальные роли/credentials приняты за новые; outbound sends без authorization"
+    ],
+    "rollback": "Только specification; legacy references/данные сохранить, новый adapter ещё не включён",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
+  },
+  {
+    "id": "QUB-DEPLOY-003",
+    "title": "Owner Console: безопасная установка/обновление модулей",
+    "reason": "Владелец хочет выбирать/устанавливать модули из Console; privileged installer нужен отдельно от public API",
+    "module": "deployment",
+    "priority": "P2",
+    "dependencies": [
+      "QUB-DEPLOY-002",
+      "QUB-AUTH-004"
+    ],
+    "files": [
+      "core/qubite/ (future module installation commands)",
+      "deploy/ (future restricted operator worker)",
+      "apps/web/ (future Console UI)",
+      "docs/engineering/DEPLOYMENT_AND_BACKUPS.md"
+    ],
+    "acceptance": [
+      "До реализации вопросы: доступные packages/hosts/approval/backup/recovery/update policy",
+      "Signed/pinned allowlist packages, reauth/owner/If-Match/idempotency/audit и отдельный operator worker; no arbitrary shell/URL/file paths",
+      "Plan→backup→install→checks→status/rollback; не включать paid grants по факту установки",
+      "Standalone Tournaments остаётся независимым; Console only installation/status metadata, no shared accounts"
+    ],
+    "tests": [
+      "mock/disposable operator integration; negative command/privilege cases; rollback/restore; owner UI acceptance"
+    ],
+    "risks": [
+      "Privilege escalation и data loss при установке/обновлении"
+    ],
+    "rollback": "Прекратить bounded operator job, восстановить проверенный backup, сохранить новые пользовательские данные",
+    "status": "backlog",
+    "commit": null,
+    "architecture_approved": false,
+    "verification": []
   }
 ]

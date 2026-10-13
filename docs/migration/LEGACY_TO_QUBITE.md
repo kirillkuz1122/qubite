@@ -1,3 +1,5 @@
+> Решение13.10.2026: [ADR-0021](../architecture/decisions/0021-repository-layout-and-standalone-tournaments.md). Tournaments — independent optional Node/SQLite/Vanilla со своим Auth, без core SSO/UUID/grants; Console future operator управляет установкой, не данными старых аккаунтов. Поддомены всех новых модулей и selectable installer/interactive owner setup — deploy track. Legacy installer в legacy/qubite-v1/deploy, filled root deploy/.env сохранён; core не читает env автоматически.
+
 # План миграции и отката
 
 ## Актуальный путь13.10.2026: fresh install

@@ -1,3 +1,5 @@
+> Уточнение владельца13.10.2026: [ADR-0021](0021-repository-layout-and-standalone-tournaments.md) отменяет обязательный SSO/identity adapter с турнирами; standalone optional platform без core accounts/grants. Остальные границы FastAPI/React сохраняются.
+
 # ADR-0007: необходимые legacy возможности на FastAPI и Telegram capture
 
 **Уточнение 13.10.2026:** [ADR-0013](0013-fresh-identity-and-unified-login.md) отменяет обязательный legacy Auth bridge/password/session import/login alias. Владелец сообщил об отсутствии аккаунтов и текущего деплоя; новый identity создаётся с нуля, owner bootstrap локальный. Ниже сохранено историческое решение12.10; стек/границы модулей и продуктовая access policy сохраняются.
