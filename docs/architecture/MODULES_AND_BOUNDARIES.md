@@ -4,7 +4,7 @@ RECOMMENDED: логические модули, а не процесс на ка
 
 | Модуль | Данные | Публичные операции | Граница |
 |---|---|---|---|
-| Identity/Core | Subject, workspace, device, session bridge | authorize(subject, action, resource); session introspection | legacy Auth сначала, policy нового core |
+| Identity/Core | новые UUID subjects, singleton owner, sessions/device tokens/scoped keys | fresh login/session/revoke; private introspection, policy authorize | только FastAPI/Postgres authority, без legacy bridge/import (ADR-0013) |
 | Owner Console | module/grant/config/budget metadata | owner-only management commands + audit | не меняет личные данные автоматически |
 | Docs | Document, Block, Revision, Template | create/read/update(expected_revision)/export/restore | structured AST, не HTML authority |
 | Ink | Notebook, Page, Stroke chunks, Profile | chunk ingest/viewer/replay/export | Android local input; PDF/media separate |
@@ -22,7 +22,7 @@ RECOMMENDED: логические модули, а не процесс на ка
 | Pulse | workflow definition/run/job/outbox | simulate/approve/run/cancel | bounded deterministic steps, reauthorize |
 | Plugins/MCP | manifest/grants/token/capsules | resources/tools/commands via core API | нет SQL/filesystem universal access |
 | Tournaments | legacy tables/runtime/rating/team roles | compatibility adapter to existing API | пока один writer legacy Node |
-| Search/Writer/VPN/Vault/Brief/Kwork/native knowledge | existing service data/credentials | scoped adapters with status + provenance | каждый сохраняет данные/URL, независимую auth где нужно |
+| Search/Writer/VPN/Vault/Brief/Kwork/native knowledge | existing service data/credentials | scoped adapters with status + provenance | единый interactive core login для своих сервисов; upstream/master/node credentials отдельно, найденные нужные данные сохранять |
 
 Общий command envelope: command_id/idempotency_key, actor_subject, workspace_id, resource_id, expected_revision, payload_schema_version, trace_id. Server не принимает actor/owner привилегии из client payload: связывает с текущей сессией. Response: result/current_revision или typed error (denied/conflict/unavailable/budget_exhausted). Event envelope: event_id, type/version, actor, object, revision, timestamp, provenance; потребитель повторно проверяет права на payload.
 

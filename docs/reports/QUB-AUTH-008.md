@@ -1,6 +1,6 @@
 # QUB-AUTH-008 — спецификация единого входа
 
-Дата: 13.10.2026. Статус: локальные проверки пройдены; review/testing до Git/CI evidence. Runtime Auth не реализован этой задачей.
+Дата: 13.10.2026. Статус: **done**, specification и проверки завершены; runtime Auth ещё не реализован. Runtime Auth не реализован этой задачей.
 
 ## Основание и результат
 
@@ -34,8 +34,10 @@ python3 -m unittest discover -s tests/engineering
 python3 scripts/engineering/check.py
 ```
 
-Git SHA/remote refs и exact-SHA CI будут записаны после push. Эта задача не меняет дизайн,133 browser checks предыдущего cycle повторно не запускались и не включены в418. Секреты, старые БД, back/front/services/deploy runtime, ShadeAI и demo не менялись. Архивы tournaments/qubite-v1.0 при начале задачи проверены на origin: 96f0457a523b6b79f21c4092056d8fa8fa69a680. Деплой, удаление данных, миграция пользователей и платные/provider вызовы не выполнялись.
+Implementation **a48685c5a68cf8ca8973d6561f44b491157a9f1a** сохранён в main и отправлен в origin. `git ls-remote` подтвердил main на этом SHA и оба архивных ref на96f0457a523b6b79f21c4092056d8fa8fa69a680. [CI Qubite verification38344387215](https://github.com/kirillkuz1122/qubite/actions/runs/38344387215) для exact implementation SHA **completed/success13.10.2026 04:01:52UTC**. CI Python3.14.8/PostgreSQL16.15: те же all414+harness4 =418 passed, без failed/skipped; log counts и headSha проверены. Эта задача не меняет дизайн,133 browser checks предыдущего cycle повторно не запускались и не включены в418. Секреты, старые БД, back/front/services/deploy runtime, ShadeAI и demo не менялись. Архивы tournaments/qubite-v1.0 при начале задачи проверены на origin: 96f0457a523b6b79f21c4092056d8fa8fa69a680. Деплой, удаление данных, миграция пользователей и платные/provider вызовы не выполнялись.
 
 ## Дальше
 
-После завершения AUTH-008 следующая ready задача AUTH-002 — PostgreSQL schema/accounts и локальный owner bootstrap. Нужны реальные disposable PG проверки повторов, гонок, FK/uniqueness и recovery; login ещё появится в AUTH-009. Старые AUTH-L01..03 остаются дефектами legacy кода; новый Auth должен выполнять противоположные negative requirements, а не копировать их. Реальные OAuth/provider/device/production проверки в будущих соответствующих задачах.
+AUTH-008 завершена, следующая ready задача AUTH-002 — PostgreSQL schema/accounts и локальный owner bootstrap. Нужны реальные disposable PG проверки повторов, гонок, FK/uniqueness и recovery; login ещё появится в AUTH-009. Старые AUTH-L01..03 остаются дефектами legacy кода; новый Auth должен выполнять противоположные negative requirements, а не копировать их. Реальные OAuth/provider/device/production проверки в будущих соответствующих задачах.
+
+Итоговый реестр56:5done/3ready/48backlog. Ready AUTH-002/DEPLOY-001/TG-001; primary AUTH-002. Этот финальный docs-only evidence cycle также исправляет исторический bridge в MODULES_AND_BOUNDARIES/Auth UX и включает ссылку на актуальный ADR. Контракт/tests/runtime dependencies не меняются после проверенного implementation SHA; final check.py/diff проходят отдельно.

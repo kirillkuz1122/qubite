@@ -118,7 +118,7 @@ Commit: a85f047e7e54c07a6f780a127988b14d9c623a74. Evidence: 12.10.2026: all isol
 
 ## QUB-AUTH-002 — Новые PostgreSQL аккаунты и локальный owner bootstrap
 
-Модуль: identity; P0; статус backlog; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
 
 Причина: Создать fresh identity нового core без импорта/bridge старых аккаунтов.
 
@@ -472,11 +472,11 @@ Commit: после выполнения. Evidence: .
 
 ## QUB-AUTH-008 — Единый вход Qubite: fresh-install контракт FastAPI/Postgres
 
-Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус done; architecture approved: true. Зависимости: QUB-CORE-001, QUB-TEST-001.
 
 Причина: После уточнения владельца13.10.2026 нет аккаунтов для переноса и текущего деплоя; спроектировать один вход для всех новых сервисов.
 
-Файлы/контракты: `docs/migration/IDENTITY_CUTOVER.md`, `contracts/identity-v2.json`, `contracts/identity-vectors.json`, `tests/identity/`, `scripts/engineering/verify.py`, `docs/architecture/`, `docs/project/`, `docs/plan/`, `docs/engineering/TEST_STRATEGY.md`, `docs/reports/QUB-AUTH-008.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`, `scripts/engineering/check.py`, `docs/engineering/DEPLOYMENT_AND_BACKUPS.md`, `docs/engineering/AGENT_HARNESS.md`.
+Файлы/контракты: `docs/migration/IDENTITY_CUTOVER.md`, `contracts/identity-v2.json`, `contracts/identity-vectors.json`, `tests/identity/`, `scripts/engineering/verify.py`, `docs/architecture/`, `docs/project/`, `docs/plan/`, `docs/engineering/TEST_STRATEGY.md`, `docs/reports/QUB-AUTH-008.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`, `scripts/engineering/check.py`, `docs/engineering/DEPLOYMENT_AND_BACKUPS.md`, `docs/engineering/AGENT_HARNESS.md`, `docs/design/AUTH_UX.md`.
 
 Acceptance:
 
@@ -490,7 +490,7 @@ Acceptance:
 
 Риск: SSO/refresh breakage; legacy owner bypass не наследовать. Откат: Сохранить архив96f0457 и локальные старые артефакты; fresh core изолирован. При будущих изменениях включать новый сервис после tests, при откате не восстанавливать старый snapshot поверх новых записей..
 
-Commit: после выполнения. Evidence: 12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes.; 13.10.2026 владелец прямо подтвердил: существующих аккаунтов нет, прежнего owner можно создать заново, проект нигде не запущен/деплоя нет. Разрешил единый новый вход/API и изменения Search/остальных сервисов. Старые сведения о live migration заменяются ADR-0013; данные/секреты не удаляются по одному этому сообщению.; 13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push..
+Commit: a48685c5a68cf8ca8973d6561f44b491157a9f1a. Evidence: 12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes.; 13.10.2026 владелец прямо подтвердил: существующих аккаунтов нет, прежнего owner можно создать заново, проект нигде не запущен/деплоя нет. Разрешил единый новый вход/API и изменения Search/остальных сервисов. Старые сведения о live migration заменяются ADR-0013; данные/секреты не удаляются по одному этому сообщению.; 13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push.; Implementation a48685c5a68cf8ca8973d6561f44b491157a9f1a pushed/remote verified; Qubite verification38344387215 completed/success13.10.2026 04:01:52UTC, exact headSha confirmed. CI Python3.14.8/PostgreSQL16.15: all414+harness4 =418 pass; no failed/skipped. Archive refs96f0457 unchanged. Final docs/evidence/source links checked separately; no runtime Auth or deploy..
 
 ## QUB-DEPLOY-001 — Specification нового deploy/qubite2 и installer modes
 
@@ -1121,4 +1121,4 @@ Commit: после выполнения. Evidence: .
 
 DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. PET-001/002 сохраняют hidden/edge peek/contextual appearance/dialogue/retreat; placement выбирается при реализации screens. Prototype scripted, реальные agents отсутствуют. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
 
-AUTH-008 сейчас контракт/план/protocol fixtures; затем AUTH-002 PG accounts/local owner bootstrap и AUTH-009 usable password/login. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.
+AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success; затем AUTH-002 PG accounts/local owner bootstrap и AUTH-009 usable password/login. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.

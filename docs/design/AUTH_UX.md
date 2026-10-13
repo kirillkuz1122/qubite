@@ -1,6 +1,6 @@
 # Новый Auth UX — reviewable спецификация
 
-12.10.2026, QUB-DESIGN-001. [Пять рабочих React-макетов](../../assets/design-lab/README.md), [выбор материалов](MATERIAL_DIRECTIONS.md). Target backend — FastAPI/Postgres; никакие identity endpoints этой задачей не реализованы и не мигрированы. Старый Auth продолжает обслуживать свои consumers до verified cutover.
+12.10.2026, QUB-DESIGN-001. [Пять рабочих React-макетов](../../assets/design-lab/README.md), [выбор материалов](MATERIAL_DIRECTIONS.md). Target backend — FastAPI/Postgres; никакие identity endpoints этой задачей не реализованы и не мигрированы. Уточнение13.10.2026 [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md): аккаунтов/текущего деплоя нет по сообщению владельца; новый единый core Auth создаётся с нуля. Legacy password/session import/bridge/login alias не нужен. [Контракт](../migration/IDENTITY_CUTOVER.md).
 
 ## Потоки
 
@@ -9,7 +9,7 @@
 | Login | Email, пароль, show/hide, «Войти» | Empty, invalid email, short password, loading, success; private материал при показе пароля | Server-side validation, generic invalid credentials, session/CSRF/rate protection; не принимать данные из декоративного состояния |
 | Register | Email, пароль, согласие; «Создать пространство» | Required consent, invalid, loading, success | Политика/условия с действующими ссылками и версиями; email verification; никакого implicit module/model доступа |
 | Reset | Email, «Отправить ссылку» | Invalid, loading, одинаковое подтверждение | Одинаковый ответ для существующего/несуществующего адреса, одноразовый token/TTL и revoke, без account enumeration |
-| OAuth | Кнопки Google/Yandex/Telegram как визуальный пример | Отдельное сообщение unavailable, внешние запросы отсутствуют | Список из enabled provider configuration; preserve нужные legacy providers, включая VK, после compatibility audit; state/PKCE/callback kill-switch и explicit verified linking |
+| OAuth | Кнопки Google/Yandex/Telegram как визуальный пример | Отдельное сообщение unavailable, внешние запросы отсутствуют | Список из enabled provider configuration; preserve нужные legacy providers, включая VK, после проверки configured provider contract; state/PKCE/callback kill-switch и explicit verified linking |
 
 Согласие в демо означает понимание тестового режима и не является заключением договора. Demo success сообщает, что аккаунт не создан/письмо не отправлено; синтетический таймер не имитирует подтверждение сервера. При смене режима/выходе timer отменяется; устаревший ответ не переключает другую форму. Пока форма busy повторная отправка блокируется.
 
@@ -33,4 +33,4 @@
 
 47 Playwright tests прототипа включают login/register/reset rendering, validation/consent/password state/OAuth unavailable/loading, cancel stale response, отсутствие storage/cookies/внешних POST; полный four-view/two-theme axe и keyboard/reduced motion. Browser tests — synthetic Chromium, не live OAuth/email/device acceptance.
 
-Milo выбран как основа; [новая механика controls и auth переходов](MILO_MATERIAL_AND_COMPANIONS.md) на review. Pending: приёмка конкретных движений; реальные provider/state/redirect/API/session contracts; screen reader, password manager, device/zoom проверки; migration/backup/restore и negative linking matrix. **AUTH-L01..03 остаются известными legacy дефектами** из [TEST-001](../reports/QUB-TEST-001.md); unverified linking — P0 gate, нельзя перенести как compatibility requirement. [AUTH-008/009/010 и остальные карточки](../plan/TASKS.md) задают последовательность, DESIGN review не снимает dependencies.
+Итоговый Поток/Игрушечная/Лента/Unbounded/Manrope принят13.10.2026, strength100/duration503; прежние Milo review — история. [Flux contract](FLUX_DESIGN_SYSTEM.md). Pending: final product layout/device performance; реальные provider/state/redirect/API/session contracts; screen reader, password manager, device/zoom проверки; fresh-install/backup новых данных и negative linking matrix. **AUTH-L01..03 остаются известными legacy дефектами** из [TEST-001](../reports/QUB-TEST-001.md); unverified linking — P0 gate, нельзя перенести как compatibility requirement. [AUTH-008/009/010 и остальные карточки](../plan/TASKS.md) задают последовательность, DESIGN review не снимает dependencies.

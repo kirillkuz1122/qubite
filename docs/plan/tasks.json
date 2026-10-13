@@ -254,7 +254,7 @@
       "Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "backlog",
+    "status": "ready",
     "commit": null,
     "architecture_approved": true,
     "verification": [
@@ -841,7 +841,8 @@
       "TODO.md",
       "scripts/engineering/check.py",
       "docs/engineering/DEPLOYMENT_AND_BACKUPS.md",
-      "docs/engineering/AGENT_HARNESS.md"
+      "docs/engineering/AGENT_HARNESS.md",
+      "docs/design/AUTH_UX.md"
     ],
     "acceptance": [
       "Полная карта legacy потребителей и целевого единого Auth: Web/Search/Writing/VPN/native/API/Tournaments/TG/upstream connectors",
@@ -857,13 +858,14 @@
       "SSO/refresh breakage; legacy owner bypass не наследовать"
     ],
     "rollback": "Сохранить архив96f0457 и локальные старые артефакты; fresh core изолирован. При будущих изменениях включать новый сервис после tests, при откате не восстанавливать старый snapshot поверх новых записей.",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "a48685c5a68cf8ca8973d6561f44b491157a9f1a",
     "architecture_approved": true,
     "verification": [
       "12.10.2026: ранее согласованный specification scope, dependencies CORE-001/TEST-001 done; ready без начала реализации/live writes.",
       "13.10.2026 владелец прямо подтвердил: существующих аккаунтов нет, прежнего owner можно создать заново, проект нигде не запущен/деплоя нет. Разрешил единый новый вход/API и изменения Search/остальных сервисов. Старые сведения о live migration заменяются ADR-0013; данные/секреты не удаляются по одному этому сообщению.",
-      "13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push."
+      "13.10.2026: targeted identity32 pass; isolated verify.py all414 pass (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29) + harness4 =418; no failed/skipped; PG18.6 disposable. check.py/link/source trace/diff checks pass. Protocol oracle specification only; runtime Auth not implemented. CI/implementation SHA recording follows push.",
+      "Implementation a48685c5a68cf8ca8973d6561f44b491157a9f1a pushed/remote verified; Qubite verification38344387215 completed/success13.10.2026 04:01:52UTC, exact headSha confirmed. CI Python3.14.8/PostgreSQL16.15: all414+harness4 =418 pass; no failed/skipped. Archive refs96f0457 unchanged. Final docs/evidence/source links checked separately; no runtime Auth or deploy."
     ]
   },
   {
