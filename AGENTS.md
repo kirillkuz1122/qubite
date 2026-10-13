@@ -1,6 +1,6 @@
 ## Qubite 2.0 — актуальный старт сессии (13.10.2026)
 
-Текущий код ниже описывает legacy Qubite; новая универсальная платформа ещё проектируется. Перед задачей читать [память проекта](docs/project/PROJECT_CONTEXT.md), [handoff](docs/project/LAST_HANDOFF.md), [kickoff](QUBITE_AGENT_KICKOFF_PROMPT.md), полностью master/access документы в корне, [аудит](docs/architecture/CURRENT_STATE.md), [ADR](docs/architecture/decisions/README.md), [tasks.json](docs/plan/tasks.json). Точный kickoff с суффиксом V2 отсутствует; не объявлять его прочитанным и не переименовывать пользовательский источник без причины.
+Текущий код ниже описывает legacy Qubite; новая универсальная платформа создаётся небольшими согласованными задачами. Перед задачей читать [память проекта](docs/project/PROJECT_CONTEXT.md), [handoff](docs/project/LAST_HANDOFF.md), [kickoff](QUBITE_AGENT_KICKOFF_PROMPT.md), полностью master/access документы в корне, [аудит](docs/architecture/CURRENT_STATE.md), [ADR](docs/architecture/decisions/README.md), [tasks.json](docs/plan/tasks.json). Точный kickoff с суффиксом V2 отсутствует; не объявлять его прочитанным и не переименовывать пользовательский источник без причины.
 
 - Продуктовые правила access policy имеют приоритет над старой глобальной моделью ролей: normal home для owner, separate Owner Console, tournament-only organizer/moderator/admin, manual module/model grants и budgets, default deny. Эти правила целевые, в legacy ещё есть owner auto-paid bypass.
 - Стек согласован 12.10.2026: FastAPI/Python, React/TS, Postgres нового core, SQLite турниров. Нужные shared функции и новый Auth FastAPI/Postgres. **13.10.2026: владелец сообщил, что деплоя/аккаунтов нет, owner можно создать заново. Fresh identity/единый API без legacy bridge/password/session import/login alias — [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [контракт](docs/migration/IDENTITY_CUTOVER.md).** Старые runtime исходники остаются, это не живой authority нового продукта. Новый дизайн/минимальная регистрация без account code-entry (ADR-0005/0007). Web/Android/Linux desktop и deploy/installer обязательны (ADR-0006). Детальные решения/POC не считать реализованными; массовый рефакторинг не начинать. Выбирать только ready задачи с done dependencies и approval, один bounded cycle. [Harness](docs/engineering/AGENT_HARNESS.md) задаёт проверки/документацию/evidence/коммит/push.
@@ -9,7 +9,7 @@
 - Хостинг отложен владельцем 12.10.2026, возможен VPS. Не блокировать локальное проектирование/разработку ресурсами Raspberry Pi; inventory/capacity/backup/restore остаются обязательными перед миграцией и деплоем. Ответами позднее 12.10.2026 стек согласован; локальные задачи разрешены по harness, live migration/deploy отдельно.
 - ShadeAI `/home/kirill/programing/ShadeAI` только read-only для будущего connector, без import/merge/secrets/cloud runtime changes.
 - Проверки: `python3 scripts/engineering/check.py`; `python3 scripts/engineering/verify.py --suite all --python <test-venv-python>`. Runner использует source-copy без .env, isolated HOME/DB и no external network. Итоги в [QUB-001](docs/reports/QUB-001.md); pass mocks не означает real API/device/production acceptance.
-- AUTH-008 — контракт/план/synthetic protocol tests, не работающий Auth. Следующая AUTH-002 — новые PG accounts/explicit local singleton owner bootstrap; AUTH-009 отдельно password/login/session. Search/Writing/VPN/native переходят в своих bounded задачах; unified login не объединяет vault master secrets/bot/node credentials. Identity suite включена в verify.py all. Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
+- AUTH-008 — контракт/план/synthetic protocol tests, не работающий Auth. AUTH-002 реализует новые PG accounts/explicit local singleton owner bootstrap; [схема/CLI](docs/architecture/IDENTITY_SCHEMA.md), [отчёт](docs/reports/QUB-AUTH-002.md). Current migration0002_identity, startup не пишет БД; постоянный owner не создавался, только disposable fixtures. Следующая AUTH-009 password/login/session и local owner password setup, status в tasks.json. Search/Writing/VPN/native переходят в своих bounded задачах; unified login не объединяет vault master secrets/bot/node credentials. Identity suite включена в verify.py all. Проектные решения/контекст хранить в docs/project и ADR, не в личной памяти агента; никаких секретов, production DB, private messages или browser state в Git.
 - DESIGN-001 done: **Поток/Игрушечная/Лента/Unbounded/Manrope и ритм100/503 подтверждены владельцем после просмотра версии4.** [Color Plastic04](docs/design/COLOR_PLASTIC.md), [Flux contract](docs/design/FLUX_DESIGN_SYSTEM.md), [ADR-0012](docs/architecture/decisions/0012-flux-design-system.md): пять ярких наборов с semantic roles, выбран toy; production layout/device checks остаются UI-002. [Лаборатория](assets/design-lab/README.md), [report](docs/reports/QUB-DESIGN-001.md), 133 browser tests. Старые сцены/Milo сохранены. Не использовать skills/quota reset/subagents по прямому запросу. Reuse owner-private project_id из hosting.json, tokens не хранить; CI tests-only, отдельное demo publish разрешено, production Qubite отдельно. UI-002/PET-* backlog, реальные agents отсутствуют.
 
 ---
@@ -42,7 +42,7 @@
   - `back/src/task-runtime.js`
   - `back/src/security.js`
   - `back/src/config.js`
-- Основная база данных — `SQLite`.
+- Legacy использует `SQLite`; новый core storage PostgreSQL с explicit migrations0001/0002, subjects/platform_owner (без password/session API пока).
 - Текущий CAPTCHA-слой — `Cloudflare Turnstile`, но в roadmap есть переход на `Yandex SmartCaptcha`.
 
 ## Ключевые файлы
@@ -63,6 +63,12 @@
 - `back/src/request-guard.js` — abuse/rate/origin guards
 - `back/src/oauth.js` — OAuth providers
 - `back/src/turnstile.js` — текущая CAPTCHA-интеграция
+
+### Новый core
+
+- `core/qubite/migrations.py`, `core/qubite/sql/0002_identity.sql` — explicit transactional schema/history gates.
+- `core/qubite/identity/accounts.py` — fresh subjects и owner bootstrap; `__main__.py` — local CLI, no public signup/bootstrap.
+- `core/tests/test_identity.py` — real disposable PostgreSQL cases; [CLI/schema](docs/architecture/IDENTITY_SCHEMA.md), [core запуск](core/README.md).
 
 ### Telegram Bot
 

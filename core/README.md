@@ -1,6 +1,16 @@
 # Qubite Core — foundation 0.1.0
 
-Отдельное FastAPI-приложение Qubite 2.0. Пока есть только health/readiness/OpenAPI и явная PostgreSQL миграция технических namespaces. Auth/Owner Console/доменные таблицы/React/Telegram здесь ещё не реализованы. Legacy Node/SQLite работает отдельно, импортов или подключения к нему нет.
+## Локальное создание owner — AUTH-002
+
+После explicit migration в dedicated core DB и приватной настройки QUBITE_CORE_DATABASE_URL:
+
+```sh
+PYTHONPATH=core core/.venv/bin/python -m qubite.identity bootstrap-owner
+```
+
+Введите email и CREATE OWNER в prompt. Команда создаёт fresh UUID/active subject +singleton owner атомарно, печатает UUID; повторный запуск отказывает без перезаписи. Пароль/usable login добавляются AUTH-009; email пока unverified, module/model grants не выдаются. Public bootstrap endpoint и startup side effects отсутствуют. Команда требует trusted operator DB privileges; API runtime не должен иметь INSERT/UPDATE/DELETE platform_owner. Данные настоящего владельца в этом engineering cycle не создавались. [Schema/constraints/границы](../docs/architecture/IDENTITY_SCHEMA.md), [отчёт](../docs/reports/QUB-AUTH-002.md).
+
+Отдельное FastAPI-приложение Qubite 2.0. Есть health/readiness/OpenAPI, explicit PostgreSQL migrations0001/0002 и fresh account storage/local singleton owner bootstrap (AUTH-002). Пароли/login/session API, Owner Console, остальные доменные таблицы/React/Telegram ещё не реализованы. Legacy Node/SQLite работает отдельно, импортов или подключения к нему нет.
 
 ## Локальный запуск
 
@@ -24,12 +34,12 @@ PYTHONPATH=core core/.venv/bin/python -m qubite.migrations apply
 PYTHONPATH=core core/.venv/bin/python -m qubite.migrations check
 ```
 
-`check` только читает, при pending/drift/unavailable возвращает код 1. `apply` выполняет транзакцию SQL+ledger под advisory lock. Повторный apply возвращает already current; неизвестная/изменённая история и потерянный core schema требуют явного recovery, автоматически не ремонтируются. API account может быть read-only, migration account отдельно. Никакой автоматической down/delete команды нет; restore/cutover требуют отдельного runbook/backup. Не запускать миграции на live данных по факту появления нового кода.
+`check` только читает, при pending/drift/unavailable/missing identity tables возвращает код 1; current schema0002_identity. `apply` выполняет транзакцию SQL+ledger под advisory lock. Повторный apply возвращает already current; неизвестная/изменённая история и потерянный core schema требуют явного recovery, автоматически не ремонтируются. API account может быть read-only, migration account отдельно. Никакой автоматической down/delete команды нет; restore/cutover требуют отдельного runbook/backup. Не запускать миграции на live данных по факту появления нового кода.
 
 ## API v1
 
 - `GET /api/v1/health/live` — процесс способен отвечать, без БД.
-- `GET /api/v1/health/ready` — только 200 ready при доступной PostgreSQL и актуальной migration history/core namespace; иначе 503 с общим кодом. Нет DSN/SQL/user/private error в ответе.
+- `GET /api/v1/health/ready` — только 200 ready при доступной PostgreSQL и актуальной migration history/core namespace и subjects/platform_owner tables; иначе 503 с общим кодом. Нет DSN/SQL/user/private error в ответе.
 - `GET /api/v1/openapi.json` — OpenAPI; версионированный контракт `contracts/core-v1.json` должен совпадать с runtime.
 
 ## Проверка

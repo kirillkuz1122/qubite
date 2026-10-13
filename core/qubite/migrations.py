@@ -53,6 +53,33 @@ def history(connection):
     ).fetchall()
 
 
+def validate_schema(connection, migrations):
+    """Required namespaces/tables, not a complete semantic schema fingerprint."""
+    versions = {m.version for m in migrations}
+    if "0001_foundation" in versions and not connection.execute(
+        "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'qubite_core')"
+    ).fetchone()[0]:
+        raise MigrationError("Core schema is missing; explicit recovery required")
+    if "0002_identity" in versions:
+        tables = {r[0] for r in connection.execute("""
+            SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'qubite_core' AND c.relkind IN ('r', 'p')
+              AND c.relname IN ('subjects', 'platform_owner')
+        """).fetchall()}
+        if tables != {"subjects", "platform_owner"}:
+            raise MigrationError("Core identity schema is missing; explicit recovery required")
+
+
+def ensure_current(connection, migrations):
+    """Same-transaction gate shared by readonly readiness and explicit writers."""
+    rows = history(connection)
+    applied = compare_history(rows or [], migrations)
+    if rows is None or applied < len(migrations):
+        raise MigrationError("Core migration is pending")
+    validate_schema(connection, migrations)
+    return migrations[-1].version
+
+
 def apply(settings: Settings, migrations: tuple[Migration, ...] | None = None) -> tuple[str, ...]:
     migrations = load_migrations() if migrations is None else migrations
     try:
@@ -61,10 +88,7 @@ def apply(settings: Settings, migrations: tuple[Migration, ...] | None = None) -
             connection.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_ID,))
             rows = history(connection)
             applied = compare_history(rows or [], migrations)
-            if applied and not connection.execute(
-                "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'qubite_core')"
-            ).fetchone()[0]:
-                raise MigrationError("Core schema is missing; explicit recovery required")
+            validate_schema(connection, migrations[:applied])
             connection.execute("CREATE SCHEMA IF NOT EXISTS qubite_meta")
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS qubite_meta.schema_migrations (
@@ -79,6 +103,7 @@ def apply(settings: Settings, migrations: tuple[Migration, ...] | None = None) -
                 connection.execute(migration.sql, prepare=False)
                 connection.execute("INSERT INTO qubite_meta.schema_migrations (version, checksum) VALUES (%s, %s)",
                                    (migration.version, migration.checksum))
+            validate_schema(connection, migrations)
             return tuple(m.version for m in pending)
     except psycopg.Error:
         # Driver exceptions can contain usernames, addresses and SQL: never emit them.
@@ -90,15 +115,7 @@ def check(settings: Settings) -> str:
     try:
         with psycopg.connect(**settings.connection_options()) as connection:
             connection.execute("SET TRANSACTION READ ONLY")
-            rows = history(connection)
-            if rows is None or len(rows) < len(migrations):
-                # Validate even incomplete histories; a tampered prefix is not pending.
-                compare_history(rows or [], migrations)
-                raise MigrationError("Core migration is pending")
-            compare_history(rows, migrations)
-            if connection.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'qubite_core')").fetchone()[0] is not True:
-                raise MigrationError("Core schema is missing")
-            return migrations[-1].version
+            return ensure_current(connection, migrations)
     except psycopg.Error:
         raise MigrationError("Core database is unavailable") from None
 

@@ -69,3 +69,5 @@
 - [Цветной пластик / итерация04](design/COLOR_PLASTIC.md): подтверждённые шрифты/знаки, пять новых наборов и семантическая иерархия цветов.
 
 - [Единый вход / fresh identity](migration/IDENTITY_CUTOVER.md), [машинный контракт](../contracts/identity-v2.json), [ADR-0013](architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт AUTH-008](reports/QUB-AUTH-008.md). Следом AUTH-002 PG accounts/local owner bootstrap; Search и другие потребители переходят в отдельных slices.
+
+- [Реализованные PostgreSQL accounts/owner schema и CLI](architecture/IDENTITY_SCHEMA.md), [ADR-0014](architecture/decisions/0014-fresh-accounts-and-owner-bootstrap.md), [отчёт AUTH-002](reports/QUB-AUTH-002.md). Login/password/session API далее AUTH-009.

@@ -1,5 +1,7 @@
 # ADR-0013 — новый единый аккаунт без переноса legacy identity
 
+**Исполнение AUTH-00213.10.2026:** subjects/owner storage и local bootstrap реализованы по [ADR-0014](0014-fresh-accounts-and-owner-bootstrap.md); [схема](../IDENTITY_SCHEMA.md). Описание статуса AUTH-008 ниже относится к моменту specification, текущий password/session API ещё AUTH-009.
+
 13.10.2026. **CONFIRMED пользователем:** существующих аккаунтов для переноса нет; прежний owner можно создать заново; проект сейчас нигде не запущен и действующего деплоя нет. Разрешено менять вход Search и остальных собственных сервисов, создать единый API. Это уточнение заменяет предположение о работающем legacy Auth/обязательной совместимости в ADR-0001/0005/0007 и плане миграции. Состояние удалённых серверов не исследовалось: основание — прямое сообщение владельца.
 
 **Engineering decision в разрешённой AUTH-008:** fresh PostgreSQL identity внутри FastAPI core, новые UUID аккаунтов, явный локальный bootstrap единственного owner. Старые passwords/sessions/grants/целочисленные IDs не импортируются. Новый core не зависит от Node introspection; обычный вход собственных Search/Writing/VPN/Docs единый. Для web — один origin, opaque HttpOnly cookie; для native — внешний браузер и authorization code + PKCE; для расширений/агентов — отдельные scoped API keys. Все credentials проверяет core, права/объекты/бюджеты проверяются отдельно. Никакого owner auto-paid.

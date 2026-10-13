@@ -1,5 +1,7 @@
 # Безопасность Qubite
 
+**Реализовано AUTH-002:** новый UUID/canonical-email account storage и active singleton owner через explicit local CLI/transaction/DB FK. Public bootstrap/startup promotion отсутствует; обычный account writer не получает owner из регистрации. [SQL/privileges/rollback](docs/architecture/IDENTITY_SCHEMA.md). Email остаётся unverified, password/login/session и модульная authorization ещё будущие; ограничения verified на disposable PG, не production.
+
 **Qubite2 identity13.10.2026:** [контракт](docs/migration/IDENTITY_CUTOVER.md)/[ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md) — specification, не реализованная защита. Fresh UUID/accounts, explicit local owner, Argon2id credentials, web CSRF, native PKCE, rotating device tokens и scoped keys планируются отдельными задачами; без legacy verifier/session import. Owner всё ещё требует module/model grants/budgets. Старый scrypt/owner-by-email/глобальные роли ниже — факты legacy кода, не target Auth. AUTH-L01..03 не исправлены этой задачей; отрицательные требования для нового Auth обязательны.
 
 Этот файл описывает не “идеальную модель безопасности”, а то, что реально подтверждается кодом и инфраструктурными файлами текущего репозитория.

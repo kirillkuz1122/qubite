@@ -1,5 +1,7 @@
 # Реализованный core foundation — QUB-CORE-001
 
+**Обновление13.10.2026, AUTH-002:** добавлена explicit0002_identity — subjects/platform_owner и local bootstrap. Current schema0002, readiness проверяет обе реальные таблицы. Историческое описание0001 ниже сохраняется; [реализованная identity](IDENTITY_SCHEMA.md)/[отчёт](../reports/QUB-AUTH-002.md) — текущие детали. Public HTTP API по-прежнему только health/OpenAPI, пароли/login ещё AUTH-009.
+
 12.10.2026. Engineering slice согласован пользователем как следующая задача; подтверждённый стек FastAPI/Python/Postgres из ADR-0001. `core/qubite` создан отдельно от Node/SQLite. Это foundation 0.1.0, не готовая universal platform/Auth.
 
 ## Границы и файлы
@@ -36,4 +38,4 @@ erDiagram
 
 29 core cases: no-network/no-env startup, contract/default surface, unsafe config/timeouts/PG env, DB pending→explicit migration→ready, sanitized error/unreachable DB, drift/unknown/missing schema deny, initial/subsequent failed transaction rollback+existing sentinel preserved, concurrent/idempotent migration, read-only runtime role и real uvicorn HTTP smoke. Native private initdb/Postgres fixture работает в /tmp, ephemeral TCP + SCRAM synthetic password, one fresh DB per case, cleanup server/data. Нет подключения к существующим PG/SQLite, платным API/Telegram/HA. Локально PostgreSQL18.6, CI Ubuntu24.04 PostgreSQL16.15 успешно проверен на implementation SHA a85f047 (run38211426535).
 
-Core suite включён в verify.py --suite all, dependency lock добавляет Psycopg. Full baseline [в отчёте](../reports/QUB-CORE-001.md). DESIGN-001 принят13.10.2026. AUTH-008 отдельно описывает fresh identity по ADR-0013; следующая AUTH-002 schema/accounts/local owner bootstrap, password/login AUTH-009. Этот foundation не содержит их runtime; [спецификация](../migration/IDENTITY_CUTOVER.md) и tasks.json — актуальный порядок.
+Core suite включён в verify.py --suite all, dependency lock добавляет Psycopg. Full baseline [в отчёте](../reports/QUB-CORE-001.md). DESIGN-001 принят13.10.2026. AUTH-008 отдельно описывает fresh identity по ADR-0013; AUTH-002 schema/accounts/local owner bootstrap реализованы отдельно, password/login следующая AUTH-009. Этот foundation не содержит их runtime; [спецификация](../migration/IDENTITY_CUTOVER.md) и tasks.json — актуальный порядок.

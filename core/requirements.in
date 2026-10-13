@@ -2,3 +2,5 @@
 fastapi==0.143.0
 uvicorn==0.54.0
 psycopg[binary]==3.3.6
+# Already pinned transitively in requirements.lock; identity uses IDNA2008 directly.
+idna==3.20

@@ -20,3 +20,5 @@
 | [0012](0012-flux-design-system.md) | CONFIRMED Поток/Игрушечная/Лента/Unbounded/Manrope | мобильная витрина компонентов, пять палитр и семейств знаков, независимая типографика, сценарии появления помощников |
 
 | [0013](0013-fresh-identity-and-unified-login.md) | CONFIRMED fresh identity 13.10.2026 / engineering protocol | новый единый FastAPI/Postgres Auth, явный local owner bootstrap, без импорта/bridge legacy аккаунтов |
+
+| [0014](0014-fresh-accounts-and-owner-bootstrap.md) | Engineering decision в approved AUTH-002 | explicit fresh schema, canonical email, active singleton FK, local transactional bootstrap и readonly schema gates |

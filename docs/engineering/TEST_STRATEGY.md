@@ -41,3 +41,7 @@ Bot/analytics migration требует отдельного feature-parity revie
 `python3 scripts/engineering/verify.py --suite identity --python <test-python>`; эта suite входит в обязательную all и CI. Source-copy без .env/real HOME/DB, внешняя сеть запрещена, vectors синтетические. Целевые protocol requirements не исправляют три старых legacy Auth дефекта; Search/Writing/VPN runtime пока остаётся прежним. [Отчёт](../reports/QUB-AUTH-008.md), [контракт](../migration/IDENTITY_CUTOVER.md).
 
 13.10.2026 AUTH-008: full all414 +harness4 =418 passed (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core29), без failed/skipped; native PG18.6. Две прежние deprecation warnings не errors; будущая Auth runtime acceptance не выполнена.
+
+## Реальная identity schema/bootstrap — AUTH-002
+
+Core suite теперь88 cases:29 foundation +59 identity tests. Temporary PostgreSQL18.6, semantic CHECK/UNIQUE/composite FK/RESTRICT, canonical collisions, UUID/default-deny metadata, owner/account races, failed partial insert transaction, limited account writer role, local CLI process/EOF cancel/приватность ошибочных argv, history/table gates и отсутствие public bootstrap/login routes. Current0002 migration меняет foundation expectations, OpenAPI unchanged. Password/session/provider/device enforcement ещё будущие, не pass этой задачи. Финальный all473 +harness4 =477 passed локально, без failed/skipped. Exact-SHA CI/Git evidence в [report](../reports/QUB-AUTH-002.md).

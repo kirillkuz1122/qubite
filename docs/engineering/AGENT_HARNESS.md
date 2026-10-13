@@ -1,6 +1,6 @@
 # Development Harness Codex/Claude
 
-**Identity уточнение13.10.2026:** AUTH-008 — specification только; identity suite входит в all, синтетические vectors/test oracle не runtime Auth. Новый путь fresh install без users/password/session import/bridge; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Не требовать server backup для локального slice без существующего data source. По-прежнему одна ready approved задача на цикл, тесты→evidence→русский commit→push; next AUTH-002 schema/bootstrap, login отдельно AUTH-009. Найденные старые данные не удалять; deploy отдельно.
+**Identity уточнение13.10.2026:** AUTH-008 — specification только; identity suite входит в all, синтетические vectors/test oracle не runtime Auth. Новый путь fresh install без users/password/session import/bridge; [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md). Не требовать server backup для локального slice без существующего data source. По-прежнему одна ready approved задача на цикл, тесты→evidence→русский commit→push; AUTH-002 schema/bootstrap отдельный verified slice; next AUTH-009 password/login. Найденные старые данные не удалять; deploy отдельно.
 
 Минимальный harness готов: tasks.json + check.py + verify.py + CI + project context/ADR/report. Это не автономный unlimited agent runner и не production deployer.
 
@@ -22,6 +22,6 @@ Unapproved architecture/data authority/schema switch/role expansion, failed requ
 
 Runner запускает legacy suites и core tests с настоящим native disposable PostgreSQL cluster; production storage/React/Android не создаёт. Он не коммитит и не пушит сам: агент проверяет результат и делает эти шаги. Не установлены global hooks, не изменены сервисы. Архитектура отмечается approved только решением пользователя с ADR/date; ready task dependencies проверяются machine schema.
 
-CI Python 3.14/Node 22 — отдельное окружение; локальный прогон 3.14/Node 22.22.2, CI actual green проверять на GitHub. Hardware/manual acceptance не превращать в CI skip. Параллельные агенты допускаются только по явной команде/разрешённому workflow и с file ownership.
+CI Python 3.14/Node 22 — отдельное окружение; фактические локальные версии указывать в отчёте (AUTH-002: Python3.13/Node22.22.2/Postgres18.6), CI actual green проверять на GitHub. Hardware/manual acceptance не превращать в CI skip. Параллельные агенты допускаются только по явной команде/разрешённому workflow и с file ownership.
 
 CORE-001 расширяет --suite all required core suite. Test prerequisites: Psycopg lock + native initdb/postgres, можно указать --postgres-bin. Никаких automatic downloads/Docker/system services: missing prerequisite fail. Source-copy включает core/contracts/SQL, core-specific fixture address не наследуется из production env, PG cluster новый в /tmp. Core API startup никогда не вызывает migration apply.

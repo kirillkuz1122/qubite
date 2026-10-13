@@ -1,6 +1,8 @@
 # Qubite
 
-**Единый вход — AUTH-008:** [fresh-install спецификация](docs/migration/IDENTITY_CUTOVER.md), [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт](docs/reports/QUB-AUTH-008.md). Новый FastAPI/Postgres identity для всех собственных сервисов, без импорта старых аккаунтов. Owner создаётся явным local bootstrap. Контракт/план/протокольные тесты готовы, работающий login/service cutover ещё впереди. Следующая задача AUTH-002 — PG accounts и bootstrap, затем AUTH-009 — password/session API.
+**AUTH-002:** реализованы PostgreSQL accounts и локальная команда назначения единственного owner; [schema/CLI](docs/architecture/IDENTITY_SCHEMA.md), [отчёт](docs/reports/QUB-AUTH-002.md), [запуск core](core/README.md). Реальные login/password/session API — следующая AUTH-009. Постоянный аккаунт владельца ещё не создавался; тесты используют disposable DB.
+
+**Единый вход — AUTH-008:** [fresh-install спецификация](docs/migration/IDENTITY_CUTOVER.md), [ADR-0013](docs/architecture/decisions/0013-fresh-identity-and-unified-login.md), [отчёт](docs/reports/QUB-AUTH-008.md). Новый FastAPI/Postgres identity для всех собственных сервисов, без импорта старых аккаунтов. Owner создаётся явным local bootstrap. Контракт/план/протокольные тесты готовы, работающий login/service cutover ещё впереди. AUTH-002 реализует PG accounts/bootstrap, следующая AUTH-009 — password/session API.
 
 ## Переход к Qubite 2.0
 

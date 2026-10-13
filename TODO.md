@@ -1,5 +1,7 @@
 # TODO / Roadmap / Known Issues
 
+**AUTH-002 реализована:** fresh PG account schema/local owner bootstrap. Next AUTH-009 password/session/CSRF/revoke, затем AUTH-003 policy; никакой legacy verifier/import. [Отчёт](docs/reports/QUB-AUTH-002.md).
+
 **Qubite2, актуальное13.10.2026:** AUTH-008 фиксирует fresh единый вход, без переноса старых аккаунтов/bridge ([контракт](docs/migration/IDENTITY_CUTOVER.md)). Далее AUTH-002 PG accounts/local owner bootstrap → AUTH-009 password/session API → AUTH-003 policy; native/keys/private introspection отдельные AUTH-012/013/014, затем свои React сервисы. Игрушечная/Поток/Лента/Unbounded/Manrope приняты. Ниже legacy backlog, он не меняет порядок нового [реестра задач](docs/plan/tasks.json).
 
 Этот файл больше не пытается быть “вечным списком идей”. Он фиксирует три вещи:

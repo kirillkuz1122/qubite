@@ -118,11 +118,11 @@ Commit: a85f047e7e54c07a6f780a127988b14d9c623a74. Evidence: 12.10.2026: all isol
 
 ## QUB-AUTH-002 — Новые PostgreSQL аккаунты и локальный owner bootstrap
 
-Модуль: identity; P0; статус ready; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
+Модуль: identity; P0; статус review/testing; architecture approved: true. Зависимости: QUB-AUTH-008, QUB-CORE-001, QUB-TEST-001.
 
 Причина: Создать fresh identity нового core без импорта/bridge старых аккаунтов.
 
-Файлы/контракты: `core/qubite/identity/ (будущий)`, `core/qubite/sql/0002_identity.sql (будущий)`, `core/tests/test_identity.py (будущий)`, `docs/reports/QUB-AUTH-002.md (будущий)`.
+Файлы/контракты: `core/qubite/identity/`, `core/qubite/sql/0002_identity.sql`, `core/qubite/migrations.py`, `core/tests/test_identity.py`, `core/tests/test_foundation.py`, `core/requirements.in`, `core/README.md`, `docs/architecture/`, `docs/project/`, `docs/plan/`, `docs/engineering/TEST_STRATEGY.md`, `docs/engineering/AGENT_HARNESS.md`, `docs/migration/IDENTITY_CUTOVER.md`, `docs/reports/QUB-AUTH-002.md`, `README.md`, `docs/README.md`, `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `TODO.md`.
 
 Acceptance:
 
@@ -131,11 +131,11 @@ Acceptance:
 - Нет old password/session/role/grant import, integer-ID mapping и обязательного alias; password setup/login следующая AUTH-009
 - Readiness/migration/invariants и existing foundation negative tests; secrets/passwords не записываются в argv/logs
 
-Проверка: Disposable PostgreSQL: migration twice/drift/rollback, canonical email collision, bootstrap race/repeat, singleton FK/constraints; isolated all suites.
+Проверка: python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>; python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>; python3 -m unittest discover -s tests/engineering; python3 scripts/engineering/check.py; git diff --check.
 
-Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
+Риск: Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice..
+Commit: после выполнения. Evidence: ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.; 13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.; 13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases; exact-SHA CI/Git evidence ещё ожидаются..
 
 ## QUB-AUTH-003 — Module entitlements и scoped policy gate
 
@@ -690,9 +690,9 @@ Acceptance:
 
 Проверка: Disposable Postgres password/session/CSRF/expiry/concurrency/reauth/blocked/revoke integration; identity-v2 protocol vectors, no old-password compatibility.
 
-Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно..
+Риск: Session fixation/Argon2 DOS/CSRF/account enumeration; bootstrap credentials только локально/без plaintext logging. Откат: Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.
 
-Commit: после выполнения. Evidence: .
+Commit: после выполнения. Evidence: ещё не получены.
 
 ## QUB-AUTH-010 — FastAPI OAuth provider adapter и account linking
 
@@ -1121,4 +1121,4 @@ Commit: после выполнения. Evidence: .
 
 DESIGN-001 done: Поток/Игрушечная/Лента/Unbounded/Manrope, ритм100/503. PET-001/002 сохраняют hidden/edge peek/contextual appearance/dialogue/retreat; placement выбирается при реализации screens. Prototype scripted, реальные agents отсутствуют. [Flux](../design/FLUX_DESIGN_SYSTEM.md), [Color Plastic](../design/COLOR_PLASTIC.md).
 
-AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success; затем AUTH-002 PG accounts/local owner bootstrap и AUTH-009 usable password/login. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.
+AUTH-008 done: контракт/план/protocol fixtures/418 checks/CI success. AUTH-002 — PG subjects/singleton owner и локальная команда назначения, статус и доказательства выше. Следующий bounded cycle AUTH-009 — password setup/login/session. No old passwords/sessions/legacy alias. Native AUTH-012, scoped keys AUTH-013 и private introspection AUTH-014 отделены от login slice и обязательны своим consumers. UI-001 ждёт policy/Auth/design; services ждут соответствующих API gates.

@@ -1,5 +1,7 @@
 # Identity и permissions
 
+**AUTH-00213.10.2026:** [account storage/local bootstrap](IDENTITY_SCHEMA.md) реализованы; owner active singleton ограничен БД, новая ordinary account pending/unverified. Пароли/сессии/public Auth/entitlements/budgets ещё не реализованы, никакого paid bypass/grant bootstrap не назначает.
+
 CONFIRMED: только один platform_owner на старте, owner status не переключаемый role slug. Global organizer/moderator/admin отсутствуют. Последнее решение 12.10.2026: новые платформенные Auth APIs создаются на FastAPI/Postgres, минимальная регистрация без account code-entry и новый React UI. **13.10.2026:** fresh core identity без старых аккаунтов/bridge по [ADR-0013](decisions/0013-fresh-identity-and-unified-login.md). [Контракт](../migration/IDENTITY_CUTOVER.md): новые UUID, explicit local owner bootstrap, единый браузерный вход, native PKCE и scoped API keys. Отдельные движки проверяют credentials через private core introspection с timeout/audience/revoke/status; нельзя доверять forwarded user header из интернета. Identity unavailable → deny, stale positive cache отсутствует. Это specification, не существующий Auth runtime.
 
 Authorization цепочка: authenticated active subject → global module installed/enabled → explicit module entitlement → action capability → workspace membership + object ACL + explicit deny → tool/provider/model allowlist → quotas/reserved budget. Все REST/WS/jobs/MCP/plugins проходят её. Роли workspace editor/viewer и tournament organizer не дают platform capabilities.

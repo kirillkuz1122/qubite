@@ -236,10 +236,26 @@
       "QUB-TEST-001"
     ],
     "files": [
-      "core/qubite/identity/ (будущий)",
-      "core/qubite/sql/0002_identity.sql (будущий)",
-      "core/tests/test_identity.py (будущий)",
-      "docs/reports/QUB-AUTH-002.md (будущий)"
+      "core/qubite/identity/",
+      "core/qubite/sql/0002_identity.sql",
+      "core/qubite/migrations.py",
+      "core/tests/test_identity.py",
+      "core/tests/test_foundation.py",
+      "core/requirements.in",
+      "core/README.md",
+      "docs/architecture/",
+      "docs/project/",
+      "docs/plan/",
+      "docs/engineering/TEST_STRATEGY.md",
+      "docs/engineering/AGENT_HARNESS.md",
+      "docs/migration/IDENTITY_CUTOVER.md",
+      "docs/reports/QUB-AUTH-002.md",
+      "README.md",
+      "docs/README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      "TODO.md"
     ],
     "acceptance": [
       "Explicit subjects UUID/email/status/auth_version + singleton platform_owner schema, checksum/transactional migrations",
@@ -248,17 +264,21 @@
       "Readiness/migration/invariants и existing foundation negative tests; secrets/passwords не записываются в argv/logs"
     ],
     "tests": [
-      "Disposable PostgreSQL: migration twice/drift/rollback, canonical email collision, bootstrap race/repeat, singleton FK/constraints; isolated all suites"
+      "python3 scripts/engineering/verify.py --suite core --python <test-python> --postgres-bin <native-bin>",
+      "python3 scripts/engineering/verify.py --suite all --python <test-python> --postgres-bin <native-bin>",
+      "python3 -m unittest discover -s tests/engineering; python3 scripts/engineering/check.py; git diff --check"
     ],
     "risks": [
       "Owner takeover через public bootstrap/first signup; local bootstrap не означает готовый password login"
     ],
     "rollback": "Снять новый route/artifact, сохранить PostgreSQL accounts/credentials/new writes. Не restore старые SQLite пароли/сессии поверх новой identity; deploy отдельно.",
-    "status": "ready",
+    "status": "review/testing",
     "commit": null,
     "architecture_approved": true,
     "verification": [
-      "ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice."
+      "ADR-0013/13.10.2026: владелец разрешил единый новый API/Auth и fresh owner; архитектура предметных schema/explicit bootstrap одобрена в этом scope. Ready после done AUTH-008, без начала второго slice.",
+      "13.10.2026: прямое указание владельца «Делай след задачу», принят один bounded cycle AUTH-002. Проверенные dependencies done, runtime/login/сервисы/deploy вне этого slice.",
+      "13.10.2026: финальный isolated all473 (Node94/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core88) +harness4 =477 pass; no failed/skipped, native PostgreSQL18.6/Python3.13. Core29 foundation+59 identity cases; exact-SHA CI/Git evidence ещё ожидаются."
     ]
   },
   {

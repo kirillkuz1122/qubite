@@ -1,5 +1,7 @@
 # AUTH-008 — единый вход Qubite, fresh-install
 
+**Исполнение13.10.2026:** AUTH-002 реализует [subjects/platform_owner/local bootstrap](../architecture/IDENTITY_SCHEMA.md), current migration0002. HTTP identity-v2 routes пока planned/runtime_implemented=false; следующий password/session API AUTH-009. Owner настоящий не bootstraped в постоянной среде, real CLI проверен на disposable accounts.
+
 13.10.2026. **Это спецификация, не работающий Auth.** Уточнение владельца: нет существующих аккаунтов для переноса, старый owner допускается создать заново, текущего деплоя нет. Разрешён новый вход/API в собственных сервисах. Это основание fresh-install, а не результат проверки удалённых units/данных. [ADR-0013](../architecture/decisions/0013-fresh-identity-and-unified-login.md) имеет приоритет над прежним планом dual-runtime перехода.
 
 Результат этой задачи: карта consumers, модель данных, контракт login/session/revoke/native/API keys, последовательность реализации и executable protocol vectors. Никаких real passwords, env credentials, внешних OAuth exchanges, paid calls, production DB mutations или перезапусков. `contracts/identity-v2.json` явно status=specification/runtime_implemented=false; не подменяет рабочий `core-v1.json` OpenAPI.
