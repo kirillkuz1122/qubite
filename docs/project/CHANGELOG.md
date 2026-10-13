@@ -4,7 +4,7 @@
 
 ## 13.10.2026 — QUB-REPO-001
 
-Перенос старого сайта/deploy/HTML/учебных материалов и Flutter VPN в legacy; standalone optional Tournaments без нового SSO; оставшиеся сервисы маркированы reference. Корневые инструкции описывают универсальную платформу. Filled deploy env сохранён, root env новый пустой, предыдущий root env сохранён приватно. Добавлены discovery задач сервисов и будущие installer/operator требования. Проверки и Git/CI evidence — [полный отчёт](../reports/QUB-REPO-001.md). Реальный installer/deploy и новый UI не исполнялись.
+Перенос старого сайта/deploy/HTML/учебных материалов и Flutter VPN в legacy; standalone optional Tournaments без нового SSO; оставшиеся сервисы маркированы reference. Корневые инструкции описывают универсальную платформу. Filled deploy env сохранён, root env новый пустой, предыдущий root env сохранён приватно. Добавлены discovery задач сервисов и будущие installer/operator требования. Задача done: local+CI976 pass; implementation66c7b46, CI38401965245 completed/success 2026-10-13T13:08:52Z. Подробности — [полный отчёт](../reports/QUB-REPO-001.md). Реальный installer/deploy и новый UI не исполнялись.
 
 ## Предыдущие задачи
 

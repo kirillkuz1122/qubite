@@ -32,7 +32,7 @@ DEPLOY-001/002 предусматривают новый каталог deploy �
 
 ## Проверки и evidence
 
-Статус: **review/testing**. Полная локальная регрессия завершена успешно; commit/push/exact SHA CI ожидаются.
+Статус: **done**. Implementation `66c7b46c4e573255b509024e7b4ceb4ed9a2239a` отправлен в main, origin подтверждён. [CI38401965245](https://github.com/kirillkuz1122/qubite/actions/runs/38401965245) проверен на exact SHA: **completed/success, 2026-10-13T13:08:52Z**, локально и в CI **976 pass** (all965 + engineering11), без failed/skipped. CI Python3.14.8/Node22.23.3/PostgreSQL16.15, core47.50/81.32/122.22s, каждая группа <180s; системный PG service не запускался. Итоговый docs-only evidence commit выполняется отдельно; implementation SHA остаётся ссылкой на проверенный код.
 
 - 11 engineering guards проходят: карта сохранности, независимый manifest, root cleanup, безопасный installer plan из чужого cwd, явный fixture env до установки, blank core template и ignore env.
 - Node99, deploy18, Search95, Brief112, Kwork29, archived SiYuan5, identity32 проходят после переноса.

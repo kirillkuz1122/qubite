@@ -2185,13 +2185,15 @@
       "Старые разрешения и API ошибочно приняты за новый core"
     ],
     "rollback": "Обратный перенос по RELOCATION_MANIFEST до deploy; сохранять private .env/DB и immutable archive; дальнейший git revert только без потери данных",
-    "status": "review/testing",
-    "commit": null,
+    "status": "done",
+    "commit": "66c7b46c4e573255b509024e7b4ceb4ed9a2239a",
     "architecture_approved": true,
     "verification": [
-      "13.10.2026 local: verify.py --suite all --python /tmp/qubite-design-tests/bin/python --postgres-bin /tmp/qubite-design-postgres/usr/bin: all965 + engineering11 =976 passed; no failed/skipped.",
-      "368 relocation entries preserved; allowed path/docs changes recorded, core/contracts/design runtime unchanged; private env digests match and ignored; standalone Tournaments no core SSO.",
-      "check.py67tasks/82docs; bash syntax19 scripts; installer --plan and explicit fixture configure --check no mutations. Commit/push/exact SHA CI pending."
+      "13.10.2026 local: all965 + engineering11 =976 passed, no failed/skipped; Node99/deploy18/Search95/Brief112/Kwork29/SiYuan5/identity32/core575; real disposable PostgreSQL18.6.",
+      "368 tracked relocations preserved in committed tree, allowed path/docs changes recorded; core/contracts/design sources unchanged. Private deploy env and archived root env SHA256 match; new root env blank/ignored; no private values committed.",
+      "check.py67tasks/82docs;19 bash syntax; nonmutating installer plan/explicit fixture configure-check; diff checks passed. Legacy HTTP/static/Writing paths covered.",
+      "Implementation 66c7b46c4e573255b509024e7b4ceb4ed9a2239a pushed and origin verified. Exact SHA GitHub CI38401965245 completed/success 2026-10-13T13:08:52Z; engineering11 + all965 =976 passed. https://github.com/kirillkuz1122/qubite/actions/runs/38401965245",
+      "Remote tournaments/qubite-v1.0 remain96f0457a523b6b79f21c4092056d8fa8fa69a680. New UI/installer/provider/native/deploy/data migration are separate tasks; no skills/subagents/quota reset/personal memory writes."
     ],
     "approval": {
       "date": "2026-10-13",

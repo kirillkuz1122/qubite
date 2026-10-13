@@ -1,6 +1,6 @@
 # Актуальный порядок13.10.2026
 
-Текущий согласованный QUB-REPO-001: source relocation/legacy isolation/docs/env/harness, без переписи нового runtime. Затем **обсудить UI-001** shell и AUTH-007 auth screens. Не начинать следующую задачу без новых вопросов/ответов. Все зависимости/статусы в tasks.json; старые snapshots ниже исторические.
+Завершён QUB-REPO-001: source relocation/legacy isolation/docs/env/harness, без переписи нового runtime. Затем **обсудить UI-001** shell и AUTH-007 auth screens. Не начинать следующую задачу без новых вопросов/ответов. Все зависимости/статусы в tasks.json; старые snapshots ниже исторические.
 
 Service tracks: SVC-SEARCH-000→001→002, SVC-WRITING-000→001→002, SVC-VPN-000→001→002; Brief/Kwork/Knowledge каждый отдельное000 discovery с владельцем. Старый смысл — reference, сценарии/UI/API проектировать заново, общие Objects/Docs/Projects/Inbox/Command и core API. SiYuan excluded. Tournaments independent optional, без SSO/core integration, отдельный install/release после TEST-002 и DEPLOY-001. Поддомены всех модулей; core/shared React общие.
 
