@@ -55,7 +55,7 @@ class PolicyStore(AuthStore):
         row = db.execute('SELECT effect,expires_at FROM qubite_core.'+table+' WHERE '+where, params).fetchone()
         return bool(row and row[0] == 'allow' and (row[1] is None or row[1] > now))
 
-    def _authorize(self, db, subject, target):
+    def _authorize_permissions(self, db, subject, target):
         if not isinstance(target, Target):
             raise AuthError(403, 'forbidden')
         now = self.clock()
@@ -80,8 +80,11 @@ class PolicyStore(AuthStore):
             if not self._allowed(db, 'policy_ai_grants', 'subject_id=%s AND module=%s AND provider=%s AND model=%s',
                                  (subject['id'], target.module, target.provider, target.model), now):
                 raise AuthError(403, 'forbidden')
-            # No boolean/caller-supplied budget approval can enable a provider.
-            # AI-001/002 must add a transactional reserve/dispatcher before paid effects.
+
+    def _authorize(self, db, subject, target):
+        self._authorize_permissions(db, subject, target)
+        if target.action == 'ai':
+            # Budget receipts do not permit effects. A guarded dispatcher is AI-002.
             raise AuthError(403, 'budget_gate_unavailable')
 
     def execute_session(self, raw, target, effect, *, csrf=None):

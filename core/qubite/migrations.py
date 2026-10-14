@@ -122,6 +122,18 @@ def validate_schema(connection, migrations):
             raise MigrationError('Core module catalog schema is missing; explicit recovery required')
 
 
+    if '0009_budgets' in versions:
+        required = {'ai_budget_state', 'ai_budget_accounts', 'ai_budget_limits', 'ai_budget_buckets',
+                    'ai_budget_prices', 'ai_budget_project_bindings', 'ai_budget_invocations',
+                    'ai_budget_allocations', 'ai_budget_outbox', 'ai_budget_events', 'ai_budget_freezes',
+                    'ai_budget_audit'}
+        tables = {r[0] for r in connection.execute('''SELECT c.relname FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='qubite_core'
+            AND c.relkind IN ('r','p') AND c.relname=ANY(%s)''', (list(required),)).fetchall()}
+        if tables != required:
+            raise MigrationError('Core budget schema is missing; explicit recovery required')
+
+
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""
     rows = history(connection)

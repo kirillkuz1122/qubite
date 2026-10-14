@@ -158,22 +158,23 @@ Commit: d4c813eb7aa02fd2b07a72ec90192efbc6209c9f. Evidence: ["13.10.2026: direct
 
 ## QUB-AI-001 — Atomic mock budget reservation
 
-Статус: backlog; модуль: ai; приоритет: P0; approval: false. Зависимости: QUB-AUTH-003.
+Статус: review/testing; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003.
 
 Раздельные float ledgers не защищают общий cap при параллельном расходе
 
-Файлы: `core/qubite/ai/budgets (будущий)`.
+Файлы: `core/qubite/ai/`, `core/qubite/sql/0009_budgets.sql`, `core/qubite/policy/store.py`, `core/tests/test_budgets.py`, `scripts/engineering/verify.py`, `docs/architecture/AI_BUDGETS.md`.
 
 Acceptance:
 
-- Integer buckets/idempotency/reserve/settle/unknown states
-- 2 workers concurrent cap и double settle pass
+- Integer USD money/request/token buckets for global/user/module/project/model and day/month/all; configurable timezone initially Asia/Yekaterinburg, no reset on changes
+- Atomic reserve/invocation/outbox; idempotency, exactly-once settle/release, unknown retained across periods; actual over bound records full usage and freezes route
+- 2 independent process users/models with100 concurrent requests under global cap; repeated key and double settle pass; owner no bypass; public paid gate stays closed
 
-Проверки: Будущий core pytest budgets с disposable DB, two processes.
+Проверки: Source-copy disposable PostgreSQL budgets suite, two spawned processes, migration/rollback/schema drift/strict DTO/price/permissions/calendar/DST/caps/unknown/settle tests; Full isolated regression+harness; exact implementation SHA engineering.yml and web.yml.
 
 Риски: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: None. Evidence: [].
+Commit: pending. Evidence: ["14.10.2026: вопросы заданы, владелец подтвердил USD, полный набор независимых лимитов, настраиваемый timezone первоначально Asia/Yekaterinburg; mock accounting only.", "Local targeted budgets61 passed48.79s; full source-copy regression all1058+harness11=1069pass; exact-SHA CI/browser pending. Two spawned processes100 calls users/models cap1USD estimate0.6USD→1 reserved/99 denied; key/settle20 repeated operations exactly once. No real provider/paid requests/permanent migration.", "Local browser86pass1.2m, format/build/build:demo passed; combined1155 local. CI exact SHA pending; no UI changes/private preview deployment."].
 
 ## QUB-AI-002 — Mock dispatcher crash/revoke/fallback checks
 

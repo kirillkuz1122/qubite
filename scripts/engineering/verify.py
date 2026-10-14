@@ -25,16 +25,17 @@ def run(argv, cwd, env):
 
 def core_groups(files):
     first = {'tests/test_foundation.py', 'tests/test_identity.py', 'tests/test_auth.py'}
-    # Every discovered file occurs exactly once; catalog runs separately within the existing timeout.
+    # Every discovered file occurs exactly once; bounded groups keep the existing timeout.
     second = {'tests/test_oauth.py', 'tests/test_challenges.py'}
     catalog = {'tests/test_catalog.py'}
+    budgets = {'tests/test_budgets.py'}
     return [[f for f in files if f in first], [f for f in files if f in second],
-            [f for f in files if f not in first | second | catalog],
-            [f for f in files if f in catalog]]
+            [f for f in files if f not in first | second | catalog | budgets],
+            [f for f in files if f in catalog], [f for f in files if f in budgets]]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core', 'policy', 'catalog', 'identity'], default='all')
+    parser.add_argument('--suite', choices=['all', 'node', 'deploy', 'search', 'specbot', 'kwork', 'siyuan', 'core', 'policy', 'catalog', 'budgets', 'identity'], default='all')
     parser.add_argument('--python', default=sys.executable, help='Python с pytest и зависимостями сервисов')
     parser.add_argument('--postgres-bin', help='Каталог native initdb/postgres только для disposable core fixture')
     args = parser.parse_args()
@@ -110,7 +111,7 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
             elif suite == 'identity':
                 run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/identity'], code,
                     {**env, 'PYTHONPATH':str(policy)})
-            elif suite in {'core', 'policy', 'catalog'}:
+            elif suite in {'core', 'policy', 'catalog', 'budgets'}:
                 folder = code / 'core'
                 core_env = {**env, 'PYTHONPATH': os.pathsep.join([str(policy), str(folder)])}
                 if args.postgres_bin:
@@ -121,6 +122,8 @@ dns.lookup=function(host,...args){if(!['127.0.0.1','::1','localhost'].includes(h
                     files = ['tests/test_policy.py']
                 elif suite == 'catalog':
                     files = ['tests/test_catalog.py']
+                elif suite == 'budgets':
+                    files = ['tests/test_budgets.py']
                 for group in core_groups(files):
                     if group:
                         run([args.python, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', *group], folder, core_env)

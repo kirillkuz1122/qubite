@@ -407,7 +407,7 @@ def test_additive_policy_migration_preserves_identity_and_is_atomic(database_url
         assert db.execute("SELECT to_regclass('qubite_core.policy_state')").fetchone()[0] is None
         assert db.execute('SELECT subject_id FROM qubite_core.platform_owner').fetchone()[0]==owner.id
         assert db.execute('SELECT count(*) FROM qubite_meta.schema_migrations').fetchone()[0]==5
-    assert apply(settings)==('0006_policy','0007_registration','0008_catalog') and apply(settings)==() and check(settings)=='0008_catalog'
+    assert apply(settings)==('0006_policy','0007_registration','0008_catalog','0009_budgets') and apply(settings)==() and check(settings)=='0009_budgets'
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT count(*) FROM qubite_core.policy_entitlements').fetchone()[0]==0
         assert db.execute('SELECT bool_or(installed OR enabled) FROM qubite_core.policy_modules').fetchone()[0] is False

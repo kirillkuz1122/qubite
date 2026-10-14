@@ -1,3 +1,5 @@
+**AI-00114.10.2026:** [реализованный mock accounting контракт](AI_BUDGETS.md) / [ADR-0026](decisions/0026-atomic-mock-budgets.md). USD/full caps/configurable timezone initially Asia/Yekaterinburg подтверждены. Core0.8.0/0009; generic paid gate закрыт до AI-002 dispatcher. Dispatch/revoke/lease/fallback ниже — target следующего slice, не реализованный worker.
+
 # AI Cost Guard
 
 CONFIRMED: server enforcement до внешнего вызова; owner не исключение, нет платных тестов без отдельного разрешения. RECOMMENDED: единый gateway с budget reservation для всех новых/адаптированных Search/Writer/Hermes/Brief/model/tool/jobs. Старые ledgers сохраняются, aggregate cost center сначала показывает их как отдельные источники, не выдаёт сумму за global enforcement.
@@ -11,7 +13,7 @@ CONFIRMED: server enforcement до внешнего вызова; owner не и�
 5. Success → append actual usage, settle ровно один раз, release остатка. Timeout/неизвестная доставка → unknown, reserve сохраняется, автоматического повтора нет. Cancel UI не значит free/refund. Webhook reconcile использует уникальный event/provider_request_id. Crash после отправки без результата не освобождает резерв по TTL.
 6. Actual>estimate: записать всю реальную стоимость, freeze route/новые вызовы, alert; не обрезать бухгалтерию до cap. Hard cap гарантируется gate лишь при корректной upper bound/ограничении провайдера — этот риск проверяется, не скрывается.
 
-Состояния: reserved→dispatched→settled либо reserved→released; dispatched→unknown→settled/reconciled. Повторный request возвращает существующий result/status; несовпадающий fingerprint → conflict. Смена UTC периода не обнуляет unfinished reserve: он привязан к original buckets. AI spend и Finance personal ledger — разные домены с read-only reporting связью.
+Состояния: reserved→dispatched→settled либо reserved→released; dispatched→unknown→settled/reconciled. Повторный request возвращает существующий result/status; несовпадающий fingerprint → conflict. Смена календарного периода platform timezone не обнуляет unfinished reserve: он привязан к original buckets. AI spend и Finance personal ledger — разные домены с read-only reporting связью.
 
 Postgres row lock выбран как candidate механизма, [официальное описание](https://www.postgresql.org/docs/current/explicit-locking.html). Не держать lock во время сети. Worker делает lease, quota запросов резервируется вместе с деньгами; transaction retry bounded, без provider retry.
 

@@ -566,7 +566,7 @@ def test_auth_migration_failure_preserves_identity_and_recovery_is_explicit(data
         assert db.execute('SELECT id FROM qubite_core.subjects').fetchone()[0]==sid
         assert db.execute('SELECT count(*) FROM qubite_meta.schema_migrations').fetchone()[0]==2
         assert db.execute("SELECT to_regclass('qubite_core.sessions')").fetchone()[0] is None
-    assert apply(settings)==('0003_auth','0004_oauth','0005_challenges','0006_policy','0007_registration','0008_catalog') and check(settings)=='0008_catalog'
+    assert apply(settings)==('0003_auth','0004_oauth','0005_challenges','0006_policy','0007_registration','0008_catalog','0009_budgets') and check(settings)=='0009_budgets'
 
 
 def test_password_insert_failure_is_atomic_and_driver_detail_not_returned(auth):

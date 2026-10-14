@@ -351,7 +351,7 @@ def test_additive_registration_migration_preserves_previous_schema_and_rows(data
         assert db.execute("SELECT to_regclass('qubite_core.registration_state')").fetchone()[0] is None
         assert db.execute('SELECT id FROM qubite_core.subjects').fetchone()[0]==sid
     assert apply(settings, ms[:7])==('0007_registration',)
-    assert apply(settings)==('0008_catalog',) and apply(settings)==() and check(settings)=='0008_catalog'
+    assert apply(settings)==('0008_catalog','0009_budgets') and apply(settings)==() and check(settings)=='0009_budgets'
 
 
 @pytest.mark.parametrize('drift',['table','state','checksum'])

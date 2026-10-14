@@ -1,3 +1,7 @@
+# Текущий цикл AI-001, 14.10.2026
+
+Вопросы и ответы получены: USD/full caps/configurable timezone initially Екатеринбург. Реализуется internal mock accounting core0.8.0/0009; local61pass/regression1069pass, browser86pass; exact-SHA CI pending. Затем **AI-002** mock dispatcher/revoke/crash/fallback; затем **AUTH-004** Console users/grants/budgets. Новые вопросы перед каждой следующей задачей. [Report](../reports/QUB-AI-001.md)/[handoff](../project/LAST_HANDOFF.md). Старые snapshots ниже исторические.
+
 # Следующий цикл после UI-003, 14.10.2026
 
 apps/web0.4.0: выбранный Поток, отдельный Auth и server catalog/shared owner visibility. Core0.7.0/schema0008_catalog, no module/AI grant from visibility. [Отчёт](../reports/QUB-UI-003.md), [handoff](../project/LAST_HANDOFF.md), tasks.json содержат фактические проверки/CI.

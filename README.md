@@ -46,3 +46,5 @@ Core читает только переменные процесса. Корне
 Все продуктовые модули планируются на поддоменах одного выбранного домена, с общим React/FastAPI ядром. Точное имя домена, TLS, ingress и module session handoff ещё не настроены. Tournaments — самостоятельная платформа: свой вход, свои данные и роли, без связи аккаунтов с Qubite 2.0; установка опциональна. Это последнее решение владельца13.10.2026 по [ADR-0021](docs/architecture/decisions/0021-repository-layout-and-standalone-tournaments.md).
 
 Перед каждой задачей — вопросы владельцу и ответы, затем один цикл: реализация → тесты → проверка → документация → русский коммит → push. Push не deploy. Архивная ветка `tournaments` и тег `qubite-v1.0` неизменны на `96f0457a523b6b79f21c4092056d8fa8fa69a680`.
+
+AI-001: [внутренний mock учёт бюджетов](docs/architecture/AI_BUDGETS.md), core0.8.0/schema0009. USD/day/month/all, независимые money/request/token limits, configured platform timezone сначала Екатеринбург. Резервы и settlement проверяются на disposable PostgreSQL; dispatcher и budget Console идут отдельными задачами. [Отчёт](docs/reports/QUB-AI-001.md).

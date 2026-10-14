@@ -1,10 +1,10 @@
-# Qubite Core0.7.0 — FastAPI
+# Qubite Core0.8.0 — FastAPI
 
 **AUTH-005, 13.10.2026 — done:** согласованная проверка существующего входа email/password без account code-entry. [Границы API](../docs/architecture/ACCOUNT_LOGIN.md), [отчёт](../docs/reports/QUB-AUTH-005.md), [ADR-0019](../docs/architecture/decisions/0019-account-login-boundary.md). Core0.6.0/schema0006_policy и runtime без изменений; old routes404/strict DTO, email proofs отдельно, shared/personal tournament join сохранён. Local+CI all892+harness6=898pass; implementationcf302d9 / CI38385240872 completed-success10:47:23UTC. Далее AUTH-006 минимальная регистрация; сначала вопросы и ответы владельца. Предыдущие milestones ниже исторические, актуальный статус в tasks.json/LAST_HANDOFF.
 
 OAuth network false, provider rows disabled по умолчанию. Новые QUBITE_CORE_OAUTH_<PROVIDER>_CLIENT_ID/CLIENT_SECRET и explicit network flag, локальные enable/disable команды, schema/HTTP/границы — [OAuth runtime](../docs/architecture/OAUTH_IDENTITY.md), [отчёт AUTH-010](../docs/reports/QUB-AUTH-010.md). Неизвестная identity не создаёт аккаунт; привязка/отвязка по собственному паролю, email не объединяет accounts. Реальные ключи/providers в этой задаче не использованы.
 
-Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0008, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) OAuth adapters/explicit account linking (AUTH-010) verification/reset (AUTH-011) и scoped policy gate (AUTH-003), owner-controlled регистрация/invites/consents (AUTH-006). React Auth и server catalog/owner visibility подключены; полная Owner Console, native/keys/introspection отдельно. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
+Независимое ядро новой платформы. Реализованы health/readiness/OpenAPI, explicit migrations0001..0009, fresh accounts/local owner bootstrap, Web Auth (AUTH-009) OAuth adapters/explicit account linking (AUTH-010) verification/reset (AUTH-011) и scoped policy gate (AUTH-003), owner-controlled регистрация/invites/consents (AUTH-006). React Auth и server catalog/owner visibility подключены; полная Owner Console, native/keys/introspection отдельно. Legacy Node/SQLite остаётся отдельно, импорт старых паролей/сессий отсутствует.
 
 Email: explicit `QUBITE_CORE_EMAIL_CHALLENGES_ENABLED=false` по умолчанию; true без injected mock transport всё равно503. Четыре POST verify/reset request/confirm, TTL/attempt/revoke — [email contract](../docs/architecture/EMAIL_CHALLENGES.md). Настоящая доставка/enrollment email-2FA/native отдельно; React Auth подключён. Core0.3 binary на ahead0005 fail closed; forward recovery сохраняет UUID/hashes/sessions.
 
@@ -74,3 +74,7 @@ Targeted: `python3 scripts/engineering/verify.py --suite policy --python <test-p
 ## Регистрация AUTH-006
 
 [API/modes/приглашения](../docs/architecture/REGISTRATION.md), [machine contract](../contracts/registration-v1.json). Public off: invite default; disabled закрывает оба enrollment пути. Owner PUT versioned/reauthed; выпуск invite требует UUID Idempotency-Key (token once). Только pending→verify→login, не auto grants. Mock transport injected/off default, реальные SMTP/legal publication отдельно; React Auth подключён. Registration schema0007 сохранена, current0008 включает catalog, previous SQL unchanged; global login/maintenance/ChatGPT adapter не реализованы.
+
+## AI-001 — mock accounting
+
+[Контракт](../docs/architecture/AI_BUDGETS.md), [ADR-0026](../docs/architecture/decisions/0026-atomic-mock-budgets.md), [отчёт](../docs/reports/QUB-AI-001.md). Current schema0009_budgets: additive exact integer USD/day/month/all ledger, atomic reserve+outbox, exactly-once settlement, unknown retention, over-bound route freeze. Owner hooks требуют session/CSRF/reauth/revision/idempotency; публичный HTTP и полноценный budget Console отдельно. Prices только mock; paid generic gate закрыт. Timezone первоначально Asia/Yekaterinburg, изменение не reset. Startup/readiness не мигрируют. Проверка `verify.py --suite budgets` только source-copy/disposable PG; реальные migration/providers не запускать.

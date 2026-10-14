@@ -1,3 +1,5 @@
+**AI-00114.10.2026 — review/testing:** core0.8.0/schema0009_budgets, owner answers USD/full caps/configurable Екатеринбург timezone. [Контракт](../architecture/AI_BUDGETS.md), [ADR-0026](../architecture/decisions/0026-atomic-mock-budgets.md), [отчёт](../reports/QUB-AI-001.md). Local budgets61pass/regression1069pass; browser86pass; exact-SHA CI pending. Internal mock ledger, generic paid effects closed; AI-002 dispatcher затем AUTH-004, новые вопросы перед каждым. Старые snapshots ниже исторические.
+
 # Журнал завершения задач Qubite
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.

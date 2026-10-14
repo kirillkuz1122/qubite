@@ -33,3 +33,5 @@
 | [0024](0024-public-landing-and-qubite-auth.md) | CONFIRMED13.10.2026 AUTH-007 answers | Публичный лендинг → отдельный Auth → главная; browser native target, обе формы invite, новые legal documents и fixed OAuth completion |
 
 | [0025](0025-server-module-catalog.md) | CONFIRMED14.10.2026 UI-003 answers | Default locked, общая hidden-настройка, upcoming/unavailable с read grant, server filtering и guarded owner persistence |
+
+| [0026](0026-atomic-mock-budgets.md) | CONFIRMED14.10.2026 AI-001 answers | USD/full caps/configurable Екатеринбург timezone, exact mock ledger/reserve/settle/unknown without paid effects |
