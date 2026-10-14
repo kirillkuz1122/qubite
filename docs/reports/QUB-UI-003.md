@@ -15,3 +15,9 @@ Live does not embed demo catalog metadata, only API; route/detail revision guard
 Base3b8d9e435e036bf008de46486a49e1684687f439. Existing .antigravitycli deletion исключить; filledenv/DB/legacy/design-lab/ShadeAI не менялись. Origin archive refs96f0457a523b6b79f21c4092056d8fa8fa69a680 verified before coding. До close русский commit/push/exact-SHA CI, existing owner-private demo update, не real core deployment.
 
 Следующий primary track AI-001 atomic mock budget → AI-002 mock dispatcher → AUTH-004 users/grants/budgets Console. Перед каждым свои вопросы/ответы; эта задача не разрешает следующий scope и платные запросы. Alternative ready CORE-002/AUTH-013/DEPLOY-001/TG-001 по отдельному согласованию.
+
+## Проверка перед окончательным закрытием
+
+Initial implementation346909ca15dbf8330b61771f0fc45ec885983f9b pushed/origin verified. Exact-SHA web38502878056 completed/success2026-10-14T02:49:54Z86pass; engineering38502878053 success02:54:45Z1008pass. Private demo version4/source3a09b2b5ed7ddadced425aa2eb8c4ea59dccc2a5/deploymentappgdep_6acef03dc8748191bebd87b744606ac0 succeeded03:00:29.646235UTC, owner/custom/one owner/zero groups confirmed.
+
+Final review found per-row save discarded other unsent choices. Corrected OwnerCatalog reconciliation in live/demo and extended existing real backend/demo tests to save two independent drafts. Server/schema/permission gates unchanged; final browser/CI/artifact evidence will point to corrected SHA/version, not the initial one.

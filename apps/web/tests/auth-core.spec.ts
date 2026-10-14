@@ -435,6 +435,10 @@ test("real owner saves shared visibility with reauth; defaults locked and no per
     .getByRole("group", { name: "Документы: без доступа" })
     .getByRole("button", { name: "Скрывать" })
     .click();
+  await page
+    .getByRole("group", { name: "Поиск: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
   await page.getByLabel("Твой пароль для подтверждения").fill(password);
   await page
     .getByRole("button", { name: "Сохранить: Документы", exact: true })
@@ -447,6 +451,21 @@ test("real owner saves shared visibility with reauth; defaults locked and no per
       .getByRole("group", { name: "Документы: без доступа" })
       .getByRole("button", { name: "Скрывать" }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page
+      .getByRole("group", { name: "Поиск: без доступа" })
+      .getByRole("button", { name: "Скрывать" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "Сохранить: Поиск", exact: true }),
+  ).toBeEnabled();
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить: Поиск", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Сохранить: Поиск", exact: true }),
+  ).toBeDisabled();
   await page.reload();
   await expect(
     page

@@ -47,7 +47,13 @@ export function OwnerCatalog({
           released: false,
         })),
       });
-      setDraft({});
+      setDraft((previous) =>
+        Object.fromEntries(
+          Object.entries(previous).filter(
+            ([id, value]) => value !== (visibility?.[id] || "locked"),
+          ),
+        ),
+      );
       return;
     }
     const n = ++latest.current,
@@ -55,11 +61,19 @@ export function OwnerCatalog({
       timer = setTimeout(() => c.abort(), 8000);
     setData(null);
     setFailed(false);
-    setDraft({});
     void request("/api/v1/owner/modules", c.signal)
       .then((v) => {
         const parsed = parseCatalog(v, true) as Catalog<OwnerCard>;
-        if (n === latest.current && !c.signal.aborted) setData(parsed);
+        if (n === latest.current && !c.signal.aborted) {
+          setData(parsed);
+          setDraft((previous) =>
+            Object.fromEntries(
+              Object.entries(previous).filter(([id, value]) =>
+                parsed.items.some((m) => m.id === id && m.visibility !== value),
+              ),
+            ),
+          );
+        }
       })
       .catch(() => {
         if (n === latest.current) setFailed(true);

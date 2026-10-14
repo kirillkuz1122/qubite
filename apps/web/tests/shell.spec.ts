@@ -71,7 +71,19 @@ test("owner hidden/locked preview changes catalog without granting access", asyn
     .getByRole("button", { name: "С замком" })
     .click();
   await page
+    .getByRole("group", { name: "Документы: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
+  await page
     .getByRole("button", { name: "Сохранить: Поиск", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("group", { name: "Документы: без доступа" })
+      .getByRole("button", { name: "Скрывать" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: "Сохранить: Документы", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Посмотреть новым пользователем" })
