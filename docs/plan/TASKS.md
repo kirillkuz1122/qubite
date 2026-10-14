@@ -158,7 +158,7 @@ Commit: d4c813eb7aa02fd2b07a72ec90192efbc6209c9f. Evidence: ["13.10.2026: direct
 
 ## QUB-AI-001 — Atomic mock budget reservation
 
-Статус: review/testing; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003.
+Статус: done; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AUTH-003.
 
 Раздельные float ledgers не защищают общий cap при параллельном расходе
 
@@ -174,7 +174,7 @@ Acceptance:
 
 Риски: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: pending. Evidence: ["14.10.2026: вопросы заданы, владелец подтвердил USD, полный набор независимых лимитов, настраиваемый timezone первоначально Asia/Yekaterinburg; mock accounting only.", "Local targeted budgets61 passed48.79s; full source-copy regression all1058+harness11=1069pass; exact-SHA CI/browser pending. Two spawned processes100 calls users/models cap1USD estimate0.6USD→1 reserved/99 denied; key/settle20 repeated operations exactly once. No real provider/paid requests/permanent migration.", "Local browser86pass1.2m, format/build/build:demo passed; combined1155 local. CI exact SHA pending; no UI changes/private preview deployment."].
+Commit: 4c243a7a87b145ba01dd10595c0bcbdc23112633. Evidence: ["14.10.2026: вопросы заданы, владелец подтвердил USD, полный набор независимых лимитов, настраиваемый timezone первоначально Asia/Yekaterinburg; mock accounting only.", "Local targeted budgets61 passed48.79s; full source-copy regression all1058+harness11=1069pass; final CI/browser passed below. Two spawned processes100 calls users/models cap1USD estimate0.6USD→1 reserved/99 denied; key/settle20 repeated operations exactly once. No real provider/paid requests/permanent migration.", "Local browser86pass1.2m, format/build/build:demo passed; combined1155 local. CI exact SHA completed-success below; no UI changes/private preview deployment.", "14.10.2026 final local+CI1155pass: engineering38565394275 completed/success12:46:37UTC1069pass; web38565393551 completed/success12:41:15UTC86pass; оба exact-SHA4c243a7a87b145ba01dd10595c0bcbdc23112633. No failed/skipped final. Core CI208/175/202/22/61 in58.29/102.09/144.28/15.65/73.49s, timeout180 unchanged. Paid generic gate closed, no permanent DB/provider/Console UI/deploy. Next AI-002 requires owner questions/answers."].
 
 ## QUB-AI-002 — Mock dispatcher crash/revoke/fallback checks
 

@@ -1,4 +1,4 @@
-**AI-00114.10.2026 — review/testing:** core0.8.0/schema0009_budgets, owner answers USD/full caps/configurable Екатеринбург timezone. [Контракт](../architecture/AI_BUDGETS.md), [ADR-0026](../architecture/decisions/0026-atomic-mock-budgets.md), [отчёт](../reports/QUB-AI-001.md). Local budgets61pass/regression1069pass; browser86pass; exact-SHA CI pending. Internal mock ledger, generic paid effects closed; AI-002 dispatcher затем AUTH-004, новые вопросы перед каждым. Старые snapshots ниже исторические.
+**AI-00114.10.2026 — done:** core0.8.0/schema0009_budgets, owner answers USD/full caps/configurable Екатеринбург timezone. [Контракт](../architecture/AI_BUDGETS.md), [ADR-0026](../architecture/decisions/0026-atomic-mock-budgets.md), [отчёт](../reports/QUB-AI-001.md). Final1155local+CI: budgets61/regression1069/browser86; code4c243a7, engineering38565394275 и web38565393551 exact-SHA completed/success. Internal mock ledger, generic paid effects closed; AI-002 dispatcher затем AUTH-004, новые вопросы перед каждым. Старые snapshots ниже исторические.
 
 # Журнал завершения задач Qubite
 
