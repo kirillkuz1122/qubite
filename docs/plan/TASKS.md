@@ -1361,7 +1361,7 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-003 — Серверный каталог и owner hidden/locked visibility
 
-Статус: review/testing; модуль: owner; приоритет: P0; approval: true. Зависимости: QUB-UI-001, QUB-AUTH-003.
+Статус: done; модуль: owner; приоритет: P0; approval: true. Зависимости: QUB-UI-001, QUB-AUTH-003.
 
 Ответ владельца13.10.2026: выбирать для каждого модуля скрытие или замок до выдачи доступа; UI-001 только preview
 
@@ -1377,7 +1377,7 @@ Acceptance:
 
 Риски: Скрытие не авторизация; не выдавать metadata скрытых модулей; catalog refresh при revoke. Откат: Отключить catalog feature; grants/data сохранить; explicit migration rollback plan до schema switch
 
-Commit: None. Evidence: ["14.10.2026 answers/ADR-0025 received before implementation; default locked/shared visibility/upcoming and unavailable with read grant.", "14.10.2026 final local all997+harness11=1008pass; core groups208/175/202/22,22catalog. Final86browser18desktop/19phone/33live/16real browser-core passed1.2m after final CSS, format/typecheck/live+demo builds, light/dark phone/desktop screenshots inspected. No failed/skipped; source-copy/disposable PostgreSQL, no providers/real data migration.", "Commit/exact-SHA web and engineering CI/private demo publication pending; physical device/native/SMTP/installer/production remain separate."].
+Commit: 9771158ce3600ff0c396ea72baedfbb67cc1d908. Evidence: ["14.10.2026 owner answers before coding/ADR-0025: default locked/shared visibility, read-granted preparing/unavailable shown. Core0.7.0/schema0008 additive; apps/web0.4.0.", "Local all997+harness11=1008pass; core4groups208/175/202/22. Final86browser18desktop/19phone/33live fixtures/16real browser-core passed1.2m, including two independent drafts retained across per-row save. Format/typecheck/live+demo builds/screenshots light/dark phone/desktop and clean npmci in isolated publication copy passed. No failed/skipped acceptance suites.", "Implementation346909ca15dbf8330b61771f0fc45ec885983f9b and final correction9771158ce3600ff0c396ea72baedfbb67cc1d908 pushed/origin verified; final exact-SHA web38505000027 completed/success2026-10-14T03:13:58Z86pass, engineering38505000011 success03:17:10Z1008pass. Both workflows match final codeSHA.", "Existing owner-private shell demo version5/source56a26e87909a282edba46c4cc66265c39d4dc692/deploymentappgdep_6acef5267ce08191bd9a61531c01b63c succeeded2026-10-14T03:21:25.034187+00:00, owner/custom/one owner/zero groups;15files696320bytes static only, no env/core/fixture. Initialv4 superseded. Material-lab unchanged.", "Visibility does not grant/install/change paid authority. Hidden generic404/direct lookup, revoked/expired cleared, owner gate/CSRF/reauth/If-Match/idempotency/atomic audit/races tested. Real SMTP/providers/native/devices/installer/production and legal publication separate; no permanent DB migration. Next AI-001 requires new owner questions/answers."].
 
 ## QUB-LEGAL-001 — Публичный запуск: реквизиты, правовые основания и раздельное evidence
 

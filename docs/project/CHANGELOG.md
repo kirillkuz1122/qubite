@@ -2,9 +2,9 @@
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.
 
-## 14.10.2026 — QUB-UI-003, testing
+## 14.10.2026 — QUB-UI-003, done
 
-Server catalog/shared hidden-vs-locked, default locked и upcoming/disabled labels после read grant. Core0.7.0/schema0008 additive metadata, apps/web0.4.0 с existing Flux и guarded explicit owner save. Installation/grants/AI untouched. Итоги regression/browser/CI и private demo — [отчёт](../reports/QUB-UI-003.md).
+Server catalog/shared hidden-vs-locked, default locked и upcoming/disabled labels после read grant. Core0.7.0/schema0008 additive metadata, apps/web0.4.0 с existing Flux и guarded explicit owner save. Installation/grants/AI untouched. 86browser/1008regression local+CI, final9771158 with per-row draft retention, exact-SHA web38505000027/engineering38505000011 success, private demo v5 succeeded. Evidence — [отчёт](../reports/QUB-UI-003.md).
 
 ## 14.10.2026 — QUB-AUTH-007, done
 
