@@ -47,9 +47,13 @@ export async function request(
   signal: AbortSignal,
   method = "GET",
   body?: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<unknown> {
   if (__QUBITE_DEMO__) throw new AuthFault("preview");
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...extraHeaders,
+  };
   if (method !== "GET") {
     const csrf = await request("/api/v1/auth/csrf", signal);
     if (
@@ -218,6 +222,10 @@ export function errorMessage(error: unknown): string {
       "Документы изменились. Обнови страницу и ознакомься с новой версией.",
     registration_changed:
       "Настройки регистрации изменились. Обнови страницу перед новой попыткой.",
+    policy_conflict:
+      "Настройки изменились в другой вкладке. Обнови их перед сохранением.",
+    policy_precondition_required: "Обнови настройки перед сохранением.",
+    policy_unavailable: "Настройки временно недоступны. Попробуй позже.",
     reauth_required: "Подтверди действие паролем Qubite и попробуй снова.",
     csrf_failed:
       "Проверка безопасности не прошла. Попробуй отправить форму снова.",

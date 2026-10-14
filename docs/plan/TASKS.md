@@ -1361,11 +1361,11 @@ Commit: None. Evidence: [].
 
 ## QUB-UI-003 — Серверный каталог и owner hidden/locked visibility
 
-Статус: backlog; модуль: owner; приоритет: P0; approval: false. Зависимости: QUB-UI-001, QUB-AUTH-003.
+Статус: review/testing; модуль: owner; приоритет: P0; approval: true. Зависимости: QUB-UI-001, QUB-AUTH-003.
 
 Ответ владельца13.10.2026: выбирать для каждого модуля скрытие или замок до выдачи доступа; UI-001 только preview
 
-Файлы: `core/qubite/policy (будущий)`, `apps/web/src/catalog.ts`, `docs/architecture/MODULE_CATALOG.md (будущий)`.
+Файлы: `core/qubite/policy/`, `core/qubite/sql/0008_catalog.sql`, `core/qubite/migrations.py`, `core/tests/`, `apps/web/src/`, `apps/web/tests/`, `scripts/engineering/web_auth_fixture.py`, `contracts/core-v1.json`, `docs/architecture/MODULE_CATALOG.md`, `docs/project/`, `docs/plan/`.
 
 Acceptance:
 
@@ -1377,7 +1377,7 @@ Acceptance:
 
 Риски: Скрытие не авторизация; не выдавать metadata скрытых модулей; catalog refresh при revoke. Откат: Отключить catalog feature; grants/data сохранить; explicit migration rollback plan до schema switch
 
-Commit: None. Evidence: ["Scope requested by owner; detailed server architecture/task questions remain open."].
+Commit: None. Evidence: ["14.10.2026 answers/ADR-0025 received before implementation; default locked/shared visibility/upcoming and unavailable with read grant.", "14.10.2026 final local all997+harness11=1008pass; core groups208/175/202/22,22catalog. Final86browser18desktop/19phone/33live/16real browser-core passed1.2m after final CSS, format/typecheck/live+demo builds, light/dark phone/desktop screenshots inspected. No failed/skipped; source-copy/disposable PostgreSQL, no providers/real data migration.", "Commit/exact-SHA web and engineering CI/private demo publication pending; physical device/native/SMTP/installer/production remain separate."].
 
 ## QUB-LEGAL-001 — Публичный запуск: реквизиты, правовые основания и раздельное evidence
 

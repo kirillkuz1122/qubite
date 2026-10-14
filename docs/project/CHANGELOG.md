@@ -2,6 +2,10 @@
 
 Актуальные статусы и evidence — в [tasks.json](../plan/tasks.json), [handoff](LAST_HANDOFF.md) и датированных отчётах. Этот журнал фиксирует результат bounded cycle; source tests не означают приёмку устройства или рабочий deployment.
 
+## 14.10.2026 — QUB-UI-003, testing
+
+Server catalog/shared hidden-vs-locked, default locked и upcoming/disabled labels после read grant. Core0.7.0/schema0008 additive metadata, apps/web0.4.0 с existing Flux и guarded explicit owner save. Installation/grants/AI untouched. Итоги regression/browser/CI и private demo — [отчёт](../reports/QUB-UI-003.md).
+
 ## 14.10.2026 — QUB-AUTH-007, done
 
 apps/web0.3.0: публичный лендинг, отдельный Qubite Auth, регистрация/invite/verify/reset и безопасность профиля поверх FastAPI. Существующий живой Поток используется без смены дизайна. Browser OAuth fixed303 completion, JSON API сохранён. Новые четыре legal текста; сведения оператора/страны перед public launch в QUB-LEGAL-001. 71browser/986regression local+CI; implementationac2c8ef, exact-SHA web38451493363/engineering38451493360 success; private demo version3 succeeded. Git/hosting evidence — [отчёт](../reports/QUB-AUTH-007.md).

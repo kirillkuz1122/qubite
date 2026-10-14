@@ -10,10 +10,10 @@ from pydantic import ValidationError
 from ..identity.auth.http import credential, csrf_header, headers
 from ..identity.auth.routes import AuthFault
 from ..identity.auth.store import AuthError
-from .models import Catalog, Decision, OwnAccess, PolicyCommand, Receipt, StreamCheck, Subscribe, Target
+from .models import Catalog, Decision, OwnAccess, PolicyCommand, Receipt, StreamCheck, Subscribe, Target, ModuleCards, OwnerModuleCards
 from .store import PolicyStore
 
-HTTP_PATHS = {'/api/v1/me/access', '/api/v1/policy/check', '/api/v1/owner/policy', '/api/v1/owner/policy/commands'}
+HTTP_PATHS = {'/api/v1/me/access', '/api/v1/policy/check', '/api/v1/owner/policy', '/api/v1/owner/policy/commands', '/api/v1/me/modules', '/api/v1/owner/modules'}
 BODY_PATHS = {'/api/v1/policy/check', '/api/v1/owner/policy/commands'}
 STREAM_PATH = '/api/v1/policy/stream'
 
@@ -21,7 +21,7 @@ STREAM_PATH = '/api/v1/policy/stream'
 def create_router(settings, clock=None):
     store = PolicyStore(settings, clock)
     router = APIRouter(tags=['policy'], responses={
-        code: {'model': AuthFault} for code in (400, 401, 403, 409, 428, 429, 503, '4XX')})
+        code: {'model': AuthFault} for code in (400, 401, 403, 404, 409, 428, 429, 503, '4XX')})
 
     def session(request):
         kind, raw = credential(request.scope, settings)
@@ -39,6 +39,18 @@ def create_router(settings, clock=None):
     @router.get('/api/v1/owner/policy', response_model=Catalog, operation_id='policy_owner_catalog')
     def catalog(request: Request, response: Response):
         return etag(response, store.catalog(session(request)))
+
+    @router.get('/api/v1/me/modules', response_model=ModuleCards, operation_id='module_catalog_own')
+    def modules(request: Request, response: Response):
+        return etag(response, store.module_cards(session(request)))
+
+    @router.get('/api/v1/me/modules/{module}', response_model=ModuleCards, operation_id='module_catalog_item')
+    def module_card(module: str, request: Request, response: Response):
+        return etag(response, store.module_cards(session(request), module=module))
+
+    @router.get('/api/v1/owner/modules', response_model=OwnerModuleCards, operation_id='module_catalog_owner')
+    def owner_modules(request: Request, response: Response):
+        return etag(response, store.module_cards(session(request), owner=True))
 
     @router.post('/api/v1/policy/check', response_model=Decision, operation_id='policy_check')
     def check(body: Target, request: Request):

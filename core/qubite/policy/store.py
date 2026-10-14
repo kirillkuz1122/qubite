@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import json
 import hashlib
 import hmac
+import re
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -116,6 +117,39 @@ class PolicyStore(AuthStore):
                               (subject['id'], self.clock())).fetchall()
             return {'revision': revision, 'items': [dict(module=r[0], action=r[1], expires_at=r[2]) for r in rows]}
 
+    def module_cards(self, raw, *, owner=False, module=None):
+        # Read entitlement directly: installation does not erase an explicit grant.
+        # This discloses presentation only, never object permissions or data.
+        with database(self.settings) as db:
+            revision = self._lock(db)
+            subject, _ = self._web(db, raw)
+            if owner:
+                self._owner(subject)
+            if module is not None and not re.fullmatch(r'[a-z][a-z0-9_]{0,31}', module):
+                raise AuthError(404, 'not_found')
+            rows = db.execute('''SELECT c.module,c.name,c.summary,c.label,c.tone,c.icon,c.visibility,
+                c.released,m.installed,m.enabled,e.effect,e.expires_at FROM qubite_core.module_catalog c
+                JOIN qubite_core.policy_modules m ON m.id=c.module
+                LEFT JOIN qubite_core.policy_entitlements e ON e.module=c.module AND e.subject_id=%s AND e.action='read'
+                WHERE (%s::text IS NULL OR c.module=%s) ORDER BY c.position''',
+                (subject['id'], module, module)).fetchall()
+            items = []
+            for r in rows:
+                read = r[10] == 'allow' and (r[11] is None or r[11] > self.clock())
+                if not owner and not read and r[6] == 'hidden':
+                    continue
+                status = ('unavailable' if r[8] and not r[9] else
+                          'preparing' if not r[7] or not r[8] else 'ready')
+                card = dict(module=r[0],name=r[1],summary=r[2],label=r[3],tone=r[4],icon=r[5],
+                            visibility=r[6],status=status if owner or read else 'locked',
+                            access_expires_at=r[11] if read else None)
+                if owner:
+                    card.update(released=r[7],installed=r[8],enabled=r[9])
+                items.append(card)
+            if module is not None and not items:
+                raise AuthError(404, 'not_found')
+            return {'revision': revision, 'items': items}
+
     @staticmethod
     def _exists(db, table, column, value):
         if not db.execute('SELECT 1 FROM qubite_core.'+table+' WHERE '+column+'=%s', (value,)).fetchone():
@@ -143,7 +177,12 @@ class PolicyStore(AuthStore):
                 self._exists(db, 'policy_modules', 'id', command.module)
             if hasattr(command, 'subject_id'):
                 self._exists(db, 'subjects', 'id', command.subject_id)
-            if command.kind == 'module':
+            if command.kind == 'catalog_visibility':
+                old = db.execute('SELECT visibility FROM qubite_core.module_catalog WHERE module=%s', (command.module,)).fetchone()
+                if not old:
+                    raise AuthError(400, 'invalid_policy_command')
+                db.execute('UPDATE qubite_core.module_catalog SET visibility=%s WHERE module=%s', (command.visibility, command.module))
+            elif command.kind == 'module':
                 old = db.execute('SELECT enabled FROM qubite_core.policy_modules WHERE id=%s', (command.module,)).fetchone()
                 db.execute('UPDATE qubite_core.policy_modules SET enabled=%s WHERE id=%s', (command.enabled, command.module))
             elif command.kind == 'entitlement':

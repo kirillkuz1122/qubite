@@ -15,6 +15,15 @@ async function api(
   p: unknown = profile,
   access: unknown = { revision: 1, items: [] },
 ) {
+  await page.route("**/api/v1/me/modules", (r) =>
+    r.fulfill({ json: { revision: 1, items: [] } }),
+  );
+  await page.route("**/api/v1/me/modules/*", (r) =>
+    r.fulfill({ status: 404, json: { code: "not_found" } }),
+  );
+  await page.route("**/api/v1/owner/modules", (r) =>
+    r.fulfill({ json: { revision: 1, items: [] } }),
+  );
   await page.route("**/api/v1/me", (r) => r.fulfill({ json: p }));
   await page.route("**/api/v1/me/access", (r) => r.fulfill({ json: access }));
 }
@@ -45,13 +54,11 @@ test("live actor comes only from API; query and storage cannot select demo owner
     page.getByRole("heading", { name: "Модули ещё не добавлены" }),
   ).toBeVisible();
 });
-test("owner status does not bypass read grants or create server visibility settings", async ({
-  page,
-}) => {
+test("owner catalog metadata never bypasses read grants", async ({ page }) => {
   await api(page, { ...profile, platform_owner: true });
   await page.goto("/#/settings/owner");
   await expect(
-    page.getByRole("heading", { name: "Настройка каталога готовится" }),
+    page.getByRole("heading", { name: "Видимость модулей" }),
   ).toBeVisible();
   await expect(page.getByRole("combobox")).toHaveCount(0);
   await page.goto("/#/modules/docs");
@@ -104,6 +111,23 @@ test("real read permission exposes unavailable module, not imported legacy UI", 
   page,
 }) => {
   await api(page, profile, { revision: 1, items: [grant("docs", "read")] });
+  const card = {
+    module: "docs",
+    name: "Документы",
+    summary: "Материалы пользователя.",
+    label: "Qubite Docs",
+    tone: "yellow",
+    icon: "document",
+    visibility: "locked",
+    status: "preparing",
+    access_expires_at: null,
+  };
+  await page.route("**/api/v1/me/modules", (r) =>
+    r.fulfill({ json: { revision: 2, items: [card] } }),
+  );
+  await page.route("**/api/v1/me/modules/docs", (r) =>
+    r.fulfill({ json: { revision: 2, items: [card] } }),
+  );
   await page.goto("/#/modules/docs");
   await expect(
     page.getByRole("heading", {

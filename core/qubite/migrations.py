@@ -115,6 +115,13 @@ def validate_schema(connection, migrations):
             raise MigrationError('Core registration schema is missing; explicit recovery required')
 
 
+    if '0008_catalog' in versions:
+        table = connection.execute("""SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='qubite_core' AND c.relname='module_catalog' AND c.relkind IN ('r','p')""").fetchone()
+        if not table:
+            raise MigrationError('Core module catalog schema is missing; explicit recovery required')
+
+
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""
     rows = history(connection)

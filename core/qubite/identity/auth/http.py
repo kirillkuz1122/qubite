@@ -11,7 +11,8 @@ PATHS = {'/api/v1/auth/csrf', '/api/v1/auth/session', '/api/v1/me',
          '/api/v1/auth/sessions', '/api/v1/auth/logout', '/api/v1/auth/logout-all', '/api/v1/auth/reauth'}
 EMAIL_PATHS = {f'/api/v1/auth/email/{purpose}/{action}'
                for purpose in ('verify','reset') for action in ('request','confirm')}
-POLICY_PATHS = {'/api/v1/me/access', '/api/v1/policy/check', '/api/v1/owner/policy', '/api/v1/owner/policy/commands'}
+POLICY_PATHS = {'/api/v1/me/access', '/api/v1/policy/check', '/api/v1/owner/policy', '/api/v1/owner/policy/commands',
+                '/api/v1/me/modules', '/api/v1/owner/modules'}
 POLICY_BODY_PATHS = {'/api/v1/policy/check', '/api/v1/owner/policy/commands'}
 REGISTRATION_PATHS = {'/api/v1/auth/registration', '/api/v1/auth/register',
                       '/api/v1/owner/registration', '/api/v1/owner/registration/invites'}
@@ -24,6 +25,7 @@ ALL_COOKIES = LEGACY | {'__Host-qubite_session','__Host-qubite_preauth','qubite_
 
 def sensitive(path):
     return (path in PATHS or path.startswith('/api/v1/auth/sessions/')
+            or path.startswith('/api/v1/me/modules/')
             or re.fullmatch(r'/api/v1/owner/registration/invites/[^/]+', path) is not None
             or path == '/api/v1/auth/oauth/providers'
             or re.fullmatch(r'/api/v1/auth/oauth/[^/]+/(start|callback)', path) is not None

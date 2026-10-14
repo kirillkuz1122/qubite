@@ -4,6 +4,7 @@
 
 - [Видение](product/VISION.md), [требования](product/REQUIREMENTS.md), [Owner Console](product/OWNER_CONSOLE.md).
 - [Карта репозитория и статусов](architecture/REPOSITORY_LAYOUT.md), [архитектура](architecture/TARGET_ARCHITECTURE.md), [модули](architecture/MODULES_AND_BOUNDARIES.md), [ADR](architecture/decisions/README.md).
+- [Серверный каталог](architecture/MODULE_CATALOG.md), [отчёт UI-003](reports/QUB-UI-003.md).
 - [Qubite Auth UI](design/AUTH_UX.md), [отчёт AUTH-007](reports/QUB-AUTH-007.md), [новые правовые тексты](legal/README.md).
 - [Оболочка приложения](../apps/web/README.md), [её решение](architecture/decisions/0022-web-shell-and-command.md), [отчёт UI-001](reports/QUB-UI-001.md).
 - [Core запуск/owner](../core/README.md), [Web Auth](architecture/WEB_AUTH.md), [OAuth](architecture/OAUTH_IDENTITY.md), [email](architecture/EMAIL_CHALLENGES.md), [policy](architecture/POLICY_GATE.md), [регистрация](architecture/REGISTRATION.md).

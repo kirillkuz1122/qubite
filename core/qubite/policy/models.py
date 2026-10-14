@@ -39,6 +39,12 @@ class ModuleCommand(Command):
     enabled: StrictBool
 
 
+class VisibilityCommand(Command):
+    kind: Literal['catalog_visibility']
+    module: Module
+    visibility: Literal['hidden', 'locked']
+
+
 class Expiring(Command):
     expires_at: datetime | None = None
 
@@ -95,7 +101,7 @@ class AICommand(Expiring):
     effect: Effect
 
 
-PolicyCommand = Annotated[ModuleCommand | EntitlementCommand | WorkspaceCommand | MembershipCommand |
+PolicyCommand = Annotated[ModuleCommand | VisibilityCommand | EntitlementCommand | WorkspaceCommand | MembershipCommand |
                           ResourceCommand | ACLCommand | AICommand, Field(discriminator='kind')]
 
 
@@ -115,6 +121,32 @@ class ModuleState(StrictModel):
 
 class Catalog(Receipt):
     items: list[ModuleState]
+
+
+class ModuleCard(StrictModel):
+    module: str
+    name: str
+    summary: str
+    label: str
+    tone: Literal['orange', 'blue', 'yellow', 'green']
+    icon: Literal['document', 'layers', 'calendar', 'search', 'pen', 'shield', 'lock', 'orbit']
+    visibility: Literal['hidden', 'locked']
+    status: Literal['locked', 'preparing', 'unavailable', 'ready']
+    access_expires_at: datetime | None
+
+
+class ModuleCards(Receipt):
+    items: list[ModuleCard]
+
+
+class OwnerModuleCard(ModuleCard):
+    installed: bool
+    enabled: bool
+    released: bool
+
+
+class OwnerModuleCards(Receipt):
+    items: list[OwnerModuleCard]
 
 
 class AccessItem(StrictModel):

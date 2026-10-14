@@ -45,7 +45,7 @@ export default defineConfig({
     },
     {
       name: "live",
-      testMatch: ["runtime.spec.ts", "auth.spec.ts"],
+      testMatch: ["runtime.spec.ts", "auth.spec.ts", "catalog.spec.ts"],
       use: {
         baseURL: "http://127.0.0.1:4322",
         viewport: { width: 1280, height: 900 },

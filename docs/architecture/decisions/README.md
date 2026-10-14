@@ -31,3 +31,5 @@
 | [0023](0023-approved-flux-material-in-web.md) | CONFIRMED13.10.2026 UI-002 | Готовые controls/physics/SVG из выбранной витрины в приложении; AUTH-007 вопросы отправлены |
 
 | [0024](0024-public-landing-and-qubite-auth.md) | CONFIRMED13.10.2026 AUTH-007 answers | Публичный лендинг → отдельный Auth → главная; browser native target, обе формы invite, новые legal documents и fixed OAuth completion |
+
+| [0025](0025-server-module-catalog.md) | CONFIRMED14.10.2026 UI-003 answers | Default locked, общая hidden-настройка, upcoming/unavailable с read grant, server filtering и guarded owner persistence |

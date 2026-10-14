@@ -1,10 +1,10 @@
-# Следующий цикл после AUTH-007, 14.10.2026
+# Следующий цикл после UI-003, 14.10.2026
 
-apps/web0.3.0 включает выбранный материал Поток (UI-002) и отдельные landing/Auth/legal экраны с реальным FastAPI identity (AUTH-007). Фактическое завершение/CI — [отчёт](../reports/QUB-AUTH-007.md), [handoff](../project/LAST_HANDOFF.md), tasks.json.
+apps/web0.4.0: выбранный Поток, отдельный Auth и server catalog/shared owner visibility. Core0.7.0/schema0008_catalog, no module/AI grant from visibility. [Отчёт](../reports/QUB-UI-003.md), [handoff](../project/LAST_HANDOFF.md), tasks.json содержат фактические проверки/CI.
 
-Следующая для обсуждения **QUB-UI-003**: server catalog, owner настройка hidden/locked, filtered metadata по независимым grants. Затем AUTH-004 Owner Console после UI-003 и AI-002; полноценные бюджеты до платного AI. Перед каждой новой задачей вопросы владельцу и ответы, текущий approval не разрешает следующий slice.
+Primary next **QUB-AI-001**: атомарный budget reservation только с synthetic/mock провайдерами, integer limits/idempotency/parallel cap. Затем **QUB-AI-002** crash/revoke/fallback, затем **AUTH-004** полная users/grants/budgets Owner Console, зависящая от UI-003 и AI-002. Вопросы перед каждым, текущий approval не разрешает следующий scope. До этого paid AI остаётся закрытым даже owner.
 
-QUB-LEGAL-001 — фактические реквизиты/юрисдикция/получатели/сроки и отдельное необходимое consent evidence до публичной регистрации. AUTH-012/native POC — внешний browser Auth/PKCE/verified return, настоящие SMTP/provider enable и ingress отдельно. DEPLOY-001→002 может подготовить disposable dry-run без публичного запуска; production отложен до своих checks/approval. Ни одна из этих задач не реализована текущим cycle.
+QUB-LEGAL-001 до публичной регистрации, AUTH-012/native POC, реальные SMTP/providers и ingress — отдельные задачи. DEPLOY-001→002 disposable dry-run без публичного запуска; production отложен до checks/backup/approval. Alternative ready CORE-002/AUTH-013/DEPLOY-001/TG-001 не стартуют автоматически.
 
 ## Исторические snapshots порядка задач
 

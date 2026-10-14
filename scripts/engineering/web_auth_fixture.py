@@ -108,6 +108,32 @@ def main():
             with psycopg.connect(database) as db:
                 db.execute('UPDATE qubite_core.sessions SET revoked_at=CURRENT_TIMESTAMP')
             return {'status':'revoked'}
+        @control.post('/__fixture__/catalog')
+        async def catalog_state(request: Request):
+            # Synthetic registrar/member setup, never a production API.
+            from qubite.identity import create_subject
+            from qubite.identity.auth.passwords import hash_password
+            from qubite.policy.store import POLICY_LOCK
+            body = await request.json()
+            module = body.get('module', 'docs')
+            status = body.get('status', 'preparing')
+            if module not in {'docs','projects','planner','search','writing','vpn','vault','atlas'} or status not in {'preparing','unavailable','ready'}:
+                return JSONResponse({'code':'invalid_fixture'}, status_code=400)
+            with psycopg.connect(database) as db:
+                row=db.execute("SELECT id FROM qubite_core.subjects WHERE email_canonical='browser-member@example.test'").fetchone()
+            if not row:
+                member=create_subject(settings, 'browser-member@example.test')
+                with psycopg.connect(database) as db:
+                    db.execute("UPDATE qubite_core.subjects SET status='active',email_verified_at=CURRENT_TIMESTAMP WHERE id=%s", (member.id,))
+                    db.execute('INSERT INTO qubite_core.password_credentials(subject_id,password_hash) VALUES (%s,%s)', (member.id,hash_password(PASSWORD)))
+                member_id=member.id
+            else: member_id=row[0]
+            with psycopg.connect(database) as db:
+                db.execute('SELECT pg_advisory_xact_lock(%s)', (POLICY_LOCK,))
+                db.execute('UPDATE qubite_core.policy_modules SET installed=%s,enabled=%s WHERE id=%s', (status!='preparing',status=='ready',module))
+                db.execute('UPDATE qubite_core.module_catalog SET released=%s WHERE module=%s', (status=='ready',module))
+                db.execute('UPDATE qubite_core.policy_state SET revision=revision+1 WHERE singleton')
+            return {'member_id':str(member_id)}
         @control.get('/__fixture__/counts')
         def counts_route():
             with psycopg.connect(database) as db:

@@ -407,7 +407,7 @@ def test_additive_policy_migration_preserves_identity_and_is_atomic(database_url
         assert db.execute("SELECT to_regclass('qubite_core.policy_state')").fetchone()[0] is None
         assert db.execute('SELECT subject_id FROM qubite_core.platform_owner').fetchone()[0]==owner.id
         assert db.execute('SELECT count(*) FROM qubite_meta.schema_migrations').fetchone()[0]==5
-    assert apply(settings)==('0006_policy','0007_registration') and apply(settings)==() and check(settings)=='0007_registration'
+    assert apply(settings)==('0006_policy','0007_registration','0008_catalog') and apply(settings)==() and check(settings)=='0008_catalog'
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT count(*) FROM qubite_core.policy_entitlements').fetchone()[0]==0
         assert db.execute('SELECT bool_or(installed OR enabled) FROM qubite_core.policy_modules').fetchone()[0] is False
@@ -434,7 +434,10 @@ def test_policy_contract_and_exact_http_guard_coverage():
     assert contract['target_schema']==Target.model_json_schema()
     assert contract['command_schema']==TypeAdapter(PolicyCommand).json_schema()
     assert contract['default']=='deny' and not contract['permission_inheritance']
-    assert {r['path'] for r in contract['routes']}==HTTP_PATHS==POLICY_PATHS
+    detail='/api/v1/me/modules/{module}'
+    assert {r['path'] for r in contract['routes'] if r['path']!=detail}==HTTP_PATHS==POLICY_PATHS
+    from qubite.identity.auth.http import sensitive
+    assert sensitive(detail.replace('{module}', 'docs')) and sensitive('/api/v1/me/modules/unknown')
     assert {r['path'] for r in contract['routes'] if r['method']=='POST'}==BODY_PATHS==POLICY_BODY_PATHS
     actual=create_app(Settings()).openapi()['paths']
     assert all(r['method'].lower() in actual[r['path']] for r in contract['routes'])

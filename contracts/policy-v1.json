@@ -1,9 +1,9 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "task": "QUB-AUTH-003",
   "status": "implemented",
-  "core_version": "0.5.0",
-  "migration": "0006_policy",
+  "core_version": "0.7.0",
+  "migration": "0008_catalog",
   "default": "deny",
   "actions": [
     "read",
@@ -36,6 +36,18 @@
     {
       "method": "POST",
       "path": "/api/v1/owner/policy/commands"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/modules"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/modules/{module}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/owner/modules"
     }
   ],
   "websocket": {
@@ -497,6 +509,48 @@
         "title": "ResourceCommand",
         "type": "object"
       },
+      "VisibilityCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "enum": [
+              "grant",
+              "revoke",
+              "configure",
+              "create",
+              "manual"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "kind": {
+            "const": "catalog_visibility",
+            "title": "Kind",
+            "type": "string"
+          },
+          "module": {
+            "pattern": "^[a-z][a-z0-9_]{0,31}$",
+            "title": "Module",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "hidden",
+              "locked"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "kind",
+          "module",
+          "visibility"
+        ],
+        "title": "VisibilityCommand",
+        "type": "object"
+      },
       "WorkspaceCommand": {
         "additionalProperties": false,
         "properties": {
@@ -541,6 +595,7 @@
       "mapping": {
         "acl": "#/$defs/ACLCommand",
         "ai_grant": "#/$defs/AICommand",
+        "catalog_visibility": "#/$defs/VisibilityCommand",
         "entitlement": "#/$defs/EntitlementCommand",
         "membership": "#/$defs/MembershipCommand",
         "module": "#/$defs/ModuleCommand",
@@ -552,6 +607,9 @@
     "oneOf": [
       {
         "$ref": "#/$defs/ModuleCommand"
+      },
+      {
+        "$ref": "#/$defs/VisibilityCommand"
       },
       {
         "$ref": "#/$defs/EntitlementCommand"
@@ -572,5 +630,16 @@
         "$ref": "#/$defs/AICommand"
       }
     ]
+  },
+  "extension_task": "QUB-UI-003",
+  "catalog": {
+    "default_visibility": "locked",
+    "scope": "global_per_module",
+    "no_grants_from_visibility": true,
+    "excluded_legacy": [
+      "tournaments",
+      "knowledge"
+    ],
+    "domain_authorization": "unchanged_resource_gate"
   }
 }

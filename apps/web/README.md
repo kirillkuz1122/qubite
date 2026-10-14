@@ -1,6 +1,6 @@
 # Клиент Qubite 2.0 — UI-001/002, AUTH-007
 
-Новая React/TypeScript оболочка0.3.0. Не импортирует legacy или runtime дизайн-витрины. Главная/модули/входящие/профиль/настройки, отдельный owner entry в настройках; Command закреплён снизу. [Решение и границы](../../docs/architecture/decisions/0022-web-shell-and-command.md).
+Новая React/TypeScript оболочка0.4.0. Не импортирует legacy или runtime дизайн-витрины. Главная/модули/входящие/профиль/настройки, отдельный owner entry в настройках; Command закреплён снизу. [Решение и границы](../../docs/architecture/decisions/0022-web-shell-and-command.md).
 
 ```sh
 npm ci
@@ -17,7 +17,7 @@ npm test
 
 Live читает existing same-origin `GET /api/v1/me` и `/api/v1/me/access` с cookies/no-store; API ingress ещё отдельная deploy задача, dev proxy отсутствует. Лендинг и отдельные Auth формы используют existing csrf/session/register/email challenge/OAuth API; в профиле own sessions/revoke/logout-all/explicit link. После входа заново GET me/access. Домен/ingress/native ещё отдельно. Ответы проверяются, права раздельны, stale owner очищается при повторной проверке/ошибке. Сервер остаётся authority; список карточек не выдаёт grants. Owner не обходит read/paid gates.
 
-Каталог пока описывает будущие модули: granted → «готовится», ungranted live → hidden. Server filtered metadata и owner persistence hidden/locked — UI-003; demo controls меняют только память текущей страницы. Выбор аккаунта/перезагрузка очищает demo записи Command. Только cosmetic dark/quiet/strength/duration/lite preferences сохраняются в localStorage. Голосовой диалог не вызывает микрофон. Нет сервера входящих, AI, native/offline sync или автоматического подключения старых сервисов. Tournaments не встроен в каталог.
+Серверный каталог UI-003: filtered GET me/modules/detail и owner/modules, default locked/shared hidden. При read grant upcoming/preparing и disabled/unavailable видны; write/manage/owner не заменяют read. Existing Owner commands сохраняют visibility с reauth/CSRF/If-Match/idempotency; draft+explicit save. Live metadata приходит только с API, no demo fallback. При refresh/expiry/revoke старые metadata убираются, DOM transition snapshots не удерживают private names. [Контракт](../../docs/architecture/MODULE_CATALOG.md). Demo использует тот же owner компонент с временным per-row save и без пароля/API. Tournaments не встроен в каталог. Выбор аккаунта/перезагрузка очищает demo записи Command. Только cosmetic dark/quiet/strength/duration/lite preferences сохраняются в localStorage. Голосовой диалог не вызывает микрофон. Нет сервера входящих, AI, native/offline sync или автоматического подключения старых сервисов. Tournaments не встроен в каталог.
 
 Runtime/auth negative fixtures — HTTP DTO; дополнительно auth-core.spec.ts проводит реальные Chromium→Uvicorn→disposable PostgreSQL сценарии со synthetic mail. Test-only controls /__fixture__/* существуют исключительно в scripts/engineering/web_auth_fixture.py, их нельзя включать в deploy; app itself их не импортирует. Остальной core проверяет отдельный disposable PostgreSQL harness. Emulated touch/visualViewport/узкий viewport не заменяют физическую клавиатуру телефона, browser zoom или screen reader. Следующая приёмка устройства проводится с владельцем.
 

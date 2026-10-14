@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  modules,
+  modules as demoModules,
   demoVisibility,
-  liveVisibility,
   moduleState,
   type VisibilityMap,
 } from "./catalog";
@@ -27,6 +26,8 @@ import { useAppearance } from "./appearance";
 import { Public } from "./auth/Public";
 import { consumeAuthLink, type AuthEntry } from "./auth/routes";
 import { Security } from "./auth/Security";
+import { useCatalog, statusText, type Card } from "./catalog-api";
+import { OwnerCatalog } from "./OwnerCatalog";
 import { MorphContent } from "./material/Transition";
 import { Mark } from "./material/Marks";
 import "./material/material.css";
@@ -130,7 +131,7 @@ function Demo({ entry }: { entry: AuthEntry }) {
 function Shell({
   session,
   demo,
-  visibility = liveVisibility(),
+  visibility = {},
   setVisibility,
   persona,
   onPersona,
@@ -146,6 +147,21 @@ function Shell({
 }) {
   const [route, setRoute] = useState(readRoute),
     [dialog, setDialog] = useState<"preview" | "voice" | null>(null);
+  const liveCatalog = useCatalog(demo, route, onIdentityChange);
+  const modules = demo ? demoModules : liveCatalog.catalog.items;
+  const stateOf = (id: string) => {
+    if (demo) {
+      const state = moduleState(session, id, visibility);
+      return state === "unavailable"
+        ? id === "planner"
+          ? "unavailable"
+          : "preparing"
+        : state;
+    }
+    const m = modules.find((m) => m.id === id) as Card | undefined;
+    if (!m || liveCatalog.missing) return "missing";
+    return m.status === "locked" ? "denied" : m.status;
+  };
   const [notes, setNotes] = useState<Note[]>([]),
     [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("");
@@ -243,7 +259,9 @@ function Shell({
         : route.startsWith("/modules/")
           ? "Модуль"
           : "Страница не найдена");
-  const grantedModules = modules.filter((m) => hasGrant(session, m.id, "read"));
+  const grantedModules = modules.filter((m) =>
+    demo ? hasGrant(session, m.id, "read") : (m as Card).status !== "locked",
+  );
   function capture() {
     if (!demo || !canWriteInbox || !draft.trim()) return;
     if (!canReadInbox) {
@@ -266,7 +284,7 @@ function Shell({
   );
   const moduleView = () => {
     const id = route.slice("/modules/".length),
-      state = moduleState(session, id, visibility);
+      state = stateOf(id);
     if (state === "missing")
       return (
         <Empty
@@ -279,8 +297,16 @@ function Shell({
     return (
       <Empty
         icon={m.icon}
-        title={`${m.name} — скоро в твоём пространстве`}
-        text="Доступ выдан. Сам модуль ещё готовится и пока не открывает твои данные."
+        title={
+          state === "unavailable"
+            ? `${m.name} — временно недоступен`
+            : `${m.name} — скоро в твоём пространстве`
+        }
+        text={
+          state === "unavailable"
+            ? "Доступ у тебя есть. Модуль временно выключен; данные не открываются."
+            : "Доступ выдан. Сам модуль ещё готовится и пока не открывает твои данные."
+        }
       >
         <LivingButton
           className="button blue"
@@ -292,6 +318,29 @@ function Shell({
     );
   };
   const page = () => {
+    if (
+      !demo &&
+      (route === "/modules" || route.startsWith("/modules/")) &&
+      liveCatalog.state !== "ready"
+    )
+      return (
+        <Empty
+          icon="grid"
+          title={
+            liveCatalog.state === "loading"
+              ? "Загружаем каталог"
+              : "Не удалось загрузить каталог"
+          }
+          text="Проверяем доступные тебе модули."
+        >
+          {liveCatalog.state === "unavailable" && (
+            <LivingButton className="button blue" onClick={liveCatalog.reload}>
+              Обновить каталог
+            </LivingButton>
+          )}
+        </Empty>
+      );
+
     if (route === "/")
       return (
         <>
@@ -338,7 +387,26 @@ function Shell({
               Все модули <Icon name="arrow" size={17} />
             </LivingLink>
           </div>
-          {grantedModules.length ? (
+          {!demo && liveCatalog.state !== "ready" ? (
+            <Empty
+              icon="grid"
+              title={
+                liveCatalog.state === "loading"
+                  ? "Загружаем каталог"
+                  : "Не удалось загрузить каталог"
+              }
+              text="Проверяем доступные тебе модули."
+            >
+              {liveCatalog.state === "unavailable" && (
+                <LivingButton
+                  className="button blue"
+                  onClick={liveCatalog.reload}
+                >
+                  Обновить каталог
+                </LivingButton>
+              )}
+            </Empty>
+          ) : grantedModules.length ? (
             <div className="quick-grid">
               {grantedModules.slice(0, 3).map((m) => (
                 <LivingLink
@@ -351,7 +419,13 @@ function Shell({
                   </span>
                   <span>
                     <strong>{m.name}</strong>
-                    <small>Модуль готовится</small>
+                    <small>
+                      {demo
+                        ? m.id === "planner"
+                          ? "Временно недоступен"
+                          : "Модуль готовится"
+                        : statusText((m as Card).status)}
+                    </small>
                   </span>
                   <Icon name="arrow" size={18} />
                 </LivingLink>
@@ -436,9 +510,7 @@ function Shell({
         </>
       );
     if (route === "/modules") {
-      const visible = modules.filter(
-        (m) => moduleState(session, m.id, visibility) !== "missing",
-      );
+      const visible = modules.filter((m) => stateOf(m.id) !== "missing");
       return (
         <>
           <p className="page-intro">
@@ -447,7 +519,9 @@ function Shell({
           {visible.length ? (
             <div className="module-grid">
               {visible.map((m) => {
-                const locked = !hasGrant(session, m.id, "read");
+                const locked = demo
+                  ? !hasGrant(session, m.id, "read")
+                  : (m as Card).status === "locked";
                 return (
                   <LivingLink
                     className={`module-card ${m.tone}`}
@@ -460,7 +534,13 @@ function Shell({
                       </span>
                       <span className="module-status">
                         <Icon name={locked ? "lock" : "orbit"} size={14} />
-                        {locked ? "Нет доступа" : "Готовится"}
+                        {demo
+                          ? locked
+                            ? "Нет доступа"
+                            : m.id === "planner"
+                              ? "Временно недоступен"
+                              : "Готовится"
+                          : statusText((m as Card).status)}
                       </span>
                     </div>
                     <span className="eyebrow">{m.label}</span>
@@ -574,7 +654,9 @@ function Shell({
                   </li>
                 ))}
             </ul>
-            {!session.grants.length && <p>Разрешений на модули пока нет.</p>}
+            {!session.grants.length && (
+              <p>На включённые модули разрешений пока нет.</p>
+            )}
           </section>
           <Security
             demo={demo}
@@ -661,37 +743,12 @@ function Shell({
                 Предпросмотр настройки. Меняет каталог в этом демо; не выдаёт
                 разрешений и не сохраняется на сервере.
               </div>
-              <section className="plain-card visibility-card">
-                <div className="visibility-heading">
-                  <h2>Видимость модулей</h2>
-                  <span className="status-chip">Без доступа</span>
-                </div>
-                {modules.map((m) => (
-                  <div className="visibility-row" key={m.id}>
-                    <span className={`note-icon ${m.tone}`}>
-                      <Mark service={m.id} />
-                    </span>
-                    <div className="visibility-label">
-                      <strong>{m.name}</strong>
-                      <small>{m.label}</small>
-                    </div>
-                    <LivingTabs
-                      label={`${m.name}: без доступа`}
-                      items={[
-                        { id: "hidden", label: "Скрывать" },
-                        { id: "locked", label: "С замком" },
-                      ]}
-                      value={visibility[m.id]}
-                      onChange={(value) =>
-                        setVisibility({
-                          ...visibility,
-                          [m.id]: value as "hidden" | "locked",
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-              </section>
+              <OwnerCatalog
+                demo
+                visibility={visibility}
+                onDemoSave={setVisibility}
+                onSaved={() => {}}
+              />
               <LivingButton
                 className="button blue"
                 onClick={() => {
@@ -703,11 +760,7 @@ function Shell({
               </LivingButton>
             </>
           ) : (
-            <Empty
-              icon="settings"
-              title="Настройка каталога готовится"
-              text="Переключатели видимости появятся после подключения серверных настроек. Показ или скрытие модуля не выдаёт доступ к нему."
-            />
+            <OwnerCatalog onSaved={liveCatalog.reload} />
           )}
         </>
       );
@@ -845,7 +898,16 @@ function Shell({
                 </span>
               )}
             </div>
-            <MorphContent className="page-content" identity={route}>
+            <MorphContent
+              privateContent={!demo}
+              className="page-content"
+              identity={
+                route +
+                (route.startsWith("/modules") && !demo
+                  ? ":" + liveCatalog.state + ":" + liveCatalog.catalog.revision
+                  : "")
+              }
+            >
               {page()}
             </MorphContent>
             <footer className="page-footer">

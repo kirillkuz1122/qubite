@@ -18,3 +18,5 @@ UI-002, 13.10.2026. Дизайн уже выбран владельцем: По�
 [Контракт дизайна](FLUX_DESIGN_SYSTEM.md), [решение](../architecture/decisions/0023-approved-flux-material-in-web.md), [отчёт](../reports/QUB-UI-002.md). Питомцы и их event/AI dispatcher отдельно; живость материала не заменяется декоративным помощником.
 
 AUTH-007: тот же src/material обслуживает Public landing/Auth, tabs/submit/password toggle/legal switches/profile sessions, shared useAppearance. Sensitive forms privateContent не создают departing DOM snapshots; layout fields стабильны. Quiet LivingButton сохраняет type=button (submit только явно), disabled switches не меняют consent во время отправки.
+
+UI-003: OwnerCatalog общий live/demo компонент, existing LivingTabs/LivingButton, explicit per-row save/unsaved label, password только live. Existing Flux500ms profile/503 selection setting, no new physics/controls. Native resize/touch/quiet/lite unchanged. Live catalog scenes use incoming MorphContent, без private outgoing snapshots. Metadata/status не заменяют grants.

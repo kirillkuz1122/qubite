@@ -71,6 +71,9 @@ test("owner hidden/locked preview changes catalog without granting access", asyn
     .getByRole("button", { name: "С замком" })
     .click();
   await page
+    .getByRole("button", { name: "Сохранить: Поиск", exact: true })
+    .click();
+  await page
     .getByRole("button", { name: "Посмотреть новым пользователем" })
     .click();
   await expect(page.getByRole("link", { name: /Qubite Search/ })).toHaveCount(

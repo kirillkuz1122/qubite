@@ -1868,10 +1868,12 @@ dialog .button {
 .public-shell .alive.password-toggle {
   position: absolute;
 }
+.app-shell .alive.skip-link,
 .public-shell .alive.skip-link {
   position: fixed;
   transform: translateY(-150%);
 }
+.app-shell .alive.skip-link:focus,
 .public-shell .alive.skip-link:focus {
   transform: none;
 }
@@ -1880,4 +1882,36 @@ dialog .button {
 .public-shell[data-quiet="true"] *::after {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
+}
+
+.server-visibility-row {
+  grid-template-columns: 44px minmax(110px, 1fr) minmax(215px, auto) auto;
+}
+.owner-catalog-password {
+  margin-top: 28px;
+  max-width: 420px;
+}
+.server-visibility-row .small-button {
+  padding: 12px 16px;
+  min-height: 44px;
+}
+@media (max-width: 1100px) {
+  .server-visibility-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .qubite-material .server-visibility-row .living-tabs {
+    grid-column: 1/-1;
+    width: 100%;
+  }
+  .server-visibility-row .small-button {
+    grid-column: 1/-1;
+    justify-self: end;
+  }
+}
+
+.server-visibility-row .button:disabled {
+  background: var(--soft);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 1;
 }

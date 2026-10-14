@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Qubite Core",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "paths": {
     "/api/v1/auth/csrf": {
@@ -785,6 +785,16 @@
               }
             }
           },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Conflict",
             "content": {
@@ -878,6 +888,360 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/modules": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Modules",
+        "operationId": "module_catalog_own",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleCards"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/modules/{module}": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Module Card",
+        "operationId": "module_catalog_item",
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Module"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleCards"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            },
+            "description": "Client Error"
+          }
+        }
+      }
+    },
+    "/api/v1/owner/modules": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Owner Modules",
+        "operationId": "module_catalog_owner",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerModuleCards"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -997,6 +1361,16 @@
               }
             }
           },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Conflict",
             "content": {
@@ -1066,6 +1440,9 @@
                     "$ref": "#/components/schemas/ModuleCommand"
                   },
                   {
+                    "$ref": "#/components/schemas/VisibilityCommand"
+                  },
+                  {
                     "$ref": "#/components/schemas/EntitlementCommand"
                   },
                   {
@@ -1089,6 +1466,7 @@
                   "propertyName": "kind",
                   "mapping": {
                     "module": "#/components/schemas/ModuleCommand",
+                    "catalog_visibility": "#/components/schemas/VisibilityCommand",
                     "entitlement": "#/components/schemas/EntitlementCommand",
                     "workspace": "#/components/schemas/WorkspaceCommand",
                     "membership": "#/components/schemas/MembershipCommand",
@@ -1135,6 +1513,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFault"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -3298,6 +3686,116 @@
         ],
         "title": "Mode"
       },
+      "ModuleCard": {
+        "properties": {
+          "module": {
+            "type": "string",
+            "title": "Module"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "orange",
+              "blue",
+              "yellow",
+              "green"
+            ],
+            "title": "Tone"
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "document",
+              "layers",
+              "calendar",
+              "search",
+              "pen",
+              "shield",
+              "lock",
+              "orbit"
+            ],
+            "title": "Icon"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "hidden",
+              "locked"
+            ],
+            "title": "Visibility"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "locked",
+              "preparing",
+              "unavailable",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "access_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Expires At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "module",
+          "name",
+          "summary",
+          "label",
+          "tone",
+          "icon",
+          "visibility",
+          "status",
+          "access_expires_at"
+        ],
+        "title": "ModuleCard"
+      },
+      "ModuleCards": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleCard"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "items"
+        ],
+        "title": "ModuleCards"
+      },
       "ModuleCommand": {
         "properties": {
           "reason": {
@@ -3381,6 +3879,131 @@
           "items"
         ],
         "title": "OwnAccess"
+      },
+      "OwnerModuleCard": {
+        "properties": {
+          "module": {
+            "type": "string",
+            "title": "Module"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "orange",
+              "blue",
+              "yellow",
+              "green"
+            ],
+            "title": "Tone"
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "document",
+              "layers",
+              "calendar",
+              "search",
+              "pen",
+              "shield",
+              "lock",
+              "orbit"
+            ],
+            "title": "Icon"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "hidden",
+              "locked"
+            ],
+            "title": "Visibility"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "locked",
+              "preparing",
+              "unavailable",
+              "ready"
+            ],
+            "title": "Status"
+          },
+          "access_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Expires At"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "released": {
+            "type": "boolean",
+            "title": "Released"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "module",
+          "name",
+          "summary",
+          "label",
+          "tone",
+          "icon",
+          "visibility",
+          "status",
+          "access_expires_at",
+          "installed",
+          "enabled",
+          "released"
+        ],
+        "title": "OwnerModuleCard"
+      },
+      "OwnerModuleCards": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerModuleCard"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "items"
+        ],
+        "title": "OwnerModuleCards"
       },
       "Profile": {
         "properties": {
@@ -3906,6 +4529,48 @@
           "resource_id"
         ],
         "title": "Target"
+      },
+      "VisibilityCommand": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "revoke",
+              "configure",
+              "create",
+              "manual"
+            ],
+            "title": "Reason"
+          },
+          "kind": {
+            "type": "string",
+            "const": "catalog_visibility",
+            "title": "Kind"
+          },
+          "module": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$",
+            "title": "Module"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "hidden",
+              "locked"
+            ],
+            "title": "Visibility"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason",
+          "kind",
+          "module",
+          "visibility"
+        ],
+        "title": "VisibilityCommand"
       },
       "WorkspaceCommand": {
         "properties": {
