@@ -178,7 +178,7 @@ Commit: 4c243a7a87b145ba01dd10595c0bcbdc23112633. Evidence: ["14.10.2026: воп
 
 ## QUB-AI-002 — Mock dispatcher crash/revoke/fallback checks
 
-Статус: review/testing; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AI-001.
+Статус: done; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AI-001.
 
 Crash/timeout/revoke не должны давать двойной платный вызов или бесплатное освобождение unknown reserve
 
@@ -194,7 +194,7 @@ Acceptance:
 
 Риски: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: pending. Evidence: ["15.10.2026: до реализации заданы вопросы и получены ответы: максимум3 попытки с задержкой только при доказанной неотправке; timeout60s настраиваемый; выбор резервной модели только вручную. Mock-only, без реальных провайдеров/paid requests/Console/deploy.", "Local full snapshot all1102+harness11=1113pass (dispatcher44); final updated dispatcher45pass55.23s separately, unchanged remaining runtime; browser86pass1.5m, format/build/build:demo pass. Full core groups208/175/202/22/61/44 in40.44/97.76/108.48/10.78/52.31/41.86s. No failed/skipped final; exact-SHA CI pending. Native PG18.6 / Python3.14.8 isolated/checksummed /tmp only, no system installation."].
+Commit: f84f81b4577766b615b6871dcbc66592cf208ef9. Evidence: ["15.10.2026: до реализации заданы вопросы и получены ответы: максимум3 попытки с задержкой только при доказанной неотправке; timeout60s настраиваемый; выбор резервной модели только вручную. Mock-only, без реальных провайдеров/paid requests/Console/deploy.", "Local full snapshot all1102+harness11=1113pass (dispatcher44); final updated dispatcher45pass55.23s separately, unchanged remaining runtime; browser86pass1.5m, format/build/build:demo pass. Full core groups208/175/202/22/61/44 in40.44/97.76/108.48/10.78/52.31/41.86s. No failed/skipped final; exact-SHA CI success below. Native PG18.6 / Python3.14.8 isolated/checksummed /tmp only, no system installation.", "15.10.2026 final CI1200pass на exact implementation SHA f84f81b4577766b615b6871dcbc66592cf208ef9: engineering38669028602 completed/success02:12:01UTC, all1103+harness11=1114; web38669028756 completed/success02:06:38UTC, browser86pass1.4m/format/build/build:demo. Core groups208/175/202/22/61/45 in51.54/90.71/125.87/13.88/66.75/54.50s, timeout180 unchanged. No failed/skipped final. Mock library only, generic paid gate closed; AUTH-004 requires fresh owner questions/answers."].
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 

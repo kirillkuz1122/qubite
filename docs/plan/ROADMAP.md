@@ -1,6 +1,6 @@
-# Текущий цикл AI-002, 15.10.2026
+# Завершён AI-002; следующая AUTH-004, 15.10.2026
 
-Ответы3 total safe attempts/configurable60s/manual fallback получены. Реализован internal mock dispatcher core0.9.0/0010, финальная проверка ещё pending. [Отчёт](../reports/QUB-AI-002.md)/[handoff](../project/LAST_HANDOFF.md). Затем **AUTH-004** users/grants/budgets/registration+invites Console, сначала новые вопросы/ответы; global switches AUTH-015 и реальные ChatGPT/provider flows отдельно. Старые snapshots ниже исторические.
+Ответы3 total safe attempts/configurable60s/manual fallback получены. Завершён internal mock dispatcher core0.9.0/0010; реализация f84f81b, обе exact-SHA CI successful: engineering38669028602/web38669028756, всего1200pass. [Отчёт](../reports/QUB-AI-002.md)/[handoff](../project/LAST_HANDOFF.md). Затем **AUTH-004** users/grants/budgets/registration+invites Console, сначала новые вопросы/ответы; global switches AUTH-015 и реальные ChatGPT/provider flows отдельно. Старые snapshots ниже исторические.
 
 # Следующий цикл после AI-001, 14.10.2026
 

@@ -1,17 +1,36 @@
-# QUB-AI-002 — mock dispatcher, 15.10.2026
+# QUB-AI-002 — диспетчер запросов с mock-провайдером
 
-Статус: review/testing; final dispatcher45pass, browser86pass, full regression1113pass+final dispatcher45pass, exact-SHA CI pending. Перед реализацией получены ответы владельца: до3 safe attempts с задержками и повторной проверкой; configurable60s; fallback только вручную. [ADR-0027](../architecture/decisions/0027-mock-dispatcher-and-safe-retries.md), [контракт](../architecture/AI_DISPATCHER.md).
+15.10.2026. Статус: **done**. Реализация `f84f81b4577766b615b6871dcbc66592cf208ef9` отправлена в `origin/main`; обе CI успешно завершились на этом SHA.
 
-Core0.9.0/schema0010_dispatcher: additive2tables+timeout column; queued jobs вместе с reserve/outbox, fencing и live permissions/caps/pricing/expiry перед каждой попыткой, committed intent перед mock await, durable proof NotSent для safe1s/2s retry/release, unknown/cancel/timeout/crash без automatic replay. Полная actual usage/freeze по AI-001. Strict sealed mock provider без HTTP/key/URL/callbacks; generic paid gate закрыт. Нет нового публичного spend/webhook/Console API/стартап worker, нет raw prompt/response store. AUTH-004 дальше, после новых вопросов.
+До реализации получены ответы владельца: максимум **три попытки всего**, повтор только при доказанной неотправке; настраиваемый таймаут **60 секунд**; другую модель пользователь выбирает вручную. Решения: [ADR-0027](../architecture/decisions/0027-mock-dispatcher-and-safe-retries.md), [технический контракт](../architecture/AI_DISPATCHER.md).
 
-Base main7cf63a0470d6b9e09b71a121fcbe973bda4a5051/origin verified. Immutable tournaments/tagqubite-v1.0=96f0457a523b6b79f21c4092056d8fa8fa69a680. Existing external deletion .antigravitycli/07eac59c-6b3f-4705-b06f-3fd77ff36ace.json не включать/не восстанавливать. Не меняются secrets/env/legacy/reference services/ShadeAI/личная память/skills/subagents/quota reset. Push не deploy.
+## Реализовано
 
-## Evidence
+Core **0.9.0**, схема **0010_dispatcher**: две новые таблицы и настройка таймаута. Задание создаётся атомарно вместе с резервом и outbox. Старые SQL-миграции, аккаунты, сессии, разрешения и бюджетный журнал сохранены.
 
-- Local full snapshot all1102+harness11=1113pass (dispatcher44); final updated dispatcher45pass55.23s separately, unchanged remaining runtime; browser86pass1.5m, format/build/build:demo pass. Full core groups208/175/202/22/61/44 in40.44/97.76/108.48/10.78/52.31/41.86s. No failed/skipped final; exact-SHA CI pending.
-- Старые /tmp test tools отсутствуют после смены сессии; подготовка isolated Python3.14 из pinned test-requirements.lock и native PG18.6 только под /tmp, без system installation/service. Initial запуск PG suite не состоялся из-за отсутствующего executable; это не результат runtime tests.
-- Native PG package URLs/SHA256 взяты из configured pacman package metadata; extraction только /tmp, checksums проверяются до исполнения.
+- Захват задания и токен аренды защищают задание от одновременной отправки разными исполнителями. Перед каждой попыткой заново проверяются исходная сессия, права, ресурс, модель, цена, лимиты и заморозка расходов.
+- Доказанная неотправка записывается в БД. Только она разрешает повтор с задержкой 1 или 2 секунды; после третьей попытки автоматические повторы прекращаются. Выбор другой модели требует нового разрешённого резерва.
+- Таймаут, отмена, аварийное завершение после отметки об отправке и неизвестная доставка сохраняют резерв. Автоматической повторной отправки в этих случаях нет. Поздний подтверждённый расход учитывается один раз, превышение полностью записывается и замораживает маршрут.
+- Отзыв прав до зафиксированного намерения отправить запрос предотвращает вызов. После этой границы уже принятый запрос может завершиться и создать расход; отзыв прав не отменяет его задним числом.
+- Восстановление после сбоя не переотправляет старые записи с состоянием dispatched/unknown. Миграция проверена на существующем outbox и удержанных резервах.
 
-Риски/границы: mock source-copy тесты не реальный provider/device/production acceptance. Crash между committed intent и send консервативно unknown. Any config revision может отменить pending работу; это явно документировано. Permanent0010 migration отдельно; preserve new writes, forward fix, old binary fail closed, не down/drop/reset/legacy fallback.
+Это внутренняя библиотека с закрытым имитатором провайдера: без HTTP, API-ключей, произвольных URL и callback-функций. Публичного AI API и автоматического запуска worker нет; общий шлюз платных операций остаётся закрытым. Реальные провайдеры, интерфейс бюджетов и постоянная миграция БД выполняются отдельными задачами.
 
-- Current local union покрывает1200 distinct cases; full snapshot имел44 dispatcher cases, последняя правка только dispatcher и дополнительный revoke-after-intent case проверены final45. Exact-SHA CI должна прогнать все1103 runtime+11harness+86browser на едином финальном source snapshot. Logs /tmp/qubite-dispatch-regression.log, /tmp/qubite-dispatch-final-target.log, /tmp/qubite-dispatch-web-tests.log.
+## Проверки
+
+- Локальный полный прогон: **1102** проверки runtime и **11** Harness, всего **1113**, на снимке с 44 тестами диспетчера. После последнего уточнения только диспетчера его финальные **45** тестов отдельно прошли за **55,23 с**. Остальной runtime не менялся.
+- Локально: **86** браузерных тестов, format:check, build и build:demo успешны. Проверки используют в том числе настоящий браузер и изолированный core/PostgreSQL; HTTP fixtures и реальная приёмка устройств различаются.
+- Проверены два отдельных процесса и 100 захватов с одной mock-доставкой, настоящее завершение процесса через os._exit(17), устаревшие токены аренды, отмена, таймаут, ошибки записи результата, поздние результаты, отзыв прав и превышение стоимости.
+- [Web CI 38669028756](https://github.com/kirillkuz1122/qubite/actions/runs/38669028756): completed/success **02:06:38 UTC**, **86 passed**, форматирование и обе сборки успешны. SHA совпадает с реализацией выше.
+- [Серверная CI 38669028602](https://github.com/kirillkuz1122/qubite/actions/runs/38669028602): completed/success **02:12:01 UTC**, **1103** проверки runtime и **11** Harness, всего **1114**, на том же SHA. Шесть групп core: 208/175/202/22/61/45 тестов за 51,54/90,71/125,87/13,88/66,75/54,50 с; таймаут группы 180 с не увеличивался.
+- Итог на едином финальном снимке исходников: **1200 успешных тестов**, без провалов и пропусков. Последующий коммит завершения меняет только документацию; эти результаты CI относятся к SHA реализации.
+
+Python **3.14.8** с зафиксированными тестовыми зависимостями и PostgreSQL **18.6** подготовлены только в `/tmp`. Пакеты PostgreSQL сверены по SHA256 из настроенных pacman metadata; системная установка и запуск службы не выполнялись. Первый запуск проверок не состоялся из-за отсутствующего старого временного executable; после подготовки окружения проверки прошли. Итоговые локальные прогоны без провалов и пропусков.
+
+## Сохранность и границы
+
+Исходный main: `7cf63a0470d6b9e09b71a121fcbe973bda4a5051`. Архивные `tournaments` и `qubite-v1.0` сохранены на `96f0457a523b6b79f21c4092056d8fa8fa69a680`. Секреты, env-файлы, legacy-сервисы, ShadeAI и выбранный дизайн не менялись; постороннее удаление `.antigravitycli` исключено из коммита. Платные запросы и деплой не выполнялись.
+
+Проверки с имитатором не подтверждают работу реального провайдера, телефона или production. Авария между зафиксированным намерением и фактической отправкой консервативно считается неизвестным результатом. Изменение конфигурации может отменить ещё не отправленное задание с устаревшими полномочиями. Постоянная миграция 0010 требует отдельного runbook с backup/restore/staging; восстановление сохраняет новые записи без down/drop/reset и возврата к legacy.
+
+Следующая задача — **QUB-AUTH-004: Owner Console для пользователей, разрешений, бюджетов, регистрации и приглашений**. Перед началом нужны новые вопросы и ответы владельца; текущее согласование её не разрешает.
