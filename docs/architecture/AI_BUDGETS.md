@@ -1,3 +1,5 @@
+**AI-00215.10.2026:** текущий [mock dispatcher](AI_DISPATCHER.md)/[ADR-0027](decisions/0027-mock-dispatcher-and-safe-retries.md), core0.9.0/0010. Базовый ledger AI-001 ниже сохранён; dispatcher имеет только internal mock hooks, без реальных paid effects. Ранее future dispatcher notes ниже заменяются этим контрактом, не означают public/job/tool/native paid admission.
+
 # AI-001 — внутренний контракт mock budget accounting
 
 Core0.8.0/schema0009_budgets. Согласованные решения в [ADR-0026](decisions/0026-atomic-mock-budgets.md). Реализация `core/qubite/ai/`; новый публичный AI API отсутствует. Доступ к реальным провайдерам остаётся закрытым существующим Policy Gate.

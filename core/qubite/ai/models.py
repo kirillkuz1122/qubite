@@ -58,6 +58,11 @@ class Timezone(StrictModel):
         return self
 
 
+class DispatchSettings(StrictModel):
+    kind: Literal['dispatcher'] = 'dispatcher'
+    timeout_seconds: Annotated[StrictInt, Field(ge=1, le=300)] = 60
+
+
 class BindProject(StrictModel):
     kind: Literal['bind_project'] = 'bind_project'
     resource_id: UUID

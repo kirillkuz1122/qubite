@@ -1,3 +1,7 @@
+# Текущий цикл AI-002, 15.10.2026
+
+Ответы3 total safe attempts/configurable60s/manual fallback получены. Реализован internal mock dispatcher core0.9.0/0010, финальная проверка ещё pending. [Отчёт](../reports/QUB-AI-002.md)/[handoff](../project/LAST_HANDOFF.md). Затем **AUTH-004** users/grants/budgets/registration+invites Console, сначала новые вопросы/ответы; global switches AUTH-015 и реальные ChatGPT/provider flows отдельно. Старые snapshots ниже исторические.
+
 # Следующий цикл после AI-001, 14.10.2026
 
 Вопросы и ответы получены: USD/full caps/configurable timezone initially Екатеринбург. Завершён internal mock accounting core0.8.0/0009; final1155local+CIpass на4c243a7 (engineering38565394275/web38565393551 completed-success). Затем **AI-002** mock dispatcher/revoke/crash/fallback; затем **AUTH-004** Console users/grants/budgets. Новые вопросы перед каждой следующей задачей. [Report](../reports/QUB-AI-001.md)/[handoff](../project/LAST_HANDOFF.md). Старые snapshots ниже исторические.

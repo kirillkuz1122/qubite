@@ -178,22 +178,23 @@ Commit: 4c243a7a87b145ba01dd10595c0bcbdc23112633. Evidence: ["14.10.2026: воп
 
 ## QUB-AI-002 — Mock dispatcher crash/revoke/fallback checks
 
-Статус: backlog; модуль: ai; приоритет: P0; approval: false. Зависимости: QUB-AI-001.
+Статус: review/testing; модуль: ai; приоритет: P0; approval: true. Зависимости: QUB-AI-001.
 
 Crash/timeout/revoke не должны давать двойной платный вызов или бесплатное освобождение unknown reserve
 
-Файлы: `core/qubite/ai/dispatcher (будущий)`.
+Файлы: `core/qubite/ai/dispatcher.py`, `core/qubite/ai/mock.py`, `core/qubite/ai/budgets.py`, `core/qubite/ai/models.py`, `core/qubite/sql/0010_dispatcher.sql`, `core/tests/test_dispatcher.py`, `scripts/engineering/verify.py`, `docs/architecture/AI_DISPATCHER.md`.
 
 Acceptance:
 
-- No grant/price/budget/revoked → 0 provider calls
-- Unknown delivery reserve retained, no automatic paid retry
+- Live origin session/grants/resource/price/caps/freeze checks before each attempt; owner no bypass; revoked/zero/missing/expired →0 mock deliveries before committed intent
+- Durable outbox/jobs/fencing/attempts; two processes100 claims one delivery; crash after intent/timeout/cancel/DB failure retains unknown reserve without retry
+- Explicit durable NotSent only: at most3 total attempts, backoff1s/2s, configurable timeout60s, manual fallback with new scoped reservation; exactly-once full actual settlement, no real network/paid requests/startup worker/public spend route
 
-Проверки: Будущий core pytest dispatcher fault injection.
+Проверки: Source-copy disposable PostgreSQL dispatcher fault injection/process death/100 claims/old outbox forward migration/live gates/retry/unknown/fencing tests; Full isolated core+legacy regression+harness and web real-core fixture; engineering.yml/web.yml exact implementation SHA.
 
 Риски: Неизвестная цена/доставка fail closed; no real paid requests; actual accounting не обрезается. Откат: До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change
 
-Commit: None. Evidence: [].
+Commit: pending. Evidence: ["15.10.2026: до реализации заданы вопросы и получены ответы: максимум3 попытки с задержкой только при доказанной неотправке; timeout60s настраиваемый; выбор резервной модели только вручную. Mock-only, без реальных провайдеров/paid requests/Console/deploy.", "Local full snapshot all1102+harness11=1113pass (dispatcher44); final updated dispatcher45pass55.23s separately, unchanged remaining runtime; browser86pass1.5m, format/build/build:demo pass. Full core groups208/175/202/22/61/44 in40.44/97.76/108.48/10.78/52.31/41.86s. No failed/skipped final; exact-SHA CI pending. Native PG18.6 / Python3.14.8 isolated/checksummed /tmp only, no system installation."].
 
 ## QUB-UI-001 — Today shell и owner/nonowner navigation
 

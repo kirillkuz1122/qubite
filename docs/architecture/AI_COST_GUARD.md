@@ -1,3 +1,5 @@
+**AI-00215.10.2026:** текущий [mock dispatcher](AI_DISPATCHER.md)/[ADR-0027](decisions/0027-mock-dispatcher-and-safe-retries.md), core0.9.0/0010. Базовый ledger AI-001 ниже сохранён; dispatcher имеет только internal mock hooks, без реальных paid effects. Ранее future dispatcher notes ниже заменяются этим контрактом, не означают public/job/tool/native paid admission.
+
 **AI-00114.10.2026:** [реализованный mock accounting контракт](AI_BUDGETS.md) / [ADR-0026](decisions/0026-atomic-mock-budgets.md). USD/full caps/configurable timezone initially Asia/Yekaterinburg подтверждены. Core0.8.0/0009; generic paid gate закрыт до AI-002 dispatcher. Dispatch/revoke/lease/fallback ниже — target следующего slice, не реализованный worker.
 
 # AI Cost Guard

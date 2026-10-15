@@ -134,6 +134,19 @@ def validate_schema(connection, migrations):
             raise MigrationError('Core budget schema is missing; explicit recovery required')
 
 
+    if '0010_dispatcher' in versions:
+        required = {'ai_dispatch_jobs', 'ai_dispatch_attempts'}
+        tables = {r[0] for r in connection.execute('''SELECT c.relname FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='qubite_core'
+            AND c.relkind IN ('r','p') AND c.relname=ANY(%s)''',(list(required),)).fetchall()}
+        column = connection.execute('''SELECT 1 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='qubite_core'
+            AND c.relname='ai_budget_state' AND a.attname='timeout_seconds' AND a.atttypid='integer'::regtype
+            AND a.attnotnull AND NOT a.attisdropped''').fetchone()
+        if tables != required or not column:
+            raise MigrationError('Core dispatch schema is missing; explicit recovery required')
+
+
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""
     rows = history(connection)

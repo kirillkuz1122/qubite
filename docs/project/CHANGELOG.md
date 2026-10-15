@@ -1,3 +1,5 @@
+**AI-00215.10.2026 — review/testing:** core0.9.0/schema0010_dispatcher; ответы3 total safe attempts/backoff1s2s/configurable60s/manual fallback. [Контракт](../architecture/AI_DISPATCHER.md), [ADR-0027](../architecture/decisions/0027-mock-dispatcher-and-safe-retries.md), [отчёт](../reports/QUB-AI-002.md). Native PG final target45pass/browser86pass/full regression1113pass; exact-SHA CI pending. Internal worker library, generic paid/network/startup closed; затем AUTH-004 с новыми вопросами. Старые snapshots ниже исторические.
+
 **AI-00114.10.2026 — done:** core0.8.0/schema0009_budgets, owner answers USD/full caps/configurable Екатеринбург timezone. [Контракт](../architecture/AI_BUDGETS.md), [ADR-0026](../architecture/decisions/0026-atomic-mock-budgets.md), [отчёт](../reports/QUB-AI-001.md). Final1155local+CI: budgets61/regression1069/browser86; code4c243a7, engineering38565394275 и web38565393551 exact-SHA completed/success. Internal mock ledger, generic paid effects closed; AI-002 dispatcher затем AUTH-004, новые вопросы перед каждым. Старые snapshots ниже исторические.
 
 # Журнал завершения задач Qubite

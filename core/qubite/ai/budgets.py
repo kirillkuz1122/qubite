@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from ..identity.auth.store import AuthError, database
 from ..policy.models import Target
 from ..policy.store import PolicyStore
-from .models import BudgetLimit, BindProject, Price, Timezone, UsageBound, Usage, quote, boundaries
+from .models import BudgetLimit, BindProject, Price, Timezone, DispatchSettings, UsageBound, Usage, quote, boundaries
 
 BUDGET_LOCK = 0x515542425544
 ALL_START = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -78,14 +78,15 @@ class BudgetStore(PolicyStore):
             limits = db.execute('''SELECT a.scope,a.key,l.period,l.usd_micro,l.requests,l.tokens
                 FROM qubite_core.ai_budget_limits l JOIN qubite_core.ai_budget_accounts a ON a.id=l.account_id
                 ORDER BY a.scope,a.key,l.period''').fetchall()
-            return dict(revision=revision, timezone=zone, limits=[dict(scope=r[0],key=r[1],period=r[2],
+            timeout = db.execute('SELECT timeout_seconds FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
+            return dict(revision=revision, timezone=zone, timeout_seconds=timeout, limits=[dict(scope=r[0],key=r[1],period=r[2],
                         usd_micro=r[3],requests=r[4],tokens=r[5]) for r in limits])
 
     def configure(self, raw, csrf, command, expected, command_id):
         """Guarded internal owner hook. No silent resets, deletes or price replacement."""
         if type(expected) is not int or expected < 1: raise AuthError(400, 'invalid_budget_request')
         identifier(command_id)
-        cls = next((c for c in (BudgetLimit, BindProject, Price, Timezone) if isinstance(command, c)), None)
+        cls = next((c for c in (BudgetLimit, BindProject, Price, Timezone, DispatchSettings) if isinstance(command, c)), None)
         if cls is None: raise AuthError(400, 'invalid_budget_request')
         command = validated(command, cls)
         data = command.model_dump(mode='json'); hashed = fingerprint(data)
@@ -118,6 +119,9 @@ class BudgetStore(PolicyStore):
                     ON CONFLICT(account_id,period) DO UPDATE SET usd_micro=EXCLUDED.usd_micro,
                     requests=EXCLUDED.requests,tokens=EXCLUDED.tokens''',
                     (account,command.period,command.usd_micro,command.requests,command.tokens))
+            elif isinstance(command, DispatchSettings):
+                before = db.execute('SELECT timeout_seconds FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
+                db.execute('UPDATE qubite_core.ai_budget_state SET timeout_seconds=%s WHERE singleton', (command.timeout_seconds,))
             elif isinstance(command, Timezone):
                 before = db.execute('SELECT timezone FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
                 db.execute('UPDATE qubite_core.ai_budget_state SET timezone=%s WHERE singleton', (command.name,))
@@ -246,6 +250,9 @@ class BudgetStore(PolicyStore):
                     reserved_requests=reserved_requests+1,reserved_tokens=reserved_tokens+%s WHERE id=%s''', (cost,tokens,b[0]))
                 db.execute('INSERT INTO qubite_core.ai_budget_allocations VALUES(%s,%s)', (invocation,b[0]))
             db.execute('INSERT INTO qubite_core.ai_budget_outbox(invocation_id) VALUES(%s)', (invocation,))
+            db.execute('''INSERT INTO qubite_core.ai_dispatch_jobs(invocation_id,status,next_attempt_at,expires_at,timeout_seconds)
+                SELECT %s,'queued',%s,%s+interval '5 minutes',timeout_seconds FROM qubite_core.ai_budget_state WHERE singleton''',
+                       (invocation,now,now))
             return self._receipt(self._invocation(db, invocation))
 
     def _event(self, db, row, event_id, kind, data):
@@ -277,42 +284,56 @@ class BudgetStore(PolicyStore):
                 self._key_lock(db, b'provider-request'+provider_request_id.bytes)
             row = self._invocation(db, invocation)
             self._key_lock(db, ('route/'+row[5]['provider']+'/'+row[5]['model']).encode())
-            if self._event(db, row, event_id, kind, data): return self._receipt(row)
-            existing = db.execute('SELECT data FROM qubite_core.ai_budget_events WHERE invocation_id=%s AND kind=%s',
-                                  (invocation,kind)).fetchone()
-            if existing:
-                if existing[0] != data: raise AuthError(409, 'budget_conflict')
-                db.execute('INSERT INTO qubite_core.ai_budget_events VALUES(%s,%s,%s,%s,%s)',
-                           (event_id,invocation,kind,Jsonb(data),self._now()))
-                return self._receipt(row)
-            permitted = {'dispatched': {'reserved'}, 'unknown': {'dispatched'},
-                         'released': {'reserved'}, 'settled': {'dispatched','unknown'}}
-            if row[1] not in permitted[kind]: raise AuthError(409, 'budget_state_conflict')
-            if kind in {'released','settled'}:
-                buckets = db.execute('''SELECT b.id FROM qubite_core.ai_budget_buckets b
-                    JOIN qubite_core.ai_budget_allocations a ON a.bucket_id=b.id
-                    WHERE a.invocation_id=%s ORDER BY b.id FOR UPDATE OF b''', (invocation,)).fetchall()
-                spent = usage.usd_micro if usage else 0
-                used = usage.input_tokens + usage.output_tokens if usage else 0
-                for b in buckets:
-                    db.execute('''UPDATE qubite_core.ai_budget_buckets SET reserved_usd=reserved_usd-%s,
-                        reserved_requests=reserved_requests-1,reserved_tokens=reserved_tokens-%s,
-                        spent_usd=spent_usd+%s,spent_requests=spent_requests+%s,spent_tokens=spent_tokens+%s WHERE id=%s''',
-                        (row[2],row[3],spent,1 if usage else 0,used,b[0]))
-                if usage and (spent > row[2] or usage.input_tokens > row[7]['input_tokens']
-                              or usage.output_tokens > row[7]['max_output_tokens']):
-                    target = row[5]
-                    db.execute('''INSERT INTO qubite_core.ai_budget_freezes VALUES(%s,%s,%s,%s)
-                        ON CONFLICT(provider,model) DO NOTHING''', (target['provider'],target['model'],invocation,self._now()))
-                db.execute("UPDATE qubite_core.ai_budget_outbox SET state='closed' WHERE invocation_id=%s", (invocation,))
-            elif kind == 'dispatched':
-                duplicate = db.execute('SELECT 1 FROM qubite_core.ai_budget_invocations WHERE provider_request_id=%s',
-                                       (provider_request_id,)).fetchone()
-                if duplicate: raise AuthError(409, 'budget_conflict')
-                db.execute("UPDATE qubite_core.ai_budget_outbox SET state='marked' WHERE invocation_id=%s", (invocation,))
-            db.execute('''UPDATE qubite_core.ai_budget_invocations SET state=%s,
-                provider_request_id=COALESCE(%s,provider_request_id),usage=%s WHERE id=%s''',
-                (kind,provider_request_id,Jsonb(data['usage']) if usage else None,invocation))
+            return self._apply_record(db, row, event_id, kind, data, provider_request_id, usage)
+
+    def _apply_record(self, db, row, event_id, kind, data, provider_request_id=None, usage=None, *, proven_not_sent=False):
+        """Same-transaction ledger helper. Caller holds policy/budget/event/invocation/route locks."""
+        invocation = row[0]
+        if self._event(db, row, event_id, kind, data): return self._receipt(row)
+        existing = db.execute('SELECT data FROM qubite_core.ai_budget_events WHERE invocation_id=%s AND kind=%s',
+                              (invocation,kind)).fetchone()
+        if existing:
+            if existing[0] != data: raise AuthError(409, 'budget_conflict')
             db.execute('INSERT INTO qubite_core.ai_budget_events VALUES(%s,%s,%s,%s,%s)',
                        (event_id,invocation,kind,Jsonb(data),self._now()))
-            return self._receipt(self._invocation(db, invocation))
+            return self._receipt(row)
+        permitted = {'dispatched': {'reserved'}, 'unknown': {'dispatched'},
+                     'released': {'reserved'}, 'settled': {'dispatched','unknown'}}
+        if row[1] not in permitted[kind]:
+            proof = db.execute("""SELECT count(*),bool_and(state='not_sent') FROM qubite_core.ai_dispatch_attempts
+                WHERE invocation_id=%s""", (invocation,)).fetchone() if proven_not_sent and kind == 'released' else None
+            if not (proof and proof[0] > 0 and proof[1] and row[1] in {'dispatched','unknown'}):
+                raise AuthError(409, 'budget_state_conflict')
+        if kind in {'released','settled'}:
+            buckets = db.execute('''SELECT b.id FROM qubite_core.ai_budget_buckets b
+                JOIN qubite_core.ai_budget_allocations a ON a.bucket_id=b.id
+                WHERE a.invocation_id=%s ORDER BY b.id FOR UPDATE OF b''', (invocation,)).fetchall()
+            spent = usage.usd_micro if usage else 0
+            used = usage.input_tokens + usage.output_tokens if usage else 0
+            for b in buckets:
+                db.execute('''UPDATE qubite_core.ai_budget_buckets SET reserved_usd=reserved_usd-%s,
+                    reserved_requests=reserved_requests-1,reserved_tokens=reserved_tokens-%s,
+                    spent_usd=spent_usd+%s,spent_requests=spent_requests+%s,spent_tokens=spent_tokens+%s WHERE id=%s''',
+                    (row[2],row[3],spent,1 if usage else 0,used,b[0]))
+            if usage and (spent > row[2] or usage.input_tokens > row[7]['input_tokens']
+                          or usage.output_tokens > row[7]['max_output_tokens']):
+                target = row[5]
+                db.execute('''INSERT INTO qubite_core.ai_budget_freezes VALUES(%s,%s,%s,%s)
+                    ON CONFLICT(provider,model) DO NOTHING''', (target['provider'],target['model'],invocation,self._now()))
+            db.execute("UPDATE qubite_core.ai_budget_outbox SET state='closed' WHERE invocation_id=%s", (invocation,))
+        elif kind == 'dispatched':
+            duplicate = db.execute('SELECT 1 FROM qubite_core.ai_budget_invocations WHERE provider_request_id=%s',
+                                   (provider_request_id,)).fetchone()
+            if duplicate: raise AuthError(409, 'budget_conflict')
+            db.execute("UPDATE qubite_core.ai_budget_outbox SET state='marked' WHERE invocation_id=%s", (invocation,))
+        db.execute('''UPDATE qubite_core.ai_budget_invocations SET state=%s,
+            provider_request_id=COALESCE(%s,provider_request_id),usage=%s WHERE id=%s''',
+            (kind,provider_request_id,Jsonb(data['usage']) if usage else None,invocation))
+        db.execute('INSERT INTO qubite_core.ai_budget_events VALUES(%s,%s,%s,%s,%s)',
+                   (event_id,invocation,kind,Jsonb(data),self._now()))
+        job_status = kind if kind in {'released','settled'} else 'unknown'
+        db.execute("""UPDATE qubite_core.ai_dispatch_jobs SET status=%s,
+            lease_token=CASE WHEN %s THEN NULL ELSE lease_token END,
+            lease_until=CASE WHEN %s THEN NULL ELSE lease_until END WHERE invocation_id=%s""",
+            (job_status,kind in {'released','settled'},kind in {'released','settled'},invocation))
+        return self._receipt(self._invocation(db, invocation))

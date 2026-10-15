@@ -402,7 +402,7 @@ def test_budget_migration_is_additive_atomic_and_old_core_cannot_write(database_
     with pytest.raises(MigrationError):apply(s,(*ms[:8],broken))
     with psycopg.connect(database_url) as db:
         assert db.execute("SELECT to_regclass('qubite_core.ai_budget_state')").fetchone()[0] is None
-    assert apply(s)==('0009_budgets',) and apply(s)==() and check(s)=='0009_budgets'
+    assert apply(s)==('0009_budgets','0010_dispatcher') and apply(s)==() and check(s)=='0010_dispatcher'
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT subject_id FROM qubite_core.policy_entitlements').fetchone()[0]==sid
         assert db.execute('SELECT revision,timezone FROM qubite_core.ai_budget_state').fetchone()==(1,'Asia/Yekaterinburg')

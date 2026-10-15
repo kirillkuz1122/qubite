@@ -48,3 +48,5 @@ Core читает только переменные процесса. Корне
 Перед каждой задачей — вопросы владельцу и ответы, затем один цикл: реализация → тесты → проверка → документация → русский коммит → push. Push не deploy. Архивная ветка `tournaments` и тег `qubite-v1.0` неизменны на `96f0457a523b6b79f21c4092056d8fa8fa69a680`.
 
 AI-001: [внутренний mock учёт бюджетов](docs/architecture/AI_BUDGETS.md), core0.8.0/schema0009. USD/day/month/all, независимые money/request/token limits, configured platform timezone сначала Екатеринбург. Резервы и settlement проверяются на disposable PostgreSQL; dispatcher и budget Console идут отдельными задачами. [Отчёт](docs/reports/QUB-AI-001.md).
+
+AI-002: [тестовый диспетчер AI](docs/architecture/AI_DISPATCHER.md), core0.9.0/schema0010. Проверяет права/бюджет перед каждой попыткой, сохраняет резерв при неизвестном исходе, повторяет лишь доказанную неотправку (максимум3), timeout60s настраиваемый. Выбор другой модели вручную; реальные провайдеры и budget Console UI отдельно. [Отчёт](docs/reports/QUB-AI-002.md).
