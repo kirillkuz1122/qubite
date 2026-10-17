@@ -11,25 +11,26 @@
 @font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-latin.woff2') format('woff2'); font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
 
 html, body { margin: 0; height: 100%; }
-body { --c: 10px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --ink-2: #5d5650; --ink-3: #736c66;
+body { --c: 10px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --grid: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); --ink-2: #5d5650; --ink-3: #736c66;
   --orange: #ff9852; --yellow: #ffe163; --sky: #71cfff; --green: #7fd39a;
   background: var(--paper); color: var(--ink); font: 400 16px/1.4 'Q Golos', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
 .px { font-family: 'Q Tiny5', monospace; font-weight: 400; -webkit-font-smoothing: none; }
 .notch { clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)); }
-.box { background: #fff; box-shadow: inset 0 0 0 3px var(--ink); }
+.box { background: var(--box, #fff); box-shadow: inset 0 0 0 3px var(--ink); }
 
 .device { position: relative; width: 100%; height: 100svh; overflow: hidden; background: var(--paper); }
 .scroll { position: relative; height: 100%; overflow-y: auto; padding: 20px 16px 120px 40px; scrollbar-width: none;
-  background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); background-size: var(--c) var(--c); background-attachment: local; }
+  background-image: var(--grid); background-size: var(--c) var(--c); background-attachment: local; }
 .scroll::-webkit-scrollbar { display: none; }
 .scroll::before { content: ''; position: absolute; top: 0; left: 30px; width: 2px; height: 100%; min-height: 1600px; background: var(--margin); opacity: .8; }
 .aside { display: none; }
 @media (min-width: 760px) {
   body { display: flex; align-items: center; justify-content: center; gap: 72px; min-height: 100vh; background: #eef3f7; }
-  .device { width: 390px; height: 844px; box-shadow: 0 0 0 4px var(--ink), 10px 10px 0 4px rgba(31, 26, 23, .14); }
-  .aside { display: block; max-width: 320px; color: var(--ink-2); font-size: 15.5px; }
+  .device { width: 390px; height: 844px; box-shadow: 0 0 0 4px var(--ink), 10px 10px 0 4px var(--shadow, rgba(31, 26, 23, .14)); }
+  .aside { display: block; max-width: 320px; color: #5d5650; font-size: 15.5px; }
+  .aside h2 { color: #1f1a17; }
   .aside h2 { font-size: 64px; line-height: 64px; margin: 0 0 16px; font-weight: 400; }
   .aside p { margin: 0 0 10px; }
 }
@@ -44,24 +45,24 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .prog i { width: 20px; height: 20px; display: block; box-shadow: inset 0 0 0 3px var(--ink); }
 .prog i.on { background: var(--green); }
 .prog i.now { background: var(--orange); animation: now 1s steps(1) infinite; }
-@keyframes now { 50% { background: #fff; } }
+@keyframes now { 50% { background: var(--box, #fff); } }
 .prog span { margin-left: 8px; font-size: 14px; color: var(--ink-2); }
 
 .tip { padding: 14px 16px 16px; margin-bottom: 26px; font-size: 14.5px; position: relative; }
 .tip b { font-weight: 600; }
 .tip .acts { display: flex; gap: 14px; align-items: center; margin-top: 10px; }
-.btn { background: var(--ink); color: #fff; height: 34px; padding: 0 14px; font-size: 16px; display: inline-grid; place-items: center; }
+.btn { background: var(--btn-bg, var(--ink)); color: var(--btn-fg, #fff); height: 34px; padding: 0 14px; font-size: 16px; display: inline-grid; place-items: center; }
 .later { font-size: 14px; color: var(--ink-3); }
 
 h2 { margin: 0 0 6px; font-size: 32px; line-height: 40px; font-weight: 400; display: flex; align-items: baseline; gap: 10px; position: relative; }
 h2 span.hl { position: relative; z-index: 0; }
-h2 span.hl::before { content: ''; position: absolute; z-index: -1; left: -4px; right: -2px; top: 16px; bottom: 4px; background: var(--yellow); }
+h2 span.hl::before { content: ''; position: absolute; z-index: -1; left: -4px; right: -2px; top: 16px; bottom: 4px; background: var(--hl, var(--yellow)); }
 h2 small { font-family: 'Q Golos', sans-serif; font-size: 13px; color: var(--ink-3); }
 
 .list { position: relative; margin: 0 -8px 26px; }
 .mark { position: absolute; left: 0; right: 0; top: 0; height: 60px; background: rgba(255, 225, 99, .55); opacity: 0; transform-origin: 50% 0; will-change: transform; }
 .row { position: relative; display: flex; gap: 14px; align-items: center; min-height: 60px; padding: 10px 8px; }
-.cb { width: 20px; height: 20px; flex: none; position: relative; background: #fff; box-shadow: inset 0 0 0 3px var(--ink); }
+.cb { width: 20px; height: 20px; flex: none; position: relative; background: var(--box, #fff); box-shadow: inset 0 0 0 3px var(--ink); }
 .cb i { position: absolute; width: 4px; height: 4px; background: var(--ink); opacity: 0; }
 .row .t { flex: 1; min-width: 0; }
 .row .title { position: relative; display: inline; font-size: 16px; }
@@ -73,12 +74,12 @@ h2 small { font-family: 'Q Golos', sans-serif; font-size: 13px; color: var(--ink
 
 .notes { display: flex; gap: 10px; overflow-x: auto; margin: 4px -16px 0 -40px; padding: 4px 16px 8px 40px; scrollbar-width: none; }
 .notes::-webkit-scrollbar { display: none; }
-.note { flex: none; width: 170px; min-height: 100px; padding: 12px 14px; background: var(--yellow); font-size: 14.5px; position: relative; }
+.note { flex: none; width: 170px; min-height: 100px; padding: 12px 14px; background: var(--yellow); color: #1f1a17; font-size: 14.5px; position: relative; }
 .note small { display: block; margin-top: 8px; font-size: 12px; color: rgba(31, 26, 23, .6); }
 h2 canvas { position: absolute; right: 4px; bottom: -12px; width: 50px; height: 60px; }
 
 .command { position: absolute; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 8px; z-index: 5; }
-.command::after { content: ''; position: absolute; inset: 0; box-shadow: 5px 5px 0 0 rgba(31, 26, 23, .14); pointer-events: none; z-index: -1; }
+.command::after { content: ''; position: absolute; inset: 0; box-shadow: 5px 5px 0 0 var(--shadow, rgba(31, 26, 23, .14)); pointer-events: none; z-index: -1; }
 .plus { width: 40px; height: 40px; background: var(--orange); display: grid; place-items: center; flex: none; }
 .plus svg { width: 20px; height: 20px; shape-rendering: crispEdges; will-change: transform; }
 .command .cur { width: 8px; height: 18px; background: var(--orange); flex: none; animation: cur 1s steps(1) infinite; }
@@ -88,12 +89,12 @@ h2 canvas { position: absolute; right: 4px; bottom: -12px; width: 50px; height: 
 .mic { width: 36px; height: 36px; display: grid; place-items: center; }
 .mic svg { shape-rendering: crispEdges; }
 .menu { position: absolute; left: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 64px); width: 230px; padding: 10px; z-index: 4; visibility: hidden; }
-.menu-bg { position: absolute; inset: 0; background: #fff; box-shadow: inset 0 0 0 3px var(--ink), 5px 5px 0 0 rgba(31, 26, 23, .14); transform-origin: 28px calc(100% + 36px); transform: scale(0); will-change: transform; }
+.menu-bg { position: absolute; inset: 0; background: var(--box, #fff); box-shadow: inset 0 0 0 3px var(--ink), 5px 5px 0 0 var(--shadow, rgba(31, 26, 23, .14)); transform-origin: 28px calc(100% + 36px); transform: scale(0); will-change: transform; }
 .menu button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 10px; font-size: 15.5px; text-align: left; opacity: 0; }
 .menu button i { width: 12px; height: 12px; flex: none; }
 .menu kbd { margin-left: auto; font-family: 'Q Tiny5', monospace; font-size: 16px; color: var(--ink-3); }
-.veil { position: absolute; inset: 0; background: rgba(251, 252, 252, .6); opacity: 0; pointer-events: none; z-index: 3; transition: opacity .2s steps(3); }
-.open .veil { opacity: 1; pointer-events: auto; }
+.veil { position: absolute; inset: 0; background: var(--paper); opacity: 0; pointer-events: none; z-index: 3; transition: opacity .2s steps(3); }
+.open .veil { opacity: .6; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -146,9 +147,17 @@ h2 canvas { position: absolute; right: 4px; bottom: -12px; width: 50px; height: 
 
 <script src="../core/qubite-core.js"></script>
 <script src="../core/pixels.js"></script>
+<script src="../core/lab.js"></script>
 <script>
 (function () {
   'use strict';
+  /* панель «Настроить»: фон страницы (общий для лендинга и «Сегодня») */
+  Lab.panel({
+    title: 'Пиксель: фон', store: 'qubite.piksel.look',
+    controls: [{ type: 'choice', key: 'bg', label: 'Фон', value: 'notebook',
+      options: Object.keys(Pixels.THEMES).map(function (k) { return { value: k, label: Pixels.THEMES[k].label }; }) }],
+    onChange: function (s) { Pixels.theme(s.bg); }
+  });
   /* помощники на своих маленьких «листочках» */
   var pb = new Pixels.Board(document.getElementById('proto'), { cell: 6 });
   var proto = pb.buddy('proto', 4, 13);

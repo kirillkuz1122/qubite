@@ -20,12 +20,12 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .grid { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(243, 237, 227, .085) 1.1px, transparent 1.6px) 0 0 / 14px 14px; }
 .top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 30px; padding: 24px clamp(16px, 5.5vw, 80px); }
 .mark { display: flex; align-items: center; gap: 10px; }
-.mark i { width: 9px; height: 9px; border-radius: 50%; background: var(--orange); display: block; }
+.mark i { width: 9px; height: 9px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); display: block; }
 .nav { display: flex; gap: 26px; color: var(--mute); font-size: 15px; }
 .nav a:hover { color: var(--light); }
 .auth { margin-left: auto; display: flex; gap: 20px; align-items: center; font-size: 15px; }
 .go { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(243, 237, 227, .3); }
-.go i { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); }
+.go i { width: 7px; height: 7px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); }
 
 .hero { position: relative; height: 100svh; min-height: 640px; overflow: hidden; }
 #field { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
@@ -36,16 +36,16 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
 .lead b { color: var(--light); font-weight: 500; }
 .command { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 7px 0 22px; border-radius: 999px; background: #1b1916; border: 1px solid var(--line); transition: border-color .2s; }
 .command:focus-within { border-color: rgba(255, 152, 82, .7); }
-.caret { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex: none; animation: pulse 1.1s steps(2, jump-none) infinite; }
+.caret { width: 8px; height: 8px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); flex: none; animation: pulse 1.1s steps(2, jump-none) infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
 .command input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 17px; color: var(--light); }
 .command input::placeholder { color: var(--dim); }
-.send { width: 46px; height: 46px; border-radius: 50%; background: var(--orange); display: grid; place-items: center; flex: none; }
+.send { width: 46px; height: 46px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); display: grid; place-items: center; flex: none; }
 .hint { margin: 14px 0 0 22px; font-size: 14px; color: var(--dim); min-height: 1.5em; }
 .hint b { color: var(--light); font-weight: 500; }
 .legend { position: absolute; z-index: 5; display: flex; gap: 18px; font-size: 13px; color: var(--dim); }
 .legend span { display: flex; align-items: center; gap: 7px; }
-.legend i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+.legend i { width: 8px; height: 8px; border-radius: calc(var(--round, 1) * 50%); display: block; }
 
 @media (max-width: 760px) {
   .nav, .go { display: none; }
@@ -81,9 +81,24 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
 
 <script src="../core/qubite-core.js"></script>
 <script src="../core/dots.js"></script>
+<script src="../core/lab.js"></script>
 <script>
 (function () {
   'use strict';
+  /* панель «Настроить»: форма и размер точки (общие для лендинга и «Сегодня») */
+  Lab.panel({
+    title: 'Частицы: форма точки', store: 'qubite.chastitsy.look',
+    controls: [
+      { type: 'range', key: 'round', label: 'Скругление', min: 0, max: 100, step: 1, value: 100, ends: ['квадрат', 'круг'], format: function (v) { return v + '%'; } },
+      { type: 'range', key: 'size', label: 'Размер точки', min: 60, max: 125, step: 1, value: 100, ends: ['мельче', 'крупнее'], format: function (v) { return v + '%'; } }
+    ],
+    onChange: function (s) {
+      Dots.look.round = s.round / 100; Dots.look.size = s.size / 100;
+      document.documentElement.style.setProperty('--round', Dots.look.round);
+      document.querySelector('.grid').style.backgroundImage = Dots.gridImage(14, 1.25 * Dots.look.size, '#f3ede3', 0.085);
+      Dots.repaint();
+    }
+  });
   var hero = document.getElementById('hero'), field = document.getElementById('field');
   var copy = document.getElementById('copy'), legend = document.getElementById('legend');
   var input = document.getElementById('cmd'), hint = document.getElementById('hint');
@@ -98,7 +113,8 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
     var W = eng.W, H = eng.H, phone = W < 760;
     var left = phone ? 16 : Math.max(16, Math.min(80, W * 0.055));
     var cols = Dots.textCells(HEAD, 'Q Tiny5').cols;
-    var hp = phone ? Math.min(9, (W - 32) / cols) : Math.min(15, (W * 0.48) / cols);
+    /* +3 клетки — место для оранжевой точки-мысли в конце фразы */
+    var hp = phone ? Math.min(9, (W - 32) / (cols + 3)) : Math.min(15, (W * 0.48) / cols);
     var top = phone ? 82 : Math.max(120, H * 0.16);
     var head = eng.text(HEAD, { x: left, y: top, pitch: hp, color: C.light, assemble: true, delay: 0.1, r: 0.46, lineRows: 8 });
     copy.style.top = (top + head.height + (phone ? 14 : 30)) + 'px';

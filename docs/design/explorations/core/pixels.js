@@ -4,7 +4,39 @@
    чем выше ряд, тем дальше он уезжает. */
 (function () {
   'use strict';
-  var PAL = { l: '#c9d6e2', k: '#1f1a17', w: '#ffffff', o: '#ff9852', y: '#ffe163', s: '#71cfff', g: '#7fd39a', c: '#ff7a59', p: '#fbf7ef', d: '#e8702f', b: '#3d95d6' };
+  /* P — тело Прото, E — его глаза, B — клюв Элика снаружи тела, O — контур рисунков, R и l — «строчка»-земля.
+     Эти цвета меняет фон: на тёмном Прото становится светлым, иначе он пропадёт. */
+  var PAL = { l: '#c9d6e2', R: '#dce7f0', k: '#1f1a17', P: '#1f1a17', E: '#ffffff', B: '#1f1a17', O: '#1f1a17', w: '#ffffff', o: '#ff9852', y: '#ffe163', s: '#71cfff', g: '#7fd39a', c: '#ff7a59', p: '#fbf7ef', d: '#e8702f', b: '#3d95d6' };
+
+  /* Фоны страницы. grid: lines — клетка, dots — точки в узлах клетки, none — без сетки. */
+  var LIGHT = { ink: '#1f1a17', ink2: '#5d5650', ink3: '#736c66', box: '#ffffff', hl: '#ffe163', btnBg: '#1f1a17', btnFg: '#ffffff', shadow: 'rgba(31,26,23,.13)', pal: { P: '#1f1a17', E: '#ffffff', B: '#1f1a17', O: '#1f1a17' } };
+  var THEMES = {
+    notebook: { label: 'Тетрадь', paper: '#fbfcfc', rule: '#dce7f0', margin: '#f2a3a3', grid: 'lines', ground: ['#c9d6e2', '#dce7f0'] },
+    sheet: { label: 'Чистый лист', paper: '#ffffff', rule: '#ffffff', margin: 'transparent', grid: 'none', ground: ['#e3e1dd', '#efedea'] },
+    warm: { label: 'Тёплая бумага', paper: '#f6f1e8', rule: '#ebe2d4', margin: 'transparent', grid: 'lines', ground: ['#e0d4c2', '#ebe2d4'], ink3: '#6c625a' },
+    dots: { label: 'Точки', paper: '#f7f7f5', rule: '#c9cdd0', margin: 'transparent', grid: 'dots', ground: ['#d6d9db', '#e6e8e9'] },
+    night: { label: 'Ночь', paper: '#151412', rule: '#262421', margin: 'transparent', grid: 'lines', ground: ['#34302b', '#2a2723'],
+      ink: '#f3ede3', ink2: '#b4ab9f', ink3: '#9a9186', box: '#1f1d1a', hl: 'rgba(255,225,99,.3)', btnBg: '#f3ede3', btnFg: '#151412', shadow: 'rgba(0,0,0,.45)',
+      pal: { P: '#f3ede3', E: '#1f1a17', B: '#f3ede3', O: '#f3ede3' } }
+  };
+  var GRIDS = {
+    lines: 'linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px)',
+    dots: 'radial-gradient(circle at 1px 1px, var(--rule) 1.4px, transparent 1.9px)',
+    none: 'none'
+  };
+  function theme(name) {
+    var t = THEMES[name] || THEMES.notebook, st = document.body.style;
+    var v = function (k) { return t[k] != null ? t[k] : LIGHT[k]; };
+    st.setProperty('--paper', t.paper); st.setProperty('--rule', t.rule); st.setProperty('--margin', t.margin);
+    st.setProperty('--grid', GRIDS[t.grid]);
+    st.setProperty('--ink', v('ink')); st.setProperty('--ink-2', v('ink2')); st.setProperty('--ink-3', v('ink3'));
+    st.setProperty('--box', v('box')); st.setProperty('--hl', v('hl')); st.setProperty('--btn-bg', v('btnBg')); st.setProperty('--btn-fg', v('btnFg'));
+    st.setProperty('--shadow', v('shadow'));
+    var pal = t.pal || LIGHT.pal;
+    for (var key in pal) PAL[key] = pal[key];
+    PAL.l = t.ground[0]; PAL.R = t.ground[1];
+    document.body.dataset.bg = name;
+  }
 
   /* тело: прямоугольник со ступенчатыми скруглениями (без острых углов) */
   function block(w, h, rt, color) {
@@ -29,7 +61,7 @@
   }
   /* лица: клетки [x, y] от левого верхнего угла тела; e — цвет глаз */
   var KINDS = {
-    proto: { rows: block(7, 13, 1, 'k'), e: 'w', eyes: [[2, 3], [4, 3]], mouth: { idle: [[3, 6]], happy: [[2, 6], [3, 7], [4, 6]], sad: [[2, 7], [3, 6], [4, 7]] }, mass: 2.1, lean: 2 },
+    proto: { rows: block(7, 13, 1, 'P'), e: 'E', eyes: [[2, 3], [4, 3]], mouth: { idle: [[3, 6]], happy: [[2, 6], [3, 7], [4, 6]], sad: [[2, 7], [3, 6], [4, 7]] }, mass: 2.1, lean: 2 },
     neit: { rows: block(9, 10, 2, 's'), e: 'k', eyes: [[2, 3], [6, 3]], glasses: true, mouth: { idle: [[4, 7]], happy: [[3, 7], [4, 8], [5, 7]], sad: [[3, 8], [4, 7], [5, 8]] }, mass: 1.9, lean: 2 },
     elik: { rows: block(6, 9, 2, 'y'), e: 'k', eyes: [[2, 3], [4, 3]], beak: { idle: [[4, 6], [5, 6], [6, 6], [7, 6], [8, 6]], happy: [[4, 6], [5, 6], [6, 5], [7, 5], [8, 4]], sad: [[4, 6], [5, 6], [6, 7], [7, 7], [8, 8]] }, mass: 1.3, lean: 3 },
     foti: { rows: dome([5, 9, 11, 11, 11], 11, 'o'), e: 'k', eyes: [[3, 1], [7, 1]], mouth: { idle: [[4, 3], [5, 4], [6, 3]], happy: [[3, 3], [4, 4], [5, 4], [6, 4], [7, 3]], sad: [[4, 4], [5, 3], [6, 4]] }, mass: 2.4, lean: 1 }
@@ -37,7 +69,7 @@
   var DOODLES = {
     heart: ['.cc.cc.', 'ccccccc', 'cwccccc', '.ccccc.', '..ccc..', '...c...'],
     spark: ['...y...', '...y...', '..yyy..', 'yyyyyyy', '..yyy..', '...y...', '...y...'],
-    cal: ['.k...k.', 'kkkkkkk', 'koooook', 'kwwwwwk', 'klwlwlk', 'kwwwwwk', 'klwlwwk', 'kkkkkkk'],
+    cal: ['.O...O.', 'OOOOOOO', 'OoooooO', 'OwwwwwO', 'OlwlwlO', 'OwwwwwO', 'OlwlwwO', 'OOOOOOO'],
     check: ['......g', '.....gg', 'g...gg.', 'gg.gg..', '.ggg...', '..g....'],
     pencil: ['..sssssssb', 'kkssssssssbb'.slice(0, 10), '..sssssssb'],
     note: ['yyyyyy', 'ykkkky', 'yyyyyy', 'ykkkyy', 'yyyyy.']
@@ -144,9 +176,10 @@
       });
       var mood = shut ? 'idle' : b.mood;
       if (K.mouth) (K.mouth[mood] || K.mouth.idle).forEach(function (m) { face(m[0], m[1], K.e); });
-      if (K.beak) (K.beak[mood] || K.beak.idle).forEach(function (m) { face(m[0], m[1], 'k'); });
+      /* клюв: внутри тела — тёмный, снаружи — цвета «чернил» фона, чтобы был виден и на тёмном */
+      if (K.beak) (K.beak[mood] || K.beak.idle).forEach(function (m) { face(m[0], m[1], m[0] >= b.w ? 'B' : 'k'); });
     });
   };
 
-  window.Pixels = { Board: Board, PAL: PAL, KINDS: KINDS, DOODLES: DOODLES };
+  window.Pixels = { Board: Board, PAL: PAL, KINDS: KINDS, DOODLES: DOODLES, THEMES: THEMES, theme: theme };
 })();

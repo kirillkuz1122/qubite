@@ -7,6 +7,26 @@
   var TAU = Math.PI * 2;
   var M = Q.MATERIAL;
 
+  /* Форма точки: round 1 — круг, 0 — квадрат, между ними — квадрат со скруглёнными углами.
+     size — множитель размера (1 = как в макете). Меняются панелью «Настроить». */
+  var look = { round: 1, size: 1 };
+  function blob(ctx, x, y, rx, ry) {
+    if (ry == null) ry = rx;
+    var k = look.round;
+    if (k >= 0.995) {
+      ctx.moveTo(x + rx, y);
+      if (rx === ry) ctx.arc(x, y, rx, 0, TAU); else ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+      return;
+    }
+    var c = Math.min(rx, ry) * k;
+    ctx.moveTo(x - rx + c, y - ry);
+    ctx.arcTo(x + rx, y - ry, x + rx, y + ry, c);
+    ctx.arcTo(x + rx, y + ry, x - rx, y + ry, c);
+    ctx.arcTo(x - rx, y + ry, x - rx, y - ry, c);
+    ctx.arcTo(x - rx, y - ry, x + rx, y - ry, c);
+    ctx.closePath();
+  }
+
   /* ---------- Текст → клетки ---------- */
   var raster = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
   function textCells(text, font, lineRows) {
@@ -189,7 +209,7 @@
         var q = arr[j];
         if (!q.alive) continue;
         if (now < q.wake) continue;
-        ctx.moveTo(q.x + q.r, q.y); ctx.arc(q.x, q.y, q.r, 0, TAU);
+        blob(ctx, q.x, q.y, q.r * look.size);
       }
       ctx.fillStyle = c; ctx.fill();
       if (this.dead) this.byColor[c] = arr.filter(function (q) { return q.alive; });
@@ -210,45 +230,56 @@
         ctx.arc(q.x, q.y + p * 0.35, p * 0.75, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
         return;
       }
-      ctx.beginPath(); ctx.ellipse(q.x, q.y, p * 1.0, blink ? p * 0.18 : p * 1.0, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); blob(ctx, q.x, q.y, p * 1.0, blink ? p * 0.18 : p * 1.0); ctx.fill();
       if (!blink) {
         ctx.fillStyle = b.color === L ? '#ff9852' : L;
-        ctx.beginPath(); ctx.arc(q.x + b.lx.x * p * 0.42, q.y + b.ly.x * p * 0.42, p * 0.44, 0, TAU); ctx.fill();
+        ctx.beginPath(); blob(ctx, q.x + b.lx.x * p * 0.42, q.y + b.ly.x * p * 0.42, p * 0.44); ctx.fill();
       }
     });
     if (K.glasses) {
       ctx.strokeStyle = g; ctx.lineWidth = p * 0.34;
-      K.eyes.forEach(function (e) { var q = b.point(e[0] * p, e[1] * p); ctx.beginPath(); ctx.arc(q.x, q.y, K.glasses * p, 0, TAU); ctx.stroke(); });
+      K.eyes.forEach(function (e) { var q = b.point(e[0] * p, e[1] * p); ctx.beginPath(); blob(ctx, q.x, q.y, K.glasses * p); ctx.stroke(); });
     }
     ctx.fillStyle = g;
     if (K.mouth != null) {
       var pts = b.mood === 'happy' ? [[-1.2, 0.35], [0, 0], [1.2, 0.35]].map(function (m) { return [m[0], -m[1]]; }) :
         b.mood === 'sad' ? [[-1.1, -0.3], [0, 0.1], [1.1, -0.3]] : b.mood === 'shut' ? [] : [[-0.5, 0], [0.5, 0]];
       if (b.mood === 'happy') pts = [[-1.3, 0.45], [-0.45, 0], [0.45, 0], [1.3, 0.45]];
-      pts.forEach(function (m) { var q = b.point(m[0] * p, (K.mouth + m[1]) * p); ctx.beginPath(); ctx.arc(q.x, q.y, p * 0.4, 0, TAU); ctx.fill(); });
+      pts.forEach(function (m) { var q = b.point(m[0] * p, (K.mouth + m[1]) * p); ctx.beginPath(); blob(ctx, q.x, q.y, p * 0.4 * look.size); ctx.fill(); });
     }
     if (K.beak != null) {
       var tilt = b.mood === 'happy' ? -0.35 : b.mood === 'sad' ? 0.35 : 0;
       for (var k = 0; k < 7; k++) {
         var q = b.point((0.4 + k) * p, (K.beak - tilt * k) * p);
         ctx.fillStyle = k < 3 ? g : L;
-        ctx.beginPath(); ctx.arc(q.x, q.y, p * (k < 3 ? 0.42 : 0.36), 0, TAU); ctx.fill();
+        ctx.beginPath(); blob(ctx, q.x, q.y, p * (k < 3 ? 0.42 : 0.36) * look.size); ctx.fill();
       }
     }
   };
 
   /* Мелкий текст из точек без физики — для подписей и логотипа */
+  var painted = [];
   function paintText(canvas, str, pitch, color, o) {
     o = o || {};
+    if (!canvas._dots) { canvas._dots = true; painted.push([canvas, str, pitch, color, o]); }
     var tc = textCells(str, o.font || 'Q Tiny5', o.lineRows);
     var dpr = Math.min(2, devicePixelRatio || 1);
     var w = tc.cols * pitch, h = (o.rows || 7) * pitch;
     canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     var ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = color; ctx.beginPath();
-    tc.cells.forEach(function (c) { var x = (c[0] + 0.5) * pitch, y = (c[1] + 0.5 - (o.top || 0)) * pitch; ctx.moveTo(x + pitch * 0.4, y); ctx.arc(x, y, pitch * 0.4, 0, TAU); });
+    ctx.clearRect(0, 0, w, h);
+    tc.cells.forEach(function (c) { var x = (c[0] + 0.5) * pitch, y = (c[1] + 0.5 - (o.top || 0)) * pitch; blob(ctx, x, y, Math.min(pitch / 2, pitch * 0.4 * look.size)); });
     ctx.fill();
   }
+  /* перерисовать подписи после смены формы точки (холсты с физикой перерисуются сами) */
+  function repaint() { painted.forEach(function (a) { paintText.apply(null, a); }); }
+  /* фоновая сетка точек той же формы — картинкой для CSS */
+  function gridImage(pitch, half, color, alpha) {
+    var c = half * look.round;
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + pitch + "' height='" + pitch + "'><rect x='" + (pitch / 2 - half) + "' y='" + (pitch / 2 - half) + "' width='" + 2 * half + "' height='" + 2 * half + "' rx='" + c + "' fill='" + color + "' fill-opacity='" + alpha + "'/></svg>";
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  }
 
-  window.Dots = { Engine: Engine, textCells: textCells, paintText: paintText, KINDS: KINDS };
+  window.Dots = { Engine: Engine, textCells: textCells, paintText: paintText, repaint: repaint, gridImage: gridImage, look: look, KINDS: KINDS };
 })();
