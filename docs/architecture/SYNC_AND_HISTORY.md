@@ -1,5 +1,7 @@
 # Офлайн, синхронизация и история
 
+> **Реализовано (FND-005, 17.10.2026):** протокол `crates/qubite-sync` (операции create/set_title/delete/restore, образцы JSON в `fixtures/`), сервер `crates/qubite-sync-server` (`push`/`pull`, журнал `sync_ops`, миграция 0003), клиент `packages/sync-client` (IndexedDB, очередь, статусы, «проблемы»). HTTP-адреса — в CMD-001. Решение — [ADR-0008](decisions/0008-web-local-storage-indexeddb.md).
+
 Принцип ([MC §3](../context/QUBITE_MASTER_CONTEXT.md)): **local-first**. Действие пользователя сначала записывается локально, потом уходит на сервер. Отсутствие интернета никогда не означает потерю мысли, штриха или правки.
 
 ## 1. Схема

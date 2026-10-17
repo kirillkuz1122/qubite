@@ -1,0 +1,14 @@
+{
+  "changes": [
+    {
+      "deleted": true,
+      "id": "03030303-0303-0303-0303-030303030303",
+      "object_type": "inbox.item",
+      "revision": 3,
+      "title": "Повторить графы",
+      "updated_at_ms": 1792224000000
+    }
+  ],
+  "cursor": 42,
+  "has_more": false
+}

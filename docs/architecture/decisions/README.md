@@ -11,6 +11,7 @@ ADR — короткая запись важного решения: конте�
 | [0005](0005-fresh-accounts-single-owner.md) | Аккаунты с нуля, один owner через CLI, default deny | Принято |
 | [0006](0006-subdomains-and-shared-session.md) | Модули на поддоменах, одно приложение, общая сессия | Принято |
 | [0007](0007-agent-workflow-main-branch.md) | Порядок работы агента: вопросы → задача → тесты → push в main | Принято |
+| [0008](0008-web-local-storage-indexeddb.md) | Локальные данные в браузере — IndexedDB, синхронизация операциями | Принято |
 
 Шаблон нового ADR:
 

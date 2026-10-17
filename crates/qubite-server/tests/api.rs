@@ -7,6 +7,9 @@ use std::{net::SocketAddr, time::Duration};
 use qubite_db::{Database, DbConfig};
 use qubite_kernel::Secret;
 use qubite_testkit::TestDb;
+
+/// Номер последней миграции в `crates/qubite-db/migrations`.
+const LATEST_MIGRATION: i64 = 3;
 use serde_json::Value;
 
 /// Запустить настоящий router на свободном порту.
@@ -68,7 +71,7 @@ async fn ready_is_503_until_migrations_then_200() {
     let (status, body) = get_json(address, "/api/ready").await;
     assert_eq!(status, 200);
     assert_eq!(body["status"], "ready");
-    assert_eq!(body["schema_version"], 2);
+    assert_eq!(body["schema_version"], LATEST_MIGRATION);
 
     db.close().await;
     test_db.drop_db().await;
@@ -88,7 +91,7 @@ async fn migrations_create_meta_and_are_idempotent() {
             .await
             .unwrap();
     assert_eq!(family, "qubite-2");
-    assert_eq!(db.schema_version().await.unwrap(), Some(2));
+    assert_eq!(db.schema_version().await.unwrap(), Some(LATEST_MIGRATION));
 
     db.close().await;
     test_db.drop_db().await;

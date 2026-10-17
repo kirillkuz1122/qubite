@@ -1180,6 +1180,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-sync"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "qubite-sync-server"
+version = "0.1.0"
+dependencies = [
+ "qubite-objects",
+ "qubite-sync",
+ "qubite-testkit",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-testkit"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,27 @@
+{
+  "results": [
+    {
+      "op_id": "02020202-0202-0202-0202-020202020202",
+      "revision": 1,
+      "status": "applied"
+    },
+    {
+      "current": {
+        "deleted": true,
+        "id": "03030303-0303-0303-0303-030303030303",
+        "object_type": "inbox.item",
+        "revision": 3,
+        "title": "Повторить графы",
+        "updated_at_ms": 1792224000000
+      },
+      "op_id": "04040404-0404-0404-0404-040404040404",
+      "status": "conflict"
+    },
+    {
+      "message": "объект не найден",
+      "op_id": "05050505-0505-0505-0505-050505050505",
+      "reason": "not_found",
+      "status": "rejected"
+    }
+  ]
+}
