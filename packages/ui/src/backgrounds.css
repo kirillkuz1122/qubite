@@ -1,0 +1,31 @@
+/* Фоны (D-143). Рисуются один раз на неподвижном слое и не анимируются. */
+.q-app {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--q-bg);
+}
+.q-app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.q-app[data-bg='halo']::before {
+  background:
+    radial-gradient(38rem 30rem at 8% 6%, rgb(255 152 82 / 0.42), transparent 70%),
+    radial-gradient(34rem 28rem at 92% 18%, rgb(113 207 255 / 0.45), transparent 70%),
+    radial-gradient(40rem 30rem at 70% 96%, rgb(255 225 99 / 0.5), transparent 70%),
+    radial-gradient(30rem 26rem at 12% 88%, rgb(144 222 165 / 0.45), transparent 70%);
+}
+.q-app[data-bg='dots']::before {
+  background-image: radial-gradient(circle, rgb(29 27 25 / 0.16) 1.3px, transparent 1.6px);
+  background-size: 18px 18px;
+}
+.q-app[data-style='pixel'][data-bg='dots']::before {
+  /* Квадратные точки, как на матричном экране Nothing */
+  background-image: conic-gradient(at 3px 3px, transparent 75%, rgb(29 27 25 / 0.2) 0);
+  background-size: 18px 18px;
+}

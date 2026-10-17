@@ -196,6 +196,9 @@ importers:
       '@qubite/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@qubite/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.104.3
         version: 5.104.3(react@19.3.1)
@@ -267,6 +270,37 @@ importers:
       fake-indexeddb:
         specifier: ^6.2.6
         version: 6.2.6
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@types/node@22.20.5)(jsdom@30.1.3)(vite@8.3.4(@types/node@22.20.5))
+
+  packages/ui:
+    dependencies:
+      '@fontsource-variable/manrope':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/source-serif-4':
+        specifier: ^5.3.1
+        version: 5.3.1
+      '@fontsource-variable/unbounded':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/tiny5':
+        specifier: ^5.3.0
+        version: 5.3.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -451,6 +485,18 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource-variable/manrope@5.3.0':
+    resolution: {integrity: sha512-6D5dgokHsWDDMtmXHznKa0hK229NN+1a4BLPmUCLqcO1Pw5EEhWY5RFt0AcXnVRAljFFPfRtLkJePQj6LSsV6g==}
+
+  '@fontsource-variable/source-serif-4@5.3.1':
+    resolution: {integrity: sha512-4Rtay22SC4lMvw11r/+9kxANB6P3M0X8s1NudBC2v0J1KU2y3DcMoNcT3lBoZ/CqLirzf+StlO6UlJilyrvaUg==}
+
+  '@fontsource-variable/unbounded@5.3.0':
+    resolution: {integrity: sha512-ea565Ncn4r7gPdBEHcmaF31V11hDfkL7b/JCklLobQbMfbu2ZZQrVWNgdeEFWFLqNh36yhieZWOgxdAnMTzrLg==}
+
+  '@fontsource/tiny5@5.3.0':
+    resolution: {integrity: sha512-29H01ByMRs6uiLeOoBnZLedf0dR3pF5A53cIBzhp1/Y6Bu5D0t5selTb4TWs3ENoc/OK71rOed5xAdvBywe4aQ==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1872,6 +1918,14 @@ snapshots:
       levn: 0.4.1
 
   '@exodus/bytes@1.16.0': {}
+
+  '@fontsource-variable/manrope@5.3.0': {}
+
+  '@fontsource-variable/source-serif-4@5.3.1': {}
+
+  '@fontsource-variable/unbounded@5.3.0': {}
+
+  '@fontsource/tiny5@5.3.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

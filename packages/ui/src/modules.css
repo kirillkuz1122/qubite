@@ -1,0 +1,107 @@
+/* Схемы цветов модулей (D-143). Плитка модуля читает --q-mod и --q-mod-on. */
+.q-app {
+  --q-mod: var(--q-surface-2);
+  --q-mod-on: var(--q-text);
+  --fam-elik: var(--plastic-idea);
+  --fam-proto: var(--ink);
+  --fam-neit: var(--plastic-select);
+  --fam-foti: var(--plastic-action);
+}
+
+/* «Радуга»: у каждого модуля свой цвет, оттенки идут по семьям */
+.q-app[data-modules='rainbow'] {
+  .q-tile[data-hue='1'] {
+    --q-mod: #ffe163;
+  }
+  .q-tile[data-hue='2'] {
+    --q-mod: #ffc94d;
+  }
+  .q-tile[data-hue='3'] {
+    --q-mod: #ffb37a;
+  }
+  .q-tile[data-hue='4'] {
+    --q-mod: #f6d6a2;
+  }
+  .q-tile[data-hue='5'] {
+    --q-mod: #ff9852;
+  }
+  .q-tile[data-hue='6'] {
+    --q-mod: #ff8a7a;
+  }
+  .q-tile[data-hue='7'] {
+    --q-mod: #ff9fb8;
+  }
+  .q-tile[data-hue='8'] {
+    --q-mod: #f4b4dd;
+  }
+  .q-tile[data-hue='9'] {
+    --q-mod: #71cfff;
+  }
+  .q-tile[data-hue='10'] {
+    --q-mod: #93b9ff;
+  }
+  .q-tile[data-hue='11'] {
+    --q-mod: #6fe0d6;
+  }
+  .q-tile[data-hue='12'] {
+    --q-mod: #b0e4fb;
+  }
+  .q-tile[data-hue='13'] {
+    --q-mod: #90dea5;
+  }
+  .q-tile[data-hue='14'] {
+    --q-mod: #bfe76f;
+  }
+  .q-tile[data-hue='15'] {
+    --q-mod: #63d39c;
+  }
+  .q-tile[data-hue='16'] {
+    --q-mod: #d3df86;
+  }
+}
+
+/* «Семьи»: четыре цвета по помощникам */
+.q-app[data-modules='families'] {
+  .q-tile[data-family='elik'] {
+    --q-mod: var(--fam-elik);
+  }
+  .q-tile[data-family='proto'] {
+    --q-mod: var(--fam-proto);
+    --q-mod-on: var(--paper);
+  }
+  .q-tile[data-family='neit'] {
+    --q-mod: var(--fam-neit);
+  }
+  .q-tile[data-family='foti'] {
+    --q-mod: var(--fam-foti);
+  }
+}
+
+/* «Тихая»: модули нейтральные, цвет семьи — только меткой */
+.q-app[data-modules='quiet'] {
+  .q-tile[data-family='elik'] {
+    --q-mark: var(--fam-elik);
+  }
+  .q-tile[data-family='proto'] {
+    --q-mark: var(--fam-proto);
+  }
+  .q-tile[data-family='neit'] {
+    --q-mark: var(--fam-neit);
+  }
+  .q-tile[data-family='foti'] {
+    --q-mark: var(--fam-foti);
+  }
+  .q-tile__glyph::after {
+    content: '';
+    position: absolute;
+    right: 7px;
+    top: 7px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--q-mark);
+  }
+  &[data-style='pixel'] .q-tile__glyph::after {
+    border-radius: 0;
+  }
+}

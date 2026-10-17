@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@qubite/api-client": "workspace:*",
+    "@qubite/ui": "workspace:*",
     "@tanstack/react-query": "^5.104.3",
     "@tanstack/react-router": "^1.170.44",
     "react": "^19.3.1",

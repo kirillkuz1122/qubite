@@ -1,0 +1,48 @@
+/* Базовые токены. Палитра «Игрушечная» (D-090…D-099) и значения по умолчанию,
+   которые стили (themes/themes.css) переопределяют. Компоненты читают только --q-*. */
+.q-app {
+  /* Палитра */
+  --ink: #1d1b19;
+  --ink-2: #5b554e;
+  --paper: #fbf7f0;
+  --plastic-action: #ff9852;
+  --plastic-select: #71cfff;
+  --plastic-idea: #ffe163;
+  --plastic-success: #90dea5;
+  --plastic-error: #ff8a7a;
+  --error-text: #a3261b;
+  --on-plastic: var(--ink);
+
+  /* Поверхности и линии */
+  --q-bg: #f1efe8;
+  --q-surface: #fffcf3;
+  --q-surface-2: #f4f0e6;
+  --q-text: var(--ink);
+  --q-text-2: var(--ink-2);
+  --q-line: rgb(29 27 25 / 0.85);
+  --q-line-w: 1px;
+  --q-backdrop: none;
+  --q-sheen: none;
+  --q-tone-mix: 22%;
+
+  /* Форма */
+  --q-r-s: 999px;
+  --q-r-m: 18px;
+  --q-r-l: 28px;
+  --q-shadow-card: 0 10px 30px -12px rgb(60 40 20 / 0.18);
+  --q-shadow-control: none;
+  --q-shadow-pressed: none;
+  --q-shadow-inset: none;
+  --q-press: scale(0.96);
+
+  /* Шрифты */
+  --q-font-text: 'Manrope Variable', system-ui, sans-serif;
+  --q-font-display: 'Unbounded Variable', 'Manrope Variable', sans-serif;
+  --q-display-weight: 750;
+  --q-display-tracking: -0.03em;
+
+  /* Движение (временное, физика — в DS-002) */
+  --q-flow-duration: 503ms;
+  --q-flow-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --q-press-duration: 120ms;
+}

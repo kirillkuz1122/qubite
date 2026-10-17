@@ -1,0 +1,213 @@
+/* Раскладка лаборатории. Сам материал — в @qubite/ui. */
+.lab-panel {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem clamp(0.75rem, 3vw, 2rem);
+  background: color-mix(in oklab, var(--q-bg) 92%, transparent);
+  border-bottom: 1px solid rgb(29 27 25 / 0.12);
+}
+.lab-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.lab-panel__title {
+  flex: none;
+  font-size: 0.85rem;
+}
+.lab-panel__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.lab-panel .q-seg__item {
+  min-height: 34px;
+}
+@media (max-width: 40rem) {
+  /* На телефоне настройки — одной прокручиваемой строкой, чтобы не закрывать экран */
+  .lab-panel__grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px;
+  }
+  .lab-panel__grid > * {
+    flex: none;
+  }
+}
+.lab-chips {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.lab-chip {
+  flex: none;
+  min-height: 36px;
+  padding: 0 0.9rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--q-text);
+  background: var(--q-surface);
+  border: 1px solid rgb(29 27 25 / 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lab-chip[aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.lab-main {
+  display: grid;
+  gap: clamp(2.5rem, 6vw, 4.5rem);
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 4rem) clamp(1rem, 4vw, 2rem) 5rem;
+}
+.lab-hero {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+.lab-lead {
+  max-width: 36rem;
+  margin: 0;
+  font-size: 1.1rem;
+}
+.lab-arrow {
+  color: var(--plastic-action);
+}
+.lab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.lab-section {
+  display: grid;
+  gap: 0.75rem;
+}
+.lab-section > .q-eyebrow {
+  margin: 0;
+}
+.lab-section > .q-h2 {
+  margin-bottom: 0.5rem;
+}
+
+.lab-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 1rem;
+}
+.lab-swatch {
+  display: grid;
+  gap: 0.3rem;
+}
+.lab-swatch__chip {
+  display: grid;
+  place-items: center;
+  height: 4.5rem;
+  margin-bottom: 0.4rem;
+  font-family: var(--q-font-display);
+  font-size: 1.4rem;
+  font-weight: var(--q-display-weight);
+  color: var(--ink);
+  border-radius: var(--q-r-m);
+  box-shadow: var(--q-shadow-control);
+}
+.lab-swatch code {
+  font-size: 0.75rem;
+  color: var(--q-text-2);
+}
+.lab-type-sample {
+  margin-bottom: 1rem;
+}
+.lab-section .q-card > * + * {
+  margin-top: 0.75rem;
+}
+
+.lab-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.lab-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr));
+  gap: 1rem 0.5rem;
+}
+.lab-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.lab-legend__dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+}
+
+.lab-phone {
+  max-width: 24rem;
+}
+.lab-phone__screen {
+  display: grid;
+  gap: 0.75rem;
+}
+.lab-section .lab-phone__screen > * + * {
+  margin-top: 0;
+}
+.lab-tasks {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-tasks__meta {
+  display: block;
+  margin-top: -0.35rem;
+  font-size: 0.8rem;
+}
+.lab-inbox {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: var(--q-r-m);
+}
+.lab-section .lab-inbox > * + * {
+  margin-top: 0;
+}
+.lab-inbox .q-btn {
+  justify-self: start;
+  margin-top: 0.4rem;
+}
+.lab-command {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 52px;
+  padding: 0 1.1rem;
+  background: var(--q-surface-2);
+  border: var(--q-line-w) solid var(--q-line);
+  border-radius: var(--q-r-s);
+  box-shadow: var(--q-shadow-inset);
+}
+.lab-footnote {
+  max-width: 40rem;
+  font-size: 0.9rem;
+}
