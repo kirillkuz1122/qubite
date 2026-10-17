@@ -61,7 +61,8 @@
 | [context/QUBITE_ACCESS_AND_OWNER_CONSOLE.md](context/QUBITE_ACCESS_AND_OWNER_CONSOLE.md) | Политика доступа и бюджетов |
 | [context/QUBITE_AGENT_KICKOFF_PROMPT.md](context/QUBITE_AGENT_KICKOFF_PROMPT.md) | Стартовый промпт для агента |
 | [context/codex-session-2026-10-12.md](context/codex-session-2026-10-12.md) | Переписка с Codex 12–15.10.2026 |
-| [context/ideas-2026-10-17/RAW.md](context/ideas-2026-10-17/RAW.md) | Все идеи владельца 17.10.2026 дословно + скриншоты |
+| [context/ideas-2026-10-17/RAW.md](context/ideas-2026-10-17/RAW.md) | Все идеи владельца 17.10.2026 дословно |
+| [context/ideas-2026-10-17/SCREENSHOTS.md](context/ideas-2026-10-17/SCREENSHOTS.md) | Текстовая расшифровка скриншотов с пометками |
 
 Старая документация — в [`legacy/qubite-v1/docs/`](../legacy/qubite-v1/docs/).
 
