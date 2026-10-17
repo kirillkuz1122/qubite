@@ -25,7 +25,7 @@
 
 | Что | Где | Статус |
 |---|---|---|
-| **`VPN_APP_TOKEN` старого VPN-сервиса** (настоящий, совпадает с `legacy/qubite-v1/deploy/.env`) | инструкция `app/qubite_vpn/installer/windows/BUILD.md` в истории (с коммита `a741858`) и **внутри собранного пакета** `legacy/qubite-v1/app/qubite_vpn/installer/linux/qubite-vpn_1.0.0_amd64.deb` (`lib/libapp.so`) | В текущем `BUILD.md` заменён заглушкой. **Нужно сменить токен на сервере** — только это реально закрывает утечку (решение владельца) |
+| **`VPN_APP_TOKEN` старого VPN-сервиса** (настоящий, совпадает с `legacy/qubite-v1/deploy/.env`) | инструкция `app/qubite_vpn/installer/windows/BUILD.md` в истории (с коммита `a741858`) и **внутри собранного пакета** `legacy/qubite-v1/app/qubite_vpn/installer/linux/qubite-vpn_1.0.0_amd64.deb` (`lib/libapp.so`) | В текущем `BUILD.md` заменён заглушкой. Риск **принят владельцем** ([D-136](docs/product/DECISIONS.md)): VPN не запущен, приложение нерабочее, токен проверяет только приложение. При возобновлении VPN — выпустить новый токен |
 | Хеши коммитов в текстах Codex, тестовые пароли, имя переменной в `configure.py`, пример в удалённом `test_bypass.js` | разные файлы | Ложные срабатывания |
 
 С 17.10.2026 каждый новый коммит проверяется (`.github/workflows/secrets.yml`), локально — `just secrets`.
