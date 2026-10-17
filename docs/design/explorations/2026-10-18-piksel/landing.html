@@ -92,10 +92,14 @@ h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; righ
   'use strict';
   /* панель «Настроить»: фон страницы (общий для лендинга и «Сегодня») */
   Lab.panel({
-    title: 'Пиксель: фон', store: 'qubite.piksel.look',
-    controls: [{ type: 'choice', key: 'bg', label: 'Фон', value: 'notebook',
-      options: Object.keys(Pixels.THEMES).map(function (k) { return { value: k, label: Pixels.THEMES[k].label }; }) }],
-    onChange: function (s) { Pixels.theme(s.bg); }
+    title: 'Пиксель: тема и помощники', store: 'qubite.piksel.look.v2',
+    controls: [
+      { type: 'choice', key: 'bg', label: 'Тема', value: 'warm',
+        options: Object.keys(Pixels.THEMES).map(function (k) { return { value: k, label: Pixels.THEMES[k].label }; }) },
+      { type: 'choice', key: 'crew', label: 'Помощники', value: 'classic',
+        options: [{ value: 'classic', label: 'Крупная клетка' }, { value: 'fine', label: 'Мелкая клетка' }, { value: 'volume', label: 'Мелкая + контур и объём' }] }
+    ],
+    onChange: function (s) { Pixels.theme(s.bg); Pixels.setVariant(s.crew); }
   });
   var hero = document.getElementById('hero'), input = document.getElementById('cmd'), hint = document.getElementById('hint');
   var board, crew = {}, flying = null;

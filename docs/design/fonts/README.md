@@ -8,6 +8,8 @@
 | `Onest-*` | Onest | текст «Ядра», витрина | SIL OFL 1.1 |
 | `Rubik-*` | Rubik | «Желе» | SIL OFL 1.1 |
 | `GolosText-*` | Golos Text | текст «Частиц» и «Пикселя» | SIL OFL 1.1 |
+| `Manrope-*` | Manrope | вариант текста «Частиц» | SIL OFL 1.1 |
+| `FiraCode-*.ttf` | Fira Code (Regular, Medium) | вариант текста «Частиц» (моноширинный) | SIL OFL 1.1 |
 | `Tiny5-*` | Tiny5 (пиксельный) | заголовки «Частиц» и «Пикселя» | SIL OFL 1.1 |
 
-Взяты из пакетов `@fontsource` (уже были в `node_modules` и в сборке старой лаборатории `assets/design-lab`).
+Fira Code — из системных шрифтов (TTF, с кириллицей). Остальные взяты из пакетов `@fontsource` (уже были в `node_modules` и в сборке старой лаборатории `assets/design-lab`).

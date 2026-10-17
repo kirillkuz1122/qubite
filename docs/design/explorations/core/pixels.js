@@ -11,11 +11,8 @@
   /* Фоны страницы. grid: lines — клетка, dots — точки в узлах клетки, none — без сетки. */
   var LIGHT = { ink: '#1f1a17', ink2: '#5d5650', ink3: '#736c66', box: '#ffffff', hl: '#ffe163', btnBg: '#1f1a17', btnFg: '#ffffff', shadow: 'rgba(31,26,23,.13)', pal: { P: '#1f1a17', E: '#ffffff', B: '#1f1a17', O: '#1f1a17' } };
   var THEMES = {
-    notebook: { label: 'Тетрадь', paper: '#fbfcfc', rule: '#dce7f0', margin: '#f2a3a3', grid: 'lines', ground: ['#c9d6e2', '#dce7f0'] },
-    sheet: { label: 'Чистый лист', paper: '#ffffff', rule: '#ffffff', margin: 'transparent', grid: 'none', ground: ['#e3e1dd', '#efedea'] },
-    warm: { label: 'Тёплая бумага', paper: '#f6f1e8', rule: '#ebe2d4', margin: 'transparent', grid: 'lines', ground: ['#e0d4c2', '#ebe2d4'], ink3: '#6c625a' },
-    dots: { label: 'Точки', paper: '#f7f7f5', rule: '#c9cdd0', margin: 'transparent', grid: 'dots', ground: ['#d6d9db', '#e6e8e9'] },
-    night: { label: 'Ночь', paper: '#151412', rule: '#262421', margin: 'transparent', grid: 'lines', ground: ['#34302b', '#2a2723'],
+    warm: { label: 'Светлая — тёплая бумага', paper: '#f6f1e8', rule: '#ebe2d4', margin: 'transparent', grid: 'lines', ground: ['#e0d4c2', '#ebe2d4'], ink3: '#6c625a' },
+    night: { label: 'Тёмная — ночь', paper: '#151412', rule: '#262421', margin: 'transparent', grid: 'lines', ground: ['#34302b', '#2a2723'],
       ink: '#f3ede3', ink2: '#b4ab9f', ink3: '#9a9186', box: '#1f1d1a', hl: 'rgba(255,225,99,.3)', btnBg: '#f3ede3', btnFg: '#151412', shadow: 'rgba(0,0,0,.45)',
       pal: { P: '#f3ede3', E: '#1f1a17', B: '#f3ede3', O: '#f3ede3' } }
   };
@@ -25,7 +22,7 @@
     none: 'none'
   };
   function theme(name) {
-    var t = THEMES[name] || THEMES.notebook, st = document.body.style;
+    var t = THEMES[name] || THEMES.warm, st = document.body.style;
     var v = function (k) { return t[k] != null ? t[k] : LIGHT[k]; };
     st.setProperty('--paper', t.paper); st.setProperty('--rule', t.rule); st.setProperty('--margin', t.margin);
     st.setProperty('--grid', GRIDS[t.grid]);
@@ -121,6 +118,88 @@
     for (var r = 0; r < rows.length; r++) for (var c = 0; c < rows[r].length; c++) { var ch = rows[r][c]; if (ch !== '.') this.fill(x + c, y + r, ch); }
   };
 
+
+  /* ---------- Помощники в двойном разрешении (варианты «Мелкая клетка» и «Объём») ----------
+     Те же размеры на экране, но клетка вдвое мельче: скругления плавнее, глаза со зрачками. */
+  var SHADE = { P: ['#4a423c', '#000000'], o: ['#ffc59a', '#e8702f'], y: ['#fff3b0', '#e8c23a'], s: ['#b9e8ff', '#3fa7e0'] };
+  function rrCells(w, h, rt, rb) {
+    var out = {};
+    for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) {
+      var r = j < h / 2 ? rt : rb, cy = j < h / 2 ? r - 0.5 : h - r - 0.5;
+      var cx = i < r ? r - 0.5 : i > w - 1 - r ? w - r - 0.5 : i;
+      var inCorner = (j < r || j > h - 1 - r) && (i < r || i > w - 1 - r);
+      if (inCorner && Math.hypot(i - cx, j - cy) > r - 0.1) continue;
+      out[i + ',' + j] = 1;
+    }
+    return out;
+  }
+  function discCells(R) {
+    var out = {};
+    for (var j = 0; j < R; j++) for (var i = 0; i < 2 * R; i++) {
+      var dx = i + 0.5 - R, dy = R - (j + 0.5);
+      if (dx * dx + dy * dy <= R * R + 0.5 && !(j === R - 1 && (i === 0 || i === 2 * R - 1))) out[i + ',' + j] = 1;
+    }
+    return out;
+  }
+  function rect(x, y, w, h) { var a = []; for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) a.push([x + i, y + j]); return a; }
+  var HI = {
+    proto: { w: 14, h: 26, body: rrCells(14, 26, 5, 2), c: 'P', sclera: [rect(3, 6, 3, 4), rect(8, 6, 3, 4)], pupil: [[4, 7], [9, 7]], pc: 'B', ec: 'E',
+      mouth: { idle: [[6, 14], [7, 14]], happy: [[5, 13], [6, 14], [7, 14], [8, 13]], sad: [[5, 15], [6, 14], [7, 14], [8, 15]] }, mc: 'E' },
+    neit: { w: 18, h: 20, body: rrCells(18, 20, 7, 2), c: 's', sclera: [rect(3, 6, 4, 4), rect(11, 6, 4, 4)], pupil: [[4, 7], [12, 7]], pc: 'k', glasses: true,
+      mouth: { idle: [[8, 15], [9, 15]], happy: [[7, 14], [8, 15], [9, 15], [10, 14]], sad: [[7, 16], [8, 15], [9, 15], [10, 16]] }, mc: 'k' },
+    elik: { w: 12, h: 18, body: rrCells(12, 18, 6, 2), c: 'y', eyes: [[3, 5], [7, 5]], beakY: 11, beakFrom: 6, beakTo: 17 },
+    foti: { w: 22, h: 11, body: discCells(11), c: 'o', eyes: [[7, 3], [13, 3]],
+      mouth: { idle: [[9, 7], [10, 8], [11, 8], [12, 7]], happy: [[8, 6], [9, 7], [10, 8], [11, 8], [12, 7], [13, 6]], sad: [[9, 8], [10, 7], [11, 7], [12, 8]] }, mc: 'k' }
+  };
+  var variant = 'classic';
+  Board.prototype.drawHi = function (b, t, lean, lift, shut, blink) {
+    var self = this, H = HI[b.kind], C = this.cell / 2, ctx = this.ctx, vol = variant === 'volume';
+    var left = b.cx * 2 - Math.floor(H.w / 2), top0 = b.base * 2 - H.h, L = lift * 2;
+    function sh(y) { var fb = H.h - 1 - y; return Math.round(lean * 2 * Math.pow(Math.max(0, fb) / (H.h - 1), 1.3)); }
+    function px(x, y, col) { ctx.fillStyle = PAL[col] || col; var g = C >= 8 ? 1 : 0; ctx.fillRect((left + x + sh(y)) * C + g, (top0 + y - L) * C + g, C - g, C - g); }
+    var has = function (x, y) { return H.body[x + ',' + y]; };
+    if (vol) for (var k in H.body) { /* контур: клетки вокруг тела */
+      var q = k.split(','), x = +q[0], y = +q[1];
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = x + d[0], ny = y + d[1]; if (!has(nx, ny) && ny < H.h) px(nx, ny, 'k'); });
+    }
+    for (var key in H.body) {
+      var a = key.split(','), cx = +a[0], cy = +a[1], col = H.c;
+      if (vol && SHADE[H.c]) {
+        if (!has(cx - 1, cy) || !has(cx, cy - 1) || !has(cx - 1, cy - 1)) col = H.c === 'P' && PAL.P !== '#1f1a17' ? '#ffffff' : SHADE[H.c][0];
+        else if (!has(cx + 1, cy) || !has(cx, cy + 1)) col = H.c === 'P' && PAL.P !== '#1f1a17' ? '#d8cfc2' : SHADE[H.c][1];
+        if (H.c === 'P' && PAL.P === '#1f1a17' && col === SHADE.P[1]) col = 'P';
+      }
+      px(cx, cy, col);
+    }
+    var lx = Math.round(Q.clamp(b.lx.x, -1, 1)), ly = Math.round(Q.clamp(b.ly.x, -1, 1));
+    if (H.glasses) H.sclera.forEach(function (r0) {
+      var x0 = r0[0][0], y0 = r0[0][1];
+      for (var i = -1; i <= 4; i++) for (var j = -1; j <= 4; j++) if ((i === -1 || i === 4 || j === -1 || j === 4) && !((i === -1 || i === 4) && (j === -1 || j === 4))) px(x0 + i, y0 + j, 'k');
+      px(x0 + 4, y0 + 1, 'k'); px(x0 + 5, y0 + 1, 'k'); px(x0 + 6, y0 + 1, 'k'); px(x0 + 7, y0 + 1, 'k');
+    });
+    if (H.sclera) H.sclera.forEach(function (r0, i) {
+      if (shut) { var x0 = r0[0][0], y0 = r0[0][1] + 2; px(x0, y0, H.ec || 'k'); px(x0 + 1, y0 - 1, H.ec || 'k'); px(x0 + 2, y0, H.ec || 'k'); if (H.glasses) px(x0 + 3, y0, 'k'); return; }
+      r0.forEach(function (c) { px(c[0], c[1], H.glasses ? 'w' : H.ec); });
+      if (blink) { r0.forEach(function (c) { if (c[1] !== r0[r0.length - 1][1]) px(c[0], c[1], H.c); }); return; }
+      var p = H.pupil[i], wSc = H.glasses ? 4 : 3, hSc = 4;
+      var x = Q.clamp(p[0] + lx, r0[0][0], r0[0][0] + wSc - 2), y = Q.clamp(p[1] + ly, r0[0][1], r0[0][1] + hSc - 2);
+      px(x, y, H.pc); px(x + 1, y, H.pc); px(x, y + 1, H.pc); px(x + 1, y + 1, H.pc);
+    });
+    if (H.eyes) H.eyes.forEach(function (e) {
+      var x = e[0] + lx, y = e[1] + Math.max(0, ly);
+      if (shut) { px(e[0] - 1, e[1] + 2, 'k'); px(e[0], e[1] + 1, 'k'); px(e[0] + 1, e[1] + 1, 'k'); px(e[0] + 2, e[1] + 2, 'k'); return; }
+      if (blink) { px(x, y + 2, 'k'); px(x + 1, y + 2, 'k'); return; }
+      for (var j = 0; j < 3; j++) { px(x, y + j, 'k'); px(x + 1, y + j, 'k'); }
+    });
+    var mood = shut ? 'idle' : b.mood;
+    if (H.mouth) (H.mouth[mood] || H.mouth.idle).forEach(function (m) { px(m[0], m[1], H.mc); });
+    if (H.beakY != null) for (var bx = H.beakFrom; bx <= H.beakTo; bx++) {
+      var out = bx - (H.w - 1), dy = mood === 'happy' ? -Math.max(0, Math.floor(out / 2)) : mood === 'sad' ? Math.max(0, Math.floor(out / 2)) : 0;
+      var c = bx >= H.w ? 'B' : 'k';
+      px(bx, H.beakY + dy, c); px(bx, H.beakY + 1 + dy, c);
+    }
+  };
+
   Board.prototype.frame = function (t) {
     var self = this, C = this.cell, ctx = this.ctx;
     ctx.clearRect(0, 0, this.W, this.H);
@@ -149,6 +228,7 @@
       /* дыхание: раз в пару секунд тело на клетку «приседает» по верхнему ряду */
       var lift = Math.round(Math.max(0, b.lift.x) / 10);
       var lean = b.lean.x;
+      if (variant !== 'classic') { self.drawHi(b, t, lean, lift, b.mood === 'shut', t < b.blink); return; }
       function shift(r) { var fromBottom = b.h - 1 - r; return Math.round(lean * Math.pow(fromBottom / (b.h - 1), 1.3)); }
       for (var r = 0; r < b.h; r++) {
         var row = K.rows[r], s = shift(r);
@@ -181,5 +261,5 @@
     });
   };
 
-  window.Pixels = { Board: Board, PAL: PAL, KINDS: KINDS, DOODLES: DOODLES, THEMES: THEMES, theme: theme };
+  window.Pixels = { setVariant: function (v) { variant = v; }, Board: Board, PAL: PAL, KINDS: KINDS, DOODLES: DOODLES, THEMES: THEMES, theme: theme };
 })();
