@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Пиксель — экран «Сегодня» · Qubite</title>
+<style>
+@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-cyrillic.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-latin.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-cyrillic.woff2') format('woff2'); font-display: block; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-latin.woff2') format('woff2'); font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+
+html, body { margin: 0; height: 100%; }
+body { --c: 10px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --ink-2: #5d5650; --ink-3: #736c66;
+  --orange: #ff9852; --yellow: #ffe163; --sky: #71cfff; --green: #7fd39a;
+  background: var(--paper); color: var(--ink); font: 400 16px/1.4 'Q Golos', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+.px { font-family: 'Q Tiny5', monospace; font-weight: 400; -webkit-font-smoothing: none; }
+.notch { clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)); }
+.box { background: #fff; box-shadow: inset 0 0 0 3px var(--ink); }
+
+.device { position: relative; width: 100%; height: 100svh; overflow: hidden; background: var(--paper); }
+.scroll { position: relative; height: 100%; overflow-y: auto; padding: 20px 16px 120px 40px; scrollbar-width: none;
+  background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); background-size: var(--c) var(--c); background-attachment: local; }
+.scroll::-webkit-scrollbar { display: none; }
+.scroll::before { content: ''; position: absolute; top: 0; left: 30px; width: 2px; height: 100%; min-height: 1600px; background: var(--margin); opacity: .8; }
+.aside { display: none; }
+@media (min-width: 760px) {
+  body { display: flex; align-items: center; justify-content: center; gap: 72px; min-height: 100vh; background: #eef3f7; }
+  .device { width: 390px; height: 844px; box-shadow: 0 0 0 4px var(--ink), 10px 10px 0 4px rgba(31, 26, 23, .14); }
+  .aside { display: block; max-width: 320px; color: var(--ink-2); font-size: 15.5px; }
+  .aside h2 { font-size: 64px; line-height: 64px; margin: 0 0 16px; font-weight: 400; }
+  .aside p { margin: 0 0 10px; }
+}
+
+.head { position: relative; display: flex; align-items: flex-end; gap: 12px; height: 80px; }
+.head .num { font-size: 64px; line-height: 56px; }
+.head .wd { font-size: 16px; line-height: 16px; }
+.head .mo { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.head canvas { position: absolute; right: 2px; bottom: -6px; width: 50px; height: 80px; }
+
+.prog { display: flex; align-items: center; gap: 6px; margin: 20px 0 18px; }
+.prog i { width: 20px; height: 20px; display: block; box-shadow: inset 0 0 0 3px var(--ink); }
+.prog i.on { background: var(--green); }
+.prog i.now { background: var(--orange); animation: now 1s steps(1) infinite; }
+@keyframes now { 50% { background: #fff; } }
+.prog span { margin-left: 8px; font-size: 14px; color: var(--ink-2); }
+
+.tip { padding: 14px 16px 16px; margin-bottom: 26px; font-size: 14.5px; position: relative; }
+.tip b { font-weight: 600; }
+.tip .acts { display: flex; gap: 14px; align-items: center; margin-top: 10px; }
+.btn { background: var(--ink); color: #fff; height: 34px; padding: 0 14px; font-size: 16px; display: inline-grid; place-items: center; }
+.later { font-size: 14px; color: var(--ink-3); }
+
+h2 { margin: 0 0 6px; font-size: 32px; line-height: 40px; font-weight: 400; display: flex; align-items: baseline; gap: 10px; position: relative; }
+h2 span.hl { position: relative; z-index: 0; }
+h2 span.hl::before { content: ''; position: absolute; z-index: -1; left: -4px; right: -2px; top: 16px; bottom: 4px; background: var(--yellow); }
+h2 small { font-family: 'Q Golos', sans-serif; font-size: 13px; color: var(--ink-3); }
+
+.list { position: relative; margin: 0 -8px 26px; }
+.mark { position: absolute; left: 0; right: 0; top: 0; height: 60px; background: rgba(255, 225, 99, .55); opacity: 0; transform-origin: 50% 0; will-change: transform; }
+.row { position: relative; display: flex; gap: 14px; align-items: center; min-height: 60px; padding: 10px 8px; }
+.cb { width: 20px; height: 20px; flex: none; position: relative; background: #fff; box-shadow: inset 0 0 0 3px var(--ink); }
+.cb i { position: absolute; width: 4px; height: 4px; background: var(--ink); opacity: 0; }
+.row .t { flex: 1; min-width: 0; }
+.row .title { position: relative; display: inline; font-size: 16px; }
+.row .title::after { content: ''; position: absolute; left: 0; right: 0; top: 52%; height: 2px; background: var(--ink); transform: scaleX(0); transform-origin: 0 50%; transition: transform .36s steps(6, end); }
+.row.done .title { color: var(--ink-3); }
+.row.done .title::after { transform: scaleX(1); }
+.meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.meta i { width: 8px; height: 8px; display: inline-block; }
+
+.notes { display: flex; gap: 10px; overflow-x: auto; margin: 4px -16px 0 -40px; padding: 4px 16px 8px 40px; scrollbar-width: none; }
+.notes::-webkit-scrollbar { display: none; }
+.note { flex: none; width: 170px; min-height: 100px; padding: 12px 14px; background: var(--yellow); font-size: 14.5px; position: relative; }
+.note small { display: block; margin-top: 8px; font-size: 12px; color: rgba(31, 26, 23, .6); }
+h2 canvas { position: absolute; right: 4px; bottom: -12px; width: 50px; height: 60px; }
+
+.command { position: absolute; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 8px; z-index: 5; }
+.command::after { content: ''; position: absolute; inset: 0; box-shadow: 5px 5px 0 0 rgba(31, 26, 23, .14); pointer-events: none; z-index: -1; }
+.plus { width: 40px; height: 40px; background: var(--orange); display: grid; place-items: center; flex: none; }
+.plus svg { width: 20px; height: 20px; shape-rendering: crispEdges; will-change: transform; }
+.command .cur { width: 8px; height: 18px; background: var(--orange); flex: none; animation: cur 1s steps(1) infinite; }
+@keyframes cur { 50% { opacity: 0; } }
+.command input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink); }
+.command input::placeholder { color: var(--ink-3); }
+.mic { width: 36px; height: 36px; display: grid; place-items: center; }
+.mic svg { shape-rendering: crispEdges; }
+.menu { position: absolute; left: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 64px); width: 230px; padding: 10px; z-index: 4; visibility: hidden; }
+.menu-bg { position: absolute; inset: 0; background: #fff; box-shadow: inset 0 0 0 3px var(--ink), 5px 5px 0 0 rgba(31, 26, 23, .14); transform-origin: 28px calc(100% + 36px); transform: scale(0); will-change: transform; }
+.menu button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 10px; font-size: 15.5px; text-align: left; opacity: 0; }
+.menu button i { width: 12px; height: 12px; flex: none; }
+.menu kbd { margin-left: auto; font-family: 'Q Tiny5', monospace; font-size: 16px; color: var(--ink-3); }
+.veil { position: absolute; inset: 0; background: rgba(251, 252, 252, .6); opacity: 0; pointer-events: none; z-index: 3; transition: opacity .2s steps(3); }
+.open .veil { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+<div class="aside">
+  <h2 class="px">ПИКСЕЛЬ</h2>
+  <p>Экран «Сегодня». Страница тетради в клетку: дела — строчки, выделение — маркер, галочка ставится за три шага, как в пиксельной игре.</p>
+  <p>Попробуй: отметь дело, нажми на строку, нажми «+».</p>
+</div>
+<div class="device" id="device">
+  <div class="scroll">
+    <div class="head">
+      <span class="num px">17</span>
+      <div><div class="wd px">ПЯТНИЦА</div><div class="mo">октябрь</div></div>
+      <canvas id="proto"></canvas>
+    </div>
+    <div class="prog" id="prog"><i class="on"></i><i class="on"></i><i class="now"></i><i></i><i></i><span id="progT">2 из 5 сделано</span></div>
+    <div class="tip box notch"><b>Прото:</b> сначала ДП к отбору — 40 минут, пока голова свежая.
+      <div class="acts"><button class="btn notch px">НАЧАТЬ</button><button class="later">Позже</button></div></div>
+
+    <h2 class="px"><span class="hl">ДЕЛА</span><small>3 осталось</small></h2>
+    <div class="list" id="list">
+      <div class="mark" id="mark"></div>
+      <div class="row"><button class="cb notch" aria-label="Готово"></button><div class="t"><span class="title">Разобрать задачу на ДП с отбора</span><div class="meta"><i style="background:#ff9852"></i>16:00 · Олимпиада</div></div></div>
+      <div class="row"><button class="cb notch" aria-label="Готово"></button><div class="t"><span class="title">Алгебра: № 214–220</span><div class="meta"><i style="background:#71cfff"></i>до 18:00 · Школа</div></div></div>
+      <div class="row"><button class="cb notch" aria-label="Готово"></button><div class="t"><span class="title">Позвонить бабушке</span><div class="meta"><i style="background:#ff7a59"></i>вечером · Личное</div></div></div>
+    </div>
+
+    <h2 class="px"><span class="hl">ВХОДЯЩИЕ</span><small>3 мысли</small><canvas id="elik"></canvas></h2>
+    <div class="notes">
+      <div class="note notch">Бот, который напоминает про домашку<small>голосом · 9:12</small></div>
+      <div class="note notch">Лекция про дерево Фенвика<small>из браузера · 11:40</small></div>
+      <div class="note notch">Подарок маме — до 3 ноября<small>вчера</small></div>
+    </div>
+  </div>
+
+  <div class="veil" id="veil"></div>
+  <div class="menu" id="menu"><div class="menu-bg notch"></div>
+    <button><i style="background:#1f1a17"></i>Дело<kbd>/Д</kbd></button>
+    <button><i style="background:#ffe163"></i>Мысль<kbd>/М</kbd></button>
+    <button><i style="background:#71cfff"></i>Конспект в Ink<kbd>/К</kbd></button>
+    <button><i style="background:#ff9852"></i>Запись в дневник<kbd>/З</kbd></button>
+  </div>
+  <form class="command box notch" autocomplete="off" onsubmit="return false">
+    <button class="plus notch" id="plus" type="button" aria-label="Создать"><svg viewBox="0 0 10 10" fill="#1f1a17"><path d="M4 1h2v3h3v2H6v3H4V6H1V4h3z"/></svg></button>
+    <span class="cur"></span>
+    <input id="cmd" type="text" placeholder="Спроси или запиши…" aria-label="Строка Command">
+    <span class="mic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 10 10" fill="#5d5650"><path d="M4 1h2v1h1v3H6v1H4V5H3V2h1zM2 4h1v2h1v1h2V6h1V4h1v2H7v1H6v1h1v1H3V8h1V7H3V6H2z"/></svg></span>
+  </form>
+</div>
+
+<script src="../core/qubite-core.js"></script>
+<script src="../core/pixels.js"></script>
+<script>
+(function () {
+  'use strict';
+  /* помощники на своих маленьких «листочках» */
+  var pb = new Pixels.Board(document.getElementById('proto'), { cell: 6 });
+  var proto = pb.buddy('proto', 4, 13);
+  var eb = new Pixels.Board(document.getElementById('elik'), { cell: 5 });
+  var elik = eb.buddy('elik', 3, 11);
+
+  /* галочка ставится за три шага: клетки появляются по одной */
+  var CHECK = [[1, 8], [2, 9], [3, 10], [4, 9], [5, 8], [6, 7], [7, 6], [8, 5], [9, 4], [10, 3]];
+  var list = document.getElementById('list'), done = 2;
+  var progI = document.querySelectorAll('#prog i'), progT = document.getElementById('progT');
+  function syncProg() {
+    progI.forEach(function (el, i) { el.className = i < done ? 'on' : i === done ? 'now' : ''; });
+    progT.textContent = done + ' из 5 сделано';
+  }
+  list.querySelectorAll('.row').forEach(function (row) {
+    var cb = row.querySelector('.cb'), cells = [];
+    CHECK.forEach(function (c) { var i = document.createElement('i'); i.style.left = (c[0] * 2.2 - 2) + 'px'; i.style.top = (c[1] * 1.6 - 2) + 'px'; cb.appendChild(i); cells.push(i); });
+    Q.press(cb, { depth: 0.8 });
+    cb.addEventListener('click', function () {
+      var on = !row.classList.contains('done');
+      row.classList.toggle('done', on);
+      cells.forEach(function (c, i) { setTimeout(function () { c.style.opacity = on ? 1 : 0; }, on ? Math.floor(i / 4) * 70 : 0); });
+      done += on ? 1 : -1; syncProg();
+      if (on) { proto.jump(240).setMood('happy', 1400); elik.setMood('happy', 1200); }
+    });
+  });
+
+  /* маркер-выделение: та же пружина, но шагами по 10px — по клеткам тетради */
+  var mark = document.getElementById('mark'), my = Q.spring(0, 1), mh = Q.spring(60, 1), mo = Q.spring(0, 0.6), cur = null;
+  var step = function (v) { return Math.round(v / 10) * 10; };
+  my.cb = mh.cb = mo.cb = Q.render(function () {
+    mark.style.transform = 'translateY(' + step(my.x) + 'px) scaleY(' + (step(mh.x) / 60).toFixed(4) + ')';
+    mark.style.opacity = Math.round(Q.clamp(mo.x, 0, 1) * 3) / 3;
+  });
+  list.querySelectorAll('.row').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('.cb')) return;
+      if (cur === row) { mo.to(0); cur = null; return; }
+      if (!cur) { my.set(row.offsetTop); mh.set(row.offsetHeight); } else { mh.kick(Math.abs(row.offsetTop - my.x) * 3); my.to(row.offsetTop); }
+      mh.to(row.offsetHeight); mo.to(1); cur = row;
+    });
+  });
+
+  /* «+» раскрывается в меню ступеньками: масштаб округляется до 1/6 */
+  var device = document.getElementById('device'), menu = document.getElementById('menu'), bg = menu.querySelector('.menu-bg');
+  var plus = document.getElementById('plus'), veil = document.getElementById('veil');
+  var items = Array.prototype.slice.call(menu.querySelectorAll('button'));
+  var mx = Q.spring(0, 0.75), mY = Q.spring(0, 1.3), rot = Q.spring(0, 0.6), its = items.map(function () { return Q.spring(0, 0.7); });
+  var q6 = function (v) { return Math.max(0, Math.round(v * 6) / 6); };
+  var draw = Q.render(function () {
+    menu.style.visibility = q6(mx.x) > 0 || q6(mY.x) > 0 ? 'visible' : 'hidden';
+    bg.style.transform = 'scale(' + q6(mx.x).toFixed(4) + ',' + q6(mY.x).toFixed(4) + ')';
+    plus.firstChild.style.transform = 'rotate(' + (Math.round(rot.x * 2) * 22.5) + 'deg)';
+    items.forEach(function (it, i) { var v = Math.round(Q.clamp(its[i].x, 0, 1) * 3) / 3; it.style.opacity = v; it.style.transform = 'translateY(' + ((1 - v) * 12) + 'px)'; });
+  });
+  mx.cb = mY.cb = rot.cb = draw; its.forEach(function (s) { s.cb = draw; });
+  var open = false;
+  function setOpen(v) {
+    open = v; device.classList.toggle('open', v);
+    mx.to(v ? 1 : 0); mY.to(v ? 1 : 0); rot.to(v ? 1 : 0);
+    items.forEach(function (_, i) { var idx = v ? items.length - 1 - i : i; setTimeout(function () { its[idx].to(v ? 1 : 0); }, v ? 80 + i * 60 : i * 12); });
+  }
+  plus.addEventListener('click', function () { setOpen(!open); });
+  veil.addEventListener('click', function () { setOpen(false); });
+  items.forEach(function (it) { it.addEventListener('click', function () { setOpen(false); }); });
+  Q.press(plus, { depth: 0.84 });
+  draw();
+  var input = document.getElementById('cmd');
+  input.addEventListener('focus', function () { Q.focus(function () { return Q.caretPoint(input); }); });
+  input.addEventListener('blur', function () { Q.focus(null); });
+})();
+</script>
+</body>
+</html>

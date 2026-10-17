@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ядро — экран «Сегодня» · Qubite</title>
+<style>
+@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-cyrillic.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-latin.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-cyrillic.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+
+html, body { margin: 0; height: 100%; }
+body {
+  --paper: #f6f1e8; --paper-2: #ece2d2; --ink: #1f1a17; --ink-2: #665b52; --ink-3: #766b62;
+  --line: rgba(31, 26, 23, .12); --orange: #ff9852; --sky: #71cfff; --yellow: #ffe163; --green: #90dea5; --card: #fffcf7;
+  background: var(--paper); color: var(--ink);
+  font: 400 16px/1.45 'Q Onest', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+.device { position: relative; width: 100%; height: 100svh; overflow: hidden; background: var(--paper); }
+.scroll { height: 100%; overflow-y: auto; padding: 18px 20px 120px; scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+.aside { display: none; }
+@media (min-width: 760px) {
+  body { display: flex; align-items: center; justify-content: center; gap: 72px; min-height: 100vh; background: #efe8dc; }
+  .device { width: 390px; height: 844px; border-radius: 46px; box-shadow: 0 0 0 9px var(--ink), 0 50px 90px -40px rgba(31, 26, 23, .55); }
+  .aside { display: block; max-width: 330px; color: var(--ink-2); font-size: 15px; }
+  .aside h2 { font: 500 44px/1 'Q Serif', Georgia, serif; color: var(--ink); margin: 0 0 14px; letter-spacing: -.02em; }
+  .aside p { margin: 0 0 10px; }
+}
+
+.head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.head h1 { font: 500 34px/1.05 'Q Serif', Georgia, serif; font-variation-settings: 'opsz' 48; letter-spacing: -.02em; margin: 0; }
+.head .date { font-size: 14px; color: var(--ink-2); }
+
+/* День как орбита: дуга от 7 утра до 11 вечера, солнце-ядро — сейчас */
+.day { position: relative; height: 150px; margin: 0 -6px 8px; }
+.day svg { width: 100%; height: 100%; overflow: visible; display: block; }
+.day .arc { fill: none; stroke: rgba(31, 26, 23, .16); stroke-width: 1.4; }
+.day .past { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
+.day .tick { font-size: 11px; fill: var(--ink-3); }
+.day .bead { transition: fill .3s; }
+.day .center { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; }
+.day .big { font: 500 40px/1 'Q Serif', Georgia, serif; letter-spacing: -.02em; }
+.day .big span { color: var(--ink-3); }
+.day .small { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+
+/* Подсказка помощника — в потоке, ничего не закрывает */
+.tip { display: flex; gap: 12px; align-items: flex-end; margin: 6px 0 18px; }
+.tip .who { width: 44px; height: 56px; flex: none; position: relative; overflow: hidden; }
+.tip .who .buddy { position: absolute; left: 0; bottom: -16px; }
+.bubble { position: relative; flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; padding: 11px 14px 12px; font-size: 14.5px; line-height: 1.4; }
+.bubble .acts { display: flex; gap: 14px; align-items: center; margin-top: 9px; }
+.pill { background: var(--ink); color: var(--paper); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 550; display: inline-block; }
+.link { font-size: 13.5px; color: var(--ink-2); }
+
+.sec { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 4px; position: relative; }
+.sec h2 { font: 500 24px/1.1 'Q Serif', Georgia, serif; letter-spacing: -.01em; margin: 0; }
+.sec .n { font-size: 14px; color: var(--ink-3); }
+
+.list { position: relative; margin: 0 -10px; }
+.sel { position: absolute; left: 0; right: 0; top: 0; height: 56px; border-radius: 16px; background: var(--paper-2); transform-origin: 50% 0; opacity: 0; will-change: transform; }
+.row { position: relative; display: flex; gap: 12px; align-items: center; min-height: 56px; padding: 8px 10px; }
+.row + .row::before { content: ''; position: absolute; left: 50px; right: 10px; top: 0; height: 1px; background: var(--line); }
+.check { width: 26px; height: 26px; flex: none; border-radius: 50%; border: 2px solid rgba(31, 26, 23, .32); position: relative; }
+.check::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; transform: scale(var(--fill, 0)); background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cpath d='M7.5 13.5l4 4 7-8.5' fill='none' stroke='%231f1a17' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; }
+.row .t { flex: 1; min-width: 0; }
+.row .title { position: relative; display: inline; font-size: 16px; }
+.row .title::after { content: ''; position: absolute; left: 0; right: 0; top: 55%; height: 1.5px; background: var(--ink-2); transform: scaleX(0); transform-origin: 0 50%; transition: transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.row.done .title { color: var(--ink-3); }
+.row.done .title::after { transform: scaleX(1); }
+.meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); margin-top: 1px; }
+.meta i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.row.folded { color: var(--ink-3); font-size: 14px; }
+
+.notes { display: flex; gap: 12px; overflow-x: auto; margin: 8px -20px 0; padding: 8px 20px 18px; scrollbar-width: none; scroll-snap-type: x mandatory; }
+.notes::-webkit-scrollbar { display: none; }
+.note { flex: none; width: 196px; min-height: 118px; padding: 13px 14px; background: var(--yellow); border-radius: 4px 4px 4px 18px; scroll-snap-align: start; position: relative; box-shadow: 0 10px 18px -14px rgba(31, 26, 23, .6); }
+.note:nth-child(2) { background: #fff2b0; transform: rotate(1.4deg); }
+.note:nth-child(1) { transform: rotate(-1.2deg); }
+.note p { margin: 0 0 10px; font-size: 15px; line-height: 1.35; }
+.note small { font-size: 12px; color: rgba(31, 26, 23, .62); }
+.elik { position: absolute; right: 6px; bottom: -2px; width: 46px; height: 40px; overflow: hidden; }
+.elik .buddy { position: absolute; left: 4px; top: 6px; }
+
+/* Нижняя строка Command; «+» перетекает в меню */
+.command { position: absolute; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 16px 34px -18px rgba(31, 26, 23, .45); z-index: 5; }
+.plus { width: 42px; height: 42px; border-radius: 50%; background: var(--orange); display: grid; place-items: center; flex: none; position: relative; z-index: 2; }
+.plus svg { width: 18px; height: 18px; will-change: transform; }
+.command input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink); }
+.command input::placeholder { color: var(--ink-3); }
+.mic { width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-2); }
+.menu { position: absolute; left: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 66px); width: 236px; padding: 8px; color: var(--paper); z-index: 4; visibility: hidden; }
+.menu-bg { position: absolute; inset: 0; border-radius: 26px; background: var(--ink); transform-origin: 29px calc(100% + 37px); transform: scale(0); will-change: transform; }
+.menu button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border-radius: 16px; font-size: 15.5px; text-align: left; opacity: 0; will-change: transform; }
+.menu button:active { background: rgba(255, 252, 247, .1); }
+.menu .ic { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+.menu kbd { white-space: nowrap; margin-left: auto; font: inherit; font-size: 12px; opacity: .45; }
+.veil { position: absolute; inset: 0; background: rgba(31, 26, 23, .18); opacity: 0; pointer-events: none; z-index: 3; transition: opacity .25s; }
+.open .veil { opacity: 1; pointer-events: auto; }
+</style>
+</head>
+<body>
+<div class="aside">
+  <h2>Ядро</h2>
+  <p>Экран «Сегодня». День — это орбита от утра до ночи, оранжевое ядро показывает «сейчас», бусины — дела.</p>
+  <p>Попробуй: отметь дело, нажми на строку, нажми «+» внизу.</p>
+</div>
+
+<div class="device" id="device">
+  <div class="scroll">
+    <div class="head"><h1>Сегодня</h1><span class="date">пятница, 17 октября</span></div>
+
+    <div class="day" id="day">
+      <svg viewBox="0 0 340 150" preserveAspectRatio="xMidYMax meet" id="daySvg">
+        <path class="arc" d="M20 140 A150 122 0 0 1 320 140"/>
+        <path class="past" id="past" d="M20 140 A150 122 0 0 1 320 140"/>
+        <text class="tick" x="20" y="150" text-anchor="middle">7</text>
+        <text class="tick" x="320" y="150" text-anchor="middle">23</text>
+        <g id="beads"></g>
+        <g id="sun"><circle r="13" fill="#ff9852" opacity=".25"/><circle r="7.5" fill="#ff9852"/></g>
+      </svg>
+      <div class="center"><div class="big" id="score">2 <span>из 5</span></div><div class="small">дел готово · следующее в 16:00</div></div>
+    </div>
+
+    <div class="tip" id="tip">
+      <div class="who" aria-hidden="true">
+        <div class="buddy" id="proto" data-mood="idle"><div class="bend"><svg width="44" height="70" viewBox="0 0 44 70"><rect width="44" height="70" rx="14" fill="#1f1a17"/><g class="open"><circle cx="15" cy="20" r="5" fill="#fff"/><circle cx="29" cy="20" r="5" fill="#fff"/><g class="look"><g class="blink"><circle cx="15" cy="20" r="2.5" fill="#1f1a17"/><circle cx="29" cy="20" r="2.5" fill="#1f1a17"/></g></g></g><g stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"><path class="m m-idle" d="M19 33h6"/><path class="m m-happy" d="M17 31q5 6 10 0"/><path class="m m-sad" d="M17 35q5-5 10 0"/></g></svg></div></div>
+      </div>
+      <div class="bubble">
+        <b>Прото:</b> следующее — ДП к отбору. Начнём, пока голова свежая?
+        <div class="acts"><button class="pill">Начать · 40 мин</button><button class="link">Позже</button></div>
+      </div>
+    </div>
+
+    <div class="sec"><h2>Дела</h2><span class="n">3 осталось</span></div>
+    <div class="list" id="list">
+      <div class="sel" id="sel"></div>
+      <div class="row" data-t="16"><button class="check" aria-label="Готово"></button><div class="t"><span class="title">Разобрать задачу на ДП с отбора</span><div class="meta"><i style="background:#ff9852"></i>16:00 · Олимпиада</div></div></div>
+      <div class="row" data-t="18"><button class="check" aria-label="Готово"></button><div class="t"><span class="title">Алгебра: № 214–220</span><div class="meta"><i style="background:#71cfff"></i>до 18:00 · Школа</div></div></div>
+      <div class="row" data-t="20.5"><button class="check" aria-label="Готово"></button><div class="t"><span class="title">Позвонить бабушке</span><div class="meta"><i style="background:#ffb98a"></i>вечером · Личное</div></div></div>
+      <div class="row folded"><span style="width:26px;text-align:center">✓</span>Ещё 2 готово: конспект по физике, стилус заряжен</div>
+    </div>
+
+    <div class="sec" style="margin-top:18px"><h2>Входящие</h2><span class="n">3 мысли</span>
+      <div class="elik" aria-hidden="true"><div class="buddy" id="elik" data-mood="idle"><div class="bend"><svg width="38" height="60" viewBox="0 0 38 60"><path d="M0 19A19 19 0 0 1 38 19V60H0z" fill="#ffe163"/><g class="open"><g class="look"><g class="blink"><circle cx="15" cy="20" r="2.6" fill="#1f1a17"/><circle cx="26" cy="20" r="2.6" fill="#1f1a17"/></g></g></g><path d="M22 29h-24" stroke="#1f1a17" stroke-width="2.6" stroke-linecap="round"/></svg></div></div></div>
+    </div>
+    <div class="notes">
+      <div class="note"><p>Бот, который напоминает про домашку</p><small>голосом · 09:12</small></div>
+      <div class="note"><p>Посмотреть лекцию про дерево Фенвика</p><small>из браузера · 11:40</small></div>
+      <div class="note"><p>Подарок маме — до 3 ноября</p><small>вчера</small></div>
+    </div>
+  </div>
+
+  <div class="veil" id="veil"></div>
+  <div class="menu" id="menu" role="menu">
+    <div class="menu-bg"></div>
+    <button><span class="ic" style="background:#ff9852"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1f1a17" stroke-width="2" stroke-linecap="round"><path d="M3 8.5l3 3 7-7"/></svg></span>Дело<kbd>/д</kbd></button>
+    <button><span class="ic" style="background:#ffe163"><svg width="16" height="16" viewBox="0 0 16 16" fill="#1f1a17"><circle cx="8" cy="8" r="3.5"/></svg></span>Мысль<kbd>/м</kbd></button>
+    <button><span class="ic" style="background:#71cfff"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1f1a17" stroke-width="2" stroke-linecap="round"><path d="M3 13l8-8 2 2-8 8H3z"/></svg></span>Конспект в Ink<kbd>/к</kbd></button>
+    <button><span class="ic" style="background:#fffcf7"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1f1a17" stroke-width="2" stroke-linecap="round"><path d="M4 2h6l3 3v9H4zM6 8h5M6 11h4"/></svg></span>Документ<kbd>/о</kbd></button>
+  </div>
+  <form class="command" id="command" autocomplete="off" onsubmit="return false">
+    <button class="plus" id="plus" type="button" aria-label="Создать"><svg viewBox="0 0 18 18" fill="none" stroke="#1f1a17" stroke-width="2.4" stroke-linecap="round"><path d="M9 2v14M2 9h14"/></svg></button>
+    <input id="cmd" type="text" placeholder="Спроси или запиши…" aria-label="Строка Command">
+    <button class="mic" type="button" aria-label="Голосом"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="2" width="6" height="11" rx="3"/><path d="M4 10a6 6 0 0 0 12 0M10 16v2"/></svg></button>
+  </form>
+</div>
+
+<script src="../core/qubite-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  /* ---------- День-орбита ---------- */
+  var A = { cx: 170, cy: 140, rx: 150, ry: 122 };
+  function at(hour) {
+    var f = Q.clamp((hour - 7) / 16, 0, 1), a = Math.PI * (1 - f);
+    return { x: A.cx + Math.cos(a) * A.rx, y: A.cy - Math.sin(a) * A.ry };
+  }
+  var NOW = 15 + 40 / 60;
+  var past = document.getElementById('past');
+  var len = past.getTotalLength();
+  past.style.strokeDasharray = len; past.style.strokeDashoffset = len * (1 - (NOW - 7) / 16);
+  var sun = document.getElementById('sun'), p = at(NOW);
+  sun.setAttribute('transform', 'translate(' + p.x + ' ' + p.y + ')');
+  var beadsG = document.getElementById('beads');
+  var BEADS = [{ t: 9, c: '#90dea5' }, { t: 12.5, c: '#90dea5' }, { t: 16, c: '#ff9852' }, { t: 18, c: '#71cfff' }, { t: 20.5, c: '#ffb98a' }];
+  BEADS.forEach(function (b) {
+    var q = at(b.t);
+    var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', q.x); c.setAttribute('cy', q.y); c.setAttribute('r', 5.5); c.setAttribute('fill', b.c);
+    c.setAttribute('stroke', '#f6f1e8'); c.setAttribute('stroke-width', 3); c.setAttribute('class', 'bead');
+    beadsG.appendChild(c); b.el = c;
+  });
+  /* солнце-ядро дышит */
+  var sunHalo = sun.firstChild;
+  Q.tick(function (t) { sunHalo.style.transform = 'scale(' + (1 + Math.sin(t * 2.2) * 0.18).toFixed(3) + ')'; });
+
+  /* ---------- Помощники ---------- */
+  var proto = Q.buddy(document.getElementById('proto'), { mass: 1.2, lean: 6, look: 2.4, eyeY: 0.3 });
+  var elik = Q.buddy(document.getElementById('elik'), { mass: 0.9, lean: 10, look: 2.2, eyeY: 0.35 });
+
+  /* ---------- Выделение перетекает со строки на строку ---------- */
+  var list = document.getElementById('list'), sel = document.getElementById('sel');
+  var sy = Q.spring(0, 1), sh = Q.spring(56, 1), so = Q.spring(0, 0.6);
+  var drawSel = Q.render(function () {
+    sel.style.transform = 'translateY(' + sy.x.toFixed(2) + 'px) scaleY(' + (sh.x / 56).toFixed(4) + ')';
+    sel.style.opacity = so.x.toFixed(3);
+  });
+  sy.cb = sh.cb = so.cb = drawSel;
+  var current = null;
+  list.querySelectorAll('.row').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('.check')) return;
+      if (current === row) { so.to(0); current = null; return; }
+      var top = row.offsetTop, h = row.offsetHeight;
+      if (!current) { sy.set(top); sh.set(h); }
+      else {
+        /* по дороге капля вытягивается, потом собирается */
+        sh.kick(Math.abs(top - sy.x) * 3);
+        sy.to(top);
+      }
+      sh.to(h); so.to(1); current = row;
+    });
+  });
+
+  /* ---------- Отметить дело ---------- */
+  var done = 2, score = document.getElementById('score');
+  list.querySelectorAll('.row .check').forEach(function (btn) {
+    var fill = Q.spring(0, 0.5, Q.render(function () { btn.style.setProperty('--fill', fill.x.toFixed(4)); }));
+    btn.addEventListener('click', function () {
+      var row = btn.closest('.row');
+      var on = !row.classList.contains('done');
+      row.classList.toggle('done', on);
+      if (on) { fill.set(0.3); fill.to(1); } else fill.to(0);
+      done += on ? 1 : -1;
+      score.innerHTML = done + ' <span>из 5</span>';
+      var b = BEADS.filter(function (b) { return String(b.t) === row.dataset.t; })[0];
+      if (b) b.el.setAttribute('fill', on ? '#90dea5' : b.c);
+      if (on) { proto.jump(260).mood('happy', 1500); elik.mood('happy', 1200); }
+    });
+  });
+
+  /* ---------- «+» перетекает в меню ----------
+     Тёмная подложка растёт из-под кнопки: по ширине и по высоте — с разной массой,
+     поэтому форма не «масштабируется», а натекает, как капля. */
+  var device = document.getElementById('device'), menu = document.getElementById('menu'), bg = menu.querySelector('.menu-bg');
+  var plus = document.getElementById('plus'), veil = document.getElementById('veil');
+  var items = Array.prototype.slice.call(menu.querySelectorAll('button'));
+  var mx = Q.spring(0, 0.75), my = Q.spring(0, 1.3), rot = Q.spring(0, 0.6);
+  var itemSprings = items.map(function () { return Q.spring(0, 0.7); });
+  var drawMenu = Q.render(function () {
+    menu.style.visibility = mx.x > 0.005 || my.x > 0.005 ? 'visible' : 'hidden';
+    bg.style.transform = 'scale(' + Math.max(0, mx.x).toFixed(4) + ',' + Math.max(0, my.x).toFixed(4) + ')';
+    plus.firstChild.style.transform = 'rotate(' + (rot.x * 135).toFixed(2) + 'deg)';
+    items.forEach(function (it, i) {
+      var v = itemSprings[i].x;
+      it.style.opacity = Q.clamp(v, 0, 1).toFixed(3);
+      it.style.transform = 'translateY(' + ((1 - v) * 16).toFixed(2) + 'px)';
+    });
+  });
+  mx.cb = my.cb = rot.cb = drawMenu;
+  itemSprings.forEach(function (s) { s.cb = drawMenu; });
+  var open = false;
+  function setOpen(v) {
+    open = v; device.classList.toggle('open', v);
+    mx.to(v ? 1 : 0); my.to(v ? 1 : 0); rot.to(v ? 1 : 0);
+    items.forEach(function (_, i) {
+      var idx = v ? items.length - 1 - i : i;
+      setTimeout(function () { itemSprings[idx].to(v ? 1 : 0); }, v ? 60 + i * 40 : i * 12);
+    });
+  }
+  plus.addEventListener('click', function () { setOpen(!open); });
+  veil.addEventListener('click', function () { setOpen(false); });
+  items.forEach(function (it) { it.addEventListener('click', function () { setOpen(false); }); });
+  Q.press(plus, { depth: 0.84 });
+  drawMenu();
+
+  var input = document.getElementById('cmd');
+  input.addEventListener('focus', function () { Q.focus(function () { return Q.caretPoint(input); }); });
+  input.addEventListener('blur', function () { Q.focus(null); });
+})();
+</script>
+</body>
+</html>

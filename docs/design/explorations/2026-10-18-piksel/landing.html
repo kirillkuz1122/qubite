@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Пиксель — первый экран · Qubite</title>
+<style>
+@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-cyrillic.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-latin.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-cyrillic.woff2') format('woff2'); font-display: block; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-latin.woff2') format('woff2'); font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+
+html, body { margin: 0; height: 100%; }
+body { --c: 20px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --ink-2: #5d5650; --orange: #ff9852; --yellow: #ffe163;
+  background: var(--paper); color: var(--ink); font: 400 17px/1.5 'Q Golos', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+/* ступенчатые углы вместо скруглений — «пиксельное» скругление на одну клетку */
+.notch { clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)); }
+.px { font-family: 'Q Tiny5', monospace; font-weight: 400; letter-spacing: 0; -webkit-font-smoothing: none; font-smooth: never; }
+
+.hero { position: relative; height: 100svh; min-height: 660px; overflow: hidden;
+  background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: var(--c) var(--c); }
+.hero::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--c) * 3); width: 2px; background: var(--margin); opacity: .8; }
+#board { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+
+.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 28px; height: calc(var(--c) * 4); padding: 0 calc(var(--c) * 4) 0 calc(var(--c) * 4); }
+.mark { font-size: 32px; line-height: 1; display: flex; align-items: center; gap: 10px; }
+.mark i { width: 12px; height: 12px; background: var(--orange); display: block; }
+.nav { display: flex; gap: 24px; font-size: 15px; color: var(--ink-2); }
+.auth { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 15px; }
+.go { background: var(--ink); color: #fff; height: 40px; padding: 0 18px; display: grid; place-items: center; font-size: 16px; }
+
+.copy { position: absolute; z-index: 5; left: calc(var(--c) * 4); top: calc(var(--c) * 7); width: min(620px, calc(100vw - var(--c) * 5)); }
+h1 { margin: 0 0 calc(var(--c) * 1); font-size: 80px; line-height: 100px; color: var(--ink); }
+h1 mark { background: none; color: inherit; position: relative; z-index: 0; }
+h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; right: -2px; top: 30px; bottom: 6px; background: var(--yellow); }
+.lead { margin: 0 0 calc(var(--c) * 1.5); color: var(--ink-2); max-width: 30em; font-size: 18px; line-height: 30px; }
+.command { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 8px 0 18px; background: #fff; box-shadow: inset 0 0 0 3px var(--ink), 6px 6px 0 0 rgba(31, 26, 23, .12); }
+.command .cur { width: 10px; height: 22px; background: var(--orange); flex: none; animation: cur 1s steps(1) infinite; }
+@keyframes cur { 50% { opacity: 0; } }
+.command input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 17px; color: var(--ink); }
+.command input::placeholder { color: #736c66; }
+.send { width: 44px; height: 44px; background: var(--orange); display: grid; place-items: center; flex: none; }
+.send svg { width: 24px; height: 24px; shape-rendering: crispEdges; }
+.hint { margin: 14px 0 0 0; font-size: 14px; color: var(--ink-2); min-height: 1.5em; }
+.hint b { font-weight: 600; color: var(--ink); }
+
+@media (max-width: 760px) {
+  body { --c: 10px; }
+  .nav, .go { display: none; }
+  .top { padding: 0 calc(var(--c) * 1.5) 0 calc(var(--c) * 4); }
+  .mark { font-size: 24px; }
+  .copy { left: calc(var(--c) * 4); top: calc(var(--c) * 5); width: calc(100vw - var(--c) * 5); }
+  h1 { font-size: 40px; line-height: 50px; }
+  h1 mark::before { top: 15px; bottom: 3px; left: -3px; }
+  .lead { font-size: 15px; line-height: 23px; margin-bottom: 18px; }
+  .command { height: 52px; padding-left: 14px; }
+  .send { width: 38px; height: 38px; }
+  .command input { font-size: 16px; }
+  .hint { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<main class="hero" id="hero">
+  <canvas id="board" aria-hidden="true"></canvas>
+  <header class="top">
+    <a class="mark px" href="#">qubite<i></i></a>
+    <nav class="nav"><a href="#">Как устроено</a><a href="#">Помощники</a><a href="#">Для учёбы</a></nav>
+    <div class="auth"><a href="#">Войти</a><a class="go notch px" href="#">НАЧАТЬ</a></div>
+  </header>
+  <div class="copy" id="copy">
+    <h1 class="px">РАЗЛОЖИ ВСЁ<br><mark>ПО КЛЕТОЧКАМ</mark></h1>
+    <p class="lead">Дела, мысли, конспекты и&nbsp;учёба — в&nbsp;одной тетради, которая думает вместе с&nbsp;тобой. Четыре помощника живут прямо на&nbsp;её&nbsp;полях.</p>
+    <form class="command notch" id="command" autocomplete="off">
+      <span class="cur" aria-hidden="true"></span>
+      <input id="cmd" type="text" aria-label="Строка Command" placeholder="Запиши мысль или дело">
+      <button class="send notch" id="send" type="submit" aria-label="Отправить"><svg viewBox="0 0 12 12" fill="#1f1a17"><path d="M2 5h5V3h1v1h1v1h1v2H9v1H8v1H7V7H2z"/></svg></button>
+    </form>
+    <p class="hint" id="hint">Это живая строка Command — напиши что-нибудь и нажми Enter.</p>
+  </div>
+</main>
+
+<script src="../core/qubite-core.js"></script>
+<script src="../core/pixels.js"></script>
+<script>
+(function () {
+  'use strict';
+  var hero = document.getElementById('hero'), input = document.getElementById('cmd'), hint = document.getElementById('hint');
+  var board, crew = {}, flying = null;
+
+  function setup() {
+    var W = innerWidth, phone = W < 760, C = phone ? 10 : 20;
+    document.body.style.setProperty('--c', C + 'px');
+    var canvas = document.getElementById('board');
+    board = new Pixels.Board(canvas, { cell: C });
+    var cols = Math.floor(board.W / C), rows = Math.floor(board.H / C);
+    /* стоят в ряд по росту, как на школьной фотографии: в пиксельной картинке наложения читаются как каша */
+    var S = phone ? 0 : Math.max(Math.round(cols * 0.46), cols - 40), gap = phone ? 0 : 1, base = rows - (phone ? 3 : 5);
+    var fotiL = S, protoL = fotiL + 11 + gap, neitL = protoL + 7 + gap, elikL = neitL + 9 + (phone ? 0 : 1);
+    crew.proto = board.buddy('proto', protoL + 3, base);
+    crew.neit = board.buddy('neit', neitL + 4, base);
+    crew.foti = board.buddy('foti', fotiL + 5, base);
+    crew.elik = board.buddy('elik', elikL + 3, base);
+    /* «земля» — строчка тетради, на которой они стоят */
+    board.extra.push(function (b) { for (var x = S - 2; x < elikL + 9; x++) b.fill(x, base, x % 2 ? '#c9d6e2' : '#dce7f0'); });
+    if (phone) {
+      board.doodle('spark', 27, base - 21); board.doodle('heart', 2, base - 12);
+      board.doodle('cal', 4, base - 28); board.doodle('check', 17, base - 32);
+    } else {
+      board.doodle('spark', S + 3, base - 19); board.doodle('heart', neitL + 2, base - 21);
+      board.doodle('cal', elikL + 1, base - 17); board.doodle('check', protoL - 4, base - 12);
+    }
+    /* приземление: падают сверху по клеткам */
+    ['proto', 'neit', 'foti', 'elik'].forEach(function (k, i) {
+      var b = crew[k]; b.lift.set(rows * 10 * 0.8);
+      setTimeout(function () { b.lift.to(0); }, 200 + i * 140);
+    });
+    /* нажатие на помощника — прыжок */
+    canvas.style.pointerEvents = 'auto';
+    hero.addEventListener('pointerdown', function (e) {
+      var r = canvas.getBoundingClientRect(), cx = (e.clientX - r.left) / C, cy = (e.clientY - r.top) / C;
+      Object.keys(crew).reverse().some(function (k) {
+        var b = crew[k];
+        if (Math.abs(cx - b.cx) < b.w / 2 + 0.5 && cy > b.base - b.h && cy < b.base) { b.jump(300).setMood('happy', 1400); return true; }
+      });
+    });
+    /* летящая мысль — жёлтая заметка, прыгает по клеткам */
+    board.extra.push(function (b) {
+      if (!flying) return;
+      b.sprite(Pixels.DOODLES.note, Math.round(flying.x.x), Math.round(flying.y.x));
+    });
+  }
+  document.fonts.load("80px 'Q Tiny5'", 'РАЗЛОЖИ ВСЁ ПО КЛЕТОЧКАМ').then(setup);
+
+  Q.typewriter(input, ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'прочитать главу 3 по физике', 'позвонить бабушке в воскресенье']);
+  Q.press(document.getElementById('send'), { depth: 0.86 });
+  var shy = false, base = hint.innerHTML;
+  function onType() {
+    Q.focus(function () { return Q.caretPoint(input); });
+    var secret = /парол/i.test(input.value);
+    if (secret !== shy) { shy = secret; Object.keys(crew).forEach(function (k) { crew[k].turnAway(secret); }); hint.innerHTML = secret ? 'Помощники зажмурились — пароли не подсматривают.' : base; }
+  }
+  input.addEventListener('focus', onType); input.addEventListener('input', onType); input.addEventListener('keyup', onType);
+  input.addEventListener('blur', function () { Q.focus(null); });
+
+  document.getElementById('command').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!board) return;
+    if (shy) { shy = false; Object.keys(crew).forEach(function (k) { crew[k].turnAway(false); }); }
+    var text = input.value.trim() || input.getAttribute('placeholder').replace('▍', '').trim();
+    input.value = '';
+    var C = board.cell, r = input.getBoundingClientRect(), br = document.getElementById('board').getBoundingClientRect();
+    var el = crew.elik;
+    flying = { x: Q.spring((r.left - br.left) / C, 1.1), y: Q.spring((r.top - br.top) / C, 1.1) };
+    flying.x.to(el.cx - 2); flying.y.kick(-40); flying.y.to(el.base - el.h - 6);
+    Object.keys(crew).forEach(function (k) { crew[k].setMood('happy', 1500); });
+    setTimeout(function () {
+      flying = null; el.jump(320);
+      hint.innerHTML = '<b>Элик поймал:</b> «' + text.replace(/</g, '&lt;').slice(0, 30) + (text.length > 30 ? '…' : '') + '» — во «Входящих».';
+      setTimeout(function () { hint.innerHTML = base; }, 4000);
+    }, 700);
+    Q.focus(null); input.blur();
+  });
+  addEventListener('resize', function () { if (board && Math.abs(innerWidth - board.W) > 40) location.reload(); });
+})();
+</script>
+</body>
+</html>

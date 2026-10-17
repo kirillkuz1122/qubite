@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ядро — первый экран · Qubite</title>
+<style>
+@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-cyrillic.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-latin.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-cyrillic.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+
+html, body { margin: 0; height: 100%; }
+body {
+  --paper: #f6f1e8; --planet: #ece2d2; --crater: #e3d7c4; --ink: #1f1a17; --ink-2: #665b52;
+  --line: rgba(31, 26, 23, .15); --orange: #ff9852; --sky: #71cfff; --yellow: #ffe163; --green: #90dea5; --card: #fffcf7;
+  background: var(--paper); color: var(--ink);
+  font: 400 17px/1.55 'Q Onest', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+* { box-sizing: border-box; }
+a { color: inherit; text-decoration: none; }
+
+.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 28px; padding: 22px clamp(16px, 5.5vw, 80px); }
+.mark { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 20px; letter-spacing: -.01em; }
+.mark svg { width: 26px; height: 26px; }
+.nav { display: flex; gap: 26px; margin-left: 28px; color: var(--ink-2); font-size: 15px; }
+.nav a:hover { color: var(--ink); }
+.auth { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 15px; }
+.start { background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 999px; font-weight: 550; display: inline-block; }
+
+.hero { position: relative; height: 100svh; min-height: 640px; overflow: hidden; }
+.copy { position: absolute; z-index: 10; left: clamp(16px, 5.5vw, 80px); top: clamp(120px, 22vh, 210px); width: min(560px, 44vw); }
+h1 {
+  font: 500 clamp(36px, 5.1vw, 78px)/1.02 'Q Serif', Georgia, serif;
+  font-variation-settings: 'opsz' 60; letter-spacing: -.028em; margin: 0 0 22px; text-wrap: balance;
+}
+.orbit-word { position: relative; display: inline-block; white-space: nowrap; }
+.orbit-word svg { position: absolute; left: -9%; top: -14%; width: 118%; height: 128%; overflow: visible; pointer-events: none; }
+.orbit-word ellipse { fill: none; stroke: var(--orange); stroke-width: 2.2; }
+.lead { margin: 0 0 30px; color: var(--ink-2); max-width: 30em; font-size: clamp(16px, 1.25vw, 18px); }
+
+.command { position: relative; display: flex; align-items: center; gap: 10px; height: 62px; padding: 0 8px 0 20px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(31, 26, 23, .05), 0 18px 40px -22px rgba(31, 26, 23, .35); transition: border-color .2s, box-shadow .2s; }
+.command:focus-within { border-color: rgba(31, 26, 23, .45); box-shadow: 0 0 0 4px rgba(255, 152, 82, .28), 0 18px 40px -22px rgba(31, 26, 23, .35); }
+.command .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); flex: none; box-shadow: 0 0 0 4px rgba(255, 152, 82, .22); }
+.command input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 17px; color: var(--ink); }
+.command input::placeholder { color: #766b62; }
+.send { width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--ink); color: var(--paper); display: grid; place-items: center; cursor: pointer; flex: none; }
+.send svg { width: 20px; height: 20px; }
+.hint { margin: 14px 0 0 20px; font-size: 14px; color: var(--ink-2); min-height: 1.5em; transition: opacity .3s; }
+.hint b { font-weight: 600; color: var(--ink); }
+
+.scene { position: absolute; inset: 0; pointer-events: none; }
+.scene > * { position: absolute; }
+.orbits { inset: 0; width: 100%; height: 100%; overflow: visible; -webkit-mask-image: var(--fade); mask-image: var(--fade); }
+.orbits ellipse { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.orbits ellipse.dash { stroke-dasharray: 2 7; stroke-linecap: round; stroke: rgba(31, 26, 23, .3); }
+.planet { border-radius: 50%; background: var(--planet); }
+.planet::before, .planet::after { content: ''; position: absolute; border-radius: 50%; background: var(--crater); }
+.planet::before { width: 9%; height: 9%; left: 22%; top: 15%; }
+.planet::after { width: 5%; height: 5%; left: 72%; top: 11%; }
+.layer { inset: 0; }
+.obj { position: absolute; left: 0; top: 0; width: 76px; height: 76px; margin: -38px 0 0 -38px; pointer-events: auto; will-change: transform; }
+.obj svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
+.buddy { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; transform-origin: 50% 100%; }
+.buddy .bend { transform-origin: 50% 100%; will-change: transform; }
+.buddy svg { display: block; overflow: visible; }
+.buddy .look { will-change: transform; }
+.buddy .blink { transform-box: fill-box; transform-origin: center; transition: transform .07s; }
+.buddy.is-blink .blink { transform: scaleY(.1); }
+.buddy .m, .buddy .shut { opacity: 0; transition: opacity .18s; }
+.buddy[data-mood='idle'] .m-idle, .buddy[data-mood='happy'] .m-happy, .buddy[data-mood='sad'] .m-sad, .buddy[data-mood='shut'] .shut { opacity: 1; }
+.buddy[data-mood='shut'] .open { opacity: 0; }
+.buddy .open { transition: opacity .18s; }
+
+.flying { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; padding: 9px 14px; border-radius: 10px 10px 10px 3px; background: var(--yellow);
+  font-size: 14px; font-weight: 500; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 10px 24px -14px rgba(31, 26, 23, .5); transform-origin: 0 0; }
+
+@media (max-width: 760px) {
+  .nav { display: none; }
+  .auth .start { display: none; }
+  .top { padding-top: 16px; }
+  .copy { top: 78px; width: auto; right: 16px; }
+  h1 { font-size: 34px; margin-bottom: 14px; }
+  .lead { font-size: 15.5px; line-height: 1.5; margin-bottom: 20px; }
+  .command { height: 56px; padding-left: 16px; }
+  .send { width: 42px; height: 42px; }
+  .command input { font-size: 16px; }
+  .hint { font-size: 13px; margin-left: 16px; }
+  .obj { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
+}
+@media (max-width: 760px) and (max-height: 700px) { .lead { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#" aria-label="Qubite">
+    <svg viewBox="0 0 26 26" aria-hidden="true"><ellipse cx="13" cy="13" rx="11.5" ry="5.6" transform="rotate(-24 13 13)" fill="none" stroke="#1f1a17" stroke-width="1.6"/><circle cx="13" cy="13" r="4.6" fill="#ff9852"/><circle cx="22.6" cy="8.1" r="1.9" fill="#1f1a17"/></svg>
+    qubite
+  </a>
+  <nav class="nav"><a href="#">Как устроено</a><a href="#">Помощники</a><a href="#">Для учёбы</a></nav>
+  <div class="auth"><a href="#">Войти</a><a class="start" href="#">Начать</a></div>
+</header>
+
+<main class="hero" id="hero">
+  <div class="scene" id="scene" aria-hidden="true">
+    <svg class="orbits" id="orbits"></svg>
+    <div class="layer" id="back"></div>
+    <div class="planet" id="planet"></div>
+    <div class="layer" id="crew"></div>
+    <div class="layer" id="front"></div>
+  </div>
+
+  <div class="copy">
+    <h1>Всё, что крутится в&nbsp;голове, — на&nbsp;своих <span class="orbit-word">орбитах<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="50" cy="21" rx="49" ry="17" transform="rotate(-4 50 21)" vector-effect="non-scaling-stroke"/></svg></span></h1>
+    <p class="lead">Дела, мысли, конспекты и&nbsp;учёба — в&nbsp;одном месте. Пиши как думаешь: четыре помощника поймают, разложат и&nbsp;напомнят.</p>
+    <form class="command" id="command" autocomplete="off">
+      <span class="dot" aria-hidden="true"></span>
+      <input id="cmd" type="text" aria-label="Строка Command" placeholder="Запиши мысль или дело">
+      <button class="send" id="send" type="submit" aria-label="Отправить"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5l5 5-5 5"/></svg></button>
+    </form>
+    <p class="hint" id="hint">Это живая строка Command — напиши что-нибудь и нажми Enter.</p>
+  </div>
+</main>
+
+<script src="../core/qubite-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var C = { ink: '#1f1a17', paper: '#f6f1e8', card: '#fffcf7', orange: '#ff9852', sky: '#71cfff', yellow: '#ffe163', green: '#90dea5' };
+
+  /* ---------- Помощники: плоские мягкие фигуры ---------- */
+  function rr(w, h, rt, rb) {
+    return 'M0 ' + rt + 'A' + rt + ' ' + rt + ' 0 0 1 ' + rt + ' 0H' + (w - rt) + 'A' + rt + ' ' + rt + ' 0 0 1 ' + w + ' ' + rt +
+      'V' + (h - rb) + 'A' + rb + ' ' + rb + ' 0 0 1 ' + (w - rb) + ' ' + h + 'H' + rb + 'A' + rb + ' ' + rb + ' 0 0 1 0 ' + (h - rb) + 'Z';
+  }
+  var SHAPES = {
+    proto: function () {
+      var w = 84, h = 236;
+      return { w: w, h: h, svg:
+        '<path d="' + rr(w, h, 24, 8) + '" fill="' + C.ink + '"/>' +
+        '<g class="open"><circle cx="30" cy="38" r="8.5" fill="#fff"/><circle cx="56" cy="38" r="8.5" fill="#fff"/>' +
+        '<g class="look"><g class="blink"><circle cx="30" cy="38" r="4.2" fill="' + C.ink + '"/><circle cx="56" cy="38" r="4.2" fill="' + C.ink + '"/></g></g></g>' +
+        '<g class="shut" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round"><path d="M23 40q7-7 14 0M49 40q7-7 14 0"/></g>' +
+        '<g stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round"><path class="m m-idle" d="M37 62h12"/><path class="m m-happy" d="M34 59q9 9 18 0"/><path class="m m-sad" d="M34 65q9-8 18 0"/></g>' };
+    },
+    neit: function () {
+      var w = 108, h = 178;
+      return { w: w, h: h, svg:
+        '<path d="' + rr(w, h, 34, 8) + '" fill="' + C.sky + '"/>' +
+        '<g class="open"><g class="look"><g class="blink"><circle cx="37" cy="50" r="4.4" fill="' + C.ink + '"/><circle cx="71" cy="50" r="4.4" fill="' + C.ink + '"/></g></g></g>' +
+        '<g class="shut" stroke="' + C.ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"><path d="M30 52q7-6 14 0M64 52q7-6 14 0"/></g>' +
+        '<g fill="none" stroke="' + C.ink + '" stroke-width="3.4"><circle cx="37" cy="50" r="14"/><circle cx="71" cy="50" r="14"/><path d="M51 49q3-3 6 0" stroke-linecap="round"/><path d="M23 47l-9-4M85 47l9-4" stroke-linecap="round"/></g>' +
+        '<g stroke="' + C.ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"><path class="m m-idle" d="M48 82h12"/><path class="m m-happy" d="M45 79q9 9 18 0"/><path class="m m-sad" d="M45 85q9-8 18 0"/></g>' };
+    },
+    elik: function () {
+      var w = 74, h = 128;
+      return { w: w, h: h, svg:
+        '<path d="' + rr(w, h, 37, 8) + '" fill="' + C.yellow + '"/>' +
+        '<g class="open"><g class="look"><g class="blink"><circle cx="30" cy="40" r="4.4" fill="' + C.ink + '"/><circle cx="50" cy="40" r="4.4" fill="' + C.ink + '"/></g></g></g>' +
+        '<g class="shut" stroke="' + C.ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"><path d="M24 42q6-6 12 0M44 42q6-6 12 0"/></g>' +
+        '<g stroke="' + C.ink + '" stroke-width="4" fill="none" stroke-linecap="round"><path class="m m-idle" d="M44 58h40"/><path class="m m-happy" d="M44 60l38-9"/><path class="m m-sad" d="M44 56l36 10"/></g>' };
+    },
+    foti: function () {
+      var w = 196, h = 98;
+      return { w: w, h: h, svg:
+        '<path d="M0 ' + (h - 8) + 'A' + (w / 2) + ' ' + h + ' 0 0 1 ' + w + ' ' + (h - 8) + 'A8 8 0 0 1 ' + (w - 8) + ' ' + h + 'H8A8 8 0 0 1 0 ' + (h - 8) + 'Z" fill="' + C.orange + '"/>' +
+        '<g class="open"><g class="look"><g class="blink"><circle cx="80" cy="46" r="4.6" fill="' + C.ink + '"/><circle cx="114" cy="46" r="4.6" fill="' + C.ink + '"/></g></g></g>' +
+        '<g class="shut" stroke="' + C.ink + '" stroke-width="3.2" fill="none" stroke-linecap="round"><path d="M73 48q7-6 14 0M107 48q7-6 14 0"/></g>' +
+        '<g stroke="' + C.ink + '" stroke-width="3.4" fill="none" stroke-linecap="round"><path class="m m-idle" d="M88 63q9 6 18 0"/><path class="m m-happy" d="M84 60q13 13 26 0"/><path class="m m-sad" d="M86 68q11-8 22 0"/></g>' };
+    }
+  };
+
+  /* Состав на планете: угол от вершины (°) и порядок — как в видео-эталоне, группой. */
+  var CREW = [
+    { id: 'neit', a: 6.6, mass: 1.9, lean: 8 },
+    { id: 'proto', a: -2.2, mass: 2.1, lean: 7 },
+    { id: 'foti', a: -11, mass: 2.4, lean: 4 },
+    { id: 'elik', a: 2.4, mass: 1.3, lean: 12 }
+  ];
+  var crewEl = document.getElementById('crew');
+  var buddies = {};
+  CREW.forEach(function (c) {
+    var s = SHAPES[c.id]();
+    var el = document.createElement('div');
+    el.className = 'buddy'; el.dataset.id = c.id;
+    el.innerHTML = '<div class="bend"><svg width="' + s.w + '" height="' + s.h + '" viewBox="0 0 ' + s.w + ' ' + s.h + '">' + s.svg + '</svg></div>';
+    crewEl.appendChild(el);
+    c.el = el; c.w = s.w; c.h = s.h;
+  });
+
+  /* ---------- Орбиты и предметы модулей ---------- */
+  var ICONS = {
+    planner: '<rect x="8" y="10" width="48" height="46" rx="10" fill="' + C.card + '" stroke="' + C.ink + '" stroke-width="2"/><path d="M8 22a10 10 0 0 1 10-12h28a10 10 0 0 1 10 12z" fill="' + C.orange + '" stroke="' + C.ink + '" stroke-width="2"/><text x="32" y="47" text-anchor="middle" font-family="Q Serif, Georgia, serif" font-weight="600" font-size="21" fill="' + C.ink + '">17</text>',
+    doc: '<path d="M14 6h26l12 12v38a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z" fill="' + C.card + '" stroke="' + C.ink + '" stroke-width="2"/><path d="M40 6v12h12" fill="none" stroke="' + C.ink + '" stroke-width="2" stroke-linejoin="round"/><path d="M18 28h24M18 36h26M18 44h16" stroke="' + C.ink + '" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>',
+    ink: '<g transform="rotate(-38 32 32)"><rect x="27" y="2" width="10" height="50" rx="5" fill="' + C.ink + '"/><rect x="27" y="12" width="10" height="5" fill="' + C.sky + '"/><path d="M27 50h10l-5 11z" fill="' + C.ink + '"/></g><path d="M8 54q8-8 14-2t14-2" fill="none" stroke="' + C.sky + '" stroke-width="3" stroke-linecap="round"/>',
+    note: '<path d="M10 10h44v34L42 56H10z" fill="' + C.yellow + '"/><path d="M42 56V44h12" fill="#f0cf3f"/><path d="M18 24h26M18 33h20" stroke="' + C.ink + '" stroke-opacity=".45" stroke-width="2.4" stroke-linecap="round"/>',
+    book: '<path d="M8 14q12-6 24 2v40q-12-8-24-2z" fill="' + C.sky + '" stroke="' + C.ink + '" stroke-width="2" stroke-linejoin="round"/><path d="M56 14q-12-6-24 2v40q12-8 24-2z" fill="' + C.card + '" stroke="' + C.ink + '" stroke-width="2" stroke-linejoin="round"/><path d="M38 26q7-3 12 0M38 34q7-3 12 0" stroke="' + C.ink + '" stroke-opacity=".35" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    heart: '<path d="M32 54C18 44 8 35 8 24a12 12 0 0 1 24-4 12 12 0 0 1 24 4c0 11-10 20-24 30z" fill="' + C.orange + '"/><path d="M17 22a6 6 0 0 1 6-5" stroke="#fff" stroke-opacity=".7" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    check: '<circle cx="32" cy="32" r="21" fill="' + C.green + '"/><path d="M22 33l7 7 13-15" fill="none" stroke="' + C.ink + '" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    eDot: '<circle cx="32" cy="32" r="7" fill="' + C.ink + '"/>',
+    oDot: '<circle cx="32" cy="32" r="9" fill="' + C.orange + '"/>',
+    sDot: '<circle cx="32" cy="32" r="6" fill="' + C.sky + '"/>'
+  };
+  /* Орбиты обвивают команду, как в значке атома: верхняя половина — за помощниками, нижняя — перед ними. */
+  var ORBITS = [
+    { kx: 0.98, ky: 0.3, rot: -24, dash: false },
+    { kx: 1.18, ky: 0.36, rot: 19, dash: true },
+    { kx: 1.42, ky: 0.44, rot: -6, dash: false }
+  ];
+  var OBJECTS = [
+    { icon: 'planner', orbit: 0, p: 3.4, speed: 0.11 },
+    { icon: 'check', orbit: 0, p: 5.2, speed: 0.11, small: true },
+    { icon: 'eDot', orbit: 0, p: 0.9, speed: 0.11, small: true },
+    { icon: 'heart', orbit: 0, p: 2.0, speed: 0.11 },
+    { icon: 'note', orbit: 1, p: 4.3, speed: -0.08 },
+    { icon: 'sDot', orbit: 1, p: 5.9, speed: -0.08, small: true },
+    { icon: 'book', orbit: 1, p: 1.4, speed: -0.08 },
+    { icon: 'doc', orbit: 2, p: 3.9, speed: 0.06 },
+    { icon: 'ink', orbit: 2, p: 5.35, speed: 0.06 },
+    { icon: 'oDot', orbit: 2, p: 0.4, speed: 0.06, small: true },
+    { icon: 'note', orbit: 2, p: 2.3, speed: 0.06 }
+  ];
+
+  var orbitsSvg = document.getElementById('orbits');
+  var back = document.getElementById('back'), front = document.getElementById('front');
+  var planet = document.getElementById('planet');
+  var G = {};
+
+  function makeObj(o) {
+    var el = document.createElement('div');
+    el.className = 'obj';
+    el.innerHTML = '<svg viewBox="0 0 64 64">' + ICONS[o.icon] + '</svg>';
+    o.el = el; o.layer = null;
+    o.ox = Q.spring(0, 0.8); o.oy = Q.spring(0, 0.8); o.sc = Q.spring(1, 0.6);
+    el.addEventListener('pointerdown', function () { o.sc.set(0.7); o.sc.to(1); o.spin = (o.spin || 0) + 1; });
+    back.appendChild(el);
+    return o;
+  }
+  OBJECTS.forEach(makeObj);
+
+  function layout() {
+    var W = innerWidth, H = document.getElementById('hero').clientHeight;
+    var phone = W < 760;
+    var R = phone ? W * 0.78 : Math.min(H * 0.6, W * 0.3);
+    var cx = phone ? W * 0.5 : W * 0.71;
+    var cy = phone ? H + R * 0.5 : H + R * 0.44;
+    var scale = phone ? 0.62 : Math.min(1.12, H / 800);
+    /* центр орбит — середина команды над вершиной планеты */
+    var ocx = cx + R * 0.02, ocy = cy - R - 120 * scale;
+    G = { W: W, H: H, R: R, cx: ocx, cy: ocy, phone: phone, scale: scale };
+    planet.style.width = planet.style.height = (R * 2) + 'px';
+    planet.style.left = (cx - R) + 'px'; planet.style.top = (cy - R) + 'px';
+
+    orbitsSvg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    /* орбиты выходят из-за текста: слева они тают, чтобы не мешать читать */
+    var copy = document.querySelector('.copy').getBoundingClientRect();
+    G.fadeFrom = phone ? -1 : copy.right - 40; G.fadeTo = phone ? 0 : copy.right + 120;
+    G.fadeTop = phone ? copy.bottom - 10 : -1;
+    document.getElementById('scene').style.setProperty('--fade', phone
+      ? 'linear-gradient(to bottom, transparent ' + (copy.bottom - 30) + 'px, #000 ' + (copy.bottom + 40) + 'px)'
+      : 'linear-gradient(to right, transparent ' + G.fadeFrom + 'px, #000 ' + G.fadeTo + 'px)');
+    orbitsSvg.innerHTML = '';
+    ORBITS.forEach(function (o) {
+      o.rx = R * o.kx * (phone ? 0.62 : 1); o.ry = R * o.ky * (phone ? 0.62 : 1);
+      var e = document.createElementNS(NS, 'ellipse');
+      e.setAttribute('cx', ocx); e.setAttribute('cy', ocy); e.setAttribute('rx', o.rx); e.setAttribute('ry', o.ry);
+      e.setAttribute('transform', 'rotate(' + o.rot + ' ' + ocx + ' ' + ocy + ')');
+      if (o.dash) e.setAttribute('class', 'dash');
+      orbitsSvg.appendChild(e);
+    });
+
+    CREW.forEach(function (c) {
+      var a = c.a * Math.PI / 180;
+      var bx = cx + Math.sin(a) * R, by = cy - Math.cos(a) * R;
+      c.el.style.transform = 'translate(' + (bx - c.w / 2) + 'px,' + (by - c.h) + 'px) rotate(' + c.a + 'deg) scale(' + scale + ')';
+      c.el.style.transformOrigin = '50% 100%';
+    });
+    CREW.forEach(function (c) { if (c.ctl) c.ctl.remeasure(); });
+  }
+
+  var pointer = Q.pointer;
+  function placeObjects(t, dt) {
+    OBJECTS.forEach(function (o) {
+      var orb = ORBITS[o.orbit];
+      if (!orb.rx) return;
+      o.p += o.speed * dt;
+      var lx = Math.cos(o.p) * orb.rx, ly = Math.sin(o.p) * orb.ry;
+      var r = orb.rot * Math.PI / 180;
+      var x = G.cx + lx * Math.cos(r) - ly * Math.sin(r);
+      var y = G.cy + lx * Math.sin(r) + ly * Math.cos(r);
+      var far = Math.sin(o.p) < 0;
+      var layer = far ? back : front;
+      if (o.layer !== layer) { layer.appendChild(o.el); o.layer = layer; }
+      /* сопротивление: предмет отходит от пальца/курсора и пружинит обратно */
+      var dx = x - pointer.x, dy = y - pointer.y, d = Math.hypot(dx, dy);
+      if (d < 110 && performance.now() - pointer.t < 1500) { var f = (110 - d) / 110 * 38; o.ox.to(dx / (d || 1) * f); o.oy.to(dy / (d || 1) * f); }
+      else if (o.ox.goal !== 0 || o.oy.goal !== 0) { o.ox.to(0); o.oy.to(0); }
+      var depth = far ? 0.82 : 1;
+      var s = depth * o.sc.x * (G.phone ? 0.86 : 1) * (o.small ? 0.8 : 1);
+      var rot = Math.cos(o.p) * 10 + (o.spin || 0) * 360;
+      o.el.style.transform = 'translate3d(' + (x + o.ox.x).toFixed(1) + 'px,' + (y + o.oy.x).toFixed(1) + 'px,0) rotate(' + rot.toFixed(1) + 'deg) scale(' + s.toFixed(3) + ')';
+      var vis = G.phone ? Q.clamp((y - G.fadeTop) / 60, 0, 1) : Q.clamp((x - G.fadeFrom) / (G.fadeTo - G.fadeFrom), 0, 1);
+      o.el.style.opacity = (far ? 0.92 : 1) * vis;
+      o.el.style.pointerEvents = vis > 0.5 ? 'auto' : 'none';
+    });
+  }
+
+  layout();
+  addEventListener('resize', layout);
+  if (document.fonts) document.fonts.ready.then(layout);
+  CREW.forEach(function (c, i) {
+    c.ctl = Q.buddy(c.el, { mass: c.mass, lean: c.lean, look: c.id === 'proto' ? 4 : 5, eyeY: c.id === 'foti' ? 0.45 : 0.22 });
+    buddies[c.id] = c.ctl;
+    c.ctl.drop(700, 250 + i * 140);
+  });
+  if (Q.reduce) placeObjects(0, 0); else Q.tick(placeObjects);
+
+  /* Слово «орбитах»: по кольцу бежит маленький электрон */
+  (function () {
+    var word = document.querySelector('.orbit-word');
+    var dot = document.createElement('i');
+    dot.style.cssText = 'position:absolute;left:0;top:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:' + C.ink;
+    word.appendChild(dot);
+    var p = 1.2, box = {};
+    function size() { var r = word.getBoundingClientRect(); box = { w: r.width * 1.18, h: r.height * 1.28, x: -r.width * 0.09, y: -r.height * 0.14 }; }
+    size(); addEventListener('resize', size);
+    function put() {
+      var a = -4 * Math.PI / 180, ex = Math.cos(p) * 49, ey = Math.sin(p) * 17;
+      var vx = 50 + ex * Math.cos(a) - ey * Math.sin(a), vy = 21 + ex * Math.sin(a) + ey * Math.cos(a);
+      dot.style.transform = 'translate(' + (box.x + vx / 100 * box.w).toFixed(1) + 'px,' + (box.y + vy / 40 * box.h).toFixed(1) + 'px)';
+      dot.style.opacity = Math.sin(p) < -0.2 ? 0.35 : 1;
+    }
+    put();
+    Q.tick(function (t, dt) { p += dt * 0.8; put(); });
+  })();
+
+  /* ---------- Строка Command: помощники смотрят на текст, Элик ловит мысль ---------- */
+  var form = document.getElementById('command'), input = document.getElementById('cmd'), hint = document.getElementById('hint');
+  Q.typewriter(input, ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'прочитать главу 3 по физике', 'позвонить бабушке в воскресенье']);
+  Q.press(document.getElementById('send'), { depth: 0.86 });
+  var shy = false;
+  function onType() {
+    Q.focus(function () { return Q.caretPoint(input); });
+    var secret = /парол/i.test(input.value);
+    if (secret !== shy) {
+      shy = secret;
+      Object.keys(buddies).forEach(function (k) { buddies[k].turnAway(secret); });
+      hint.innerHTML = secret ? 'Помощники отвернулись — пароли они не подсматривают.' : 'Это живая строка Command — напиши что-нибудь и нажми Enter.';
+    }
+  }
+  input.addEventListener('focus', onType);
+  input.addEventListener('input', onType);
+  input.addEventListener('keyup', onType);
+  input.addEventListener('blur', function () { Q.focus(null); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = input.value.trim() || input.getAttribute('placeholder').replace('▍', '').trim() || 'новая мысль';
+    if (shy) { Object.keys(buddies).forEach(function (k) { buddies[k].turnAway(false); }); shy = false; }
+    input.value = '';
+    var from = input.getBoundingClientRect();
+    var elik = buddies.elik.root.getBoundingClientRect();
+    var chip = document.createElement('div');
+    chip.className = 'flying'; chip.textContent = text;
+    document.body.appendChild(chip);
+    var x = Q.spring(from.left + 4, 1.1), y = Q.spring(from.top + 8, 1.1), s = Q.spring(1, 0.8);
+    var draw = Q.render(function () { chip.style.transform = 'translate3d(' + x.x + 'px,' + y.x + 'px,0) scale(' + s.x + ')'; });
+    x.cb = y.cb = s.cb = draw; draw();
+    Object.keys(buddies).forEach(function (k) { buddies[k].mood('happy', 1600); });
+    requestAnimationFrame(function () {
+      x.to(elik.left + elik.width * 0.2); y.kick(-900); y.to(elik.top + 6); s.to(0.35);
+    });
+    setTimeout(function () {
+      chip.style.transition = 'opacity .25s'; chip.style.opacity = '0';
+      buddies.elik.jump(520);
+      var o = makeObj({ icon: 'note', orbit: 0, p: 4.7, speed: 0.07 });
+      OBJECTS.push(o);
+      o.sc.set(0.2); o.sc.to(1);
+      setTimeout(function () { chip.remove(); }, 300);
+      hint.innerHTML = '<b>Элик поймал мысль</b> — она во «Входящих» и уже на орбите.';
+      setTimeout(function () { hint.textContent = 'Это живая строка Command — напиши что-нибудь и нажми Enter.'; }, 4200);
+    }, 620);
+    Q.focus(null); input.blur();
+  });
+})();
+</script>
+</body>
+</html>

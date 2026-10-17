@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Желе — первый экран · Qubite</title>
+<style>
+@font-face { font-family: 'Q Rubik'; src: url('../../fonts/Rubik-cyrillic.woff2') format('woff2'); font-weight: 300 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Q Rubik'; src: url('../../fonts/Rubik-latin.woff2') format('woff2'); font-weight: 300 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+
+html, body { margin: 0; height: 100%; }
+body {
+  --wall: #a9defb; --floor: #8ccdf3; --ink: #12202c; --ink-2: #2f4a5f; --horizon: 74%;
+  color: var(--ink); font: 400 17px/1.45 'Q Rubik', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  background: linear-gradient(to bottom, var(--wall) 0, #b4e3fc var(--horizon), var(--floor) var(--horizon), #7fc3ee 100%) fixed;
+  background-color: var(--wall);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+
+/* мягкий материал для HTML-элементов */
+.jelly { position: relative; background: linear-gradient(180deg, var(--hi) 0%, var(--c) 46%, var(--lo) 100%);
+  box-shadow: inset 0 2px 1.5px rgba(255, 255, 255, .8), inset 0 -10px 18px -10px var(--lo), 0 16px 26px -16px rgba(14, 70, 120, .55); }
+.jelly::before { content: ''; position: absolute; left: 8%; top: 9%; width: 38%; height: 30%; max-height: 22px; border-radius: 999px; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)); }
+.j-white { --c: #fff; --hi: #fff; --lo: #cfe6f6; }
+.j-orange { --c: #ff9852; --hi: #ffc699; --lo: #e8702f; }
+.j-ink { --c: #24333f; --hi: #55687a; --lo: #121b24; }
+.j-yellow { --c: #ffe163; --hi: #fff4bd; --lo: #efc232; }
+
+.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 20px; padding: 18px clamp(16px, 4vw, 56px); }
+.mark { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+.mark i { width: 22px; height: 22px; border-radius: 50%; display: block; }
+.navcap { position: relative; display: flex; height: 48px; padding: 4px; border-radius: 999px; margin-left: auto; }
+.navcap .drop { position: absolute; left: 0; top: 4px; height: 40px; width: 0; z-index: 0; }
+.navcap a { position: relative; z-index: 1; padding: 0 18px; line-height: 40px; font-size: 15.5px; font-weight: 500; color: var(--ink-2); transition: color .2s; }
+.navcap a.on { color: var(--ink); }
+.auth { display: flex; gap: 10px; align-items: center; }
+.auth .in { font-weight: 500; padding: 0 12px; }
+.auth .go { height: 48px; padding: 0 22px; border-radius: 999px; font-weight: 600; display: grid; place-items: center; }
+
+.pill3 > i { position: absolute; left: 0; top: 0; height: 100%; display: block; background: linear-gradient(180deg, var(--hi) 0%, var(--c) 46%, var(--lo) 100%); }
+.pill3 > .l, .pill3 > .r { aspect-ratio: 1; border-radius: 50%; }
+.pill3 > .m { width: 1px; transform-origin: 0 0; }
+
+.hero { position: relative; height: 100svh; min-height: 660px; overflow: hidden; }
+h1 { position: absolute; z-index: 5; left: 0; right: 0; top: clamp(96px, 15vh, 150px); margin: 0; text-align: center;
+  font-weight: 800; font-size: clamp(44px, 7vw, 104px); line-height: .94; letter-spacing: -.035em; color: var(--ink); }
+h1 span { color: #fff; text-shadow: 0 2px 0 #7cc1ea, 0 10px 26px rgba(14, 70, 120, .25); }
+.lead { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); width: min(560px, 90vw); text-align: center; margin: 0; color: var(--ink-2); font-size: 18px; }
+
+.bar { position: absolute; z-index: 4; transform-origin: 50% 100%; height: 96px; border-radius: 48px; display: flex; align-items: center; padding: 0 12px 0 34px; will-change: transform; }
+.bar input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 500 26px 'Q Rubik', system-ui, sans-serif; color: var(--ink); letter-spacing: -.01em; position: relative; z-index: 1; }
+.bar input::placeholder { color: rgba(18, 32, 44, .58); }
+.bar .send { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; flex: none; position: relative; z-index: 1; }
+.bar .send svg { width: 30px; height: 30px; }
+.bar:focus-within { box-shadow: inset 0 2px 1.5px rgba(255, 255, 255, .8), inset 0 -10px 18px -10px var(--lo), 0 0 0 5px rgba(255, 255, 255, .55), 0 16px 26px -16px rgba(14, 70, 120, .55); }
+.shadow { position: absolute; z-index: 1; border-radius: 50%; background: radial-gradient(closest-side, rgba(20, 80, 130, .38), rgba(20, 80, 130, 0)); pointer-events: none; }
+
+.buddy { position: absolute; left: 0; top: 0; z-index: 3; cursor: pointer; transform-origin: 50% 100%; }
+.obj { position: absolute; left: 0; top: 0; z-index: 2; cursor: pointer; will-change: transform; }
+.obj svg { display: block; overflow: visible; }
+.cal { width: 116px; height: 108px; border-radius: 30px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 50px; letter-spacing: -.04em; text-shadow: 0 2px 0 #e06a2c; }
+.cal small { position: absolute; top: 15px; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-shadow: none; opacity: .9; }
+.flying { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; height: 44px; padding: 0 18px; border-radius: 22px; display: flex; align-items: center; font-weight: 500; font-size: 16px; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; transform-origin: 50% 50%; }
+.toast { position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); font-size: 15px; color: var(--ink-2); transition: opacity .3s; white-space: nowrap; }
+.toast b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .navcap, .auth .go { display: none; }
+  .auth { margin-left: auto; }
+  h1 { font-size: 46px; top: 78px; padding: 0 16px; }
+  .lead { font-size: 15.5px; }
+  .bar { height: 68px; border-radius: 34px; padding: 0 8px 0 20px; }
+  .bar input { font-size: 18px; }
+  .bar .send { width: 52px; height: 52px; }
+  .bar .send svg { width: 24px; height: 24px; }
+  .toast { font-size: 13.5px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#"><i class="jelly j-orange"></i>qubite</a>
+  <nav class="navcap jelly j-white" id="nav"><i class="drop" id="drop"></i><a href="#" class="on">Как устроено</a><a href="#">Помощники</a><a href="#">Учёба</a><a href="#">Цены</a></nav>
+  <div class="auth"><a class="in" href="#">Войти</a><a class="go jelly j-orange" href="#">Начать</a></div>
+</header>
+
+<main class="hero" id="hero">
+  <h1>Пиши как думаешь.<br><span>Мы разложим.</span></h1>
+  <div id="stage"></div>
+  <form class="bar jelly j-white" id="bar" autocomplete="off">
+    <input id="cmd" type="text" aria-label="Строка Command" placeholder="Запиши мысль или дело">
+    <button class="send jelly j-orange" id="send" type="submit" aria-label="Отправить"><svg viewBox="0 0 30 30" fill="none" stroke="#12202c" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15h17M16 8l7 7-7 7"/></svg></button>
+  </form>
+  <p class="lead" id="lead">Дела, мысли, конспекты и&nbsp;учёба — в&nbsp;одной мягкой штуке. Четыре помощника сидят прямо на&nbsp;строке и&nbsp;ловят всё, что ты&nbsp;пишешь.</p>
+  <p class="toast" id="toast" style="opacity:0"></p>
+</main>
+
+<script src="../core/qubite-core.js"></script>
+<script src="../core/jelly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var rr = Jelly.rr;
+  var stage = document.getElementById('stage'), hero = document.getElementById('hero');
+  var bar = document.getElementById('bar'), input = document.getElementById('cmd'), lead = document.getElementById('lead'), toast = document.getElementById('toast');
+
+  /* ---------- Помощники из желе ---------- */
+  function eyes(xs, y, r, glint) {
+    return '<g class="open"><g class="look"><g class="blink">' + xs.map(function (x) {
+      return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#12202c"/>' + (glint ? '<circle cx="' + (x - r * 0.35) + '" cy="' + (y - r * 0.4) + '" r="' + (r * 0.32) + '" fill="#fff"/>' : '');
+    }).join('') + '</g></g></g>' +
+      '<g class="shut" stroke="#12202c" stroke-width="3.2" fill="none" stroke-linecap="round">' + xs.map(function (x) { return '<path d="M' + (x - 6) + ' ' + (y + 2) + 'q6-6 12 0"/>'; }).join('') + '</g>';
+  }
+  function mouths(x, y, color) {
+    var c = color || '#12202c';
+    return '<g stroke="' + c + '" stroke-width="3.4" fill="none" stroke-linecap="round"><path class="m m-idle" d="M' + (x - 6) + ' ' + y + 'q6 4 12 0"/><path class="m m-happy" d="M' + (x - 9) + ' ' + (y - 2) + 'q9 10 18 0"/><path class="m m-sad" d="M' + (x - 8) + ' ' + (y + 4) + 'q8-7 16 0"/></g>';
+  }
+  var CREW = {
+    foti: function () { var w = 190, h = 104, d = 'M0 ' + (h - 10) + 'A' + (w / 2) + ' ' + (h - 4) + ' 0 0 1 ' + w + ' ' + (h - 10) + 'Q' + w + ' ' + h + ' ' + (w - 10) + ' ' + h + 'H10Q0 ' + h + ' 0 ' + (h - 10) + 'Z';
+      return { w: w, h: h, svg: Jelly.svg(d, w, h, 'orange', { specX: 0.34, specY: 0.2, specW: 0.13, specH: 0.1 }) + eyes([78, 112], 50, 5.4, true) + mouths(95, 68) }; },
+    proto: function () { var w = 86, h = 232;
+      return { w: w, h: h, svg: Jelly.svg(rr(w, h, 34, 12), w, h, 'ink', { specX: 0.3, specY: 0.07, specW: 0.2, specH: 0.12 }) +
+        '<g class="open"><circle cx="30" cy="44" r="10" fill="#fff"/><circle cx="58" cy="44" r="10" fill="#fff"/><g class="look"><g class="blink"><circle cx="30" cy="44" r="5" fill="#12202c"/><circle cx="58" cy="44" r="5" fill="#12202c"/><circle cx="28" cy="42" r="1.6" fill="#fff"/><circle cx="56" cy="42" r="1.6" fill="#fff"/></g></g></g>' +
+        '<g class="shut" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round"><path d="M23 46q7-7 14 0M51 46q7-7 14 0"/></g>' + mouths(44, 70, '#fff') }; },
+    neit: function () { var w = 112, h = 176;
+      return { w: w, h: h, svg: Jelly.svg(rr(w, h, 44, 12), w, h, 'sky', { specX: 0.28, specY: 0.1, specW: 0.18, specH: 0.1 }) + eyes([38, 74], 56, 4.8, true) +
+        '<g fill="rgba(255,255,255,.28)" stroke="#12202c" stroke-width="3.6"><circle cx="38" cy="56" r="15"/><circle cx="74" cy="56" r="15"/></g><path d="M53 54q3-4 6 0M23 52l-10-4M89 52l10-4" stroke="#12202c" stroke-width="3.6" fill="none" stroke-linecap="round"/>' + mouths(56, 92) }; },
+    elik: function () { var w = 78, h = 130;
+      return { w: w, h: h, svg: Jelly.svg(rr(w, h, 39, 12), w, h, 'yellow', { specX: 0.32, specY: 0.12, specW: 0.2, specH: 0.12 }) + eyes([30, 52], 44, 4.8, true) +
+        '<g stroke="#12202c" stroke-width="4.2" fill="none" stroke-linecap="round"><path class="m m-idle" d="M46 62h40"/><path class="m m-happy" d="M46 64l38-10"/><path class="m m-sad" d="M46 60l36 11"/></g>' }; }
+  };
+  var ORDER = [
+    { id: 'proto', at: 0.25, mass: 2.1, lean: 9 },
+    { id: 'neit', at: 0.37, mass: 1.9, lean: 9 },
+    { id: 'foti', at: 0.12, mass: 2.4, lean: 5 },
+    { id: 'elik', at: 0.47, mass: 1.3, lean: 13 }
+  ];
+  var buddies = {};
+  ORDER.forEach(function (c) {
+    var s = CREW[c.id]();
+    var el = document.createElement('div');
+    el.className = 'buddy'; el.dataset.id = c.id;
+    el.innerHTML = '<div class="bend"><svg width="' + s.w + '" height="' + s.h + '" viewBox="0 0 ' + s.w + ' ' + s.h + '">' + s.svg + '</svg></div>';
+    stage.appendChild(el);
+    c.el = el; c.w = s.w; c.h = s.h;
+  });
+
+  /* ---------- Предметы модулей из того же желе ---------- */
+  function svgObj(w, h, inner) { return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' + inner + '</svg>'; }
+  var spark = 'M40 2C44 26 54 36 78 40 54 44 44 54 40 78 36 54 26 44 2 40 26 36 36 26 40 2Z';
+  var heart = 'M44 78C20 62 4 48 4 28A20 20 0 0 1 44 18 20 20 0 0 1 84 28C84 48 68 62 44 78Z';
+  var OBJECTS = [
+    { id: 'spark', html: svgObj(80, 80, Jelly.svg(spark, 80, 80, 'yellow', { specX: 0.42, specY: 0.3, specW: 0.1 })), w: 80, h: 80, fx: 0.13, fy: 0.42, floats: true, mass: 0.8 },
+    { id: 'heart', html: svgObj(88, 80, Jelly.svg(heart, 88, 80, 'coral', { specX: 0.28, specY: 0.28, specW: 0.12 })), w: 88, h: 80, fx: 0.86, fy: 0.36, floats: true, mass: 0.9 },
+    { id: 'cal', html: '<div class="cal jelly j-orange"><small>октябрь</small>17</div>', w: 116, h: 108, mass: 1.4 },
+    { id: 'check', html: svgObj(86, 86, Jelly.svg('M43 2A41 41 0 1 1 42.9 2Z', 86, 86, 'white', { specX: 0.34, specY: 0.2 }) + '<path d="M26 45l12 12 22-26" fill="none" stroke="#4fb873" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>'), w: 86, h: 86, fx: 0.84, fy: 'floor', mass: 1.1 },
+    { id: 'pen', html: svgObj(168, 36, Jelly.svg(rr(168, 36, 18, 18), 168, 36, 'sky', { specX: 0.3, specY: 0.28, specW: 0.2, specH: 0.12, specRot: 0 }) + '<path d="M150 6l16 12-16 12z" fill="#12202c" opacity=".85"/><rect x="18" y="0" width="12" height="36" fill="#fff" opacity=".55"/>'), w: 168, h: 36, fx: 0.73, fy: 'floor2', mass: 1.2, rot: -8 },
+    { id: 'dot1', html: svgObj(34, 34, Jelly.svg('M17 1A16 16 0 1 1 16.9 1Z', 34, 34, 'white')), w: 34, h: 34, fx: 0.24, fy: 0.3, floats: true, mass: 0.5 },
+    { id: 'dot2', html: svgObj(24, 24, Jelly.svg('M12 1A11 11 0 1 1 11.9 1Z', 24, 24, 'orange')), w: 24, h: 24, fx: 0.78, fy: 0.22, floats: true, mass: 0.5 },
+    { id: 'dot3', html: svgObj(40, 40, Jelly.svg('M20 1A19 19 0 1 1 19.9 1Z', 40, 40, 'yellow')), w: 40, h: 40, fx: 0.93, fy: 0.55, floats: true, mass: 0.6 }
+  ];
+  OBJECTS.forEach(function (o, i) {
+    var el = document.createElement('div');
+    el.className = 'obj'; el.innerHTML = o.html;
+    var sh = document.createElement('div'); sh.className = 'shadow';
+    stage.appendChild(sh); stage.appendChild(el);
+    o.el = el; o.sh = sh; o.phase = i * 1.3;
+    o.ox = Q.spring(0, o.mass); o.oy = Q.spring(0, o.mass); o.sq = Q.spring(1, o.mass * 0.7);
+    el.addEventListener('pointerdown', function () { o.sq.set(0.72); o.sq.to(1); });
+  });
+
+  /* ---------- Раскладка ---------- */
+  var L = {};
+  function layout() {
+    var W = innerWidth, H = hero.clientHeight, phone = W < 760;
+    var bw = phone ? W - 24 : Math.min(800, W * 0.6), bh = phone ? 68 : 96;
+    var horizon = H * 0.74;
+    var by = phone ? horizon - bh + 22 : horizon - bh + 34;
+    var bx = (W - bw) / 2;
+    var sc = phone ? 0.56 : Math.min(1, H / 900 * 1.02);
+    L = { W: W, H: H, phone: phone, bx: bx, by: by, bw: bw, bh: bh, sc: sc, horizon: horizon };
+    bar.style.width = bw + 'px'; bar.style.left = bx + 'px'; bar.style.top = by + 'px';
+    var h1 = document.querySelector('h1').getBoundingClientRect();
+    lead.style.top = (phone ? h1.bottom + 14 : by + bh + 28) + 'px';
+    toast.style.top = (by + bh + (phone ? 14 : 28)) + 'px';
+    if (phone) lead.style.top = (h1.bottom + 14) + 'px';
+    ORDER.forEach(function (c) {
+      var x = bx + bw * (phone ? Math.min(0.62, c.at * 1.25) : c.at);
+      c.el.style.transform = 'translate(' + (x - c.w / 2) + 'px,' + (by + 10 - c.h) + 'px) scale(' + sc + ')';
+    });
+    /* каждый предмет задаётся точкой «низ-центр»: от неё же он сжимается при нажатии */
+    var PLACE = phone ? {
+      spark: [0.84, by - 150], heart: [0.82, by - 34], dot2: [0.6, by - 118],
+      cal: [0.2, H - 26], check: [0.8, H - 34]
+    } : {
+      spark: [0.13, H * 0.5], heart: [0.86, H * 0.45], dot1: [0.06, H * 0.66], dot2: [0.69, H * 0.5], dot3: [0.93, H * 0.6],
+      cal: [0.15, horizon + (H - horizon) * 0.5], check: [0.84, horizon + (H - horizon) * 0.46], pen: [0.73, horizon + (H - horizon) * 0.78]
+    };
+    OBJECTS.forEach(function (o) {
+      var pl = PLACE[o.id], s = phone ? 0.62 : 1;
+      o.el.style.display = o.sh.style.display = pl ? '' : 'none';
+      if (!pl) return;
+      var cx = W * pl[0], bottom = pl[1];
+      o.x = cx - o.w / 2; o.y = bottom - o.h; o.s = s;
+      var ground = o.floats ? Math.max(bottom + 70, horizon + 10) : bottom;
+      o.sh.style.width = (o.w * s * 0.9) + 'px'; o.sh.style.height = (Math.max(14, o.h * s * 0.22)) + 'px';
+      o.sh.style.left = (cx - o.w * s * 0.45) + 'px'; o.sh.style.top = (ground - o.h * s * 0.11) + 'px';
+      o.sh.style.opacity = o.floats ? 0.35 : 1;
+    });
+    barShadow();
+    ORDER.forEach(function (c) { if (c.ctl) c.ctl.remeasure(); });
+  }
+  var bsh = document.createElement('div'); bsh.className = 'shadow'; stage.appendChild(bsh);
+  function barShadow() { bsh.style.left = (L.bx + 20) + 'px'; bsh.style.width = (L.bw - 40) + 'px'; bsh.style.top = (L.by + L.bh - 14) + 'px'; bsh.style.height = '36px'; }
+
+  layout();
+  addEventListener('resize', layout);
+  if (document.fonts) document.fonts.ready.then(layout);
+
+  ORDER.forEach(function (c, i) {
+    c.ctl = Q.buddy(c.el, { mass: c.mass, lean: c.lean, look: c.id === 'proto' ? 4.5 : 5, eyeY: c.id === 'foti' ? 0.5 : 0.24 });
+    buddies[c.id] = c.ctl;
+    c.ctl.drop(620, 200 + i * 130);
+  });
+
+  var P = Q.pointer;
+  Q.tick(function (t) {
+    OBJECTS.forEach(function (o) {
+      if (o.el.style.display === 'none') return;
+      var cx = o.x + o.w * o.s / 2, cy = o.y + o.h * o.s / 2;
+      var dx = cx - P.x, dy = cy - P.y, d = Math.hypot(dx, dy);
+      var R = 150;
+      if (d < R && performance.now() - P.t < 1200) { var f = (R - d) / R * 46; o.ox.to(dx / (d || 1) * f); o.oy.to(dy / (d || 1) * f * (o.floats ? 1 : 0.15)); }
+      else if (o.ox.goal || o.oy.goal) { o.ox.to(0); o.oy.to(0); }
+      var bob = o.floats ? Math.sin(t * 1.1 + o.phase) * 8 : 0;
+      var sq = o.sq.x;
+      o.el.style.transform = 'translate3d(' + (o.x + o.ox.x).toFixed(1) + 'px,' + (o.y + o.oy.x + bob).toFixed(1) + 'px,0) rotate(' + ((o.rot || 0) + o.ox.x * 0.15).toFixed(2) + 'deg) scale(' + (o.s * (2 - sq)).toFixed(3) + ',' + (o.s * sq).toFixed(3) + ')';
+      if (o.floats) o.sh.style.transform = 'translateX(' + o.ox.x.toFixed(1) + 'px) scale(' + (1 - bob / 60).toFixed(3) + ')';
+      else o.sh.style.transform = 'translateX(' + o.ox.x.toFixed(1) + 'px)';
+    });
+  });
+  OBJECTS.forEach(function (o) { o.el.style.transformOrigin = '50% 100%'; });
+
+  /* ---------- Меню-капсула: капля перетекает под пунктом ---------- */
+  var nav = document.getElementById('nav'), drop = document.getElementById('drop');
+  drop.classList.add('j-yellow');
+  var dropPill = Jelly.pill(drop, { h: 40 });
+  var links = Array.prototype.slice.call(nav.querySelectorAll('a'));
+  function aim(a, snap) {
+    var l = a.offsetLeft, r = l + a.offsetWidth;
+    if (snap) { dropPill.left.set(l); dropPill.right.set(r); } else dropPill.moveTo(l, r);
+    links.forEach(function (x) { x.classList.toggle('on', x === a); });
+  }
+  var current = links[0];
+  setTimeout(function () { aim(current, true); }, 60);
+  if (document.fonts) document.fonts.ready.then(function () { aim(current, true); });
+  links.forEach(function (a) {
+    a.addEventListener('pointerenter', function () { aim(a); });
+    a.addEventListener('click', function (e) { e.preventDefault(); current = a; aim(a); });
+  });
+  nav.addEventListener('pointerleave', function () { aim(current); });
+
+  /* ---------- Строка: помощники смотрят вниз, на текст ---------- */
+  Q.typewriter(input, ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'купить стилус до пятницы', 'прочитать главу 3 по физике']);
+  var barPress = Q.press(bar, { depth: 0.965, mass: 1.6, squash: true });
+  Q.press(document.getElementById('send'), { depth: 0.84, squash: true });
+  var shy = false;
+  function onType() {
+    Q.focus(function () { return Q.caretPoint(input); });
+    var secret = /парол/i.test(input.value);
+    if (secret !== shy) { shy = secret; Object.keys(buddies).forEach(function (k) { buddies[k].turnAway(secret); }); say(secret ? 'Помощники отвернулись — пароли не подсматривают.' : ''); }
+  }
+  input.addEventListener('focus', onType); input.addEventListener('input', onType); input.addEventListener('keyup', onType);
+  input.addEventListener('blur', function () { Q.focus(null); });
+  var sayTimer = 0;
+  function say(html, ms) {
+    clearTimeout(sayTimer);
+    toast.innerHTML = html; toast.style.opacity = html ? 1 : 0;
+    lead.style.opacity = html && !L.phone ? 0 : 1;
+    if (ms) sayTimer = setTimeout(function () { say(''); }, ms);
+  }
+
+  bar.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = input.value.trim() || input.getAttribute('placeholder').replace('▍', '').trim() || 'новая мысль';
+    if (shy) { shy = false; Object.keys(buddies).forEach(function (k) { buddies[k].turnAway(false); }); }
+    input.value = '';
+    barPress.set(0.9); barPress.to(1);
+    var r = input.getBoundingClientRect();
+    var e2 = buddies.elik.root.getBoundingClientRect();
+    var chip = document.createElement('div');
+    chip.className = 'flying jelly j-yellow'; chip.textContent = text;
+    document.body.appendChild(chip);
+    var x = Q.spring(r.left, 1), y = Q.spring(r.top + r.height / 2 - 22, 1), s = Q.spring(1, 0.7);
+    var draw = Q.render(function () { chip.style.transform = 'translate3d(' + x.x + 'px,' + y.x + 'px,0) scale(' + s.x + ')'; });
+    x.cb = y.cb = s.cb = draw; draw();
+    Object.keys(buddies).forEach(function (k) { buddies[k].mood('happy', 1500); });
+    requestAnimationFrame(function () {
+      x.to(e2.left + e2.width / 2 - 60); y.kick(-1100); y.to(e2.top - 40); s.to(0.5);
+    });
+    setTimeout(function () {
+      s.to(0); buddies.elik.jump(560);
+      say('<b>Элик поймал:</b> «' + text.replace(/</g, '&lt;').slice(0, 34) + (text.length > 34 ? '…' : '') + '» → Входящие', 3800);
+      setTimeout(function () { chip.remove(); }, 400);
+    }, 650);
+    Q.focus(null); input.blur();
+  });
+})();
+</script>
+</body>
+</html>
