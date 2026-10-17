@@ -10,11 +10,11 @@
 - **Код нового Qubite:** Rust-сервер с проверками здоровья и миграциями (`crates/`). Как запустить — [DEVELOPMENT](../engineering/DEVELOPMENT.md).
 - **Старый Qubite:** `legacy/qubite-v1/`, 321 тест проходит. На Raspberry Pi работает старая версия (ветка `tournaments` / тег `qubite-v1.0`) — **не делать там `git pull` main**.
 - **Архивы:** ветка `codex` (работа Codex, не используется), ветка `tournaments` и тег `qubite-v1.0` (старый Qubite до переноса).
-- **Не в git:** `assets/` (дизайн-лаборатория Codex, 132 МБ) — удаляется в начале DS-001 после просмотра ([D-116](../product/DECISIONS.md)); заполненные `.env` в `legacy/qubite-v1/` и `legacy/qubite-v1/deploy/`.
+- **Не в git:** `assets/` (дизайн-лаборатория Codex, 132 МБ; собранная версия — `assets/design-lab/dist`, открыть через `python3 -m http.server -d assets/design-lab/dist`) — удаляется после завершения дизайна ([D-144](../product/DECISIONS.md)); заполненные `.env` в `legacy/qubite-v1/` и `legacy/qubite-v1/deploy/`.
 
 ## Следующие задачи
 
-1. **DS-001** — дизайн (ready). **Новая сессия начинает здесь:** прочитать [DESIGN_SYSTEM §10](../design/DESIGN_SYSTEM.md), [REFERENCES](../design/REFERENCES.md), решения D-139…D-144; начать с шага 0 (бриф), владельцу — ссылка через `cloudflared tunnel --url http://localhost:5173`.
+1. **DS-001** — дизайн (in progress). Первая попытка отклонена ([D-151](../product/DECISIONS.md), архив — ветка `ds-001-experiment-1`). **Новая сессия начинает здесь:** Claude Design по промпту [design/CLAUDE_DESIGN_PROMPT.md](../design/CLAUDE_DESIGN_PROMPT.md) — три направления визуального языка (лендинг + «Сегодня»). `cloudflared` на компьютере владельца ещё не установлен.
 2. **AUTH-001** — аккаунты, owner через CLI, вход по паролю (можно параллельно с дизайном).
 3. **INK-001** — диагностика планшета (ready, параллельно).
 

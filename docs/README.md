@@ -36,6 +36,7 @@
 | **[design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** | «Поток» + «Игрушечная»: цвета, шрифты, движение, производительность |
 | [design/COMPANIONS.md](design/COMPANIONS.md) | Помощники-питомцы и разбор видео-эталона |
 | [design/REFERENCES.md](design/REFERENCES.md) | Референсы по ощущению и выбор владельца |
+| [design/CLAUDE_DESIGN_PROMPT.md](design/CLAUDE_DESIGN_PROMPT.md) | Промпт для Claude Design: поиск визуального языка |
 
 ## Разработка и эксплуатация
 
