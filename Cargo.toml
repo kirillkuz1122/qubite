@@ -14,3 +14,11 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+
+# Сборки для разработки занимают меньше места и собираются быстрее:
+# свой код — только номера строк для трассировок, сторонние библиотеки — без отладочной информации.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

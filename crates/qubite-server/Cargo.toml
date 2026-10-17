@@ -30,6 +30,7 @@ workspace = true
 
 [dev-dependencies]
 qubite-db = { path = "../qubite-db" }
+qubite-testkit = { path = "../qubite-testkit" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }
 uuid = { version = "1.28.0", features = ["v4"] }
