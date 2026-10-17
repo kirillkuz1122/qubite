@@ -35,6 +35,7 @@
 |---|---|
 | **[design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** | «Поток» + «Игрушечная»: цвета, шрифты, движение, производительность |
 | [design/COMPANIONS.md](design/COMPANIONS.md) | Помощники-питомцы и разбор видео-эталона |
+| [design/REFERENCES.md](design/REFERENCES.md) | Референсы по ощущению и выбор владельца |
 
 ## Разработка и эксплуатация
 
