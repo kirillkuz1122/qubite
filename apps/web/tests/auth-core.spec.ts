@@ -441,31 +441,22 @@ test("real owner saves shared visibility with reauth; defaults locked and no per
     .click();
   await page.getByLabel("Твой пароль для подтверждения").fill(password);
   await page
-    .getByRole("button", { name: "Сохранить: Документы", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Изменения сохранены на сервере" }),
+  ).toBeVisible();
   await expect(page.getByLabel("Твой пароль для подтверждения")).toHaveValue(
     "",
   );
-  await expect(
-    page
-      .getByRole("group", { name: "Документы: без доступа" })
-      .getByRole("button", { name: "Скрывать" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page
-      .getByRole("group", { name: "Поиск: без доступа" })
-      .getByRole("button", { name: "Скрывать" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page.getByRole("button", { name: "Сохранить: Поиск", exact: true }),
-  ).toBeEnabled();
-  await page.getByLabel("Твой пароль для подтверждения").fill(password);
-  await page
-    .getByRole("button", { name: "Сохранить: Поиск", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Сохранить: Поиск", exact: true }),
-  ).toBeDisabled();
+  for (const name of ["Документы", "Поиск"])
+    await expect(
+      page
+        .getByRole("group", { name: name + ": без доступа" })
+        .getByRole("button", { name: "Скрывать" }),
+    ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(
     page
@@ -558,7 +549,7 @@ test("two real owner tabs reject stale save; wrong password and conflicts never 
     .getByLabel("Твой пароль для подтверждения")
     .fill("Wrong synthetic password 42!");
   await page
-    .getByRole("button", { name: "Сохранить: Документы", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Не удалось войти");
   expect(
@@ -568,7 +559,7 @@ test("two real owner tabs reject stale save; wrong password and conflicts never 
   ).toBe("locked");
   await page.getByLabel("Твой пароль для подтверждения").fill(password);
   await page
-    .getByRole("button", { name: "Сохранить: Документы", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
   await expect(
     page
@@ -581,7 +572,7 @@ test("two real owner tabs reject stale save; wrong password and conflicts never 
     .click();
   await other.getByLabel("Твой пароль для подтверждения").fill(password);
   await other
-    .getByRole("button", { name: "Сохранить: Соединение", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
   await expect(other.getByRole("alert")).toContainText("другой вкладке");
   expect(
@@ -593,12 +584,11 @@ test("two real owner tabs reject stale save; wrong password and conflicts never 
     .getByRole("button", { name: "Обновить настройки", exact: true })
     .click();
   await other
-    .getByRole("group", { name: "Соединение: без доступа" })
-    .getByRole("button", { name: "Скрывать" })
+    .getByRole("button", { name: "Я сверил: использовать текущую версию" })
     .click();
   await other.getByLabel("Твой пароль для подтверждения").fill(password);
   await other
-    .getByRole("button", { name: "Сохранить: Соединение", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
   await expect(
     other
@@ -672,4 +662,339 @@ test("real owner catalog and locked cards reflow, retain chosen material and pas
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await expect(page.locator(".living-tabs").first()).toBeVisible();
   }
+});
+
+test("owner draft survives reload and route exit without applying settings or retaining passwords", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  const group = page.getByRole("group", { name: "Документы: без доступа" });
+  await group.getByRole("button", { name: "Скрывать" }).click();
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page.reload();
+  await expect(group.getByRole("button", { name: "Скрывать" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    page.getByText("Восстановлен незавершённый черновик.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Твой пароль для подтверждения")).toHaveValue(
+    "",
+  );
+  expect(
+    JSON.stringify(await page.evaluate(() => ({ ...localStorage }))),
+  ).not.toContain(password);
+  expect(
+    (await (await page.request.get("/api/v1/owner/modules")).json()).items.find(
+      (m: { module: string }) => m.module === "docs",
+    ).visibility,
+  ).toBe("locked");
+  await page.goto("/#/profile");
+  await page.goto("/#/settings/owner");
+  await expect(group.getByRole("button", { name: "Скрывать" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .click();
+  await expect(
+    page.getByText("Изменения сохранены на сервере.", { exact: true }),
+  ).toBeVisible();
+});
+
+test("owner edits exact money and advanced caps; incomplete raw input survives reload", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await page.getByRole("button", { name: "Бюджеты AI", exact: true }).click();
+  const daily = page.getByLabel("День: предел в USD", { exact: true });
+  await daily.fill("12,");
+  await page.reload();
+  await expect(daily).toHaveValue("12,");
+  await daily.fill("12,345678");
+  await page
+    .getByText("Все лимиты: деньги, запросы и токены", { exact: true })
+    .click();
+  await page.getByLabel("Месяц: запросы", { exact: true }).fill("20");
+  await page.getByLabel("За всё время: USD", { exact: true }).fill("50");
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .click();
+  await expect(
+    page.getByText("Изменения сохранены на сервере.", { exact: true }),
+  ).toBeVisible();
+  const csrf = (await (await page.request.get("/api/v1/auth/csrf")).json())
+    .csrf_token;
+  const b = await (
+    await page.request.post("/api/v1/owner/console/budget", {
+      data: { scope: "global", key: "*" },
+      headers: { Origin: "http://127.0.0.1:4323", "X-CSRF-Token": csrf },
+    })
+  ).json();
+  expect(
+    b.data.items.find((x: { period: string }) => x.period === "day").usd_micro,
+  ).toBe(12345678);
+  expect(
+    b.data.items.find((x: { period: string }) => x.period === "month").requests,
+  ).toBe(20);
+  expect(
+    b.data.items.find((x: { period: string }) => x.period === "all").usd_micro,
+  ).toBe(50000000);
+});
+
+test("owner grants read and AI independently; user gets no implicit write or paid request", async ({
+  page,
+}) => {
+  const fixture = await (
+    await page.request.post("/__fixture__/catalog", {
+      data: { module: "docs" },
+    })
+  ).json();
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await page.getByRole("button", { name: "Люди", exact: true }).click();
+  await page
+    .getByRole("button", { name: /browser-member@example.test/ })
+    .click();
+  await page
+    .getByRole("switch", { name: "Документы: Чтение", exact: true })
+    .click();
+  await page
+    .getByRole("switch", { name: "Документы: AI", exact: true })
+    .click();
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .click();
+  await expect(
+    page.getByText("Изменения сохранены на сервере.", { exact: true }),
+  ).toBeVisible();
+  const detail = (
+    await (
+      await page.request.get("/api/v1/owner/console/users/" + fixture.member_id)
+    ).json()
+  ).data;
+  expect(
+    detail.grants
+      .filter((g: { effect: string }) => g.effect === "allow")
+      .map((g: { action: string }) => g.action)
+      .sort(),
+  ).toEqual(["ai", "read"]);
+  expect(detail.models).toEqual([]);
+});
+
+test("owner registration draft survives navigation; issued invite is shown once and never persisted", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await page.getByRole("button", { name: "Регистрация", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Режим регистрации" })
+    .getByRole("button", { name: "По приглашению", exact: true })
+    .click();
+  await page
+    .getByLabel("Email приглашённого, необязательно")
+    .fill("invite-only@example.test");
+  await page.reload();
+  await expect(
+    page.getByLabel("Email приглашённого, необязательно"),
+  ).toHaveValue("invite-only@example.test");
+  await expect(
+    page
+      .getByRole("group", { name: "Режим регистрации" })
+      .getByRole("button", { name: "По приглашению", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .click();
+  await expect(
+    page.getByText("Изменения сохранены на сервере.", { exact: true }),
+  ).toBeVisible();
+  // Applying configuration preserves other unfinished fields. Invitation issuance is separate.
+  await page.getByRole("button", { name: "Регистрация", exact: true }).click();
+  await page
+    .getByLabel("Email приглашённого, необязательно")
+    .fill("invite-only@example.test");
+  await page
+    .getByRole("button", { name: "Создать приглашение", exact: true })
+    .click();
+  const token = await page
+    .getByLabel("Приглашение для ручного ввода", { exact: true })
+    .inputValue();
+  expect(token).toMatch(/^qbt_ri_/);
+  const url = await page
+    .getByLabel("Ссылка приглашения", { exact: true })
+    .inputValue();
+  expect(url).toContain(token);
+  expect(
+    JSON.stringify(
+      await page.evaluate(() => ({ ...localStorage, ...sessionStorage })),
+    ),
+  ).not.toContain(token);
+  await page.reload();
+  await expect(
+    page.getByLabel("Приглашение для ручного ввода", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("lost owner response is reconciled after reload without sending the batch twice", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await page
+    .getByRole("group", { name: "Документы: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
+  let calls = 0;
+  await page.route("**/api/v1/owner/console/commands", async (route) => {
+    calls++;
+    await route.fetch();
+    await route.abort();
+  });
+  await page.getByLabel("Твой пароль для подтверждения").fill(password);
+  await page
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Проверить сохранение", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Проверить сохранение", exact: true })
+    .click();
+  await expect(
+    page.getByText("Изменения сохранены на сервере.", { exact: true }),
+  ).toBeVisible();
+  expect(calls).toBe(1);
+});
+
+test("storage failure is visible and blocks submit; it never claims to have saved a draft", async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await expect(
+    page.getByRole("heading", { name: "Видимость модулей" }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k.startsWith("qubite.owner.draft"))
+        throw new DOMException("quota", "QuotaExceededError");
+      return original.call(this, k, v);
+    };
+  });
+  await page
+    .getByRole("group", { name: "Документы: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
+  await expect(
+    page.getByText("Браузер не сохранил черновик.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Сохранить изменения", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Скачать черновик", exact: true }),
+  ).toBeVisible();
+});
+
+test("owner drafts do not render after a real account switch", async ({
+  page,
+}) => {
+  await page.request.post("/__fixture__/catalog", { data: { module: "docs" } });
+  await signedIn(page);
+  await page.goto("/#/settings/owner");
+  await page
+    .getByRole("group", { name: "Документы: без доступа" })
+    .getByRole("button", { name: "Скрывать" })
+    .click();
+  await page.goto("/#/profile");
+  await page.getByRole("button", { name: "Выйти", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "С возвращением." }),
+  ).toBeVisible();
+  await signedIn(page, "browser-member@example.test");
+  await page.goto("/#/settings/owner");
+  await expect(
+    page.getByRole("heading", { name: "Здесь пока нет доступа" }),
+  ).toBeVisible();
+  await expect(page.getByText("Твои изменения", { exact: true })).toHaveCount(
+    0,
+  );
+  expect((await page.request.get("/api/v1/owner/console")).status()).toBe(403);
+});
+
+test("all Console sections reflow in portrait and landscape, use Flux, and pass axe in both themes", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await signedIn(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const width of [360, 844, 1440]) {
+    await page.setViewportSize({ width, height: width === 844 ? 390 : 900 });
+    await page.goto("/#/settings/owner");
+    for (const name of [
+      "Люди",
+      "Бюджеты AI",
+      "Модули",
+      "Регистрация",
+      "Журнал",
+    ]) {
+      await page
+        .getByRole("group", { name: "Разделы Owner Console" })
+        .getByRole("button", { name, exact: true })
+        .click();
+      await expect(page.locator(".owner-console")).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      ).toBeTruthy();
+    }
+  }
+  for (const dark of [false, true]) {
+    await page.goto("/#/settings");
+    const sw = page.getByRole("switch", { name: "Тёмная тема" });
+    if ((await sw.isChecked()) !== dark) await sw.click();
+    await page.goto("/#/settings/owner");
+    for (const name of [
+      "Люди",
+      "Бюджеты AI",
+      "Модули",
+      "Регистрация",
+      "Журнал",
+    ]) {
+      await page
+        .getByRole("group", { name: "Разделы Owner Console" })
+        .getByRole("button", { name, exact: true })
+        .click();
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    }
+  }
+  await page.goto("/#/settings");
+  const sw = page.getByRole("switch", { name: "Тёмная тема" });
+  if (await sw.isChecked()) await sw.click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/settings/owner");
+  await page.getByRole("button", { name: "Бюджеты AI", exact: true }).click();
+  await expect(page.locator(".owner-money")).toHaveCount(2);
+  await page.screenshot({
+    path: "/tmp/qubite-owner-phone.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: "/tmp/qubite-owner-desktop.png",
+    fullPage: true,
+  });
 });

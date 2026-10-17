@@ -82,6 +82,52 @@ class BudgetStore(PolicyStore):
             return dict(revision=revision, timezone=zone, timeout_seconds=timeout, limits=[dict(scope=r[0],key=r[1],period=r[2],
                         usd_micro=r[3],requests=r[4],tokens=r[5]) for r in limits])
 
+    def _apply_configuration(self, db, command):
+        """Shared mutation inside the caller's guarded policy+budget transaction."""
+        data = command.model_dump(mode='json')
+        before = None
+        if isinstance(command, BudgetLimit):
+            if command.scope == 'user': self._exists(db, 'subjects', 'id', UUID(command.key))
+            if command.scope == 'module': self._exists(db, 'policy_modules', 'id', command.key)
+            if command.scope == 'project':
+                project = db.execute("SELECT 1 FROM qubite_core.policy_resources WHERE id=%s AND module='projects'",
+                                     (UUID(command.key),)).fetchone()
+                if not project: raise AuthError(400, 'invalid_budget_request')
+            account = self._account(db, command.scope, command.key)
+            old = db.execute('''SELECT usd_micro,requests,tokens FROM qubite_core.ai_budget_limits
+                WHERE account_id=%s AND period=%s''', (account, command.period)).fetchone()
+            before = list(old) if old else None
+            db.execute('''INSERT INTO qubite_core.ai_budget_limits VALUES(%s,%s,%s,%s,%s)
+                ON CONFLICT(account_id,period) DO UPDATE SET usd_micro=EXCLUDED.usd_micro,
+                requests=EXCLUDED.requests,tokens=EXCLUDED.tokens''',
+                (account,command.period,command.usd_micro,command.requests,command.tokens))
+        elif isinstance(command, DispatchSettings):
+            before = db.execute('SELECT timeout_seconds FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
+            db.execute('UPDATE qubite_core.ai_budget_state SET timeout_seconds=%s WHERE singleton', (command.timeout_seconds,))
+        elif isinstance(command, Timezone):
+            before = db.execute('SELECT timezone FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
+            db.execute('UPDATE qubite_core.ai_budget_state SET timezone=%s WHERE singleton', (command.name,))
+        elif isinstance(command, Price):
+            if command.expires_at <= self._now(): raise AuthError(400, 'invalid_budget_request')
+            if db.execute('SELECT 1 FROM qubite_core.ai_budget_prices WHERE id=%s', (command.id,)).fetchone():
+                raise AuthError(409, 'price_immutable')
+            db.execute('INSERT INTO qubite_core.ai_budget_prices VALUES(%s,%s,%s)',
+                       (command.id,Jsonb(data),self._now()))
+        else:
+            project = db.execute('SELECT workspace_id,module FROM qubite_core.policy_resources WHERE id=%s',
+                                 (command.project_id,)).fetchone()
+            resource = db.execute('SELECT workspace_id FROM qubite_core.policy_resources WHERE id=%s',
+                                  (command.resource_id,)).fetchone()
+            if not project or project[1] != 'projects' or not resource or project[0] != resource[0]:
+                raise AuthError(400, 'invalid_budget_request')
+            old = db.execute('SELECT project_id FROM qubite_core.ai_budget_project_bindings WHERE resource_id=%s',
+                             (command.resource_id,)).fetchone()
+            before = str(old[0]) if old else None
+            db.execute('''INSERT INTO qubite_core.ai_budget_project_bindings VALUES(%s,%s)
+                ON CONFLICT(resource_id) DO UPDATE SET project_id=EXCLUDED.project_id''',
+                       (command.resource_id,command.project_id))
+        return dict(before=before, after=data)
+
     def configure(self, raw, csrf, command, expected, command_id):
         """Guarded internal owner hook. No silent resets, deletes or price replacement."""
         if type(expected) is not int or expected < 1: raise AuthError(400, 'invalid_budget_request')
@@ -103,51 +149,11 @@ class BudgetStore(PolicyStore):
                     raise AuthError(409, 'budget_conflict')
                 return dict(revision=replay[3])
             if revision != expected: raise AuthError(409, 'budget_conflict')
-            before = None
-            if isinstance(command, BudgetLimit):
-                if command.scope == 'user': self._exists(db, 'subjects', 'id', UUID(command.key))
-                if command.scope == 'module': self._exists(db, 'policy_modules', 'id', command.key)
-                if command.scope == 'project':
-                    project = db.execute("SELECT 1 FROM qubite_core.policy_resources WHERE id=%s AND module='projects'",
-                                         (UUID(command.key),)).fetchone()
-                    if not project: raise AuthError(400, 'invalid_budget_request')
-                account = self._account(db, command.scope, command.key)
-                old = db.execute('''SELECT usd_micro,requests,tokens FROM qubite_core.ai_budget_limits
-                    WHERE account_id=%s AND period=%s''', (account, command.period)).fetchone()
-                before = list(old) if old else None
-                db.execute('''INSERT INTO qubite_core.ai_budget_limits VALUES(%s,%s,%s,%s,%s)
-                    ON CONFLICT(account_id,period) DO UPDATE SET usd_micro=EXCLUDED.usd_micro,
-                    requests=EXCLUDED.requests,tokens=EXCLUDED.tokens''',
-                    (account,command.period,command.usd_micro,command.requests,command.tokens))
-            elif isinstance(command, DispatchSettings):
-                before = db.execute('SELECT timeout_seconds FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
-                db.execute('UPDATE qubite_core.ai_budget_state SET timeout_seconds=%s WHERE singleton', (command.timeout_seconds,))
-            elif isinstance(command, Timezone):
-                before = db.execute('SELECT timezone FROM qubite_core.ai_budget_state WHERE singleton').fetchone()[0]
-                db.execute('UPDATE qubite_core.ai_budget_state SET timezone=%s WHERE singleton', (command.name,))
-            elif isinstance(command, Price):
-                if command.expires_at <= self._now(): raise AuthError(400, 'invalid_budget_request')
-                if db.execute('SELECT 1 FROM qubite_core.ai_budget_prices WHERE id=%s', (command.id,)).fetchone():
-                    raise AuthError(409, 'price_immutable')
-                db.execute('INSERT INTO qubite_core.ai_budget_prices VALUES(%s,%s,%s)',
-                           (command.id,Jsonb(data),self._now()))
-            else:
-                project = db.execute('SELECT workspace_id,module FROM qubite_core.policy_resources WHERE id=%s',
-                                     (command.project_id,)).fetchone()
-                resource = db.execute('SELECT workspace_id FROM qubite_core.policy_resources WHERE id=%s',
-                                      (command.resource_id,)).fetchone()
-                if not project or project[1] != 'projects' or not resource or project[0] != resource[0]:
-                    raise AuthError(400, 'invalid_budget_request')
-                old = db.execute('SELECT project_id FROM qubite_core.ai_budget_project_bindings WHERE resource_id=%s',
-                                 (command.resource_id,)).fetchone()
-                before = str(old[0]) if old else None
-                db.execute('''INSERT INTO qubite_core.ai_budget_project_bindings VALUES(%s,%s)
-                    ON CONFLICT(resource_id) DO UPDATE SET project_id=EXCLUDED.project_id''',
-                           (command.resource_id,command.project_id))
+            change = self._apply_configuration(db, command)
             db.execute('UPDATE qubite_core.ai_budget_state SET revision=revision+1 WHERE singleton')
             db.execute('UPDATE qubite_core.policy_state SET revision=revision+1 WHERE singleton')
             db.execute('INSERT INTO qubite_core.ai_budget_audit VALUES(%s,%s,%s,%s,%s,%s,%s)',
-                       (command_id,subject['id'],hashed,expected,revision+1,Jsonb(dict(before=before,after=data)),self._now()))
+                       (command_id,subject['id'],hashed,expected,revision+1,Jsonb(change),self._now()))
             return dict(revision=revision+1)
 
     @staticmethod

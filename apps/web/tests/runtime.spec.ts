@@ -24,6 +24,25 @@ async function api(
   await page.route("**/api/v1/owner/modules", (r) =>
     r.fulfill({ json: { revision: 1, items: [] } }),
   );
+  await page.route("**/api/v1/owner/console", (r) =>
+    r.fulfill({
+      json: {
+        data: {
+          revision: "owner-1-1-1",
+          timezone: "Asia/Yekaterinburg",
+          timeout_seconds: 60,
+          now: "2030-01-01T00:00:00Z",
+          reauth_until: null,
+          registration: {
+            mode: "invite",
+            revision: 1,
+            consent_version: "2026-10-13",
+          },
+          modules: [],
+        },
+      },
+    }),
+  );
   await page.route("**/api/v1/me", (r) => r.fulfill({ json: p }));
   await page.route("**/api/v1/me/access", (r) => r.fulfill({ json: access }));
 }

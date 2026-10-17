@@ -158,6 +158,63 @@ class PolicyStore(AuthStore):
         if not db.execute('SELECT 1 FROM qubite_core.'+table+' WHERE '+column+'=%s', (value,)).fetchone():
             raise AuthError(400, 'invalid_policy_command')
 
+    def _apply_command(self, db, command):
+        """Shared transactional mutation; callers supply owner/CSRF/CAS/audit guards."""
+        data = command.model_dump(mode='json')
+        expiry = getattr(command, 'expires_at', None)
+        if expiry is not None and not self.clock() < expiry <= self.clock()+timedelta(days=365):
+            raise AuthError(400, 'invalid_policy_command')
+        if hasattr(command, 'module'):
+            self._exists(db, 'policy_modules', 'id', command.module)
+        if hasattr(command, 'subject_id'):
+            self._exists(db, 'subjects', 'id', command.subject_id)
+        if command.kind == 'catalog_visibility':
+            old = db.execute('SELECT visibility FROM qubite_core.module_catalog WHERE module=%s', (command.module,)).fetchone()
+            if not old:
+                raise AuthError(400, 'invalid_policy_command')
+            db.execute('UPDATE qubite_core.module_catalog SET visibility=%s WHERE module=%s', (command.visibility, command.module))
+        elif command.kind == 'module':
+            old = db.execute('SELECT enabled FROM qubite_core.policy_modules WHERE id=%s', (command.module,)).fetchone()
+            db.execute('UPDATE qubite_core.policy_modules SET enabled=%s WHERE id=%s', (command.enabled, command.module))
+        elif command.kind == 'entitlement':
+            key = (command.subject_id, command.module, command.action)
+            old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_entitlements WHERE subject_id=%s AND module=%s AND action=%s', key).fetchone()
+            db.execute('''INSERT INTO qubite_core.policy_entitlements VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT(subject_id,module,action) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
+        elif command.kind == 'workspace':
+            self._exists(db, 'subjects', 'id', command.owner_id)
+            old = db.execute('SELECT owner_id FROM qubite_core.policy_workspaces WHERE id=%s', (command.workspace_id,)).fetchone()
+            if old: raise AuthError(409, 'policy_conflict')
+            db.execute('INSERT INTO qubite_core.policy_workspaces VALUES (%s,%s)', (command.workspace_id, command.owner_id))
+        elif command.kind == 'resource':
+            self._exists(db, 'policy_workspaces', 'id', command.workspace_id)
+            old = db.execute('SELECT workspace_id,module FROM qubite_core.policy_resources WHERE id=%s', (command.resource_id,)).fetchone()
+            if old: raise AuthError(409, 'policy_conflict')
+            db.execute('INSERT INTO qubite_core.policy_resources VALUES (%s,%s,%s)', (command.resource_id, command.workspace_id, command.module))
+        elif command.kind == 'membership':
+            self._exists(db, 'policy_workspaces', 'id', command.workspace_id)
+            key = (command.workspace_id, command.subject_id)
+            old = db.execute('SELECT role,enabled,expires_at FROM qubite_core.policy_memberships WHERE workspace_id=%s AND subject_id=%s', key).fetchone()
+            db.execute('''INSERT INTO qubite_core.policy_memberships VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT(workspace_id,subject_id) DO UPDATE SET role=EXCLUDED.role,enabled=EXCLUDED.enabled,expires_at=EXCLUDED.expires_at''', (*key, command.role, command.enabled, expiry))
+        elif command.kind == 'acl':
+            self._exists(db, 'policy_resources', 'id', command.resource_id)
+            key = (command.resource_id, command.subject_id, command.action)
+            old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_acl WHERE resource_id=%s AND subject_id=%s AND action=%s', key).fetchone()
+            db.execute('''INSERT INTO qubite_core.policy_acl VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT(resource_id,subject_id,action) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
+        elif command.kind == 'ai_grant':
+            key = (command.subject_id, command.module, command.provider, command.model)
+            old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_ai_grants WHERE subject_id=%s AND module=%s AND provider=%s AND model=%s', key).fetchone()
+            db.execute('''INSERT INTO qubite_core.policy_ai_grants VALUES (%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(subject_id,module,provider,model) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
+        else:
+            raise AuthError(400, 'invalid_policy_command')
+        # Audit is structured metadata only. Old tuples have UUID/datetime converted.
+        previous = [str(v) if isinstance(v, (UUID, datetime)) else v for v in old] if old else None
+        change = {'before': previous, 'after': data}
+        return change
+
     def command(self, raw, csrf, command, expected, command_id):
         data = command.model_dump(mode='json')
         hashed = hashlib.sha256(json.dumps(data, sort_keys=True, separators=(',', ':')).encode()).digest()
@@ -173,58 +230,7 @@ class PolicyStore(AuthStore):
                 return {'revision': replay[3]}
             if revision != expected:
                 raise AuthError(409, 'policy_conflict')
-            expiry = getattr(command, 'expires_at', None)
-            if expiry is not None and not self.clock() < expiry <= self.clock()+timedelta(days=365):
-                raise AuthError(400, 'invalid_policy_command')
-            if hasattr(command, 'module'):
-                self._exists(db, 'policy_modules', 'id', command.module)
-            if hasattr(command, 'subject_id'):
-                self._exists(db, 'subjects', 'id', command.subject_id)
-            if command.kind == 'catalog_visibility':
-                old = db.execute('SELECT visibility FROM qubite_core.module_catalog WHERE module=%s', (command.module,)).fetchone()
-                if not old:
-                    raise AuthError(400, 'invalid_policy_command')
-                db.execute('UPDATE qubite_core.module_catalog SET visibility=%s WHERE module=%s', (command.visibility, command.module))
-            elif command.kind == 'module':
-                old = db.execute('SELECT enabled FROM qubite_core.policy_modules WHERE id=%s', (command.module,)).fetchone()
-                db.execute('UPDATE qubite_core.policy_modules SET enabled=%s WHERE id=%s', (command.enabled, command.module))
-            elif command.kind == 'entitlement':
-                key = (command.subject_id, command.module, command.action)
-                old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_entitlements WHERE subject_id=%s AND module=%s AND action=%s', key).fetchone()
-                db.execute('''INSERT INTO qubite_core.policy_entitlements VALUES (%s,%s,%s,%s,%s)
-                    ON CONFLICT(subject_id,module,action) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
-            elif command.kind == 'workspace':
-                self._exists(db, 'subjects', 'id', command.owner_id)
-                old = db.execute('SELECT owner_id FROM qubite_core.policy_workspaces WHERE id=%s', (command.workspace_id,)).fetchone()
-                if old: raise AuthError(409, 'policy_conflict')
-                db.execute('INSERT INTO qubite_core.policy_workspaces VALUES (%s,%s)', (command.workspace_id, command.owner_id))
-            elif command.kind == 'resource':
-                self._exists(db, 'policy_workspaces', 'id', command.workspace_id)
-                old = db.execute('SELECT workspace_id,module FROM qubite_core.policy_resources WHERE id=%s', (command.resource_id,)).fetchone()
-                if old: raise AuthError(409, 'policy_conflict')
-                db.execute('INSERT INTO qubite_core.policy_resources VALUES (%s,%s,%s)', (command.resource_id, command.workspace_id, command.module))
-            elif command.kind == 'membership':
-                self._exists(db, 'policy_workspaces', 'id', command.workspace_id)
-                key = (command.workspace_id, command.subject_id)
-                old = db.execute('SELECT role,enabled,expires_at FROM qubite_core.policy_memberships WHERE workspace_id=%s AND subject_id=%s', key).fetchone()
-                db.execute('''INSERT INTO qubite_core.policy_memberships VALUES (%s,%s,%s,%s,%s)
-                    ON CONFLICT(workspace_id,subject_id) DO UPDATE SET role=EXCLUDED.role,enabled=EXCLUDED.enabled,expires_at=EXCLUDED.expires_at''', (*key, command.role, command.enabled, expiry))
-            elif command.kind == 'acl':
-                self._exists(db, 'policy_resources', 'id', command.resource_id)
-                key = (command.resource_id, command.subject_id, command.action)
-                old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_acl WHERE resource_id=%s AND subject_id=%s AND action=%s', key).fetchone()
-                db.execute('''INSERT INTO qubite_core.policy_acl VALUES (%s,%s,%s,%s,%s)
-                    ON CONFLICT(resource_id,subject_id,action) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
-            elif command.kind == 'ai_grant':
-                key = (command.subject_id, command.module, command.provider, command.model)
-                old = db.execute('SELECT effect,expires_at FROM qubite_core.policy_ai_grants WHERE subject_id=%s AND module=%s AND provider=%s AND model=%s', key).fetchone()
-                db.execute('''INSERT INTO qubite_core.policy_ai_grants VALUES (%s,%s,%s,%s,%s,%s)
-                    ON CONFLICT(subject_id,module,provider,model) DO UPDATE SET effect=EXCLUDED.effect,expires_at=EXCLUDED.expires_at''', (*key, command.effect, expiry))
-            else:
-                raise AuthError(400, 'invalid_policy_command')
-            # Audit is structured metadata only. Old tuples have UUID/datetime converted.
-            previous = [str(v) if isinstance(v, (UUID, datetime)) else v for v in old] if old else None
-            change = {'before': previous, 'after': data}
+            change = self._apply_command(db, command)
             db.execute('UPDATE qubite_core.policy_state SET revision=revision+1 WHERE singleton')
             db.execute('INSERT INTO qubite_core.policy_audit VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
                        (command_id, subject['id'], hashed, expected, revision+1, command.kind, command.reason, Jsonb(change), self.clock()))

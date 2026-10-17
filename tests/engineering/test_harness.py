@@ -37,15 +37,16 @@ class CoreGroupingTest(unittest.TestCase):
     def test_partition_includes_current_and_future_nested_files_exactly_once(self):
         files = ['tests/test_auth.py', 'tests/test_foundation.py', 'tests/test_identity.py',
                  'tests/test_oauth.py', 'tests/test_challenges.py', 'tests/test_policy.py', 'tests/test_catalog.py',
-                 'tests/future/adapter_test.py', 'tests/test_budgets.py', 'tests/test_dispatcher.py']
+                 'tests/future/adapter_test.py', 'tests/test_budgets.py', 'tests/test_dispatcher.py', 'tests/test_owner.py']
         groups = self.runner().core_groups(files)
-        self.assertEqual(len(groups), 6)
+        self.assertEqual(len(groups), 7)
         self.assertCountEqual([item for group in groups for item in group], files)
         self.assertEqual(len(set(groups[0]) & set(groups[1])), 0)
         self.assertIn('tests/future/adapter_test.py', groups[2])
         self.assertEqual(groups[3], ['tests/test_catalog.py'])
         self.assertEqual(groups[4], ['tests/test_budgets.py'])
         self.assertEqual(groups[5], ['tests/test_dispatcher.py'])
+        self.assertEqual(groups[6], ['tests/test_owner.py'])
 
     def test_empty_group_is_retained_without_losing_future_tests(self):
-        self.assertEqual(self.runner().core_groups(['tests/test_new.py']), [[], [], ['tests/test_new.py'], [], [], []])
+        self.assertEqual(self.runner().core_groups(['tests/test_new.py']), [[], [], ['tests/test_new.py'], [], [], [], []])

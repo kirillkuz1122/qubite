@@ -17,6 +17,7 @@ from .identity.oauth.routes import create_router as oauth_router
 from .identity.challenges.routes import create_router as challenge_router
 from .policy.routes import create_router as policy_router
 from .identity.registration.routes import create_router as registration_router
+from .owner.routes import create_router as owner_router
 
 
 class Health(BaseModel):
@@ -43,6 +44,7 @@ def create_app(settings: Settings | None = None, *, auth_clock=None, oauth_trans
     app.add_middleware(AuthGuard, settings=settings)
     app.include_router(create_router(settings, auth_clock))
     app.include_router(policy_router(settings, auth_clock))
+    app.include_router(owner_router(settings, auth_clock))
     app.include_router(challenge_router(settings, auth_clock, mail_transport))
     app.include_router(registration_router(settings, auth_clock, mail_transport))
     app.include_router(oauth_router(settings,auth_clock,Exchange(transport=oauth_transport,network_enabled=settings.oauth_network_enabled)))

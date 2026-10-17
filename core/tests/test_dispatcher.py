@@ -325,7 +325,7 @@ def test_migration_preserves_old_pending_and_never_replays_uncertain_old_outbox(
     with psycopg.connect(database_url) as db:
         assert db.execute("SELECT to_regclass('qubite_core.ai_dispatch_jobs')").fetchone()[0] is None
         assert db.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='qubite_core' AND table_name='ai_budget_state' AND column_name='timeout_seconds'").fetchone()[0]==0
-    assert apply(s)==('0010_dispatcher',) and apply(s)==() and check(s)=='0010_dispatcher'
+    assert apply(s)==('0010_dispatcher', '0011_owner_console') and apply(s)==() and check(s)=='0011_owner_console'
     with psycopg.connect(database_url) as db:
         for invocation,(state,_,job) in zip(ids,cases):
             assert db.execute('SELECT state,subject_id,session_id,reserved_usd FROM qubite_core.ai_budget_invocations WHERE id=%s',(invocation,)).fetchone()==(state,subject,session,600000)

@@ -19,12 +19,14 @@ REGISTRATION_PATHS = {'/api/v1/auth/registration', '/api/v1/auth/register',
 REGISTRATION_BODY_PATHS = {'/api/v1/auth/register', '/api/v1/owner/registration',
                            '/api/v1/owner/registration/invites'}
 PATHS |= EMAIL_PATHS | POLICY_PATHS | REGISTRATION_PATHS
+OWNER_BODY_PATHS = {'/api/v1/owner/console/'+p for p in ('users','budget','audit','commands','review')}
 LEGACY = {'qb_session', '__Host-qubite_search'}
 ALL_COOKIES = LEGACY | {'__Host-qubite_session','__Host-qubite_preauth','qubite_local_session','qubite_local_preauth'}
 
 
 def sensitive(path):
     return (path in PATHS or path.startswith('/api/v1/auth/sessions/')
+            or path == '/api/v1/owner/console' or path.startswith('/api/v1/owner/console/')
             or path.startswith('/api/v1/me/modules/')
             or re.fullmatch(r'/api/v1/owner/registration/invites/[^/]+', path) is not None
             or path == '/api/v1/auth/oauth/providers'
@@ -132,7 +134,7 @@ class AuthGuard:
                 if body and (len(content)!=1 or content[0].split(';')[0].strip().lower()!='application/json'):
                     raise AuthError(400,'invalid_request')
                 oauth_json = re.fullmatch(r'/api/v1/auth/oauth/[^/]+/start|/api/v1/me/oauth/[^/]+',scope['path']) is not None
-                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'} | EMAIL_PATHS | POLICY_BODY_PATHS | REGISTRATION_BODY_PATHS and not oauth_json:
+                if body and scope['path'] not in {'/api/v1/auth/session','/api/v1/auth/reauth'} | EMAIL_PATHS | POLICY_BODY_PATHS | REGISTRATION_BODY_PATHS | OWNER_BODY_PATHS and not oauth_json:
                     raise AuthError(400,'invalid_request')
                 async def replay():
                     return {'type':'http.request','body':bytes(body),'more_body':False}

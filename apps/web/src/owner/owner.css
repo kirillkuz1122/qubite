@@ -1,0 +1,365 @@
+.owner-console {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.owner-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 4px;
+}
+.owner-heading h2 {
+  font-size: clamp(23px, 3.4vw, 40px);
+  letter-spacing: -0.055em;
+  margin: 12px 0;
+}
+.owner-heading p,
+.owner-storage-note p {
+  margin: 0;
+}
+.owner-seal {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  flex: 0 0 auto;
+  border-radius: 38%;
+  background: var(--orange);
+  transform: rotate(-8deg);
+  box-shadow: 3px 5px 0 var(--text);
+}
+.owner-seal svg {
+  width: 62px;
+  height: 62px;
+}
+.owner-storage-note {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.owner-storage-note .status-chip {
+  flex-shrink: 0;
+}
+.owner-console > .living-tabs {
+  flex-wrap: wrap;
+}
+.owner-fields {
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  margin: 0;
+}
+.owner-fields .morph-current {
+  display: grid;
+  gap: 20px;
+}
+.owner-console .plain-card {
+  min-width: 0;
+}
+.owner-console .plain-card h2 {
+  margin-top: 0;
+}
+.owner-console details {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.owner-console summary {
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1.7;
+  min-height: 44px;
+}
+.owner-console .auth-field {
+  margin: 14px 0;
+}
+.owner-console .auth-field small {
+  font-weight: 400;
+}
+.owner-console select,
+.owner-console textarea {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+}
+.owner-console textarea {
+  min-height: 98px;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.owner-console [disabled],
+.owner-console fieldset:disabled .living-tabs {
+  opacity: 0.65;
+}
+.owner-module {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1fr);
+  gap: 12px 24px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+  align-items: center;
+}
+.owner-module-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.owner-module-title h3,
+.owner-module-title p {
+  margin: 0;
+}
+.owner-module-title p {
+  font-size: 13px;
+  margin-top: 5px;
+}
+.owner-module .switch-row {
+  grid-column: 1/-1;
+}
+.owner-person {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 16px;
+  border-radius: 22px;
+  margin-top: 10px;
+  gap: 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.owner-person.chosen {
+  background: var(--soft);
+  outline: 2px solid var(--text);
+}
+.owner-person > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.owner-person strong,
+.owner-person small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.owner-person small {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.owner-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 42px;
+  border-radius: 16px;
+  background: var(--yellow);
+  font-weight: 800;
+}
+.owner-grant-module {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.owner-grants {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+}
+.owner-grants .switch-row {
+  padding: 12px 0;
+}
+.owner-search,
+.owner-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.owner-search .auth-field,
+.owner-scope .auth-field {
+  flex: 1;
+  min-width: 180px;
+}
+.owner-search .button,
+.owner-scope .button {
+  margin-bottom: 14px;
+}
+.owner-money-grid,
+.owner-funding {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.owner-money {
+  padding: 24px;
+  border-radius: 28px;
+  color: var(--text);
+  border: 1px solid var(--text);
+  background: var(--orange);
+}
+.owner-money.blue {
+  background: var(--blue);
+}
+.owner-money > span,
+.owner-money > strong,
+.owner-money > small {
+  display: block;
+}
+.owner-money > strong {
+  font-family: "Unbounded Variable", sans-serif;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  margin: 18px 0 8px;
+}
+.owner-money dl {
+  font-size: 13px;
+  padding-top: 16px;
+}
+.owner-money dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0;
+}
+.owner-money dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.owner-limit-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.owner-save {
+  border: 2px solid var(--text);
+  box-shadow: 4px 5px 0 var(--text);
+  scroll-margin-bottom: 140px;
+}
+.owner-change-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.owner-change-list li {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.owner-change-list span {
+  display: block;
+  font-size: 13px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.owner-event summary {
+  display: grid;
+  gap: 6px;
+}
+.owner-event summary span {
+  font-weight: 400;
+  font-size: 13px;
+}
+.owner-event pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.owner-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.owner-invite small {
+  display: block;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.owner-invite-secret {
+  padding: 22px;
+  border-radius: 22px;
+  border: 2px solid var(--text);
+  margin: 24px 0;
+}
+@media (max-width: 700px) {
+  .owner-heading {
+    align-items: start;
+  }
+  .owner-seal {
+    width: 64px;
+    height: 64px;
+    border-radius: 22px;
+  }
+  .owner-seal svg {
+    width: 40px;
+    height: 40px;
+  }
+  .owner-storage-note {
+    display: grid;
+    gap: 10px;
+  }
+  .owner-storage-note .status-chip {
+    justify-self: start;
+  }
+  .owner-module,
+  .owner-money-grid,
+  .owner-funding,
+  .owner-limit-fields {
+    grid-template-columns: 1fr;
+  }
+  .owner-module {
+    gap: 16px;
+  }
+  .owner-grants {
+    grid-template-columns: 1fr;
+  }
+  .owner-person {
+    flex-wrap: wrap;
+  }
+  .owner-person .status-chip {
+    margin-left: 54px;
+  }
+  .owner-money {
+    padding: 22px;
+  }
+  .owner-console > .living-tabs button {
+    min-width: 100px;
+    flex: 1;
+  }
+  .owner-save {
+    box-shadow: 2px 3px 0 var(--text);
+  }
+  .owner-save .button {
+    width: 100%;
+  }
+  .owner-console {
+    gap: 20px;
+  }
+}
+
+.owner-money,
+.owner-seal,
+.owner-avatar {
+  color: #202b2e;
+}

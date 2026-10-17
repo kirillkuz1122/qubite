@@ -28,6 +28,7 @@ import { consumeAuthLink, type AuthEntry } from "./auth/routes";
 import { Security } from "./auth/Security";
 import { useCatalog, statusText, type Card } from "./catalog-api";
 import { OwnerCatalog } from "./OwnerCatalog";
+import { OwnerConsole } from "./owner/Console";
 import { MorphContent } from "./material/Transition";
 import { Mark } from "./material/Marks";
 import "./material/material.css";
@@ -760,7 +761,10 @@ function Shell({
               </LivingButton>
             </>
           ) : (
-            <OwnerCatalog onSaved={liveCatalog.reload} />
+            <OwnerConsole
+              owner={session.profile.id}
+              onSaved={liveCatalog.reload}
+            />
           )}
         </>
       );

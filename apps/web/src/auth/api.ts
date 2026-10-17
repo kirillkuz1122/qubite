@@ -79,7 +79,8 @@ export async function request(
   if (!response.headers.get("content-type")?.includes("application/json"))
     throw new AuthFault("invalid_response", response.status);
   const text = await response.text();
-  if (text.length > 65536) throw new AuthFault("invalid_response");
+  if (text.length > (path === "/api/v1/owner/console/audit" ? 1048576 : 65536))
+    throw new AuthFault("invalid_response");
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -224,6 +225,16 @@ export function errorMessage(error: unknown): string {
       "Настройки регистрации изменились. Обнови страницу перед новой попыткой.",
     policy_conflict:
       "Настройки изменились в другой вкладке. Обнови их перед сохранением.",
+    owner_conflict:
+      "Настройки изменились в другой вкладке. Черновик сохранён: обнови данные и сверь изменения.",
+    owner_protected:
+      "Аккаунт владельца защищён. Используй отдельные локальные команды для его обслуживания.",
+    module_not_installed:
+      "Этот модуль ещё не установлен. Его включение будет доступно после установки.",
+    invalid_owner_change: "Проверь выбранный модуль и параметры изменения.",
+    invalid_budget_request: "Проверь область и значения бюджетов.",
+    provider_not_available:
+      "Этот провайдер ещё не подключён. Сейчас доступен только тестовый режим.",
     policy_precondition_required: "Обнови настройки перед сохранением.",
     policy_unavailable: "Настройки временно недоступны. Попробуй позже.",
     reauth_required: "Подтверди действие паролем Qubite и попробуй снова.",

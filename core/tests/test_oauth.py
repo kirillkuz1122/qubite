@@ -406,7 +406,7 @@ def test_forward_migration_keeps_old_owner_password_and_password_session(databas
             created_at,last_seen_at,expires_at,absolute_expires_at,reauthed_at)
             VALUES (%s,%s,%s,%s,1,%s,%s,%s,%s,%s)""",
             (uuid4(),uid,digest(raw),digest(csrf_for(raw)),now,now,now+timedelta(days=7),now+timedelta(days=30),now))
-    assert apply(settings)==('0004_oauth','0005_challenges','0006_policy','0007_registration', "0008_catalog", "0009_budgets", "0010_dispatcher")
+    assert apply(settings)==('0004_oauth','0005_challenges','0006_policy','0007_registration', "0008_catalog", "0009_budgets", "0010_dispatcher", "0011_owner_console")
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT subject_id FROM qubite_core.platform_owner').fetchone()[0]==uid
         assert db.execute('SELECT password_hash FROM qubite_core.password_credentials').fetchone()[0]==phc

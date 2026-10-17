@@ -157,7 +157,7 @@ def test_forward_migration_preserves_old_identity_and_grants_and_fails_atomicall
     with psycopg.connect(database_url) as db:
         assert db.execute("SELECT to_regclass('qubite_core.module_catalog')").fetchone()[0] is None
         assert db.execute("SELECT count(*) FROM qubite_core.policy_modules WHERE id='projects'").fetchone()[0]==0
-    assert apply(settings)==('0008_catalog','0009_budgets','0010_dispatcher') and apply(settings)==() and check(settings)=='0010_dispatcher'
+    assert apply(settings)==('0008_catalog','0009_budgets','0010_dispatcher', '0011_owner_console') and apply(settings)==() and check(settings)=='0011_owner_console'
     with psycopg.connect(database_url) as db:
         assert db.execute('SELECT subject_id FROM qubite_core.policy_entitlements').fetchone()[0]==sid
         assert db.execute('SELECT count(*) FROM qubite_core.module_catalog').fetchone()[0]==8

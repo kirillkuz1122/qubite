@@ -147,6 +147,12 @@ def validate_schema(connection, migrations):
             raise MigrationError('Core dispatch schema is missing; explicit recovery required')
 
 
+    if '0011_owner_console' in versions:
+        if not connection.execute("""SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='qubite_core' AND c.relname='owner_console_commands' AND c.relkind IN ('r','p')""").fetchone():
+            raise MigrationError('Core owner console schema is missing; explicit recovery required')
+
+
 def ensure_current(connection, migrations):
     """Same-transaction gate shared by readonly readiness and explicit writers."""
     rows = history(connection)

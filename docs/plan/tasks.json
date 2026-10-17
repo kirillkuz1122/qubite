@@ -477,13 +477,21 @@
       "QUB-UI-003"
     ],
     "files": [
-      "apps/web/owner (будущий)",
-      "core/qubite/owner (будущий)"
+      "apps/web/src/owner/",
+      "core/qubite/owner/",
+      "core/qubite/sql/0011_owner_console.sql",
+      "core/qubite/policy/store.py",
+      "core/qubite/ai/budgets.py",
+      "core/tests/test_owner.py",
+      "apps/web/tests/owner*.spec.ts",
+      "contracts/core-v1.json"
     ],
     "acceptance": [
       "Manual account grants/revoke/budget with audit+If-Match",
       "Nonowner owner API denied, no self-service paid grant",
-      "Переключатель регистрации/режимы и оба типа invite через AUTH-006 API; global login/maintenance/provider toggles только после AUTH-015. ChatGPT personal plan vs owner API отдельные карточки/права."
+      "Переключатель регистрации/режимы и оба типа invite через AUTH-006 API; global login/maintenance/provider toggles только после AUTH-015. ChatGPT personal plan vs owner API отдельные карточки/права.",
+      "Подтверждены15.10.2026: без шаблонов прав; основной экран бюджета деньги/расход/резерв, остальные caps раскрываются; явное сохранение со сводкой.",
+      "Черновик survives reload/navigation в этом браузере, owner-scoped; без паролей/секретов, без автоматического применения, конфликт и потерянный ответ сохраняют редактирование и receipt identity."
     ],
     "tests": [
       "Будущий core integration + Playwright console tests"
@@ -492,10 +500,12 @@
       "Обычный user не вызывает management API; manual grants audit; owner singleton защищён"
     ],
     "rollback": "До switch сохранить authority/source; отключить task feature/routing, preserve новые записи; применить migration runbook если есть schema change",
-    "status": "backlog",
+    "status": "in_progress",
     "commit": null,
-    "architecture_approved": false,
-    "verification": []
+    "architecture_approved": true,
+    "verification": [
+      "15.10.2026: перед реализацией получены три ответа владельца; дополнительное требование сохранения незавершённых изменений после случайного выхода/перезагрузки. Base main/origin d920ea119a627b11852f26109a860d84ca685db9; архив96f0457a без изменений. Постороннее удаление .antigravitycli не включать."
+    ]
   },
   {
     "id": "QUB-AUTH-001",

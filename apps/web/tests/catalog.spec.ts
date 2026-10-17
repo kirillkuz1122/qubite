@@ -153,19 +153,31 @@ test("owner timeout leaves no fake save, leaks no password to storage and does n
   page,
 }) => {
   await api(page, [doc], true);
-  await page.route("**/api/v1/owner/modules", (r) =>
+  await page.route("**/api/v1/owner/console", (r) =>
     r.fulfill({
       json: {
-        revision: 1,
-        items: [
-          {
-            ...doc,
-            status: "preparing",
-            installed: false,
-            enabled: false,
-            released: false,
+        data: {
+          revision: "owner-1-1-1",
+          timezone: "Asia/Yekaterinburg",
+          timeout_seconds: 60,
+          now: "2030-01-01T00:00:00Z",
+          reauth_until: null,
+          registration: {
+            mode: "invite",
+            revision: 1,
+            consent_version: "2026-10-13",
           },
-        ],
+          modules: [
+            {
+              id: "docs",
+              name: "Документы",
+              visibility: "locked",
+              installed: false,
+              enabled: false,
+              released: false,
+            },
+          ],
+        },
       },
     }),
   );
@@ -174,9 +186,9 @@ test("owner timeout leaves no fake save, leaks no password to storage and does n
   );
   await page.route("**/api/v1/auth/reauth", (r) => r.fulfill({ status: 204 }));
   let saves = 0;
-  await page.route("**/api/v1/owner/policy/commands", (r) => {
+  await page.route("**/api/v1/owner/console/commands", (r) => {
     ++saves;
-    expect(r.request().headers()["if-match"]).toBe('"policy-1"');
+    expect(r.request().headers()["if-match"]).toBe('"owner-1-1-1"');
     expect(r.request().headers()["idempotency-key"]).toMatch(/^[a-f0-9-]{36}$/);
     return r.fulfill({ status: 503, json: { code: "policy_unavailable" } });
   });
@@ -189,7 +201,7 @@ test("owner timeout leaves no fake save, leaks no password to storage and does n
     .getByLabel("Твой пароль для подтверждения")
     .fill("Synthetic password only 42!");
   await page
-    .getByRole("button", { name: "Сохранить: Документы", exact: true })
+    .getByRole("button", { name: "Сохранить изменения", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("временно недоступны");
   expect(saves).toBe(1);
