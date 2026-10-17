@@ -1,0 +1,99 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Qubite API",
+    "description": "API ядра Qubite 2.0",
+    "license": {
+      "name": "UNLICENSED",
+      "identifier": "UNLICENSED"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Жив ли процесс сервера. Не обращается к базе.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Сервер отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Готов ли сервер обслуживать запросы: отвечает ли база и применены ли миграции.",
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "description": "Готов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "База недоступна или схема не создана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": ["status", "version"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Всегда `ok`, если процесс отвечает."
+          },
+          "version": {
+            "type": "string",
+            "description": "Версия Qubite."
+          }
+        }
+      },
+      "Readiness": {
+        "type": "object",
+        "required": ["status", "database"],
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "`ok` или `unavailable`."
+          },
+          "schema_version": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Номер последней применённой миграции."
+          },
+          "status": {
+            "type": "string",
+            "description": "`ready` или `not_ready`."
+          }
+        }
+      }
+    }
+  }
+}

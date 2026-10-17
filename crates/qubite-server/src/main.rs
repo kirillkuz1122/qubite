@@ -3,7 +3,8 @@
 //! Команды:
 //! - `qubite serve`   — запустить HTTP API;
 //! - `qubite migrate` — применить миграции базы и выйти;
-//! - `qubite version` — показать версию.
+//! - `qubite version` — показать версию;
+//! - `qubite openapi` — напечатать описание API (для генерации клиента).
 
 use std::net::SocketAddr;
 
@@ -47,6 +48,8 @@ enum Command {
     Migrate(DbArgs),
     /// Показать версию.
     Version,
+    /// Напечатать описание API в формате OpenAPI (JSON). База не нужна.
+    Openapi,
 }
 
 #[derive(Args)]
@@ -89,9 +92,15 @@ impl DbArgs {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    if matches!(cli.command, Command::Openapi) {
+        // Без логов: вывод идёт прямо в файл клиента.
+        println!("{}", qubite_server::openapi_json());
+        return Ok(());
+    }
     init_logging(&cli.log, cli.log_format)?;
 
     match cli.command {
+        Command::Openapi => unreachable!("обработано выше"),
         Command::Version => {
             println!("qubite {}", qubite_kernel::VERSION);
             Ok(())

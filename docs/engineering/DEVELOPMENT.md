@@ -43,7 +43,20 @@ scripts/dev-db.sh down                   # остановить базу (дан
 
 Версия Rust закреплена в `rust-toolchain.toml` (1.99.0), rustup сам поставит нужную.
 
-### Целевые (появятся в FND-002/FND-003)
+### Web (работает сейчас)
+
+```bash
+pnpm install                 # зависимости JS (pnpm 12, Node 22+)
+pnpm dev                     # сайт на http://localhost:5173, /api проксируется на Rust-сервер :8080
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm gen:api                 # перегенерировать клиент API после изменения сервера
+pnpm --filter @qubite/web exec playwright install firefox chromium   # один раз
+pnpm e2e                     # браузерные тесты: Firefox, Chromium, Firefox на ширине телефона
+```
+
+Адрес сервера для прокси можно поменять переменной `QUBITE_API` (по умолчанию `http://127.0.0.1:8080`).
+
+### Целевые (появятся в FND-003)
 
 ```bash
 just setup   just dev   just check   just e2e   just desktop   just test-legacy

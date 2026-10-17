@@ -1,0 +1,68 @@
+# Проверки web-приложения и TS-пакетов Qubite.
+name: web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'crates/qubite-server/src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'eslint.config.js'
+      - '.github/workflows/web.yml'
+  pull_request:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Зависимости
+        run: pnpm install --frozen-lockfile
+      - name: Форматирование
+        run: pnpm format:check
+      - name: Линтер
+        run: pnpm lint
+      - name: Типы
+        run: pnpm typecheck
+      - name: Unit-тесты
+        run: pnpm test
+      - name: Сборка
+        run: pnpm build
+
+      # Клиент API должен совпадать с описанием сервера.
+      - name: Rust из rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: Клиент API совпадает с сервером
+        run: |
+          pnpm gen:api
+          git diff --exit-code -- packages/api-client || {
+            echo "::error::Клиент API устарел: запусти 'pnpm gen:api' и закоммить изменения";
+            exit 1;
+          }
+
+      - name: Браузеры Playwright
+        run: pnpm --filter @qubite/web exec playwright install --with-deps firefox chromium
+      - name: Браузерные тесты (Firefox и Chromium)
+        run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

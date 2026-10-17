@@ -218,3 +218,10 @@ fn replace_database_keeps_credentials_and_params() {
         "postgres://u:p@h:5/x?sslmode=disable"
     );
 }
+
+#[test]
+fn openapi_json_matches_served_document() {
+    let printed: Value = serde_json::from_str(&qubite_server::openapi_json()).unwrap();
+    assert!(printed["paths"]["/api/health"]["get"].is_object());
+    assert_eq!(printed["info"]["title"], "Qubite API");
+}

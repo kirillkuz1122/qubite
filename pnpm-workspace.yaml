@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+
+# openapi-typescript 7.13 официально ждёт TypeScript 5, но проверенно работает с 6.0
+# (генерация типов клиента API). Убрать, когда выйдет версия с поддержкой 6.
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: '6'

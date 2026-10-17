@@ -11,7 +11,7 @@
 |---|---|---|---|
 | DOCS-001 | Аудит, перенос legacy, документация и план | review | — |
 | FND-001 | Rust-сервер: каркас, конфиг, PostgreSQL, CI | done | DOCS-001 |
-| FND-002 | Web-приложение и пакеты TS, генерация API-клиента | ready | DOCS-001 |
+| FND-002 | Web-приложение и пакеты TS, генерация API-клиента | review | DOCS-001 |
 | FND-003 | Команды разработки, CI legacy, проверка секретов | backlog | FND-001, FND-002 |
 | FND-004 | Ядро объектов: конверт, связи, события, аудит, файлы, очередь задач | backlog | FND-001 |
 | FND-005 | Синхронизация v1: протокол, сервер, офлайн-очередь web | backlog | FND-004, FND-002 |
@@ -89,6 +89,7 @@
 - **Требования:** CLI-01, PLT-09.
 - **Вопросы:** нет (технический каркас) — подтвердить, что React 19 + Vite устраивают.
 - **Готово когда:** пустое приложение собирается, тесты и сборка в CI зелёные, клиент API генерируется.
+- **Сделано (17.10.2026):** pnpm-workspace; `apps/web` — Vite 8 + React 19 + TypeScript 6.0 (7.0 ещё не поддерживают typescript-eslint и openapi-typescript), TanStack Router и Query, прокси `/api` на Rust-сервер; временная страница со статусом сервера и страница 404. `packages/api-client` — типы из `qubite openapi` (новая команда сервера) + openapi-fetch; CI падает, если клиент устарел. ESLint, Prettier, Vitest (3 теста), Playwright в Firefox, Chromium и Firefox на ширине телефона (9 тестов). Пакеты `ui`, `motion`, `companions` создаются в DS-001/DS-002 вместе с первым настоящим кодом — без пустых заглушек. CI — `.github/workflows/web.yml`.
 
 ### FND-003 — Команды разработки, CI legacy, секреты
 - **Входит:** `justfile` (`setup`, `dev`, `check`, `e2e`, `test-legacy`); локальная БД (скрипт или контейнер — на выбор владельца); CI-job тестов legacy (321 тест); gitleaks; обновить DEVELOPMENT.md реальными командами.

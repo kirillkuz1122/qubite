@@ -19,7 +19,11 @@ pub struct AppState {
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "Qubite API", description = "API ядра Qubite 2.0"),
+    info(
+        title = "Qubite API",
+        description = "API ядра Qubite 2.0",
+        version = "0.1.0"
+    ),
     paths(health, ready),
     components(schemas(Health, Readiness))
 )]
@@ -107,4 +111,11 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
 
 async fn openapi() -> Json<utoipa::openapi::OpenApi> {
     Json(ApiDoc::openapi())
+}
+
+/// Описание API в виде отформатированного JSON (для `qubite openapi`).
+pub fn openapi_json() -> String {
+    ApiDoc::openapi()
+        .to_pretty_json()
+        .expect("описание API всегда сериализуется")
 }

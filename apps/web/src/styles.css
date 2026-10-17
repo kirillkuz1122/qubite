@@ -1,0 +1,19 @@
+/* Временные нейтральные стили фундамента. Дизайн-система «Поток» придёт в DS-001. */
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+}
+.shell {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+[data-state='up'] {
+  color: green;
+}
+[data-state='down'] {
+  color: crimson;
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@qubite/api-client",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "cargo run -q --bin qubite -- openapi > openapi.json && openapi-typescript openapi.json -o src/schema.ts && prettier --write src/schema.ts openapi.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

@@ -4,9 +4,19 @@ name: server
 on:
   push:
     branches: [main]
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".github/workflows/server.yml"]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/server.yml'
   pull_request:
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".github/workflows/server.yml"]
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/server.yml'
 
 concurrency:
   group: server-${{ github.ref }}
@@ -26,7 +36,7 @@ jobs:
         env:
           POSTGRES_USER: qubite
           POSTGRES_PASSWORD: qubite
-        ports: ["5432:5432"]
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U qubite"
           --health-interval 2s

@@ -1,0 +1,12 @@
+# Форматируем только новый JS/TS-код
+legacy/
+assets/
+docs/
+crates/
+target/
+dist/
+node_modules/
+pnpm-lock.yaml
+*.md
+test-results/
+playwright-report/
