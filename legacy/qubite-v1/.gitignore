@@ -1,0 +1,26 @@
+# Правила игнорирования старого Qubite v1 (пути относительно legacy/qubite-v1/)
+stich/
+preview/
+source/
+.agent/
+miro/
+desing/
+back/data/*.sqlite
+back/data/*.sqlite-*
+.env
+node_modules/
+qubite-product-intro/
+.devin/
+deploy/data/*.sqlite
+deploy/data/*.sqlite-*
+
+# Private runtime, Python/build artifacts and browser review sessions
+services/runtime/
+services/**/.env
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+.playwright-cli/
+services/search/data/
+services/specbot/data/
+services/**/private.env

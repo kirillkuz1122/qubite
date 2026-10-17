@@ -1,26 +1,46 @@
-stich/
-preview/
-source/
-.agent/
-miro/
-desing/
-back/data/*.sqlite
-back/data/*.sqlite-*
+# Секреты и локальные настройки
 .env
-node_modules/
-.codex
-qubite-product-intro/
-.devin/
-deploy/data/*.sqlite
-deploy/data/*.sqlite-*
+.env.*
+!.env.example
+**/private.env
 
-# Private runtime, Python/build artifacts and browser review sessions
-services/runtime/
-services/**/.env
+# Rust
+target/
+
+# JavaScript / TypeScript
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# Android / Kotlin
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+
+# Python (временно, пока живут старые сервисы)
 **/__pycache__/
 **/.pytest_cache/
 **/.venv/
+
+# Локальные базы и данные
+*.sqlite
+*.sqlite-*
+*.db
+data/
+
+# Инструменты и редакторы
+.codex
+.agent/
+.devin/
 .playwright-cli/
-services/search/data/
-services/specbot/data/
-services/**/private.env
+.idea/
+.vscode/
+.DS_Store
+
+# Дизайн-лаборатория Codex (132 МБ, решение о ней — отдельно)
+assets/
