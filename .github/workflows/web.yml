@@ -8,6 +8,7 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'crates/qubite-server/src/**'
+      - 'crates/qubite-sync/fixtures/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
