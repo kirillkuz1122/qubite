@@ -36,6 +36,7 @@
 | `finance` | Finance | Счета, операции (двойная запись), бюджеты, Kwork-доходы, налоги | `finance.<domain>` | P3 | planned |
 | `focus` | Focus / Guardian | Таймер, режим одной задачи, добровольные ограничения, доверенный контролёр | — | P3 | planned |
 | `studio` | Studio | Рисование, слои, анимация | — | P3 | planned |
+| `reader` | Reader | Библиотека книг, статей, PDF, видео; выделения → карточки повторения; эталон — Readwise Reader ([D-129](DECISIONS.md)) | `read.<domain>` | P2 | planned |
 | `home` | Qubite Home | Умный дом на базе Home Assistant + Shade AI как мозг автоматизаций; Qubite — интерфейс и источник данных ([QUBITE_HOME.md](QUBITE_HOME.md)) | `home.<domain>` | P3 | planned |
 | `extensions` | Extensions / MCP | Plugin SDK, собственный MCP-сервер, Context Capsules, Developer Bridge | `mcp.<domain>` | P2–P3 | planned |
 
@@ -79,3 +80,7 @@
 - **бюджет AI** модуля и пользователя в модуле.
 
 Подробно — в [architecture/AUTH_AND_PERMISSIONS.md](../architecture/AUTH_AND_PERMISSIONS.md) и [OWNER_CONSOLE.md](OWNER_CONSOLE.md).
+
+## Эталоны
+
+На какие готовые продукты опираемся при проектировании модулей ([D-128](DECISIONS.md)): Command — Raycast и TextExpander; Planner — Sunsama и Akiflow; Finance — YNAB и Quicken; Writer — Grammarly; турниры и учёба — Quizlet; Reader — Readwise Reader. Функциональные референсы из видения: Docs — Notion, Anytype, Obsidian; Ink — Notewise, GoodNotes, Procreate; холст — Miro; учёба — NotebookLM. Внешний стиль не копируем — только идеи функций и удобства.

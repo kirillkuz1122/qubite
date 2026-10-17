@@ -49,6 +49,7 @@ flowchart LR
 | EPIC-VPN | Переписать VPN: ноды, подписки, клиент в приложении |
 | EPIC-KWORK | Переписать Kwork/Brief/Leads/переговоры на Rust (teloxide + grammers), связать с Projects и Finance |
 | EPIC-AGENTS | Настоящие агенты за помощниками: Context Resolver, инструменты, память, Memory Inspector, навыки, Hermes |
+| EPIC-READER | Модуль Reader: библиотека чтения, выделения → карточки (эталон Readwise Reader) |
 | EPIC-ATLAS | Поиск по смыслу (pgvector), граф знаний |
 | EPIC-LEARN | Предметы, ДЗ, карточки FSRS, квизы; исследование «Моя школа» |
 | EPIC-PULSE | Автоматизации, Automation Discovery, dry-run |
