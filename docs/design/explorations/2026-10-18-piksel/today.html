@@ -27,10 +27,10 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .scroll::before { content: ''; position: absolute; top: 0; left: 30px; width: 2px; height: 100%; min-height: 1600px; background: var(--margin); opacity: .8; }
 .aside { display: none; }
 @media (min-width: 760px) {
-  body { display: flex; align-items: center; justify-content: center; gap: 72px; min-height: 100vh; background: #eef3f7; }
+  body { display: flex; align-items: center; justify-content: center; gap: 72px; min-height: 100vh; background: color-mix(in srgb, var(--paper) 92%, var(--ink)); }
   .device { width: 390px; height: 844px; box-shadow: 0 0 0 4px var(--ink), 10px 10px 0 4px var(--shadow, rgba(31, 26, 23, .14)); }
-  .aside { display: block; max-width: 320px; color: #5d5650; font-size: 15.5px; }
-  .aside h2 { color: #1f1a17; }
+  .aside { display: block; max-width: 320px; color: var(--ink-2); font-size: 15.5px; }
+  .aside h2 { color: var(--ink); }
   .aside h2 { font-size: 64px; line-height: 64px; margin: 0 0 16px; font-weight: 400; }
   .aside p { margin: 0 0 10px; }
 }
@@ -151,22 +151,30 @@ h2 canvas { position: absolute; right: 4px; bottom: -12px; width: 50px; height: 
 <script>
 (function () {
   'use strict';
-  /* панель «Настроить»: фон страницы (общий для лендинга и «Сегодня») */
-  Lab.panel({
-    title: 'Пиксель: тема и помощники', store: 'qubite.piksel.look.v2',
+  /* панель «Настроить»: тема, клетка и объём (общие для лендинга и «Сегодня») */
+  var look = Lab.panel({
+    title: 'Пиксель: тема и клетка', store: 'qubite.piksel.look.v3',
     controls: [
       { type: 'choice', key: 'bg', label: 'Тема', value: 'warm',
         options: Object.keys(Pixels.THEMES).map(function (k) { return { value: k, label: Pixels.THEMES[k].label }; }) },
-      { type: 'choice', key: 'crew', label: 'Помощники', value: 'classic',
-        options: [{ value: 'classic', label: 'Крупная клетка' }, { value: 'fine', label: 'Мелкая клетка' }, { value: 'volume', label: 'Мелкая + контур и объём' }] }
+      { type: 'choice', key: 'cell', label: 'Клетка на ПК (на телефоне вдвое меньше)', value: '14',
+        options: [{ value: '20', label: '20 — было' }, { value: '16', label: '16' }, { value: '14', label: '14' }, { value: '12', label: '12' }, { value: '10', label: '10 — мелкая' }] },
+      { type: 'choice', key: 'vol', label: 'Объём', value: 'flat', options: [{ value: 'flat', label: 'Плоско' }, { value: 'vol', label: 'Контур и тень' }] }
     ],
-    onChange: function (s) { Pixels.theme(s.bg); Pixels.setVariant(s.crew); }
+    onChange: function (s) {
+      Pixels.theme(s.bg);
+      if (look && (s.cell !== look0.cell || s.vol !== look0.vol)) location.reload();
+    }
   });
-  /* помощники на своих маленьких «листочках» */
-  var pb = new Pixels.Board(document.getElementById('proto'), { cell: 6 });
-  var proto = pb.buddy('proto', 4, 13);
-  var eb = new Pixels.Board(document.getElementById('elik'), { cell: 5 });
-  var elik = eb.buddy('elik', 3, 11);
+  var look0 = { cell: look.cell, vol: look.vol }, sc = 20 / +look.cell;
+  Pixels.setScale(sc); Pixels.setVolume(look.vol === 'vol');
+  /* клетка бумаги — как у телефона на лендинге */
+  document.body.style.setProperty('--c', Math.round(10 / sc) + 'px');
+  /* помощники на своих маленьких «листочках»: размер на экране тот же, клетка — выбранная */
+  var pb = new Pixels.Board(document.getElementById('proto'), { cell: 6 / sc, lines: false });
+  var PS = Pixels.size('proto'), proto = pb.buddy('proto', 1 + Math.floor(PS.w / 2), PS.h);
+  var eb = new Pixels.Board(document.getElementById('elik'), { cell: 5 / sc, lines: false });
+  var ES = Pixels.size('elik'), elik = eb.buddy('elik', Math.floor(ES.w / 2), Math.round(11 * sc));
 
   /* галочка ставится за три шага: клетки появляются по одной */
   var CHECK = [[1, 8], [2, 9], [3, 10], [4, 9], [5, 8], [6, 7], [7, 6], [8, 5], [9, 4], [10, 3]];

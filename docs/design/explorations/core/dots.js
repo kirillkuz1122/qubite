@@ -6,6 +6,7 @@
   'use strict';
   var TAU = Math.PI * 2;
   var M = Q.MATERIAL;
+  var engines = [];
 
   /* Форма точки: round 1 — круг, 0 — квадрат, между ними — квадрат со скруглёнными углами.
      size — множитель размера (1 = как в макете). Меняются панелью «Настроить». */
@@ -86,6 +87,9 @@
     this.repel = o.repel == null ? 70 : o.repel;
     this.dots = []; this.bodies = []; this.byColor = {}; this.absorbs = [];
     this.box = { x: 0, y: 0 };
+    /* on = false — холст за экраном: не считаем и не рисуем */
+    this.on = true;
+    engines.push(this);
     var self = this;
     this.resize = function () {
       var r = canvas.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -100,6 +104,18 @@
     Q.tick(function (t, dt) { self.frame(t, dt); });
     if (Q.reduce) requestAnimationFrame(function () { self.frame(performance.now() / 1000, 0); });
   }
+  /* перекрасить точку (например, при смене темы или этапа истории) */
+  Engine.prototype.paint = function (d, color) { if (d.c !== color) { d.c = color; this.recolorDirty = true; } };
+  /* сменить палитру целиком: map — старый цвет → новый */
+  Engine.prototype.recolor = function (map) {
+    var self = this;
+    this.dots.forEach(function (d) { if (map[d.c]) d.c = map[d.c]; });
+    this.bodies.forEach(function (b) { if (map[b.color]) b.color = map[b.color]; });
+    if (map[this.ground]) this.ground = map[this.ground];
+    if (map[this.light]) this.light = map[this.light];
+    this.recolorDirty = true;
+    if (Q.reduce) requestAnimationFrame(function () { self.frame(performance.now() / 1000, 0); });
+  };
   Engine.prototype.dot = function (hx, hy, color, r, from, delay) {
     var d = { hx: hx, hy: hy, x: from ? from[0] : hx, y: from ? from[1] : hy, vx: 0, vy: 0, m: 0.75 + Math.random() * 0.5, c: color, r: r, wake: delay || 0, alive: true };
     if (Q.reduce) { d.x = hx; d.y = hy; d.wake = 0; }
@@ -124,6 +140,33 @@
     return g;
   };
 
+  /* Перестроить надпись в другую: те же точки разлетаются и собираются в новые буквы.
+     Лишние точки гаснут, недостающие рождаются из соседних. */
+  Engine.prototype.morph = function (g, str, o) {
+    o = o || {};
+    var self = this, tc = textCells(str, o.font || 'Q Tiny5', o.lineRows), p = g.p, now = performance.now() / 1000;
+    var by = function (a, b) { return a[0] - b[0] || a[1] - b[1]; };
+    var cells = tc.cells.slice().sort(by), old = g.dots.filter(function (d) { return d.alive; }).sort(function (a, b) { return by(a.cell, b.cell); });
+    var next = [], taken = [];
+    cells.forEach(function (c, i) {
+      var j = Math.floor(i * old.length / cells.length), d = old[j];
+      if (!d || taken[j]) d = self.dot(d ? d.x : g.x, d ? d.y : g.y, o.color || (d ? d.c : self.light), p * (o.r || 0.42));
+      else taken[j] = true;
+      d.cell = c; d.hx = g.x + (c[0] + 0.5) * p; d.hy = g.y + (c[1] + 0.5) * p; d.rt = p * (o.r || 0.42); d.wake = 0;
+      if (o.color) self.paint(d, o.color);
+      if (!Q.reduce) { d.vx += (Math.random() - 0.5) * 260; d.vy -= Math.random() * 180; }
+      next.push(d);
+    });
+    old.forEach(function (d, j) {
+      if (taken[j]) return;
+      var c = cells[Math.floor(Math.random() * cells.length)] || [0, 0];
+      d.hx = g.x + (c[0] + 0.5) * p; d.hy = g.y + (c[1] + 0.5) * p; d.rt = 0;
+      setTimeout(function () { d.alive = false; self.dead = true; }, 600);
+    });
+    g.dots = next; g.cols = tc.cols; g.rows = tc.rows; g.width = tc.cols * p; g.height = tc.rows * p;
+    return g;
+  };
+
   Engine.prototype.body = function (kind, o) {
     var K = KINDS[kind], self = this, p = o.pitch;
     var b = {
@@ -143,10 +186,13 @@
     b.jump = function (v) { b.sy.x = 0.82; b.sy.v = 0; b.sy.to(1); b.lift.kick(v || 380); return b; };
     b.setMood = function (m, ms) { b.mood = m; clearTimeout(b.mt); if (ms) b.mt = setTimeout(function () { b.mood = 'idle'; }, ms); return b; };
     b.turnAway = function (on) { b.away = on; b.mood = on ? 'shut' : 'idle'; return b; };
+    /* поставить точки тела сразу на места, без полёта */
+    b.settle = function () { b.dots.forEach(function (d) { var q = b.point(d.u, d.h); d.x = d.hx = q.x; d.y = d.hy = q.y; d.vx = d.vy = 0; }); return b; };
     b.place = function (x, y, pitch) {
       b.x = x; b.y = y;
       if (pitch && pitch !== b.p) { var k = pitch / b.p; b.p = pitch; b.hPx = K.h * pitch; b.dots.forEach(function (d) { d.u *= k; d.h *= k; d.r = pitch * 0.4; }); }
     };
+    if (!o.assemble) b.settle();
     this.bodies.push(b);
     return b;
   };
@@ -160,6 +206,11 @@
 
   Engine.prototype.frame = function (t, dt) {
     var self = this, ctx = this.ctx;
+    if (!this.on) return;
+    if (this.recolorDirty) {
+      this.recolorDirty = false; this.byColor = {};
+      this.dots.forEach(function (d) { (self.byColor[d.c] = self.byColor[d.c] || []).push(d); });
+    }
     var tgt = Q.target();
     var tx = tgt.x - this.box.x, ty = tgt.y - this.box.y;
     this.bodies.forEach(function (b) {
@@ -179,6 +230,7 @@
     for (var i = 0; i < this.dots.length; i++) {
       var d = this.dots[i];
       if (!d.alive || now < d.wake) continue;
+      if (d.rt != null) { d.r += (d.rt - d.r) * Math.min(1, dt * 9); if (Math.abs(d.rt - d.r) < 0.01) { d.r = d.rt; d.rt = null; } }
       var hx = d.hx, hy = d.hy;
       if (d.target) {
         var head = d.target.point(0, d.target.K.eyes[0][1] * d.target.p);
@@ -215,7 +267,7 @@
       if (this.dead) this.byColor[c] = arr.filter(function (q) { return q.alive; });
     }
     if (this.dead) { this.dots = this.dots.filter(function (q) { return q.alive; }); this.dead = false; }
-    this.bodies.forEach(function (b) { self.face(b, t); });
+    this.bodies.forEach(function (b) { if (!b.hidden) self.face(b, t); });
   };
 
   Engine.prototype.face = function (b, t) {
@@ -281,5 +333,12 @@
     return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
   }
 
-  window.Dots = { Engine: Engine, textCells: textCells, paintText: paintText, repaint: repaint, gridImage: gridImage, look: look, KINDS: KINDS };
+  /* смена темы: все холсты страницы перекрашиваются сразу, без перезагрузки */
+  function retheme(map) {
+    engines.forEach(function (e) { e.recolor(map); });
+    painted.forEach(function (a) { if (map[a[3]]) a[3] = map[a[3]]; });
+    repaint();
+  }
+
+  window.Dots = { Engine: Engine, textCells: textCells, paintText: paintText, repaint: repaint, retheme: retheme, gridImage: gridImage, look: look, KINDS: KINDS };
 })();

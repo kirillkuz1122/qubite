@@ -31,13 +31,16 @@
   document.head.appendChild(css);
 
   /* opts: { title, controls: [{type:'range', key, label, min, max, step, value, ends:[a,b], format}, {type:'choice', key, label, options:[{value,label}], value}], onChange(state) } */
+  /* opts.state — общий объект настроек страницы (если есть); opts.sync() — обновить панель после изменений снаружи;
+     onChange(state, key) — key пустой при первом вызове */
   function panel(opts) {
-    var state = load(opts.store, {});
+    var state = opts.state || load(opts.store, {});
     opts.controls.forEach(function (c) { if (state[c.key] == null) state[c.key] = c.value; });
     var root = document.createElement('div');
     root.className = 'lab';
     root.innerHTML = '<button class="lab-btn" type="button" aria-label="Настроить" aria-expanded="false"><i></i>Настроить</button><div class="lab-panel" role="dialog" aria-label="' + opts.title + '"><p class="lab-title">' + opts.title + '</p></div>';
-    var btn = root.firstChild, box = root.lastChild;
+    var btn = root.firstChild, box = root.lastChild, syncs = [];
+    opts.sync = function () { syncs.forEach(function (f) { f(); }); };
     opts.controls.forEach(function (c) {
       var row = document.createElement('div');
       row.className = 'lab-row';
@@ -49,8 +52,9 @@
         input.value = state[c.key]; out.textContent = fmt(+state[c.key]);
         input.addEventListener('input', function () {
           state[c.key] = +input.value; out.textContent = fmt(+input.value);
-          save(opts.store, state); opts.onChange(state);
+          save(opts.store, state); opts.onChange(state, c.key);
         });
+        syncs.push(function () { input.value = state[c.key]; out.textContent = fmt(+state[c.key]); });
       } else {
         row.innerHTML = '<label><span>' + c.label + '</span></label><div class="lab-seg"></div>';
         var seg = row.querySelector('.lab-seg');
@@ -61,10 +65,11 @@
           b.addEventListener('click', function () {
             state[c.key] = o.value;
             seg.querySelectorAll('button').forEach(function (x) { x.className = x.dataset.v === o.value ? 'on' : ''; });
-            save(opts.store, state); opts.onChange(state);
+            save(opts.store, state); opts.onChange(state, c.key);
           });
           seg.appendChild(b);
         });
+        syncs.push(function () { seg.querySelectorAll('button').forEach(function (x) { x.className = x.dataset.v === state[c.key] ? 'on' : ''; }); });
       }
       box.appendChild(row);
     });

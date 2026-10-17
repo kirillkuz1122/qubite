@@ -3,156 +3,326 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Частицы — первый экран · Qubite</title>
+<title>Частицы — лендинг · Qubite</title>
+<script>/* тема до первой отрисовки, чтобы светлая не мигала тёмной */try{var s=JSON.parse(localStorage.getItem('qubite.chastitsy.look.v3'))||{},t=s.theme==='auto'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):(s.theme||'dark');document.documentElement.dataset.theme=t;if(s.round!=null)document.documentElement.style.setProperty('--round',s.round/100)}catch(e){}</script>
+<link rel="stylesheet" href="chastitsy.css">
 <style>
-@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-cyrillic.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'Q Golos'; src: url('../../fonts/GolosText-latin.woff2') format('woff2'); font-weight: 400 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-cyrillic.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'Q Onest'; src: url('../../fonts/Onest-latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Q Manrope'; src: url('../../fonts/Manrope-cyrillic.woff2') format('woff2'); font-weight: 200 800; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'Q Manrope'; src: url('../../fonts/Manrope-latin.woff2') format('woff2'); font-weight: 200 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-cyrillic.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'Q Serif'; src: url('../../fonts/SourceSerif4-latin.woff2') format('woff2'); font-weight: 200 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Q Fira Code'; src: url('../../fonts/FiraCode-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Q Fira Code'; src: url('../../fonts/FiraCode-Medium.ttf') format('truetype'); font-weight: 500 900; font-display: swap; }
-@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-cyrillic.woff2') format('woff2'); font-display: block; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-@font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-latin.woff2') format('woff2'); font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
+body { overflow-x: hidden; }
+.grid { position: fixed; inset: 0; pointer-events: none; }
+.wrap { padding: 0 clamp(16px, 5.5vw, 80px); }
 
-html, body { margin: 0; height: 100%; }
-body { --night: #100f0d; --light: #f3ede3; --mute: #a59c90; --dim: #8a8176; --line: rgba(243, 237, 227, .14); --orange: #ff9852;
-  background: var(--night); color: var(--light); font: 400 17px/1.55 var(--text-font, 'Q Golos', system-ui, sans-serif); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-a { color: inherit; text-decoration: none; }
-button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
-
-.grid { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(243, 237, 227, .085) 1.1px, transparent 1.6px) 0 0 / 14px 14px; }
-.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 30px; padding: 24px clamp(16px, 5.5vw, 80px); }
+/* шапка: при прокрутке под ней проявляется подложка */
+.top { position: fixed; inset: 0 0 auto; z-index: 50; display: flex; align-items: center; gap: 30px; height: 76px; padding: 0 clamp(16px, 5.5vw, 80px); }
+.top-bg { position: absolute; inset: 0; background: var(--bg); border-bottom: 1px solid var(--line); opacity: 0; pointer-events: none; }
+.top > *:not(.top-bg) { position: relative; }
 .mark { display: flex; align-items: center; gap: 10px; }
-.mark i { width: 9px; height: 9px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); display: block; }
-.nav { display: flex; gap: 26px; color: var(--mute); font-size: 15px; }
-.nav a:hover { color: var(--light); }
-.auth { margin-left: auto; display: flex; gap: 20px; align-items: center; font-size: 15px; }
-.go { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: calc(var(--round, 1) * 21px); border: 1px solid rgba(243, 237, 227, .3); }
-.go i { width: 7px; height: 7px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); }
+.mark .dot { width: 9px; height: 9px; }
+.nav { display: flex; gap: 26px; color: var(--mute); font-size: 14px; }
+.nav a:hover { color: var(--ink); }
+.auth { margin-left: auto; display: flex; gap: 14px; align-items: center; font-size: 14px; }
+.auth .in { padding: 0 6px; }
 
+/* первый экран */
 .hero { position: relative; height: 100svh; min-height: 640px; overflow: hidden; }
 #field { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
-h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.copy { position: absolute; z-index: 5; left: clamp(16px, 5.5vw, 80px); width: min(520px, calc(100vw - 32px)); pointer-events: none; }
+.copy { position: absolute; z-index: 5; left: clamp(16px, 5.5vw, 80px); width: min(560px, calc(100vw - 32px)); pointer-events: none; }
 .copy > * { pointer-events: auto; }
-.lead { margin: 0 0 28px; color: var(--mute); font-size: clamp(16px, 1.3vw, 19px); }
-.lead b { color: var(--light); font-weight: 500; }
-.command { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 7px 0 22px; border-radius: calc(var(--round, 1) * 30px); background: #1b1916; border: 1px solid var(--line); transition: border-color .2s; }
-.command:focus-within { border-color: rgba(255, 152, 82, .7); }
-.caret { width: 8px; height: 8px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); flex: none; animation: pulse 1.1s steps(2, jump-none) infinite; }
-@keyframes pulse { 50% { opacity: .25; } }
-.command input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 17px; color: var(--light); }
-.command input::placeholder { color: var(--dim); }
-.send { width: 46px; height: 46px; border-radius: calc(var(--round, 1) * 50%); background: var(--orange); display: grid; place-items: center; flex: none; }
-.hint { margin: 14px 0 0 22px; font-size: 14px; color: var(--dim); min-height: 1.5em; }
-.hint b { color: var(--light); font-weight: 500; }
-.legend { position: absolute; z-index: 5; display: flex; gap: 18px; font-size: 13px; color: var(--dim); }
+.lead { margin: 0 0 26px; color: var(--mute); font-size: clamp(15px, 1.2vw, 17px); }
+.lead b { color: var(--ink); font-weight: 500; }
+.hint { margin: 14px 0 0 20px; font-size: 13px; color: var(--dim); min-height: 1.5em; }
+.hint b { color: var(--ink); font-weight: 500; }
+.legend { position: absolute; z-index: 5; display: flex; gap: 18px; font-size: 12.5px; color: var(--dim); }
 .legend span { display: flex; align-items: center; gap: 7px; }
-.legend i { width: 8px; height: 8px; border-radius: calc(var(--round, 1) * 50%); display: block; }
+.cue { position: absolute; z-index: 5; left: 50%; bottom: 22px; display: grid; gap: 5px; justify-items: center; transform: translateX(-50%); color: var(--dim); font-size: 12px; }
+.cue i { width: 5px; height: 5px; border-radius: calc(var(--round) * 50%); background: var(--dim); display: block; animation: cue 1.6s ease-in-out infinite; }
+.cue i:nth-child(2) { animation-delay: .15s; } .cue i:nth-child(3) { animation-delay: .3s; }
+@keyframes cue { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(4px); } }
+
+/* история «Как устроено»: сцена прилипает к экрану, точки перестраиваются по шагам прокрутки */
+.story { position: relative; height: 640vh; }
+.stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+#storyField { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.chapters { position: absolute; z-index: 5; left: clamp(16px, 5.5vw, 80px); top: 50%; width: min(400px, 34vw); transform: translateY(-50%); height: 320px; }
+.chapter { position: absolute; left: 0; right: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+.chapter h3 { margin: 0 0 14px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; font-weight: 600; letter-spacing: -.02em; }
+.chapter h3 .dot { display: inline-block; width: 12px; height: 12px; margin-right: 12px; vertical-align: .08em; }
+.chapter p { margin: 0; color: var(--mute); font-size: clamp(14.5px, 1.1vw, 16px); }
+.chapter p b { color: var(--ink); font-weight: 500; }
+.steps { position: absolute; z-index: 5; left: clamp(16px, 5.5vw, 80px); top: calc(50% + 170px); display: flex; gap: 10px; align-items: center; height: 8px; }
+.steps i { width: 8px; height: 8px; border-radius: calc(var(--round) * 50%); background: var(--faint); display: block; }
+.steps .bar { position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-radius: calc(var(--round) * 4px); background: var(--orange); transform-origin: 0 50%; will-change: transform; }
+.steps span { margin-left: 10px; font-size: 12px; color: var(--dim); }
+
+/* разделы ниже */
+.sec { position: relative; padding-top: 130px; padding-bottom: 120px; }
+.sec-title { display: block; margin: 0 0 26px; touch-action: pan-y; }
+.sec-lead { max-width: 640px; margin: 0 0 40px; color: var(--mute); font-size: clamp(15px, 1.2vw, 17px); }
+.sec-lead b { color: var(--ink); font-weight: 500; }
+.reveal { opacity: 0; will-change: transform, opacity; }
+
+/* Command */
+.demo { max-width: 720px; }
+.demo .command { height: 64px; border-radius: calc(var(--round) * 32px); }
+.demo .command input { font-size: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0 0; }
+.chips button { height: 32px; padding: 0 12px; border-radius: calc(var(--round) * 16px); border: 1px solid var(--line); color: var(--mute); font-size: 13px; }
+.chips button:hover { color: var(--ink); border-color: var(--line-2); }
+.result { position: relative; margin-top: 18px; min-height: 112px; }
+.result-bg { position: absolute; inset: 0; border-radius: calc(var(--round) * 28px); background: var(--panel); border: 1px solid var(--line); transform-origin: 40px 0; will-change: transform; }
+.result-in { position: relative; display: flex; gap: 18px; align-items: center; padding: 18px 22px 18px 14px; will-change: transform, opacity; }
+.result canvas { width: 64px; height: 76px; flex: none; }
+.result .kind { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
+.result .kind .dot { width: 10px; height: 10px; }
+.result .where { color: var(--mute); font-size: 14px; margin-top: 4px; }
+.result .where b { color: var(--ink); font-weight: 500; }
+.result .who { margin-left: auto; align-self: flex-start; font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+
+/* учёба: рукописная страница дописывается при прокрутке */
+.study { position: relative; height: 260vh; }
+.study .stage { display: grid; align-content: center; grid-template-columns: minmax(0, 1fr); }
+#inkField { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.study-copy { position: relative; z-index: 5; width: min(440px, 38vw); }
+.cards { display: flex; gap: 10px; margin-top: 26px; }
+.card { width: 132px; padding: 12px 14px; border-radius: calc(var(--round) * 18px); background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--mute); opacity: 0; will-change: transform, opacity; }
+.card b { display: block; color: var(--ink); font-weight: 500; font-size: 13.5px; margin-bottom: 4px; }
+.card .dot { width: 7px; height: 7px; margin-bottom: 10px; background: var(--sky); }
+
+/* принципы: список с точечными значками */
+.rules { display: grid; gap: 4px; max-width: 900px; }
+.rule { display: flex; gap: 26px; align-items: flex-start; padding: 22px 0; border-top: 1px solid var(--line); }
+.rule canvas { width: 54px; height: 54px; flex: none; }
+.rule h4 { margin: 2px 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.rule p { margin: 0; color: var(--mute); max-width: 560px; }
+
+/* финал */
+.final { position: relative; height: 92svh; min-height: 560px; overflow: hidden; }
+#finalField { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.final-acts { position: absolute; z-index: 5; display: flex; gap: 12px; align-items: center; }
+footer { position: relative; display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; padding: 26px clamp(16px, 5.5vw, 80px) 40px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 22px; }
+footer nav a:hover { color: var(--ink); }
+footer .c { margin-left: auto; }
 
 @media (max-width: 760px) {
-  .nav, .go { display: none; }
-  .top { padding-top: 18px; }
-  .lead { font-size: 15.5px; margin-bottom: 20px; }
+  .nav, .auth .in { display: none; }
+  .top { height: 64px; gap: 12px; }
+  .auth .btn { height: 38px; padding: 0 14px; }
+  .theme-btn { width: 38px; height: 38px; }
+  .lead { font-size: 14.5px; margin-bottom: 18px; }
   .command { height: 56px; padding-left: 18px; }
-  .hint { font-size: 13px; }
+  .hint { font-size: 12.5px; }
   .legend { display: none; }
+  .cue { display: none; }
+  .chapters { left: 18px; right: 18px; width: auto; top: auto; bottom: 64px; transform: none; height: 230px; }
+  .chapter h3 { font-size: 21px; margin-bottom: 10px; }
+  .chapter h3 .dot { width: 10px; height: 10px; margin-right: 10px; }
+  .chapter p { font-size: 14px; }
+  .steps { left: 18px; top: auto; bottom: 26px; }
+  .sec { padding-top: 90px; padding-bottom: 80px; }
+  .demo .command { height: 58px; }
+  .result-in { gap: 12px; padding: 14px 16px 14px 8px; }
+  .result canvas { width: 54px; height: 66px; }
+  .result .who { display: none; }
+  .study .stage { align-content: end; padding-bottom: 40px; }
+  .study-copy { width: auto; }
+  .cards { overflow-x: auto; margin-right: -16px; padding-right: 16px; scrollbar-width: none; }
+  .card { flex: none; }
+  .rule { gap: 16px; }
+  .rule canvas { width: 44px; height: 44px; }
+  .rule h4 { font-size: 16px; }
+  .rule p { font-size: 14px; }
+  footer .c { margin-left: 0; width: 100%; }
 }
 </style>
 </head>
 <body>
-<div class="grid"></div>
-<header class="top">
-  <a class="mark" href="#" aria-label="Qubite"><canvas id="logo"></canvas><i></i></a>
-  <nav class="nav"><a href="#">Как устроено</a><a href="#">Помощники</a><a href="#">Для учёбы</a></nav>
-  <div class="auth"><a href="#">Войти</a><a class="go" href="#"><i></i>Начать</a></div>
+<div class="grid" id="grid"></div>
+<header class="top" id="top">
+  <div class="top-bg" id="topBg"></div>
+  <a class="mark" href="#" aria-label="Qubite"><canvas id="logo"></canvas><span class="dot"></span></a>
+  <nav class="nav"><a href="#story">Как устроено</a><a href="#command-sec">Command</a><a href="#study">Для учёбы</a></nav>
+  <div class="auth">
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Сменить тему"><i></i></button>
+    <a class="in" href="app.html">Войти</a>
+    <a class="btn" href="app.html"><span class="dot"></span>Начать</a>
+  </div>
 </header>
-<main class="hero" id="hero">
+
+<main>
+<section class="hero" id="hero">
   <canvas id="field" aria-hidden="true"></canvas>
-  <h1>Мысль — это точка.</h1>
+  <h1 class="sr">Мысль — это точка.</h1>
   <div class="copy" id="copy">
     <p class="lead">Запиши её в&nbsp;Qubite. Из&nbsp;точек сложатся дела, конспекты и&nbsp;планы, а&nbsp;четыре помощника проследят, чтобы <b>ни&nbsp;одна не&nbsp;потерялась</b>.</p>
     <form class="command" id="command" autocomplete="off">
       <span class="caret" aria-hidden="true"></span>
       <input id="cmd" type="text" aria-label="Строка Command" placeholder="Запиши точку">
-      <button class="send" type="submit" aria-label="Отправить" id="send"><svg width="20" height="20" viewBox="0 0 20 20" fill="#100f0d"><circle cx="4" cy="10" r="1.7"/><circle cx="8" cy="10" r="1.7"/><circle cx="12" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/><circle cx="12" cy="6" r="1.7"/><circle cx="12" cy="14" r="1.7"/><circle cx="8.5" cy="3" r="1.4"/><circle cx="8.5" cy="17" r="1.4"/></svg></button>
+      <button class="send" type="submit" aria-label="Отправить" id="send"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.7"/><circle cx="8" cy="10" r="1.7"/><circle cx="12" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/><circle cx="12" cy="6" r="1.7"/><circle cx="12" cy="14" r="1.7"/><circle cx="8.5" cy="3" r="1.4"/><circle cx="8.5" cy="17" r="1.4"/></svg></button>
     </form>
     <p class="hint" id="hint">Проведи пальцем по буквам. А потом напиши что-нибудь и нажми Enter.</p>
   </div>
-  <div class="legend" id="legend"><span><i style="background:#ffe163"></i>Элик ловит мысли</span><span><i style="background:#f3ede3"></i>Прото ведёт дела</span><span><i style="background:#71cfff"></i>Нейт учит</span><span><i style="background:#ff9852"></i>Фоти бережёт личное</span></div>
+  <div class="legend" id="legend"><span><i class="dot" style="background:var(--yellow)"></i>Элик ловит мысли</span><span><i class="dot" style="background:var(--ink)"></i>Прото ведёт дела</span><span><i class="dot" style="background:var(--sky)"></i>Нейт учит</span><span><i class="dot" style="background:var(--orange)"></i>Фоти бережёт личное</span></div>
+  <div class="cue" aria-hidden="true"><i></i><i></i><i></i></div>
+</section>
+
+<section class="story" id="story" aria-label="Как устроен Qubite">
+  <div class="stage" id="stage">
+    <canvas id="storyField" aria-hidden="true"></canvas>
+    <div class="chapters" id="chapters">
+      <article class="chapter"><h3><span class="dot" style="background:var(--ink)"></span>Сто мыслей в&nbsp;день</h3><p>Идея для проекта, домашка на&nbsp;завтра, подарок маме. Половина теряется по&nbsp;дороге — если её <b>некуда положить</b>.</p></article>
+      <article class="chapter"><h3><span class="dot" style="background:var(--yellow)"></span>Элик ловит</h3><p>Напиши, скажи голосом или перешли из&nbsp;Telegram — мысль ляжет во&nbsp;<b>«Входящие»</b>. Разберёшь, когда будет минутка.</p></article>
+      <article class="chapter"><h3><span class="dot" style="background:var(--ink)"></span>Прото раскладывает</h3><p>Мысль становится делом со&nbsp;сроком. Прото раскладывает дела <b>по&nbsp;дням недели</b>, чтобы к&nbsp;пятнице не&nbsp;копился завал.</p></article>
+      <article class="chapter"><h3><span class="dot" style="background:var(--sky)"></span>Нейт помнит</h3><p>Заметки из&nbsp;Docs и&nbsp;рукописные страницы из&nbsp;Ink — <b>в&nbsp;одном месте</b>. Нейт свяжет их с&nbsp;делами и&nbsp;напомнит повторить перед контрольной.</p></article>
+      <article class="chapter"><h3><span class="dot" style="background:var(--orange)"></span>Фоти бережёт личное</h3><p>Дневник, здоровье, деньги — отдельно от&nbsp;всего остального. Помощники <b>закрывают глаза</b>, а&nbsp;в&nbsp;общий доступ личное само не&nbsp;попадает.</p></article>
+      <article class="chapter"><h3><span class="dot" style="background:var(--orange)"></span>Ты — ядро</h3><p>Мысли, дела, знания и&nbsp;личное вращаются вокруг тебя, а&nbsp;помощники держат орбиты. Отсюда и&nbsp;имена: <b>электрон, протон, нейтрон, фотон</b>.</p></article>
+    </div>
+    <div class="steps" id="steps"><div class="bar" id="stepBar"></div><i></i><i></i><i></i><i></i><i></i><i></i><span id="stepN">1 / 6</span></div>
+  </div>
+</section>
+
+<section class="sec wrap" id="command-sec">
+  <canvas class="sec-title" id="tCmd" data-text="ОДНА СТРОКА&#10;НА ВСЁ" aria-label="Одна строка на всё"></canvas>
+  <p class="sec-lead reveal">Command — нижняя строка Qubite. Пиши как думаешь: она сама поймёт, что это — <b>дело, мысль, поиск или запись в&nbsp;дневник</b>. На&nbsp;ПК открывается по&nbsp;<kbd>Ctrl</kbd>&nbsp;<kbd>K</kbd>.</p>
+  <div class="demo reveal">
+    <form class="command" id="demo" autocomplete="off">
+      <span class="caret" aria-hidden="true"></span>
+      <input id="demoIn" type="text" aria-label="Попробуй строку Command" placeholder="Напиши что-нибудь">
+      <button class="send" type="submit" aria-label="Сохранить"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.7"/><circle cx="8" cy="10" r="1.7"/><circle cx="12" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/><circle cx="12" cy="6" r="1.7"/><circle cx="12" cy="14" r="1.7"/><circle cx="8.5" cy="3" r="1.4"/><circle cx="8.5" cy="17" r="1.4"/></svg></button>
+    </form>
+    <div class="chips" id="chips"><button type="button" data-t="завтра в 16:00 отбор по информатике">дело со сроком</button><button type="button" data-t="идея: бот, который напоминает про дз">мысль</button><button type="button" data-t="найти конспект про дерево Фенвика">поиск</button><button type="button" data-t="в дневник: сегодня решил задачу, которую не мог неделю">дневник</button></div>
+    <div class="result" id="result"><div class="result-bg" id="resultBg"></div>
+      <div class="result-in" id="resultIn"><canvas id="who" aria-hidden="true"></canvas><div><div class="kind" id="rKind"></div><div class="where" id="rWhere"></div></div><div class="who" id="rWho"></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="study" id="study" aria-label="Для учёбы">
+  <div class="stage wrap">
+    <canvas id="inkField" aria-hidden="true"></canvas>
+    <div class="study-copy">
+      <canvas class="sec-title" id="tStudy" data-text="ДЛЯ УЧЁБЫ" aria-label="Для учёбы"></canvas>
+      <p class="sec-lead reveal" style="margin-bottom:0">Пиши стилусом на&nbsp;планшете в&nbsp;<b>Ink</b> — как в&nbsp;тетради, только страница бесконечная. Qubite найдёт формулу поиском, а&nbsp;Нейт сделает из&nbsp;конспекта <b>карточки для повторения</b>.</p>
+      <div class="cards" id="cards">
+        <div class="card"><span class="dot"></span><b>Что такое парабола?</b>повторить завтра</div>
+        <div class="card"><span class="dot"></span><b>Вершина y = x²</b>через 3 дня</div>
+        <div class="card"><span class="dot"></span><b>Ветви вверх, если…</b>через неделю</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap" id="rules">
+  <canvas class="sec-title" id="tRules" data-text="ПО-ЧЕСТНОМУ" aria-label="По-честному"></canvas>
+  <div class="rules">
+    <div class="rule reveal"><canvas data-icon="offline"></canvas><div><h4>Работает без интернета</h4><p>Заметки, дела и конспекты живут на устройстве и синхронизируются, когда появится сеть. В метро и в школе с закрытым Wi-Fi — тоже.</p></div></div>
+    <div class="rule reveal"><canvas data-icon="hand"></canvas><div><h4>Руками или с AI</h4><p>Любое действие можно сделать самому. AI — удобный способ, а не обязательный, и платный AI сам не включится.</p></div></div>
+    <div class="rule reveal"><canvas data-icon="lock"></canvas><div><h4>Личное — отдельно</h4><p>Дневник, личная память и ключи не попадают в общий доступ сами — даже в командных проектах.</p></div></div>
+    <div class="rule reveal"><canvas data-icon="server"></canvas><div><h4>Свой сервер</h4><p>Qubite ставится на свой компьютер или Raspberry Pi. Данные остаются у тебя: экспорт, бэкапы, журнал действий AI.</p></div></div>
+  </div>
+</section>
+
+<section class="final" id="final">
+  <canvas id="finalField" aria-hidden="true"></canvas>
+  <h2 class="sr">Начни с одной точки</h2>
+  <div class="final-acts" id="finalActs"><a class="btn fill" href="app.html"><span class="dot"></span>Начать</a><a class="btn" href="app.html">Посмотреть приложение</a></div>
+</section>
+<footer>
+  <canvas id="logo2" aria-label="Qubite"></canvas>
+  <nav><a href="#story">Как устроено</a><a href="#command-sec">Command</a><a href="#study">Для учёбы</a><a href="app.html">Приложение</a></nav>
+  <span class="c">© 2026 Qubite · макет направления «Частицы»</span>
+</footer>
 </main>
 
 <script src="../core/qubite-core.js"></script>
 <script src="../core/dots.js"></script>
 <script src="../core/lab.js"></script>
+<script src="chastitsy.js"></script>
 <script>
 (function () {
   'use strict';
-  /* панель «Настроить»: форма и размер точки (общие для лендинга и «Сегодня») */
-  Lab.panel({
-    title: 'Частицы: точка и шрифт', store: 'qubite.chastitsy.look.v2',
-    controls: [
-      { type: 'range', key: 'round', label: 'Скругление', min: 0, max: 100, step: 1, value: 50, ends: ['квадрат', 'круг'], format: function (v) { return v + '%'; } },
-      { type: 'range', key: 'size', label: 'Размер точки', min: 60, max: 125, step: 1, value: 95, ends: ['мельче', 'крупнее'], format: function (v) { return v + '%'; } },
-      { type: 'choice', key: 'font', label: 'Шрифт текста', value: 'golos', options: [
-        { value: 'golos', label: 'Golos' }, { value: 'onest', label: 'Onest' }, { value: 'manrope', label: 'Manrope' },
-        { value: 'serif', label: 'Source Serif' }, { value: 'mono', label: 'Fira Code' }] }
-    ],
-    onChange: function (s) {
-      Dots.look.round = s.round / 100; Dots.look.size = s.size / 100;
-      document.documentElement.style.setProperty('--round', Dots.look.round);
-      var FONTS = { golos: "'Q Golos'", onest: "'Q Onest'", manrope: "'Q Manrope'", serif: "'Q Serif', Georgia, serif", mono: "'Q Fira Code', monospace" };
-      document.documentElement.style.setProperty('--text-font', (FONTS[s.font] || FONTS.golos) + ', system-ui, sans-serif');
-      document.querySelector('.grid').style.backgroundImage = Dots.gridImage(14, 1.25 * Dots.look.size, '#f3ede3', 0.085);
-      Dots.repaint();
-    }
+  Chast.lab();
+  Chast.grid(document.getElementById('grid'), 14, 1.25);
+  var themeBtn = document.getElementById('themeBtn');
+  themeBtn.addEventListener('click', function () {
+    var r = themeBtn.getBoundingClientRect();
+    Chast.set('theme', Chast.theme === 'dark' ? 'light' : 'dark', { x: r.left + r.width / 2, y: r.top + r.height / 2 });
   });
-  var hero = document.getElementById('hero'), field = document.getElementById('field');
-  var copy = document.getElementById('copy'), legend = document.getElementById('legend');
-  var input = document.getElementById('cmd'), hint = document.getElementById('hint');
-  var C = { light: '#f3ede3', orange: '#ff9852', sky: '#71cfff', yellow: '#ffe163', base: 'rgba(243,237,227,.2)' };
-  var HEAD = 'МЫСЛЬ —\nЭТО ТОЧКА';
+  Q.press(themeBtn, { depth: 0.86 });
 
-  Promise.all([document.fonts.load("32px 'Q Tiny5'", 'МЫСЛЬ ЭТО ТОЧКА qubite'), document.fonts.ready]).then(start);
+  /* холсты за экраном не считаем */
+  var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.target._eng) e.target._eng.on = e.isIntersecting; }); }, { rootMargin: '80px' });
+  function watch(eng) { eng.canvas._eng = eng; io.observe(eng.canvas); return eng; }
 
-  function start() {
-    Dots.paintText(document.getElementById('logo'), 'qubite', 3.4, C.light, { rows: 8 });
-    var eng = new Dots.Engine(field, { ground: '#100f0d', light: C.light, repel: 64 });
-    var W = eng.W, H = eng.H, phone = W < 760;
+  /* одно место для прокрутки: всё, что зависит от неё, читает sy в общем цикле */
+  var sy = scrollY, vh = innerHeight;
+  addEventListener('scroll', function () { sy = scrollY; }, { passive: true });
+
+  /* шапка: подложка проявляется после первого экрана */
+  var topBg = document.getElementById('topBg'), tb = Q.spring(0, 0.6, Q.render(function () { topBg.style.opacity = Q.clamp(tb.x, 0, 1).toFixed(3); }));
+  Q.tick(function () { var on = sy > 40 ? 1 : 0; if (tb.goal !== on) tb.to(on); });
+
+  /* появление блоков при прокрутке: та же пружина, сдвиг снизу и прозрачность */
+  var rio = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting || e.target._shown) return;
+      e.target._shown = true; rio.unobserve(e.target);
+      var el = e.target, s = Q.spring(0, 1, Q.render(function () { el.style.opacity = Q.clamp(s.x, 0, 1).toFixed(3); el.style.transform = 'translateY(' + ((1 - s.x) * 26).toFixed(2) + 'px)'; }));
+      setTimeout(function () { s.to(1); }, (el.dataset.delay || 0) * 1);
+    });
+  }, { threshold: 0.2 });
+  document.querySelectorAll('.reveal').forEach(function (el, i) { el.dataset.delay = el.classList.contains('rule') ? (i % 4) * 90 : 0; rio.observe(el); });
+
+  var PHRASES = ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'прочитать главу 3 по физике', 'позвонить бабушке в воскресенье'];
+  Promise.all([document.fonts.load("32px 'Q Tiny5'", 'МЫСЛЬ ЭТО ТОЧКА qubite ОДНА СТРОКА НА ВСЁ ДЛЯ УЧЁБЫ ПО-ЧЕСТНОМУ НАЧНИ С ОДНОЙ ПН ВТ СР ЧТ ПТ СБ ВС'), document.fonts.ready]).then(function () {
+    Dots.paintText(document.getElementById('logo'), 'qubite', 3.4, Chast.pal.ink, { rows: 8 });
+    Dots.paintText(document.getElementById('logo2'), 'qubite', 2.6, Chast.pal.ink, { rows: 8 });
+    hero(); story(); command(); study(); rules(); final();
+    addEventListener('resize', function () { if (Math.abs(innerWidth - vw0) > 40) location.reload(); });
+  });
+  var vw0 = innerWidth;
+
+  /* ---------- Первый экран ---------- */
+  function hero() {
+    var P = Chast.pal, field = document.getElementById('field'), copy = document.getElementById('copy'), legend = document.getElementById('legend');
+    var input = document.getElementById('cmd'), hint = document.getElementById('hint');
+    var eng = watch(new Dots.Engine(field, { ground: P.bg, light: P.ink, repel: 64 }));
+    var W = eng.W, H = eng.H, phone = W < 760, HEAD = 'МЫСЛЬ —\nЭТО ТОЧКА';
     var left = phone ? 16 : Math.max(16, Math.min(80, W * 0.055));
     var cols = Dots.textCells(HEAD, 'Q Tiny5').cols;
     /* +3 клетки — место для оранжевой точки-мысли в конце фразы */
     var hp = phone ? Math.min(9, (W - 32) / (cols + 3)) : Math.min(15, (W * 0.48) / cols);
     var top = phone ? 82 : Math.max(120, H * 0.16);
-    var head = eng.text(HEAD, { x: left, y: top, pitch: hp, color: C.light, assemble: true, delay: 0.1, r: 0.46, lineRows: 8 });
+    var head = eng.text(HEAD, { x: left, y: top, pitch: hp, color: P.ink, assemble: true, delay: 0.1, r: 0.46, lineRows: 8 });
     copy.style.top = (top + head.height + (phone ? 14 : 30)) + 'px';
-    /* точка в конце фразы — та самая мысль: крупная оранжевая, как каретка в строке */
     var lastRow = 0, lastCol = 0;
     head.dots.forEach(function (d) { if (d.cell[1] >= lastRow) { if (d.cell[1] > lastRow) lastCol = 0; lastRow = d.cell[1]; lastCol = Math.max(lastCol, d.cell[0]); } });
-    var thought = eng.dot(left + (lastCol + 3) * hp, top + (lastRow - 0.5) * hp, C.orange, hp * 0.95, [W * 0.9, H * 0.2], 1.4);
+    var thought = eng.dot(left + (lastCol + 3) * hp, top + (lastRow - 0.5) * hp, P.orange, hp * 0.95, [W * 0.9, H * 0.2], 1.4);
     Q.tick(function (t) { thought.r = hp * (0.95 + Math.sin(t * 3) * 0.08); });
 
-    /* помощники: сзади Прото и Нейт, спереди Фоти и Элик — как группа в видео-эталоне */
+    /* помощники: сзади Прото и Нейт, спереди Фоти и Элик */
     var bp = phone ? 9 : Math.min(12, H / 75);
     var baseY = H - (phone ? 30 : Math.max(70, H * 0.1));
     var cx = phone ? W * 0.52 : Math.max(W * 0.72, left + 560 + 17 * bp);
     cx = Math.round(cx / bp) * bp;
-    /* у тел чётной ширины клетки сдвинуты на полшага — так точки соседей ложатся в одну сетку */
-    var proto = eng.body('proto', { x: cx + 0.5 * bp, y: baseY, pitch: bp, color: C.light, assemble: true, delay: 0.5 });
-    var neit = eng.body('neit', { x: cx + 12.5 * bp, y: baseY, pitch: bp, color: C.sky, assemble: true, delay: 0.6 });
-    var foti = eng.body('foti', { x: cx - 8 * bp, y: baseY, pitch: bp, color: C.orange, assemble: true, delay: 0.7 });
-    var elik = eng.body('elik', { x: cx + 4 * bp, y: baseY, pitch: bp, color: C.yellow, assemble: true, delay: 0.8 });
+    var proto = eng.body('proto', { x: cx + 0.5 * bp, y: baseY, pitch: bp, color: P.ink, assemble: true, delay: 0.5 });
+    var neit = eng.body('neit', { x: cx + 12.5 * bp, y: baseY, pitch: bp, color: P.sky, assemble: true, delay: 0.6 });
+    var foti = eng.body('foti', { x: cx - 8 * bp, y: baseY, pitch: bp, color: P.orange, assemble: true, delay: 0.7 });
+    var elik = eng.body('elik', { x: cx + 4 * bp, y: baseY, pitch: bp, color: P.yellow, assemble: true, delay: 0.8 });
     var crew = [proto, neit, foti, elik];
-    /* линия земли из точек */
-    for (var x = cx - 22 * bp; x < Math.min(W, cx + 24 * bp); x += bp) eng.dot(x, baseY + bp * 0.9, C.base, bp * 0.22);
+    for (var x = cx - 22 * bp; x < Math.min(W, cx + 24 * bp); x += bp) eng.dot(x, baseY + bp * 0.9, P.faint, bp * 0.22);
     if (!phone) { legend.style.left = (cx - 21 * bp) + 'px'; legend.style.top = (baseY + bp * 2.4) + 'px'; }
 
-    /* касание тела — помощник подпрыгивает */
+    /* прокрутка: заголовок рассыпается вверх, помощники провожают его взглядом */
+    head.dots.forEach(function (d) { d.bx = d.hx; d.by = d.hy; d.nx = (Math.random() - 0.5) * 2; d.ny = -0.4 - Math.random(); });
+    var lastP = -1;
+    Q.tick(function () {
+      var p = Q.clamp(sy / (H * 0.9), 0, 1);
+      if (Math.abs(p - lastP) < 0.002) return;
+      lastP = p; var e = p * p * 160;
+      head.dots.forEach(function (d) { d.hx = d.bx + d.nx * e; d.hy = d.by + d.ny * e; });
+      copy.style.opacity = (1 - p * 1.4).toFixed(3); copy.style.transform = 'translateY(' + (-p * 40).toFixed(1) + 'px)';
+    });
+
     field.addEventListener('pointerdown', function (e) {
       var r = field.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
       crew.slice().reverse().some(function (b) {
@@ -161,8 +331,7 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
       });
     });
 
-    /* строка: смотрят на текст, прячут глаза от пароля */
-    Q.typewriter(input, ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'прочитать главу 3 по физике', 'позвонить бабушке в воскресенье']);
+    Q.typewriter(input, PHRASES);
     Q.press(document.getElementById('send'), { depth: 0.84 });
     var shy = false, base = hint.innerHTML;
     function onType() {
@@ -172,15 +341,13 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
     }
     input.addEventListener('focus', onType); input.addEventListener('input', onType); input.addEventListener('keyup', onType);
     input.addEventListener('blur', function () { Q.focus(null); });
-
     document.getElementById('command').addEventListener('submit', function (e) {
       e.preventDefault();
       var text = (input.value.trim() || input.getAttribute('placeholder').replace('▍', '').trim() || 'новая мысль').slice(0, 40);
       if (shy) { shy = false; crew.forEach(function (b) { b.turnAway(false); }); }
       input.value = '';
       var r = input.getBoundingClientRect(), fr = field.getBoundingClientRect();
-      /* мысль рассыпается на точки и улетает к Элику */
-      var g = eng.text(text, { x: r.left - fr.left, y: r.top - fr.top + 8, pitch: phone ? 2.4 : 3, color: C.yellow, r: 0.42 });
+      var g = eng.text(text, { x: r.left - fr.left, y: r.top - fr.top + 8, pitch: phone ? 2.4 : 3, color: Chast.pal.yellow, r: 0.42 });
       setTimeout(function () {
         crew.forEach(function (b) { b.setMood('happy', 1500); });
         eng.absorb(g, elik, function () {
@@ -191,11 +358,394 @@ h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0
       }, 260);
       Q.focus(null); input.blur();
     });
+  }
 
-    addEventListener('resize', function () {
-      var nW = field.getBoundingClientRect().width;
-      if (Math.abs(nW - W) > 40) location.reload();
+  /* ---------- История: шесть шагов, одни и те же точки перестраиваются ---------- */
+  function story() {
+    var sec = document.getElementById('story'), field = document.getElementById('storyField');
+    var eng = watch(new Dots.Engine(field, { ground: Chast.pal.bg, light: Chast.pal.ink, repel: 40 }));
+    var W = eng.W, H = eng.H, phone = W < 760;
+    var Z = phone ? { x: 18, y: 76, w: W - 36, h: H - 76 - 300 } : { x: W * 0.44, y: H * 0.15, w: W * 0.5, h: H * 0.7 };
+    var bp = phone ? 4.4 : Math.max(5.5, Math.min(8, H / 100));
+    /* место под помощника справа (на телефоне — снизу справа) */
+    var V = phone ? { x: Z.x, y: Z.y, w: Z.w - 12 * bp, h: Z.h } : { x: Z.x, y: Z.y, w: Z.w - 16 * bp, h: Z.h };
+    var spot = phone ? { x: Z.x + Z.w - 5 * bp, y: Z.y + Z.h } : { x: Z.x + Z.w - 6 * bp, y: Z.y + Z.h };
+    var N = phone ? 760 : 1100, pool = [];
+    for (var i = 0; i < N; i++) { var d0 = eng.dot(Z.x + Math.random() * Z.w, Z.y + Math.random() * Z.h, Chast.pal.ink, 0); d0.i = i; pool.push(d0); }
+    var COL = { elik: 'yellow', proto: 'ink', neit: 'sky', foti: 'orange' }, crew = {};
+    Object.keys(COL).forEach(function (k) { var b = eng.body(k, { x: spot.x, y: spot.y, pitch: bp, color: Chast.pal[COL[k]] }); b.lift.set(-H); b.settle(); crew[k] = b; });
+
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    /* строка точек от x0 длиной len */
+    function line(t, x0, y, len, p, c, r) { for (var x = x0; x <= x0 + len; x += p) t.push({ x: x, y: y, c: c, r: r }); }
+    function textDots(t, str, x, y, p, c, r) { Dots.textCells(str, 'Q Tiny5').cells.forEach(function (cl) { t.push({ x: x + (cl[0] + 0.5) * p, y: y + (cl[1] + 0.5) * p, c: c, r: p * (r || 0.42) }); }); return Dots.textCells(str, 'Q Tiny5').cols * p; }
+
+    var BUILD = [
+      /* 0 — облако мыслей */
+      function () {
+        var P = Chast.pal, t = [], n = Math.round(N * 0.62), cx = V.x + V.w / 2, cy = V.y + V.h / 2;
+        for (var i = 0; i < n; i++) {
+          var a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()), k = Math.random();
+          t.push({ x: cx + Math.cos(a) * rr * V.w * 0.5, y: cy + Math.sin(a) * rr * V.h * 0.46, drift: true,
+            c: k < 0.16 ? P.yellow : k < 0.22 ? P.sky : k < 0.26 ? P.orange : k < 0.6 ? P.mute : P.ink, r: k < 0.26 ? rnd(2.4, 4.2) : rnd(1.1, 2.8) });
+        }
+        return { t: t };
+      },
+      /* 1 — «Входящие»: строки мыслей */
+      function () {
+        var P = Chast.pal, t = [], rows = 5, p = phone ? 5 : 7, rh = V.h / (rows + 0.3);
+        for (var r = 0; r < rows; r++) {
+          var y = V.y + rh * (r + 0.55);
+          t.push({ x: V.x + p, y: y + p * 0.3, c: P.yellow, r: p * 0.85 });
+          line(t, V.x + p * 3.4, y, V.w * rnd(0.42, 0.72), p, P.ink, p * 0.33);
+          line(t, V.x + p * 3.4, y + p * 1.5, V.w * rnd(0.18, 0.34), p * 0.85, P.dim, p * 0.24);
+          line(t, V.x + V.w - p * 4, y, p * 2, p, P.dim, p * 0.24);
+        }
+        return { t: t, who: 'elik' };
+      },
+      /* 2 — неделя: дни столбиками, дела — блоки по часам, «сейчас» — оранжевая линия */
+      function () {
+        /* шаг точки — от размера сцены, чтобы точек хватило на любом экране */
+        var P = Chast.pal, t = [], cw = V.w / 7, p = Math.sqrt(0.256 * V.w * V.h / (N * 0.6)), today = 4, now = 16.6;
+        var DAYS = phone ? ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'] : ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+        var EV = [[[9, 1.5, 'sky'], [15, 1, 'green'], [19, 1, 'peach']], [[8.5, 2, 'sky'], [16, 1.5, 'orange']], [[10, 1, 'green'], [14, 2, 'orange'], [20, 1, 'peach']],
+          [[9, 1.5, 'sky'], [17, 2.5, 'orange']], [[8, 1, 'green'], [11, 1, 'green'], [16, 1.5, 'orange'], [18.5, 1, 'sky'], [20.5, 1, 'peach']], [[11, 3, 'peach']], [[12, 1, 'sky'], [18, 1.5, 'orange']]];
+        var lp = phone ? 2.9 : 3.4, top = V.y + lp * 12, hh = (V.y + V.h - top) / 14.5;
+        function yAt(h) { return top + (h - 8) * hh; }
+        for (var d = 0; d < 7; d++) {
+          var x0 = V.x + d * cw, wcol = cw - p * 1.2, m = Math.max(2, Math.floor(wcol / p));
+          var tw = Dots.textCells(DAYS[d], 'Q Tiny5').cols * lp;
+          textDots(t, DAYS[d], x0 + (m * p - tw) / 2, V.y, lp, d === today ? P.orange : P.mute, 0.5);
+          for (var k2 = 0; k2 < m; k2++) t.push({ x: x0 + p * 0.5 + k2 * p, y: top - p * 0.4, c: P.faint, r: p * 0.16 });
+          EV[d].forEach(function (e) {
+            var y0 = yAt(e[0]) + p * 0.5, rows = Math.max(1, Math.round(e[1] * hh / p) - 1), done = d === today && e[0] + e[1] < now;
+            for (var r = 0; r < rows; r++) for (var k = 0; k < m; k++) t.push({ x: x0 + p * 0.5 + k * p, y: y0 + r * p, c: P[done ? 'green' : e[2]], r: p * (done ? 0.3 : 0.38) });
+          });
+          /* редкая сетка часов — бледные точки */
+          for (var h = 8; h <= 22; h += 2) t.push({ x: x0 + p * 0.5, y: yAt(h), c: P.ghost, r: p * 0.16 });
+        }
+        /* рамка «сегодня» из бледных точек */
+        var fx0 = V.x + today * cw - p * 0.2, fx1 = fx0 + cw - p * 0.6, fy0 = V.y - p, fy1 = V.y + V.h + p * 0.4;
+        for (var fx = fx0; fx <= fx1; fx += p * 0.8) { t.push({ x: fx, y: fy0, c: P.faint, r: p * 0.18 }); t.push({ x: fx, y: fy1, c: P.faint, r: p * 0.18 }); }
+        for (var fy = fy0 + p * 0.8; fy < fy1; fy += p * 0.8) { t.push({ x: fx0, y: fy, c: P.faint, r: p * 0.18 }); t.push({ x: fx1, y: fy, c: P.faint, r: p * 0.18 }); }
+        /* «сейчас» поперёк сегодняшнего дня */
+        var nx0 = V.x + today * cw - p * 0.6, ny = yAt(now);
+        t.push({ x: nx0, y: ny, c: P.orange, r: p * 0.62 });
+        for (var x = nx0 + p; x < nx0 + cw; x += p * 0.8) t.push({ x: x, y: ny, c: P.orange, r: p * 0.2 });
+        return { t: t, who: 'proto' };
+      },
+      /* 3 — страница конспекта: строки, список и рукописная парабола */
+      function () {
+        var P = Chast.pal, t = [], p = Math.max(phone ? 4.6 : 6.4, V.w / 80);
+        var x0 = V.x + (phone ? 0 : V.w * 0.04), w = phone ? V.w : V.w * 0.86, y0 = V.y, h = V.h;
+        for (var x = x0; x <= x0 + w; x += p) { t.push({ x: x, y: y0, c: P.faint, r: p * 0.2 }); t.push({ x: x, y: y0 + h, c: P.faint, r: p * 0.2 }); }
+        for (var y = y0 + p; y < y0 + h; y += p) { t.push({ x: x0, y: y, c: P.faint, r: p * 0.2 }); t.push({ x: x0 + w, y: y, c: P.faint, r: p * 0.2 }); }
+        var ix = x0 + p * 2.4, iw = w - p * 4.8;
+        line(t, ix, y0 + p * 3, iw * 0.55, p * 0.8, P.ink, p * 0.42);
+        line(t, ix, y0 + p * 5.6, iw * 0.9, p * 0.85, P.mute, p * 0.24);
+        line(t, ix, y0 + p * 7.2, iw * 0.7, p * 0.85, P.mute, p * 0.24);
+        [0, 1].forEach(function (k) {
+          var yy = y0 + p * (9.8 + k * 2.4);
+          t.push({ x: ix + p * 0.4, y: yy, c: k ? P.dim : P.green, r: p * 0.5 });
+          line(t, ix + p * 2, yy, iw * (k ? 0.36 : 0.5), p * 0.85, k ? P.mute : P.dim, p * 0.24);
+        });
+        /* график: оси и парабола «от руки» */
+        var gx = ix + iw * 0.08, gy = y0 + h - p * 2.4, gw = iw * 0.62, gh = h - p * 16.5;
+        line(t, gx - gw * 0.1, gy, gw * 1.2, p * 0.8, P.dim, p * 0.2);
+        for (var yy2 = gy; yy2 > gy - gh; yy2 -= p * 0.8) t.push({ x: gx + gw / 2, y: yy2, c: P.dim, r: p * 0.2 });
+        for (var u = -1; u <= 1.0001; u += 0.045) t.push({ x: gx + gw / 2 + u * gw / 2 + Math.sin(u * 9) * 1.2, y: gy - u * u * gh * 0.92 - 2, c: P.sky, r: p * 0.36 });
+        textDots(t, 'Y=X²', gx + gw * 0.92, gy - gh * 0.95, phone ? 2.4 : 3, P.sky, 0.46);
+        return { t: t, who: 'neit' };
+      },
+      /* 4 — личное: сердце из тёплых точек */
+      function () {
+        var P = Chast.pal, t = [], size = Math.min(V.w, V.h) * 0.92, p = Math.sqrt(0.55 * size * size / (N * 0.6)), cx = V.x + V.w / 2, cy = V.y + V.h * 0.47;
+        for (var y = cy - size / 2; y <= cy + size / 2; y += p) for (var x = cx - size / 2; x <= cx + size / 2; x += p) {
+          var u = (x - cx) / (size * 0.42), v = -(y - cy) / (size * 0.42) + 0.15;
+          var f = Math.pow(u * u + v * v - 1, 3) - u * u * v * v * v;
+          if (f <= 0) t.push({ x: x, y: y, c: f > -0.06 ? P.orange : P.peach, r: p * (f > -0.06 ? 0.4 : 0.34) });
+        }
+        return { t: t, who: 'foti', shy: true };
+      },
+      /* 5 — атом: ядро и орбиты, помощники вокруг */
+      function () {
+        var P = Chast.pal, t = [], cx = Z.x + Z.w * 0.5, cy = Z.y + Z.h * 0.48, R = Math.min(Z.w, Z.h) * 0.42, p = phone ? 4 : 5.5;
+        for (var y = -3; y <= 3; y++) for (var x = -3; x <= 3; x++) if (x * x + y * y <= 10) t.push({ x: cx + x * p, y: cy + y * p, c: P.orange, r: p * 0.42 });
+        [0, 60, 120].forEach(function (deg, o) {
+          var n = phone ? 44 : 64;
+          for (var k = 0; k < n; k++) t.push({ orbit: { cx: cx, cy: cy, a: R, b: R * 0.36, tilt: deg * Math.PI / 180, th: k / n * Math.PI * 2, w: 0.22 + o * 0.05 }, c: P.faint, r: p * 0.3 });
+        });
+        return { t: t, atom: { cx: cx, cy: cy, R: R } };
+      }
+    ];
+
+    var stage = -1, drift = [], orbit = [];
+    function go(s) {
+      if (s === stage) return;
+      var prev = stage; stage = s;
+      var B = BUILD[s](), T = B.t, now = performance.now() / 1000;
+      /* соответствие «точка → место»: обе стороны по горизонтали, лишние точки гаснут на месте */
+      var free = pool.slice().sort(function (a, b) { return a.x - b.x; });
+      T.forEach(function (q) { if (q.orbit) { q.x = q.orbit.cx + Math.cos(q.orbit.th) * q.orbit.a; q.y = q.orbit.cy + Math.sin(q.orbit.th) * q.orbit.b; } });
+      T.sort(function (a, b) { return a.x - b.x; });
+      var used = {}, step = free.length / Math.max(1, T.length);
+      drift = []; orbit = [];
+      T.forEach(function (q, i) {
+        var d = free[Math.min(free.length - 1, Math.floor(i * step))];
+        used[d.i] = true;
+        var delay = Q.reduce ? 0 : (q.x - Z.x) / Z.w * 0.22 + Math.random() * 0.08;
+        d.next = { x: q.x, y: q.y, c: q.c, r: q.r, at: now + delay };
+        d.drift = q.drift ? { bx: q.x, by: q.y, f: rnd(0.4, 0.9), ph: Math.random() * 6, a: rnd(3, 9) } : null;
+        d.orbit = q.orbit || null;
+        if (d.drift) drift.push(d);
+        if (d.orbit) orbit.push(d);
+      });
+      pool.forEach(function (d, i) { if (!used[i]) { d.next = null; d.drift = d.orbit = null; d.rt = 0; } });
+      /* помощники: нужный поднимается на своё место, остальные уходят вниз */
+      Object.keys(crew).forEach(function (k) { var b = crew[k]; b.turnAway(false); });
+      if (B.atom) {
+        var A = B.atom, spots = { elik: [-0.95, -0.55], proto: [0.95, -0.5], neit: [-0.9, 0.75], foti: [0.92, 0.78] };
+        Object.keys(crew).forEach(function (k, i) {
+          var b = crew[k], q = spots[k];
+          b.place(A.cx + q[0] * A.R, A.cy + q[1] * A.R * 0.62 + 6 * bp, bp * 0.8);
+          setTimeout(function () { b.lift.to(0); }, i * 90);
+        });
+      } else {
+        Object.keys(crew).forEach(function (k) {
+          var b = crew[k];
+          if (k === B.who) {
+            if (b.lift.goal !== 0 || b.p !== bp) { b.place(spot.x, spot.y, bp); b.lift.set(-H * 0.5); b.lift.to(0); setTimeout(function () { b.jump(300).setMood('happy', 1200); }, 380); }
+            if (B.shy) setTimeout(function () { b.turnAway(true); }, 500);
+          } else b.lift.to(-H * 0.8);
+        });
+      }
+      chapter(s, prev);
+    }
+    /* шаги применяются с задержкой по горизонтали — перестройка идёт волной слева направо */
+    Q.tick(function (t, dt) {
+      if (!eng.on) return;
+      var now = performance.now() / 1000;
+      pool.forEach(function (d) {
+        var n = d.next;
+        if (n && now >= n.at) { d.hx = n.x; d.hy = n.y; d.rt = n.r; eng.paint(d, n.c); d.next = null; if (d.drift) { d.drift.bx = n.x; d.drift.by = n.y; } }
+      });
+      drift.forEach(function (d) { if (!d.next && d.drift) { var q = d.drift; d.hx = q.bx + Math.sin(t * q.f + q.ph) * q.a; d.hy = q.by + Math.cos(t * q.f * 0.8 + q.ph) * q.a * 0.7; } });
+      orbit.forEach(function (d) {
+        if (d.next || !d.orbit) return;
+        var o = d.orbit; o.th += dt * o.w;
+        var x = Math.cos(o.th) * o.a, y = Math.sin(o.th) * o.b, c = Math.cos(o.tilt), s = Math.sin(o.tilt);
+        d.hx = o.cx + x * c - y * s; d.hy = o.cy + x * s + y * c;
+      });
     });
+
+    /* текст шагов и индикатор: точка-полоска перетекает к текущему шагу */
+    var chs = Array.prototype.slice.call(document.querySelectorAll('.chapter')), springs = chs.map(function (el) {
+      var s = Q.spring(0, 1, Q.render(function () { var v = s.x; el.style.opacity = Q.clamp(1 - Math.abs(v), 0, 1).toFixed(3); el.style.transform = 'translateY(' + (v * 28).toFixed(2) + 'px)'; }));
+      s.set(1); return s;
+    });
+    var bar = document.getElementById('stepBar'), stepN = document.getElementById('stepN'), bx = Q.spring(0, 0.9), bw = Q.spring(8, 0.9);
+    bx.cb = bw.cb = Q.render(function () { bar.style.transform = 'translateX(' + bx.x.toFixed(2) + 'px) scaleX(' + (bw.x / 8).toFixed(3) + ')'; });
+    function chapter(s, prev) {
+      if (prev >= 0) springs[prev].to(s > prev ? -1 : 1);
+      springs[s].set(s > prev ? 1 : -1); springs[s].to(0);
+      var x = s * 18; bw.kick(60); bx.to(x); bw.to(8);
+      stepN.textContent = (s + 1) + ' / 6';
+    }
+    var top0 = 0, len = 1;
+    function measure() { var r = sec.getBoundingClientRect(); top0 = r.top + scrollY; len = sec.offsetHeight - innerHeight; }
+    measure(); addEventListener('resize', measure);
+    go(0);
+    Q.tick(function () {
+      var p = (sy - top0) / len, s = Q.clamp(Math.floor(p * 6), 0, 5);
+      go(s);
+    });
+    /* касание помощника — прыжок */
+    field.addEventListener('pointerdown', function (e) {
+      var r = field.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+      Object.keys(crew).some(function (k) {
+        var b = crew[k], q = b.point(0, b.hPx / 2);
+        if (b.lift.goal === 0 && Math.abs(px - q.x) < b.p * 6 && Math.abs(py - q.y) < b.hPx * 0.6) { b.jump(320).setMood('happy', 1200); return true; }
+      });
+    });
+  }
+
+  /* заголовок раздела из точек: собирается, когда раздел появляется на экране */
+  function title(canvas, pitchPc, pitchPhone, color) {
+    var str = canvas.dataset.text, tc = Dots.textCells(str, 'Q Tiny5', 8), phone = innerWidth < 760;
+    var p = phone ? Math.min(pitchPhone, (innerWidth - 40) / tc.cols) : pitchPc;
+    canvas.style.width = Math.ceil(tc.cols * p + 8) + 'px'; canvas.style.height = Math.ceil(tc.rows * p + 8) + 'px';
+    var eng = watch(new Dots.Engine(canvas, { ground: Chast.pal.bg, light: Chast.pal.ink, repel: 30 }));
+    var done = false, io2 = new IntersectionObserver(function (es) {
+      if (done || !es[0].isIntersecting) return;
+      done = true; io2.disconnect();
+      eng.text(str, { x: 4, y: 4, pitch: p, color: color || Chast.pal.ink, assemble: true, r: 0.46, lineRows: 8 });
+    }, { threshold: 0.4 });
+    io2.observe(canvas);
+    return eng;
+  }
+
+  /* ---------- Command: строка сама понимает, что ты написал ---------- */
+  function command() {
+    title(document.getElementById('tCmd'), 9, 7);
+    var input = document.getElementById('demoIn'), form = document.getElementById('demo');
+    var kind = document.getElementById('rKind'), where = document.getElementById('rWhere'), who = document.getElementById('rWho');
+    var bg = document.getElementById('resultBg'), inner = document.getElementById('resultIn');
+    var DAY = /(сегодня|завтра|послезавтра|в понедельник|во вторник|в среду|в четверг|в пятницу|в субботу|в воскресенье)/i, TIME = /(\d{1,2})[:.](\d{2})/;
+    function parse(s) {
+      var t = s.toLowerCase().trim(), d = t.match(DAY), tm = t.match(TIME);
+      if (/^(в дневник|дневник|запись в дневник|\/з)/.test(t)) return { k: 'foti', name: 'Запись в дневник', c: 'orange', to: 'Life — видишь только ты', who: 'Фоти бережёт' };
+      if (/^(найти|найди|где|поиск|\/п)|\?$/.test(t)) return { k: 'neit', name: 'Поиск', c: 'sky', to: 'нашлось: <b>2 конспекта</b> и страница Ink', who: 'Нейт ищет' };
+      if (d || tm || /^(\/д|сделать|купить|позвонить|прочитать|сдать|написать)/.test(t)) return { k: 'proto', name: 'Дело', c: 'ink', to: 'Planner · <b>' + ([d && d[1], tm && tm[0]].filter(Boolean).join(', ') || 'без срока') + '</b>', who: 'Прото разложит' };
+      return { k: 'elik', name: 'Мысль', c: 'yellow', to: 'во <b>«Входящие»</b> — разберёшь потом', who: 'Элик поймал' };
+    }
+    /* помощник в карточке: нужный выпрыгивает, остальные прячутся вниз */
+    var cv = document.getElementById('who'), ce = watch(new Dots.Engine(cv, { ground: Chast.pal.panel, light: Chast.pal.ink, repel: 0 }));
+    var COL = { elik: 'yellow', proto: 'ink', neit: 'sky', foti: 'orange' }, PIT = { elik: 4.4, proto: 3.1, neit: 3.6, foti: 3.0 }, mini = {};
+    Object.keys(COL).forEach(function (k) { var b = ce.body(k, { x: ce.W / 2 + (k === 'elik' ? -6 : 0), y: ce.H - 2, pitch: PIT[k] * ce.W / 64, color: Chast.pal[COL[k]] }); b.lift.set(-120); b.settle(); mini[k] = b; });
+    var cur = null, sx = Q.spring(1, 0.8), so = Q.spring(1, 0.6);
+    sx.cb = so.cb = Q.render(function () { bg.style.transform = 'scale(' + (0.92 + sx.x * 0.08).toFixed(4) + ',' + Q.clamp(sx.x, 0.2, 1.2).toFixed(4) + ')'; inner.style.opacity = Q.clamp(so.x, 0, 1).toFixed(3); inner.style.transform = 'translateY(' + ((1 - so.x) * 10).toFixed(2) + 'px)'; });
+    function show(text) {
+      var r = parse(text);
+      if (cur && cur.name === r.name && cur.to === r.to) return;
+      var swap = !cur || cur.k !== r.k;
+      cur = r;
+      if (swap) { sx.set(0.35); sx.to(1); so.set(0); so.to(1); }
+      kind.innerHTML = '<span class="dot" style="background:var(--' + r.c + ')"></span>' + r.name;
+      where.innerHTML = '→ ' + r.to; who.textContent = r.who;
+      Object.keys(mini).forEach(function (k) { mini[k].lift.to(k === r.k ? 0 : -120); if (k === r.k && swap) setTimeout(function () { mini[k].jump(200).setMood('happy', 900); }, 200); });
+    }
+    var phrases = ['завтра в 16:00 отбор по информатике', 'идея: бот, который напоминает про дз', 'найти конспект про дерево Фенвика', 'в дневник: сегодня решил задачу, которую не мог неделю'];
+    Q.typewriter(input, phrases, { delay: 400 });
+    show(phrases[0]);
+    setInterval(function () {
+      if (input.value) return;
+      var ph = (input.getAttribute('placeholder') || '').replace('▍', '');
+      if (phrases.indexOf(ph) >= 0) show(ph);
+    }, 160);
+    input.addEventListener('input', function () { if (input.value.trim()) show(input.value); });
+    document.getElementById('chips').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      input.value = b.dataset.t; show(input.value); input.focus();
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!cur) return;
+      mini[cur.k].jump(380).setMood('happy', 1400);
+      where.innerHTML = '✓ сохранено: ' + cur.to.replace(/^во |^в /, '');
+      input.value = ''; input.blur();
+    });
+    Q.press(form.querySelector('.send'), { depth: 0.84 });
+  }
+
+  /* ---------- Учёба: страница Ink дописывается при прокрутке ---------- */
+  function study() {
+    title(document.getElementById('tStudy'), 9, 7);
+    var sec = document.getElementById('study'), field = document.getElementById('inkField');
+    var eng = watch(new Dots.Engine(field, { ground: Chast.pal.bg, light: Chast.pal.ink, repel: 30 }));
+    var W = eng.W, H = eng.H, phone = W < 760;
+    var A = phone ? { x: 20, y: 78, w: W - 40, h: H * 0.33 } : { x: W * 0.5, y: H * 0.16, w: W * 0.42, h: H * 0.68 };
+    var p = phone ? 3.4 : 4.6, dots = [];
+    /* штрихи «от руки»: оси, парабола, подпись y = x² и стрелка к вершине (координаты 0…1) */
+    var S = [];
+    function wob(u) { return Math.sin(u * 23.7) * 0.004 + Math.sin(u * 7.3) * 0.003; }
+    var axisX = [], axisY = [], para = [];
+    for (var u = 0; u <= 1; u += 0.01) axisX.push([0.04 + u * 0.62, 0.86 + wob(u)]);
+    axisX.push([0.64, 0.84], [0.62, 0.82]);
+    for (var v = 0; v <= 1; v += 0.012) axisY.push([0.35 + wob(v + 3), 0.94 - v * 0.86]);
+    axisY.push([0.335, 0.105], [0.32, 0.13]);
+    for (var x = -1; x <= 1.0001; x += 0.02) para.push([0.35 + x * 0.25 + wob(x + 9), 0.86 - x * x * 0.62 + wob(x)]);
+    var label = [];
+    /* «y» */
+    for (var a = 0; a <= 1; a += 0.08) label.push([0.72 + a * 0.03, 0.2 + a * 0.06]);
+    for (var b = 0; b <= 1; b += 0.06) label.push([0.79 - b * 0.06, 0.2 + b * 0.14]);
+    /* «=» */
+    for (var c = 0; c <= 1; c += 0.12) { label.push([0.83 + c * 0.05, 0.245]); }
+    for (var c2 = 0; c2 <= 1; c2 += 0.12) { label.push([0.83 + c2 * 0.05, 0.275]); }
+    /* «x» и «²» */
+    for (var e = 0; e <= 1; e += 0.1) label.push([0.91 + e * 0.05, 0.22 + e * 0.08]);
+    for (var f = 0; f <= 1; f += 0.1) label.push([0.96 - f * 0.05, 0.22 + f * 0.08]);
+    for (var g = 0; g <= 1; g += 0.12) { var ang = Math.PI * (1.1 - g * 1.25); label.push([0.985 + Math.cos(ang) * 0.012 + g * 0.006, 0.19 - Math.sin(ang) * 0.012 + (g > 0.7 ? (g - 0.7) * 0.05 : 0)]); }
+    for (var h2 = 0; h2 <= 1; h2 += 0.25) label.push([0.98 + h2 * 0.022, 0.205]);
+    S.push({ pts: axisX, c: 'dim' }, { pts: axisY, c: 'dim' }, { pts: para, c: 'sky' }, { pts: label, c: 'ink' });
+    S.forEach(function (st) {
+      var last = null;
+      st.pts.forEach(function (q) {
+        var X = A.x + q[0] * A.w, Y = A.y + q[1] * A.h;
+        if (last && Math.hypot(X - last[0], Y - last[1]) < p * 0.9) return;
+        last = [X, Y];
+        var d = eng.dot(X, Y, Chast.pal[st.c], 0); d.full = p * (st.c === 'dim' ? 0.32 : 0.46); dots.push(d);
+      });
+    });
+    var pen = eng.dot(A.x, A.y, Chast.pal.orange, 0);
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.card')).map(function (el, i) {
+      var s = Q.spring(0, 1, Q.render(function () { el.style.opacity = Q.clamp(s.x, 0, 1).toFixed(3); el.style.transform = 'translateY(' + ((1 - s.x) * 30).toFixed(1) + 'px) rotate(' + ((1 - s.x) * (i - 1) * 6).toFixed(2) + 'deg)'; }));
+      return s;
+    });
+    var top0 = 0, len = 1, shown = -1;
+    function measure() { var r = sec.getBoundingClientRect(); top0 = r.top + scrollY; len = sec.offsetHeight - innerHeight; }
+    measure(); addEventListener('resize', measure);
+    Q.tick(function () {
+      if (!eng.on) return;
+      var pr = Q.clamp((sy - top0 + innerHeight * 0.3) / (len * 0.85), 0, 1), n = Math.round(pr * dots.length);
+      if (n === shown) return;
+      shown = n;
+      dots.forEach(function (d, i) { var on = i < n; if (on && d.r === 0 && d.rt == null) { d.r = 0.01; } d.rt = on ? d.full : 0; });
+      var tip = dots[Math.max(0, n - 1)];
+      pen.hx = tip.hx; pen.hy = tip.hy; pen.rt = n > 0 && n < dots.length ? p * 0.9 : 0;
+      cards.forEach(function (s, i) { s.to(pr > 0.72 + i * 0.08 ? 1 : 0); });
+    });
+  }
+
+  /* ---------- Принципы: точечные значки собираются при появлении ---------- */
+  var ICONS = {
+    offline: ['..#####..', '.#.....#.', '#..###..#', '..#...#..', '....#....', '.........', '....#....'],
+    hand: ['.#.......', '###....##', '.#....###', '.....###.', '....###..', '...###...', '..###....', '.##......', '#........'],
+    lock: ['...###...', '..#...#..', '..#...#..', '.#######.', '.###.###.', '.###.###.', '.#######.'],
+    server: ['#########', '#.......#', '#########', '.........', '#########', '#.......#', '#########']
+  };
+  function rules() {
+    title(document.getElementById('tRules'), 9, 7);
+    document.querySelectorAll('.rule canvas').forEach(function (cv) {
+      var eng = watch(new Dots.Engine(cv, { ground: Chast.pal.bg, light: Chast.pal.ink, repel: 18 })), rows = ICONS[cv.dataset.icon];
+      var p = eng.W / 10, shown = false;
+      var io3 = new IntersectionObserver(function (es) {
+        if (shown || !es[0].isIntersecting) return;
+        shown = true; io3.disconnect();
+        rows.forEach(function (row, j) { row.split('').forEach(function (ch, i) {
+          if (ch !== '#') return;
+          var warm = cv.dataset.icon === 'lock' && j > 2, ai = cv.dataset.icon === 'hand' && i < 3 && j < 3;
+          var d = eng.dot(p * (i + 1), p * (j + 0.6), warm ? Chast.pal.orange : ai ? Chast.pal.yellow : Chast.pal.ink, p * 0.4, [eng.W / 2 + (Math.random() - 0.5) * eng.W, eng.H + 10], 0);
+          d.wake = performance.now() / 1000 + (i + j) * 0.03;
+        }); });
+      }, { threshold: 0.5 });
+      io3.observe(cv);
+    });
+  }
+
+  /* ---------- Финал ---------- */
+  function final() {
+    var field = document.getElementById('finalField'), acts = document.getElementById('finalActs');
+    var eng = watch(new Dots.Engine(field, { ground: Chast.pal.bg, light: Chast.pal.ink, repel: 60 }));
+    var W = eng.W, H = eng.H, phone = W < 760, STR = 'НАЧНИ\nС ОДНОЙ ТОЧКИ', tc = Dots.textCells(STR, 'Q Tiny5', 8);
+    var p = phone ? Math.min(8, (W - 36) / (tc.cols + 2)) : Math.min(14, W * 0.62 / tc.cols);
+    var x0 = phone ? 18 : (W - tc.cols * p) / 2, y0 = H * (phone ? 0.16 : 0.18);
+    var bp = phone ? 6 : 8, base = H - (phone ? 26 : 40), cx = W / 2;
+    acts.style.left = phone ? '18px' : (W / 2 - 150) + 'px'; acts.style.top = (y0 + tc.rows * p + (phone ? 28 : 44)) + 'px';
+    if (!phone) acts.style.left = 'calc(50% - ' + (acts.offsetWidth / 2) + 'px)';
+    var started = false, io4 = new IntersectionObserver(function (es) {
+      if (started || !es[0].isIntersecting) return;
+      started = true; io4.disconnect();
+      var g = eng.text(STR, { x: x0, y: y0, pitch: p, color: Chast.pal.ink, assemble: true, r: 0.46, lineRows: 8 });
+      /* точка в конце — та самая мысль */
+      var last = g.dots.reduce(function (m, d) { return d.cell[1] > m.cell[1] || d.cell[1] === m.cell[1] && d.cell[0] > m.cell[0] ? d : m; });
+      eng.dot(x0 + (last.cell[0] + 2.5) * p, y0 + (last.cell[1] + 0.5) * p, Chast.pal.orange, p * 0.6, [W / 2, H], 1.1);
+      var crew = [['foti', -14, 'orange'], ['proto', -4.5, 'ink'], ['elik', 3, 'yellow'], ['neit', 11.5, 'sky']].map(function (c, i) {
+        return eng.body(c[0], { x: cx + c[1] * bp, y: base, pitch: bp, color: Chast.pal[c[2]], assemble: true, delay: 0.5 + i * 0.1 });
+      });
+      for (var x = cx - 22 * bp; x < cx + 20 * bp; x += bp) eng.dot(x, base + bp * 0.9, Chast.pal.faint, bp * 0.22);
+      setTimeout(function () { crew.forEach(function (b, i) { setTimeout(function () { b.jump(300).setMood('happy', 1500); }, i * 120); }); }, 1700);
+    }, { threshold: 0.35 });
+    io4.observe(field);
   }
 })();
 </script>

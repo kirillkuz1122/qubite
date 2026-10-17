@@ -7,9 +7,8 @@
 | `SourceSerif4-*` | Source Serif 4 (вариативный, с оптическим размером) | заголовки «Ядра» | SIL OFL 1.1 |
 | `Onest-*` | Onest | текст «Ядра», витрина | SIL OFL 1.1 |
 | `Rubik-*` | Rubik | «Желе» | SIL OFL 1.1 |
-| `GolosText-*` | Golos Text | текст «Частиц» и «Пикселя» | SIL OFL 1.1 |
-| `Manrope-*` | Manrope | вариант текста «Частиц» | SIL OFL 1.1 |
-| `FiraCode-*.ttf` | Fira Code (Regular, Medium) | вариант текста «Частиц» (моноширинный) | SIL OFL 1.1 |
+| `GolosText-*` | Golos Text | текст «Пикселя» | SIL OFL 1.1 |
+| `FiraCode-*` | Fira Code (Regular 400, Medium 500, SemiBold 600; моноширинный) | текст «Частиц» — выбор владельца ([D-160](../../product/DECISIONS.md)) | SIL OFL 1.1 |
 | `Tiny5-*` | Tiny5 (пиксельный) | заголовки «Частиц» и «Пикселя» | SIL OFL 1.1 |
 
-Fira Code — из системных шрифтов (TTF, с кириллицей). Остальные взяты из пакетов `@fontsource` (уже были в `node_modules` и в сборке старой лаборатории `assets/design-lab`).
+Fira Code — из системных шрифтов: разрезан на кириллицу и латиницу (`pyftsubset`) и сжат в woff2, лигатуры сохранены. Остальные взяты из пакетов `@fontsource` (уже были в `node_modules` и в сборке старой лаборатории `assets/design-lab`).

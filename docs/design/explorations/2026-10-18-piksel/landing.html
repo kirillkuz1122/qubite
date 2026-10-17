@@ -11,7 +11,7 @@
 @font-face { font-family: 'Q Tiny5'; src: url('../../fonts/Tiny5-latin.woff2') format('woff2'); font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
 
 html, body { margin: 0; height: 100%; }
-body { --c: 20px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --grid: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); --ink-2: #5d5650; --orange: #ff9852; --yellow: #ffe163;
+body { --c: 20px; --u: 20px; --paper: #fbfcfc; --rule: #dce7f0; --margin: #f2a3a3; --ink: #1f1a17; --grid: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px); --ink-2: #5d5650; --orange: #ff9852; --yellow: #ffe163;
   background: var(--paper); color: var(--ink); font: 400 17px/1.5 'Q Golos', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
@@ -23,21 +23,21 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .hero { position: relative; height: 100svh; min-height: 660px; overflow: hidden;
   background-image: var(--grid);
   background-size: var(--c) var(--c); }
-.hero::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--c) * 3); width: 2px; background: var(--margin); opacity: .8; }
+.hero::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--u) * 3); width: 2px; background: var(--margin); opacity: .8; }
 #board { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
-.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 28px; height: calc(var(--c) * 4); padding: 0 calc(var(--c) * 4) 0 calc(var(--c) * 4); }
+.top { position: absolute; inset: 0 0 auto; z-index: 20; display: flex; align-items: center; gap: 28px; height: calc(var(--u) * 4); padding: 0 calc(var(--u) * 4) 0 calc(var(--u) * 4); }
 .mark { font-size: 32px; line-height: 1; display: flex; align-items: center; gap: 10px; }
 .mark i { width: 12px; height: 12px; background: var(--orange); display: block; }
 .nav { display: flex; gap: 24px; font-size: 15px; color: var(--ink-2); }
 .auth { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 15px; }
 .go { background: var(--btn-bg, var(--ink)); color: var(--btn-fg, #fff); height: 40px; padding: 0 18px; display: grid; place-items: center; font-size: 16px; }
 
-.copy { position: absolute; z-index: 5; left: calc(var(--c) * 4); top: calc(var(--c) * 7); width: min(620px, calc(100vw - var(--c) * 5)); }
-h1 { margin: 0 0 calc(var(--c) * 1); font-size: 80px; line-height: 100px; color: var(--ink); }
+.copy { position: absolute; z-index: 5; left: calc(var(--u) * 4); top: calc(var(--u) * 7); width: min(620px, calc(100vw - var(--u) * 5)); }
+h1 { margin: 0 0 calc(var(--u) * 1); font-size: 80px; line-height: 100px; color: var(--ink); }
 h1 mark { background: none; color: inherit; position: relative; z-index: 0; }
 h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; right: -2px; top: 30px; bottom: 6px; background: var(--hl, var(--yellow)); }
-.lead { margin: 0 0 calc(var(--c) * 1.5); color: var(--ink-2); max-width: 30em; font-size: 18px; line-height: 30px; }
+.lead { margin: 0 0 calc(var(--u) * 1.5); color: var(--ink-2); max-width: 30em; font-size: 18px; line-height: 30px; }
 .command { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 8px 0 18px; background: var(--box, #fff); box-shadow: inset 0 0 0 3px var(--ink), 6px 6px 0 0 var(--shadow, rgba(31, 26, 23, .12)); }
 .command .cur { width: 10px; height: 22px; background: var(--orange); flex: none; animation: cur 1s steps(1) infinite; }
 @keyframes cur { 50% { opacity: 0; } }
@@ -49,11 +49,11 @@ h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; righ
 .hint b { font-weight: 600; color: var(--ink); }
 
 @media (max-width: 760px) {
-  body { --c: 10px; }
+  body { --c: 10px; --u: 10px; }
   .nav, .go { display: none; }
-  .top { padding: 0 calc(var(--c) * 1.5) 0 calc(var(--c) * 4); }
+  .top { padding: 0 calc(var(--u) * 1.5) 0 calc(var(--u) * 4); }
   .mark { font-size: 24px; }
-  .copy { left: calc(var(--c) * 4); top: calc(var(--c) * 5); width: calc(100vw - var(--c) * 5); }
+  .copy { left: calc(var(--u) * 4); top: calc(var(--u) * 5); width: calc(100vw - var(--u) * 5); }
   h1 { font-size: 40px; line-height: 50px; }
   h1 mark::before { top: 15px; bottom: 3px; left: -3px; }
   .lead { font-size: 15px; line-height: 23px; margin-bottom: 18px; }
@@ -90,41 +90,56 @@ h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; righ
 <script>
 (function () {
   'use strict';
-  /* панель «Настроить»: фон страницы (общий для лендинга и «Сегодня») */
-  Lab.panel({
-    title: 'Пиксель: тема и помощники', store: 'qubite.piksel.look.v2',
+  /* панель «Настроить»: тема, клетка и объём (общие для лендинга и «Сегодня»).
+     Клетка — размер одной клетки бумаги на ПК (на телефоне вдвое меньше); помощники и рисунки рисуются в ней же. */
+  var look = Lab.panel({
+    title: 'Пиксель: тема и клетка', store: 'qubite.piksel.look.v3',
     controls: [
       { type: 'choice', key: 'bg', label: 'Тема', value: 'warm',
         options: Object.keys(Pixels.THEMES).map(function (k) { return { value: k, label: Pixels.THEMES[k].label }; }) },
-      { type: 'choice', key: 'crew', label: 'Помощники', value: 'classic',
-        options: [{ value: 'classic', label: 'Крупная клетка' }, { value: 'fine', label: 'Мелкая клетка' }, { value: 'volume', label: 'Мелкая + контур и объём' }] }
+      { type: 'choice', key: 'cell', label: 'Клетка на ПК (на телефоне вдвое меньше)', value: '14',
+        options: [{ value: '20', label: '20 — было' }, { value: '16', label: '16' }, { value: '14', label: '14' }, { value: '12', label: '12' }, { value: '10', label: '10 — мелкая' }] },
+      { type: 'choice', key: 'vol', label: 'Объём', value: 'flat', options: [{ value: 'flat', label: 'Плоско' }, { value: 'vol', label: 'Контур и тень' }] }
     ],
-    onChange: function (s) { Pixels.theme(s.bg); Pixels.setVariant(s.crew); }
+    onChange: function (s) {
+      Pixels.theme(s.bg);
+      /* клетку и объём меняем перезагрузкой: всё раскладывается заново */
+      if (look && (s.cell !== look0.cell || s.vol !== look0.vol)) location.reload();
+    }
   });
+  var look0 = { cell: look.cell, vol: look.vol };
+  Pixels.setScale(20 / +look.cell); Pixels.setVolume(look.vol === 'vol');
   var hero = document.getElementById('hero'), input = document.getElementById('cmd'), hint = document.getElementById('hint');
   var board, crew = {}, flying = null;
 
   function setup() {
-    var W = innerWidth, phone = W < 760, C = phone ? 10 : 20;
+    var W = innerWidth, phone = W < 760, U = phone ? 10 : 20, sc = Pixels.scale, C = Math.round(U / sc);
+    /* U — шаг раскладки страницы, C — клетка бумаги, помощников и рисунков */
+    document.body.style.setProperty('--u', U + 'px');
     document.body.style.setProperty('--c', C + 'px');
+    var u = function (v) { return Math.round(v * sc); };
     var canvas = document.getElementById('board');
     board = new Pixels.Board(canvas, { cell: C });
     var cols = Math.floor(board.W / C), rows = Math.floor(board.H / C);
     /* стоят в ряд по росту, как на школьной фотографии: в пиксельной картинке наложения читаются как каша */
-    var S = phone ? 0 : Math.min(Math.round(cols * 0.46), cols - 38), gap = phone ? 0 : 1, base = rows - (phone ? 3 : 5);
-    var fotiL = S, protoL = fotiL + 11 + gap, neitL = protoL + 7 + gap, elikL = neitL + 9 + (phone ? 0 : 1);
-    crew.proto = board.buddy('proto', protoL + 3, base);
-    crew.neit = board.buddy('neit', neitL + 4, base);
-    crew.foti = board.buddy('foti', fotiL + 5, base);
-    crew.elik = board.buddy('elik', elikL + 3, base);
-    /* «земля» — строчка тетради, на которой они стоят */
-    board.extra.push(function (b) { for (var x = S - 2; x < elikL + 9; x++) b.fill(x, base, x % 2 ? 'l' : 'R'); });
+    var F = Pixels.size('foti'), P = Pixels.size('proto'), N = Pixels.size('neit'), E = Pixels.size('elik');
+    var gap = phone ? 0 : u(1), total = F.w + P.w + N.w + E.w + E.ext + gap * 3;
+    /* на телефоне ряд по центру: если не влезает, Фоти чуть выглядывает из-за края */
+    var S = phone ? Math.floor((cols - total) / 2) : Math.min(Math.round(cols * 0.46), cols - total + u(1));
+    var base = rows - u(phone ? 3 : 5);
+    var fotiL = S, protoL = fotiL + F.w + gap, neitL = protoL + P.w + gap, elikL = neitL + N.w + gap;
+    crew.proto = board.buddy('proto', protoL + Math.floor(P.w / 2), base);
+    crew.neit = board.buddy('neit', neitL + Math.floor(N.w / 2), base);
+    crew.foti = board.buddy('foti', fotiL + Math.floor(F.w / 2), base);
+    crew.elik = board.buddy('elik', elikL + Math.floor(E.w / 2), base);
+    /* «земля» — строчка, на которой они стоят */
+    board.extra.push(function (b) { for (var x = S - u(2); x < elikL + E.w + E.ext + u(1); x++) b.fill(x, base, x % 2 ? 'l' : 'R'); });
     if (phone) {
-      board.doodle('spark', 27, base - 21); board.doodle('heart', 2, base - 12);
-      board.doodle('cal', 4, base - 28); board.doodle('check', 17, base - 32);
+      board.doodle('spark', u(27), base - u(21)); board.doodle('heart', u(2), base - u(14));
+      board.doodle('cal', u(4), base - u(28)); board.doodle('check', u(17), base - u(32));
     } else {
-      board.doodle('heart', protoL, base - 23); board.doodle('spark', neitL + 2, base - 20);
-      board.doodle('cal', elikL, base - 18); board.doodle('check', elikL + 1, base - 27);
+      board.doodle('heart', protoL, base - u(23)); board.doodle('spark', neitL + u(2), base - u(20));
+      board.doodle('cal', elikL, base - u(18)); board.doodle('check', elikL + u(1), base - u(27));
     }
     /* приземление: падают сверху по клеткам */
     ['proto', 'neit', 'foti', 'elik'].forEach(function (k, i) {
@@ -143,7 +158,7 @@ h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; righ
     /* летящая мысль — жёлтая заметка, прыгает по клеткам */
     board.extra.push(function (b) {
       if (!flying) return;
-      b.sprite(Pixels.DOODLES.note, Math.round(flying.x.x), Math.round(flying.y.x));
+      b.sprite('note', Math.round(flying.x.x), Math.round(flying.y.x));
     });
   }
   document.fonts.load("80px 'Q Tiny5'", 'РАЗЛОЖИ ВСЁ ПО КЛЕТОЧКАМ').then(setup);
@@ -168,7 +183,7 @@ h1 mark::before { content: ''; position: absolute; z-index: -1; left: -6px; righ
     var C = board.cell, r = input.getBoundingClientRect(), br = document.getElementById('board').getBoundingClientRect();
     var el = crew.elik;
     flying = { x: Q.spring((r.left - br.left) / C, 1.1), y: Q.spring((r.top - br.top) / C, 1.1) };
-    flying.x.to(el.cx - 2); flying.y.kick(-40); flying.y.to(el.base - el.h - 6);
+    flying.x.to(el.cx - Math.round(2 * Pixels.scale)); flying.y.kick(-40 * Pixels.scale); flying.y.to(el.base - el.h - Math.round(6 * Pixels.scale));
     Object.keys(crew).forEach(function (k) { crew[k].setMood('happy', 1500); });
     setTimeout(function () {
       flying = null; el.jump(320);

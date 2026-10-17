@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Qubite — направления дизайна</title>
+<title>Qubite — визуальный язык</title>
 <style>
 @font-face { font-family: 'Q Onest'; src: url('../fonts/Onest-cyrillic.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 @font-face { font-family: 'Q Onest'; src: url('../fonts/Onest-latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD; }
@@ -36,15 +36,44 @@ header p { margin: 0 0 8px; color: #5d5650; }
 <body>
 <main>
   <header>
-    <h1>Qubite: четыре направления</h1>
+    <h1>Qubite: визуальный язык</h1>
     <p><b>Выбор 18.10.2026:</b> основное — «Частицы», второе — «Пиксель», запасное — «Ядро»; «Желе» отклонено.</p>
-    <p>Каждое — первый экран лендинга с помощниками и экран «Сегодня» на телефоне. Всё живое: трогай, печатай, нажимай.</p>
-    <p>Выбери одно, смешай или попроси ещё.</p>
+    <p>«Частицы» развёрнуты целиком: лендинг с анимациями при прокрутке и приложение (Сегодня, Входящие, Planner, Docs, Настройки), тёмная и светлая тема. Всё живое: трогай, печатай, нажимай.</p>
   </header>
 
   <section class="dir">
     <div>
-      <h2><i style="background:#ff9852"></i>Ядро</h2>
+      <h2><i style="background:#ff9852"></i>Частицы <small style="font-size:14px;color:#8b847d;font-weight:400">основное</small></h2>
+      <p class="idea">Мысль — это точка. Из точек складываются дела, дни и сами помощники.</p>
+      <p class="why">Точки-квадраты со скруглением, текст — Fira Code, заголовки — точками из Tiny5. Каждая точка — пружина: заголовки перестраиваются из тех же точек, сохранённое долетает до своего раздела точкой.</p>
+    </div>
+    <div class="shots">
+      <a href="2026-10-17-chastitsy/landing.html"><img src="2026-10-17-chastitsy/screens/landing-phone.jpg" alt="Частицы, лендинг" loading="lazy"><span>Лендинг <small>→ открыть</small></span></a>
+      <a href="2026-10-17-chastitsy/landing.html#story"><img src="2026-10-17-chastitsy/screens/landing-story-phone.jpg" alt="Частицы, история при прокрутке" loading="lazy"><span>Как устроено <small>→ прокрутка</small></span></a>
+      <a href="2026-10-17-chastitsy/app.html#today"><img src="2026-10-17-chastitsy/screens/today-phone.jpg" alt="Частицы, «Сегодня»" loading="lazy"><span>Приложение <small>→ открыть</small></span></a>
+      <a href="2026-10-17-chastitsy/app.html#inbox"><img src="2026-10-17-chastitsy/screens/app-inbox-phone.jpg" alt="Частицы, «Входящие»" loading="lazy"><span>Входящие</span></a>
+      <a href="2026-10-17-chastitsy/app.html#planner"><img src="2026-10-17-chastitsy/screens/app-planner-phone.jpg" alt="Частицы, Planner" loading="lazy"><span>Planner</span></a>
+      <a href="2026-10-17-chastitsy/app.html#docs"><img src="2026-10-17-chastitsy/screens/app-page-phone.jpg" alt="Частицы, документ" loading="lazy"><span>Docs</span></a>
+      <a href="2026-10-17-chastitsy/app.html#today"><img src="2026-10-17-chastitsy/screens/app-command-phone.jpg" alt="Частицы, Command" loading="lazy"><span>Command</span></a>
+      <a href="2026-10-17-chastitsy/app.html#settings"><img src="2026-10-17-chastitsy/screens/app-light-phone.jpg" alt="Частицы, светлая тема" loading="lazy"><span>Светлая тема</span></a>
+    </div>
+  </section>
+
+  <section class="dir">
+    <div>
+      <h2><i style="background:#ffe163"></i>Пиксель <small style="font-size:14px;color:#8b847d;font-weight:400">второе, позже</small></h2>
+      <p class="idea">Лист в клетку, который думает вместе с тобой. Помощники нарисованы закрашенными клеточками.</p>
+      <p class="why">Бумага, помощники и рисунки — в одной клетке; размер клетки выбирается в «Настроить» (по умолчанию средняя). Всё двигается шажками по клеткам, как в пиксельной игре.</p>
+    </div>
+    <div class="shots">
+      <a href="2026-10-18-piksel/landing.html"><img src="2026-10-18-piksel/screens/landing-phone.jpg" alt="Пиксель, лендинг" loading="lazy"><span>Лендинг <small>→ открыть</small></span></a>
+      <a href="2026-10-18-piksel/today.html"><img src="2026-10-18-piksel/screens/today-phone.jpg" alt="Пиксель, «Сегодня»" loading="lazy"><span>Сегодня <small>→ открыть</small></span></a>
+    </div>
+  </section>
+
+  <section class="dir">
+    <div>
+      <h2><i style="background:#1f1a17"></i>Ядро <small style="font-size:14px;color:#8b847d;font-weight:400">запасное</small></h2>
       <p class="idea">Ты — ядро. Дела, мысли и знания вращаются вокруг тебя, а помощники держат орбиты.</p>
       <p class="why">Тёплая бумага, как у Claude; маленькая планета с помощниками и предметы модулей на орбитах, как композиция Family.</p>
     </div>
@@ -54,11 +83,11 @@ header p { margin: 0 0 8px; color: #5d5650; }
     </div>
   </section>
 
-  <section class="dir">
+  <section class="dir" style="opacity:.6">
     <div>
-      <h2><i style="background:#71cfff"></i>Желе</h2>
+      <h2><i style="background:#71cfff"></i>Желе <small style="font-size:14px;color:#8b847d;font-weight:400">отклонено</small></h2>
       <p class="idea">Всё из одного мягкого материала: тянется, пружинит и перетекает — как Liquid Glass, только без стекла.</p>
-      <p class="why">Игрушечный объём (клеймофизм), помощники сидят прямо на строке Command, «+» растягивается в строку, выделение перетекает каплей.</p>
+      <p class="why">Оставлено для истории.</p>
     </div>
     <div class="shots">
       <a href="2026-10-17-zhele/landing.html"><img src="2026-10-17-zhele/screens/landing-phone.jpg" alt="Желе, лендинг" loading="lazy"><span>Лендинг <small>→ открыть</small></span></a>
@@ -66,31 +95,7 @@ header p { margin: 0 0 8px; color: #5d5650; }
     </div>
   </section>
 
-  <section class="dir">
-    <div>
-      <h2><i style="background:#1f1a17"></i>Частицы</h2>
-      <p class="idea">Мысль — это точка. Из точек складываются дела, дни и сами помощники.</p>
-      <p class="why">Тёмный экран и круглые точки, как у Nothing; каждая точка — пружина: проведи пальцем, и они разлетятся и вернутся.</p>
-    </div>
-    <div class="shots">
-      <a href="2026-10-17-chastitsy/landing.html"><img src="2026-10-17-chastitsy/screens/landing-phone.jpg" alt="Частицы, лендинг" loading="lazy"><span>Лендинг <small>→ открыть</small></span></a>
-      <a href="2026-10-17-chastitsy/today.html"><img src="2026-10-17-chastitsy/screens/today-phone.jpg" alt="Частицы, «Сегодня»" loading="lazy"><span>Сегодня <small>→ открыть</small></span></a>
-    </div>
-  </section>
-
-  <section class="dir">
-    <div>
-      <h2><i style="background:#ffe163"></i>Пиксель</h2>
-      <p class="idea">Тетрадь в клетку, которая думает вместе с тобой. Помощники нарисованы закрашенными клеточками.</p>
-      <p class="why">Пиксельный маскот, как крабик Claude, но на странице в клетку; всё двигается шажками по клеткам, как в пиксельной игре.</p>
-    </div>
-    <div class="shots">
-      <a href="2026-10-18-piksel/landing.html"><img src="2026-10-18-piksel/screens/landing-phone.jpg" alt="Пиксель, лендинг" loading="lazy"><span>Лендинг <small>→ открыть</small></span></a>
-      <a href="2026-10-18-piksel/today.html"><img src="2026-10-18-piksel/screens/today-phone.jpg" alt="Пиксель, «Сегодня»" loading="lazy"><span>Сегодня <small>→ открыть</small></span></a>
-    </div>
-  </section>
-
-  <p class="common"><b>Общее у всех четырёх — одна физика.</b> Любое движение — пружина из одного «материала»; отличается только масса: большое (помощники) мягче и качается дольше, маленькое (кнопки) — собраннее. Двигаются только transform и opacity, всё засыпает, когда вкладка скрыта. Помощники везде одни и те же: Элик ловит мысли, Прото ведёт дела, Нейт учит, Фоти бережёт личное — и все отворачиваются, если напечатать «пароль».</p>
+  <p class="common"><b>Общее у всех — одна физика.</b> Любое движение — пружина из одного «материала»; отличается только масса: большое (помощники) мягче и качается дольше, маленькое (кнопки) — собраннее. Двигаются только transform и opacity, всё засыпает, когда вкладка скрыта. Помощники везде одни и те же: Элик ловит мысли, Прото ведёт дела, Нейт учит, Фоти бережёт личное — и все отворачиваются, если напечатать «пароль».</p>
 </main>
 </body>
 </html>
