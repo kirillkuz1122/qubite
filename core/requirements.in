@@ -1,9 +1,0 @@
-# Runtime only. Exact transitive dependencies are in requirements.lock.
-fastapi==0.143.0
-uvicorn==0.54.0
-psycopg[binary]==3.3.6
-# Already pinned transitively in requirements.lock; identity uses IDNA2008 directly.
-idna==3.20
-argon2-cffi==25.1.0
-httpx==0.28.1
-PyJWT[crypto]==2.15.1

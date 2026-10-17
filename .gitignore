@@ -6,12 +6,6 @@ miro/
 desing/
 back/data/*.sqlite
 back/data/*.sqlite-*
-legacy/qubite-v1/back/data/
-legacy/qubite-v1/deploy/data/
-legacy/qubite-v1/services/runtime/
-legacy/qubite-vpn/build/
-legacy/qubite-vpn/.dart_tool/
-legacy/qubite-vpn/.flutter-plugins*
 .env
 node_modules/
 .codex
@@ -30,11 +24,3 @@ services/**/.env
 services/search/data/
 services/specbot/data/
 services/**/private.env
-
-# Independent core local credentials / environments / packaging / PG runtime
-core/**/.env*
-core/**/postgres-data/
-core/**/data/
-core/**/dist/
-core/**/build/
-core/**/*.egg-info/

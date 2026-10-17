@@ -1,18 +1,38 @@
-# Документация универсального Qubite
+# Документация Qubite
 
-Документы различают фактический runtime, целевые спецификации, прототипы и старые референсы. Текущий статус в [LAST_HANDOFF](project/LAST_HANDOFF.md) и [tasks.json](plan/tasks.json); старые milestones в отчётах не текущие команды запуска.
+Этот каталог собирает рабочую документацию по текущему состоянию репозитория `qubite`.
 
-- [Видение](product/VISION.md), [требования](product/REQUIREMENTS.md), [Owner Console](product/OWNER_CONSOLE.md).
-- [Карта репозитория и статусов](architecture/REPOSITORY_LAYOUT.md), [архитектура](architecture/TARGET_ARCHITECTURE.md), [модули](architecture/MODULES_AND_BOUNDARIES.md), [ADR](architecture/decisions/README.md).
-- [Серверный каталог](architecture/MODULE_CATALOG.md), [отчёт UI-003](reports/QUB-UI-003.md).
-- [Qubite Auth UI](design/AUTH_UX.md), [отчёт AUTH-007](reports/QUB-AUTH-007.md), [новые правовые тексты](legal/README.md).
-- [Оболочка приложения](../apps/web/README.md), [её решение](architecture/decisions/0022-web-shell-and-command.md), [отчёт UI-001](reports/QUB-UI-001.md).
-- [Core запуск/owner](../core/README.md), [Web Auth](architecture/WEB_AUTH.md), [OAuth](architecture/OAUTH_IDENTITY.md), [email](architecture/EMAIL_CHALLENGES.md), [policy](architecture/POLICY_GATE.md), [регистрация](architecture/REGISTRATION.md).
-- [Development Harness](engineering/AGENT_HARNESS.md), [тесты](engineering/TEST_STRATEGY.md), [будущий deploy и backup](engineering/DEPLOYMENT_AND_BACKUPS.md).
-- [План](plan/ROADMAP.md), [карточки](plan/TASKS.md), [память проекта](project/PROJECT_CONTEXT.md), [журнал задач](project/CHANGELOG.md), [отчёты](reports/).
-- [Принятый дизайн](design/FLUX_DESIGN_SYSTEM.md), [палитра](design/COLOR_PLASTIC.md), [React витрина](../assets/design-lab/README.md).
-- [Переезд исходников](migration/REPOSITORY_REORGANIZATION.md), [машинная карта old→new](migration/RELOCATION_MANIFEST.json).
-- [Старые сервисы, подлежащие перепроектированию](legacy-services/README.md). Это не договор API нового core.
-- [Старая турнирная платформа](../legacy/qubite-v1/README.md), [старые документы сайта](../legacy/qubite-v1/docs/), [Flutter VPN](../legacy/qubite-vpn/README.md).
+## Как читать этот комплект
 
-Исходные QUBITE master/access/kickoff в корне сохраняются. Последние согласованные решения владельца имеют приоритет над историческими формулировками; изменения требований записываются в ADR.
+- `README.md` в корне — быстрый вход и карта проекта.
+- Документы в `docs/` — основная проектная документация.
+- `SECURITY.md`, `TODO.md`, `deploy/*` — operational docs и служебные reference-файлы.
+- `docs/explanatory-note-typst/` — отдельный академический артефакт, а не source of truth для продукта и эксплуатации.
+
+## Основные документы
+
+- [`../README.md`](../README.md) — обзор проекта, стек, быстрый старт
+- [`architecture.md`](architecture.md) — архитектура, ключевые модули, потоки данных, runtime-сценарии
+- [`product-and-roles.md`](product-and-roles.md) — продуктовая модель, роли, ограничения доступа
+- [`development.md`](development.md) — локальная разработка, env, логи, точки входа
+- [`deploy-and-production.md`](deploy-and-production.md) — production-модель, deploy-практика, инфраструктурные assumptions
+- [`../SECURITY.md`](../SECURITY.md) — меры защиты, ограничения и риски
+- [`../TODO.md`](../TODO.md) — roadmap, known issues, technical debt
+- [`../SMARTCAPTCHA_THEME.md`](../SMARTCAPTCHA_THEME.md) — заметка по миграции CAPTCHA-слоя
+
+## Принципы поддержания docs
+
+- Документация не должна описывать “как хотелось бы”, если этого нет в коде.
+- Если функция есть частично, это нужно помечать как `частично реализовано`.
+- Если часть системы сырая, это нужно явно выносить в `Known issues` или `Technical debt`.
+- При изменении ролей, env, deploy или ключевых сценариев нужно обновлять и docs, и [`../AGENTS.md`](../AGENTS.md).
+
+- [Редактор текста, Firefox и Linux](writing.md) — локальный LanguageTool, ИИ, права, ключи и бюджеты.
+- [Личный Telegram-бот для ТЗ](specbot.md) — приглашения, промпты, интервью, ручное управление и документы.
+- [Переговоры по Brief в Kwork-боте](kwork-negotiations.md) — оценка ТЗ, подтверждения, личный Telegram и ограничения.
+- [Заявки из сообществ Telegram](telegram-leads.md) — источники, обучение, первые обращения и папки; [схема SQLite](telegram-leads-schema.md).
+- [Переход сервисов на Haiku 5.5](haiku-migration.md) — маршруты, потолки цены, сохранённые изменения Kwork и результаты проверки.
+
+- [Независимый Auth, питание приложений, Memos/Vikunja и Hermes](runtime-and-knowledge.md)
+
+- Memos/Vikunja: разрешение Qubite и одноразовый первый пароль через `/service-enroll`; root-owned `deploy/knowledge-manager.py`, отдельный `KNOWLEDGE_MANAGEMENT_SOCKET`. Повтор не сбрасывает пароль, чужой существующий логин не захватывается. [Инструкция для телефона/Arch](knowledge-client-guide.md).
