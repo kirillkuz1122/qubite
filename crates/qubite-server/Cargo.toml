@@ -1,0 +1,35 @@
+[package]
+name = "qubite-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Сервер Qubite: HTTP API, фоновые задачи, служебные команды"
+
+[[bin]]
+name = "qubite"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+axum = "0.8.9"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+qubite-db = { version = "0.1.0", path = "../qubite-db" }
+qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "net"] }
+tower-http = { version = "0.7.1", features = ["trace", "timeout", "request-id", "util"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+utoipa = { version = "6.0.0", features = ["axum_extras"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+qubite-db = { path = "../qubite-db" }
+reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }
+uuid = { version = "1.28.0", features = ["v4"] }

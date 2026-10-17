@@ -1,6 +1,6 @@
 # Разработка: окружение и команды
 
-**Состояние на 17.10.2026:** кода нового Qubite ещё нет, поэтому команды ниже — **целевые**. Они появятся в задачах FND-001…FND-004; после этого документ обновляется на реальные.
+**Состояние на 17.10.2026:** есть Rust-сервер (FND-001). Web-приложение и единые команды `just` появятся в FND-002 и FND-003.
 
 ## 1. Что нужно установить
 
@@ -8,7 +8,7 @@
 |---|---|
 | Rust (stable, через rustup) + `cargo-nextest`, `sqlx-cli` | Сервер и общее ядро |
 | Node.js 22+ и pnpm | Web, пакеты UI |
-| PostgreSQL 16+ с pgvector (локально или в контейнере) | БД сервера |
+| Docker (для локальной PostgreSQL 18 + pgvector) | БД сервера в разработке и тестах |
 | `just` | Единые команды проекта |
 | Tauri CLI и системные зависимости (WebKitGTK на Linux) | Desktop |
 | Android SDK + JDK 17+ | Android и Ink |
@@ -16,17 +16,43 @@
 ## 2. Команды (целевые)
 
 ```bash
-just setup          # зависимости, локальная БД, миграции
-just dev            # сервер + web с горячей перезагрузкой
-just check          # формат, линтеры, типы, все тесты
-just e2e            # браузерные сценарии
-just desktop        # Tauri в режиме разработки
-just test-legacy    # тесты старого кода
+just setup          ## 2. Команды
+
+### Сервер (работает сейчас)
+
+```bash
+# 1. Поднять локальную PostgreSQL 18 + pgvector в Docker (порт 55432)
+scripts/dev-db.sh up
+
+# 2. Тесты: форматирование, линтер, все тесты
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+eval "$(scripts/dev-db.sh env)"      # задаёт TEST_DATABASE_URL
+cargo test --workspace
+
+# 3. Запустить сервер
+DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/postgres cargo run --bin qubite -- serve
+curl http://127.0.0.1:8080/api/health    # жив ли процесс
+curl http://127.0.0.1:8080/api/ready     # отвечает ли база, применены ли миграции
+curl http://127.0.0.1:8080/api/openapi.json
+
+# Остальные команды бинарника
+cargo run --bin qubite -- migrate        # только применить миграции
+cargo run --bin qubite -- version
+cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
+
+scripts/dev-db.sh down                   # остановить базу (данные в памяти — пропадут)
 ```
 
-## 3. Локальная конфигурация
+Версия Rust закреплена в `rust-toolchain.toml` (1.99.0) — rustup сам поставит нужную.
 
-Скопировать [`.env.example`](../../.env.example) в `.env` и заполнить. Настоящие ключи провайдеров для разработки не нужны: AI, почта и OAuth работают через mock.
+### Целевые (появятся в FND-002/FND-003)
+
+```bash
+just setup   just dev   just check   just e2e   just desktop   just test-legacy
+```
+
+ple`](../../.env.example) в `.env` и заполнить. Настоящие ключи провайдеров для разработки не нужны: AI, почта и OAuth работают через mock.
 
 ## 4. Старый Qubite
 

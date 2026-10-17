@@ -55,4 +55,4 @@
 
 ## Проверки
 
-Пока нового кода нет. Тесты старого кода (321) — команды в `legacy/README.md`. Целевые команды (`just check` и др.) — `docs/engineering/DEVELOPMENT.md`.
+Сервер: `scripts/dev-db.sh up`, `eval "$(scripts/dev-db.sh env)"`, `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`. Подробно — `docs/engineering/DEVELOPMENT.md`. Тесты старого кода (321) — `legacy/README.md`. В sqlx 0.9 динамический SQL требует `sqlx::AssertSqlSafe` — использовать только для строк без внешнего ввода.

@@ -99,7 +99,8 @@ flowchart LR
 |---|---|
 | Документация, ТЗ, план | ✅ готово, ждёт просмотра владельцем |
 | Старый Qubite | 🗄️ перенесён в [`legacy/qubite-v1/`](legacy/), все 321 тест проходят |
-| Фундамент (Rust-сервер, web) | ⏳ следующий шаг |
+| Rust-сервер: каркас, база, проверки | ✅ готов (FND-001) |
+| Web-приложение | ⏳ следующий шаг |
 | Живой дизайн, аккаунты, AI, Command | 📋 в плане |
 
 Где остановились и какие вопросы открыты — [docs/project/STATUS.md](docs/project/STATUS.md).
@@ -159,12 +160,13 @@ flowchart TB
 
 ## 🛠️ Разработка
 
-Код появится в задачах фундамента. Целевые команды:
+Сервер на Rust уже запускается:
 
 ```bash
-just setup   # зависимости и локальная БД
-just dev     # сервер + web
-just check   # формат, линтеры, тесты
+scripts/dev-db.sh up                                   # PostgreSQL 18 + pgvector в Docker
+eval "$(scripts/dev-db.sh env)" && cargo test --workspace
+DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/postgres cargo run --bin qubite -- serve
+curl http://127.0.0.1:8080/api/ready
 ```
 
 Подробно — [docs/engineering/DEVELOPMENT.md](docs/engineering/DEVELOPMENT.md). Безопасность — [SECURITY.md](SECURITY.md).

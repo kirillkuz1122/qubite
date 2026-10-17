@@ -10,7 +10,7 @@
 | ID | Название | Статус | Зависит от |
 |---|---|---|---|
 | DOCS-001 | Аудит, перенос legacy, документация и план | review | — |
-| FND-001 | Rust-сервер: каркас, конфиг, PostgreSQL, CI | ready | DOCS-001 |
+| FND-001 | Rust-сервер: каркас, конфиг, PostgreSQL, CI | review | DOCS-001 |
 | FND-002 | Web-приложение и пакеты TS, генерация API-клиента | ready | DOCS-001 |
 | FND-003 | Команды разработки, CI legacy, проверка секретов | backlog | FND-001, FND-002 |
 | FND-004 | Ядро объектов: конверт, связи, события, аудит, файлы, очередь задач | backlog | FND-001 |
@@ -82,6 +82,7 @@
 - **Уже известно:** хостинг не ограничен Pi (VPS/сервер/ПК), ориентир по памяти — базовый набор в 2 ГБ ([D-110](../product/DECISIONS.md)); сборка под `x86_64` и `aarch64`.
 - **Вопросы владельцу:** берём текущие стабильные версии Rust и PostgreSQL?
 - **Готово когда:** `qubite serve` отвечает на health, миграции применяются на пустую БД, CI зелёный.
+- **Сделано (17.10.2026):** workspace из трёх crate'ов (`qubite-kernel` — версия, окружение, тип `Secret`, который не печатается в логи; `qubite-db` — пул, встроенные миграции, проверка готовности; `qubite-server` — бинарник `qubite` с командами `serve`/`migrate`/`version`, `/api/health`, `/api/ready`, `/api/openapi.json`, таймаут 30 с, логи pretty/json, аккуратная остановка по SIGTERM). Скрипт `scripts/dev-db.sh` (PostgreSQL 18 + pgvector 0.8.7 в Docker). 10 тестов (2 unit + 8 интеграционных на настоящей PostgreSQL), fmt и clippy чистые. Release-бинарник 11 МБ, память в простое ≈ 9 МБ. CI — `.github/workflows/server.yml`.
 
 ### FND-002 — Web-приложение и пакеты TS
 - **Входит:** pnpm workspace; `apps/web` (Vite, React, TS strict, TanStack Router/Query); пакеты `packages/ui`, `motion`, `companions`, `api-client` (генерация из OpenAPI FND-001); ESLint, Prettier, Vitest, Playwright; CI job `web`.
