@@ -142,3 +142,4 @@
 | D-132 | Версии: всегда **стабильные** выпуски. Rust — текущий stable (на 17.10.2026 — 1.99), закреплён в `rust-toolchain.toml`. PostgreSQL — **18** с **pgvector 0.8.7** (самая новая версия, для которой есть pgvector). | CONFIRMED | [CL] |
 | D-133 | Web: **Vite + React 19 + TypeScript**, без Next.js. JS-пакеты — **pnpm** на Node.js. Bun рассмотрен: быстрее как установщик пакетов, но Playwright и Tauri официально рассчитаны на Node, а серверная часть Bun нам не нужна (сервер на Rust). К Bun можно вернуться без переделки кода. | CONFIRMED | [CL] |
 | D-134 | Браузерные тесты — **Firefox и Chromium** обязательно. | CONFIRMED | [CL] |
+| D-135 | PostgreSQL для разработки и тестов — **в Docker** (`scripts/dev-db.sh`), как и в CI. В систему не ставим. | CONFIRMED (на усмотрение агента) | [CL] |

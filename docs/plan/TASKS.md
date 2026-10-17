@@ -12,7 +12,7 @@
 | DOCS-001 | Аудит, перенос legacy, документация и план | review | — |
 | FND-001 | Rust-сервер: каркас, конфиг, PostgreSQL, CI | done | DOCS-001 |
 | FND-002 | Web-приложение и пакеты TS, генерация API-клиента | done | DOCS-001 |
-| FND-003 | Команды разработки, CI legacy, проверка секретов | backlog | FND-001, FND-002 |
+| FND-003 | Команды разработки, CI legacy, проверка секретов | review | FND-001, FND-002 |
 | FND-004 | Ядро объектов: конверт, связи, события, аудит, файлы, очередь задач | backlog | FND-001 |
 | FND-005 | Синхронизация v1: протокол, сервер, офлайн-очередь web | backlog | FND-004, FND-002 |
 | DS-001 | Токены, типографика, светлая тема, витрина `/design` | backlog | FND-002 |
@@ -95,6 +95,7 @@
 - **Входит:** `justfile` (`setup`, `dev`, `check`, `e2e`, `test-legacy`); локальная БД (скрипт или контейнер — на выбор владельца); CI-job тестов legacy (321 тест); gitleaks; обновить DEVELOPMENT.md реальными командами.
 - **Вопросы:** локальный PostgreSQL — через Docker/Podman или установить в систему?
 - **Готово когда:** `just check` и `just dev` работают на чистой машине по инструкции.
+- **Сделано (17.10.2026):** `justfile` (setup, dev, check, e2e, fmt, gen-api, secrets, test-legacy, db-*); база — Docker ([D-135](../product/DECISIONS.md)); CI `legacy.yml` (321 тест) и `secrets.yml` (gitleaks по новым коммитам). Проверка всей истории нашла **настоящий токен старого VPN** в публичном репозитории — описано в [SECURITY.md](../../SECURITY.md), нужна смена токена владельцем.
 
 ### FND-004 — Ядро объектов
 - **Входит:** таблицы `objects`, `relations`, `events`, `audit_log`, `file_blobs`, `attachments`, `jobs`; UUIDv7; очередь задач (`SKIP LOCKED`, повторы, идемпотентность); хранилище файлов по хешу; тесты гонок и падения воркера.

@@ -1,0 +1,31 @@
+# Тесты старого Qubite (legacy/qubite-v1): перенос и правки не должны его ломать.
+name: legacy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'legacy/**'
+      - 'justfile'
+      - '.github/workflows/legacy.yml'
+  pull_request:
+    paths:
+      - 'legacy/**'
+
+concurrency:
+  group: legacy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@v6
+      - uses: extractions/setup-just@v3
+      - name: 321 тест старого кода
+        run: just test-legacy

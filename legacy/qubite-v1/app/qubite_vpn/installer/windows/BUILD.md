@@ -11,7 +11,7 @@
 
 ```powershell
 # 1. Build Flutter app
-flutter build windows --release --dart-define=VPN_APP_TOKEN=502d0b12581dccf353976a22ba0bea07796cf0d9d0464db45bfe386b8fc1349d
+flutter build windows --release --dart-define=VPN_APP_TOKEN=<токен из deploy/.env>
 
 # 2. Place sing-box.exe next to setup.iss
 copy path\to\sing-box.exe installer\windows\
