@@ -35,7 +35,7 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://qubite:qubite@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Rust из rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
