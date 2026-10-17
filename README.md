@@ -84,6 +84,7 @@ flowchart LR
 | 🤖 **Агенты** | Память, навыки, Hermes, MCP для Codex/Claude | позже |
 | 🔎 **Search · ✏️ Writer · 🌐 VPN · 💼 Kwork** | Переписываются из старого Qubite на Rust | позже |
 | 📔 **Life · 💰 Finance · 🎯 Focus · 🎨 Studio** | Дневник, деньги, концентрация, рисование | большие релизы |
+| 🏠 **Qubite Home** | Умный дом на Home Assistant, «мозг» — Shade AI, который берёт данные из Qubite | большой релиз |
 
 Полный каталог с поддоменами и статусами — [docs/product/MODULES.md](docs/product/MODULES.md).
 

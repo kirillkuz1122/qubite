@@ -11,6 +11,7 @@
 | [product/MODULES.md](product/MODULES.md) | Каталог модулей: статус, поддомены, что из legacy |
 | [product/REQUIREMENTS.md](product/REQUIREMENTS.md) | Реестр требований с ID и критериями готовности |
 | [product/OWNER_CONSOLE.md](product/OWNER_CONSOLE.md) | Панель владельца |
+| [product/QUBITE_HOME.md](product/QUBITE_HOME.md) | Будущий умный дом: Home Assistant + Shade AI |
 
 ## Архитектура — как устроено
 

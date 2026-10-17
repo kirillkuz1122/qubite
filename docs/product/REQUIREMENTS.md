@@ -217,6 +217,7 @@
 | EXT-05 | Plugin SDK: манифест, разрешения, песочница, TS/JS + Wasm | P3 | MC §15.1 | Плагин «Hello Qubite» работает на всех клиентах |
 | EXT-06 | Plugin Studio (I-42), маркетплейс | P3 | MC §15.1 | — |
 | EXT-07 | Integration Monitor (I-45) | P2 | MC §20 | — |
+| EXT-08 | Qubite Home: Home Assistant + Shade AI; Shade AI читает данные Qubite по ограниченному ключу, опасные действия с домом — с подтверждением (Smart Home Bridge, I-44) | P3 | D-013, MC §18 | Shade AI не видит данных сверх выданного scope |
 
 ## 15. Личное: Life, Finance, Focus (LIFE)
 

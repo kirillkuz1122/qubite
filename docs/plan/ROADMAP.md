@@ -53,7 +53,7 @@ flowchart LR
 | EPIC-LEARN | Предметы, ДЗ, карточки FSRS, квизы; исследование «Моя школа» |
 | EPIC-PULSE | Автоматизации, Automation Discovery, dry-run |
 | EPIC-MCP | Собственный MCP-сервер, API-ключи, Context Capsules |
-| EPIC-HOME | Today: виджеты, AI-дайджест, пространства, Progress Digest |
+| EPIC-TODAY | Today: виджеты, AI-дайджест, пространства, Progress Digest |
 | EPIC-PLANNER-2 | Гант, зависимости, таймтрекинг, Smart Scheduling, Project Autopilot |
 | EPIC-DOCS-2 | Вставки Ink, AI-правки, шаблоны, базы данных |
 | EPIC-INK-2 | PDF, инструменты, слои, Ink Replay |
@@ -74,7 +74,7 @@ flowchart LR
 | EPIC-PLUGINS | Plugin SDK, песочница, Plugin Studio |
 | EPIC-HANDWRITING | Персональный почерк, математика, Visual Math Lab |
 | EPIC-AUDIO | Запись уроков, ASR, связь аудио и штрихов |
-| EPIC-SHADEAI | Коннектор умного дома |
+| EPIC-QUBITE-HOME | Qubite Home: умный дом на Home Assistant + Shade AI, Qubite как интерфейс и источник данных ([QUBITE_HOME](../product/QUBITE_HOME.md)) |
 | EPIC-VAULT | Менеджер паролей |
 | EPIC-OPENSOURCE | Лицензии, публичный релиз |
 

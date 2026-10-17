@@ -36,6 +36,7 @@
 | `finance` | Finance | Счета, операции (двойная запись), бюджеты, Kwork-доходы, налоги | `finance.<domain>` | P3 | planned |
 | `focus` | Focus / Guardian | Таймер, режим одной задачи, добровольные ограничения, доверенный контролёр | — | P3 | planned |
 | `studio` | Studio | Рисование, слои, анимация | — | P3 | planned |
+| `home` | Qubite Home | Умный дом на базе Home Assistant + Shade AI как мозг автоматизаций; Qubite — интерфейс и источник данных ([QUBITE_HOME.md](QUBITE_HOME.md)) | `home.<domain>` | P3 | planned |
 | `extensions` | Extensions / MCP | Plugin SDK, собственный MCP-сервер, Context Capsules, Developer Bridge | `mcp.<domain>` | P2–P3 | planned |
 
 ## Сервисы, переписываемые из legacy
@@ -61,7 +62,7 @@
 | `openrouter` | Основной AI-провайдер | Серверный ключ, allowlist моделей, бюджеты | MVP |
 | `chatgpt` | Вход через ChatGPT и его лимиты | Проверить условия OpenAI ([D-061](DECISIONS.md)) | P2 |
 | `hermes` | Внешний агент-исполнитель | Адаптер, ограниченные токены, импорт навыков после проверки | P2 |
-| `shadeai` | Умный дом (отдельный проект `~/programing/ShadeAI`) | REST-коннектор к Shade Core: уведомления, устройства, автоматизации, голос | P3 |
+| `shadeai` | Shade AI (отдельный проект `~/programing/ShadeAI`, Python) | Входит в Qubite Home: читает данные Qubite по ограниченному ключу, управляет домом через Home Assistant | P3 |
 | `school` | «Госуслуги Моя школа» | Сначала исследование: есть ли разрешённый доступ; иначе ручной ввод/импорт | P2 |
 | `google` | Gmail, Календарь, Drive | OAuth с минимальными scope | P3 |
 | `youtube` | История и материалы | Google Takeout, Share → Qubite, расширение браузера | P3 |

@@ -116,4 +116,5 @@ python3 -m unittest discover -s deploy/services/tests                # 18
 - Локальный AI для умного дома на Raspberry Pi 5 (4 ГБ), «zero-cloud».
 - `core/` — Python FastAPI (Shade Core), `android/` — Kotlin/Compose, `web/` — TypeScript, `docs/` — API-спецификация.
 - REST API v0.1: `GET /health`, `POST/GET /notifications`, временный `POST /ha/action`; в планах `/devices`, `/habits`, `/automations`, `/events`, `/config`, `/voice`.
-- Интеграция с Qubite — будущий модуль-коннектор `shadeai` (P3): уведомления → Inbox/уведомления Qubite, сценарии Focus → автоматизации дома с локальным подтверждением опасных действий. Код ShadeAI не импортируем и не меняем.
+- Состояние: скелет, из 27 задач его плана выполнены 2; LLM и аналитика — заглушки.
+- Будущее: Shade AI войдёт в модуль **Qubite Home** (Home Assistant + Shade AI, Qubite как интерфейс и источник данных) — [QUBITE_HOME.md](../product/QUBITE_HOME.md). Код ShadeAI из Qubite не импортируем; дорабатывается в своём репозитории.
