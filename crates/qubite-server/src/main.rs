@@ -4,9 +4,11 @@
 //! - `qubite serve`   — запустить HTTP API;
 //! - `qubite migrate` — применить миграции базы и выйти;
 //! - `qubite version` — показать версию;
-//! - `qubite openapi` — напечатать описание API (для генерации клиента).
+//! - `qubite openapi` — напечатать описание API (для генерации клиента);
+//! - `qubite owner create` — создать единственного owner платформы;
+//! - `qubite owner password` — сменить пароль owner (все его сессии закрываются).
 
-use std::net::SocketAddr;
+use std::{io::BufRead, net::SocketAddr, time::Duration};
 
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -50,6 +52,36 @@ enum Command {
     Version,
     /// Напечатать описание API в формате OpenAPI (JSON). База не нужна.
     Openapi,
+    /// Owner платформы: создать или сменить пароль.
+    #[command(subcommand)]
+    Owner(OwnerCommand),
+}
+
+#[derive(Subcommand)]
+enum OwnerCommand {
+    /// Создать owner платформы. Owner один: второй раз команда откажет.
+    Create {
+        #[command(flatten)]
+        db: DbArgs,
+        /// Почта owner (по ней он входит).
+        #[arg(long)]
+        email: String,
+        /// Имя, которое видно в интерфейсе.
+        #[arg(long, default_value = "")]
+        name: String,
+        /// Прочитать пароль из первой строки stdin (для скриптов установки).
+        /// Без флага пароль спрашивается дважды без отображения на экране.
+        #[arg(long)]
+        password_stdin: bool,
+    },
+    /// Сменить пароль owner. Все сессии owner закрываются.
+    Password {
+        #[command(flatten)]
+        db: DbArgs,
+        /// Прочитать пароль из первой строки stdin.
+        #[arg(long)]
+        password_stdin: bool,
+    },
 }
 
 #[derive(Args)]
@@ -79,6 +111,22 @@ struct ServeArgs {
     /// Применять миграции при запуске.
     #[arg(long, env = "QUBITE_AUTO_MIGRATE", default_value_t = true, action = clap::ArgAction::Set)]
     auto_migrate: bool,
+
+    /// Срок сессии в днях; продлевается при использовании.
+    #[arg(long, env = "QUBITE_SESSION_TTL_DAYS", default_value_t = 30)]
+    session_ttl_days: u64,
+
+    /// Domain для cookie входа (например `.qubiteapp.ru`). Пусто — только текущий адрес.
+    #[arg(long, env = "QUBITE_SESSION_COOKIE_DOMAIN")]
+    cookie_domain: Option<String>,
+
+    /// Флаг Secure у cookie (только HTTPS; localhost браузеры тоже пускают).
+    #[arg(long, env = "QUBITE_COOKIE_SECURE", default_value_t = true, action = clap::ArgAction::Set)]
+    cookie_secure: bool,
+
+    /// Сервер за прокси (Caddy): брать адрес клиента из X-Forwarded-For.
+    #[arg(long, env = "QUBITE_TRUST_PROXY", default_value_t = false, action = clap::ArgAction::Set)]
+    trust_proxy: bool,
 }
 
 impl DbArgs {
@@ -114,7 +162,60 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Command::Serve(args) => serve(args).await,
+        Command::Owner(command) => owner(command).await,
     }
+}
+
+async fn owner(command: OwnerCommand) -> anyhow::Result<()> {
+    let passwords = qubite_auth::Passwords::default();
+    match command {
+        OwnerCommand::Create {
+            db,
+            email,
+            name,
+            password_stdin,
+        } => {
+            let db = Database::connect(&db.config()).await?;
+            db.migrate().await?;
+            if let Some(owner) = qubite_auth::owner::current(db.pool()).await? {
+                anyhow::bail!(
+                    "owner платформы уже есть ({}), второго быть не может",
+                    owner.email
+                );
+            }
+            let password = read_password(password_stdin)?;
+            let account =
+                qubite_auth::owner::create(db.pool(), &passwords, &email, &name, &password).await?;
+            println!("Owner создан: {} (id {})", account.email, account.id);
+            db.close().await;
+        }
+        OwnerCommand::Password { db, password_stdin } => {
+            let db = Database::connect(&db.config()).await?;
+            db.migrate().await?;
+            let password = read_password(password_stdin)?;
+            let revoked =
+                qubite_auth::owner::set_password(db.pool(), &passwords, &password).await?;
+            println!("Пароль owner изменён, закрыто сессий: {revoked}");
+            db.close().await;
+        }
+    }
+    Ok(())
+}
+
+/// Пароль никогда не передаётся аргументом: его видно в списке процессов.
+fn read_password(from_stdin: bool) -> anyhow::Result<String> {
+    let password = if from_stdin {
+        let mut line = String::new();
+        std::io::stdin().lock().read_line(&mut line)?;
+        line.trim_end_matches(['\r', '\n']).to_owned()
+    } else {
+        let first = rpassword::prompt_password("Пароль owner: ")?;
+        let second = rpassword::prompt_password("Ещё раз: ")?;
+        anyhow::ensure!(first == second, "пароли не совпадают");
+        first
+    };
+    qubite_auth::password::validate(&password)?;
+    Ok(password)
 }
 
 async fn serve(args: ServeArgs) -> anyhow::Result<()> {
@@ -128,7 +229,18 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         Database::connect_lazy(&args.db.config())?
     };
 
-    let app = qubite_server::router(qubite_server::AppState { db: db.clone() });
+    let auth = qubite_server::auth::AuthSettings {
+        config: qubite_auth::AuthConfig {
+            session_ttl: Duration::from_secs(args.session_ttl_days.max(1) * 24 * 60 * 60),
+            ..qubite_auth::AuthConfig::default()
+        },
+        cookie_domain: args.cookie_domain.filter(|domain| !domain.is_empty()),
+        cookie_secure: args.cookie_secure,
+        trust_proxy: args.trust_proxy,
+        ..qubite_server::auth::AuthSettings::default()
+    };
+    let app = qubite_server::router(qubite_server::AppState::with_auth(db.clone(), auth))
+        .into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await
         .with_context(|| format!("не удалось занять адрес {}", args.bind))?;

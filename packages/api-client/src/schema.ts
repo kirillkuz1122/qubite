@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+  '/api/auth/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Войти по почте и паролю. */
+    post: operations['login'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/logout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Выйти: закрыть текущую сессию. */
+    post: operations['logout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/logout-everywhere': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** «Выйти везде»: закрыть все сессии аккаунта, включая текущую. */
+    post: operations['logout_everywhere'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Кто вошёл. */
+    get: operations['whoami'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/sessions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Мои открытые сессии, свежие сверху. */
+    get: operations['list_sessions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/sessions/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Закрыть одну свою сессию (например, на потерянном устройстве). */
+    delete: operations['revoke_session'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/health': {
     parameters: {
       query?: never;
@@ -42,11 +144,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Ответ с ошибкой: машиночитаемый код и понятный человеку текст. */
+    ApiErrorBody: {
+      /** @description Код ошибки, например `invalid_credentials`. */
+      error: string;
+      /** @description Текст для человека. */
+      message: string;
+    };
     Health: {
       /** @description Всегда `ok`, если процесс отвечает. */
       status: string;
       /** @description Версия Qubite. */
       version: string;
+    };
+    LoginRequest: {
+      /** @description Почта аккаунта; регистр не важен. */
+      email: string;
+      /** @description Пароль. Не логируется и не сохраняется. */
+      password: string;
+    };
+    LoginResponse: {
+      account: components['schemas']['Me'];
+      /** @description CSRF-токен; то же значение лежит в cookie `qubite_csrf`. */
+      csrf_token: string;
+    };
+    /** @description Кто вошёл. */
+    Me: {
+      display_name: string;
+      email: string;
+      /** Format: uuid */
+      id: string;
+      /** @description Owner платформы (видит Owner Console). */
+      is_owner: boolean;
+      /**
+       * Format: date-time
+       * @description Когда сессия истечёт, если ей не пользоваться.
+       */
+      session_expires_at: string;
+      /**
+       * Format: uuid
+       * @description ID текущей сессии.
+       */
+      session_id: string;
     };
     Readiness: {
       /** @description `ok` или `unavailable`. */
@@ -59,6 +198,30 @@ export interface components {
       /** @description `ready` или `not_ready`. */
       status: string;
     };
+    RevokedCount: {
+      /**
+       * Format: int64
+       * @description Сколько сессий закрыто.
+       */
+      revoked: number;
+    };
+    /** @description Сессия в списке «Мои сессии». */
+    SessionItem: {
+      /** Format: date-time */
+      created_at: string;
+      /** @description Это сессия, с которой сделан запрос. */
+      current: boolean;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: uuid */
+      id: string;
+      ip: string;
+      /** @description `web` или `device`. */
+      kind: string;
+      /** Format: date-time */
+      last_seen_at: string;
+      user_agent: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -68,6 +231,237 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LoginRequest'];
+      };
+    };
+    responses: {
+      /** @description Вход выполнен; ставятся cookie `qubite_session` и `qubite_csrf` */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LoginResponse'];
+        };
+      };
+      /** @description Неверная почта или пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Аккаунт заблокирован или почта не подтверждена */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Слишком много попыток; заголовок `Retry-After` — через сколько секунд */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сессия закрыта, cookie стёрты */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет или неверный CSRF-токен */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  logout_everywhere: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Все сессии закрыты, cookie стёрты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RevokedCount'];
+        };
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет или неверный CSRF-токен */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  whoami: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Текущий аккаунт и сессия */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Me'];
+        };
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_sessions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Открытые сессии аккаунта */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SessionItem'][];
+        };
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  revoke_session: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID сессии */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сессия закрыта */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет или неверный CSRF-токен */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такой открытой сессии у этого аккаунта */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   health: {
     parameters: {
       query?: never;

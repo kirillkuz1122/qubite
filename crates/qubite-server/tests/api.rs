@@ -9,12 +9,12 @@ use qubite_kernel::Secret;
 use qubite_testkit::TestDb;
 
 /// Номер последней миграции в `crates/qubite-db/migrations`.
-const LATEST_MIGRATION: i64 = 3;
+const LATEST_MIGRATION: i64 = 4;
 use serde_json::Value;
 
 /// Запустить настоящий router на свободном порту.
 async fn spawn_server(db: Database) -> SocketAddr {
-    let app = qubite_server::router(qubite_server::AppState { db });
+    let app = qubite_server::router(qubite_server::AppState::new(db));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move {

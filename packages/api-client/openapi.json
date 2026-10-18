@@ -10,6 +10,251 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Войти по почте и паролю.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вход выполнен; ставятся cookie `qubite_session` и `qubite_csrf`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверная почта или пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или почта не подтверждена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много попыток; заголовок `Retry-After` — через сколько секунд",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Выйти: закрыть текущую сессию.",
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "Сессия закрыта, cookie стёрты"
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет или неверный CSRF-токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout-everywhere": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "«Выйти везде»: закрыть все сессии аккаунта, включая текущую.",
+        "operationId": "logout_everywhere",
+        "responses": {
+          "200": {
+            "description": "Все сессии закрыты, cookie стёрты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет или неверный CSRF-токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Кто вошёл.",
+        "operationId": "whoami",
+        "responses": {
+          "200": {
+            "description": "Текущий аккаунт и сессия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Мои открытые сессии, свежие сверху.",
+        "operationId": "list_sessions",
+        "responses": {
+          "200": {
+            "description": "Открытые сессии аккаунта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sessions/{id}": {
+      "delete": {
+        "tags": ["auth"],
+        "summary": "Закрыть одну свою сессию (например, на потерянном устройстве).",
+        "operationId": "revoke_session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID сессии",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Сессия закрыта"
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет или неверный CSRF-токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такой открытой сессии у этого аккаунта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": ["system"],
@@ -61,6 +306,21 @@
   },
   "components": {
     "schemas": {
+      "ApiErrorBody": {
+        "type": "object",
+        "description": "Ответ с ошибкой: машиночитаемый код и понятный человеку текст.",
+        "required": ["error", "message"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Код ошибки, например `invalid_credentials`."
+          },
+          "message": {
+            "type": "string",
+            "description": "Текст для человека."
+          }
+        }
+      },
       "Health": {
         "type": "object",
         "required": ["status", "version"],
@@ -72,6 +332,64 @@
           "version": {
             "type": "string",
             "description": "Версия Qubite."
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Почта аккаунта; регистр не важен."
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль. Не логируется и не сохраняется."
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["account", "csrf_token"],
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/Me"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "CSRF-токен; то же значение лежит в cookie `qubite_csrf`."
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "description": "Кто вошёл.",
+        "required": ["id", "email", "display_name", "is_owner", "session_id", "session_expires_at"],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_owner": {
+            "type": "boolean",
+            "description": "Owner платформы (видит Owner Console)."
+          },
+          "session_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Когда сессия истечёт, если ей не пользоваться."
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID текущей сессии."
           }
         }
       },
@@ -93,7 +411,75 @@
             "description": "`ready` или `not_ready`."
           }
         }
+      },
+      "RevokedCount": {
+        "type": "object",
+        "required": ["revoked"],
+        "properties": {
+          "revoked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько сессий закрыто.",
+            "minimum": 0
+          }
+        }
+      },
+      "SessionItem": {
+        "type": "object",
+        "description": "Сессия в списке «Мои сессии».",
+        "required": [
+          "id",
+          "kind",
+          "user_agent",
+          "ip",
+          "created_at",
+          "last_seen_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Это сессия, с которой сделан запрос."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`web` или `device`."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user_agent": {
+            "type": "string"
+          }
+        }
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "system",
+      "description": "Состояние сервера"
+    },
+    {
+      "name": "auth",
+      "description": "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`."
+    }
+  ]
 }

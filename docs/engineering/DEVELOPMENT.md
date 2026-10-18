@@ -1,6 +1,6 @@
 # Разработка: окружение и команды
 
-**Состояние на 17.10.2026:** есть Rust-сервер (FND-001), web-приложение (FND-002) и единые команды `just` (FND-003).
+**Состояние на 18.10.2026:** есть Rust-сервер (FND-001), web-приложение (FND-002), единые команды `just` (FND-003), вход и сессии (AUTH-001).
 
 ## 1. Что нужно установить
 
@@ -53,6 +53,16 @@ curl http://127.0.0.1:8080/api/openapi.json  # описание API
 # Остальные команды бинарника
 cargo run --bin qubite -- migrate        # только применить миграции
 cargo run --bin qubite -- version
+
+# Owner платформы (один на установку; второй раз команда откажет)
+DATABASE_URL=… cargo run --bin qubite -- owner create --email you@example.ru --name Кирилл
+#   пароль спросит дважды без отображения; для скриптов: echo "$PASS" | … --password-stdin
+DATABASE_URL=… cargo run --bin qubite -- owner password   # новый пароль, все сессии owner закрываются
+
+# Вход (cookie qubite_session + qubite_csrf); изменяющим запросам нужен заголовок X-CSRF-Token
+curl -i -c jar -H 'content-type: application/json' \
+  -d '{"email":"you@example.ru","password":"…"}' http://127.0.0.1:8080/api/auth/login
+curl -b jar http://127.0.0.1:8080/api/auth/me
 cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
 
 scripts/dev-db.sh down                   # остановить базу (данные в памяти — пропадут)

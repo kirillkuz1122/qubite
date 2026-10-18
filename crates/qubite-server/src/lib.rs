@@ -3,9 +3,18 @@
 //! `router` собирает все маршруты; его же используют интеграционные тесты,
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
-use std::time::Duration;
+pub mod auth;
 
-use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use std::{sync::Arc, time::Duration};
+
+use axum::{
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
+    routing::{delete, get, post},
+};
 use qubite_db::Database;
 use serde::Serialize;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
@@ -15,6 +24,21 @@ use utoipa::{OpenApi, ToSchema};
 #[derive(Clone)]
 pub struct AppState {
     pub db: Database,
+    pub auth: Arc<auth::AuthSettings>,
+}
+
+impl AppState {
+    /// Состояние с настройками входа по умолчанию.
+    pub fn new(db: Database) -> Self {
+        Self::with_auth(db, auth::AuthSettings::default())
+    }
+
+    pub fn with_auth(db: Database, auth: auth::AuthSettings) -> Self {
+        Self {
+            db,
+            auth: Arc::new(auth),
+        }
+    }
 }
 
 #[derive(OpenApi)]
@@ -24,8 +48,30 @@ pub struct AppState {
         description = "API ядра Qubite 2.0",
         version = "0.1.0"
     ),
-    paths(health, ready),
-    components(schemas(Health, Readiness))
+    paths(
+        health,
+        ready,
+        auth::login,
+        auth::logout,
+        auth::whoami,
+        auth::list_sessions,
+        auth::revoke_session,
+        auth::logout_everywhere
+    ),
+    components(schemas(
+        Health,
+        Readiness,
+        auth::ApiErrorBody,
+        auth::LoginRequest,
+        auth::LoginResponse,
+        auth::Me,
+        auth::SessionItem,
+        auth::RevokedCount
+    )),
+    tags(
+        (name = "system", description = "Состояние сервера"),
+        (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`.")
+    )
 )]
 pub struct ApiDoc;
 
@@ -35,6 +81,16 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
         .route("/api/openapi.json", get(openapi))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .route("/api/auth/me", get(auth::whoami))
+        .route("/api/auth/sessions", get(auth::list_sessions))
+        .route("/api/auth/sessions/{id}", delete(auth::revoke_session))
+        .route("/api/auth/logout-everywhere", post(auth::logout_everywhere))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::session_layer,
+        ))
         .with_state(state)
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,

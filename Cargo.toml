@@ -22,3 +22,9 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 debug = false
+
+# Argon2 без оптимизаций считает пароль секундами — тесты входа стали бы очень медленными.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
