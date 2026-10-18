@@ -1530,6 +1530,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-oauth"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hex",
+ "hmac",
+ "qubite-auth",
+ "qubite-objects",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-objects"
 version = "0.1.0"
 dependencies = [
@@ -1567,8 +1588,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "base64 0.22.1",
  "clap",
  "futures-util",
+ "hex",
+ "hmac",
  "qubite-ai",
  "qubite-auth",
  "qubite-captcha",
@@ -1577,6 +1601,7 @@ dependencies = [
  "qubite-jobs",
  "qubite-kernel",
  "qubite-mail",
+ "qubite-oauth",
  "qubite-objects",
  "qubite-policy",
  "qubite-sync",
@@ -1586,6 +1611,7 @@ dependencies = [
  "rpassword",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "sqlx",
  "time",
  "tokio",
@@ -1771,6 +1797,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",

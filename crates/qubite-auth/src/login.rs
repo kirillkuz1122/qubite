@@ -135,6 +135,55 @@ pub async fn login(
     Ok(session)
 }
 
+/// Подтвердить пароль уже открытого аккаунта перед опасным действием
+/// (привязка и отвязка входа через провайдера). Лимиты — как у входа:
+/// неудачи считаются по почте аккаунта и по IP.
+pub async fn confirm_password(
+    pool: &PgPool,
+    passwords: &Passwords,
+    config: &AuthConfig,
+    account_id: Uuid,
+    password: &str,
+    ip: &str,
+) -> Result<()> {
+    if password.len() > crate::password::MAX_PASSWORD_BYTES {
+        return Err(Error::InvalidCredentials);
+    }
+    let (email, hash): (String, Option<String>) = {
+        let mut conn = pool.acquire().await?;
+        let row: Option<(String, Option<String>)> = sqlx::query_as(
+            "SELECT a.email, c.hash FROM accounts a \
+             LEFT JOIN credentials_password c ON c.account_id = a.id \
+             WHERE a.id = $1 AND a.status = 'active'",
+        )
+        .bind(account_id)
+        .fetch_optional(&mut *conn)
+        .await?;
+        let Some(row) = row else {
+            return Err(Error::InvalidCredentials);
+        };
+        if let Some(retry_after_secs) = throttled(&mut conn, &row.0, ip, config).await? {
+            return Err(Error::TooManyAttempts { retry_after_secs });
+        }
+        row
+    };
+    let permit = passwords.permit().await?;
+    let verified = match &hash {
+        Some(hash) => permit.verify(password, hash).await?,
+        None => {
+            permit.verify_dummy(password).await?;
+            false
+        }
+    };
+    drop(permit);
+    if verified {
+        return Ok(());
+    }
+    let mut conn = pool.acquire().await?;
+    record_attempt(&mut conn, &email, ip, false).await?;
+    Err(Error::InvalidCredentials)
+}
+
 /// Через сколько секунд можно повторить, если лимит превышен.
 async fn throttled(
     conn: &mut sqlx::PgConnection,

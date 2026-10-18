@@ -348,6 +348,385 @@
         }
       }
     },
+    "/api/auth/oauth/identities": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Какие провайдеры привязаны к моему аккаунту.",
+        "operationId": "identities",
+        "responses": {
+          "200": {
+            "description": "Привязки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdentityItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/identities/{provider}/unlink": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Отвязать провайдера (нужен пароль).",
+        "operationId": "unlink",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "`yandex`, `vk`, `google`, `telegram`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Отвязан"
+          },
+          "401": {
+            "description": "Нужно войти или неверный пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Такой привязки нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/providers": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Какие способы входа сейчас включены (публично: нужно экрану входа).",
+        "operationId": "providers",
+        "responses": {
+          "200": {
+            "description": "Включённые и настроенные провайдеры",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OAuthProviderItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/telegram/link": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Привязать Telegram к своему аккаунту (нужен пароль).",
+        "operationId": "telegram_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Привязан"
+          },
+          "400": {
+            "description": "Подпись не сходится или данные устарели",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти или неверный пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Выключен или уже привязан к другому аккаунту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/telegram/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Войти через виджет Telegram.",
+        "operationId": "telegram_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramAuth"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вход выполнен; ставятся cookie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Подпись не сходится, данные устарели или уже использованы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Этот Telegram не привязан ни к одному аккаунту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Вход через Telegram выключен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}/callback": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Провайдер вернул браузер.",
+        "operationId": "callback",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "`yandex`, `vk` или `google`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "Код от провайдера",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "description": "Секрет начатого входа",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device_id",
+            "in": "query",
+            "description": "Только VK ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "description": "Человек отказался у провайдера",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Вход выполнен (cookie сессии) и переход на сайт, или `/auth?error=…`"
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}/link": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Начать привязку провайдера к своему аккаунту (нужен пароль).",
+        "operationId": "start_link",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "`yandex`, `vk` или `google`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Перейти по `authorize_url`; ставится cookie начатого входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkStarted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти или неверный пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Способ входа выключен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много неверных паролей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}/login": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Начать вход: браузер уходит к провайдеру.",
+        "operationId": "start_login",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "`yandex`, `vk` или `google`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "return_to",
+            "in": "query",
+            "description": "Куда вернуть после входа (путь на сайте Qubite), по умолчанию `/`.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Переход к провайдеру (или на `/auth?error=…`)"
+          }
+        }
+      }
+    },
     "/api/auth/password/forgot": {
       "post": {
         "tags": ["auth"],
@@ -1818,6 +2197,30 @@
           }
         }
       },
+      "IdentityItem": {
+        "type": "object",
+        "description": "Привязанный способ входа.",
+        "required": ["provider", "display_name", "linked_at"],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "last_login_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "linked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
       "InboxItem": {
         "type": "object",
         "description": "Элемент Входящих.",
@@ -2033,6 +2436,16 @@
           }
         }
       },
+      "LinkStarted": {
+        "type": "object",
+        "description": "Адрес провайдера для привязки.",
+        "required": ["authorize_url"],
+        "properties": {
+          "authorize_url": {
+            "type": "string"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": ["email", "password"],
@@ -2195,6 +2608,34 @@
           "visibility": {
             "type": "string",
             "description": "`locked` или `hidden` — как модуль виден без доступа."
+          }
+        }
+      },
+      "OAuthProviderItem": {
+        "type": "object",
+        "description": "Способ входа на экране входа.",
+        "required": ["id", "kind"],
+        "properties": {
+          "bot_name": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string",
+            "description": "`yandex`, `vk`, `google`, `telegram`."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`redirect` — переход на сайт провайдера (`/api/auth/oauth/{id}/login`);\n`telegram_widget` — виджет Telegram с именем бота `bot_name`."
+          }
+        }
+      },
+      "PasswordConfirm": {
+        "type": "object",
+        "description": "Подтверждение паролем.",
+        "required": ["password"],
+        "properties": {
+          "password": {
+            "type": "string"
           }
         }
       },
@@ -2365,6 +2806,27 @@
             "format": "date-time"
           },
           "user_agent": {
+            "type": "string"
+          }
+        }
+      },
+      "TelegramAuth": {
+        "allOf": [
+          {
+            "type": "object"
+          }
+        ],
+        "description": "Данные виджета Telegram (как он их отдаёт: `id`, `first_name`, `auth_date`, `hash`…)."
+      },
+      "TelegramLink": {
+        "type": "object",
+        "description": "Привязка Telegram: пароль и данные виджета.",
+        "required": ["password", "auth"],
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/TelegramAuth"
+          },
+          "password": {
             "type": "string"
           }
         }

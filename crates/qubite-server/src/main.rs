@@ -43,6 +43,8 @@ enum LogFormat {
     Json,
 }
 
+// Разбирается один раз при запуске — размер варианта не важен.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Command {
     /// Запустить HTTP API.
@@ -150,6 +152,9 @@ struct ServeArgs {
 
     #[command(flatten)]
     captcha: CaptchaArgs,
+
+    #[command(flatten)]
+    oauth: OAuthArgs,
 }
 
 #[derive(Args)]
@@ -232,6 +237,97 @@ impl MailArgs {
             tracing::warn!("почта в режиме mock: письма никуда не уходят (QUBITE_EMAIL_MODE)");
         }
         Ok(mailer)
+    }
+}
+
+/// Вход через провайдеров (AUTH-004). Приложения у провайдеров создаёт
+/// владелец; без `CLIENT_ID` способ входа не показывается.
+#[derive(Args)]
+struct OAuthArgs {
+    /// Публичный адрес сайта: из него адрес возврата
+    /// `<адрес>/api/auth/oauth/<провайдер>/callback` (его же указывают у провайдера).
+    #[arg(
+        long,
+        env = "QUBITE_PUBLIC_URL",
+        default_value = "http://localhost:5173"
+    )]
+    public_url: String,
+    #[arg(long, env = "QUBITE_OAUTH_YANDEX_CLIENT_ID", default_value = "")]
+    yandex_client_id: String,
+    #[arg(
+        long,
+        env = "QUBITE_OAUTH_YANDEX_CLIENT_SECRET",
+        default_value = "",
+        hide_env_values = true
+    )]
+    yandex_client_secret: String,
+    /// Яндекс ID включён по умолчанию.
+    #[arg(long, env = "QUBITE_OAUTH_YANDEX_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    yandex_enabled: bool,
+    #[arg(long, env = "QUBITE_OAUTH_VK_CLIENT_ID", default_value = "")]
+    vk_client_id: String,
+    #[arg(
+        long,
+        env = "QUBITE_OAUTH_VK_CLIENT_SECRET",
+        default_value = "",
+        hide_env_values = true
+    )]
+    vk_client_secret: String,
+    /// VK ID включён по умолчанию.
+    #[arg(long, env = "QUBITE_OAUTH_VK_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    vk_enabled: bool,
+    #[arg(long, env = "QUBITE_OAUTH_GOOGLE_CLIENT_ID", default_value = "")]
+    google_client_id: String,
+    #[arg(
+        long,
+        env = "QUBITE_OAUTH_GOOGLE_CLIENT_SECRET",
+        default_value = "",
+        hide_env_values = true
+    )]
+    google_client_secret: String,
+    /// Google выключен по умолчанию (D-194).
+    #[arg(long, env = "QUBITE_OAUTH_GOOGLE_ENABLED", default_value_t = false, action = clap::ArgAction::Set)]
+    google_enabled: bool,
+    /// Вход через Telegram выключен по умолчанию (D-194).
+    #[arg(long, env = "QUBITE_TELEGRAM_LOGIN_ENABLED", default_value_t = false, action = clap::ArgAction::Set)]
+    telegram_login_enabled: bool,
+    /// Имя бота для виджета входа (без `@`).
+    #[arg(long, env = "QUBITE_TELEGRAM_BOT_NAME", default_value = "")]
+    telegram_bot_name: String,
+    /// Токен нового бота Qubite (тот же, что у `qubite bot`).
+    #[arg(
+        long,
+        env = "QUBITE_TELEGRAM_BOT_TOKEN",
+        default_value = "",
+        hide_env_values = true
+    )]
+    telegram_bot_token: String,
+}
+
+impl OAuthArgs {
+    fn settings(&self) -> qubite_oauth::OAuthSettings {
+        use qubite_oauth::RedirectProvider;
+        let mut yandex =
+            RedirectProvider::yandex(&self.yandex_client_id, &self.yandex_client_secret);
+        yandex.enabled = self.yandex_enabled;
+        let mut vk = RedirectProvider::vk(&self.vk_client_id, &self.vk_client_secret);
+        vk.enabled = self.vk_enabled;
+        let mut google =
+            RedirectProvider::google(&self.google_client_id, &self.google_client_secret);
+        google.enabled = self.google_enabled;
+        qubite_oauth::OAuthSettings {
+            public_url: self.public_url.clone(),
+            yandex,
+            vk,
+            google,
+            telegram: qubite_oauth::TelegramLogin {
+                enabled: self.telegram_login_enabled,
+                bot_name: self.telegram_bot_name.clone(),
+                bot_token: self.telegram_bot_token.clone(),
+                ..qubite_oauth::TelegramLogin::default()
+            },
+            ..qubite_oauth::OAuthSettings::default()
+        }
     }
 }
 
@@ -360,7 +456,8 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         trust_proxy: args.trust_proxy,
         ..qubite_server::auth::AuthSettings::default()
     };
-    let mut state = qubite_server::AppState::with_auth(db.clone(), auth);
+    let mut state =
+        qubite_server::AppState::with_auth(db.clone(), auth).with_oauth(args.oauth.settings());
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
             state = state.with_ai(ai.gateway);

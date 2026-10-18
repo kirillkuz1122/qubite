@@ -26,7 +26,7 @@ pub mod sessions;
 
 use std::time::Duration;
 
-pub use login::{LoginInput, login};
+pub use login::{LoginInput, confirm_password, login};
 pub use owner::Account;
 pub use password::Passwords;
 pub use sessions::{ClientInfo, IssuedSession, ResolvedSession, RevokeReason, SessionView};
@@ -145,12 +145,12 @@ pub fn normalize_email(raw: &str) -> Result<String> {
 
 /// SHA-256 случайного токена. Токены длинные и случайные, поэтому быстрый
 /// хеш здесь безопасен (в отличие от паролей).
-pub(crate) fn token_hash(token: &str) -> Vec<u8> {
+pub fn token_hash(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
 }
 
 /// Случайный токен: 32 байта из генератора ОС в base64url без `=`.
-pub(crate) fn random_token() -> String {
+pub fn random_token() -> String {
     use base64::Engine;
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).expect("генератор случайных чисел ОС доступен");

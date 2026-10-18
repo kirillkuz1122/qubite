@@ -9,6 +9,7 @@ pub mod changes;
 pub mod email;
 pub mod inbox;
 pub mod modules;
+pub mod oauth;
 pub mod registration;
 pub mod sync;
 
@@ -38,6 +39,8 @@ pub struct AppState {
     pub changes: Arc<changes::ChangeHub>,
     /// AI-шлюз — единственная дверь к платным моделям (AI_COST_GUARD).
     pub ai: Arc<qubite_ai::Gateway>,
+    /// Вход через Яндекс, VK, Google, Telegram.
+    pub oauth: Arc<qubite_oauth::OAuth>,
 }
 
 impl AppState {
@@ -55,7 +58,16 @@ impl AppState {
             sync: sync::registry(),
             changes: Arc::new(changes::ChangeHub::default()),
             ai: Arc::new(ai),
+            oauth: Arc::new(qubite_oauth::OAuth::new(
+                qubite_oauth::OAuthSettings::default(),
+            )),
         }
+    }
+
+    /// Вход через провайдеров с настройками `qubite serve` (AUTH-004).
+    pub fn with_oauth(mut self, settings: qubite_oauth::OAuthSettings) -> Self {
+        self.oauth = Arc::new(qubite_oauth::OAuth::new(settings));
+        self
     }
 
     /// Подключить настроенный AI-шлюз ([`ai::start`]).
@@ -92,6 +104,14 @@ impl AppState {
         registration::create_invitation,
         registration::list_invitations,
         registration::revoke_invitation,
+        oauth::providers,
+        oauth::start_login,
+        oauth::start_link,
+        oauth::callback,
+        oauth::telegram_login,
+        oauth::telegram_link,
+        oauth::identities,
+        oauth::unlink,
         modules::my_catalog,
         modules::my_module,
         modules::owner_modules,
@@ -133,6 +153,12 @@ impl AppState {
         registration::InvitationRequest,
         registration::InvitationCreated,
         registration::InvitationItem,
+        oauth::OAuthProviderItem,
+        oauth::PasswordConfirm,
+        oauth::LinkStarted,
+        oauth::TelegramAuth,
+        oauth::TelegramLink,
+        oauth::IdentityItem,
         modules::ModuleFlags,
         modules::CatalogItem,
         modules::ModuleItem,
@@ -195,6 +221,20 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/invitations/{id}",
             delete(registration::revoke_invitation),
         )
+        .route("/api/auth/oauth/providers", get(oauth::providers))
+        .route("/api/auth/oauth/identities", get(oauth::identities))
+        .route(
+            "/api/auth/oauth/identities/{provider}/unlink",
+            post(oauth::unlink),
+        )
+        .route(
+            "/api/auth/oauth/telegram/login",
+            post(oauth::telegram_login),
+        )
+        .route("/api/auth/oauth/telegram/link", post(oauth::telegram_link))
+        .route("/api/auth/oauth/{provider}/login", get(oauth::start_login))
+        .route("/api/auth/oauth/{provider}/link", post(oauth::start_link))
+        .route("/api/auth/oauth/{provider}/callback", get(oauth::callback))
         .route("/api/modules", get(modules::my_catalog))
         .route("/api/modules/{id}", get(modules::my_module))
         .route("/api/owner/modules", get(modules::owner_modules))

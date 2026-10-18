@@ -143,6 +143,142 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/auth/oauth/identities': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Какие провайдеры привязаны к моему аккаунту. */
+    get: operations['identities'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/identities/{provider}/unlink': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Отвязать провайдера (нужен пароль). */
+    post: operations['unlink'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/providers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Какие способы входа сейчас включены (публично: нужно экрану входа). */
+    get: operations['providers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/telegram/link': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Привязать Telegram к своему аккаунту (нужен пароль). */
+    post: operations['telegram_link'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/telegram/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Войти через виджет Telegram. */
+    post: operations['telegram_login'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/{provider}/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Провайдер вернул браузер. */
+    get: operations['callback'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/{provider}/link': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Начать привязку провайдера к своему аккаунту (нужен пароль). */
+    post: operations['start_link'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/oauth/{provider}/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Начать вход: браузер уходит к провайдеру. */
+    get: operations['start_login'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/password/forgot': {
     parameters: {
       query?: never;
@@ -655,6 +791,16 @@ export interface components {
       /** @description Версия Qubite. */
       version: string;
     };
+    /** @description Привязанный способ входа. */
+    IdentityItem: {
+      display_name: string;
+      email?: string | null;
+      /** Format: date-time */
+      last_login_at?: string | null;
+      /** Format: date-time */
+      linked_at: string;
+      provider: string;
+    };
     /** @description Элемент Входящих. */
     InboxItem: {
       /** Format: date-time */
@@ -752,6 +898,10 @@ export interface components {
       /** @description Заметка для себя. */
       note?: string;
     };
+    /** @description Адрес провайдера для привязки. */
+    LinkStarted: {
+      authorize_url: string;
+    };
     LoginRequest: {
       /** @description Почта аккаунта; регистр не важен. */
       email: string;
@@ -825,6 +975,21 @@ export interface components {
       /** @description `locked` или `hidden` — как модуль виден без доступа. */
       visibility: string;
     };
+    /** @description Способ входа на экране входа. */
+    OAuthProviderItem: {
+      bot_name?: string | null;
+      /** @description `yandex`, `vk`, `google`, `telegram`. */
+      id: string;
+      /**
+       * @description `redirect` — переход на сайт провайдера (`/api/auth/oauth/{id}/login`);
+       *     `telegram_widget` — виджет Telegram с именем бота `bot_name`.
+       */
+      kind: string;
+    };
+    /** @description Подтверждение паролем. */
+    PasswordConfirm: {
+      password: string;
+    };
     Readiness: {
       /** @description `ok` или `unavailable`. */
       database: string;
@@ -894,6 +1059,13 @@ export interface components {
       /** Format: date-time */
       last_seen_at: string;
       user_agent: string;
+    };
+    /** @description Данные виджета Telegram (как он их отдаёт: `id`, `first_name`, `auth_date`, `hash`…). */
+    TelegramAuth: Record<string, never>;
+    /** @description Привязка Telegram: пароль и данные виджета. */
+    TelegramLink: {
+      auth: components['schemas']['TelegramAuth'];
+      password: string;
     };
     /** @description Код из письма (`email` + `code`) или токен из ссылки (`token`). */
     VerifyEmailRequest: {
@@ -1220,6 +1392,306 @@ export interface operations {
         content: {
           'application/json': components['schemas']['ApiErrorBody'];
         };
+      };
+    };
+  };
+  identities: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Привязки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IdentityItem'][];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  unlink: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description `yandex`, `vk`, `google`, `telegram` */
+        provider: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordConfirm'];
+      };
+    };
+    responses: {
+      /** @description Отвязан */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти или неверный пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Такой привязки нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  providers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Включённые и настроенные провайдеры */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OAuthProviderItem'][];
+        };
+      };
+    };
+  };
+  telegram_link: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TelegramLink'];
+      };
+    };
+    responses: {
+      /** @description Привязан */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Подпись не сходится или данные устарели */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти или неверный пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Выключен или уже привязан к другому аккаунту */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  telegram_login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TelegramAuth'];
+      };
+    };
+    responses: {
+      /** @description Вход выполнен; ставятся cookie */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LoginResponse'];
+        };
+      };
+      /** @description Подпись не сходится, данные устарели или уже использованы */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Этот Telegram не привязан ни к одному аккаунту */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Вход через Telegram выключен */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  callback: {
+    parameters: {
+      query?: {
+        /** @description Код от провайдера */
+        code?: string;
+        /** @description Секрет начатого входа */
+        state?: string;
+        /** @description Только VK ID */
+        device_id?: string;
+        /** @description Человек отказался у провайдера */
+        error?: string;
+      };
+      header?: never;
+      path: {
+        /** @description `yandex`, `vk` или `google` */
+        provider: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Вход выполнен (cookie сессии) и переход на сайт, или `/auth?error=…` */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  start_link: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description `yandex`, `vk` или `google` */
+        provider: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordConfirm'];
+      };
+    };
+    responses: {
+      /** @description Перейти по `authorize_url`; ставится cookie начатого входа */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LinkStarted'];
+        };
+      };
+      /** @description Нужно войти или неверный пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Способ входа выключен */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Слишком много неверных паролей */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  start_login: {
+    parameters: {
+      query?: {
+        /** @description Куда вернуть после входа (путь на сайте Qubite), по умолчанию `/`. */
+        return_to?: string | null;
+      };
+      header?: never;
+      path: {
+        /** @description `yandex`, `vk` или `google` */
+        provider: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Переход к провайдеру (или на `/auth?error=…`) */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

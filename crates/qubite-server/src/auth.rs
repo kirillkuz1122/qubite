@@ -222,7 +222,7 @@ impl From<qubite_auth::Error> for ApiError {
 
 // ---------------------------------------------------------------- cookie
 
-fn cookie_value<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn cookie_value<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers
         .get_all(header::COOKIE)
         .iter()
@@ -234,7 +234,7 @@ fn cookie_value<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
         .filter(|value| !value.is_empty())
 }
 
-fn set_cookie(
+pub(crate) fn set_cookie(
     settings: &AuthSettings,
     name: &str,
     value: &str,
@@ -264,7 +264,7 @@ fn max_age(expires_at: OffsetDateTime) -> i64 {
     seconds.max(0)
 }
 
-fn session_cookies(
+pub(crate) fn session_cookies(
     settings: &AuthSettings,
     token: &str,
     csrf: &str,
@@ -380,7 +380,7 @@ pub async fn session_layer(
             // JSON без CORS.
             let exempt = matches!(
                 request.uri().path(),
-                "/api/auth/login" | "/api/auth/device/token"
+                "/api/auth/login" | "/api/auth/device/token" | "/api/auth/oauth/telegram/login"
             );
             if is_unsafe(request.method()) && !exempt {
                 let header_ok = request
@@ -488,6 +488,15 @@ pub struct LoginResponse {
     csrf_token: String,
 }
 
+impl LoginResponse {
+    pub(crate) fn new(account: Me, csrf_token: String) -> Self {
+        Self {
+            account,
+            csrf_token,
+        }
+    }
+}
+
 /// Сессия в списке «Мои сессии».
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SessionItem {
@@ -517,7 +526,7 @@ pub struct RevokedCount {
     pub(crate) revoked: u64,
 }
 
-fn me(session: &ResolvedSession) -> Me {
+pub(crate) fn me(session: &ResolvedSession) -> Me {
     Me {
         id: session.account_id,
         email: session.email.clone(),

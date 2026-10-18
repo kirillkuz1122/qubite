@@ -977,6 +977,11 @@ async fn every_route_requires_login_except_public_ones() {
         // Регистрация (AUTH-003) — для тех, у кого аккаунта ещё нет.
         "/api/auth/registration",
         "/api/auth/register",
+        // Вход через провайдеров (AUTH-004): список способов, переход и возврат.
+        "/api/auth/oauth/providers",
+        "/api/auth/oauth/{provider}/login",
+        "/api/auth/oauth/{provider}/callback",
+        "/api/auth/oauth/telegram/login",
     ];
     let mut anonymous = Browser::default();
     let document = anonymous.get(address, "/api/openapi.json").await.body;
@@ -989,7 +994,8 @@ async fn every_route_requires_login_except_public_ones() {
         let concrete = path
             .replace("{id}", &Uuid::now_v7().to_string())
             .replace("{account_id}", &Uuid::now_v7().to_string())
-            .replace("{module_id}", "docs");
+            .replace("{module_id}", "docs")
+            .replace("{provider}", "yandex");
         for method in item.as_object().unwrap().keys() {
             let method = reqwest::Method::from_bytes(method.to_uppercase().as_bytes()).unwrap();
             let reply = anonymous

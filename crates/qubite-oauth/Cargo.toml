@@ -1,0 +1,29 @@
+[package]
+name = "qubite-oauth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Вход через Яндекс ID, VK ID, Google и Telegram: PKCE, привязка к аккаунту"
+
+[dependencies]
+base64 = "0.22"
+hex = "0.4.3"
+hmac = "0.13.0"
+qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
+qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
+# TLS — rustls с ring (как в qubite-ai): без C-библиотеки aws-lc, сборка под aarch64 простая.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "form", "query", "rustls-no-provider"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "macros", "uuid", "time", "json"] }
+thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["serde"] }
+tracing = "0.1.44"
+uuid = { version = "1.28.0", features = ["v7", "serde"] }
+
+[lints]
+workspace = true
