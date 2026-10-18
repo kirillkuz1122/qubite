@@ -1,0 +1,45 @@
+{
+  "data": [
+    {
+      "id": "google/gemini-2.5-flash-lite",
+      "canonical_slug": "google/gemini-2.5-flash-lite",
+      "name": "Google: Gemini 2.5 Flash Lite",
+      "created": 1753200000,
+      "context_length": 1048576,
+      "architecture": { "modality": "text+image->text", "input_modalities": ["text", "image", "file"], "output_modalities": ["text"], "tokenizer": "Gemini" },
+      "pricing": { "prompt": "0.0000001", "completion": "0.0000004", "request": "0", "image": "0", "web_search": "0", "internal_reasoning": "0", "input_cache_read": "0.000000025" },
+      "top_provider": { "context_length": 1048576, "max_completion_tokens": 65535, "is_moderated": false },
+      "supported_parameters": ["max_tokens", "temperature", "tools"]
+    },
+    {
+      "id": "openai/gpt-4.1-nano",
+      "name": "OpenAI: GPT-4.1 Nano",
+      "context_length": 1047576,
+      "pricing": { "prompt": "0.0000001", "completion": "0.0000004", "request": "0", "image": "0" }
+    },
+    {
+      "id": "mistralai/mistral-small-3.2-24b-instruct",
+      "name": "Mistral: Mistral Small 3.2 24B",
+      "context_length": 131072,
+      "pricing": { "prompt": "0.00000005", "completion": "0.0000001" }
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "name": "Дорогая модель — в allowlist не входит",
+      "context_length": 200000,
+      "pricing": { "prompt": "0.000015", "completion": "0.000075", "request": "0" }
+    },
+    {
+      "id": "openrouter/auto",
+      "name": "Auto Router — цена плавающая",
+      "context_length": 2000000,
+      "pricing": { "prompt": "-1", "completion": "-1" }
+    },
+    {
+      "id": "perplexity/sonar",
+      "name": "Плата за запрос — худшую цену не посчитать",
+      "context_length": 127072,
+      "pricing": { "prompt": "0.000001", "completion": "0.000001", "request": "0.005" }
+    }
+  ]
+}

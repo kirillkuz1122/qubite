@@ -32,7 +32,7 @@ impl App {
     }
 
     async fn post(&self, path: &str, body: Value) -> (StatusCode, Value) {
-        let response = reqwest::Client::new()
+        let response = qubite_testkit::http_client()
             .post(format!("http://{}{path}", self.address))
             .json(&body)
             .send()
@@ -47,7 +47,7 @@ impl App {
 
     async fn api(&self, method: reqwest::Method, path: &str) -> StatusCode {
         let mut request =
-            reqwest::Client::new().request(method, format!("http://{}{path}", self.address));
+            qubite_testkit::http_client().request(method, format!("http://{}{path}", self.address));
         if let Some(access) = &self.access {
             request = request.bearer_auth(access);
         }
@@ -294,7 +294,7 @@ async fn authorize_checks_client_pkce_and_needs_browser_session() {
 
     // Токен приложения не может разрешить вход другому приложению.
     let app = signed_in_app(&mut browser, address).await;
-    let response = reqwest::Client::new()
+    let response = qubite_testkit::http_client()
         .post(format!("http://{address}/api/auth/device/authorize"))
         .bearer_auth(app.access.as_deref().unwrap())
         .json(&request())

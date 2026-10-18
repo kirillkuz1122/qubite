@@ -6,7 +6,8 @@
 //! - `qubite version` — показать версию;
 //! - `qubite openapi` — напечатать описание API (для генерации клиента);
 //! - `qubite owner create` — создать единственного owner платформы;
-//! - `qubite owner password` — сменить пароль owner (все его сессии закрываются).
+//! - `qubite owner password` — сменить пароль owner (все его сессии закрываются);
+//! - `qubite ai …` — AI: лимиты, модели, режим «owner без личного лимита».
 
 use std::{io::BufRead, net::SocketAddr, time::Duration};
 
@@ -55,6 +56,15 @@ enum Command {
     /// Owner платформы: создать или сменить пароль.
     #[command(subcommand)]
     Owner(OwnerCommand),
+    /// AI: лимиты, модели, режим «owner без личного лимита». Действия — в аудите.
+    Ai {
+        #[command(flatten)]
+        db: DbArgs,
+        #[command(flatten)]
+        ai: qubite_server::ai::AiArgs,
+        #[command(subcommand)]
+        command: qubite_server::ai::AiCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -134,6 +144,9 @@ struct ServeArgs {
 
     #[command(flatten)]
     mail: MailArgs,
+
+    #[command(flatten)]
+    ai: qubite_server::ai::AiArgs,
 }
 
 #[derive(Args)]
@@ -214,6 +227,14 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Serve(args) => serve(args).await,
         Command::Owner(command) => owner(command).await,
+        Command::Ai { db, ai, command } => {
+            let db = Database::connect(&db.config()).await?;
+            db.migrate().await?;
+            let result = qubite_server::ai::run(&db, &ai, command).await;
+            db.close().await;
+            println!("{}", result?);
+            Ok(())
+        }
     }
 }
 
@@ -295,8 +316,22 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         trust_proxy: args.trust_proxy,
         ..qubite_server::auth::AuthSettings::default()
     };
-    let app = qubite_server::router(qubite_server::AppState::with_auth(db.clone(), auth))
-        .into_make_service_with_connect_info::<SocketAddr>();
+    let mut state = qubite_server::AppState::with_auth(db.clone(), auth);
+    let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
+        Ok(ai) => {
+            state = state.with_ai(ai.gateway);
+            ai.openrouter
+        }
+        // Сервер работает и без AI (например, база ещё не поднялась при
+        // QUBITE_AUTO_MIGRATE=false); AI включится после перезапуска.
+        Err(error) => {
+            tracing::error!(error = format!("{error:#}"), "AI выключен до перезапуска");
+            None
+        }
+    };
+    let maintenance =
+        qubite_server::ai::spawn_maintenance(db.pool().clone(), args.ai.clone(), openrouter);
+    let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await
         .with_context(|| format!("не удалось занять адрес {}", args.bind))?;
@@ -310,6 +345,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+    maintenance.abort();
     db.close().await;
     tracing::info!("Qubite остановлен");
     Ok(())

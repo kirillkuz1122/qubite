@@ -1,6 +1,7 @@
 //! Настройка AI владельцем (основа AI-части Owner Console): провайдеры,
-//! модели (allowlist и цены), лимиты, снятие блокировки модели.
-//! Каждое изменение — в аудите. Ключей провайдеров здесь нет.
+//! модели (allowlist и цены), лимиты, снятие блокировки модели, режим
+//! «owner без личного лимита». Каждое изменение — в аудите. Ключей
+//! провайдеров здесь нет.
 
 use qubite_objects::{NewAuditEntry, audit};
 use qubite_policy::{ModuleId, OwnerConsole};
@@ -63,7 +64,7 @@ pub enum Metric {
 }
 
 impl Period {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Hour => "hour",
             Self::Day => "day",
@@ -74,7 +75,7 @@ impl Period {
 }
 
 impl Metric {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Usd => "usd",
             Self::Requests => "requests",
@@ -213,10 +214,75 @@ pub async fn set_limit(
     metric: Metric,
     value: i64,
 ) -> Result<Uuid> {
-    if value < 0 {
-        return Err(AiError::Invalid("лимит не может быть отрицательным".into()));
+    let mut tx = pool.begin().await?;
+    let id = write_limit(
+        &mut tx,
+        Some(by.account_id()),
+        None,
+        scope,
+        period,
+        metric,
+        value,
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(id)
+}
+
+/// Лимит из настроек сервера (`QUBITE_AI_PLATFORM_USD_*`): меняется, только
+/// если значение другое, — перезапуск сервера не обнуляет накопленный расход.
+/// Возвращает `true`, если лимит изменился.
+pub async fn ensure_limit(
+    pool: &PgPool,
+    scope: &LimitScope,
+    period: Period,
+    metric: Metric,
+    value: i64,
+) -> Result<bool> {
+    let mut tx = pool.begin().await?;
+    let parts = scope_parts(scope);
+    let current: Option<i64> = sqlx::query_scalar(
+        "SELECT limit_value FROM ai_limits WHERE revoked_at IS NULL AND scope_kind = $1 \
+         AND account_id IS NOT DISTINCT FROM $2 AND module_id IS NOT DISTINCT FROM $3 \
+         AND model_id IS NOT DISTINCT FROM $4 AND provider_id IS NOT DISTINCT FROM $5 \
+         AND period = $6 AND metric = $7 FOR UPDATE",
+    )
+    .bind(parts.0)
+    .bind(parts.1)
+    .bind(&parts.2)
+    .bind(&parts.3)
+    .bind(&parts.4)
+    .bind(period.as_str())
+    .bind(metric.as_str())
+    .fetch_optional(&mut *tx)
+    .await?;
+    if current == Some(value) {
+        return Ok(false);
     }
-    let (kind, account, module, model, provider) = match scope {
+    write_limit(
+        &mut tx,
+        None,
+        Some("настройки сервера"),
+        scope,
+        period,
+        metric,
+        value,
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(true)
+}
+
+type ScopeParts = (
+    &'static str,
+    Option<Uuid>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
+fn scope_parts(scope: &LimitScope) -> ScopeParts {
+    match scope {
         LimitScope::Platform => ("platform", None, None, None, None),
         LimitScope::User(account) => ("user", Some(*account), None, None, None),
         LimitScope::Module(module) => ("module", None, Some(module.to_string()), None, None),
@@ -229,8 +295,22 @@ pub async fn set_limit(
             None,
             None,
         ),
-    };
-    let mut tx = pool.begin().await?;
+    }
+}
+
+async fn write_limit(
+    conn: &mut sqlx::PgConnection,
+    actor: Option<Uuid>,
+    reason: Option<&str>,
+    scope: &LimitScope,
+    period: Period,
+    metric: Metric,
+    value: i64,
+) -> Result<Uuid> {
+    if value < 0 {
+        return Err(AiError::Invalid("лимит не может быть отрицательным".into()));
+    }
+    let (kind, account, module, model, provider) = scope_parts(scope);
     sqlx::query(
         "UPDATE ai_limits SET revoked_at = now() WHERE revoked_at IS NULL AND scope_kind = $1 \
          AND account_id IS NOT DISTINCT FROM $2 AND module_id IS NOT DISTINCT FROM $3 \
@@ -244,7 +324,7 @@ pub async fn set_limit(
     .bind(&provider)
     .bind(period.as_str())
     .bind(metric.as_str())
-    .execute(&mut *tx)
+    .execute(&mut *conn)
     .await?;
     let id = qubite_objects::new_id();
     sqlx::query(
@@ -260,25 +340,106 @@ pub async fn set_limit(
     .bind(period.as_str())
     .bind(metric.as_str())
     .bind(value)
-    .bind(by.account_id())
-    .execute(&mut *tx)
+    .bind(actor)
+    .execute(&mut *conn)
     .await
     .map_err(invalid)?;
     let after = serde_json::json!({
         "scope": kind, "account_id": account, "module_id": module, "model_id": model,
         "provider_id": provider, "period": period.as_str(), "metric": metric.as_str(), "value": value,
     });
-    record(
+    audit::record(
+        conn,
+        NewAuditEntry {
+            actor_id: actor,
+            action: "ai.limit_set".into(),
+            target_kind: "ai_limit".into(),
+            target_id: Some(id.to_string()),
+            after: Some(after),
+            reason: reason.map(Into::into),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    Ok(id)
+}
+
+/// Режим «owner без личного лимита» (D-200). Включает только owner лично;
+/// каждое переключение — в аудите. Общие лимиты платформы, модуля, модели,
+/// провайдера и личные лимиты owner, если он их задал, продолжают работать.
+pub async fn set_owner_unlimited(pool: &PgPool, by: &OwnerConsole, enabled: bool) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    let before = owner_unlimited_in(&mut tx).await?;
+    sqlx::query(
+        "INSERT INTO ai_owner_unlimited (singleton, enabled, changed_by, changed_at) \
+         VALUES (true, $1, $2, now()) ON CONFLICT (singleton) DO UPDATE SET \
+         enabled = EXCLUDED.enabled, changed_by = EXCLUDED.changed_by, changed_at = now()",
+    )
+    .bind(enabled)
+    .bind(by.account_id())
+    .execute(&mut *tx)
+    .await?;
+    audit::record(
         &mut tx,
-        by,
-        "ai.limit_set",
-        "ai_limit",
-        id.to_string(),
-        after,
+        NewAuditEntry {
+            actor_id: Some(by.account_id()),
+            action: "ai.owner_unlimited_set".into(),
+            target_kind: "ai_owner_unlimited".into(),
+            target_id: Some(by.account_id().to_string()),
+            before: Some(serde_json::json!({ "enabled": before })),
+            after: Some(serde_json::json!({ "enabled": enabled })),
+            ..NewAuditEntry::default()
+        },
     )
     .await?;
     tx.commit().await?;
-    Ok(id)
+    Ok(())
+}
+
+/// Включён ли режим «owner без личного лимита».
+pub async fn owner_unlimited(pool: &PgPool) -> Result<bool> {
+    let mut conn = pool.acquire().await?;
+    owner_unlimited_in(&mut conn).await
+}
+
+async fn owner_unlimited_in(conn: &mut sqlx::PgConnection) -> Result<bool> {
+    Ok(sqlx::query_scalar(
+        "SELECT coalesce((SELECT enabled FROM ai_owner_unlimited WHERE singleton), false)",
+    )
+    .fetch_one(conn)
+    .await?)
+}
+
+/// Разрешить или запретить модель (allowlist). Если allowlist задан
+/// в настройках сервера (`QUBITE_AI_OPENROUTER_MODELS`), при запуске
+/// побеждают настройки.
+pub async fn set_model_enabled(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    model_id: &str,
+    enabled: bool,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    let changed = sqlx::query("UPDATE ai_models SET enabled = $2 WHERE id = $1")
+        .bind(model_id)
+        .bind(enabled)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+    if changed == 0 {
+        return Err(AiError::Invalid(format!("нет модели {model_id}")));
+    }
+    record(
+        &mut tx,
+        by,
+        "ai.model_enabled_set",
+        "ai_model",
+        model_id.into(),
+        serde_json::json!({ "enabled": enabled }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 fn invalid(error: sqlx::Error) -> AiError {

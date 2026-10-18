@@ -1,5 +1,6 @@
 //! Провайдеры AI. Код модулей не видит провайдера: вызвать его может только
 //! шлюз ([`crate::Gateway`]), и только после проверки прав и резерва бюджета.
+//! Настоящий провайдер — [`crate::openrouter`], для тестов — [`MockProvider`].
 
 use std::{
     collections::VecDeque,
@@ -15,13 +16,32 @@ use tokio::sync::Notify;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-/// Что отправить провайдеру.
+/// Роль сообщения в разговоре с моделью.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    /// Инструкции платформы и модуля (доверенные).
+    System,
+    /// Данные: только обёрнутые недоверенные части ([`crate::guard`]).
+    User,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ChatMessage {
+    pub role: Role,
+    pub content: String,
+}
+
+/// Что отправить провайдеру. Сообщения собирает шлюз ([`crate::guard`]).
 #[derive(Debug, Clone)]
 pub struct ProviderCall {
     /// Имя модели у провайдера.
     pub external_id: String,
-    pub prompt: String,
+    pub messages: Vec<ChatMessage>,
+    /// Потолок ответа: провайдер не даст модели написать больше.
     pub max_output_tokens: u32,
+    /// Оценка входа сверху — на случай, если провайдер не сообщит расход.
+    pub input_tokens_estimate: u64,
 }
 
 /// Ответ провайдера с фактическим расходом токенов.
@@ -30,6 +50,9 @@ pub struct ProviderReply {
     pub text: String,
     pub tokens_in: u64,
     pub tokens_out: u64,
+    /// Стоимость, которую сообщил сам провайдер (микродоллары), если сообщил.
+    /// Шлюз списывает большее из неё и расчёта по каталогу.
+    pub cost_usd: Option<i64>,
 }
 
 /// Ошибка провайдера. Главное — **ушёл ли запрос**: от этого зависит, можно
@@ -40,13 +63,18 @@ pub enum ProviderError {
     /// Можно повторить.
     #[error("запрос не отправлен: {0}")]
     NotSent(String),
+    /// Провайдер отказал до обработки моделью, и повтор не поможет (неверный
+    /// ключ, нет денег на счёте, модель не найдена, слишком длинный запрос).
+    /// Денег не стоило; резерв возвращается, повтора нет.
+    #[error("провайдер отказал: {0}")]
+    Refused(String),
     /// Неизвестно, обработан ли запрос (обрыв после отправки). Повторять
     /// нельзя, резерв удерживается.
     #[error("результат неизвестен: {0}")]
     Unknown(String),
 }
 
-/// Адаптер провайдера (OpenRouter — AI-002, mock — здесь).
+/// Адаптер провайдера (OpenRouter — [`crate::openrouter`], mock — здесь).
 pub trait Provider: Send + Sync {
     fn complete<'a>(
         &'a self,
@@ -59,8 +87,16 @@ pub trait Provider: Send + Sync {
 pub enum MockStep {
     /// Ответить, потратив столько токенов.
     Succeed { tokens_in: u64, tokens_out: u64 },
+    /// Ответить и сообщить свою стоимость (микродоллары).
+    SucceedWithCost {
+        tokens_in: u64,
+        tokens_out: u64,
+        cost_usd: i64,
+    },
     /// Отказать до отправки.
     FailBeforeSend,
+    /// Отказ провайдера без повтора (например, нет денег на счёте).
+    Refuse,
     /// Оборвать соединение после отправки.
     DropAfterSend,
     /// Не отвечать никогда (проверка таймаута).
@@ -73,6 +109,7 @@ pub struct MockProvider {
     steps: Mutex<VecDeque<MockStep>>,
     fallback: MockStep,
     calls: AtomicUsize,
+    last: Mutex<Option<ProviderCall>>,
     /// Срабатывает после каждого вызова — тест может вмешаться между попытками.
     pub called: Notify,
 }
@@ -84,6 +121,7 @@ impl MockProvider {
             steps: Mutex::new(VecDeque::new()),
             fallback,
             calls: AtomicUsize::new(0),
+            last: Mutex::new(None),
             called: Notify::new(),
         }
     }
@@ -98,6 +136,11 @@ impl MockProvider {
     pub fn calls(&self) -> usize {
         self.calls.load(Ordering::SeqCst)
     }
+
+    /// Что шлюз отправил в последний раз (проверка защиты от prompt injection).
+    pub fn last_call(&self) -> Option<ProviderCall> {
+        self.last.lock().expect("mock").clone()
+    }
 }
 
 impl Provider for MockProvider {
@@ -107,6 +150,7 @@ impl Provider for MockProvider {
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
         Box::pin(async move {
             self.calls.fetch_add(1, Ordering::SeqCst);
+            *self.last.lock().expect("mock") = Some(call.clone());
             let step = self
                 .steps
                 .lock()
@@ -118,14 +162,29 @@ impl Provider for MockProvider {
                 MockStep::Succeed {
                     tokens_in,
                     tokens_out,
-                } => Ok(ProviderReply {
-                    text: format!("mock: {}", call.prompt.chars().take(40).collect::<String>()),
+                } => {
+                    let last = call.messages.last().map_or("", |m| m.content.as_str());
+                    Ok(ProviderReply {
+                        text: format!("mock: {}", last.chars().take(40).collect::<String>()),
+                        tokens_in,
+                        tokens_out,
+                        cost_usd: None,
+                    })
+                }
+                MockStep::SucceedWithCost {
                     tokens_in,
                     tokens_out,
+                    cost_usd,
+                } => Ok(ProviderReply {
+                    text: "mock".into(),
+                    tokens_in,
+                    tokens_out,
+                    cost_usd: Some(cost_usd),
                 }),
                 MockStep::FailBeforeSend => {
                     Err(ProviderError::NotSent("mock: отказ до отправки".into()))
                 }
+                MockStep::Refuse => Err(ProviderError::Refused("mock: нет денег на счёте".into())),
                 MockStep::DropAfterSend => {
                     Err(ProviderError::Unknown("mock: обрыв после отправки".into()))
                 }

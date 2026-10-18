@@ -1,0 +1,8 @@
+{
+  "id": "gen-1760000001-QrStUvWxYz",
+  "model": "google/gemini-2.5-flash-lite",
+  "object": "chat.completion",
+  "choices": [
+    { "index": 0, "finish_reason": "stop", "message": { "role": "assistant", "content": "Готово." } }
+  ]
+}

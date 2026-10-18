@@ -1,0 +1,31 @@
+{
+  "id": "gen-1760000000-AbCdEfGhIjKlMnOp",
+  "provider": "Google",
+  "model": "google/gemini-2.5-flash-lite",
+  "object": "chat.completion",
+  "created": 1760000000,
+  "choices": [
+    {
+      "logprobs": null,
+      "finish_reason": "stop",
+      "native_finish_reason": "STOP",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Задача: купить молоко. Срок: сегодня.",
+        "refusal": null,
+        "reasoning": null
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 412,
+    "completion_tokens": 18,
+    "total_tokens": 430,
+    "cost": 0.0000484,
+    "is_byok": false,
+    "prompt_tokens_details": { "cached_tokens": 0 },
+    "cost_details": { "upstream_inference_cost": null },
+    "completion_tokens_details": { "reasoning_tokens": 0 }
+  }
+}

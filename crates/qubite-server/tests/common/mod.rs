@@ -78,7 +78,7 @@ impl Browser {
         body: Option<Value>,
         with_csrf: bool,
     ) -> Reply {
-        let client = reqwest::Client::new();
+        let client = qubite_testkit::http_client();
         let mut request = client.request(method, format!("http://{address}{path}"));
         let mut cookies = Vec::new();
         if let Some(session) = &self.session {

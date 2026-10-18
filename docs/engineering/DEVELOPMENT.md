@@ -69,6 +69,13 @@ curl -b jar http://127.0.0.1:8080/api/auth/me
 curl -H 'content-type: application/json' -d '{"email":"you@example.ru"}' http://127.0.0.1:8080/api/auth/password/forgot
 cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
 
+# AI (AI-002). Без QUBITE_AI_OPENROUTER_API_KEY AI выключен; бюджет по умолчанию — ноль у всех
+DATABASE_URL=… cargo run --bin qubite -- ai limits                 # лимиты, резерв, расход
+DATABASE_URL=… cargo run --bin qubite -- ai models                 # модели, цены, блокировки
+DATABASE_URL=… cargo run --bin qubite -- ai limit --scope user:you@example.ru --period day --metric usd --value 1
+DATABASE_URL=… cargo run --bin qubite -- ai owner-unlimited on     # owner без личного лимита (в аудите)
+DATABASE_URL=… QUBITE_AI_OPENROUTER_API_KEY=… cargo run --bin qubite -- ai try "текст"   # настоящий вызов, стоит денег
+
 scripts/dev-db.sh down                   # остановить базу (данные в памяти — пропадут)
 ```
 

@@ -1,12 +1,23 @@
-//! Общие помощники для тестов Qubite: временная база PostgreSQL.
+//! Общие помощники для тестов Qubite: временная база PostgreSQL и
+//! поддельный HTTP-сервер провайдера ([`fake_http`]).
 //!
 //! Нужна переменная `TEST_DATABASE_URL` — строка подключения с правом
 //! создавать базы. Локально её задаёт `just check-server` или
 //! `eval "$(scripts/dev-db.sh env)"`.
 
+pub mod fake_http;
+
 use qubite_db::{Database, DbConfig};
 use qubite_kernel::Secret;
 use sqlx::{Connection, PgConnection};
+
+/// HTTP-клиент для тестов. TLS в сборке включает адаптер OpenRouter
+/// (rustls без встроенного выбора криптографии), поэтому до создания
+/// клиента нужно выбрать провайдер — ring, как и в сервере.
+pub fn http_client() -> reqwest::Client {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    reqwest::Client::new()
+}
 
 /// Временная база, созданная для одного теста.
 pub struct TestDb {

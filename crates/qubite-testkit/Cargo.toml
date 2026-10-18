@@ -9,6 +9,9 @@ rust-version.workspace = true
 [dependencies]
 qubite-db = { version = "0.1.0", path = "../qubite-db" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
+reqwest = { version = "0.13.5", default-features = false }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+tokio = { version = "1.53.3", features = ["rt", "net", "io-util", "sync"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }
 uuid = { version = "1.28.0", features = ["v4"] }
 

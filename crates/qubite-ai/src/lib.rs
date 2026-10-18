@@ -1,4 +1,4 @@
-//! AI-шлюз Qubite (AI-001): **ни один цент без разрешения**.
+//! AI-шлюз Qubite (AI-001, AI-002): **ни один цент без разрешения**.
 //!
 //! Путь вызова ([AI_COST_GUARD](../../docs/architecture/AI_COST_GUARD.md)):
 //! 1. Policy Gate — на вход нужен `&Authorized<UseAi>` (грант `ai` в модуле);
@@ -7,13 +7,21 @@
 //! 4. отметка «отправляется» сохраняется **до** вызова провайдера;
 //! 5. ответ → списание факта и возврат остатка; «точно не ушёл» → возврат и
 //!    повтор (до 3 попыток, перед каждой — права и бюджет заново);
-//!    «неизвестно» или таймаут → резерв удерживается.
+//!    «неизвестно» или таймаут → резерв удерживается; отказ провайдера без
+//!    смысла повторять (нет денег, неверный ключ) → возврат без повтора.
 //!
-//! Без личного денежного лимита AI запрещён: бюджет по умолчанию — ноль (D-173).
+//! Инструкции и недоверенные данные собирает [`guard`] (защита от prompt
+//! injection); настоящий провайдер — [`openrouter`], цены — [`catalog`].
+//!
+//! Без личного денежного лимита AI запрещён: бюджет по умолчанию — ноль (D-173);
+//! исключение — осознанно включённый режим «owner без личного лимита» (D-200).
 //! Текст запроса и ответа в журнал расходов не пишется.
 
 pub mod admin;
 pub mod budget;
+pub mod catalog;
+pub mod guard;
+pub mod openrouter;
 pub mod provider;
 
 use std::{
@@ -29,7 +37,10 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 pub use budget::{PeriodKeys, Reservation};
-pub use provider::{MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply};
+pub use guard::Untrusted;
+pub use provider::{
+    ChatMessage, MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply, Role,
+};
 
 /// Микродоллары: 1 $ = 1 000 000.
 pub const MICROS_PER_USD: i64 = 1_000_000;
@@ -57,6 +68,11 @@ pub enum AiError {
     DuplicateRequest { status: String },
     #[error("провайдер недоступен; можно выбрать другую модель: {alternatives:?}")]
     ProviderUnavailable { alternatives: Vec<String> },
+    #[error("провайдер отказал ({reason}); можно выбрать другую модель: {alternatives:?}")]
+    ProviderRefused {
+        reason: String,
+        alternatives: Vec<String>,
+    },
     #[error("результат запроса неизвестен; резерв удерживается до выяснения")]
     ResultUnknown { call_id: Uuid },
     #[error("неверные данные: {0}")]
@@ -77,6 +93,7 @@ impl AiError {
             Self::BudgetExhausted { .. } => "budget_exhausted",
             Self::DuplicateRequest { .. } => "duplicate_request",
             Self::ProviderUnavailable { .. } => "provider_unavailable",
+            Self::ProviderRefused { .. } => "provider_refused",
             Self::ResultUnknown { .. } => "result_unknown",
             Self::Invalid(_) => "invalid",
             Self::Db(_) | Self::Audit(_) => "internal",
@@ -112,6 +129,16 @@ pub struct AiConfig {
     pub clock: Clock,
 }
 
+impl AiConfig {
+    /// Попыток при «точно не ушёл»: от 1 до 3 (D-074), паузы 1 и 2 с.
+    pub fn with_attempts(mut self, attempts: u8) -> Self {
+        let delays = [Duration::from_secs(1), Duration::from_secs(2)];
+        let retries = usize::from(attempts.clamp(1, 3)) - 1;
+        self.retry_delays = delays[..retries].to_vec();
+        self
+    }
+}
+
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
@@ -130,8 +157,14 @@ pub struct AiRequest {
     /// повтор с тем же ID не выполняется и не списывается второй раз.
     pub request_id: String,
     pub model: String,
+    /// Инструкции — **только из кода модуля**. Текст человека и всё внешнее
+    /// сюда не вставлять: для этого `untrusted`.
     pub prompt: String,
-    /// Оценка входных токенов (сверху).
+    /// Данные: текст человека, письма, страницы. Шлюз оборачивает их так,
+    /// чтобы модель не приняла их за инструкции ([`guard`]).
+    pub untrusted: Vec<Untrusted>,
+    /// Оценка входных токенов (сверху). Шлюз берёт большее из неё и своей
+    /// оценки по размеру текста.
     pub input_tokens: u32,
     /// Потолок ответа.
     pub max_output_tokens: u32,
@@ -146,6 +179,9 @@ pub struct AiResponse {
     pub tokens_out: u64,
     /// Фактическая стоимость, микродоллары.
     pub cost_usd: i64,
+    /// Что заметила защита от prompt injection (коды [`guard::signal`]).
+    /// Ответ при этом — по-прежнему только данные для человека.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -229,6 +265,11 @@ impl Gateway {
         {
             return Err(AiError::DuplicateRequest { status });
         }
+        let guarded =
+            guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
+        let input_tokens = guarded
+            .input_tokens_upper_bound()
+            .max(u64::from(request.input_tokens));
 
         let attempts = self.config.retry_delays.len() + 1;
         let mut call_id: Option<Uuid> = None;
@@ -252,13 +293,14 @@ impl Gateway {
                 .ok_or(AiError::ModelNotAllowed)?;
 
             let estimate_usd = cost(
-                u64::from(request.input_tokens),
+                input_tokens,
                 u64::from(request.max_output_tokens),
                 model.price_in_per_mtok,
                 model.price_out_per_mtok,
             );
-            let estimate_tokens =
-                i64::from(request.input_tokens) + i64::from(request.max_output_tokens);
+            let estimate_tokens = i64::try_from(input_tokens)
+                .unwrap_or(i64::MAX)
+                .saturating_add(i64::from(request.max_output_tokens));
 
             // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
             let mut tx = self.pool.begin().await?;
@@ -339,41 +381,41 @@ impl Gateway {
                 &mut tx,
                 id,
                 "call.sending",
-                serde_json::json!({ "attempt": attempt, "estimate_usd": estimate_usd }),
+                serde_json::json!({
+                    "attempt": attempt,
+                    "estimate_usd": estimate_usd,
+                    "guard": guarded.signals,
+                }),
             )
             .await?;
             tx.commit().await?;
 
             let call = ProviderCall {
                 external_id: model.external_id.clone(),
-                prompt: request.prompt.clone(),
+                messages: guarded.messages.clone(),
                 max_output_tokens: request.max_output_tokens,
+                input_tokens_estimate: input_tokens,
             };
             let outcome = tokio::time::timeout(self.config.timeout, provider.complete(&call)).await;
             match outcome {
                 Ok(Ok(reply)) => {
+                    let mut warnings = guarded.signals.clone();
+                    warnings.extend(guarded.check_output(&reply.text));
                     return self
-                        .settle_success(id, &model, &reservations, estimate_usd, reply)
+                        .settle_success(id, &model, &reservations, estimate_usd, reply, warnings)
                         .await;
                 }
+                Ok(Err(ProviderError::Refused(reason))) => {
+                    self.release_not_sent(id, &reservations, attempt, "refused", &reason)
+                        .await?;
+                    return Err(AiError::ProviderRefused {
+                        reason,
+                        alternatives: self.alternatives(&model.id).await?,
+                    });
+                }
                 Ok(Err(ProviderError::NotSent(reason))) => {
-                    let mut tx = self.pool.begin().await?;
-                    budget::release(&mut tx, &reservations).await?;
-                    sqlx::query(
-                        "UPDATE ai_calls SET status = 'failed_not_sent', error_code = 'not_sent', \
-                         reservations = '[]', updated_at = now() WHERE id = $1",
-                    )
-                    .bind(id)
-                    .execute(&mut *tx)
-                    .await?;
-                    event(
-                        &mut tx,
-                        id,
-                        "call.not_sent",
-                        serde_json::json!({ "attempt": attempt, "reason": reason }),
-                    )
-                    .await?;
-                    tx.commit().await?;
+                    self.release_not_sent(id, &reservations, attempt, "not_sent", &reason)
+                        .await?;
                     if let Some(delay) = self.config.retry_delays.get(attempt - 1) {
                         tokio::time::sleep(*delay).await;
                         continue;
@@ -393,6 +435,36 @@ impl Gateway {
             }
         }
         unreachable!("цикл попыток всегда возвращает результат")
+    }
+
+    /// Запрос точно не стоил денег: резерв возвращается целиком.
+    async fn release_not_sent(
+        &self,
+        id: Uuid,
+        reservations: &[Reservation],
+        attempt: usize,
+        code: &str,
+        reason: &str,
+    ) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+        budget::release(&mut tx, reservations).await?;
+        sqlx::query(
+            "UPDATE ai_calls SET status = 'failed_not_sent', error_code = $2, \
+             reservations = '[]', updated_at = now() WHERE id = $1",
+        )
+        .bind(id)
+        .bind(code)
+        .execute(&mut *tx)
+        .await?;
+        event(
+            &mut tx,
+            id,
+            "call.not_sent",
+            serde_json::json!({ "attempt": attempt, "code": code, "reason": reason }),
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
     }
 
     async fn load_model(&self, model_id: &str) -> Result<ModelRow> {
@@ -421,13 +493,16 @@ impl Gateway {
         reservations: &[Reservation],
         estimate_usd: i64,
         reply: ProviderReply,
+        warnings: Vec<&'static str>,
     ) -> Result<AiResponse> {
+        // Списывается большее: расчёт по каталогу или стоимость от провайдера.
         let actual = cost(
             reply.tokens_in,
             reply.tokens_out,
             model.price_in_per_mtok,
             model.price_out_per_mtok,
-        );
+        )
+        .max(reply.cost_usd.unwrap_or(0));
         let tokens = i64::try_from(reply.tokens_in + reply.tokens_out).unwrap_or(i64::MAX);
         let mut tx = self.pool.begin().await?;
         budget::settle(&mut tx, reservations, actual, tokens).await?;
@@ -445,9 +520,19 @@ impl Gateway {
             &mut tx,
             id,
             "call.settled",
-            serde_json::json!({ "actual_usd": actual }),
+            serde_json::json!({ "actual_usd": actual, "reported_usd": reply.cost_usd }),
         )
         .await?;
+        if warnings.contains(&guard::signal::LEAKED) {
+            event(
+                &mut tx,
+                id,
+                "guard.output",
+                serde_json::json!({ "signals": [guard::signal::LEAKED] }),
+            )
+            .await?;
+            tracing::warn!(call_id = %id, "в ответе модели — служебная метка: инструкции утекли");
+        }
         if actual > estimate_usd {
             block_model(&mut tx, &model.id, id, estimate_usd, actual).await?;
         }
@@ -458,6 +543,7 @@ impl Gateway {
             tokens_in: reply.tokens_in,
             tokens_out: reply.tokens_out,
             cost_usd: actual,
+            warnings: warnings.into_iter().map(Into::into).collect(),
         })
     }
 

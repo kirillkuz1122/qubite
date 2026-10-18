@@ -9,7 +9,7 @@ use qubite_kernel::Secret;
 use qubite_testkit::TestDb;
 
 /// Номер последней миграции в `crates/qubite-db/migrations`.
-const LATEST_MIGRATION: i64 = 10;
+const LATEST_MIGRATION: i64 = 11;
 use serde_json::Value;
 
 /// Запустить настоящий router на свободном порту.
@@ -24,7 +24,9 @@ async fn spawn_server(db: Database) -> SocketAddr {
 }
 
 async fn get_json(address: SocketAddr, path: &str) -> (u16, Value) {
-    let response = reqwest::get(format!("http://{address}{path}"))
+    let response = qubite_testkit::http_client()
+        .get(format!("http://{address}{path}"))
+        .send()
         .await
         .unwrap();
     let status = response.status().as_u16();
@@ -141,7 +143,9 @@ async fn unknown_route_is_404() {
     config.acquire_timeout = Duration::from_millis(300);
     let address = spawn_server(Database::connect_lazy(&config).unwrap()).await;
 
-    let response = reqwest::get(format!("http://{address}/api/does-not-exist"))
+    let response = qubite_testkit::http_client()
+        .get(format!("http://{address}/api/does-not-exist"))
+        .send()
         .await
         .unwrap();
     assert_eq!(response.status().as_u16(), 404);

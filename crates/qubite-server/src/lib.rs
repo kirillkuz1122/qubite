@@ -3,6 +3,7 @@
 //! `router` собирает все маршруты; его же используют интеграционные тесты,
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
+pub mod ai;
 pub mod auth;
 pub mod changes;
 pub mod email;
@@ -34,6 +35,8 @@ pub struct AppState {
     pub sync: qubite_sync_server::Registry,
     /// «Есть новое» для WebSocket.
     pub changes: Arc<changes::ChangeHub>,
+    /// AI-шлюз — единственная дверь к платным моделям (AI_COST_GUARD).
+    pub ai: Arc<qubite_ai::Gateway>,
 }
 
 impl AppState {
@@ -42,13 +45,22 @@ impl AppState {
         Self::with_auth(db, auth::AuthSettings::default())
     }
 
+    /// Шлюз — без провайдеров: AI выключен, пока не подключён [`Self::with_ai`].
     pub fn with_auth(db: Database, auth: auth::AuthSettings) -> Self {
+        let ai = qubite_ai::Gateway::new(db.pool().clone(), qubite_ai::AiConfig::default());
         Self {
             db,
             auth: Arc::new(auth),
             sync: sync::registry(),
             changes: Arc::new(changes::ChangeHub::default()),
+            ai: Arc::new(ai),
         }
+    }
+
+    /// Подключить настроенный AI-шлюз ([`ai::start`]).
+    pub fn with_ai(mut self, ai: Arc<qubite_ai::Gateway>) -> Self {
+        self.ai = ai;
+        self
     }
 }
 

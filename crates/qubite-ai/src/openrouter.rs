@@ -1,0 +1,367 @@
+//! Адаптер OpenRouter (AI-002): вызов модели и каталог моделей с ценами.
+//!
+//! Главное — честно сказать шлюзу, **ушёл ли запрос** (D-074):
+//! - не удалось соединиться — точно не ушёл, можно повторить;
+//! - OpenRouter ответил 429 (лимит частоты) или 503 (нет доступного
+//!   провайдера) — модель запрос не получала, можно повторить;
+//! - 400, 401, 402, 403, 404, 413, 422 (неверный запрос или ключ, нет денег на
+//!   счёте, модерация, нет модели) — модель не работала, но повтор не поможет:
+//!   резерв возвращается, повтора нет;
+//! - любой другой ответ (500, 502, 504, 408…), обрыв после отправки, ответ,
+//!   который не удалось прочитать, — **неизвестно**: модель могла отработать
+//!   и стоить денег, резерв удерживается.
+//!
+//! Реальных вызовов в тестах нет: тесты поднимают локальный сервер
+//! с записанными ответами OpenRouter.
+
+use std::time::Duration;
+
+use qubite_kernel::Secret;
+use serde::Deserialize;
+
+use crate::provider::{BoxFuture, Provider, ProviderCall, ProviderError, ProviderReply};
+
+/// Адрес API OpenRouter по умолчанию.
+pub const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api/v1";
+
+/// Настройки адаптера.
+#[derive(Debug, Clone)]
+pub struct OpenRouterConfig {
+    pub base_url: String,
+    pub api_key: Secret,
+    /// Сколько ждать соединения. Общий таймаут вызова — у шлюза (60 с).
+    pub connect_timeout: Duration,
+    /// Просить OpenRouter отправлять запросы только тем провайдерам моделей,
+    /// которые не сохраняют и не обучаются на данных.
+    pub deny_data_collection: bool,
+}
+
+impl OpenRouterConfig {
+    pub fn new(api_key: Secret) -> Self {
+        Self {
+            base_url: DEFAULT_BASE_URL.into(),
+            api_key,
+            connect_timeout: Duration::from_secs(10),
+            deny_data_collection: true,
+        }
+    }
+}
+
+pub struct OpenRouter {
+    client: reqwest::Client,
+    config: OpenRouterConfig,
+}
+
+/// Модель из каталога OpenRouter. Цены — микродоллары за миллион токенов,
+/// округлены вверх.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogEntry {
+    pub external_id: String,
+    pub context_tokens: i32,
+    pub price_in_per_mtok: i64,
+    pub price_out_per_mtok: i64,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CatalogError {
+    #[error("каталог OpenRouter недоступен: {0}")]
+    Unavailable(String),
+    #[error("каталог OpenRouter не прочитан: {0}")]
+    Invalid(String),
+}
+
+impl OpenRouter {
+    pub fn new(config: OpenRouterConfig) -> Result<Self, String> {
+        // Криптография TLS — ring (чистая сборка под aarch64, без C-зависимостей aws-lc).
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let client = reqwest::Client::builder()
+            .connect_timeout(config.connect_timeout)
+            .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .map_err(|error| format!("HTTP-клиент не создан: {error}"))?;
+        Ok(Self { client, config })
+    }
+
+    fn url(&self, path: &str) -> String {
+        format!("{}/{path}", self.config.base_url.trim_end_matches('/'))
+    }
+
+    async fn send(&self, call: &ProviderCall) -> Result<ProviderReply, ProviderError> {
+        let mut body = serde_json::json!({
+            "model": call.external_id,
+            "messages": call.messages,
+            "max_tokens": call.max_output_tokens,
+            "stream": false,
+            "usage": { "include": true },
+        });
+        if self.config.deny_data_collection {
+            body["provider"] = serde_json::json!({ "data_collection": "deny" });
+        }
+        let response = self
+            .client
+            .post(self.url("chat/completions"))
+            .bearer_auth(self.config.api_key.expose())
+            .header("X-Title", "Qubite")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|error| {
+                if error.is_connect() {
+                    ProviderError::NotSent(format!("нет соединения: {}", without_url(&error)))
+                } else {
+                    ProviderError::Unknown(format!("обрыв: {}", without_url(&error)))
+                }
+            })?;
+        let status = response.status().as_u16();
+        let text = response.text().await.map_err(|error| {
+            ProviderError::Unknown(format!("ответ не дочитан: {}", without_url(&error)))
+        })?;
+        match status {
+            200..=299 => parse_reply(&text, call),
+            429 | 503 => Err(ProviderError::NotSent(error_message(status, &text))),
+            400 | 401 | 402 | 403 | 404 | 413 | 422 => {
+                Err(ProviderError::Refused(error_message(status, &text)))
+            }
+            _ => Err(ProviderError::Unknown(error_message(status, &text))),
+        }
+    }
+
+    /// Каталог моделей с ценами (`GET /models`). Модели с плавающей ценой
+    /// (например, `openrouter/auto`) и с платой за сам запрос пропускаются:
+    /// худшую стоимость для них заранее не посчитать.
+    pub async fn catalog(&self) -> Result<Vec<CatalogEntry>, CatalogError> {
+        let response = self
+            .client
+            .get(self.url("models"))
+            .bearer_auth(self.config.api_key.expose())
+            .send()
+            .await
+            .map_err(|error| CatalogError::Unavailable(without_url(&error)))?;
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .map_err(|error| CatalogError::Unavailable(without_url(&error)))?;
+        if !status.is_success() {
+            return Err(CatalogError::Unavailable(error_message(
+                status.as_u16(),
+                &text,
+            )));
+        }
+        parse_catalog(&text)
+    }
+}
+
+impl Provider for OpenRouter {
+    fn complete<'a>(
+        &'a self,
+        call: &'a ProviderCall,
+    ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
+        Box::pin(self.send(call))
+    }
+}
+
+/// Текст ошибки reqwest без адреса (в адресе нет ключа, но и лишнего не пишем).
+fn without_url(error: &reqwest::Error) -> String {
+    let mut error = error.to_string();
+    if let Some(at) = error.find(" for url (") {
+        error.truncate(at);
+    }
+    error
+}
+
+#[derive(Deserialize)]
+struct ErrorBody {
+    error: Option<ErrorDetail>,
+}
+
+#[derive(Deserialize)]
+struct ErrorDetail {
+    message: Option<String>,
+}
+
+fn error_message(status: u16, body: &str) -> String {
+    let message = serde_json::from_str::<ErrorBody>(body)
+        .ok()
+        .and_then(|b| b.error)
+        .and_then(|e| e.message)
+        .unwrap_or_default();
+    let message: String = message.chars().take(300).collect();
+    if message.is_empty() {
+        format!("HTTP {status}")
+    } else {
+        format!("HTTP {status}: {message}")
+    }
+}
+
+#[derive(Deserialize)]
+struct ChatBody {
+    choices: Option<Vec<Choice>>,
+    usage: Option<Usage>,
+    error: Option<ErrorDetail>,
+}
+
+#[derive(Deserialize)]
+struct Choice {
+    message: Option<Message>,
+}
+
+#[derive(Deserialize)]
+struct Message {
+    content: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Usage {
+    prompt_tokens: Option<u64>,
+    completion_tokens: Option<u64>,
+    /// В кредитах OpenRouter (1 кредит = 1 $).
+    cost: Option<f64>,
+}
+
+/// Ответ 2xx. Модель отработала, поэтому всё непонятное — «неизвестно»,
+/// а не «не отправлено»: повторять нельзя.
+fn parse_reply(body: &str, call: &ProviderCall) -> Result<ProviderReply, ProviderError> {
+    let body: ChatBody = serde_json::from_str(body)
+        .map_err(|error| ProviderError::Unknown(format!("ответ не прочитан: {error}")))?;
+    if let Some(error) = body.error {
+        return Err(ProviderError::Unknown(format!(
+            "ошибка во время ответа: {}",
+            error.message.unwrap_or_default()
+        )));
+    }
+    let text = body
+        .choices
+        .and_then(|choices| choices.into_iter().next())
+        .and_then(|choice| choice.message)
+        .and_then(|message| message.content)
+        .ok_or_else(|| ProviderError::Unknown("в ответе нет текста".into()))?;
+    // Расход не сообщён — считаем худший: вся оценка входа и весь потолок ответа.
+    let usage = body.usage;
+    let tokens_in = usage
+        .as_ref()
+        .and_then(|u| u.prompt_tokens)
+        .unwrap_or(call.input_tokens_estimate);
+    let tokens_out = usage
+        .as_ref()
+        .and_then(|u| u.completion_tokens)
+        .unwrap_or(u64::from(call.max_output_tokens));
+    let cost_usd = usage
+        .and_then(|u| u.cost)
+        .filter(|c| c.is_finite() && *c >= 0.0)
+        .map(|c| (c * 1_000_000.0).ceil() as i64);
+    Ok(ProviderReply {
+        text,
+        tokens_in,
+        tokens_out,
+        cost_usd,
+    })
+}
+
+#[derive(Deserialize)]
+struct CatalogBody {
+    data: Vec<CatalogModel>,
+}
+
+#[derive(Deserialize)]
+struct CatalogModel {
+    id: String,
+    context_length: Option<u64>,
+    pricing: Option<Pricing>,
+}
+
+#[derive(Deserialize)]
+struct Pricing {
+    prompt: Option<String>,
+    completion: Option<String>,
+    request: Option<String>,
+}
+
+pub(crate) fn parse_catalog(body: &str) -> Result<Vec<CatalogEntry>, CatalogError> {
+    let body: CatalogBody =
+        serde_json::from_str(body).map_err(|error| CatalogError::Invalid(error.to_string()))?;
+    let mut entries = Vec::with_capacity(body.data.len());
+    for model in body.data {
+        let Some(pricing) = model.pricing else {
+            continue;
+        };
+        let per_request = pricing
+            .request
+            .as_deref()
+            .map(usd_per_token_to_micros_per_mtok);
+        if !matches!(per_request, None | Some(Some(0))) {
+            continue;
+        }
+        let (Some(Some(price_in)), Some(Some(price_out))) = (
+            pricing
+                .prompt
+                .as_deref()
+                .map(usd_per_token_to_micros_per_mtok),
+            pricing
+                .completion
+                .as_deref()
+                .map(usd_per_token_to_micros_per_mtok),
+        ) else {
+            continue;
+        };
+        entries.push(CatalogEntry {
+            external_id: model.id,
+            context_tokens: i32::try_from(model.context_length.unwrap_or(0)).unwrap_or(i32::MAX),
+            price_in_per_mtok: price_in,
+            price_out_per_mtok: price_out,
+        });
+    }
+    Ok(entries)
+}
+
+/// «$ за токен» строкой (`"0.0000004"`) → микродоллары за миллион токенов
+/// (× 10¹²), с округлением вверх и без плавающей точки. Отрицательная цена
+/// (у OpenRouter — «плавающая») и мусор → `None`.
+pub fn usd_per_token_to_micros_per_mtok(price: &str) -> Option<i64> {
+    const SCALE: u32 = 12;
+    let price = price.trim();
+    let (int, frac) = price.split_once('.').unwrap_or((price, ""));
+    if int.is_empty() && frac.is_empty()
+        || !int.bytes().all(|b| b.is_ascii_digit())
+        || !frac.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    let mut value: i128 = if int.is_empty() { 0 } else { int.parse().ok()? };
+    value = value.checked_mul(10_i128.pow(SCALE))?;
+    let kept = &frac[..frac.len().min(SCALE as usize)];
+    if !kept.is_empty() {
+        let digits: i128 = kept.parse().ok()?;
+        value += digits * 10_i128.pow(SCALE - kept.len() as u32);
+    }
+    if frac.len() > SCALE as usize && frac.as_bytes()[SCALE as usize..].iter().any(|b| *b != b'0') {
+        value += 1;
+    }
+    i64::try_from(value).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prices_convert_exactly_and_round_up() {
+        assert_eq!(usd_per_token_to_micros_per_mtok("0.0000004"), Some(400_000)); // $0,40 / Mtok
+        assert_eq!(usd_per_token_to_micros_per_mtok("0.0000001"), Some(100_000));
+        assert_eq!(usd_per_token_to_micros_per_mtok("0"), Some(0));
+        assert_eq!(
+            usd_per_token_to_micros_per_mtok("0.000015"),
+            Some(15_000_000)
+        );
+        assert_eq!(
+            usd_per_token_to_micros_per_mtok("2"),
+            Some(2_000_000_000_000)
+        );
+        // Доли микродоллара за миллион — вверх.
+        assert_eq!(usd_per_token_to_micros_per_mtok("0.0000000000001"), Some(1));
+        assert_eq!(usd_per_token_to_micros_per_mtok("-1"), None);
+        assert_eq!(usd_per_token_to_micros_per_mtok("abc"), None);
+        assert_eq!(usd_per_token_to_micros_per_mtok(""), None);
+        assert_eq!(usd_per_token_to_micros_per_mtok("1e-7"), None);
+    }
+}

@@ -83,7 +83,9 @@ impl PeriodKeys {
 }
 
 /// Зарезервировать худшую стоимость. Нет личного денежного лимита — отказ:
-/// бюджет по умолчанию ноль (D-173).
+/// бюджет по умолчанию ноль (D-173). Исключение — owner платформы, если он
+/// сам включил режим «без личного лимита» (D-200); остальные лимиты на него
+/// действуют как обычно.
 pub async fn reserve(
     conn: &mut PgConnection,
     scope: &Scope<'_>,
@@ -112,7 +114,7 @@ pub async fn reserve(
     let personal_money = limits
         .iter()
         .any(|l| l.metric == "usd" && matches!(l.scope_kind.as_str(), "user" | "user_module"));
-    if !personal_money {
+    if !personal_money && !owner_unlimited(conn, scope.account_id).await? {
         return Err(AiError::BudgetNotSet);
     }
 
@@ -164,6 +166,16 @@ pub async fn reserve(
         });
     }
     Ok(reservations)
+}
+
+async fn owner_unlimited(conn: &mut PgConnection, account_id: Uuid) -> Result<bool> {
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM ai_owner_unlimited u \
+         JOIN platform_owner o ON o.account_id = $1 WHERE u.enabled)",
+    )
+    .bind(account_id)
+    .fetch_one(conn)
+    .await?)
 }
 
 /// Вернуть резерв целиком (запрос точно не ушёл).

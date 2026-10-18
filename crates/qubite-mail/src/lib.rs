@@ -132,6 +132,9 @@ pub struct Mailer {
     reply_to: Option<Mailbox>,
 }
 
+// Размер варианта не важен: транспорт создаётся один раз и лежит в `Arc`.
+// (С HTTP/2 в общем `hyper` — его включает адаптер OpenRouter — клиент Resend крупнее.)
+#[allow(clippy::large_enum_variant)]
 enum Transport {
     Mock {
         outbox: MockOutbox,

@@ -5,11 +5,15 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 rust-version.workspace = true
-description = "AI-шлюз: провайдеры, модели, лимиты, резервирование бюджета, mock-провайдер"
+description = "AI-шлюз: провайдеры (OpenRouter, mock), каталог цен, лимиты, резерв бюджета, защита от prompt injection"
 
 [dependencies]
+qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
+# TLS — rustls с ring: без C-библиотеки aws-lc, сборка под aarch64 остаётся простой.
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "macros", "uuid", "time", "json"] }
@@ -17,7 +21,7 @@ thiserror = "2.0.21"
 time = { version = "0.3.55", features = ["serde"] }
 tokio = { version = "1.53.3", features = ["time", "sync"] }
 tracing = "0.1.44"
-uuid = { version = "1.28.0", features = ["v7", "serde"] }
+uuid = { version = "1.28.0", features = ["v4", "v7", "serde"] }
 
 [dev-dependencies]
 qubite-auth = { path = "../qubite-auth" }
