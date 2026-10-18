@@ -173,6 +173,16 @@ impl From<qubite_auth::Error> for ApiError {
             ),
             E::Invalid(message) => Self::new(StatusCode::BAD_REQUEST, "invalid", message),
             E::NotFound => Self::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
+            E::InvalidClient => Self::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_client",
+                "Неизвестное приложение или адрес возврата",
+            ),
+            E::InvalidGrant => Self::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_grant",
+                "Код или токен недействителен. Войдите заново",
+            ),
             other => {
                 tracing::error!(error = %other, "ошибка входа");
                 Self::internal()
@@ -289,6 +299,16 @@ impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
     }
 }
 
+fn bearer(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(header::AUTHORIZATION)?
+        .to_str()
+        .ok()?
+        .strip_prefix("Bearer ")
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+}
+
 fn is_unsafe(method: &Method) -> bool {
     !matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS)
 }
@@ -301,6 +321,23 @@ pub async fn session_layer(
     next: Next,
 ) -> Response {
     let settings = &state.auth;
+    // Приложения: `Authorization: Bearer <access>`. Cookie у них нет, поэтому
+    // и CSRF не нужен; cookie в таком запросе не смотрим.
+    if let Some(access) = bearer(request.headers()).map(str::to_owned) {
+        match sessions::resolve_device(state.db.pool(), &settings.config, &access).await {
+            Ok(Some(session)) => {
+                request
+                    .extensions_mut()
+                    .insert(Authenticated(Arc::new(session)));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(%error, "проверка токена устройства: база недоступна");
+                request.extensions_mut().insert(SessionLookupFailed);
+            }
+        }
+        return next.run(request).await;
+    }
     let Some(token) = cookie_value(request.headers(), SESSION_COOKIE).map(str::to_owned) else {
         return next.run(request).await;
     };
@@ -309,9 +346,14 @@ pub async fn session_layer(
     match sessions::resolve(state.db.pool(), &settings.config, &token).await {
         Ok(Some(session)) => {
             let csrf_cookie = cookie_value(request.headers(), CSRF_COOKIE).map(str::to_owned);
-            // Вход по паролю CSRF не требует: у него ещё нет сессии, а
-            // запрос с чужого сайта не может отправить JSON без CORS.
-            if is_unsafe(request.method()) && request.uri().path() != "/api/auth/login" {
+            // Вход по паролю и обмен кода приложения CSRF не требуют: они не
+            // пользуются cookie, а запрос с чужого сайта не может отправить
+            // JSON без CORS.
+            let exempt = matches!(
+                request.uri().path(),
+                "/api/auth/login" | "/api/auth/device/token"
+            );
+            if is_unsafe(request.method()) && !exempt {
                 let header_ok = request
                     .headers()
                     .get(CSRF_HEADER)
@@ -423,6 +465,8 @@ pub struct SessionItem {
     id: Uuid,
     /// `web` или `device`.
     kind: String,
+    /// Имя устройства (для приложений).
+    device_name: String,
     user_agent: String,
     ip: String,
     #[serde(with = "time::serde::rfc3339")]
@@ -550,6 +594,7 @@ pub async fn list_sessions(
             current: view.id == session.id,
             id: view.id,
             kind: view.kind,
+            device_name: view.device_name,
             user_agent: view.user_agent,
             ip: view.ip,
             created_at: view.created_at,
@@ -610,4 +655,191 @@ pub async fn logout_everywhere(
         Json(RevokedCount { revoked }).into_response(),
         clear_cookies(&state.auth),
     ))
+}
+
+// ---------------------------------------------------------------- вход приложений
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeviceAuthorizeRequest {
+    /// `qubite-desktop` или `qubite-android`.
+    client_id: String,
+    /// `qubite://auth/callback` (desktop — ещё `http://127.0.0.1:<порт>/callback`).
+    redirect_uri: String,
+    /// `BASE64URL(SHA256(code_verifier))`, 43 символа.
+    code_challenge: String,
+    /// Только `S256`.
+    code_challenge_method: String,
+    /// Случайная строка приложения; вернётся в адресе без изменений.
+    state: String,
+    /// Как назвать устройство в списке сессий.
+    #[serde(default)]
+    device_name: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceAuthorizeResponse {
+    /// Куда отправить браузер: адрес приложения с `code` и `state`.
+    redirect_to: String,
+}
+
+/// Тело запроса токенов. `grant_type`: `authorization_code` (нужны `code`,
+/// `code_verifier`, `redirect_uri`) или `refresh_token` (нужен `refresh_token`).
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeviceTokenRequest {
+    grant_type: String,
+    client_id: String,
+    code: Option<String>,
+    code_verifier: Option<String>,
+    redirect_uri: Option<String>,
+    refresh_token: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceTokenResponse {
+    /// Всегда `Bearer`.
+    token_type: &'static str,
+    /// Для заголовка `Authorization: Bearer …`; живёт `expires_in` секунд.
+    access_token: String,
+    expires_in: u64,
+    /// Одноразовый: при обновлении выдаётся новый. Хранить в защищённом хранилище ОС.
+    refresh_token: String,
+    /// ID сессии устройства (видна в списке сессий).
+    session_id: Uuid,
+}
+
+/// Разрешить приложению вход (из браузера, где человек уже вошёл). Возвращает
+/// адрес возврата в приложение с одноразовым кодом на 5 минут.
+#[utoipa::path(post, path = "/api/auth/device/authorize", tag = "auth", request_body = DeviceAuthorizeRequest,
+    responses(
+        (status = 200, description = "Вход разрешён", body = DeviceAuthorizeResponse),
+        (status = 400, description = "Неверный запрос (например, не S256)", body = ApiErrorBody),
+        (status = 401, description = "Не выполнен вход в браузере или неизвестное приложение", body = ApiErrorBody),
+        (status = 403, description = "Нет или неверный CSRF-токен", body = ApiErrorBody)
+    ))]
+pub async fn device_authorize(
+    State(state): State<AppState>,
+    Authenticated(session): Authenticated,
+    Json(body): Json<DeviceAuthorizeRequest>,
+) -> Result<Response, ApiError> {
+    if body.state.is_empty()
+        || body.state.len() > 200
+        || !body
+            .state
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '~'))
+    {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid",
+            "state: от 1 до 200 символов A-Z a-z 0-9 - . _ ~",
+        ));
+    }
+    let redirect_uri = body.redirect_uri.clone();
+    let code = qubite_auth::devices::authorize(
+        state.db.pool(),
+        &session,
+        qubite_auth::devices::AuthorizeInput {
+            client_id: body.client_id,
+            redirect_uri: body.redirect_uri,
+            code_challenge: body.code_challenge,
+            code_challenge_method: body.code_challenge_method,
+            device_name: body.device_name,
+        },
+    )
+    .await?;
+    let response = Json(DeviceAuthorizeResponse {
+        redirect_to: format!("{redirect_uri}?code={code}&state={}", body.state),
+    })
+    .into_response();
+    Ok(no_store(response))
+}
+
+/// Получить или обновить токены устройства (OAuth 2.0, PKCE).
+#[utoipa::path(post, path = "/api/auth/device/token", tag = "auth", request_body = DeviceTokenRequest,
+    responses(
+        (status = 200, description = "Токены устройства", body = DeviceTokenResponse),
+        (status = 400, description = "`invalid_grant` — код или refresh-токен недействителен", body = ApiErrorBody),
+        (status = 401, description = "`invalid_client` — неизвестное приложение", body = ApiErrorBody)
+    ))]
+pub async fn device_token(
+    State(state): State<AppState>,
+    peer: Option<axum::extract::Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    Json(body): Json<DeviceTokenRequest>,
+) -> Response {
+    // Ответ с токенами и ошибки — без кэша (RFC 6749 §5.1).
+    no_store(
+        device_token_inner(state, peer, headers, body)
+            .await
+            .unwrap_or_else(IntoResponse::into_response),
+    )
+}
+
+async fn device_token_inner(
+    state: AppState,
+    peer: Option<axum::extract::Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: DeviceTokenRequest,
+) -> Result<Response, ApiError> {
+    let settings = &state.auth;
+    let missing = |field: &str| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid",
+            format!("нет поля {field}"),
+        )
+    };
+    let tokens = match body.grant_type.as_str() {
+        "authorization_code" => {
+            let client = client_info(settings, &headers, peer.map(|peer| peer.0.0));
+            qubite_auth::devices::exchange_code(
+                state.db.pool(),
+                &settings.config,
+                &body.client_id,
+                body.redirect_uri
+                    .as_deref()
+                    .ok_or_else(|| missing("redirect_uri"))?,
+                body.code.as_deref().ok_or_else(|| missing("code"))?,
+                body.code_verifier
+                    .as_deref()
+                    .ok_or_else(|| missing("code_verifier"))?,
+                &client,
+            )
+            .await?
+        }
+        "refresh_token" => {
+            qubite_auth::devices::refresh(
+                state.db.pool(),
+                &settings.config,
+                &body.client_id,
+                body.refresh_token
+                    .as_deref()
+                    .ok_or_else(|| missing("refresh_token"))?,
+            )
+            .await?
+        }
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "unsupported_grant_type",
+                "grant_type: authorization_code или refresh_token",
+            ));
+        }
+    };
+    let response = Json(DeviceTokenResponse {
+        token_type: "Bearer",
+        access_token: tokens.access_token,
+        expires_in: tokens.access_expires_in.as_secs(),
+        refresh_token: tokens.refresh_token,
+        session_id: tokens.session_id,
+    })
+    .into_response();
+    Ok(response)
+}
+
+fn no_store(mut response: Response) -> Response {
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
 }

@@ -11,6 +11,7 @@
 //! (SHA-256). Сами токены видит только браузер.
 
 pub mod accounts;
+pub mod devices;
 pub mod login;
 pub mod owner;
 pub mod password;
@@ -85,6 +86,12 @@ pub enum Error {
     Invalid(String),
     #[error("не найдено")]
     NotFound,
+    /// Неизвестное приложение или адрес возврата (OAuth `invalid_client`).
+    #[error("неизвестное приложение или адрес возврата")]
+    InvalidClient,
+    /// Код или refresh-токен недействителен (OAuth `invalid_grant`).
+    #[error("код или токен недействителен")]
+    InvalidGrant,
     #[error("ошибка хеширования пароля: {0}")]
     Hash(String),
     #[error("ошибка базы данных: {0}")]

@@ -31,7 +31,7 @@ flowchart TB
 - Первая платформа — **Linux** (владелец на CachyOS), затем Windows/macOS.
 - `qubite-local` подключается как Rust-зависимость Tauri: SQLite, синхронизация, поиск.
 - Глобальная горячая клавиша Command, системный трей, уведомления.
-- Вход: системный браузер → Qubite Auth → PKCE → deep link `qubite://auth/callback`.
+- Вход: системный браузер → Qubite Auth → PKCE → deep link `qubite://auth/callback` (или `http://127.0.0.1:<порт>/callback`). Сервер готов (AUTH-006, [D-177](../product/DECISIONS.md)): клиент `qubite-desktop`, токены — в защищённом хранилище ОС (Secret Service / keyring).
 
 ## 4. Android
 

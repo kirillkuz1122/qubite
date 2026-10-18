@@ -10,6 +10,114 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/auth/device/authorize": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Разрешить приложению вход (из браузера, где человек уже вошёл). Возвращает\nадрес возврата в приложение с одноразовым кодом на 5 минут.",
+        "operationId": "device_authorize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceAuthorizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вход разрешён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceAuthorizeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос (например, не S256)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход в браузере или неизвестное приложение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет или неверный CSRF-токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/token": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Получить или обновить токены устройства (OAuth 2.0, PKCE).",
+        "operationId": "device_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Токены устройства",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid_grant` — код или refresh-токен недействителен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`invalid_client` — неизвестное приложение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": ["auth"],
@@ -665,6 +773,105 @@
           }
         }
       },
+      "DeviceAuthorizeRequest": {
+        "type": "object",
+        "required": [
+          "client_id",
+          "redirect_uri",
+          "code_challenge",
+          "code_challenge_method",
+          "state"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "`qubite-desktop` или `qubite-android`."
+          },
+          "code_challenge": {
+            "type": "string",
+            "description": "`BASE64URL(SHA256(code_verifier))`, 43 символа."
+          },
+          "code_challenge_method": {
+            "type": "string",
+            "description": "Только `S256`."
+          },
+          "device_name": {
+            "type": "string",
+            "description": "Как назвать устройство в списке сессий."
+          },
+          "redirect_uri": {
+            "type": "string",
+            "description": "`qubite://auth/callback` (desktop — ещё `http://127.0.0.1:<порт>/callback`)."
+          },
+          "state": {
+            "type": "string",
+            "description": "Случайная строка приложения; вернётся в адресе без изменений."
+          }
+        }
+      },
+      "DeviceAuthorizeResponse": {
+        "type": "object",
+        "required": ["redirect_to"],
+        "properties": {
+          "redirect_to": {
+            "type": "string",
+            "description": "Куда отправить браузер: адрес приложения с `code` и `state`."
+          }
+        }
+      },
+      "DeviceTokenRequest": {
+        "type": "object",
+        "description": "Тело запроса токенов. `grant_type`: `authorization_code` (нужны `code`,\n`code_verifier`, `redirect_uri`) или `refresh_token` (нужен `refresh_token`).",
+        "required": ["grant_type", "client_id"],
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "code": {
+            "type": ["string", "null"]
+          },
+          "code_verifier": {
+            "type": ["string", "null"]
+          },
+          "grant_type": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": ["string", "null"]
+          },
+          "refresh_token": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "DeviceTokenResponse": {
+        "type": "object",
+        "required": ["token_type", "access_token", "expires_in", "refresh_token", "session_id"],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "Для заголовка `Authorization: Bearer …`; живёт `expires_in` секунд."
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Одноразовый: при обновлении выдаётся новый. Хранить в защищённом хранилище ОС."
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID сессии устройства (видна в списке сессий)."
+          },
+          "token_type": {
+            "type": "string",
+            "description": "Всегда `Bearer`."
+          }
+        }
+      },
       "GrantChange": {
         "allOf": [
           {
@@ -903,6 +1110,7 @@
         "required": [
           "id",
           "kind",
+          "device_name",
           "user_agent",
           "ip",
           "created_at",
@@ -918,6 +1126,10 @@
           "current": {
             "type": "boolean",
             "description": "Это сессия, с которой сделан запрос."
+          },
+          "device_name": {
+            "type": "string",
+            "description": "Имя устройства (для приложений)."
           },
           "expires_at": {
             "type": "string",
@@ -952,7 +1164,7 @@
     },
     {
       "name": "auth",
-      "description": "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`."
+      "description": "Вход, выход и сессии. Изменяющие запросы с сессией-cookie требуют заголовок `X-CSRF-Token`; приложения вместо cookie шлют `Authorization: Bearer <access_token>`."
     },
     {
       "name": "modules",

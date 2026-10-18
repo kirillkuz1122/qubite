@@ -4,6 +4,43 @@
  */
 
 export interface paths {
+  '/api/auth/device/authorize': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Разрешить приложению вход (из браузера, где человек уже вошёл). Возвращает
+     *     адрес возврата в приложение с одноразовым кодом на 5 минут.
+     */
+    post: operations['device_authorize'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/device/token': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Получить или обновить токены устройства (OAuth 2.0, PKCE). */
+    post: operations['device_token'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/login': {
     parameters: {
       query?: never;
@@ -267,6 +304,51 @@ export interface components {
       status: string;
       title: string;
     };
+    DeviceAuthorizeRequest: {
+      /** @description `qubite-desktop` или `qubite-android`. */
+      client_id: string;
+      /** @description `BASE64URL(SHA256(code_verifier))`, 43 символа. */
+      code_challenge: string;
+      /** @description Только `S256`. */
+      code_challenge_method: string;
+      /** @description Как назвать устройство в списке сессий. */
+      device_name?: string;
+      /** @description `qubite://auth/callback` (desktop — ещё `http://127.0.0.1:<порт>/callback`). */
+      redirect_uri: string;
+      /** @description Случайная строка приложения; вернётся в адресе без изменений. */
+      state: string;
+    };
+    DeviceAuthorizeResponse: {
+      /** @description Куда отправить браузер: адрес приложения с `code` и `state`. */
+      redirect_to: string;
+    };
+    /**
+     * @description Тело запроса токенов. `grant_type`: `authorization_code` (нужны `code`,
+     *     `code_verifier`, `redirect_uri`) или `refresh_token` (нужен `refresh_token`).
+     */
+    DeviceTokenRequest: {
+      client_id: string;
+      code?: string | null;
+      code_verifier?: string | null;
+      grant_type: string;
+      redirect_uri?: string | null;
+      refresh_token?: string | null;
+    };
+    DeviceTokenResponse: {
+      /** @description Для заголовка `Authorization: Bearer …`; живёт `expires_in` секунд. */
+      access_token: string;
+      /** Format: int64 */
+      expires_in: number;
+      /** @description Одноразовый: при обновлении выдаётся новый. Хранить в защищённом хранилище ОС. */
+      refresh_token: string;
+      /**
+       * Format: uuid
+       * @description ID сессии устройства (видна в списке сессий).
+       */
+      session_id: string;
+      /** @description Всегда `Bearer`. */
+      token_type: string;
+    };
     /** @description Какие права выдать. Все `false` — то же, что отзыв. */
     GrantChange: components['schemas']['ModuleFlags'] & {
       /** @description Зачем (попадёт в журнал). */
@@ -378,6 +460,8 @@ export interface components {
       created_at: string;
       /** @description Это сессия, с которой сделан запрос. */
       current: boolean;
+      /** @description Имя устройства (для приложений). */
+      device_name: string;
       /** Format: date-time */
       expires_at: string;
       /** Format: uuid */
@@ -398,6 +482,99 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  device_authorize: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeviceAuthorizeRequest'];
+      };
+    };
+    responses: {
+      /** @description Вход разрешён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeviceAuthorizeResponse'];
+        };
+      };
+      /** @description Неверный запрос (например, не S256) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не выполнен вход в браузере или неизвестное приложение */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет или неверный CSRF-токен */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  device_token: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeviceTokenRequest'];
+      };
+    };
+    responses: {
+      /** @description Токены устройства */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeviceTokenResponse'];
+        };
+      };
+      /** @description `invalid_grant` — код или refresh-токен недействителен */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `invalid_client` — неизвестное приложение */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   login: {
     parameters: {
       query?: never;

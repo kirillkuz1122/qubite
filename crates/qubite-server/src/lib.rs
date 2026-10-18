@@ -58,6 +58,8 @@ impl AppState {
         auth::list_sessions,
         auth::revoke_session,
         auth::logout_everywhere,
+        auth::device_authorize,
+        auth::device_token,
         modules::my_catalog,
         modules::my_module,
         modules::owner_modules,
@@ -75,6 +77,10 @@ impl AppState {
         auth::Me,
         auth::SessionItem,
         auth::RevokedCount,
+        auth::DeviceAuthorizeRequest,
+        auth::DeviceAuthorizeResponse,
+        auth::DeviceTokenRequest,
+        auth::DeviceTokenResponse,
         modules::ModuleFlags,
         modules::CatalogItem,
         modules::ModuleItem,
@@ -84,7 +90,7 @@ impl AppState {
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
-        (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`."),
+        (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией-cookie требуют заголовок `X-CSRF-Token`; приложения вместо cookie шлют `Authorization: Bearer <access_token>`."),
         (name = "modules", description = "Каталог модулей и права пользователя"),
         (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)")
     )
@@ -109,6 +115,8 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/auth/sessions", get(auth::list_sessions))
         .route("/api/auth/sessions/{id}", delete(auth::revoke_session))
         .route("/api/auth/logout-everywhere", post(auth::logout_everywhere))
+        .route("/api/auth/device/authorize", post(auth::device_authorize))
+        .route("/api/auth/device/token", post(auth::device_token))
         .route("/api/modules", get(modules::my_catalog))
         .route("/api/modules/{id}", get(modules::my_module))
         .route("/api/owner/modules", get(modules::owner_modules))

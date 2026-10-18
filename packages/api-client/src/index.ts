@@ -17,6 +17,7 @@ export type SessionItem = components['schemas']['SessionItem'];
 export type ApiErrorBody = components['schemas']['ApiErrorBody'];
 export type CatalogItem = components['schemas']['CatalogItem'];
 export type ModuleFlags = components['schemas']['ModuleFlags'];
+export type DeviceTokenResponse = components['schemas']['DeviceTokenResponse'];
 
 /** Cookie, в которой сервер передаёт CSRF-токен, и заголовок для него. */
 export const CSRF_COOKIE = 'qubite_csrf';

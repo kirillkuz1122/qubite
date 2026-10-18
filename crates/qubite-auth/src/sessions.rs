@@ -44,6 +44,8 @@ pub struct ResolvedSession {
     pub email: String,
     pub display_name: String,
     pub is_owner: bool,
+    /// `web` (cookie) или `device` (токен приложения).
+    pub kind: String,
     pub csrf_hash: Vec<u8>,
     pub expires_at: OffsetDateTime,
     /// Срок продлён этим запросом — нужно обновить cookie.
@@ -63,6 +65,8 @@ impl ResolvedSession {
 pub struct SessionView {
     pub id: Uuid,
     pub kind: String,
+    /// Имя устройства (для приложений), иначе пусто.
+    pub device_name: String,
     pub user_agent: String,
     pub ip: String,
     pub created_at: OffsetDateTime,
@@ -81,6 +85,8 @@ pub enum RevokeReason {
     LogoutEverywhere,
     /// Сменился пароль.
     PasswordChanged,
+    /// Предъявлен уже использованный refresh-токен (вероятная кража).
+    RefreshReuse,
 }
 
 impl RevokeReason {
@@ -90,6 +96,7 @@ impl RevokeReason {
             Self::Revoked => "revoked",
             Self::LogoutEverywhere => "logout_everywhere",
             Self::PasswordChanged => "password_changed",
+            Self::RefreshReuse => "refresh_reuse",
         }
     }
 }
@@ -135,18 +142,40 @@ pub async fn resolve(
     config: &AuthConfig,
     token: &str,
 ) -> Result<Option<ResolvedSession>> {
+    resolve_kind(pool, config, token, "web").await
+}
+
+/// Найти сессию устройства по access-токену (`Authorization: Bearer`).
+/// Истёкший access-токен не работает, даже если сессия жива: приложение
+/// обновляет его refresh-токеном.
+pub async fn resolve_device(
+    pool: &PgPool,
+    config: &AuthConfig,
+    access_token: &str,
+) -> Result<Option<ResolvedSession>> {
+    resolve_kind(pool, config, access_token, "device").await
+}
+
+async fn resolve_kind(
+    pool: &PgPool,
+    config: &AuthConfig,
+    token: &str,
+    kind: &str,
+) -> Result<Option<ResolvedSession>> {
     let found: Option<(ResolvedSession, bool)> = sqlx::query_as::<_, ResolvedRow>(
         "SELECT s.id, s.account_id, a.email, a.display_name, \
-                (o.account_id IS NOT NULL) AS is_owner, s.csrf_hash, s.expires_at, \
+                (o.account_id IS NOT NULL) AS is_owner, s.kind, s.csrf_hash, s.expires_at, \
                 (s.last_seen_at < now() - $2::float8 * interval '1 second') AS stale \
          FROM sessions s \
          JOIN accounts a ON a.id = s.account_id \
          LEFT JOIN platform_owner o ON o.account_id = a.id \
-         WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now() \
+         WHERE s.token_hash = $1 AND s.kind = $3 AND s.revoked_at IS NULL AND s.expires_at > now() \
+           AND (s.access_expires_at IS NULL OR s.access_expires_at > now()) \
            AND a.status = 'active'",
     )
     .bind(token_hash(token))
     .bind(secs(config.touch_interval))
+    .bind(kind)
     .fetch_optional(pool)
     .await?
     .map(|row| (row.session, row.stale));
@@ -186,7 +215,7 @@ struct ResolvedRow {
 /// Живые сессии аккаунта, свежие сверху.
 pub async fn list(pool: &PgPool, account_id: Uuid) -> Result<Vec<SessionView>> {
     Ok(sqlx::query_as(
-        "SELECT id, kind, user_agent, ip, created_at, last_seen_at, expires_at FROM sessions \
+        "SELECT id, kind, device_name, user_agent, ip, created_at, last_seen_at, expires_at FROM sessions \
          WHERE account_id = $1 AND revoked_at IS NULL AND expires_at > now() \
          ORDER BY last_seen_at DESC, id DESC",
     )
@@ -256,6 +285,23 @@ pub async fn revoke_all(pool: &PgPool, account_id: Uuid) -> Result<u64> {
     Ok(count)
 }
 
+/// Закрыть перечисленные сессии (внутри чужой транзакции).
+pub(crate) async fn revoke_all_ids(
+    conn: &mut PgConnection,
+    ids: &[Uuid],
+    reason: RevokeReason,
+) -> Result<u64> {
+    Ok(sqlx::query(
+        "UPDATE sessions SET revoked_at = now(), revoke_reason = $2 \
+         WHERE id = ANY($1) AND revoked_at IS NULL",
+    )
+    .bind(ids)
+    .bind(reason.as_str())
+    .execute(conn)
+    .await?
+    .rows_affected())
+}
+
 pub(crate) async fn revoke_all_in(
     conn: &mut PgConnection,
     account_id: Uuid,
@@ -272,7 +318,7 @@ pub(crate) async fn revoke_all_in(
     .rows_affected())
 }
 
-fn truncate(value: &str, max_bytes: usize) -> &str {
+pub(crate) fn truncate(value: &str, max_bytes: usize) -> &str {
     if value.len() <= max_bytes {
         return value;
     }
