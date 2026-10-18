@@ -16,6 +16,8 @@ export interface DotTextProps {
   repel?: number;
   /** подпись для чтения с экрана (по умолчанию — сам текст) */
   label?: string;
+  /** шаг строки в клетках для надписей в несколько строк (\n) */
+  lineRows?: number;
   className?: string;
 }
 
@@ -31,6 +33,7 @@ export function DotText({
   repel = 40,
   label,
   className,
+  lineRows = 8,
 }: DotTextProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   const { palette } = useLook();
@@ -49,9 +52,9 @@ export function DotText({
       if (cancelled) return;
       const s = start.current;
       const t = want.current;
-      fit(cv, t, pitch);
+      fit(cv, t, pitch, lineRows);
       engine = new DotEngine(cv, { ground: s.ground, light: s.ink, repel });
-      const g = engine.text(t, { x: 4, y: 4, pitch, color: s.color, assemble, r: 0.46 });
+      const g = engine.text(t, { x: 4, y: 4, pitch, color: s.color, assemble, r: 0.46, lineRows });
       live.current = { e: engine, g, text: t };
     });
     return () => {
@@ -59,7 +62,7 @@ export function DotText({
       engine?.destroy();
       live.current = null;
     };
-  }, [pitch, repel, assemble]);
+  }, [pitch, repel, assemble, lineRows]);
 
   useEffect(() => {
     want.current = text;
@@ -68,20 +71,28 @@ export function DotText({
     whenPixelFont(text).then(() => {
       if (live.current !== cur || want.current !== text) return;
       const cv = ref.current;
-      if (cv && fit(cv, text, pitch, true)) cur.e.resize();
-      cur.e.morph(cur.g, text, { r: 0.46 });
+      if (cv && fit(cv, text, pitch, lineRows, true)) cur.e.resize();
+      cur.e.morph(cur.g, text, { r: 0.46, lineRows });
       cur.text = text;
     });
-  }, [text, pitch]);
+  }, [text, pitch, lineRows]);
 
   return <canvas ref={ref} className={className} role="img" aria-label={label ?? text} />;
 }
 
 /** Размер холста под надпись; grow — только расширять (чтобы слово не обрезалось при перестройке). */
-function fit(cv: HTMLCanvasElement, text: string, pitch: number, grow = false): boolean {
-  const tc = textCells(text);
+function fit(
+  cv: HTMLCanvasElement,
+  text: string,
+  pitch: number,
+  lineRows: number,
+  grow = false,
+): boolean {
+  const tc = textCells(text, PIXEL_FONT, lineRows);
+  /* «Ё», «Й» и хвосты букв выходят за строку — высоту берём по самой нижней клетке */
+  const low = tc.cells.reduce((m, c) => Math.max(m, c[1] + 1), 0);
   const w = Math.ceil(tc.cols * pitch + 8);
-  const h = Math.ceil(Math.max(tc.rows, 5) * pitch + 8);
+  const h = Math.ceil(Math.max(tc.rows, low, 5) * pitch + 8);
   const cur = cv.getBoundingClientRect().width;
   if (grow && w <= cur) return false;
   cv.style.width = `${w}px`;

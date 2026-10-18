@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { QubiteClient } from '@qubite/api-client';
 
 /**
- * Показывает, отвечает ли сервер Qubite. Временный экран фундамента:
- * настоящая главная появится в задаче DS-007.
+ * Показывает, отвечает ли сервер Qubite. Живёт в подвале лендинга.
  */
 export function ServerStatus({ client }: { client: QubiteClient }) {
   const health = useQuery({
@@ -17,18 +16,18 @@ export function ServerStatus({ client }: { client: QubiteClient }) {
   });
 
   if (health.isPending) {
-    return <p role="status">Проверяем сервер…</p>;
+    return <span role="status">Проверяем сервер…</span>;
   }
   if (health.isError) {
     return (
-      <p role="status" data-state="down">
+      <span role="status" data-state="down">
         Сервер недоступен
-      </p>
+      </span>
     );
   }
   return (
-    <p role="status" data-state="up">
+    <span role="status" data-state="up">
       Сервер работает · версия {health.data.version}
-    </p>
+    </span>
   );
 }

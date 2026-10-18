@@ -266,6 +266,394 @@ body {
   touch-action: pan-y;
 }
 
+/* ---------- оболочка приложения (DS-007) ---------- */
+
+/* фоновая сетка точек */
+.q-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+kbd {
+  font: inherit;
+  font-size: 12px;
+  color: var(--q-dim);
+  padding: 2px 6px;
+  border-radius: calc(var(--q-round) * 6px);
+  border: 1px solid var(--q-line);
+}
+
+/* выделение строки: подложка, которая перетекает */
+.q-slide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: calc(var(--q-round) * 20px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line);
+  opacity: 0;
+  transform-origin: 50% 0;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* фильтры: без рамки, подложка — цвета панели */
+.q-chips {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.q-chips::-webkit-scrollbar {
+  display: none;
+}
+.q-chips button {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--q-mute);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.q-chips button b,
+.q-seg button b {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--q-dim);
+}
+.q-chips button.q-on {
+  color: var(--q-ink);
+}
+.q-chips button.q-on b {
+  color: var(--q-orange);
+}
+.q-flow i.q-chip-flow {
+  background: var(--q-panel);
+}
+
+/* ползунок */
+.q-range {
+  display: grid;
+  gap: 10px;
+}
+.q-range-head {
+  display: flex;
+  justify-content: space-between;
+}
+.q-range-val {
+  color: var(--q-orange);
+  font-size: 13px;
+}
+.q-range input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--q-orange);
+}
+
+/* разделы на ПК */
+.q-side-nav {
+  position: relative;
+  display: grid;
+  gap: 2px;
+}
+.q-side-sel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: calc(var(--q-round) * 16px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line);
+  transform-origin: 50% 0;
+  will-change: transform;
+  pointer-events: none;
+}
+.q-side-nav button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--q-mute);
+  text-align: left;
+  cursor: pointer;
+}
+.q-side-nav button.q-on {
+  color: var(--q-ink);
+}
+.q-side-nav button b {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.q-side-nav button.q-on b {
+  color: var(--q-orange);
+}
+
+/* нижняя капля на телефоне: разделы и Command */
+.q-dock {
+  position: fixed;
+  z-index: 40;
+  left: 12px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  height: 60px;
+}
+.q-flow i.q-dock-body {
+  background: var(--q-panel);
+  box-shadow: 0 10px 30px -14px var(--q-shadow);
+}
+.q-flow i.q-dock-ind {
+  background: var(--q-panel-2);
+}
+.q-navb,
+.q-dock-cmd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-mute);
+  cursor: pointer;
+  will-change: transform, opacity;
+}
+.q-navb {
+  width: 52px;
+}
+.q-navb.q-on {
+  color: var(--q-ink);
+}
+.q-dock-cmd {
+  left: auto;
+  right: 0;
+  width: 60px;
+  color: var(--q-ink);
+}
+.q-badge {
+  position: absolute;
+  top: 14px;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-orange);
+}
+.q-dock-field {
+  position: absolute;
+  top: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.q-dock.q-open .q-dock-field {
+  pointer-events: auto;
+}
+
+/* поле внутри строки Command (телефон и ПК) */
+.q-cmd-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--q-ink);
+}
+.q-cmd-input::placeholder {
+  color: var(--q-dim);
+}
+.q-mic {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--q-mute);
+}
+
+/* «+» и меню из него */
+.q-plus {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-orange);
+  color: var(--q-on-accent);
+  cursor: pointer;
+}
+.q-plus-ico {
+  display: block;
+  will-change: transform;
+}
+.q-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: var(--q-veil);
+  opacity: 0;
+}
+.q-menu {
+  position: fixed;
+  z-index: 46;
+  width: 250px;
+  padding: 8px;
+  visibility: hidden;
+}
+.q-menu-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line-2);
+  box-shadow: 0 20px 50px -20px var(--q-shadow);
+  transform: scale(0);
+  will-change: transform;
+}
+.q-menu button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--q-ink);
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.q-menu button .q-dot {
+  width: 10px;
+  height: 10px;
+}
+.q-menu kbd {
+  margin-left: auto;
+}
+
+/* подсказка Command: карточка над строкой */
+.q-suggest {
+  position: fixed;
+  z-index: 45;
+  pointer-events: none;
+}
+.q-suggest-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line-2);
+  transform-origin: 50% 100%;
+  transform: scale(0.2, 0);
+  will-change: transform;
+}
+.q-suggest-in {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 66px;
+  padding: 14px 16px;
+  opacity: 0;
+  will-change: opacity;
+}
+.q-suggest-k {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.q-suggest-k .q-dot {
+  width: 9px;
+  height: 9px;
+}
+.q-suggest-w {
+  margin-top: 3px;
+  color: var(--q-mute);
+  font-size: 12.5px;
+}
+.q-suggest-w b {
+  color: var(--q-ink);
+  font-weight: 500;
+}
+.q-suggest kbd {
+  margin-left: auto;
+}
+
+/* летящая точка */
+.q-fly {
+  position: fixed;
+  z-index: 70;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: calc(var(--q-round) * 50%);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* строка раскрывается в страницу */
+.q-page-bg {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  top: 0;
+  border-radius: calc(var(--q-round) * 28px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line);
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.q-page {
+  position: fixed;
+  z-index: 61;
+  overflow-y: auto;
+  padding: 18px 20px 120px;
+  will-change: opacity, transform;
+}
+
+/* помощники в шапке */
+.q-crew {
+  display: block;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .q-caret {
     animation: none;

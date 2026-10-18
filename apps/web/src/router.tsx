@@ -1,7 +1,9 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
-import { api } from './api';
+import { AppShell } from './app/AppShell';
+import { SECTIONS } from './app/data';
+import { StoreProvider } from './app/store';
 import { DesignPage } from './design/DesignPage';
-import { ServerStatus } from './ServerStatus';
+import { Landing } from './landing/Landing';
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -13,19 +15,29 @@ const rootRoute = createRootRoute({
   ),
 });
 
+/** Лендинг для гостя (DS-007, по макету landing.html). */
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  component: Landing,
+});
+
+/**
+ * Приложение: одна оболочка на все разделы (она не пересоздаётся при переходе,
+ * поэтому шапка и подсветка перетекают). Сами разделы рисует оболочка по адресу.
+ */
+const appRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'app',
   component: () => (
-    <main className="shell">
-      <h1>Qubite</h1>
-      <p>
-        Фундамент нового Qubite. Дизайн-система — на странице <a href="/design">/design</a>.
-      </p>
-      <ServerStatus client={api} />
-    </main>
+    <StoreProvider>
+      <AppShell />
+    </StoreProvider>
   ),
 });
+const sectionRoutes = SECTIONS.map((s) =>
+  createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
+);
 
 /** Витрина дизайн-системы «Частицы» (DS-001). */
 const designRoute = createRoute({
@@ -34,7 +46,9 @@ const designRoute = createRoute({
   component: DesignPage,
 });
 
-export const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, designRoute]) });
+export const router = createRouter({
+  routeTree: rootRoute.addChildren([homeRoute, appRoute.addChildren(sectionRoutes), designRoute]),
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
