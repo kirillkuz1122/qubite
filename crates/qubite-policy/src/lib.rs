@@ -436,7 +436,7 @@ SELECT a.status AS account_status,
        EXISTS (SELECT 1 FROM platform_owner o WHERE o.account_id = a.id) AS is_owner,
        ($3::uuid IS NULL OR EXISTS (
             SELECT 1 FROM sessions s WHERE s.id = $3 AND s.account_id = a.id
-               AND s.revoked_at IS NULL AND s.expires_at > now())) AS session_ok,
+               AND s.revoked_at IS NULL AND ($4 OR s.expires_at > now()))) AS session_ok,
        m.installed, m.state, m.readiness, m.visibility,
        g.can_read, g.can_write, g.can_manage, g.can_ai
 FROM accounts a
@@ -449,11 +449,13 @@ async fn load_facts(
     account_id: Uuid,
     session_id: Option<Uuid>,
     module: &ModuleId,
+    session_rule: SessionRule,
 ) -> Result<Facts> {
     let row: Option<FactsRow> = sqlx::query_as(FACTS_SQL)
         .bind(account_id)
         .bind(module.as_str())
         .bind(session_id)
+        .bind(session_rule == SessionRule::NotRevoked)
         .fetch_optional(conn)
         .await?;
     Ok(row.map_or_else(Facts::default, |row| Facts {
@@ -523,6 +525,15 @@ impl<A: Action> Authorized<A> {
     }
 }
 
+/// Как проверять сессию субъекта.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionRule {
+    /// Сессия жива: не отозвана и не истекла (запросы, соединения).
+    Alive,
+    /// Сессия не отозвана; истечь ей можно (фоновые задачи).
+    NotRevoked,
+}
+
 /// Права, сохранённые в задаче (JSON). Это не разрешение — только «от чьего
 /// имени и что»; обработчик обязан вызвать [`Authority::recheck`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -533,8 +544,11 @@ pub struct Authority {
 }
 
 impl Authority {
-    /// Проверить права заново. Для задачи сессия не требуется: задача живёт
-    /// дольше сессии, но отзыв гранта или блокировка аккаунта её останавливают.
+    /// Проверить права заново. Задача может жить дольше сессии: истёкшая
+    /// сессия задачу не останавливает. А **отозванная** (выход, «выйти везде»,
+    /// закрытие из списка, смена пароля) — останавливает, как и отзыв гранта
+    /// и блокировка аккаунта (AUTH_AND_PERMISSIONS §6 №6, D-179). Задачи без
+    /// сессии (`session_id: None`) — от имени аккаунта, их сессия не касается.
     pub async fn recheck<A: Action>(&self, pool: &PgPool) -> Result<Authorized<A>> {
         if self.action != A::KIND {
             return Err(Error::Invalid(format!(
@@ -543,22 +557,14 @@ impl Authority {
                 A::KIND
             )));
         }
-        let subject = match &self.subject {
-            Subject::Account { account_id, .. } => Subject::account(*account_id, None),
-            Subject::Delegated {
-                account_id,
-                via,
-                ceiling,
-                ..
-            } => Subject::Delegated {
-                account_id: *account_id,
-                session_id: None,
-                via: via.clone(),
-                ceiling: ceiling.clone(),
-            },
-            Subject::Guest => Subject::Guest,
-        };
-        decide::<A>(pool, &subject, &self.module).await
+        let mut conn = pool.acquire().await?;
+        decide_with::<A>(
+            &mut conn,
+            &self.subject,
+            &self.module,
+            SessionRule::NotRevoked,
+        )
+        .await
     }
 }
 
@@ -578,10 +584,19 @@ pub async fn decide_in<A: Action>(
     subject: &Subject,
     module: &ModuleId,
 ) -> Result<Authorized<A>> {
+    decide_with::<A>(conn, subject, module, SessionRule::Alive).await
+}
+
+async fn decide_with<A: Action>(
+    conn: &mut PgConnection,
+    subject: &Subject,
+    module: &ModuleId,
+    session_rule: SessionRule,
+) -> Result<Authorized<A>> {
     let Some((account_id, session_id)) = subject.account_and_session() else {
         return Err(DenyReason::GuestNotAllowed.into());
     };
-    let facts = load_facts(conn, account_id, session_id, module).await?;
+    let facts = load_facts(conn, account_id, session_id, module, session_rule).await?;
     let flags = evaluate(&facts, subject.ceiling(module), A::KIND)?;
     Ok(Authorized {
         subject: subject.clone(),

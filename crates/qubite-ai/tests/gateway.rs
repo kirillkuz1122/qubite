@@ -284,6 +284,17 @@ async fn neg04_hundred_parallel_requests_make_exactly_one_reservation() {
         .await;
         auths.push(env.auth(user).await);
     }
+    // Счётчик месяца уже есть (обычный случай: в этом месяце запросы были).
+    // Иначе гонку разруливала бы вставка новой строки счётчика, а не
+    // блокировка `FOR UPDATE`, и тест не заметил бы её отсутствия.
+    sqlx::query(
+        "INSERT INTO ai_usage_counters (limit_id, period_key) \
+         VALUES ($1, to_char(now() AT TIME ZONE 'Asia/Yekaterinburg', 'YYYY-MM'))",
+    )
+    .bind(module_limit)
+    .execute(env.db.pool())
+    .await
+    .unwrap();
     // «Разные процессы» — четыре шлюза со своими пулами соединений.
     let mock = Arc::new(MockProvider::new(MockStep::Hang));
     let mut gateways = Vec::new();
@@ -486,6 +497,39 @@ async fn same_request_id_is_never_charged_twice() {
     assert_eq!(ok, 1);
     assert_eq!(mock.calls(), 2);
     assert_eq!(env.usage(limit).await, (0, 2 * USD_060));
+    env.finish().await;
+}
+
+/// `request_id` свой у каждого аккаунта: чужой запрос с тем же ID не
+/// блокирует мой и не раскрывает его статус (D-179).
+#[tokio::test]
+async fn request_id_of_another_user_neither_blocks_nor_leaks() {
+    let env = Env::new().await;
+    let (alice, bob) = (env.user("a@qubite.ru").await, env.user("b@qubite.ru").await);
+    for user in [alice, bob] {
+        env.limit(
+            LimitScope::User(user),
+            Period::Day,
+            Metric::Usd,
+            10 * MICROS_PER_USD,
+        )
+        .await;
+    }
+    let mock = Arc::new(MockProvider::new(succeed(u64::from(OUT_060))));
+    let gateway = env.gateway(&mock, fast());
+    let (alice_auth, bob_auth) = (env.auth(alice).await, env.auth(bob).await);
+
+    gateway.complete(&bob_auth, request("same")).await.unwrap();
+    gateway
+        .complete(&alice_auth, request("same"))
+        .await
+        .unwrap();
+    // Свой повтор — по-прежнему отказ.
+    assert!(matches!(
+        gateway.complete(&alice_auth, request("same")).await,
+        Err(AiError::DuplicateRequest { .. })
+    ));
+    assert_eq!(mock.calls(), 2);
     env.finish().await;
 }
 

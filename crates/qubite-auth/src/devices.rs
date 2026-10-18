@@ -189,6 +189,8 @@ struct CodeRow {
     used: bool,
     issued_session_id: Option<Uuid>,
     account_active: bool,
+    /// Web-сессия, в которой разрешили вход, ещё открыта.
+    web_alive: bool,
 }
 
 /// Обменять код на токены. Любая ошибка «сжигает» код.
@@ -206,8 +208,10 @@ pub async fn exchange_code(
     let row: Option<CodeRow> = sqlx::query_as(
         "SELECT c.id, c.account_id, c.client_id, c.redirect_uri, c.code_challenge, c.device_name, \
                 c.expires_at <= now() AS expired, c.used_at IS NOT NULL AS used, c.issued_session_id, \
-                (a.status = 'active') AS account_active \
+                (a.status = 'active') AS account_active, \
+                (w.revoked_at IS NULL AND w.expires_at > now()) AS web_alive \
          FROM device_auth_codes c JOIN accounts a ON a.id = c.account_id \
+         JOIN sessions w ON w.id = c.web_session_id \
          WHERE c.code_hash = $1 FOR UPDATE OF c",
     )
     .bind(token_hash(code))
@@ -236,6 +240,9 @@ pub async fn exchange_code(
         || row.redirect_uri != redirect_uri
         || !verifier_ok
         || !row.account_active
+        // Вход в браузере закрыли (выход, «выйти везде», смена пароля) —
+        // выданный из него код больше не действует.
+        || !row.web_alive
     {
         tx.commit().await?;
         return Err(Error::InvalidGrant);

@@ -45,7 +45,8 @@ ai_providers(id, kind openrouter|openai|local|mock, base_url, key_secret_ref, en
 ai_models(id, provider_id, external_id, capabilities[], price_in_per_mtok, price_out_per_mtok, context, enabled, blocked_reason)
 ai_limits(id, scope_kind user|module|model|provider|user_module, scope_ref, period day|month|all|hour, metric usd|requests|tokens, limit_value, version)
 ai_usage_counters(limit_id, period_key, reserved, spent, updated_at)     -- одна строка на лимит×период
-ai_calls(id, request_id unique, account_id, module_id, model_id, status queued|sending|succeeded|failed_not_sent|unknown|settled,
+ai_calls(id, request_id, account_id,  -- unique(account_id, request_id)
+         module_id, model_id, status queued|sending|succeeded|failed_not_sent|unknown|settled,
          attempts, estimate_usd, actual_usd, tokens_in, tokens_out, period_keys jsonb, created_at, settled_at, error_code)
 ai_call_events(call_id, at, kind, details jsonb)     -- без текстов запросов и без секретов
 ```

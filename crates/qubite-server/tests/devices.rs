@@ -233,6 +233,33 @@ async fn stolen_code_is_useless_and_codes_are_single_use() {
     finish(test_db, db).await;
 }
 
+/// Код выдан из web-сессии; если её закрыли до обмена (например, «выйти
+/// везде» после кражи входа), код не действует.
+#[tokio::test]
+async fn code_dies_with_the_browser_session_that_approved_it() {
+    let (test_db, db, address) = setup(AuthSettings::default()).await;
+    let mut browser = logged_in(address).await;
+    let (_, code) = approve(&mut browser, address, request()).await;
+    assert_eq!(
+        browser
+            .post(address, "/api/auth/logout-everywhere")
+            .await
+            .status,
+        200
+    );
+    let (status, body) = App::new(address).exchange(&code.unwrap(), VERIFIER).await;
+    assert_eq!(
+        (status.as_u16(), body["error"].as_str()),
+        (400, Some("invalid_grant"))
+    );
+    let sessions: i64 = sqlx::query_scalar("SELECT count(*) FROM sessions WHERE kind = 'device'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(sessions, 0, "сессия устройства не создана");
+    finish(test_db, db).await;
+}
+
 #[tokio::test]
 async fn authorize_checks_client_pkce_and_needs_browser_session() {
     let (test_db, db, address) = setup(AuthSettings::default()).await;

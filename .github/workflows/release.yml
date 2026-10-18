@@ -25,6 +25,10 @@ on:
       - '.github/workflows/release.yml'
   workflow_dispatch:
 
+# По умолчанию — только чтение; право писать (черновик Release) есть лишь у publish.
+permissions:
+  contents: read
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true

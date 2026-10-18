@@ -552,6 +552,70 @@ async fn t06_revoked_grant_or_session_stops_access_immediately() {
     lab.finish().await;
 }
 
+/// №6, задачи: задача, поставленная из сессии, останавливается, если эту
+/// сессию отозвали (украденный вход закрыли — его задачи тоже). Просто
+/// истёкшая сессия задачу не останавливает (D-179).
+#[tokio::test]
+async fn t06_revoked_session_stops_its_scheduled_jobs() {
+    let mut lab = Lab::new().await;
+    let (user_id, mut first) = lab.user("jobs@qubite.ru").await;
+    let address = lab.address;
+    lab.grant(
+        user_id,
+        "docs",
+        json!({ "read": true, "write": false, "manage": false, "ai": true }),
+    )
+    .await;
+
+    // Сессия истекла после постановки задачи — задача выполняется.
+    assert_eq!(
+        first.post(address, "/api/probe/docs/ai/later").await.status,
+        200
+    );
+    sqlx::query("UPDATE sessions SET expires_at = now() - interval '1 second'")
+        .execute(lab.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(run_ai_jobs(&lab.db, &lab.calls).await, 1);
+
+    // Сессию отозвали («выйти везде») — её задачи не идут к провайдеру.
+    let mut second = Browser::default();
+    assert_eq!(
+        second
+            .login(address, "jobs@qubite.ru", USER_PASSWORD)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        second
+            .post(address, "/api/probe/docs/ai/later")
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        second
+            .post(address, "/api/auth/logout-everywhere")
+            .await
+            .status,
+        200
+    );
+    assert_eq!(run_ai_jobs(&lab.db, &lab.calls).await, 0);
+
+    // Задача от имени аккаунта без сессии от отзыва сессий не зависит.
+    let docs = ModuleId::new("docs").unwrap();
+    let authority = Authority {
+        subject: Subject::account(user_id, None),
+        module: docs,
+        action: qubite_policy::ActionKind::Ai,
+    };
+    assert!(authority.recheck::<UseAi>(lab.db.pool()).await.is_ok());
+
+    assert_eq!(lab.calls(), 1);
+    lab.finish().await;
+}
+
 // ---------------------------------------------------------------- №7
 
 #[tokio::test]

@@ -50,6 +50,20 @@ pub async fn login(
         return Err(Error::InvalidCredentials);
     }
 
+    // Сверх лимита отвечаем сразу, не вставая в очередь на проверку пароля.
+    // Окончательная проверка — ниже, под блокировкой.
+    {
+        let mut conn = pool.acquire().await?;
+        if let Some(retry_after_secs) = throttled(&mut conn, &email, ip, config).await? {
+            tracing::warn!(retry_after_secs, "вход: превышен лимит попыток");
+            return Err(Error::TooManyAttempts { retry_after_secs });
+        }
+    }
+    // Место для проверки пароля — до транзакции: пока ждём своей очереди,
+    // соединение с базой не занято (иначе перебор с разных почт занял бы весь
+    // пул и сервер перестал бы отвечать всем).
+    let permit = passwords.permit().await?;
+
     let mut tx = pool.begin().await?;
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('qubite.login:' || $1, 0))")
         .bind(&email)
@@ -80,9 +94,10 @@ pub async fn login(
     let verified = match &candidate {
         Some(Candidate {
             hash: Some(hash), ..
-        }) => passwords.verify(&input.password, hash).await?,
-        _ => passwords.verify_dummy(&input.password).await?,
+        }) => permit.verify(&input.password, hash).await?,
+        _ => permit.verify_dummy(&input.password).await?,
     };
+    drop(permit);
     let account = match candidate {
         Some(account) if verified => account,
         _ => {

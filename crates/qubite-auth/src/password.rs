@@ -12,7 +12,7 @@ use argon2::{
     Algorithm, Argon2, Params, Version,
     password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash},
 };
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::{Error, Result};
 
@@ -67,17 +67,55 @@ impl Passwords {
 
     /// Совпадает ли пароль с хешем. Неверный хеш считается несовпадением.
     pub async fn verify(&self, password: &str, hash: &str) -> Result<bool> {
-        let (password, hash) = (password.to_owned(), hash.to_owned());
-        self.run(move || Ok(verify_blocking(&password, &hash)))
-            .await
+        self.permit().await?.verify(password, hash).await
     }
 
     /// Проверка с поддельным хешем — для несуществующей почты. Занимает
     /// столько же времени, сколько настоящая, поэтому по времени ответа
     /// нельзя узнать, есть ли такой аккаунт.
     pub async fn verify_dummy(&self, password: &str) -> Result<bool> {
+        self.permit().await?.verify_dummy(password).await
+    }
+
+    /// Занять место для одной проверки заранее. Вход берёт его **до** того,
+    /// как открыть транзакцию: иначе очередь на проверку держала бы соединения
+    /// с базой, и перебор с разных почт занял бы весь пул — сервер перестал
+    /// бы отвечать всем.
+    pub async fn permit(&self) -> Result<PasswordPermit> {
+        let permit = self
+            .permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| Error::Hash("пул проверки паролей закрыт".into()))?;
+        Ok(PasswordPermit { _permit: permit })
+    }
+
+    async fn run<T: Send + 'static>(
+        &self,
+        work: impl FnOnce() -> Result<T> + Send + 'static,
+    ) -> Result<T> {
+        let _permit = self.permit().await?;
+        blocking(work).await
+    }
+}
+
+/// Занятое место для проверки пароля (см. [`Passwords::permit`]).
+pub struct PasswordPermit {
+    _permit: OwnedSemaphorePermit,
+}
+
+impl PasswordPermit {
+    /// Как [`Passwords::verify`], но без новой очереди: место уже занято.
+    pub async fn verify(&self, password: &str, hash: &str) -> Result<bool> {
+        let (password, hash) = (password.to_owned(), hash.to_owned());
+        blocking(move || Ok(verify_blocking(&password, &hash))).await
+    }
+
+    /// Как [`Passwords::verify_dummy`], но без новой очереди.
+    pub async fn verify_dummy(&self, password: &str) -> Result<bool> {
         let password = password.to_owned();
-        self.run(move || {
+        blocking(move || {
             static DUMMY: OnceLock<String> = OnceLock::new();
             let hash = match DUMMY.get() {
                 Some(hash) => hash,
@@ -91,20 +129,14 @@ impl Passwords {
         })
         .await
     }
+}
 
-    async fn run<T: Send + 'static>(
-        &self,
-        work: impl FnOnce() -> Result<T> + Send + 'static,
-    ) -> Result<T> {
-        let _permit = self
-            .permits
-            .acquire()
-            .await
-            .map_err(|_| Error::Hash("пул проверки паролей закрыт".into()))?;
-        tokio::task::spawn_blocking(work)
-            .await
-            .map_err(|error| Error::Hash(error.to_string()))?
-    }
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(|error| Error::Hash(error.to_string()))?
 }
 
 fn hash_blocking(password: &str) -> Result<String> {

@@ -126,8 +126,8 @@ impl Default for AiConfig {
 /// Запрос модуля к AI.
 #[derive(Debug, Clone)]
 pub struct AiRequest {
-    /// Уникален для одного действия пользователя: повтор с тем же ID не
-    /// выполняется и не списывается второй раз.
+    /// Уникален для одного действия пользователя (в пределах его аккаунта):
+    /// повтор с тем же ID не выполняется и не списывается второй раз.
     pub request_id: String,
     pub model: String,
     pub prompt: String,
@@ -219,11 +219,13 @@ impl Gateway {
         if request.request_id.is_empty() || request.request_id.len() > 200 {
             return Err(AiError::Invalid("request_id: от 1 до 200 символов".into()));
         }
-        if let Some(status) =
-            sqlx::query_scalar::<_, String>("SELECT status FROM ai_calls WHERE request_id = $1")
-                .bind(&request.request_id)
-                .fetch_optional(&self.pool)
-                .await?
+        if let Some(status) = sqlx::query_scalar::<_, String>(
+            "SELECT status FROM ai_calls WHERE account_id = $1 AND request_id = $2",
+        )
+        .bind(auth.account_id())
+        .bind(&request.request_id)
+        .fetch_optional(&self.pool)
+        .await?
         {
             return Err(AiError::DuplicateRequest { status });
         }
