@@ -64,6 +64,9 @@ DATABASE_URL=… cargo run --bin qubite -- owner password   # новый пар�
 curl -i -c jar -H 'content-type: application/json' \
   -d '{"email":"you@example.ru","password":"…"}' http://127.0.0.1:8080/api/auth/login
 curl -b jar http://127.0.0.1:8080/api/auth/me
+# Письма (AUTH-002): по умолчанию QUBITE_EMAIL_MODE=mock — письма никуда не уходят,
+# а в режиме dev их текст с кодом печатается в лог сервера («письмо (mock)»)
+curl -H 'content-type: application/json' -d '{"email":"you@example.ru"}' http://127.0.0.1:8080/api/auth/password/forgot
 cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
 
 scripts/dev-db.sh down                   # остановить базу (данные в памяти — пропадут)

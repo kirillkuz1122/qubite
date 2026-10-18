@@ -20,6 +20,7 @@ qubite-db = { version = "0.1.0", path = "../qubite-db" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
+qubite-mail = { version = "0.1.0", path = "../qubite-mail" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 qubite-sync = { version = "0.1.0", path = "../qubite-sync" }
 qubite-sync-server = { version = "0.1.0", path = "../qubite-sync-server" }

@@ -50,7 +50,7 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 
 ## 3. Аккаунты и вход
 
-> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. Остальные строки таблицы — следующие задачи AUTH-*.
+> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. **Почта (AUTH-002, 19.10.2026)** — §3.2. Остальные строки таблицы — следующие задачи AUTH-*.
 
 | Тема | Правило |
 |---|---|
@@ -75,8 +75,15 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 - **CSRF:** любой изменяющий запрос (не GET/HEAD/OPTIONS) с живой сессией должен нести `X-CSRF-Token` = значение `qubite_csrf`, иначе `403 csrf_failed`. Исключение — сам вход (у него ещё нет сессии; чужой сайт не отправит JSON без CORS). Клиент `@qubite/api-client` добавляет заголовок сам.
 - **Проверка:** каждый запрос с cookie сверяется с базой — отозванная, истёкшая сессия или заблокированный аккаунт перестают работать сразу; мёртвую cookie сервер стирает.
 - **Приложения (AUTH-006):** браузер → `POST /api/auth/device/authorize` (из web-сессии, с CSRF) → `qubite://auth/callback?code=…&state=…` → `POST /api/auth/device/token` (`authorization_code` + `code_verifier`, PKCE S256). Access — 15 минут (`Authorization: Bearer`), refresh — одноразовый, сессия устройства — 30 дней с продлением. Повтор кода или refresh — сессия закрывается. Код действует, только пока открыта web-сессия, из которой его выдали ([D-179](../product/DECISIONS.md)). Устройства видны в общем списке сессий и закрываются оттуда ([D-177](../product/DECISIONS.md)).
-- **Аудит:** `platform.owner_created`, `auth.device_authorized`, `auth.device_login`, `auth.refresh_reuse`, `auth.login`, `auth.logout`, `auth.session_revoked`, `auth.logout_everywhere`, `auth.password_changed`. Неудачные попытки — только в `login_attempts` (сутки).
-- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `unauthenticated`, `csrf_failed`, `not_found`.
+- **Аудит:** `platform.owner_created`, `auth.email_verified`, `auth.password_reset`, `auth.device_authorized`, `auth.device_login`, `auth.refresh_reuse`, `auth.login`, `auth.logout`, `auth.session_revoked`, `auth.logout_everywhere`, `auth.password_changed`. Неудачные попытки — только в `login_attempts` (сутки).
+- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `invalid_code`, `unauthenticated`, `csrf_failed`, `not_found`.
+
+### 3.2. Почта: подтверждение и восстановление (AUTH-002)
+
+- **Отправка:** crate `qubite-mail`, способ — `QUBITE_EMAIL_MODE` (`mock` | `resend` | `smtp`), отправитель `QUBITE_EMAIL_FROM` (по умолчанию `Qubite <no-reply@qubiteapp.ru>`). Ссылки в письмах ведут на `QUBITE_AUTH_URL` (`/verify-email?token=…`, `/reset-password?token=…`). Письмо уходит в фоне после записи в базу, до 3 попыток ([D-186](../product/DECISIONS.md)).
+- **Письмо:** 6-значный код и кнопка-ссылка. В `email_challenges` — SHA-256 кода (вместе с ID записи) и токена ссылки. Подтверждение — сутки, пароль — 30 минут; 5 неверных кодов — код сгорает (проверка под `FOR UPDATE`, параллельные попытки считаются все); новое письмо отменяет прежний код; не чаще раза в минуту и не больше 5 в час на почту.
+- **Маршруты:** `POST /api/auth/email/verify/request {email}` и `POST /api/auth/password/forgot {email}` → всегда `202` с одним текстом; `POST /api/auth/email/verify {email, code} | {token}` → `204`, аккаунт `pending_email` становится `active`; `POST /api/auth/password/reset {email, code, password} | {token, password}` → `200 {revoked}`: пароль сменён, все сессии и устройства закрыты, счётчик перебора по почте обнулён. Неверный, устаревший или использованный код — `400 invalid_code`; слабый пароль код не тратит.
+- **Кому:** подтверждение — только `pending_email`, восстановление — только `active`. Заблокированным и несуществующим — ничего, но ответ тот же.
 
 ## 4. Что получает новый пользователь
 

@@ -102,9 +102,8 @@ pub async fn is_owner(conn: &mut PgConnection, account_id: Uuid) -> Result<bool>
     )
 }
 
-/// Сменить пароль owner (команда `qubite owner password`). Пока нет
-/// восстановления по почте (AUTH-002), это единственный способ вернуть вход.
-/// Все сессии owner отзываются.
+/// Сменить пароль owner (команда `qubite owner password`) — запасной путь,
+/// если почта недоступна (обычный — письмо, AUTH-002). Все сессии owner отзываются.
 pub async fn set_password(pool: &PgPool, passwords: &Passwords, new_password: &str) -> Result<u64> {
     password::validate(new_password)?;
     let owner = current(pool).await?.ok_or(Error::NoOwner)?;

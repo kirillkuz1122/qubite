@@ -964,11 +964,16 @@ async fn every_route_requires_login_except_public_ones() {
     let lab = Lab::new().await;
     let address = lab.address;
     // Вход и обмен кода приложения — публичные по смыслу: они и выдают вход.
+    // Письма с кодами (AUTH-002) — для тех, кто войти ещё не может.
     let public = [
         "/api/health",
         "/api/ready",
         "/api/auth/login",
         "/api/auth/device/token",
+        "/api/auth/email/verify/request",
+        "/api/auth/email/verify",
+        "/api/auth/password/forgot",
+        "/api/auth/password/reset",
     ];
     let mut anonymous = Browser::default();
     let document = anonymous.get(address, "/api/openapi.json").await.body;

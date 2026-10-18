@@ -4,6 +4,7 @@
 //!   `qubite owner create`, второго база не примет;
 //! - [`password`] — хеши паролей Argon2id и ограничение одновременных проверок;
 //! - [`login`] — вход по почте и паролю с лимитами перебора;
+//! - [`email`] — письма с кодами: подтверждение почты и восстановление пароля;
 //! - [`sessions`] — сессии браузера: токен в cookie, CSRF-токен, скользящий срок,
 //!   список, отзыв, «выйти везде».
 //!
@@ -12,6 +13,7 @@
 
 pub mod accounts;
 pub mod devices;
+pub mod email;
 pub mod login;
 pub mod owner;
 pub mod password;
@@ -38,6 +40,8 @@ pub struct AuthConfig {
     pub email_limit: Limit,
     /// Лимит неудачных попыток с одного IP-адреса (по всем почтам).
     pub ip_limit: Limit,
+    /// Письма с кодами (AUTH-002).
+    pub email: email::EmailCodes,
 }
 
 /// Не больше `max_failures` неудачных попыток за `window`.
@@ -60,6 +64,7 @@ impl Default for AuthConfig {
                 max_failures: 30,
                 window: Duration::from_secs(15 * 60),
             },
+            email: email::EmailCodes::default(),
         }
     }
 }
@@ -76,6 +81,9 @@ pub enum Error {
     AccountBlocked,
     #[error("почта не подтверждена")]
     EmailNotVerified,
+    /// Код или ссылка из письма неверные, устарели или уже использованы.
+    #[error("код неверный или устарел")]
+    InvalidCode,
     #[error("owner платформы уже есть, второго быть не может")]
     OwnerExists,
     #[error("owner платформы ещё не создан")]

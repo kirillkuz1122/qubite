@@ -41,6 +41,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/auth/email/verify': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Подтвердить почту кодом или ссылкой из письма. После этого можно войти. */
+    post: operations['verify'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/email/verify/request': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Прислать письмо для подтверждения почты (аккаунтам, которые её ещё не подтвердили). */
+    post: operations['request_verification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/login': {
     parameters: {
       query?: never;
@@ -103,6 +137,40 @@ export interface paths {
     get: operations['whoami'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/password/forgot': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Забыли пароль: прислать письмо с кодом (только активным аккаунтам). */
+    post: operations['forgot_password'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/password/reset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Задать новый пароль по коду или ссылке из письма. Все сессии и устройства закрываются. */
+    post: operations['reset_password'];
     delete?: never;
     options?: never;
     head?: never;
@@ -574,6 +642,14 @@ export interface components {
       /** @description CSRF-токен; то же значение лежит в cookie `qubite_csrf`. */
       csrf_token: string;
     };
+    MailRequest: {
+      /** @description Почта аккаунта. */
+      email: string;
+    };
+    MailRequested: {
+      /** @description Всегда одинаковый текст: есть аккаунт или нет. */
+      message: string;
+    };
     /** @description Кто вошёл. */
     Me: {
       display_name: string;
@@ -639,6 +715,13 @@ export interface components {
       /** @description `ready` или `not_ready`. */
       status: string;
     };
+    ResetPasswordRequest: {
+      code?: string | null;
+      email?: string | null;
+      /** @description Новый пароль, не короче 10 символов. */
+      password: string;
+      token?: string | null;
+    };
     /** @description Версия для удаления и возврата. */
     RevisionBody: {
       /** Format: int64 */
@@ -669,6 +752,14 @@ export interface components {
       /** Format: date-time */
       last_seen_at: string;
       user_agent: string;
+    };
+    /** @description Код из письма (`email` + `code`) или токен из ссылки (`token`). */
+    VerifyEmailRequest: {
+      /** @description 6 цифр из письма; пробелы и дефисы не мешают. */
+      code?: string | null;
+      email?: string | null;
+      /** @description Токен из ссылки в письме (`?token=…`). */
+      token?: string | null;
     };
   };
   responses: never;
@@ -763,6 +854,70 @@ export interface operations {
       };
       /** @description `invalid_client` — неизвестное приложение */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  verify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VerifyEmailRequest'];
+      };
+    };
+    responses: {
+      /** @description Почта подтверждена */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Код неверный, устарел или уже использован (`invalid_code`) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  request_verification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MailRequest'];
+      };
+    };
+    responses: {
+      /** @description Ответ одинаковый для любой почты */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MailRequested'];
+        };
+      };
+      /** @description Почта записана неправильно */
+      400: {
         headers: {
           [name: string]: unknown;
         };
@@ -917,6 +1072,72 @@ export interface operations {
       };
       /** @description Не выполнен вход */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  forgot_password: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MailRequest'];
+      };
+    };
+    responses: {
+      /** @description Ответ одинаковый для любой почты */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MailRequested'];
+        };
+      };
+      /** @description Почта записана неправильно */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  reset_password: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ResetPasswordRequest'];
+      };
+    };
+    responses: {
+      /** @description Пароль изменён; все сессии закрыты, cookie стёрты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RevokedCount'];
+        };
+      };
+      /** @description Код неверный или устарел (`invalid_code`), слабый пароль (`invalid`) */
+      400: {
         headers: {
           [name: string]: unknown;
         };

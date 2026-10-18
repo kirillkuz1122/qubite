@@ -5,6 +5,7 @@
 
 pub mod auth;
 pub mod changes;
+pub mod email;
 pub mod inbox;
 pub mod modules;
 pub mod sync;
@@ -69,6 +70,10 @@ impl AppState {
         auth::logout_everywhere,
         auth::device_authorize,
         auth::device_token,
+        email::request_verification,
+        email::verify,
+        email::forgot_password,
+        email::reset_password,
         modules::my_catalog,
         modules::my_module,
         modules::owner_modules,
@@ -99,6 +104,10 @@ impl AppState {
         auth::DeviceAuthorizeResponse,
         auth::DeviceTokenRequest,
         auth::DeviceTokenResponse,
+        email::MailRequest,
+        email::MailRequested,
+        email::VerifyEmailRequest,
+        email::ResetPasswordRequest,
         modules::ModuleFlags,
         modules::CatalogItem,
         modules::ModuleItem,
@@ -144,6 +153,13 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/auth/logout-everywhere", post(auth::logout_everywhere))
         .route("/api/auth/device/authorize", post(auth::device_authorize))
         .route("/api/auth/device/token", post(auth::device_token))
+        .route(
+            "/api/auth/email/verify/request",
+            post(email::request_verification),
+        )
+        .route("/api/auth/email/verify", post(email::verify))
+        .route("/api/auth/password/forgot", post(email::forgot_password))
+        .route("/api/auth/password/reset", post(email::reset_password))
         .route("/api/modules", get(modules::my_catalog))
         .route("/api/modules/{id}", get(modules::my_module))
         .route("/api/owner/modules", get(modules::owner_modules))

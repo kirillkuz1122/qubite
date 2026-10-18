@@ -127,6 +127,57 @@ struct ServeArgs {
     /// Сервер за прокси (Caddy): брать адрес клиента из X-Forwarded-For.
     #[arg(long, env = "QUBITE_TRUST_PROXY", default_value_t = false, action = clap::ArgAction::Set)]
     trust_proxy: bool,
+
+    /// Адрес Qubite Auth — для ссылок в письмах.
+    #[arg(long, env = "QUBITE_AUTH_URL", default_value = "http://localhost:5173")]
+    auth_url: String,
+
+    #[command(flatten)]
+    mail: MailArgs,
+}
+
+#[derive(Args)]
+struct MailArgs {
+    /// Как отправлять письма: mock (никуда, для разработки), resend или smtp.
+    #[arg(long, env = "QUBITE_EMAIL_MODE", default_value = "mock")]
+    email_mode: String,
+
+    /// Отправитель писем.
+    #[arg(long, env = "QUBITE_EMAIL_FROM", default_value = qubite_mail::DEFAULT_FROM)]
+    email_from: String,
+
+    /// Куда отвечать на письма (необязательно).
+    #[arg(long, env = "QUBITE_EMAIL_REPLY_TO")]
+    email_reply_to: Option<String>,
+
+    /// Ключ API Resend (для режима resend).
+    #[arg(long, env = "QUBITE_RESEND_API_KEY", hide_env_values = true)]
+    resend_api_key: Option<String>,
+
+    /// SMTP-сервер (для режима smtp): `smtps://логин:пароль@smtp.yandex.ru:465`
+    /// или `smtp://логин:пароль@host:587?tls=required`.
+    #[arg(long, env = "QUBITE_SMTP_URL", hide_env_values = true)]
+    smtp_url: Option<String>,
+}
+
+impl MailArgs {
+    fn mailer(&self, env: Environment) -> anyhow::Result<qubite_mail::Mailer> {
+        let config = qubite_mail::MailConfig {
+            mode: self.email_mode.parse()?,
+            from: self.email_from.clone(),
+            reply_to: self.email_reply_to.clone(),
+            resend_api_key: self.resend_api_key.clone().map(Secret::new),
+            smtp_url: self.smtp_url.clone().map(Secret::new),
+            // Коды из писем в логе — только при разработке.
+            log_contents: env == Environment::Dev,
+            ..qubite_mail::MailConfig::default()
+        };
+        let mailer = qubite_mail::Mailer::new(&config)?;
+        if env == Environment::Prod && mailer.mode() == qubite_mail::Mode::Mock {
+            tracing::warn!("почта в режиме mock: письма никуда не уходят (QUBITE_EMAIL_MODE)");
+        }
+        Ok(mailer)
+    }
 }
 
 impl DbArgs {
@@ -232,8 +283,13 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let auth = qubite_server::auth::AuthSettings {
         config: qubite_auth::AuthConfig {
             session_ttl: Duration::from_secs(args.session_ttl_days.max(1) * 24 * 60 * 60),
+            email: qubite_auth::email::EmailCodes {
+                auth_url: args.auth_url.clone(),
+                ..qubite_auth::email::EmailCodes::default()
+            },
             ..qubite_auth::AuthConfig::default()
         },
+        mailer: args.mail.mailer(args.env)?,
         cookie_domain: args.cookie_domain.filter(|domain| !domain.is_empty()),
         cookie_secure: args.cookie_secure,
         trust_proxy: args.trust_proxy,

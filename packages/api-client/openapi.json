@@ -118,6 +118,77 @@
         }
       }
     },
+    "/api/auth/email/verify": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Подтвердить почту кодом или ссылкой из письма. После этого можно войти.",
+        "operationId": "verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Почта подтверждена"
+          },
+          "400": {
+            "description": "Код неверный, устарел или уже использован (`invalid_code`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/email/verify/request": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Прислать письмо для подтверждения почты (аккаунтам, которые её ещё не подтвердили).",
+        "operationId": "request_verification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Ответ одинаковый для любой почты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Почта записана неправильно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": ["auth"],
@@ -266,6 +337,84 @@
           },
           "401": {
             "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/forgot": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Забыли пароль: прислать письмо с кодом (только активным аккаунтам).",
+        "operationId": "forgot_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Ответ одинаковый для любой почты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Почта записана неправильно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password/reset": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Задать новый пароль по коду или ссылке из письма. Все сессии и устройства закрываются.",
+        "operationId": "reset_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Пароль изменён; все сессии закрыты, cookie стёрты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedCount"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Код неверный или устарел (`invalid_code`), слабый пароль (`invalid`)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1617,6 +1766,26 @@
           }
         }
       },
+      "MailRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Почта аккаунта."
+          }
+        }
+      },
+      "MailRequested": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Всегда одинаковый текст: есть аккаунт или нет."
+          }
+        }
+      },
       "Me": {
         "type": "object",
         "description": "Кто вошёл.",
@@ -1754,6 +1923,25 @@
           }
         }
       },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+          "code": {
+            "type": ["string", "null"]
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "password": {
+            "type": "string",
+            "description": "Новый пароль, не короче 10 символов."
+          },
+          "token": {
+            "type": ["string", "null"]
+          }
+        }
+      },
       "RevisionBody": {
         "type": "object",
         "description": "Версия для удаления и возврата.",
@@ -1825,6 +2013,23 @@
           },
           "user_agent": {
             "type": "string"
+          }
+        }
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "description": "Код из письма (`email` + `code`) или токен из ссылки (`token`).",
+        "properties": {
+          "code": {
+            "type": ["string", "null"],
+            "description": "6 цифр из письма; пробелы и дефисы не мешают."
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "token": {
+            "type": ["string", "null"],
+            "description": "Токен из ссылки в письме (`?token=…`)."
           }
         }
       }

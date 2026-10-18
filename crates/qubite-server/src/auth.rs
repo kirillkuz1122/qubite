@@ -44,6 +44,8 @@ pub struct AuthSettings {
     pub cookie_secure: bool,
     /// Сервер за прокси (Caddy): адрес клиента — из `X-Forwarded-For`.
     pub trust_proxy: bool,
+    /// Почта для писем с кодами (по умолчанию mock — письма никуда не уходят).
+    pub mailer: qubite_mail::Mailer,
 }
 
 impl Default for AuthSettings {
@@ -54,6 +56,7 @@ impl Default for AuthSettings {
             cookie_domain: None,
             cookie_secure: true,
             trust_proxy: false,
+            mailer: qubite_mail::Mailer::mock().0,
         }
     }
 }
@@ -172,6 +175,11 @@ impl From<qubite_auth::Error> for ApiError {
                 "Сначала подтвердите почту",
             ),
             E::Invalid(message) => Self::new(StatusCode::BAD_REQUEST, "invalid", message),
+            E::InvalidCode => Self::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_code",
+                "Код неверный или устарел. Запросите новое письмо",
+            ),
             E::NotFound => Self::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
             E::InvalidClient => Self::new(
                 StatusCode::UNAUTHORIZED,
@@ -248,14 +256,14 @@ fn session_cookies(
     ]
 }
 
-fn clear_cookies(settings: &AuthSettings) -> [HeaderValue; 2] {
+pub(crate) fn clear_cookies(settings: &AuthSettings) -> [HeaderValue; 2] {
     [
         set_cookie(settings, SESSION_COOKIE, "", 0, true),
         set_cookie(settings, CSRF_COOKIE, "", 0, false),
     ]
 }
 
-fn with_cookies(mut response: Response, cookies: [HeaderValue; 2]) -> Response {
+pub(crate) fn with_cookies(mut response: Response, cookies: [HeaderValue; 2]) -> Response {
     let headers = response.headers_mut();
     for cookie in cookies {
         headers.append(header::SET_COOKIE, cookie);
@@ -401,7 +409,7 @@ pub async fn session_layer(
     }
 }
 
-fn client_info(
+pub(crate) fn client_info(
     settings: &AuthSettings,
     headers: &HeaderMap,
     peer: Option<SocketAddr>,
@@ -485,7 +493,7 @@ pub struct SessionItem {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct RevokedCount {
     /// Сколько сессий закрыто.
-    revoked: u64,
+    pub(crate) revoked: u64,
 }
 
 fn me(session: &ResolvedSession) -> Me {
