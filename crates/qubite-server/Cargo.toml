@@ -13,12 +13,16 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.104"
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["ws"] }
 clap = { version = "4.6.7", features = ["derive", "env"] }
 qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
 qubite-db = { version = "0.1.0", path = "../qubite-db" }
+qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
+qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
+qubite-sync = { version = "0.1.0", path = "../qubite-sync" }
+qubite-sync-server = { version = "0.1.0", path = "../qubite-sync-server" }
 rpassword = "7"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -28,7 +32,9 @@ tower-http = { version = "0.7.1", features = ["trace", "timeout", "request-id", 
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 utoipa = { version = "6.0.0", features = ["axum_extras", "time", "uuid"] }
-uuid = { version = "1.28.0", features = ["serde"] }
+uuid = { version = "1.28.0", features = ["serde", "v7"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "uuid"] }
+futures-util = { version = "0.3.34", default-features = false }
 
 [lints]
 workspace = true
@@ -39,5 +45,7 @@ qubite-jobs = { path = "../qubite-jobs" }
 qubite-policy = { path = "../qubite-policy" }
 qubite-testkit = { path = "../qubite-testkit" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+tokio-tungstenite = "0.29"
+futures-util = "0.3.34"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }
 uuid = { version = "1.28.0", features = ["v4"] }

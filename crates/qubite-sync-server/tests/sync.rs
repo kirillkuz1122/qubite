@@ -14,6 +14,7 @@ fn create(object_id: Uuid, title: &str) -> Operation {
         kind: OpKind::Create {
             object_type: "inbox.item".into(),
             title: title.into(),
+            fields: None,
         },
     }
 }
@@ -256,6 +257,7 @@ async fn invalid_operations_are_rejected_without_side_effects() {
         kind: OpKind::Create {
             object_type: "Не Тип".into(),
             title: "x".into(),
+            fields: None,
         },
     };
     let response = push(pool, owner, &batch(vec![no_base, bad_type]))

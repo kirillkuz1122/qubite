@@ -4,11 +4,16 @@
  * (`crates/qubite-sync/fixtures/*.json`).
  */
 
+/** Поля модуля (у элемента Входящих — текст, ссылка, источник, статус…). */
+export type Fields = Record<string, unknown>;
+
 export type OpKind =
-  | { kind: 'create'; object_type: string; title: string }
+  | { kind: 'create'; object_type: string; title: string; fields?: Fields }
   | { kind: 'set_title'; title: string }
   | { kind: 'delete' }
-  | { kind: 'restore' };
+  | { kind: 'restore' }
+  /** Изменить поля модуля — только меняющиеся. */
+  | { kind: 'patch'; fields: Fields };
 
 export type Operation = {
   op_id: string;
@@ -29,9 +34,12 @@ export interface ObjectSnapshot {
   revision: number;
   deleted: boolean;
   updated_at_ms: number;
+  /** Поля модуля, если у типа они есть. */
+  fields?: Fields;
 }
 
-export type RejectReason = 'not_found' | 'invalid';
+/** `forbidden` — нет права менять объекты этого модуля. */
+export type RejectReason = 'not_found' | 'invalid' | 'forbidden';
 
 export type OpResult =
   | { status: 'applied'; op_id: string; revision: number }

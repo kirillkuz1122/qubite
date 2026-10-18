@@ -4,7 +4,10 @@
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
 pub mod auth;
+pub mod changes;
+pub mod inbox;
 pub mod modules;
+pub mod sync;
 
 use std::{sync::Arc, time::Duration};
 
@@ -26,6 +29,10 @@ use utoipa::{OpenApi, ToSchema};
 pub struct AppState {
     pub db: Database,
     pub auth: Arc<auth::AuthSettings>,
+    /// Какие типы объектов синхронизируются (и их поля).
+    pub sync: qubite_sync_server::Registry,
+    /// «Есть новое» для WebSocket.
+    pub changes: Arc<changes::ChangeHub>,
 }
 
 impl AppState {
@@ -38,6 +45,8 @@ impl AppState {
         Self {
             db,
             auth: Arc::new(auth),
+            sync: sync::registry(),
+            changes: Arc::new(changes::ChangeHub::default()),
         }
     }
 }
@@ -66,7 +75,16 @@ impl AppState {
         modules::owner_update_module,
         modules::owner_grants,
         modules::owner_set_grant,
-        modules::owner_revoke_grant
+        modules::owner_revoke_grant,
+        sync::push,
+        sync::pull,
+        sync::socket,
+        inbox::list,
+        inbox::capture,
+        inbox::detail,
+        inbox::change,
+        inbox::remove,
+        inbox::restore
     ),
     components(schemas(
         Health,
@@ -86,13 +104,22 @@ impl AppState {
         modules::ModuleItem,
         modules::ModuleChange,
         modules::GrantItem,
-        modules::GrantChange
+        modules::GrantChange,
+        inbox::InboxItem,
+        inbox::InboxTriage,
+        inbox::InboxLink,
+        inbox::InboxItemDetail,
+        inbox::CaptureRequest,
+        inbox::ChangeRequest,
+        inbox::RevisionBody
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
         (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией-cookie требуют заголовок `X-CSRF-Token`; приложения вместо cookie шлют `Authorization: Bearer <access_token>`."),
         (name = "modules", description = "Каталог модулей и права пользователя"),
-        (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)")
+        (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)"),
+        (name = "sync", description = "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"),
+        (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети")
     )
 )]
 pub struct ApiDoc;
@@ -132,6 +159,17 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/accounts/{account_id}/grants/{module_id}",
             axum::routing::put(modules::owner_set_grant).delete(modules::owner_revoke_grant),
         )
+        .route("/api/v1/sync/push", post(sync::push))
+        .route("/api/v1/sync/pull", get(sync::pull))
+        .route("/api/v1/sync/ws", get(sync::socket))
+        .route("/api/v1/inbox", get(inbox::list).post(inbox::capture))
+        .route(
+            "/api/v1/inbox/{id}",
+            get(inbox::detail)
+                .patch(inbox::change)
+                .delete(inbox::remove),
+        )
+        .route("/api/v1/inbox/{id}/restore", post(inbox::restore))
         .merge(extra)
         .layer(middleware::from_fn_with_state(
             state.clone(),

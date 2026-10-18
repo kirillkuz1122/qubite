@@ -12,6 +12,7 @@
  * 4. Затем забираются изменения с сервера после курсора.
  */
 import type {
+  Fields,
   ObjectSnapshot,
   Operation,
   OpResult,
@@ -83,8 +84,17 @@ export class SyncClient {
 
   // ------------------------------------------------------------- изменения
 
-  /** Создать объект локально. Работает без сети. */
-  async create(objectType: string, title: string): Promise<LocalObject> {
+  /**
+   * Создать объект локально. Работает без сети.
+   * `fields` уходят на сервер; `localFields` — только для показа до ответа
+   * сервера (например, статус «new», который сервер ставит сам).
+   */
+  async create(
+    objectType: string,
+    title: string,
+    fields?: Fields,
+    localFields?: Fields,
+  ): Promise<LocalObject> {
     const id = uuidv7();
     const object: LocalObject = {
       id,
@@ -93,6 +103,7 @@ export class SyncClient {
       revision: 1,
       deleted: false,
       updated_at_ms: Date.now(),
+      ...(fields || localFields ? { fields: { ...localFields, ...fields } } : {}),
       pending: true,
     };
     await this.store.commitLocal(object, {
@@ -101,9 +112,18 @@ export class SyncClient {
       kind: 'create',
       object_type: objectType,
       title,
+      ...(fields ? { fields } : {}),
     });
     await this.refreshState();
     return object;
+  }
+
+  /** Изменить поля модуля (например, `{ status: 'archived' }`). Работает без сети. */
+  async patch(id: string, fields: Fields): Promise<LocalObject> {
+    return this.edit(id, { kind: 'patch', fields }, (object) => ({
+      ...object,
+      fields: { ...object.fields, ...fields },
+    }));
   }
 
   async setTitle(id: string, title: string): Promise<LocalObject> {
@@ -120,7 +140,11 @@ export class SyncClient {
 
   private async edit(
     id: string,
-    kind: { kind: 'set_title'; title: string } | { kind: 'delete' } | { kind: 'restore' },
+    kind:
+      | { kind: 'set_title'; title: string }
+      | { kind: 'delete' }
+      | { kind: 'restore' }
+      | { kind: 'patch'; fields: Fields },
     change: (object: LocalObject) => LocalObject,
   ): Promise<LocalObject> {
     const object = await this.store.object(id);
@@ -142,6 +166,11 @@ export class SyncClient {
   /** Живые объекты на устройстве. */
   async list(): Promise<LocalObject[]> {
     return (await this.store.objects()).filter((object) => !object.deleted);
+  }
+
+  /** Все объекты на устройстве, включая корзину. */
+  async all(): Promise<LocalObject[]> {
+    return this.store.objects();
   }
 
   async get(id: string): Promise<LocalObject | undefined> {

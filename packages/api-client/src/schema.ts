@@ -280,6 +280,121 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/inbox': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Элементы Входящих, свежие сверху. */
+    get: operations['list'];
+    put?: never;
+    /** Записать мысль во Входящие. */
+    post: operations['capture'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/inbox/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Элемент со связями. */
+    get: operations['detail'];
+    put?: never;
+    post?: never;
+    /** Убрать в корзину (вернуть — `restore`). */
+    delete: operations['remove'];
+    options?: never;
+    head?: never;
+    /** Изменить текст или статус (в архив и обратно). */
+    patch: operations['change'];
+    trace?: never;
+  };
+  '/api/v1/inbox/{id}/restore': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Вернуть из корзины (отмена удаления). */
+    post: operations['restore'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/sync/pull': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Забрать изменения после курсора — только из модулей с правом `read`. */
+    get: operations['pull'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/sync/push': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Отправить пакет операций устройства.
+     * @description Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`
+     *     (типы — в `@qubite/sync-client`). Операция в модуле без права `write`
+     *     отклоняется с причиной `forbidden`; остальные применяются.
+     */
+    post: operations['push'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/sync/ws': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * WebSocket «есть новое». Сервер шлёт `{"type":"ready"}` после подключения
+     *     и `{"type":"changed"}`, когда у аккаунта что-то изменилось (данных в
+     *     сообщении нет — их забирают через `pull`). Нужно право `read` во
+     *     Входящих. Браузер подключается только со своего сайта (проверка `Origin`).
+     */
+    get: operations['socket'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -290,6 +405,18 @@ export interface components {
       error: string;
       /** @description Текст для человека. */
       message: string;
+    };
+    /** @description Записать мысль. */
+    CaptureRequest: {
+      /**
+       * Format: uuid
+       * @description ID, придуманный клиентом (UUIDv7). Повтор с тем же ID не создаёт дубль.
+       */
+      id?: string | null;
+      /** @description `web` (по умолчанию), `desktop`, `android`, `api`. */
+      source?: string | null;
+      text: string;
+      url?: string | null;
     };
     /** @description Модуль в каталоге пользователя. */
     CatalogItem: {
@@ -303,6 +430,17 @@ export interface components {
        */
       status: string;
       title: string;
+    };
+    /** @description Изменение элемента. */
+    ChangeRequest: {
+      body?: string | null;
+      /**
+       * Format: int64
+       * @description Версия, которую видел клиент.
+       */
+      revision: number;
+      /** @description `new` или `archived`. */
+      status?: string | null;
     };
     DeviceAuthorizeRequest: {
       /** @description `qubite-desktop` или `qubite-android`. */
@@ -370,6 +508,60 @@ export interface components {
       status: string;
       /** @description Версия Qubite. */
       version: string;
+    };
+    /** @description Элемент Входящих. */
+    InboxItem: {
+      /** Format: date-time */
+      archived_at?: string | null;
+      /** @description Полный текст. */
+      body: string;
+      /** Format: date-time */
+      captured_at: string;
+      /** @description В корзине (можно вернуть). */
+      deleted: boolean;
+      /** Format: uuid */
+      id: string;
+      /** @description `text`, `link`, `file`, `voice`. */
+      kind: string;
+      /**
+       * Format: int64
+       * @description Версия: её передают при изменении, чтобы не затереть чужую правку.
+       */
+      revision: number;
+      /** @description `web`, `desktop`, `android`, `telegram`, `api`. */
+      source: string;
+      /** @description `new` — ждёт разбора; `archived` — разобрано или в архиве. */
+      status: string;
+      /** @description Первая строка мысли. */
+      title: string;
+      triage: components['schemas']['InboxTriage'];
+      url?: string | null;
+    };
+    /** @description Элемент вместе со связями. */
+    InboxItemDetail: {
+      item: components['schemas']['InboxItem'];
+      links: components['schemas']['InboxLink'][];
+    };
+    /** @description Объект, с которым связан элемент. */
+    InboxLink: {
+      /** Format: float */
+      confidence?: number | null;
+      /** @description `manual`, `ai`, `system`. */
+      source: string;
+      title: string;
+      /** Format: uuid */
+      to_id: string;
+      /** @description Тип объекта, например `planner.project`. */
+      to_type: string;
+    };
+    /** @description Результат разбора (заполняют CMD-003 и CMD-004). */
+    InboxTriage: {
+      /** @description Кто разобрал (`by`), уверенность, краткая суть. */
+      details: Record<string, never>;
+      /** @description `task`, `note`, `project_thought`, `agent_request`, `other`. */
+      intent?: string | null;
+      /** @description `pending`, `suggested`, `confirmed`, `skipped`. */
+      status: string;
     };
     LoginRequest: {
       /** @description Почта аккаунта; регистр не важен. */
@@ -446,6 +638,11 @@ export interface components {
       schema_version?: number | null;
       /** @description `ready` или `not_ready`. */
       status: string;
+    };
+    /** @description Версия для удаления и возврата. */
+    RevisionBody: {
+      /** Format: int64 */
+      revision: number;
     };
     RevokedCount: {
       /**
@@ -1104,6 +1301,396 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Readiness'];
+        };
+      };
+    };
+  };
+  list: {
+    parameters: {
+      query?: {
+        /** @description `new` (по умолчанию), `archived` или `trash`. */
+        view?: string | null;
+        /** @description До 500, по умолчанию 100. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Список */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'][];
+        };
+      };
+      /** @description Неизвестный вид списка */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к Входящим */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  capture: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CaptureRequest'];
+      };
+    };
+    responses: {
+      /** @description Такой ID уже записан — возвращается он же */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Записано */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Пустая мысль, неверная ссылка или слишком длинный текст */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записывать во Входящие */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  detail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Элемент */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItemDetail'];
+        };
+      };
+      /** @description Нет такого (или чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  remove: {
+    parameters: {
+      query: {
+        revision: number;
+      };
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description В корзине */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Нет такого (или чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Версия устарела */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangeRequest'];
+      };
+    };
+    responses: {
+      /** @description Изменено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Нет такого (или чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Элемент уже изменили — версия устарела */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  restore: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RevisionBody'];
+      };
+    };
+    responses: {
+      /** @description Возвращён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Нет такого (или чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Версия устарела */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  pull: {
+    parameters: {
+      query?: {
+        /** @description Курсор из прошлого ответа; 0 — с начала. */
+        cursor?: number;
+        /** @description Сколько изменений за раз (1…500, по умолчанию 200). */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description PullResponse протокола qubite-sync */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  push: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description PushRequest протокола qubite-sync */
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Результат по каждой операции (PushResponse) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Пустой пакет, больше 500 операций или повтор op_id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  socket: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Соединение открыто */
+      101: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Чужой сайт или нет доступа к Входящим */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };

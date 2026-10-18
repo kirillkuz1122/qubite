@@ -732,6 +732,499 @@
           }
         }
       }
+    },
+    "/api/v1/inbox": {
+      "get": {
+        "tags": ["inbox"],
+        "summary": "Элементы Входящих, свежие сверху.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "description": "`new` (по умолчанию), `archived` или `trash`.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "До 500, по умолчанию 100.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InboxItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неизвестный вид списка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к Входящим",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["inbox"],
+        "summary": "Записать мысль во Входящие.",
+        "operationId": "capture",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Такой ID уже записан — возвращается он же",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Записано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустая мысль, неверная ссылка или слишком длинный текст",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записывать во Входящие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox/{id}": {
+      "get": {
+        "tags": ["inbox"],
+        "summary": "Элемент со связями.",
+        "operationId": "detail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Элемент",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого (или чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["inbox"],
+        "summary": "Убрать в корзину (вернуть — `restore`).",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "В корзине",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого (или чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Версия устарела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["inbox"],
+        "summary": "Изменить текст или статус (в архив и обратно).",
+        "operationId": "change",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Изменено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого (или чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Элемент уже изменили — версия устарела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox/{id}/restore": {
+      "post": {
+        "tags": ["inbox"],
+        "summary": "Вернуть из корзины (отмена удаления).",
+        "operationId": "restore",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Возвращён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого (или чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Версия устарела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/pull": {
+      "get": {
+        "tags": ["sync"],
+        "summary": "Забрать изменения после курсора — только из модулей с правом `read`.",
+        "operationId": "pull",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Курсор из прошлого ответа; 0 — с начала.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Сколько изменений за раз (1…500, по умолчанию 200).",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PullResponse протокола qubite-sync",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/push": {
+      "post": {
+        "tags": ["sync"],
+        "summary": "Отправить пакет операций устройства.",
+        "description": "Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`\n(типы — в `@qubite/sync-client`). Операция в модуле без права `write`\nотклоняется с причиной `forbidden`; остальные применяются.",
+        "operationId": "push",
+        "requestBody": {
+          "description": "PushRequest протокола qubite-sync",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Результат по каждой операции (PushResponse)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой пакет, больше 500 операций или повтор op_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/ws": {
+      "get": {
+        "tags": ["sync"],
+        "summary": "WebSocket «есть новое». Сервер шлёт `{\"type\":\"ready\"}` после подключения\nи `{\"type\":\"changed\"}`, когда у аккаунта что-то изменилось (данных в\nсообщении нет — их забирают через `pull`). Нужно право `read` во\nВходящих. Браузер подключается только со своего сайта (проверка `Origin`).",
+        "operationId": "socket",
+        "responses": {
+          "101": {
+            "description": "Соединение открыто"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Чужой сайт или нет доступа к Входящим",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -750,6 +1243,29 @@
             "description": "Текст для человека."
           }
         }
+      },
+      "CaptureRequest": {
+        "type": "object",
+        "description": "Записать мысль.",
+        "required": ["text"],
+        "properties": {
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "ID, придуманный клиентом (UUIDv7). Повтор с тем же ID не создаёт дубль."
+          },
+          "source": {
+            "type": ["string", "null"],
+            "description": "`web` (по умолчанию), `desktop`, `android`, `api`."
+          },
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
       },
       "CatalogItem": {
         "type": "object",
@@ -772,6 +1288,26 @@
             "type": "string"
           }
         }
+      },
+      "ChangeRequest": {
+        "type": "object",
+        "description": "Изменение элемента.",
+        "required": ["revision"],
+        "properties": {
+          "body": {
+            "type": ["string", "null"]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия, которую видел клиент."
+          },
+          "status": {
+            "type": ["string", "null"],
+            "description": "`new` или `archived`."
+          }
+        },
+        "additionalProperties": false
       },
       "DeviceAuthorizeRequest": {
         "type": "object",
@@ -925,6 +1461,132 @@
           "version": {
             "type": "string",
             "description": "Версия Qubite."
+          }
+        }
+      },
+      "InboxItem": {
+        "type": "object",
+        "description": "Элемент Входящих.",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "revision",
+          "kind",
+          "source",
+          "status",
+          "deleted",
+          "captured_at",
+          "triage"
+        ],
+        "properties": {
+          "archived_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "body": {
+            "type": "string",
+            "description": "Полный текст."
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deleted": {
+            "type": "boolean",
+            "description": "В корзине (можно вернуть)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`text`, `link`, `file`, `voice`."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия: её передают при изменении, чтобы не затереть чужую правку."
+          },
+          "source": {
+            "type": "string",
+            "description": "`web`, `desktop`, `android`, `telegram`, `api`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`new` — ждёт разбора; `archived` — разобрано или в архиве."
+          },
+          "title": {
+            "type": "string",
+            "description": "Первая строка мысли."
+          },
+          "triage": {
+            "$ref": "#/components/schemas/InboxTriage"
+          },
+          "url": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "InboxItemDetail": {
+        "type": "object",
+        "description": "Элемент вместе со связями.",
+        "required": ["item", "links"],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/InboxItem"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxLink"
+            }
+          }
+        }
+      },
+      "InboxLink": {
+        "type": "object",
+        "description": "Объект, с которым связан элемент.",
+        "required": ["to_id", "to_type", "title", "source"],
+        "properties": {
+          "confidence": {
+            "type": ["number", "null"],
+            "format": "float"
+          },
+          "source": {
+            "type": "string",
+            "description": "`manual`, `ai`, `system`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "to_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "to_type": {
+            "type": "string",
+            "description": "Тип объекта, например `planner.project`."
+          }
+        }
+      },
+      "InboxTriage": {
+        "type": "object",
+        "description": "Результат разбора (заполняют CMD-003 и CMD-004).",
+        "required": ["status", "details"],
+        "properties": {
+          "details": {
+            "type": "object",
+            "description": "Кто разобрал (`by`), уверенность, краткая суть."
+          },
+          "intent": {
+            "type": ["string", "null"],
+            "description": "`task`, `note`, `project_thought`, `agent_request`, `other`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending`, `suggested`, `confirmed`, `skipped`."
           }
         }
       },
@@ -1092,6 +1754,17 @@
           }
         }
       },
+      "RevisionBody": {
+        "type": "object",
+        "description": "Версия для удаления и возврата.",
+        "required": ["revision"],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "RevokedCount": {
         "type": "object",
         "required": ["revoked"],
@@ -1173,6 +1846,14 @@
     {
       "name": "owner",
       "description": "Owner Console. Для всех, кроме owner, этих адресов нет (404)"
+    },
+    {
+      "name": "sync",
+      "description": "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"
+    },
+    {
+      "name": "inbox",
+      "description": "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"
     }
   ]
 }

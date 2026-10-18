@@ -8,6 +8,9 @@
     {
       "current": {
         "deleted": true,
+        "fields": {
+          "status": "archived"
+        },
         "id": "03030303-0303-0303-0303-030303030303",
         "object_type": "inbox.item",
         "revision": 3,

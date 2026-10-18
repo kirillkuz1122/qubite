@@ -12,7 +12,10 @@
 //!   отталкивалось устройство; если на сервере версия другая, это `conflict`
 //!   и в ответе приходит текущее состояние объекта;
 //! - права, гранты и удаление навсегда через синхронизацию не меняются —
-//!   только онлайн-операциями с проверкой на сервере.
+//!   только онлайн-операциями с проверкой на сервере;
+//! - у объекта модуля могут быть свои поля (`fields`, JSON). Их проверяет
+//!   модуль на сервере (например, Входящие — CMD-001); тип без модуля-
+//!   обработчика полей через HTTP создать нельзя.
 //!
 //! Формат JSON закреплён образцами в `fixtures/`: их же проверяет TS-клиент.
 
@@ -25,19 +28,30 @@ pub const MAX_OPS_PER_PUSH: usize = 500;
 pub const MAX_PULL_LIMIT: i64 = 500;
 /// Максимальная длина заголовка (совпадает с ограничением в базе).
 pub const MAX_TITLE_CHARS: usize = 1000;
+/// Максимальный размер полей модуля в одной операции (байты JSON).
+pub const MAX_FIELDS_BYTES: usize = 64 * 1024;
 
 /// Что делает операция.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OpKind {
     /// Создать объект. `object_id` операции становится ID объекта.
-    Create { object_type: String, title: String },
+    Create {
+        object_type: String,
+        title: String,
+        /// Поля модуля (у элемента Входящих — текст, ссылка, источник…).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fields: Option<serde_json::Value>,
+    },
     /// Изменить заголовок.
     SetTitle { title: String },
     /// Удалить в корзину.
     Delete,
     /// Вернуть из корзины.
     Restore,
+    /// Изменить поля модуля (например, `{"status": "archived"}`).
+    /// Передаются только меняющиеся поля.
+    Patch { fields: serde_json::Value },
 }
 
 /// Одна операция из очереди устройства.
@@ -68,6 +82,9 @@ pub struct ObjectSnapshot {
     pub deleted: bool,
     /// Время последнего изменения, миллисекунды Unix.
     pub updated_at_ms: i64,
+    /// Поля модуля, если у типа они есть.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fields: Option<serde_json::Value>,
 }
 
 /// Почему операция отклонена (повторять бессмысленно).
@@ -78,6 +95,8 @@ pub enum RejectReason {
     NotFound,
     /// Неверные данные операции.
     Invalid,
+    /// Нет права менять объекты этого модуля (Policy Gate).
+    Forbidden,
 }
 
 /// Результат одной операции.
@@ -170,6 +189,19 @@ impl Operation {
         {
             return Err(format!("заголовок длиннее {MAX_TITLE_CHARS} символов"));
         }
+        let fields = match &self.kind {
+            OpKind::Create { fields, .. } => fields.as_ref(),
+            OpKind::Patch { fields } => Some(fields),
+            _ => None,
+        };
+        if let Some(fields) = fields {
+            if !fields.is_object() {
+                return Err("поля модуля — объект JSON".into());
+            }
+            if fields.to_string().len() > MAX_FIELDS_BYTES {
+                return Err(format!("поля модуля больше {MAX_FIELDS_BYTES} байт"));
+            }
+        }
         Ok(())
     }
 }
@@ -198,6 +230,20 @@ mod tests {
                     kind: OpKind::Create {
                         object_type: "inbox.item".into(),
                         title: "Завтра повторить графы".into(),
+                        fields: Some(serde_json::json!({
+                            "kind": "text",
+                            "body": "Завтра повторить графы",
+                            "source": "web",
+                            "captured_at_ms": 1_792_224_000_000_i64
+                        })),
+                    },
+                },
+                Operation {
+                    op_id: id(6),
+                    object_id: id(3),
+                    base_revision: Some(1),
+                    kind: OpKind::Patch {
+                        fields: serde_json::json!({ "status": "archived" }),
                     },
                 },
                 Operation {
@@ -226,6 +272,7 @@ mod tests {
             revision: 3,
             deleted: true,
             updated_at_ms: 1_792_224_000_000,
+            fields: Some(serde_json::json!({ "status": "archived" })),
         }
     }
 
@@ -311,7 +358,20 @@ mod tests {
         create.kind = OpKind::Create {
             object_type: "inbox.item".into(),
             title: "я".repeat(MAX_TITLE_CHARS + 1),
+            fields: None,
         };
         assert!(create.check().is_err());
+        create.kind = OpKind::Create {
+            object_type: "inbox.item".into(),
+            title: "мысль".into(),
+            fields: Some(serde_json::json!(["не объект"])),
+        };
+        assert!(create.check().is_err(), "поля — только объект");
+        let mut patch = sample_push().ops[1].clone();
+        assert!(patch.check().is_ok());
+        patch.kind = OpKind::Patch {
+            fields: serde_json::json!({ "body": "я".repeat(MAX_FIELDS_BYTES) }),
+        };
+        assert!(patch.check().is_err(), "слишком большие поля");
     }
 }

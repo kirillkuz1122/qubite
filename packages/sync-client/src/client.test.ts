@@ -211,8 +211,10 @@ describe('протокол совпадает с Rust (qubite-sync/fixtures)', (
 
   it('образцы читаются как типы TS', () => {
     const push = fixture<PushRequest>('push_request');
-    expect(push.ops.map((op) => op.kind)).toEqual(['create', 'set_title', 'delete']);
+    expect(push.ops.map((op) => op.kind)).toEqual(['create', 'patch', 'set_title', 'delete']);
     expect(push.ops[0]).not.toHaveProperty('base_revision');
+    expect(push.ops[0]?.kind === 'create' && push.ops[0].fields?.source).toBe('web');
+    expect(push.ops[1]?.kind === 'patch' && push.ops[1].fields).toEqual({ status: 'archived' });
     expect(push.ops[1]?.base_revision).toBe(1);
 
     const response = fixture<PushResponse>('push_response');
@@ -220,7 +222,7 @@ describe('протокол совпадает с Rust (qubite-sync/fixtures)', (
 
     const pull = fixture<PullResponse>('pull_response');
     expect(Object.keys(pull.changes[0]!).sort()).toEqual(
-      ['deleted', 'id', 'object_type', 'revision', 'title', 'updated_at_ms'].sort(),
+      ['deleted', 'fields', 'id', 'object_type', 'revision', 'title', 'updated_at_ms'].sort(),
     );
   });
 });
