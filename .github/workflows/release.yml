@@ -1,0 +1,140 @@
+# Релизная сборка Qubite (OPS-003): архивы под x86_64 и aarch64 с контрольной суммой.
+#
+# - push в main (если менялся код сервера, сайта или сборки) — собрать и проверить,
+#   архивы лежат в артефактах запуска 14 дней;
+# - тег v* (например v0.1.0) — то же и черновик GitHub Release с архивами;
+# - вручную из вкладки Actions.
+#
+# Сборка идёт на Ubuntu 22.04 (glibc 2.35): бинарник запускается и на
+# Debian 12 / Raspberry Pi OS (glibc 2.36), и на новых системах.
+# aarch64 собирается кросс-компилятором и проверяется в эмуляторе qemu.
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'crates/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'pnpm-lock.yaml'
+      - 'scripts/release.sh'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: qubite
+          POSTGRES_PASSWORD: qubite
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U qubite"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Rust из rust-toolchain.toml и цель сборки
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add ${{ matrix.target }}
+      - name: Кросс-компилятор и эмулятор для aarch64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-user
+          {
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc"
+            echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc"
+            echo "RUN=qemu-aarch64 -L /usr/aarch64-linux-gnu"
+          } >> "$GITHUB_ENV"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - name: Зависимости сайта
+        run: pnpm install --frozen-lockfile
+      - name: Сборка архива
+        run: scripts/release.sh ${{ matrix.target }}
+
+      # «Установка» из архива так, как это сделает установщик (OPS-001):
+      # распаковать, проверить сумму, применить миграции, создать owner, запустить.
+      - name: Проверка архива — распаковка, миграции, owner, запуск
+        env:
+          DATABASE_URL: postgres://qubite:qubite@127.0.0.1:5432/postgres
+        run: |
+          set -euo pipefail
+          cd dist/release
+          sha256sum -c ./*.tar.gz.sha256
+          tar -xzf ./*.tar.gz
+          dir="$(find . -maxdepth 1 -type d -name 'qubite-*' | head -1)"
+          file "$dir/bin/qubite"
+          test -f "$dir/web/index.html"
+          q() { ${RUN:-} "$dir/bin/qubite" "$@"; }
+          q version
+          q migrate
+          echo "пароль-для-проверки-ci" | q owner create --email ci@qubite.test --password-stdin
+          if echo "пароль-для-проверки-ci" | q owner create --email two@qubite.test --password-stdin; then
+            echo "::error::второй owner создан"; exit 1
+          fi
+          q serve --bind 127.0.0.1:8080 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/api/ready && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/api/ready | grep -q '"status":"ready"'
+          kill %1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qubite-${{ matrix.target }}
+          path: |
+            dist/release/*.tar.gz
+            dist/release/*.sha256
+          retention-days: 14
+          if-no-files-found: error
+
+  publish:
+    name: GitHub Release (только по тегу)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Черновик релиза
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --draft
+          --title "Qubite $TAG" --notes "Сборка из CI. Проверка архива — sha256sum -c *.sha256"

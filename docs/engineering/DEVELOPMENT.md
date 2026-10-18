@@ -25,6 +25,7 @@ just check      # всё, что проверяет CI: формат, линте
 just e2e        # браузерные тесты (Firefox, Chromium, телефон)
 just fmt        # привести код к общему стилю
 just gen-api    # обновить клиент API после изменения сервера
+just release    # архив релиза в dist/release (сервер + сайт + контрольная сумма)
 just secrets    # поиск паролей и ключей в неотправленных коммитах
 just test-legacy  # 321 тест старого Qubite
 just db-up | db-down | db-status

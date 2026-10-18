@@ -32,6 +32,8 @@ flowchart LR
 
 ## 2. Новый установщик (задачи OPS-001…OPS-003)
 
+> **Готово (OPS-003, 18.10.2026):** архивы релиза. Локально: `just release` (или `just release aarch64-unknown-linux-gnu` при наличии кросс-компилятора) → `dist/release/qubite-<версия>-<цель>.tar.gz` и `.sha256`. В CI — workflow `release`: на каждый push в main архивы под x86_64 и aarch64 в артефактах запуска, по тегу `v*` — черновик GitHub Release ([D-178](../product/DECISIONS.md)). Внутри: `bin/qubite`, `web/`, `qubite.env.example`, `RELEASE.txt`. Установщик, который их скачивает, — OPS-001.
+
 **Одна команда** ([D-112](../product/DECISIONS.md)), например:
 
 ```bash

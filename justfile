@@ -54,6 +54,10 @@ fmt:
 gen-api:
     pnpm gen:api
 
+# Архив релиза в dist/release (цель по умолчанию — эта машина, например `just release aarch64-unknown-linux-gnu`)
+release target="":
+    scripts/release.sh {{target}}
+
 # Поиск паролей и ключей в коммитах, ещё не отправленных на GitHub, и в подготовленных изменениях
 secrets:
     #!/usr/bin/env bash

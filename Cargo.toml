@@ -29,3 +29,8 @@ opt-level = 3
 # Внутренний хеш Argon2. Внимание: `cargo remove` стирает эту строку (blake2 не прямая зависимость).
 [profile.dev.package.blake2]
 opt-level = 3
+
+# Релиз (OPS-003): без отладочных символов — бинарник в разы меньше, удобнее для Pi.
+[profile.release]
+lto = "thin"
+strip = "symbols"
