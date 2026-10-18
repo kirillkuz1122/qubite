@@ -50,7 +50,7 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 
 ## 3. Аккаунты и вход
 
-> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. **Почта (AUTH-002, 19.10.2026)** — §3.2. **Регистрация и приглашения (AUTH-003)** — §3.3. Остальные строки таблицы — следующие задачи AUTH-*.
+> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. **Почта (AUTH-002, 19.10.2026)** — §3.2. **Регистрация и приглашения (AUTH-003)** — §3.3. **Тумблеры платформы (ACC-002)** — §3.4. Остальные строки таблицы — следующие задачи AUTH-*.
 
 | Тема | Правило |
 |---|---|
@@ -76,7 +76,7 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 - **Проверка:** каждый запрос с cookie сверяется с базой — отозванная, истёкшая сессия или заблокированный аккаунт перестают работать сразу; мёртвую cookie сервер стирает.
 - **Приложения (AUTH-006):** браузер → `POST /api/auth/device/authorize` (из web-сессии, с CSRF) → `qubite://auth/callback?code=…&state=…` → `POST /api/auth/device/token` (`authorization_code` + `code_verifier`, PKCE S256). Access — 15 минут (`Authorization: Bearer`), refresh — одноразовый, сессия устройства — 30 дней с продлением. Повтор кода или refresh — сессия закрывается. Код действует, только пока открыта web-сессия, из которой его выдали ([D-179](../product/DECISIONS.md)). Устройства видны в общем списке сессий и закрываются оттуда ([D-177](../product/DECISIONS.md)).
 - **Аудит:** `platform.owner_created`, `platform.setting_changed`, `account.registered`, `invitation.created`, `invitation.revoked`, `auth.email_verified`, `auth.password_reset`, `auth.device_authorized`, `auth.device_login`, `auth.refresh_reuse`, `auth.login`, `auth.logout`, `auth.session_revoked`, `auth.logout_everywhere`, `auth.password_changed`. Неудачные попытки — только в `login_attempts` (сутки).
-- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `invalid_code`, `registration_closed`, `invite_required`, `invalid_invite`, `captcha_failed`, `captcha_unavailable`, `unauthenticated`, `csrf_failed`, `not_found`.
+- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `invalid_code`, `registration_closed`, `invite_required`, `invalid_invite`, `captcha_failed`, `captcha_unavailable`, `login_disabled`, `login_method_disabled`, `maintenance`, `email_disabled`, `conflict`, `unauthenticated`, `csrf_failed`, `not_found`.
 
 ### 3.2. Почта: подтверждение и восстановление (AUTH-002)
 
@@ -91,6 +91,15 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 - **Регистрация:** `POST /api/auth/register {email, password, display_name?, invite?, captcha_token?}` → `202`. Аккаунт `pending_email`, письмо с кодом уходит сразу (§3.2); войти — после подтверждения. Модулей нет (D-054). Почта уже занята — тот же `202`, приглашение не тратится, владельцу почты — обычное письмо.
 - **Приглашения:** код 12 знаков алфавита Крокфорда (`XXXX-XXXX-XXXX`, регистр, дефисы, O/0 и I/L/1 не важны), ссылка `QUBITE_AUTH_URL/register?invite=…`; в `invitations` — SHA-256. `email_bound` подходит только для своей почты и сразу уходит письмом; `open_link` — любому. Срок 1…30 дней (7 по умолчанию), одноразовое, отзыв. Строка блокируется на время регистрации — гонка по одной ссылке даёт одного победителя. Owner: `POST/GET /api/owner/invitations`, `DELETE /api/owner/invitations/{id}` (остальным 404).
 - **CAPTCHA** (`qubite-captcha`): `captcha.provider` = `turnstile` (по умолчанию) / `smartcaptcha` / `off`; `QUBITE_CAPTCHA_DISABLED=true` сильнее. Ключи: `QUBITE_TURNSTILE_SITE_KEY` + `QUBITE_TURNSTILE_SECRET_KEY`, `QUBITE_SMARTCAPTCHA_SITE_KEY` + `QUBITE_SMARTCAPTCHA_SECRET_KEY`. Сервис не ответил или нет ключей — `503 captcha_unavailable` (регистрация не проходит без проверки).
+
+### 3.4. Тумблеры платформы (ACC-002)
+
+- **Где:** `qubite-auth::platform`, таблица `platform_settings` (строка на настройку, своя версия). Ключи и значения по умолчанию: `registration.mode` = `invite_only`, `login.enabled` = `true`, `maintenance.enabled` = `false`, `maintenance.message`, `login.methods.password|yandex|vk` = `true`, `login.methods.google|telegram` = `false`, `email.enabled` = `true`, `captcha.provider` = `turnstile`, `platform.timezone` = `Asia/Yekaterinburg` ([D-188](../product/DECISIONS.md)).
+- **Env сильнее:** `QUBITE_AUTH_LOGIN_ENABLED`, `QUBITE_AUTH_REGISTRATION_ENABLED`, `QUBITE_AUTH_<PASSWORD|GOOGLE|YANDEX|VK|TELEGRAM>_ENABLED` = `false` выключают; `QUBITE_MAINTENANCE=true` включает техработы; `QUBITE_EMAIL_ENABLED=false`; `QUBITE_CAPTCHA_DISABLED=true`. `Effective` = тумблеры + env; Owner Console видит `locked_by_env`.
+- **Owner не запирается:** всегда может войти по паролю и работает при техработах. Вход через провайдеров (AUTH-004): слой техработ перед каждым `/api/auth/oauth/*` переносит положение тумблеров в `qubite-oauth` (список, начало и уже начатый вход); `QUBITE_OAUTH_<P>_ENABLED` — стартовое положение тумблера.
+- **Поведение:** «вход выключен» — новые входы и разрешение входа приложению (`403 login_disabled`), открытые сессии работают; способ выключен — `403 login_method_disabled`; техработы — слой после сессии отвечает `503 maintenance` (текст owner) на любой `/api/*`, кроме проверок сервера, `/api/platform/status`, входа, выхода и обмена токена приложения; почта выключена — письма не уходят, регистрация `503 email_disabled`. Проверки на входе — после верного пароля.
+- **API:** `GET /api/platform/status` — для всех; `GET /api/owner/platform` — тумблеры с версиями, `PATCH /api/owner/platform {changes: [{key, value, version}]}` — целиком или ничего, устаревшая версия — `409 conflict`, аудит `platform.setting_changed` (было/стало).
+- **Ещё нет:** открытые WebSocket и фоновые задачи техработы не замечают (Q-23); экран техработ — ACC-004.
 
 ## 4. Что получает новый пользователь
 

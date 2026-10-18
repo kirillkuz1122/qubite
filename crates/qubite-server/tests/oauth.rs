@@ -20,7 +20,7 @@ use base64::Engine;
 use hmac::{Hmac, KeyInit, Mac};
 use qubite_auth::{Passwords, accounts::NewAccount};
 use qubite_db::Database;
-use qubite_oauth::{OAuth, OAuthSettings, Provider, RedirectProvider, TelegramLogin};
+use qubite_oauth::{OAuthSettings, Provider, RedirectProvider, TelegramLogin};
 use qubite_server::{AppState, auth::AuthSettings};
 use qubite_testkit::TestDb;
 use reqwest::{Method, StatusCode, redirect::Policy};
@@ -146,7 +146,6 @@ struct Lab {
     test_db: TestDb,
     db: Database,
     address: SocketAddr,
-    oauth: Arc<OAuth>,
     mock: Mock,
 }
 
@@ -176,7 +175,6 @@ impl Lab {
             ..OAuthSettings::default()
         };
         let state = AppState::with_auth(db.clone(), AuthSettings::default()).with_oauth(settings);
-        let oauth = state.oauth.clone();
         let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -185,7 +183,6 @@ impl Lab {
             test_db,
             db,
             address,
-            oauth,
             mock,
         }
     }
@@ -580,7 +577,15 @@ async fn disabled_provider_rejects_new_and_started_logins() {
 
     // Вход начат, а владелец выключил способ, пока человек был у провайдера.
     let url = start_login(&lab, &mut browser, "vk", "/").await;
-    lab.oauth.set_enabled(Provider::Vk, false);
+    // Тумблер способа входа (ACC-002).
+    qubite_auth::platform::set(
+        lab.db.pool(),
+        None,
+        qubite_auth::platform::LoginMethod::Vk.key(),
+        json!(false),
+    )
+    .await
+    .unwrap();
     let reply = come_back(&lab, &mut browser, "vk", &url, json!({ "user_id": 1 })).await;
     assert_eq!(
         reply.location.as_deref(),
@@ -592,7 +597,15 @@ async fn disabled_provider_rejects_new_and_started_logins() {
     );
 
     // Владелец включил Google — появляется и работает.
-    lab.oauth.set_enabled(Provider::Google, true);
+    // Тумблер способа входа (ACC-002).
+    qubite_auth::platform::set(
+        lab.db.pool(),
+        None,
+        qubite_auth::platform::LoginMethod::Google.key(),
+        json!(true),
+    )
+    .await
+    .unwrap();
     let list = Browser::default()
         .get(lab.address, "/api/auth/oauth/providers")
         .await;
@@ -762,7 +775,15 @@ async fn telegram_widget_is_signed_fresh_and_single_use() {
     assert_eq!(reply.status, 409, "{:?}", reply.body);
     assert_eq!(reply.body["error"], "oauth_provider_disabled");
 
-    lab.oauth.set_enabled(Provider::Telegram, true);
+    // Тумблер способа входа (ACC-002).
+    qubite_auth::platform::set(
+        lab.db.pool(),
+        None,
+        qubite_auth::platform::LoginMethod::Telegram.key(),
+        json!(true),
+    )
+    .await
+    .unwrap();
     let list = Browser::default()
         .get(lab.address, "/api/auth/oauth/providers")
         .await;

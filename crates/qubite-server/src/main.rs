@@ -155,14 +155,70 @@ struct ServeArgs {
 
     #[command(flatten)]
     oauth: OAuthArgs,
+
+    #[command(flatten)]
+    overrides: OverrideArgs,
+}
+
+/// Аварийные переключатели (ACC-002): сильнее тумблеров Owner Console.
+/// Owner всё равно может войти по паролю и работать во время техработ.
+#[derive(Args)]
+struct OverrideArgs {
+    /// `false` — новые входы закрыты для всех, кроме owner.
+    #[arg(long, env = "QUBITE_AUTH_LOGIN_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_login_enabled: bool,
+    /// `false` — регистрация закрыта.
+    #[arg(long, env = "QUBITE_AUTH_REGISTRATION_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_registration_enabled: bool,
+    /// `false` — вход по паролю выключен (кроме owner).
+    #[arg(long, env = "QUBITE_AUTH_PASSWORD_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_password_enabled: bool,
+    /// `false` — вход через Google выключен.
+    #[arg(long, env = "QUBITE_AUTH_GOOGLE_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_google_enabled: bool,
+    /// `false` — вход через Яндекс выключен.
+    #[arg(long, env = "QUBITE_AUTH_YANDEX_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_yandex_enabled: bool,
+    /// `false` — вход через VK выключен.
+    #[arg(long, env = "QUBITE_AUTH_VK_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_vk_enabled: bool,
+    /// `false` — вход через Telegram выключен.
+    #[arg(long, env = "QUBITE_AUTH_TELEGRAM_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    auth_telegram_enabled: bool,
+    /// `true` — техработы для всех, кроме owner.
+    #[arg(long, env = "QUBITE_MAINTENANCE", default_value_t = false, action = clap::ArgAction::Set)]
+    maintenance: bool,
+    /// `false` — письма не отправляются.
+    #[arg(long, env = "QUBITE_EMAIL_ENABLED", default_value_t = true, action = clap::ArgAction::Set)]
+    email_enabled: bool,
+    /// `true` — CAPTCHA выключена, что бы ни выбрал owner.
+    #[arg(long, env = "QUBITE_CAPTCHA_DISABLED", default_value_t = false, action = clap::ArgAction::Set)]
+    captcha_disabled: bool,
+}
+
+impl OverrideArgs {
+    fn overrides(&self) -> qubite_auth::platform::Overrides {
+        // Порядок — как в LoginMethod::ALL: пароль, Google, Яндекс, VK, Telegram.
+        qubite_auth::platform::Overrides {
+            login: self.auth_login_enabled,
+            registration: self.auth_registration_enabled,
+            methods: [
+                self.auth_password_enabled,
+                self.auth_google_enabled,
+                self.auth_yandex_enabled,
+                self.auth_vk_enabled,
+                self.auth_telegram_enabled,
+            ],
+            maintenance: self.maintenance,
+            email: self.email_enabled,
+            captcha_disabled: self.captcha_disabled,
+            method_defaults: qubite_auth::platform::Overrides::default().method_defaults,
+        }
+    }
 }
 
 #[derive(Args)]
 struct CaptchaArgs {
-    /// Аварийно выключить CAPTCHA, что бы ни выбрал owner.
-    #[arg(long, env = "QUBITE_CAPTCHA_DISABLED", default_value_t = false, action = clap::ArgAction::Set)]
-    captcha_disabled: bool,
-
     /// Cloudflare Turnstile: открытый ключ виджета.
     #[arg(long, env = "QUBITE_TURNSTILE_SITE_KEY")]
     turnstile_site_key: Option<String>,
@@ -305,6 +361,19 @@ struct OAuthArgs {
 }
 
 impl OAuthArgs {
+    /// Стартовое положение тумблеров способов входа (ACC-002): пароль включён,
+    /// провайдеры — как в `QUBITE_OAUTH_*_ENABLED`. Дальше решает owner.
+    fn method_defaults(&self) -> [bool; 5] {
+        // Порядок — LoginMethod::ALL: пароль, Google, Яндекс, VK, Telegram.
+        [
+            true,
+            self.google_enabled,
+            self.yandex_enabled,
+            self.vk_enabled,
+            self.telegram_login_enabled,
+        ]
+    }
+
     fn settings(&self) -> qubite_oauth::OAuthSettings {
         use qubite_oauth::RedirectProvider;
         let mut yandex =
@@ -450,7 +519,10 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         },
         mailer: args.mail.mailer(args.env)?,
         captcha: args.captcha.captcha(),
-        captcha_disabled: args.captcha.captcha_disabled,
+        overrides: qubite_auth::platform::Overrides {
+            method_defaults: args.oauth.method_defaults(),
+            ..args.overrides.overrides()
+        },
         cookie_domain: args.cookie_domain.filter(|domain| !domain.is_empty()),
         cookie_secure: args.cookie_secure,
         trust_proxy: args.trust_proxy,

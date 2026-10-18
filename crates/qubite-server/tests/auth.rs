@@ -433,6 +433,7 @@ async fn there_is_no_http_route_to_become_owner() {
         "/api/owner/modules",
         "/api/owner/accounts/",
         "/api/owner/invitations",
+        "/api/owner/platform",
     ];
     assert!(
         owner_paths

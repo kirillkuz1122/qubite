@@ -297,6 +297,8 @@ pub async fn callback(
     let client = client_info(settings, &headers, peer.map(|peer| peer.0.0));
     let outcome = async {
         let provider: Provider = name.parse()?;
+        let platform =
+            qubite_auth::platform::effective(state.db.pool(), &state.auth.overrides).await?;
         let finished = state
             .oauth
             .finish(
@@ -314,6 +316,7 @@ pub async fn callback(
                     provider,
                     &finished.identity,
                     &client,
+                    &platform,
                 )
                 .await?;
                 Ok((return_to.clone(), Some(issued)))
@@ -422,6 +425,7 @@ pub async fn telegram_login(
         Provider::Telegram,
         &identity,
         &client,
+        &crate::platform::effective(&state).await?,
     )
     .await
     .map_err(auth_error)?;

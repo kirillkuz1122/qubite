@@ -48,8 +48,8 @@ pub struct AuthSettings {
     pub mailer: qubite_mail::Mailer,
     /// Проверка CAPTCHA (ключи Turnstile и SmartCaptcha).
     pub captcha: qubite_captcha::Captcha,
-    /// Аварийный env-переключатель: CAPTCHA выключена, что бы ни выбрал owner.
-    pub captcha_disabled: bool,
+    /// Аварийные env-переключатели — сильнее тумблеров owner (ACC-002).
+    pub overrides: qubite_auth::platform::Overrides,
 }
 
 impl Default for AuthSettings {
@@ -62,7 +62,7 @@ impl Default for AuthSettings {
             trust_proxy: false,
             mailer: qubite_mail::Mailer::mock().0,
             captcha: qubite_captcha::Captcha::new(qubite_captcha::CaptchaConfig::default()),
-            captcha_disabled: false,
+            overrides: qubite_auth::platform::Overrides::default(),
         }
     }
 }
@@ -181,6 +181,23 @@ impl From<qubite_auth::Error> for ApiError {
                 "Сначала подтвердите почту",
             ),
             E::Invalid(message) => Self::new(StatusCode::BAD_REQUEST, "invalid", message),
+            E::LoginDisabled => Self::new(
+                StatusCode::FORBIDDEN,
+                "login_disabled",
+                "Вход временно закрыт. Попробуйте позже",
+            ),
+            E::LoginMethodDisabled => Self::new(
+                StatusCode::FORBIDDEN,
+                "login_method_disabled",
+                "Этот способ входа сейчас выключен",
+            ),
+            E::Maintenance(message) => crate::platform::maintenance_error(&message),
+            E::EmailDisabled => Self::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "email_disabled",
+                "Почта сейчас не работает, поэтому регистрация недоступна. Попробуйте позже",
+            ),
+            E::Conflict(message) => Self::new(StatusCode::CONFLICT, "conflict", message),
             E::RegistrationClosed => Self::new(
                 StatusCode::FORBIDDEN,
                 "registration_closed",
@@ -561,6 +578,7 @@ pub async fn login(
             email: body.email,
             password: body.password,
             client,
+            platform: crate::platform::effective(&state).await?,
         },
     )
     .await?;
@@ -771,6 +789,13 @@ pub async fn device_authorize(
             "invalid",
             "state: от 1 до 200 символов A-Z a-z 0-9 - . _ ~",
         ));
+    }
+    // Вход приложения — тоже новый вход: тумблер «вход выключен» (ACC-002).
+    if !crate::platform::effective(&state)
+        .await?
+        .login_allowed(session.is_owner)
+    {
+        return Err(qubite_auth::Error::LoginDisabled.into());
     }
     let redirect_uri = body.redirect_uri.clone();
     let code = qubite_auth::devices::authorize(

@@ -17,6 +17,7 @@ fn input(email: &str, password: &str) -> LoginInput {
             user_agent: "test".into(),
             ip: "203.0.113.7".into(),
         },
+        platform: Default::default(),
     }
 }
 

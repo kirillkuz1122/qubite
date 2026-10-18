@@ -115,11 +115,12 @@ fn link(auth_url: &str, code: &str) -> String {
 }
 
 /// Создать приглашение (только owner — проверяет вызывающий). Приглашение на
-/// почту сразу уходит письмом.
+/// почту сразу уходит письмом, если почта включена (`send_email`).
 pub async fn create(
     pool: &PgPool,
     mailer: &Mailer,
     codes: &email::EmailCodes,
+    send_email: bool,
     owner_id: Uuid,
     new: NewInvitation,
 ) -> Result<IssuedInvitation> {
@@ -180,7 +181,7 @@ pub async fn create(
     tx.commit().await?;
 
     let link = link(&codes.auth_url, &code);
-    let emailed = if let Some(email) = &email {
+    let emailed = if let Some(email) = email.as_ref().filter(|_| send_email) {
         let letter = templates::invitation(
             &inviter,
             &format_code(&code),

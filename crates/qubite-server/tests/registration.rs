@@ -89,7 +89,10 @@ fn settings(captcha_url: &str, captcha_disabled: bool) -> (AuthSettings, MockOut
             smartcaptcha_url: format!("{captcha_url}/smart"),
             timeout: Duration::from_secs(3),
         }),
-        captcha_disabled,
+        overrides: platform::Overrides {
+            captcha_disabled,
+            ..platform::Overrides::default()
+        },
         ..AuthSettings::default()
     };
     settings.config.email.auth_url = "https://auth.qubiteapp.ru".into();

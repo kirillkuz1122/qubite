@@ -10,6 +10,7 @@ pub mod email;
 pub mod inbox;
 pub mod modules;
 pub mod oauth;
+pub mod platform;
 pub mod registration;
 pub mod sync;
 
@@ -99,6 +100,9 @@ impl AppState {
         email::verify,
         email::forgot_password,
         email::reset_password,
+        platform::status,
+        platform::owner_settings,
+        platform::owner_update,
         registration::info,
         registration::register,
         registration::create_invitation,
@@ -146,6 +150,11 @@ impl AppState {
         email::MailRequested,
         email::VerifyEmailRequest,
         email::ResetPasswordRequest,
+        platform::LoginMethods,
+        platform::PlatformStatus,
+        platform::SettingItem,
+        platform::SettingChange,
+        platform::SettingsPatch,
         registration::CaptchaWidget,
         registration::RegistrationInfo,
         registration::RegisterRequest,
@@ -211,6 +220,11 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/auth/email/verify", post(email::verify))
         .route("/api/auth/password/forgot", post(email::forgot_password))
         .route("/api/auth/password/reset", post(email::reset_password))
+        .route("/api/platform/status", get(platform::status))
+        .route(
+            "/api/owner/platform",
+            get(platform::owner_settings).patch(platform::owner_update),
+        )
         .route("/api/auth/registration", get(registration::info))
         .route("/api/auth/register", post(registration::register))
         .route(
@@ -262,6 +276,12 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/inbox/{id}/restore", post(inbox::restore))
         .merge(extra)
+        // Слои выполняются снизу вверх: сначала сессия, потом техработы
+        // (им нужно знать, owner ли пришёл).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            platform::maintenance_layer,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::session_layer,

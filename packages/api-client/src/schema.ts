@@ -536,6 +536,41 @@ export interface paths {
     patch: operations['owner_update_module'];
     trace?: never;
   };
+  '/api/owner/platform': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: все тумблеры платформы с версиями. */
+    get: operations['owner_settings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Owner Console: сохранить изменения тумблеров (все вместе или ничего). */
+    patch: operations['owner_update'];
+    trace?: never;
+  };
+  '/api/platform/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Состояние платформы для сайта и приложений: техработы, вход, регистрация. */
+    get: operations['status'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/ready': {
     parameters: {
       query?: never;
@@ -902,6 +937,13 @@ export interface components {
     LinkStarted: {
       authorize_url: string;
     };
+    LoginMethods: {
+      google: boolean;
+      password: boolean;
+      telegram: boolean;
+      vk: boolean;
+      yandex: boolean;
+    };
     LoginRequest: {
       /** @description Почта аккаунта; регистр не важен. */
       email: string;
@@ -990,6 +1032,20 @@ export interface components {
     PasswordConfirm: {
       password: string;
     };
+    PlatformStatus: {
+      /** @description Можно ли сейчас войти (существующие сессии работают в любом случае). */
+      login_enabled: boolean;
+      /** @description Какими способами можно войти. */
+      login_methods: components['schemas']['LoginMethods'];
+      /** @description Идут техработы (owner при этом работает). */
+      maintenance: boolean;
+      /** @description Текст техработ, если они идут. */
+      maintenance_message?: string | null;
+      /** @description `closed`, `invite_only` или `open`. */
+      registration_mode: string;
+      /** @description Часовой пояс платформы (IANA). */
+      timezone: string;
+    };
     Readiness: {
       /** @description `ok` или `unavailable`. */
       database: string;
@@ -1059,6 +1115,37 @@ export interface components {
       /** Format: date-time */
       last_seen_at: string;
       user_agent: string;
+    };
+    SettingChange: {
+      key: string;
+      value: Record<string, never>;
+      /**
+       * Format: int64
+       * @description Версия, которую видел owner (из списка).
+       */
+      version: number;
+    };
+    SettingItem: {
+      /** @description Значение по умолчанию. */
+      default: Record<string, never>;
+      /** @description Ключ, например `registration.mode` или `login.methods.vk`. */
+      key: string;
+      /** @description Зажато переменной окружения на сервере — тумблер ничего не изменит. */
+      locked_by_env: boolean;
+      /** Format: date-time */
+      updated_at?: string | null;
+      /** Format: uuid */
+      updated_by?: string | null;
+      value: Record<string, never>;
+      /**
+       * Format: int64
+       * @description Версия для сохранения; 0 — ни разу не меняли.
+       */
+      version: number;
+    };
+    SettingsPatch: {
+      /** @description Все изменения сохраняются вместе или не сохраняется ни одно. */
+      changes: components['schemas']['SettingChange'][];
     };
     /** @description Данные виджета Telegram (как он их отдаёт: `id`, `first_name`, `auth_date`, `hash`…). */
     TelegramAuth: Record<string, never>;
@@ -2279,6 +2366,106 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Тумблеры платформы */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingsPatch'];
+      };
+    };
+    responses: {
+      /** @description Сохранено; новый список */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingItem'][];
+        };
+      };
+      /** @description Нет такой настройки или неверное значение */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Кто-то уже изменил настройку (другая вкладка) — обновите страницу */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Как сейчас работает платформа (для обычного пользователя) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlatformStatus'];
         };
       };
     };

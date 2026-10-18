@@ -982,6 +982,8 @@ async fn every_route_requires_login_except_public_ones() {
         "/api/auth/oauth/{provider}/login",
         "/api/auth/oauth/{provider}/callback",
         "/api/auth/oauth/telegram/login",
+        // Состояние платформы (ACC-002): техработы и способы входа видны до входа.
+        "/api/platform/status",
     ];
     let mut anonymous = Browser::default();
     let document = anonymous.get(address, "/api/openapi.json").await.body;

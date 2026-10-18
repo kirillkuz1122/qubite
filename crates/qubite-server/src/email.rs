@@ -77,15 +77,19 @@ async fn request_mail(
 ) -> Result<Response, ApiError> {
     let settings = &state.auth;
     let client = client_info(settings, headers, peer.map(|peer| peer.0.0));
-    email::request(
-        state.db.pool(),
-        &settings.mailer,
-        &settings.config.email,
-        purpose,
-        &body.email,
-        &client.ip,
-    )
-    .await?;
+    // Почта выключена тумблером или env — ответ тот же, письма нет.
+    let send = crate::platform::effective(state).await?.email_enabled();
+    if send {
+        email::request(
+            state.db.pool(),
+            &settings.mailer,
+            &settings.config.email,
+            purpose,
+            &body.email,
+            &client.ip,
+        )
+        .await?;
+    }
     Ok((
         StatusCode::ACCEPTED,
         Json(MailRequested {

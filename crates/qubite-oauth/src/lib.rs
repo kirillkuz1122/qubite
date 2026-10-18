@@ -242,6 +242,8 @@ impl Error {
             Self::Auth(qubite_auth::Error::AccountBlocked) => "account_blocked",
             Self::Auth(qubite_auth::Error::InvalidCredentials) => "invalid_credentials",
             Self::Auth(qubite_auth::Error::TooManyAttempts { .. }) => "too_many_attempts",
+            Self::Auth(qubite_auth::Error::LoginDisabled) => "login_disabled",
+            Self::Auth(qubite_auth::Error::Maintenance(_)) => "maintenance",
             Self::Auth(_) | Self::Db(_) | Self::Audit(_) => "internal",
         }
     }

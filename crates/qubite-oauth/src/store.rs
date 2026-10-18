@@ -135,6 +135,7 @@ pub async fn login(
     provider: Provider,
     identity: &Identity,
     client: &ClientInfo,
+    platform: &qubite_auth::platform::Effective,
 ) -> Result<IssuedSession> {
     let mut tx = pool.begin().await?;
     let found: Option<(Uuid, String)> = sqlx::query_as(
@@ -152,6 +153,14 @@ pub async fn login(
         "active" => {}
         "blocked" => return Err(qubite_auth::Error::AccountBlocked.into()),
         _ => return Err(qubite_auth::Error::EmailNotVerified.into()),
+    }
+    // Тумблеры платформы (ACC-002): техработы и «вход выключен» — owner проходит.
+    let is_owner = qubite_auth::owner::is_owner(&mut tx, account_id).await?;
+    if let Some(message) = platform.maintenance_for(is_owner) {
+        return Err(qubite_auth::Error::Maintenance(message.to_owned()).into());
+    }
+    if !platform.login_allowed(is_owner) {
+        return Err(qubite_auth::Error::LoginDisabled.into());
     }
     sqlx::query(
         "UPDATE oauth_identities SET last_login_at = now() WHERE provider = $1 AND subject = $2",

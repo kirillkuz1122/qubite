@@ -12,7 +12,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    AuthConfig, Error, IssuedSession, Limit, Passwords, Result, secs,
+    AuthConfig, Error, IssuedSession, Limit, Passwords, Result, owner,
+    platform::{Effective, LoginMethod},
+    secs,
     sessions::{self, ClientInfo},
 };
 use qubite_objects::{NewAuditEntry, audit};
@@ -23,6 +25,8 @@ pub struct LoginInput {
     pub email: String,
     pub password: String,
     pub client: ClientInfo,
+    /// Тумблеры платформы на момент входа (ACC-002).
+    pub platform: Effective,
 }
 
 #[derive(sqlx::FromRow)]
@@ -111,6 +115,19 @@ pub async fn login(
         "active" => {}
         "blocked" => return Err(Error::AccountBlocked),
         _ => return Err(Error::EmailNotVerified),
+    }
+    // Тумблеры платформы (ACC-002) — тоже только после верного пароля, чтобы
+    // по ответу нельзя было узнать, чья почта. Owner не запирает сам себя.
+    let is_owner = owner::is_owner(&mut tx, account.id).await?;
+    let rules = &input.platform;
+    if let Some(message) = rules.maintenance_for(is_owner) {
+        return Err(Error::Maintenance(message.to_owned()));
+    }
+    if !rules.login_allowed(is_owner) {
+        return Err(Error::LoginDisabled);
+    }
+    if !rules.method_allowed(LoginMethod::Password, is_owner) {
+        return Err(Error::LoginMethodDisabled);
     }
 
     record_attempt(&mut tx, &email, ip, true).await?;

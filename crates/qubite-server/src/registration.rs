@@ -14,7 +14,7 @@ use axum::{
 };
 use qubite_auth::{
     invitations::{self, InvitationView, NewInvitation},
-    platform::{self, CaptchaChoice, RegistrationMode},
+    platform::{CaptchaChoice, Effective, RegistrationMode},
     registration::{self, RegisterInput},
 };
 use qubite_captcha::Provider;
@@ -31,11 +31,8 @@ use crate::{
 
 /// Какая CAPTCHA действует сейчас: тумблер owner и аварийный env-переключатель
 /// (`QUBITE_CAPTCHA_DISABLED` сильнее тумблера).
-pub(crate) fn captcha_provider(state: &AppState, choice: CaptchaChoice) -> Option<Provider> {
-    if state.auth.captcha_disabled {
-        return None;
-    }
-    match choice {
+pub(crate) fn captcha_provider(rules: &Effective) -> Option<Provider> {
+    match rules.captcha() {
         CaptchaChoice::Turnstile => Some(Provider::Turnstile),
         CaptchaChoice::Smartcaptcha => Some(Provider::SmartCaptcha),
         CaptchaChoice::Off => None,
@@ -66,10 +63,10 @@ pub struct RegistrationInfo {
 #[utoipa::path(get, path = "/api/auth/registration", tag = "auth",
     responses((status = 200, description = "Режим регистрации", body = RegistrationInfo)))]
 pub async fn info(State(state): State<AppState>) -> Result<Json<RegistrationInfo>, ApiError> {
-    let settings = platform::current(state.db.pool()).await?;
-    let mode = settings.registration_mode;
+    let rules = crate::platform::effective(&state).await?;
+    let mode = rules.registration_mode();
     let captcha = (mode == RegistrationMode::Open)
-        .then(|| captcha_provider(&state, settings.captcha))
+        .then(|| captcha_provider(&rules))
         .flatten()
         .map(|provider| CaptchaWidget {
             provider: provider.as_str(),
@@ -122,8 +119,8 @@ pub async fn register(
 ) -> Result<Response, ApiError> {
     let settings = &state.auth;
     let client = client_info(settings, &headers, peer.map(|peer| peer.0.0));
-    let platform = platform::current(state.db.pool()).await?;
-    let mode = platform.registration_mode;
+    let rules = crate::platform::effective(&state).await?;
+    let mode = rules.registration_mode();
     let has_invite = body
         .invite
         .as_deref()
@@ -132,7 +129,7 @@ pub async fn register(
     // Открытая регистрация без приглашения — только человеку (D-187).
     if mode == RegistrationMode::Open
         && !has_invite
-        && let Some(provider) = captcha_provider(&state, platform.captcha)
+        && let Some(provider) = captcha_provider(&rules)
     {
         let token = body.captcha_token.as_deref().unwrap_or_default();
         match settings.captcha.verify(provider, token, &client.ip).await {
@@ -155,6 +152,10 @@ pub async fn register(
         }
     }
 
+    // Без почты аккаунт не подтвердить — регистрацию не начинаем.
+    if mode != RegistrationMode::Closed && !rules.email_enabled() {
+        return Err(qubite_auth::Error::EmailDisabled.into());
+    }
     registration::register(
         state.db.pool(),
         &settings.passwords,
@@ -262,10 +263,12 @@ pub async fn create_invitation(
     Json(body): Json<InvitationRequest>,
 ) -> Result<Response, ApiError> {
     let ttl = Duration::from_secs(u64::from(body.days.unwrap_or(7)) * 24 * 60 * 60);
+    let send_email = crate::platform::effective(&state).await?.email_enabled();
     let issued = invitations::create(
         state.db.pool(),
         &state.auth.mailer,
         &state.auth.config.email,
+        send_email,
         session.account_id,
         NewInvitation {
             email: body.email.filter(|email| !email.trim().is_empty()),

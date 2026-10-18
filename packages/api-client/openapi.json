@@ -1423,6 +1423,117 @@
         }
       }
     },
+    "/api/owner/platform": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: все тумблеры платформы с версиями.",
+        "operationId": "owner_settings",
+        "responses": {
+          "200": {
+            "description": "Тумблеры платформы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SettingItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["owner"],
+        "summary": "Owner Console: сохранить изменения тумблеров (все вместе или ничего).",
+        "operationId": "owner_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено; новый список",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SettingItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет такой настройки или неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Кто-то уже изменил настройку (другая вкладка) — обновите страницу",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/status": {
+      "get": {
+        "tags": ["system"],
+        "summary": "Состояние платформы для сайта и приложений: техработы, вход, регистрация.",
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "Как сейчас работает платформа (для обычного пользователя)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ready": {
       "get": {
         "tags": ["system"],
@@ -2446,6 +2557,27 @@
           }
         }
       },
+      "LoginMethods": {
+        "type": "object",
+        "required": ["password", "google", "yandex", "vk", "telegram"],
+        "properties": {
+          "google": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "boolean"
+          },
+          "telegram": {
+            "type": "boolean"
+          },
+          "vk": {
+            "type": "boolean"
+          },
+          "yandex": {
+            "type": "boolean"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": ["email", "password"],
@@ -2639,6 +2771,42 @@
           }
         }
       },
+      "PlatformStatus": {
+        "type": "object",
+        "required": [
+          "maintenance",
+          "login_enabled",
+          "login_methods",
+          "registration_mode",
+          "timezone"
+        ],
+        "properties": {
+          "login_enabled": {
+            "type": "boolean",
+            "description": "Можно ли сейчас войти (существующие сессии работают в любом случае)."
+          },
+          "login_methods": {
+            "$ref": "#/components/schemas/LoginMethods",
+            "description": "Какими способами можно войти."
+          },
+          "maintenance": {
+            "type": "boolean",
+            "description": "Идут техработы (owner при этом работает)."
+          },
+          "maintenance_message": {
+            "type": ["string", "null"],
+            "description": "Текст техработ, если они идут."
+          },
+          "registration_mode": {
+            "type": "string",
+            "description": "`closed`, `invite_only` или `open`."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Часовой пояс платформы (IANA)."
+          }
+        }
+      },
       "Readiness": {
         "type": "object",
         "required": ["status", "database"],
@@ -2807,6 +2975,70 @@
           },
           "user_agent": {
             "type": "string"
+          }
+        }
+      },
+      "SettingChange": {
+        "type": "object",
+        "required": ["key", "value", "version"],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "object"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия, которую видел owner (из списка)."
+          }
+        }
+      },
+      "SettingItem": {
+        "type": "object",
+        "required": ["key", "value", "default", "version", "locked_by_env"],
+        "properties": {
+          "default": {
+            "type": "object",
+            "description": "Значение по умолчанию."
+          },
+          "key": {
+            "type": "string",
+            "description": "Ключ, например `registration.mode` или `login.methods.vk`."
+          },
+          "locked_by_env": {
+            "type": "boolean",
+            "description": "Зажато переменной окружения на сервере — тумблер ничего не изменит."
+          },
+          "updated_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "updated_by": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "value": {
+            "type": "object"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия для сохранения; 0 — ни разу не меняли."
+          }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "required": ["changes"],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingChange"
+            },
+            "description": "Все изменения сохраняются вместе или не сохраняется ни одно."
           }
         }
       },
