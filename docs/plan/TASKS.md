@@ -29,7 +29,7 @@
 | AUTH-004 | OAuth: Google, Яндекс, VK, Telegram, привязка | backlog | AUTH-001 |
 | AUTH-005 | Qubite Auth (интерфейс), юридические страницы | backlog | AUTH-003, DS-007 |
 | AUTH-006 | Вход приложений: PKCE и сессии устройств | backlog | AUTH-001 |
-| ACC-001 | Policy Gate, каталог модулей, гранты, 10 негативных тестов | backlog | AUTH-001 |
+| ACC-001 | Policy Gate, каталог модулей, гранты, 10 негативных тестов | done | AUTH-001 |
 | ACC-002 | Тумблеры платформы и аварийные env-переключатели | backlog | ACC-001 |
 | ACC-003 | Owner Console: люди, модули, тумблеры, журнал, черновики | backlog | ACC-002, AUTH-003, DS-007 |
 | AI-001 | AI-шлюз, mock-провайдер, бюджеты и резервирование | backlog | ACC-001 |
@@ -206,6 +206,7 @@
 - **Требования:** ACC-01…ACC-06, ACC-08.
 - **Вопросы:** ~~нужен ли новым пользователям бесплатный базовый набор?~~ Ответ: нет, всё вручную ([D-172](../product/DECISIONS.md)).
 - **Готово когда:** все 10 негативных тестов зелёные.
+- **Сделано (18.10.2026):** решения — [D-175](../product/DECISIONS.md). Миграция `0005_modules_grants.sql` (`modules` с 26 модулями, `module_grants` с историей). Crate `qubite-policy`: `decide::<A>()` → `Authorized<A>` (Read, Write, Manage, UseAi), `decide_owner()` → `OwnerConsole`, `Authorized::recheck` и `Authority` для задач и соединений, каталог и гранты с аудитом. HTTP: `GET /api/modules`, `GET /api/modules/{id}`, Owner Console `GET/PATCH /api/owner/modules…`, `GET/PUT/DELETE /api/owner/accounts/{id}/grants…`; помощник `modules::authorize` для маршрутов модулей. Тесты: №1, 2, 5, 6, 7, 8, 9, 10 через HTTP на проверочном модуле с mock-провайдером (0 внешних вызовов), плюс «только чтение», состояния модуля, «каждый маршрут требует вход», 5 модульных. **№3 и №4** (бюджет) — в AI-001. **Ещё нет:** WebSocket (появится с CMD-001 — там вызывать `recheck` на каждое сообщение), ACL объектов и поиск (п. 6 «поиск и кэш») — в модулях.
 
 ### ACC-002 — Тумблеры платформы
 - **Входит:** `platform_settings` с версиями; регистрация, вход, техработы, способы входа, почта, CAPTCHA, часовой пояс; env-переключатели сильнее; страница техработ.

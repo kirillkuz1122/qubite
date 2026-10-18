@@ -78,7 +78,7 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
+    pub(crate) fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self {
             status,
             code,
@@ -95,7 +95,7 @@ impl ApiError {
         )
     }
 
-    fn internal() -> Self {
+    pub(crate) fn internal() -> Self {
         Self::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal",
@@ -120,6 +120,24 @@ impl IntoResponse for ApiError {
                 .insert(header::RETRY_AFTER, HeaderValue::from(seconds));
         }
         response
+    }
+}
+
+impl From<qubite_policy::Error> for ApiError {
+    fn from(error: qubite_policy::Error) -> Self {
+        use qubite_policy::Error as E;
+        match error {
+            E::Denied(reason) => Self::new(
+                StatusCode::from_u16(reason.http_status()).unwrap_or(StatusCode::FORBIDDEN),
+                reason.code(),
+                reason.message(),
+            ),
+            E::Invalid(message) => Self::new(StatusCode::BAD_REQUEST, "invalid", message),
+            other => {
+                tracing::error!(error = %other, "ошибка проверки прав");
+                Self::internal()
+            }
+        }
     }
 }
 
@@ -241,6 +259,13 @@ fn with_cookies(mut response: Response, cookies: [HeaderValue; 2]) -> Response {
 /// Текущая сессия запроса. Обработчик с этим аргументом без входа отвечает 401.
 #[derive(Clone)]
 pub struct Authenticated(pub Arc<ResolvedSession>);
+
+impl Authenticated {
+    /// Субъект для Policy Gate: этот аккаунт через эту сессию.
+    pub fn subject(&self) -> qubite_policy::Subject {
+        qubite_policy::Subject::account(self.0.account_id, Some(self.0.id))
+    }
+}
 
 /// База не ответила при проверке сессии.
 #[derive(Clone)]

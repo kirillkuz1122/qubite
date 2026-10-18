@@ -79,6 +79,8 @@
 - **грант пользователя**: `none / granted / revoked`, раздельно `read`, `write`, `manage`, `ai`;
 - **бюджет AI** модуля и пользователя в модуле.
 
+В коде (ACC-001): каталог — таблица `modules`, гранты — `module_grants`, решение — crate `qubite-policy` ([D-175](DECISIONS.md)). Сейчас все модули «не установлены»: их включает owner, когда модуль написан.
+
 Подробно — в [architecture/AUTH_AND_PERMISSIONS.md](../architecture/AUTH_AND_PERMISSIONS.md) и [OWNER_CONSOLE.md](OWNER_CONSOLE.md).
 
 ## Эталоны

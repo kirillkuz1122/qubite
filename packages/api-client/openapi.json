@@ -274,6 +274,328 @@
         }
       }
     },
+    "/api/modules": {
+      "get": {
+        "tags": ["modules"],
+        "summary": "Каталог модулей для текущего пользователя. Скрытые модули без доступа не показываются.",
+        "operationId": "my_catalog",
+        "responses": {
+          "200": {
+            "description": "Модули с состоянием для этого пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modules/{id}": {
+      "get": {
+        "tags": ["modules"],
+        "summary": "Один модуль глазами текущего пользователя.",
+        "operationId": "my_module",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID модуля, например `docs`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Состояние модуля и права пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не выполнен вход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого модуля или он скрыт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/accounts/{account_id}/grants": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: гранты пользователя.",
+        "operationId": "owner_grants",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "description": "ID аккаунта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Живые гранты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrantItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/accounts/{account_id}/grants/{module_id}": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Owner Console: выдать или изменить права пользователя в модуле.",
+        "operationId": "owner_set_grant",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "description": "ID аккаунта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "module_id",
+            "in": "path",
+            "description": "ID модуля",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Грант выдан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantItem"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Все права сняты — грант отозван"
+          },
+          "404": {
+            "description": "Нет аккаунта, модуля или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["owner"],
+        "summary": "Owner Console: отозвать права пользователя в модуле. Действует сразу.",
+        "operationId": "owner_revoke_grant",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "description": "ID аккаунта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "module_id",
+            "in": "path",
+            "description": "ID модуля",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Грант отозван"
+          },
+          "404": {
+            "description": "Гранта не было или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/modules": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: все модули.",
+        "operationId": "owner_modules",
+        "responses": {
+          "200": {
+            "description": "Весь каталог",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModuleItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner (раздел для остальных не существует)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/modules/{id}": {
+      "patch": {
+        "tags": ["owner"],
+        "summary": "Owner Console: установить, включить, выключить модуль, сменить готовность и видимость.",
+        "operationId": "owner_update_module",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID модуля",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Модуль изменён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение или модуль уже изменён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет модуля или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ready": {
       "get": {
         "tags": ["system"],
@@ -318,6 +640,70 @@
           "message": {
             "type": "string",
             "description": "Текст для человека."
+          }
+        }
+      },
+      "CatalogItem": {
+        "type": "object",
+        "description": "Модуль в каталоге пользователя.",
+        "required": ["id", "title", "status", "flags"],
+        "properties": {
+          "flags": {
+            "$ref": "#/components/schemas/ModuleFlags",
+            "description": "Права пользователя; все `false`, если модуль недоступен."
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "`available` — можно пользоваться; `locked` — замок, доступ выдаёт owner;\n`preparing` — «Готовится»; `unavailable` — «Временно недоступен».",
+            "example": "locked"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "GrantChange": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModuleFlags"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": ["string", "null"],
+                "description": "Зачем (попадёт в журнал)."
+              }
+            }
+          }
+        ],
+        "description": "Какие права выдать. Все `false` — то же, что отзыв."
+      },
+      "GrantItem": {
+        "type": "object",
+        "description": "Грант пользователя в модуле.",
+        "required": ["module_id", "flags", "granted_at", "version"],
+        "properties": {
+          "flags": {
+            "$ref": "#/components/schemas/ModuleFlags"
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "granted_by": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "module_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -390,6 +776,93 @@
             "type": "string",
             "format": "uuid",
             "description": "ID текущей сессии."
+          }
+        }
+      },
+      "ModuleChange": {
+        "type": "object",
+        "description": "Что поменять в модуле. Пустые поля не меняются.",
+        "properties": {
+          "expected_version": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Версия, которую видел owner; если модуль уже изменили — 400."
+          },
+          "installed": {
+            "type": ["boolean", "null"]
+          },
+          "readiness": {
+            "type": ["string", "null"]
+          },
+          "state": {
+            "type": ["string", "null"]
+          },
+          "visibility": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ModuleFlags": {
+        "type": "object",
+        "description": "Права в модуле.",
+        "required": ["read", "write", "manage", "ai"],
+        "properties": {
+          "ai": {
+            "type": "boolean"
+          },
+          "manage": {
+            "type": "boolean"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "write": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ModuleItem": {
+        "type": "object",
+        "description": "Модуль глазами owner.",
+        "required": [
+          "id",
+          "title",
+          "installed",
+          "state",
+          "readiness",
+          "visibility",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "readiness": {
+            "type": "string",
+            "description": "`planned`, `beta` или `stable`."
+          },
+          "state": {
+            "type": "string",
+            "description": "`enabled`, `disabled` или `maintenance`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "visibility": {
+            "type": "string",
+            "description": "`locked` или `hidden` — как модуль виден без доступа."
           }
         }
       },
@@ -480,6 +953,14 @@
     {
       "name": "auth",
       "description": "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`."
+    },
+    {
+      "name": "modules",
+      "description": "Каталог модулей и права пользователя"
+    },
+    {
+      "name": "owner",
+      "description": "Owner Console. Для всех, кроме owner, этих адресов нет (404)"
     }
   ]
 }

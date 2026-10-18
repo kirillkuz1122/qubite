@@ -18,6 +18,7 @@ clap = { version = "4.6.7", features = ["derive", "env"] }
 qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
 qubite-db = { version = "0.1.0", path = "../qubite-db" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
+qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 rpassword = "7"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -34,6 +35,8 @@ workspace = true
 
 [dev-dependencies]
 qubite-db = { path = "../qubite-db" }
+qubite-jobs = { path = "../qubite-jobs" }
+qubite-policy = { path = "../qubite-policy" }
 qubite-testkit = { path = "../qubite-testkit" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }

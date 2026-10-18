@@ -2,7 +2,9 @@
 
 > **Реализовано (FND-004, 17.10.2026):** таблицы `objects`, `relations`, `events`, `audit_log`, `file_blobs`, `attachments`, `jobs` — миграция [`0002_core_objects.sql`](../../crates/qubite-db/migrations/0002_core_objects.sql), код — crate'ы [`qubite-objects`](../../crates/qubite-objects/) и [`qubite-jobs`](../../crates/qubite-jobs/). `events` и `audit_log` защищены триггером: изменить или удалить запись нельзя. Остальное в этом документе — план.
 >
-> **Реализовано (AUTH-001, 18.10.2026):** `accounts`, `platform_owner`, `credentials_password`, `sessions`, `login_attempts` — миграция [`0004_auth.sql`](../../crates/qubite-db/migrations/0004_auth.sql), код — [`qubite-auth`](../../crates/qubite-auth/). Ключи `owner_id`/`created_by` на `accounts` пока не добавлены — появятся в ACC-001/CMD-001 ([D-171](../product/DECISIONS.md)).
+> **Реализовано (AUTH-001, 18.10.2026):** `accounts`, `platform_owner`, `credentials_password`, `sessions`, `login_attempts` — миграция [`0004_auth.sql`](../../crates/qubite-db/migrations/0004_auth.sql), код — [`qubite-auth`](../../crates/qubite-auth/). Ключи `owner_id`/`created_by` на `accounts` пока не добавлены — появятся в CMD-001 ([D-171](../product/DECISIONS.md)).
+>
+> **Реализовано (ACC-001, 18.10.2026):** `modules` (каталог) и `module_grants` (гранты с историей) — миграция [`0005_modules_grants.sql`](../../crates/qubite-db/migrations/0005_modules_grants.sql), код — [`qubite-policy`](../../crates/qubite-policy/).
 
 Основа — [MC §19.2–19.3](../context/QUBITE_MASTER_CONTEXT.md). Принцип: **общий конверт + типизированные таблицы модулей**. Нет одной таблицы `objects` с бесконтрольным JSON, и данные модулей не обязаны выглядеть одинаково.
 

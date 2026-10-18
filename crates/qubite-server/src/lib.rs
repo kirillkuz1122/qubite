@@ -4,6 +4,7 @@
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
 pub mod auth;
+pub mod modules;
 
 use std::{sync::Arc, time::Duration};
 
@@ -13,7 +14,7 @@ use axum::{
     http::StatusCode,
     middleware,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use qubite_db::Database;
 use serde::Serialize;
@@ -56,7 +57,14 @@ impl AppState {
         auth::whoami,
         auth::list_sessions,
         auth::revoke_session,
-        auth::logout_everywhere
+        auth::logout_everywhere,
+        modules::my_catalog,
+        modules::my_module,
+        modules::owner_modules,
+        modules::owner_update_module,
+        modules::owner_grants,
+        modules::owner_set_grant,
+        modules::owner_revoke_grant
     ),
     components(schemas(
         Health,
@@ -66,17 +74,31 @@ impl AppState {
         auth::LoginResponse,
         auth::Me,
         auth::SessionItem,
-        auth::RevokedCount
+        auth::RevokedCount,
+        modules::ModuleFlags,
+        modules::CatalogItem,
+        modules::ModuleItem,
+        modules::ModuleChange,
+        modules::GrantItem,
+        modules::GrantChange
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
-        (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`.")
+        (name = "auth", description = "Вход, выход и сессии. Изменяющие запросы с сессией требуют заголовок `X-CSRF-Token`."),
+        (name = "modules", description = "Каталог модулей и права пользователя"),
+        (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)")
     )
 )]
 pub struct ApiDoc;
 
 /// Собрать все маршруты сервера.
 pub fn router(state: AppState) -> Router {
+    router_with(state, Router::new())
+}
+
+/// Все маршруты сервера плюс `extra` (маршруты модулей; в тестах — проверочные).
+/// `extra` проходит те же слои: сессия, CSRF, таймаут.
+pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
@@ -87,6 +109,22 @@ pub fn router(state: AppState) -> Router {
         .route("/api/auth/sessions", get(auth::list_sessions))
         .route("/api/auth/sessions/{id}", delete(auth::revoke_session))
         .route("/api/auth/logout-everywhere", post(auth::logout_everywhere))
+        .route("/api/modules", get(modules::my_catalog))
+        .route("/api/modules/{id}", get(modules::my_module))
+        .route("/api/owner/modules", get(modules::owner_modules))
+        .route(
+            "/api/owner/modules/{id}",
+            patch(modules::owner_update_module),
+        )
+        .route(
+            "/api/owner/accounts/{account_id}/grants",
+            get(modules::owner_grants),
+        )
+        .route(
+            "/api/owner/accounts/{account_id}/grants/{module_id}",
+            axum::routing::put(modules::owner_set_grant).delete(modules::owner_revoke_grant),
+        )
+        .merge(extra)
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::session_layer,

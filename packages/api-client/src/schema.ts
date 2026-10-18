@@ -123,6 +123,109 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/modules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Каталог модулей для текущего пользователя. Скрытые модули без доступа не показываются. */
+    get: operations['my_catalog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/modules/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Один модуль глазами текущего пользователя. */
+    get: operations['my_module'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/accounts/{account_id}/grants': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: гранты пользователя. */
+    get: operations['owner_grants'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/accounts/{account_id}/grants/{module_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Owner Console: выдать или изменить права пользователя в модуле. */
+    put: operations['owner_set_grant'];
+    post?: never;
+    /** Owner Console: отозвать права пользователя в модуле. Действует сразу. */
+    delete: operations['owner_revoke_grant'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/modules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: все модули. */
+    get: operations['owner_modules'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/modules/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Owner Console: установить, включить, выключить модуль, сменить готовность и видимость. */
+    patch: operations['owner_update_module'];
+    trace?: never;
+  };
   '/api/ready': {
     parameters: {
       query?: never;
@@ -150,6 +253,35 @@ export interface components {
       error: string;
       /** @description Текст для человека. */
       message: string;
+    };
+    /** @description Модуль в каталоге пользователя. */
+    CatalogItem: {
+      /** @description Права пользователя; все `false`, если модуль недоступен. */
+      flags: components['schemas']['ModuleFlags'];
+      id: string;
+      /**
+       * @description `available` — можно пользоваться; `locked` — замок, доступ выдаёт owner;
+       *     `preparing` — «Готовится»; `unavailable` — «Временно недоступен».
+       * @example locked
+       */
+      status: string;
+      title: string;
+    };
+    /** @description Какие права выдать. Все `false` — то же, что отзыв. */
+    GrantChange: components['schemas']['ModuleFlags'] & {
+      /** @description Зачем (попадёт в журнал). */
+      reason?: string | null;
+    };
+    /** @description Грант пользователя в модуле. */
+    GrantItem: {
+      flags: components['schemas']['ModuleFlags'];
+      /** Format: date-time */
+      granted_at: string;
+      /** Format: uuid */
+      granted_by?: string | null;
+      module_id: string;
+      /** Format: int64 */
+      version: number;
     };
     Health: {
       /** @description Всегда `ok`, если процесс отвечает. */
@@ -186,6 +318,41 @@ export interface components {
        * @description ID текущей сессии.
        */
       session_id: string;
+    };
+    /** @description Что поменять в модуле. Пустые поля не меняются. */
+    ModuleChange: {
+      /**
+       * Format: int64
+       * @description Версия, которую видел owner; если модуль уже изменили — 400.
+       */
+      expected_version?: number | null;
+      installed?: boolean | null;
+      readiness?: string | null;
+      state?: string | null;
+      visibility?: string | null;
+    };
+    /** @description Права в модуле. */
+    ModuleFlags: {
+      ai: boolean;
+      manage: boolean;
+      read: boolean;
+      write: boolean;
+    };
+    /** @description Модуль глазами owner. */
+    ModuleItem: {
+      id: string;
+      installed: boolean;
+      /** @description `planned`, `beta` или `stable`. */
+      readiness: string;
+      /** @description `enabled`, `disabled` или `maintenance`. */
+      state: string;
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: int64 */
+      version: number;
+      /** @description `locked` или `hidden` — как модуль виден без доступа. */
+      visibility: string;
     };
     Readiness: {
       /** @description `ok` или `unavailable`. */
@@ -478,6 +645,259 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Health'];
+        };
+      };
+    };
+  };
+  my_catalog: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Модули с состоянием для этого пользователя */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItem'][];
+        };
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  my_module: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID модуля, например `docs` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Состояние модуля и права пользователя */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CatalogItem'];
+        };
+      };
+      /** @description Не выполнен вход */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого модуля или он скрыт */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_grants: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID аккаунта */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Живые гранты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GrantItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_set_grant: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID аккаунта */
+        account_id: string;
+        /** @description ID модуля */
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GrantChange'];
+      };
+    };
+    responses: {
+      /** @description Грант выдан */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GrantItem'];
+        };
+      };
+      /** @description Все права сняты — грант отозван */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нет аккаунта, модуля или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_revoke_grant: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID аккаунта */
+        account_id: string;
+        /** @description ID модуля */
+        module_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Грант отозван */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Гранта не было или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_modules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Весь каталог */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ModuleItem'][];
+        };
+      };
+      /** @description Не owner (раздел для остальных не существует) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_update_module: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID модуля */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ModuleChange'];
+      };
+    };
+    responses: {
+      /** @description Модуль изменён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ModuleItem'];
+        };
+      };
+      /** @description Неверное значение или модуль уже изменён */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет модуля или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };

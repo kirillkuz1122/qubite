@@ -26,5 +26,6 @@ debug = false
 # Argon2 без оптимизаций считает пароль секундами — тесты входа стали бы очень медленными.
 [profile.dev.package.argon2]
 opt-level = 3
+# Внутренний хеш Argon2. Внимание: `cargo remove` стирает эту строку (blake2 не прямая зависимость).
 [profile.dev.package.blake2]
 opt-level = 3

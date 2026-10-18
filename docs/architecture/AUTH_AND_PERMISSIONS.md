@@ -27,6 +27,10 @@ flowchart TB
 
 ## 2. Решение доступа
 
+> **Реализовано (ACC-001, 18.10.2026):** crate [`qubite-policy`](../../crates/qubite-policy/). `decide::<Read | Write | Manage | UseAi>(subject, module)` возвращает `Authorized<A>` — без него код модуля не вызвать (проверяет компилятор). Owner Console — `decide_owner` (только owner лично). Шаги 1–3 и 6 работают; шаг 4 (ACL объектов) появится в модулях, шаг 5 (бюджет) — в AI-001. Правила — [D-175](../product/DECISIONS.md).
+>
+> Как писать маршрут модуля: первым делом `let ok = modules::authorize::<Write>(&state, &session, "docs").await?;`. Фоновая задача сохраняет `ok.authority()` в payload, обработчик вызывает `authority.recheck::<Write>()`; долгое соединение — `ok.recheck()` перед каждым сообщением.
+
 Каждый запрос — HTTP, WebSocket-сообщение, фоновая задача, вызов агента, плагина или MCP — проходит одну функцию:
 
 ```text
@@ -84,6 +88,8 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 Внутренние роли модуля хранятся в таблице этого модуля (`mod_tournaments_roles`) и проверяются **после** гранта на модуль. Грант `manage` на модуль турниров даёт доступ к его разделу «Управление», но не к Owner Console. Старые глобальные `organizer/moderator/admin` из legacy в новую модель не переносятся ([D-050](../product/DECISIONS.md): аккаунты создаются заново).
 
 ## 6. Обязательные негативные тесты
+
+> №1, 2, 5–10 — [`crates/qubite-server/tests/policy.rs`](../../crates/qubite-server/tests/policy.rs) (ACC-001); №3, 4 — тесты AI-шлюза (AI-001).
 
 Из [политики](../context/QUBITE_ACCESS_AND_OWNER_CONSOLE.md), каждый — автоматический тест на сервере:
 

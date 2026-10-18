@@ -10,6 +10,7 @@
 //! В базе хранятся только хеши: пароля (Argon2id), токена сессии и CSRF-токена
 //! (SHA-256). Сами токены видит только браузер.
 
+pub mod accounts;
 pub mod login;
 pub mod owner;
 pub mod password;

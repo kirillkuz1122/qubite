@@ -1227,6 +1227,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-policy"
+version = "0.1.0"
+dependencies = [
+ "qubite-objects",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-server"
 version = "0.1.0"
 dependencies = [
@@ -1235,7 +1248,9 @@ dependencies = [
  "clap",
  "qubite-auth",
  "qubite-db",
+ "qubite-jobs",
  "qubite-kernel",
+ "qubite-policy",
  "qubite-testkit",
  "reqwest",
  "rpassword",
