@@ -2,6 +2,8 @@
 
 Задача: **ни один цент не тратится без разрешения**. Платный AI не открывается регистрацией, модулем, ссылкой или командой ([D-070](../product/DECISIONS.md)). Все вызовы моделей идут только через AI-шлюз (`qubite-ai`). Модулю запрещено обращаться к провайдеру напрямую: в Rust у него просто нет HTTP-клиента провайдера.
 
+> **Реализовано (AI-001, 18.10.2026):** crate [`qubite-ai`](../../crates/qubite-ai/), миграция [`0006_ai.sql`](../../crates/qubite-db/migrations/0006_ai.sql), тесты — [`crates/qubite-ai/tests/gateway.rs`](../../crates/qubite-ai/tests/gateway.rs) (все пункты §4). Провайдер пока только mock; OpenRouter — AI-002. Правила — [D-176](../product/DECISIONS.md).
+
 ## 1. Путь вызова
 
 ```mermaid

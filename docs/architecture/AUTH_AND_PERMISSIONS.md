@@ -89,7 +89,7 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 
 ## 6. Обязательные негативные тесты
 
-> №1, 2, 5–10 — [`crates/qubite-server/tests/policy.rs`](../../crates/qubite-server/tests/policy.rs) (ACC-001); №3, 4 — тесты AI-шлюза (AI-001).
+> №1, 2, 5–10 — [`crates/qubite-server/tests/policy.rs`](../../crates/qubite-server/tests/policy.rs) (ACC-001); №3, 4 — [`crates/qubite-ai/tests/gateway.rs`](../../crates/qubite-ai/tests/gateway.rs) (AI-001). Все 10 зелёные.
 
 Из [политики](../context/QUBITE_ACCESS_AND_OWNER_CONSOLE.md), каждый — автоматический тест на сервере:
 

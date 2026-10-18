@@ -1151,6 +1151,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-ai"
+version = "0.1.0"
+dependencies = [
+ "qubite-auth",
+ "qubite-db",
+ "qubite-objects",
+ "qubite-policy",
+ "qubite-testkit",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-auth"
 version = "0.1.0"
 dependencies = [
