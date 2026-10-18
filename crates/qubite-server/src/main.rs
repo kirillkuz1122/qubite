@@ -46,7 +46,7 @@ enum LogFormat {
 #[derive(Subcommand)]
 enum Command {
     /// Запустить HTTP API.
-    Serve(ServeArgs),
+    Serve(Box<ServeArgs>),
     /// Применить миграции базы данных и выйти.
     Migrate(DbArgs),
     /// Показать версию.
@@ -147,6 +147,48 @@ struct ServeArgs {
 
     #[command(flatten)]
     ai: qubite_server::ai::AiArgs,
+
+    #[command(flatten)]
+    captcha: CaptchaArgs,
+}
+
+#[derive(Args)]
+struct CaptchaArgs {
+    /// Аварийно выключить CAPTCHA, что бы ни выбрал owner.
+    #[arg(long, env = "QUBITE_CAPTCHA_DISABLED", default_value_t = false, action = clap::ArgAction::Set)]
+    captcha_disabled: bool,
+
+    /// Cloudflare Turnstile: открытый ключ виджета.
+    #[arg(long, env = "QUBITE_TURNSTILE_SITE_KEY")]
+    turnstile_site_key: Option<String>,
+
+    /// Cloudflare Turnstile: секретный ключ.
+    #[arg(long, env = "QUBITE_TURNSTILE_SECRET_KEY", hide_env_values = true)]
+    turnstile_secret_key: Option<String>,
+
+    /// Yandex SmartCaptcha: ключ клиента (для виджета).
+    #[arg(long, env = "QUBITE_SMARTCAPTCHA_SITE_KEY")]
+    smartcaptcha_site_key: Option<String>,
+
+    /// Yandex SmartCaptcha: ключ сервера.
+    #[arg(long, env = "QUBITE_SMARTCAPTCHA_SECRET_KEY", hide_env_values = true)]
+    smartcaptcha_secret_key: Option<String>,
+}
+
+impl CaptchaArgs {
+    fn captcha(&self) -> qubite_captcha::Captcha {
+        qubite_captcha::Captcha::new(qubite_captcha::CaptchaConfig {
+            turnstile: qubite_captcha::Keys::from_parts(
+                self.turnstile_site_key.clone(),
+                self.turnstile_secret_key.clone(),
+            ),
+            smartcaptcha: qubite_captcha::Keys::from_parts(
+                self.smartcaptcha_site_key.clone(),
+                self.smartcaptcha_secret_key.clone(),
+            ),
+            ..qubite_captcha::CaptchaConfig::default()
+        })
+    }
 }
 
 #[derive(Args)]
@@ -225,7 +267,7 @@ async fn main() -> anyhow::Result<()> {
             db.close().await;
             Ok(())
         }
-        Command::Serve(args) => serve(args).await,
+        Command::Serve(args) => serve(*args).await,
         Command::Owner(command) => owner(command).await,
         Command::Ai { db, ai, command } => {
             let db = Database::connect(&db.config()).await?;
@@ -311,6 +353,8 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
             ..qubite_auth::AuthConfig::default()
         },
         mailer: args.mail.mailer(args.env)?,
+        captcha: args.captcha.captcha(),
+        captcha_disabled: args.captcha.captcha_disabled,
         cookie_domain: args.cookie_domain.filter(|domain| !domain.is_empty()),
         cookie_secure: args.cookie_secure,
         trust_proxy: args.trust_proxy,

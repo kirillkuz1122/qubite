@@ -9,6 +9,7 @@ pub mod changes;
 pub mod email;
 pub mod inbox;
 pub mod modules;
+pub mod registration;
 pub mod sync;
 
 use std::{sync::Arc, time::Duration};
@@ -86,6 +87,11 @@ impl AppState {
         email::verify,
         email::forgot_password,
         email::reset_password,
+        registration::info,
+        registration::register,
+        registration::create_invitation,
+        registration::list_invitations,
+        registration::revoke_invitation,
         modules::my_catalog,
         modules::my_module,
         modules::owner_modules,
@@ -120,6 +126,13 @@ impl AppState {
         email::MailRequested,
         email::VerifyEmailRequest,
         email::ResetPasswordRequest,
+        registration::CaptchaWidget,
+        registration::RegistrationInfo,
+        registration::RegisterRequest,
+        registration::Registered,
+        registration::InvitationRequest,
+        registration::InvitationCreated,
+        registration::InvitationItem,
         modules::ModuleFlags,
         modules::CatalogItem,
         modules::ModuleItem,
@@ -172,6 +185,16 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/auth/email/verify", post(email::verify))
         .route("/api/auth/password/forgot", post(email::forgot_password))
         .route("/api/auth/password/reset", post(email::reset_password))
+        .route("/api/auth/registration", get(registration::info))
+        .route("/api/auth/register", post(registration::register))
+        .route(
+            "/api/owner/invitations",
+            get(registration::list_invitations).post(registration::create_invitation),
+        )
+        .route(
+            "/api/owner/invitations/{id}",
+            delete(registration::revoke_invitation),
+        )
         .route("/api/modules", get(modules::my_catalog))
         .route("/api/modules/{id}", get(modules::my_module))
         .route("/api/owner/modules", get(modules::owner_modules))

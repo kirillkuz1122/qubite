@@ -1436,6 +1436,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-captcha"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "form_urlencoded",
+ "http",
+ "http-body-util",
+ "hyper-rustls",
+ "hyper-util",
+ "qubite-kernel",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "qubite-db"
 version = "0.1.0"
 dependencies = [
@@ -1552,6 +1571,7 @@ dependencies = [
  "futures-util",
  "qubite-ai",
  "qubite-auth",
+ "qubite-captcha",
  "qubite-db",
  "qubite-inbox",
  "qubite-jobs",

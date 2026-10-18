@@ -426,6 +426,84 @@
         }
       }
     },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Зарегистрироваться. Войти можно после подтверждения почты (письмо с кодом уходит сразу).",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Письмо с кодом отправлено (ответ тот же, если почта уже занята)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registered"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`registration_closed`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`captcha_unavailable`: проверить CAPTCHA сейчас нельзя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/registration": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Можно ли сейчас зарегистрироваться и что для этого показать.",
+        "operationId": "info",
+        "responses": {
+          "200": {
+            "description": "Режим регистрации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/sessions": {
       "get": {
         "tags": ["auth"],
@@ -750,6 +828,119 @@
           },
           "404": {
             "description": "Гранта не было или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/invitations": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: все приглашения (без кодов).",
+        "operationId": "list_invitations",
+        "responses": {
+          "200": {
+            "description": "Приглашения, свежие сверху",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["owner"],
+        "summary": "Owner Console: создать приглашение.",
+        "operationId": "create_invitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Приглашение создано; код виден только в этом ответе",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверная почта или срок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/invitations/{id}": {
+      "delete": {
+        "tags": ["owner"],
+        "summary": "Owner Console: отозвать приглашение.",
+        "operationId": "revoke_invitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID приглашения",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Отозвано"
+          },
+          "404": {
+            "description": "Нет такого действующего приглашения или не owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -1393,6 +1584,20 @@
           }
         }
       },
+      "CaptchaWidget": {
+        "type": "object",
+        "required": ["provider", "site_key"],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "`turnstile` или `smartcaptcha`."
+          },
+          "site_key": {
+            "type": "string",
+            "description": "Открытый ключ виджета. Пусто — ключей на сервере нет, открытая\nрегистрация без приглашения сейчас не работает."
+          }
+        }
+      },
       "CaptureRequest": {
         "type": "object",
         "description": "Записать мысль.",
@@ -1739,6 +1944,95 @@
           }
         }
       },
+      "InvitationCreated": {
+        "type": "object",
+        "required": ["id", "code", "link", "expires_at", "emailed"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Код приглашения. Показывается **один раз**."
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "Письмо с приглашением отправлено."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link": {
+            "type": "string",
+            "description": "Ссылка с кодом."
+          }
+        }
+      },
+      "InvitationItem": {
+        "type": "object",
+        "required": ["id", "kind", "note", "created_at", "expires_at", "status"],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`email_bound` или `open_link`."
+          },
+          "note": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `used`, `revoked` или `expired`."
+          },
+          "used_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "used_by_email": {
+            "type": ["string", "null"],
+            "description": "Кто зарегистрировался по приглашению."
+          }
+        }
+      },
+      "InvitationRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Срок в днях, 1…30. По умолчанию 7.",
+            "minimum": 0
+          },
+          "email": {
+            "type": ["string", "null"],
+            "description": "Почта — приглашение только для неё (и уйдёт письмом). Нет — общая ссылка."
+          },
+          "note": {
+            "type": "string",
+            "description": "Заметка для себя."
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": ["email", "password"],
@@ -1920,6 +2214,65 @@
           "status": {
             "type": "string",
             "description": "`ready` или `not_ready`."
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "captcha_token": {
+            "type": ["string", "null"],
+            "description": "Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения)."
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "invite": {
+            "type": ["string", "null"],
+            "description": "Код приглашения (`7KQ2-M9XD-4TPR`) или его вариант без дефисов."
+          },
+          "password": {
+            "type": "string",
+            "description": "Не короче 10 символов."
+          }
+        }
+      },
+      "Registered": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Одинаковый текст, создан аккаунт или почта уже занята."
+          }
+        }
+      },
+      "RegistrationInfo": {
+        "type": "object",
+        "required": ["mode", "invite_required"],
+        "properties": {
+          "captcha": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CaptchaWidget",
+                "description": "CAPTCHA для регистрации без приглашения (только в режиме `open`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invite_required": {
+            "type": "boolean",
+            "description": "Нужно ли приглашение."
+          },
+          "mode": {
+            "type": "string",
+            "description": "`closed`, `invite_only` или `open`."
           }
         }
       },

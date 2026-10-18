@@ -1,4 +1,4 @@
-//! Обычные аккаунты. Регистрации пока нет (AUTH-003): аккаунт создаёт owner
+//! Обычные аккаунты. Их создаёт регистрация ([`crate::registration`]), owner
 //! вручную (Owner Console, ACC-003) или тест. Неподтверждённая почта
 //! подтверждается письмом ([`crate::email`]). Новый аккаунт не получает
 //! ни одного модуля (D-054, D-172).
@@ -28,6 +28,10 @@ pub async fn create(
 ) -> Result<Account> {
     let email = normalize_email(new.email)?;
     let display_name = new.display_name.trim();
+    let new = NewAccount {
+        email: &email,
+        ..new
+    };
     if display_name.chars().count() > 100 {
         return Err(Error::Invalid("имя длиннее 100 символов".into()));
     }
@@ -35,26 +39,15 @@ pub async fn create(
     let hash = passwords.hash(new.password).await?;
 
     let mut tx = pool.begin().await?;
-    let account: Account = sqlx::query_as(
-        "INSERT INTO accounts (id, email, email_verified_at, status, display_name) \
-         VALUES ($1, $2, CASE WHEN $3 THEN now() END, CASE WHEN $3 THEN 'active' ELSE 'pending_email' END, $4) \
-         RETURNING id, email, display_name, status, created_at",
+    let account = insert(
+        &mut tx,
+        &NewAccount {
+            display_name,
+            ..new
+        },
+        &hash,
     )
-    .bind(new_id())
-    .bind(&email)
-    .bind(new.email_verified)
-    .bind(display_name)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|error| match &error {
-        sqlx::Error::Database(db) if db.code().as_deref() == Some("23505") => Error::EmailTaken,
-        _ => Error::Db(error),
-    })?;
-    sqlx::query("INSERT INTO credentials_password (account_id, hash) VALUES ($1, $2)")
-        .bind(account.id)
-        .bind(&hash)
-        .execute(&mut *tx)
-        .await?;
+    .await?;
     audit::record(
         &mut tx,
         NewAuditEntry {
@@ -62,11 +55,41 @@ pub async fn create(
             action: "account.created".into(),
             target_kind: "account".into(),
             target_id: Some(account.id.to_string()),
-            after: Some(serde_json::json!({ "email": email, "status": account.status })),
+            after: Some(serde_json::json!({ "email": account.email, "status": account.status })),
             ..NewAuditEntry::default()
         },
     )
     .await?;
     tx.commit().await?;
+    Ok(account)
+}
+
+/// Записать аккаунт и хеш пароля (внутри чужой транзакции). Почта уже
+/// нормализована, пароль уже захеширован; `new.password` не используется.
+pub(crate) async fn insert(
+    conn: &mut sqlx::PgConnection,
+    new: &NewAccount<'_>,
+    hash: &str,
+) -> Result<Account> {
+    let account: Account = sqlx::query_as(
+        "INSERT INTO accounts (id, email, email_verified_at, status, display_name) \
+         VALUES ($1, $2, CASE WHEN $3 THEN now() END, CASE WHEN $3 THEN 'active' ELSE 'pending_email' END, $4) \
+         RETURNING id, email, display_name, status, created_at",
+    )
+    .bind(new_id())
+    .bind(new.email)
+    .bind(new.email_verified)
+    .bind(new.display_name)
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(|error| match &error {
+        sqlx::Error::Database(db) if db.code().as_deref() == Some("23505") => Error::EmailTaken,
+        _ => Error::Db(error),
+    })?;
+    sqlx::query("INSERT INTO credentials_password (account_id, hash) VALUES ($1, $2)")
+        .bind(account.id)
+        .bind(hash)
+        .execute(&mut *conn)
+        .await?;
     Ok(account)
 }

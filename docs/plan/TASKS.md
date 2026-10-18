@@ -25,7 +25,7 @@
 | THEME-001 | Темы оформления на выбор пользователю (ближе к запуску для всех, D-149) | later | DS-007 |
 | AUTH-001 | Аккаунты, owner через CLI, вход по паролю, сессии | done | FND-004 |
 | AUTH-002 | Почта: подтверждение и восстановление пароля | done | AUTH-001 |
-| AUTH-003 | Режимы регистрации, приглашения, CAPTCHA | backlog | AUTH-002 |
+| AUTH-003 | Режимы регистрации, приглашения, CAPTCHA | done | AUTH-002 |
 | AUTH-004 | OAuth: Google, Яндекс, VK, Telegram, привязка | backlog | AUTH-001 |
 | AUTH-005 | Qubite Auth (интерфейс), юридические страницы | backlog | AUTH-003, DS-007 |
 | AUTH-006 | Вход приложений: PKCE и сессии устройств | done | AUTH-001 |
@@ -190,8 +190,9 @@
 ### AUTH-003 — Регистрация и приглашения
 - **Входит:** режимы closed/invite_only/open; приглашения email_bound/open_link, срок, отзыв, ввод ссылкой или кодом; CAPTCHA при open; вход только после подтверждения почты.
 - **Требования:** AUTH-04, AUTH-05, AUTH-13.
-- **Вопросы:** CAPTCHA — Turnstile (как было) или Yandex SmartCaptcha (был план перейти)?
+- **Вопросы:** ~~CAPTCHA — Turnstile (как было) или Yandex SmartCaptcha (был план перейти)?~~ Ответ: обе на выбор + env-выключатель ([D-187](../product/DECISIONS.md)).
 - **Готово когда:** гонка двух регистраций по одной ссылке → один победитель; тесты зелёные.
+- **Сделано (19.10.2026, ночью):** миграция `0012_registration.sql` (`platform_settings`, `invitations`). Crate `qubite-captcha` (Turnstile — JSON, SmartCaptcha — форма; ошибка сервиса ≠ «человек»). `qubite-auth`: `platform` (режим регистрации, выбор CAPTCHA), `invitations` (код 12 знаков, срок, отзыв, письмо), `registration` (режимы, приглашение под блокировкой, «почта занята» — тот же ответ). HTTP: `GET /api/auth/registration`, `POST /api/auth/register`, `GET/POST /api/owner/invitations`, `DELETE /api/owner/invitations/{id}`. Тесты: 10 HTTP (по умолчанию по приглашениям; приглашение → письмо → подтверждение → вход без модулей; **10 параллельных регистраций по одной ссылке → ровно одна**, без `FOR UPDATE` тест падает; приглашение на почту; отзыв и срок; `closed`; CAPTCHA Turnstile и SmartCaptcha на выбор, `off`, приглашение без CAPTCHA; сбой сервиса → 503; `QUBITE_CAPTCHA_DISABLED`; занятая почта; только owner), 4 на поддельных сервисах CAPTCHA, 1 модульный. **Не сделано:** экраны регистрации — AUTH-005; тумблеры через API — ACC-002.
 
 ### AUTH-004 — OAuth
 - **Входит:** Google, Яндекс, VK ID (PKCE), Telegram; вход по ID провайдера; привязка/отвязка из профиля с паролем; выключенный провайдер отклоняет начатый вход; mock-провайдеры в тестах.

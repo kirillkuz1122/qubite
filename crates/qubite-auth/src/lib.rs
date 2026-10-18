@@ -5,6 +5,8 @@
 //! - [`password`] — хеши паролей Argon2id и ограничение одновременных проверок;
 //! - [`login`] — вход по почте и паролю с лимитами перебора;
 //! - [`email`] — письма с кодами: подтверждение почты и восстановление пароля;
+//! - [`platform`] — тумблеры платформы (режим регистрации, CAPTCHA);
+//! - [`invitations`], [`registration`] — приглашения и регистрация (AUTH-003);
 //! - [`sessions`] — сессии браузера: токен в cookie, CSRF-токен, скользящий срок,
 //!   список, отзыв, «выйти везде».
 //!
@@ -14,9 +16,12 @@
 pub mod accounts;
 pub mod devices;
 pub mod email;
+pub mod invitations;
 pub mod login;
 pub mod owner;
 pub mod password;
+pub mod platform;
+pub mod registration;
 pub mod sessions;
 
 use std::time::Duration;
@@ -81,6 +86,13 @@ pub enum Error {
     AccountBlocked,
     #[error("почта не подтверждена")]
     EmailNotVerified,
+    #[error("регистрация закрыта")]
+    RegistrationClosed,
+    #[error("регистрация только по приглашению")]
+    InviteRequired,
+    /// Приглашение не найдено, истекло, использовано, отозвано или на другую почту.
+    #[error("приглашение недействительно")]
+    InvalidInvite,
     /// Код или ссылка из письма неверные, устарели или уже использованы.
     #[error("код неверный или устарел")]
     InvalidCode,

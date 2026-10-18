@@ -50,7 +50,7 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 
 ## 3. Аккаунты и вход
 
-> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. **Почта (AUTH-002, 19.10.2026)** — §3.2. Остальные строки таблицы — следующие задачи AUTH-*.
+> **Реализовано (AUTH-001, 18.10.2026):** owner через CLI, вход по паролю, web-сессии, CSRF, лимиты, аудит — см. §3.1. **Почта (AUTH-002, 19.10.2026)** — §3.2. **Регистрация и приглашения (AUTH-003)** — §3.3. Остальные строки таблицы — следующие задачи AUTH-*.
 
 | Тема | Правило |
 |---|---|
@@ -75,8 +75,8 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 - **CSRF:** любой изменяющий запрос (не GET/HEAD/OPTIONS) с живой сессией должен нести `X-CSRF-Token` = значение `qubite_csrf`, иначе `403 csrf_failed`. Исключение — сам вход (у него ещё нет сессии; чужой сайт не отправит JSON без CORS). Клиент `@qubite/api-client` добавляет заголовок сам.
 - **Проверка:** каждый запрос с cookie сверяется с базой — отозванная, истёкшая сессия или заблокированный аккаунт перестают работать сразу; мёртвую cookie сервер стирает.
 - **Приложения (AUTH-006):** браузер → `POST /api/auth/device/authorize` (из web-сессии, с CSRF) → `qubite://auth/callback?code=…&state=…` → `POST /api/auth/device/token` (`authorization_code` + `code_verifier`, PKCE S256). Access — 15 минут (`Authorization: Bearer`), refresh — одноразовый, сессия устройства — 30 дней с продлением. Повтор кода или refresh — сессия закрывается. Код действует, только пока открыта web-сессия, из которой его выдали ([D-179](../product/DECISIONS.md)). Устройства видны в общем списке сессий и закрываются оттуда ([D-177](../product/DECISIONS.md)).
-- **Аудит:** `platform.owner_created`, `auth.email_verified`, `auth.password_reset`, `auth.device_authorized`, `auth.device_login`, `auth.refresh_reuse`, `auth.login`, `auth.logout`, `auth.session_revoked`, `auth.logout_everywhere`, `auth.password_changed`. Неудачные попытки — только в `login_attempts` (сутки).
-- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `invalid_code`, `unauthenticated`, `csrf_failed`, `not_found`.
+- **Аудит:** `platform.owner_created`, `platform.setting_changed`, `account.registered`, `invitation.created`, `invitation.revoked`, `auth.email_verified`, `auth.password_reset`, `auth.device_authorized`, `auth.device_login`, `auth.refresh_reuse`, `auth.login`, `auth.logout`, `auth.session_revoked`, `auth.logout_everywhere`, `auth.password_changed`. Неудачные попытки — только в `login_attempts` (сутки).
+- **Ошибки:** `{ "error": "<код>", "message": "<текст>" }`: `invalid_credentials`, `too_many_attempts`, `account_blocked`, `email_not_verified`, `invalid_code`, `registration_closed`, `invite_required`, `invalid_invite`, `captcha_failed`, `captcha_unavailable`, `unauthenticated`, `csrf_failed`, `not_found`.
 
 ### 3.2. Почта: подтверждение и восстановление (AUTH-002)
 
@@ -84,6 +84,13 @@ decide(subject, module, action, resource?, cost?) → Allow(ctx) | Deny(reason)
 - **Письмо:** 6-значный код и кнопка-ссылка. В `email_challenges` — SHA-256 кода (вместе с ID записи) и токена ссылки. Подтверждение — сутки, пароль — 30 минут; 5 неверных кодов — код сгорает (проверка под `FOR UPDATE`, параллельные попытки считаются все); новое письмо отменяет прежний код; не чаще раза в минуту и не больше 5 в час на почту.
 - **Маршруты:** `POST /api/auth/email/verify/request {email}` и `POST /api/auth/password/forgot {email}` → всегда `202` с одним текстом; `POST /api/auth/email/verify {email, code} | {token}` → `204`, аккаунт `pending_email` становится `active`; `POST /api/auth/password/reset {email, code, password} | {token, password}` → `200 {revoked}`: пароль сменён, все сессии и устройства закрыты, счётчик перебора по почте обнулён. Неверный, устаревший или использованный код — `400 invalid_code`; слабый пароль код не тратит.
 - **Кому:** подтверждение — только `pending_email`, восстановление — только `active`. Заблокированным и несуществующим — ничего, но ответ тот же.
+
+### 3.3. Регистрация и приглашения (AUTH-003)
+
+- **Режим** — настройка платформы `registration.mode` (таблица `platform_settings`): `closed` — никто (и приглашения не работают), `invite_only` — по умолчанию, только с приглашением, `open` — любой, без приглашения — с CAPTCHA ([D-187](../product/DECISIONS.md)). Сайт узнаёт режим и ключ виджета из `GET /api/auth/registration`.
+- **Регистрация:** `POST /api/auth/register {email, password, display_name?, invite?, captcha_token?}` → `202`. Аккаунт `pending_email`, письмо с кодом уходит сразу (§3.2); войти — после подтверждения. Модулей нет (D-054). Почта уже занята — тот же `202`, приглашение не тратится, владельцу почты — обычное письмо.
+- **Приглашения:** код 12 знаков алфавита Крокфорда (`XXXX-XXXX-XXXX`, регистр, дефисы, O/0 и I/L/1 не важны), ссылка `QUBITE_AUTH_URL/register?invite=…`; в `invitations` — SHA-256. `email_bound` подходит только для своей почты и сразу уходит письмом; `open_link` — любому. Срок 1…30 дней (7 по умолчанию), одноразовое, отзыв. Строка блокируется на время регистрации — гонка по одной ссылке даёт одного победителя. Owner: `POST/GET /api/owner/invitations`, `DELETE /api/owner/invitations/{id}` (остальным 404).
+- **CAPTCHA** (`qubite-captcha`): `captcha.provider` = `turnstile` (по умолчанию) / `smartcaptcha` / `off`; `QUBITE_CAPTCHA_DISABLED=true` сильнее. Ключи: `QUBITE_TURNSTILE_SITE_KEY` + `QUBITE_TURNSTILE_SECRET_KEY`, `QUBITE_SMARTCAPTCHA_SITE_KEY` + `QUBITE_SMARTCAPTCHA_SECRET_KEY`. Сервис не ответил или нет ключей — `503 captcha_unavailable` (регистрация не проходит без проверки).
 
 ## 4. Что получает новый пользователь
 

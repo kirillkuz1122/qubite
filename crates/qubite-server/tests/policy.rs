@@ -974,6 +974,9 @@ async fn every_route_requires_login_except_public_ones() {
         "/api/auth/email/verify",
         "/api/auth/password/forgot",
         "/api/auth/password/reset",
+        // Регистрация (AUTH-003) — для тех, у кого аккаунта ещё нет.
+        "/api/auth/registration",
+        "/api/auth/register",
     ];
     let mut anonymous = Browser::default();
     let document = anonymous.get(address, "/api/openapi.json").await.body;

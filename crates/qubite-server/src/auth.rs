@@ -46,6 +46,10 @@ pub struct AuthSettings {
     pub trust_proxy: bool,
     /// Почта для писем с кодами (по умолчанию mock — письма никуда не уходят).
     pub mailer: qubite_mail::Mailer,
+    /// Проверка CAPTCHA (ключи Turnstile и SmartCaptcha).
+    pub captcha: qubite_captcha::Captcha,
+    /// Аварийный env-переключатель: CAPTCHA выключена, что бы ни выбрал owner.
+    pub captcha_disabled: bool,
 }
 
 impl Default for AuthSettings {
@@ -57,6 +61,8 @@ impl Default for AuthSettings {
             cookie_secure: true,
             trust_proxy: false,
             mailer: qubite_mail::Mailer::mock().0,
+            captcha: qubite_captcha::Captcha::new(qubite_captcha::CaptchaConfig::default()),
+            captcha_disabled: false,
         }
     }
 }
@@ -175,6 +181,21 @@ impl From<qubite_auth::Error> for ApiError {
                 "Сначала подтвердите почту",
             ),
             E::Invalid(message) => Self::new(StatusCode::BAD_REQUEST, "invalid", message),
+            E::RegistrationClosed => Self::new(
+                StatusCode::FORBIDDEN,
+                "registration_closed",
+                "Регистрация сейчас закрыта",
+            ),
+            E::InviteRequired => Self::new(
+                StatusCode::BAD_REQUEST,
+                "invite_required",
+                "Регистрация только по приглашению",
+            ),
+            E::InvalidInvite => Self::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_invite",
+                "Приглашение не подходит: неверный код, истёк срок, уже использовано или отозвано",
+            ),
             E::InvalidCode => Self::new(
                 StatusCode::BAD_REQUEST,
                 "invalid_code",

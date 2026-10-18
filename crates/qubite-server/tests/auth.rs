@@ -429,7 +429,11 @@ async fn there_is_no_http_route_to_become_owner() {
     // Owner Console управляет модулями и грантами, но назначить owner нельзя:
     // ни один маршрут не трогает `platform_owner`.
     let owner_paths: Vec<&String> = paths.keys().filter(|p| p.contains("owner")).collect();
-    let console = ["/api/owner/modules", "/api/owner/accounts/"];
+    let console = [
+        "/api/owner/modules",
+        "/api/owner/accounts/",
+        "/api/owner/invitations",
+    ];
     assert!(
         owner_paths
             .iter()

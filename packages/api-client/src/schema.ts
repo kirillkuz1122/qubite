@@ -177,6 +177,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/auth/register': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Зарегистрироваться. Войти можно после подтверждения почты (письмо с кодом уходит сразу). */
+    post: operations['register'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/registration': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Можно ли сейчас зарегистрироваться и что для этого показать. */
+    get: operations['info'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/sessions': {
     parameters: {
       query?: never;
@@ -292,6 +326,41 @@ export interface paths {
     post?: never;
     /** Owner Console: отозвать права пользователя в модуле. Действует сразу. */
     delete: operations['owner_revoke_grant'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/invitations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: все приглашения (без кодов). */
+    get: operations['list_invitations'];
+    put?: never;
+    /** Owner Console: создать приглашение. */
+    post: operations['create_invitation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/invitations/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Owner Console: отозвать приглашение. */
+    delete: operations['revoke_invitation'];
     options?: never;
     head?: never;
     patch?: never;
@@ -474,6 +543,15 @@ export interface components {
       /** @description Текст для человека. */
       message: string;
     };
+    CaptchaWidget: {
+      /** @description `turnstile` или `smartcaptcha`. */
+      provider: string;
+      /**
+       * @description Открытый ключ виджета. Пусто — ключей на сервере нет, открытая
+       *     регистрация без приглашения сейчас не работает.
+       */
+      site_key: string;
+    };
     /** @description Записать мысль. */
     CaptureRequest: {
       /**
@@ -631,6 +709,49 @@ export interface components {
       /** @description `pending`, `suggested`, `confirmed`, `skipped`. */
       status: string;
     };
+    InvitationCreated: {
+      /** @description Код приглашения. Показывается **один раз**. */
+      code: string;
+      /** @description Письмо с приглашением отправлено. */
+      emailed: boolean;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description Ссылка с кодом. */
+      link: string;
+    };
+    InvitationItem: {
+      /** Format: date-time */
+      created_at: string;
+      email?: string | null;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description `email_bound` или `open_link`. */
+      kind: string;
+      note: string;
+      /** Format: date-time */
+      revoked_at?: string | null;
+      /** @description `active`, `used`, `revoked` или `expired`. */
+      status: string;
+      /** Format: date-time */
+      used_at?: string | null;
+      /** @description Кто зарегистрировался по приглашению. */
+      used_by_email?: string | null;
+    };
+    InvitationRequest: {
+      /**
+       * Format: int32
+       * @description Срок в днях, 1…30. По умолчанию 7.
+       */
+      days?: number | null;
+      /** @description Почта — приглашение только для неё (и уйдёт письмом). Нет — общая ссылка. */
+      email?: string | null;
+      /** @description Заметка для себя. */
+      note?: string;
+    };
     LoginRequest: {
       /** @description Почта аккаунта; регистр не важен. */
       email: string;
@@ -714,6 +835,27 @@ export interface components {
       schema_version?: number | null;
       /** @description `ready` или `not_ready`. */
       status: string;
+    };
+    RegisterRequest: {
+      /** @description Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения). */
+      captcha_token?: string | null;
+      display_name?: string;
+      email: string;
+      /** @description Код приглашения (`7KQ2-M9XD-4TPR`) или его вариант без дефисов. */
+      invite?: string | null;
+      /** @description Не короче 10 символов. */
+      password: string;
+    };
+    Registered: {
+      /** @description Одинаковый текст, создан аккаунт или почта уже занята. */
+      message: string;
+    };
+    RegistrationInfo: {
+      captcha?: components['schemas']['CaptchaWidget'] | null;
+      /** @description Нужно ли приглашение. */
+      invite_required: boolean;
+      /** @description `closed`, `invite_only` или `open`. */
+      mode: string;
     };
     ResetPasswordRequest: {
       code?: string | null;
@@ -1147,6 +1289,77 @@ export interface operations {
       };
     };
   };
+  register: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RegisterRequest'];
+      };
+    };
+    responses: {
+      /** @description Письмо с кодом отправлено (ответ тот же, если почта уже занята) */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Registered'];
+        };
+      };
+      /** @description `invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `registration_closed` */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `captcha_unavailable`: проверить CAPTCHA сейчас нельзя */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  info: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Режим регистрации */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RegistrationInfo'];
+        };
+      };
+    };
+  };
   list_sessions: {
     parameters: {
       query?: never;
@@ -1413,6 +1626,107 @@ export interface operations {
         content?: never;
       };
       /** @description Гранта не было или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_invitations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Приглашения, свежие сверху */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvitationItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_invitation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InvitationRequest'];
+      };
+    };
+    responses: {
+      /** @description Приглашение создано; код виден только в этом ответе */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InvitationCreated'];
+        };
+      };
+      /** @description Неверная почта или срок */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  revoke_invitation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID приглашения */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Отозвано */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нет такого действующего приглашения или не owner */
       404: {
         headers: {
           [name: string]: unknown;
