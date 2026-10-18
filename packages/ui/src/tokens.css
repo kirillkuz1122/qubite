@@ -1,0 +1,109 @@
+/* Токены «Частиц»: шрифты и две темы. Значения совпадают с tokens.ts (проверяется тестом).
+   Тема — атрибут data-theme на <html>, форма точки — --q-round (0 — квадрат, 1 — круг). */
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-Regular-cyrillic.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-Regular-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2190-2199,
+    U+20AC, U+2122, U+2212, U+2264-2265, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-Medium-cyrillic.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-Medium-latin.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2190-2199,
+    U+20AC, U+2122, U+2212, U+2264-2265, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-SemiBold-cyrillic.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Qubite Fira';
+  src: url('../fonts/FiraCode-SemiBold-latin.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2190-2199,
+    U+20AC, U+2122, U+2212, U+2264-2265, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Qubite Tiny5';
+  src: url('../fonts/Tiny5-cyrillic.woff2') format('woff2');
+  font-display: block;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Qubite Tiny5';
+  src: url('../fonts/Tiny5-latin.woff2') format('woff2');
+  font-display: block;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2190-2199,
+    U+20AC, U+2122, U+2212, U+2264-2265, U+FEFF, U+FFFD;
+}
+:root {
+  --q-round: 0.5;
+  --q-text: 'Qubite Fira', ui-monospace, monospace;
+  --q-pixel: 'Qubite Tiny5', monospace;
+  --q-bg: #100f0d;
+  --q-bg-2: #0a0908;
+  --q-panel: #1b1916;
+  --q-panel-2: #24211d;
+  --q-ink: #f3ede3;
+  --q-mute: #a59c90;
+  --q-dim: #8a8176;
+  --q-line: rgba(243, 237, 227, 0.12);
+  --q-line-2: rgba(243, 237, 227, 0.26);
+  --q-faint: rgba(243, 237, 227, 0.16);
+  --q-orange: #ff9852;
+  --q-sky: #71cfff;
+  --q-yellow: #ffe163;
+  --q-green: #90dea5;
+  --q-peach: #ffb98a;
+  --q-on-accent: #100f0d;
+  --q-veil: rgba(0, 0, 0, 0.5);
+  --q-shadow: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  --q-bg: #f3eee5;
+  --q-bg-2: #e9e2d6;
+  --q-panel: #fffcf6;
+  --q-panel-2: #ebe4d8;
+  --q-ink: #1f1a17;
+  --q-mute: #5d5650;
+  --q-dim: #6e665e;
+  --q-line: rgba(31, 26, 23, 0.12);
+  --q-line-2: rgba(31, 26, 23, 0.26);
+  --q-faint: rgba(31, 26, 23, 0.16);
+  --q-orange: #f7883e;
+  --q-sky: #3ea9e8;
+  --q-yellow: #edb500;
+  --q-green: #3fae69;
+  --q-peach: #f39a6b;
+  --q-on-accent: #1f1a17;
+  --q-veil: rgba(243, 238, 229, 0.6);
+  --q-shadow: rgba(60, 45, 30, 0.18);
+  color-scheme: light;
+}

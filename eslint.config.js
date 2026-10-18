@@ -16,6 +16,8 @@ export default tseslint.config(
       '**/test-results/**',
       '**/playwright-report/**',
       'packages/api-client/src/schema.ts',
+      // живые прототипы дизайна (обычный JS в браузере, не код продукта)
+      'docs/**',
     ],
   },
   js.configs.recommended,
@@ -27,6 +29,18 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+  {
+    files: ['packages/ui/**/*.{ts,tsx}', 'packages/motion/**/*.ts'],
+    languageOptions: { globals: globals.browser },
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      // Анимация идёт мимо React: пружины — изменяемые объекты, их кадры пишут стили прямо из общего цикла.
+      // Поэтому пружины создаются один раз и меняются в обработчиках и эффектах — это намеренно.
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
     },
   },
   {

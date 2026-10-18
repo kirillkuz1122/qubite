@@ -1,18 +1,15 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { api } from './api';
+import { DesignPage } from './design/DesignPage';
 import { ServerStatus } from './ServerStatus';
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <main className="shell">
-      <Outlet />
-    </main>
-  ),
+  component: () => <Outlet />,
   notFoundComponent: () => (
-    <section>
+    <main className="shell">
       <h1>Такой страницы нет</h1>
       <a href="/">На главную</a>
-    </section>
+    </main>
   ),
 });
 
@@ -20,15 +17,24 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: () => (
-    <section>
+    <main className="shell">
       <h1>Qubite</h1>
-      <p>Фундамент нового Qubite. Интерфейс появится в задачах дизайна.</p>
+      <p>
+        Фундамент нового Qubite. Дизайн-система — на странице <a href="/design">/design</a>.
+      </p>
       <ServerStatus client={api} />
-    </section>
+    </main>
   ),
 });
 
-export const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute]) });
+/** Витрина дизайн-системы «Частицы» (DS-001). */
+const designRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/design',
+  component: DesignPage,
+});
+
+export const router = createRouter({ routeTree: rootRoute.addChildren([homeRoute, designRoute]) });
 
 declare module '@tanstack/react-router' {
   interface Register {

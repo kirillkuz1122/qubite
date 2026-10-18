@@ -1,19 +1,15 @@
-/* Временные нейтральные стили фундамента. Дизайн-система «Поток» придёт в DS-001. */
-:root {
-  font-family: system-ui, sans-serif;
-  color-scheme: light dark;
-}
-body {
-  margin: 0;
-}
+/* Стили страниц приложения. Токены, шрифты и компоненты — из @qubite/ui (подключены в main.tsx). */
 .shell {
   max-width: 40rem;
   margin: 0 auto;
   padding: 2rem 1rem;
 }
+.shell a {
+  color: var(--q-orange);
+}
 [data-state='up'] {
-  color: green;
+  color: var(--q-green);
 }
 [data-state='down'] {
-  color: crimson;
+  color: var(--q-orange);
 }
