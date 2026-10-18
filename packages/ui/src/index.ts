@@ -17,13 +17,28 @@ export {
   DEFAULT_LOOK,
   LOOK_STORE,
   type Look,
+  type MotionChoice,
   type ThemeChoice,
 } from './look';
+export {
+  FEELS,
+  FEEL_NAMES,
+  FEEL_LABEL,
+  FEEL_PART_LABEL,
+  DEFAULT_FEEL,
+  feelOf,
+  type FeelChoice,
+  type FeelName,
+  type FeelPart,
+} from './feel';
 export { useSpring } from './useSpring';
 export { useFlow, type FlowHandle, type FlowOptions } from './Flow';
 export { useSlide, type SlideHandle } from './Slide';
 export { usePress } from './press';
 export { useFlip } from './flip';
+export { Presence, type PresenceProps } from './Presence';
+export { useLeaving, type Leaving } from './leaving';
+export { EdgeScroll, type EdgeScrollProps } from './EdgeScroll';
 export { flyDot } from './fly';
 export { useMedia, WIDE, typewriter } from './media';
 export { DotGrid, gridImage } from './DotGrid';

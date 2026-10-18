@@ -1,4 +1,4 @@
-import { Spring, type SpringListener } from './spring';
+import { Spring, type Feel, type SpringListener } from './spring';
 
 /** Самый длинный кадр, который мы честно считаем: после паузы вкладки не «телепортируемся». */
 const MAX_DT = 0.05;
@@ -17,13 +17,16 @@ export interface LoopHost {
 export function browserHost(): LoopHost {
   const media =
     typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let reduced = !!media?.matches;
+  media?.addEventListener?.('change', () => (reduced = media.matches));
   return {
     requestFrame: (cb) =>
       typeof requestAnimationFrame === 'function'
         ? requestAnimationFrame(cb)
         : (setTimeout(() => cb(performance.now()), 16) as unknown as number),
     hidden: () => typeof document !== 'undefined' && document.hidden,
-    reducedMotion: () => !!media?.matches,
+    // ответ системы кэшируем: этот вопрос задают на каждую точку в каждом кадре
+    reducedMotion: () => reduced,
   };
 }
 
@@ -37,6 +40,15 @@ export class Loop {
   private dirty = new Set<() => void>();
   private raf = 0;
   private last = 0;
+  /**
+   * Живость: множитель времени физики. 1 — как задумано, меньше — спокойнее и дольше, больше — быстрее.
+   * Пружины остаются теми же, меняется только скорость их времени.
+   */
+  tempo = 1;
+  /** «Меньше движения» из настроек приложения: null — как в системе, true/false — вручную. */
+  reduce: boolean | null = null;
+  /** Облегчённый режим: холсты с точками экономят кадры (меньше эффектов, движение остаётся). */
+  lite = false;
 
   constructor(private host: LoopHost) {
     if (typeof document !== 'undefined') {
@@ -48,7 +60,7 @@ export class Loop {
   }
 
   get reduced(): boolean {
-    return this.host.reducedMotion();
+    return this.reduce ?? this.host.reducedMotion();
   }
 
   /** Новая пружина. onChange вызывается после каждого шага — пиши в нём только transform и opacity. */
@@ -56,8 +68,9 @@ export class Loop {
     return new Spring(x, mass, onChange);
   }
 
-  /** Отправить пружину к цели. При «меньше движения» — сразу в цель. */
-  to(s: Spring, goal: number): Spring {
+  /** Отправить пружину к цели (и, если дан, надеть характер). При «меньше движения» — сразу в цель. */
+  to(s: Spring, goal: number, feel?: Feel): Spring {
+    if (feel) s.feel(feel);
     s.goal = goal;
     if (this.reduced) {
       s.x = goal;
@@ -76,6 +89,18 @@ export class Loop {
     s.v += v;
     this.springs.add(s);
     this.wake();
+    return s;
+  }
+
+  /**
+   * Вести пружину пальцем: положение задаёт жест, скорость запоминаем для броска.
+   * Пружина выходит из цикла, пока палец её держит; отпустить — обычным to(…).
+   */
+  hold(s: Spring, x: number, v = s.v): Spring {
+    s.x = s.goal = x;
+    s.v = v;
+    this.springs.delete(s);
+    s.emit();
     return s;
   }
 
@@ -116,6 +141,7 @@ export class Loop {
     this.last = t;
     if (dt > MAX_DT) dt = MAX_DT;
     this.tickers.forEach((fn) => fn(t, dt));
+    dt *= this.tempo;
     const steps = Math.max(1, Math.ceil(dt / SUBSTEP));
     const h = dt / steps;
     this.springs.forEach((s) => {

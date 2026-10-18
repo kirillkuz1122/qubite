@@ -2,12 +2,18 @@
  * Витрина дизайн-системы «Частицы» (DS-001): токены обеих тем, точка, текст, одна физика,
  * компоненты из @qubite/ui и помощники. Всё живое: трогай, печатай, переключай тему.
  */
-import { loop, MASS } from '@qubite/motion';
+import { drag, loop, MASS, project, rubber } from '@qubite/motion';
 import {
   Button,
+  FEEL_LABEL,
+  FEEL_NAMES,
+  FEEL_PART_LABEL,
+  feelOf,
+  Range,
   COLOR_USAGE,
   Command,
   Companion,
+  EdgeScroll,
   DotIcon,
   DotText,
   ICON_NAMES,
@@ -15,9 +21,13 @@ import {
   Segmented,
   Switch,
   useLook,
+  useSpring,
   type CompanionHandle,
   type CompanionKind,
   type ColorName,
+  type FeelName,
+  type FeelPart,
+  type MotionChoice,
   type ThemeChoice,
 } from '@qubite/ui';
 import { useEffect, useRef, useState } from 'react';
@@ -36,6 +46,7 @@ export function DesignPage() {
   const phone = typeof innerWidth === 'number' && innerWidth < 700;
   return (
     <div className="ds">
+      <EdgeScroll />
       <header className="ds-head">
         <h1 className="q-sr">Дизайн-система Qubite</h1>
         <DotText text="QUBITE" pitch={phone ? 7 : 11} label="Qubite" />
@@ -130,7 +141,16 @@ export function DesignPage() {
         note="Одна пружина на всё: жёсткость 220, вязкость 20. Меняется только масса."
       >
         <Masses />
+        <Throw />
         <Morph />
+      </Section>
+
+      <Section
+        title="ХАРАКТЕРЫ"
+        note="У каждого живого элемента три характера: тяжесть и упругость. Потрогай и выбери — выбор сразу работает во всём приложении."
+      >
+        <Characters />
+        <FeelControls />
       </Section>
 
       <Section title="КОМПОНЕНТЫ" note="Из пакета @qubite/ui. Под пальцем всё пружинит.">
@@ -158,6 +178,7 @@ function Section({
 }) {
   return (
     <section className="ds-sec">
+      <h2 className="q-sr">{title}</h2>
       <DotText text={title} pitch={3.4} repel={20} />
       <p className="ds-note">{note}</p>
       {children}
@@ -213,6 +234,167 @@ function Masses() {
       >
         Толкнуть
       </Button>
+    </div>
+  );
+}
+
+/** Бросок: точку можно протащить и бросить к одной из трёх остановок; у краёв — резинка, Escape — назад. */
+const STOPS = [0, 0.5, 1];
+function Throw() {
+  const track = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLSpanElement>(null);
+  const [at, setAt] = useState(0);
+  const s = useSpring(0, MASS.pill, (x) => {
+    const w = track.current ? track.current.offsetWidth - 28 : 0;
+    if (knob.current) knob.current.style.transform = `translateX(${(x * w).toFixed(2)}px)`;
+  });
+  useEffect(() => {
+    const el = knob.current;
+    const tr = track.current;
+    if (!el || !tr) return;
+    const L = loop();
+    let from = 0;
+    const width = () => Math.max(1, tr.offsetWidth - 28);
+    const h = drag(el, {
+      axis: 'x',
+      onStart: () => (from = s.x),
+      onMove: ({ dx }) => L.hold(s, rubber(from + dx / width(), 0, 1, 0.12)),
+      onEnd: ({ vx }) => {
+        const goal = project(s.x, vx / width(), 0.985);
+        const i = STOPS.reduce(
+          (best, p, j) => (Math.abs(p - goal) < Math.abs(STOPS[best]! - goal) ? j : best),
+          0,
+        );
+        L.hold(s, s.x, vx / width());
+        L.to(s, STOPS[i]!, feelOf('flow'));
+        setAt(i);
+      },
+      onCancel: () => L.to(s, from, feelOf('flow')),
+    });
+    return () => h.destroy();
+  }, [s]);
+  return (
+    <div className="ds-throw">
+      <span>
+        Бросок <small>тащи точку и бросай · у краёв резинка · Escape — назад</small>
+      </span>
+      <div className="ds-throw-track" ref={track}>
+        {STOPS.map((p) => (
+          <i key={p} style={{ left: `calc(${p * 100}% - ${p * 28}px + 11px)` }} />
+        ))}
+        <span
+          className="ds-throw-knob"
+          ref={knob}
+          role="img"
+          aria-label={`Точка на остановке ${at + 1} из 3`}
+        />
+      </div>
+    </div>
+  );
+}
+
+const PARTS: { part: FeelPart; hint: string }[] = [
+  { part: 'button', hint: 'нажми, потяни, уведи палец — отмена' },
+  { part: 'flow', hint: 'нажми дальний пункт, другой ряд или тащи подложку' },
+  { part: 'switch', hint: 'нажми или тяни ручку пальцем' },
+  { part: 'range', hint: 'тяни точку, уведи за край' },
+];
+const MODULES = ['Сегодня', 'Входящие', 'Planner', 'Docs', 'Учёба', 'Дневник', 'Деньги'];
+
+function Characters() {
+  const { look, set } = useLook();
+  return (
+    <div className="ds-chars">
+      {PARTS.map(({ part, hint }) => (
+        <div className="ds-char" key={part}>
+          <p className="ds-char-head">
+            <b>{FEEL_PART_LABEL[part]}</b>
+            <small>{hint}</small>
+          </p>
+          <div className="ds-char-demo">
+            <PartDemo part={part} />
+          </div>
+          <Segmented<FeelName>
+            label={`Характер: ${FEEL_PART_LABEL[part]}`}
+            value={look.feel[part]}
+            onChange={(v) => set('feel', { ...look.feel, [part]: v })}
+            options={FEEL_NAMES.map((n) => ({ value: n, label: FEEL_LABEL[n] }))}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PartDemo({ part }: { part: FeelPart }) {
+  const [seg, setSeg] = useState('Сегодня');
+  const [row, setRow] = useState('Сегодня');
+  const [on, setOn] = useState(false);
+  const [v, setV] = useState(40);
+  if (part === 'button')
+    return (
+      <div className="ds-row">
+        <Button variant="fill">Нажми и потяни</Button>
+        <Button size="sm">Ещё</Button>
+      </div>
+    );
+  if (part === 'flow')
+    return (
+      <>
+        <Segmented
+          label="Раздел"
+          value={seg}
+          onChange={setSeg}
+          options={MODULES.slice(0, 4).map((m) => ({ value: m, label: m }))}
+        />
+        <Segmented
+          label="Модуль"
+          wrap
+          value={row}
+          onChange={setRow}
+          options={MODULES.map((m) => ({ value: m, label: m }))}
+        />
+      </>
+    );
+  if (part === 'switch')
+    return (
+      <label className="ds-switch">
+        <Switch checked={on} onChange={setOn} label="Пример переключателя" />
+        {on ? 'Включено' : 'Выключено'}
+      </label>
+    );
+  return <Range label="Пример ползунка" value={v} min={0} max={100} onChange={setV} />;
+}
+
+/** Ощущения целиком: живость, облегчённый режим, «меньше движения» — те же, что в Настройках. */
+function FeelControls() {
+  const { look, set } = useLook();
+  return (
+    <div className="ds-feel">
+      <Range
+        label="Живость"
+        value={look.tempo}
+        min={50}
+        max={150}
+        onChange={(v) => set('tempo', v)}
+      />
+      <label className="ds-switch">
+        <Switch label="Облегчённый режим" checked={look.lite} onChange={(v) => set('lite', v)} />
+        Облегчённый режим
+      </label>
+      <div className="ds-feel-row">
+        <span>Меньше движения</span>
+        <Segmented<MotionChoice>
+          label="Меньше движения"
+          value={look.motion}
+          onChange={(v) => set('motion', v)}
+          options={[
+            { value: 'auto', label: 'Как в системе' },
+            { value: 'less', label: 'Да' },
+            { value: 'full', label: 'Нет' },
+          ]}
+        />
+      </div>
     </div>
   );
 }

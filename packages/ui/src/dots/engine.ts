@@ -205,6 +205,11 @@ export class DotEngine {
   private dirtyColors = true;
   private dead = false;
   private absorbs: { dots: Dot[]; done?: () => void; fired: boolean }[] = [];
+  /** облегчённый режим: считаем и рисуем через кадр, время копим */
+  private skip = false;
+  private owed = 0;
+  /** когда последний раз уточняли место холста на экране, мс */
+  private boxT = 0;
   private stopTick: () => void;
   private onResize = () => this.resize();
   private onScroll = () => {
@@ -518,13 +523,29 @@ export class DotEngine {
 
   frame(t: number, dt: number): void {
     if (!this.on || !this.ctx) return;
+    const L = loop();
+    if (L.lite && !L.reduced && dt > 0) {
+      this.skip = !this.skip;
+      if (this.skip) {
+        this.owed += dt;
+        return;
+      }
+      dt += this.owed;
+      this.owed = 0;
+    }
+    // страница могла сдвинуться без прокрутки (исчезла карточка выше) — пока палец рядом,
+    // уточняем место холста, иначе точки убегали бы от пальца «не там»
+    const ms = performance.now();
+    if (ms - pointer.t < 900 && ms - this.boxT > 120) {
+      this.boxT = ms;
+      this.onScroll();
+    }
     const ctx = this.ctx;
     const tg = target();
     const tx = tg.x - this.box.x;
     const ty = tg.y - this.box.y;
-    const L = loop();
     for (const b of this.bodies) {
-      b.breath = L.reduced ? 0 : Math.sin(t * 1.7 + b.phase) * 0.014;
+      b.breath = L.reduced || L.lite ? 0 : Math.sin(t * 1.7 + b.phase) * 0.014;
       if (t > b.nextBlink) {
         b.blink = t + 0.12;
         b.nextBlink = t + 2.2 + Math.random() * 4;
@@ -557,9 +578,9 @@ export class DotEngine {
     const px = pointer.x - this.box.x;
     const py = pointer.y - this.box.y;
     const R = this.repel;
-    const pAct = R > 0 && performance.now() - pointer.t < 900;
+    const pAct = R > 0 && !L.lite && performance.now() - pointer.t < 900;
     const steps = 2;
-    const h = Math.min(dt, 0.033) / steps;
+    const h = (Math.min(dt, 0.04) * L.tempo) / steps;
     for (const d of this.dots) {
       if (!d.alive || now < d.wake) continue;
       if (d.rt != null) {

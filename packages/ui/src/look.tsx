@@ -11,26 +11,47 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { loop } from '@qubite/motion';
 import { recolorAll } from './dots/engine';
+import { DEFAULT_FEEL, setFeel, type FeelChoice } from './feel';
 import { dotLook } from './dots/look';
 import { PALETTES, type Palette, type ThemeName } from './tokens';
 import { themeWave } from './wave';
 
 export type ThemeChoice = ThemeName | 'auto';
+/** «Меньше движения»: auto — как в системе, less — да, full — нет */
+export type MotionChoice = 'auto' | 'less' | 'full';
 export interface Look {
   theme: ThemeChoice;
   /** скругление точки, 0…100 */
   round: number;
   /** размер точки, 60…125 */
   size: number;
+  /** живость движения, 50…150 % (множитель времени физики) */
+  tempo: number;
+  /** облегчённый режим: меньше эффектов на холстах, фон без сетки */
+  lite: boolean;
+  motion: MotionChoice;
+  /** характер каждого живого элемента */
+  feel: FeelChoice;
 }
-export const DEFAULT_LOOK: Look = { theme: 'dark', round: 50, size: 95 };
+export const DEFAULT_LOOK: Look = {
+  theme: 'dark',
+  round: 50,
+  size: 95,
+  tempo: 100,
+  lite: false,
+  motion: 'auto',
+  feel: DEFAULT_FEEL,
+};
 export const LOOK_STORE = 'qubite.look.v1';
 
 export function loadLook(): Look {
   try {
     const raw = localStorage.getItem(LOOK_STORE);
-    return raw ? { ...DEFAULT_LOOK, ...(JSON.parse(raw) as Partial<Look>) } : { ...DEFAULT_LOOK };
+    if (!raw) return { ...DEFAULT_LOOK };
+    const saved = JSON.parse(raw) as Partial<Look>;
+    return { ...DEFAULT_LOOK, ...saved, feel: { ...DEFAULT_FEEL, ...saved.feel } };
   } catch {
     return { ...DEFAULT_LOOK };
   }
@@ -67,12 +88,33 @@ function applyDom(look: Look, theme: ThemeName): void {
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.style.setProperty('--q-round', String(look.round / 100));
+  if (look.lite) root.dataset.lite = '';
+  else delete root.dataset.lite;
   dotLook.round = look.round / 100;
   dotLook.size = look.size / 100;
+  applyMotion(look);
+}
+
+/** Ощущения — в общий цикл: живость, «меньше движения», облегчённый режим и характеры. */
+function applyMotion(look: Look): void {
+  const L = loop();
+  L.tempo = look.tempo / 100;
+  L.reduce = look.motion === 'auto' ? null : look.motion === 'less';
+  L.lite = look.lite;
+  setFeel(look.feel);
+  if (typeof document !== 'undefined') {
+    const root = document.documentElement;
+    if (L.reduced) root.dataset.motion = 'less';
+    else delete root.dataset.motion;
+  }
 }
 
 export function LookProvider({ children, initial }: { children: ReactNode; initial?: Look }) {
-  const [look, setLook] = useState<Look>(() => initial ?? loadLook());
+  const [look, setLook] = useState<Look>(() => {
+    const l = initial ?? loadLook();
+    applyMotion(l);
+    return l;
+  });
   const [theme, setTheme] = useState<ThemeName>(() => resolveTheme((initial ?? loadLook()).theme));
 
   useEffect(() => {

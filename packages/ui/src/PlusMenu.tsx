@@ -103,7 +103,7 @@ export function PlusMenu({ items, onPick, onOpenChange }: PlusMenuProps) {
         aria-expanded={open}
         onPointerDown={(e) => {
           e.preventDefault();
-          press.onPointerDown();
+          press.onPointerDown(e);
         }}
         onClick={(e) => set(!open, e.currentTarget)}
       >

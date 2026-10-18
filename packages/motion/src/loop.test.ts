@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Loop, type LoopHost } from './loop';
-import { MASS } from './spring';
+import { dampingRatio, MASS, type Feel } from './spring';
 
 /** Цикл с ручным временем: кадры крутим сами, по 1/60 секунды. */
 function manual(reduced = false) {
@@ -81,5 +81,75 @@ describe('одна физика', () => {
     loop.to(b, 1);
     run(1 / 60);
     expect(draws).toBe(1);
+  });
+
+  it('живость: при 50 % движение идёт вдвое дольше, путь тот же', () => {
+    const time = (tempo: number) => {
+      const { loop, run } = manual();
+      loop.tempo = tempo;
+      const s = loop.spring(0, MASS.row);
+      loop.to(s, 100);
+      let t = 0;
+      while (loop.busy && t < 10) {
+        run(1 / 60);
+        t += 1 / 60;
+      }
+      expect(s.x).toBe(100);
+      return t;
+    };
+    expect(time(0.5) / time(1)).toBeGreaterThan(1.8);
+    expect(time(0.5) / time(1)).toBeLessThan(2.2);
+  });
+
+  it('«меньше движения» из настроек сильнее системы', () => {
+    const { loop } = manual(false);
+    expect(loop.reduced).toBe(false);
+    loop.reduce = true;
+    expect(loop.reduced).toBe(true);
+    const sys = manual(true).loop;
+    sys.reduce = false;
+    expect(sys.reduced).toBe(false);
+  });
+
+  it('палец держит пружину: цикл спит, а после отпускания бросок продолжается', () => {
+    const { loop, run, queue } = manual();
+    const s = loop.spring(0, MASS.pill);
+    loop.hold(s, 30, 900);
+    expect(queue.length).toBe(0);
+    expect(s.x).toBe(30);
+    loop.to(s, 40);
+    run(1 / 60);
+    expect(s.x).toBeGreaterThan(30); // скорость броска не пропала
+    run(3);
+    expect(s.x).toBe(40);
+    expect(loop.busy).toBe(false);
+  });
+});
+
+describe('характер: масса и упругость', () => {
+  const peak = (feel: Feel) => {
+    const { loop, run } = manual();
+    let max = 0;
+    const s = loop.spring(0, 1, (x) => (max = Math.max(max, x)));
+    loop.to(s, 1, feel);
+    run(3);
+    expect(s.x).toBe(1);
+    return max;
+  };
+
+  it('без отскока при упругости ≥ 1, с отскоком — меньше', () => {
+    const tight = { mass: 0.45, damping: 22 };
+    const bouncy = { mass: 0.7, damping: 11 };
+    expect(dampingRatio(tight)).toBeGreaterThanOrEqual(1);
+    expect(peak(tight)).toBeLessThanOrEqual(1.0001);
+    expect(peak(bouncy)).toBeGreaterThan(1.15);
+  });
+
+  it('характер надевается в to() и остаётся у пружины', () => {
+    const { loop } = manual();
+    const s = loop.spring(0, 1);
+    loop.to(s, 1, { mass: 0.6, damping: 12 });
+    expect(s.m).toBe(0.6);
+    expect(s.c).toBe(12);
   });
 });

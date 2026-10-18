@@ -62,6 +62,8 @@ body {
   white-space: nowrap;
   cursor: pointer;
   will-change: transform;
+  touch-action: manipulation;
+  user-select: none;
 }
 .q-btn .q-dot {
   width: 7px;
@@ -105,6 +107,15 @@ body {
   border-radius: calc(var(--q-round) * 22px);
   background: var(--q-panel);
   border: 1px solid var(--q-line);
+  /* по горизонтали жест наш (тащим подложку), по вертикали — прокрутка страницы */
+  touch-action: pan-y;
+}
+/* пункты в несколько рядов */
+.q-seg.q-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  touch-action: manipulation;
 }
 .q-seg button {
   position: relative;
@@ -126,6 +137,7 @@ body {
 /* переключатель */
 .q-switch {
   position: relative;
+  touch-action: pan-y;
   width: 52px;
   height: 30px;
   flex: none;
@@ -352,10 +364,56 @@ kbd {
   color: var(--q-orange);
   font-size: 13px;
 }
+/* дорожка: рисуем сами, а настоящий input лежит сверху прозрачным */
+.q-range-track {
+  position: relative;
+  display: block;
+  height: 26px;
+  margin: 0 9px;
+  touch-action: pan-y;
+}
+.q-range-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12px;
+  height: 3px;
+  border-radius: calc(var(--q-round) * 1.5px);
+  background: var(--q-panel-2);
+  overflow: visible;
+}
+.q-range-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--q-orange);
+  transform-origin: left center;
+  will-change: transform;
+}
+.q-range-thumb {
+  position: absolute;
+  left: -9px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: calc(var(--q-round) * 9px);
+  background: var(--q-orange);
+  pointer-events: none;
+  will-change: transform;
+}
 .q-range input {
-  width: 100%;
+  position: absolute;
+  inset: 0 -9px;
+  width: calc(100% + 18px);
+  height: 100%;
   margin: 0;
-  accent-color: var(--q-orange);
+  opacity: 0;
+  cursor: pointer;
+}
+.q-range input:focus-visible ~ .q-range-thumb,
+.q-range-track:has(input:focus-visible) .q-range-thumb {
+  outline: 2px solid var(--q-ink);
+  outline-offset: 2px;
 }
 
 /* разделы на ПК */
@@ -439,6 +497,27 @@ kbd {
 .q-navb {
   width: 52px;
 }
+/* зона нажатия — вся доля капли (--q-slot), иконка остаётся 52 px */
+.q-navb::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--q-slot, 52px);
+  transform: translateX(-50%);
+}
+.q-dock.q-open .q-navb::before {
+  display: none;
+}
+.q-dock {
+  /* по горизонтали — наш жест (подсветку тащат и смахивают) */
+  touch-action: pan-y;
+}
+/* открытая строка: невидимая кнопка Command не должна ловить нажатия поверх микрофона */
+.q-dock.q-open .q-dock-cmd {
+  pointer-events: none;
+}
 .q-navb.q-on {
   color: var(--q-ink);
 }
@@ -493,7 +572,11 @@ kbd {
   flex: none;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--q-mute);
+  cursor: pointer;
 }
 
 /* «+» и меню из него */
@@ -658,4 +741,99 @@ kbd {
   .q-caret {
     animation: none;
   }
+}
+/* «Меньше движения» из настроек приложения */
+html[data-motion='less'] .q-caret {
+  animation: none;
+}
+/* облегчённый режим: фон без сетки точек */
+html[data-lite] .q-grid {
+  display: none;
+}
+
+/* своя прокрутка: точки заголовков у правого края (EdgeScroll) */
+html.q-own-scroll {
+  scrollbar-width: none;
+}
+html.q-own-scroll::-webkit-scrollbar {
+  display: none;
+}
+.q-edge {
+  --open: 0;
+  --h: 0px;
+  position: fixed;
+  z-index: 35;
+  right: 0;
+  top: 14vh;
+  width: 32px;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+.q-edge.q-edge-none {
+  display: none;
+}
+.q-edge-mark,
+.q-edge-thumb {
+  position: absolute;
+  top: 0;
+  right: 9px;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: calc(var(--q-round) * 2px);
+  background: var(--q-line-2);
+  transform-origin: right center;
+  will-change: transform;
+}
+/* закрыто — точка там, где заголовок в документе; раскрыто — линии ровно по всей высоте */
+.q-edge-mark {
+  transform: translateY(
+      calc(var(--h) * (var(--at) * (1 - var(--open)) + var(--even) * var(--open)))
+    )
+    scaleX(calc(1 + var(--open) * 3));
+}
+.q-edge-mark.q-on {
+  background: var(--q-ink);
+}
+.q-edge-thumb {
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: calc(var(--q-round) * 3px);
+  background: var(--q-orange);
+  transform: translateY(calc(var(--h) * var(--f, 0)));
+  opacity: calc(1 - var(--open));
+}
+.q-edge-labels {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 34px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.q-edge-open .q-edge-labels {
+  pointer-events: auto;
+}
+.q-edge-labels button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translateY(calc(var(--h) * var(--even)));
+  translate: 0 -50%;
+  padding: 4px 9px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 12px);
+  background: var(--q-panel);
+  color: var(--q-mute);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.q-edge-labels button.q-on {
+  color: var(--q-ink);
+  border-color: var(--q-orange);
 }

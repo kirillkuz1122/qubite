@@ -249,3 +249,101 @@
   font-weight: 500;
   font-size: 13px;
 }
+
+/* бросок */
+.ds-throw {
+  display: grid;
+  gap: 10px;
+  max-width: 640px;
+  margin-top: 26px;
+  font-size: 13px;
+}
+.ds-throw small {
+  display: block;
+  color: var(--q-dim);
+}
+.ds-throw-track {
+  position: relative;
+  height: 28px;
+  border-radius: calc(var(--q-round) * 14px);
+  background: var(--q-panel);
+  touch-action: pan-y;
+}
+.ds-throw-track i {
+  position: absolute;
+  top: 11px;
+  width: 6px;
+  height: 6px;
+  border-radius: calc(var(--q-round) * 3px);
+  background: var(--q-line-2);
+}
+.ds-throw-knob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: calc(var(--q-round) * 14px);
+  background: var(--q-orange);
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+}
+
+/* характеры */
+.ds-chars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.ds-char {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel);
+  min-width: 0;
+}
+.ds-char-head {
+  margin: 0;
+  font-size: 14px;
+}
+.ds-char-head small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.ds-char-demo {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  min-height: 92px;
+  align-content: center;
+}
+.ds-char-demo .q-range {
+  width: 100%;
+}
+.ds-feel {
+  display: grid;
+  gap: 18px;
+  max-width: 640px;
+  margin-top: 26px;
+  font-size: 14px;
+}
+.ds-feel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+@media (max-width: 420px) {
+  .ds-chars {
+    grid-template-columns: 1fr;
+  }
+  .ds-char {
+    padding: 14px;
+  }
+}

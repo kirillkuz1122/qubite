@@ -12,6 +12,7 @@ import {
   Dock,
   DotGrid,
   DotText,
+  EdgeScroll,
   SideNav,
   WIDE,
   caretPoint,
@@ -265,6 +266,8 @@ export function AppShell() {
   return (
     <ShellCtx.Provider value={api}>
       <DotGrid />
+      {/* своя прокрутка: точки заголовков у края, на телефоне — выше капли */}
+      <EdgeScroll bottom={wide ? 24 : 100} />
       {wide && (
         <aside className="side" aria-label="Боковая панель">
           <div className="side-logo">

@@ -1,4 +1,4 @@
-import { DotIcon, PlusMenu, type PlusItem } from '@qubite/ui';
+import { DotIcon, PlusMenu, usePress, type PlusItem } from '@qubite/ui';
 import type { RefObject } from 'react';
 
 /** Что можно создать из «+»: вставляет команду в начало строки. */
@@ -52,13 +52,30 @@ export function CommandField({
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      {wide ? (
-        <kbd>Ctrl K</kbd>
-      ) : (
-        <span className="q-mic" aria-hidden="true">
-          <DotIcon name="mic" />
-        </span>
-      )}
+      {wide ? <kbd>Ctrl K</kbd> : <MicButton />}
     </>
+  );
+}
+
+/**
+ * Микрофон: голосовой ввод появится позже (вопрос Q-11). Пока кнопка только пружинит —
+ * и, главное, не уводит фокус из строки, поэтому строка Command не сворачивается.
+ */
+function MicButton() {
+  const press = usePress(0.8);
+  return (
+    <button
+      {...press}
+      type="button"
+      className="q-mic"
+      aria-label="Голосом — скоро"
+      title="Голосом — скоро"
+      onPointerDown={(e) => {
+        e.preventDefault(); // фокус остаётся в строке
+        press.onPointerDown(e);
+      }}
+    >
+      <DotIcon name="mic" />
+    </button>
   );
 }

@@ -10,11 +10,19 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://127.0.0.1:4173', trace: 'retain-on-failure' },
   projects: [
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: /frames\.spec/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /frames\.spec/ },
     {
       name: 'firefox-mobile',
       use: { ...devices['Desktop Firefox'], viewport: { width: 360, height: 780 } },
+      testIgnore: /frames\.spec/,
+    },
+    // замер кадров — после всех остальных и в одиночку (DS-002)
+    {
+      name: 'frames',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /frames\.spec/,
+      dependencies: ['firefox', 'chromium', 'firefox-mobile'],
     },
   ],
   webServer: {

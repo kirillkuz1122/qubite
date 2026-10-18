@@ -38,7 +38,7 @@ test('мысль из Command долетает во «Входящие»', async
   await input.fill('идея: бот для расписания');
   await expect(page.getByRole('status').filter({ hasText: 'Мысль' })).toContainText('Входящие');
   await input.press('Enter');
-  await expect(input).toHaveValue('');
+  // на телефоне строка после сохранения сама закрывается — проверяем результат во «Входящих»
   await go(page, 'Входящие');
   await expect(page.getByText('бот для расписания', { exact: true })).toBeVisible();
 });

@@ -9,6 +9,8 @@ export default tseslint.config(
   {
     ignores: [
       'legacy/**',
+      // рабочие копии и настройки агентов
+      '.claude/**',
       'assets/**',
       'target/**',
       '**/dist/**',

@@ -1,5 +1,13 @@
 import { loop } from '@qubite/motion';
-import { Button, Companion, Segmented, useFlip, useSpring, type CompanionHandle } from '@qubite/ui';
+import {
+  Button,
+  Companion,
+  Segmented,
+  useFlip,
+  useLeaving,
+  useSpring,
+  type CompanionHandle,
+} from '@qubite/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { InboxAct, InboxFrom, InboxItem } from '../data';
@@ -13,7 +21,11 @@ export function InboxScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const box = useRef<HTMLDivElement>(null);
   const shown = state.inbox.filter((x) => filter === 'all' || x.from === filter);
-  useFlip(box, shown.map((x) => x.id).join());
+  /* пропавшие из списка (фильтр, разобрали) сначала тают, новые выезжают по очереди, соседи доезжают */
+  const [rows, gone] = useLeaving(shown, (x) => x.id);
+  useFlip(box, rows.map((r) => r.item.id + (r.leaving ? '~' : '')).join());
+  /* когда список впервые показан: строки, что появились позже (сменили фильтр), выезжают */
+  const [born] = useState(() => performance.now());
   const n = (f: InboxFrom) => state.inbox.filter((x) => x.from === f).length;
 
   function act(it: InboxItem, to: InboxAct, dot: DOMRect | undefined) {
@@ -46,8 +58,17 @@ export function InboxScreen() {
         />
       </div>
       <div className="items" ref={box}>
-        {shown.map((it) => (
-          <Item key={it.id} it={it} fresh={it.time === 'сейчас'} onAct={act} />
+        {rows.map(({ item: it, leaving }, i) => (
+          <Item
+            key={it.id}
+            it={it}
+            fresh={it.time === 'сейчас'}
+            born={born}
+            order={i}
+            leaving={leaving}
+            onGone={gone}
+            onAct={act}
+          />
         ))}
       </div>
       {state.inbox.length === 0 && <Empty />}
@@ -61,19 +82,37 @@ const GROWN = new Set<string>();
 function Item({
   it,
   fresh,
+  born,
+  order,
+  leaving,
+  onGone,
   onAct,
 }: {
   it: InboxItem;
   fresh: boolean;
+  /** когда список впервые показан; строка, появившаяся позже, выезжает */
+  born: number;
+  /** место в списке — для очереди выезда */
+  order: number;
+  leaving: boolean;
+  onGone: (id: string) => void;
   onAct: (it: InboxItem, to: InboxAct, dot: DOMRect | undefined) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const dot = useRef<HTMLSpanElement>(null);
   /* новая мысль вырастает один раз — при первом показе */
+  const [enter] = useState(() => performance.now() - born > 300);
   const [grow] = useState(() => {
-    const g = fresh && !GROWN.has(it.id);
+    const g = (fresh && !GROWN.has(it.id)) || enter;
     GROWN.add(it.id);
     return g;
+  });
+  const [delay] = useState(() => (enter ? Math.min(order, 8) * 40 : 0));
+  const goneRef = useRef(onGone);
+  const leavingRef = useRef(leaving);
+  useEffect(() => {
+    goneRef.current = onGone;
+    leavingRef.current = leaving;
   });
   const sp = useSpring(grow ? 0 : 1, 0.7, (v) => {
     const d = el.current;
@@ -81,11 +120,17 @@ function Item({
     d.style.opacity = Math.min(1, Math.max(0, v)).toFixed(3);
     d.style.transform =
       v === 1 ? '' : `scaleY(${Math.min(1.2, Math.max(0, 0.4 + v * 0.6)).toFixed(3)})`;
+    if (leavingRef.current && v < 0.03) goneRef.current(it.id);
   });
   useEffect(() => {
     sp.emit();
-    loop().to(sp, 1);
-  }, [sp]);
+    if (leaving) {
+      loop().to(sp, 0);
+      return;
+    }
+    const t = setTimeout(() => loop().to(sp, 1), delay);
+    return () => clearTimeout(t);
+  }, [sp, leaving, delay]);
   return (
     <div className="item" ref={el} data-flip={it.id}>
       <span className="q-dot" ref={dot} />

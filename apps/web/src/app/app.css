@@ -656,6 +656,10 @@ a {
   font-size: 12px;
   color: var(--q-dim);
 }
+.set .ctl {
+  display: block;
+  margin-top: 10px;
+}
 .preview {
   display: flex;
   gap: 10px;

@@ -1,4 +1,12 @@
-import { COMPANION_COLOR, Range, Segmented, Switch, useLook, type ThemeChoice } from '@qubite/ui';
+import {
+  COMPANION_COLOR,
+  Range,
+  Segmented,
+  Switch,
+  useLook,
+  type MotionChoice,
+  type ThemeChoice,
+} from '@qubite/ui';
 import { Link } from '@tanstack/react-router';
 import { useShell } from '../context';
 import { HELPERS } from '../data';
@@ -51,6 +59,44 @@ export function SettingsScreen() {
             max={125}
             onChange={(v) => set('size', v)}
           />
+        </div>
+      </div>
+
+      <SecHead text="ДВИЖЕНИЕ" label="Движение" />
+      <div className="group panel">
+        <div className="set col">
+          <Range
+            label="Живость"
+            value={look.tempo}
+            min={50}
+            max={150}
+            onChange={(v) => set('tempo', v)}
+          >
+            <small className="hint">спокойнее ← → живее</small>
+          </Range>
+        </div>
+        <div className="set">
+          <span className="lbl">
+            Облегчённый режим<small>меньше эффектов — для слабых телефонов</small>
+          </span>
+          <Switch label="Облегчённый режим" checked={look.lite} onChange={(v) => set('lite', v)} />
+        </div>
+        <div className="set col">
+          <span className="lbl">
+            Меньше движения<small>всё встаёт на место сразу</small>
+          </span>
+          <span className="ctl">
+            <Segmented<MotionChoice>
+              label="Меньше движения"
+              value={look.motion}
+              onChange={(v) => set('motion', v)}
+              options={[
+                { value: 'auto', label: 'Как в системе' },
+                { value: 'less', label: 'Да' },
+                { value: 'full', label: 'Нет' },
+              ]}
+            />
+          </span>
         </div>
       </div>
 

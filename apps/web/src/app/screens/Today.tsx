@@ -1,5 +1,5 @@
-import { Button } from '@qubite/ui';
-import { useEffect, useState } from 'react';
+import { Button, Presence, useFlip } from '@qubite/ui';
+import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { Task } from '../data';
 import { SecHead, TaskList } from '../parts';
@@ -71,50 +71,64 @@ export function TodayScreen() {
   const done = tasks.filter((t) => t.done).length;
   const first = tasks.find((t) => !t.done);
   const [tip, setTip] = useState(true);
+  /* подсказка заняла или освободила место — всё, что ниже, доезжает пружиной, а не прыгает */
+  const [moved, setMoved] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const tipShown = tip && !!first;
+  useFlip(box, moved);
   return (
-    <>
+    <div className="flow" ref={box}>
       <Strip tasks={tasks} />
-      {tip && first && (
-        <div className="tip panel">
-          <span className="q-dot av" style={{ background: 'var(--q-ink)' }} />
-          <div>
-            <b>Прото:</b> сначала «{first.title}» — пока голова свежая.
-            <div className="acts">
-              <Button size="sm" onClick={() => shell.cheer('proto')}>
-                Начать
-              </Button>
-              <button className="later" type="button" onClick={() => setTip(false)}>
-                Позже
-              </button>
+      <Presence
+        className="tip panel"
+        show={tipShown}
+        swap={first?.id}
+        onLayout={() => setMoved((n) => n + 1)}
+      >
+        {first && (
+          <>
+            <span className="q-dot av" style={{ background: 'var(--q-ink)' }} />
+            <div>
+              <b>Прото:</b> сначала «{first.title}» — пока голова свежая.
+              <div className="acts">
+                <Button size="sm" onClick={() => shell.cheer('proto')}>
+                  Начать
+                </Button>
+                <button className="later" type="button" onClick={() => setTip(false)}>
+                  Позже
+                </button>
+              </div>
             </div>
+          </>
+        )}
+      </Presence>
+      <div data-flip="today-rest">
+        <SecHead text="ДЕЛА" label="Дела">
+          <span className="n">
+            {done} из {tasks.length}
+          </span>
+        </SecHead>
+        <TaskList
+          tasks={tasks}
+          onToggle={(t, d) => {
+            dispatch({ type: 'task.toggle', day, id: t.id, done: d });
+            if (d) shell.cheer('proto');
+          }}
+        />
+        <SecHead text="ВХОДЯЩИЕ" label="Входящие">
+          <button className="more" type="button" onClick={() => shell.go('inbox')}>
+            все →
+          </button>
+        </SecHead>
+        {state.inbox.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
+        {state.inbox.slice(0, 3).map((it) => (
+          <div className="spark" key={it.id}>
+            <span className="q-dot" />
+            <span>{it.text}</span>
+            <small>{it.time}</small>
           </div>
-        </div>
-      )}
-      <SecHead text="ДЕЛА" label="Дела">
-        <span className="n">
-          {done} из {tasks.length}
-        </span>
-      </SecHead>
-      <TaskList
-        tasks={tasks}
-        onToggle={(t, d) => {
-          dispatch({ type: 'task.toggle', day, id: t.id, done: d });
-          if (d) shell.cheer('proto');
-        }}
-      />
-      <SecHead text="ВХОДЯЩИЕ" label="Входящие">
-        <button className="more" type="button" onClick={() => shell.go('inbox')}>
-          все →
-        </button>
-      </SecHead>
-      {state.inbox.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
-      {state.inbox.slice(0, 3).map((it) => (
-        <div className="spark" key={it.id}>
-          <span className="q-dot" />
-          <span>{it.text}</span>
-          <small>{it.time}</small>
-        </div>
-      ))}
-    </>
+        ))}
+      </div>
+    </div>
   );
 }
