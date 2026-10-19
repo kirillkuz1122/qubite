@@ -18,6 +18,9 @@ export class Fail extends Error {
   }
 }
 
+/** Событие окна: сервер ответил «техработы» (ACC-004). */
+export const MAINTENANCE_EVENT = 'qubite:maintenance';
+
 const OFFLINE = 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз';
 
 /** Дождаться ответа openapi-fetch: данные — или `Fail` с понятным текстом. */
@@ -33,6 +36,8 @@ export async function must<T>(
   if (r.error !== undefined || !r.response.ok) {
     const body = (r.error ?? {}) as Partial<ApiErrorBody>;
     const status = r.response.status;
+    // включили техработы — пусть экран узнает сразу, а не через полминуты
+    if (body.error === 'maintenance') globalThis.dispatchEvent?.(new Event(MAINTENANCE_EVENT));
     throw new Fail(
       body.error ?? `http_${status}`,
       body.message ??
@@ -69,14 +74,38 @@ export function useMe() {
 
 export const PLATFORM = ['platform'] as const;
 
-/** Состояние платформы для всех: техработы, способы входа, режим регистрации. */
+/**
+ * Состояние платформы для всех: техработы, способы входа, режим регистрации.
+ * Проверяется раз в 30 секунд и при возврате во вкладку (ACC-004).
+ */
 export function usePlatform() {
   return useQuery({
     queryKey: PLATFORM,
     queryFn: () => must(api.GET('/api/platform/status')),
     retry: false,
     staleTime: 15_000,
+    refetchInterval: 30_000,
   });
+}
+
+/**
+ * «Вернёмся к …» по часовому поясу платформы: «10:00», «завтра, 10:00»
+ * или «21 октября, 10:00».
+ */
+export function untilText(iso: string, timeZone: string, now: Date = new Date()): string {
+  const fmt = (o: Intl.DateTimeFormatOptions, d: Date, locale = 'ru-RU') => {
+    try {
+      return new Intl.DateTimeFormat(locale, { ...o, timeZone }).format(d);
+    } catch {
+      return new Intl.DateTimeFormat(locale, o).format(d);
+    }
+  };
+  const at = new Date(iso);
+  const day = (d: Date) => fmt({ year: 'numeric', month: '2-digit', day: '2-digit' }, d, 'en-CA');
+  const time = fmt({ hour: '2-digit', minute: '2-digit' }, at);
+  if (day(at) === day(now)) return time;
+  if (day(at) === day(new Date(now.getTime() + 86_400_000))) return `завтра, ${time}`;
+  return `${fmt({ day: 'numeric', month: 'long' }, at)}, ${time}`;
 }
 
 /** Включённые и настроенные на сервере провайдеры (Яндекс, VK, Google, Telegram). */

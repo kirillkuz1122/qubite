@@ -20,6 +20,30 @@ export interface AuthMock {
   failures: number;
   /** код из письма (подтверждение и сброс) */
   mailCode: string;
+  /** сохранённый текст экрана техработ */
+  maintenanceText: string;
+  /** тумблер почты выключен */
+  emailOff: boolean;
+}
+
+/** Тумблеры глазами owner — как `GET /api/owner/platform`. */
+function ownerItems(m: AuthMock) {
+  const item = (key: string, value: unknown) => ({
+    key,
+    value,
+    default: value,
+    locked_by_env: false,
+    version: 1,
+  });
+  return [
+    item('maintenance.enabled', m.platform.maintenance),
+    item('maintenance.message', m.maintenanceText),
+    item('maintenance.until', m.platform.maintenance_until ?? null),
+    item('platform.timezone', m.platform.timezone),
+    item('login.enabled', m.platform.login_enabled),
+    item('registration.mode', m.platform.registration_mode),
+    ...Object.entries(m.platform.login_methods).map(([k, v]) => item(`login.methods.${k}`, v)),
+  ];
 }
 
 export const OWNER = {
@@ -30,6 +54,26 @@ export const OWNER = {
   session_id: '00000000-0000-4000-8000-0000000000a1',
   session_expires_at: '2026-11-19T10:00:00Z',
 };
+
+/** Обычный пользователь (не owner). */
+export const USER = {
+  ...OWNER,
+  id: '00000000-0000-4000-8000-000000000002',
+  email: 'friend@example.com',
+  display_name: 'Друг',
+  is_owner: false,
+};
+
+/** Адреса, открытые во время техработ (как на сервере). */
+const OPEN_DURING_MAINTENANCE = new Set([
+  '/api/health',
+  '/api/ready',
+  '/api/platform/status',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/device/token',
+  '/api/maintenance/pass',
+]);
 
 const json = (route: Route, status: number, body?: unknown) =>
   route.fulfill({
@@ -99,6 +143,9 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
     calls: [],
     failures: 0,
     mailCode: '123456',
+    maintenanceText:
+      'Qubite ненадолго закрылся на обновление: подкручиваем винтики и добавляем новое. Все ваши заметки и дела на месте — скоро вернёмся!',
+    emailOff: false,
     ...init,
   };
 
@@ -119,6 +166,8 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
     }
     m.calls.push({ method, path, body });
     const at = `${method} ${path}`;
+    if (m.platform.maintenance && !m.me?.is_owner && !OPEN_DURING_MAINTENANCE.has(path))
+      return fail(route, 503, 'maintenance', String(m.platform.maintenance_message ?? ''));
     const needMe = () =>
       m.me ? false : (fail(route, 401, 'unauthenticated', 'Нужно войти'), true);
 
@@ -131,7 +180,29 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
         return json(route, 200, m.providers);
       case 'GET /api/auth/registration':
         return json(route, 200, m.registration);
+      case 'GET /api/owner/platform':
+        return m.me?.is_owner
+          ? json(route, 200, ownerItems(m))
+          : fail(route, 404, 'not_found', 'Не найдено');
+      case 'POST /api/owner/maintenance': {
+        if (!m.me?.is_owner) return fail(route, 404, 'not_found', 'Не найдено');
+        const on = body?.enabled === true;
+        if (typeof body?.message === 'string') m.maintenanceText = body.message;
+        m.platform.maintenance = on;
+        m.platform.maintenance_message = on ? m.maintenanceText : null;
+        m.platform.maintenance_until =
+          on && body?.until === '10:00' ? '2099-01-01T05:00:00Z' : null;
+        return json(route, 200, {
+          enabled: on,
+          effective: on,
+          locked_by_env: false,
+          message: m.maintenanceText,
+          until: m.platform.maintenance_until,
+        });
+      }
       case 'POST /api/auth/login': {
+        if (m.platform.maintenance && body?.email !== OWNER.email)
+          return fail(route, 503, 'maintenance', String(m.platform.maintenance_message));
         if (m.failures >= 3 && !body?.captcha_token)
           return fail(
             route,
@@ -154,6 +225,13 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
         m.me = null;
         return json(route, 200, { revoked: m.sessions.length });
       case 'POST /api/auth/register':
+        if (m.emailOff)
+          return fail(
+            route,
+            503,
+            'email_disabled',
+            'Почта сейчас выключена — регистрация невозможна',
+          );
         if (m.registration.mode === 'closed')
           return fail(route, 403, 'registration_closed', 'Регистрация закрыта');
         if (m.registration.invite_required && body?.invite !== '7KQ2-M9XD-4TPR')

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
+import { MaintenanceControl } from '../platform/MaintenanceControl';
 import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
 import { useHelpers, usePage, useShyPassword } from './page';
 
@@ -111,6 +112,13 @@ export function AccountPage() {
           </span>
         </div>
       </section>
+
+      {account.is_owner && (
+        <section className="acc-sec" id="maintenance" aria-labelledby="acc-maintenance">
+          <h2 id="acc-maintenance">Техработы</h2>
+          <MaintenanceControl />
+        </section>
+      )}
 
       <section className="acc-sec" aria-labelledby="acc-sessions">
         <h2 id="acc-sessions">Где вы вошли</h2>

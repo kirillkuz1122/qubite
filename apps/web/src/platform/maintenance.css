@@ -1,0 +1,86 @@
+/* Экран техработ (ACC-004): одна колонка, текст owner, «вернёмся к …». */
+.mt {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  background: var(--q-bg);
+  color: var(--q-ink);
+  font-family: var(--q-text);
+  overflow-x: hidden;
+}
+.mt-main {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 520px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.mt-title {
+  display: flex;
+  justify-content: center;
+  min-height: 40px;
+}
+.mt-title canvas {
+  max-width: 100%;
+}
+.mt-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--q-mute);
+}
+.mt-until b {
+  color: var(--q-ink);
+  font-weight: 600;
+}
+.mt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 6px;
+}
+.mt-owner {
+  font-size: 13px;
+  color: var(--q-dim);
+}
+
+/* «пилюля» для owner: техработы идут, но ему всё открыто; поверх, ничего не сдвигает */
+.mt-strip {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  z-index: 90;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  white-space: nowrap;
+  max-width: calc(100% - 32px);
+  padding: 6px 14px;
+  border-radius: calc(var(--q-round) * 16px);
+  border: 1px solid var(--q-line-2);
+  background: var(--q-panel-2);
+  box-shadow: 0 6px 20px var(--q-shadow);
+  color: var(--q-ink);
+  font-family: var(--q-text);
+  font-size: 12px;
+  transform: translateX(-50%);
+}
+.mt-strip .q-dot {
+  background: var(--q-yellow);
+}
+.mt-strip a {
+  color: var(--q-orange);
+}
+@media (max-width: 600px) {
+  .mt-strip-more {
+    display: none;
+  }
+}

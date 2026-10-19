@@ -5,6 +5,7 @@ import {
   providerHref,
   safePath,
   shownProviders,
+  untilText,
   type PlatformStatus,
 } from './client';
 
@@ -64,5 +65,15 @@ describe('Qubite Auth: помощники', () => {
     expect(deviceName(s)).toBe('Firefox на Android');
     expect(deviceName({ ...s, kind: 'device', device_name: 'Xiaoxin Pad' })).toBe('Xiaoxin Pad');
     expect(deviceName({ ...s, user_agent: '' })).toBe('Браузер');
+  });
+
+  it('«вернёмся к» — по поясу платформы: сегодня, завтра или дата', () => {
+    const now = new Date('2026-10-19T03:00:00Z'); // 08:00 в Екатеринбурге
+    const tz = 'Asia/Yekaterinburg';
+    expect(untilText('2026-10-19T05:00:00Z', tz, now)).toBe('10:00');
+    expect(untilText('2026-10-20T05:00:00Z', tz, now)).toBe('завтра, 10:00');
+    expect(untilText('2026-10-22T05:00:00Z', tz, now)).toBe('22 октября, 10:00');
+    // тот же момент в Москве — на два часа раньше
+    expect(untilText('2026-10-19T05:00:00Z', 'Europe/Moscow', now)).toBe('08:00');
   });
 });

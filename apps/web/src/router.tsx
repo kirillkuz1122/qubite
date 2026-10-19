@@ -18,10 +18,16 @@ import { LoginPage } from './auth/Login';
 import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
 import { RegisterPage } from './auth/Register';
 import { DesignPage } from './design/DesignPage';
+import { MaintenanceGate } from './platform/Maintenance';
 import { Landing } from './landing/Landing';
 
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  // техработы (ACC-004): всем, кроме owner, — экран вместо сайта
+  component: () => (
+    <MaintenanceGate>
+      <Outlet />
+    </MaintenanceGate>
+  ),
   notFoundComponent: () => (
     <main className="shell">
       <h1>Такой страницы нет</h1>
