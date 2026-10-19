@@ -27,6 +27,18 @@ test('одно слово — раздел: «настройки» + Enter от�
   await expect(page).toHaveURL(/\/settings$/);
 });
 
+test('Ctrl+K открывает строку и в русской раскладке (приходит «л»)', async ({ page }) => {
+  test.skip(isPhone(page), 'Ctrl+K — на ПК');
+  await page.goto('/today');
+  // как Chrome и Firefox в русской раскладке: буква «л», физическая клавиша — KeyK
+  await page.evaluate(() =>
+    dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'л', code: 'KeyK', ctrlKey: true, bubbles: true }),
+    ),
+  );
+  await expect(page.getByRole('combobox', { name: 'Строка Command' })).toBeFocused();
+});
+
 test('забыл раскладку: «gkfyth» находит Planner', async ({ page }) => {
   await page.goto('/today');
   const input = await openCommand(page);
