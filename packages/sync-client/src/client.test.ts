@@ -256,4 +256,20 @@ describe('uuidv7', () => {
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(a < b).toBe(true);
   });
+
+  it('закрыли посреди синхронизации — sync() тихо заканчивается, а не падает', async () => {
+    let release: () => void = () => {};
+    const slow: Transport = {
+      push: () => new Promise((_, reject) => (release = () => reject(new Error('нет сети')))),
+      pull: () => Promise.reject(new Error('нет сети')),
+    };
+    const client = await SyncClient.open({ dbName: `closed-${Date.now()}`, transport: slow });
+    await client.create('inbox.item', 'мысль');
+    const running = client.sync();
+    await new Promise((r) => setTimeout(r, 0));
+    client.close();
+    release();
+    await expect(running).resolves.toMatchObject({ status: expect.any(String) });
+    await expect(client.sync()).resolves.toBeTruthy();
+  });
 });

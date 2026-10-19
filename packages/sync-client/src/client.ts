@@ -60,6 +60,7 @@ export class SyncClient {
   private running: Promise<SyncState> | null = null;
   private again = false;
   private current: SyncState = { status: 'synced', pending: 0, problems: 0 };
+  private closed = false;
 
   private constructor(
     private readonly store: LocalStore,
@@ -79,7 +80,9 @@ export class SyncClient {
     return client;
   }
 
+  /** Закрыть хранилище. Незаконченная синхронизация после этого тихо заканчивается. */
   close(): void {
+    this.closed = true;
     this.store.close();
   }
 
@@ -208,6 +211,7 @@ export class SyncClient {
    * после текущего обмена пройдёт ещё один.
    */
   sync(): Promise<SyncState> {
+    if (this.closed) return Promise.resolve(this.current);
     if (this.running) {
       this.again = true;
       return this.running;
@@ -232,6 +236,8 @@ export class SyncClient {
       await this.pullAll();
       return await this.refreshState();
     } catch (error) {
+      // хранилище закрыли посреди синхронизации (ушли со страницы) — читать его уже нельзя
+      if (this.closed) return this.current;
       return await this.refreshState(error instanceof Error ? error.message : String(error));
     }
   }
