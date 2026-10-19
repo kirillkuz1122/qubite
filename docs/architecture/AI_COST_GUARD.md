@@ -93,16 +93,15 @@ ai_call_events(call_id, at, kind, details jsonb)     -- без текстов з
 - **Лимиты:** `each_user` — одно значение, у каждого свой счётчик (`period_key` = период + `#` + аккаунт); не открывает AI. Режим owner требует дневной потолок платформы в $.
 - **Защита от цикла:** до резерва, под `pg_advisory_xact_lock` аккаунта: вызовов в минуту на человека и на `job_id`, одинаковых запросов (HMAC-отпечаток в `ai_calls.fingerprint`) за окно.
 
-## 9. ChatGPT по подписке (D-214) — почему нет
+## 9. ChatGPT по подписке (D-219, было D-214)
 
-Исследование 19.10.2026 (исходники Codex CLI `codex-rs/login`, документация OpenAI):
+Сначала (D-214) путь был только через выдачу себя за Codex — не делали. После DevDay OpenAI открыла **официальный** путь для open-source клиентов ([developers.openai.com/siwc](https://developers.openai.com/siwc/token-sharing-open-source)), и провайдер сделан — [`chatgpt.rs`](../../crates/qubite-ai/src/chatgpt.rs), тесты [`tests/chatgpt.rs`](../../crates/qubite-ai/tests/chatgpt.rs):
 
-| Что | Как устроено в Codex CLI | Что это значит для Qubite |
-|---|---|---|
-| Вход | OAuth 2.0 + PKCE на `auth.openai.com`, `client_id` **самого Codex**, возврат на `http://localhost:1455/auth/callback` (или вход по коду устройства), scope `openid profile email offline_access …` | своего `client_id` с доступом к моделям у Qubite нет — пришлось бы выдавать себя за Codex |
-| Запросы | закрытый адрес `chatgpt.com/backend-api/codex/…`, заголовки Codex (`originator` и др.) | без документации и гарантий, может поменяться в любой день |
-| Официальный «Sign in with ChatGPT» | бета с 29.07.2026 у шести партнёров; отдаёт имя, почту, картинку | только вход, моделей по подписке не даёт |
-| Лимиты подписки | окна использования (часы, неделя), заранее не сообщаются | бюджет «до вызова» по-честному не посчитать |
-
-Вывод: надёжно и в рамках правил OpenAI сделать нельзя; риск — блокировка аккаунта владельца. Альтернативы — Q-33 в STATUS.
+| Что | Как |
+|---|---|
+| Вход | `auth.openai.com/api/accounts/authorize` + PKCE S256, возврат `http://127.0.0.1:<порт>/auth/callback`, первая регистрация `dynamic_agent_client` → свой `oaiapp_…`; `ext_agent_host_id` установки |
+| Токены | `ai_chatgpt_session`, шифр ChaCha20-Poly1305 (`QUBITE_AI_SECRET_KEY`); access 1 час, обновление за 5 минут, refresh одноразовый (ротация) под блокировкой строки |
+| Запросы | `POST api.openai.com/v1/responses`, `stream: true`, `store: false`, `instructions`; успех — `response.completed` |
+| Деньги | 0 $ (платит подписка); лимиты запросов и токенов, защита от цикла; только запросы того, кто вошёл |
+| Лимит подписки | `subscription_sharing_usage_limit_exceeded` → `subscription_limit`, пауза 15 минут |
 

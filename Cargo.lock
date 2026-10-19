@@ -1395,6 +1395,7 @@ dependencies = [
 name = "qubite-ai"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "qubite-auth",
  "qubite-db",
  "qubite-kernel",

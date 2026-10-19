@@ -13,15 +13,31 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+/// Ответ, который тест вычисляет по запросу (например, нужен `nonce`).
+pub type Responder = Arc<dyn Fn(&Received) -> (u16, String) + Send + Sync>;
+
 /// Что сделать с очередным запросом.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Action {
+    /// Ответ вычисляет тест.
+    With(Responder),
     /// Ответить статусом и JSON.
     Respond(u16, String),
     /// Прочитать запрос и закрыть соединение без ответа (обрыв после отправки).
     Close,
     /// Прочитать запрос и молчать.
     Hang,
+}
+
+impl std::fmt::Debug for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::With(_) => f.write_str("With(..)"),
+            Self::Respond(status, _) => write!(f, "Respond({status})"),
+            Self::Close => f.write_str("Close"),
+            Self::Hang => f.write_str("Hang"),
+        }
+    }
 }
 
 /// Принятый запрос.
@@ -77,6 +93,11 @@ impl FakeHttp {
             }
         });
         Self { addr, shared, task }
+    }
+
+    /// Адрес вида `http://127.0.0.1:PORT`.
+    pub fn root_url(&self) -> String {
+        format!("http://{}", self.addr)
     }
 
     /// Адрес вида `http://127.0.0.1:PORT/api/v1`.
@@ -154,7 +175,16 @@ async fn serve(mut stream: TcpStream, state: &Shared) {
         .expect("сценарий")
         .pop_front()
         .unwrap_or_else(|| state.fallback.clone());
+    let action = match action {
+        Action::With(respond) => {
+            let request = state.received.lock().expect("журнал").last().cloned();
+            let (status, body) = respond(&request.expect("запрос записан"));
+            Action::Respond(status, body)
+        }
+        other => other,
+    };
     match action {
+        Action::With(_) => unreachable!("вычислено выше"),
         Action::Respond(status, body) => {
             let response = format!(
                 "HTTP/1.1 {status} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",

@@ -455,7 +455,7 @@ pub async fn enable_from_catalog(
     external_id: &str,
 ) -> Result<String> {
     let mut tx = pool.begin().await?;
-    let id = crate::catalog::model_id(external_id);
+    let id = crate::catalog::model_id_for(provider_id, external_id);
     let inserted = sqlx::query(
         "INSERT INTO ai_models (id, provider_id, external_id, price_in_per_mtok, price_out_per_mtok, \
          context_tokens, enabled, prices_updated_at) \

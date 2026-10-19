@@ -43,6 +43,8 @@ enum LogFormat {
     Json,
 }
 
+// Команда разбирается один раз при запуске — размер вариантов не важен.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Command {
     /// Запустить HTTP API.

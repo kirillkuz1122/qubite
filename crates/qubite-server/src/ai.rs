@@ -18,7 +18,9 @@ use qubite_ai::{
     AiConfig, Gateway, LoopGuard, MICROS_PER_USD,
     admin::{self, LimitScope, Metric, Period},
     catalog::{self, Allowlist, STARTER_MODELS, SyncReport},
+    chatgpt::{self, ChatGpt, ChatGptConfig},
     openrouter::{self, OpenRouter, OpenRouterConfig},
+    secret::SecretBox,
 };
 use qubite_db::Database;
 use qubite_kernel::Secret;
@@ -146,6 +148,31 @@ pub struct AiArgs {
     #[arg(long = "ai-catalog-refresh-hours", env = "QUBITE_AI_CATALOG_REFRESH_HOURS", default_value_t = 24,
           value_parser = clap::value_parser!(u64).range(1..=720))]
     pub catalog_refresh_hours: u64,
+
+    /// Провайдер «ChatGPT по подписке» (Sign in with ChatGPT). Выключен по умолчанию;
+    /// вход — `qubite ai chatgpt login`.
+    #[arg(long = "ai-chatgpt-enabled", env = "QUBITE_AI_CHATGPT_ENABLED",
+          default_value_t = false, action = clap::ArgAction::Set)]
+    pub chatgpt_enabled: bool,
+
+    /// Ключ шифрования токенов в базе: base64 от 32 байт (`qubite ai secret-key`
+    /// или `openssl rand -base64 32`). Задавать только переменной окружения.
+    #[arg(
+        long = "ai-secret-key",
+        env = "QUBITE_AI_SECRET_KEY",
+        hide_env_values = true
+    )]
+    pub secret_key: Option<String>,
+
+    /// Адрес входа OpenAI (для проверки — подставной сервер).
+    #[arg(long = "ai-chatgpt-auth-url", env = "QUBITE_AI_CHATGPT_AUTH_URL",
+          default_value = qubite_ai::chatgpt::AUTH_BASE)]
+    pub chatgpt_auth_url: String,
+
+    /// Адрес API OpenAI для запросов по подписке.
+    #[arg(long = "ai-chatgpt-api-url", env = "QUBITE_AI_CHATGPT_API_URL",
+          default_value = qubite_ai::chatgpt::API_BASE)]
+    pub chatgpt_api_url: String,
 }
 
 impl AiArgs {
@@ -168,6 +195,28 @@ impl AiArgs {
     /// живой процесс сам пометил бы его `unknown` по таймауту.
     pub fn stale_after(&self) -> Duration {
         Duration::from_secs(self.timeout_secs + 30)
+    }
+
+    pub fn chatgpt_config(&self) -> ChatGptConfig {
+        ChatGptConfig {
+            auth_base: self.chatgpt_auth_url.clone(),
+            api_base: self.chatgpt_api_url.clone(),
+            ..ChatGptConfig::default()
+        }
+    }
+
+    pub fn secret_box(&self) -> anyhow::Result<Option<SecretBox>> {
+        match self
+            .secret_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+        {
+            Some(key) => Ok(Some(
+                SecretBox::from_base64(key).map_err(anyhow::Error::msg)?,
+            )),
+            None => Ok(None),
+        }
     }
 
     fn openrouter(&self) -> anyhow::Result<Option<Arc<OpenRouter>>> {
@@ -264,6 +313,8 @@ pub struct AiRuntime {
     pub catalog: Option<SyncReport>,
     /// Сколько «зависших» вызовов при запуске помечено `unknown`.
     pub recovered: u64,
+    /// Провайдер ChatGPT, если включён флагом и вход выполнен.
+    pub chatgpt: Option<Arc<ChatGpt>>,
 }
 
 /// Подготовить AI при запуске сервера.
@@ -338,12 +389,66 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
             tracing::info!("AI выключен: не задан QUBITE_AI_OPENROUTER_API_KEY");
         }
     }
+    let chatgpt = start_chatgpt(pool, args).await?;
+    if let Some(provider) = &chatgpt {
+        gateway = gateway.with_provider(chatgpt::PROVIDER_ID, provider.clone());
+    }
     Ok(AiRuntime {
         gateway: Arc::new(gateway),
         openrouter,
         catalog: report,
         recovered,
+        chatgpt,
     })
+}
+
+/// ChatGPT по подписке: только при `QUBITE_AI_CHATGPT_ENABLED=true`, ключе
+/// шифрования и выполненном входе. Модели подписки — в каталог по 0 $;
+/// включает их owner (`qubite ai model chatgpt:<модель> on`).
+async fn start_chatgpt(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<Arc<ChatGpt>>> {
+    let connected = chatgpt::status(pool).await?.connected;
+    let ready = args.chatgpt_enabled && connected;
+    if !args.chatgpt_enabled {
+        if provider_exists(pool, chatgpt::PROVIDER_ID).await? {
+            catalog::ensure_provider(
+                pool,
+                chatgpt::PROVIDER_ID,
+                "chatgpt",
+                &args.chatgpt_api_url,
+                false,
+            )
+            .await?;
+        }
+        return Ok(None);
+    }
+    let Some(secret) = args.secret_box()? else {
+        tracing::warn!("ChatGPT включён, но не задан QUBITE_AI_SECRET_KEY — провайдер выключен");
+        return Ok(None);
+    };
+    catalog::ensure_provider(
+        pool,
+        chatgpt::PROVIDER_ID,
+        "chatgpt",
+        &args.chatgpt_api_url,
+        ready,
+    )
+    .await?;
+    if !ready {
+        tracing::info!("ChatGPT включён, но вход не выполнен: qubite ai chatgpt login");
+        return Ok(None);
+    }
+    let provider = Arc::new(
+        ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
+            .map_err(anyhow::Error::msg)?,
+    );
+    match tokio::time::timeout(Duration::from_secs(30), provider.models()).await {
+        Ok(Ok(entries)) => {
+            catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
+        }
+        Ok(Err(error)) => tracing::warn!(%error, "модели подписки ChatGPT не получены"),
+        Err(_) => tracing::warn!("модели подписки ChatGPT не получены за 30 с"),
+    }
+    Ok(Some(provider))
 }
 
 /// Обновить цены и allowlist из каталога OpenRouter.
@@ -458,6 +563,13 @@ pub enum AiCommand {
     },
     /// Действующие лимиты, резерв и расход (сумма за все периоды).
     Limits,
+    /// Новый ключ шифрования для QUBITE_AI_SECRET_KEY (печатается один раз).
+    SecretKey,
+    /// ChatGPT по подписке: вход, состояние, выход.
+    Chatgpt {
+        #[command(subcommand)]
+        command: ChatgptCommand,
+    },
     /// Настоящий вызов модели от имени owner — через шлюз, с бюджетом
     /// и аудитом (ручная проверка ключа). Стоит денег.
     Try {
@@ -472,6 +584,24 @@ pub enum AiCommand {
         #[arg(long, default_value_t = 200)]
         max_tokens: u32,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ChatgptCommand {
+    /// Войти через браузер (Sign in with ChatGPT). Нужен ChatGPT Plus или Pro.
+    /// На удалённом сервере: `ssh -L 1455:127.0.0.1:1455 сервер` и открыть адрес у себя.
+    Login {
+        /// Порт для возврата из браузера на 127.0.0.1.
+        #[arg(long, default_value_t = 1455)]
+        port: u16,
+        /// Не открывать браузер, только напечатать адрес.
+        #[arg(long)]
+        no_browser: bool,
+    },
+    /// Подключена ли подписка и чья.
+    Status,
+    /// Выйти: отозвать токен у OpenAI и стереть его здесь.
+    Logout,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -540,6 +670,85 @@ async fn parse_scope(pool: &PgPool, scope: &str) -> anyhow::Result<LimitScope> {
     })
 }
 
+async fn run_chatgpt(
+    pool: &PgPool,
+    args: &AiArgs,
+    command: ChatgptCommand,
+) -> anyhow::Result<String> {
+    let config = args.chatgpt_config();
+    match command {
+        ChatgptCommand::Login { port, no_browser } => {
+            let owner = owner(pool).await?;
+            let secret = args
+                .secret_box()?
+                .context("сначала задайте QUBITE_AI_SECRET_KEY (qubite ai secret-key)")?;
+            let result = chatgpt::login(pool, &config, &secret, owner.account_id(), port, |url| {
+                println!("Откройте в браузере и войдите в ChatGPT:\n\n{url}\n");
+                if !no_browser {
+                    open_browser(url);
+                }
+            })
+            .await
+            .map_err(anyhow::Error::msg)?;
+            let mut out = format!(
+                "ChatGPT подключён: {} (client_id {}).",
+                result.email.as_deref().unwrap_or("почта не сообщена"),
+                result.client_id
+            );
+            if !args.chatgpt_enabled {
+                out.push_str(
+                    "\nЧтобы им пользоваться: QUBITE_AI_CHATGPT_ENABLED=true и перезапуск сервера.",
+                );
+            }
+            out.push_str("\nМодели подписки появятся в `qubite ai catalog` после запуска; включить — `qubite ai model chatgpt:<модель> on`.");
+            Ok(out)
+        }
+        ChatgptCommand::Status => {
+            let status = chatgpt::status(pool).await?;
+            Ok(if status.connected {
+                format!(
+                    "ChatGPT подключён: {}; разрешения: {}; флаг QUBITE_AI_CHATGPT_ENABLED = {}",
+                    status.email.as_deref().unwrap_or("—"),
+                    status.scopes.as_deref().unwrap_or("—"),
+                    args.chatgpt_enabled
+                )
+            } else {
+                "ChatGPT не подключён: qubite ai chatgpt login".into()
+            })
+        }
+        ChatgptCommand::Logout => {
+            let secret = args
+                .secret_box()?
+                .context("нужен QUBITE_AI_SECRET_KEY, чтобы отозвать токен")?;
+            let revoked = chatgpt::logout(pool, &config, &secret)
+                .await
+                .map_err(anyhow::Error::msg)?;
+            Ok(if revoked {
+                "Вы вышли из ChatGPT: токен отозван у OpenAI и стёрт здесь.".into()
+            } else {
+                "Токены стёрты здесь, но отзыв у OpenAI не подтверждён — отключите Qubite в ChatGPT → Настройки.".into()
+            })
+        }
+    }
+}
+
+/// Открыть адрес в системном браузере (если не получилось — адрес уже напечатан).
+fn open_browser(url: &str) {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(windows) {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let _ = std::process::Command::new(opener)
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
 /// id, провайдер, цена входа, цена выхода, разрешена, блокировка, дата цен,
 /// провайдеры OpenRouter, data_collection.
 type ModelLine = (
@@ -572,6 +781,11 @@ type LimitLine = (String, Option<String>, String, String, i64, i64, i64);
 pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Result<String> {
     let pool = db.pool();
     match command {
+        AiCommand::SecretKey => Ok(format!(
+            "QUBITE_AI_SECRET_KEY={}\nПоложите в .env (права 600). Потеряете ключ — придётся войти в ChatGPT заново.",
+            SecretBox::generate_key()
+        )),
+        AiCommand::Chatgpt { command } => run_chatgpt(pool, args, command).await,
         AiCommand::Try {
             text,
             model,
@@ -726,7 +940,8 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             let mut done = Vec::new();
             match state {
                 Some(OnOff::On) => {
-                    admin::enable_from_catalog(pool, &owner, OPENROUTER, &id)
+                    let (provider, external) = catalog::split_model_id(&id);
+                    admin::enable_from_catalog(pool, &owner, provider, external)
                         .await
                         .or_else(|error| match error {
                             // Не из каталога (например, mock) — просто включить известную.
@@ -1039,7 +1254,8 @@ pub async fn owner_ai_update_model(
     let id = catalog::model_id(&id);
     match change.enabled {
         Some(true) => {
-            if let Err(error) = admin::enable_from_catalog(pool, &owner, OPENROUTER, &id).await {
+            let (provider, external) = catalog::split_model_id(&id);
+            if let Err(error) = admin::enable_from_catalog(pool, &owner, provider, external).await {
                 match error {
                     qubite_ai::AiError::Invalid(_) => {
                         admin::set_model_enabled(pool, &owner, &id, true).await?

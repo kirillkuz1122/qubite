@@ -42,6 +42,26 @@ pub fn model_id(external_id: &str) -> String {
     external_id.to_lowercase()
 }
 
+/// ID модели с учётом провайдера: у OpenRouter — имя как есть
+/// (`google/gemini-…`), у остальных — с приставкой (`chatgpt:gpt-…`).
+pub fn model_id_for(provider_id: &str, external_id: &str) -> String {
+    if provider_id == "openrouter" {
+        model_id(external_id)
+    } else {
+        format!("{provider_id}:{}", model_id(external_id))
+    }
+}
+
+/// Обратно: какой провайдер и какое имя у модели с этим ID.
+pub fn split_model_id(id: &str) -> (&str, &str) {
+    match id.split_once(':') {
+        Some((provider, external)) if provider == crate::chatgpt::PROVIDER_ID => {
+            (provider, external)
+        }
+        _ => ("openrouter", id),
+    }
+}
+
 /// Завести провайдера, если его нет, и включить/выключить. В аудит —
 /// только настоящие изменения (а не каждый запуск сервера).
 pub async fn ensure_provider(
@@ -139,7 +159,7 @@ pub async fn apply(
         if existing.is_none() && !enabled {
             continue; // весь каталог в базу не тащим — только нужные модели
         }
-        let id = model_id(&entry.external_id);
+        let id = model_id_for(provider_id, &entry.external_id);
         let written = sqlx::query(
             "INSERT INTO ai_models (id, provider_id, external_id, price_in_per_mtok, \
              price_out_per_mtok, context_tokens, enabled) VALUES ($1, $2, $3, $4, $5, $6, $7) \
@@ -181,7 +201,10 @@ pub async fn apply(
 
     if let Some(list) = &wanted {
         for external in list {
-            if !report.enabled.contains(&model_id(external)) {
+            if !report
+                .enabled
+                .contains(&model_id_for(provider_id, external))
+            {
                 report.missing.push((*external).to_owned());
             }
         }

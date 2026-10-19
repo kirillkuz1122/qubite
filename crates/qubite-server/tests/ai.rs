@@ -734,3 +734,70 @@ async fn owner_console_api_for_models() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// ChatGPT по подписке — за флагом (выкл. по умолчанию) и только с ключом
+/// шифрования и выполненным входом (AI-005).
+#[tokio::test]
+async fn chatgpt_provider_is_off_unless_flag_key_and_login() {
+    let (test_db, db, _) = setup().await;
+    assert!(!settings(&[]).chatgpt_enabled, "выключен по умолчанию");
+
+    let off = ai::start(&db, &settings(&[])).await.unwrap();
+    assert!(off.chatgpt.is_none());
+
+    let key_line = ai::run(&db, &settings(&[]), AiCommand::SecretKey)
+        .await
+        .unwrap();
+    let key = key_line
+        .lines()
+        .next()
+        .unwrap()
+        .strip_prefix("QUBITE_AI_SECRET_KEY=")
+        .unwrap()
+        .to_owned();
+    assert_eq!(key.len(), 44, "base64 от 32 байт");
+
+    // Флаг есть, ключа нет — выключен.
+    let no_key = ai::start(&db, &settings(&["--ai-chatgpt-enabled", "true"]))
+        .await
+        .unwrap();
+    assert!(no_key.chatgpt.is_none());
+    // Флаг и ключ есть, входа нет — провайдер заведён, но выключен.
+    let args = settings(&["--ai-chatgpt-enabled", "true", "--ai-secret-key", &key]);
+    let no_login = ai::start(&db, &args).await.unwrap();
+    assert!(no_login.chatgpt.is_none());
+    let enabled: bool = sqlx::query_scalar("SELECT enabled FROM ai_providers WHERE id = 'chatgpt'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert!(!enabled);
+    let status = ai::run(
+        &db,
+        &args,
+        AiCommand::Chatgpt {
+            command: ai::ChatgptCommand::Status,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(status.contains("не подключён"), "{status}");
+    // Вход без ключа шифрования не начинается.
+    let error = ai::run(
+        &db,
+        &settings(&[]),
+        AiCommand::Chatgpt {
+            command: ai::ChatgptCommand::Login {
+                port: 0,
+                no_browser: true,
+            },
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("QUBITE_AI_SECRET_KEY"),
+        "{error}"
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}

@@ -58,6 +58,8 @@ pub struct ProviderCall {
     /// Оценка входа сверху — на случай, если провайдер не сообщит расход.
     pub input_tokens_estimate: u64,
     pub routing: Routing,
+    /// Чей это запрос (подписка ChatGPT — только для того, кто её подключил).
+    pub account_id: uuid::Uuid,
 }
 
 /// Ответ провайдера с фактическим расходом токенов.
@@ -84,6 +86,9 @@ pub enum ProviderError {
     /// Денег не стоило; резерв возвращается, повтора нет.
     #[error("провайдер отказал: {0}")]
     Refused(String),
+    /// Исчерпан лимит подписки (ChatGPT): денег не стоило, повтор не поможет.
+    #[error("{0}")]
+    UsageLimit(String),
     /// Неизвестно, обработан ли запрос (обрыв после отправки). Повторять
     /// нельзя, резерв удерживается.
     #[error("результат неизвестен: {0}")]
@@ -113,6 +118,8 @@ pub enum MockStep {
     FailBeforeSend,
     /// Отказ провайдера без повтора (например, нет денег на счёте).
     Refuse,
+    /// Исчерпан лимит подписки.
+    UsageLimit,
     /// Оборвать соединение после отправки.
     DropAfterSend,
     /// Не отвечать никогда (проверка таймаута).
@@ -201,6 +208,9 @@ impl Provider for MockProvider {
                     Err(ProviderError::NotSent("mock: отказ до отправки".into()))
                 }
                 MockStep::Refuse => Err(ProviderError::Refused("mock: нет денег на счёте".into())),
+                MockStep::UsageLimit => Err(ProviderError::UsageLimit(
+                    "mock: лимит подписки исчерпан".into(),
+                )),
                 MockStep::DropAfterSend => {
                     Err(ProviderError::Unknown("mock: обрыв после отправки".into()))
                 }

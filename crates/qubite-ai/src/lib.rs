@@ -20,9 +20,11 @@
 pub mod admin;
 pub mod budget;
 pub mod catalog;
+pub mod chatgpt;
 pub mod guard;
 pub mod openrouter;
 pub mod provider;
+pub mod secret;
 
 use std::{
     collections::HashMap,
@@ -79,6 +81,11 @@ pub enum AiError {
     DuplicateRequest { status: String },
     #[error("провайдер недоступен; можно выбрать другую модель: {alternatives:?}")]
     ProviderUnavailable { alternatives: Vec<String> },
+    #[error("{reason}; другие модели: {alternatives:?}")]
+    SubscriptionLimit {
+        reason: String,
+        alternatives: Vec<String>,
+    },
     #[error("провайдер отказал ({reason}); можно выбрать другую модель: {alternatives:?}")]
     ProviderRefused {
         reason: String,
@@ -109,6 +116,7 @@ impl AiError {
             Self::DuplicateRequest { .. } => "duplicate_request",
             Self::ProviderUnavailable { .. } => "provider_unavailable",
             Self::ProviderRefused { .. } => "provider_refused",
+            Self::SubscriptionLimit { .. } => "subscription_limit",
             Self::ResultUnknown { .. } => "result_unknown",
             Self::Invalid(_) => "invalid",
             Self::Db(_) | Self::Audit(_) => "internal",
@@ -551,6 +559,7 @@ impl Gateway {
                     max_price_in_per_mtok: model.price_in_per_mtok,
                     max_price_out_per_mtok: model.price_out_per_mtok,
                 },
+                account_id: auth.account_id(),
             };
             let outcome = tokio::time::timeout(self.config.timeout, provider.complete(&call)).await;
             match outcome {
@@ -560,6 +569,14 @@ impl Gateway {
                     return self
                         .settle_success(id, &model, &reservations, estimate_usd, reply, warnings)
                         .await;
+                }
+                Ok(Err(ProviderError::UsageLimit(reason))) => {
+                    self.release_not_sent(id, &reservations, attempt, "usage_limit", &reason)
+                        .await?;
+                    return Err(AiError::SubscriptionLimit {
+                        reason,
+                        alternatives: self.alternatives(&model.id).await?,
+                    });
                 }
                 Ok(Err(ProviderError::Refused(reason))) => {
                     self.release_not_sent(id, &reservations, attempt, "refused", &reason)
