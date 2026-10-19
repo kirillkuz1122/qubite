@@ -434,6 +434,7 @@ async fn there_is_no_http_route_to_become_owner() {
         "/api/owner/accounts/",
         "/api/owner/invitations",
         "/api/owner/platform",
+        "/api/owner/maintenance",
         "/api/owner/notifications",
         "/api/owner/ai/",
     ];

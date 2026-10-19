@@ -71,6 +71,10 @@ curl -b jar http://127.0.0.1:8080/api/auth/me
 # Письма (AUTH-002): по умолчанию QUBITE_EMAIL_MODE=mock — письма никуда не уходят,
 # а в режиме dev их текст с кодом печатается в лог сервера («письмо (mock)»)
 curl -H 'content-type: application/json' -d '{"email":"you@example.ru"}' http://127.0.0.1:8080/api/auth/password/forgot
+# Техработы (ACC-005): всем, кроме owner, — экран техработ
+DATABASE_URL=… cargo run --bin qubite -- maintenance on --until 10:00 --message "Переезжаем"
+DATABASE_URL=… cargo run --bin qubite -- maintenance off       # status — что сейчас
+DATABASE_URL=… cargo run --bin qubite -- maintenance pass      # одноразовая ссылка-пропуск owner на 10 минут
 cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
 
 # AI (AI-002). Без QUBITE_AI_OPENROUTER_API_KEY AI выключен; бюджет по умолчанию — ноль у всех

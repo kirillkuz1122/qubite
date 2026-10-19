@@ -58,6 +58,13 @@ enum Command {
     Owner(OwnerCommand),
     /// Telegram-бот Qubite: мысли во Входящие и уведомления владельцу.
     Bot(BotArgs),
+    /// Техработы: включить, выключить, посмотреть, выдать пропуск owner.
+    Maintenance {
+        #[command(flatten)]
+        db: DbArgs,
+        #[command(subcommand)]
+        action: MaintenanceAction,
+    },
     /// Положить уведомление владельцу (для скриптов: `backup_failed`, `disk_low`…).
     /// Отправит `qubite bot`.
     Notify {
@@ -99,6 +106,12 @@ struct BotArgs {
     /// Папка данных Qubite (файлы из Telegram и проверка места на диске).
     #[arg(long, env = "QUBITE_DATA_DIR", default_value = "./data")]
     data_dir: std::path::PathBuf,
+    /// Адрес Qubite Auth — для ссылок на вход и пропуска owner (`/tech`).
+    #[arg(long, env = "QUBITE_AUTH_URL", default_value = "http://localhost:5173")]
+    auth_url: String,
+    /// Аварийные техработы на сервере (бот предупреждает owner в `/tech`).
+    #[arg(long, env = "QUBITE_MAINTENANCE", default_value_t = false, action = clap::ArgAction::Set)]
+    maintenance: bool,
     /// Адрес сервера Qubite для проверки «жив ли».
     #[arg(
         long,
@@ -106,6 +119,29 @@ struct BotArgs {
         default_value = "http://127.0.0.1:8080"
     )]
     server_url: String,
+}
+
+#[derive(Subcommand)]
+enum MaintenanceAction {
+    /// Включить техработы: всем, кроме owner, — экран техработ.
+    On {
+        /// «Вернёмся к …»: `10:00` (по часам платформы) или дата RFC 3339.
+        #[arg(long)]
+        until: Option<String>,
+        /// Текст экрана техработ.
+        #[arg(long)]
+        message: Option<String>,
+    },
+    /// Выключить техработы.
+    Off,
+    /// Что сейчас.
+    Status,
+    /// Одноразовая ссылка-пропуск owner на 10 минут.
+    Pass {
+        /// Адрес Qubite Auth для ссылки.
+        #[arg(long, env = "QUBITE_AUTH_URL", default_value = "http://localhost:5173")]
+        auth_url: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -492,10 +528,19 @@ async fn main() -> anyhow::Result<()> {
                     server_url: args.server_url,
                     poll_wait: Duration::from_secs(25),
                     watch_every: Duration::from_secs(60),
+                    auth_url: args.auth_url,
+                    maintenance_env: args.maintenance,
                 },
             );
             tracing::info!("Telegram-бот Qubite запущен");
             bot.run(shutdown_signal()).await;
+            db.close().await;
+            Ok(())
+        }
+        Command::Maintenance { db, action } => {
+            let db = Database::connect(&db.config()).await?;
+            db.migrate().await?;
+            maintenance_command(db.pool(), action).await?;
             db.close().await;
             Ok(())
         }
@@ -585,6 +630,55 @@ fn read_password(from_stdin: bool) -> anyhow::Result<String> {
     Ok(password)
 }
 
+/// `qubite maintenance …`. Аварийный `QUBITE_MAINTENANCE` команда не меняет —
+/// он задаётся в окружении сервера и сильнее всего.
+async fn maintenance_command(pool: &sqlx::PgPool, action: MaintenanceAction) -> anyhow::Result<()> {
+    use qubite_auth::maintenance::{self, Switch};
+    let settings = match action {
+        MaintenanceAction::On { until, message } => {
+            maintenance::switch(
+                pool,
+                None,
+                Switch {
+                    on: true,
+                    until: until.as_deref(),
+                    message: message.as_deref(),
+                },
+            )
+            .await?
+        }
+        MaintenanceAction::Off => maintenance::switch(pool, None, Switch::default()).await?,
+        MaintenanceAction::Status => qubite_auth::platform::current(pool).await?,
+        MaintenanceAction::Pass { auth_url } => {
+            let owner = qubite_auth::owner::current(pool)
+                .await?
+                .context("owner платформы ещё не создан")?;
+            let (token, _) = maintenance::issue_pass(pool, owner.id).await?;
+            println!(
+                "Пропуск owner на 10 минут (одноразовый):\n{}",
+                maintenance::pass_link(&auth_url, &token)
+            );
+            return Ok(());
+        }
+    };
+    if settings.maintenance {
+        let until = match &settings.maintenance_until {
+            Some(at) => format!(
+                " до {}",
+                maintenance::local_time(pool, at, &settings.timezone).await?
+            ),
+            None => String::new(),
+        };
+        println!(
+            "Техработы включены{until}. Текст: {}",
+            settings.maintenance_message
+        );
+    } else {
+        println!("Техработы выключены (QUBITE_MAINTENANCE на сервере сильнее — проверьте и его).");
+    }
+    Ok(())
+}
+
 async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let db = if args.auto_migrate {
         let db = Database::connect(&args.db.config())
@@ -596,6 +690,9 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         Database::connect_lazy(&args.db.config())?
     };
 
+    // QUBITE_MAINTENANCE сильнее всего: его видит и решение о правах (соединения,
+    // фоновые задачи), а не только слой HTTP.
+    qubite_policy::set_maintenance_from_env(args.overrides.maintenance);
     let auth = qubite_server::auth::AuthSettings {
         config: qubite_auth::AuthConfig {
             session_ttl: Duration::from_secs(args.session_ttl_days.max(1) * 24 * 60 * 60),

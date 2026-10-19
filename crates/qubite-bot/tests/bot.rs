@@ -117,6 +117,8 @@ impl Lab {
                 server_url: "http://127.0.0.1:9".into(),
                 poll_wait: Duration::ZERO,
                 watch_every: Duration::from_secs(60),
+                auth_url: "https://auth.qubiteapp.ru".into(),
+                maintenance_env: false,
             },
         );
         Self {
@@ -625,5 +627,144 @@ async fn ai_spend_80_and_100_percent_server_down_disk_and_backup() {
     assert!("backup_failed".parse::<Kind>().is_ok());
     assert!("что-то".parse::<Kind>().is_err());
     drop(conn);
+    lab.finish().await;
+}
+
+// ---------------------------------------------------------------- техработы (ACC-005)
+
+async fn maintenance_on(db: &Database) -> (bool, Option<String>, String) {
+    let settings = qubite_auth::platform::current(db.pool()).await.unwrap();
+    (
+        settings.maintenance,
+        settings.maintenance_until,
+        settings.maintenance_message,
+    )
+}
+
+#[tokio::test]
+async fn owner_switches_maintenance_from_telegram_and_gets_a_pass() {
+    let lab = Lab::new().await;
+    lab.link(lab.owner, OWNER_TG, 1).await;
+
+    lab.tg.push(message(
+        2,
+        OWNER_TG,
+        "/tech on до 10:00 Переезжаем на новый сервер",
+    ));
+    assert_eq!(lab.poll().await, [Outcome::Command]);
+    let (on, until, text) = maintenance_on(&lab.db).await;
+    assert!(on);
+    assert!(until.is_some());
+    assert_eq!(text, "Переезжаем на новый сервер");
+    let reply = lab.tg.sent_to(OWNER_TG).last().unwrap().clone();
+    assert!(reply.contains("Техработы включены до 10:00"), "{reply}");
+    assert!(reply.contains("https://auth.qubiteapp.ru/auth"), "{reply}");
+    // В ответе — настоящий пропуск owner: подпись сходится.
+    let token = reply
+        .split("/api/maintenance/pass?token=")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap();
+    let key = qubite_auth::maintenance::pass_key(lab.db.pool())
+        .await
+        .unwrap();
+    let claims = qubite_auth::maintenance::verify_pass(&key, token, 0).unwrap();
+    assert_eq!(claims.owner_id, lab.owner);
+    // Мысли owner во время техработ по-прежнему сохраняются.
+    lab.tg.push(message(3, OWNER_TG, "мысль во время техработ"));
+    assert!(matches!(lab.poll().await[..], [Outcome::Saved(_)]));
+
+    lab.tg.push(message(4, OWNER_TG, "/tech"));
+    assert_eq!(lab.poll().await, [Outcome::Command]);
+    assert!(
+        lab.tg
+            .sent_to(OWNER_TG)
+            .last()
+            .unwrap()
+            .contains("Техработы включены")
+    );
+
+    lab.tg.push(message(5, OWNER_TG, "/tech off"));
+    assert_eq!(lab.poll().await, [Outcome::Command]);
+    assert!(!maintenance_on(&lab.db).await.0);
+    let reply = lab.tg.sent_to(OWNER_TG).last().unwrap().clone();
+    assert!(reply.contains("выключены"), "{reply}");
+    assert!(!reply.contains("Пропуск"), "{reply}");
+
+    lab.tg.push(message(6, OWNER_TG, "/tech on до 99:99"));
+    assert_eq!(lab.poll().await, [Outcome::Rejected]);
+    assert!(!maintenance_on(&lab.db).await.0);
+    lab.finish().await;
+}
+
+#[tokio::test]
+async fn only_the_owner_controls_maintenance_and_others_are_told_to_wait() {
+    let lab = Lab::new().await;
+    let student = qubite_auth::accounts::create(
+        lab.db.pool(),
+        &Passwords::default(),
+        NewAccount {
+            email: "student@qubite.ru",
+            display_name: "",
+            password: "пароль пользователя",
+            email_verified: true,
+        },
+        None,
+    )
+    .await
+    .unwrap()
+    .id;
+    let console = qubite_policy::decide_owner(
+        lab.db.pool(),
+        &qubite_policy::Subject::account(lab.owner, None),
+    )
+    .await
+    .unwrap();
+    qubite_policy::grants::set(
+        lab.db.pool(),
+        &console,
+        student,
+        &qubite_policy::ModuleId::new("inbox").unwrap(),
+        qubite_policy::Flags {
+            read: true,
+            write: true,
+            manage: false,
+            ai: false,
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    lab.link(student, 555, 1).await;
+
+    lab.tg.push(message(2, 555, "/tech on"));
+    lab.tg.push(message(3, 999, "/tech on"));
+    assert_eq!(lab.poll().await, [Outcome::Rejected, Outcome::Rejected]);
+    assert!(
+        lab.tg
+            .sent_to(555)
+            .last()
+            .unwrap()
+            .contains("только владелец")
+    );
+    assert!(!maintenance_on(&lab.db).await.0);
+
+    // Техработы включил owner — мысль ученика не сохраняется, бот просит позже.
+    qubite_auth::maintenance::switch(
+        lab.db.pool(),
+        Some(lab.owner),
+        qubite_auth::maintenance::Switch {
+            on: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    lab.tg.push(message(4, 555, "мысль"));
+    assert_eq!(lab.poll().await, [Outcome::Rejected]);
+    assert!(lab.tg.sent_to(555).last().unwrap().contains("обновляется"));
+    assert_eq!(inbox_count(&lab.db).await, 0);
     lab.finish().await;
 }

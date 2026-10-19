@@ -262,6 +262,9 @@ pub enum DenyReason {
     AiNotGranted,
     /// Агенту, плагину или ключу это не разрешено, даже если человеку можно.
     DelegationLimited,
+    /// На всей платформе техработы (owner проходит). Обрывает и открытые
+    /// соединения, и фоновые задачи — как отзыв прав (D-216).
+    PlatformMaintenance,
 }
 
 impl DenyReason {
@@ -278,6 +281,7 @@ impl DenyReason {
             Self::ActionNotGranted => "action_not_granted",
             Self::AiNotGranted => "ai_not_granted",
             Self::DelegationLimited => "delegation_limited",
+            Self::PlatformMaintenance => "maintenance",
         }
     }
 
@@ -294,6 +298,7 @@ impl DenyReason {
             Self::ActionNotGranted => "В этом модуле у вас нет права на это действие",
             Self::AiNotGranted => "AI в этом модуле не разрешён. Доступ выдаёт владелец Qubite",
             Self::DelegationLimited => "Агенту или ключу это не разрешено",
+            Self::PlatformMaintenance => "Qubite обновляется — скоро вернёмся",
         }
     }
 
@@ -302,6 +307,7 @@ impl DenyReason {
         match self {
             Self::Unauthenticated => 401,
             Self::NotFound => 404,
+            Self::PlatformMaintenance => 503,
             _ => 403,
         }
     }
@@ -339,6 +345,8 @@ pub struct Facts {
     pub module: Option<ModuleState>,
     /// Живой грант; `None` — не выдан.
     pub grant: Option<Flags>,
+    /// На платформе техработы (тумблер owner или `QUBITE_MAINTENANCE`).
+    pub platform_maintenance: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -365,6 +373,9 @@ pub fn evaluate(
     }
     if !facts.session_ok {
         return Err(DenyReason::Unauthenticated);
+    }
+    if facts.platform_maintenance && !facts.is_owner {
+        return Err(DenyReason::PlatformMaintenance);
     }
     let Some(module) = &facts.module else {
         return Err(DenyReason::NotFound);
@@ -429,6 +440,19 @@ struct FactsRow {
     can_write: Option<bool>,
     can_manage: Option<bool>,
     can_ai: Option<bool>,
+    platform_maintenance: bool,
+}
+
+static MAINTENANCE_ENV: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Аварийный `QUBITE_MAINTENANCE=true`: сервер сообщает его при запуске, и
+/// дальше решение о правах видит техработы и без строки в базе.
+pub fn set_maintenance_from_env(on: bool) {
+    MAINTENANCE_ENV.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn maintenance_from_env() -> bool {
+    MAINTENANCE_ENV.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 const FACTS_SQL: &str = "\
@@ -438,7 +462,9 @@ SELECT a.status AS account_status,
             SELECT 1 FROM sessions s WHERE s.id = $3 AND s.account_id = a.id
                AND s.revoked_at IS NULL AND ($4 OR s.expires_at > now()))) AS session_ok,
        m.installed, m.state, m.readiness, m.visibility,
-       g.can_read, g.can_write, g.can_manage, g.can_ai
+       g.can_read, g.can_write, g.can_manage, g.can_ai,
+       ($5 OR coalesce((SELECT s.value = 'true'::jsonb FROM platform_settings s
+                        WHERE s.key = 'maintenance.enabled'), false)) AS platform_maintenance
 FROM accounts a
 LEFT JOIN modules m ON m.id = $2
 LEFT JOIN module_grants g ON g.account_id = a.id AND g.module_id = m.id AND g.revoked_at IS NULL
@@ -456,6 +482,7 @@ async fn load_facts(
         .bind(module.as_str())
         .bind(session_id)
         .bind(session_rule == SessionRule::NotRevoked)
+        .bind(maintenance_from_env())
         .fetch_optional(conn)
         .await?;
     Ok(row.map_or_else(Facts::default, |row| Facts {
@@ -474,6 +501,7 @@ async fn load_facts(
             manage: row.can_manage.unwrap_or(false),
             ai: row.can_ai.unwrap_or(false),
         }),
+        platform_maintenance: row.platform_maintenance,
     }))
 }
 
@@ -670,6 +698,7 @@ mod tests {
                 visibility: "locked".into(),
             }),
             grant,
+            platform_maintenance: false,
         }
     }
 

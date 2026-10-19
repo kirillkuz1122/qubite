@@ -74,7 +74,10 @@ async fn listen_once(
     loop {
         match listener.try_recv().await? {
             Some(notification) => {
-                if let Ok(account) = notification.payload().parse() {
+                // `*` — изменилось для всех (включили техработы, миграция 0018).
+                if notification.payload() == "*" {
+                    let _ = sender.send(Change::Everyone);
+                } else if let Ok(account) = notification.payload().parse() {
                     let _ = sender.send(Change::Account(account));
                 }
             }

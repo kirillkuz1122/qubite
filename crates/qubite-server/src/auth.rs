@@ -397,7 +397,10 @@ pub async fn session_layer(
             // JSON без CORS.
             let exempt = matches!(
                 request.uri().path(),
-                "/api/auth/login" | "/api/auth/device/token" | "/api/auth/oauth/telegram/login"
+                "/api/auth/login"
+                    | "/api/auth/device/token"
+                    | "/api/auth/oauth/telegram/login"
+                    | "/api/maintenance/pass"
             );
             if is_unsafe(request.method()) && !exempt {
                 let header_ok = request

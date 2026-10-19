@@ -100,10 +100,13 @@ pub const CAPTCHA_PROVIDER: &str = "captcha.provider";
 pub const LOGIN_ENABLED: &str = "login.enabled";
 pub const MAINTENANCE_ENABLED: &str = "maintenance.enabled";
 pub const MAINTENANCE_MESSAGE: &str = "maintenance.message";
+/// До какого времени техработы (RFC 3339) — только для экрана «вернёмся к…».
+/// `null` — время не задано, экран его не показывает (D-216).
+pub const MAINTENANCE_UNTIL: &str = "maintenance.until";
 pub const EMAIL_ENABLED: &str = "email.enabled";
 pub const TIMEZONE: &str = "platform.timezone";
 
-pub const DEFAULT_MAINTENANCE_MESSAGE: &str = "Qubite обновляется. Скоро вернёмся!";
+pub const DEFAULT_MAINTENANCE_MESSAGE: &str = "Qubite ненадолго закрылся на обновление: подкручиваем винтики и добавляем новое. Все ваши заметки и дела на месте — скоро вернёмся!";
 pub const DEFAULT_TIMEZONE: &str = "Asia/Yekaterinburg";
 
 /// Все ключи тумблеров по порядку (так их показывает Owner Console).
@@ -113,6 +116,7 @@ pub fn keys() -> Vec<&'static str> {
         LOGIN_ENABLED,
         MAINTENANCE_ENABLED,
         MAINTENANCE_MESSAGE,
+        MAINTENANCE_UNTIL,
     ];
     keys.extend(LoginMethod::ALL.map(LoginMethod::key));
     keys.extend([EMAIL_ENABLED, CAPTCHA_PROVIDER, TIMEZONE]);
@@ -127,6 +131,7 @@ pub fn default_value(key: &str) -> Option<Value> {
         LOGIN_ENABLED | EMAIL_ENABLED => json!(true),
         MAINTENANCE_ENABLED => json!(false),
         MAINTENANCE_MESSAGE => json!(DEFAULT_MAINTENANCE_MESSAGE),
+        MAINTENANCE_UNTIL => Value::Null,
         TIMEZONE => json!(DEFAULT_TIMEZONE),
         other => {
             let method = LoginMethod::ALL.into_iter().find(|m| m.key() == other)?;
@@ -146,6 +151,8 @@ fn validate(key: &str, value: &Value) -> Result<()> {
         TIMEZONE => value
             .as_str()
             .is_some_and(|tz| (1..=64).contains(&tz.len())),
+        // Время проверяет база ([`set_many`]).
+        MAINTENANCE_UNTIL => value.is_null() || value.as_str().is_some_and(|t| t.len() <= 64),
         other if default_value(other).is_some() => value.is_boolean(),
         other => {
             return Err(Error::Invalid(format!("нет такой настройки: {other}")));
@@ -166,6 +173,8 @@ pub struct PlatformSettings {
     pub login_enabled: bool,
     pub maintenance: bool,
     pub maintenance_message: String,
+    /// «Вернёмся к …» (RFC 3339), если owner задал.
+    pub maintenance_until: Option<String>,
     /// Положение тумблера способа входа; `None` — owner его не трогал
     /// (действует стартовое положение, [`Overrides::method_defaults`]).
     /// Порядок — [`LoginMethod::ALL`].
@@ -182,6 +191,7 @@ impl Default for PlatformSettings {
             login_enabled: true,
             maintenance: false,
             maintenance_message: DEFAULT_MAINTENANCE_MESSAGE.into(),
+            maintenance_until: None,
             methods: [None; 5],
             email_enabled: true,
             timezone: DEFAULT_TIMEZONE.into(),
@@ -210,6 +220,7 @@ impl PlatformSettings {
                 self.maintenance_message = value.as_str().unwrap_or_default().to_owned();
             }
             EMAIL_ENABLED => self.email_enabled = flag,
+            MAINTENANCE_UNTIL => self.maintenance_until = value.as_str().map(str::to_owned),
             TIMEZONE => self.timezone = value.as_str().unwrap_or_default().to_owned(),
             other => {
                 if let Some(index) = LoginMethod::ALL.iter().position(|m| m.key() == other) {
@@ -419,7 +430,10 @@ pub async fn list(pool: &PgPool, overrides: &Overrides) -> Result<Vec<SettingVie
 }
 
 /// Одно изменение: ключ, новое значение и версия, которую видел owner
-/// (0 — настройку ещё не меняли).
+/// (0 — настройку ещё не меняли; [`ANY_VERSION`] — без проверки: команды
+/// сервера и бот, где «вкладок» нет).
+pub const ANY_VERSION: i64 = -1;
+
 #[derive(Debug, Clone)]
 pub struct Change {
     pub key: String,
@@ -442,6 +456,17 @@ pub async fn set_many(pool: &PgPool, actor: Option<Uuid>, changes: &[Change]) ->
     }
     let mut tx = pool.begin().await?;
     for change in changes {
+        if change.key == MAINTENANCE_UNTIL
+            && let Some(at) = change.value.as_str()
+        {
+            let valid: bool = sqlx::query_scalar("SELECT pg_input_is_valid($1, 'timestamptz')")
+                .bind(at)
+                .fetch_one(&mut *tx)
+                .await?;
+            if !valid {
+                return Err(Error::Invalid(format!("неверное время: {at}")));
+            }
+        }
         if change.key == TIMEZONE {
             // Пояс проверяет PostgreSQL: неизвестный — ошибка.
             let known: bool = sqlx::query_scalar(
@@ -464,13 +489,25 @@ pub async fn set_many(pool: &PgPool, actor: Option<Uuid>, changes: &[Change]) ->
         .fetch_optional(&mut *tx)
         .await?;
         let current_version = before.as_ref().map_or(0, |(_, version)| *version);
-        if current_version != change.version {
+        if change.version != ANY_VERSION && current_version != change.version {
             return Err(Error::Conflict(format!(
                 "настройку {} уже изменили (версия {current_version}), обновите страницу",
                 change.key
             )));
         }
-        if current_version == 0 {
+        if change.version == ANY_VERSION {
+            sqlx::query(
+                "INSERT INTO platform_settings (key, value, updated_by) VALUES ($1, $2, $3) \
+                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, \
+                 version = platform_settings.version + 1, updated_by = EXCLUDED.updated_by, \
+                 updated_at = now()",
+            )
+            .bind(&change.key)
+            .bind(&change.value)
+            .bind(actor)
+            .execute(&mut *tx)
+            .await?;
+        } else if current_version == 0 {
             // Две первые записи одного ключа одновременно: вторая упрётся в
             // первичный ключ и получит конфликт, а не перезапишет первую.
             let inserted = sqlx::query(
@@ -522,19 +559,13 @@ pub async fn set_many(pool: &PgPool, actor: Option<Uuid>, changes: &[Change]) ->
 
 /// Изменить одну настройку без проверки версии (команды и тесты).
 pub async fn set(pool: &PgPool, actor: Option<Uuid>, key: &str, value: Value) -> Result<()> {
-    let version: i64 = sqlx::query_scalar(
-        "SELECT coalesce(max(version), 0) FROM platform_settings WHERE key = $1",
-    )
-    .bind(key)
-    .fetch_one(pool)
-    .await?;
     set_many(
         pool,
         actor,
         &[Change {
             key: key.into(),
             value,
-            version,
+            version: ANY_VERSION,
         }],
     )
     .await

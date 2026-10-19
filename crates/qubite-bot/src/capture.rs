@@ -39,6 +39,8 @@ pub enum Outcome {
     Saved(Uuid),
     /// Это сообщение уже было сохранено (Telegram прислал его повторно).
     Duplicate(Uuid),
+    /// Выполнена команда owner (`/tech`).
+    Command,
 }
 
 // ---------------------------------------------------------------- привязка кодом
@@ -202,12 +204,16 @@ pub async fn handle(
     };
     // Права проверяются при каждом сообщении: отзыв гранта действует сразу.
     let module = ModuleId::new(MODULE).map_err(|error| Error::Invalid(error.to_string()))?;
-    if qubite_policy::decide::<Write>(pool, &Subject::account(account, None), &module)
-        .await
-        .is_err()
+    if let Err(error) =
+        qubite_policy::decide::<Write>(pool, &Subject::account(account, None), &module).await
     {
-        api.send(chat, "Нет доступа к Входящим. Его выдаёт владелец Qubite.")
-            .await?;
+        let reply = match error {
+            qubite_policy::Error::Denied(qubite_policy::DenyReason::PlatformMaintenance) => {
+                "Qubite сейчас обновляется — сохранить не получилось. Пришлите, пожалуйста, чуть позже."
+            }
+            _ => "Нет доступа к Входящим. Его выдаёт владелец Qubite.",
+        };
+        api.send(chat, reply).await?;
         return Ok(Outcome::Rejected);
     }
     if text.trim() == "/start" {

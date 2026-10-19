@@ -12,6 +12,7 @@ argon2 = "0.6.0"
 base64 = "0.22"
 getrandom = "0.4"
 hex = "0.4.3"
+hmac = "0.13.0"
 qubite-mail = { version = "0.1.0", path = "../qubite-mail" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 serde = { version = "1.0.229", features = ["derive"] }

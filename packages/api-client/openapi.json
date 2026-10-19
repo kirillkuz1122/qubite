@@ -1017,6 +1017,49 @@
         }
       }
     },
+    "/api/maintenance/pass": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Страница пропуска: кнопка «Войти». Сама страница пропуск не тратит.",
+        "operationId": "pass_page",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "description": "Токен из ссылки-пропуска.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML-страница с кнопкой «Войти»"
+          }
+        }
+      },
+      "post": {
+        "tags": ["auth"],
+        "summary": "Войти по пропуску: открывается обычная сессия owner, переход на главную.",
+        "operationId": "redeem_pass",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/PassToken"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "303": {
+            "description": "Вход выполнен — на главную; не вышло — `/auth?error=pass_invalid`"
+          }
+        }
+      }
+    },
     "/api/modules": {
       "get": {
         "tags": ["modules"],
@@ -1579,6 +1622,84 @@
           },
           "404": {
             "description": "Нет такого действующего приглашения или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/maintenance": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Owner Console: включить или выключить техработы.",
+        "operationId": "switch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Готово; открытые соединения не-owner закрываются сразу",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное время или текст",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/maintenance/pass": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Owner Console: выдать себе одноразовый пропуск на 10 минут (войти в другом браузере).",
+        "operationId": "issue_pass",
+        "responses": {
+          "200": {
+            "description": "Ссылка-пропуск",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PassIssued"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -3246,6 +3367,49 @@
           }
         }
       },
+      "MaintenanceRequest": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Включить (`true`) или выключить (`false`)."
+          },
+          "message": {
+            "type": ["string", "null"],
+            "description": "Новый текст экрана; не задан — прежний."
+          },
+          "until": {
+            "type": ["string", "null"],
+            "description": "«Вернёмся к …»: `10:00` (ближайшее такое время в поясе платформы) или\nRFC 3339. Не задано — экран время не показывает."
+          }
+        }
+      },
+      "MaintenanceState": {
+        "type": "object",
+        "required": ["enabled", "effective", "locked_by_env", "message"],
+        "properties": {
+          "effective": {
+            "type": "boolean",
+            "description": "Действуют ли техработы на самом деле (тумблер или `QUBITE_MAINTENANCE`)."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Тумблер owner."
+          },
+          "locked_by_env": {
+            "type": "boolean",
+            "description": "Включены переменной окружения — выключить можно только на сервере."
+          },
+          "message": {
+            "type": "string"
+          },
+          "until": {
+            "type": ["string", "null"],
+            "description": "«Вернёмся к …» (RFC 3339), если задано."
+          }
+        }
+      },
       "Me": {
         "type": "object",
         "description": "Кто вошёл.",
@@ -3408,6 +3572,30 @@
           }
         }
       },
+      "PassIssued": {
+        "type": "object",
+        "required": ["link", "expires_at"],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "link": {
+            "type": "string",
+            "description": "Ссылка-пропуск: открыть и нажать «Войти». Одноразовая."
+          }
+        }
+      },
+      "PassToken": {
+        "type": "object",
+        "required": ["token"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Токен из ссылки-пропуска."
+          }
+        }
+      },
       "PasswordConfirm": {
         "type": "object",
         "description": "Подтверждение паролем.",
@@ -3454,6 +3642,10 @@
           "maintenance_message": {
             "type": ["string", "null"],
             "description": "Текст техработ, если они идут."
+          },
+          "maintenance_until": {
+            "type": ["string", "null"],
+            "description": "«Вернёмся к …» (RFC 3339) — только если идут техработы и owner задал время."
           },
           "registration_mode": {
             "type": "string",

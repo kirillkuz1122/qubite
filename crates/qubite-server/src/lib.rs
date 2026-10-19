@@ -8,6 +8,7 @@ pub mod auth;
 pub mod changes;
 pub mod email;
 pub mod inbox;
+pub mod maintenance;
 pub mod modules;
 pub mod notifications;
 pub mod oauth;
@@ -104,6 +105,10 @@ impl AppState {
         platform::status,
         platform::owner_settings,
         platform::owner_update,
+        maintenance::switch,
+        maintenance::issue_pass,
+        maintenance::pass_page,
+        maintenance::redeem_pass,
         registration::info,
         registration::register,
         registration::create_invitation,
@@ -162,6 +167,10 @@ impl AppState {
         email::ResetPasswordRequest,
         platform::LoginMethods,
         platform::PlatformStatus,
+        maintenance::MaintenanceRequest,
+        maintenance::MaintenanceState,
+        maintenance::PassIssued,
+        maintenance::PassToken,
         platform::SettingItem,
         platform::SettingChange,
         platform::SettingsPatch,
@@ -241,6 +250,12 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/auth/password/forgot", post(email::forgot_password))
         .route("/api/auth/password/reset", post(email::reset_password))
         .route("/api/platform/status", get(platform::status))
+        .route("/api/owner/maintenance", post(maintenance::switch))
+        .route("/api/owner/maintenance/pass", post(maintenance::issue_pass))
+        .route(
+            "/api/maintenance/pass",
+            get(maintenance::pass_page).post(maintenance::redeem_pass),
+        )
         .route(
             "/api/owner/platform",
             get(platform::owner_settings).patch(platform::owner_update),

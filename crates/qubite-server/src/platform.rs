@@ -41,6 +41,7 @@ fn open_during_maintenance(path: &str) -> bool {
             | "/api/auth/login"
             | "/api/auth/logout"
             | "/api/auth/device/token"
+            | "/api/maintenance/pass"
     )
 }
 
@@ -102,6 +103,8 @@ pub struct PlatformStatus {
     maintenance: bool,
     /// Текст техработ, если они идут.
     maintenance_message: Option<String>,
+    /// «Вернёмся к …» (RFC 3339) — только если идут техработы и owner задал время.
+    maintenance_until: Option<String>,
     /// Можно ли сейчас войти (существующие сессии работают в любом случае).
     login_enabled: bool,
     /// Какими способами можно войти.
@@ -124,6 +127,10 @@ pub async fn status(State(state): State<AppState>) -> Result<Json<PlatformStatus
     Ok(Json(PlatformStatus {
         maintenance: rules.maintenance_on(),
         maintenance_message: rules.maintenance_for(false).map(str::to_owned),
+        maintenance_until: rules
+            .maintenance_on()
+            .then(|| rules.settings.maintenance_until.clone())
+            .flatten(),
         login_enabled: rules.login_allowed(false),
         login_methods: LoginMethods {
             password: method(LoginMethod::Password),
@@ -221,6 +228,10 @@ pub async fn owner_update(
     Authenticated(session): Authenticated,
     Json(body): Json<SettingsPatch>,
 ) -> Result<Json<Vec<SettingItem>>, ApiError> {
+    // Версия обязательна: без неё вторая вкладка молча перезаписала бы первую.
+    if body.changes.iter().any(|change| change.version < 0) {
+        return Err(qubite_auth::Error::Invalid("версия не может быть меньше 0".into()).into());
+    }
     let changes: Vec<Change> = body
         .changes
         .into_iter()

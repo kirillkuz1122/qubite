@@ -140,6 +140,8 @@ pub async fn catalog_for(pool: &PgPool, subject: &Subject) -> Result<Vec<Catalog
                 manage: row.can_manage.unwrap_or(false),
                 ai: row.can_ai.unwrap_or(false),
             }),
+            // Техработы закрывает слой HTTP; в каталоге — обычные замки.
+            platform_maintenance: false,
         };
         let (status, flags) = match evaluate(&facts, None, ActionKind::Read) {
             Ok(flags) => (ModuleStatus::Available, flags),

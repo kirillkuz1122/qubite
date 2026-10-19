@@ -15,6 +15,7 @@
 
 pub mod capture;
 pub mod notify;
+pub mod tech;
 pub mod telegram;
 pub mod watch;
 
@@ -42,6 +43,8 @@ pub enum Error {
     Sync(#[from] qubite_sync_server::Error),
     #[error(transparent)]
     OAuth(#[from] qubite_oauth::Error),
+    #[error("вход: {0}")]
+    Auth(#[from] qubite_auth::Error),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -60,6 +63,10 @@ pub struct BotConfig {
     pub poll_wait: Duration,
     /// Как часто проверять аудит, AI, диск и сервер.
     pub watch_every: Duration,
+    /// Адрес Qubite Auth — для ссылок на вход и пропуска owner (`/tech`).
+    pub auth_url: String,
+    /// На сервере стоит `QUBITE_MAINTENANCE=true` (бот предупреждает owner).
+    pub maintenance_env: bool,
 }
 
 pub struct Bot {
@@ -97,7 +104,20 @@ impl Bot {
         let updates = self.api.updates(offset, wait).await?;
         let mut outcomes = Vec::with_capacity(updates.len());
         for update in updates {
-            let outcome = match capture::handle(&self.pool, &self.api, &self.blobs, &update).await {
+            let tech = tech::handle(
+                &self.pool,
+                &self.api,
+                &self.config.auth_url,
+                self.config.maintenance_env,
+                &update,
+            )
+            .await;
+            let handled = match tech {
+                Ok(Some(outcome)) => Ok(outcome),
+                Ok(None) => capture::handle(&self.pool, &self.api, &self.blobs, &update).await,
+                Err(error) => Err(error),
+            };
+            let outcome = match handled {
                 Ok(outcome) => outcome,
                 Err(error) => {
                     // Одно плохое сообщение не должно останавливать бота.

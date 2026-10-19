@@ -398,6 +398,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/maintenance/pass': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Страница пропуска: кнопка «Войти». Сама страница пропуск не тратит. */
+    get: operations['pass_page'];
+    put?: never;
+    /** Войти по пропуску: открывается обычная сессия owner, переход на главную. */
+    post: operations['redeem_pass'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/modules': {
     parameters: {
       query?: never;
@@ -582,6 +600,40 @@ export interface paths {
     post?: never;
     /** Owner Console: отозвать приглашение. */
     delete: operations['revoke_invitation'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/maintenance': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Owner Console: включить или выключить техработы. */
+    post: operations['switch'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/maintenance/pass': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Owner Console: выдать себе одноразовый пропуск на 10 минут (войти в другом браузере). */
+    post: operations['issue_pass'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1191,6 +1243,28 @@ export interface components {
       /** @description Всегда одинаковый текст: есть аккаунт или нет. */
       message: string;
     };
+    MaintenanceRequest: {
+      /** @description Включить (`true`) или выключить (`false`). */
+      enabled: boolean;
+      /** @description Новый текст экрана; не задан — прежний. */
+      message?: string | null;
+      /**
+       * @description «Вернёмся к …»: `10:00` (ближайшее такое время в поясе платформы) или
+       *     RFC 3339. Не задано — экран время не показывает.
+       */
+      until?: string | null;
+    };
+    MaintenanceState: {
+      /** @description Действуют ли техработы на самом деле (тумблер или `QUBITE_MAINTENANCE`). */
+      effective: boolean;
+      /** @description Тумблер owner. */
+      enabled: boolean;
+      /** @description Включены переменной окружения — выключить можно только на сервере. */
+      locked_by_env: boolean;
+      message: string;
+      /** @description «Вернёмся к …» (RFC 3339), если задано. */
+      until?: string | null;
+    };
     /** @description Кто вошёл. */
     Me: {
       display_name: string;
@@ -1266,6 +1340,16 @@ export interface components {
        */
       kind: string;
     };
+    PassIssued: {
+      /** Format: date-time */
+      expires_at: string;
+      /** @description Ссылка-пропуск: открыть и нажать «Войти». Одноразовая. */
+      link: string;
+    };
+    PassToken: {
+      /** @description Токен из ссылки-пропуска. */
+      token: string;
+    };
     /** @description Подтверждение паролем. */
     PasswordConfirm: {
       password: string;
@@ -1280,6 +1364,8 @@ export interface components {
       maintenance: boolean;
       /** @description Текст техработ, если они идут. */
       maintenance_message?: string | null;
+      /** @description «Вернёмся к …» (RFC 3339) — только если идут техработы и owner задал время. */
+      maintenance_until?: string | null;
       /** @description `closed`, `invite_only` или `open`. */
       registration_mode: string;
       /** @description Часовой пояс платформы (IANA). */
@@ -2297,6 +2383,49 @@ export interface operations {
       };
     };
   };
+  pass_page: {
+    parameters: {
+      query: {
+        /** @description Токен из ссылки-пропуска. */
+        token: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description HTML-страница с кнопкой «Войти» */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  redeem_pass: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/x-www-form-urlencoded': components['schemas']['PassToken'];
+      };
+    };
+    responses: {
+      /** @description Вход выполнен — на главную; не вышло — `/auth?error=pass_invalid` */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   my_catalog: {
     parameters: {
       query?: never;
@@ -2747,6 +2876,77 @@ export interface operations {
         content?: never;
       };
       /** @description Нет такого действующего приглашения или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  switch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MaintenanceRequest'];
+      };
+    };
+    responses: {
+      /** @description Готово; открытые соединения не-owner закрываются сразу */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MaintenanceState'];
+        };
+      };
+      /** @description Неверное время или текст */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  issue_pass: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ссылка-пропуск */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PassIssued'];
+        };
+      };
+      /** @description Не owner */
       404: {
         headers: {
           [name: string]: unknown;

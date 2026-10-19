@@ -18,6 +18,7 @@ pub mod devices;
 pub mod email;
 pub mod invitations;
 pub mod login;
+pub mod maintenance;
 pub mod owner;
 pub mod password;
 pub mod platform;

@@ -364,7 +364,7 @@ async fn maintenance_shows_message_to_everyone_but_owner() {
     assert_eq!(body["maintenance"], true);
     assert_eq!(
         body["maintenance_message"],
-        "Qubite обновляется. Скоро вернёмся!"
+        qubite_auth::platform::DEFAULT_MAINTENANCE_MESSAGE
     );
     assert_eq!(
         Browser::default()

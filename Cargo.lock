@@ -1422,6 +1422,7 @@ dependencies = [
  "base64 0.22.1",
  "getrandom 0.4.3",
  "hex",
+ "hmac",
  "qubite-mail",
  "qubite-objects",
  "qubite-testkit",
