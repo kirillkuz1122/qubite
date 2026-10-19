@@ -6,6 +6,7 @@
 pub mod ai;
 pub mod auth;
 pub mod changes;
+pub mod console;
 pub mod email;
 pub mod inbox;
 pub mod maintenance;
@@ -132,6 +133,13 @@ impl AppState {
         modules::owner_grants,
         modules::owner_set_grant,
         modules::owner_revoke_grant,
+        console::confirm,
+        console::list_accounts,
+        console::create_account,
+        console::change_account,
+        console::revoke_sessions,
+        console::audit_log,
+        console::server_info,
         ai::owner_ai_models,
         ai::owner_ai_catalog,
         ai::owner_ai_update_model,
@@ -196,6 +204,14 @@ impl AppState {
         modules::ModuleChange,
         modules::GrantItem,
         modules::GrantChange,
+        console::ConfirmRequest,
+        console::Confirmed,
+        console::AccountItem,
+        console::NewAccountRequest,
+        console::AccountChange,
+        console::SessionsClosed,
+        console::AuditItem,
+        console::ServerInfo,
         ai::AiModelItem,
         ai::AiCatalogItem,
         ai::AiModelChange,
@@ -230,6 +246,7 @@ pub fn router(state: AppState) -> Router {
 /// Все маршруты сервера плюс `extra` (маршруты модулей; в тестах — проверочные).
 /// `extra` проходит те же слои: сессия, CSRF, таймаут.
 pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
+    console::mark_started();
     Router::new()
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
@@ -291,6 +308,18 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/modules/{id}",
             patch(modules::owner_update_module),
         )
+        .route(
+            "/api/owner/accounts",
+            get(console::list_accounts).post(console::create_account),
+        )
+        .route("/api/owner/accounts/{id}", patch(console::change_account))
+        .route(
+            "/api/owner/accounts/{id}/sessions/revoke",
+            post(console::revoke_sessions),
+        )
+        .route("/api/owner/confirm", post(console::confirm))
+        .route("/api/owner/audit", get(console::audit_log))
+        .route("/api/owner/server", get(console::server_info))
         .route(
             "/api/owner/accounts/{account_id}/grants",
             get(modules::owner_grants),

@@ -431,7 +431,11 @@ async fn there_is_no_http_route_to_become_owner() {
     let owner_paths: Vec<&String> = paths.keys().filter(|p| p.contains("owner")).collect();
     let console = [
         "/api/owner/modules",
-        "/api/owner/accounts/",
+        // люди (ACC-003): создать обычного, заблокировать, закрыть сессии
+        "/api/owner/accounts",
+        "/api/owner/audit",
+        "/api/owner/confirm",
+        "/api/owner/server",
         "/api/owner/invitations",
         "/api/owner/platform",
         "/api/owner/maintenance",

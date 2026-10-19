@@ -1162,6 +1162,125 @@
         }
       }
     },
+    "/api/owner/accounts": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Люди: список с поиском и фильтром (до 200, новые сверху).",
+        "operationId": "list_accounts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Часть почты или имени.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "`active`, `pending_email` или `blocked`.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Аккаунты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["owner"],
+        "summary": "Создать человека вручную: аккаунт сразу активен, почта считается подтверждённой.\nМодулей у него нет — их выдаёт owner (D-054). Нужно подтверждение паролем.",
+        "operationId": "create_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid` (почта, имя, слабый пароль)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`email_taken`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/accounts/{account_id}/grants": {
       "get": {
         "tags": ["owner"],
@@ -1299,6 +1418,138 @@
           },
           "404": {
             "description": "Гранта не было или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/accounts/{id}": {
+      "patch": {
+        "tags": ["owner"],
+        "summary": "Заблокировать или разблокировать человека. Себя — нельзя (ACC-12).",
+        "operationId": "change_account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID аккаунта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Изменено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid` или `self_forbidden`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет аккаунта или не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/accounts/{id}/sessions/revoke": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Закрыть все сессии человека: ему придётся войти заново. Свои — через «Аккаунт».",
+        "operationId": "revoke_sessions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID аккаунта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Закрыто",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionsClosed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`self_forbidden`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет аккаунта или не owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -1529,6 +1780,138 @@
           },
           "404": {
             "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/audit": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Журнал: неизменяемая лента действий, новые сверху.",
+        "operationId": "audit_log",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Начало действия: `auth`, `account`, `platform`, `module`, `ai`…",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "description": "Только записи этого человека (кто сделал или с кем сделали).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Записи старше этого номера (для «Ещё»).",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Сколько, 1…200, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Записи журнала",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/confirm": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Подтвердить паролем: следующие 5 минут опасные действия Console пароль не спрашивают.",
+        "operationId": "confirm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Подтверждено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Confirmed"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверный пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много неверных паролей",
             "content": {
               "application/json": {
                 "schema": {
@@ -1979,6 +2362,35 @@
           },
           "409": {
             "description": "Кто-то уже изменил настройку (другая вкладка) — обновите страницу",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/server": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Сервер (базово): версия, время работы, база.",
+        "operationId": "server_info",
+        "responses": {
+          "200": {
+            "description": "Состояние сервера",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -2654,6 +3066,84 @@
   },
   "components": {
     "schemas": {
+      "AccountChange": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Зачем (попадёт в журнал)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`blocked` — заблокировать (все сессии закрываются), `active` — разблокировать."
+          }
+        }
+      },
+      "AccountItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "status",
+          "is_owner",
+          "created_at",
+          "sessions",
+          "modules",
+          "has_password",
+          "providers"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Есть ли пароль."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_owner": {
+            "type": "boolean"
+          },
+          "last_seen_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда последний раз был в Qubite."
+          },
+          "modules": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Модулей с доступом."
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Привязанные провайдеры: `yandex`, `vk`, `google`, `telegram`."
+          },
+          "sessions": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Живых сессий."
+          },
+          "status": {
+            "type": "string",
+            "description": "`active`, `pending_email` или `blocked`."
+          }
+        }
+      },
       "AiCatalogItem": {
         "type": "object",
         "description": "Модель из каталога провайдера.",
@@ -2795,6 +3285,47 @@
           }
         }
       },
+      "AuditItem": {
+        "type": "object",
+        "required": ["seq", "at", "action", "target_kind"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Например `platform.setting_changed`, `account.blocked`, `auth.login`."
+          },
+          "actor_email": {
+            "type": ["string", "null"],
+            "description": "Почта того, кто сделал (нет — система)."
+          },
+          "actor_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "after": {
+            "type": ["object", "null"]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "before": {
+            "type": ["object", "null"]
+          },
+          "reason": {
+            "type": ["string", "null"]
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "target_id": {
+            "type": ["string", "null"]
+          },
+          "target_kind": {
+            "type": "string"
+          }
+        }
+      },
       "CaptchaWidget": {
         "type": "object",
         "required": ["provider", "site_key"],
@@ -2873,6 +3404,26 @@
           }
         },
         "additionalProperties": false
+      },
+      "ConfirmRequest": {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "Confirmed": {
+        "type": "object",
+        "required": ["until"],
+        "properties": {
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "До какого времени опасные действия не спрашивают пароль."
+          }
+        }
       },
       "DataCollectionSetting": {
         "type": "string",
@@ -3548,6 +4099,22 @@
           }
         }
       },
+      "NewAccountRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "description": "Не короче 10 символов. Человек может сменить его через «Забыли пароль»."
+          }
+        }
+      },
       "NotificationChange": {
         "type": "object",
         "required": ["enabled"],
@@ -3805,6 +4372,51 @@
           }
         }
       },
+      "ServerInfo": {
+        "type": "object",
+        "required": [
+          "version",
+          "started_at",
+          "uptime_secs",
+          "migration",
+          "accounts",
+          "sessions",
+          "audit_entries"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "audit_entries": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Записей в журнале."
+          },
+          "migration": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Последняя применённая миграция базы."
+          },
+          "sessions": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Живых сессий у всех."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptime_secs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "version": {
+            "type": "string",
+            "description": "Версия сервера."
+          }
+        }
+      },
       "SessionItem": {
         "type": "object",
         "description": "Сессия в списке «Мои сессии».",
@@ -3853,6 +4465,17 @@
           },
           "user_agent": {
             "type": "string"
+          }
+        }
+      },
+      "SessionsClosed": {
+        "type": "object",
+        "required": ["revoked"],
+        "properties": {
+          "revoked": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько сессий закрыто."
           }
         }
       },

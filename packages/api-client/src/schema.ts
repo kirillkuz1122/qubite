@@ -450,6 +450,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/owner/accounts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Люди: список с поиском и фильтром (до 200, новые сверху). */
+    get: operations['list_accounts'];
+    put?: never;
+    /**
+     * Создать человека вручную: аккаунт сразу активен, почта считается подтверждённой.
+     *     Модулей у него нет — их выдаёт owner (D-054). Нужно подтверждение паролем.
+     */
+    post: operations['create_account'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/accounts/{account_id}/grants': {
     parameters: {
       query?: never;
@@ -480,6 +501,40 @@ export interface paths {
     post?: never;
     /** Owner Console: отозвать права пользователя в модуле. Действует сразу. */
     delete: operations['owner_revoke_grant'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/accounts/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Заблокировать или разблокировать человека. Себя — нельзя (ACC-12). */
+    patch: operations['change_account'];
+    trace?: never;
+  };
+  '/api/owner/accounts/{id}/sessions/revoke': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Закрыть все сессии человека: ему придётся войти заново. Свои — через «Аккаунт». */
+    post: operations['revoke_sessions'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -564,6 +619,40 @@ export interface paths {
     /** Owner Console: выбрать модель для задачи (`default` — для всех без своей). */
     put: operations['owner_ai_set_task'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Журнал: неизменяемая лента действий, новые сверху. */
+    get: operations['audit_log'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/confirm': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Подтвердить паролем: следующие 5 минут опасные действия Console пароль не спрашивают. */
+    post: operations['confirm'];
     delete?: never;
     options?: never;
     head?: never;
@@ -723,6 +812,23 @@ export interface paths {
     head?: never;
     /** Owner Console: сохранить изменения тумблеров (все вместе или ничего). */
     patch: operations['owner_update'];
+    trace?: never;
+  };
+  '/api/owner/server': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Сервер (базово): версия, время работы, база. */
+    get: operations['server_info'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/api/platform/status': {
@@ -915,6 +1021,42 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AccountChange: {
+      /** @description Зачем (попадёт в журнал). */
+      reason?: string | null;
+      /** @description `blocked` — заблокировать (все сессии закрываются), `active` — разблокировать. */
+      status: string;
+    };
+    AccountItem: {
+      /** Format: date-time */
+      created_at: string;
+      display_name: string;
+      email: string;
+      /** @description Есть ли пароль. */
+      has_password: boolean;
+      /** Format: uuid */
+      id: string;
+      is_owner: boolean;
+      /**
+       * Format: date-time
+       * @description Когда последний раз был в Qubite.
+       */
+      last_seen_at?: string | null;
+      /**
+       * Format: int64
+       * @description Модулей с доступом.
+       */
+      modules: number;
+      /** @description Привязанные провайдеры: `yandex`, `vk`, `google`, `telegram`. */
+      providers: string[];
+      /**
+       * Format: int64
+       * @description Живых сессий.
+       */
+      sessions: number;
+      /** @description `active`, `pending_email` или `blocked`. */
+      status: string;
+    };
     /** @description Модель из каталога провайдера. */
     AiCatalogItem: {
       /** Format: int32 */
@@ -972,6 +1114,23 @@ export interface components {
       /** @description Текст для человека. */
       message: string;
     };
+    AuditItem: {
+      /** @description Например `platform.setting_changed`, `account.blocked`, `auth.login`. */
+      action: string;
+      /** @description Почта того, кто сделал (нет — система). */
+      actor_email?: string | null;
+      /** Format: uuid */
+      actor_id?: string | null;
+      after?: Record<string, never> | null;
+      /** Format: date-time */
+      at: string;
+      before?: Record<string, never> | null;
+      reason?: string | null;
+      /** Format: int64 */
+      seq: number;
+      target_id?: string | null;
+      target_kind: string;
+    };
     CaptchaWidget: {
       /** @description `turnstile` или `smartcaptcha`. */
       provider: string;
@@ -1016,6 +1175,16 @@ export interface components {
       revision: number;
       /** @description `new` или `archived`. */
       status?: string | null;
+    };
+    ConfirmRequest: {
+      password: string;
+    };
+    Confirmed: {
+      /**
+       * Format: date-time
+       * @description До какого времени опасные действия не спрашивают пароль.
+       */
+      until: string;
     };
     /**
      * @description `data_collection` модели: как в настройке сервера, разрешить или запретить.
@@ -1319,6 +1488,12 @@ export interface components {
       /** @description `locked` или `hidden` — как модуль виден без доступа. */
       visibility: string;
     };
+    NewAccountRequest: {
+      display_name?: string;
+      email: string;
+      /** @description Не короче 10 символов. Человек может сменить его через «Забыли пароль». */
+      password: string;
+    };
     NotificationChange: {
       enabled: boolean;
     };
@@ -1433,6 +1608,31 @@ export interface components {
        */
       revoked: number;
     };
+    ServerInfo: {
+      /** Format: int64 */
+      accounts: number;
+      /**
+       * Format: int64
+       * @description Записей в журнале.
+       */
+      audit_entries: number;
+      /**
+       * Format: int64
+       * @description Последняя применённая миграция базы.
+       */
+      migration: number;
+      /**
+       * Format: int64
+       * @description Живых сессий у всех.
+       */
+      sessions: number;
+      /** Format: date-time */
+      started_at: string;
+      /** Format: int64 */
+      uptime_secs: number;
+      /** @description Версия сервера. */
+      version: string;
+    };
     /** @description Сессия в списке «Мои сессии». */
     SessionItem: {
       /** Format: date-time */
@@ -1451,6 +1651,13 @@ export interface components {
       /** Format: date-time */
       last_seen_at: string;
       user_agent: string;
+    };
+    SessionsClosed: {
+      /**
+       * Format: int64
+       * @description Сколько сессий закрыто.
+       */
+      revoked: number;
     };
     SettingChange: {
       key: string;
@@ -2515,6 +2722,100 @@ export interface operations {
       };
     };
   };
+  list_accounts: {
+    parameters: {
+      query?: {
+        /** @description Часть почты или имени. */
+        q?: string | null;
+        /** @description `active`, `pending_email` или `blocked`. */
+        status?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Аккаунты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_account: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NewAccountRequest'];
+      };
+    };
+    responses: {
+      /** @description Создан */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountItem'];
+        };
+      };
+      /** @description `invalid` (почта, имя, слабый пароль) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required` */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `email_taken` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   owner_grants: {
     parameters: {
       query?: never;
@@ -2614,6 +2915,110 @@ export interface operations {
         content?: never;
       };
       /** @description Гранта не было или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change_account: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID аккаунта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AccountChange'];
+      };
+    };
+    responses: {
+      /** @description Изменено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AccountItem'];
+        };
+      };
+      /** @description `invalid` или `self_forbidden` */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required` */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет аккаунта или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  revoke_sessions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID аккаунта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Закрыто */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SessionsClosed'];
+        };
+      };
+      /** @description `self_forbidden` */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required` */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет аккаунта или не owner */
       404: {
         headers: {
           [name: string]: unknown;
@@ -2795,6 +3200,95 @@ export interface operations {
       };
       /** @description Не owner */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  audit_log: {
+    parameters: {
+      query?: {
+        /** @description Начало действия: `auth`, `account`, `platform`, `module`, `ai`… */
+        kind?: string | null;
+        /** @description Только записи этого человека (кто сделал или с кем сделали). */
+        account?: string | null;
+        /** @description Записи старше этого номера (для «Ещё»). */
+        before?: number | null;
+        /** @description Сколько, 1…200, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Записи журнала */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AuditItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  confirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConfirmRequest'];
+      };
+    };
+    responses: {
+      /** @description Подтверждено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Confirmed'];
+        };
+      };
+      /** @description Неверный пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Слишком много неверных паролей */
+      429: {
         headers: {
           [name: string]: unknown;
         };
@@ -3184,6 +3678,35 @@ export interface operations {
       };
       /** @description Кто-то уже изменил настройку (другая вкладка) — обновите страницу */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  server_info: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Состояние сервера */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServerInfo'];
+        };
+      };
+      /** @description Не owner */
+      404: {
         headers: {
           [name: string]: unknown;
         };

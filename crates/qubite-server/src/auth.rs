@@ -223,6 +223,11 @@ impl From<qubite_auth::Error> for ApiError {
                 "invalid_code",
                 "Код неверный или устарел. Запросите новое письмо",
             ),
+            E::EmailTaken => Self::new(
+                StatusCode::CONFLICT,
+                "email_taken",
+                "Аккаунт с такой почтой уже есть",
+            ),
             E::NotFound => Self::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
             E::InvalidClient => Self::new(
                 StatusCode::UNAUTHORIZED,

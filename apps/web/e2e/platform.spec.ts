@@ -9,7 +9,7 @@ test('owner включает техработы → остальные видя�
   page,
 }) => {
   const server = await mockAuth(page, { me: OWNER });
-  await page.goto('/account');
+  await page.goto('/console/platform');
   const panel = page.locator('#maintenance');
   await panel.getByLabel('Вернёмся к (необязательно)').fill('10:00');
   await panel.getByRole('button', { name: 'Включить техработы' }).click();
@@ -33,7 +33,7 @@ test('owner включает техработы → остальные видя�
   await expect(page.getByText('Войти сейчас может только владелец')).toBeVisible();
 
   server.me = OWNER;
-  await page.goto('/account');
+  await page.goto('/console/platform');
   await page.locator('#maintenance').getByRole('button', { name: 'Выключить техработы' }).click();
   await expect(page.getByText('Qubite снова открыт для всех')).toBeVisible();
   server.me = USER;

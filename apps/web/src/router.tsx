@@ -18,6 +18,7 @@ import { LoginPage } from './auth/Login';
 import { RequireAccount } from './auth/RequireAccount';
 import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
 import { RegisterPage } from './auth/Register';
+import { ConsolePage } from './console/Console';
 import { DesignPage } from './design/DesignPage';
 import { MaintenanceGate } from './platform/Maintenance';
 import { Landing } from './landing/Landing';
@@ -65,6 +66,26 @@ const appRoute = createRoute({
 const sectionRoutes = SECTIONS.map((s) =>
   createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
 );
+
+/**
+ * Owner Console (ACC-003): `/console/<раздел>`. Гостя — на вход; не owner видит «Такой
+ * страницы нет», как на любом неизвестном адресе.
+ */
+const consoleComponent = () => (
+  <RequireAccount>
+    <ConsolePage />
+  </RequireAccount>
+);
+const consoleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/console',
+  component: consoleComponent,
+});
+const consoleTabRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/console/$tab',
+  component: consoleComponent,
+});
 
 /** Витрина дизайн-системы «Частицы» (DS-001). */
 const designRoute = createRoute({
@@ -138,6 +159,8 @@ export const router = createRouter({
     appRoute.addChildren(sectionRoutes),
     authRoute.addChildren(authRoutes),
     designRoute,
+    consoleRoute,
+    consoleTabRoute,
   ]),
   // параметры адреса — всегда строки: код «012345» и токен из письма не превращаются в числа
   parseSearch: parseSearchWith((v) => v),

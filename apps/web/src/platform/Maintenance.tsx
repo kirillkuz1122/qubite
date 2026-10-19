@@ -71,7 +71,7 @@ function OwnerStrip({ status }: { status: PlatformStatus }) {
         )}
       </span>
       <span className="mt-strip-more">— их видят все, кроме вас</span>
-      <Link to="/account" hash="maintenance">
+      <Link to="/console/$tab" params={{ tab: 'platform' }} hash="maintenance">
         Выключить →
       </Link>
     </div>

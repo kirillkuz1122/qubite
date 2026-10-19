@@ -33,6 +33,21 @@ function AccountRow() {
   );
 }
 
+/** «Управление Qubite» — только owner (OWNER_CONSOLE: скрытый раздел настроек). */
+function ConsoleRow() {
+  const me = useMe();
+  if (!me.data?.is_owner) return null;
+  return (
+    <Link className="set" data-obj="set-console" to="/console/$tab" params={{ tab: 'platform' }}>
+      <span className="lbl">
+        Управление Qubite
+        <small>Owner Console: тумблеры, люди, модули, AI, журнал</small>
+      </span>
+      <span className="later">→</span>
+    </Link>
+  );
+}
+
 export function SettingsScreen() {
   const { look, set } = useLook();
   const { state, dispatch } = useStore();
@@ -147,6 +162,7 @@ export function SettingsScreen() {
       <SecHead text="АККАУНТ" label="Аккаунт" />
       <div className="group panel">
         <AccountRow />
+        <ConsoleRow />
         <div className="set" data-obj="set-backup">
           <span className="lbl">
             Экспорт и бэкапы<small>последний бэкап сегодня в 4:00</small>
