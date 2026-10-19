@@ -252,3 +252,70 @@ async fn create_person_grant_docs_block_and_see_it_in_the_log() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Страховка на будущее: любой адрес Owner Console из описания API (все методы)
+/// для гостя и для обычного вошедшего человека не существует — 404, а не 401/403,
+/// и ничего не меняет. Новый адрес owner без проверки сразу уронит этот тест.
+#[tokio::test]
+async fn every_owner_route_is_404_for_guest_and_regular_person() {
+    let (test_db, db, address) = setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let confirmed = owner
+        .post_json(
+            address,
+            "/api/owner/confirm",
+            json!({ "password": PASSWORD }),
+        )
+        .await;
+    assert_eq!(confirmed.status, 200, "{:?}", confirmed.body);
+    let created = owner
+        .post_json(
+            address,
+            "/api/owner/accounts",
+            json!({ "email": FRIEND, "display_name": "Друг", "password": FRIEND_PASSWORD }),
+        )
+        .await;
+    assert_eq!(created.status, 201, "{:?}", created.body);
+    let mut friend = Browser::default();
+    assert_eq!(
+        friend.login(address, FRIEND, FRIEND_PASSWORD).await.status,
+        200
+    );
+
+    let document = owner.get(address, "/api/openapi.json").await.body;
+    let mut checked = 0;
+    for (path, item) in document["paths"].as_object().unwrap() {
+        if !path.starts_with("/api/owner") {
+            continue;
+        }
+        // {id}, {account_id}, {*id}… — любое правдоподобное значение.
+        let mut concrete = String::new();
+        let mut rest = path.as_str();
+        while let Some(start) = rest.find('{') {
+            concrete.push_str(&rest[..start]);
+            concrete.push_str("00000000-0000-4000-8000-000000000009");
+            rest = &rest[rest[start..].find('}').unwrap() + start + 1..];
+        }
+        concrete.push_str(rest);
+        for method in item.as_object().unwrap().keys() {
+            let method: reqwest::Method = method.to_uppercase().parse().unwrap();
+            let body = (method != reqwest::Method::GET).then(|| json!({}));
+            for (who, browser) in [("гость", &mut Browser::default()), ("человек", &mut friend)]
+            {
+                let reply = browser
+                    .send(address, method.clone(), &concrete, body.clone(), true)
+                    .await;
+                assert_eq!(
+                    reply.status, 404,
+                    "{who}: {method} {concrete} → {:?}",
+                    reply.body
+                );
+            }
+            checked += 1;
+        }
+    }
+    assert!(checked >= 20, "проверено адресов owner: {checked}");
+
+    db.close().await;
+    test_db.drop_db().await;
+}
