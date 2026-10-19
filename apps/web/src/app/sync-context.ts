@@ -19,3 +19,30 @@ export function useSync(): SyncApi {
   if (!v) throw new Error('useSync: оберни в <SyncProvider>');
   return v;
 }
+
+/** Общее хранилище до разделения по аккаунтам — удаляется при первом открытии. */
+export const SHARED_DB = 'qubite-sync';
+/** Чьё хранилище открыть без сети (последний вошедший на этом устройстве). */
+export const LAST_ACCOUNT = 'qubite.sync.account';
+
+/** Имя хранилища аккаунта в браузере. */
+export function syncDbName(account: string): string {
+  return `${SHARED_DB}-${account}`;
+}
+
+export function rememberedAccount(): string | null {
+  try {
+    return localStorage.getItem(LAST_ACCOUNT);
+  } catch {
+    return null;
+  }
+}
+
+/** После «Выйти»: без сети разделы больше не откроют хранилище вышедшего. */
+export function forgetSyncAccount(): void {
+  try {
+    localStorage.removeItem(LAST_ACCOUNT);
+  } catch {
+    /* хранилище браузера недоступно — помнить и так нечего */
+  }
+}

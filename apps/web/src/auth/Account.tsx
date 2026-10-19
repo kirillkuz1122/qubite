@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
+import { saveHistory } from '../app/command';
+import { forgetSyncAccount } from '../app/sync-context';
 import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
 import { useHelpers, usePage, useShyPassword } from './page';
 
@@ -18,6 +20,15 @@ const when = (iso: string) => WHEN.format(new Date(iso));
 type Ask = { kind: 'link' | 'unlink'; provider: string } | { kind: 'telegram-bot' };
 
 /** Аккаунт: кто вошёл, сессии и устройства, привязанные входы, бот, выход. */
+/**
+ * После выхода на этом устройстве не остаётся подсказок о вышедшем: без сети разделы
+ * не откроют его хранилище, а «недавнее» в Command не покажет его строки следующему.
+ */
+function signedOut() {
+  forgetSyncAccount();
+  saveHistory([]);
+}
+
 export function AccountPage() {
   const me = useMe();
   const router = useRouter();
@@ -76,6 +87,7 @@ export function AccountPage() {
   const everywhere = async () => {
     try {
       const r = await must(api.POST('/api/auth/logout-everywhere'));
+      signedOut();
       qc.setQueryData(ME, null);
       setNote({ ok: true, text: `Закрыто входов: ${r.revoked}.` });
       router.history.push('/auth');
@@ -89,6 +101,7 @@ export function AccountPage() {
     } catch {
       /* сессии уже нет — всё равно выходим */
     }
+    signedOut();
     qc.setQueryData(ME, null);
     router.history.push('/');
   };

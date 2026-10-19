@@ -20,7 +20,7 @@ import { RequireAccount } from './auth/RequireAccount';
 import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
 import { RegisterPage } from './auth/Register';
 import { ConsolePage } from './console/Console';
-import { SyncProvider } from './app/sync';
+import { AccountSyncProvider } from './app/sync';
 import { DesignPage } from './design/DesignPage';
 import { MaintenanceGate } from './platform/Maintenance';
 import { Landing } from './landing/Landing';
@@ -58,13 +58,13 @@ const appRoute = createRoute({
   component: () => (
     <RequireAccount>
       <StoreProvider>
-        <SyncProvider>
+        <AccountSyncProvider>
           <InboxProvider>
             <PlannerProvider>
               <AppShell />
             </PlannerProvider>
           </InboxProvider>
-        </SyncProvider>
+        </AccountSyncProvider>
       </StoreProvider>
     </RequireAccount>
   ),

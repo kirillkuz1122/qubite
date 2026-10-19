@@ -2,9 +2,21 @@
  * Один клиент синхронизации на всё приложение: «Входящие», «Сегодня» и Planner
  * читают одно хранилище в браузере (IndexedDB) и одну очередь отправки. Сервер по
  * WebSocket подсказывает «есть новое» — клиент забирает изменения сам.
+ *
+ * Хранилище — своё у каждого аккаунта: иначе после «Выйти» и входа другим человеком
+ * в том же браузере он увидел бы чужие дела, а неотправленные мысли прежнего ушли бы
+ * на сервер в его аккаунт.
  */
 import { SyncClient, httpTransport, watchChanges, type SyncState } from '@qubite/sync-client';
-import { SyncCtx, type SyncApi } from './sync-context';
+import {
+  LAST_ACCOUNT,
+  rememberedAccount,
+  SHARED_DB,
+  SyncCtx,
+  syncDbName,
+  type SyncApi,
+} from './sync-context';
+import { useMe } from '../auth/client';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 function socketUrl(): string {
@@ -13,18 +25,58 @@ function socketUrl(): string {
 }
 
 /** Открыть клиент синхронизации браузера. */
-async function openBrowserClient(): Promise<SyncClient> {
-  return SyncClient.open({ dbName: 'qubite-sync', transport: httpTransport() });
+async function openBrowserClient(dbName: string): Promise<SyncClient> {
+  return SyncClient.open({ dbName, transport: httpTransport() });
+}
+
+/**
+ * Хранилище того, кто вошёл. Пока сервер не ответил (или нет сети) — последнего
+ * вошедшего на этом устройстве; ответил «не вошли» — никакого. Сменился человек —
+ * всё под провайдером открывается заново.
+ */
+export function AccountSyncProvider({
+  children,
+  open,
+}: {
+  children: ReactNode;
+  open?: ((dbName: string) => Promise<SyncClient>) | undefined;
+}) {
+  const me = useMe();
+  const id = me.data?.id;
+  useEffect(() => {
+    if (!id) return;
+    try {
+      localStorage.setItem(LAST_ACCOUNT, id);
+    } catch {
+      /* без памяти браузера без сети просто ничего не откроется */
+    }
+  }, [id]);
+  useEffect(() => {
+    try {
+      indexedDB.deleteDatabase(SHARED_DB);
+    } catch {
+      /* IndexedDB нет — удалять нечего */
+    }
+  }, []);
+  const account = me.data === null ? null : (id ?? rememberedAccount());
+  return (
+    <SyncProvider key={account ?? ''} dbName={account && syncDbName(account)} open={open}>
+      {children}
+    </SyncProvider>
+  );
 }
 
 export function SyncProvider({
   children,
+  dbName = SHARED_DB,
   open = openBrowserClient,
   live = true,
 }: {
   children: ReactNode;
+  /** Хранилище в браузере; `null` — не открывать (неизвестно, чьё). */
+  dbName?: string | null;
   /** Для тестов — свой клиент (поддельный сервер). */
-  open?: () => Promise<SyncClient>;
+  open?: ((dbName: string) => Promise<SyncClient>) | undefined;
   /** Слушать WebSocket и событие `online`. */
   live?: boolean;
 }) {
@@ -34,10 +86,14 @@ export function SyncProvider({
   const opening = useRef<Promise<SyncClient> | null>(null);
 
   useEffect(() => {
+    if (dbName === null) {
+      opening.current = null;
+      return;
+    }
     let alive = true;
     let stop = () => {};
     let unsubscribe = () => {};
-    const promise = open();
+    const promise = open(dbName);
     opening.current = promise;
     void promise
       .then((c) => {
@@ -63,7 +119,7 @@ export function SyncProvider({
       unsubscribe();
       void promise.then((c) => c.close()).catch(() => {});
     };
-  }, [open, live]);
+  }, [dbName, open, live]);
 
   const value = useMemo<SyncApi>(
     () => ({
