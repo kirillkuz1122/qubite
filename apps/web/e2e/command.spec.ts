@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mockSync } from './sync-mock';
+import { mockSync, type SyncMock } from './sync-mock';
 
 // Qubite Command (CMD-002): поиск и навигация из строки — на ПК по Ctrl+K, на телефоне из капли.
+let server: SyncMock;
 test.beforeEach(async ({ page }) => {
-  await mockSync(page);
+  server = await mockSync(page);
 });
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
@@ -49,7 +50,13 @@ test('забыл раскладку: «gkfyth» находит Planner', async (
 test('дело: стрелкой вниз к найденному — открывается «Сегодня», дело обведено', async ({
   page,
 }) => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const id = server.addTask('Позвонить бабушке', {
+    due_date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+  });
   await page.goto('/docs');
+  await expect(page.getByRole('heading', { level: 1, name: 'Docs' })).toBeAttached();
   const input = await openCommand(page);
   await input.fill('позвонить бабушке');
   // по умолчанию — записать новое дело, найденное ниже
@@ -61,7 +68,7 @@ test('дело: стрелкой вниз к найденному — откры
   await expect(input).toHaveAttribute('aria-activedescendant', /q-command-list-1/);
   await input.press('Enter');
   await expect(page).toHaveURL(/\/today$/);
-  await expect(page.locator('[data-obj="t3"][data-found]')).toBeAttached();
+  await expect(page.locator(`[data-obj="${id}"][data-found]`)).toBeAttached();
 });
 
 test('«найди фенвик» — документ сразу раскрывается', async ({ page }) => {
@@ -88,6 +95,11 @@ test('найденное можно выбрать пальцем или мыш�
 test('недавнее: пустая строка показывает прошлый поиск, выбор подставляет его', async ({
   page,
 }) => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  server.addTask('Алгебра: № 214–220', {
+    due_date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+  });
   await page.goto('/today');
   let input = await openCommand(page);
   await input.fill('найди алгебра');

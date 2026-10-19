@@ -9,6 +9,7 @@ import {
 import { AppShell } from './app/AppShell';
 import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
+import { PlannerProvider } from './app/planner';
 import { StoreProvider } from './app/store';
 import { AccountPage } from './auth/Account';
 import { AuthLayout } from './auth/AuthLayout';
@@ -19,6 +20,7 @@ import { RequireAccount } from './auth/RequireAccount';
 import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
 import { RegisterPage } from './auth/Register';
 import { ConsolePage } from './console/Console';
+import { SyncProvider } from './app/sync';
 import { DesignPage } from './design/DesignPage';
 import { MaintenanceGate } from './platform/Maintenance';
 import { Landing } from './landing/Landing';
@@ -56,9 +58,13 @@ const appRoute = createRoute({
   component: () => (
     <RequireAccount>
       <StoreProvider>
-        <InboxProvider>
-          <AppShell />
-        </InboxProvider>
+        <SyncProvider>
+          <InboxProvider>
+            <PlannerProvider>
+              <AppShell />
+            </PlannerProvider>
+          </InboxProvider>
+        </SyncProvider>
       </StoreProvider>
     </RequireAccount>
   ),

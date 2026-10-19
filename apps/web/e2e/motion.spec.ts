@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { mockSync } from './sync-mock';
 
 /* DS-002: живые элементы — жесты, бросок, отмена жеста, настройки ощущений, плавность кадров */
 
@@ -92,6 +93,13 @@ test('капля: нажатие в любом месте доли раздел�
 });
 
 test('подсказка Прото уходит плавно, дела ниже доезжают на место', async ({ page }) => {
+  // подсказка есть, только когда на сегодня есть несделанное дело
+  const server = await mockSync(page);
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  server.addTask('Разобрать задачу на ДП', {
+    due_date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+  });
   await page.goto('/today');
   const tip = page.locator('.tip');
   await expect(tip).toBeVisible();

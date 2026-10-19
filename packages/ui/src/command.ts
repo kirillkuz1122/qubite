@@ -25,11 +25,12 @@ export interface ParsedCommand {
 }
 
 /**
- * Пока нет модулей дел и заметок (PLAN-001, DOC-002), всё кроме поиска ложится во «Входящие»
- * черновиком: разбор сохраняется в элементе, а разложить по местам — одним нажатием.
+ * Дело ложится в Planner (PLAN-001); пока нет заметок (DOC-002), остальное кроме поиска — во
+ * «Входящие» черновиком: разбор сохраняется в элементе, а разложить по местам — одним нажатием.
+ * Неуверенное дело («посмотри сам») — тоже во «Входящие».
  */
 const WHERE: Record<CommandKind, string> = {
-  task: 'Входящие — черновик дела',
+  task: 'Planner — дело',
   thought: 'Входящие — разберёшь потом',
   search: 'Docs, Ink и Входящие',
   journal: 'Входящие — дневник, видишь только ты',
@@ -49,7 +50,7 @@ export function parseCommand(input: string, now: LocalNow = localNow()): ParsedC
   return {
     kind: p.kind,
     title: labelOf(p),
-    where: WHERE[p.kind],
+    where: p.kind === 'task' && p.review ? 'Входящие — черновик дела' : WHERE[p.kind],
     when: p.when,
     details,
     text: p.title || p.url || '',

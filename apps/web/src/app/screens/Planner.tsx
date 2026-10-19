@@ -2,9 +2,8 @@ import { loop, MASS } from '@qubite/motion';
 import { Segmented, useFlow, useSpring } from '@qubite/ui';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
-import { BOARD, PROJECTS } from '../data';
 import { SecHead, TaskList } from '../parts';
-import { todayIndex, useStore } from '../state';
+import { usePlanner } from '../planner-context';
 
 type Mode = 'week' | 'board';
 
@@ -40,9 +39,9 @@ export function PlannerScreen() {
 }
 
 function Week() {
-  const { state, dispatch } = useStore();
+  const planner = usePlanner();
   const shell = useShell();
-  const [cur, setCur] = useState(() => todayIndex(state));
+  const [cur, setCur] = useState(() => planner.today);
   const [shownDay, setShownDay] = useState(cur);
   const { node: flowNode, to: flowTo } = useFlow(70, 0, { className: 'q-chip-flow' });
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
@@ -78,12 +77,12 @@ function Week() {
     );
   }
 
-  const day = state.week[shownDay]!;
+  const day = planner.week[shownDay]!;
   return (
     <>
       <div className="week" role="tablist" aria-label="Дни недели">
         {flowNode}
-        {state.week.map((d, i) => (
+        {planner.week.map((d, i) => (
           <button
             key={d.d}
             type="button"
@@ -107,6 +106,9 @@ function Week() {
         ))}
       </div>
       <div ref={list}>
+        {planner.loaded && day.tasks.length === 0 && (
+          <p className="later">{day.today ? 'На сегодня дел нет.' : 'В этот день дел нет.'}</p>
+        )}
         <TaskList
           tasks={day.tasks}
           meta={(t) => (
@@ -116,21 +118,26 @@ function Week() {
             </div>
           )}
           onToggle={(t, d) => {
-            dispatch({ type: 'task.toggle', day: shownDay, id: t.id, done: d });
+            void planner.toggle(t.id, d);
             if (d) shell.cheer('proto');
           }}
         />
       </div>
       <SecHead text="ПРОЕКТЫ" label="Проекты">
-        <span className="n">{PROJECTS.length}</span>
+        <span className="n">{planner.projects.length}</span>
       </SecHead>
-      {PROJECTS.map((p) => (
-        <div className="proj" key={p.name}>
+      {planner.loaded && planner.projects.length === 0 && (
+        <p className="later">
+          Проектов пока нет — напиши в Command «/д #алгебра …», и он появится.
+        </p>
+      )}
+      {planner.projects.map((p) => (
+        <div className="proj" key={p.id}>
           <span className="q-dot" style={{ background: `var(--q-${p.color})` }} />
           <span className="name">{p.name}</span>
           <span className="bar" aria-hidden="true">
-            {Array.from({ length: p.total }, (_, k) => (
-              <i key={k} style={k < p.done ? { background: `var(--q-${p.color})` } : undefined} />
+            {Array.from({ length: p.dots }, (_, k) => (
+              <i key={k} style={k < p.filled ? { background: `var(--q-${p.color})` } : undefined} />
             ))}
           </span>
           <span className="n">
@@ -143,21 +150,22 @@ function Week() {
 }
 
 function Board() {
+  const { board } = usePlanner();
   return (
     <div className="board">
-      {BOARD.map((c) => (
+      {board.map((c) => (
         <div className="col" key={c.name}>
           <h3>
             <span className="q-dot" style={{ background: `var(--q-${c.color})` }} />
             {c.name}
             <b>{c.cards.length}</b>
           </h3>
-          {c.cards.map(([t, color, tag]) => (
-            <div className="card panel" key={t}>
-              {t}
+          {c.cards.map((card) => (
+            <div className="card panel" key={card.id}>
+              {card.title}
               <div className="meta">
-                <span className="q-dot" style={{ background: `var(--q-${color})` }} />
-                {tag}
+                <span className="q-dot" style={{ background: `var(--q-${card.color})` }} />
+                {card.tag}
               </div>
             </div>
           ))}

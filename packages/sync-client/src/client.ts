@@ -58,6 +58,7 @@ const PULL_PAGE = 200;
 export class SyncClient {
   private listeners = new Set<(state: SyncState) => void>();
   private running: Promise<SyncState> | null = null;
+  private again = false;
   private current: SyncState = { status: 'synced', pending: 0, problems: 0 };
 
   private constructor(
@@ -118,11 +119,14 @@ export class SyncClient {
     return object;
   }
 
-  /** Изменить поля модуля (например, `{ status: 'archived' }`). Работает без сети. */
-  async patch(id: string, fields: Fields): Promise<LocalObject> {
+  /**
+   * Изменить поля модуля (например, `{ status: 'archived' }`). Работает без сети.
+   * `localFields` — только для показа до ответа сервера (например, время выполнения).
+   */
+  async patch(id: string, fields: Fields, localFields?: Fields): Promise<LocalObject> {
     return this.edit(id, { kind: 'patch', fields }, (object) => ({
       ...object,
-      fields: { ...object.fields, ...fields },
+      fields: { ...object.fields, ...localFields, ...fields },
     }));
   }
 
@@ -198,9 +202,24 @@ export class SyncClient {
 
   // ------------------------------------------------------------- обмен
 
-  /** Отправить очередь и забрать изменения. Параллельные вызовы объединяются. */
+  /**
+   * Отправить очередь и забрать изменения. Параллельные вызовы объединяются, но
+   * вызов во время обмена («есть новое» с сервера, новая правка) не теряется:
+   * после текущего обмена пройдёт ещё один.
+   */
   sync(): Promise<SyncState> {
-    this.running ??= this.runSync().finally(() => {
+    if (this.running) {
+      this.again = true;
+      return this.running;
+    }
+    this.running = (async () => {
+      let state: SyncState;
+      do {
+        this.again = false;
+        state = await this.runSync();
+      } while (this.again);
+      return state;
+    })().finally(() => {
       this.running = null;
     });
     return this.running;
@@ -230,7 +249,7 @@ export class SyncClient {
       for (const entry of queued) {
         const result = byId.get(entry.op.op_id);
         if (!result) break; // сервер не ответил по операции — оставляем её и следующие
-        await this.handleResult(entry.op, result);
+        await this.handleResult(entry.seq, entry.op, result);
         handled.push(entry.seq);
       }
       await this.store.removeFromOutbox(handled);
@@ -238,9 +257,11 @@ export class SyncClient {
     }
   }
 
-  private async handleResult(op: Operation, result: OpResult): Promise<void> {
-    const stillPending = (await this.store.outbox(MAX_OPS_PER_PUSH)).some(
-      (entry) => entry.op.op_id !== op.op_id && entry.op.object_id === op.object_id,
+  private async handleResult(seq: number, op: Operation, result: OpResult): Promise<void> {
+    // Ждут отправки только более поздние правки того же объекта: ранние уже
+    // разобраны в этом же пакете, хоть и не убраны из очереди.
+    const stillPending = (await this.store.outbox(MAX_OPS_PER_PUSH * 2)).some(
+      (entry) => entry.seq > seq && entry.op.object_id === op.object_id,
     );
     const local = await this.store.object(op.object_id);
     switch (result.status) {

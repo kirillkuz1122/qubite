@@ -32,7 +32,10 @@ use crate::{
 
 /// Типы объектов, которые сейчас синхронизируются.
 pub fn registry() -> Registry {
-    Registry::default().with(qubite_inbox::InboxFields)
+    Registry::default()
+        .with(qubite_inbox::InboxFields)
+        .with(qubite_planner::ProjectFieldsHandler)
+        .with(qubite_planner::TaskFieldsHandler)
 }
 
 /// Как часто WebSocket заново проверяет права, даже если ничего не меняется.
@@ -151,12 +154,13 @@ pub async fn pull(
 /// WebSocket «есть новое». Сервер шлёт `{"type":"ready"}` после подключения
 /// и `{"type":"changed"}`, когда у аккаунта что-то изменилось (данных в
 /// сообщении нет — их забирают через `pull`). Нужно право `read` во
-/// Входящих. Браузер подключается только со своего сайта (проверка `Origin`).
+/// Входящих или в Planner. Браузер подключается только со своего сайта
+/// (проверка `Origin`).
 #[utoipa::path(get, path = "/api/v1/sync/ws", tag = "sync",
     responses(
         (status = 101, description = "Соединение открыто"),
         (status = 401, description = "Нужно войти", body = ApiErrorBody),
-        (status = 403, description = "Чужой сайт или нет доступа к Входящим", body = ApiErrorBody),
+        (status = 403, description = "Чужой сайт или нет доступа ни к Входящим, ни к Planner", body = ApiErrorBody),
     ))]
 pub async fn socket(
     State(state): State<AppState>,
@@ -174,8 +178,14 @@ pub async fn socket(
             "Подключение с другого сайта запрещено",
         ));
     }
+    // Подсказка без данных: хватает права чтения в любом модуле с синхронизацией.
     let authorized =
-        crate::modules::authorize::<Read>(&state, &session, qubite_inbox::MODULE).await?;
+        match crate::modules::authorize::<Read>(&state, &session, qubite_inbox::MODULE).await {
+            Ok(proof) => proof,
+            Err(_) => {
+                crate::modules::authorize::<Read>(&state, &session, qubite_planner::MODULE).await?
+            }
+        };
     let changes = state.changes.subscribe(state.db.pool());
     Ok(upgrade.on_upgrade(move |socket| run_socket(socket, state, authorized, changes)))
 }

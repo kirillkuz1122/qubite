@@ -26,20 +26,23 @@ async function toInbox(page: Page) {
   await expect(page).toHaveURL(/\/inbox$/);
 }
 
-test('дело со сроком, проектом и важностью: карточка понимает, черновик во «Входящих»', async ({
+test('дело со сроком, проектом и важностью: карточка понимает, дело — в Planner', async ({
   page,
 }) => {
   await page.goto('/today');
   const input = await openCommand(page);
   await input.fill('завтра в 18 повторить графы #алгебра !!');
   await expect(card(page)).toContainText('Дело');
-  await expect(card(page)).toContainText('черновик дела');
+  await expect(card(page)).toContainText('Planner — дело');
   await expect(card(page)).toContainText('завтра, 18:00 · #алгебра · !!');
   await input.press('Enter');
-  await toInbox(page);
-  await expect(
-    page.getByText('Дело: повторить графы · завтра, 18:00 · #алгебра · !!'),
-  ).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Разделы' })
+    .getByRole('button', { name: 'Planner' })
+    .click();
+  await expect(page.locator('.proj').filter({ hasText: 'Алгебра' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Доска' }).click();
+  await expect(page.locator('.col').filter({ hasText: 'Надо' })).toContainText('повторить графы');
 });
 
 test('повторение и длительность', async ({ page }) => {
@@ -76,7 +79,7 @@ test('сервер получает пояс устройства вместе �
     (r) => r.url().includes('/api/v1/sync/push') && r.method() === 'POST',
   );
   const input = await openCommand(page);
-  await input.fill('завтра купить хлеб');
+  await input.fill('идея: бот, который напоминает про дз');
   await input.press('Enter');
   const body = (await pushed).postDataJSON() as { ops: { fields?: { tz?: string } }[] };
   expect(body.ops[0]?.fields?.tz).toBeTruthy();

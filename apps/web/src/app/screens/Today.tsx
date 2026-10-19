@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { Task } from '../data';
 import { SecHead, TaskList } from '../parts';
-import { todayIndex, useStore } from '../state';
 import { useInbox } from '../inbox-context';
+import { usePlanner } from '../planner-context';
 
 /** Шкала дня: точка на каждые полчаса с 7:00 до 23:00, дела — цветные, «сейчас» — оранжевая. */
 const FROM = 7;
@@ -66,10 +66,9 @@ function Strip({ tasks }: { tasks: Task[] }) {
 
 export function TodayScreen() {
   const inbox = useInbox();
-  const { state, dispatch } = useStore();
+  const planner = usePlanner();
   const shell = useShell();
-  const day = todayIndex(state);
-  const tasks = state.week[day]!.tasks;
+  const tasks = planner.week[planner.today]!.tasks;
   const done = tasks.filter((t) => t.done).length;
   const first = tasks.find((t) => !t.done);
   const [tip, setTip] = useState(true);
@@ -110,10 +109,15 @@ export function TodayScreen() {
             {done} из {tasks.length}
           </span>
         </SecHead>
+        {planner.loaded && tasks.length === 0 && (
+          <p className="later">
+            На сегодня дел нет. Запиши в Command: «/д #алгебра № 214 в 18:00».
+          </p>
+        )}
         <TaskList
           tasks={tasks}
           onToggle={(t, d) => {
-            dispatch({ type: 'task.toggle', day, id: t.id, done: d });
+            void planner.toggle(t.id, d);
             if (d) shell.cheer('proto');
           }}
         />

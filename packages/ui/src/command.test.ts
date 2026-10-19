@@ -9,8 +9,9 @@ describe('разбор строки Command', () => {
     const r = parseCommand('завтра в 16:00 отбор по информатике', now);
     expect(r?.kind).toBe('task');
     expect(r?.when).toBe('завтра, 16:00');
-    // пока нет модуля дел — черновик во «Входящих» (CMD-003)
-    expect(r?.where).toBe('Входящие — черновик дела');
+    expect(r?.where).toBe('Planner — дело');
+    // не уверен — черновик во «Входящих» (CMD-003)
+    expect(parseCommand('напомни про графы', now)?.where).toBe('Входящие — черновик дела');
   });
 
   it('глагол дела без срока — тоже дело', () => {

@@ -25,7 +25,7 @@
 | `created_at/by`, `updated_at/by`, `deleted_at` | | Мягкое удаление |
 | `source_refs` | jsonb | Откуда пришло: Telegram-сообщение, Command, импорт |
 
-Данные конкретного типа — в таблице модуля (`mod_planner_tasks(object_id pk fk → objects.id, status, due_at, …)`).
+Данные конкретного типа — в таблице модуля (`inbox_items`, `planner_tasks(object_id pk fk → objects.id, status, priority, due_date, due_time, subtasks, recurrence, …)`, `planner_projects`). Принадлежность дела проекту — связь `part_of` (D-255).
 
 ## 2. Связи
 

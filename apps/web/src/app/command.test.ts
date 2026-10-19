@@ -2,9 +2,32 @@ import { parseCommand } from '@qubite/ui';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commandView, findEntries, loadHistory, remember, saveHistory } from './command';
 import type { InboxItem } from './data';
+import { buildWeek } from './planner-view';
 import { initialState } from './state';
 
-const state = initialState(new Date('2026-10-19T12:00:00'));
+const state = {
+  ...initialState(),
+  week: buildWeek(
+    [
+      {
+        id: 't3',
+        title: 'Позвонить бабушке',
+        status: 'todo',
+        priority: 'normal',
+        due_date: '2026-10-19',
+        due_time: null,
+        subtasks: [],
+        recurrence: null,
+        project_id: null,
+        notes: '',
+        completed_at_ms: null,
+        pending: false,
+      },
+    ],
+    [],
+    new Date('2026-10-19T12:00:00'),
+  ),
+};
 const inbox: InboxItem[] = [
   {
     id: 'i1',

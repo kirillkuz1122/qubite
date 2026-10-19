@@ -4,8 +4,11 @@
  * Здесь только данные: что нашлось и что сделать при выборе; делает оболочка (`AppShell`).
  */
 import { matchScore, type CommandHit, type ParsedCommand, type ThemeChoice } from '@qubite/ui';
-import { SECTIONS, type InboxItem, type SectionId } from './data';
+import { SECTIONS, type Day, type InboxItem, type SectionId } from './data';
 import type { State } from './state';
+
+/** Где искать объекты: дела недели (Planner, PLAN-001) и документы. */
+export type CommandData = Pick<State, 'docs'> & { week: Day[] };
 
 /** Что сделать, когда пункт выбран. */
 export type CommandRun =
@@ -121,7 +124,7 @@ function actionEntries(): CommandEntry[] {
 }
 
 /** Дела недели, мысли и документы. Дела «сегодня» показываются на «Сегодня», остальные — в Planner. */
-function objectEntries(state: State, inbox: readonly InboxItem[]): CommandEntry[] {
+function objectEntries(state: CommandData, inbox: readonly InboxItem[]): CommandEntry[] {
   const out: CommandEntry[] = [];
   for (const day of state.week)
     for (const t of day.tasks)
@@ -163,7 +166,7 @@ export const MAX_HITS = 6;
 /** Найти по запросу: лучшие сверху, не больше `MAX_HITS`. */
 export function findEntries(
   query: string,
-  state: State,
+  state: CommandData,
   inbox: readonly InboxItem[],
 ): (CommandEntry & { score: number })[] {
   const q = query.trim();
@@ -198,7 +201,7 @@ export interface CommandView {
 export function commandView(
   value: string,
   parsed: ParsedCommand | null,
-  state: State,
+  state: CommandData,
   inbox: readonly InboxItem[],
   history: readonly string[],
 ): CommandView {

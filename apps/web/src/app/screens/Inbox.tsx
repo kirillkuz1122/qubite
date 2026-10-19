@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { InboxAct, InboxFrom, InboxItem } from '../data';
 import { useInbox } from '../inbox-context';
+import { usePlanner } from '../planner-context';
 import { useStore } from '../state';
 
 type Filter = 'all' | Exclude<InboxFrom, 'text'>;
@@ -19,6 +20,7 @@ type Filter = 'all' | Exclude<InboxFrom, 'text'>;
 export function InboxScreen() {
   const { dispatch } = useStore();
   const inbox = useInbox();
+  const planner = usePlanner();
   const shell = useShell();
   const [filter, setFilter] = useState<Filter>('all');
   const box = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export function InboxScreen() {
       return;
     }
     shell.fly({ x: (dot?.left ?? 0) + 5, y: (dot?.top ?? 0) + 5 }, to, 'yellow', () => {
-      if (to === 'planner') dispatch({ type: 'task.add', title: it.text, time: null });
+      if (to === 'planner') void planner.add(it.text, { fromInbox: it.id });
       if (to === 'docs') dispatch({ type: 'doc.add', name: it.text });
     });
     shell.cheer('elik');

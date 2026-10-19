@@ -13,6 +13,10 @@ export interface SyncMock {
   offline: boolean;
   /** объект появился «на другом устройстве» */
   addElsewhere(text: string, source?: string): void;
+  /** проект Planner «с другого устройства»; вернёт ID */
+  addProject(title: string, fields?: Record<string, unknown>): string;
+  /** дело Planner «с другого устройства»; вернёт ID */
+  addTask(title: string, fields?: Record<string, unknown>): string;
   /** сказать браузеру «есть новое» */
   ping(): void;
 }
@@ -20,6 +24,20 @@ export interface SyncMock {
 export async function mockSync(page: Page): Promise<SyncMock> {
   const log: string[] = [];
   const sockets: WebSocketRoute[] = [];
+  const put = (object_type: string, title: string, fields: Record<string, unknown>) => {
+    const id = crypto.randomUUID();
+    mock.objects.set(id, {
+      id,
+      object_type,
+      title,
+      revision: 1,
+      deleted: false,
+      updated_at_ms: Date.now(),
+      fields,
+    });
+    log.push(id);
+    return id;
+  };
   const mock: SyncMock = {
     objects: new Map(),
     ops: [],
@@ -36,6 +54,17 @@ export async function mockSync(page: Page): Promise<SyncMock> {
         fields: { body: text, source, kind: 'text', status: 'new', captured_at_ms: Date.now() },
       });
       log.push(id);
+    },
+    addProject(title, fields = {}) {
+      return put('planner.project', title, { color: 'orange', status: 'active', ...fields });
+    },
+    addTask(title, fields = {}) {
+      return put('planner.task', title, {
+        status: 'todo',
+        priority: 'normal',
+        subtasks: [],
+        ...fields,
+      });
     },
     ping() {
       for (const ws of sockets) ws.send(JSON.stringify({ type: 'changed' }));
@@ -61,7 +90,12 @@ export async function mockSync(page: Page): Promise<SyncMock> {
           revision: 1,
           deleted: false,
           updated_at_ms: Date.now(),
-          fields: { ...(op.fields as object), status: 'new' },
+          // статус по умолчанию ставит сервер, как настоящий
+          fields: {
+            ...(op.object_type === 'inbox.item' ? { status: 'new' } : {}),
+            ...(op.object_type === 'planner.task' ? { status: 'todo' } : {}),
+            ...(op.fields as object),
+          },
         });
       } else if (current && op.kind === 'patch') {
         mock.objects.set(id, {

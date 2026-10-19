@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { InboxProvider } from './inbox';
+import { SyncProvider } from './sync';
 import { useInbox } from './inbox-context';
 import { toView, when } from './inbox-view';
 
@@ -88,9 +89,11 @@ describe('«Входящие» на настоящих данных', () => {
     server.offline = true;
     const open = () => SyncClient.open({ dbName: `web-inbox-${Date.now()}`, transport: server });
     render(
-      <InboxProvider open={open} live={false}>
-        <Probe />
-      </InboxProvider>,
+      <SyncProvider open={open} live={false}>
+        <InboxProvider>
+          <Probe />
+        </InboxProvider>
+      </SyncProvider>,
     );
     await act(async () => screen.getByText('записать').click());
     expect(await screen.findByText(/мысль \d+ · написал · ждёт сети · сейчас/)).toBeTruthy();

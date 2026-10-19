@@ -39,8 +39,9 @@ import { PlannerScreen } from './screens/Planner';
 import { SettingsScreen } from './screens/Settings';
 import { TodayScreen } from './screens/Today';
 import { reveal } from './reveal';
-import { todayIndex, useStore, type State } from './state';
+import { useStore, type State } from './state';
 import { useInbox } from './inbox-context';
+import { usePlanner, type PlannerApi } from './planner-context';
 import './app.css';
 
 const SCREENS: Record<SectionId, () => ReactNode> = {
@@ -52,24 +53,24 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
 };
 
 /**
- * Куда летит точка из Command. Пока нет модулей дел и заметок (PLAN-001, DOC-002), всё ложится
- * во «Входящие» черновиком с разбором (CMD-003, D-240); поиск — отдельно (CMD-002).
+ * Куда летит точка из Command. Дело, в котором разбор уверен, — сразу в Planner (PLAN-001, D-263);
+ * остальное, пока нет заметок (DOC-002), — во «Входящие» черновиком с разбором (CMD-003, D-240).
  */
-const DEST: SectionId = 'inbox';
+const toPlanner = (p: ParsedCommand) => p.kind === 'task' && p.review === null;
 
 function sectionOf(path: string): SectionId {
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'today';
 }
 
-function left(s: State) {
-  return s.week[todayIndex(s)]?.tasks.filter((t) => !t.done).length ?? 0;
+function left(p: PlannerApi) {
+  return p.week[p.today]?.tasks.filter((t) => !t.done).length ?? 0;
 }
 
-function subtitle(id: SectionId, s: State, wide: boolean, inbox: number): ReactNode {
-  const today = s.week[todayIndex(s)]!;
+function subtitle(id: SectionId, s: State, p: PlannerApi, wide: boolean, inbox: number): ReactNode {
+  const today = p.week[p.today]!;
   switch (id) {
     case 'today': {
-      const n = left(s);
+      const n = left(p);
       return (
         <>
           {dayLabel(today.date, !wide)} · <b>{n}</b> {plural(n, 'дело', 'дела', 'дел')} осталось
@@ -89,7 +90,7 @@ function subtitle(id: SectionId, s: State, wide: boolean, inbox: number): ReactN
     case 'planner':
       return (
         <>
-          неделя {isoWeek(today.date)} · <b>{weekLabel(s.week)}</b>
+          неделя {isoWeek(today.date)} · <b>{weekLabel(p.week)}</b>
         </>
       );
     case 'docs':
@@ -110,6 +111,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const { state } = useStore();
   const inbox = useInbox();
+  const planner = usePlanner();
   const id = sectionOf(path);
   const sec = SECTIONS.find((s) => s.id === id)!;
   const crew = useRef<CrewHandle>(null);
@@ -186,7 +188,7 @@ export function AppShell() {
   const input = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const parsed = value.trim() ? parseCommand(value) : null;
-  const cmd = commandView(value, parsed, state, inbox.items, history);
+  const cmd = commandView(value, parsed, { ...state, week: planner.week }, inbox.items, history);
   const shown = focused && (wide || open);
   const count = (cmd.parsed ? 1 : 0) + cmd.hits.length;
   const active = shown ? Math.min(picked ?? cmd.active, count - 1) : -1;
@@ -222,8 +224,8 @@ export function AppShell() {
   }, [openCmd, closeCmd]);
 
   /**
-   * Сохранить запись: во «Входящие» уходит строка как есть — сервер разберёт её тем же
-   * разбором, что показан в карточке, и положит черновик в элемент (CMD-003).
+   * Сохранить запись: уверенное дело — в Planner, остальное во «Входящие» строкой как есть —
+   * сервер разберёт её тем же разбором, что показан в карточке, и положит черновик в элемент (CMD-003).
    */
   function save(p: ParsedCommand, raw = value.trim()) {
     if (!raw) return;
@@ -232,10 +234,11 @@ export function AppShell() {
     const owner = COMMAND_OWNER[p.kind];
     api.fly(
       { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
-      DEST,
+      toPlanner(p) ? 'planner' : 'inbox',
       COMMAND_COLOR[p.kind],
       () => {
-        void inbox.capture(raw);
+        if (toPlanner(p)) void planner.add(raw);
+        else void inbox.capture(raw);
         api.cheer(owner);
       },
     );
@@ -322,7 +325,7 @@ export function AppShell() {
       s.id === 'inbox'
         ? inbox.items.length
         : s.id === 'planner'
-          ? left(state)
+          ? left(planner)
           : s.id === 'docs'
             ? state.docs.length
             : 0,
@@ -331,7 +334,7 @@ export function AppShell() {
 
   const pitch = wide ? 5.6 : 4.4;
   const headH = wide ? 136 : 112;
-  const leftToday = left(state);
+  const leftToday = left(planner);
 
   return (
     <ShellCtx.Provider value={api}>
@@ -377,7 +380,7 @@ export function AppShell() {
               />
             </div>
             <div className="head-sub" ref={sub}>
-              {subtitle(id, state, wide, inbox.items.length)}
+              {subtitle(id, state, planner, wide, inbox.items.length)}
             </div>
           </header>
           <div className="screen" ref={screen} data-screen={view}>

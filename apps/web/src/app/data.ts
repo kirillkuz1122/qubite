@@ -1,6 +1,6 @@
 /**
- * Тестовые данные оболочки (DS-007): как в макете app.html. Живут в памяти — после перезагрузки
- * всё возвращается как было. Настоящие данные придут с API в задачах HOME-001, CMD-001, PLAN-001, DOC-002.
+ * Разделы оболочки и тестовые данные Docs (DS-007, в памяти — настоящие придут в DOC-002).
+ * «Входящие» (CMD-007), «Сегодня» и Planner (PLAN-001) — уже на настоящих данных.
  */
 import type { ColorName, CompanionKind, IconName } from '@qubite/ui';
 
@@ -78,74 +78,8 @@ export interface Doc {
   when: string;
 }
 
-export interface Project {
-  name: string;
-  color: ColorName;
-  done: number;
-  total: number;
-}
-
 let seq = 0;
 export const newId = (p: string) => `${p}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
-
-export const TODAY_TASKS: Task[] = [
-  {
-    id: 't1',
-    title: 'Разобрать задачу на ДП с отбора',
-    color: 'orange',
-    tag: 'Олимпиада',
-    time: '16:00',
-    done: false,
-  },
-  { id: 't2', title: 'Алгебра: № 214–220', color: 'sky', tag: 'Школа', time: '18:00', done: false },
-  {
-    id: 't3',
-    title: 'Позвонить бабушке',
-    color: 'peach',
-    tag: 'Личное',
-    time: 'вечер',
-    done: false,
-  },
-  {
-    id: 't4',
-    title: 'Сдать конспект по физике',
-    color: 'sky',
-    tag: 'Школа',
-    time: '9:00',
-    done: true,
-  },
-  { id: 't5', title: 'Зарядка', color: 'green', tag: 'Личное', time: '7:30', done: true },
-];
-
-/** Остальные дни недели (пн…вс); в день «сегодня» встают дела из TODAY_TASKS. */
-const WEEK_TEMPLATE: [string, ColorName, string, boolean][][] = [
-  [
-    ['Алгебра: № 190–195', 'sky', '18:00', true],
-    ['Зарядка', 'green', '7:30', true],
-  ],
-  [
-    ['Физика: лабораторная', 'sky', '10:00', true],
-    ['Отбор: задачи на графы', 'orange', '17:00', true],
-  ],
-  [
-    ['Сдать эссе', 'sky', '9:00', true],
-    ['Кружок: ДП', 'orange', '16:00', true],
-    ['Купить подарок', 'peach', 'вечер', false],
-  ],
-  [
-    ['Читать главу 3', 'sky', '19:00', true],
-    ['Заказ на Kwork', 'orange', '20:00', true],
-  ],
-  [
-    ['Решить задачи с отбора', 'orange', '17:00', false],
-    ['Физика: задачи 4–9', 'sky', '19:00', false],
-  ],
-  [['Поход с классом', 'peach', '11:00', false]],
-  [
-    ['План на неделю', 'orange', '20:00', false],
-    ['Позвонить бабушке', 'peach', '12:00', false],
-  ],
-];
 
 export interface Day {
   /** «пн» */
@@ -177,25 +111,6 @@ const MONTHS = [
 /** Номер дня недели: 0 — понедельник. */
 export const weekday = (d: Date) => (d.getDay() + 6) % 7;
 
-/** Неделя вокруг сегодняшнего дня: дела из макета, «сегодня» — настоящее. */
-export function makeWeek(now: Date): Day[] {
-  const t = weekday(now);
-  return WEEK_TEMPLATE.map((tpl, i) => {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - t + i);
-    const tasks =
-      i === t
-        ? TODAY_TASKS.map((x) => ({ ...x }))
-        : tpl.map(([title, color, time, done], k) => ({
-            id: `w${i}-${k}`,
-            title,
-            color,
-            time,
-            done: i < t ? true : done,
-          }));
-    return { d: WD_SHORT[i]!, n: date.getDate(), date, today: i === t, tasks };
-  });
-}
-
 /** «пятница, 17 октября» или коротко «пт, 17 октября». */
 export function dayLabel(d: Date, short: boolean): string {
   const w = weekday(d);
@@ -218,40 +133,6 @@ export function isoWeek(d: Date): number {
   const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
   return 1 + Math.round(((t.getTime() - y.getTime()) / 864e5 - 3 + ((y.getUTCDay() + 6) % 7)) / 7);
 }
-
-export const PROJECTS: Project[] = [
-  { name: 'Олимпиада по информатике', color: 'orange', done: 4, total: 8 },
-  { name: 'Школа: 10 класс', color: 'sky', done: 9, total: 12 },
-  { name: 'Бот для домашки', color: 'yellow', done: 1, total: 6 },
-];
-
-export const BOARD: { name: string; color: ColorName; cards: [string, ColorName, string][] }[] = [
-  {
-    name: 'Надо',
-    color: 'faint',
-    cards: [
-      ['Задача на графы', 'orange', 'Олимпиада'],
-      ['Подарок маме', 'peach', 'Личное'],
-      ['Эссе по литературе', 'sky', 'Школа'],
-    ],
-  },
-  {
-    name: 'В работе',
-    color: 'orange',
-    cards: [
-      ['ДП на отрезках', 'orange', 'Олимпиада'],
-      ['Бот: напоминания', 'yellow', 'Проект'],
-    ],
-  },
-  {
-    name: 'Готово',
-    color: 'green',
-    cards: [
-      ['Конспект по физике', 'green', 'Школа'],
-      ['Зарядка 5 дней', 'green', 'Личное'],
-    ],
-  },
-];
 
 export const DOCS: Doc[] = [
   {

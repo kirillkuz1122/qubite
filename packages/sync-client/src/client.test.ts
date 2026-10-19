@@ -189,6 +189,28 @@ describe('SyncClient', () => {
     ]);
   });
 
+  it('«есть новое» во время обмена не теряется: обмен повторяется', async () => {
+    const server = new FakeServer();
+    const { client } = await open(server);
+    // Пока идёт первый обмен (страница уже получена), на другом устройстве появилась
+    // заметка и пришла подсказка «есть новое».
+    const pull = server.pull.bind(server);
+    let hinted: Promise<unknown> = Promise.resolve();
+    let first = true;
+    server.pull = async (cursor, limit) => {
+      const page = await pull(cursor, limit);
+      if (first) {
+        first = false;
+        server.createElsewhere('с телефона');
+        hinted = client.sync();
+      }
+      return page;
+    };
+    await client.sync();
+    await hinted;
+    expect((await client.list()).map((o) => o.title)).toEqual(['с телефона']);
+  });
+
   it('статус сообщается подписчикам', async () => {
     const server = new FakeServer();
     const { client } = await open(server);

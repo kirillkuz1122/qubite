@@ -1,10 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
-import { mockSync } from './sync-mock';
+import { mockSync, type SyncMock } from './sync-mock';
 
 // Сервер синхронизации подделан: без него мысли просто ждали бы сети.
+let server: SyncMock;
 test.beforeEach(async ({ page }) => {
-  await mockSync(page);
+  server = await mockSync(page);
 });
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 /* ПК — боковая панель и плавающая Command; телефон (360×780) — нижняя капля */
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
@@ -66,12 +73,16 @@ test('«+» раскрывается в меню и подставляет ко�
 });
 
 test('дело отмечается кольцом — счётчик и Planner видят это', async ({ page }) => {
+  const day = today();
+  server.addTask('Зарядка', { due_date: day, due_time: '07:30', status: 'done' });
+  server.addTask('Алгебра: № 214–220', { due_date: day, due_time: '18:00' });
+  server.addTask('Позвонить бабушке', { due_date: day });
   await page.goto('/today');
-  await expect(page.getByText('2 из 5')).toBeVisible();
+  await expect(page.getByText('1 из 3')).toBeVisible();
   const ring = page.getByRole('checkbox', { name: 'Готово: Позвонить бабушке' });
   await ring.click();
   await expect(ring).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByText('3 из 5')).toBeVisible();
+  await expect(page.getByText('2 из 3')).toBeVisible();
   await go(page, 'Planner');
   await expect(page.getByRole('checkbox', { name: 'Готово: Позвонить бабушке' })).toHaveAttribute(
     'aria-checked',
