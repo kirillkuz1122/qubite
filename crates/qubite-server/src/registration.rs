@@ -39,6 +39,16 @@ pub(crate) fn captcha_provider(rules: &Effective) -> Option<Provider> {
     }
 }
 
+/// Виджет CAPTCHA для входа (D-189): только если у провайдера есть ключи.
+pub(crate) fn login_widget(state: &AppState, rules: &Effective) -> Option<CaptchaWidget> {
+    let provider = captcha_provider(rules)?;
+    let site_key = state.auth.captcha.site_key(provider)?;
+    Some(CaptchaWidget {
+        provider: provider.as_str(),
+        site_key: site_key.to_owned(),
+    })
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct CaptchaWidget {
     /// `turnstile` или `smartcaptcha`.

@@ -111,6 +111,8 @@ pub struct PlatformStatus {
     registration_mode: RegistrationMode,
     /// Часовой пояс платформы (IANA).
     timezone: String,
+    /// CAPTCHA, которую показать на входе после ответа `captcha_required`.
+    login_captcha: Option<crate::registration::CaptchaWidget>,
 }
 
 /// Состояние платформы для сайта и приложений: техработы, вход, регистрация.
@@ -132,6 +134,7 @@ pub async fn status(State(state): State<AppState>) -> Result<Json<PlatformStatus
         },
         registration_mode: rules.registration_mode(),
         timezone: rules.settings.timezone.clone(),
+        login_captcha: crate::registration::login_widget(&state, &rules),
     }))
 }
 

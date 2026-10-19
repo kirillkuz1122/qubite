@@ -1028,6 +1028,11 @@ export interface components {
       yandex: boolean;
     };
     LoginRequest: {
+      /**
+       * @description Токен виджета CAPTCHA — нужен после нескольких неудачных попыток
+       *     (ответ `captcha_required`); виджет — в `GET /api/platform/status`.
+       */
+      captcha_token?: string | null;
       /** @description Почта аккаунта; регистр не важен. */
       email: string;
       /** @description Пароль. Не логируется и не сохраняется. */
@@ -1126,6 +1131,7 @@ export interface components {
       password: string;
     };
     PlatformStatus: {
+      login_captcha?: components['schemas']['CaptchaWidget'] | null;
       /** @description Можно ли сейчас войти (существующие сессии работают в любом случае). */
       login_enabled: boolean;
       /** @description Какими способами можно войти. */
@@ -1453,7 +1459,16 @@ export interface operations {
           'application/json': components['schemas']['LoginResponse'];
         };
       };
-      /** @description Неверная почта или пароль */
+      /** @description `captcha_failed`: CAPTCHA не пройдена */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Неверная почта или пароль; `captcha_required` — после нескольких неудач нужна CAPTCHA */
       401: {
         headers: {
           [name: string]: unknown;
@@ -1473,6 +1488,15 @@ export interface operations {
       };
       /** @description Слишком много попыток; заголовок `Retry-After` — через сколько секунд */
       429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `captcha_unavailable`: сервис CAPTCHA не отвечает */
+      503: {
         headers: {
           [name: string]: unknown;
         };

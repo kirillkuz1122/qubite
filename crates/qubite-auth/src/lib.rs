@@ -45,6 +45,13 @@ pub struct AuthConfig {
     pub email_limit: Limit,
     /// Лимит неудачных попыток с одного IP-адреса (по всем почтам).
     pub ip_limit: Limit,
+    /// CAPTCHA на входе (D-189, Q-20): после стольких неудач по почте…
+    pub captcha_after_email: i64,
+    /// …или с одного IP вход требует CAPTCHA (если она включена).
+    pub captcha_after_ip: i64,
+    /// Лимит неудач по почте, когда каждая попытка прошла CAPTCHA: чужой
+    /// человек уже не закроет вход owner пятью неверными паролями.
+    pub email_limit_with_captcha: Limit,
     /// Письма с кодами (AUTH-002).
     pub email: email::EmailCodes,
 }
@@ -70,6 +77,12 @@ impl Default for AuthConfig {
                 window: Duration::from_secs(15 * 60),
             },
             email: email::EmailCodes::default(),
+            captcha_after_email: 3,
+            captcha_after_ip: 10,
+            email_limit_with_captcha: Limit {
+                max_failures: 20,
+                window: Duration::from_secs(15 * 60),
+            },
         }
     }
 }

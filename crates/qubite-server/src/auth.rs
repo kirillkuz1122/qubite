@@ -480,6 +480,9 @@ pub struct LoginRequest {
     email: String,
     /// Пароль. Не логируется и не сохраняется.
     password: String,
+    /// Токен виджета CAPTCHA — нужен после нескольких неудачных попыток
+    /// (ответ `captcha_required`); виджет — в `GET /api/platform/status`.
+    captcha_token: Option<String>,
 }
 
 /// Кто вошёл.
@@ -558,9 +561,11 @@ pub(crate) fn me(session: &ResolvedSession) -> Me {
 #[utoipa::path(post, path = "/api/auth/login", tag = "auth", request_body = LoginRequest,
     responses(
         (status = 200, description = "Вход выполнен; ставятся cookie `qubite_session` и `qubite_csrf`", body = LoginResponse),
-        (status = 401, description = "Неверная почта или пароль", body = ApiErrorBody),
+        (status = 400, description = "`captcha_failed`: CAPTCHA не пройдена", body = ApiErrorBody),
+        (status = 401, description = "Неверная почта или пароль; `captcha_required` — после нескольких неудач нужна CAPTCHA", body = ApiErrorBody),
         (status = 403, description = "Аккаунт заблокирован или почта не подтверждена", body = ApiErrorBody),
-        (status = 429, description = "Слишком много попыток; заголовок `Retry-After` — через сколько секунд", body = ApiErrorBody)
+        (status = 429, description = "Слишком много попыток; заголовок `Retry-After` — через сколько секунд", body = ApiErrorBody),
+        (status = 503, description = "`captcha_unavailable`: сервис CAPTCHA не отвечает", body = ApiErrorBody)
     ))]
 pub async fn login(
     State(state): State<AppState>,
@@ -570,6 +575,15 @@ pub async fn login(
 ) -> Result<Response, ApiError> {
     let settings = &state.auth;
     let client = client_info(settings, &headers, peer.map(|peer| peer.0.0));
+    let platform = crate::platform::effective(&state).await?;
+    let captcha_passed = login_captcha(
+        &state,
+        &platform,
+        &body.email,
+        &client.ip,
+        body.captcha_token.as_deref(),
+    )
+    .await?;
     let issued: IssuedSession = qubite_auth::login(
         state.db.pool(),
         &settings.passwords,
@@ -578,7 +592,8 @@ pub async fn login(
             email: body.email,
             password: body.password,
             client,
-            platform: crate::platform::effective(&state).await?,
+            platform,
+            captcha_passed,
         },
     )
     .await?;
@@ -597,6 +612,54 @@ pub async fn login(
     })
     .into_response();
     Ok(with_cookies(response, cookies))
+}
+
+/// CAPTCHA на входе (D-189): после нескольких неудач по почте или с IP вход
+/// без пройденной CAPTCHA не проверяется. Действует, только если CAPTCHA
+/// включена (тумблер, env) и у провайдера есть ключи. `true` — пройдена.
+async fn login_captcha(
+    state: &AppState,
+    platform: &qubite_auth::platform::Effective,
+    email: &str,
+    ip: &str,
+    token: Option<&str>,
+) -> Result<bool, ApiError> {
+    let Some(provider) = crate::registration::captcha_provider(platform)
+        .filter(|provider| state.auth.captcha.site_key(*provider).is_some())
+    else {
+        return Ok(false);
+    };
+    let token = token.map(str::trim).unwrap_or_default();
+    if token.is_empty() {
+        let needed =
+            qubite_auth::login::needs_captcha(state.db.pool(), &state.auth.config, email, ip)
+                .await?;
+        return if needed {
+            Err(ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "captcha_required",
+                "Много неудачных попыток — подтвердите, что вы не робот",
+            ))
+        } else {
+            Ok(false)
+        };
+    }
+    match state.auth.captcha.verify(provider, token, ip).await {
+        Ok(true) => Ok(true),
+        Ok(false) => Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "captcha_failed",
+            "Не получилось проверить, что вы не робот. Попробуйте ещё раз",
+        )),
+        Err(error) => {
+            tracing::warn!(%error, "CAPTCHA на входе недоступна");
+            Err(ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "captcha_unavailable",
+                "Проверка «не робот» сейчас не работает. Попробуйте позже",
+            ))
+        }
+    }
 }
 
 /// Выйти: закрыть текущую сессию.

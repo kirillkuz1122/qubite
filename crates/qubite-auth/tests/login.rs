@@ -18,6 +18,7 @@ fn input(email: &str, password: &str) -> LoginInput {
             ip: "203.0.113.7".into(),
         },
         platform: Default::default(),
+        captcha_passed: false,
     }
 }
 

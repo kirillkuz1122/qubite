@@ -27,6 +27,8 @@ pub struct LoginInput {
     pub client: ClientInfo,
     /// Тумблеры платформы на момент входа (ACC-002).
     pub platform: Effective,
+    /// Человек прошёл CAPTCHA (её проверяет HTTP-слой, см. [`needs_captcha`]).
+    pub captcha_passed: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -54,11 +56,19 @@ pub async fn login(
         return Err(Error::InvalidCredentials);
     }
 
+    // С CAPTCHA лимит по почте мягче: каждая попытка стоит человеку труда.
+    let email_limit = if input.captcha_passed {
+        config.email_limit_with_captcha
+    } else {
+        config.email_limit
+    };
     // Сверх лимита отвечаем сразу, не вставая в очередь на проверку пароля.
     // Окончательная проверка — ниже, под блокировкой.
     {
         let mut conn = pool.acquire().await?;
-        if let Some(retry_after_secs) = throttled(&mut conn, &email, ip, config).await? {
+        if let Some(retry_after_secs) =
+            throttled(&mut conn, &email, ip, config, email_limit).await?
+        {
             tracing::warn!(retry_after_secs, "вход: превышен лимит попыток");
             return Err(Error::TooManyAttempts { retry_after_secs });
         }
@@ -81,7 +91,7 @@ pub async fn login(
     .execute(&mut *tx)
     .await?;
 
-    if let Some(retry_after_secs) = throttled(&mut tx, &email, ip, config).await? {
+    if let Some(retry_after_secs) = throttled(&mut tx, &email, ip, config, email_limit).await? {
         tx.commit().await?;
         tracing::warn!(retry_after_secs, "вход: превышен лимит попыток");
         return Err(Error::TooManyAttempts { retry_after_secs });
@@ -179,7 +189,9 @@ pub async fn confirm_password(
         let Some(row) = row else {
             return Err(Error::InvalidCredentials);
         };
-        if let Some(retry_after_secs) = throttled(&mut conn, &row.0, ip, config).await? {
+        if let Some(retry_after_secs) =
+            throttled(&mut conn, &row.0, ip, config, config.email_limit).await?
+        {
             return Err(Error::TooManyAttempts { retry_after_secs });
         }
         row
@@ -201,12 +213,44 @@ pub async fn confirm_password(
     Err(Error::InvalidCredentials)
 }
 
+/// Нужна ли CAPTCHA перед этой попыткой (D-189): после
+/// [`AuthConfig::captcha_after_email`] неудач по почте (с последнего удачного
+/// входа) или [`AuthConfig::captcha_after_ip`] — с этого IP за окно лимита.
+/// Считаются и попытки с несуществующими почтами, поэтому ответ ничего не
+/// говорит о том, есть ли аккаунт.
+pub async fn needs_captcha(
+    pool: &PgPool,
+    config: &AuthConfig,
+    raw_email: &str,
+    ip: &str,
+) -> Result<bool> {
+    let email = raw_email.trim().to_lowercase();
+    let (by_email, by_ip): (i64, i64) = sqlx::query_as(
+        "SELECT \
+           (SELECT count(*) FROM login_attempts \
+             WHERE email = $1 AND NOT success AND at > now() - $3::float8 * interval '1 second' \
+               AND at > coalesce((SELECT max(at) FROM login_attempts WHERE email = $1 AND success), \
+                                 '-infinity')), \
+           (SELECT count(*) FROM login_attempts \
+             WHERE $2 <> '' AND ip = $2 AND NOT success \
+               AND at > now() - $4::float8 * interval '1 second')",
+    )
+    .bind(&email)
+    .bind(ip)
+    .bind(secs(config.email_limit.window))
+    .bind(secs(config.ip_limit.window))
+    .fetch_one(pool)
+    .await?;
+    Ok(by_email >= config.captcha_after_email || by_ip >= config.captcha_after_ip)
+}
+
 /// Через сколько секунд можно повторить, если лимит превышен.
 async fn throttled(
     conn: &mut sqlx::PgConnection,
     email: &str,
     ip: &str,
     config: &AuthConfig,
+    email_limit: Limit,
 ) -> Result<Option<u64>> {
     // Неудачи по почте считаются после последнего удачного входа.
     let by_email = failures(
@@ -216,7 +260,7 @@ async fn throttled(
            AND at > coalesce((SELECT max(at) FROM login_attempts WHERE email = $1 AND success), \
                              '-infinity')",
         email,
-        config.email_limit,
+        email_limit,
     )
     .await?;
     if by_email.is_some() || ip.is_empty() {

@@ -215,8 +215,18 @@
               }
             }
           },
+          "400": {
+            "description": "`captcha_failed`: CAPTCHA не пройдена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Неверная почта или пароль",
+            "description": "Неверная почта или пароль; `captcha_required` — после нескольких неудач нужна CAPTCHA",
             "content": {
               "application/json": {
                 "schema": {
@@ -237,6 +247,16 @@
           },
           "429": {
             "description": "Слишком много попыток; заголовок `Retry-After` — через сколько секунд",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`captcha_unavailable`: сервис CAPTCHA не отвечает",
             "content": {
               "application/json": {
                 "schema": {
@@ -2818,6 +2838,10 @@
         "type": "object",
         "required": ["email", "password"],
         "properties": {
+          "captcha_token": {
+            "type": ["string", "null"],
+            "description": "Токен виджета CAPTCHA — нужен после нескольких неудачных попыток\n(ответ `captcha_required`); виджет — в `GET /api/platform/status`."
+          },
           "email": {
             "type": "string",
             "description": "Почта аккаунта; регистр не важен."
@@ -3043,6 +3067,17 @@
           "timezone"
         ],
         "properties": {
+          "login_captcha": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CaptchaWidget",
+                "description": "CAPTCHA, которую показать на входе после ответа `captcha_required`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "login_enabled": {
             "type": "boolean",
             "description": "Можно ли сейчас войти (существующие сессии работают в любом случае)."
