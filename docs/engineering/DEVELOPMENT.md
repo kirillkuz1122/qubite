@@ -76,6 +76,9 @@ cargo run --bin qubite -- serve --help   # все настройки (у каж�
 # AI (AI-002). Без QUBITE_AI_OPENROUTER_API_KEY AI выключен; бюджет по умолчанию — ноль у всех
 DATABASE_URL=… cargo run --bin qubite -- ai limits                 # лимиты, резерв, расход
 DATABASE_URL=… cargo run --bin qubite -- ai models                 # модели, цены, блокировки
+DATABASE_URL=… cargo run --bin qubite -- ai catalog gemini         # каталог OpenRouter: что можно включить
+DATABASE_URL=… cargo run --bin qubite -- ai model google/gemini-2.5-flash-lite on --providers google-vertex
+DATABASE_URL=… cargo run --bin qubite -- ai use google/gemini-2.5-flash-lite --task inbox.triage
 DATABASE_URL=… cargo run --bin qubite -- ai limit --scope user:you@example.ru --period day --metric usd --value 1
 DATABASE_URL=… cargo run --bin qubite -- ai owner-unlimited on     # owner без личного лимита (в аудите)
 DATABASE_URL=… QUBITE_AI_OPENROUTER_API_KEY=… cargo run --bin qubite -- ai try "текст"   # настоящий вызов, стоит денег

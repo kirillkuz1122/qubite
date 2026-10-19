@@ -180,9 +180,10 @@ fn request(id: &str) -> AiRequest {
         request_id: id.into(),
         model: GEMINI.into(),
         prompt: "Разбери мысль".into(),
-        untrusted: vec![Untrusted::new("inbox", "купить молоко")],
+        untrusted: vec![Untrusted::new("inbox", format!("купить молоко ({id})"))],
         input_tokens: 0,
         max_output_tokens: 1_000,
+        job_id: None,
     }
 }
 
@@ -395,7 +396,11 @@ async fn successful_call_sends_guarded_request_and_charges_usage() {
     assert_eq!(body["max_tokens"], 1_000);
     assert_eq!(body["stream"], false);
     assert_eq!(body["usage"]["include"], true);
-    assert_eq!(body["provider"]["data_collection"], "deny");
+    // Провайдеры не закреплены и data_collection не задан — только потолок цены.
+    assert_eq!(
+        body["provider"],
+        serde_json::json!({ "max_price": { "prompt": 0.1, "completion": 0.4 } })
+    );
     assert_eq!(body["messages"][0]["role"], "system");
     assert_eq!(body["messages"][1]["role"], "user");
     assert!(
@@ -575,5 +580,123 @@ async fn missing_usage_is_charged_as_worst_case() {
             .await
             .unwrap();
     assert_eq!(blocked, None, "не дороже оценки — модель не блокируется");
+    env.finish().await;
+}
+
+// ---------------------------------------------------------------- AI-004
+
+/// Закреплённые провайдеры — только они и без автосмены; `data_collection`
+/// модели или сервера; потолок цены — из каталога (D-211).
+#[tokio::test]
+async fn pinned_providers_are_sent_without_fallbacks() {
+    let env = Env::new().await.with_catalog().await;
+    let (_, auth, _) = env.user().await;
+    admin::set_model_routing(
+        env.db.pool(),
+        &env.owner,
+        GEMINI,
+        &["google-vertex/us-east5".into(), "google-ai-studio".into()],
+        Some("deny"),
+    )
+    .await
+    .unwrap();
+    let fake = FakeHttp::start([], ok("chat_ok.json")).await;
+    env.gateway(adapter(fake.base_url()))
+        .complete(&auth, request("pinned"))
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_str(&fake.received()[0].body).unwrap();
+    assert_eq!(
+        body["provider"],
+        serde_json::json!({
+            "order": ["google-vertex/us-east5", "google-ai-studio"],
+            "only": ["google-vertex/us-east5", "google-ai-studio"],
+            "allow_fallbacks": false,
+            "data_collection": "deny",
+            "max_price": { "prompt": 0.1, "completion": 0.4 },
+        })
+    );
+
+    // Модель без своей настройки берёт data_collection сервера.
+    let fake = FakeHttp::start([], ok("chat_ok.json")).await;
+    let server_deny = Arc::new(
+        OpenRouter::new(OpenRouterConfig {
+            base_url: fake.base_url(),
+            data_collection: Some("deny".into()),
+            ..OpenRouterConfig::new(Secret::new(KEY))
+        })
+        .unwrap(),
+    );
+    let mut nano = request("nano");
+    nano.model = "openai/gpt-4.1-nano".into();
+    env.gateway(server_deny)
+        .complete(&auth, nano)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_str(&fake.received()[0].body).unwrap();
+    assert_eq!(body["provider"]["data_collection"], "deny");
+    assert!(body["provider"].get("order").is_none());
+    assert!(body["provider"].get("allow_fallbacks").is_none());
+
+    // Неверные имена провайдеров не сохраняются.
+    for bad in ["Google Vertex", "", "a\"b"] {
+        assert!(
+            admin::set_model_routing(env.db.pool(), &env.owner, GEMINI, &[bad.into()], None)
+                .await
+                .is_err(),
+            "{bad:?}"
+        );
+    }
+    assert!(
+        admin::set_model_routing(env.db.pool(), &env.owner, GEMINI, &[], Some("maybe"))
+            .await
+            .is_err()
+    );
+    env.finish().await;
+}
+
+/// Каталог хранится целиком — owner включает любую модель с ценой из каталога.
+#[tokio::test]
+async fn owner_enables_any_catalog_model() {
+    let env = Env::new().await.with_catalog().await;
+    let pool = env.db.pool();
+    let in_catalog: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM ai_catalog WHERE provider_id = 'openrouter'")
+            .fetch_one(pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        in_catalog, 4,
+        "весь каталог, кроме моделей без понятной цены"
+    );
+    let id =
+        admin::enable_from_catalog(pool, &env.owner, "openrouter", "anthropic/claude-opus-5.5")
+            .await
+            .unwrap();
+    let (enabled, price_in, price_out): (bool, i64, i64) = sqlx::query_as(
+        "SELECT enabled, price_in_per_mtok, price_out_per_mtok FROM ai_models WHERE id = $1",
+    )
+    .bind(&id)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        (enabled, price_in, price_out),
+        (true, 15_000_000, 75_000_000)
+    );
+    assert!(
+        admin::enable_from_catalog(pool, &env.owner, "openrouter", "openrouter/auto")
+            .await
+            .is_err(),
+        "модель с плавающей ценой включить нельзя"
+    );
+    let audit: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM audit_log WHERE action = 'ai.model_enabled_set' AND target_id = $1",
+    )
+    .bind(&id)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert_eq!(audit, 1);
     env.finish().await;
 }

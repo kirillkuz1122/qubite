@@ -2,6 +2,8 @@
 //! «зависших» вызовов, каталог OpenRouter, allowlist, лимиты платформы)
 //! и команды `qubite ai …`. OpenRouter — поддельный локальный сервер.
 
+mod common;
+
 use std::time::Duration;
 
 use clap::{CommandFactory, Parser};
@@ -101,7 +103,13 @@ fn every_setting_has_a_qubite_ai_env_var_and_safe_defaults() {
         defaults.openrouter_api_key.is_none(),
         "без ключа AI выключен"
     );
-    assert!(defaults.deny_data_collection);
+    assert_eq!(
+        defaults.data_collection, None,
+        "data_collection не навязываем (D-211)"
+    );
+    assert_eq!(defaults.user_requests_per_minute, 20);
+    assert_eq!(defaults.job_requests_per_minute, 10);
+    assert_eq!(defaults.repeat_limit, 3);
     assert!(defaults.openrouter_models.is_none());
     assert!(defaults.platform_usd_per_day.is_none());
     let config = defaults.gateway_config();
@@ -199,63 +207,134 @@ async fn startup_recovers_orphaned_calls_and_syncs_catalog() {
     test_db.drop_db().await;
 }
 
+/// Модели выбирает owner (D-210): настройки сервера — только стартовый набор
+/// при первом запуске; из каталога можно включить любую модель.
 #[tokio::test]
-async fn allowlist_from_settings_wins_otherwise_owner_decides() {
+async fn owner_chooses_models_from_catalog_and_restart_keeps_choice() {
     let (test_db, db, _) = setup().await;
     let only_gemini = ["--ai-openrouter-models", GEMINI];
+    let model = |id: &str, state: Option<OnOff>| AiCommand::Model {
+        id: id.into(),
+        state,
+        providers: None,
+        data_collection: None,
+    };
 
     let fake = fake_openrouter().await;
     ai::start(&db, &with_key(&fake, &only_gemini))
         .await
         .unwrap();
-    assert_eq!(enabled_models(&db).await, [GEMINI]);
-
-    // Без списка в настройках: цены обновляются, список сам не расширяется,
-    // а выбор owner (`qubite ai model … on|off`) сохраняется между запусками.
-    // Новую модель owner добавляет списком в QUBITE_AI_OPENROUTER_MODELS.
-    let fake = fake_openrouter().await;
-    ai::start(&db, &with_key(&fake, &[])).await.unwrap();
     assert_eq!(
         enabled_models(&db).await,
         [GEMINI],
-        "список не расширился сам"
+        "первый запуск — список из настроек"
     );
+
+    // Включить модель из каталога (её не было в allowlist) и выключить стартовую.
+    let out = ai::run(
+        &db,
+        &settings(&[]),
+        model("anthropic/claude-opus-5.5", Some(OnOff::On)),
+    )
+    .await
+    .unwrap();
+    assert!(out.contains("разрешена"), "{out}");
+    ai::run(&db, &settings(&[]), model(GEMINI, Some(OnOff::Off)))
+        .await
+        .unwrap();
+    let price: i64 = sqlx::query_scalar(
+        "SELECT price_out_per_mtok FROM ai_models WHERE id = 'anthropic/claude-opus-5.5'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(price, 75_000_000, "цена из каталога");
     let error = ai::run(
         &db,
         &settings(&[]),
-        AiCommand::Model {
-            id: "openai/gpt-4.1-nano".into(),
-            state: OnOff::On,
-        },
+        model("nobody/missing", Some(OnOff::On)),
     )
     .await
     .unwrap_err();
     assert!(error.to_string().contains("нет модели"), "{error}");
-    ai::run(
+
+    // Перезапуск — даже с другим списком в настройках — выбор owner не трогает.
+    for extra in [&[][..], &only_gemini[..]] {
+        let fake = fake_openrouter().await;
+        ai::start(&db, &with_key(&fake, extra)).await.unwrap();
+        assert_eq!(enabled_models(&db).await, ["anthropic/claude-opus-5.5"]);
+    }
+    let catalog = ai::run(
         &db,
         &settings(&[]),
-        AiCommand::Model {
-            id: GEMINI.into(),
-            state: OnOff::Off,
+        AiCommand::Catalog {
+            search: Some("GEMINI".into()),
         },
     )
     .await
     .unwrap();
-    let fake = fake_openrouter().await;
-    ai::start(&db, &with_key(&fake, &[])).await.unwrap();
     assert!(
-        enabled_models(&db).await.is_empty(),
-        "выбор owner сохранился"
+        catalog.contains("google/gemini-2.5-flash-lite | $0.100000 / $0.400000 | 1048576 | нет"),
+        "{catalog}"
     );
 
-    let fake = fake_openrouter().await;
-    ai::start(&db, &with_key(&fake, &only_gemini))
+    // Провайдеры и data_collection — у модели.
+    let out = ai::run(
+        &db,
+        &settings(&[]),
+        AiCommand::Model {
+            id: "anthropic/claude-opus-5.5".into(),
+            state: None,
+            providers: Some("Anthropic, amazon-bedrock".into()),
+            data_collection: Some("deny".into()),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        out.contains("anthropic, amazon-bedrock (без автосмены)"),
+        "{out}"
+    );
+    let (providers, collection): (Vec<String>, Option<String>) = sqlx::query_as(
+        "SELECT routing_providers, data_collection FROM ai_models WHERE id = 'anthropic/claude-opus-5.5'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(providers, ["anthropic", "amazon-bedrock"]);
+    assert_eq!(collection.as_deref(), Some("deny"));
+
+    // Модель по умолчанию и для задачи.
+    let used = |model: &str, task: &str| AiCommand::Use {
+        model: model.into(),
+        task: task.into(),
+    };
+    assert!(
+        ai::run(&db, &settings(&[]), used(GEMINI, "default"))
+            .await
+            .is_err(),
+        "выключенную нельзя"
+    );
+    ai::run(
+        &db,
+        &settings(&[]),
+        used("anthropic/claude-opus-5.5", "default"),
+    )
+    .await
+    .unwrap();
+    let runtime = ai::start(&db, &settings(&[])).await.unwrap();
+    assert_eq!(
+        runtime.gateway.model_for("inbox.triage").await.unwrap(),
+        "anthropic/claude-opus-5.5"
+    );
+    let models = ai::run(&db, &settings(&[]), AiCommand::Models)
         .await
         .unwrap();
-    assert_eq!(
-        enabled_models(&db).await,
-        [GEMINI],
-        "настройки сервера побеждают"
+    assert!(
+        models.contains(
+            "провайдеры: anthropic, amazon-bedrock | data_collection: deny | задачи: default"
+        ),
+        "{models}"
     );
     db.close().await;
     test_db.drop_db().await;
@@ -338,7 +417,9 @@ async fn platform_caps_from_settings_survive_restart() {
 async fn owner_unlimited_via_cli_then_real_path_through_gateway() {
     let (test_db, db, owner) = setup().await;
     let fake = fake_openrouter().await;
-    let runtime = ai::start(&db, &with_key(&fake, &[])).await.unwrap();
+    let runtime = ai::start(&db, &with_key(&fake, &["--ai-platform-usd-per-day", "1"]))
+        .await
+        .unwrap();
     let auth = owner_ai(&db, owner).await;
 
     assert!(matches!(
@@ -505,9 +586,10 @@ fn chat(id: &str) -> AiRequest {
         request_id: id.into(),
         model: GEMINI.into(),
         prompt: "Разбери мысль".into(),
-        untrusted: vec![Untrusted::new("inbox", "купить молоко")],
+        untrusted: vec![Untrusted::new("inbox", format!("купить молоко ({id})"))],
         input_tokens: 0,
         max_output_tokens: 1_000,
+        job_id: None,
     }
 }
 
@@ -517,7 +599,7 @@ async fn try_command_goes_through_budget_and_gateway() {
     let (test_db, db, owner) = setup().await;
     owner_ai(&db, owner).await; // модуль docs установлен
     let fake = fake_openrouter().await;
-    let args = with_key(&fake, &[]);
+    let args = with_key(&fake, &["--ai-platform-usd-per-day", "1"]);
     let attempt = || {
         ai::run(
             &db,
@@ -561,6 +643,94 @@ async fn try_command_goes_through_budget_and_gateway() {
             .to_string()
             .contains("QUBITE_AI_OPENROUTER_API_KEY")
     );
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+/// API для экрана Owner Console (AI-003): каталог, включение модели с «/»
+/// в имени, провайдеры, задачи. Для всех, кроме owner, адресов нет.
+#[tokio::test]
+async fn owner_console_api_for_models() {
+    let (test_db, db, address) = common::setup(Default::default()).await;
+    let fake = fake_openrouter().await;
+    ai::start(&db, &with_key(&fake, &[])).await.unwrap();
+    let mut owner = common::logged_in(address).await;
+
+    let catalog = owner
+        .get(address, "/api/owner/ai/catalog?search=opus")
+        .await;
+    assert_eq!(catalog.status, 200, "{:?}", catalog.body);
+    assert_eq!(catalog.body[0]["external_id"], "anthropic/claude-opus-5.5");
+    assert_eq!(catalog.body[0]["enabled"], false);
+
+    let changed = owner
+        .patch_json(
+            address,
+            "/api/owner/ai/models/anthropic/claude-opus-5.5",
+            serde_json::json!({
+                "enabled": true,
+                "routing_providers": ["Anthropic"],
+                "data_collection": "deny"
+            }),
+        )
+        .await;
+    assert_eq!(changed.status, 200, "{:?}", changed.body);
+    assert_eq!(changed.body["enabled"], true);
+    assert_eq!(
+        changed.body["routing_providers"],
+        serde_json::json!(["anthropic"])
+    );
+    assert_eq!(changed.body["data_collection"], "deny");
+    assert_eq!(changed.body["price_out_per_mtok"], 75_000_000);
+
+    let bad = owner
+        .patch_json(
+            address,
+            "/api/owner/ai/models/anthropic/claude-opus-5.5",
+            serde_json::json!({ "routing_providers": ["Не slug"] }),
+        )
+        .await;
+    assert_eq!(bad.status, 400, "{:?}", bad.body);
+
+    let tasks = owner
+        .put_json(
+            address,
+            "/api/owner/ai/tasks/inbox.triage",
+            serde_json::json!({ "model_id": "anthropic/claude-opus-5.5" }),
+        )
+        .await;
+    assert_eq!(tasks.status, 200, "{:?}", tasks.body);
+    assert_eq!(
+        tasks.body,
+        serde_json::json!([{ "task": "inbox.triage", "model_id": "anthropic/claude-opus-5.5" }])
+    );
+    let models = owner.get(address, "/api/owner/ai/models").await;
+    let opus = models
+        .body
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == "anthropic/claude-opus-5.5")
+        .unwrap();
+    assert_eq!(opus["tasks"], serde_json::json!(["inbox.triage"]));
+    let cleared = owner
+        .put_json(
+            address,
+            "/api/owner/ai/tasks/inbox.triage",
+            serde_json::json!({ "model_id": null }),
+        )
+        .await;
+    assert_eq!(cleared.body, serde_json::json!([]));
+
+    // Без входа (и не owner) — этих адресов нет.
+    let mut stranger = common::Browser::default();
+    for path in [
+        "/api/owner/ai/models",
+        "/api/owner/ai/catalog",
+        "/api/owner/ai/tasks",
+    ] {
+        assert_eq!(stranger.get(address, path).await.status, 404, "{path}");
+    }
     db.close().await;
     test_db.drop_db().await;
 }

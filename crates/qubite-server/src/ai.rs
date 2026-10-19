@@ -8,9 +8,14 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, bail};
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::StatusCode,
+};
 use clap::{Args, Subcommand, ValueEnum};
 use qubite_ai::{
-    AiConfig, Gateway, MICROS_PER_USD,
+    AiConfig, Gateway, LoopGuard, MICROS_PER_USD,
     admin::{self, LimitScope, Metric, Period},
     catalog::{self, Allowlist, STARTER_MODELS, SyncReport},
     openrouter::{self, OpenRouter, OpenRouterConfig},
@@ -18,8 +23,16 @@ use qubite_ai::{
 use qubite_db::Database;
 use qubite_kernel::Secret;
 use qubite_policy::{ModuleId, OwnerConsole, Subject};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use utoipa::ToSchema;
 use uuid::Uuid;
+
+use crate::{
+    AppState,
+    auth::{ApiError, ApiErrorBody},
+    modules::Owner,
+};
 
 /// ID провайдера OpenRouter в базе (`ai_providers.id`).
 pub const OPENROUTER: &str = "openrouter";
@@ -63,9 +76,9 @@ pub struct AiArgs {
     )]
     pub openrouter_base_url: String,
 
-    /// Разрешённые модели OpenRouter через запятую (имена как на openrouter.ai).
-    /// Если задано — при каждом запуске разрешены ровно они. Если нет — при
-    /// первом запуске стартовый набор, дальше решает owner (`qubite ai model`).
+    /// Модели OpenRouter, которые разрешить при первом запуске (через запятую,
+    /// имена как на openrouter.ai). Не задано — стартовый набор. Дальше модели
+    /// выбирает owner (`qubite ai model`, Owner Console), запуск их не меняет.
     #[arg(
         long = "ai-openrouter-models",
         env = "QUBITE_AI_OPENROUTER_MODELS",
@@ -73,11 +86,50 @@ pub struct AiArgs {
     )]
     pub openrouter_models: Option<Vec<String>>,
 
-    /// Просить OpenRouter отправлять запросы только провайдерам, которые
-    /// не сохраняют данные и не учатся на них.
-    #[arg(long = "ai-openrouter-deny-data-collection", env = "QUBITE_AI_OPENROUTER_DENY_DATA_COLLECTION",
-          default_value_t = true, action = clap::ArgAction::Set)]
-    pub deny_data_collection: bool,
+    /// `data_collection` для моделей, где owner его не задал: `deny` — только
+    /// провайдеры, которые не собирают данные; не задано — не указывать
+    /// (у части моделей таких провайдеров нет).
+    #[arg(
+        long = "ai-openrouter-data-collection",
+        env = "QUBITE_AI_OPENROUTER_DATA_COLLECTION",
+        value_enum
+    )]
+    pub data_collection: Option<DataCollection>,
+
+    /// Потолок на каждого пользователя за день, $ (у каждого свой счётчик).
+    /// AI сам по себе не открывает. Не задан — не меняется.
+    #[arg(long = "ai-each-user-usd-per-day", env = "QUBITE_AI_EACH_USER_USD_PER_DAY",
+          value_parser = parse_usd)]
+    pub each_user_usd_per_day: Option<i64>,
+
+    /// Защита от зацикливания: начатых AI-вызовов в минуту на пользователя (0 — без проверки).
+    #[arg(
+        long = "ai-user-requests-per-minute",
+        env = "QUBITE_AI_USER_REQUESTS_PER_MINUTE",
+        default_value_t = 20
+    )]
+    pub user_requests_per_minute: u32,
+
+    /// Защита от зацикливания: начатых AI-вызовов в минуту на одну фоновую задачу.
+    #[arg(
+        long = "ai-job-requests-per-minute",
+        env = "QUBITE_AI_JOB_REQUESTS_PER_MINUTE",
+        default_value_t = 10
+    )]
+    pub job_requests_per_minute: u32,
+
+    /// Защита от зацикливания: сколько раз можно отправить один и тот же
+    /// запрос за `QUBITE_AI_REPEAT_WINDOW_SECS`.
+    #[arg(
+        long = "ai-repeat-limit",
+        env = "QUBITE_AI_REPEAT_LIMIT",
+        default_value_t = 3
+    )]
+    pub repeat_limit: u32,
+
+    #[arg(long = "ai-repeat-window-secs", env = "QUBITE_AI_REPEAT_WINDOW_SECS",
+          default_value_t = 600, value_parser = clap::value_parser!(u64).range(1..=86_400))]
+    pub repeat_window_secs: u64,
 
     /// Общий потолок расходов платформы за день, $ (например `2` или `0.50`).
     /// Не задан — не меняется (owner задаёт командой `qubite ai limit`).
@@ -101,6 +153,12 @@ impl AiArgs {
         AiConfig {
             timezone: self.timezone.clone(),
             timeout: Duration::from_secs(self.timeout_secs),
+            loop_guard: LoopGuard {
+                user_per_minute: self.user_requests_per_minute,
+                job_per_minute: self.job_requests_per_minute,
+                repeat_limit: self.repeat_limit,
+                repeat_window: Duration::from_secs(self.repeat_window_secs),
+            },
             ..AiConfig::default()
         }
         .with_attempts(self.max_attempts)
@@ -122,7 +180,7 @@ impl AiArgs {
         };
         let config = OpenRouterConfig {
             base_url: self.openrouter_base_url.clone(),
-            deny_data_collection: self.deny_data_collection,
+            data_collection: self.data_collection.map(|d| d.as_str().to_owned()),
             ..OpenRouterConfig::new(Secret::new(key.trim()))
         };
         Ok(Some(Arc::new(
@@ -130,18 +188,39 @@ impl AiArgs {
         )))
     }
 
+    /// Первый запуск — разрешить список из настроек или стартовый набор;
+    /// дальше выбор owner не трогаем, только цены (D-210).
     fn allowlist(&self, first_run: bool) -> Allowlist {
-        match &self.openrouter_models {
-            Some(list) if list.iter().any(|m| !m.trim().is_empty()) => Allowlist::Exact(
-                list.iter()
-                    .map(|m| m.trim().to_owned())
-                    .filter(|m| !m.is_empty())
-                    .collect(),
-            ),
-            _ if first_run => {
-                Allowlist::Exact(STARTER_MODELS.iter().map(|m| (*m).to_owned()).collect())
-            }
-            _ => Allowlist::Keep,
+        if !first_run {
+            return Allowlist::Keep;
+        }
+        let configured: Vec<String> = self
+            .openrouter_models
+            .iter()
+            .flatten()
+            .map(|m| m.trim().to_owned())
+            .filter(|m| !m.is_empty())
+            .collect();
+        if configured.is_empty() {
+            Allowlist::Exact(STARTER_MODELS.iter().map(|m| (*m).to_owned()).collect())
+        } else {
+            Allowlist::Exact(configured)
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DataCollection {
+    Allow,
+    Deny,
+}
+
+impl DataCollection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::Deny => "deny",
         }
     }
 }
@@ -204,14 +283,23 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
         );
     }
 
-    for (period, value) in [
-        (Period::Day, args.platform_usd_per_day),
-        (Period::Month, args.platform_usd_per_month),
+    for (scope, period, value) in [
+        (LimitScope::Platform, Period::Day, args.platform_usd_per_day),
+        (
+            LimitScope::Platform,
+            Period::Month,
+            args.platform_usd_per_month,
+        ),
+        (
+            LimitScope::EachUser,
+            Period::Day,
+            args.each_user_usd_per_day,
+        ),
     ] {
         if let Some(value) = value
-            && admin::ensure_limit(pool, &LimitScope::Platform, period, Metric::Usd, value).await?
+            && admin::ensure_limit(pool, &scope, period, Metric::Usd, value).await?
         {
-            tracing::info!(period = period.as_str(), limit = %format_usd(value), "лимит платформы из настроек");
+            tracing::info!(scope = ?scope, period = period.as_str(), limit = %format_usd(value), "лимит из настроек");
         }
     }
 
@@ -324,11 +412,33 @@ pub enum AiCommand {
     },
     /// Модели: цены, разрешена ли, заблокирована ли.
     Models,
-    /// Разрешить (on) или запретить (off) модель.
+    /// Каталог OpenRouter (обновляется при запуске и раз в сутки): что можно включить.
+    Catalog {
+        /// Часть имени модели, например `gemini`.
+        search: Option<String>,
+    },
+    /// Модель: разрешить (on) из каталога или запретить (off); провайдеры
+    /// OpenRouter и `data_collection`.
     Model {
+        /// Имя модели, как в каталоге (`google/gemini-2.5-flash-lite`).
         id: String,
         #[arg(value_enum)]
-        state: OnOff,
+        state: Option<OnOff>,
+        /// Провайдеры OpenRouter через запятую по порядку (slug, например
+        /// `google-vertex,google-ai-studio`) — только они, без автосмены.
+        /// `auto` — пусть OpenRouter выбирает сам.
+        #[arg(long)]
+        providers: Option<String>,
+        /// `allow`, `deny` или `server` (как в настройке сервера).
+        #[arg(long)]
+        data_collection: Option<String>,
+    },
+    /// Выбрать модель по умолчанию или для задачи (`--task inbox.triage`);
+    /// `none` — убрать выбор.
+    Use {
+        model: String,
+        #[arg(long, default_value = "default")]
+        task: String,
     },
     /// Снять блокировку модели (после ответа дороже оценки).
     Unblock { id: String },
@@ -413,6 +523,7 @@ async fn parse_scope(pool: &PgPool, scope: &str) -> anyhow::Result<LimitScope> {
     let module = |id: &str| ModuleId::new(id).with_context(|| format!("неверный модуль {id}"));
     Ok(match scope.split_once(':') {
         None if scope == "platform" => LimitScope::Platform,
+        None if scope == "each-user" => LimitScope::EachUser,
         Some(("user", email)) => LimitScope::User(account_by_email(pool, email).await?),
         Some(("module", id)) => LimitScope::Module(module(id)?),
         Some(("model", id)) => LimitScope::Model(id.into()),
@@ -429,8 +540,31 @@ async fn parse_scope(pool: &PgPool, scope: &str) -> anyhow::Result<LimitScope> {
     })
 }
 
-/// id, провайдер, цена входа, цена выхода, разрешена, блокировка, дата цен.
-type ModelLine = (String, String, i64, i64, bool, Option<String>, String);
+/// id, провайдер, цена входа, цена выхода, разрешена, блокировка, дата цен,
+/// провайдеры OpenRouter, data_collection.
+type ModelLine = (
+    String,
+    String,
+    i64,
+    i64,
+    bool,
+    Option<String>,
+    String,
+    Vec<String>,
+    Option<String>,
+);
+
+/// `a, b` → `["a", "b"]`; `auto` или пусто — пусть провайдер выбирает сам.
+pub fn parse_providers(value: &str) -> Vec<String> {
+    if value.trim().eq_ignore_ascii_case("auto") {
+        return Vec::new();
+    }
+    value
+        .split(',')
+        .map(|p| p.trim().to_lowercase())
+        .filter(|p| !p.is_empty())
+        .collect()
+}
 /// область, цель, период, метрика, лимит, резерв, потрачено.
 type LimitLine = (String, Option<String>, String, String, i64, i64, i64);
 
@@ -467,6 +601,7 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
                 untrusted: vec![qubite_ai::Untrusted::new("cli", text)],
                 input_tokens: 0,
                 max_output_tokens: max_tokens,
+                job_id: None,
             };
             let reply = runtime.gateway.complete(&auth, request).await?;
             Ok(format!(
@@ -501,7 +636,8 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
         AiCommand::Models => {
             let rows: Vec<ModelLine> = sqlx::query_as(
                 "SELECT id, provider_id, price_in_per_mtok, price_out_per_mtok, enabled, blocked_reason, \
-                        to_char(prices_updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') \
+                        to_char(prices_updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI'), \
+                        routing_providers, data_collection \
                  FROM ai_models ORDER BY provider_id, id",
             )
             .fetch_all(pool)
@@ -515,31 +651,138 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             let mut out = String::from(
                 "модель | провайдер | $ за 1M вход / выход | разрешена | цены от (UTC)\n",
             );
-            for (id, provider, price_in, price_out, enabled, blocked, updated) in rows {
+            let tasks = admin::task_models(pool).await?;
+            for (
+                id,
+                provider,
+                price_in,
+                price_out,
+                enabled,
+                blocked,
+                updated,
+                routing,
+                collection,
+            ) in rows
+            {
                 let state = match (enabled, blocked) {
                     (_, Some(reason)) => format!("ЗАБЛОКИРОВАНА ({reason})"),
                     (true, None) => "да".into(),
                     (false, None) => "нет".into(),
                 };
+                let used: Vec<&str> = tasks
+                    .iter()
+                    .filter(|(_, model)| model == &id)
+                    .map(|(task, _)| task.as_str())
+                    .collect();
                 out.push_str(&format!(
-                    "{id} | {provider} | {} / {} | {state} | {updated}\n",
+                    "{id} | {provider} | {} / {} | {state} | {updated} | провайдеры: {} | data_collection: {} | задачи: {}\n",
                     format_usd(price_in),
-                    format_usd(price_out)
+                    format_usd(price_out),
+                    if routing.is_empty() { "авто".to_owned() } else { routing.join(", ") },
+                    collection.as_deref().unwrap_or("по серверу"),
+                    if used.is_empty() { "—".to_owned() } else { used.join(", ") },
                 ));
             }
             Ok(out)
         }
-        AiCommand::Model { id, state } => {
+        AiCommand::Catalog { search } => {
+            let rows: Vec<(String, i64, i64, i32, bool)> = sqlx::query_as(
+                "SELECT c.external_id, c.price_in_per_mtok, c.price_out_per_mtok, c.context_tokens, \
+                        coalesce(m.enabled, false) \
+                 FROM ai_catalog c LEFT JOIN ai_models m \
+                   ON m.provider_id = c.provider_id AND m.external_id = c.external_id \
+                 WHERE c.provider_id = $1 AND ($2::text IS NULL OR c.external_id ILIKE '%' || $2 || '%') \
+                 ORDER BY c.price_out_per_mtok, c.external_id LIMIT 100",
+            )
+            .bind(OPENROUTER)
+            .bind(search.as_deref())
+            .fetch_all(pool)
+            .await?;
+            if rows.is_empty() {
+                return Ok("В каталоге ничего (нет ключа OpenRouter, каталог ещё не загружен или ничего не найдено).".into());
+            }
+            let mut out = String::from("модель | $ за 1M вход / выход | контекст | разрешена\n");
+            for (id, price_in, price_out, context, enabled) in rows {
+                out.push_str(&format!(
+                    "{id} | {} / {} | {context} | {}\n",
+                    format_usd(price_in),
+                    format_usd(price_out),
+                    if enabled { "да" } else { "нет" }
+                ));
+            }
+            Ok(out)
+        }
+        AiCommand::Model {
+            id,
+            state,
+            providers,
+            data_collection,
+        } => {
             let owner = owner(pool).await?;
-            admin::set_model_enabled(pool, &owner, &id, matches!(state, OnOff::On)).await?;
-            Ok(format!(
-                "Модель {id}: {}",
-                if matches!(state, OnOff::On) {
-                    "разрешена"
-                } else {
-                    "запрещена"
+            if state.is_none() && providers.is_none() && data_collection.is_none() {
+                bail!("укажите on/off, --providers или --data-collection");
+            }
+            let id = catalog::model_id(&id);
+            let mut done = Vec::new();
+            match state {
+                Some(OnOff::On) => {
+                    admin::enable_from_catalog(pool, &owner, OPENROUTER, &id)
+                        .await
+                        .or_else(|error| match error {
+                            // Не из каталога (например, mock) — просто включить известную.
+                            qubite_ai::AiError::Invalid(_) => Ok(id.clone()),
+                            other => Err(other),
+                        })?;
+                    admin::set_model_enabled(pool, &owner, &id, true).await?;
+                    done.push("разрешена".to_owned());
                 }
-            ))
+                Some(OnOff::Off) => {
+                    admin::set_model_enabled(pool, &owner, &id, false).await?;
+                    done.push("запрещена".to_owned());
+                }
+                None => {}
+            }
+            if providers.is_some() || data_collection.is_some() {
+                let current: Option<(Vec<String>, Option<String>)> = sqlx::query_as(
+                    "SELECT routing_providers, data_collection FROM ai_models WHERE id = $1",
+                )
+                .bind(&id)
+                .fetch_optional(pool)
+                .await?;
+                let (mut list, mut collection) = current.with_context(|| {
+                    format!("нет модели {id} — сначала: qubite ai model {id} on")
+                })?;
+                if let Some(providers) = providers {
+                    list = parse_providers(&providers);
+                }
+                if let Some(value) = data_collection {
+                    collection = match value.as_str() {
+                        "server" => None,
+                        other => Some(other.to_owned()),
+                    };
+                }
+                admin::set_model_routing(pool, &owner, &id, &list, collection.as_deref()).await?;
+                done.push(format!(
+                    "провайдеры: {}; data_collection: {}",
+                    if list.is_empty() {
+                        "выбирает OpenRouter".to_owned()
+                    } else {
+                        format!("{} (без автосмены)", list.join(", "))
+                    },
+                    collection.as_deref().unwrap_or("как в настройке сервера")
+                ));
+            }
+            Ok(format!("Модель {id}: {}", done.join("; ")))
+        }
+        AiCommand::Use { model, task } => {
+            let owner = owner(pool).await?;
+            if model == "none" {
+                admin::set_task_model(pool, &owner, &task, None).await?;
+                return Ok(format!("Для «{task}» модель не выбрана"));
+            }
+            let model = catalog::model_id(&model);
+            admin::set_task_model(pool, &owner, &task, Some(&model)).await?;
+            Ok(format!("Для «{task}» — модель {model}"))
         }
         AiCommand::Unblock { id } => {
             let owner = owner(pool).await?;
@@ -625,6 +868,256 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             Ok(out)
         }
     }
+}
+
+// ---------------------------------------------------------------- Owner Console API
+
+impl From<qubite_ai::AiError> for ApiError {
+    fn from(error: qubite_ai::AiError) -> Self {
+        use qubite_ai::AiError as E;
+        let status = match &error {
+            E::Invalid(_) => StatusCode::BAD_REQUEST,
+            E::Db(_) | E::Audit(_) => {
+                tracing::error!(%error, "AI: внутренняя ошибка");
+                return Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal",
+                    "внутренняя ошибка",
+                );
+            }
+            E::Denied(reason) => {
+                StatusCode::from_u16(reason.http_status()).unwrap_or(StatusCode::FORBIDDEN)
+            }
+            _ => StatusCode::CONFLICT,
+        };
+        Self::new(status, error.code(), error.to_string())
+    }
+}
+
+/// Модель в Owner Console.
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
+pub struct AiModelItem {
+    /// ID в Qubite (имя модели строчными).
+    pub id: String,
+    pub provider_id: String,
+    /// Имя у провайдера.
+    pub external_id: String,
+    /// Микродоллары за миллион токенов.
+    pub price_in_per_mtok: i64,
+    pub price_out_per_mtok: i64,
+    pub context_tokens: i32,
+    /// В allowlist.
+    pub enabled: bool,
+    /// Заблокирована (например, ответ дороже оценки) — снимает owner.
+    pub blocked_reason: Option<String>,
+    /// Провайдеры OpenRouter по порядку; пусто — выбирает OpenRouter.
+    pub routing_providers: Vec<String>,
+    /// `allow` / `deny`; пусто — по настройке сервера.
+    pub data_collection: Option<String>,
+    /// Задачи, для которых выбрана модель (`default`, `inbox.triage` …).
+    pub tasks: Vec<String>,
+}
+
+/// Модель из каталога провайдера.
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
+pub struct AiCatalogItem {
+    pub external_id: String,
+    pub price_in_per_mtok: i64,
+    pub price_out_per_mtok: i64,
+    pub context_tokens: i32,
+    /// Уже разрешена.
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
+pub struct CatalogQuery {
+    /// Часть имени модели.
+    pub search: Option<String>,
+}
+
+/// `data_collection` модели: как в настройке сервера, разрешить или запретить.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DataCollectionSetting {
+    Server,
+    Allow,
+    Deny,
+}
+
+/// Изменение модели. Пустые поля не меняются.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AiModelChange {
+    /// `true` — разрешить (из каталога), `false` — запретить.
+    pub enabled: Option<bool>,
+    /// Провайдеры OpenRouter (slug) по порядку — только они, без автосмены;
+    /// `[]` — пусть OpenRouter выбирает сам.
+    pub routing_providers: Option<Vec<String>>,
+    pub data_collection: Option<DataCollectionSetting>,
+}
+
+/// Модель для задачи.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct TaskModel {
+    pub task: String,
+    pub model_id: String,
+}
+
+/// Выбор модели для задачи; `null` — убрать.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct TaskModelChange {
+    pub model_id: Option<String>,
+}
+
+async fn model_items(pool: &PgPool) -> Result<Vec<AiModelItem>, ApiError> {
+    Ok(sqlx::query_as(
+        "SELECT m.id, m.provider_id, m.external_id, m.price_in_per_mtok, m.price_out_per_mtok, \
+                m.context_tokens, m.enabled, m.blocked_reason, m.routing_providers, m.data_collection, \
+                coalesce(array_agg(d.task ORDER BY d.task) FILTER (WHERE d.task IS NOT NULL), '{}') AS tasks \
+         FROM ai_models m LEFT JOIN ai_model_defaults d ON d.model_id = m.id \
+         GROUP BY m.id ORDER BY m.provider_id, m.id",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(qubite_ai::AiError::from)?)
+}
+
+/// Owner Console: модели (разрешённые и нет), их провайдеры и задачи.
+#[utoipa::path(get, path = "/api/owner/ai/models", tag = "owner",
+    responses(
+        (status = 200, description = "Модели", body = Vec<AiModelItem>),
+        (status = 404, description = "Не owner", body = ApiErrorBody)
+    ))]
+pub async fn owner_ai_models(
+    State(state): State<AppState>,
+    _owner: Owner,
+) -> Result<Json<Vec<AiModelItem>>, ApiError> {
+    Ok(Json(model_items(state.db.pool()).await?))
+}
+
+/// Owner Console: каталог OpenRouter — из него включаются модели.
+#[utoipa::path(get, path = "/api/owner/ai/catalog", tag = "owner", params(CatalogQuery),
+    responses(
+        (status = 200, description = "Каталог (до 200 моделей, дешёвые первыми)", body = Vec<AiCatalogItem>),
+        (status = 404, description = "Не owner", body = ApiErrorBody)
+    ))]
+pub async fn owner_ai_catalog(
+    State(state): State<AppState>,
+    _owner: Owner,
+    Query(query): Query<CatalogQuery>,
+) -> Result<Json<Vec<AiCatalogItem>>, ApiError> {
+    let items = sqlx::query_as(
+        "SELECT c.external_id, c.price_in_per_mtok, c.price_out_per_mtok, c.context_tokens, \
+                coalesce(m.enabled, false) AS enabled \
+         FROM ai_catalog c LEFT JOIN ai_models m \
+           ON m.provider_id = c.provider_id AND m.external_id = c.external_id \
+         WHERE c.provider_id = $1 AND ($2::text IS NULL OR c.external_id ILIKE '%' || $2 || '%') \
+         ORDER BY c.price_out_per_mtok, c.external_id LIMIT 200",
+    )
+    .bind(OPENROUTER)
+    .bind(query.search.as_deref())
+    .fetch_all(state.db.pool())
+    .await
+    .map_err(qubite_ai::AiError::from)?;
+    Ok(Json(items))
+}
+
+/// Owner Console: разрешить/запретить модель, задать провайдеров и `data_collection`.
+#[utoipa::path(patch, path = "/api/owner/ai/models/{id}", tag = "owner", request_body = AiModelChange,
+    params(("id" = String, Path, description = "ID модели, например `google/gemini-2.5-flash-lite`")),
+    responses(
+        (status = 200, description = "Модель изменена", body = AiModelItem),
+        (status = 400, description = "Неверное значение или модели нет", body = ApiErrorBody),
+        (status = 404, description = "Не owner", body = ApiErrorBody)
+    ))]
+pub async fn owner_ai_update_model(
+    State(state): State<AppState>,
+    Owner(owner): Owner,
+    Path(id): Path<String>,
+    Json(change): Json<AiModelChange>,
+) -> Result<Json<AiModelItem>, ApiError> {
+    let pool = state.db.pool();
+    let id = catalog::model_id(&id);
+    match change.enabled {
+        Some(true) => {
+            if let Err(error) = admin::enable_from_catalog(pool, &owner, OPENROUTER, &id).await {
+                match error {
+                    qubite_ai::AiError::Invalid(_) => {
+                        admin::set_model_enabled(pool, &owner, &id, true).await?
+                    }
+                    other => return Err(other.into()),
+                }
+            }
+        }
+        Some(false) => admin::set_model_enabled(pool, &owner, &id, false).await?,
+        None => {}
+    }
+    if change.routing_providers.is_some() || change.data_collection.is_some() {
+        let current: Option<(Vec<String>, Option<String>)> = sqlx::query_as(
+            "SELECT routing_providers, data_collection FROM ai_models WHERE id = $1",
+        )
+        .bind(&id)
+        .fetch_optional(pool)
+        .await
+        .map_err(qubite_ai::AiError::from)?;
+        let Some((mut providers, mut collection)) = current else {
+            return Err(qubite_ai::AiError::Invalid(format!("нет модели {id}")).into());
+        };
+        if let Some(list) = change.routing_providers {
+            providers = list.iter().map(|p| p.trim().to_lowercase()).collect();
+        }
+        if let Some(setting) = change.data_collection {
+            collection = match setting {
+                DataCollectionSetting::Server => None,
+                DataCollectionSetting::Allow => Some("allow".into()),
+                DataCollectionSetting::Deny => Some("deny".into()),
+            };
+        }
+        admin::set_model_routing(pool, &owner, &id, &providers, collection.as_deref()).await?;
+    }
+    model_items(pool)
+        .await?
+        .into_iter()
+        .find(|m| m.id == id)
+        .map(Json)
+        .ok_or_else(|| qubite_ai::AiError::Invalid(format!("нет модели {id}")).into())
+}
+
+/// Owner Console: какие модели выбраны по умолчанию и для задач.
+#[utoipa::path(get, path = "/api/owner/ai/tasks", tag = "owner",
+    responses(
+        (status = 200, description = "Задачи и модели", body = Vec<TaskModel>),
+        (status = 404, description = "Не owner", body = ApiErrorBody)
+    ))]
+pub async fn owner_ai_tasks(
+    State(state): State<AppState>,
+    _owner: Owner,
+) -> Result<Json<Vec<TaskModel>>, ApiError> {
+    let tasks = admin::task_models(state.db.pool()).await?;
+    Ok(Json(
+        tasks
+            .into_iter()
+            .map(|(task, model_id)| TaskModel { task, model_id })
+            .collect(),
+    ))
+}
+
+/// Owner Console: выбрать модель для задачи (`default` — для всех без своей).
+#[utoipa::path(put, path = "/api/owner/ai/tasks/{task}", tag = "owner", request_body = TaskModelChange,
+    params(("task" = String, Path, description = "`default`, `inbox.triage` …")),
+    responses(
+        (status = 200, description = "Выбор сохранён", body = Vec<TaskModel>),
+        (status = 400, description = "Модель не разрешена или неверная задача", body = ApiErrorBody),
+        (status = 404, description = "Не owner", body = ApiErrorBody)
+    ))]
+pub async fn owner_ai_set_task(
+    State(state): State<AppState>,
+    owner: Owner,
+    Path(task): Path<String>,
+    Json(change): Json<TaskModelChange>,
+) -> Result<Json<Vec<TaskModel>>, ApiError> {
+    let model = change.model_id.as_deref().map(catalog::model_id);
+    admin::set_task_model(state.db.pool(), &owner.0, &task, model.as_deref()).await?;
+    owner_ai_tasks(State(state), owner).await
 }
 
 #[cfg(test)]

@@ -174,9 +174,11 @@ fn request(id: &str) -> AiRequest {
         request_id: id.into(),
         model: MODEL.into(),
         prompt: "Разбери мысль".into(),
-        untrusted: vec![Untrusted::new("inbox", "купить молоко")],
+        // Текст свой у каждого запроса: одинаковые подряд ловит защита от цикла.
+        untrusted: vec![Untrusted::new("inbox", format!("купить молоко ({id})"))],
         input_tokens: 0,
         max_output_tokens: OUT_060,
+        job_id: None,
     }
 }
 
@@ -592,7 +594,8 @@ async fn revoked_grant_between_attempts_stops_the_next_one() {
         .await;
     let mock = Arc::new(MockProvider::new(succeed(1)).script([MockStep::FailBeforeSend]));
     let config = AiConfig {
-        retry_delays: vec![Duration::from_millis(300), Duration::from_millis(300)],
+        // С запасом: отзыв должен успеть до повтора даже на загруженной машине.
+        retry_delays: vec![Duration::from_secs(2), Duration::from_secs(2)],
         ..fast()
     };
     let gateway = Arc::new(env.gateway(&mock, config));
@@ -832,6 +835,19 @@ async fn owner_unlimited_mode_is_explicit_audited_and_owner_only() {
         .await
         .unwrap();
     assert!(admin::owner_unlimited(env.db.pool()).await.unwrap());
+    // Без дневного потолка платформы режим не работает (D-212).
+    let error = gateway
+        .complete(&owner_auth, request("o1b"))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, AiError::PlatformCapNotSet), "{error:?}");
+    env.limit(
+        LimitScope::Platform,
+        Period::Day,
+        Metric::Usd,
+        10 * MICROS_PER_USD,
+    )
+    .await;
     let reply = gateway.complete(&owner_auth, request("o2")).await.unwrap();
     assert_eq!(reply.cost_usd, USD_060);
     // Обычный пользователь по-прежнему без бюджета.
@@ -1108,5 +1124,305 @@ async fn untrusted_text_is_wrapped_and_flagged() {
         .await
         .unwrap();
     assert!(!journal.contains("пароль"), "{journal}");
+    env.finish().await;
+}
+
+// ---------------------------------------------------------------- AI-004
+
+/// Лимит «на каждого»: одно значение, у каждого свой счётчик; сам AI
+/// не открывает; owner в режиме «без личного лимита» его не ощущает (D-212).
+#[tokio::test]
+async fn each_user_cap_counts_separately_and_opens_nothing() {
+    let env = Env::new().await;
+    let each = env
+        .limit(LimitScope::EachUser, Period::Day, Metric::Usd, USD_060)
+        .await;
+    let (alice, bob, carol) = (
+        env.user("a@qubite.ru").await,
+        env.user("b@qubite.ru").await,
+        env.user("c@qubite.ru").await,
+    );
+    for user in [alice, bob] {
+        env.limit(
+            LimitScope::User(user),
+            Period::Day,
+            Metric::Usd,
+            10 * MICROS_PER_USD,
+        )
+        .await;
+    }
+    let mock = Arc::new(MockProvider::new(succeed(u64::from(OUT_060))));
+    let gateway = env.gateway(&mock, fast());
+
+    let alice_auth = env.auth(alice).await;
+    gateway.complete(&alice_auth, request("a1")).await.unwrap();
+    assert!(matches!(
+        gateway.complete(&alice_auth, request("a2")).await,
+        Err(AiError::BudgetExhausted { scope, .. }) if scope == "each_user"
+    ));
+    // У Боба свой счётчик.
+    gateway
+        .complete(&env.auth(bob).await, request("b1"))
+        .await
+        .unwrap();
+    // У Кэрол нет личного лимита — «на каждого» AI не открывает.
+    assert!(matches!(
+        gateway
+            .complete(&env.auth(carol).await, request("c1"))
+            .await,
+        Err(AiError::BudgetNotSet)
+    ));
+    assert_eq!(env.usage(each).await, (0, 2 * USD_060));
+
+    // Owner без личного лимита: «на каждого» не действует, потолок платформы — да.
+    admin::set_owner_unlimited(env.db.pool(), &env.owner, true)
+        .await
+        .unwrap();
+    env.limit(
+        LimitScope::Platform,
+        Period::Day,
+        Metric::Usd,
+        10 * MICROS_PER_USD,
+    )
+    .await;
+    let owner_auth = env.auth(env.owner.account_id()).await;
+    gateway.complete(&owner_auth, request("o1")).await.unwrap();
+    gateway.complete(&owner_auth, request("o2")).await.unwrap();
+    assert_eq!(mock.calls(), 4);
+    env.finish().await;
+}
+
+/// Дневные лимиты (пользователь и платформа) обнуляются в полночь по поясу
+/// платформы; потолок платформы действует и на owner (D-212).
+#[tokio::test]
+async fn daily_caps_reset_at_platform_midnight() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    env.limit(LimitScope::User(user), Period::Day, Metric::Usd, USD_060)
+        .await;
+    env.limit(LimitScope::Platform, Period::Day, Metric::Usd, 2 * USD_060)
+        .await;
+    admin::set_owner_unlimited(env.db.pool(), &env.owner, true)
+        .await
+        .unwrap();
+    let now = Arc::new(Mutex::new(datetime!(2026-10-19 18:00 UTC))); // 23:00 в Екатеринбурге
+    let clock_now = now.clone();
+    let config = AiConfig {
+        clock: Arc::new(move || *clock_now.lock().unwrap()),
+        ..fast()
+    };
+    let mock = Arc::new(MockProvider::new(succeed(u64::from(OUT_060))));
+    let gateway = env.gateway(&mock, config);
+    let (user_auth, owner_auth) = (env.auth(user).await, env.auth(env.owner.account_id()).await);
+
+    gateway.complete(&user_auth, request("u1")).await.unwrap();
+    assert!(matches!(
+        gateway.complete(&user_auth, request("u2")).await,
+        Err(AiError::BudgetExhausted { scope, .. }) if scope == "user"
+    ));
+    gateway.complete(&owner_auth, request("o1")).await.unwrap();
+    assert!(matches!(
+        gateway.complete(&owner_auth, request("o2")).await,
+        Err(AiError::BudgetExhausted { scope, .. }) if scope == "platform"
+    ));
+
+    // 00:30 по Екатеринбургу — новый день, оба лимита свежие.
+    *now.lock().unwrap() = datetime!(2026-10-19 19:30 UTC);
+    gateway.complete(&user_auth, request("u3")).await.unwrap();
+    gateway.complete(&owner_auth, request("o3")).await.unwrap();
+    assert_eq!(mock.calls(), 4);
+    env.finish().await;
+}
+
+fn guarded(user_per_minute: u32, job_per_minute: u32, repeat_limit: u32) -> AiConfig {
+    AiConfig {
+        loop_guard: qubite_ai::LoopGuard {
+            user_per_minute,
+            job_per_minute,
+            repeat_limit,
+            repeat_window: Duration::from_secs(600),
+        },
+        ..fast()
+    }
+}
+
+/// Защита от зацикливания (D-213): потолок в минуту на пользователя (и при
+/// параллельных запросах), на фоновую задачу, стоп на одинаковые повторы.
+#[tokio::test]
+async fn loop_guard_stops_runaway_requests() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    env.limit(
+        LimitScope::User(user),
+        Period::Day,
+        Metric::Usd,
+        100 * MICROS_PER_USD,
+    )
+    .await;
+    let auth = env.auth(user).await;
+
+    // 10 параллельных запросов при потолке 3 в минуту — уходит ровно 3.
+    let mock = Arc::new(MockProvider::new(succeed(1)));
+    let gateway = Arc::new(env.gateway(&mock, guarded(3, 0, 0)));
+    let tasks: Vec<_> = (0..10)
+        .map(|i| {
+            let (gateway, auth) = (gateway.clone(), auth.clone());
+            tokio::spawn(async move { gateway.complete(&auth, request(&format!("p{i}"))).await })
+        })
+        .collect();
+    let (mut ok, mut limited) = (0, 0);
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(_) => ok += 1,
+            Err(AiError::RateLimited { scope }) => {
+                assert_eq!(scope, "user");
+                limited += 1;
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+    assert_eq!((ok, limited), (3, 7));
+    assert_eq!(mock.calls(), 3);
+    env.finish().await;
+}
+
+#[tokio::test]
+async fn loop_guard_limits_jobs_and_identical_repeats() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    env.limit(
+        LimitScope::User(user),
+        Period::Day,
+        Metric::Usd,
+        100 * MICROS_PER_USD,
+    )
+    .await;
+    let auth = env.auth(user).await;
+    let mock = Arc::new(MockProvider::new(succeed(1)));
+
+    // Фоновая задача: 2 в минуту, третий её запрос — стоп; запросы человека идут.
+    let gateway = env.gateway(&mock, guarded(0, 2, 0));
+    let job = Uuid::now_v7();
+    let from_job = |id: &str| AiRequest {
+        job_id: Some(job),
+        ..request(id)
+    };
+    gateway.complete(&auth, from_job("j1")).await.unwrap();
+    gateway.complete(&auth, from_job("j2")).await.unwrap();
+    let error = gateway.complete(&auth, from_job("j3")).await.unwrap_err();
+    assert!(
+        matches!(&error, AiError::RateLimited { scope } if scope == "job"),
+        "{error:?}"
+    );
+    assert_eq!(error.code(), "rate_limited");
+    gateway.complete(&auth, request("human")).await.unwrap();
+
+    // Один и тот же запрос (новые request_id, тот же текст) — не больше 2 раз.
+    let gateway = env.gateway(&mock, guarded(0, 0, 2));
+    let same = |id: &str| AiRequest {
+        untrusted: vec![Untrusted::new("inbox", "одно и то же")],
+        ..request(id)
+    };
+    gateway.complete(&auth, same("s1")).await.unwrap();
+    gateway.complete(&auth, same("s2")).await.unwrap();
+    let error = gateway.complete(&auth, same("s3")).await.unwrap_err();
+    assert!(matches!(error, AiError::RepeatedRequest), "{error:?}");
+    assert_eq!(error.code(), "repeated_request");
+    gateway.complete(&auth, request("different")).await.unwrap();
+    assert_eq!(mock.calls(), 6);
+
+    // В журнале — отпечаток, а не текст.
+    let fingerprint: String =
+        sqlx::query_scalar("SELECT fingerprint FROM ai_calls WHERE request_id = 's1'")
+            .fetch_one(env.db.pool())
+            .await
+            .unwrap();
+    assert_eq!(fingerprint.len(), 32);
+    assert!(!fingerprint.contains("одно"));
+    env.finish().await;
+}
+
+/// Модель по умолчанию и для задачи выбирает owner (D-210); провайдеры модели
+/// уходят в вызов (D-211).
+#[tokio::test]
+async fn task_models_and_routing_reach_the_provider() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    env.limit(
+        LimitScope::User(user),
+        Period::Day,
+        Metric::Usd,
+        10 * MICROS_PER_USD,
+    )
+    .await;
+    let mock = Arc::new(MockProvider::new(succeed(1)));
+    let gateway = env.gateway(&mock, fast());
+    let pool = env.db.pool();
+
+    assert!(matches!(
+        gateway.model_for("inbox.triage").await,
+        Err(AiError::NoModelForTask(task)) if task == "inbox.triage"
+    ));
+    admin::set_task_model(pool, &env.owner, "default", Some(MODEL))
+        .await
+        .unwrap();
+    assert_eq!(gateway.model_for("inbox.triage").await.unwrap(), MODEL);
+    admin::set_task_model(pool, &env.owner, "inbox.triage", Some("mock-cheap"))
+        .await
+        .unwrap();
+    assert_eq!(
+        gateway.model_for("inbox.triage").await.unwrap(),
+        "mock-cheap"
+    );
+    assert_eq!(gateway.model_for("docs.summary").await.unwrap(), MODEL);
+    admin::set_task_model(pool, &env.owner, "inbox.triage", None)
+        .await
+        .unwrap();
+    assert_eq!(gateway.model_for("inbox.triage").await.unwrap(), MODEL);
+    // Выключенную модель выбрать нельзя; неверное имя задачи — тоже.
+    admin::set_model_enabled(pool, &env.owner, "mock-cheap", false)
+        .await
+        .unwrap();
+    assert!(
+        admin::set_task_model(pool, &env.owner, "inbox.triage", Some("mock-cheap"))
+            .await
+            .is_err()
+    );
+    assert!(
+        admin::set_task_model(pool, &env.owner, "Не Задача", Some(MODEL))
+            .await
+            .is_err()
+    );
+
+    admin::set_model_routing(
+        pool,
+        &env.owner,
+        MODEL,
+        &["deepinfra/turbo".into()],
+        Some("allow"),
+    )
+    .await
+    .unwrap();
+    let model = gateway.model_for("inbox.triage").await.unwrap();
+    gateway
+        .complete(
+            &env.auth(user).await,
+            AiRequest {
+                model,
+                ..request("routed")
+            },
+        )
+        .await
+        .unwrap();
+    let routing = mock.last_call().unwrap().routing;
+    assert_eq!(
+        routing,
+        qubite_ai::Routing {
+            providers: vec!["deepinfra/turbo".into()],
+            data_collection: Some("allow".into()),
+            max_price_in_per_mtok: 0,
+            max_price_out_per_mtok: 60_000_000,
+        }
+    );
     env.finish().await;
 }

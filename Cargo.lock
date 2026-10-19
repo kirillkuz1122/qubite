@@ -1402,6 +1402,7 @@ dependencies = [
  "qubite-policy",
  "qubite-testkit",
  "reqwest",
+ "ring",
  "rustls",
  "serde",
  "serde_json",

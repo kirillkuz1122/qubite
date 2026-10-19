@@ -101,6 +101,24 @@ pub async fn apply(
     allowlist: &Allowlist,
 ) -> Result<SyncReport> {
     let mut tx = pool.begin().await?;
+    // Каталог целиком — из него owner выбирает модели (D-210).
+    sqlx::query("DELETE FROM ai_catalog WHERE provider_id = $1")
+        .bind(provider_id)
+        .execute(&mut *tx)
+        .await?;
+    for entry in entries {
+        sqlx::query(
+            "INSERT INTO ai_catalog (provider_id, external_id, context_tokens, price_in_per_mtok, \
+             price_out_per_mtok) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+        )
+        .bind(provider_id)
+        .bind(&entry.external_id)
+        .bind(entry.context_tokens.max(0))
+        .bind(entry.price_in_per_mtok)
+        .bind(entry.price_out_per_mtok)
+        .execute(&mut *tx)
+        .await?;
+    }
     let known: Vec<(String, bool)> =
         sqlx::query_as("SELECT external_id, enabled FROM ai_models WHERE provider_id = $1")
             .bind(provider_id)

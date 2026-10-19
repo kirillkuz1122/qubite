@@ -31,9 +31,10 @@ pub struct OpenRouterConfig {
     pub api_key: Secret,
     /// Сколько ждать соединения. Общий таймаут вызова — у шлюза (60 с).
     pub connect_timeout: Duration,
-    /// Просить OpenRouter отправлять запросы только тем провайдерам моделей,
-    /// которые не сохраняют и не обучаются на данных.
-    pub deny_data_collection: bool,
+    /// `data_collection` по умолчанию для моделей, где owner его не задал:
+    /// `Some("deny")` — только провайдеры, которые не собирают данные;
+    /// `None` — не указывать (у OpenRouter это `allow`). D-211.
+    pub data_collection: Option<String>,
 }
 
 impl OpenRouterConfig {
@@ -42,7 +43,7 @@ impl OpenRouterConfig {
             base_url: DEFAULT_BASE_URL.into(),
             api_key,
             connect_timeout: Duration::from_secs(10),
-            deny_data_collection: true,
+            data_collection: None,
         }
     }
 }
@@ -94,8 +95,8 @@ impl OpenRouter {
             "stream": false,
             "usage": { "include": true },
         });
-        if self.config.deny_data_collection {
-            body["provider"] = serde_json::json!({ "data_collection": "deny" });
+        if let Some(provider) = provider_preferences(call, self.config.data_collection.as_deref()) {
+            body["provider"] = provider;
         }
         let response = self
             .client
@@ -159,6 +160,36 @@ impl Provider for OpenRouter {
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
         Box::pin(self.send(call))
     }
+}
+
+/// Настройки маршрута для OpenRouter (`provider`): закреплённые провайдеры —
+/// `order` + `only` + `allow_fallbacks: false` (без автосмены); потолок цены
+/// из каталога — `max_price` ($ за миллион токенов): если провайдер дороже,
+/// OpenRouter запрос не выполнит.
+fn provider_preferences(
+    call: &ProviderCall,
+    default_collection: Option<&str>,
+) -> Option<serde_json::Value> {
+    let routing = &call.routing;
+    let mut provider = serde_json::Map::new();
+    if !routing.providers.is_empty() {
+        provider.insert("order".into(), serde_json::json!(routing.providers));
+        provider.insert("only".into(), serde_json::json!(routing.providers));
+        provider.insert("allow_fallbacks".into(), serde_json::json!(false));
+    }
+    if let Some(collection) = routing.data_collection.as_deref().or(default_collection) {
+        provider.insert("data_collection".into(), serde_json::json!(collection));
+    }
+    if routing.max_price_in_per_mtok > 0 || routing.max_price_out_per_mtok > 0 {
+        provider.insert(
+            "max_price".into(),
+            serde_json::json!({
+                "prompt": routing.max_price_in_per_mtok as f64 / 1_000_000.0,
+                "completion": routing.max_price_out_per_mtok as f64 / 1_000_000.0,
+            }),
+        );
+    }
+    (!provider.is_empty()).then_some(serde_json::Value::Object(provider))
 }
 
 /// Текст ошибки reqwest без адреса (в адресе нет ключа, но и лишнего не пишем).

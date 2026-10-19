@@ -1247,6 +1247,236 @@
         }
       }
     },
+    "/api/owner/ai/catalog": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: каталог OpenRouter — из него включаются модели.",
+        "operationId": "owner_ai_catalog",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Часть имени модели.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Каталог (до 200 моделей, дешёвые первыми)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiCatalogItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/models": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: модели (разрешённые и нет), их провайдеры и задачи.",
+        "operationId": "owner_ai_models",
+        "responses": {
+          "200": {
+            "description": "Модели",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiModelItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/models/{id}": {
+      "patch": {
+        "tags": ["owner"],
+        "summary": "Owner Console: разрешить/запретить модель, задать провайдеров и `data_collection`.",
+        "operationId": "owner_ai_update_model",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID модели, например `google/gemini-2.5-flash-lite`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiModelChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Модель изменена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiModelItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение или модели нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/tasks": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: какие модели выбраны по умолчанию и для задач.",
+        "operationId": "owner_ai_tasks",
+        "responses": {
+          "200": {
+            "description": "Задачи и модели",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskModel"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/tasks/{task}": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Owner Console: выбрать модель для задачи (`default` — для всех без своей).",
+        "operationId": "owner_ai_set_task",
+        "parameters": [
+          {
+            "name": "task",
+            "in": "path",
+            "description": "`default`, `inbox.triage` …",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskModelChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Выбор сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskModel"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Модель не разрешена или неверная задача",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/invitations": {
       "get": {
         "tags": ["owner"],
@@ -2283,6 +2513,132 @@
   },
   "components": {
     "schemas": {
+      "AiCatalogItem": {
+        "type": "object",
+        "description": "Модель из каталога провайдера.",
+        "required": [
+          "external_id",
+          "price_in_per_mtok",
+          "price_out_per_mtok",
+          "context_tokens",
+          "enabled"
+        ],
+        "properties": {
+          "context_tokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Уже разрешена."
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "price_in_per_mtok": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "price_out_per_mtok": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AiModelChange": {
+        "type": "object",
+        "description": "Изменение модели. Пустые поля не меняются.",
+        "properties": {
+          "data_collection": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DataCollectionSetting"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": ["boolean", "null"],
+            "description": "`true` — разрешить (из каталога), `false` — запретить."
+          },
+          "routing_providers": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "Провайдеры OpenRouter (slug) по порядку — только они, без автосмены;\n`[]` — пусть OpenRouter выбирает сам."
+          }
+        }
+      },
+      "AiModelItem": {
+        "type": "object",
+        "description": "Модель в Owner Console.",
+        "required": [
+          "id",
+          "provider_id",
+          "external_id",
+          "price_in_per_mtok",
+          "price_out_per_mtok",
+          "context_tokens",
+          "enabled",
+          "routing_providers",
+          "tasks"
+        ],
+        "properties": {
+          "blocked_reason": {
+            "type": ["string", "null"],
+            "description": "Заблокирована (например, ответ дороже оценки) — снимает owner."
+          },
+          "context_tokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "data_collection": {
+            "type": ["string", "null"],
+            "description": "`allow` / `deny`; пусто — по настройке сервера."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "В allowlist."
+          },
+          "external_id": {
+            "type": "string",
+            "description": "Имя у провайдера."
+          },
+          "id": {
+            "type": "string",
+            "description": "ID в Qubite (имя модели строчными)."
+          },
+          "price_in_per_mtok": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Микродоллары за миллион токенов."
+          },
+          "price_out_per_mtok": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "routing_providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Провайдеры OpenRouter по порядку; пусто — выбирает OpenRouter."
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Задачи, для которых выбрана модель (`default`, `inbox.triage` …)."
+          }
+        }
+      },
       "ApiErrorBody": {
         "type": "object",
         "description": "Ответ с ошибкой: машиночитаемый код и понятный человеку текст.",
@@ -2376,6 +2732,11 @@
           }
         },
         "additionalProperties": false
+      },
+      "DataCollectionSetting": {
+        "type": "string",
+        "description": "`data_collection` модели: как в настройке сервера, разрешить или запретить.",
+        "enum": ["server", "allow", "deny"]
       },
       "DecideRequest": {
         "type": "object",
@@ -3336,6 +3697,28 @@
               "$ref": "#/components/schemas/SettingChange"
             },
             "description": "Все изменения сохраняются вместе или не сохраняется ни одно."
+          }
+        }
+      },
+      "TaskModel": {
+        "type": "object",
+        "description": "Модель для задачи.",
+        "required": ["task", "model_id"],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskModelChange": {
+        "type": "object",
+        "description": "Выбор модели для задачи; `null` — убрать.",
+        "properties": {
+          "model_id": {
+            "type": ["string", "null"]
           }
         }
       },

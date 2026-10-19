@@ -467,6 +467,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/owner/ai/catalog': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: каталог OpenRouter — из него включаются модели. */
+    get: operations['owner_ai_catalog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/models': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: модели (разрешённые и нет), их провайдеры и задачи. */
+    get: operations['owner_ai_models'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/models/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Owner Console: разрешить/запретить модель, задать провайдеров и `data_collection`. */
+    patch: operations['owner_ai_update_model'];
+    trace?: never;
+  };
+  '/api/owner/ai/tasks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: какие модели выбраны по умолчанию и для задач. */
+    get: operations['owner_ai_tasks'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/tasks/{task}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Owner Console: выбрать модель для задачи (`default` — для всех без своей). */
+    put: operations['owner_ai_set_task'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/invitations': {
     parameters: {
       query?: never;
@@ -778,6 +863,56 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Модель из каталога провайдера. */
+    AiCatalogItem: {
+      /** Format: int32 */
+      context_tokens: number;
+      /** @description Уже разрешена. */
+      enabled: boolean;
+      external_id: string;
+      /** Format: int64 */
+      price_in_per_mtok: number;
+      /** Format: int64 */
+      price_out_per_mtok: number;
+    };
+    /** @description Изменение модели. Пустые поля не меняются. */
+    AiModelChange: {
+      data_collection?: components['schemas']['DataCollectionSetting'] | null;
+      /** @description `true` — разрешить (из каталога), `false` — запретить. */
+      enabled?: boolean | null;
+      /**
+       * @description Провайдеры OpenRouter (slug) по порядку — только они, без автосмены;
+       *     `[]` — пусть OpenRouter выбирает сам.
+       */
+      routing_providers?: string[] | null;
+    };
+    /** @description Модель в Owner Console. */
+    AiModelItem: {
+      /** @description Заблокирована (например, ответ дороже оценки) — снимает owner. */
+      blocked_reason?: string | null;
+      /** Format: int32 */
+      context_tokens: number;
+      /** @description `allow` / `deny`; пусто — по настройке сервера. */
+      data_collection?: string | null;
+      /** @description В allowlist. */
+      enabled: boolean;
+      /** @description Имя у провайдера. */
+      external_id: string;
+      /** @description ID в Qubite (имя модели строчными). */
+      id: string;
+      /**
+       * Format: int64
+       * @description Микродоллары за миллион токенов.
+       */
+      price_in_per_mtok: number;
+      /** Format: int64 */
+      price_out_per_mtok: number;
+      provider_id: string;
+      /** @description Провайдеры OpenRouter по порядку; пусто — выбирает OpenRouter. */
+      routing_providers: string[];
+      /** @description Задачи, для которых выбрана модель (`default`, `inbox.triage` …). */
+      tasks: string[];
+    };
     /** @description Ответ с ошибкой: машиночитаемый код и понятный человеку текст. */
     ApiErrorBody: {
       /** @description Код ошибки, например `invalid_credentials`. */
@@ -830,6 +965,11 @@ export interface components {
       /** @description `new` или `archived`. */
       status?: string | null;
     };
+    /**
+     * @description `data_collection` модели: как в настройке сервера, разрешить или запретить.
+     * @enum {string}
+     */
+    DataCollectionSetting: 'server' | 'allow' | 'deny';
     /** @description Решение владельца: что это и с чем связать. */
     DecideRequest: {
       /** @description `task`, `note`, `project_thought`, `agent_request`, `other`. */
@@ -1245,6 +1385,15 @@ export interface components {
     SettingsPatch: {
       /** @description Все изменения сохраняются вместе или не сохраняется ни одно. */
       changes: components['schemas']['SettingChange'][];
+    };
+    /** @description Модель для задачи. */
+    TaskModel: {
+      model_id: string;
+      task: string;
+    };
+    /** @description Выбор модели для задачи; `null` — убрать. */
+    TaskModelChange: {
+      model_id?: string | null;
     };
     /** @description Данные виджета Telegram (как он их отдаёт: `id`, `first_name`, `auth_date`, `hash`…). */
     TelegramAuth: Record<string, never>;
@@ -2317,6 +2466,186 @@ export interface operations {
         content?: never;
       };
       /** @description Гранта не было или не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_ai_catalog: {
+    parameters: {
+      query?: {
+        /** @description Часть имени модели. */
+        search?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Каталог (до 200 моделей, дешёвые первыми) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiCatalogItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_ai_models: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Модели */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiModelItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_ai_update_model: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID модели, например `google/gemini-2.5-flash-lite` */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AiModelChange'];
+      };
+    };
+    responses: {
+      /** @description Модель изменена */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiModelItem'];
+        };
+      };
+      /** @description Неверное значение или модели нет */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_ai_tasks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Задачи и модели */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TaskModel'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_ai_set_task: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description `default`, `inbox.triage` … */
+        task: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TaskModelChange'];
+      };
+    };
+    responses: {
+      /** @description Выбор сохранён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TaskModel'][];
+        };
+      };
+      /** @description Модель не разрешена или неверная задача */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
       404: {
         headers: {
           [name: string]: unknown;

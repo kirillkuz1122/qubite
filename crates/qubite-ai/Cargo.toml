@@ -12,6 +12,7 @@ qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 # TLS — rustls с ring: без C-библиотеки aws-lc, сборка под aarch64 остаётся простой.
+ring = "0.17.14"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider", "http2"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }

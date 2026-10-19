@@ -43,6 +43,9 @@ pub enum LimitScope {
     Model(String),
     Provider(String),
     UserModule(Uuid, ModuleId),
+    /// Каждый пользователь отдельно (одно значение, свой счётчик у каждого).
+    /// Потолок, а не разрешение: AI сам по себе не открывает.
+    EachUser,
 }
 
 /// Период лимита.
@@ -284,6 +287,7 @@ type ScopeParts = (
 fn scope_parts(scope: &LimitScope) -> ScopeParts {
     match scope {
         LimitScope::Platform => ("platform", None, None, None, None),
+        LimitScope::EachUser => ("each_user", None, None, None, None),
         LimitScope::User(account) => ("user", Some(*account), None, None, None),
         LimitScope::Module(module) => ("module", None, Some(module.to_string()), None, None),
         LimitScope::Model(model) => ("model", None, None, Some(model.clone()), None),
@@ -440,6 +444,169 @@ pub async fn set_model_enabled(
     .await?;
     tx.commit().await?;
     Ok(())
+}
+
+/// Разрешить модель из каталога провайдера (цены — из каталога). Уже
+/// известную модель — просто включить.
+pub async fn enable_from_catalog(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    provider_id: &str,
+    external_id: &str,
+) -> Result<String> {
+    let mut tx = pool.begin().await?;
+    let id = crate::catalog::model_id(external_id);
+    let inserted = sqlx::query(
+        "INSERT INTO ai_models (id, provider_id, external_id, price_in_per_mtok, price_out_per_mtok, \
+         context_tokens, enabled, prices_updated_at) \
+         SELECT $3, provider_id, external_id, price_in_per_mtok, price_out_per_mtok, context_tokens, \
+                true, fetched_at FROM ai_catalog WHERE provider_id = $1 AND external_id = $2 \
+         ON CONFLICT (id) DO UPDATE SET enabled = true, \
+             price_in_per_mtok = EXCLUDED.price_in_per_mtok, \
+             price_out_per_mtok = EXCLUDED.price_out_per_mtok, \
+             context_tokens = EXCLUDED.context_tokens, prices_updated_at = EXCLUDED.prices_updated_at \
+         WHERE ai_models.provider_id = EXCLUDED.provider_id",
+    )
+    .bind(provider_id)
+    .bind(external_id)
+    .bind(&id)
+    .execute(&mut *tx)
+    .await
+    .map_err(invalid)?
+    .rows_affected();
+    if inserted == 0 {
+        return Err(AiError::Invalid(format!(
+            "модели {external_id} нет в каталоге {provider_id} (или ID занят другим провайдером)"
+        )));
+    }
+    record(
+        &mut tx,
+        by,
+        "ai.model_enabled_set",
+        "ai_model",
+        id.clone(),
+        serde_json::json!({ "enabled": true, "from_catalog": provider_id }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(id)
+}
+
+/// Через каких провайдеров OpenRouter идёт модель (slug, по порядку) и
+/// `data_collection` (D-211). Пустой список — провайдер выбирает сам;
+/// `None` у `data_collection` — по настройке сервера.
+pub async fn set_model_routing(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    model_id: &str,
+    providers: &[String],
+    data_collection: Option<&str>,
+) -> Result<()> {
+    let valid_slug = |p: &String| {
+        !p.is_empty()
+            && p.len() <= 80
+            && p.bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"-_./".contains(&b))
+    };
+    if let Some(bad) = providers.iter().find(|p| !valid_slug(p)) {
+        return Err(AiError::Invalid(format!(
+            "провайдер «{bad}»: нужен slug OpenRouter (строчные буквы, цифры, - _ . /)"
+        )));
+    }
+    if providers.len() > 10 {
+        return Err(AiError::Invalid("не больше 10 провайдеров".into()));
+    }
+    if let Some(value) = data_collection
+        && !matches!(value, "allow" | "deny")
+    {
+        return Err(AiError::Invalid("data_collection: allow или deny".into()));
+    }
+    let mut tx = pool.begin().await?;
+    let changed = sqlx::query(
+        "UPDATE ai_models SET routing_providers = $2, data_collection = $3 WHERE id = $1",
+    )
+    .bind(model_id)
+    .bind(providers)
+    .bind(data_collection)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if changed == 0 {
+        return Err(AiError::Invalid(format!("нет модели {model_id}")));
+    }
+    record(
+        &mut tx,
+        by,
+        "ai.model_routing_set",
+        "ai_model",
+        model_id.into(),
+        serde_json::json!({ "providers": providers, "data_collection": data_collection }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Модель для задачи (`default` — для всех задач без своей). Модель должна
+/// быть разрешена. `None` — убрать выбор для задачи.
+pub async fn set_task_model(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    task: &str,
+    model_id: Option<&str>,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    match model_id {
+        Some(model_id) => {
+            let enabled: Option<bool> =
+                sqlx::query_scalar("SELECT enabled FROM ai_models WHERE id = $1")
+                    .bind(model_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            if enabled != Some(true) {
+                return Err(AiError::Invalid(format!(
+                    "модель {model_id} не разрешена — сначала включите её"
+                )));
+            }
+            sqlx::query(
+                "INSERT INTO ai_model_defaults (task, model_id, changed_by) VALUES ($1, $2, $3) \
+                 ON CONFLICT (task) DO UPDATE SET model_id = EXCLUDED.model_id, \
+                 changed_by = EXCLUDED.changed_by, changed_at = now()",
+            )
+            .bind(task)
+            .bind(model_id)
+            .bind(by.account_id())
+            .execute(&mut *tx)
+            .await
+            .map_err(invalid)?;
+        }
+        None => {
+            sqlx::query("DELETE FROM ai_model_defaults WHERE task = $1")
+                .bind(task)
+                .execute(&mut *tx)
+                .await?;
+        }
+    }
+    record(
+        &mut tx,
+        by,
+        "ai.task_model_set",
+        "ai_task",
+        task.into(),
+        serde_json::json!({ "model_id": model_id }),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Выбор моделей по задачам: (задача, модель).
+pub async fn task_models(pool: &PgPool) -> Result<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT task, model_id FROM ai_model_defaults ORDER BY task = 'default' DESC, task",
+    )
+    .fetch_all(pool)
+    .await?)
 }
 
 fn invalid(error: sqlx::Error) -> AiError {

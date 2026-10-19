@@ -39,7 +39,8 @@ use uuid::Uuid;
 pub use budget::{PeriodKeys, Reservation};
 pub use guard::Untrusted;
 pub use provider::{
-    ChatMessage, MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply, Role,
+    ChatMessage, MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply,
+    Role, Routing,
 };
 
 /// Микродоллары: 1 $ = 1 000 000.
@@ -64,6 +65,16 @@ pub enum AiError {
         period: String,
         metric: String,
     },
+    #[error(
+        "в режиме «owner без личного лимита» нужен дневной потолок платформы в $ (qubite ai limit --scope platform --period day --metric usd …)"
+    )]
+    PlatformCapNotSet,
+    #[error("слишком много AI-запросов за минуту ({scope}) — похоже на зацикливание, подождите")]
+    RateLimited { scope: String },
+    #[error("тот же запрос повторяется слишком часто — похоже на зацикливание, остановлено")]
+    RepeatedRequest,
+    #[error("для задачи «{0}» модель не выбрана (и нет модели по умолчанию)")]
+    NoModelForTask(String),
     #[error("запрос с этим request_id уже был (статус {status}) — повторно не выполняется")]
     DuplicateRequest { status: String },
     #[error("провайдер недоступен; можно выбрать другую модель: {alternatives:?}")]
@@ -91,6 +102,10 @@ impl AiError {
             Self::ModelBlocked(_) => "model_blocked",
             Self::BudgetNotSet => "budget_not_set",
             Self::BudgetExhausted { .. } => "budget_exhausted",
+            Self::PlatformCapNotSet => "platform_cap_not_set",
+            Self::RateLimited { .. } => "rate_limited",
+            Self::RepeatedRequest => "repeated_request",
+            Self::NoModelForTask(_) => "no_model_for_task",
             Self::DuplicateRequest { .. } => "duplicate_request",
             Self::ProviderUnavailable { .. } => "provider_unavailable",
             Self::ProviderRefused { .. } => "provider_refused",
@@ -127,6 +142,32 @@ pub struct AiConfig {
     /// Паузы перед повторами; попыток = паузы + 1 (D-074: 1 и 2 с, всего 3).
     pub retry_delays: Vec<Duration>,
     pub clock: Clock,
+    /// Защита от зацикливания (D-213).
+    pub loop_guard: LoopGuard,
+}
+
+/// Защита от зацикливания: запрос, который мог бы уйти, проверяется до резерва.
+/// Ноль — проверка выключена.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoopGuard {
+    /// Начатых вызовов в минуту на пользователя.
+    pub user_per_minute: u32,
+    /// Начатых вызовов в минуту на одну фоновую задачу.
+    pub job_per_minute: u32,
+    /// Сколько раз можно отправить один и тот же запрос за `repeat_window`.
+    pub repeat_limit: u32,
+    pub repeat_window: Duration,
+}
+
+impl Default for LoopGuard {
+    fn default() -> Self {
+        Self {
+            user_per_minute: 20,
+            job_per_minute: 10,
+            repeat_limit: 3,
+            repeat_window: Duration::from_secs(600),
+        }
+    }
 }
 
 impl AiConfig {
@@ -146,6 +187,7 @@ impl Default for AiConfig {
             timeout: Duration::from_secs(60),
             retry_delays: vec![Duration::from_secs(1), Duration::from_secs(2)],
             clock: Arc::new(OffsetDateTime::now_utc),
+            loop_guard: LoopGuard::default(),
         }
     }
 }
@@ -168,6 +210,9 @@ pub struct AiRequest {
     pub input_tokens: u32,
     /// Потолок ответа.
     pub max_output_tokens: u32,
+    /// Фоновая задача, от имени которой идёт запрос: у неё свой потолок
+    /// запросов в минуту (защита от зацикливания).
+    pub job_id: Option<Uuid>,
 }
 
 /// Ответ.
@@ -194,6 +239,8 @@ struct ModelRow {
     enabled: bool,
     blocked_reason: Option<String>,
     provider_enabled: bool,
+    routing_providers: Vec<String>,
+    data_collection: Option<String>,
 }
 
 /// Стоимость в микродолларах, округлённая вверх.
@@ -215,16 +262,112 @@ pub struct Gateway {
     config: AiConfig,
     timezone: RwLock<String>,
     providers: HashMap<String, Arc<dyn Provider>>,
+    /// Секрет процесса для «отпечатков» запросов: в базе не текст и не хеш,
+    /// который можно сверить с догадкой.
+    fingerprint_key: ring::hmac::Key,
 }
 
 impl Gateway {
     pub fn new(pool: PgPool, config: AiConfig) -> Self {
+        let rng = ring::rand::SystemRandom::new();
+        let fingerprint_key =
+            ring::hmac::Key::generate(ring::hmac::HMAC_SHA256, &rng).expect("случайный ключ");
         Self {
             timezone: RwLock::new(config.timezone.clone()),
             pool,
             config,
             providers: HashMap::new(),
+            fingerprint_key,
         }
+    }
+
+    /// Модель для задачи модуля (`inbox.triage` …): выбор owner для задачи,
+    /// иначе модель по умолчанию (`default`). Тихой замены нет: если выбранная
+    /// модель выключена, запрос получит отказ (D-076).
+    pub async fn model_for(&self, task: &str) -> Result<String> {
+        sqlx::query_scalar(
+            "SELECT model_id FROM ai_model_defaults WHERE task IN ($1, 'default') \
+             ORDER BY task = 'default' LIMIT 1",
+        )
+        .bind(task)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| AiError::NoModelForTask(task.into()))
+    }
+
+    fn fingerprint(&self, request: &AiRequest) -> String {
+        let mut ctx = ring::hmac::Context::with_key(&self.fingerprint_key);
+        let parts = [request.model.as_str(), request.prompt.as_str()]
+            .into_iter()
+            .chain(
+                request
+                    .untrusted
+                    .iter()
+                    .flat_map(|u| [u.source.as_str(), u.text.as_str()]),
+            );
+        for part in parts {
+            ctx.update(&(part.len() as u64).to_le_bytes());
+            ctx.update(part.as_bytes());
+        }
+        ctx.sign()
+            .as_ref()
+            .iter()
+            .take(16)
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+
+    /// Защита от зацикливания (D-213): проверка под блокировкой аккаунта,
+    /// чтобы параллельные запросы не проскочили вместе.
+    async fn loop_guard(
+        &self,
+        conn: &mut PgConnection,
+        account_id: Uuid,
+        job_id: Option<Uuid>,
+        fingerprint: &str,
+    ) -> Result<()> {
+        let guard = &self.config.loop_guard;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 7))")
+            .bind(account_id)
+            .execute(&mut *conn)
+            .await?;
+        let (per_minute, repeats): (i64, i64) = sqlx::query_as(
+            "SELECT count(*) FILTER (WHERE created_at > now() - interval '1 minute'), \
+                    count(*) FILTER (WHERE fingerprint = $2 \
+                                     AND created_at > now() - $3::float8 * interval '1 second') \
+             FROM ai_calls WHERE account_id = $1 \
+               AND created_at > now() - greatest($3::float8, 60) * interval '1 second'",
+        )
+        .bind(account_id)
+        .bind(fingerprint)
+        .bind(guard.repeat_window.as_secs_f64())
+        .fetch_one(&mut *conn)
+        .await?;
+        if guard.user_per_minute > 0 && per_minute >= i64::from(guard.user_per_minute) {
+            return Err(AiError::RateLimited {
+                scope: "user".into(),
+            });
+        }
+        if guard.repeat_limit > 0 && repeats >= i64::from(guard.repeat_limit) {
+            return Err(AiError::RepeatedRequest);
+        }
+        if let Some(job) = job_id
+            && guard.job_per_minute > 0
+        {
+            let per_job: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM ai_calls WHERE job_id = $1 \
+                 AND created_at > now() - interval '1 minute'",
+            )
+            .bind(job)
+            .fetch_one(&mut *conn)
+            .await?;
+            if per_job >= i64::from(guard.job_per_minute) {
+                return Err(AiError::RateLimited {
+                    scope: "job".into(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Подключить адаптер провайдера с этим ID (`ai_providers.id`).
@@ -267,6 +410,7 @@ impl Gateway {
         }
         let guarded =
             guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
+        let fingerprint = self.fingerprint(&request);
         let input_tokens = guarded
             .input_tokens_upper_bound()
             .max(u64::from(request.input_tokens));
@@ -304,6 +448,10 @@ impl Gateway {
 
             // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
             let mut tx = self.pool.begin().await?;
+            if call_id.is_none() {
+                self.loop_guard(&mut tx, auth.account_id(), request.job_id, &fingerprint)
+                    .await?;
+            }
             let keys =
                 budget::period_keys(&mut tx, (self.config.clock)(), &self.timezone()).await?;
             let scope = budget::Scope {
@@ -337,8 +485,8 @@ impl Gateway {
                     let id = qubite_objects::new_id();
                     let inserted = sqlx::query(
                         "INSERT INTO ai_calls (id, request_id, account_id, module_id, model_id, status, \
-                         attempts, estimate_usd, estimate_tokens, reservations) \
-                         VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8)",
+                         attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint) \
+                         VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10)",
                     )
                     .bind(id)
                     .bind(&request.request_id)
@@ -348,6 +496,8 @@ impl Gateway {
                     .bind(estimate_usd)
                     .bind(estimate_tokens)
                     .bind(&reservations_json)
+                    .bind(request.job_id)
+                    .bind(&fingerprint)
                     .execute(&mut *tx)
                     .await;
                     if let Err(sqlx::Error::Database(db)) = &inserted
@@ -395,6 +545,12 @@ impl Gateway {
                 messages: guarded.messages.clone(),
                 max_output_tokens: request.max_output_tokens,
                 input_tokens_estimate: input_tokens,
+                routing: Routing {
+                    providers: model.routing_providers.clone(),
+                    data_collection: model.data_collection.clone(),
+                    max_price_in_per_mtok: model.price_in_per_mtok,
+                    max_price_out_per_mtok: model.price_out_per_mtok,
+                },
             };
             let outcome = tokio::time::timeout(self.config.timeout, provider.complete(&call)).await;
             match outcome {
@@ -470,7 +626,8 @@ impl Gateway {
     async fn load_model(&self, model_id: &str) -> Result<ModelRow> {
         let model: Option<ModelRow> = sqlx::query_as(
             "SELECT m.id, m.provider_id, m.external_id, m.price_in_per_mtok, m.price_out_per_mtok, \
-                    m.enabled, m.blocked_reason, p.enabled AS provider_enabled \
+                    m.enabled, m.blocked_reason, p.enabled AS provider_enabled, \
+                    m.routing_providers, m.data_collection \
              FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id WHERE m.id = $1",
         )
         .bind(model_id)

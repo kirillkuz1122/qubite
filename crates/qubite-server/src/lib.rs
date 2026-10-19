@@ -127,6 +127,11 @@ impl AppState {
         modules::owner_grants,
         modules::owner_set_grant,
         modules::owner_revoke_grant,
+        ai::owner_ai_models,
+        ai::owner_ai_catalog,
+        ai::owner_ai_update_model,
+        ai::owner_ai_tasks,
+        ai::owner_ai_set_task,
         sync::push,
         sync::pull,
         sync::socket,
@@ -182,6 +187,12 @@ impl AppState {
         modules::ModuleChange,
         modules::GrantItem,
         modules::GrantChange,
+        ai::AiModelItem,
+        ai::AiCatalogItem,
+        ai::AiModelChange,
+        ai::DataCollectionSetting,
+        ai::TaskModel,
+        ai::TaskModelChange,
         inbox::InboxItem,
         inbox::InboxTriage,
         inbox::InboxLink,
@@ -282,6 +293,17 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             axum::routing::put(notifications::change_notification),
         )
         .route("/api/v1/telegram/link-code", post(notifications::link_code))
+        .route("/api/owner/ai/models", get(ai::owner_ai_models))
+        .route(
+            "/api/owner/ai/models/{*id}",
+            patch(ai::owner_ai_update_model),
+        )
+        .route("/api/owner/ai/catalog", get(ai::owner_ai_catalog))
+        .route("/api/owner/ai/tasks", get(ai::owner_ai_tasks))
+        .route(
+            "/api/owner/ai/tasks/{task}",
+            axum::routing::put(ai::owner_ai_set_task),
+        )
         .route("/api/v1/sync/push", post(sync::push))
         .route("/api/v1/sync/pull", get(sync::pull))
         .route("/api/v1/sync/ws", get(sync::socket))

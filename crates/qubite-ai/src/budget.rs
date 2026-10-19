@@ -101,7 +101,8 @@ pub async fn reserve(
             OR (scope_kind = 'module' AND module_id = $2)
             OR (scope_kind = 'model' AND model_id = $3)
             OR (scope_kind = 'provider' AND provider_id = $4)
-            OR (scope_kind = 'user_module' AND account_id = $1 AND module_id = $2))
+            OR (scope_kind = 'user_module' AND account_id = $1 AND module_id = $2)
+            OR scope_kind = 'each_user')
          ORDER BY id",
     )
     .bind(scope.account_id)
@@ -111,16 +112,34 @@ pub async fn reserve(
     .fetch_all(&mut *conn)
     .await?;
 
+    // Лимит «на каждого» — потолок, а не разрешение: AI открывает только
+    // личный денежный лимит или режим owner (D-173, D-200, D-212).
     let personal_money = limits
         .iter()
         .any(|l| l.metric == "usd" && matches!(l.scope_kind.as_str(), "user" | "user_module"));
-    if !personal_money && !owner_unlimited(conn, scope.account_id).await? {
-        return Err(AiError::BudgetNotSet);
+    let mut limits = limits;
+    if !personal_money {
+        if !owner_unlimited(conn, scope.account_id).await? {
+            return Err(AiError::BudgetNotSet);
+        }
+        // Owner без личного лимита: «на каждого» его не касается, но дневной
+        // потолок платформы в $ обязателен — он и ограничивает owner (D-212).
+        limits.retain(|l| l.scope_kind != "each_user");
+        let platform_day = limits
+            .iter()
+            .any(|l| l.scope_kind == "platform" && l.period == "day" && l.metric == "usd");
+        if !platform_day {
+            return Err(AiError::PlatformCapNotSet);
+        }
     }
 
     let mut reservations = Vec::with_capacity(limits.len());
     for limit in &limits {
-        let period_key = keys.key(&limit.period);
+        let mut period_key = keys.key(&limit.period);
+        if limit.scope_kind == "each_user" {
+            // Одно значение лимита, у каждого свой счётчик.
+            period_key = format!("{period_key}#{}", scope.account_id);
+        }
         let amount = match limit.metric.as_str() {
             "usd" => estimate_usd,
             "tokens" => estimate_tokens,

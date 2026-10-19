@@ -32,6 +32,21 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+/// Куда провайдеру можно отправить запрос (настройка модели owner, D-211).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Routing {
+    /// Провайдеры модели по порядку (у OpenRouter — slug: `google-vertex`,
+    /// `deepinfra/turbo`). Пусто — провайдер выбирает сам; иначе — только эти,
+    /// без автосмены.
+    pub providers: Vec<String>,
+    /// `allow` / `deny`; `None` — не указывать.
+    pub data_collection: Option<String>,
+    /// Цены из каталога (микродоллары за миллион): дороже — провайдер
+    /// не должен выполнять запрос.
+    pub max_price_in_per_mtok: i64,
+    pub max_price_out_per_mtok: i64,
+}
+
 /// Что отправить провайдеру. Сообщения собирает шлюз ([`crate::guard`]).
 #[derive(Debug, Clone)]
 pub struct ProviderCall {
@@ -42,6 +57,7 @@ pub struct ProviderCall {
     pub max_output_tokens: u32,
     /// Оценка входа сверху — на случай, если провайдер не сообщит расход.
     pub input_tokens_estimate: u64,
+    pub routing: Routing,
 }
 
 /// Ответ провайдера с фактическим расходом токенов.
