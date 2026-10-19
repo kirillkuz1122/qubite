@@ -220,7 +220,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Войти через виджет Telegram. */
+    /** Войти через виджет Telegram. Новый аккаунт он не создаёт без `consent`. */
     post: operations['telegram_login'];
     delete?: never;
     options?: never;
@@ -1385,6 +1385,12 @@ export interface components {
     RegisterRequest: {
       /** @description Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения). */
       captcha_token?: string | null;
+      /**
+       * @description Версия документов, принятых галочкой «Принимаю условия» (D-230): сейчас
+       *     — `legal_version` из `GET /api/auth/registration`. Нет или устарела —
+       *     `consent_required`.
+       */
+      consent_version?: string | null;
       display_name?: string;
       email: string;
       /** @description Код приглашения (`7KQ2-M9XD-4TPR`) или его вариант без дефисов. */
@@ -1400,6 +1406,11 @@ export interface components {
       captcha?: components['schemas']['CaptchaWidget'] | null;
       /** @description Нужно ли приглашение. */
       invite_required: boolean;
+      /**
+       * @description Версия юридических документов: её присылает регистрация после галочки
+       *     «Принимаю условия» (D-230).
+       */
+      legal_version: string;
       /** @description `closed`, `invite_only` или `open`. */
       mode: string;
     };
@@ -1987,7 +1998,10 @@ export interface operations {
   };
   telegram_login: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Версия принятых документов — со страницы регистрации (D-230). */
+        consent?: string | null;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2130,6 +2144,11 @@ export interface operations {
          *     «по приглашениям» (D-189).
          */
         invite?: string | null;
+        /**
+         * @description Версия документов, принятых галочкой на странице регистрации (D-230).
+         *     Без неё вход через провайдера новый аккаунт не создаёт (`consent_required`).
+         */
+        consent?: string | null;
       };
       header?: never;
       path: {
@@ -2237,7 +2256,7 @@ export interface operations {
           'application/json': components['schemas']['Registered'];
         };
       };
-      /** @description `invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль) */
+      /** @description `consent_required`, `invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль) */
       400: {
         headers: {
           [name: string]: unknown;

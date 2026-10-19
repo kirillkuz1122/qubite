@@ -17,6 +17,7 @@ use uuid::Uuid;
 use crate::{
     Error, Passwords, Result,
     accounts::{self, NewAccount},
+    consent,
     email::{self, Purpose},
     invitations, normalize_email, password,
     platform::RegistrationMode,
@@ -32,6 +33,8 @@ pub struct RegisterInput {
     pub display_name: String,
     /// Код приглашения (из ссылки или введённый вручную).
     pub invite: Option<String>,
+    /// Версия документов, которые человек принял галочкой (D-230).
+    pub consent_version: Option<String>,
     pub client: ClientInfo,
 }
 
@@ -63,6 +66,7 @@ pub async fn register(
         RegistrationMode::InviteOnly if invite.is_none() => return Err(Error::InviteRequired),
         _ => {}
     }
+    let consent = consent::check(input.consent_version.as_deref())?;
     let email = normalize_email(&input.email)?;
     let display_name = input.display_name.trim();
     if display_name.chars().count() > 100 {
@@ -119,6 +123,7 @@ pub async fn register(
     if let Some(invitation) = invitation {
         invitations::mark_used(&mut tx, invitation, account.id).await?;
     }
+    consent::record(&mut tx, account.id, consent, "password", &input.client.ip).await?;
     audit::record(
         &mut tx,
         NewAuditEntry {
@@ -130,6 +135,7 @@ pub async fn register(
                 "email": email,
                 "invitation": invitation,
                 "mode": mode,
+                "consent": consent,
                 "ip": input.client.ip,
             })),
             ..NewAuditEntry::default()

@@ -67,6 +67,9 @@ pub struct RegistrationInfo {
     invite_required: bool,
     /// CAPTCHA для регистрации без приглашения (только в режиме `open`).
     captcha: Option<CaptchaWidget>,
+    /// Версия юридических документов: её присылает регистрация после галочки
+    /// «Принимаю условия» (D-230).
+    legal_version: &'static str,
 }
 
 /// Можно ли сейчас зарегистрироваться и что для этого показать.
@@ -91,6 +94,7 @@ pub async fn info(State(state): State<AppState>) -> Result<Json<RegistrationInfo
         mode,
         invite_required: mode == RegistrationMode::InviteOnly,
         captcha,
+        legal_version: qubite_auth::consent::LEGAL_VERSION,
     }))
 }
 
@@ -105,6 +109,10 @@ pub struct RegisterRequest {
     invite: Option<String>,
     /// Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения).
     captcha_token: Option<String>,
+    /// Версия документов, принятых галочкой «Принимаю условия» (D-230): сейчас
+    /// — `legal_version` из `GET /api/auth/registration`. Нет или устарела —
+    /// `consent_required`.
+    consent_version: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -117,7 +125,7 @@ pub struct Registered {
 #[utoipa::path(post, path = "/api/auth/register", tag = "auth", request_body = RegisterRequest,
     responses(
         (status = 202, description = "Письмо с кодом отправлено (ответ тот же, если почта уже занята)", body = Registered),
-        (status = 400, description = "`invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль)", body = ApiErrorBody),
+        (status = 400, description = "`consent_required`, `invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль)", body = ApiErrorBody),
         (status = 403, description = "`registration_closed`", body = ApiErrorBody),
         (status = 503, description = "`captcha_unavailable`: проверить CAPTCHA сейчас нельзя", body = ApiErrorBody)
     ))]
@@ -177,6 +185,7 @@ pub async fn register(
             password: body.password,
             display_name: body.display_name,
             invite: body.invite,
+            consent_version: body.consent_version,
             client,
         },
     )

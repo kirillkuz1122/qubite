@@ -147,6 +147,9 @@ pub struct StartQuery {
     /// Код приглашения — для регистрации через провайдера, если регистрация
     /// «по приглашениям» (D-189).
     invite: Option<String>,
+    /// Версия документов, принятых галочкой на странице регистрации (D-230).
+    /// Без неё вход через провайдера новый аккаунт не создаёт (`consent_required`).
+    consent: Option<String>,
 }
 
 /// Начать вход: браузер уходит к провайдеру.
@@ -171,6 +174,10 @@ pub async fn start_login(
                 .map(str::trim)
                 .filter(|code| !code.is_empty())
                 .map(qubite_auth::invitations::code_hash),
+            consent_version: query
+                .consent
+                .map(|version| version.trim().chars().take(40).collect())
+                .filter(|version: &String| !version.is_empty()),
         };
         state.oauth.start(state.db.pool(), provider, intent).await
     }
@@ -330,6 +337,7 @@ pub async fn callback(
             Intent::Login {
                 return_to,
                 invite_hash,
+                consent_version,
             } => {
                 let issued = qubite_oauth::login(
                     state.db.pool(),
@@ -338,7 +346,10 @@ pub async fn callback(
                     &finished.identity,
                     &client,
                     &platform,
-                    invite_hash.as_deref(),
+                    qubite_oauth::Signup {
+                        invite_hash: invite_hash.as_deref(),
+                        consent_version: consent_version.as_deref(),
+                    },
                 )
                 .await?;
                 Ok((return_to.clone(), Some(issued)))
@@ -419,9 +430,16 @@ impl TelegramAuth {
     }
 }
 
-/// Войти через виджет Telegram.
+/// Параметры входа через Telegram.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct TelegramQuery {
+    /// Версия принятых документов — со страницы регистрации (D-230).
+    consent: Option<String>,
+}
+
+/// Войти через виджет Telegram. Новый аккаунт он не создаёт без `consent`.
 #[utoipa::path(post, path = "/api/auth/oauth/telegram/login", tag = "auth",
-    request_body = TelegramAuth,
+    params(TelegramQuery), request_body = TelegramAuth,
     responses(
         (status = 200, description = "Вход выполнен; ставятся cookie", body = LoginResponse),
         (status = 400, description = "Подпись не сходится, данные устарели или уже использованы", body = ApiErrorBody),
@@ -432,6 +450,7 @@ pub async fn telegram_login(
     State(state): State<AppState>,
     peer: Option<axum::extract::Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
+    Query(query): Query<TelegramQuery>,
     Json(body): Json<TelegramAuth>,
 ) -> Result<Response, ApiError> {
     let settings = &state.auth;
@@ -448,7 +467,10 @@ pub async fn telegram_login(
         &identity,
         &client,
         &crate::platform::effective(&state).await?,
-        None,
+        qubite_oauth::Signup {
+            invite_hash: None,
+            consent_version: query.consent.as_deref(),
+        },
     )
     .await
     .map_err(auth_error)?;

@@ -29,16 +29,18 @@ pub(crate) async fn create_flow(
 ) -> Result<(String, String)> {
     let state = qubite_auth::random_token();
     let verifier = qubite_auth::random_token();
-    let (kind, account, session, return_to, invite_hash) = match intent {
+    let (kind, account, session, return_to, invite_hash, consent) = match intent {
         Intent::Login {
             return_to,
             invite_hash,
+            consent_version,
         } => (
             "login",
             None,
             None,
             safe_return(return_to),
             invite_hash.clone(),
+            consent_version.clone(),
         ),
         Intent::Link {
             account_id,
@@ -48,6 +50,7 @@ pub(crate) async fn create_flow(
             Some(*account_id),
             Some(*session_id),
             "/".to_owned(),
+            None,
             None,
         ),
     };
@@ -61,8 +64,8 @@ pub(crate) async fn create_flow(
     .await?;
     sqlx::query(
         "INSERT INTO oauth_flows (id, state_hash, provider, intent, account_id, session_id, \
-         code_verifier, return_to, expires_at, invite_hash) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::float8 * interval '1 second', $10)",
+         code_verifier, return_to, expires_at, invite_hash, consent_version) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::float8 * interval '1 second', $10, $11)",
     )
     .bind(qubite_auth::new_id())
     .bind(qubite_auth::token_hash(&state))
@@ -74,6 +77,7 @@ pub(crate) async fn create_flow(
     .bind(return_to)
     .bind(ttl.as_secs_f64())
     .bind(invite_hash)
+    .bind(consent)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -94,6 +98,7 @@ struct FlowRow {
     code_verifier: String,
     return_to: String,
     invite_hash: Option<Vec<u8>>,
+    consent_version: Option<String>,
     expired: bool,
 }
 
@@ -104,7 +109,7 @@ pub(crate) async fn take_flow(pool: &PgPool, provider: Provider, state: &str) ->
         "UPDATE oauth_flows SET used_at = now() \
          WHERE state_hash = $1 AND used_at IS NULL \
          RETURNING provider, intent, account_id, session_id, code_verifier, return_to, \
-                   invite_hash, expires_at < now() AS expired",
+                   invite_hash, consent_version, expires_at < now() AS expired",
     )
     .bind(qubite_auth::token_hash(state))
     .fetch_optional(pool)
@@ -121,6 +126,7 @@ pub(crate) async fn take_flow(pool: &PgPool, provider: Provider, state: &str) ->
         _ => Intent::Login {
             return_to: row.return_to,
             invite_hash: row.invite_hash,
+            consent_version: row.consent_version,
         },
     };
     Ok(Flow {
@@ -146,6 +152,15 @@ pub(crate) async fn mark_seen(pool: &PgPool, digest: &[u8]) -> Result<()> {
     Ok(())
 }
 
+/// С чем человек пришёл, если аккаунта ещё нет: приглашение и согласие (D-189, D-230).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Signup<'a> {
+    /// Хеш кода приглашения.
+    pub invite_hash: Option<&'a [u8]>,
+    /// Версия документов, принятых галочкой на странице регистрации.
+    pub consent_version: Option<&'a str>,
+}
+
 /// Войти по привязке. Совпадение почты не помогает — только ID провайдера.
 pub async fn login(
     pool: &PgPool,
@@ -154,7 +169,7 @@ pub async fn login(
     identity: &Identity,
     client: &ClientInfo,
     platform: &qubite_auth::platform::Effective,
-    invite_hash: Option<&[u8]>,
+    signup: Signup<'_>,
 ) -> Result<IssuedSession> {
     let mut tx = pool.begin().await?;
     let found: Option<(Uuid, String)> = sqlx::query_as(
@@ -169,7 +184,7 @@ pub async fn login(
         Some(found) => found,
         None => {
             let account_id =
-                register(&mut tx, provider, identity, client, platform, invite_hash).await?;
+                register(&mut tx, provider, identity, client, platform, signup).await?;
             (account_id, "active".to_owned())
         }
     };
@@ -223,7 +238,10 @@ async fn register(
     identity: &Identity,
     client: &ClientInfo,
     platform: &qubite_auth::platform::Effective,
-    invite_hash: Option<&[u8]>,
+    Signup {
+        invite_hash,
+        consent_version,
+    }: Signup<'_>,
 ) -> Result<Uuid> {
     use qubite_auth::platform::RegistrationMode;
     match (platform.registration_mode(), invite_hash) {
@@ -251,6 +269,9 @@ async fn register(
         }
         None => None,
     };
+    // Новый аккаунт — только с галочкой «Принимаю условия» (D-230). Проверка
+    // после почты и приглашения: у кого аккаунт уже есть, тот узнаёт именно это.
+    let consent = qubite_auth::consent::check(consent_version)?;
     let display_name: String = identity.display_name.trim().chars().take(100).collect();
     let account = qubite_auth::accounts::insert(
         &mut *tx,
@@ -281,6 +302,8 @@ async fn register(
     if let Some(invitation) = invitation {
         qubite_auth::invitations::mark_used(&mut *tx, invitation, account.id).await?;
     }
+    qubite_auth::consent::record(&mut *tx, account.id, consent, provider.as_str(), &client.ip)
+        .await?;
     audit::record(
         &mut *tx,
         NewAuditEntry {
@@ -293,6 +316,7 @@ async fn register(
                 "method": provider.as_str(),
                 "invitation": invitation,
                 "mode": platform.registration_mode(),
+                "consent": consent,
                 "ip": client.ip,
             })),
             ..NewAuditEntry::default()

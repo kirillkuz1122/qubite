@@ -14,6 +14,7 @@
 //! (SHA-256). Сами токены видит только браузер.
 
 pub mod accounts;
+pub mod consent;
 pub mod devices;
 pub mod email;
 pub mod invitations;
@@ -118,6 +119,9 @@ pub enum Error {
     Conflict(String),
     #[error("регистрация только по приглашению")]
     InviteRequired,
+    /// Регистрация без согласия с текущими документами (D-230).
+    #[error("нужно согласие с условиями")]
+    ConsentRequired,
     /// Приглашение не найдено, истекло, использовано, отозвано или на другую почту.
     #[error("приглашение недействительно")]
     InvalidInvite,

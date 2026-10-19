@@ -208,6 +208,11 @@ impl From<qubite_auth::Error> for ApiError {
                 "invite_required",
                 "Регистрация только по приглашению",
             ),
+            E::ConsentRequired => Self::new(
+                StatusCode::BAD_REQUEST,
+                "consent_required",
+                "Чтобы создать аккаунт, примите условия и согласие на обработку данных",
+            ),
             E::InvalidInvite => Self::new(
                 StatusCode::BAD_REQUEST,
                 "invalid_invite",

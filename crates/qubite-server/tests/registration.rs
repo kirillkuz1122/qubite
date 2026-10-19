@@ -110,7 +110,12 @@ async fn anon(
         .await
 }
 
-async fn register(address: SocketAddr, body: Value) -> common::Reply {
+/// Регистрация с галочкой «Принимаю условия» (D-230), если тест не задал
+/// `consent_version` сам (`null` — без галочки).
+async fn register(address: SocketAddr, mut body: Value) -> common::Reply {
+    if body.get("consent_version").is_none() {
+        body["consent_version"] = json!(qubite_auth::consent::LEGAL_VERSION);
+    }
     anon(address, Method::POST, "/api/auth/register", Some(body)).await
 }
 
@@ -238,6 +243,25 @@ async fn open_link_invite_then_email_confirmation_then_login() {
         .await
         .unwrap();
     assert_eq!(grants, 0);
+
+    // Согласие записано: три документа, версия, способ, адрес (D-230).
+    let consents: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT c.document, c.version, c.method FROM account_consents c \
+         JOIN accounts a ON a.id = c.account_id WHERE a.email = $1 ORDER BY c.document",
+    )
+    .bind(GUEST)
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    let version = qubite_auth::consent::LEGAL_VERSION.to_owned();
+    assert_eq!(
+        consents,
+        ["personal_data", "privacy", "terms"].map(|doc| (
+            doc.to_owned(),
+            version.clone(),
+            "password".to_owned()
+        ))
+    );
 
     // Приглашение одноразовое и видно в списке как использованное.
     let again = register(
@@ -645,6 +669,58 @@ async fn invitations_are_owner_only() {
         .await
         .unwrap();
     assert_eq!(made, 0);
+
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn registration_needs_consent_with_current_documents() {
+    let fake = fake_captcha().await;
+    let (settings, outbox) = settings(&fake.url, false);
+    let (test_db, db, address) = setup(settings).await;
+    let mut owner = logged_in(address).await;
+    let code = invite(&mut owner, address, json!({})).await;
+
+    let info = anon(address, Method::GET, "/api/auth/registration", None).await;
+    assert_eq!(
+        info.body["legal_version"],
+        qubite_auth::consent::LEGAL_VERSION
+    );
+    // Без галочки и со старой версией документов — отказ, приглашение цело.
+    for consent in [Value::Null, json!(""), json!("2020-01-01")] {
+        let reply = register(
+            address,
+            json!({
+                "email": GUEST,
+                "password": GUEST_PASSWORD,
+                "invite": code,
+                "consent_version": consent,
+            }),
+        )
+        .await;
+        assert_eq!(reply.status, 400, "{consent}");
+        assert_eq!(reply.body["error"], "consent_required");
+    }
+    assert_eq!(accounts_count(&db).await, 1);
+    assert!(outbox.to(GUEST).is_empty());
+    let unused: bool = sqlx::query_scalar("SELECT bool_and(used_at IS NULL) FROM invitations")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert!(unused);
+
+    let reply = register(
+        address,
+        json!({ "email": GUEST, "password": GUEST_PASSWORD, "invite": code }),
+    )
+    .await;
+    assert_eq!(reply.status, 202, "{:?}", reply.body);
+    let accepted: i64 = sqlx::query_scalar("SELECT count(*) FROM account_consents")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(accepted, 3);
 
     db.close().await;
     test_db.drop_db().await;

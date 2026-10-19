@@ -15,6 +15,7 @@ import { AuthLayout } from './auth/AuthLayout';
 import { DevicePage } from './auth/Device';
 import { LegalPage } from './auth/Legal';
 import { LoginPage } from './auth/Login';
+import { RequireAccount } from './auth/RequireAccount';
 import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
 import { RegisterPage } from './auth/Register';
 import { DesignPage } from './design/DesignPage';
@@ -46,16 +47,19 @@ const homeRoute = createRoute({
 /**
  * Приложение: одна оболочка на все разделы (она не пересоздаётся при переходе,
  * поэтому шапка и подсветка перетекают). Сами разделы рисует оболочка по адресу.
+ * Гостя разделы не пускают — сразу на вход (D-229).
  */
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
   component: () => (
-    <StoreProvider>
-      <InboxProvider>
-        <AppShell />
-      </InboxProvider>
-    </StoreProvider>
+    <RequireAccount>
+      <StoreProvider>
+        <InboxProvider>
+          <AppShell />
+        </InboxProvider>
+      </StoreProvider>
+    </RequireAccount>
   ),
 });
 const sectionRoutes = SECTIONS.map((s) =>

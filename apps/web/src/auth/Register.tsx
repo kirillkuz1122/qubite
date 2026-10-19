@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Captcha } from './Captcha';
 import { Fail, must, param, say, useMe } from './client';
+import { LEGAL_VERSION } from './legal';
 import { useHelpers, usePage, useShyPassword } from './page';
 import { Providers } from './Providers';
 
@@ -42,6 +43,8 @@ export function RegisterPage() {
   }, [me.data, router]);
 
   const mode = info.data?.mode;
+  /** версия документов, которые человек видит и принимает (D-230) */
+  const legal = info.data?.legal_version ?? LEGAL_VERSION;
   const needCaptcha = mode === 'open' && !invite.trim() && !!info.data?.captcha;
   const short = password.length > 0 && password.length < 10;
 
@@ -63,6 +66,7 @@ export function RegisterPage() {
             display_name: name.trim(),
             invite: invite.trim() || null,
             captcha_token: needCaptcha ? token : null,
+            consent_version: legal,
           },
         }),
       );
@@ -196,6 +200,7 @@ export function RegisterPage() {
         returnTo="/today"
         invite={invite.trim() || undefined}
         verb="Продолжить"
+        consent={agree ? legal : undefined}
         locked={
           agree
             ? null

@@ -1,6 +1,10 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
+import { USER } from './auth-mock';
 
-/** Поддельный сервер синхронизации: `/api/v1/sync/push`, `/pull` и WebSocket. */
+/**
+ * Поддельный сервер синхронизации: `/api/v1/sync/push`, `/pull` и WebSocket. Синхронизация —
+ * только после входа, поэтому человек уже вошёл (cookie и `/api/auth/me`, D-229).
+ */
 export interface SyncMock {
   objects: Map<string, Record<string, unknown>>;
   /** все операции, которые прислал браузер */
@@ -38,6 +42,10 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     },
   };
 
+  await page
+    .context()
+    .addCookies([{ name: 'qubite_csrf', value: 'e2e-csrf', domain: '127.0.0.1', path: '/' }]);
+  await page.route('**/api/auth/me', (route) => route.fulfill({ json: USER }));
   await page.route('**/api/v1/sync/push', async (route) => {
     if (mock.offline) return route.abort('internetdisconnected');
     const body = route.request().postDataJSON() as { ops: Record<string, unknown>[] };

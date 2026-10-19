@@ -4,8 +4,8 @@
     "title": "Qubite API",
     "description": "API ядра Qubite 2.0",
     "license": {
-      "name": "UNLICENSED",
-      "identifier": "UNLICENSED"
+      "name": "AGPL-3.0-only",
+      "identifier": "AGPL-3.0-only"
     },
     "version": "0.1.0"
   },
@@ -530,8 +530,19 @@
     "/api/auth/oauth/telegram/login": {
       "post": {
         "tags": ["auth"],
-        "summary": "Войти через виджет Telegram.",
+        "summary": "Войти через виджет Telegram. Новый аккаунт он не создаёт без `consent`.",
         "operationId": "telegram_login",
+        "parameters": [
+          {
+            "name": "consent",
+            "in": "query",
+            "description": "Версия принятых документов — со страницы регистрации (D-230).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -747,6 +758,15 @@
             "schema": {
               "type": ["string", "null"]
             }
+          },
+          {
+            "name": "consent",
+            "in": "query",
+            "description": "Версия документов, принятых галочкой на странице регистрации (D-230).\nБез неё вход через провайдера новый аккаунт не создаёт (`consent_required`).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
           }
         ],
         "responses": {
@@ -861,7 +881,7 @@
             }
           },
           "400": {
-            "description": "`invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль)",
+            "description": "`consent_required`, `invite_required`, `invalid_invite`, `captcha_failed`, `invalid` (почта, имя, слабый пароль)",
             "content": {
               "application/json": {
                 "schema": {
@@ -3684,6 +3704,10 @@
             "type": ["string", "null"],
             "description": "Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения)."
           },
+          "consent_version": {
+            "type": ["string", "null"],
+            "description": "Версия документов, принятых галочкой «Принимаю условия» (D-230): сейчас\n— `legal_version` из `GET /api/auth/registration`. Нет или устарела —\n`consent_required`."
+          },
           "display_name": {
             "type": "string"
           },
@@ -3712,7 +3736,7 @@
       },
       "RegistrationInfo": {
         "type": "object",
-        "required": ["mode", "invite_required"],
+        "required": ["mode", "invite_required", "legal_version"],
         "properties": {
           "captcha": {
             "oneOf": [
@@ -3728,6 +3752,10 @@
           "invite_required": {
             "type": "boolean",
             "description": "Нужно ли приглашение."
+          },
+          "legal_version": {
+            "type": "string",
+            "description": "Версия юридических документов: её присылает регистрация после галочки\n«Принимаю условия» (D-230)."
           },
           "mode": {
             "type": "string",

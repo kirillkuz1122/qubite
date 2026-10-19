@@ -331,11 +331,23 @@ async fn come_back(
         .await
 }
 
+/// Начать вход как со страницы регистрации — с галочкой «Принимаю условия» (D-230).
 async fn start_login(lab: &Lab, browser: &mut Browser, provider: &str, return_to: &str) -> String {
+    let consent = qubite_auth::consent::LEGAL_VERSION;
+    begin_login(
+        lab,
+        browser,
+        provider,
+        &format!("return_to={return_to}&consent={consent}"),
+    )
+    .await
+}
+
+async fn begin_login(lab: &Lab, browser: &mut Browser, provider: &str, params: &str) -> String {
     let reply = browser
         .get(
             lab.address,
-            &format!("/api/auth/oauth/{provider}/login?return_to={return_to}"),
+            &format!("/api/auth/oauth/{provider}/login?{params}"),
         )
         .await;
     assert_eq!(reply.status, 303);
@@ -873,6 +885,24 @@ async fn open_registration_creates_account_through_provider() {
     let lab = Lab::new().await;
     set_toggle(&lab, "registration.mode", json!("open")).await;
 
+    // Без галочки «Принимаю условия» (вход со страницы входа) аккаунт не создаётся.
+    let mut hasty = Browser::default();
+    let url = begin_login(&lab, &mut hasty, "yandex", "return_to=/today").await;
+    let reply = come_back(
+        &lab,
+        &mut hasty,
+        "yandex",
+        &url,
+        yandex_person("555", "Newcomer@Yandex.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=consent_required&provider=yandex")
+    );
+    assert!(!hasty.logged_in());
+    assert_eq!(accounts(&lab).await, 1);
+
     let mut newcomer = Browser::default();
     let url = start_login(&lab, &mut newcomer, "yandex", "/today").await;
     let reply = come_back(
@@ -900,6 +930,12 @@ async fn open_registration_creates_account_through_provider() {
         .await
         .unwrap();
     assert_eq!(grants, 0);
+    // Согласие записано со способом входа (D-230).
+    let methods: Vec<String> = sqlx::query_scalar("SELECT DISTINCT method FROM account_consents")
+        .fetch_all(lab.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(methods, ["yandex"]);
     let by_password = Browser::default()
         .post(
             lab.address,

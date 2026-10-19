@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { LEGAL_VERSION } from '../src/auth/legal';
 import { mockAuth, OWNER } from './auth-mock';
 
 /* Qubite Auth (AUTH-005): сервер подделан теми же ответами, браузер настоящий. */
@@ -64,9 +65,17 @@ test('регистрация по приглашению: согласие, пи
   await expect(page.getByText('Без согласия аккаунт не создать')).toBeVisible();
   expect(server.calls.some((c) => c.path === '/api/auth/register')).toBe(false);
   await page.getByRole('checkbox', { name: /Принимаю условия/ }).check();
+  // и через провайдера — с той же версией документов, иначе сервер аккаунт не создаст
+  await expect(page.getByRole('link', { name: 'Продолжить через Яндекс ID' })).toHaveAttribute(
+    'href',
+    `/api/auth/oauth/yandex/login?return_to=%2Ftoday&invite=7KQ2-M9XD-4TPR&consent=${LEGAL_VERSION}`,
+  );
   await page.getByRole('button', { name: 'Создать аккаунт' }).click();
 
   await expect(page).toHaveURL(/\/verify-email\?/);
+  // сервер хранит отметку согласия с версией документов (D-230)
+  const sent = server.calls.find((c) => c.path === '/api/auth/register');
+  expect(sent?.body).toMatchObject({ consent_version: LEGAL_VERSION });
   await expect(page.getByLabel('Почта')).toHaveValue('friend@example.com');
   await page.getByLabel('Код из письма').fill('000000');
   await page.getByRole('button', { name: 'Подтвердить' }).click();
@@ -163,6 +172,33 @@ test('гость на «Аккаунте» и «Разрешить вход» п
   const call = server.calls.find((c) => c.path === '/api/auth/device/authorize');
   // длинное число из адреса не испортилось
   expect(call?.body?.state).toBe('12345678901234567890');
+});
+
+test('гость в разделах не задерживается: сразу на вход, после входа — обратно (D-229)', async ({
+  page,
+}) => {
+  const server = await mockAuth(page);
+  await page.goto('/inbox?q=молоко');
+  await expect(page).toHaveURL(/\/auth\?return_to=/);
+  await expect(page.getByRole('heading', { name: 'Вход' })).toBeAttached();
+  // разделов гость так и не увидел
+  await expect(page.getByRole('heading', { level: 1, name: 'Входящие' })).toHaveCount(0);
+  await page.getByLabel('Почта').fill(OWNER.email);
+  await page.getByLabel('Пароль', { exact: true }).fill(server.password);
+  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  await expect(page).toHaveURL(/\/inbox\?q=/);
+
+  // вышел — и снова не пускает
+  server.me = null;
+  await page.goto('/planner');
+  await expect(page).toHaveURL(/\/auth\?return_to=%2Fplanner$/);
+});
+
+test('нет связи с сервером — разделы открываются (без сети Qubite работает)', async ({ page }) => {
+  await page.route('**/api/**', (route) => route.abort('connectionrefused'));
+  await page.goto('/today');
+  await expect(page).toHaveURL(/\/today$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Сегодня' })).toBeAttached();
 });
 
 test('юридические страницы — черновики и ссылки между собой', async ({ page }) => {

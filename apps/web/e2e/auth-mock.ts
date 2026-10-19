@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { LEGAL_VERSION } from '../src/auth/legal';
 
 /**
  * Поддельный сервер Qubite Auth для браузерных тестов: те же адреса и ответы, что у
@@ -114,7 +115,12 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
       { id: 'yandex', kind: 'redirect' },
       { id: 'vk', kind: 'redirect' },
     ],
-    registration: { mode: 'invite_only', invite_required: true, captcha: null },
+    registration: {
+      mode: 'invite_only',
+      invite_required: true,
+      captcha: null,
+      legal_version: LEGAL_VERSION,
+    },
     sessions: [
       {
         id: 's-here',
@@ -236,6 +242,8 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
           return fail(route, 403, 'registration_closed', 'Регистрация закрыта');
         if (m.registration.invite_required && body?.invite !== '7KQ2-M9XD-4TPR')
           return fail(route, 400, 'invalid_invite', 'Приглашение не найдено или уже использовано');
+        if (body?.consent_version !== LEGAL_VERSION)
+          return fail(route, 400, 'consent_required', 'Примите условия');
         return json(route, 202, { message: 'Проверьте почту' });
       case 'POST /api/auth/email/verify':
         if (body?.token === 'good-link' || body?.code === m.mailCode)

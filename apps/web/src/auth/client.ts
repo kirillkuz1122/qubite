@@ -175,6 +175,8 @@ export function oauthError(code: string, provider: string): string {
       return `Этот ${p} уже привязан к другому аккаунту Qubite.`;
     case 'invite_required':
       return 'Регистрация — по приглашениям. Откройте ссылку из приглашения.';
+    case 'consent_required':
+      return `Аккаунта с этим ${p} ещё нет. Чтобы создать его, откройте «Создать аккаунт» и отметьте согласие с условиями.`;
     case 'invalid_invite':
       return 'Приглашение не подошло: оно одноразовое и действует 7 дней.';
     case 'registration_closed':
@@ -195,9 +197,16 @@ export function oauthError(code: string, provider: string): string {
 }
 
 /** Ссылка входа через провайдера: сервер уводит браузер к нему и обратно. */
-export function providerHref(id: string, returnTo: string, invite?: string): string {
+export function providerHref(
+  id: string,
+  returnTo: string,
+  invite?: string,
+  consent?: string,
+): string {
   const q = new URLSearchParams({ return_to: returnTo });
   if (invite) q.set('invite', invite);
+  // галочка «Принимаю условия» со страницы регистрации — без неё аккаунт не создаётся (D-230)
+  if (consent) q.set('consent', consent);
   return `/api/auth/oauth/${id}/login?${q}`;
 }
 

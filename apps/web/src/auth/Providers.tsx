@@ -23,11 +23,14 @@ export function Providers({
   invite,
   verb = 'Войти',
   locked,
+  consent,
   onDone,
   onError,
 }: {
   returnTo: string;
   invite?: string | undefined;
+  /** версия принятых документов — со страницы регистрации (D-230) */
+  consent?: string | undefined;
   verb?: string;
   /** пока нельзя (нет согласия): нажатие показывает этот текст вместо перехода */
   locked?: string | null;
@@ -50,7 +53,7 @@ export function Providers({
             <a
               key={p.id}
               className="q-btn auth-provider"
-              href={providerHref(p.id, returnTo, invite)}
+              href={providerHref(p.id, returnTo, invite, consent)}
               aria-disabled={locked ? true : undefined}
               onClick={(e) => {
                 if (!locked) return;
@@ -76,7 +79,15 @@ export function Providers({
       {telegram &&
         list
           .filter((p) => p.kind === 'telegram_widget')
-          .map((p) => <TelegramLogin key={p.id} item={p} onDone={onDone} onError={onError} />)}
+          .map((p) => (
+            <TelegramLogin
+              key={p.id}
+              item={p}
+              consent={consent}
+              onDone={onDone}
+              onError={onError}
+            />
+          ))}
     </div>
   );
 }
@@ -89,18 +100,20 @@ type TgWin = Window & Record<string, unknown>;
  */
 function TelegramLogin({
   item,
+  consent,
   onDone,
   onError,
 }: {
   item: ProviderItem;
+  consent?: string | undefined;
   onDone(): void;
   onError(text: string): void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
-  const cb = useRef({ onDone, onError });
+  const cb = useRef({ onDone, onError, consent });
   useEffect(() => {
-    cb.current = { onDone, onError };
+    cb.current = { onDone, onError, consent };
   });
   useEffect(() => {
     const el = box.current;
@@ -109,7 +122,10 @@ function TelegramLogin({
     (window as unknown as TgWin)[name] = async (auth: Record<string, unknown>) => {
       try {
         const r = await must(
-          api.POST('/api/auth/oauth/telegram/login', { body: auth as Record<string, never> }),
+          api.POST('/api/auth/oauth/telegram/login', {
+            params: { query: { consent: cb.current.consent ?? null } },
+            body: auth as Record<string, never>,
+          }),
         );
         qc.setQueryData(ME, r.account);
         cb.current.onDone();

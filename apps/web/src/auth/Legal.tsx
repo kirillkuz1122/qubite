@@ -1,6 +1,6 @@
 import { Note } from '@qubite/ui';
 import { Link, useParams } from '@tanstack/react-router';
-import { LEGAL } from './legal';
+import { LEGAL, LEGAL_VERSION } from './legal';
 import { LEGAL_LINKS, usePage } from './page';
 
 /** Юридическая страница: условия, приватность, cookies, согласие (черновик, Q-06). */
@@ -22,7 +22,7 @@ export function LegalPage() {
     <article className="legal">
       <Note>
         <b>Черновик.</b> Реквизиты оператора и страны работы ещё не указаны — документ вступит в
-        силу после публикации окончательной редакции.
+        силу после публикации окончательной редакции. Редакция {LEGAL_VERSION}.
       </Note>
       <h2 className="legal-title">{d.title}</h2>
       {d.sections.map((s) => (

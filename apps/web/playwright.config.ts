@@ -33,5 +33,8 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
+    // настоящего сервера нет нарочно (порт 9 закрыт): запущенный рядом `just dev` не
+    // подменит ответы, а без ответа /api/auth/me разделы открываются как без сети (D-229)
+    env: { QUBITE_API: 'http://127.0.0.1:9' },
   },
 });

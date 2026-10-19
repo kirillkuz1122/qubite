@@ -26,7 +26,7 @@ mod store;
 use std::{collections::HashMap, fmt, str::FromStr, sync::RwLock, time::Duration};
 
 pub use providers::Identity;
-pub use store::{LinkedIdentity, identities, link, login, return_to, unlink};
+pub use store::{LinkedIdentity, Signup, identities, link, login, return_to, unlink};
 
 /// Провайдер входа. Имена общие для всего проекта (тумблеры ACC-002 тоже).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -251,6 +251,7 @@ impl Error {
             Self::EmailTaken => "oauth_email_taken",
             Self::Auth(qubite_auth::Error::InviteRequired) => "invite_required",
             Self::Auth(qubite_auth::Error::InvalidInvite) => "invalid_invite",
+            Self::Auth(qubite_auth::Error::ConsentRequired) => "consent_required",
             Self::Auth(qubite_auth::Error::AccountBlocked) => "account_blocked",
             Self::Auth(qubite_auth::Error::InvalidCredentials) => "invalid_credentials",
             Self::Auth(qubite_auth::Error::TooManyAttempts { .. }) => "too_many_attempts",
@@ -273,6 +274,9 @@ pub enum Intent {
         /// Хеш кода приглашения — для регистрации через провайдера, когда
         /// регистрация «по приглашениям» (D-189).
         invite_hash: Option<Vec<u8>>,
+        /// Версия документов, принятых галочкой на странице регистрации (D-230).
+        /// Без неё вход через провайдера аккаунт не создаёт.
+        consent_version: Option<String>,
     },
     Link {
         account_id: uuid::Uuid,
