@@ -105,6 +105,23 @@ pnpm e2e                     # браузерные тесты: Firefox, Chromiu
 
 Адрес сервера для прокси можно поменять переменной `QUBITE_API` (по умолчанию `http://127.0.0.1:8080`).
 
+Qubite Auth (AUTH-005) — те же адреса, что сервер пишет в письмах и редиректах: вход `/auth`, регистрация `/register`, письма `/verify-email`, `/forgot`, `/reset-password`, аккаунт `/account`, «разрешить вход приложению» `/auth/device`, документы `/legal/terms|privacy|cookies|consent`. Обычные e2e подделывают ответы сервера (`apps/web/e2e/auth-mock.ts`).
+
+**Проверка на настоящем сервере** (`apps/web/e2e/real-server.spec.ts`, в `just e2e` пропускается):
+
+```bash
+docker exec qubite-dev-db psql -U qubite -d postgres -c "CREATE DATABASE qubite_e2e"   # своя база, чтобы не мешать тестам
+export DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/qubite_e2e
+cargo run --bin qubite -- migrate
+echo "$PASS" | cargo run --bin qubite -- owner create --email owner@example.com --password-stdin
+QUBITE_BIND=127.0.0.1:18080 QUBITE_EMAIL_MODE=mock cargo run --bin qubite -- serve &
+(cd apps/web && QUBITE_API=http://127.0.0.1:18080 pnpm exec vite --port 4180 --host localhost &)
+cd apps/web && QUBITE_E2E_REAL=http://localhost:4180 QUBITE_E2E_EMAIL=owner@example.com \
+  QUBITE_E2E_PASSWORD="$PASS" pnpm exec playwright test real-server --project=firefox
+```
+
+Адрес — именно `localhost`: cookie входа с флагом `Secure` браузеры принимают по http только на нём.
+
 Дизайн-система «Частицы» — в пакетах `packages/motion` (одна физика) и `packages/ui` (токены, шрифты, компоненты), их описание — в `README.md` пакетов. Витрина: `pnpm dev` → http://localhost:5173/design (сервер Rust для неё не нужен).
 
 Если кончается место на диске: `cargo clean` удаляет папку сборки `target/` (всё пересоберётся). Сборки для разработки уже настроены компактно (`[profile.dev]` в `Cargo.toml`).

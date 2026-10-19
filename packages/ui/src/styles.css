@@ -278,6 +278,152 @@ body {
   touch-action: pan-y;
 }
 
+.q-gang {
+  display: block;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+/* поле ввода (AUTH-005) */
+.q-field {
+  display: block;
+}
+.q-field-label {
+  display: block;
+  margin: 0 0 7px 2px;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.q-field-box {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  border-radius: calc(var(--q-round) * 25px);
+  border: 1px solid var(--q-line-2);
+  background: var(--q-bg);
+}
+.q-field-box:focus-within {
+  border-color: var(--q-orange);
+}
+.q-field-box input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 18px;
+  border: 0;
+  background: none;
+  color: var(--q-ink);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.q-field-box input::placeholder {
+  color: var(--q-dim);
+}
+.q-field-eye {
+  flex: none;
+  height: 36px;
+  margin-right: 7px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--q-round) * 18px);
+  background: var(--q-panel-2);
+  color: var(--q-mute);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.q-field-note {
+  margin: 6px 0 0 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--q-dim);
+}
+.q-bad .q-field-box,
+.q-bad .q-check-box {
+  border-color: var(--q-peach);
+}
+.q-bad .q-field-note {
+  color: var(--q-peach);
+}
+
+/* галочка-согласие */
+.q-check {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 4px 12px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--q-mute);
+}
+.q-check input {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.q-check-box {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: calc(var(--q-round) * 8px);
+  border: 1px solid var(--q-line-2);
+  pointer-events: none;
+}
+.q-check-box i {
+  width: 10px;
+  height: 10px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-orange);
+}
+.q-check input:focus-visible + .q-check-box {
+  outline: 2px solid var(--q-orange);
+  outline-offset: 3px;
+}
+.q-check label {
+  cursor: pointer;
+}
+.q-check label a {
+  color: var(--q-ink);
+}
+.q-check .q-field-note {
+  grid-column: 2;
+  margin: 0;
+}
+
+/* сообщение */
+.q-note {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 13px 16px;
+  border-radius: calc(var(--q-round) * 18px);
+  border: 1px solid var(--q-line);
+  background: var(--q-panel-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.q-note .q-dot {
+  background: var(--q-sky);
+  transform: translateY(-1px);
+}
+.q-note-ok .q-dot {
+  background: var(--q-green);
+}
+.q-note-bad .q-dot {
+  background: var(--q-peach);
+}
+.q-note a {
+  color: var(--q-ink);
+}
+
 /* ---------- оболочка приложения (DS-007) ---------- */
 
 /* фоновая сетка точек */

@@ -70,6 +70,10 @@ export {
 export { DotIcon, ICON_NAMES, type IconName } from './icons';
 export { DotText, type DotTextProps } from './DotText';
 export { Companion, type CompanionHandle, type CompanionProps } from './Companion';
+export { Gang, type GangHandle, type GangProps } from './Gang';
+export { Field, type FieldProps } from './Field';
+export { Check, type CheckProps } from './Check';
+export { Note, type NoteProps } from './Note';
 export {
   DotEngine,
   companionSize,

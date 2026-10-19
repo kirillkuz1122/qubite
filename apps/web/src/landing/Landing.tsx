@@ -277,7 +277,7 @@ function Top() {
         >
           <i />
         </button>
-        <Link className="ld-in" to="/today">
+        <Link className="ld-in" to="/auth">
           Войти
         </Link>
         <Link className="q-btn" to="/today">

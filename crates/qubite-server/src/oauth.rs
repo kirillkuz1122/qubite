@@ -359,7 +359,7 @@ pub async fn callback(
                     &finished.identity,
                 )
                 .await?;
-                Ok((format!("/settings?linked={provider}"), None))
+                Ok((format!("/account?linked={provider}"), None))
             }
         }
     }

@@ -412,7 +412,7 @@ async fn login_only_by_linked_id_and_same_email_gives_nothing() {
         yandex_person("100500", "k@ya.ru"),
     )
     .await;
-    assert_eq!(reply.location.as_deref(), Some("/settings?linked=yandex"));
+    assert_eq!(reply.location.as_deref(), Some("/account?linked=yandex"));
     let list = owner.get(lab.address, "/api/auth/oauth/identities").await;
     assert_eq!(list.body[0]["provider"], "yandex");
     assert_eq!(list.body[0]["email"], "k@ya.ru");
@@ -667,7 +667,7 @@ async fn vk_identity_belongs_to_one_account_and_unlink_needs_password() {
     let (mut owner_b, started) = link(&mut owner, common::PASSWORD).await;
     let url = started.body["authorize_url"].as_str().unwrap().to_owned();
     let reply = come_back(&lab, &mut owner_b, "vk", &url, vk_person.clone()).await;
-    assert_eq!(reply.location.as_deref(), Some("/settings?linked=vk"));
+    assert_eq!(reply.location.as_deref(), Some("/account?linked=vk"));
     assert_eq!(
         lab.mock.vk_device_ids.lock().unwrap().as_slice(),
         ["vk-device-1"]
@@ -720,7 +720,7 @@ async fn vk_identity_belongs_to_one_account_and_unlink_needs_password() {
     let (mut student_b, started) = link(&mut student, "пароль пользователя").await;
     let url = started.body["authorize_url"].as_str().unwrap().to_owned();
     let reply = come_back(&lab, &mut student_b, "vk", &url, vk_person).await;
-    assert_eq!(reply.location.as_deref(), Some("/settings?linked=vk"));
+    assert_eq!(reply.location.as_deref(), Some("/account?linked=vk"));
 
     // Перебор пароля через привязку упирается в тот же лимит, что и вход.
     for _ in 0..5 {

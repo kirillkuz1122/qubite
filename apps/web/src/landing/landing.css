@@ -486,9 +486,12 @@
 }
 
 @media (max-width: 760px) {
-  .ld-nav,
-  .ld-in {
+  .ld-nav {
     display: none;
+  }
+  /* «Войти» нужен и на телефоне (D-034): ведёт в Qubite Auth */
+  .ld-in {
+    padding: 0 2px;
   }
   .ld-top {
     height: 64px;

@@ -12,6 +12,26 @@ import { useShell } from '../context';
 import { HELPERS } from '../data';
 import { SecHead } from '../parts';
 import { useStore } from '../state';
+import { useMe } from '../../auth/client';
+
+/** Кто вошёл (AUTH-005): ссылка на «Аккаунт» или на вход. */
+function AccountRow() {
+  const me = useMe();
+  const who = me.data;
+  return (
+    <Link className="set" data-obj="set-account" to={who ? '/account' : '/auth'}>
+      <span className="lbl">
+        {who ? who.display_name || who.email : 'Войти'}
+        <small>
+          {who
+            ? `${who.is_owner ? 'владелец · ' : ''}сессии, привязка входов, выход`
+            : 'чтобы записи сохранялись на сервере и были на всех устройствах'}
+        </small>
+      </span>
+      <span className="later">→</span>
+    </Link>
+  );
+}
 
 export function SettingsScreen() {
   const { look, set } = useLook();
@@ -126,12 +146,7 @@ export function SettingsScreen() {
 
       <SecHead text="АККАУНТ" label="Аккаунт" />
       <div className="group panel">
-        <div className="set" data-obj="set-account">
-          <span className="lbl">
-            Кирилл<small>владелец · 3 устройства</small>
-          </span>
-          <span className="later">→</span>
-        </div>
+        <AccountRow />
         <div className="set" data-obj="set-backup">
           <span className="lbl">
             Экспорт и бэкапы<small>последний бэкап сегодня в 4:00</small>

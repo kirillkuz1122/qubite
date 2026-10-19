@@ -1,8 +1,22 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  parseSearchWith,
+  stringifySearchWith,
+} from '@tanstack/react-router';
 import { AppShell } from './app/AppShell';
 import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
 import { StoreProvider } from './app/store';
+import { AccountPage } from './auth/Account';
+import { AuthLayout } from './auth/AuthLayout';
+import { DevicePage } from './auth/Device';
+import { LegalPage } from './auth/Legal';
+import { LoginPage } from './auth/Login';
+import { ForgotPage, ResetPasswordPage, VerifyEmailPage } from './auth/Mail';
+import { RegisterPage } from './auth/Register';
 import { DesignPage } from './design/DesignPage';
 import { Landing } from './landing/Landing';
 
@@ -49,8 +63,75 @@ const designRoute = createRoute({
   component: DesignPage,
 });
 
+/**
+ * Qubite Auth (AUTH-005, D-034): одна рамка на вход, регистрацию, письма, аккаунт,
+ * «разрешить вход приложению» и юридические страницы. В production это поддомен
+ * `auth.` — тот же сайт, те же адреса; адреса совпадают с теми, что сервер пишет
+ * в письмах и редиректах (`/auth?error=`, `/register?invite=`, `/verify-email?token=` …).
+ */
+const authRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'auth',
+  component: AuthLayout,
+});
+/** Параметры адреса — необязательные строки (письма, редиректы провайдеров). */
+const optional =
+  <K extends string>(...keys: K[]) =>
+  (s: Record<string, unknown>) =>
+    Object.fromEntries(keys.filter((k) => s[k] != null).map((k) => [k, String(s[k])])) as Partial<
+      Record<K, string>
+    >;
+const authRoutes = [
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/auth',
+    component: LoginPage,
+    validateSearch: optional('email', 'error', 'provider', 'return_to'),
+  }),
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/register',
+    component: RegisterPage,
+    validateSearch: optional('invite'),
+  }),
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/verify-email',
+    component: VerifyEmailPage,
+    validateSearch: optional('email', 'token', 'sent'),
+  }),
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/forgot',
+    component: ForgotPage,
+    validateSearch: optional('email'),
+  }),
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/reset-password',
+    component: ResetPasswordPage,
+    validateSearch: optional('email', 'token', 'sent'),
+  }),
+  createRoute({
+    getParentRoute: () => authRoute,
+    path: '/account',
+    component: AccountPage,
+    validateSearch: optional('linked'),
+  }),
+  createRoute({ getParentRoute: () => authRoute, path: '/auth/device', component: DevicePage }),
+  createRoute({ getParentRoute: () => authRoute, path: '/legal/$doc', component: LegalPage }),
+];
+
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, appRoute.addChildren(sectionRoutes), designRoute]),
+  routeTree: rootRoute.addChildren([
+    homeRoute,
+    appRoute.addChildren(sectionRoutes),
+    authRoute.addChildren(authRoutes),
+    designRoute,
+  ]),
+  // параметры адреса — всегда строки: код «012345» и токен из письма не превращаются в числа
+  parseSearch: parseSearchWith((v) => v),
+  stringifySearch: stringifySearchWith(JSON.stringify),
 });
 
 declare module '@tanstack/react-router' {
