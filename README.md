@@ -2,180 +2,98 @@
 
 # Qubite
 
-### Твоя цифровая среда для учёбы, работы, мыслей и жизни — живая, связанная и под твоим контролем
+### Личная цифровая среда для учёбы, работы и мыслей — связанная, офлайн и на своём сервере
 
-**Заметки · Задачи · Рукописные конспекты · AI-помощники · Всё связано · Работает офлайн · Self-hosted**
+**Мысли и Входящие · Задачи · Документы · Рукописные конспекты · AI-помощник под бюджетом · Self-hosted**
 
-![Status](https://img.shields.io/badge/статус-проектирование-ffe163?style=for-the-badge)
+![Status](https://img.shields.io/badge/статус-ранняя_разработка-ffe163?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/Rust-сервер-1d1b19?style=for-the-badge&logo=rust&logoColor=white)
 ![React](https://img.shields.io/badge/React_+_TS-интерфейс-71cfff?style=for-the-badge&logo=react&logoColor=1d1b19)
-![Tauri](https://img.shields.io/badge/Tauri-desktop-ff9852?style=for-the-badge&logo=tauri&logoColor=1d1b19)
-![Kotlin](https://img.shields.io/badge/Kotlin-Android_Ink-90dea5?style=for-the-badge&logo=kotlin&logoColor=1d1b19)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-+_pgvector-71cfff?style=for-the-badge&logo=postgresql&logoColor=1d1b19)
-![Raspberry Pi](https://img.shields.io/badge/Raspberry_Pi-self--hosted-ff9852?style=for-the-badge&logo=raspberrypi&logoColor=1d1b19)
-
-[Что это](#-что-это) · [Как это ощущается](#-как-это-ощущается) · [Модули](#-модули) · [Статус](#-статус) · [Архитектура](#-архитектура) · [План](#-план) · [Документация](#-документация) · [Старый Qubite](#-старый-qubite)
 
 </div>
 
----
+> **In short (English):** Qubite is a self-hosted, local-first personal workspace — inbox for quick thoughts, tasks, docs and handwritten notes, all linked together, with an optional AI assistant that can never spend money without an explicit budget. Server in Rust (axum + sqlx + PostgreSQL), UI in React + TypeScript, desktop via Tauri, Android with a native Kotlin pen engine. Early development; documentation is in Russian.
 
-## 💡 Что это
+## Что это
 
-**Qubite** — одно приложение вместо десятка: быстрые мысли, задачи и проекты, документы, рукописные конспекты на планшете, учёба, а потом финансы, дневник и автоматизации. Всё лежит в одном месте и **связано между собой**: заметка знает свою задачу, задача — свой проект, конспект — свой урок.
+Qubite — одно приложение вместо десятка: быстрые мысли, задачи и проекты, документы, рукописные конспекты на планшете. Всё лежит в одном месте и **связано между собой**: заметка знает свою задачу, задача — свой проект.
 
-С Qubite можно **разговаривать**: написать или сказать «завтра повторить графы», и он сам предложит задачу на завтра, привязанную к информатике. Но каждое действие можно сделать и руками, AI здесь — помощник, а не обязательный посредник.
+- **Local-first.** Мысли и задачи записываются без интернета и синхронизируются потом.
+- **AI — помощник, а не посредник.** Всё можно сделать руками. Платный AI не включается сам: только по разрешению владельца и в пределах бюджета, расход резервируется заранее.
+- **По умолчанию запрещено.** Новый пользователь не получает ни модулей, ни AI — доступ выдаёт владелец сервера. Все проверки на сервере.
+- **Свой сервер.** Один бинарник на Rust + PostgreSQL; работает на VPS или Raspberry Pi.
 
-| | |
+## Что уже работает
+
+| Часть | Состояние |
 |---|---|
-| 🧠 **AI-first, но не AI-only** | Говори с системой естественным языком или делай всё руками |
-| 📴 **Local-first** | Заметки, задачи и конспекты работают без интернета и синхронизируются потом |
-| 🔗 **Всё связано** | Типизированные связи вместо папок; одна информация — много представлений |
-| ✍️ **Перо — в основе** | Проект начался с желания писать конспекты на Android-планшете как в Procreate |
-| 🔒 **Твои данные** | Свой сервер (Raspberry Pi), экспорт, бэкапы, приватные зоны, журнал AI |
-| 💸 **Деньги под замком** | Платный AI не включается сам: только по разрешению и в пределах бюджета |
-| 📱 **Все устройства** | Web, desktop (Linux → Windows/macOS), Android-телефон и планшет |
+| Сервер: база, миграции, объекты, очередь задач, синхронизация | ✅ |
+| Аккаунты: owner через CLI, пароли (Argon2id), сессии, CSRF, почта, регистрация по приглашениям, CAPTCHA | ✅ |
+| Вход через Яндекс ID, VK ID, Google, Telegram; вход приложений (PKCE) | ✅ |
+| Права на модули (Policy Gate), тумблеры платформы | ✅ |
+| AI-шлюз: OpenRouter, лимиты и резерв бюджета, защита от prompt injection | ✅ |
+| Входящие: захват мыслей офлайн, Telegram-бот | ✅ / на приёмке |
+| Web-интерфейс (лендинг, оболочка приложения, «Входящие») | на приёмке |
+| Planner, Docs, Ink, desktop и Android | ⏳ дальше |
 
-## ✨ Как это ощущается
+Актуальное состояние — [docs/project/STATUS.md](docs/project/STATUS.md), план — [docs/plan/ROADMAP.md](docs/plan/ROADMAP.md) и [docs/plan/TASKS.md](docs/plan/TASKS.md).
 
-Интерфейс сделан из **живого материала «Поток»**. Кнопки, переключатели и ползунки ведут себя как вязкий пластик: их можно потянуть, они растягиваются в своих пределах и упруго возвращаются. Выделение перетекает между пунктами, меню вырастает прямо из кнопки, а окно — из точки нажатия. Без «стекла», которое режет глаза, и плавно даже на слабом телефоне.
-
-- **Палитра «Игрушечная»** — яркий цветной пластик на спокойной молочной основе. У каждого цвета своя роль:
-
-  | Действие | Выбор | Мысль | Готово |
-  |:---:|:---:|:---:|:---:|
-  | ![](https://img.shields.io/badge/%20-%20-ff9852?style=for-the-badge) | ![](https://img.shields.io/badge/%20-%20-71cfff?style=for-the-badge) | ![](https://img.shields.io/badge/%20-%20-ffe163?style=for-the-badge) | ![](https://img.shields.io/badge/%20-%20-90dea5?style=for-the-badge) |
-  | `#ff9852` | `#71cfff` | `#ffe163` | `#90dea5` |
-
-- **Шрифты:** Unbounded для заголовков, Manrope для текста.
-- **Помощники** — четыре персонажа из простых мягких фигур. Они следят за курсором, тянутся к полю, в которое ты пишешь, грустят при ошибке и тактично отворачиваются, когда ты показываешь пароль:
-  - **Элик** (от электрона) ловит мысли и входящие — самый быстрый, всё время в движении;
-  - **Прото** (от протона) ведёт проекты — двигает дела вперёд;
-  - **Нейт** (от нейтрона) — мудрец для учёбы и дневника, спокойный, в очках и с блокнотом;
-  - **Фоти** (от фотона) бережёт личное — свет и тепло;
-  - и невидимый **Shade** — «тень», которая делает дела незаметно.
-
-  У Qubite есть ядро, а помощники — частицы атома вокруг него.
-
-Подробно — в [дизайн-системе](docs/design/DESIGN_SYSTEM.md) и [описании помощников](docs/design/COMPANIONS.md).
-
-## 🧩 Модули
+## Стек
 
 ```mermaid
 flowchart LR
-    CMD["⌨️ Command + Inbox"] --- PLAN["✅ Planner"]
-    PLAN --- DOCS["📄 Docs"]
-    DOCS --- INK["✍️ Ink"]
-    CMD --- CORE(("Qubite<br/>ядро"))
-    PLAN --- CORE
-    DOCS --- CORE
-    INK --- CORE
-    CORE --- LEARN["🎓 Learn"]
-    CORE --- AGENTS["🤖 Агенты"]
-    CORE --- ATLAS["🕸️ Atlas"]
-    CORE --- MORE["… Search, Writer, VPN,<br/>Kwork, Life, Finance, Focus"]
-```
-
-| Модуль | Что делает | Когда |
-|---|---|---|
-| ⌨️ **Qubite Command + Inbox** | Одно поле внизу экрана: пишешь или говоришь мысль (и из Telegram тоже), она попадает во «Входящие», а Qubite предлагает сделать из неё задачу, заметку или событие | **MVP, первым** |
-| ✅ **Planner** | Проекты, задачи, сроки, Kanban, календарь, напоминания | MVP |
-| 📄 **Docs** | Блочный редактор, связи, версии, Markdown, офлайн | MVP |
-| ✍️ **Ink** | Рукописные конспекты на Android-планшете с адаптивной стабилизацией пера | MVP |
-| 🛡️ **Owner Console** | Скрытая панель владельца: люди, права на модули, бюджеты AI, тумблеры платформы | MVP |
-| 🎓 **Learn** | Уроки, ДЗ, карточки, квизы, турниры | позже |
-| 🤖 **Агенты** | Память, навыки, Hermes, MCP для Codex/Claude | позже |
-| 🔎 **Search · ✏️ Writer · 🌐 VPN · 💼 Kwork** | Переписываются из старого Qubite на Rust | позже |
-| 📔 **Life · 💰 Finance · 🎯 Focus · 🎨 Studio** | Дневник, деньги, концентрация, рисование | большие релизы |
-| 🏠 **Qubite Home** | Умный дом на Home Assistant, «мозг» — Shade AI, который берёт данные из Qubite | большой релиз |
-
-Полный каталог с поддоменами и статусами — [docs/product/MODULES.md](docs/product/MODULES.md).
-
-## 📍 Статус
-
-> **Октябрь 2026: проект перезапущен.** Есть подробное ТЗ, архитектура и план. **Кода нового Qubite пока нет.**
-
-| Что | Состояние |
-|---|---|
-| Документация, ТЗ, план | ✅ готово, ждёт просмотра владельцем |
-| Старый Qubite | 🗄️ перенесён в [`legacy/qubite-v1/`](legacy/), все 321 тест проходят |
-| Rust-сервер: каркас, база, проверки | ✅ готов (FND-001) |
-| Web-приложение: каркас, клиент API, тесты в Firefox | ✅ готов (FND-002) |
-| Живой дизайн, аккаунты, Command | ⏳ дальше |
-
-Где остановились и какие вопросы открыты — [docs/project/STATUS.md](docs/project/STATUS.md).
-
-## 🏗️ Архитектура
-
-```mermaid
-flowchart TB
     subgraph Clients["Клиенты"]
-        WEB["🌐 Web<br/>React + TS"]
-        DESK["🖥️ Desktop<br/>Tauri"]
-        AND["📱 Android<br/>React + нативный Ink"]
-        TG["💬 Telegram"]
+        WEB["Web — React + TS"]
+        DESK["Desktop — Tauri"]
+        AND["Android — React + Kotlin (перо)"]
+        TG["Telegram-бот"]
     end
-    subgraph Pi["Raspberry Pi"]
-        EDGE["Cloudflare Tunnel → Caddy<br/>auth. · plan. · docs. · …"]
-        SRV["qubite (Rust)<br/>API · права · бюджеты AI · модули · синхронизация · воркеры · бот"]
-        DB[("PostgreSQL<br/>+ pgvector")]
-    end
-    AI["AI-провайдеры<br/>(OpenRouter)"]
-    Clients --> EDGE --> SRV --> DB
-    SRV -- "только через бюджет" --> AI
+    SRV["qubite (Rust)<br/>API · права · бюджеты AI · синхронизация · фоновые задачи"]
+    DB[("PostgreSQL + pgvector")]
+    AI["AI-провайдеры<br/>(через бюджет)"]
+    Clients --> SRV --> DB
+    SRV --> AI
 ```
 
-- **Сервер:** один Rust-бинарник — модульный монолит (axum, sqlx). Каждый модуль — отдельный crate с чёткими границами.
-- **Данные:** PostgreSQL + pgvector на сервере, SQLite на устройствах, синхронизация с офлайн-очередью.
-- **Интерфейс:** один React-интерфейс для web, desktop (Tauri) и Android; перо — нативное на Kotlin.
-- **Доступ:** по умолчанию запрещено. Владелец вручную выдаёт модули и бюджеты; все проверки выполняет сервер.
-- **Модули на поддоменах:** `auth.`, `plan.`, `docs.`, `search.` … на `qubiteapp.ru` / `qubiteapp.online`.
+- **Сервер** — модульный монолит на Rust (axum, sqlx, tokio); каждая часть — отдельный crate в [`crates/`](crates/).
+- **Интерфейс** — React + TypeScript (Vite) в [`apps/web`](apps/web); общие пакеты (дизайн-система, движение, клиент API, офлайн-синхронизация) — в [`packages/`](packages/).
+- **Данные** — PostgreSQL 18 + pgvector на сервере, офлайн-очередь на устройствах.
 
-Подробно — [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md).
+## Как запустить
 
-## 🗺️ План
-
-```text
-0 Документация ✅ → 1 Фундамент → 2 Живой дизайн → 3 Аккаунты и доступ → 4 AI-основа
-  → 5 Command + Inbox → 6 На Raspberry Pi → 7 Planner → 8 Docs → 9 Desktop и Android → 10 Ink
-                                     (Ink-исследование на планшете — параллельно с самого начала)
-```
-
-[Дорожная карта](docs/plan/ROADMAP.md) · [Задачи](docs/plan/TASKS.md)
-
-## 📚 Документация
-
-| С чего начать | |
-|---|---|
-| [Видение продукта](docs/product/VISION.md) | Что такое Qubite и что входит в MVP |
-| [Решения владельца](docs/product/DECISIONS.md) | Всё, что уже решено |
-| [Архитектура](docs/architecture/OVERVIEW.md) | Как устроено |
-| [Дизайн-система](docs/design/DESIGN_SYSTEM.md) | Как выглядит и ощущается |
-| [Как работает агент](docs/engineering/AGENT_WORKFLOW.md) | Цикл задач, Definition of Done |
-| [Вся документация](docs/README.md) | Карта всех документов |
-
-## 🗄️ Старый Qubite
-
-До перезапуска Qubite был платформой учебных турниров (Node.js + SQLite) с сервисами вокруг: поиск, проверка текста, VPN, Telegram-боты, парсер Kwork. Весь этот код сохранён в [`legacy/qubite-v1/`](legacy/) и постепенно переписывается модулями нового Qubite. Карта старого кода — [legacy/README.md](legacy/README.md).
-
-## 🛠️ Разработка
-
-Нужны Rust (rustup), Node.js 22+, pnpm, Docker и `just`.
+Нужны Rust (через rustup), Node.js 22+, pnpm, Docker и [`just`](https://github.com/casey/just).
 
 ```bash
-just setup   # зависимости, браузеры для тестов, PostgreSQL 18 + pgvector в Docker
-just dev     # сервер на Rust + сайт: http://localhost:5173
-just check   # все проверки, как на GitHub
+just setup   # зависимости, браузеры для тестов, PostgreSQL + pgvector в Docker (порт 55432)
+just dev     # сервер (:8080) и сайт: http://localhost:5173
+just check   # все проверки, как в CI
 ```
 
-Подробно — [docs/engineering/DEVELOPMENT.md](docs/engineering/DEVELOPMENT.md). Безопасность — [SECURITY.md](SECURITY.md).
+Первый владелец сервера создаётся командой (пароль спросит без отображения):
 
----
+```bash
+DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/postgres \
+  cargo run --bin qubite -- owner create --email you@example.com
+```
 
-<div align="center">
+Настройки — в [`.env.example`](.env.example) (скопируйте в `.env`). Подробно — [docs/engineering/DEVELOPMENT.md](docs/engineering/DEVELOPMENT.md), установка на сервер — [docs/engineering/DEPLOYMENT.md](docs/engineering/DEPLOYMENT.md). Готовые архивы под x86_64 и aarch64 собирает CI (`just release` — то же локально).
 
-**Qubite** — персональная цифровая среда, которая хранит знания, действия и историю, помогает учиться, работать и создавать и растёт вместе с тобой.
+## Документация
 
-Автор — Кирилл Кузмичев.
+| | |
+|---|---|
+| [Видение продукта](docs/product/VISION.md) | Что такое Qubite и что входит в MVP |
+| [Решения](docs/product/DECISIONS.md) | Журнал принятых решений |
+| [Архитектура](docs/architecture/OVERVIEW.md) | Как устроено |
+| [Права и вход](docs/architecture/AUTH_AND_PERMISSIONS.md) · [Контроль расходов AI](docs/architecture/AI_COST_GUARD.md) | Безопасность и деньги |
+| [Дизайн-система](docs/design/DESIGN_SYSTEM.md) | Как выглядит и ощущается |
+| [Вся документация](docs/README.md) | Карта документов |
 
-</div>
+## Старый Qubite
+
+До перезапуска в октябре 2026 Qubite был платформой учебных турниров (Node.js + SQLite). Этот код лежит в [`legacy/qubite-v1/`](legacy/) только для справки и постепенно переписывается модулями нового Qubite.
+
+## Безопасность
+
+Нашли уязвимость — не открывайте публичный issue, см. [SECURITY.md](SECURITY.md).

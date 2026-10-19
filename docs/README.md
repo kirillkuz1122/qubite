@@ -52,6 +52,7 @@
 | Документ | О чём |
 |---|---|
 | **[project/STATUS.md](project/STATUS.md)** | Где остановились, открытые вопросы |
+| [project/OPEN_SOURCE_AND_CHATGPT.md](project/OPEN_SOURCE_AND_CHATGPT.md) | Как открыть репозиторий и подключить «Sign in with ChatGPT» |
 | **[plan/ROADMAP.md](plan/ROADMAP.md)** | Этапы MVP и эпики после него |
 | [plan/TASKS.md](plan/TASKS.md) | Карточки задач |
 
