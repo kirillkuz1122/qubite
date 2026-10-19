@@ -56,7 +56,8 @@ test('мысль без сети не теряется и уходит, когд
   await expect(row).not.toContainText('ждёт сети');
   const create = server.ops.find((op) => op.kind === 'create')!;
   expect(create.object_type).toBe('inbox.item');
-  expect(create.fields).toMatchObject({ body: 'бот для расписания', source: 'web' });
+  // строка уходит как есть: сервер разберёт её тем же разбором, что и подсказка (CMD-003)
+  expect(create.fields).toMatchObject({ body: 'идея: бот для расписания', source: 'web' });
 });
 
 test('сервер сказал «есть новое» — мысль из Telegram появляется сама', async ({ page }) => {

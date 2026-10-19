@@ -100,7 +100,8 @@ test('ничего не нашлось — можно сохранить как 
     .getByRole('navigation', { name: 'Разделы' })
     .getByRole('button', { name: 'Входящие' })
     .click();
-  await expect(page.getByText('квазары', { exact: true })).toBeVisible();
+  // на экране, а не в спрятанной карточке под строкой («Недавнее»)
+  await expect(page.locator('.screen').getByText('квазары', { exact: true })).toBeVisible();
 });
 
 test('Escape закрывает строку, подсказки исчезают', async ({ page }) => {

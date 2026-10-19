@@ -442,10 +442,12 @@ async fn triage_links_own_objects_and_confirm_archives() {
         .await
         .unwrap()
         .unwrap();
+    // остался разбор правилами при записи (CMD-003) — неудачная попытка AI его не тронула
     assert_eq!(
         (item.revision, item.triage.status),
-        (1, TriageStatus::Pending)
+        (1, TriageStatus::Suggested)
     );
+    assert_eq!(item.triage.details["by"], "rules");
 
     // Человек сам привязал к проекту «Графы».
     relations::link(
@@ -737,6 +739,115 @@ async fn trash_is_purged_after_the_configured_days() {
             .await
             .unwrap();
     assert_eq!(audited, 2);
+    drop(conn);
+    test_db.drop_db().await;
+}
+
+/// CMD-003: при записи сервер сам разбирает мысль правилами (`qubite_parse`) —
+/// так же, как подсказка в строке Command на устройстве.
+#[tokio::test]
+async fn capture_is_triaged_by_rules_in_device_timezone() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    // 2026-10-01 08:00 UTC — 13:00 в Екатеринбурге (пояс платформы по умолчанию)
+    let at = 1_790_841_600_000_i64;
+    // 2026-10-02 03:30 UTC — в Нью-Йорке ещё 1 октября, 23:30
+    let late = 1_790_911_800_000_i64;
+    let ids: Vec<Uuid> = (0..6).map(|_| Uuid::now_v7()).collect();
+    let text = "завтра в 18 повторить графы #алгебра";
+    let make = |id, title: &str, ms: i64, tz: Option<&str>| {
+        let mut fields = json!({ "body": title, "captured_at_ms": ms });
+        if let Some(tz) = tz {
+            fields["tz"] = json!(tz);
+        }
+        create(id, title, Some(fields))
+    };
+    let results = push(
+        &db,
+        owner,
+        vec![
+            make(ids[0], text, at, Some("Asia/Yekaterinburg")),
+            make(ids[1], text, late, Some("America/New_York")),
+            make(ids[2], text, late, Some("Mars/Base")),
+            make(ids[3], "напомни про графы", at, None),
+            make(ids[4], "просто подумалось", at, None),
+            make(ids[5], "#физика лаба №3", at, None),
+        ],
+        &rules(),
+    )
+    .await;
+    assert!(
+        results
+            .iter()
+            .all(|r| matches!(r, OpResult::Applied { revision: 1, .. })),
+        "неизвестный пояс не срывает запись: {results:?}"
+    );
+
+    let mut conn = db.pool().acquire().await.unwrap();
+    let item = qubite_inbox::get(&mut conn, owner, ids[0])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(item.triage.status, TriageStatus::Suggested);
+    assert_eq!(item.triage.intent, Some(Intent::Task));
+    assert!(!item.needs_review);
+    let details = &item.triage.details;
+    assert_eq!(details["by"], "rules");
+    assert_eq!(
+        details["summary"],
+        "Дело: повторить графы · завтра, 18:00 · #алгебра"
+    );
+    assert_eq!(
+        details["parse"]["due"],
+        json!({ "date": "2026-10-02", "time": "18:00" })
+    );
+    assert_eq!(details["parse"]["project"], "алгебра");
+
+    // «завтра» — по часам устройства: в Нью-Йорке вечер 1 октября
+    let ny = qubite_inbox::get(&mut conn, owner, ids[1])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(ny.triage.details["parse"]["due"]["date"], "2026-10-02");
+    // пояс не знаем — берём пояс платформы: в Екатеринбурге уже утро 2 октября
+    let mars = qubite_inbox::get(&mut conn, owner, ids[2])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(mars.triage.details["parse"]["due"]["date"], "2026-10-03");
+
+    // не уверен — «посмотри сам» с причиной
+    let remind = qubite_inbox::get(&mut conn, owner, ids[3])
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(remind.needs_review);
+    assert_eq!(
+        remind.review_reason.as_deref(),
+        Some("Когда напомнить? Срок не нашёл")
+    );
+    // ничего не нашлось — ждёт AI или человека
+    let plain = qubite_inbox::get(&mut conn, owner, ids[4])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(plain.triage.status, TriageStatus::Pending);
+    assert!(!plain.needs_review);
+    // только проект — мысль к проекту
+    let project = qubite_inbox::get(&mut conn, owner, ids[5])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(project.triage.intent, Some(Intent::ProjectThought));
+
+    // разбор уходит на устройства вместе с элементом
+    let pulled = qubite_sync_server::pull_with(db.pool(), owner, 0, 100, &rules())
+        .await
+        .unwrap();
+    let first = pulled.changes.iter().find(|c| c.id == ids[0]).unwrap();
+    let fields = first.fields.as_ref().unwrap();
+    assert_eq!(fields["triage"]["details"]["parse"]["kind"], "task");
+    assert_eq!(fields["triage"]["status"], "suggested");
     drop(conn);
     test_db.drop_db().await;
 }

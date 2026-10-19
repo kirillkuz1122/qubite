@@ -1503,6 +1503,7 @@ version = "0.1.0"
 dependencies = [
  "qubite-db",
  "qubite-objects",
+ "qubite-parse",
  "qubite-sync",
  "qubite-sync-server",
  "qubite-testkit",
@@ -1598,6 +1599,14 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "qubite-parse"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -9,6 +9,7 @@ description = "Модуль «Входящие»: элементы, офлайн
 
 [dependencies]
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
+qubite-parse = { version = "0.1.0", path = "../qubite-parse" }
 qubite-sync = { version = "0.1.0", path = "../qubite-sync" }
 qubite-sync-server = { version = "0.1.0", path = "../qubite-sync-server" }
 serde = { version = "1.0.229", features = ["derive"] }

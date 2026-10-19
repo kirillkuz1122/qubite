@@ -68,7 +68,10 @@ describe('Входящие без сети', () => {
     const dbName = `inbox-${++dbCounter}`;
     let client = await open(server, dbName);
     const writtenAt = Date.UTC(2026, 9, 19, 2, 0);
-    const item = await captureThought(client, 'Повторить графы\nк пятнице', { now: writtenAt });
+    const item = await captureThought(client, 'Повторить графы\nк пятнице', {
+      now: writtenAt,
+      tz: 'Asia/Yekaterinburg',
+    });
     expect(item.title).toBe('Повторить графы');
     expect(item.fields).toMatchObject({
       status: 'new',
@@ -91,6 +94,8 @@ describe('Входящие без сети', () => {
       body: 'Повторить графы\nк пятнице',
       source: 'web',
       captured_at_ms: writtenAt,
+      // по поясу устройства сервер поймёт «к пятнице» (CMD-003)
+      tz: 'Asia/Yekaterinburg',
     });
     expect(server.objects.get(item.id)?.fields?.status).toBe('new');
     client.close();

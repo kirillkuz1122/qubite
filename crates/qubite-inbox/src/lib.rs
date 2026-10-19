@@ -341,6 +341,9 @@ pub struct CaptureFields {
     pub source: Option<Source>,
     /// Когда записано на устройстве, миллисекунды Unix.
     pub captured_at_ms: Option<i64>,
+    /// Часовой пояс устройства (`Asia/Yekaterinburg`): по нему разбор понимает
+    /// «завтра» и «в 18». Нет или неизвестный — пояс платформы.
+    pub tz: Option<String>,
 }
 
 /// Что можно менять с устройства (`patch.fields`). Разбор меняет только сервер.
@@ -432,8 +435,9 @@ impl TypeFields for InboxFields {
             .bind(&fields.url)
             .bind(fields.source.unwrap_or(Source::Web).as_str())
             .bind(captured)
-            .execute(conn)
+            .execute(&mut *conn)
             .await?;
+            triage_by_rules(conn, object, captured, fields.tz.as_deref()).await?;
             Ok(())
         })
     }
@@ -525,6 +529,100 @@ pub struct SuggestedLink {
     /// Объект того же владельца: проект, задача, документ.
     pub to: Uuid,
     pub confidence: Option<f32>,
+}
+
+/// Разбор без AI при записи (CMD-003): тот же `qubite_parse`, что подсказывает
+/// в строке Command на устройстве. Разбирается заголовок (первая строка) —
+/// ровно то, что видит устройство. Ничего не нашлось — элемент ждёт AI или
+/// человека (`pending`); не уверен — «посмотри сам» (D-199). Черновик дела или
+/// заметки лежит в `triage.details.parse`, пока нет модулей дел (PLAN-001).
+async fn triage_by_rules(
+    conn: &mut PgConnection,
+    object: &qubite_objects::Object,
+    captured: OffsetDateTime,
+    tz: Option<&str>,
+) -> Result<(), FieldsError> {
+    let Some(now) = local_now(conn, captured, tz).await? else {
+        return Ok(());
+    };
+    let Some(parsed) = qubite_parse::parse(&object.title, now) else {
+        return Ok(());
+    };
+    if !parsed.recognized && parsed.review.is_none() {
+        return Ok(());
+    }
+    let intent = match parsed.kind {
+        qubite_parse::Kind::Task => Intent::Task,
+        qubite_parse::Kind::Note => Intent::Note,
+        qubite_parse::Kind::Thought if parsed.project.is_some() => Intent::ProjectThought,
+        _ => Intent::Other,
+    };
+    let unsure = parsed.confidence < f64::from(REVIEW_BELOW);
+    let review_reason = parsed
+        .review
+        .clone()
+        .or_else(|| unsure.then(|| "Не уверен, что это и куда положить".to_owned()));
+    let details = json!({
+        "by": TriageBy::Rules,
+        "confidence": parsed.confidence,
+        "summary": parsed.summary,
+        "parse": parsed,
+    });
+    sqlx::query(
+        "UPDATE inbox_items SET triage_status = 'suggested', intent = $2, triage = $3, \
+         triaged_at = now(), needs_review = $4, review_reason = $5 WHERE object_id = $1",
+    )
+    .bind(object.id)
+    .bind(intent.as_str())
+    .bind(details)
+    .bind(review_reason.is_some())
+    .bind(&review_reason)
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Местные дата и время записи: в поясе устройства, если он известен базе,
+/// иначе — в поясе платформы (`platform.timezone`, по умолчанию Екатеринбург).
+async fn local_now(
+    conn: &mut PgConnection,
+    at: OffsetDateTime,
+    tz: Option<&str>,
+) -> Result<Option<qubite_parse::LocalNow>, FieldsError> {
+    const SQL: &str = "SELECT to_char($1::timestamptz AT TIME ZONE $2, 'YYYY-MM-DD\"T\"HH24:MI')";
+    let plausible = |tz: &&str| {
+        !tz.is_empty()
+            && tz.len() <= 64
+            && tz
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '+' | '-'))
+    };
+    if let Some(tz) = tz.filter(plausible) {
+        // неизвестный пояс — ошибка базы; точка сохранения не даёт ей сорвать запись
+        let mut savepoint = conn.begin().await?;
+        let local = sqlx::query_scalar::<_, String>(SQL)
+            .bind(at)
+            .bind(tz)
+            .fetch_one(&mut *savepoint)
+            .await;
+        if let Ok(local) = local {
+            savepoint.commit().await?;
+            return Ok(qubite_parse::LocalNow::from_iso(&local));
+        }
+        savepoint.rollback().await?;
+    }
+    let platform: String = sqlx::query_scalar(
+        "SELECT COALESCE((SELECT value #>> '{}' FROM platform_settings \
+         WHERE key = 'platform.timezone'), 'Asia/Yekaterinburg')",
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    let local: String = sqlx::query_scalar(SQL)
+        .bind(at)
+        .bind(platform)
+        .fetch_one(conn)
+        .await?;
+    Ok(qubite_parse::LocalNow::from_iso(&local))
 }
 
 /// Сохранить предложение разбора. Прежние автоматические связи (AI, правила)

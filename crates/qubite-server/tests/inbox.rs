@@ -216,7 +216,9 @@ async fn inbox_api_capture_archive_trash_and_undo() {
     assert_eq!(created.status, 201, "{:?}", created.body);
     assert_eq!(created.body["title"], "Посмотреть лекцию про графы");
     assert_eq!(created.body["kind"], "link");
-    assert_eq!(created.body["triage"]["status"], "pending");
+    // «Посмотреть …» — дело: разбор без AI (CMD-003) сразу предлагает его.
+    assert_eq!(created.body["triage"]["status"], "suggested");
+    assert_eq!(created.body["triage"]["intent"], "task");
     // Повтор с тем же ID (кнопку нажали дважды) — тот же элемент.
     let again = owner.post_json(address, "/api/v1/inbox", body).await;
     assert_eq!(again.status, 200);

@@ -128,8 +128,13 @@ export const CommandSuggest = forwardRef<HTMLDivElement, CommandSuggestProps>(
                   </div>
                   <div className="q-suggest-w">
                     → {shown.parsed.where}
-                    {shown.parsed.kind === 'task' && <b> · {shown.parsed.when ?? 'без срока'}</b>}
+                    {shown.parsed.details.length > 0 && (
+                      <b> · {shown.parsed.details.join(' · ')}</b>
+                    )}
                   </div>
+                  {shown.parsed.review && (
+                    <div className="q-suggest-r">посмотри сам: {shown.parsed.review}</div>
+                  )}
                 </div>
                 {active === 0 && <kbd>Enter</kbd>}
               </div>

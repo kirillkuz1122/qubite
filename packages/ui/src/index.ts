@@ -53,6 +53,18 @@ export {
   type CommandSuggestProps,
 } from './CommandSuggest';
 export { fixLayout, matchScore, normalize } from './match';
+export {
+  durationLabel,
+  labelOf,
+  localNow,
+  localNowFromIso,
+  parse,
+  type Due,
+  type LocalNow,
+  type Parsed,
+  type ParseKind,
+  type Repeat,
+} from './parse';
 export { ExpandPage, type ExpandPageProps, type Rect } from './ExpandPage';
 export { Crew, type CrewHandle, type CrewProps } from './Crew';
 export { Button, type ButtonProps } from './Button';

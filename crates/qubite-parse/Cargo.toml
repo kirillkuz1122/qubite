@@ -1,0 +1,17 @@
+[package]
+name = "qubite-parse"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Разбор строки Command без AI: русские даты, повторения, команды, проект, важность (CMD-003)"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0.154"
+
+[lints]
+workspace = true

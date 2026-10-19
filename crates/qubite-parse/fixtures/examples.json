@@ -1,0 +1,821 @@
+{
+ "now": "2026-10-19T13:00",
+ "examples": [
+  {
+   "input": "завтра в 18 повторить графы",
+   "expect": {
+    "kind": "task",
+    "title": "повторить графы",
+    "due": {
+     "date": "2026-10-20",
+     "time": "18:00"
+    },
+    "when": "завтра, 18:00",
+    "confidence": 0.9,
+    "review": null,
+    "summary": "Дело: повторить графы · завтра, 18:00"
+   }
+  },
+  {
+   "input": "в пятницу в 18:00 кружок",
+   "expect": {
+    "kind": "task",
+    "title": "кружок",
+    "due": {
+     "date": "2026-10-23",
+     "time": "18:00"
+    },
+    "when": "пт, 23 окт, 18:00"
+   }
+  },
+  {
+   "input": "пятница 18:00 кружок",
+   "expect": {
+    "due": {
+     "date": "2026-10-23",
+     "time": "18:00"
+    },
+    "title": "кружок"
+   }
+  },
+  {
+   "input": "через 2 часа позвонить маме",
+   "expect": {
+    "kind": "task",
+    "title": "позвонить маме",
+    "due": {
+     "date": "2026-10-19",
+     "time": "15:00"
+    },
+    "when": "сегодня, 15:00"
+   }
+  },
+  {
+   "input": "через полчаса выйти",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "13:30"
+    },
+    "title": "выйти"
+   }
+  },
+  {
+   "input": "через полтора часа тренировка",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "14:30"
+    }
+   }
+  },
+  {
+   "input": "через 3 дня сдать",
+   "expect": {
+    "due": {
+     "date": "2026-10-22",
+     "time": null
+    },
+    "title": "сдать",
+    "kind": "task"
+   }
+  },
+  {
+   "input": "через неделю контрольная",
+   "expect": {
+    "due": {
+     "date": "2026-10-26",
+     "time": null
+    },
+    "when": "пн, 26 окт",
+    "kind": "task"
+   }
+  },
+  {
+   "input": "через месяц продлить подписку",
+   "expect": {
+    "due": {
+     "date": "2026-11-19",
+     "time": null
+    },
+    "title": "продлить подписку"
+   }
+  },
+  {
+   "input": "15 ноября олимпиада по информатике",
+   "expect": {
+    "kind": "task",
+    "title": "олимпиада по информатике",
+    "due": {
+     "date": "2026-11-15",
+     "time": null
+    },
+    "when": "вс, 15 ноя"
+   }
+  },
+  {
+   "input": "15.11 сдать реферат",
+   "expect": {
+    "due": {
+     "date": "2026-11-15",
+     "time": null
+    },
+    "title": "сдать реферат"
+   }
+  },
+  {
+   "input": "1 сентября линейка",
+   "expect": {
+    "due": {
+     "date": "2027-09-01",
+     "time": null
+    },
+    "review": null
+   }
+  },
+  {
+   "input": "5 ноября 2025 года экзамен",
+   "expect": {
+    "due": {
+     "date": "2025-11-05",
+     "time": null
+    },
+    "review": "Срок уже прошёл — проверь дату",
+    "confidence": 0.6,
+    "title": "экзамен"
+   }
+  },
+  {
+   "input": "15 числа оплатить интернет",
+   "expect": {
+    "due": {
+     "date": "2026-11-15",
+     "time": null
+    },
+    "title": "оплатить интернет"
+   }
+  },
+  {
+   "input": "каждый вторник в 17:00 кружок по ДП",
+   "expect": {
+    "kind": "task",
+    "title": "кружок по ДП",
+    "repeat": {
+     "every": "week",
+     "interval": 1,
+     "days": [
+      2
+     ]
+    },
+    "due": {
+     "date": "2026-10-20",
+     "time": "17:00"
+    },
+    "when": "каждый вт, 17:00"
+   }
+  },
+  {
+   "input": "каждый вторник и четверг в 16:00 кружок",
+   "expect": {
+    "repeat": {
+     "every": "week",
+     "interval": 1,
+     "days": [
+      2,
+      4
+     ]
+    },
+    "due": {
+     "date": "2026-10-20",
+     "time": "16:00"
+    },
+    "when": "по вт, чт, 16:00",
+    "title": "кружок"
+   }
+  },
+  {
+   "input": "по будням в 7:30 зарядка",
+   "expect": {
+    "repeat": {
+     "every": "week",
+     "interval": 1,
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "due": {
+     "date": "2026-10-20",
+     "time": "07:30"
+    },
+    "when": "по будням, 7:30",
+    "title": "зарядка"
+   }
+  },
+  {
+   "input": "по понедельникам и средам английский",
+   "expect": {
+    "repeat": {
+     "every": "week",
+     "interval": 1,
+     "days": [
+      1,
+      3
+     ]
+    },
+    "due": {
+     "date": "2026-10-19",
+     "time": null
+    },
+    "when": "по пн, ср",
+    "title": "английский"
+   }
+  },
+  {
+   "input": "каждый день в 21:00 читать",
+   "expect": {
+    "repeat": {
+     "every": "day",
+     "interval": 1,
+     "days": []
+    },
+    "due": {
+     "date": "2026-10-19",
+     "time": "21:00"
+    },
+    "when": "каждый день, 21:00"
+   }
+  },
+  {
+   "input": "каждые 2 недели уборка",
+   "expect": {
+    "repeat": {
+     "every": "week",
+     "interval": 2,
+     "days": []
+    },
+    "when": "каждые 2 недели",
+    "title": "уборка"
+   }
+  },
+  {
+   "input": "каждое утро зарядка",
+   "expect": {
+    "repeat": {
+     "every": "day",
+     "interval": 1,
+     "days": []
+    },
+    "due": {
+     "date": "2026-10-20",
+     "time": "09:00"
+    },
+    "when": "каждый день, 9:00"
+   }
+  },
+  {
+   "input": "каждую среду бассейн",
+   "expect": {
+    "when": "каждую ср",
+    "due": {
+     "date": "2026-10-21",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "ежемесячно платить за телефон",
+   "expect": {
+    "repeat": {
+     "every": "month",
+     "interval": 1,
+     "days": []
+    },
+    "title": "платить за телефон"
+   }
+  },
+  {
+   "input": "#алгебра №214",
+   "expect": {
+    "kind": "thought",
+    "project": "алгебра",
+    "title": "№214",
+    "recognized": true,
+    "confidence": 0.75,
+    "summary": "Мысль: №214 · #алгебра"
+   }
+  },
+  {
+   "input": "сделать #алгебра №214 завтра !!",
+   "expect": {
+    "kind": "task",
+    "project": "алгебра",
+    "priority": 2,
+    "due": {
+     "date": "2026-10-20",
+     "time": null
+    },
+    "title": "сделать №214",
+    "summary": "Дело: сделать №214 · завтра · #алгебра · !!"
+   }
+  },
+  {
+   "input": "завтра в 18 #алгебра #физика",
+   "expect": {
+    "review": "Два проекта: #алгебра и #физика — к какому?",
+    "confidence": 0.6
+   }
+  },
+  {
+   "input": "срочно сдать эссе",
+   "expect": {
+    "kind": "task",
+    "priority": 2,
+    "title": "сдать эссе"
+   }
+  },
+  {
+   "input": "! починить велосипед",
+   "expect": {
+    "priority": 1,
+    "title": "починить велосипед",
+    "kind": "task"
+   }
+  },
+  {
+   "input": "напомни завтра в 9 позвонить врачу",
+   "expect": {
+    "kind": "task",
+    "command": "remind",
+    "remind": true,
+    "title": "позвонить врачу",
+    "due": {
+     "date": "2026-10-20",
+     "time": "09:00"
+    },
+    "confidence": 0.95,
+    "summary": "Напоминание: позвонить врачу · завтра, 9:00"
+   }
+  },
+  {
+   "input": "напомни мне через 15 минут выключить чайник",
+   "expect": {
+    "remind": true,
+    "due": {
+     "date": "2026-10-19",
+     "time": "13:15"
+    },
+    "title": "выключить чайник"
+   }
+  },
+  {
+   "input": "напомни про графы",
+   "expect": {
+    "remind": true,
+    "title": "графы",
+    "review": "Когда напомнить? Срок не нашёл",
+    "confidence": 0.6
+   }
+  },
+  {
+   "input": "заметка: дерево отрезков хранит суммы",
+   "expect": {
+    "kind": "note",
+    "command": "note",
+    "title": "дерево отрезков хранит суммы",
+    "summary": "Заметка: дерево отрезков хранит суммы"
+   }
+  },
+  {
+   "input": "заметка без двоеточия",
+   "expect": {
+    "kind": "thought",
+    "command": null,
+    "recognized": false
+   }
+  },
+  {
+   "input": "конспект теория графов",
+   "expect": {
+    "kind": "note",
+    "command": "summary",
+    "title": "теория графов",
+    "summary": "Конспект: теория графов"
+   }
+  },
+  {
+   "input": "/к дерево отрезков",
+   "expect": {
+    "kind": "note",
+    "command": "summary",
+    "title": "дерево отрезков"
+   }
+  },
+  {
+   "input": "найди конспект про Фенвика",
+   "expect": {
+    "kind": "search",
+    "command": "search",
+    "title": "конспект про Фенвика"
+   }
+  },
+  {
+   "input": "найди план на завтра",
+   "expect": {
+    "kind": "search",
+    "title": "план на завтра",
+    "due": null
+   }
+  },
+  {
+   "input": "/п алгебра",
+   "expect": {
+    "kind": "search",
+    "title": "алгебра"
+   }
+  },
+  {
+   "input": "что задали по физике?",
+   "expect": {
+    "kind": "search",
+    "command": null,
+    "title": "что задали по физике",
+    "confidence": 0.85
+   }
+  },
+  {
+   "input": "дневник: сегодня было хорошо",
+   "expect": {
+    "kind": "journal",
+    "command": "journal",
+    "title": "сегодня было хорошо",
+    "due": null,
+    "when": null
+   }
+  },
+  {
+   "input": "в дневник: решил задачу",
+   "expect": {
+    "kind": "journal",
+    "title": "решил задачу"
+   }
+  },
+  {
+   "input": "идея: бот для расписания",
+   "expect": {
+    "kind": "thought",
+    "command": "thought",
+    "title": "бот для расписания",
+    "recognized": true,
+    "confidence": 0.95
+   }
+  },
+  {
+   "input": "/д купить батарейки",
+   "expect": {
+    "kind": "task",
+    "command": "task",
+    "shopping": true,
+    "title": "купить батарейки"
+   }
+  },
+  {
+   "input": "купить молоко и хлеб",
+   "expect": {
+    "kind": "task",
+    "shopping": true,
+    "confidence": 0.8,
+    "summary": "Покупка: купить молоко и хлеб"
+   }
+  },
+  {
+   "input": "https://habr.com/ru/articles/123",
+   "expect": {
+    "kind": "bookmark",
+    "url": "https://habr.com/ru/articles/123",
+    "title": "",
+    "summary": "Закладка: https://habr.com/ru/articles/123"
+   }
+  },
+  {
+   "input": "посмотреть потом https://youtu.be/abc",
+   "expect": {
+    "kind": "bookmark",
+    "url": "https://youtu.be/abc",
+    "title": "посмотреть потом"
+   }
+  },
+  {
+   "input": "завтра посмотреть https://youtu.be/abc",
+   "expect": {
+    "kind": "task",
+    "url": "https://youtu.be/abc",
+    "due": {
+     "date": "2026-10-20",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "тренировка на 30 мин вечером",
+   "expect": {
+    "kind": "task",
+    "duration_min": 30,
+    "due": {
+     "date": "2026-10-19",
+     "time": "19:00"
+    },
+    "title": "тренировка",
+    "summary": "Дело: тренировка · сегодня, 19:00 · 30 мин"
+   }
+  },
+  {
+   "input": "на 2 часа в 14:00 матан",
+   "expect": {
+    "duration_min": 120,
+    "due": {
+     "date": "2026-10-19",
+     "time": "14:00"
+    },
+    "title": "матан"
+   }
+  },
+  {
+   "input": "с 18 до 20 кружок",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "18:00"
+    },
+    "duration_min": 120,
+    "title": "кружок",
+    "summary": "Дело: кружок · сегодня, 18:00 · 2 ч"
+   }
+  },
+  {
+   "input": "бот, который напоминает про дз",
+   "expect": {
+    "kind": "thought",
+    "recognized": false,
+    "confidence": 0.5,
+    "review": null
+   }
+  },
+  {
+   "input": "завтра или в пятницу сдать эссе",
+   "expect": {
+    "review": "Два срока: «завтра» и «пт, 23 окт» — какой верный?",
+    "confidence": 0.6
+   }
+  },
+  {
+   "input": "в 5 классе было интересно",
+   "expect": {
+    "kind": "thought",
+    "recognized": false,
+    "due": null
+   }
+  },
+  {
+   "input": "в 5 позвонить",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "17:00"
+    },
+    "confidence": 0.85
+   }
+  },
+  {
+   "input": "в 7 утра пробежка",
+   "expect": {
+    "due": {
+     "date": "2026-10-20",
+     "time": "07:00"
+    },
+    "when": "завтра, 7:00"
+   }
+  },
+  {
+   "input": "в 3 дня обед",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "15:00"
+    }
+   }
+  },
+  {
+   "input": "в 12 ночи спать",
+   "expect": {
+    "due": {
+     "date": "2026-10-20",
+     "time": "00:00"
+    },
+    "when": "завтра, 0:00"
+   }
+  },
+  {
+   "input": "в полдень обед",
+   "expect": {
+    "due": {
+     "date": "2026-10-20",
+     "time": "12:00"
+    }
+   }
+  },
+  {
+   "input": "в 18.30 кружок",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "18:30"
+    }
+   }
+  },
+  {
+   "input": "к среде доклад",
+   "expect": {
+    "due": {
+     "date": "2026-10-21",
+     "time": null
+    },
+    "title": "доклад"
+   }
+  },
+  {
+   "input": "до пятницы сдать проект",
+   "expect": {
+    "due": {
+     "date": "2026-10-23",
+     "time": null
+    },
+    "title": "сдать проект"
+   }
+  },
+  {
+   "input": "в следующую пятницу встреча",
+   "expect": {
+    "due": {
+     "date": "2026-10-30",
+     "time": null
+    },
+    "when": "пт, 30 окт"
+   }
+  },
+  {
+   "input": "в эту субботу кино",
+   "expect": {
+    "due": {
+     "date": "2026-10-24",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "на выходных поход",
+   "expect": {
+    "due": {
+     "date": "2026-10-24",
+     "time": null
+    },
+    "when": "сб, 24 окт"
+   }
+  },
+  {
+   "input": "на следующей неделе собрание",
+   "expect": {
+    "due": {
+     "date": "2026-10-26",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "сегодня вечером созвон",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "19:00"
+    },
+    "when": "сегодня, 19:00",
+    "title": "созвон"
+   }
+  },
+  {
+   "input": "в среде разработки нашёл баг",
+   "expect": {
+    "kind": "thought",
+    "due": null
+   }
+  },
+  {
+   "input": "с 5 друзьями в кино",
+   "expect": {
+    "due": null
+   }
+  },
+  {
+   "input": "в 2026 году поступить",
+   "expect": {
+    "kind": "thought",
+    "due": null
+   }
+  },
+  {
+   "input": "Ёлка: купить игрушки ёлочные",
+   "expect": {
+    "kind": "thought",
+    "recognized": false,
+    "title": "Ёлка: купить игрушки ёлочные"
+   }
+  },
+  {
+   "input": "завтра",
+   "expect": {
+    "kind": "task",
+    "title": "",
+    "review": "Есть срок, но не понял, что сделать"
+   }
+  },
+  {
+   "input": "сегодня вечером в 7 кино",
+   "expect": {
+    "due": {
+     "date": "2026-10-19",
+     "time": "19:00"
+    },
+    "review": null
+   }
+  },
+  {
+   "input": "завтра утром в 5 рыбалка",
+   "expect": {
+    "due": {
+     "date": "2026-10-20",
+     "time": "05:00"
+    },
+    "confidence": 0.9
+   }
+  },
+  {
+   "input": "   ",
+   "expect": null
+  },
+  {
+   "input": "через 2 часа спать",
+   "now": "2026-10-19T23:30",
+   "expect": {
+    "due": {
+     "date": "2026-10-20",
+     "time": "01:30"
+    },
+    "when": "завтра, 1:30"
+   }
+  },
+  {
+   "input": "через месяц отчёт",
+   "now": "2026-01-31T10:00",
+   "expect": {
+    "due": {
+     "date": "2026-02-28",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "завтра праздник",
+   "now": "2026-12-31T20:00",
+   "expect": {
+    "due": {
+     "date": "2027-01-01",
+     "time": null
+    },
+    "when": "завтра"
+   }
+  },
+  {
+   "input": "в пятницу кино",
+   "now": "2026-10-23T10:00",
+   "expect": {
+    "due": {
+     "date": "2026-10-30",
+     "time": null
+    }
+   }
+  },
+  {
+   "input": "29 февраля",
+   "now": "2027-03-01T10:00",
+   "expect": {
+    "due": {
+     "date": "2028-02-29",
+     "time": null
+    }
+   }
+  }
+ ]
+}

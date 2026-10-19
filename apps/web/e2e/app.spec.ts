@@ -46,7 +46,11 @@ test('мысль из Command долетает во «Входящие»', async
   await input.press('Enter');
   // на телефоне строка после сохранения сама закрывается — проверяем результат во «Входящих»
   await go(page, 'Входящие');
-  await expect(page.getByText('бот для расписания', { exact: true })).toBeVisible();
+  // на экране — не в спрятанной карточке под строкой, где та же строка лежит в «Недавнем»
+  const screen = page.locator('.screen');
+  await expect(screen.getByText('идея: бот для расписания', { exact: true })).toBeVisible();
+  // Элик подсказывает разбор — тот же, что был в карточке
+  await expect(screen.getByText('Элик: Мысль: бот для расписания')).toBeVisible();
 });
 
 test('«+» раскрывается в меню и подставляет команду', async ({ page }) => {

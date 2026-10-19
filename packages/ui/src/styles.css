@@ -900,6 +900,11 @@ kbd {
   color: var(--q-mute);
   font-size: 12.5px;
 }
+.q-suggest-r {
+  margin-top: 3px;
+  color: var(--q-orange);
+  font-size: 12.5px;
+}
 .q-suggest-w b {
   color: var(--q-ink);
   font-weight: 500;

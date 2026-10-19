@@ -21,6 +21,19 @@ export interface CaptureOptions {
   source?: InboxSource;
   /** Для тестов: «сейчас» в миллисекундах. */
   now?: number;
+  /**
+   * Часовой пояс устройства — по нему сервер понимает «завтра» и «в 18» (CMD-003).
+   * По умолчанию — пояс браузера.
+   */
+  tz?: string;
+}
+
+function deviceTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Заголовок: первая непустая строка, не длиннее {@link TITLE_CHARS}. */
@@ -47,6 +60,7 @@ export async function captureThought(
     ...(options.url ? { url: options.url } : {}),
     source: options.source ?? 'web',
     captured_at_ms: options.now ?? Date.now(),
+    ...((options.tz ?? deviceTimeZone()) ? { tz: options.tz ?? deviceTimeZone() } : {}),
   };
   return client.create(INBOX_ITEM, title, fields, {
     kind: options.url ? 'link' : 'text',

@@ -750,10 +750,10 @@ function CommandDemo({ ready, width, pal }: SceneProps) {
                 <div className="ld-where">
                   {saved ? '✓ сохранено: ' : '→ '}
                   {cur.where}
-                  {cur.kind === 'task' && (
+                  {cur.details.length > 0 && (
                     <>
                       {' · '}
-                      <b>{cur.when ?? 'без срока'}</b>
+                      <b>{cur.details.join(' · ')}</b>
                     </>
                   )}
                 </div>
@@ -773,6 +773,7 @@ const KIND_COLOR = {
   search: 'sky',
   journal: 'orange',
   note: 'sky',
+  bookmark: 'peach',
 } as const;
 
 /* ---------------------------------------------------------------- учёба */

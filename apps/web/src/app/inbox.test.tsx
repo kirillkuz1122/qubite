@@ -141,4 +141,34 @@ describe('«Входящие» на настоящих данных', () => {
     expect(unsure.hint).toBe('посмотри сам: два проекта');
     expect(when(now - 864e5, now)).toBe('вчера');
   });
+
+  it('без сети подсказка — тот же разбор, что сделает сервер (CMD-003)', () => {
+    const now = new Date(2026, 9, 19, 13, 0).getTime();
+    const item = (title: string, triage?: object) =>
+      toView(
+        {
+          id: title,
+          object_type: 'inbox.item',
+          title,
+          revision: 0,
+          deleted: false,
+          updated_at_ms: now,
+          pending: true,
+          fields: { body: title, captured_at_ms: now, triage: triage ?? { status: 'pending' } },
+        },
+        now,
+      );
+    expect(item('завтра в 18 повторить графы #алгебра').hint).toBe(
+      'Дело: повторить графы · завтра, 18:00 · #алгебра',
+    );
+    expect(item('напомни про графы').hint).toBe('посмотри сам: Когда напомнить? Срок не нашёл');
+    expect(item('просто мысль').hint).toBe('разберём, когда будет минутка');
+    // сервер уже разобрал — показываем его ответ
+    expect(
+      item('завтра в 18 повторить графы', {
+        status: 'suggested',
+        details: { summary: 'Дело: с сервера' },
+      }).hint,
+    ).toBe('Дело: с сервера');
+  });
 });

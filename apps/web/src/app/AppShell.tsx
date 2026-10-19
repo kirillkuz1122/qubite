@@ -51,14 +51,11 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
   settings: () => <SettingsScreen />,
 };
 
-/** Куда ляжет запись из Command. */
-const DEST: Record<ParsedCommand['kind'], SectionId> = {
-  task: 'planner',
-  thought: 'inbox',
-  search: 'docs',
-  journal: 'today',
-  note: 'docs',
-};
+/**
+ * Куда летит точка из Command. Пока нет модулей дел и заметок (PLAN-001, DOC-002), всё ложится
+ * во «Входящие» черновиком с разбором (CMD-003, D-240); поиск — отдельно (CMD-002).
+ */
+const DEST: SectionId = 'inbox';
 
 function sectionOf(path: string): SectionId {
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'today';
@@ -111,7 +108,7 @@ export function AppShell() {
   const wide = useMedia(WIDE);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { state, dispatch } = useStore();
+  const { state } = useStore();
   const inbox = useInbox();
   const id = sectionOf(path);
   const sec = SECTIONS.find((s) => s.id === id)!;
@@ -223,21 +220,21 @@ export function AppShell() {
     return () => removeEventListener('keydown', key);
   }, [openCmd, closeCmd]);
 
-  /** Сохранить запись туда, куда она ляжет: точка долетает до раздела. */
-  function save(p: ParsedCommand) {
-    const to = DEST[p.kind];
-    const text = p.text || value.trim();
-    setHistory(remember(history, value, p.kind));
+  /**
+   * Сохранить запись: во «Входящие» уходит строка как есть — сервер разберёт её тем же
+   * разбором, что показан в карточке, и положит черновик в элемент (CMD-003).
+   */
+  function save(p: ParsedCommand, raw = value.trim()) {
+    if (!raw) return;
+    setHistory(remember(history, raw, p.kind));
     const r = card.current?.getBoundingClientRect();
     const owner = COMMAND_OWNER[p.kind];
     api.fly(
       { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
-      to,
+      DEST,
       COMMAND_COLOR[p.kind],
       () => {
-        if (p.kind === 'thought') void inbox.capture(text);
-        if (p.kind === 'task') dispatch({ type: 'task.add', title: text, time: p.when });
-        if (p.kind === 'note') dispatch({ type: 'doc.add', name: text || 'Новый конспект' });
+        void inbox.capture(raw);
         api.cheer(owner);
       },
     );
@@ -259,8 +256,10 @@ export function AppShell() {
       return;
     }
     if (r.type === 'save') {
+      // «найди квазары» не нашлось — сохраняем то, что искали, как мысль
       const text = parsed?.text || value.trim();
-      if (text) save({ kind: 'thought', title: 'Мысль', where: 'Входящие', when: null, text });
+      const thought = parseCommand(`/м ${text}`);
+      if (text && thought) save(thought, text);
       return;
     }
     if (value.trim()) setHistory(remember(history, value, parsed?.kind ?? 'search'));

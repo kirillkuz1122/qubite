@@ -1,4 +1,5 @@
 /** Объект синхронизации → строка экрана «Входящие» в виде DS-007. */
+import { localNow, parse } from '@qubite/ui';
 import type { LocalObject } from '@qubite/sync-client';
 import type { InboxAct, InboxFrom, InboxItem } from './data';
 
@@ -41,12 +42,18 @@ export function toView(o: LocalObject, now: number): InboxItem {
               ? 'с компьютера'
               : 'написал';
   const captured = typeof f.captured_at_ms === 'number' ? f.captured_at_ms : o.updated_at_ms;
-  const triage = (f.triage ?? {}) as { details?: { summary?: unknown } };
-  const summary = text(triage.details?.summary);
-  const hint =
-    f.needs_review === true
-      ? `посмотри сам: ${text(f.review_reason) || 'не уверен, куда положить'}`
-      : summary || 'разберём, когда будет минутка';
+  const triage = (f.triage ?? {}) as { status?: unknown; details?: { summary?: unknown } };
+  let summary = text(triage.details?.summary);
+  let review = f.needs_review === true ? text(f.review_reason) || 'не уверен, куда положить' : '';
+  // ещё не дошло до сервера — тот же разбор прямо на устройстве, по времени записи (CMD-003)
+  if (triage.status === 'pending' || triage.status === undefined) {
+    const local = parse(o.title, localNow(new Date(captured)));
+    if (local?.recognized || local?.review) {
+      summary = local.summary;
+      review = local.review ?? '';
+    }
+  }
+  const hint = review ? `посмотри сам: ${review}` : summary || 'разберём, когда будет минутка';
   const acts: [string, InboxAct][] = [
     ['В дела', 'planner'],
     ['В Docs', 'docs'],
