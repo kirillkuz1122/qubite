@@ -986,7 +986,8 @@ export interface paths {
      * WebSocket «есть новое». Сервер шлёт `{"type":"ready"}` после подключения
      *     и `{"type":"changed"}`, когда у аккаунта что-то изменилось (данных в
      *     сообщении нет — их забирают через `pull`). Нужно право `read` во
-     *     Входящих. Браузер подключается только со своего сайта (проверка `Origin`).
+     *     Входящих или в Planner. Браузер подключается только со своего сайта
+     *     (проверка `Origin`).
      */
     get: operations['socket'];
     put?: never;
@@ -4198,7 +4199,7 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
-      /** @description Чужой сайт или нет доступа к Входящим */
+      /** @description Чужой сайт или нет доступа ни к Входящим, ни к Planner */
       403: {
         headers: {
           [name: string]: unknown;

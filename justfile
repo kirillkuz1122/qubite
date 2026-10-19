@@ -24,8 +24,8 @@ dev: db-up
     trap 'kill $server 2>/dev/null || true' EXIT
     pnpm dev
 
-# Все проверки, как в CI: формат, линтеры, типы, тесты сервера и сайта, секреты
-check: db-up check-server check-web secrets
+# Все проверки, как в CI: формат, линтеры, типы, тесты сервера и сайта, клиент API, секреты
+check: db-up check-server check-web check-api secrets
 
 # Проверки Rust-сервера
 check-server: db-up
@@ -40,6 +40,16 @@ check-web:
     pnpm typecheck
     pnpm test
     pnpm build
+
+# Клиент API совпадает с описанием сервера (как в CI): перегенерировать и сравнить
+check-api:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pnpm gen:api
+    git diff --exit-code -- packages/api-client || {
+        echo "Клиент API устарел: закоммить изменения в packages/api-client (их только что сделал pnpm gen:api)" >&2
+        exit 1
+    }
 
 # Браузерные тесты: Firefox, Chromium, Firefox на ширине телефона
 e2e:
