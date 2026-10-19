@@ -31,6 +31,7 @@ export function DocsScreen() {
         {state.docs.map((d) => (
           <button
             key={d.id}
+            data-obj={d.id}
             type="button"
             className="doc"
             ref={(el) => {

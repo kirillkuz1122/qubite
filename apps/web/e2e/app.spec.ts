@@ -16,7 +16,7 @@ async function go(page: Page, name: string) {
 async function openCommand(page: Page) {
   if (isPhone(page)) await page.getByRole('button', { name: 'Открыть Command' }).click();
   else await page.keyboard.press('Control+k');
-  const input = page.getByRole('textbox', { name: 'Строка Command' });
+  const input = page.getByRole('combobox', { name: 'Строка Command' });
   await expect(input).toBeFocused();
   return input;
 }

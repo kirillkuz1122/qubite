@@ -46,7 +46,13 @@ export { Range, type RangeProps } from './Range';
 export { PlusMenu, type PlusItem, type PlusMenuProps } from './PlusMenu';
 export { Dock, type DockProps, type NavItem } from './Dock';
 export { SideNav, type SideNavProps } from './SideNav';
-export { CommandSuggest, type CommandSuggestProps } from './CommandSuggest';
+export {
+  CommandSuggest,
+  suggestOptionId,
+  type CommandHit,
+  type CommandSuggestProps,
+} from './CommandSuggest';
+export { fixLayout, matchScore, normalize } from './match';
 export { ExpandPage, type ExpandPageProps, type Rect } from './ExpandPage';
 export { Crew, type CrewHandle, type CrewProps } from './Crew';
 export { Button, type ButtonProps } from './Button';

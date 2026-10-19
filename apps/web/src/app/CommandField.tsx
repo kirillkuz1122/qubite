@@ -1,5 +1,5 @@
 import { DotIcon, PlusMenu, usePress, type PlusItem } from '@qubite/ui';
-import type { RefObject } from 'react';
+import type { KeyboardEvent, RefObject } from 'react';
 
 /** Что можно создать из «+»: вставляет команду в начало строки. */
 const MENU: PlusItem[] = [
@@ -13,7 +13,12 @@ export interface CommandFieldProps {
   inputRef: RefObject<HTMLInputElement | null>;
   value: string;
   wide: boolean;
+  /** список подсказок под строкой и выбранный пункт — для экранного диктора */
+  listId: string;
+  expanded: boolean;
+  activeId?: string | undefined;
   onChange: (v: string) => void;
+  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   onMenu: (open: boolean) => void;
   onFocus: () => void;
   onBlur: () => void;
@@ -24,7 +29,11 @@ export function CommandField({
   inputRef,
   value,
   wide,
+  listId,
+  expanded,
+  activeId,
   onChange,
+  onKeyDown,
   onMenu,
   onFocus,
   onBlur,
@@ -44,11 +53,17 @@ export function CommandField({
         ref={inputRef}
         className="q-cmd-input"
         type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls={listId}
+        aria-expanded={expanded}
+        aria-activedescendant={activeId}
         value={value}
         placeholder="Спроси или запиши…"
         aria-label="Строка Command"
         enterKeyHint="send"
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
         onFocus={onFocus}
         onBlur={onBlur}
       />

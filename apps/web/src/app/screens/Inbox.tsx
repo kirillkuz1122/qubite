@@ -135,7 +135,7 @@ function Item({
     return () => clearTimeout(t);
   }, [sp, leaving, delay]);
   return (
-    <div className="item" ref={el} data-flip={it.id}>
+    <div className="item" ref={el} data-flip={it.id} data-obj={it.id}>
       <span className="q-dot" ref={dot} />
       <div className="t">
         <div className="txt">{it.text}</div>

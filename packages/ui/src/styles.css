@@ -664,13 +664,79 @@ kbd {
 }
 .q-suggest-in {
   position: relative;
+  padding: 6px;
+  opacity: 0;
+  will-change: opacity;
+}
+.q-suggest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* пункт: «куда ляжет» или найденное; выбранный подсвечен (подложка проявляется) */
+.q-suggest-opt {
+  position: relative;
   display: flex;
   gap: 12px;
   align-items: center;
-  min-height: 66px;
-  padding: 14px 16px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border-radius: calc(var(--q-round) * 16px);
+  cursor: pointer;
+  animation: q-suggest-in 0.22s ease-out both;
+}
+.q-suggest[data-open] .q-suggest-opt {
+  pointer-events: auto;
+}
+.q-suggest-opt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--q-line);
   opacity: 0;
-  will-change: opacity;
+  transition: opacity 0.16s ease-out;
+}
+.q-suggest-opt.on::before {
+  opacity: 1;
+}
+.q-suggest-opt > * {
+  position: relative;
+}
+.q-suggest-opt > .q-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  margin: 0 1px;
+}
+.q-suggest-t {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.q-suggest-n {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-suggest-t .q-suggest-w {
+  margin-top: 1px;
+}
+.q-suggest-h {
+  padding: 8px 10px 2px;
+  color: var(--q-mute);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+}
+@keyframes q-suggest-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+[data-motion='less'] .q-suggest-opt {
+  animation: none;
 }
 .q-suggest-k {
   display: flex;

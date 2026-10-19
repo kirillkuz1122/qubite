@@ -139,7 +139,7 @@ test('микрофон не сворачивает строку Command', async 
   test.skip((page.viewportSize()?.width ?? 1280) >= 900, 'микрофон — только на телефоне');
   await page.goto('/today');
   await page.getByRole('button', { name: 'Открыть Command' }).click();
-  const input = page.getByRole('textbox', { name: 'Строка Command' });
+  const input = page.getByRole('combobox', { name: 'Строка Command' });
   await expect(input).toBeFocused();
   await page.getByRole('button', { name: 'Голосом — скоро' }).click();
   await expect(input).toBeFocused();

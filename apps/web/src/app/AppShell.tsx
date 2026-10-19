@@ -19,6 +19,8 @@ import {
   flyDot,
   focusOn,
   parseCommand,
+  suggestOptionId,
+  useLook,
   useMedia,
   useSpring,
   type CrewHandle,
@@ -27,6 +29,7 @@ import {
 } from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { CommandField } from './CommandField';
 import { ShellCtx, type ShellApi } from './context';
 import { SECTIONS, plural, dayLabel, isoWeek, weekLabel, type SectionId } from './data';
@@ -35,6 +38,7 @@ import { InboxScreen } from './screens/Inbox';
 import { PlannerScreen } from './screens/Planner';
 import { SettingsScreen } from './screens/Settings';
 import { TodayScreen } from './screens/Today';
+import { reveal } from './reveal';
 import { todayIndex, useStore, type State } from './state';
 import { useInbox } from './inbox-context';
 import './app.css';
@@ -173,23 +177,40 @@ export function AppShell() {
     [wide, go],
   );
 
-  /* ---------- Command ---------- */
+  /* ---------- Command: запись, поиск, навигация (CMD-002) ---------- */
+  const look = useLook();
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  /** пункт, выбранный стрелками; null — тот, что выбран сам */
+  const [picked, setPicked] = useState<number | null>(null);
+  const [history, setHistory] = useState(loadHistory);
   const menuOpen = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const parsed = value.trim() ? parseCommand(value) : null;
+  const cmd = commandView(value, parsed, state, inbox.items, history);
+  const shown = focused && (wide || open);
+  const count = (cmd.parsed ? 1 : 0) + cmd.hits.length;
+  const active = shown ? Math.min(picked ?? cmd.active, count - 1) : -1;
 
+  const change = useCallback((v: string) => {
+    setValue(v);
+    setPicked(null);
+  }, []);
   const openCmd = useCallback(() => {
     if (!wide) setOpen(true);
     requestAnimationFrame(() => input.current?.focus());
   }, [wide]);
   const closeCmd = useCallback(() => {
     setOpen(false);
-    setValue('');
+    change('');
     input.current?.blur();
-  }, []);
+  }, [change]);
+  const finish = () => {
+    change('');
+    setTimeout(() => (wide ? input.current?.blur() : closeCmd()), 120);
+  };
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -202,30 +223,69 @@ export function AppShell() {
     return () => removeEventListener('keydown', key);
   }, [openCmd, closeCmd]);
 
-  function save() {
-    if (!parsed) return;
-    const to = DEST[parsed.kind];
-    const text = parsed.text || value.trim();
-    if (parsed.kind === 'search') {
-      closeCmd();
-      go('docs');
-      return;
-    }
+  /** Сохранить запись туда, куда она ляжет: точка долетает до раздела. */
+  function save(p: ParsedCommand) {
+    const to = DEST[p.kind];
+    const text = p.text || value.trim();
+    setHistory(remember(history, value, p.kind));
     const r = card.current?.getBoundingClientRect();
-    const owner = COMMAND_OWNER[parsed.kind];
+    const owner = COMMAND_OWNER[p.kind];
     api.fly(
-      { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.top ?? innerHeight - 100) + 22 },
+      { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
       to,
-      COMMAND_COLOR[parsed.kind],
+      COMMAND_COLOR[p.kind],
       () => {
-        if (parsed.kind === 'thought') void inbox.capture(text);
-        if (parsed.kind === 'task') dispatch({ type: 'task.add', title: text, time: parsed.when });
-        if (parsed.kind === 'note') dispatch({ type: 'doc.add', name: text || 'Новый конспект' });
+        if (p.kind === 'thought') void inbox.capture(text);
+        if (p.kind === 'task') dispatch({ type: 'task.add', title: text, time: p.when });
+        if (p.kind === 'note') dispatch({ type: 'doc.add', name: text || 'Новый конспект' });
         api.cheer(owner);
       },
     );
-    setValue('');
-    setTimeout(() => (wide ? input.current?.blur() : closeCmd()), 120);
+    finish();
+  }
+
+  /** Выбран найденный пункт. */
+  function run(hit: CommandEntry) {
+    const r = hit.run;
+    if (r.type === 'fill') {
+      change(r.text);
+      requestAnimationFrame(() => input.current?.focus());
+      return;
+    }
+    if (r.type === 'history.clear') {
+      saveHistory([]);
+      setHistory([]);
+      change('');
+      return;
+    }
+    if (r.type === 'save') {
+      const text = parsed?.text || value.trim();
+      if (text) save({ kind: 'thought', title: 'Мысль', where: 'Входящие', when: null, text });
+      return;
+    }
+    if (value.trim()) setHistory(remember(history, value, parsed?.kind ?? 'search'));
+    if (r.type === 'theme') {
+      const box = card.current?.getBoundingClientRect();
+      look.set('theme', r.value, box && { x: box.left + box.width / 2, y: box.bottom });
+    } else {
+      go(r.to);
+      if (r.obj) reveal(r.to, r.obj, r.open);
+    }
+    finish();
+  }
+
+  function submit(i = active) {
+    if (i < 0) return;
+    if (cmd.parsed && i === 0) return save(cmd.parsed);
+    const hit = cmd.hits[i - (cmd.parsed ? 1 : 0)];
+    if (hit) run(hit);
+  }
+
+  function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!count || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    e.preventDefault();
+    const from = active < 0 ? (e.key === 'ArrowDown' ? -1 : count) : active;
+    setPicked((from + (e.key === 'ArrowDown' ? 1 : -1) + count) % count);
   }
 
   const field = (
@@ -233,10 +293,18 @@ export function AppShell() {
       inputRef={input}
       value={value}
       wide={wide}
-      onChange={setValue}
+      listId={LIST_ID}
+      expanded={shown && count > 0}
+      activeId={active >= 0 ? suggestOptionId(LIST_ID, active) : undefined}
+      onChange={change}
+      onKeyDown={onKey}
       onMenu={(o) => (menuOpen.current = o)}
-      onFocus={() => focusOn(() => (input.current ? caretPoint(input.current) : null))}
+      onFocus={() => {
+        setFocused(true);
+        focusOn(() => (input.current ? caretPoint(input.current) : null));
+      }}
       onBlur={() => {
+        setFocused(false);
         focusOn(null);
         setTimeout(() => {
           if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
@@ -318,14 +386,23 @@ export function AppShell() {
         </div>
       </div>
 
-      <CommandSuggest ref={card} parsed={parsed} className={wide ? 'suggest wide' : 'suggest'} />
+      <CommandSuggest
+        ref={card}
+        parsed={shown ? cmd.parsed : null}
+        hits={shown ? cmd.hits : []}
+        heading={cmd.heading}
+        active={active}
+        listId={LIST_ID}
+        onPick={submit}
+        className={wide ? 'suggest wide' : 'suggest'}
+      />
       {wide ? (
         <form
           className="pc-cmd"
           autoComplete="off"
           onSubmit={(e) => {
             e.preventDefault();
-            save();
+            submit();
           }}
         >
           {field}
@@ -343,7 +420,7 @@ export function AppShell() {
             autoComplete="off"
             onSubmit={(e) => {
               e.preventDefault();
-              save();
+              submit();
             }}
           >
             {field}
@@ -353,6 +430,8 @@ export function AppShell() {
     </ShellCtx.Provider>
   );
 }
+
+const LIST_ID = 'q-command-list';
 
 const HELPER_NAME = { elik: 'Элик', proto: 'Прото', neit: 'Нейт', foti: 'Фоти' } as const;
 

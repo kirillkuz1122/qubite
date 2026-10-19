@@ -21,7 +21,7 @@ export function SettingsScreen() {
     <>
       <SecHead text="ВИД" label="Вид" />
       <div className="group panel">
-        <div className="set">
+        <div className="set" data-obj="set-theme">
           <span className="lbl">Тема</span>
           <Segmented<ThemeChoice>
             label="Тема"
@@ -34,7 +34,7 @@ export function SettingsScreen() {
             ]}
           />
         </div>
-        <div className="set col">
+        <div className="set col" data-obj="set-shape">
           <Range
             label="Форма точки"
             value={look.round}
@@ -51,7 +51,7 @@ export function SettingsScreen() {
             </span>
           </Range>
         </div>
-        <div className="set col">
+        <div className="set col" data-obj="set-size">
           <Range
             label="Размер точки"
             value={look.size}
@@ -64,7 +64,7 @@ export function SettingsScreen() {
 
       <SecHead text="ДВИЖЕНИЕ" label="Движение" />
       <div className="group panel">
-        <div className="set col">
+        <div className="set col" data-obj="set-tempo">
           <Range
             label="Живость"
             value={look.tempo}
@@ -75,13 +75,13 @@ export function SettingsScreen() {
             <small className="hint">спокойнее ← → живее</small>
           </Range>
         </div>
-        <div className="set">
+        <div className="set" data-obj="set-lite">
           <span className="lbl">
             Облегчённый режим<small>меньше эффектов — для слабых телефонов</small>
           </span>
           <Switch label="Облегчённый режим" checked={look.lite} onChange={(v) => set('lite', v)} />
         </div>
-        <div className="set col">
+        <div className="set col" data-obj="set-motion">
           <span className="lbl">
             Меньше движения<small>всё встаёт на место сразу</small>
           </span>
@@ -103,7 +103,7 @@ export function SettingsScreen() {
       <SecHead text="ПОМОЩНИКИ" label="Помощники" />
       <div className="group panel">
         {HELPERS.map((h) => (
-          <div className="set" key={h.kind}>
+          <div className="set" data-obj={`set-helper-${h.kind}`} key={h.kind}>
             <span
               className="q-dot mav"
               style={{ background: `var(--q-${COMPANION_COLOR[h.kind]})` }}
@@ -126,19 +126,19 @@ export function SettingsScreen() {
 
       <SecHead text="АККАУНТ" label="Аккаунт" />
       <div className="group panel">
-        <div className="set">
+        <div className="set" data-obj="set-account">
           <span className="lbl">
             Кирилл<small>владелец · 3 устройства</small>
           </span>
           <span className="later">→</span>
         </div>
-        <div className="set">
+        <div className="set" data-obj="set-backup">
           <span className="lbl">
             Экспорт и бэкапы<small>последний бэкап сегодня в 4:00</small>
           </span>
           <span className="later">→</span>
         </div>
-        <div className="set">
+        <div className="set" data-obj="set-ai">
           <span className="lbl">
             AI и бюджет<small>платный AI выключен</small>
           </span>

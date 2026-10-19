@@ -735,3 +735,37 @@ a {
   width: min(660px, calc(100vw - 248px - 64px));
   bottom: 92px;
 }
+
+/* найденное из Command: обводка проявляется и гаснет (CMD-002) */
+[data-obj] {
+  position: relative;
+}
+[data-found]::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid var(--q-orange);
+  border-radius: calc(var(--q-round) * 16px + 3px);
+  pointer-events: none;
+  animation: q-found 1.8s ease-out forwards;
+}
+@keyframes q-found {
+  0% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+[data-motion='less'] [data-found]::after {
+  animation-duration: 1.2s;
+  transform: none;
+}

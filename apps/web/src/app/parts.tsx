@@ -41,6 +41,7 @@ export function TaskList({
       {tasks.map((t) => (
         <div
           key={t.id}
+          data-obj={t.id}
           className={t.done ? 'row done' : 'row'}
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('.q-ring')) return;
