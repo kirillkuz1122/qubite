@@ -11,26 +11,28 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { InboxAct, InboxFrom, InboxItem } from '../data';
+import { useInbox } from '../inbox-context';
 import { useStore } from '../state';
 
 type Filter = 'all' | Exclude<InboxFrom, 'text'>;
 
 export function InboxScreen() {
-  const { state, dispatch } = useStore();
+  const { dispatch } = useStore();
+  const inbox = useInbox();
   const shell = useShell();
   const [filter, setFilter] = useState<Filter>('all');
   const box = useRef<HTMLDivElement>(null);
-  const shown = state.inbox.filter((x) => filter === 'all' || x.from === filter);
+  const shown = inbox.items.filter((x) => filter === 'all' || x.from === filter);
   /* пропавшие из списка (фильтр, разобрали) сначала тают, новые выезжают по очереди, соседи доезжают */
   const [rows, gone] = useLeaving(shown, (x) => x.id);
   useFlip(box, rows.map((r) => r.item.id + (r.leaving ? '~' : '')).join());
   /* когда список впервые показан: строки, что появились позже (сменили фильтр), выезжают */
   const [born] = useState(() => performance.now());
-  const n = (f: InboxFrom) => state.inbox.filter((x) => x.from === f).length;
+  const n = (f: InboxFrom) => inbox.items.filter((x) => x.from === f).length;
 
   function act(it: InboxItem, to: InboxAct, dot: DOMRect | undefined) {
     if (to === 'later') {
-      dispatch({ type: 'inbox.later', id: it.id });
+      inbox.later(it.id);
       return;
     }
     shell.fly({ x: (dot?.left ?? 0) + 5, y: (dot?.top ?? 0) + 5 }, to, 'yellow', () => {
@@ -38,7 +40,8 @@ export function InboxScreen() {
       if (to === 'docs') dispatch({ type: 'doc.add', name: it.text });
     });
     shell.cheer('elik');
-    setTimeout(() => dispatch({ type: 'inbox.remove', id: it.id }), 200);
+    /* разобрано — в архив (не удаляется); на других устройствах тоже пропадёт */
+    setTimeout(() => void inbox.done(it.id), 200);
   }
 
   return (
@@ -50,7 +53,7 @@ export function InboxScreen() {
           value={filter}
           onChange={setFilter}
           options={[
-            { value: 'all', label: 'Все', count: state.inbox.length },
+            { value: 'all', label: 'Все', count: inbox.items.length },
             { value: 'voice', label: 'Голос', count: n('voice') },
             { value: 'link', label: 'Ссылки', count: n('link') },
             { value: 'tg', label: 'Telegram', count: n('tg') },
@@ -71,7 +74,7 @@ export function InboxScreen() {
           />
         ))}
       </div>
-      {state.inbox.length === 0 && <Empty />}
+      {inbox.items.length === 0 && <Empty />}
     </>
   );
 }

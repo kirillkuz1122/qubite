@@ -4,6 +4,7 @@ import { useShell } from '../context';
 import type { Task } from '../data';
 import { SecHead, TaskList } from '../parts';
 import { todayIndex, useStore } from '../state';
+import { useInbox } from '../inbox-context';
 
 /** Шкала дня: точка на каждые полчаса с 7:00 до 23:00, дела — цветные, «сейчас» — оранжевая. */
 const FROM = 7;
@@ -64,6 +65,7 @@ function Strip({ tasks }: { tasks: Task[] }) {
 }
 
 export function TodayScreen() {
+  const inbox = useInbox();
   const { state, dispatch } = useStore();
   const shell = useShell();
   const day = todayIndex(state);
@@ -120,8 +122,8 @@ export function TodayScreen() {
             все →
           </button>
         </SecHead>
-        {state.inbox.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
-        {state.inbox.slice(0, 3).map((it) => (
+        {inbox.items.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
+        {inbox.items.slice(0, 3).map((it) => (
           <div className="spark" key={it.id}>
             <span className="q-dot" />
             <span>{it.text}</span>

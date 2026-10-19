@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppShell } from './app/AppShell';
 import { SECTIONS } from './app/data';
+import { InboxProvider } from './app/inbox';
 import { StoreProvider } from './app/store';
 import { DesignPage } from './design/DesignPage';
 import { Landing } from './landing/Landing';
@@ -31,7 +32,9 @@ const appRoute = createRoute({
   id: 'app',
   component: () => (
     <StoreProvider>
-      <AppShell />
+      <InboxProvider>
+        <AppShell />
+      </InboxProvider>
     </StoreProvider>
   ),
 });

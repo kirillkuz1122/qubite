@@ -1,4 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mockSync } from './sync-mock';
+
+// Сервер синхронизации подделан: без него мысли просто ждали бы сети.
+test.beforeEach(async ({ page }) => {
+  await mockSync(page);
+});
 
 /* ПК — боковая панель и плавающая Command; телефон (360×780) — нижняя капля */
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
@@ -67,20 +73,6 @@ test('дело отмечается кольцом — счётчик и Planner
     'aria-checked',
     'true',
   );
-});
-
-test('разобранная мысль улетает из «Входящих» в Docs', async ({ page }) => {
-  await page.goto('/inbox');
-  const item = page.getByText('Тема для проекта по физике?');
-  await expect(item).toBeVisible();
-  await page
-    .locator('.item')
-    .filter({ hasText: 'Тема для проекта по физике?' })
-    .getByRole('button', { name: 'В Docs' })
-    .click();
-  await expect(item).toHaveCount(0);
-  await go(page, 'Docs');
-  await expect(page.getByRole('button', { name: /Тема для проекта по физике\?/ })).toBeVisible();
 });
 
 test('строка Docs раскрывается в страницу и закрывается обратно', async ({ page }) => {

@@ -219,69 +219,6 @@ export function isoWeek(d: Date): number {
   return 1 + Math.round(((t.getTime() - y.getTime()) / 864e5 - 3 + ((y.getUTCDay() + 6) % 7)) / 7);
 }
 
-export const INBOX: InboxItem[] = [
-  {
-    id: 'i1',
-    text: 'Бот, который напоминает про домашку',
-    src: 'голосом',
-    from: 'voice',
-    time: '9:12',
-    hint: 'похоже на проект',
-    acts: [
-      ['В проекты', 'planner'],
-      ['В Docs', 'docs'],
-    ],
-  },
-  {
-    id: 'i2',
-    text: 'Лекция про дерево Фенвика — посмотреть',
-    src: 'ссылка из браузера',
-    from: 'link',
-    time: '11:40',
-    hint: 'дело на выходные?',
-    acts: [
-      ['В дела', 'planner'],
-      ['В Docs', 'docs'],
-    ],
-  },
-  {
-    id: 'i3',
-    text: 'Подарок маме — до 3 ноября',
-    src: 'из Telegram',
-    from: 'tg',
-    time: 'вчера',
-    hint: 'дело со сроком 3 ноября',
-    acts: [
-      ['В дела', 'planner'],
-      ['Позже', 'later'],
-    ],
-  },
-  {
-    id: 'i4',
-    text: 'Тема для проекта по физике?',
-    src: 'написал',
-    from: 'text',
-    time: 'вчера',
-    hint: 'это вопрос — сохранить в Docs',
-    acts: [
-      ['В Docs', 'docs'],
-      ['В дела', 'planner'],
-    ],
-  },
-  {
-    id: 'i5',
-    text: 'Купить батарейки для стилуса',
-    src: 'голосом',
-    from: 'voice',
-    time: 'пн',
-    hint: 'дело на завтра',
-    acts: [
-      ['В дела', 'planner'],
-      ['Позже', 'later'],
-    ],
-  },
-];
-
 export const PROJECTS: Project[] = [
   { name: 'Олимпиада по информатике', color: 'orange', done: 4, total: 8 },
   { name: 'Школа: 10 класс', color: 'sky', done: 9, total: 12 },

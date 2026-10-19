@@ -10,7 +10,8 @@ export default defineConfig({
   server: {
     // временные ссылки Cloudflare (cloudflared tunnel), чтобы открыть сайт с телефона
     allowedHosts: ['.trycloudflare.com'],
-    proxy: { '/api': { target: apiTarget, changeOrigin: false } },
+    // ws — WebSocket «есть новое» для Входящих (/api/v1/sync/ws)
+    proxy: { '/api': { target: apiTarget, changeOrigin: false, ws: true } },
   },
   test: {
     environment: 'jsdom',

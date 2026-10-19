@@ -52,19 +52,6 @@ describe('состояние оболочки', () => {
     expect(t).toMatchObject({ title: 'Сдать проект', time: 'завтра, 16:00', done: false });
   });
 
-  it('мысль ложится во «Входящие» сверху, разобранная — пропадает, «позже» — в конец', () => {
-    let s = initialState(SUNDAY);
-    const n = s.inbox.length;
-    s = reducer(s, { type: 'inbox.add', text: 'бот для расписания' });
-    expect(s.inbox).toHaveLength(n + 1);
-    expect(s.inbox[0]).toMatchObject({ text: 'бот для расписания', time: 'сейчас' });
-    const second = s.inbox[1]!;
-    s = reducer(s, { type: 'inbox.later', id: second.id });
-    expect(s.inbox.at(-1)!.id).toBe(second.id);
-    s = reducer(s, { type: 'inbox.remove', id: second.id });
-    expect(s.inbox.some((x) => x.id === second.id)).toBe(false);
-  });
-
   it('конспект становится документом, помощника можно спрятать', () => {
     let s = initialState(SUNDAY);
     s = reducer(s, { type: 'doc.add', name: 'Графы' });

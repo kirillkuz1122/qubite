@@ -36,6 +36,7 @@ import { PlannerScreen } from './screens/Planner';
 import { SettingsScreen } from './screens/Settings';
 import { TodayScreen } from './screens/Today';
 import { todayIndex, useStore, type State } from './state';
+import { useInbox } from './inbox-context';
 import './app.css';
 
 const SCREENS: Record<SectionId, () => ReactNode> = {
@@ -63,7 +64,7 @@ function left(s: State) {
   return s.week[todayIndex(s)]?.tasks.filter((t) => !t.done).length ?? 0;
 }
 
-function subtitle(id: SectionId, s: State, wide: boolean): ReactNode {
+function subtitle(id: SectionId, s: State, wide: boolean, inbox: number): ReactNode {
   const today = s.week[todayIndex(s)]!;
   switch (id) {
     case 'today': {
@@ -75,7 +76,7 @@ function subtitle(id: SectionId, s: State, wide: boolean): ReactNode {
       );
     }
     case 'inbox': {
-      const n = s.inbox.length;
+      const n = inbox;
       return n ? (
         <>
           <b>{n}</b> {plural(n, 'мысль', 'мысли', 'мыслей')} · Элик ловит
@@ -107,6 +108,7 @@ export function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { state, dispatch } = useStore();
+  const inbox = useInbox();
   const id = sectionOf(path);
   const sec = SECTIONS.find((s) => s.id === id)!;
   const crew = useRef<CrewHandle>(null);
@@ -216,7 +218,7 @@ export function AppShell() {
       to,
       COMMAND_COLOR[parsed.kind],
       () => {
-        if (parsed.kind === 'thought') dispatch({ type: 'inbox.add', text });
+        if (parsed.kind === 'thought') void inbox.capture(text);
         if (parsed.kind === 'task') dispatch({ type: 'task.add', title: text, time: parsed.when });
         if (parsed.kind === 'note') dispatch({ type: 'doc.add', name: text || 'Новый конспект' });
         api.cheer(owner);
@@ -250,7 +252,7 @@ export function AppShell() {
     icon: s.icon,
     count:
       s.id === 'inbox'
-        ? state.inbox.length
+        ? inbox.items.length
         : s.id === 'planner'
           ? left(state)
           : s.id === 'docs'
@@ -276,8 +278,8 @@ export function AppShell() {
           </div>
           <SideNav items={items} current={id} onGo={go} />
           <div className="side-crew">
-            <b>Помощники рядом.</b> Элик поймал {state.inbox.length}{' '}
-            {plural(state.inbox.length, 'мысль', 'мысли', 'мыслей')}, Прото держит {leftToday}{' '}
+            <b>Помощники рядом.</b> Элик поймал {inbox.items.length}{' '}
+            {plural(inbox.items.length, 'мысль', 'мысли', 'мыслей')}, Прото держит {leftToday}{' '}
             {plural(leftToday, 'дело', 'дела', 'дел')} на сегодня.
           </div>
           <div className="side-me">
@@ -307,7 +309,7 @@ export function AppShell() {
               />
             </div>
             <div className="head-sub" ref={sub}>
-              {subtitle(id, state, wide)}
+              {subtitle(id, state, wide, inbox.items.length)}
             </div>
           </header>
           <div className="screen" ref={screen} data-screen={view}>
