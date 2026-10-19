@@ -59,8 +59,14 @@ export function AccountSyncProvider({
     }
   }, []);
   const account = me.data === null ? null : (id ?? rememberedAccount());
+  // Пересоздаём всё под провайдером, только когда один человек сменился другим:
+  // «пока не знаем → узнали» — то же приложение, иначе пропал бы фокус и набранное.
+  const [seen, setSeen] = useState({ account, generation: 0 });
+  if (account && account !== seen.account) {
+    setSeen({ account, generation: seen.account ? seen.generation + 1 : seen.generation });
+  }
   return (
-    <SyncProvider key={account ?? ''} dbName={account && syncDbName(account)} open={open}>
+    <SyncProvider key={seen.generation} dbName={account && syncDbName(account)} open={open}>
       {children}
     </SyncProvider>
   );
@@ -84,6 +90,12 @@ export function SyncProvider({
   const [state, setState] = useState<SyncState>({ status: 'synced', pending: 0, problems: 0 });
   const [version, setVersion] = useState(0);
   const opening = useRef<Promise<SyncClient> | null>(null);
+  // `ready()` до открытия (ещё неизвестно, чьё хранилище) ждёт, а не падает.
+  const [opened] = useState(() => {
+    let resolve: (client: SyncClient) => void = () => {};
+    const promise = new Promise<SyncClient>((r) => (resolve = r));
+    return { promise, resolve };
+  });
 
   useEffect(() => {
     if (dbName === null) {
@@ -102,12 +114,15 @@ export function SyncProvider({
           return;
         }
         setClient(c);
+        opened.resolve(c);
         unsubscribe = c.subscribe((s) => {
           setState(s);
           setVersion((n) => n + 1);
         });
         if (live) stop = watchChanges(c, { url: socketUrl() });
-        void c.sync();
+        // Ошибки сети клиент сам кладёт в состояние; а если хранилище закрыли, пока
+        // синхронизация шла (ушли со страницы, сменился человек), — ответ уже не нужен.
+        c.sync().catch(() => {});
       })
       .catch((error: unknown) => {
         // IndexedDB недоступна (приватный режим старого браузера) — экраны пустые, без падения.
@@ -119,16 +134,16 @@ export function SyncProvider({
       unsubscribe();
       void promise.then((c) => c.close()).catch(() => {});
     };
-  }, [dbName, open, live]);
+  }, [dbName, open, live, opened]);
 
   const value = useMemo<SyncApi>(
     () => ({
       client,
-      ready: () => opening.current ?? Promise.reject(new Error('хранилище не открыто')),
+      ready: () => opening.current ?? opened.promise,
       version,
       state,
     }),
-    [client, version, state],
+    [client, version, state, opened],
   );
   return <SyncCtx.Provider value={value}>{children}</SyncCtx.Provider>;
 }
