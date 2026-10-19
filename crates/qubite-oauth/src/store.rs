@@ -29,12 +29,27 @@ pub(crate) async fn create_flow(
 ) -> Result<(String, String)> {
     let state = qubite_auth::random_token();
     let verifier = qubite_auth::random_token();
-    let (kind, account, session, return_to) = match intent {
-        Intent::Login { return_to } => ("login", None, None, safe_return(return_to)),
+    let (kind, account, session, return_to, invite_hash) = match intent {
+        Intent::Login {
+            return_to,
+            invite_hash,
+        } => (
+            "login",
+            None,
+            None,
+            safe_return(return_to),
+            invite_hash.clone(),
+        ),
         Intent::Link {
             account_id,
             session_id,
-        } => ("link", Some(*account_id), Some(*session_id), "/".to_owned()),
+        } => (
+            "link",
+            Some(*account_id),
+            Some(*session_id),
+            "/".to_owned(),
+            None,
+        ),
     };
     let mut tx = pool.begin().await?;
     // Старые входы не копятся.
@@ -46,8 +61,8 @@ pub(crate) async fn create_flow(
     .await?;
     sqlx::query(
         "INSERT INTO oauth_flows (id, state_hash, provider, intent, account_id, session_id, \
-         code_verifier, return_to, expires_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::float8 * interval '1 second')",
+         code_verifier, return_to, expires_at, invite_hash) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::float8 * interval '1 second', $10)",
     )
     .bind(qubite_auth::new_id())
     .bind(qubite_auth::token_hash(&state))
@@ -58,6 +73,7 @@ pub(crate) async fn create_flow(
     .bind(&verifier)
     .bind(return_to)
     .bind(ttl.as_secs_f64())
+    .bind(invite_hash)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -77,6 +93,7 @@ struct FlowRow {
     session_id: Option<Uuid>,
     code_verifier: String,
     return_to: String,
+    invite_hash: Option<Vec<u8>>,
     expired: bool,
 }
 
@@ -87,7 +104,7 @@ pub(crate) async fn take_flow(pool: &PgPool, provider: Provider, state: &str) ->
         "UPDATE oauth_flows SET used_at = now() \
          WHERE state_hash = $1 AND used_at IS NULL \
          RETURNING provider, intent, account_id, session_id, code_verifier, return_to, \
-                   expires_at < now() AS expired",
+                   invite_hash, expires_at < now() AS expired",
     )
     .bind(qubite_auth::token_hash(state))
     .fetch_optional(pool)
@@ -103,6 +120,7 @@ pub(crate) async fn take_flow(pool: &PgPool, provider: Provider, state: &str) ->
         },
         _ => Intent::Login {
             return_to: row.return_to,
+            invite_hash: row.invite_hash,
         },
     };
     Ok(Flow {
@@ -136,6 +154,7 @@ pub async fn login(
     identity: &Identity,
     client: &ClientInfo,
     platform: &qubite_auth::platform::Effective,
+    invite_hash: Option<&[u8]>,
 ) -> Result<IssuedSession> {
     let mut tx = pool.begin().await?;
     let found: Option<(Uuid, String)> = sqlx::query_as(
@@ -146,8 +165,13 @@ pub async fn login(
     .bind(&identity.subject)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((account_id, status)) = found else {
-        return Err(Error::NotLinked);
+    let (account_id, status) = match found {
+        Some(found) => found,
+        None => {
+            let account_id =
+                register(&mut tx, provider, identity, client, platform, invite_hash).await?;
+            (account_id, "active".to_owned())
+        }
     };
     match status.as_str() {
         "active" => {}
@@ -188,6 +212,94 @@ pub async fn login(
     .await?;
     tx.commit().await?;
     Ok(session)
+}
+
+/// Регистрация через провайдера (D-189): неизвестный ID и регистрация
+/// разрешена — новый активный аккаунт с почтой от провайдера (провайдер её уже
+/// подтвердил) и привязкой. Без пароля: его можно задать через «Забыли пароль».
+async fn register(
+    tx: &mut sqlx::PgConnection,
+    provider: Provider,
+    identity: &Identity,
+    client: &ClientInfo,
+    platform: &qubite_auth::platform::Effective,
+    invite_hash: Option<&[u8]>,
+) -> Result<Uuid> {
+    use qubite_auth::platform::RegistrationMode;
+    match (platform.registration_mode(), invite_hash) {
+        (RegistrationMode::Closed, _) => return Err(Error::NotLinked),
+        // Без приглашения — обычный «не привязан»: так же отвечает и вход
+        // человеку, который просто забыл привязать провайдера.
+        (RegistrationMode::InviteOnly, None) => return Err(Error::NotLinked),
+        _ => {}
+    }
+    let email = identity
+        .email
+        .as_deref()
+        .and_then(|email| qubite_auth::normalize_email(email).ok())
+        .ok_or(Error::EmailRequired)?;
+    let taken: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM accounts WHERE email = $1)")
+        .bind(&email)
+        .fetch_one(&mut *tx)
+        .await?;
+    if taken {
+        return Err(Error::EmailTaken);
+    }
+    let invitation = match invite_hash {
+        Some(hash) => {
+            Some(qubite_auth::invitations::lock_usable_hash(&mut *tx, hash, &email).await?)
+        }
+        None => None,
+    };
+    let display_name: String = identity.display_name.trim().chars().take(100).collect();
+    let account = qubite_auth::accounts::insert(
+        &mut *tx,
+        &qubite_auth::accounts::NewAccount {
+            email: &email,
+            display_name: &display_name,
+            password: "",
+            email_verified: true,
+        },
+        None,
+    )
+    .await
+    .map_err(|error| match error {
+        qubite_auth::Error::EmailTaken => Error::EmailTaken,
+        other => other.into(),
+    })?;
+    sqlx::query(
+        "INSERT INTO oauth_identities (provider, subject, account_id, email, display_name) \
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(provider.as_str())
+    .bind(&identity.subject)
+    .bind(account.id)
+    .bind(&email)
+    .bind(identity.display_name.chars().take(200).collect::<String>())
+    .execute(&mut *tx)
+    .await?;
+    if let Some(invitation) = invitation {
+        qubite_auth::invitations::mark_used(&mut *tx, invitation, account.id).await?;
+    }
+    audit::record(
+        &mut *tx,
+        NewAuditEntry {
+            actor_id: Some(account.id),
+            action: "account.registered".into(),
+            target_kind: "account".into(),
+            target_id: Some(account.id.to_string()),
+            after: Some(serde_json::json!({
+                "email": email,
+                "method": provider.as_str(),
+                "invitation": invitation,
+                "mode": platform.registration_mode(),
+                "ip": client.ip,
+            })),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    Ok(account.id)
 }
 
 /// Привязать провайдера к аккаунту. Сессия, из которой начали привязку,
@@ -320,7 +432,7 @@ pub async fn identities(pool: &PgPool, account_id: Uuid) -> Result<Vec<LinkedIde
 /// Куда вернуть после входа (сохранено при старте).
 pub fn return_to(intent: &Intent) -> &str {
     match intent {
-        Intent::Login { return_to } => return_to,
+        Intent::Login { return_to, .. } => return_to,
         Intent::Link { .. } => "/settings",
     }
 }

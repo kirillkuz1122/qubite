@@ -1837,6 +1837,11 @@ export interface operations {
       query?: {
         /** @description Куда вернуть после входа (путь на сайте Qubite), по умолчанию `/`. */
         return_to?: string | null;
+        /**
+         * @description Код приглашения — для регистрации через провайдера, если регистрация
+         *     «по приглашениям» (D-189).
+         */
+        invite?: string | null;
       };
       header?: never;
       path: {

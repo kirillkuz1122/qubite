@@ -45,7 +45,10 @@ fn flow_cookie(settings: &AuthSettings, value: &str, max_age: u64) -> HeaderValu
 fn oauth_error(error: Error) -> ApiError {
     let status = match &error {
         Error::UnknownProvider => StatusCode::NOT_FOUND,
-        Error::ProviderDisabled | Error::Taken | Error::AlreadyLinked => StatusCode::CONFLICT,
+        Error::ProviderDisabled | Error::Taken | Error::AlreadyLinked | Error::EmailTaken => {
+            StatusCode::CONFLICT
+        }
+        Error::EmailRequired => StatusCode::BAD_REQUEST,
         Error::InvalidState | Error::Invalid(_) | Error::Provider(_) => StatusCode::BAD_REQUEST,
         Error::NotLinked => StatusCode::UNAUTHORIZED,
         Error::Auth(_) => return auth_error(error),
@@ -141,6 +144,9 @@ pub async fn providers(State(state): State<AppState>) -> Json<Vec<OAuthProviderI
 pub struct StartQuery {
     /// Куда вернуть после входа (путь на сайте Qubite), по умолчанию `/`.
     return_to: Option<String>,
+    /// Код приглашения — для регистрации через провайдера, если регистрация
+    /// «по приглашениям» (D-189).
+    invite: Option<String>,
 }
 
 /// Начать вход: браузер уходит к провайдеру.
@@ -159,6 +165,12 @@ pub async fn start_login(
         let provider: Provider = name.parse()?;
         let intent = Intent::Login {
             return_to: query.return_to.unwrap_or_else(|| "/".into()),
+            invite_hash: query
+                .invite
+                .as_deref()
+                .map(str::trim)
+                .filter(|code| !code.is_empty())
+                .map(qubite_auth::invitations::code_hash),
         };
         state.oauth.start(state.db.pool(), provider, intent).await
     }
@@ -315,7 +327,10 @@ pub async fn callback(
             )
             .await?;
         match &finished.intent {
-            Intent::Login { return_to } => {
+            Intent::Login {
+                return_to,
+                invite_hash,
+            } => {
                 let issued = qubite_oauth::login(
                     state.db.pool(),
                     &settings.config,
@@ -323,6 +338,7 @@ pub async fn callback(
                     &finished.identity,
                     &client,
                     &platform,
+                    invite_hash.as_deref(),
                 )
                 .await?;
                 Ok((return_to.clone(), Some(issued)))
@@ -432,6 +448,7 @@ pub async fn telegram_login(
         &identity,
         &client,
         &crate::platform::effective(&state).await?,
+        None,
     )
     .await
     .map_err(auth_error)?;

@@ -45,7 +45,7 @@ pub async fn create(
             display_name,
             ..new
         },
-        &hash,
+        Some(&hash),
     )
     .await?;
     audit::record(
@@ -66,10 +66,12 @@ pub async fn create(
 
 /// Записать аккаунт и хеш пароля (внутри чужой транзакции). Почта уже
 /// нормализована, пароль уже захеширован; `new.password` не используется.
-pub(crate) async fn insert(
+/// Без хеша — аккаунт без пароля (создан входом через провайдера; пароль
+/// можно задать через «Забыли пароль»).
+pub async fn insert(
     conn: &mut sqlx::PgConnection,
     new: &NewAccount<'_>,
-    hash: &str,
+    hash: Option<&str>,
 ) -> Result<Account> {
     let account: Account = sqlx::query_as(
         "INSERT INTO accounts (id, email, email_verified_at, status, display_name) \
@@ -86,10 +88,12 @@ pub(crate) async fn insert(
         sqlx::Error::Database(db) if db.code().as_deref() == Some("23505") => Error::EmailTaken,
         _ => Error::Db(error),
     })?;
-    sqlx::query("INSERT INTO credentials_password (account_id, hash) VALUES ($1, $2)")
-        .bind(account.id)
-        .bind(hash)
-        .execute(&mut *conn)
-        .await?;
+    if let Some(hash) = hash {
+        sqlx::query("INSERT INTO credentials_password (account_id, hash) VALUES ($1, $2)")
+            .bind(account.id)
+            .bind(hash)
+            .execute(&mut *conn)
+            .await?;
+    }
     Ok(account)
 }

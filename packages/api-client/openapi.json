@@ -718,6 +718,15 @@
             "schema": {
               "type": ["string", "null"]
             }
+          },
+          {
+            "name": "invite",
+            "in": "query",
+            "description": "Код приглашения — для регистрации через провайдера, если регистрация\n«по приглашениям» (D-189).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
           }
         ],
         "responses": {

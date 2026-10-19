@@ -843,3 +843,239 @@ async fn telegram_widget_is_signed_fresh_and_single_use() {
     assert_eq!(unknown.body["error"], "oauth_not_linked");
     lab.finish().await;
 }
+
+// ---------------------------------------------------------------- регистрация (D-189)
+
+async fn set_toggle(lab: &Lab, key: &str, value: Value) {
+    qubite_auth::platform::set(lab.db.pool(), None, key, value)
+        .await
+        .unwrap();
+}
+
+async fn accounts(lab: &Lab) -> i64 {
+    sqlx::query_scalar("SELECT count(*) FROM accounts")
+        .fetch_one(lab.db.pool())
+        .await
+        .unwrap()
+}
+
+async fn invite(lab: &Lab, body: Value) -> String {
+    let mut owner = Browser::login(lab.address, common::EMAIL, common::PASSWORD).await;
+    let reply = owner
+        .post(lab.address, "/api/owner/invitations", body)
+        .await;
+    assert_eq!(reply.status, 201, "{:?}", reply.body);
+    reply.body["code"].as_str().unwrap().to_owned()
+}
+
+#[tokio::test]
+async fn open_registration_creates_account_through_provider() {
+    let lab = Lab::new().await;
+    set_toggle(&lab, "registration.mode", json!("open")).await;
+
+    let mut newcomer = Browser::default();
+    let url = start_login(&lab, &mut newcomer, "yandex", "/today").await;
+    let reply = come_back(
+        &lab,
+        &mut newcomer,
+        "yandex",
+        &url,
+        yandex_person("555", "Newcomer@Yandex.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/today"),
+        "{:?}",
+        reply.body
+    );
+    assert!(newcomer.logged_in(), "аккаунт создан и вход выполнен сразу");
+    let me = newcomer.get(lab.address, "/api/auth/me").await;
+    assert_eq!(me.body["email"], "newcomer@yandex.ru");
+    assert_eq!(me.body["is_owner"], false);
+    assert_eq!(accounts(&lab).await, 2);
+    // Модулей новичок не получил (D-054); пароля у аккаунта нет.
+    let grants: i64 = sqlx::query_scalar("SELECT count(*) FROM module_grants")
+        .fetch_one(lab.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(grants, 0);
+    let by_password = Browser::default()
+        .post(
+            lab.address,
+            "/api/auth/login",
+            json!({ "email": "newcomer@yandex.ru", "password": "любой пароль тут" }),
+        )
+        .await;
+    assert_eq!(by_password.body["error"], "invalid_credentials");
+
+    // Второй вход тем же Яндексом — тот же аккаунт, нового не появляется.
+    let mut again = Browser::default();
+    let url = start_login(&lab, &mut again, "yandex", "/").await;
+    come_back(
+        &lab,
+        &mut again,
+        "yandex",
+        &url,
+        yandex_person("555", "other@yandex.ru"),
+    )
+    .await;
+    assert!(again.logged_in());
+    assert_eq!(
+        again.get(lab.address, "/api/auth/me").await.body["id"],
+        me.body["id"]
+    );
+    assert_eq!(accounts(&lab).await, 2);
+
+    // Почта уже занята — аккаунты не объединяются (D-060).
+    let mut stranger = Browser::default();
+    let url = start_login(&lab, &mut stranger, "yandex", "/").await;
+    let taken = come_back(
+        &lab,
+        &mut stranger,
+        "yandex",
+        &url,
+        yandex_person("777", common::EMAIL),
+    )
+    .await;
+    assert_eq!(
+        taken.location.as_deref(),
+        Some("/auth?error=oauth_email_taken&provider=yandex")
+    );
+    assert!(!stranger.logged_in());
+
+    // VK без почты — регистрироваться нечем.
+    let mut no_email = Browser::default();
+    let url = start_login(&lab, &mut no_email, "vk", "/").await;
+    let reply = come_back(&lab, &mut no_email, "vk", &url, json!({ "user_id": 31 })).await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=oauth_email_required&provider=vk")
+    );
+    assert_eq!(accounts(&lab).await, 2);
+
+    // «Вход выключен» действует и на вход через провайдера.
+    set_toggle(&lab, "login.enabled", json!(false)).await;
+    let mut late = Browser::default();
+    let url = start_login(&lab, &mut late, "yandex", "/").await;
+    let reply = come_back(
+        &lab,
+        &mut late,
+        "yandex",
+        &url,
+        yandex_person("555", "x@y.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=login_disabled&provider=yandex")
+    );
+    assert!(!late.logged_in());
+
+    // Регистрация закрыта — неизвестный ID снова просто «не привязан».
+    set_toggle(&lab, "login.enabled", json!(true)).await;
+    set_toggle(&lab, "registration.mode", json!("closed")).await;
+    let mut closed = Browser::default();
+    let url = start_login(&lab, &mut closed, "yandex", "/").await;
+    let reply = come_back(
+        &lab,
+        &mut closed,
+        "yandex",
+        &url,
+        yandex_person("888", "c@y.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=oauth_not_linked&provider=yandex")
+    );
+    assert_eq!(accounts(&lab).await, 2);
+    lab.finish().await;
+}
+
+#[tokio::test]
+async fn invite_only_registration_through_provider_needs_an_invite() {
+    let lab = Lab::new().await;
+    // По умолчанию — по приглашениям: без приглашения — «не привязан».
+    let mut guest = Browser::default();
+    let url = start_login(&lab, &mut guest, "yandex", "/").await;
+    let reply = come_back(
+        &lab,
+        &mut guest,
+        "yandex",
+        &url,
+        yandex_person("1", "g@y.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=oauth_not_linked&provider=yandex")
+    );
+
+    let code = invite(&lab, json!({})).await;
+    let mut guest = Browser::default();
+    let url = start_login(&lab, &mut guest, "yandex", &format!("/today&invite={code}")).await;
+    let reply = come_back(
+        &lab,
+        &mut guest,
+        "yandex",
+        &url,
+        yandex_person("1", "g@y.ru"),
+    )
+    .await;
+    assert_eq!(reply.location.as_deref(), Some("/today"));
+    assert!(guest.logged_in());
+    let status: String = sqlx::query_scalar(
+        "SELECT CASE WHEN used_at IS NULL THEN 'active' ELSE 'used' END FROM invitations",
+    )
+    .fetch_one(lab.db.pool())
+    .await
+    .unwrap();
+    assert_eq!(status, "used");
+
+    // То же приглашение второй раз не работает.
+    let mut second = Browser::default();
+    let url = start_login(&lab, &mut second, "yandex", &format!("/&invite={code}")).await;
+    let reply = come_back(
+        &lab,
+        &mut second,
+        "yandex",
+        &url,
+        yandex_person("2", "h@y.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=invalid_invite&provider=yandex")
+    );
+
+    // Приглашение на почту подходит только для неё.
+    let bound = invite(&lab, json!({ "email": "friend@y.ru" })).await;
+    let mut other = Browser::default();
+    let url = start_login(&lab, &mut other, "yandex", &format!("/&invite={bound}")).await;
+    let reply = come_back(
+        &lab,
+        &mut other,
+        "yandex",
+        &url,
+        yandex_person("3", "not-friend@y.ru"),
+    )
+    .await;
+    assert_eq!(
+        reply.location.as_deref(),
+        Some("/auth?error=invalid_invite&provider=yandex")
+    );
+    let mut friend = Browser::default();
+    let url = start_login(&lab, &mut friend, "yandex", &format!("/&invite={bound}")).await;
+    come_back(
+        &lab,
+        &mut friend,
+        "yandex",
+        &url,
+        yandex_person("4", "Friend@Y.ru"),
+    )
+    .await;
+    assert!(friend.logged_in());
+    assert_eq!(accounts(&lab).await, 3);
+    lab.finish().await;
+}

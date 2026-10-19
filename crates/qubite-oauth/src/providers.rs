@@ -154,7 +154,9 @@ pub(crate) async fn exchange(
         },
         Provider::Google => Identity {
             subject: field(&info, "sub").unwrap_or_default(),
-            email: field(&info, "email"),
+            // Почту Google берём, только если он её подтвердил.
+            email: field(&info, "email")
+                .filter(|_| info.get("email_verified").and_then(Value::as_bool) == Some(true)),
             display_name: field(&info, "name").unwrap_or_default(),
         },
         Provider::Vk => {

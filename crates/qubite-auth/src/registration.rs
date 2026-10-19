@@ -104,7 +104,7 @@ pub async fn register(
             password: "",
             email_verified: false,
         },
-        &hash,
+        Some(&hash),
     )
     .await
     {

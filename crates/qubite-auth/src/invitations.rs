@@ -106,7 +106,8 @@ pub fn format_code(code: &str) -> String {
         .join("-")
 }
 
-pub(crate) fn code_hash(code: &str) -> Vec<u8> {
+/// Хеш кода приглашения (так он лежит в базе).
+pub fn code_hash(code: &str) -> Vec<u8> {
     token_hash(&format!("invite:{}", normalize_code(code)))
 }
 
@@ -252,11 +253,16 @@ pub async fn revoke(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<bool> {
 /// транзакции: две регистрации по одной ссылке пойдут по очереди, и вторая
 /// увидит, что приглашение уже использовано.
 pub(crate) async fn lock_usable(conn: &mut PgConnection, code: &str, email: &str) -> Result<Uuid> {
+    lock_usable_hash(conn, &code_hash(code), email).await
+}
+
+/// То же по хешу кода (вход через провайдера хранит только хеш).
+pub async fn lock_usable_hash(conn: &mut PgConnection, hash: &[u8], email: &str) -> Result<Uuid> {
     let found: Option<(Uuid, Option<String>, bool)> = sqlx::query_as(
         "SELECT id, email, (used_at IS NULL AND revoked_at IS NULL AND expires_at > now()) \
          FROM invitations WHERE code_hash = $1 FOR UPDATE",
     )
-    .bind(code_hash(code))
+    .bind(hash)
     .fetch_optional(conn)
     .await?;
     match found {
@@ -266,7 +272,7 @@ pub(crate) async fn lock_usable(conn: &mut PgConnection, code: &str, email: &str
 }
 
 /// Отметить приглашение использованным (строка уже заблокирована).
-pub(crate) async fn mark_used(conn: &mut PgConnection, id: Uuid, account_id: Uuid) -> Result<()> {
+pub async fn mark_used(conn: &mut PgConnection, id: Uuid, account_id: Uuid) -> Result<()> {
     sqlx::query("UPDATE invitations SET used_at = now(), used_by = $2 WHERE id = $1")
         .bind(id)
         .bind(account_id)

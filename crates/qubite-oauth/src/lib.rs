@@ -15,8 +15,10 @@
 //! - Telegram — виджет входа: данные подписаны ботом (HMAC-SHA256), сервер
 //!   проверяет подпись, свежесть и одноразовость.
 //!
-//! Новый аккаунт через провайдера не создаётся: регистрация — AUTH-003
-//! (вопрос владельцу — Q-26). Неизвестный ID — отказ `oauth_not_linked`.
+//! Неизвестный ID — регистрация по режиму платформы (D-189): открыта — аккаунт
+//! создаётся сразу (нужна почта от провайдера, занятая почта аккаунты не
+//! объединяет); «по приглашениям» — только с приглашением; закрыта — отказ
+//! `oauth_not_linked`.
 
 mod providers;
 mod store;
@@ -220,6 +222,12 @@ pub enum Error {
     AlreadyLinked,
     #[error("неверные данные: {0}")]
     Invalid(String),
+    /// Регистрация через провайдера, но он не сообщил почту.
+    #[error("провайдер не сообщил почту — зарегистрируйтесь по почте и привяжите его в профиле")]
+    EmailRequired,
+    /// Регистрация через провайдера, а аккаунт с этой почтой уже есть (D-060).
+    #[error("аккаунт с этой почтой уже есть — войдите и привяжите провайдера в профиле")]
+    EmailTaken,
     #[error(transparent)]
     Auth(#[from] qubite_auth::Error),
     #[error("ошибка базы данных: {0}")]
@@ -239,6 +247,10 @@ impl Error {
             Self::Taken => "oauth_taken",
             Self::AlreadyLinked => "oauth_already_linked",
             Self::Invalid(_) => "oauth_invalid",
+            Self::EmailRequired => "oauth_email_required",
+            Self::EmailTaken => "oauth_email_taken",
+            Self::Auth(qubite_auth::Error::InviteRequired) => "invite_required",
+            Self::Auth(qubite_auth::Error::InvalidInvite) => "invalid_invite",
             Self::Auth(qubite_auth::Error::AccountBlocked) => "account_blocked",
             Self::Auth(qubite_auth::Error::InvalidCredentials) => "invalid_credentials",
             Self::Auth(qubite_auth::Error::TooManyAttempts { .. }) => "too_many_attempts",
@@ -258,6 +270,9 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Intent {
     Login {
         return_to: String,
+        /// Хеш кода приглашения — для регистрации через провайдера, когда
+        /// регистрация «по приглашениям» (D-189).
+        invite_hash: Option<Vec<u8>>,
     },
     Link {
         account_id: uuid::Uuid,
