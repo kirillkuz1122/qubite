@@ -135,6 +135,60 @@ test('капля: подсветку можно перетащить, а быс�
   await expect(page).toHaveURL(/\/inbox$/);
 });
 
+test.describe('капля на дробном масштабе экрана (ПК, 125 %)', () => {
+  test.use({ deviceScaleFactor: 1.25 });
+
+  test('капля: иконка не уезжает при нажатии, у капли зазор и скругление на любой ширине', async ({
+    page,
+  }) => {
+    await page.goto('/settings');
+    const dock = page.getByRole('navigation', { name: 'Разделы' });
+    for (const width of [360, 545, 733, 899]) {
+      await page.setViewportSize({ width, height: 700 });
+      await expect(dock).toBeVisible();
+      await page.waitForTimeout(400);
+      // середины обеих пилюль кончаются в своих скруглённых концах, а не вылезают в зазор
+      const g = await dock.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const [n, c] = [0, 3].map((k) => {
+          const p = [...el.querySelectorAll('i.q-dock-body')]
+            .slice(k, k + 3)
+            .map((i) => i.getBoundingClientRect());
+          return {
+            mid: p[1]!.right - r.left,
+            cap: p[2]!.right - r.left,
+            cap0: p[0]!.left - r.left,
+          };
+        });
+        return { W: (el as HTMLElement).offsetWidth, n: n!, c: c! };
+      });
+      expect(g.n.cap, `ширина ${width}`).toBeCloseTo(g.W - 68, 0);
+      expect(g.n.mid).toBeLessThanOrEqual(g.n.cap - 14);
+      expect(g.c.cap0 - g.n.cap).toBeCloseTo(8, 0);
+      expect(g.c.mid).toBeLessThanOrEqual(g.c.cap - 14);
+    }
+    // нажатая «Настройки» сжимается на месте — в своей подсветке, а не уезжает к соседу
+    const btn = dock.getByRole('button', { name: 'Настройки' });
+    const box = (await btn.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    const pressed = await dock.evaluate((el) => {
+      const b = el.querySelector('[aria-current="page"]')!.getBoundingClientRect();
+      const i = [...el.querySelectorAll('i.q-dock-ind')].map((x) => x.getBoundingClientRect());
+      return {
+        scale: getComputedStyle(el.querySelector('[aria-current="page"]')!).scale,
+        b: (b.left + b.right) / 2,
+        ind: (i[0]!.left + i[2]!.right) / 2,
+      };
+    });
+    await page.mouse.up();
+    expect(pressed.scale).not.toBe('none');
+    // раньше иконка уезжала на ~100 px; пара пикселей — подсветка ещё доезжает после смены ширины
+    expect(Math.abs(pressed.b - pressed.ind)).toBeLessThan(4);
+  });
+});
+
 test('микрофон не сворачивает строку Command', async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 1280) >= 900, 'микрофон — только на телефоне');
   await page.goto('/today');

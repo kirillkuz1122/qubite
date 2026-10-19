@@ -9,17 +9,15 @@ import { feelOf, scaled } from './feel';
 import { useLook } from './look';
 
 /**
- * Середина подложки — полоска в 1 px, растянутая transform-ом (только transform — без пересчёта раскладки).
- * При дробном масштабе экрана (например, 1,047) браузер рисует её шириной в целое число физических
- * пикселей — то есть не 1 px, а 1/1,047. Растягиваем с поправкой на эту настоящую ширину, иначе
- * середина выходила короче и в капле появлялась «дырка». Широкая полоса (1000 px) тоже лечила «дырку»,
- * но браузер перерисовывал её большой слой каждый кадр — кадры удваивались (D-185).
+ * Середина подложки — полоска шириной MID, растянутая transform-ом (только transform — без пересчёта
+ * раскладки). Раньше полоска была в 1 px с поправкой на дробный масштаб экрана (D-185), но браузеры
+ * округляют её по-разному: Chrome на 125 % рисует 1,25 физических пикселя без округления, и поправка
+ * удлиняла середину на четверть — она вылезала за край капли, пропадали зазор и скругление; на 150 %
+ * середина выходила короче и в капле появлялась «дырка» (D-244). Полоса в 64 px — целое число
+ * физических пикселей при 100, 125, 150, 175 и 200 %, а где округление всё же есть, ошибка меньше
+ * пикселя на всю длину. Слой маленький — не то что 1000 px, на которых кадры удваивались.
  */
-const MID = 1;
-function midWidth(): number {
-  const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
-  return Math.max(1, Math.round(MID * dpr)) / dpr;
-}
+const MID = 64;
 
 export interface FlowHandle {
   /**
@@ -80,7 +78,7 @@ export function useFlow(cross: number, offset = 0, opts: FlowOptions = {}) {
     const t = (v: number) => (y ? `translate(${o}px, ${v}px)` : `translate(${v}px, ${o}px)`);
     l.style.transform = t(a);
     rr.style.transform = t(b - cap);
-    m.style.transform = `${t(a + r - 0.5)} ${y ? 'scaleY' : 'scaleX'}(${((b - a - cap + 1) / midWidth()).toFixed(5)})`;
+    m.style.transform = `${t(a + r - 0.5)} ${y ? 'scaleY' : 'scaleX'}(${((b - a - cap + 1) / MID).toFixed(5)})`;
   }, [springs, look.round, cross, y]);
 
   useEffect(() => {

@@ -90,7 +90,9 @@ export function Dock<T extends string>({
       b.style.opacity = keep ? '1' : Math.max(0, 1 - v * 1.8).toFixed(3);
       b.style.pointerEvents = v > 0.5 && !keep ? 'none' : '';
       const x = keep ? geo.current.x0(i) * (1 - v) + 4 * v : geo.current.x0(i);
-      b.style.transform = `translateX(${x.toFixed(2)}px)`;
+      // свойство translate, а не transform: нажатие (usePress) и «вздрагивание» (flyDot) пишут scale,
+      // а scale умножает transform — иконка при нажатии уезжала влево тем сильнее, чем правее стоит
+      b.style.translate = `${x.toFixed(2)}px`;
     });
   });
 
