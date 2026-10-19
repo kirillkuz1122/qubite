@@ -197,6 +197,9 @@ struct ServeArgs {
 
     #[command(flatten)]
     overrides: OverrideArgs,
+    /// Через сколько дней корзина Входящих удаляется навсегда; 0 — никогда (D-199).
+    #[arg(long, env = "QUBITE_INBOX_TRASH_DAYS", default_value_t = qubite_inbox::TRASH_DAYS)]
+    inbox_trash_days: u32,
 }
 
 /// Аварийные переключатели (ACC-002): сильнее тумблеров Owner Console.
@@ -629,6 +632,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     };
     let maintenance =
         qubite_server::ai::spawn_maintenance(db.pool().clone(), args.ai.clone(), openrouter);
+    let trash = qubite_server::inbox::spawn_trash_cleanup(db.pool().clone(), args.inbox_trash_days);
     let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await
@@ -644,6 +648,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     maintenance.abort();
+    trash.abort();
     db.close().await;
     tracing::info!("Qubite остановлен");
     Ok(())

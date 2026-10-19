@@ -437,3 +437,93 @@ async fn websocket_says_something_changed_only_to_its_account() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn owner_decides_items_command_was_unsure_about() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let created = owner
+        .post_json(
+            address,
+            "/api/v1/inbox",
+            json!({ "text": "графы или олимпиада?" }),
+        )
+        .await;
+    let id: Uuid = created.body["id"].as_str().unwrap().parse().unwrap();
+    let account: Uuid = owner.get(address, "/api/auth/me").await.body["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let mut conn = db.pool().acquire().await.unwrap();
+    let project = qubite_objects::objects::create(
+        &mut conn,
+        qubite_objects::NewObject::new("planner.project", account, "Олимпиада"),
+    )
+    .await
+    .unwrap();
+    // Command (AI) разобрал, но не уверен.
+    qubite_inbox::suggest(
+        &mut conn,
+        account,
+        id,
+        1,
+        account,
+        qubite_inbox::Suggestion {
+            intent: qubite_inbox::Intent::Task,
+            by: qubite_inbox::TriageBy::Ai,
+            confidence: Some(0.5),
+            summary: Some("Похоже на задачу".into()),
+            links: vec![],
+            needs_review: None,
+        },
+    )
+    .await
+    .unwrap();
+    drop(conn);
+
+    let review = owner.get(address, "/api/v1/inbox?view=review").await;
+    assert_eq!(review.status, 200, "{:?}", review.body);
+    assert_eq!(review.body.as_array().unwrap().len(), 1);
+    assert_eq!(review.body[0]["needs_review"], true);
+    assert!(
+        review.body[0]["review_reason"]
+            .as_str()
+            .unwrap()
+            .contains("Не уверен")
+    );
+
+    let path = format!("/api/v1/inbox/{id}/decide");
+    let bad = owner
+        .post_json(address, &path, json!({ "revision": 2, "intent": "мусор" }))
+        .await;
+    assert_eq!(bad.status, 400);
+    let stale = owner
+        .post_json(address, &path, json!({ "revision": 1, "intent": "note" }))
+        .await;
+    assert_eq!(stale.status, 409);
+    let decided = owner
+        .post_json(
+            address,
+            &path,
+            json!({ "revision": 2, "intent": "project_thought", "link_to": [project.id] }),
+        )
+        .await;
+    assert_eq!(decided.status, 200, "{:?}", decided.body);
+    assert_eq!(decided.body["status"], "archived");
+    assert_eq!(decided.body["needs_review"], false);
+    assert_eq!(decided.body["triage"]["intent"], "project_thought");
+    let detail = owner.get(address, &format!("/api/v1/inbox/{id}")).await;
+    assert_eq!(detail.body["links"][0]["title"], "Олимпиада");
+    assert!(
+        owner
+            .get(address, "/api/v1/inbox?view=review")
+            .await
+            .body
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}

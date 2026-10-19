@@ -13,7 +13,8 @@ export const INBOX_ITEM = 'inbox.item';
 export const TITLE_CHARS = 200;
 
 export type InboxSource = 'web' | 'desktop' | 'android' | 'api';
-export type InboxView = 'new' | 'archived' | 'trash';
+/** `review` — Command не уверен, нужно решение владельца («посмотри сам»). */
+export type InboxView = 'new' | 'review' | 'archived' | 'trash';
 
 export interface CaptureOptions {
   url?: string;
@@ -72,7 +73,9 @@ export async function inboxItems(
   const matches = (object: LocalObject) => {
     if (view === 'trash') return object.deleted;
     if (object.deleted) return false;
-    return (object.fields?.status ?? 'new') === view;
+    const status = object.fields?.status ?? 'new';
+    if (view === 'review') return status === 'new' && object.fields?.needs_review === true;
+    return status === view;
   };
   const capturedAt = (object: LocalObject) =>
     typeof object.fields?.captured_at_ms === 'number'

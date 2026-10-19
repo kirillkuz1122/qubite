@@ -135,7 +135,8 @@ impl AppState {
         inbox::detail,
         inbox::change,
         inbox::remove,
-        inbox::restore
+        inbox::restore,
+        inbox::decide
     ),
     components(schemas(
         Health,
@@ -187,7 +188,8 @@ impl AppState {
         inbox::InboxItemDetail,
         inbox::CaptureRequest,
         inbox::ChangeRequest,
-        inbox::RevisionBody
+        inbox::RevisionBody,
+        inbox::DecideRequest
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -291,6 +293,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
                 .delete(inbox::remove),
         )
         .route("/api/v1/inbox/{id}/restore", post(inbox::restore))
+        .route("/api/v1/inbox/{id}/decide", post(inbox::decide))
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы
         // (им нужно знать, owner ли пришёл).

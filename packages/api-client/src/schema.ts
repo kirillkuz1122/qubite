@@ -659,6 +659,23 @@ export interface paths {
     patch: operations['change'];
     trace?: never;
   };
+  '/api/v1/inbox/{id}/decide': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Владелец решил сам («посмотри сам»): элемент разобран и уходит в архив. */
+    post: operations['decide'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/inbox/{id}/restore': {
     parameters: {
       query?: never;
@@ -813,6 +830,15 @@ export interface components {
       /** @description `new` или `archived`. */
       status?: string | null;
     };
+    /** @description Решение владельца: что это и с чем связать. */
+    DecideRequest: {
+      /** @description `task`, `note`, `project_thought`, `agent_request`, `other`. */
+      intent: string;
+      /** @description Свои объекты (проекты, задачи, документы), к которым относится элемент. */
+      link_to?: string[];
+      /** Format: int64 */
+      revision: number;
+    };
     DeviceAuthorizeRequest: {
       /** @description `qubite-desktop` или `qubite-android`. */
       client_id: string;
@@ -904,6 +930,9 @@ export interface components {
       id: string;
       /** @description `text`, `link`, `file`, `voice`. */
       kind: string;
+      /** @description Command не уверен, что это и куда положить, — «посмотри сам». */
+      needs_review: boolean;
+      review_reason?: string | null;
       /**
        * Format: int64
        * @description Версия: её передают при изменении, чтобы не затереть чужую правку.
@@ -2644,7 +2673,7 @@ export interface operations {
   list: {
     parameters: {
       query?: {
-        /** @description `new` (по умолчанию), `archived` или `trash`. */
+        /** @description `new` (по умолчанию), `review` («посмотри сам»), `archived` или `trash`. */
         view?: string | null;
         /** @description До 500, по умолчанию 100. */
         limit?: number | null;
@@ -2863,6 +2892,60 @@ export interface operations {
         };
       };
       /** @description Элемент уже изменили — версия устарела */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  decide: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DecideRequest'];
+      };
+    };
+    responses: {
+      /** @description Разобрано, в архиве */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InboxItem'];
+        };
+      };
+      /** @description Неизвестный вид */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого элемента или объекта для связи */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Версия устарела */
       409: {
         headers: {
           [name: string]: unknown;

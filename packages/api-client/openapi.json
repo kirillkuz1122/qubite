@@ -1656,7 +1656,7 @@
           {
             "name": "view",
             "in": "query",
-            "description": "`new` (по умолчанию), `archived` или `trash`.",
+            "description": "`new` (по умолчанию), `review` («посмотри сам»), `archived` или `trash`.",
             "required": false,
             "schema": {
               "type": ["string", "null"]
@@ -1934,6 +1934,77 @@
           },
           "409": {
             "description": "Элемент уже изменили — версия устарела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox/{id}/decide": {
+      "post": {
+        "tags": ["inbox"],
+        "summary": "Владелец решил сам («посмотри сам»): элемент разобран и уходит в архив.",
+        "operationId": "decide",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Разобрано, в архиве",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неизвестный вид",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого элемента или объекта для связи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Версия устарела",
             "content": {
               "application/json": {
                 "schema": {
@@ -2286,6 +2357,30 @@
         },
         "additionalProperties": false
       },
+      "DecideRequest": {
+        "type": "object",
+        "description": "Решение владельца: что это и с чем связать.",
+        "required": ["revision", "intent"],
+        "properties": {
+          "intent": {
+            "type": "string",
+            "description": "`task`, `note`, `project_thought`, `agent_request`, `other`."
+          },
+          "link_to": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Свои объекты (проекты, задачи, документы), к которым относится элемент."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
       "DeviceAuthorizeRequest": {
         "type": "object",
         "required": [
@@ -2478,6 +2573,7 @@
           "status",
           "deleted",
           "captured_at",
+          "needs_review",
           "triage"
         ],
         "properties": {
@@ -2504,6 +2600,13 @@
           "kind": {
             "type": "string",
             "description": "`text`, `link`, `file`, `voice`."
+          },
+          "needs_review": {
+            "type": "boolean",
+            "description": "Command не уверен, что это и куда положить, — «посмотри сам»."
+          },
+          "review_reason": {
+            "type": ["string", "null"]
           },
           "revision": {
             "type": "integer",

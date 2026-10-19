@@ -430,6 +430,7 @@ async fn triage_links_own_objects_and_confirm_archives() {
                 to: foreign.id,
                 confidence: None,
             }],
+            needs_review: None,
         },
     )
     .await;
@@ -466,6 +467,7 @@ async fn triage_links_own_objects_and_confirm_archives() {
                 confidence: Some(0.7),
             })
             .collect(),
+        needs_review: None,
     };
     let item = qubite_inbox::suggest(&mut conn, owner, id, 1, owner, suggestion(vec![project.id]))
         .await
@@ -543,5 +545,198 @@ async fn every_change_notifies_the_owner_channel() {
         owner.to_string(),
         "только ID владельца, без данных"
     );
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn unsure_triage_asks_owner_and_owner_decides() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    let mut conn = db.pool().acquire().await.unwrap();
+    let project = objects::create(
+        &mut conn,
+        NewObject::new("planner.project", owner, "Олимпиада"),
+    )
+    .await
+    .unwrap();
+    drop(conn);
+    let (sure, unsure, explicit) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    push(
+        &db,
+        owner,
+        vec![
+            create(sure, "купить хлеб", None),
+            create(unsure, "графы?", None),
+            create(explicit, "подумать про проект", None),
+        ],
+        &rules(),
+    )
+    .await;
+    let mut conn = db.pool().acquire().await.unwrap();
+    let guess = |confidence: f32, needs_review: Option<&str>| Suggestion {
+        intent: Intent::Task,
+        by: TriageBy::Ai,
+        confidence: Some(confidence),
+        summary: None,
+        links: vec![],
+        needs_review: needs_review.map(str::to_owned),
+    };
+    let item = qubite_inbox::suggest(&mut conn, owner, sure, 1, owner, guess(0.95, None))
+        .await
+        .unwrap();
+    assert!(!item.needs_review, "уверенный разбор не дёргает владельца");
+    let item = qubite_inbox::suggest(&mut conn, owner, unsure, 1, owner, guess(0.4, None))
+        .await
+        .unwrap();
+    assert!(item.needs_review, "уверенность ниже 0.7 — «посмотри сам»");
+    assert!(item.review_reason.unwrap().contains("Не уверен"));
+    let item = qubite_inbox::suggest(
+        &mut conn,
+        owner,
+        explicit,
+        1,
+        owner,
+        guess(0.9, Some("Подходят два проекта")),
+    )
+    .await
+    .unwrap();
+    assert_eq!(item.review_reason.as_deref(), Some("Подходят два проекта"));
+    assert_eq!(
+        item.fields()["needs_review"],
+        true,
+        "флаг уходит на устройства"
+    );
+
+    let review = qubite_inbox::list(&mut conn, owner, View::Review, 50)
+        .await
+        .unwrap();
+    assert_eq!(review.len(), 2);
+
+    // Владелец выбрал сам: заметка к проекту — разобрано и в архиве.
+    let decided = qubite_inbox::decide(
+        &mut conn,
+        owner,
+        explicit,
+        2,
+        owner,
+        Intent::Note,
+        vec![project.id],
+    )
+    .await
+    .unwrap();
+    assert!(!decided.needs_review);
+    assert_eq!(decided.status, Status::Archived);
+    assert_eq!(decided.triage.status, TriageStatus::Confirmed);
+    assert_eq!(decided.triage.intent, Some(Intent::Note));
+    assert_eq!(decided.triage.details["by"], "person");
+    let links = qubite_inbox::links(&mut conn, explicit).await.unwrap();
+    assert_eq!(
+        (links[0].to_id, links[0].source.as_str()),
+        (project.id, "manual")
+    );
+    assert_eq!(
+        qubite_inbox::list(&mut conn, owner, View::Review, 50)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    // Старая версия — конфликт, ничего не меняется.
+    assert!(matches!(
+        qubite_inbox::decide(&mut conn, owner, unsure, 1, owner, Intent::Other, vec![]).await,
+        Err(qubite_objects::Error::Conflict { .. })
+    ));
+    drop(conn);
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn trash_is_purged_after_the_configured_days() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    let (old, recent, live) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    push(
+        &db,
+        owner,
+        vec![
+            create(old, "старое", None),
+            create(recent, "недавнее", None),
+            create(live, "живое", None),
+        ],
+        &rules(),
+    )
+    .await;
+    let mut conn = db.pool().acquire().await.unwrap();
+    let project = objects::create(
+        &mut conn,
+        NewObject::new("planner.project", owner, "Проект"),
+    )
+    .await
+    .unwrap();
+    relations::link(
+        &mut conn,
+        NewRelation::manual(old, project.id, qubite_inbox::ABOUT, owner),
+    )
+    .await
+    .unwrap();
+    drop(conn);
+    for id in [old, recent] {
+        let delete = Operation {
+            op_id: Uuid::now_v7(),
+            object_id: id,
+            base_revision: Some(1),
+            kind: OpKind::Delete,
+        };
+        let result = push(&db, owner, vec![delete], &rules()).await;
+        assert!(matches!(result[0], OpResult::Applied { .. }), "{result:?}");
+    }
+    sqlx::query("UPDATE objects SET deleted_at = now() - interval '31 days' WHERE id = $1")
+        .bind(old)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let mut conn = db.pool().acquire().await.unwrap();
+    assert_eq!(
+        qubite_inbox::purge_trash(&mut conn, qubite_inbox::TRASH_DAYS)
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(
+        objects::get_any(&mut conn, old).await.unwrap().is_none(),
+        "удалено навсегда"
+    );
+    assert!(
+        objects::get_any(&mut conn, recent).await.unwrap().is_some(),
+        "недавнее ждёт в корзине"
+    );
+    assert!(objects::get_any(&mut conn, live).await.unwrap().is_some());
+    let relations: i64 = sqlx::query_scalar("SELECT count(*) FROM relations WHERE from_id = $1")
+        .bind(old)
+        .fetch_one(&mut *conn)
+        .await
+        .unwrap();
+    assert_eq!(relations, 0, "связи ушли вместе с элементом");
+    let history: i64 = sqlx::query_scalar("SELECT count(*) FROM events WHERE object_id = $1")
+        .bind(old)
+        .fetch_one(&mut *conn)
+        .await
+        .unwrap();
+    assert!(history > 0, "история событий остаётся");
+    assert_eq!(
+        qubite_inbox::purge_trash(&mut conn, qubite_inbox::TRASH_DAYS)
+            .await
+            .unwrap(),
+        0
+    );
+    // Срок настраивается: 0 дней — всё из корзины сразу.
+    assert_eq!(qubite_inbox::purge_trash(&mut conn, 0).await.unwrap(), 1);
+    let audited: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action = 'inbox.trash_purged'")
+            .fetch_one(&mut *conn)
+            .await
+            .unwrap();
+    assert_eq!(audited, 2);
+    drop(conn);
     test_db.drop_db().await;
 }

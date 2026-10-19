@@ -118,6 +118,24 @@ describe('Входящие без сети', () => {
     client.close();
   });
 
+  it('«посмотри сам» — отдельный список из пришедших с сервера полей', async () => {
+    const server = new InboxServer();
+    const client = await open(server);
+    const item = await captureThought(client, 'графы или олимпиада?');
+    await client.sync();
+    const stored = server.objects.get(item.id)!;
+    server.objects.set(item.id, {
+      ...stored,
+      revision: 2,
+      fields: { ...stored.fields, needs_review: true, review_reason: 'Не уверен' },
+    });
+    server.log.push(item.id);
+    await client.sync();
+    expect((await inboxItems(client, 'review')).map((i) => i.id)).toEqual([item.id]);
+    expect((await inboxItems(client, 'new')).map((i) => i.id)).toEqual([item.id]);
+    client.close();
+  });
+
   it('мысль с другого устройства приходит с полями', async () => {
     const server = new InboxServer();
     const phone = await open(server);

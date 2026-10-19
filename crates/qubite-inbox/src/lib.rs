@@ -12,8 +12,11 @@
 //! синхронизации (одна проверка, одна история, «есть новое» на все устройства):
 //! операции `/api/v1/sync/push` с устройства и обычные адреса `/api/v1/inbox`.
 //!
-//! Решения — D-190…D-193: разобранное уходит в архив, а не удаляется;
-//! удалить — в корзину с отменой; ручных тегов и папок нет.
+//! Решения — D-190…D-193, D-199: разобранное уходит в архив, а не удаляется;
+//! удалить — в корзину с отменой, корзина чистится сама через 30 дней; ручных
+//! тегов и папок нет. Разбирает Qubite Command; если он не уверен, элемент
+//! помечается «нужно решение владельца» ([`Item::needs_review`]) и владелец
+//! выбирает сам ([`decide`]).
 
 use qubite_objects::{Error, NewRelation, RelationSource, Result, objects, relations};
 use qubite_sync_server::{BoxFuture, FieldsError, TypeFields};
@@ -33,6 +36,10 @@ pub const MAX_BODY_CHARS: usize = 20_000;
 pub const TITLE_CHARS: usize = 200;
 /// Тип связи «элемент про этот объект» (проект, задачу, документ).
 pub const ABOUT: &str = "about";
+/// Ниже этой уверенности разбор не принимается молча: «посмотри сам».
+pub const REVIEW_BELOW: f32 = 0.7;
+/// Сколько дней элемент лежит в корзине до удаления навсегда (по умолчанию).
+pub const TRASH_DAYS: u32 = 30;
 
 // ---------------------------------------------------------------- значения
 
@@ -119,6 +126,9 @@ pub struct Item {
     pub captured_at: OffsetDateTime,
     pub status: Status,
     pub archived_at: Option<OffsetDateTime>,
+    /// Command не уверен, что это и куда положить, — нужно решение владельца.
+    pub needs_review: bool,
+    pub review_reason: Option<String>,
     pub triage: Triage,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
@@ -150,6 +160,8 @@ struct Row {
     captured_at: OffsetDateTime,
     status: String,
     archived_at: Option<OffsetDateTime>,
+    needs_review: bool,
+    review_reason: Option<String>,
     triage_status: String,
     intent: Option<String>,
     triage: Value,
@@ -158,7 +170,7 @@ struct Row {
 
 const SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, o.created_at, \
      o.updated_at, i.kind, i.body, i.url, i.source, i.captured_at, i.status, i.archived_at, \
-     i.triage_status, i.intent, i.triage, i.triaged_at \
+     i.needs_review, i.review_reason, i.triage_status, i.intent, i.triage, i.triaged_at \
      FROM objects o JOIN inbox_items i ON i.object_id = o.id";
 
 fn parse<T: std::str::FromStr<Err = String>>(value: &str) -> Result<T> {
@@ -181,6 +193,8 @@ impl TryFrom<Row> for Item {
             captured_at: row.captured_at,
             status: parse(&row.status)?,
             archived_at: row.archived_at,
+            needs_review: row.needs_review,
+            review_reason: row.review_reason,
             triage: Triage {
                 status: parse(&row.triage_status)?,
                 // Незнакомое значение (из более новой версии) не ломает чтение.
@@ -205,6 +219,8 @@ impl Item {
             "captured_at_ms": millis(self.captured_at),
             "status": self.status,
             "archived_at_ms": self.archived_at.map(millis),
+            "needs_review": self.needs_review,
+            "review_reason": self.review_reason,
             "triage": {
                 "status": self.triage.status,
                 "intent": self.triage.intent,
@@ -258,6 +274,8 @@ pub enum View {
     Archived,
     /// Корзина.
     Trash,
+    /// Ждут решения владельца («посмотри сам»).
+    Review,
 }
 
 /// Элементы владельца, свежие сверху.
@@ -271,6 +289,7 @@ pub async fn list(
         View::New => "o.deleted_at IS NULL AND i.status = 'new'",
         View::Archived => "o.deleted_at IS NULL AND i.status = 'archived'",
         View::Trash => "o.deleted_at IS NOT NULL",
+        View::Review => "o.deleted_at IS NULL AND i.status = 'new' AND i.needs_review",
     };
     let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{SELECT} WHERE o.owner_id = $1 AND {filter} \
@@ -496,6 +515,9 @@ pub struct Suggestion {
     /// Краткая суть для показа («Задача: повторить графы к пятнице»).
     pub summary: Option<String>,
     pub links: Vec<SuggestedLink>,
+    /// Command сам не уверен — почему нужно решение владельца. Уверенность
+    /// ниже [`REVIEW_BELOW`] тоже означает «посмотри сам».
+    pub needs_review: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -549,13 +571,25 @@ pub async fn suggest(
         "confidence": suggestion.confidence,
         "summary": suggestion.summary,
     });
+    let unsure = suggestion.by != TriageBy::Person
+        && suggestion
+            .confidence
+            .is_some_and(|confidence| confidence < REVIEW_BELOW);
+    let review_reason = suggestion
+        .needs_review
+        .clone()
+        .or_else(|| unsure.then(|| "Не уверен, что это и куда положить".to_owned()));
+    let review_reason: Option<String> =
+        review_reason.map(|reason| reason.chars().take(500).collect());
     sqlx::query(
         "UPDATE inbox_items SET triage_status = 'suggested', intent = $2, triage = $3, \
-         triaged_at = now() WHERE object_id = $1",
+         triaged_at = now(), needs_review = $4, review_reason = $5 WHERE object_id = $1",
     )
     .bind(id)
     .bind(suggestion.intent.as_str())
     .bind(details)
+    .bind(review_reason.is_some())
+    .bind(&review_reason)
     .execute(&mut *tx)
     .await?;
     objects::bump(&mut tx, item.id, expected_revision, actor, &["triage"]).await?;
@@ -579,15 +613,86 @@ pub async fn confirm(
             "нечего подтверждать: разбора ещё нет".into(),
         ));
     }
-    sqlx::query("UPDATE inbox_items SET triage_status = 'confirmed' WHERE object_id = $1")
-        .bind(id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE inbox_items SET triage_status = 'confirmed', needs_review = false, \
+         review_reason = NULL WHERE object_id = $1",
+    )
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
     set_status(&mut tx, id, Status::Archived).await?;
     objects::bump(&mut tx, id, expected_revision, actor, &["triage", "status"]).await?;
     let item = get(&mut tx, owner, id).await?.ok_or(Error::NotFound)?;
     tx.commit().await?;
     Ok(item)
+}
+
+/// Владелец решил сам («посмотри сам» или просто по-своему): что это и с
+/// чем связать. Элемент считается разобранным и уходит в архив.
+pub async fn decide(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    id: Uuid,
+    expected_revision: i64,
+    actor: Uuid,
+    intent: Intent,
+    links: Vec<Uuid>,
+) -> Result<Item> {
+    let mut tx = conn.begin().await?;
+    let suggested = suggest(
+        &mut tx,
+        owner,
+        id,
+        expected_revision,
+        actor,
+        Suggestion {
+            intent,
+            by: TriageBy::Person,
+            confidence: None,
+            summary: None,
+            links: links
+                .into_iter()
+                .map(|to| SuggestedLink {
+                    to,
+                    confidence: None,
+                })
+                .collect(),
+            needs_review: None,
+        },
+    )
+    .await?;
+    let item = confirm(&mut tx, owner, id, suggested.revision, actor).await?;
+    tx.commit().await?;
+    Ok(item)
+}
+
+/// Удалить навсегда то, что лежит в корзине дольше `days` дней (D-199).
+/// Связи и вложения уходят вместе с элементом; история событий остаётся.
+pub async fn purge_trash(conn: &mut PgConnection, days: u32) -> Result<u64> {
+    let mut tx = conn.begin().await?;
+    let removed: Vec<Uuid> = sqlx::query_scalar(
+        "DELETE FROM objects WHERE type = $1 AND deleted_at IS NOT NULL \
+         AND deleted_at < now() - $2::float8 * interval '1 day' RETURNING id",
+    )
+    .bind(ITEM_TYPE)
+    .bind(f64::from(days))
+    .fetch_all(&mut *tx)
+    .await?;
+    if !removed.is_empty() {
+        qubite_objects::audit::record(
+            &mut tx,
+            qubite_objects::NewAuditEntry {
+                actor_id: None,
+                action: "inbox.trash_purged".into(),
+                target_kind: "inbox".into(),
+                after: Some(json!({ "count": removed.len(), "days": days })),
+                ..qubite_objects::NewAuditEntry::default()
+            },
+        )
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(removed.len() as u64)
 }
 
 async fn live_item(conn: &mut PgConnection, owner: Uuid, id: Uuid) -> Result<Item> {

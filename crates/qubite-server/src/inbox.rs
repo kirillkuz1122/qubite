@@ -49,6 +49,9 @@ pub struct InboxItem {
     captured_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
     archived_at: Option<OffsetDateTime>,
+    /// Command не уверен, что это и куда положить, — «посмотри сам».
+    needs_review: bool,
+    review_reason: Option<String>,
     triage: InboxTriage,
 }
 
@@ -104,6 +107,8 @@ impl From<Item> for InboxItem {
             deleted: item.deleted,
             captured_at: item.captured_at,
             archived_at: item.archived_at,
+            needs_review: item.needs_review,
+            review_reason: item.review_reason,
             triage: InboxTriage {
                 status: as_text(item.triage.status),
                 intent: item.triage.intent.map(as_text),
@@ -207,7 +212,7 @@ async fn finish(
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct ListQuery {
-    /// `new` (по умолчанию), `archived` или `trash`.
+    /// `new` (по умолчанию), `review` («посмотри сам»), `archived` или `trash`.
     view: Option<String>,
     /// До 500, по умолчанию 100.
     limit: Option<i64>,
@@ -232,7 +237,7 @@ pub async fn list(
             ApiError::new(
                 StatusCode::BAD_REQUEST,
                 "invalid",
-                "Вид: new, archived или trash",
+                "Вид: new, review, archived или trash",
             )
         })?;
     let mut conn = state.db.pool().acquire().await.map_err(|error| {
@@ -445,4 +450,89 @@ pub async fn restore(
     )
     .await?;
     finish(&state, proof.account_id(), id, result).await
+}
+
+/// Решение владельца: что это и с чем связать.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DecideRequest {
+    revision: i64,
+    /// `task`, `note`, `project_thought`, `agent_request`, `other`.
+    intent: String,
+    /// Свои объекты (проекты, задачи, документы), к которым относится элемент.
+    #[serde(default)]
+    link_to: Vec<Uuid>,
+}
+
+/// Владелец решил сам («посмотри сам»): элемент разобран и уходит в архив.
+#[utoipa::path(post, path = "/api/v1/inbox/{id}/decide", tag = "inbox", request_body = DecideRequest,
+    params(("id" = Uuid, Path, description = "ID элемента")),
+    responses(
+        (status = 200, description = "Разобрано, в архиве", body = InboxItem),
+        (status = 400, description = "Неизвестный вид", body = ApiErrorBody),
+        (status = 404, description = "Нет такого элемента или объекта для связи", body = ApiErrorBody),
+        (status = 409, description = "Версия устарела", body = ApiErrorBody),
+    ))]
+pub async fn decide(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    Json(request): Json<DecideRequest>,
+) -> Result<Json<InboxItem>, ApiError> {
+    let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
+    let intent: qubite_inbox::Intent = request
+        .intent
+        .parse()
+        .map_err(|message: String| ApiError::new(StatusCode::BAD_REQUEST, "invalid", message))?;
+    let mut conn = state.db.pool().acquire().await.map_err(|error| {
+        tracing::error!(%error, "Входящие: база недоступна");
+        ApiError::internal()
+    })?;
+    let item = qubite_inbox::decide(
+        &mut conn,
+        proof.account_id(),
+        id,
+        request.revision,
+        proof.account_id(),
+        intent,
+        request.link_to,
+    )
+    .await
+    .map_err(|error| match error {
+        qubite_objects::Error::NotFound | qubite_objects::Error::Deleted => not_found(),
+        qubite_objects::Error::Conflict { current, .. } => ApiError::new(
+            StatusCode::CONFLICT,
+            "conflict",
+            format!("Элемент уже изменили (версия {current}). Обновите и повторите."),
+        ),
+        qubite_objects::Error::Invalid(message) => {
+            ApiError::new(StatusCode::BAD_REQUEST, "invalid", message)
+        }
+        other => objects_error(other),
+    })?;
+    Ok(Json(item.into()))
+}
+
+/// Раз в час удалять навсегда то, что лежит в корзине Входящих дольше `days`
+/// дней (D-199). `0` — не чистить.
+pub fn spawn_trash_cleanup(pool: sqlx::PgPool, days: u32) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        if days == 0 {
+            return;
+        }
+        let mut every = tokio::time::interval(std::time::Duration::from_secs(60 * 60));
+        loop {
+            every.tick().await;
+            let result = async {
+                let mut conn = pool.acquire().await?;
+                qubite_inbox::purge_trash(&mut conn, days).await
+            }
+            .await;
+            match result {
+                Ok(0) => {}
+                Ok(count) => tracing::info!(count, days, "корзина Входящих очищена"),
+                Err(error) => tracing::warn!(%error, "корзина Входящих не очищена"),
+            }
+        }
+    })
 }
