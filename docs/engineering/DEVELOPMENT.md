@@ -60,6 +60,10 @@ DATABASE_URL=… cargo run --bin qubite -- owner create --email you@example.ru -
 #   пароль спросит дважды без отображения; для скриптов: echo "$PASS" | … --password-stdin
 DATABASE_URL=… cargo run --bin qubite -- owner password   # новый пароль, все сессии owner закрываются
 
+# Telegram-бот (CMD-006): нужен токен нового бота от @BotFather
+DATABASE_URL=… QUBITE_TELEGRAM_BOT_TOKEN=… cargo run --bin qubite -- bot
+DATABASE_URL=… cargo run --bin qubite -- notify backup_failed "Бэкап не прошёл" --key backup:2026-10-19
+
 # Вход (cookie qubite_session + qubite_csrf); изменяющим запросам нужен заголовок X-CSRF-Token
 curl -i -c jar -H 'content-type: application/json' \
   -d '{"email":"you@example.ru","password":"…"}' http://127.0.0.1:8080/api/auth/login

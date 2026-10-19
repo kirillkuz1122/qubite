@@ -186,6 +186,12 @@ pub struct PasswordConfirm {
     password: String,
 }
 
+impl PasswordConfirm {
+    pub(crate) fn password(&self) -> &str {
+        &self.password
+    }
+}
+
 /// Адрес провайдера для привязки.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct LinkStarted {
@@ -246,7 +252,7 @@ pub async fn start_link(
     Ok(response)
 }
 
-async fn confirm(
+pub(crate) async fn confirm(
     state: &AppState,
     session: &Authenticated,
     headers: &HeaderMap,

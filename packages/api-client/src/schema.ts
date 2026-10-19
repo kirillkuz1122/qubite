@@ -536,6 +536,40 @@ export interface paths {
     patch: operations['owner_update_module'];
     trace?: never;
   };
+  '/api/owner/notifications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Какие уведомления владелец получает в Telegram. */
+    get: operations['notification_settings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/notifications/{kind}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Включить или выключить вид уведомлений. */
+    put: operations['change_notification'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/platform': {
     parameters: {
       query?: never;
@@ -697,6 +731,26 @@ export interface paths {
     get: operations['socket'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/telegram/link-code': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Привязать Telegram к своему аккаунту через бота (нужен пароль). После
+     *     привязки сообщения боту попадают во Входящие, owner получает уведомления.
+     */
+    post: operations['link_code'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1017,6 +1071,16 @@ export interface components {
       /** @description `locked` или `hidden` — как модуль виден без доступа. */
       visibility: string;
     };
+    NotificationChange: {
+      enabled: boolean;
+    };
+    /** @description Вид уведомлений и включён ли он. */
+    NotificationSetting: {
+      enabled: boolean;
+      /** @description `new_device_login`, `ai_budget_80`, `server_down`… */
+      kind: string;
+      title: string;
+    };
     /** @description Способ входа на экране входа. */
     OAuthProviderItem: {
       bot_name?: string | null;
@@ -1153,6 +1217,16 @@ export interface components {
     TelegramLink: {
       auth: components['schemas']['TelegramAuth'];
       password: string;
+    };
+    /** @description Ссылка для привязки Telegram. */
+    TelegramLinkCode: {
+      /**
+       * Format: int64
+       * @description Сколько секунд действует ссылка.
+       */
+      expires_in: number;
+      /** @description Открыть в Telegram и нажать «Начать»: `https://t.me/<бот>?start=<код>`. */
+      url: string;
     };
     /** @description Код из письма (`email` + `code`) или токен из ссылки (`token`). */
     VerifyEmailRequest: {
@@ -2370,6 +2444,69 @@ export interface operations {
       };
     };
   };
+  notification_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Виды уведомлений */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NotificationSetting'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change_notification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Вид уведомлений */
+        kind: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NotificationChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не owner или нет такого вида */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   owner_settings: {
     parameters: {
       query?: never;
@@ -2880,6 +3017,48 @@ export interface operations {
       };
       /** @description Чужой сайт или нет доступа к Входящим */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  link_code: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PasswordConfirm'];
+      };
+    };
+    responses: {
+      /** @description Ссылка на бота с одноразовым кодом (10 минут) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TelegramLinkCode'];
+        };
+      };
+      /** @description Нужно войти или неверный пароль */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Бот не настроен */
+      409: {
         headers: {
           [name: string]: unknown;
         };

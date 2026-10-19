@@ -1423,6 +1423,81 @@
         }
       }
     },
+    "/api/owner/notifications": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Какие уведомления владелец получает в Telegram.",
+        "operationId": "notification_settings",
+        "responses": {
+          "200": {
+            "description": "Виды уведомлений",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationSetting"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/notifications/{kind}": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Включить или выключить вид уведомлений.",
+        "operationId": "change_notification",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "description": "Вид уведомлений",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Сохранено"
+          },
+          "404": {
+            "description": "Не owner или нет такого вида",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/platform": {
       "get": {
         "tags": ["owner"],
@@ -2045,6 +2120,55 @@
           },
           "403": {
             "description": "Чужой сайт или нет доступа к Входящим",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telegram/link-code": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Привязать Telegram к своему аккаунту через бота (нужен пароль). После\nпривязки сообщения боту попадают во Входящие, owner получает уведомления.",
+        "operationId": "link_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ссылка на бота с одноразовым кодом (10 минут)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramLinkCode"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти или неверный пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Бот не настроен",
             "content": {
               "application/json": {
                 "schema": {
@@ -2743,6 +2867,32 @@
           }
         }
       },
+      "NotificationChange": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationSetting": {
+        "type": "object",
+        "description": "Вид уведомлений и включён ли он.",
+        "required": ["kind", "title", "enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`new_device_login`, `ai_budget_80`, `server_down`…"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "OAuthProviderItem": {
         "type": "object",
         "description": "Способ входа на экране входа.",
@@ -3060,6 +3210,23 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "TelegramLinkCode": {
+        "type": "object",
+        "description": "Ссылка для привязки Telegram.",
+        "required": ["url", "expires_in"],
+        "properties": {
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько секунд действует ссылка.",
+            "minimum": 0
+          },
+          "url": {
+            "type": "string",
+            "description": "Открыть в Telegram и нажать «Начать»: `https://t.me/<бот>?start=<код>`."
           }
         }
       },

@@ -1436,6 +1436,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-bot"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "qubite-auth",
+ "qubite-db",
+ "qubite-inbox",
+ "qubite-oauth",
+ "qubite-objects",
+ "qubite-policy",
+ "qubite-sync",
+ "qubite-sync-server",
+ "qubite-testkit",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sqlx",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-captcha"
 version = "0.1.0"
 dependencies = [
@@ -1595,6 +1623,7 @@ dependencies = [
  "hmac",
  "qubite-ai",
  "qubite-auth",
+ "qubite-bot",
  "qubite-captcha",
  "qubite-db",
  "qubite-inbox",

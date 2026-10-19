@@ -43,8 +43,6 @@ enum LogFormat {
     Json,
 }
 
-// Разбирается один раз при запуске — размер варианта не важен.
-#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Command {
     /// Запустить HTTP API.
@@ -58,6 +56,21 @@ enum Command {
     /// Owner платформы: создать или сменить пароль.
     #[command(subcommand)]
     Owner(OwnerCommand),
+    /// Telegram-бот Qubite: мысли во Входящие и уведомления владельцу.
+    Bot(BotArgs),
+    /// Положить уведомление владельцу (для скриптов: `backup_failed`, `disk_low`…).
+    /// Отправит `qubite bot`.
+    Notify {
+        #[command(flatten)]
+        db: DbArgs,
+        /// Вид: backup_failed, disk_low, server_errors и др. (список — `qubite notify --help`).
+        kind: String,
+        /// Текст уведомления.
+        text: String,
+        /// Ключ: с тем же ключом уведомление придёт только один раз.
+        #[arg(long)]
+        key: Option<String>,
+    },
     /// AI: лимиты, модели, режим «owner без личного лимита». Действия — в аудите.
     Ai {
         #[command(flatten)]
@@ -67,6 +80,32 @@ enum Command {
         #[command(subcommand)]
         command: qubite_server::ai::AiCommand,
     },
+}
+
+#[derive(Args)]
+struct BotArgs {
+    #[command(flatten)]
+    db: DbArgs,
+    /// Токен нового бота от @BotFather (вставляет владелец).
+    #[arg(long, env = "QUBITE_TELEGRAM_BOT_TOKEN", hide_env_values = true)]
+    telegram_bot_token: String,
+    /// Адрес Bot API.
+    #[arg(
+        long,
+        env = "QUBITE_TELEGRAM_API",
+        default_value = "https://api.telegram.org"
+    )]
+    telegram_api: String,
+    /// Папка данных Qubite (файлы из Telegram и проверка места на диске).
+    #[arg(long, env = "QUBITE_DATA_DIR", default_value = "./data")]
+    data_dir: std::path::PathBuf,
+    /// Адрес сервера Qubite для проверки «жив ли».
+    #[arg(
+        long,
+        env = "QUBITE_BOT_SERVER_URL",
+        default_value = "http://127.0.0.1:8080"
+    )]
+    server_url: String,
 }
 
 #[derive(Subcommand)]
@@ -434,6 +473,52 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Serve(args) => serve(*args).await,
         Command::Owner(command) => owner(command).await,
+        Command::Bot(args) => {
+            let db = Database::connect(&args.db.config()).await?;
+            db.migrate().await?;
+            anyhow::ensure!(
+                !args.telegram_bot_token.trim().is_empty(),
+                "нужен QUBITE_TELEGRAM_BOT_TOKEN — токен нового бота от @BotFather"
+            );
+            let bot = qubite_bot::Bot::new(
+                db.pool().clone(),
+                qubite_bot::BotConfig {
+                    api_base: args.telegram_api,
+                    token: args.telegram_bot_token,
+                    data_dir: args.data_dir,
+                    server_url: args.server_url,
+                    poll_wait: Duration::from_secs(25),
+                    watch_every: Duration::from_secs(60),
+                },
+            );
+            tracing::info!("Telegram-бот Qubite запущен");
+            bot.run(shutdown_signal()).await;
+            db.close().await;
+            Ok(())
+        }
+        Command::Notify {
+            db,
+            kind,
+            text,
+            key,
+        } => {
+            let kind: qubite_bot::Kind = kind.parse()?;
+            let db = Database::connect(&db.config()).await?;
+            let mut conn = db.pool().acquire().await?;
+            let queued =
+                qubite_bot::notify::enqueue(&mut conn, kind, &text, key.as_deref()).await?;
+            drop(conn);
+            db.close().await;
+            println!(
+                "{}",
+                if queued {
+                    "уведомление в очереди"
+                } else {
+                    "такое уже было"
+                }
+            );
+            Ok(())
+        }
         Command::Ai { db, ai, command } => {
             let db = Database::connect(&db.config()).await?;
             db.migrate().await?;

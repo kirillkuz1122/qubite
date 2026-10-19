@@ -9,6 +9,7 @@ pub mod changes;
 pub mod email;
 pub mod inbox;
 pub mod modules;
+pub mod notifications;
 pub mod oauth;
 pub mod platform;
 pub mod registration;
@@ -116,6 +117,9 @@ impl AppState {
         oauth::telegram_link,
         oauth::identities,
         oauth::unlink,
+        notifications::notification_settings,
+        notifications::change_notification,
+        notifications::link_code,
         modules::my_catalog,
         modules::my_module,
         modules::owner_modules,
@@ -168,6 +172,9 @@ impl AppState {
         oauth::TelegramAuth,
         oauth::TelegramLink,
         oauth::IdentityItem,
+        notifications::NotificationSetting,
+        notifications::NotificationChange,
+        notifications::TelegramLinkCode,
         modules::ModuleFlags,
         modules::CatalogItem,
         modules::ModuleItem,
@@ -264,6 +271,15 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/accounts/{account_id}/grants/{module_id}",
             axum::routing::put(modules::owner_set_grant).delete(modules::owner_revoke_grant),
         )
+        .route(
+            "/api/owner/notifications",
+            get(notifications::notification_settings),
+        )
+        .route(
+            "/api/owner/notifications/{kind}",
+            axum::routing::put(notifications::change_notification),
+        )
+        .route("/api/v1/telegram/link-code", post(notifications::link_code))
         .route("/api/v1/sync/push", post(sync::push))
         .route("/api/v1/sync/pull", get(sync::pull))
         .route("/api/v1/sync/ws", get(sync::socket))
@@ -285,6 +301,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::session_layer,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            notifications::errors_layer,
         ))
         .with_state(state)
         .layer(TimeoutLayer::with_status_code(
