@@ -80,6 +80,9 @@ enum Command {
         #[arg(long)]
         key: Option<String>,
     },
+    /// Push в браузере: ключи VAPID для `.env`.
+    #[command(subcommand)]
+    Push(PushCommand),
     /// AI: лимиты, модели, режим «owner без личного лимита». Действия — в аудите.
     Ai {
         #[command(flatten)]
@@ -96,6 +99,12 @@ enum Command {
         #[command(subcommand)]
         command: qubite_server::agent::AgentCommand,
     },
+}
+
+#[derive(Subcommand)]
+enum PushCommand {
+    /// Создать ключи VAPID и напечатать строки для `.env` (база не нужна).
+    Keys,
 }
 
 #[derive(Args)]
@@ -245,6 +254,37 @@ struct ServeArgs {
     /// Через сколько дней корзина Входящих удаляется навсегда; 0 — никогда (D-199).
     #[arg(long, env = "QUBITE_INBOX_TRASH_DAYS", default_value_t = qubite_inbox::TRASH_DAYS)]
     inbox_trash_days: u32,
+
+    #[command(flatten)]
+    push: PushArgs,
+}
+
+/// Напоминания (PLAN-004): push в браузере. Telegram берёт токен бота из
+/// `QUBITE_TELEGRAM_BOT_TOKEN` (тот же, что у `qubite bot`).
+#[derive(Args)]
+struct PushArgs {
+    /// Закрытый ключ VAPID (создать: `qubite push keys`). Пусто — push выключен.
+    #[arg(
+        long,
+        env = "QUBITE_PUSH_VAPID_KEY",
+        default_value = "",
+        hide_env_values = true
+    )]
+    push_vapid_key: String,
+    /// Контакт для служб push: `mailto:…` или адрес сайта.
+    #[arg(
+        long,
+        env = "QUBITE_PUSH_SUBJECT",
+        default_value = "mailto:no-reply@qubiteapp.ru"
+    )]
+    push_subject: String,
+    /// Адрес Bot API (как у `qubite bot`).
+    #[arg(
+        long,
+        env = "QUBITE_TELEGRAM_API",
+        default_value = "https://api.telegram.org"
+    )]
+    telegram_api: String,
 }
 
 /// Аварийные переключатели (ACC-002): сильнее тумблеров Owner Console.
@@ -612,6 +652,17 @@ async fn run(dotenv: Option<std::path::PathBuf>) -> anyhow::Result<()> {
             );
             Ok(())
         }
+        Command::Push(PushCommand::Keys) => {
+            let (private, public) = qubite_notify::webpush::generate_keys()?;
+            println!(
+                "# Push в браузере (PLAN-004). Добавьте в .env и перезапустите qubite serve.\n\
+                 # Ключ секретный: не публиковать, не коммитить. Новый ключ — браузерам нужно\n\
+                 # подписаться заново (профиль → Напоминания).\n\
+                 QUBITE_PUSH_VAPID_KEY={private}\n\
+                 # Открытый ключ (сервер вычисляет его сам; для справки): {public}"
+            );
+            Ok(())
+        }
         Command::Ai { db, ai, command } => {
             let db = Database::connect(&db.config()).await?;
             db.migrate().await?;
@@ -746,6 +797,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     // QUBITE_MAINTENANCE сильнее всего: его видит и решение о правах (соединения,
     // фоновые задачи), а не только слой HTTP.
     qubite_policy::set_maintenance_from_env(args.overrides.maintenance);
+    let channels = notify_channels(&args)?;
     let auth = qubite_server::auth::AuthSettings {
         config: qubite_auth::AuthConfig {
             session_ttl: Duration::from_secs(args.session_ttl_days.max(1) * 24 * 60 * 60),
@@ -766,8 +818,9 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         trust_proxy: args.trust_proxy,
         ..qubite_server::auth::AuthSettings::default()
     };
-    let mut state =
-        qubite_server::AppState::with_auth(db.clone(), auth).with_oauth(args.oauth.settings());
+    let mut state = qubite_server::AppState::with_auth(db.clone(), auth)
+        .with_oauth(args.oauth.settings())
+        .with_notify(channels.clone());
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
             state = state.with_ai(ai.gateway);
@@ -783,6 +836,9 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let maintenance =
         qubite_server::ai::spawn_maintenance(db.pool().clone(), args.ai.clone(), openrouter);
     let trash = qubite_server::inbox::spawn_trash_cleanup(db.pool().clone(), args.inbox_trash_days);
+    // Напоминания и доставка — задачи очереди jobs (PLAN-004), без отдельного процесса.
+    let (stop_jobs, jobs_shutdown) = tokio::sync::watch::channel(false);
+    let jobs = qubite_notify::worker::spawn(db.pool().clone(), channels, jobs_shutdown);
     let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(args.bind)
         .await
@@ -799,9 +855,38 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .await?;
     maintenance.abort();
     trash.abort();
+    let _ = stop_jobs.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(10), jobs).await;
     db.close().await;
     tracing::info!("Qubite остановлен");
     Ok(())
+}
+
+/// Каналы напоминаний: push — если задан ключ VAPID, Telegram — если задан токен бота.
+fn notify_channels(args: &ServeArgs) -> anyhow::Result<qubite_notify::deliver::Channels> {
+    let push = if args.push.push_vapid_key.trim().is_empty() {
+        tracing::info!("push в браузере выключен: нет QUBITE_PUSH_VAPID_KEY (`qubite push keys`)");
+        None
+    } else {
+        Some(std::sync::Arc::new(
+            qubite_notify::WebPush::new(&args.push.push_vapid_key, &args.push.push_subject)
+                .context("QUBITE_PUSH_VAPID_KEY")?,
+        ))
+    };
+    let token = args.oauth.telegram_bot_token.trim();
+    let telegram: Option<std::sync::Arc<dyn qubite_notify::Telegram>> = if token.is_empty() {
+        None
+    } else {
+        Some(std::sync::Arc::new(qubite_bot::TelegramApi::new(
+            &args.push.telegram_api,
+            token,
+        )))
+    };
+    Ok(qubite_notify::deliver::Channels {
+        push,
+        telegram,
+        public_url: args.oauth.public_url.clone(),
+    })
 }
 
 fn init_logging(filter: &str, format: LogFormat) -> anyhow::Result<()> {

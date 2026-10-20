@@ -10,11 +10,13 @@
 //!   «выйти везде», кража токена, привязки входа, настройки платформы,
 //!   регистрации и приглашения, расход AI 80 %/100 %, сервер не отвечает и
 //!   ошибки, бэкап, место на диске. Каждый вид можно выключить.
+//! - Кнопки под напоминаниями ([`reminders`], PLAN-004): «понял» и «позже».
 //!
 //! Решения — D-196…D-198.
 
 pub mod capture;
 pub mod notify;
+pub mod reminders;
 pub mod tech;
 pub mod telegram;
 pub mod watch;
@@ -104,6 +106,15 @@ impl Bot {
         let updates = self.api.updates(offset, wait).await?;
         let mut outcomes = Vec::with_capacity(updates.len());
         for update in updates {
+            if let Some(query) = &update.callback_query {
+                if let Err(error) = reminders::handle(&self.pool, &self.api, query).await {
+                    tracing::warn!(%error, update = update.update_id, "бот: кнопка не обработана");
+                }
+                watch::set_state(&self.pool, "telegram.offset", json!(update.update_id + 1))
+                    .await?;
+                outcomes.push(Outcome::Command);
+                continue;
+            }
             let tech = tech::handle(
                 &self.pool,
                 &self.api,

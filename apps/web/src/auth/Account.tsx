@@ -8,6 +8,7 @@ import { clearAccountStore } from '../app/sync';
 import { forgetSyncAccount } from '../app/sync-context';
 import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
 import { useHelpers, usePage, useShyPassword } from './page';
+import { RemindersSection } from './Reminders';
 
 const WHEN = new Intl.DateTimeFormat('ru-RU', {
   day: 'numeric',
@@ -219,6 +220,11 @@ export function AccountPage() {
         {identities.data && linkable.length === 0 && identities.data.length === 0 && (
           <p className="auth-small">Владелец пока не включил вход через другие сервисы.</p>
         )}
+      </section>
+
+      <section className="acc-sec" aria-labelledby="acc-remind">
+        <h2 id="acc-remind">Напоминания</h2>
+        <RemindersSection onTelegram={() => setAsk({ kind: 'telegram-bot' })} />
       </section>
 
       <section className="acc-sec" aria-labelledby="acc-bot">

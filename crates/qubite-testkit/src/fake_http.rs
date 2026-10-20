@@ -48,6 +48,8 @@ pub struct Received {
     /// Заголовки, имена строчными.
     pub headers: Vec<(String, String)>,
     pub body: String,
+    /// Тело как есть (для двоичных запросов, например Web Push).
+    pub raw: Vec<u8>,
 }
 
 impl Received {
@@ -167,6 +169,7 @@ async fn serve(mut stream: TcpStream, state: &Shared) {
         line,
         headers,
         body,
+        raw: buf[head_end..].to_vec(),
     });
 
     let action = state

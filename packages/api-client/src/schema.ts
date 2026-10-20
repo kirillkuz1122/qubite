@@ -1028,6 +1028,152 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/notifications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Колокольчик: последние сообщения, свежие сверху. */
+    get: operations['list_notices'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/presence': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Вкладка Qubite видна или нет. Пока видна, напоминания приходят только в
+     *     колокольчик — без push и Telegram (одно сообщение — один канал).
+     */
+    post: operations['notice_presence'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/push': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Подписать этот браузер на push. */
+    post: operations['push_subscribe'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/push/remove': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Отписать браузер от push. */
+    post: operations['push_unsubscribe'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/read-all': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Прочитать всё. */
+    post: operations['read_all_notices'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Настройки каналов и тишины. */
+    get: operations['notify_settings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Изменить каналы и тишину. Новые «за сколько минут» действуют для новых
+     *     и изменённых дел.
+     */
+    patch: operations['change_notify_settings'];
+    trace?: never;
+  };
+  '/api/v1/notifications/test': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Пробное сообщение: в колокольчик и сразу наружу (push или Telegram), даже
+     *     если Qubite открыт, — чтобы проверить канал.
+     */
+    post: operations['send_test_notice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/notifications/{id}/read': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Прочитано: гаснет и в Telegram. */
+    post: operations['read_notice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/sync/pull': {
     parameters: {
       query?: never;
@@ -1731,6 +1877,39 @@ export interface components {
       /** @description Не короче 10 символов. Человек может сменить его через «Забыли пароль». */
       password: string;
     };
+    /** @description Сообщение в колокольчике. */
+    NoticeItem: {
+      /** @description Подробности: «в 16:00». */
+      body: string;
+      /** @description Куда ушло наружу: `push`, `telegram`; нет — только колокольчик. */
+      channel?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Пришло в тишину — только сюда, наружу не отправлялось. */
+      held: boolean;
+      /** Format: uuid */
+      id: string;
+      /** @description `reminder` — напоминание о деле, `agent` — агент пишет первым, `system` — служебное. */
+      kind: string;
+      /**
+       * Format: uuid
+       * @description Дело, к которому ведёт сообщение.
+       */
+      object_id?: string | null;
+      /** @description `owner` — человек сам попросил (приходит всегда), `agent` — агент первым. */
+      origin: string;
+      /** Format: date-time */
+      read_at?: string | null;
+      title: string;
+      /** @description Почему сейчас: «сходить куда-то — за час, с запасом на дорогу». */
+      why: string;
+    };
+    /** @description Сообщения и сколько не прочитано. */
+    NoticeList: {
+      items: components['schemas']['NoticeItem'][];
+      /** Format: int64 */
+      unread: number;
+    };
     NotificationChange: {
       enabled: boolean;
     };
@@ -1740,6 +1919,50 @@ export interface components {
       /** @description `new_device_login`, `ai_budget_80`, `server_down`… */
       kind: string;
       title: string;
+    };
+    /** @description Каналы и тишина. */
+    NotifySettings: {
+      /**
+       * Format: int32
+       * @description «Само»: за сколько минут до дела со временем.
+       */
+      before_minutes: number;
+      /** @description Куда сначала, когда тебя нет в Qubite: `push` или `telegram`; не дошло — во второй. */
+      first_channel: string;
+      push_devices: components['schemas']['PushDevice'][];
+      push_enabled: boolean;
+      /** @description Открытый ключ VAPID для подписки браузера. Нет — push на сервере не настроен. */
+      push_key?: string | null;
+      /** @description Ночь: агент не пишет первым. `ЧЧ:ММ`. */
+      quiet_from: string;
+      quiet_to: string;
+      telegram_enabled: boolean;
+      /** @description Telegram привязан в профиле. */
+      telegram_linked: boolean;
+      /** @description Бот Telegram настроен на сервере. */
+      telegram_ready: boolean;
+      /**
+       * Format: int32
+       * @description «Само»: за сколько минут до «сходить куда-то» (с запасом на дорогу).
+       */
+      travel_minutes: number;
+    };
+    /** @description Изменение настроек: только то, что меняется. */
+    NotifySettingsChange: {
+      /**
+       * Format: int32
+       * @description 0…1440.
+       */
+      before_minutes?: number | null;
+      /** @description `push` или `telegram`. */
+      first_channel?: string | null;
+      push_enabled?: boolean | null;
+      /** @description `ЧЧ:ММ`. */
+      quiet_from?: string | null;
+      quiet_to?: string | null;
+      telegram_enabled?: boolean | null;
+      /** Format: int32 */
+      travel_minutes?: number | null;
     };
     /** @description Способ входа на экране входа. */
     OAuthProviderItem: {
@@ -1782,6 +2005,39 @@ export interface components {
       registration_mode: string;
       /** @description Часовой пояс платформы (IANA). */
       timezone: string;
+    };
+    Presence: {
+      /** @description Вкладка Qubite видна (раз в минуту, пока видна; `false` — спрятана или закрывается). */
+      visible: boolean;
+    };
+    /** @description Браузер, подписанный на push. */
+    PushDevice: {
+      /** Format: date-time */
+      created_at: string;
+      /** @description Адрес подписки — по нему браузер узнаёт свою. */
+      endpoint: string;
+      /** Format: uuid */
+      id: string;
+      label: string;
+    };
+    /** @description Ключи подписки браузера (`PushSubscription.toJSON().keys`). */
+    PushKeys: {
+      auth: string;
+      p256dh: string;
+    };
+    /** @description Подписка браузера на push (`PushSubscription.toJSON()` и название устройства). */
+    PushSubscribe: {
+      endpoint: string;
+      keys: components['schemas']['PushKeys'];
+      /** @description «Firefox на телефоне». */
+      label?: string;
+    };
+    PushUnsubscribe: {
+      endpoint: string;
+    };
+    /** @description Сколько погашено. */
+    ReadCount: {
+      read: number;
     };
     Readiness: {
       /** @description `ok` или `unavailable`. */
@@ -4648,6 +4904,317 @@ export interface operations {
       };
       /** @description Версия устарела */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_notices: {
+    parameters: {
+      query?: {
+        /** @description До 200, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сообщения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NoticeList'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  notice_presence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Presence'];
+      };
+    };
+    responses: {
+      /** @description Отмечено */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  push_subscribe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PushSubscribe'];
+      };
+    };
+    responses: {
+      /** @description Подписан */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не служба push браузера или неверные ключи */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Push не настроен на сервере */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  push_unsubscribe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PushUnsubscribe'];
+      };
+    };
+    responses: {
+      /** @description Отписан */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  read_all_notices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Прочитано */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReadCount'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  notify_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Настройки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NotifySettings'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change_notify_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NotifySettingsChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NotifySettings'];
+        };
+      };
+      /** @description Неверные значения */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  send_test_notice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Отправлено в очередь */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NoticeItem'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  read_notice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Сообщение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Прочитано */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого сообщения */
+      404: {
         headers: {
           [name: string]: unknown;
         };

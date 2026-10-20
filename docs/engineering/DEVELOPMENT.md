@@ -88,6 +88,10 @@ cargo run --bin qubite -- owner password   # новый пароль, все с�
 QUBITE_TELEGRAM_BOT_TOKEN=… cargo run --bin qubite -- bot
 cargo run --bin qubite -- notify backup_failed "Бэкап не прошёл" --key backup:2026-10-19
 
+# Напоминания (PLAN-004): push в браузере — ключ сервера в .env, затем профиль → «Напоминания»
+cargo run --bin qubite -- push keys        # или just push-keys; строку QUBITE_PUSH_VAPID_KEY=… — в .env
+# Отправляет `qubite serve` (задачи очереди jobs в нужное время), кнопки в Telegram — `qubite bot`
+
 # Вход (cookie qubite_session + qubite_csrf); изменяющим запросам нужен заголовок X-CSRF-Token
 curl -i -c jar -H 'content-type: application/json' \
   -d '{"email":"you@example.ru","password":"…"}' http://127.0.0.1:8080/api/auth/login

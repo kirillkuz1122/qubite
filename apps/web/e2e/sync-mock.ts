@@ -19,6 +19,10 @@ export interface SyncMock {
   addTask(title: string, fields?: Record<string, unknown>): string;
   /** сказать браузеру «есть новое» */
   ping(): void;
+  /** колокольчик (PLAN-004): сообщения как в `GET /api/v1/notifications` */
+  notices: Record<string, unknown>[];
+  /** вкладка видна — последние отметки присутствия */
+  presence: boolean[];
 }
 
 export async function mockSync(page: Page): Promise<SyncMock> {
@@ -69,6 +73,8 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     ping() {
       for (const ws of sockets) ws.send(JSON.stringify({ type: 'changed' }));
     },
+    notices: [],
+    presence: [],
   };
 
   await page
@@ -117,6 +123,32 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     return route.fulfill({
       json: { changes: ids.map((id) => mock.objects.get(id)), cursor: log.length, has_more: false },
     });
+  });
+
+  await page.route('**/api/v1/notifications**', async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    if (req.method() === 'GET' && path === '/api/v1/notifications')
+      return route.fulfill({
+        json: { items: mock.notices, unread: mock.notices.filter((n) => !n.read_at).length },
+      });
+    if (path === '/api/v1/notifications/presence') {
+      mock.presence.push((req.postDataJSON() as { visible: boolean }).visible);
+      return route.fulfill({ status: 204 });
+    }
+    const read = path.match(/^\/api\/v1\/notifications\/([^/]+)\/read$/);
+    if (req.method() === 'POST' && read) {
+      const n = mock.notices.find((x) => x.id === read[1]);
+      if (!n) return route.fulfill({ status: 404, json: { error: 'not_found', message: '' } });
+      n.read_at ??= new Date().toISOString();
+      return route.fulfill({ status: 204 });
+    }
+    if (path === '/api/v1/notifications/read-all') {
+      const unread = mock.notices.filter((n) => !n.read_at);
+      for (const n of unread) n.read_at = new Date().toISOString();
+      return route.fulfill({ json: { read: unread.length } });
+    }
+    return route.fulfill({ status: 404, json: { error: 'not_found', message: '' } });
   });
 
   await page.routeWebSocket('**/api/v1/sync/ws', (ws) => {

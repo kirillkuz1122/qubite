@@ -10,6 +10,7 @@ description = "Telegram-бот Qubite: мысли во Входящие и ув�
 [dependencies]
 qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
+qubite-notify = { version = "0.1.0", path = "../qubite-notify" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-oauth = { version = "0.1.0", path = "../qubite-oauth" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }

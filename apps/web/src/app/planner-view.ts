@@ -45,14 +45,33 @@ export function timeLabel(t: PlannerTask, today: string): string {
   return t.due_time ?? 'весь день';
 }
 
-/** Подпись под делом: проект · важность · шаги · повторение. */
+/**
+ * Когда напомнит сервер (PLAN-004): «напомню в 15:45», в другой день — «напомню 19.10 в 19:00».
+ * Сделанное и без напоминания — ничего.
+ */
+export function remindLabel(t: PlannerTask): string | null {
+  if (!t.remind_at || t.status === 'done') return null;
+  const [day, time] = t.remind_at.split('T');
+  if (!day || !time) return null;
+  if (day === t.due_date) return `напомню в ${time}`;
+  const [, m, d] = day.split('-');
+  return `напомню ${d}.${m} в ${time}`;
+}
+
+/** Подпись под делом: проект · важность · шаги · повторение · напоминание. */
 export function metaLabel(t: PlannerTask, project?: PlannerProject): string {
   const steps = t.subtasks.length
     ? `шаги ${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length}`
     : null;
   const priority =
     t.priority === 'urgent' ? 'срочно' : t.priority === 'important' ? 'важное' : null;
-  return [project?.title, priority, steps, t.recurrence && repeatLabel(t.recurrence)]
+  return [
+    project?.title,
+    priority,
+    steps,
+    t.recurrence && repeatLabel(t.recurrence),
+    remindLabel(t),
+  ]
     .filter(Boolean)
     .join(' · ');
 }

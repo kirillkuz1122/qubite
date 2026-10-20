@@ -914,3 +914,152 @@ button.proj {
   text-align: left;
   cursor: pointer;
 }
+
+/* ---------- колокольчик (PLAN-004) ---------- */
+.bell {
+  position: absolute;
+  z-index: 30;
+  top: 14px;
+  right: 10px;
+}
+@media (min-width: 900px) {
+  .bell {
+    top: 22px;
+    right: 32px;
+  }
+}
+.bell-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-panel);
+  color: var(--q-mute);
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+.bell-btn:hover,
+.bell-btn.on {
+  color: var(--q-ink);
+}
+.bell-btn:active {
+  transform: scale(0.94);
+}
+.bell-n {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--q-orange);
+  color: var(--q-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+.bell-panel,
+.bell-toast {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: min(340px, calc(100vw - 32px));
+  animation: bell-in 0.22s ease both;
+}
+.bell-panel {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px 6px 6px;
+}
+@keyframes bell-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bell-panel,
+  .bell-toast {
+    animation: none;
+  }
+}
+.bell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 8px;
+}
+.bell-all {
+  border: 0;
+  background: none;
+  color: var(--q-orange);
+  font-size: 13px;
+  cursor: pointer;
+}
+.bell-empty {
+  margin: 4px 10px 10px;
+  color: var(--q-mute);
+  font-size: 13px;
+}
+.bell-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bell-panel li button {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: calc(var(--q-round) * 16px);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.bell-panel li button:hover {
+  background: var(--q-panel-2);
+}
+.bell-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-orange);
+}
+.bell-panel li.read .bell-dot {
+  background: var(--q-faint);
+}
+.bell-panel li.read b {
+  color: var(--q-mute);
+  font-weight: 400;
+}
+.bell-t,
+.bell-toast {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bell-t small,
+.bell-toast small {
+  color: var(--q-mute);
+  font-size: 12.5px;
+}
+.bell-panel time {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.bell-toast {
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--q-line);
+  text-align: left;
+  cursor: pointer;
+}

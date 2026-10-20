@@ -17,8 +17,10 @@
 //! Решения — D-250…D-264.
 
 pub mod recurrence;
+pub mod reminder;
 
-use qubite_objects::{Error, NewObject, NewRelation, Object, Result, objects, relations};
+pub use qubite_objects::{Error, Result};
+use qubite_objects::{NewObject, NewRelation, Object, objects, relations};
 use qubite_sync_server::{BoxFuture, FieldsError, TypeFields};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
@@ -27,6 +29,7 @@ use time::{Date, Month, OffsetDateTime, Time};
 use uuid::Uuid;
 
 pub use recurrence::{Freq, Recurrence, next_due};
+pub use reminder::Remind;
 
 /// Модуль в каталоге (права выдаются на него).
 pub const MODULE: &str = "planner";
@@ -40,6 +43,7 @@ pub const MAX_NOTES_CHARS: usize = 20_000;
 pub const MAX_SUBTASKS: usize = 100;
 pub const MAX_SUBTASK_CHARS: usize = 500;
 pub const MAX_TAG_CHARS: usize = 64;
+pub const MAX_REMIND_WHY_CHARS: usize = 300;
 /// Пояс, если владелец платформы его не задал (как `platform.timezone`).
 pub const DEFAULT_TIMEZONE: &str = "Asia/Yekaterinburg";
 
@@ -77,6 +81,11 @@ text_enum!(
 text_enum!(
     /// Важность дела.
     Priority { Normal = "normal", Important = "important", Urgent = "urgent" }
+);
+text_enum!(
+    /// Кто выбрал время напоминания: `auto` — Qubite по смыслу дела,
+    /// `owner` — сам человек, `agent` — агент (с «почему»).
+    RemindBy { Auto = "auto", Owner = "owner", Agent = "agent" }
 );
 text_enum!(
     /// `active` — идёт, `archived` — закончен или отложен.
@@ -329,6 +338,11 @@ pub struct Task {
     pub due_time: Option<Time>,
     pub subtasks: Vec<Subtask>,
     pub recurrence: Option<Recurrence>,
+    /// Своё время напоминания; нет — «само» по смыслу дела ([`reminder`]).
+    pub remind: Option<Remind>,
+    /// Почему тогда (пишет тот, кто выбрал время).
+    pub remind_why: String,
+    pub remind_by: RemindBy,
     pub completed_at: Option<OffsetDateTime>,
     /// Проект (связь `part_of`), даже если он в корзине.
     pub project_id: Option<Uuid>,
@@ -356,6 +370,9 @@ struct TaskRow {
     due_time: Option<Time>,
     subtasks: Value,
     recurrence: Option<Value>,
+    remind: Option<Value>,
+    remind_why: String,
+    remind_by: String,
     completed_at: Option<OffsetDateTime>,
     series_id: Option<Uuid>,
     next_id: Option<Uuid>,
@@ -364,7 +381,8 @@ struct TaskRow {
 
 const TASK_SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, \
      o.created_at, o.updated_at, t.notes, t.status, t.priority, t.due_date, t.due_time, \
-     t.subtasks, t.recurrence, t.completed_at, t.series_id, t.next_id, \
+     t.subtasks, t.recurrence, t.remind, t.remind_why, t.remind_by, t.completed_at, \
+     t.series_id, t.next_id, \
      (SELECT r.to_id FROM relations r JOIN objects p ON p.id = r.to_id \
        WHERE r.from_id = o.id AND r.type = 'part_of' AND r.deleted_at IS NULL \
          AND p.type = 'planner.project' ORDER BY r.created_at DESC LIMIT 1) AS project_id \
@@ -391,6 +409,13 @@ impl TryFrom<TaskRow> for Task {
                 .map(serde_json::from_value)
                 .transpose()
                 .map_err(invalid)?,
+            remind: row
+                .remind
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(invalid)?,
+            remind_why: row.remind_why,
+            remind_by: parse(&row.remind_by)?,
             completed_at: row.completed_at,
             project_id: row.project_id,
             series_id: row.series_id,
@@ -402,8 +427,15 @@ impl TryFrom<TaskRow> for Task {
 }
 
 impl Task {
-    /// Поля модуля для снимка синхронизации.
+    /// Поля модуля со значениями «само» по умолчанию (снимки ленты агента).
     pub fn fields(&self) -> Value {
+        self.fields_with(reminder::Defaults::default())
+    }
+
+    /// Поля модуля для снимка синхронизации. `remind_at` и `remind_why` —
+    /// когда и почему напомнит сервер (с учётом «само» человека), если напомнит.
+    pub fn fields_with(&self, defaults: reminder::Defaults) -> Value {
+        let plan = reminder::plan(self, defaults);
         json!({
             "notes": self.notes,
             "status": self.status,
@@ -412,6 +444,10 @@ impl Task {
             "due_time": self.due_time.map(format_time),
             "subtasks": self.subtasks,
             "recurrence": self.recurrence,
+            "remind": self.remind,
+            "remind_by": self.remind_by,
+            "remind_at": plan.as_ref().map(|plan| reminder::format_local(plan.at)),
+            "remind_why": plan.map_or_else(|| self.remind_why.clone(), |plan| plan.why),
             "completed_at_ms": self.completed_at.map(millis),
             "project_id": self.project_id,
             "series_id": self.series_id,
@@ -420,7 +456,7 @@ impl Task {
     }
 }
 
-async fn task_any(conn: &mut PgConnection, id: Uuid) -> Result<Option<Task>> {
+pub(crate) async fn task_any(conn: &mut PgConnection, id: Uuid) -> Result<Option<Task>> {
     let row: Option<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{TASK_SELECT} WHERE o.id = $1"
     )))
@@ -496,6 +532,13 @@ pub struct TaskFields {
     /// Повторение; без срока нельзя.
     #[serde(default, deserialize_with = "some")]
     pub recurrence: Option<Option<Recurrence>>,
+    /// Своё время напоминания; `null` — снова «само» (по смыслу дела).
+    #[serde(default, deserialize_with = "some")]
+    pub remind: Option<Option<Remind>>,
+    /// Почему тогда (до 300 символов).
+    pub remind_why: Option<String>,
+    /// Кто выбрал время: `owner` (по умолчанию) или `agent`.
+    pub remind_by: Option<RemindBy>,
     /// Проект владельца.
     #[serde(default, deserialize_with = "some")]
     pub project_id: Option<Option<Uuid>>,
@@ -563,6 +606,9 @@ struct TaskState {
     due_time: Option<Time>,
     subtasks: Vec<Subtask>,
     recurrence: Option<Recurrence>,
+    remind: Option<Remind>,
+    remind_why: String,
+    remind_by: RemindBy,
 }
 
 impl TaskState {
@@ -575,6 +621,9 @@ impl TaskState {
             due_time: task.due_time,
             subtasks: task.subtasks.clone(),
             recurrence: task.recurrence.clone(),
+            remind: task.remind.clone(),
+            remind_why: task.remind_why.clone(),
+            remind_by: task.remind_by,
         }
     }
 
@@ -587,6 +636,9 @@ impl TaskState {
             due_time: None,
             subtasks: Vec::new(),
             recurrence: None,
+            remind: None,
+            remind_why: String::new(),
+            remind_by: RemindBy::Auto,
         }
     }
 
@@ -622,6 +674,35 @@ impl TaskState {
         if let Some(rule) = &fields.recurrence {
             self.recurrence.clone_from(rule);
             changed.push("recurrence");
+        }
+        if let Some(remind) = &fields.remind {
+            match remind {
+                None => {
+                    self.remind = None;
+                    self.remind_by = RemindBy::Auto;
+                    self.remind_why.clear();
+                }
+                Some(remind) => {
+                    self.remind = Some(remind.clone().normalized().map_err(bad)?);
+                    self.remind_by = match fields.remind_by {
+                        Some(RemindBy::Agent) => RemindBy::Agent,
+                        _ => RemindBy::Owner,
+                    };
+                    self.remind_why.clear();
+                }
+            }
+            changed.push("remind");
+        } else if fields.remind_by.is_some() {
+            return Err(bad("remind_by ставится вместе с remind"));
+        }
+        if let Some(why) = &fields.remind_why {
+            if why.chars().count() > MAX_REMIND_WHY_CHARS {
+                return Err(bad(format!(
+                    "«почему» длиннее {MAX_REMIND_WHY_CHARS} символов"
+                )));
+            }
+            self.remind_why = why.trim().to_owned();
+            changed.push("remind");
         }
         if fields.project_id.is_some() {
             changed.push("project");
@@ -663,14 +744,21 @@ async fn write_task(
         .map(serde_json::to_value)
         .transpose()
         .map_err(invalid_json("повторения"))?;
+    let remind = state
+        .remind
+        .as_ref()
+        .map(serde_json::to_value)
+        .transpose()
+        .map_err(invalid_json("напоминания"))?;
     let sql = if insert {
         "INSERT INTO planner_tasks (object_id, notes, status, priority, due_date, due_time, \
-         subtasks, recurrence, completed_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $3 = 'done' THEN now() END)"
+         subtasks, recurrence, remind, remind_why, remind_by, completed_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, \
+                 CASE WHEN $3 = 'done' THEN now() END)"
     } else {
         "UPDATE planner_tasks SET notes = $2, status = $3, priority = $4, due_date = $5, \
-         due_time = $6, subtasks = $7, recurrence = $8, \
-         completed_at = CASE WHEN $3 = 'done' THEN coalesce(completed_at, now()) END \
+         due_time = $6, subtasks = $7, recurrence = $8, remind = $9, remind_why = $10, \
+         remind_by = $11, completed_at = CASE WHEN $3 = 'done' THEN coalesce(completed_at, now()) END \
          WHERE object_id = $1"
     };
     sqlx::query(sql)
@@ -682,6 +770,9 @@ async fn write_task(
         .bind(state.due_time)
         .bind(subtasks)
         .bind(recurrence)
+        .bind(remind)
+        .bind(&state.remind_why)
+        .bind(state.remind_by.as_str())
         .execute(conn)
         .await?;
     Ok(())
@@ -741,6 +832,17 @@ async fn set_project(
     Ok(())
 }
 
+/// Поставить напоминание о деле в очередь (в той же транзакции).
+async fn remind_later(conn: &mut PgConnection, id: Uuid) -> Result<(), FieldsError> {
+    reminder::schedule(conn, id)
+        .await
+        .map(drop)
+        .map_err(|error| match error {
+            qubite_jobs::Error::Db(error) => FieldsError::Db(error),
+            other => FieldsError::Invalid(other.to_string()),
+        })
+}
+
 /// Дело выполнено: если оно повторяется и следующее ещё не создано —
 /// создать следующее (тот же проект, важность, шаги без галочек).
 async fn spawn_next(conn: &mut PgConnection, task: &Task) -> Result<Option<Uuid>, FieldsError> {
@@ -768,6 +870,7 @@ async fn spawn_next(conn: &mut PgConnection, task: &Task) -> Result<Option<Uuid>
                 ..step.clone()
             })
             .collect(),
+        remind: reminder::shifted(task.remind.as_ref(), due, next_date),
         ..TaskState::of(task)
     };
     write_task(conn, next.id, &state, true).await?;
@@ -786,6 +889,7 @@ async fn spawn_next(conn: &mut PgConnection, task: &Task) -> Result<Option<Uuid>
     if task.project_id.is_some() {
         set_project(conn, &next, task.project_id, false).await?;
     }
+    remind_later(conn, next.id).await?;
     Ok(Some(next.id))
 }
 
@@ -946,6 +1050,7 @@ impl TypeFields for TaskFieldsHandler {
                     .ok_or_else(|| bad("дело пропало"))?;
                 spawn_next(conn, &task).await?;
             }
+            remind_later(conn, object.id).await?;
             Ok(())
         })
     }
@@ -984,6 +1089,7 @@ impl TypeFields for TaskFieldsHandler {
                     changed.push("next_id".to_owned());
                 }
             }
+            remind_later(conn, object.id).await?;
             Ok(changed)
         })
     }
@@ -994,10 +1100,11 @@ impl TypeFields for TaskFieldsHandler {
         object_id: Uuid,
     ) -> BoxFuture<'a, Result<Option<Value>, FieldsError>> {
         Box::pin(async move {
-            Ok(task_any(conn, object_id)
-                .await
-                .map_err(objects_error)?
-                .map(|task| task.fields()))
+            let Some(task) = task_any(conn, object_id).await.map_err(objects_error)? else {
+                return Ok(None);
+            };
+            let defaults = reminder::defaults(conn, task.owner_id).await?;
+            Ok(Some(task.fields_with(defaults)))
         })
     }
 }

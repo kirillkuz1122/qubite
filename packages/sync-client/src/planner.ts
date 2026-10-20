@@ -68,6 +68,14 @@ export interface PlannerTask {
   project_id: string | null;
   notes: string;
   completed_at_ms: number | null;
+  /**
+   * Когда напомнит сервер (по часам владельца, `2026-10-20T15:45`) и почему; `null` — не напомнит
+   * (дело без времени — о нём вспомнит агент). Считает сервер (PLAN-004).
+   */
+  remind_at: string | null;
+  remind_why: string;
+  /** кто выбрал время: `auto` — по смыслу дела, `owner` — сам, `agent` — агент */
+  remind_by: 'auto' | 'owner' | 'agent';
   /** ещё не подтверждено сервером */
   pending: boolean;
 }
@@ -143,6 +151,9 @@ export function toTask(o: LocalObject): PlannerTask {
     project_id: str(f.project_id),
     notes: str(f.notes) ?? '',
     completed_at_ms: typeof f.completed_at_ms === 'number' ? f.completed_at_ms : null,
+    remind_at: str(f.remind_at),
+    remind_why: str(f.remind_why) ?? '',
+    remind_by: f.remind_by === 'owner' || f.remind_by === 'agent' ? f.remind_by : 'auto',
     pending: o.pending,
   };
 }

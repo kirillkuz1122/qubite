@@ -100,6 +100,10 @@ qubite *args: db-up
     {{use_dev_db}}
     cargo run -q --bin qubite -- {{args}}
 
+# Ключи push в браузере (PLAN-004): напечатать строку QUBITE_PUSH_VAPID_KEY для .env
+push-keys:
+    cargo run -q --bin qubite -- push keys
+
 # Тесты старого Qubite (legacy/qubite-v1), 321 тест
 test-legacy:
     #!/usr/bin/env bash

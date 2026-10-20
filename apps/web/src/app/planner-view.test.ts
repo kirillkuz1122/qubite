@@ -2,6 +2,7 @@ import type { PlannerProject, PlannerTask } from '@qubite/sync-client';
 import { localNow, parse } from '@qubite/ui';
 import { describe, expect, it } from 'vitest';
 import {
+  remindLabel,
   buildBoard,
   buildProjects,
   buildWeek,
@@ -35,6 +36,9 @@ function task(id: string, fields: Partial<PlannerTask>): PlannerTask {
     project_id: null,
     notes: '',
     completed_at_ms: null,
+    remind_at: null,
+    remind_why: '',
+    remind_by: 'auto',
     pending: false,
     ...fields,
   };
@@ -132,5 +136,15 @@ describe('настоящие дела в виде DS-007', () => {
     });
     expect(task('дело: зарядка каждый день').task.recurrence).toEqual({ freq: 'daily' });
     expect(nameFromTag('бот_для_домашки')).toBe('Бот для домашки');
+  });
+});
+
+describe('напоминание у дела (PLAN-004)', () => {
+  it('«напомню в 15:45», в другой день — с датой, сделанное — ничего', () => {
+    const t = task('Контрольная', { due_date: '2026-10-20', due_time: '16:00' });
+    expect(remindLabel(t)).toBeNull();
+    expect(remindLabel({ ...t, remind_at: '2026-10-20T15:45' })).toBe('напомню в 15:45');
+    expect(remindLabel({ ...t, remind_at: '2026-10-19T19:00' })).toBe('напомню 19.10 в 19:00');
+    expect(remindLabel({ ...t, remind_at: '2026-10-20T15:45', status: 'done' })).toBeNull();
   });
 });

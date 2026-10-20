@@ -25,6 +25,8 @@ export interface AuthMock {
   maintenanceText: string;
   /** тумблер почты выключен */
   emailOff: boolean;
+  /** каналы напоминаний (PLAN-004), как `GET /api/v1/notifications/settings` */
+  notify: Record<string, unknown>;
 }
 
 /** Тумблеры глазами owner — как `GET /api/owner/platform`. */
@@ -103,6 +105,19 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
   const m: AuthMock = {
     me: null,
     password: 'правильный-пароль',
+    notify: {
+      push_enabled: true,
+      telegram_enabled: true,
+      first_channel: 'push',
+      quiet_from: '23:00',
+      quiet_to: '08:00',
+      before_minutes: 15,
+      travel_minutes: 60,
+      push_key: null,
+      push_devices: [],
+      telegram_linked: true,
+      telegram_ready: true,
+    },
     platform: {
       login_enabled: true,
       login_methods: { password: true, yandex: true, vk: true, google: false, telegram: false },
@@ -178,6 +193,33 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
       m.me ? false : (fail(route, 401, 'unauthenticated', 'Нужно войти'), true);
 
     switch (at) {
+      case 'GET /api/v1/notifications/settings':
+        return needMe() || json(route, 200, m.notify);
+      case 'PATCH /api/v1/notifications/settings': {
+        if (needMe()) return;
+        if (body?.first_channel === 'email')
+          return fail(route, 400, 'invalid', 'неизвестный канал email');
+        Object.assign(m.notify, body);
+        return json(route, 200, m.notify);
+      }
+      case 'POST /api/v1/notifications/test':
+        return (
+          needMe() ||
+          json(route, 200, {
+            id: 'n-test',
+            kind: 'system',
+            origin: 'system',
+            title: 'Пробное напоминание',
+            body: '',
+            why: '',
+            held: false,
+            created_at: new Date().toISOString(),
+          })
+        );
+      case 'GET /api/v1/notifications':
+        return needMe() || json(route, 200, { items: [], unread: 0 });
+      case 'POST /api/v1/notifications/presence':
+        return needMe() || route.fulfill({ status: 204 });
       case 'GET /api/auth/me':
         return m.me ? json(route, 200, m.me) : fail(route, 401, 'unauthenticated', 'Нужно войти');
       case 'GET /api/platform/status':

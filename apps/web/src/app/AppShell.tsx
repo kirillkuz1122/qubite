@@ -30,6 +30,7 @@ import {
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
+import { Bell } from './Bell';
 import { CommandField } from './CommandField';
 import { ShellCtx, type ShellApi } from './context';
 import { SECTIONS, plural, dayLabel, isoWeek, weekLabel, type SectionId } from './data';
@@ -386,6 +387,7 @@ export function AppShell() {
             <div className="head-sub" ref={sub}>
               {subtitle(id, state, planner, wide, inbox.items.length)}
             </div>
+            <Bell />
           </header>
           <div className="screen" ref={screen} data-screen={view}>
             {SCREENS[view]()}

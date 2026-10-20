@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Модуль Planner: проекты и дела (шаги, важность, срок, повторения) через ядро объектов и синхронизацию"
 
 [dependencies]
+qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-sync-server = { version = "0.1.0", path = "../qubite-sync-server" }
 serde = { version = "1.0.229", features = ["derive"] }

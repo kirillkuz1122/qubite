@@ -3315,6 +3315,341 @@
         }
       }
     },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": ["notifications"],
+        "summary": "Колокольчик: последние сообщения, свежие сверху.",
+        "operationId": "list_notices",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "До 200, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/presence": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Вкладка Qubite видна или нет. Пока видна, напоминания приходят только в\nколокольчик — без push и Telegram (одно сообщение — один канал).",
+        "operationId": "notice_presence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Presence"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Отмечено"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/push": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Подписать этот браузер на push.",
+        "operationId": "push_subscribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscribe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Подписан"
+          },
+          "400": {
+            "description": "Не служба push браузера или неверные ключи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Push не настроен на сервере",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/push/remove": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Отписать браузер от push.",
+        "operationId": "push_unsubscribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushUnsubscribe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Отписан"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Прочитать всё.",
+        "operationId": "read_all_notices",
+        "responses": {
+          "200": {
+            "description": "Прочитано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/settings": {
+      "get": {
+        "tags": ["notifications"],
+        "summary": "Настройки каналов и тишины.",
+        "operationId": "notify_settings",
+        "responses": {
+          "200": {
+            "description": "Настройки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifySettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["notifications"],
+        "summary": "Изменить каналы и тишину. Новые «за сколько минут» действуют для новых\nи изменённых дел.",
+        "operationId": "change_notify_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotifySettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifySettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные значения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/test": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Пробное сообщение: в колокольчик и сразу наружу (push или Telegram), даже\nесли Qubite открыт, — чтобы проверить канал.",
+        "operationId": "send_test_notice",
+        "responses": {
+          "200": {
+            "description": "Отправлено в очередь",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Прочитано: гаснет и в Telegram.",
+        "operationId": "read_notice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Сообщение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Прочитано"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sync/pull": {
       "get": {
         "tags": ["sync"],
@@ -4814,6 +5149,74 @@
           }
         }
       },
+      "NoticeItem": {
+        "type": "object",
+        "description": "Сообщение в колокольчике.",
+        "required": ["id", "kind", "origin", "title", "body", "why", "held", "created_at"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Подробности: «в 16:00»."
+          },
+          "channel": {
+            "type": ["string", "null"],
+            "description": "Куда ушло наружу: `push`, `telegram`; нет — только колокольчик."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "held": {
+            "type": "boolean",
+            "description": "Пришло в тишину — только сюда, наружу не отправлялось."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`reminder` — напоминание о деле, `agent` — агент пишет первым, `system` — служебное."
+          },
+          "object_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Дело, к которому ведёт сообщение."
+          },
+          "origin": {
+            "type": "string",
+            "description": "`owner` — человек сам попросил (приходит всегда), `agent` — агент первым."
+          },
+          "read_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "description": "Почему сейчас: «сходить куда-то — за час, с запасом на дорогу»."
+          }
+        }
+      },
+      "NoticeList": {
+        "type": "object",
+        "description": "Сообщения и сколько не прочитано.",
+        "required": ["items", "unread"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoticeItem"
+            }
+          },
+          "unread": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "NotificationChange": {
         "type": "object",
         "required": ["enabled"],
@@ -4839,6 +5242,106 @@
             "type": "string"
           }
         }
+      },
+      "NotifySettings": {
+        "type": "object",
+        "description": "Каналы и тишина.",
+        "required": [
+          "push_enabled",
+          "telegram_enabled",
+          "first_channel",
+          "quiet_from",
+          "quiet_to",
+          "before_minutes",
+          "travel_minutes",
+          "push_devices",
+          "telegram_linked",
+          "telegram_ready"
+        ],
+        "properties": {
+          "before_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "«Само»: за сколько минут до дела со временем.",
+            "minimum": 0
+          },
+          "first_channel": {
+            "type": "string",
+            "description": "Куда сначала, когда тебя нет в Qubite: `push` или `telegram`; не дошло — во второй."
+          },
+          "push_devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PushDevice"
+            }
+          },
+          "push_enabled": {
+            "type": "boolean"
+          },
+          "push_key": {
+            "type": ["string", "null"],
+            "description": "Открытый ключ VAPID для подписки браузера. Нет — push на сервере не настроен."
+          },
+          "quiet_from": {
+            "type": "string",
+            "description": "Ночь: агент не пишет первым. `ЧЧ:ММ`."
+          },
+          "quiet_to": {
+            "type": "string"
+          },
+          "telegram_enabled": {
+            "type": "boolean"
+          },
+          "telegram_linked": {
+            "type": "boolean",
+            "description": "Telegram привязан в профиле."
+          },
+          "telegram_ready": {
+            "type": "boolean",
+            "description": "Бот Telegram настроен на сервере."
+          },
+          "travel_minutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "«Само»: за сколько минут до «сходить куда-то» (с запасом на дорогу).",
+            "minimum": 0
+          }
+        }
+      },
+      "NotifySettingsChange": {
+        "type": "object",
+        "description": "Изменение настроек: только то, что меняется.",
+        "properties": {
+          "before_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "0…1440.",
+            "minimum": 0
+          },
+          "first_channel": {
+            "type": ["string", "null"],
+            "description": "`push` или `telegram`."
+          },
+          "push_enabled": {
+            "type": ["boolean", "null"]
+          },
+          "quiet_from": {
+            "type": ["string", "null"],
+            "description": "`ЧЧ:ММ`."
+          },
+          "quiet_to": {
+            "type": ["string", "null"]
+          },
+          "telegram_enabled": {
+            "type": ["boolean", "null"]
+          },
+          "travel_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "OAuthProviderItem": {
         "type": "object",
@@ -4940,6 +5443,89 @@
           "timezone": {
             "type": "string",
             "description": "Часовой пояс платформы (IANA)."
+          }
+        }
+      },
+      "Presence": {
+        "type": "object",
+        "required": ["visible"],
+        "properties": {
+          "visible": {
+            "type": "boolean",
+            "description": "Вкладка Qubite видна (раз в минуту, пока видна; `false` — спрятана или закрывается)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushDevice": {
+        "type": "object",
+        "description": "Браузер, подписанный на push.",
+        "required": ["id", "label", "endpoint", "created_at"],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Адрес подписки — по нему браузер узнаёт свою."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "PushKeys": {
+        "type": "object",
+        "description": "Ключи подписки браузера (`PushSubscription.toJSON().keys`).",
+        "required": ["p256dh", "auth"],
+        "properties": {
+          "auth": {
+            "type": "string"
+          },
+          "p256dh": {
+            "type": "string"
+          }
+        }
+      },
+      "PushSubscribe": {
+        "type": "object",
+        "description": "Подписка браузера на push (`PushSubscription.toJSON()` и название устройства).",
+        "required": ["endpoint", "keys"],
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushKeys"
+          },
+          "label": {
+            "type": "string",
+            "description": "«Firefox на телефоне»."
+          }
+        }
+      },
+      "PushUnsubscribe": {
+        "type": "object",
+        "required": ["endpoint"],
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          }
+        }
+      },
+      "ReadCount": {
+        "type": "object",
+        "description": "Сколько погашено.",
+        "required": ["read"],
+        "properties": {
+          "read": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -5349,6 +5935,10 @@
     {
       "name": "agent",
       "description": "Агент Qubite: лента «Что сделал агент», откат и исправление"
+    },
+    {
+      "name": "notifications",
+      "description": "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"
     }
   ]
 }

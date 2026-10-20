@@ -324,3 +324,27 @@
 .auth-foot a {
   color: var(--q-mute);
 }
+
+/* Профиль → «Напоминания» (PLAN-004) */
+.acc-col {
+  flex-wrap: wrap;
+}
+.acc-times {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--q-dim);
+  font-size: 13px;
+}
+.acc-times input {
+  width: 6.5em;
+  padding: 6px 8px;
+  border: 1px solid var(--q-line-2);
+  border-radius: calc(var(--q-round) * 12px);
+  background: var(--q-panel);
+  color: var(--q-ink);
+  font: inherit;
+}
+.acc-times input[type='number'] {
+  width: 4.8em;
+}

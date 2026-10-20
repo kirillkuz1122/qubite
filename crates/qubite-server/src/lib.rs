@@ -12,6 +12,7 @@ pub mod email;
 pub mod inbox;
 pub mod maintenance;
 pub mod modules;
+pub mod notices;
 pub mod notifications;
 pub mod oauth;
 pub mod platform;
@@ -46,6 +47,8 @@ pub struct AppState {
     pub ai: Arc<qubite_ai::Gateway>,
     /// Вход через Яндекс, VK, Google, Telegram.
     pub oauth: Arc<qubite_oauth::OAuth>,
+    /// Каналы напоминаний: push (ключ VAPID) и Telegram (токен бота).
+    pub notify: qubite_notify::deliver::Channels,
 }
 
 impl AppState {
@@ -66,7 +69,13 @@ impl AppState {
             oauth: Arc::new(qubite_oauth::OAuth::new(
                 qubite_oauth::OAuthSettings::default(),
             )),
+            notify: qubite_notify::deliver::Channels::default(),
         }
+    }
+
+    pub fn with_notify(mut self, channels: qubite_notify::deliver::Channels) -> Self {
+        self.notify = channels;
+        self
     }
 
     /// Вход через провайдеров с настройками `qubite serve` (AUTH-004).
@@ -160,7 +169,16 @@ impl AppState {
         agent::action,
         agent::revert,
         agent::revert_batch,
-        agent::fix
+        agent::fix,
+        notices::list_notices,
+        notices::read_notice,
+        notices::read_all_notices,
+        notices::notice_presence,
+        notices::notify_settings,
+        notices::change_notify_settings,
+        notices::push_subscribe,
+        notices::push_unsubscribe,
+        notices::send_test_notice
     ),
     components(schemas(
         Health,
@@ -240,7 +258,17 @@ impl AppState {
         agent::AgentConflict,
         agent::AgentRevertResult,
         agent::AgentRevertRequest,
-        agent::AgentFixRequest
+        agent::AgentFixRequest,
+        notices::NoticeItem,
+        notices::NoticeList,
+        notices::ReadCount,
+        notices::Presence,
+        notices::PushDevice,
+        notices::NotifySettings,
+        notices::NotifySettingsChange,
+        notices::PushKeys,
+        notices::PushSubscribe,
+        notices::PushUnsubscribe
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -249,7 +277,8 @@ impl AppState {
         (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)"),
         (name = "sync", description = "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"),
         (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"),
-        (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление")
+        (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление"),
+        (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина")
     )
 )]
 pub struct ApiDoc;
@@ -383,6 +412,32 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/agent/batches/{id}/revert",
             post(agent::revert_batch),
+        )
+        .route("/api/v1/notifications", get(notices::list_notices))
+        .route(
+            "/api/v1/notifications/{id}/read",
+            post(notices::read_notice),
+        )
+        .route(
+            "/api/v1/notifications/read-all",
+            post(notices::read_all_notices),
+        )
+        .route(
+            "/api/v1/notifications/presence",
+            post(notices::notice_presence),
+        )
+        .route(
+            "/api/v1/notifications/settings",
+            get(notices::notify_settings).patch(notices::change_notify_settings),
+        )
+        .route("/api/v1/notifications/push", post(notices::push_subscribe))
+        .route(
+            "/api/v1/notifications/push/remove",
+            post(notices::push_unsubscribe),
+        )
+        .route(
+            "/api/v1/notifications/test",
+            post(notices::send_test_notice),
         )
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы

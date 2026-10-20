@@ -28,6 +28,15 @@ impl std::fmt::Debug for TelegramApi {
 pub struct Update {
     pub update_id: i64,
     pub message: Option<Message>,
+    /// Нажата кнопка под сообщением бота (напоминания, PLAN-004).
+    pub callback_query: Option<CallbackQuery>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CallbackQuery {
+    pub id: String,
+    pub from: User,
+    pub data: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -81,6 +90,39 @@ struct Reply<T> {
 }
 
 #[derive(Deserialize)]
+struct SentMessage {
+    message_id: i64,
+}
+
+impl qubite_notify::Telegram for TelegramApi {
+    fn send<'a>(
+        &'a self,
+        chat: i64,
+        text: &'a str,
+        buttons: &'a [qubite_notify::Button],
+    ) -> qubite_notify::BoxFuture<'a, std::result::Result<i64, String>> {
+        Box::pin(async move {
+            self.send_with_buttons(chat, text, buttons)
+                .await
+                .map_err(|error| error.to_string())
+        })
+    }
+
+    fn edit<'a>(
+        &'a self,
+        chat: i64,
+        message: i64,
+        text: &'a str,
+    ) -> qubite_notify::BoxFuture<'a, std::result::Result<(), String>> {
+        Box::pin(async move {
+            TelegramApi::edit(self, chat, message, text)
+                .await
+                .map_err(|error| error.to_string())
+        })
+    }
+}
+
+#[derive(Deserialize)]
 struct FileInfo {
     file_path: Option<String>,
 }
@@ -127,7 +169,8 @@ impl TelegramApi {
     pub async fn updates(&self, offset: i64, wait: Duration) -> Result<Vec<Update>> {
         self.call(
             "getUpdates",
-            json!({ "offset": offset, "timeout": wait.as_secs(), "allowed_updates": ["message"] }),
+            json!({ "offset": offset, "timeout": wait.as_secs(),
+                    "allowed_updates": ["message", "callback_query"] }),
         )
         .await
     }
@@ -137,6 +180,50 @@ impl TelegramApi {
             .call(
                 "sendMessage",
                 json!({ "chat_id": chat_id, "text": text, "disable_web_page_preview": true }),
+            )
+            .await?;
+        Ok(())
+    }
+
+    /// Отправить с кнопками под сообщением; вернуть ID сообщения.
+    pub async fn send_with_buttons(
+        &self,
+        chat_id: i64,
+        text: &str,
+        buttons: &[qubite_notify::Button],
+    ) -> Result<i64> {
+        let row: Vec<Value> = buttons
+            .iter()
+            .map(|button| json!({ "text": button.text, "callback_data": button.data }))
+            .collect();
+        let sent: SentMessage = self
+            .call(
+                "sendMessage",
+                json!({ "chat_id": chat_id, "text": text, "disable_web_page_preview": true,
+                        "reply_markup": { "inline_keyboard": [row] } }),
+            )
+            .await?;
+        Ok(sent.message_id)
+    }
+
+    /// Заменить текст сообщения; кнопки пропадают.
+    pub async fn edit(&self, chat_id: i64, message_id: i64, text: &str) -> Result<()> {
+        let _: Value = self
+            .call(
+                "editMessageText",
+                json!({ "chat_id": chat_id, "message_id": message_id, "text": text,
+                        "disable_web_page_preview": true }),
+            )
+            .await?;
+        Ok(())
+    }
+
+    /// Ответить на нажатие кнопки (короткая подсказка вверху чата).
+    pub async fn answer_callback(&self, id: &str, text: &str) -> Result<()> {
+        let _: Value = self
+            .call(
+                "answerCallbackQuery",
+                json!({ "callback_query_id": id, "text": text }),
             )
             .await?;
         Ok(())

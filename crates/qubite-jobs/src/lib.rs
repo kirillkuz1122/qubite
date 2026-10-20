@@ -19,7 +19,7 @@
 use std::{future::Future, time::Duration};
 
 use serde::Serialize;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use time::OffsetDateTime;
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -120,6 +120,13 @@ const COLUMNS: &str = "id, kind, payload, status, attempts, max_attempts, run_at
 
 /// Поставить задачу в очередь. С ключом идемпотентности повтор вернёт уже существующую.
 pub async fn enqueue(pool: &PgPool, new: NewJob) -> Result<Job> {
+    let mut conn = pool.acquire().await?;
+    enqueue_in(&mut conn, new).await
+}
+
+/// То же в чужой транзакции: задача появится, только если транзакция
+/// зафиксирована (например, напоминание вместе с изменением дела).
+pub async fn enqueue_in(conn: &mut PgConnection, new: NewJob) -> Result<Job> {
     if new.max_attempts < 1 {
         return Err(Error::Invalid(
             "max_attempts должно быть не меньше 1".into(),
@@ -136,7 +143,7 @@ pub async fn enqueue(pool: &PgPool, new: NewJob) -> Result<Job> {
     .bind(new.run_at)
     .bind(new.max_attempts)
     .bind(&new.idempotency_key)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *conn)
     .await
     .map_err(|error| match &error {
         sqlx::Error::Database(db) if db.code().as_deref() == Some("23514") => {
@@ -150,7 +157,7 @@ pub async fn enqueue(pool: &PgPool, new: NewJob) -> Result<Job> {
             "SELECT {COLUMNS} FROM jobs WHERE idempotency_key = $1"
         )))
         .bind(&new.idempotency_key)
-        .fetch_one(pool)
+        .fetch_one(conn)
         .await?),
     }
 }

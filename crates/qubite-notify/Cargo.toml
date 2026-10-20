@@ -1,0 +1,39 @@
+[package]
+name = "qubite-notify"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Напоминания и каналы Qubite: колокольчик, push в браузере, Telegram; тишина"
+
+[dependencies]
+qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }
+qubite-planner = { version = "0.1.0", path = "../qubite-planner" }
+qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
+base64 = "0.22.1"
+# Web Push: ECDH P-256, HKDF, AES-128-GCM и подпись VAPID (ES256) — ring, как в TLS.
+ring = "0.17.14"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "macros", "uuid", "time", "json"] }
+thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["serde"] }
+tokio = { version = "1.53.3", features = ["time", "sync", "macros"] }
+tracing = "0.1.44"
+uuid = { version = "1.28.0", features = ["v7", "serde"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+axum = "0.8.9"
+qubite-auth = { path = "../qubite-auth" }
+qubite-db = { path = "../qubite-db" }
+qubite-objects = { path = "../qubite-objects" }
+qubite-sync = { path = "../qubite-sync" }
+qubite-sync-server = { path = "../qubite-sync-server" }
+qubite-testkit = { path = "../qubite-testkit" }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"] }
