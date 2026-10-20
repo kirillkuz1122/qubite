@@ -1,9 +1,11 @@
 //! Owner Console (ACC-003): люди, журнал, сервер и подтверждение паролем.
 //!
 //! Все адреса — только для owner (остальным 404, как и весь `/api/owner/*`).
-//! Опасные действия (создать человека, заблокировать, закрыть его сессии)
-//! требуют свежего подтверждения паролем: не чаще раза в 5 минут на сессию
-//! (D-063, D-232). Подтверждение запоминается в самой сессии на сервере.
+//! Опасные действия требуют свежего подтверждения паролем — «режим
+//! подтверждения»: пароль один раз, дальше 10 минут не спрашивается (D-063,
+//! D-232, D-285). Опасные: создать человека, заблокировать, закрыть его
+//! сессии; тумблеры платформы и техработ; выдать и снять доступ; модули;
+//! AI-модели и выбор модели для задач. Подтверждение хранится в сессии.
 
 use std::{net::SocketAddr, sync::LazyLock};
 
@@ -29,7 +31,7 @@ use crate::{
 };
 
 /// Сколько живёт подтверждение паролем.
-pub const CONFIRM_TTL_SECS: i64 = 5 * 60;
+pub const CONFIRM_TTL_SECS: i64 = 10 * 60;
 
 /// Когда запущен сервер (для раздела «Сервер»).
 static STARTED: LazyLock<OffsetDateTime> = LazyLock::new(OffsetDateTime::now_utc);
@@ -66,7 +68,7 @@ pub struct Confirmed {
     until: OffsetDateTime,
 }
 
-/// Подтвердить паролем: следующие 5 минут опасные действия Console пароль не спрашивают.
+/// Подтвердить паролем: следующие 10 минут опасные действия Console пароль не спрашивают.
 #[utoipa::path(post, path = "/api/owner/confirm", tag = "owner", request_body = ConfirmRequest,
     responses(
         (status = 200, description = "Подтверждено", body = Confirmed),
@@ -95,8 +97,11 @@ pub async fn confirm(
     Ok(Json(Confirmed { until }))
 }
 
-/// Опасное действие: пароль подтверждён в этой сессии не раньше 5 минут назад.
-async fn require_confirmed(state: &AppState, session: &Authenticated) -> Result<(), ApiError> {
+/// Опасное действие: пароль подтверждён в этой сессии не раньше 10 минут назад (D-285).
+pub(crate) async fn require_confirmed(
+    state: &AppState,
+    session: &Authenticated,
+) -> Result<(), ApiError> {
     let fresh: bool = sqlx::query_scalar(
         "SELECT coalesce(confirmed_at > now() - $2::bigint * interval '1 second', false) \
          FROM sessions WHERE id = $1",

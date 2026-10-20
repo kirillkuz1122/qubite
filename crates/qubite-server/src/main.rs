@@ -488,8 +488,41 @@ impl DbArgs {
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    // До запуска потоков: переменные из .env выставляются в окружение процесса.
+    let dotenv = load_dotenv()?;
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("не запущен tokio")?
+        .block_on(run(dotenv))
+}
+
+/// `.env` проекта (D-282): ищется от текущей папки вверх до корня проекта
+/// (папки с `.git`, у worktree — своя), выше не идёт — чтобы копия агента
+/// не подхватила `.env` основной копии. Переменные окружения сильнее файла.
+/// `QUBITE_DOTENV=0` — не читать (на сервере настройки даёт systemd).
+fn load_dotenv() -> anyhow::Result<Option<std::path::PathBuf>> {
+    if std::env::var_os("QUBITE_DOTENV").is_some_and(|v| v == "0") {
+        return Ok(None);
+    }
+    let Ok(cwd) = std::env::current_dir() else {
+        return Ok(None);
+    };
+    for dir in cwd.ancestors() {
+        let path = dir.join(".env");
+        if path.is_file() {
+            dotenvy::from_path(&path).with_context(|| format!("не прочитан {}", path.display()))?;
+            return Ok(Some(path));
+        }
+        if dir.join(".git").exists() {
+            break;
+        }
+    }
+    Ok(None)
+}
+
+async fn run(dotenv: Option<std::path::PathBuf>) -> anyhow::Result<()> {
     let cli = Cli::parse();
     if matches!(cli.command, Command::Openapi) {
         // Без логов: вывод идёт прямо в файл клиента.
@@ -497,6 +530,9 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     init_logging(&cli.log, cli.log_format)?;
+    if let Some(path) = &dotenv {
+        tracing::debug!(path = %path.display(), "настройки из .env");
+    }
 
     match cli.command {
         Command::Openapi => unreachable!("обработано выше"),

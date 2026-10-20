@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME } from '../auth/client';
 import { useEffect } from 'react';
 import { useSync } from './sync-context';
-import { AccountSyncProvider } from './sync';
+import { AccountSyncProvider, clearAccountStore } from './sync';
 import { forgetSyncAccount, syncDbName } from './sync-context';
 
 const offline: Transport = {
@@ -108,5 +108,58 @@ describe('хранилище в браузере — своё у каждого 
     const client = await ready!;
     expect(client).toBeInstanceOf(SyncClient);
     expect(mounts).toBe(1);
+  });
+});
+
+/** Сервер, который принимает всё (новые мысли), и ничего нового не отдаёт. */
+const online: Transport = {
+  push: (request) =>
+    Promise.resolve({
+      results: request.ops.map((op) => ({
+        status: 'applied' as const,
+        op_id: op.op_id,
+        revision: 1,
+      })),
+    }),
+  pull: () => Promise.resolve({ changes: [], cursor: 0, has_more: false }),
+};
+
+async function databases(): Promise<string[]> {
+  return (await indexedDB.databases()).map((d) => d.name ?? '');
+}
+
+describe('«Выйти» и хранилище в браузере (D-284)', () => {
+  it('неотправленное остаётся до следующего входа, а когда всё на сервере — хранилище стирается', async () => {
+    const name = syncDbName('c');
+    const before = await SyncClient.open({ dbName: name, transport: offline });
+    await before.create('inbox.thought', 'купить молоко');
+    before.close();
+
+    // без сети: дослать не удалось — хранилище и мысль на месте
+    const open = (transport: Transport) => (dbName: string) =>
+      SyncClient.open({ dbName, transport });
+    expect(await clearAccountStore('c', open(offline))).toBe(false);
+    expect(await databases()).toContain(name);
+    const kept = await SyncClient.open({ dbName: name, transport: offline });
+    expect(kept.state().pending).toBe(1);
+    kept.close();
+
+    // тот же аккаунт снова вошёл, сеть есть — мысль ушла, при выходе хранилище стёрто
+    expect(await clearAccountStore('c', open(online))).toBe(true);
+    expect(await databases()).not.toContain(name);
+  });
+
+  it('сервер не ответил за отведённое время — хранилище остаётся', async () => {
+    const name = syncDbName('d');
+    const before = await SyncClient.open({ dbName: name, transport: offline });
+    await before.create('inbox.thought', 'позвонить');
+    before.close();
+    const never: Transport = {
+      push: () => new Promise(() => {}),
+      pull: () => new Promise(() => {}),
+    };
+    const open = (dbName: string) => SyncClient.open({ dbName, transport: never });
+    expect(await clearAccountStore('d', open, indexedDB, 30)).toBe(false);
+    expect(await databases()).toContain(name);
   });
 });

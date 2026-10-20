@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../api';
 import { must, say } from '../auth/client';
-import { MODULES, useModules, type ModuleItem } from './api';
+import { MODULES, useDanger, useModules, type ModuleItem } from './api';
 
 /**
  * Модули (OWNER_CONSOLE §1.3): установлен, состояние, готовность, как виден без доступа.
@@ -13,15 +13,18 @@ import { MODULES, useModules, type ModuleItem } from './api';
 export function ModulesTab() {
   const qc = useQueryClient();
   const modules = useModules();
+  const danger = useDanger();
   const [error, setError] = useState<string | null>(null);
   const change = async (m: ModuleItem, patch: Record<string, unknown>) => {
     setError(null);
     try {
-      await must(
-        api.PATCH('/api/owner/modules/{id}', {
-          params: { path: { id: m.id } },
-          body: { ...patch, expected_version: m.version },
-        }),
+      await danger(() =>
+        must(
+          api.PATCH('/api/owner/modules/{id}', {
+            params: { path: { id: m.id } },
+            body: { ...patch, expected_version: m.version },
+          }),
+        ),
       );
     } catch (e) {
       setError(`${m.title}: ${say(e)}`);

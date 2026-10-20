@@ -4,9 +4,11 @@ import { mockConsole } from './console-mock';
 
 /* Owner Console (ACC-003): сервер подделан теми же ответами, браузер настоящий. */
 
-async function owner(page: Page) {
+/** Owner в Console; `confirmed` — пароль уже подтверждён в этой сессии (D-285). */
+async function owner(page: Page, { confirmed = true } = {}) {
   const auth = await mockAuth(page, { me: OWNER });
   const console = await mockConsole(page, auth);
+  console.confirmed = confirmed;
   return { auth, console };
 }
 
@@ -71,6 +73,34 @@ test('платформа: черновик → список изменений �
   await expect(page.getByRole('link', { name: 'Войти через VK ID' })).toHaveCount(0);
 });
 
+test('режим подтверждения: тумблер просит пароль один раз, отмена ничего не меняет (Q-42)', async ({
+  page,
+}) => {
+  const { auth, console } = await owner(page, { confirmed: false });
+  await page.goto('/console/platform');
+  await page.getByRole('switch', { name: 'Вход через VK ID' }).click();
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Подтвердите паролем' });
+  await expect(dialog).toContainText('Следующие 10 минут');
+  await dialog.getByRole('button', { name: 'Отмена' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(console.items.get('login.methods.vk')?.value).toBe(true);
+
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await dialog.getByLabel('Пароль').fill(auth.password);
+  await dialog.getByRole('button', { name: 'Подтвердить' }).click();
+  await expect(page.getByText('Сохранено: 1')).toBeVisible();
+  expect(console.items.get('login.methods.vk')?.value).toBe(false);
+
+  // дальше — без пароля: модуль меняется сразу
+  await tab(page, 'Модули').click();
+  await page.getByRole('switch').first().click();
+  await expect
+    .poll(() => auth.calls.filter((c) => c.path.startsWith('/api/owner/modules/')).length)
+    .toBe(1);
+  await expect(dialog).toHaveCount(0);
+});
+
 test('платформа: другая вкладка изменила то же — три значения, owner выбирает', async ({
   page,
 }) => {
@@ -93,7 +123,7 @@ test('платформа: другая вкладка изменила то же
 test('люди: создать вручную с паролем, выдать Docs, заблокировать — всё в журнале', async ({
   page,
 }) => {
-  const { auth, console } = await owner(page);
+  const { auth, console } = await owner(page, { confirmed: false });
   await page.goto('/console/people');
   const form = page.getByRole('form', { name: 'Создать человека' });
   await form.getByLabel('Почта').fill('new@example.com');

@@ -1375,6 +1375,16 @@
           "204": {
             "description": "Все права сняты — грант отозван"
           },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Нет аккаунта, модуля или не owner",
             "content": {
@@ -1415,6 +1425,16 @@
         "responses": {
           "204": {
             "description": "Грант отозван"
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
           },
           "404": {
             "description": "Гранта не было или не owner",
@@ -1683,6 +1703,16 @@
               }
             }
           },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Не owner",
             "content": {
@@ -1770,6 +1800,16 @@
           },
           "400": {
             "description": "Модель не разрешена или неверная задача",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1867,7 +1907,7 @@
     "/api/owner/confirm": {
       "post": {
         "tags": ["owner"],
-        "summary": "Подтвердить паролем: следующие 5 минут опасные действия Console пароль не спрашивают.",
+        "summary": "Подтвердить паролем: следующие 10 минут опасные действия Console пароль не спрашивают.",
         "operationId": "confirm",
         "requestBody": {
           "content": {
@@ -2072,6 +2112,16 @@
               }
             }
           },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Не owner",
             "content": {
@@ -2185,6 +2235,16 @@
           },
           "400": {
             "description": "Неверное значение или модуль уже изменён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2342,6 +2402,16 @@
           },
           "400": {
             "description": "Нет такой настройки или неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль (D-285)",
             "content": {
               "application/json": {
                 "schema": {

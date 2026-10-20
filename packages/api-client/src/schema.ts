@@ -651,7 +651,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Подтвердить паролем: следующие 5 минут опасные действия Console пароль не спрашивают. */
+    /** Подтвердить паролем: следующие 10 минут опасные действия Console пароль не спрашивают. */
     post: operations['confirm'];
     delete?: never;
     options?: never;
@@ -2883,6 +2883,15 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
       /** @description Нет аккаунта, модуля или не owner */
       404: {
         headers: {
@@ -2914,6 +2923,15 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
       };
       /** @description Гранта не было или не owner */
       404: {
@@ -3125,6 +3143,15 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
       /** @description Не owner */
       404: {
         headers: {
@@ -3192,6 +3219,15 @@ export interface operations {
       };
       /** @description Модель не разрешена или неверная задача */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
         headers: {
           [name: string]: unknown;
         };
@@ -3431,6 +3467,15 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
       /** @description Не owner */
       404: {
         headers: {
@@ -3527,6 +3572,15 @@ export interface operations {
       };
       /** @description Неверное значение или модуль уже изменён */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
         headers: {
           [name: string]: unknown;
         };
@@ -3661,6 +3715,15 @@ export interface operations {
       };
       /** @description Нет такой настройки или неверное значение */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль (D-285) */
+      403: {
         headers: {
           [name: string]: unknown;
         };

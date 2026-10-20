@@ -28,25 +28,49 @@ just gen-api    # обновить клиент API после изменени�
 just release    # архив релиза в dist/release (сервер + сайт + контрольная сумма)
 just secrets    # поиск паролей и ключей в неотправленных коммитах
 just test-legacy  # 321 тест старого Qubite
-just db-up | db-down | db-status
+just db-up | db-down | db-status | db-reset
+just qubite ai chatgpt status   # любая команда сервера с настройками из .env
 ```
 
 Ниже — то же самое по шагам, без `just`.
 
+### Базы: разработка и тесты — отдельно (D-281)
+
+`scripts/dev-db.sh up` (или `just db-up`) поднимает в Docker **две** PostgreSQL 18 + pgvector:
+
+| Контейнер | Порт | Для чего | Данные |
+|---|---|---|---|
+| `qubite-dev-db` | 55432, база `qubite` | `just dev`, `qubite …` — твой owner, дела, мысли | том Docker `qubite-dev-pgdata`: переживают перезагрузку, `up`, `down` и любые тесты |
+| `qubite-test-db` | 55433 | только тесты (`TEST_DATABASE_URL`) | в памяти; каждый тест создаёт свою базу `qubite_test_*` и удаляет её |
+
+- Тесты **никогда** не подключаются к базе разработки: `just check` берёт `TEST_DATABASE_URL` тестовой, браузерные тесты (`just e2e`) базы вообще не трогают — ответы сервера подделаны.
+- `just db-down` останавливает обе, данные разработки остаются. Стереть их — только явно: `just db-reset` (спросит «да»).
+- Раньше база разработки жила в памяти (база `postgres`) и пропадала после перезагрузки компьютера — первый `up` новой версии переносит то, что в ней было, в постоянную.
+
+### `.env` (D-282)
+
+`qubite` сам читает `.env`: от текущей папки вверх до корня проекта (папки с `.git`); переменные окружения сильнее файла, `QUBITE_DOTENV=0` — не читать. `just` файл сам не читает: `just dev` и `just qubite …` запускают `qubite`, тесты `.env` не видят. Поэтому `set -x DATABASE_URL …` в fish не нужен: достаточно строки в `.env` (есть в `.env.example`):
+
+```bash
+DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/qubite
+```
+
+Копия агента (worktree) ищет `.env` только у себя — `.env` основной копии ей не виден.
+
 ### Сервер (работает сейчас)
 
 ```bash
-# 1. Поднять локальную PostgreSQL 18 + pgvector в Docker (порт 55432)
+# 1. Поднять локальные базы (разработка :55432 и тесты :55433)
 scripts/dev-db.sh up
 
 # 2. Проверки: форматирование, линтер, все тесты
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-eval "$(scripts/dev-db.sh env)"      # задаёт TEST_DATABASE_URL
+eval "$(scripts/dev-db.sh env)"      # задаёт TEST_DATABASE_URL (тестовая база) и DATABASE_URL
 cargo test --workspace
 
-# 3. Запустить сервер
-DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/postgres cargo run --bin qubite -- serve
+# 3. Запустить сервер (DATABASE_URL — из .env)
+cargo run --bin qubite -- serve
 curl http://127.0.0.1:8080/api/health        # жив ли процесс
 curl http://127.0.0.1:8080/api/ready         # отвечает ли база, применены ли миграции
 curl http://127.0.0.1:8080/api/openapi.json  # описание API
@@ -56,13 +80,13 @@ cargo run --bin qubite -- migrate        # только применить ми�
 cargo run --bin qubite -- version
 
 # Owner платформы (один на установку; второй раз команда откажет)
-DATABASE_URL=… cargo run --bin qubite -- owner create --email you@example.ru --name Кирилл
+cargo run --bin qubite -- owner create --email you@example.ru --name Кирилл
 #   пароль спросит дважды без отображения; для скриптов: echo "$PASS" | … --password-stdin
-DATABASE_URL=… cargo run --bin qubite -- owner password   # новый пароль, все сессии owner закрываются
+cargo run --bin qubite -- owner password   # новый пароль, все сессии owner закрываются
 
 # Telegram-бот (CMD-006): нужен токен нового бота от @BotFather
-DATABASE_URL=… QUBITE_TELEGRAM_BOT_TOKEN=… cargo run --bin qubite -- bot
-DATABASE_URL=… cargo run --bin qubite -- notify backup_failed "Бэкап не прошёл" --key backup:2026-10-19
+QUBITE_TELEGRAM_BOT_TOKEN=… cargo run --bin qubite -- bot
+cargo run --bin qubite -- notify backup_failed "Бэкап не прошёл" --key backup:2026-10-19
 
 # Вход (cookie qubite_session + qubite_csrf); изменяющим запросам нужен заголовок X-CSRF-Token
 curl -i -c jar -H 'content-type: application/json' \
@@ -72,22 +96,22 @@ curl -b jar http://127.0.0.1:8080/api/auth/me
 # а в режиме dev их текст с кодом печатается в лог сервера («письмо (mock)»)
 curl -H 'content-type: application/json' -d '{"email":"you@example.ru"}' http://127.0.0.1:8080/api/auth/password/forgot
 # Техработы (ACC-005): всем, кроме owner, — экран техработ
-DATABASE_URL=… cargo run --bin qubite -- maintenance on --until 10:00 --message "Переезжаем"
-DATABASE_URL=… cargo run --bin qubite -- maintenance off       # status — что сейчас
-DATABASE_URL=… cargo run --bin qubite -- maintenance pass      # одноразовая ссылка-пропуск owner на 10 минут
+cargo run --bin qubite -- maintenance on --until 10:00 --message "Переезжаем"
+cargo run --bin qubite -- maintenance off       # status — что сейчас
+cargo run --bin qubite -- maintenance pass      # одноразовая ссылка-пропуск owner на 10 минут
 cargo run --bin qubite -- serve --help   # все настройки (у каждой есть переменная окружения)
 
 # AI (AI-002). Без QUBITE_AI_OPENROUTER_API_KEY AI выключен; бюджет по умолчанию — ноль у всех
-DATABASE_URL=… cargo run --bin qubite -- ai limits                 # лимиты, резерв, расход
-DATABASE_URL=… cargo run --bin qubite -- ai models                 # модели, цены, блокировки
-DATABASE_URL=… cargo run --bin qubite -- ai catalog gemini         # каталог OpenRouter: что можно включить
-DATABASE_URL=… cargo run --bin qubite -- ai model google/gemini-2.5-flash-lite on --providers google-vertex
-DATABASE_URL=… cargo run --bin qubite -- ai use google/gemini-2.5-flash-lite --task inbox.triage
-DATABASE_URL=… cargo run --bin qubite -- ai limit --scope user:you@example.ru --period day --metric usd --value 1
-DATABASE_URL=… cargo run --bin qubite -- ai owner-unlimited on     # owner без личного лимита (в аудите)
-DATABASE_URL=… QUBITE_AI_OPENROUTER_API_KEY=… cargo run --bin qubite -- ai try "текст"   # настоящий вызов, стоит денег
+cargo run --bin qubite -- ai limits                 # лимиты, резерв, расход
+cargo run --bin qubite -- ai models                 # модели, цены, блокировки
+cargo run --bin qubite -- ai catalog gemini         # каталог OpenRouter: что можно включить
+cargo run --bin qubite -- ai model google/gemini-2.5-flash-lite on --providers google-vertex
+cargo run --bin qubite -- ai use google/gemini-2.5-flash-lite --task inbox.triage
+cargo run --bin qubite -- ai limit --scope user:you@example.ru --period day --metric usd --value 1
+cargo run --bin qubite -- ai owner-unlimited on     # owner без личного лимита (в аудите)
+QUBITE_AI_OPENROUTER_API_KEY=… cargo run --bin qubite -- ai try "текст"   # настоящий вызов, стоит денег
 
-scripts/dev-db.sh down                   # остановить базу (данные в памяти — пропадут)
+scripts/dev-db.sh down                   # остановить базы (данные разработки остаются)
 ```
 
 Версия Rust закреплена в `rust-toolchain.toml` (1.99.0), rustup сам поставит нужную.
@@ -110,8 +134,8 @@ Qubite Auth (AUTH-005) — те же адреса, что сервер пише�
 **Проверка на настоящем сервере** (`apps/web/e2e/real-server.spec.ts`: вход и сессии — AUTH-005, техработы и тумблеры — ACC-004; в `just e2e` пропускается, сценарий сам возвращает тумблеры как были):
 
 ```bash
-docker exec qubite-dev-db psql -U qubite -d postgres -c "CREATE DATABASE qubite_e2e"   # своя база, чтобы не мешать тестам
-export DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/qubite_e2e
+docker exec qubite-test-db psql -U qubite -d postgres -c "CREATE DATABASE qubite_e2e"   # в тестовой — данные just dev не трогаем
+export DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55433/qubite_e2e
 cargo run --bin qubite -- migrate
 echo "$PASS" | cargo run --bin qubite -- owner create --email owner@example.com --password-stdin
 # ненастоящие ключи Яндекса и VK — только чтобы появились кнопки (проверка тумблеров способов входа)
@@ -132,7 +156,7 @@ cd apps/web && QUBITE_E2E_REAL=http://localhost:4180 QUBITE_E2E_EMAIL=owner@exam
 
 ## 3. Локальная конфигурация
 
-Скопировать [`.env.example`](../../.env.example) в `.env` и заполнить. Настоящие ключи провайдеров для разработки не нужны: AI, почта и OAuth работают через mock.
+Скопировать [`.env.example`](../../.env.example) в `.env` и заполнить (его читает `qubite`, см. «`.env`» выше). Значения в `.env.example` — для разработки на этом компьютере; на сервере — адреса домена, они подписаны в комментариях. Настоящие ключи провайдеров для разработки не нужны: AI, почта и OAuth работают через mock.
 
 ## 4. Старый Qubite
 

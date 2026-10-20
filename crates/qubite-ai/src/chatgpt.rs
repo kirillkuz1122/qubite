@@ -5,6 +5,8 @@
 //!   `http://127.0.0.1:<порт>/auth/callback`. Первый вход регистрирует клиента
 //!   (`client_id = dynamic_agent_client`), OpenAI выдаёт свой `oaiapp_…` —
 //!   он и `ext_agent_host_id` этой установки хранятся и переиспользуются.
+//!   `ext_agent_host_id` — только в формате, который принимает OpenAI:
+//!   `urn:uuid:<UUIDv4>` (D-280); иначе вход отвечает `invalid_authorize_request`.
 //! - **Токены** — только зашифрованными ([`SecretBox`]); access живёт час,
 //!   обновляется заранее (за 5 минут), refresh одноразовый (ротация),
 //!   обновление — под блокировкой строки, чтобы два процесса не «сожгли» его.
@@ -112,6 +114,23 @@ pub fn pkce_challenge(verifier: &str) -> String {
 
 // ---------------------------------------------------------------- вход
 
+/// Новый `ext_agent_host_id`: UUIDv4 с приставкой `urn:uuid:` — один из
+/// форматов, которые принимает OpenAI (D-280).
+pub fn new_host_id() -> String {
+    format!("urn:uuid:{}", Uuid::new_v4().hyphenated())
+}
+
+/// Примет ли OpenAI такой `ext_agent_host_id`: `urn:uuid:<UUID>`,
+/// `urn:ietf:params:oauth:jwk-thumbprint:…` или `did:key:…`.
+pub fn host_id_ok(host_id: &str) -> bool {
+    if let Some(uuid) = host_id.strip_prefix("urn:uuid:") {
+        return uuid.len() == 36 && Uuid::parse_str(uuid).is_ok();
+    }
+    ["urn:ietf:params:oauth:jwk-thumbprint:", "did:key:"]
+        .iter()
+        .any(|prefix| host_id.len() > prefix.len() && host_id.starts_with(prefix))
+}
+
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -213,10 +232,23 @@ pub async fn login(
         "INSERT INTO ai_chatgpt_session (singleton, host_id) VALUES (true, $1) \
          ON CONFLICT (singleton) DO NOTHING",
     )
-    .bind(format!("qubite-{}", Uuid::new_v4().simple()))
+    .bind(new_host_id())
     .execute(pool)
     .await
     .map_err(db)?;
+    // До D-280 ID установки был `qubite-<hex>` — OpenAI его не принимал, и
+    // вход ни разу не прошёл. Такой ID заменяем; выданного client_id у него нет.
+    let old: String = sqlx::query_scalar("SELECT host_id FROM ai_chatgpt_session WHERE singleton")
+        .fetch_one(pool)
+        .await
+        .map_err(db)?;
+    if !host_id_ok(&old) {
+        sqlx::query("UPDATE ai_chatgpt_session SET host_id = $1 WHERE singleton")
+            .bind(new_host_id())
+            .execute(pool)
+            .await
+            .map_err(db)?;
+    }
     let (host_id, saved_client, saved_email): (String, Option<String>, Option<String>) =
         sqlx::query_as("SELECT host_id, client_id, email FROM ai_chatgpt_session WHERE singleton")
             .fetch_one(pool)

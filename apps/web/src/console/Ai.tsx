@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../api';
 import { must, say } from '../auth/client';
-import { AI_MODELS, AI_TASKS, useAiModels, useAiTasks } from './api';
+import { AI_MODELS, AI_TASKS, useAiModels, useAiTasks, useDanger } from './api';
 
 const TASK_LABEL: Record<string, string> = {
   default: 'По умолчанию',
@@ -21,12 +21,15 @@ export function AiTab() {
   const qc = useQueryClient();
   const models = useAiModels();
   const tasks = useAiTasks();
+  const danger = useDanger();
   const [error, setError] = useState<string | null>(null);
   const toggle = async (id: string, enabled: boolean) => {
     setError(null);
     try {
-      await must(
-        api.PATCH('/api/owner/ai/models/{id}', { params: { path: { id } }, body: { enabled } }),
+      await danger(() =>
+        must(
+          api.PATCH('/api/owner/ai/models/{id}', { params: { path: { id } }, body: { enabled } }),
+        ),
       );
     } catch (e) {
       setError(say(e));
@@ -37,11 +40,13 @@ export function AiTab() {
   const pick = async (task: string, modelId: string) => {
     setError(null);
     try {
-      await must(
-        api.PUT('/api/owner/ai/tasks/{task}', {
-          params: { path: { task } },
-          body: { model_id: modelId || null },
-        }),
+      await danger(() =>
+        must(
+          api.PUT('/api/owner/ai/tasks/{task}', {
+            params: { path: { task } },
+            body: { model_id: modelId || null },
+          }),
+        ),
       );
     } catch (e) {
       setError(say(e));

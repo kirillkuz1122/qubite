@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { must, PLATFORM, say, untilText } from '../auth/client';
+import { useDanger } from '../console/api';
 import { OWNER_PLATFORM, setting, useOwnerPlatform, value } from './owner';
 
 /**
@@ -12,6 +13,7 @@ import { OWNER_PLATFORM, setting, useOwnerPlatform, value } from './owner';
  */
 export function MaintenanceControl() {
   const qc = useQueryClient();
+  const danger = useDanger();
   const platform = useOwnerPlatform();
   const items = platform.data;
   const enabled = setting(items, 'maintenance.enabled');
@@ -33,14 +35,16 @@ export function MaintenanceControl() {
     setBusy(true);
     setNote(null);
     try {
-      const r = await must(
-        api.POST('/api/owner/maintenance', {
-          body: {
-            enabled: !on,
-            message: text.trim() && text.trim() !== savedText ? text.trim() : null,
-            until: !on && until.trim() ? until.trim() : null,
-          },
-        }),
+      const r = await danger(() =>
+        must(
+          api.POST('/api/owner/maintenance', {
+            body: {
+              enabled: !on,
+              message: text.trim() && text.trim() !== savedText ? text.trim() : null,
+              until: !on && until.trim() ? until.trim() : null,
+            },
+          }),
+        ),
       );
       await Promise.all([
         qc.invalidateQueries({ queryKey: OWNER_PLATFORM }),

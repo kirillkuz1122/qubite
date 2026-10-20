@@ -65,6 +65,7 @@ fn state_of(state: &AppState, settings: &PlatformSettings) -> MaintenanceState {
 /// Owner Console: включить или выключить техработы.
 #[utoipa::path(post, path = "/api/owner/maintenance", tag = "owner", request_body = MaintenanceRequest,
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Готово; открытые соединения не-owner закрываются сразу", body = MaintenanceState),
         (status = 400, description = "Неверное время или текст", body = ApiErrorBody),
         (status = 404, description = "Не owner", body = ApiErrorBody)
@@ -72,9 +73,11 @@ fn state_of(state: &AppState, settings: &PlatformSettings) -> MaintenanceState {
 pub async fn switch(
     State(state): State<AppState>,
     _owner: Owner,
-    Authenticated(session): Authenticated,
+    authenticated: Authenticated,
     Json(body): Json<MaintenanceRequest>,
 ) -> Result<Json<MaintenanceState>, ApiError> {
+    crate::console::require_confirmed(&state, &authenticated).await?;
+    let Authenticated(session) = authenticated;
     let settings = maintenance::switch(
         state.db.pool(),
         Some(session.account_id),

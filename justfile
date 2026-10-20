@@ -1,8 +1,14 @@
 # Единые команды разработки Qubite. Список: `just` или `just --list`.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+# .env читает сам `qubite` (D-282), не just: just искал бы его и в папках выше (у копии
+# агента — .env основной копии), а тестам .env не нужен вовсе.
 
-db_url := "postgres://qubite:qubite@127.0.0.1:55432/postgres"
+# База `just dev` (постоянная) и база тестов (своя, D-281) — scripts/dev-db.sh
+dev_db_url := "postgres://qubite:qubite@127.0.0.1:55432/qubite"
+test_db_url := "postgres://qubite:qubite@127.0.0.1:55433/postgres"
+# Нет DATABASE_URL ни в окружении, ни в .env этой копии — локальная база разработки
+use_dev_db := 'if [ -z "${DATABASE_URL:-}" ] && ! grep -qs "^DATABASE_URL=" .env; then export DATABASE_URL=' + dev_db_url + '; fi'
 
 # Показать все команды
 default:
@@ -19,7 +25,8 @@ setup:
 dev: db-up
     #!/usr/bin/env bash
     set -euo pipefail
-    DATABASE_URL={{db_url}} cargo run --bin qubite -- serve &
+    {{use_dev_db}}
+    cargo run --bin qubite -- serve &
     server=$!
     trap 'kill $server 2>/dev/null || true' EXIT
     pnpm dev
@@ -31,7 +38,7 @@ check: db-up check-server check-web check-api secrets
 check-server: db-up
     cargo fmt --all --check
     cargo clippy --workspace --all-targets -- -D warnings
-    TEST_DATABASE_URL={{db_url}} cargo test --workspace
+    TEST_DATABASE_URL="${TEST_DATABASE_URL:-{{test_db_url}}}" cargo test --workspace
 
 # Проверки сайта и TS-пакетов (без браузеров)
 check-web:
@@ -76,13 +83,22 @@ secrets:
     docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 git --no-banner --redact --log-opts="$range" .
     docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 git --no-banner --redact --staged .
 
-# Локальная база: запустить / остановить / состояние
+# Локальные базы (разработка и тесты): запустить / остановить (данные остаются) / состояние / стереть данные разработки
 db-up:
     @scripts/dev-db.sh up
 db-down:
     @scripts/dev-db.sh down
 db-status:
     @scripts/dev-db.sh status
+db-reset:
+    @scripts/dev-db.sh reset
+
+# Команда сервера с настройками из .env, например `just qubite ai chatgpt login`
+qubite *args: db-up
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{use_dev_db}}
+    cargo run -q --bin qubite -- {{args}}
 
 # Тесты старого Qubite (legacy/qubite-v1), 321 тест
 test-legacy:

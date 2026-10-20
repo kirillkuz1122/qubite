@@ -22,7 +22,7 @@ fn module<'a>(catalog: &'a Value, id: &str) -> &'a Value {
 #[tokio::test]
 async fn create_person_grant_docs_block_and_see_it_in_the_log() {
     let (test_db, db, address) = setup(AuthSettings::default()).await;
-    let mut owner = logged_in(address).await;
+    let mut owner = common::logged_in_unconfirmed(address).await;
 
     // Гостю раздела нет (404, а не 403).
     for path in [
@@ -181,8 +181,8 @@ async fn create_person_grant_docs_block_and_see_it_in_the_log() {
     assert_eq!(closed.body["revoked"], 1, "{:?}", closed.body);
     assert_eq!(friend.get(address, "/api/auth/me").await.status, 401);
 
-    // Подтверждение живёт 5 минут.
-    sqlx::query("UPDATE sessions SET confirmed_at = now() - interval '6 minutes'")
+    // Подтверждение живёт 10 минут (D-285).
+    sqlx::query("UPDATE sessions SET confirmed_at = now() - interval '11 minutes'")
         .execute(db.pool())
         .await
         .unwrap();
@@ -316,6 +316,79 @@ async fn every_owner_route_is_404_for_guest_and_regular_person() {
     }
     assert!(checked >= 20, "проверено адресов owner: {checked}");
 
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+/// Q-42, D-285: «режим подтверждения» — тумблеры платформы и техработ, доступы,
+/// модули и AI без свежего пароля отвечают `confirm_required` и ничего не меняют;
+/// после одного подтверждения те же запросы проходят проверку пароля.
+#[tokio::test]
+async fn dangerous_console_actions_ask_password_once_for_ten_minutes() {
+    let (test_db, db, address) = setup(AuthSettings::default()).await;
+    let mut owner = common::logged_in_unconfirmed(address).await;
+    let owner_id: uuid::Uuid = sqlx::query_scalar("SELECT account_id FROM platform_owner")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let grant = format!("/api/owner/accounts/{owner_id}/grants/docs");
+    let flags = json!({ "read": true, "write": false, "manage": false, "ai": false });
+    let actions: Vec<(&str, String, Option<Value>)> = vec![
+        (
+            "PATCH",
+            "/api/owner/platform".into(),
+            Some(json!({ "changes": [] })),
+        ),
+        (
+            "POST",
+            "/api/owner/maintenance".into(),
+            Some(json!({ "enabled": false })),
+        ),
+        (
+            "PATCH",
+            "/api/owner/modules/docs".into(),
+            Some(json!({ "installed": true })),
+        ),
+        ("PUT", grant.clone(), Some(flags)),
+        ("DELETE", grant, None),
+        (
+            "PATCH",
+            "/api/owner/ai/models/mock:x".into(),
+            Some(json!({ "enabled": false })),
+        ),
+        (
+            "PUT",
+            "/api/owner/ai/tasks/default".into(),
+            Some(json!({ "model_id": null })),
+        ),
+    ];
+    async fn call(
+        b: &mut Browser,
+        a: std::net::SocketAddr,
+        m: &str,
+        p: &str,
+        v: &Option<Value>,
+    ) -> common::Reply {
+        let method = reqwest::Method::from_bytes(m.as_bytes()).unwrap();
+        b.send(a, method, p, v.clone(), true).await
+    }
+    for (method, path, body) in &actions {
+        let reply = call(&mut owner, address, method, path, body).await;
+        assert_eq!(reply.status, 403, "{method} {path}: {:?}", reply.body);
+        assert_eq!(reply.body["error"], "confirm_required", "{method} {path}");
+    }
+    let events: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action NOT LIKE 'auth.%' AND action <> 'platform.owner_created'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(events, 0, "без пароля ничего не изменилось");
+
+    owner.confirm(address, PASSWORD).await;
+    for (method, path, body) in &actions {
+        let reply = call(&mut owner, address, method, path, body).await;
+        assert_ne!(reply.body["error"], "confirm_required", "{method} {path}");
+    }
     db.close().await;
     test_db.drop_db().await;
 }

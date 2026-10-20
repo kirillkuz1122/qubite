@@ -299,6 +299,16 @@ impl Env {
     }
 }
 
+/// Принимает ли подставной OpenAI `ext_agent_host_id`. Настоящий на
+/// `qubite-<hex>` отвечает `invalid_authorize_request` (param
+/// `ext_agent_host_id`); для UUID-формата нужен `urn:uuid:` + UUIDv4 через дефисы.
+fn openai_accepts_host(host: &str) -> bool {
+    host.strip_prefix("urn:uuid:")
+        .filter(|uuid| uuid.len() == 36)
+        .and_then(|uuid| Uuid::parse_str(uuid).ok())
+        .is_some_and(|uuid| uuid.get_version_num() == 4)
+}
+
 /// Адрес возврата из «браузера».
 fn back(url: &reqwest::Url, code: &str, client_id: Option<&str>) -> String {
     let get = |name: &str| {
@@ -307,6 +317,11 @@ fn back(url: &reqwest::Url, code: &str, client_id: Option<&str>) -> String {
             .map(|(_, v)| v.into_owned())
             .unwrap()
     };
+    let host = get("ext_agent_host_id");
+    assert!(
+        openai_accepts_host(&host),
+        "OpenAI: invalid_authorize_request, param ext_agent_host_id = {host}"
+    );
     let mut target = reqwest::Url::parse(&get("redirect_uri")).unwrap();
     target
         .query_pairs_mut()
@@ -466,6 +481,40 @@ async fn login_registers_client_with_pkce_and_stores_tokens_encrypted() {
         ["code-1", "code-2"],
         "код из поддельного возврата не обменивался"
     );
+    env.finish().await;
+}
+
+/// D-280: ID установки старого формата (`qubite-<hex>`, его OpenAI не принимал)
+/// заменяется на `urn:uuid:<UUIDv4>` до открытия браузера; новый остаётся навсегда.
+#[tokio::test]
+async fn old_host_id_is_replaced_with_urn_uuid() {
+    let env = Env::new().await;
+    let api = api_server(vec![]).await;
+    sqlx::query("INSERT INTO ai_chatgpt_session (singleton, host_id) VALUES (true, $1)")
+        .bind("qubite-0123456789abcdef0123456789abcdef")
+        .execute(env.db.pool())
+        .await
+        .unwrap();
+    assert!(!chatgpt::host_id_ok(
+        "qubite-0123456789abcdef0123456789abcdef"
+    ));
+    env.login(&api, |url| back(url, "code-1", Some("oaiapp_test")))
+        .await
+        .unwrap();
+    let host: String = sqlx::query_scalar("SELECT host_id FROM ai_chatgpt_session")
+        .fetch_one(env.db.pool())
+        .await
+        .unwrap();
+    assert!(openai_accepts_host(&host), "{host}");
+    assert!(chatgpt::host_id_ok(&host));
+    env.login(&api, |url| back(url, "code-2", None))
+        .await
+        .unwrap();
+    let again: String = sqlx::query_scalar("SELECT host_id FROM ai_chatgpt_session")
+        .fetch_one(env.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(again, host);
     env.finish().await;
 }
 

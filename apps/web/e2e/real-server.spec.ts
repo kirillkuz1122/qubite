@@ -36,13 +36,22 @@ test('настоящий сервер: вход, сессия на «Аккау�
   await expect(page).toHaveURL(/\/auth\?return_to=/);
 });
 
-/** Войти owner в этом браузере (через экран входа). */
+/**
+ * Войти owner в этом браузере (через экран входа) и сразу подтвердить пароль: опасные
+ * действия Console потом 10 минут его не спрашивают (D-285).
+ */
 async function ownerLogin(page: import('@playwright/test').Page) {
   await page.goto('/auth');
   await page.getByLabel('Почта').fill(EMAIL);
   await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await expect(page).toHaveURL(/\/today$/);
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'qubite_csrf')?.value;
+  const r = await page.request.post('/api/owner/confirm', {
+    data: { password: PASSWORD },
+    headers: { 'X-CSRF-Token': csrf ?? '' },
+  });
+  expect(r.ok()).toBe(true);
 }
 
 /** Поменять тумблеры через API owner (как будет делать Owner Console). */

@@ -142,7 +142,15 @@ impl Browser {
     }
 }
 
+/// Owner вошёл и подтвердил пароль (D-285): опасные действия Console 10 минут
+/// не спрашивают пароль. Без подтверждения — [`logged_in_unconfirmed`].
 pub async fn logged_in(address: SocketAddr) -> Browser {
+    let mut browser = logged_in_unconfirmed(address).await;
+    browser.confirm(address, PASSWORD).await;
+    browser
+}
+
+pub async fn logged_in_unconfirmed(address: SocketAddr) -> Browser {
     let mut browser = Browser::default();
     let reply = browser.login(address, EMAIL, PASSWORD).await;
     assert_eq!(reply.status, 200, "{:?}", reply.body);
@@ -164,5 +172,17 @@ impl Browser {
     pub async fn post_json(&mut self, address: SocketAddr, path: &str, body: Value) -> Reply {
         self.send(address, Method::POST, path, Some(body), true)
             .await
+    }
+
+    /// Подтвердить пароль owner для опасных действий Console (D-285).
+    pub async fn confirm(&mut self, address: SocketAddr, password: &str) {
+        let reply = self
+            .post_json(
+                address,
+                "/api/owner/confirm",
+                json!({ "password": password }),
+            )
+            .await;
+        assert_eq!(reply.status, 200, "{:?}", reply.body);
     }
 }

@@ -51,7 +51,10 @@ export class LocalStore {
       db.createObjectStore('meta');
       db.createObjectStore('problems', { keyPath: 'op.op_id' });
     };
-    return new LocalStore(await promisify(request));
+    const db = await promisify(request);
+    // Хранилище удаляют (выход из аккаунта в другой вкладке) — отпустить его, а не держать.
+    db.onversionchange = () => db.close();
+    return new LocalStore(db);
   }
 
   close(): void {

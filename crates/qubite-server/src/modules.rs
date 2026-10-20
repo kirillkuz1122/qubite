@@ -253,6 +253,7 @@ pub async fn owner_modules(
 #[utoipa::path(patch, path = "/api/owner/modules/{id}", tag = "owner", request_body = ModuleChange,
     params(("id" = String, Path, description = "ID модуля")),
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Модуль изменён", body = ModuleItem),
         (status = 400, description = "Неверное значение или модуль уже изменён", body = ApiErrorBody),
         (status = 404, description = "Нет модуля или не owner", body = ApiErrorBody)
@@ -260,9 +261,11 @@ pub async fn owner_modules(
 pub async fn owner_update_module(
     State(state): State<AppState>,
     Owner(owner): Owner,
+    session: Authenticated,
     Path(id): Path<String>,
     Json(change): Json<ModuleChange>,
 ) -> Result<Json<ModuleItem>, ApiError> {
+    crate::console::require_confirmed(&state, &session).await?;
     let id = ModuleId::new(id)?;
     let module = catalog::update(
         state.db.pool(),
@@ -304,6 +307,7 @@ pub async fn owner_grants(
         ("module_id" = String, Path, description = "ID модуля")
     ),
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Грант выдан", body = GrantItem),
         (status = 204, description = "Все права сняты — грант отозван"),
         (status = 404, description = "Нет аккаунта, модуля или не owner", body = ApiErrorBody)
@@ -311,9 +315,11 @@ pub async fn owner_grants(
 pub async fn owner_set_grant(
     State(state): State<AppState>,
     Owner(owner): Owner,
+    session: Authenticated,
     Path((account_id, module_id)): Path<(Uuid, String)>,
     Json(change): Json<GrantChange>,
 ) -> Result<Response, ApiError> {
+    crate::console::require_confirmed(&state, &session).await?;
     let module = ModuleId::new(module_id)?;
     let grant = grants::set(
         state.db.pool(),
@@ -337,14 +343,17 @@ pub async fn owner_set_grant(
         ("module_id" = String, Path, description = "ID модуля")
     ),
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 204, description = "Грант отозван"),
         (status = 404, description = "Гранта не было или не owner", body = ApiErrorBody)
     ))]
 pub async fn owner_revoke_grant(
     State(state): State<AppState>,
     Owner(owner): Owner,
+    session: Authenticated,
     Path((account_id, module_id)): Path<(Uuid, String)>,
 ) -> Result<StatusCode, ApiError> {
+    crate::console::require_confirmed(&state, &session).await?;
     let module = ModuleId::new(module_id)?;
     if grants::revoke(state.db.pool(), &owner, account_id, &module, None).await? {
         Ok(StatusCode::NO_CONTENT)

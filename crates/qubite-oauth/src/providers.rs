@@ -163,6 +163,8 @@ pub(crate) async fn exchange(
             let user = info.get("user").cloned().unwrap_or(Value::Null);
             Identity {
                 subject: field(&user, "user_id").unwrap_or_default(),
+                // Почту от VK ID считаем подтверждённой (владелец, D-283): VK сам
+                // проверяет её. Отметки «подтверждена», как у Google, VK не присылает.
                 email: field(&user, "email"),
                 display_name: [field(&user, "first_name"), field(&user, "last_name")]
                     .into_iter()

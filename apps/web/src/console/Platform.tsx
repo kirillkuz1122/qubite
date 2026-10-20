@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Fail, must, PLATFORM, say } from '../auth/client';
 import { MaintenanceControl } from '../platform/MaintenanceControl';
+import { useDanger } from './api';
 import { OWNER_PLATFORM, setting, useOwnerPlatform, type SettingItem } from '../platform/owner';
 import {
   changes,
@@ -34,6 +35,7 @@ const METHODS = [
  */
 export function PlatformTab({ ownerId }: { ownerId: string }) {
   const qc = useQueryClient();
+  const danger = useDanger();
   const platform = useOwnerPlatform();
   const items = platform.data;
   const [draft, setDraftState] = useState<Draft>(() => loadDraft(ownerId));
@@ -73,16 +75,18 @@ export function PlatformTab({ ownerId }: { ownerId: string }) {
     setBusy(true);
     setNote(null);
     try {
-      const saved = await must(
-        api.PATCH('/api/owner/platform', {
-          body: {
-            changes: list.map((c) => ({
-              key: c.key,
-              value: c.value as Record<string, never>,
-              version: c.version,
-            })),
-          },
-        }),
+      const saved = await danger(() =>
+        must(
+          api.PATCH('/api/owner/platform', {
+            body: {
+              changes: list.map((c) => ({
+                key: c.key,
+                value: c.value as Record<string, never>,
+                version: c.version,
+              })),
+            },
+          }),
+        ),
       );
       qc.setQueryData(OWNER_PLATFORM, saved);
       void qc.invalidateQueries({ queryKey: PLATFORM });

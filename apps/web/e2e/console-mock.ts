@@ -4,7 +4,8 @@ import { OWNER, USER, type AuthMock } from './auth-mock';
 /**
  * Поддельный Owner Console API (`/api/owner/*`, ACC-003) поверх `mockAuth`: те же адреса и
  * ответы, что у настоящего сервера — версии тумблеров и 409, пароль для опасных действий,
- * люди, модули, доступ, журнал. Техработы (`/api/owner/maintenance`) остаются у `mockAuth`.
+ * люди, модули, доступ, журнал. Техработы (`/api/owner/maintenance`) остаются у `mockAuth`,
+ * но пароль для них (как и для тумблеров, доступа, модулей и AI) спрашивает эта подделка.
  */
 export interface ConsoleMock {
   items: Map<string, { key: string; value: unknown; version: number }>;
@@ -13,7 +14,7 @@ export interface ConsoleMock {
   grants: Map<string, Record<string, unknown>[]>;
   audit: Record<string, unknown>[];
   invitations: Record<string, unknown>[];
-  /** пароль подтверждён (на 5 минут) */
+  /** пароль подтверждён (на 10 минут, D-285) */
   confirmed: boolean;
   /** «другая вкладка» поменяла тумблер: новая версия */
   changeElsewhere(key: string, value: unknown): void;
@@ -125,7 +126,6 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
     const url = new URL(req.url());
     const path = url.pathname;
     const method = req.method();
-    if (path === '/api/owner/maintenance') return route.fallback();
     let body: Record<string, unknown> | null;
     try {
       body = req.postDataJSON() as Record<string, unknown>;
@@ -141,8 +141,14 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
         : (fail(route, 403, 'confirm_required', 'Подтвердите паролем — это опасное действие'),
           true);
 
+    if (path === '/api/owner/maintenance') {
+      auth.calls.pop(); // запишет mockAuth
+      if (danger()) return;
+      return route.fallback();
+    }
     if (at === 'GET /api/owner/platform') return json(route, 200, items());
     if (at === 'PATCH /api/owner/platform') {
+      if (danger()) return;
       const changes = (body?.changes ?? []) as { key: string; value: unknown; version: number }[];
       if (changes.some((ch) => c.items.get(ch.key)?.version !== ch.version))
         return fail(route, 409, 'conflict', 'Кто-то уже изменил настройку — обновите страницу');
@@ -222,6 +228,7 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
       const list = c.grants.get(id) ?? [];
       const a = account(id);
       if (method === 'GET') return json(route, 200, list);
+      if (danger()) return;
       const rest = list.filter((g) => g.module_id !== moduleId);
       if (method === 'PUT') {
         const grant = {
@@ -246,6 +253,7 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
     if (m && method === 'PATCH') {
       const mod = c.modules.find((x) => x.id === m![1]);
       if (!mod) return fail(route, 404, 'not_found', 'Не найдено');
+      if (danger()) return;
       if (body?.expected_version !== mod.version)
         return fail(route, 400, 'invalid', 'Модуль уже изменили — обновите страницу');
       const patch = { ...body };
@@ -316,6 +324,10 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
       ]);
     if (at === 'GET /api/owner/ai/tasks')
       return json(route, 200, [{ task: 'inbox.triage', model_id: 'google/gemini-2.5-flash-lite' }]);
+    if (/^(PATCH \/api\/owner\/ai\/models\/|PUT \/api\/owner\/ai\/tasks\/)/.test(at)) {
+      if (danger()) return;
+      return json(route, 200, at.startsWith('PUT') ? [] : {});
+    }
     return fail(route, 404, 'not_found', `нет в подделке: ${at}`);
   });
   return c;

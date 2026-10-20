@@ -217,6 +217,7 @@ pub async fn owner_settings(
 /// Owner Console: сохранить изменения тумблеров (все вместе или ничего).
 #[utoipa::path(patch, path = "/api/owner/platform", tag = "owner", request_body = SettingsPatch,
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Сохранено; новый список", body = Vec<SettingItem>),
         (status = 400, description = "Нет такой настройки или неверное значение", body = ApiErrorBody),
         (status = 404, description = "Не owner", body = ApiErrorBody),
@@ -225,9 +226,11 @@ pub async fn owner_settings(
 pub async fn owner_update(
     State(state): State<AppState>,
     _owner: Owner,
-    Authenticated(session): Authenticated,
+    authenticated: Authenticated,
     Json(body): Json<SettingsPatch>,
 ) -> Result<Json<Vec<SettingItem>>, ApiError> {
+    crate::console::require_confirmed(&state, &authenticated).await?;
+    let Authenticated(session) = authenticated;
     // Версия обязательна: без неё вторая вкладка молча перезаписала бы первую.
     if body.changes.iter().any(|change| change.version < 0) {
         return Err(qubite_auth::Error::Invalid("версия не может быть меньше 0".into()).into());

@@ -89,16 +89,21 @@ git push --force git@github.com:kirillkuz1122/qubite.git 'refs/heads/*:refs/head
 ## 3. ChatGPT: модели по подписке (open-source режим)
 
 > **Готово (AI-005, [D-219](../product/DECISIONS.md)).** Провайдер `chatgpt` в коде, выключен по умолчанию. Проверен на подставном сервере OpenAI; настоящий вход делаешь ты.
+>
+> **20.10.2026 исправлено ([D-280](../product/DECISIONS.md)):** OpenAI отвечал `Invalid authorize request` про `ext_agent_host_id`. Это ID установки Qubite; OpenAI принимает его только в виде `urn:uuid:<UUID>` (или `urn:ietf:params:oauth:jwk-thumbprint:…`, `did:key:…`), а мы слали `qubite-<буквы-цифры>`. Регистрировать ID нигде не нужно. Теперь он правильный, старый заменится сам при следующем входе.
 
-Регистрировать ничего не нужно:
+Регистрировать ничего не нужно. Команды — из папки проекта; `qubite` сам читает `.env` ([D-282](../product/DECISIONS.md)), `set -x` в fish не нужен.
 
-1. Ключ шифрования токенов: `qubite ai secret-key` → строку `QUBITE_AI_SECRET_KEY=…` положи в `.env` (права `600`). Потеряешь ключ — просто войдёшь заново.
-2. Вход: `qubite ai chatgpt login`. Qubite печатает адрес и открывает браузер на `auth.openai.com`; ты входишь в ChatGPT (Plus или Pro) и разрешаешь доступ. Qubite регистрирует себя сам (`client_id=dynamic_agent_client`, имя «Qubite»), OpenAI выдаёт постоянный `client_id` вида `oaiapp_…` — он и ID этой установки (`ext_agent_host_id`) запоминаются и переиспользуются.
-3. Браузер возвращается на `http://127.0.0.1:1455/auth/callback` — это сам Qubite (именно `127.0.0.1`, не `localhost`; другой порт — `--port`).
-4. Токены лежат **в базе Qubite, зашифрованными** этим ключом (без ключа их не прочитать). Access-токен живёт час и обновляется сам заранее; refresh одноразовый и меняется при каждом обновлении.
-5. **Сервер** (VPS или Pi) без браузера: открой туннель со своего компьютера `ssh -L 1455:127.0.0.1:1455 сервер`, на сервере запусти `qubite ai chatgpt login --no-browser`, адрес открой у себя — браузер вернётся через туннель прямо на сервер. Переносить файлы не нужно.
-6. Включить: `QUBITE_AI_CHATGPT_ENABLED=true` и перезапуск сервера. Модели подписки появятся в `qubite ai catalog` как `chatgpt:<модель>`; включить нужную — `qubite ai model chatgpt:<модель> on`, сделать основной — `qubite ai use chatgpt:<модель>` (или `--task inbox.triage`).
-7. Запросы идут на официальный `https://api.openai.com/v1/responses` и тратят лимиты **твоей** подписки. Денег Qubite не считает (0 $), а **число запросов** ограничивает как обычно: защита от зацикливания и, если хочешь, лимит, например `qubite ai limit --scope model:chatgpt:<модель> --period day --metric requests --value 200`. Режим «owner без личного лимита» требует дневной потолок платформы в $ (D-212) — задай любой, хоть `1`.
+1. В `.env` должна быть база: `DATABASE_URL=postgres://qubite:qubite@127.0.0.1:55432/qubite` (строка есть в `.env.example`), база запущена: `just db-up`. И создан owner (`cargo run --bin qubite -- owner create --email … --name …`, если `qubite` скажет «owner ещё не создан»).
+2. Ключ шифрования токенов: `cargo run --bin qubite -- ai secret-key` → строку `QUBITE_AI_SECRET_KEY=…` положи в `.env` (права `600`: `chmod 600 .env`). Потеряешь ключ — просто войдёшь заново.
+3. Вход: `cargo run --bin qubite -- ai chatgpt login` (или короче `just qubite ai chatgpt login`). Qubite печатает адрес и открывает браузер на `auth.openai.com`; ты входишь в ChatGPT (Plus или Pro) и разрешаешь доступ (имя «Qubite» можно оставить). Первый вход идёт с `client_id=dynamic_agent_client` и ID этой установки (`ext_agent_host_id=urn:uuid:…`); OpenAI выдаёт постоянный `client_id` вида `oaiapp_…` — он и ID установки запоминаются и переиспользуются.
+4. Браузер возвращается на `http://127.0.0.1:1455/auth/callback` — это сам Qubite (именно `127.0.0.1`, не `localhost`; другой порт — `--port`). Команда пишет «ChatGPT подключён: <почта>».
+5. Токены лежат **в базе Qubite, зашифрованными** этим ключом (без ключа их не прочитать). Access-токен живёт час и обновляется сам заранее; refresh одноразовый и меняется при каждом обновлении.
+6. **Сервер** (VPS или Pi) без браузера: открой туннель со своего компьютера `ssh -L 1455:127.0.0.1:1455 сервер`, на сервере запусти `qubite ai chatgpt login --no-browser`, адрес открой у себя — браузер вернётся через туннель прямо на сервер. Переносить файлы не нужно.
+7. Включить: `QUBITE_AI_CHATGPT_ENABLED=true` в `.env` и перезапуск сервера (`just dev`). Модели подписки появятся в `qubite ai catalog` как `chatgpt:<модель>`; включить нужную — `qubite ai model chatgpt:<модель> on`, сделать основной — `qubite ai use chatgpt:<модель>` (или `--task inbox.triage`).
+8. Запросы идут на официальный `https://api.openai.com/v1/responses` и тратят лимиты **твоей** подписки. Денег Qubite не считает (0 $), а **число запросов** ограничивает как обычно: защита от зацикливания и, если хочешь, лимит, например `qubite ai limit --scope model:chatgpt:<модель> --period day --metric requests --value 200`. Режим «owner без личного лимита» требует дневной потолок платформы в $ (D-212) — задай любой, хоть `1`.
+
+Если OpenAI всё равно покажет ошибку на своей странице — скопируй её текст целиком (и адрес из строки браузера без `state`, `nonce` и `code_challenge`) и пришли агенту.
 
 Ограничения: только для **твоих** запросов (запрос другого пользователя Qubite получает отказ до отправки); нет генерации картинок, распознавания речи и файлового поиска; нельзя ограничить длину ответа. Когда лимиты подписки кончились — понятная ошибка «лимит подписки ChatGPT исчерпан», и Qubite 15 минут не шлёт новые запросы к ChatGPT. Состояние — `qubite ai chatgpt status`; выйти — `qubite ai chatgpt logout` (токен отзывается у OpenAI и стирается). OpenAI пишет, что отзыв доступа для сессий на сервере пока не всегда доходит — тогда отключи Qubite в ChatGPT → Настройки.
 
@@ -138,4 +143,4 @@ QUBITE_AUTH_CHATGPT_ENABLED=true           # аварийный выключат
 - [Quickstart](https://developers.openai.com/siwc/quickstart), [Request a client ID](https://developers.openai.com/siwc/request-client-id), [Sign-in on your website](https://developers.openai.com/siwc/website)
 - Open-source: [обзор](https://developers.openai.com/siwc/token-sharing-open-source), [вход](https://developers.openai.com/siwc/token-sharing-open-source/sign-in), [модели](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference), [self-hosted VM](https://developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms), [ограничения](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)
 
-Проверено 19.10.2026; программа в бета-версии, условия могут меняться.
+Проверено 19.10.2026, формат `ext_agent_host_id` — 20.10.2026; программа в бета-версии, условия могут меняться.

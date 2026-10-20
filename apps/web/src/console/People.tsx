@@ -185,6 +185,7 @@ function Grants({ accountId, owner }: { accountId: string; owner: boolean }) {
   const qc = useQueryClient();
   const modules = useModules();
   const grants = useGrants(accountId);
+  const danger = useDanger();
   const [error, setError] = useState<string | null>(null);
   if (owner) return <p className="cs-small">Owner видит все модули.</p>;
   if (modules.isPending || grants.isPending) return <p className="cs-small">Загружаем модули…</p>;
@@ -194,19 +195,21 @@ function Grants({ accountId, owner }: { accountId: string; owner: boolean }) {
   const set = async (moduleId: string, flags: ModuleFlags) => {
     setError(null);
     try {
-      if (flags.read)
-        await must(
-          api.PUT('/api/owner/accounts/{account_id}/grants/{module_id}', {
-            params: { path: { account_id: accountId, module_id: moduleId } },
-            body: flags,
-          }),
-        );
-      else
-        await must(
-          api.DELETE('/api/owner/accounts/{account_id}/grants/{module_id}', {
-            params: { path: { account_id: accountId, module_id: moduleId } },
-          }),
-        );
+      const path = { account_id: accountId, module_id: moduleId };
+      await danger(() =>
+        flags.read
+          ? must(
+              api.PUT('/api/owner/accounts/{account_id}/grants/{module_id}', {
+                params: { path },
+                body: flags,
+              }),
+            )
+          : must(
+              api.DELETE('/api/owner/accounts/{account_id}/grants/{module_id}', {
+                params: { path },
+              }),
+            ),
+      );
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['owner-grants', accountId] }),
         qc.invalidateQueries({ queryKey: ACCOUNTS }),

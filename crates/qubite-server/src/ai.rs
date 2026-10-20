@@ -1240,6 +1240,7 @@ pub async fn owner_ai_catalog(
 #[utoipa::path(patch, path = "/api/owner/ai/models/{id}", tag = "owner", request_body = AiModelChange,
     params(("id" = String, Path, description = "ID модели, например `google/gemini-2.5-flash-lite`")),
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Модель изменена", body = AiModelItem),
         (status = 400, description = "Неверное значение или модели нет", body = ApiErrorBody),
         (status = 404, description = "Не owner", body = ApiErrorBody)
@@ -1247,9 +1248,11 @@ pub async fn owner_ai_catalog(
 pub async fn owner_ai_update_model(
     State(state): State<AppState>,
     Owner(owner): Owner,
+    session: crate::auth::Authenticated,
     Path(id): Path<String>,
     Json(change): Json<AiModelChange>,
 ) -> Result<Json<AiModelItem>, ApiError> {
+    crate::console::require_confirmed(&state, &session).await?;
     let pool = state.db.pool();
     let id = catalog::model_id(&id);
     match change.enabled {
@@ -1321,6 +1324,7 @@ pub async fn owner_ai_tasks(
 #[utoipa::path(put, path = "/api/owner/ai/tasks/{task}", tag = "owner", request_body = TaskModelChange,
     params(("task" = String, Path, description = "`default`, `inbox.triage` …")),
     responses(
+        (status = 403, description = "`confirm_required`: нужен пароль (D-285)", body = ApiErrorBody),
         (status = 200, description = "Выбор сохранён", body = Vec<TaskModel>),
         (status = 400, description = "Модель не разрешена или неверная задача", body = ApiErrorBody),
         (status = 404, description = "Не owner", body = ApiErrorBody)
@@ -1328,9 +1332,11 @@ pub async fn owner_ai_tasks(
 pub async fn owner_ai_set_task(
     State(state): State<AppState>,
     owner: Owner,
+    session: crate::auth::Authenticated,
     Path(task): Path<String>,
     Json(change): Json<TaskModelChange>,
 ) -> Result<Json<Vec<TaskModel>>, ApiError> {
+    crate::console::require_confirmed(&state, &session).await?;
     let model = change.model_id.as_deref().map(catalog::model_id);
     admin::set_task_model(state.db.pool(), &owner.0, &task, model.as_deref()).await?;
     owner_ai_tasks(State(state), owner).await

@@ -1647,6 +1647,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "clap",
+ "dotenvy",
  "futures-util",
  "hex",
  "hmac",

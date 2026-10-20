@@ -4,6 +4,7 @@ import { Link, useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { saveHistory } from '../app/command';
+import { clearAccountStore } from '../app/sync';
 import { forgetSyncAccount } from '../app/sync-context';
 import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
 import { useHelpers, usePage, useShyPassword } from './page';
@@ -84,8 +85,13 @@ export function AccountPage() {
       failed(e);
     }
   };
+  // Пока сессия жива: дослать очередь и стереть хранилище, если всё на сервере (D-284).
+  const flush = async () => {
+    if (me.data) await clearAccountStore(me.data.id).catch(() => false);
+  };
   const everywhere = async () => {
     try {
+      await flush();
       const r = await must(api.POST('/api/auth/logout-everywhere'));
       signedOut();
       qc.setQueryData(ME, null);
@@ -96,6 +102,7 @@ export function AccountPage() {
     }
   };
   const logout = async () => {
+    await flush();
     try {
       await must(api.POST('/api/auth/logout'));
     } catch {
