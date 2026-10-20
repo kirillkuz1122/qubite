@@ -103,6 +103,8 @@ test('недавнее: пустая строка показывает прош�
   await page.goto('/today');
   let input = await openCommand(page);
   await input.fill('найди алгебра');
+  // Enter — только когда дело уже пришло с «сервера»: иначе выбирать нечего и запоминать тоже
+  await expect(list(page).getByRole('option', { name: /214–220/ })).toBeVisible();
   await input.press('Enter');
   await expect(page).toHaveURL(/\/today$/);
   await page.reload(); // недавнее живёт на устройстве и переживает перезагрузку
