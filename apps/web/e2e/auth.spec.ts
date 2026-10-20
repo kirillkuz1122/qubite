@@ -50,7 +50,7 @@ test('кнопки провайдеров — только включённые 
   await page.goto('/auth?error=oauth_not_linked&provider=yandex');
   await expect(page.getByRole('alert').first()).toContainText('Яндекс ID ещё не привязан');
   const yandex = page.getByRole('link', { name: 'Войти через Яндекс ID' });
-  await expect(yandex).toHaveAttribute('href', '/api/auth/oauth/yandex/login?return_to=%2Ftoday');
+  await expect(yandex).toHaveAttribute('href', '/api/auth/oauth/yandex/login?return_to=%2Fhome');
   await expect(page.getByRole('link', { name: /через VK ID/ })).toHaveCount(0);
 });
 
