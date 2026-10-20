@@ -7,8 +7,8 @@
 //! - **расписание**, разобранное из «Расписание.md».
 //!
 //! Читать — право `read` в модуле `agent`; менять и писать агенту — `write`.
-//! Ответы агента готовит обработчик очереди в `qubite serve` ([`spawn`]): там
-//! AI-шлюз. Тесты подменяют модель поддельной.
+//! Ответы агента, урок на поправке и куратор навыков — задачи очереди в
+//! `qubite serve` ([`spawn`]): там AI-шлюз. Тесты подменяют модель поддельной.
 
 use std::{sync::Arc, time::Duration};
 
@@ -22,7 +22,7 @@ use qubite_agent::{
     brain,
     chat::{self, Channel, NewMessage},
     files::{self, Kind},
-    memory, proactive, questions,
+    memory, proactive, questions, skills,
 };
 use qubite_jobs::Job;
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,10 @@ pub struct AgentFileInfo {
     revision: i64,
     #[serde(with = "time::serde::rfc3339")]
     updated_at: OffsetDateTime,
+    /// Навык закреплён: куратор его не трогает.
+    pinned: bool,
+    /// Навык в архиве (агент его не видит; вернуть — `/skills/{id}/restore`).
+    archived: bool,
 }
 
 impl From<&files::File> for AgentFileInfo {
@@ -72,6 +76,8 @@ impl From<&files::File> for AgentFileInfo {
             project_id: file.project_id,
             revision: file.revision,
             updated_at: file.updated_at,
+            pinned: file.pinned,
+            archived: file.archived,
         }
     }
 }
@@ -591,9 +597,16 @@ pub async fn schedule(
 
 // ---------------------------------------------------------------- очередь
 
-/// Задачи агента в очереди `jobs`: ответ в разговоре, фоновый разбор и
-/// пробуждения «писать первым» (AGT-004).
-pub const KINDS: &[&str] = &[chat::CHAT_JOB, chat::REVIEW_JOB, proactive::WAKE_JOB];
+/// Задачи агента в очереди `jobs`: ответ в разговоре, фоновый разбор,
+/// пробуждения «писать первым» (AGT-004), урок на поправке и куратор навыков
+/// раз в неделю (AGT-003).
+pub const KINDS: &[&str] = &[
+    chat::CHAT_JOB,
+    chat::REVIEW_JOB,
+    proactive::WAKE_JOB,
+    skills::LEARN_JOB,
+    skills::CURATE_JOB,
+];
 
 #[derive(Deserialize)]
 struct ChatPayload {
@@ -604,6 +617,12 @@ struct ChatPayload {
 struct ReviewPayload {
     account_id: Uuid,
     upto_seq: i64,
+}
+
+#[derive(Deserialize)]
+struct LearnPayload {
+    account_id: Uuid,
+    action_id: Uuid,
 }
 
 /// Выполнить одну задачу агента. Ответ на сообщение из Telegram уходит туда же.
@@ -654,6 +673,29 @@ pub async fn handle(
             }
             Ok(())
         }
+        skills::LEARN_JOB => {
+            let LearnPayload {
+                account_id,
+                action_id,
+            } = serde_json::from_value(job.payload.clone()).map_err(|error| error.to_string())?;
+            brain::learn(pool, gateway, account_id, action_id, Some(job.id))
+                .await
+                .map(drop)
+                .map_err(|error| error.to_string())
+        }
+        skills::CURATE_JOB => {
+            let now = OffsetDateTime::now_utc();
+            let archived = skills::curate_all(pool, now)
+                .await
+                .map_err(|error| error.to_string())?;
+            if archived > 0 {
+                tracing::info!(archived, "куратор навыков: убрал в архив");
+            }
+            // Следующий обход — через неделю (ключ недели не даст двойного).
+            skills::schedule_curator(pool, now + skills::CURATE_EVERY)
+                .await
+                .map_err(|error| error.to_string())
+        }
         other => Err(format!("неизвестная задача {other}")),
     }
 }
@@ -692,6 +734,11 @@ pub fn spawn(
         match proactive::bootstrap(&pool).await {
             Ok(count) => tracing::info!(count, "агент: пробуждения заведены"),
             Err(error) => tracing::warn!(%error, "агент: пробуждения не заведены"),
+        }
+        // Куратор навыков ходит раз в неделю; первый обход — при запуске
+        // (на той же неделе повторный запуск второго не ставит).
+        if let Err(error) = skills::schedule_curator(&pool, OffsetDateTime::now_utc()).await {
+            tracing::warn!(%error, "куратор навыков не поставлен в очередь");
         }
         let config = qubite_jobs::WorkerConfig {
             worker_id: format!("agent-{}", Uuid::now_v7()),

@@ -429,3 +429,156 @@ test('«Когда писать»: как часто, «не сегодня», �
   await expect(box).toContainText('Сейчас молчит: ты сказал «не сегодня».');
   await expect(box.getByRole('button', { name: 'Снова можно сегодня' })).toBeVisible();
 });
+
+/** Навыки (AGT-003): экран «Навыки — все», закрепить, вернуть из архива; сервер подделан. */
+test('навыки: список с описаниями, закрепить, в архив и вернуть', async ({ page }) => {
+  await mockSync(page);
+  await page.route('**/api/v1/agent/timeline**', (route) =>
+    route.fulfill({ json: { items: [], next: null } }),
+  );
+  await page.route('**/api/v1/agent/questions', (route) =>
+    route.fulfill({ json: { questions: [] } }),
+  );
+  await page.route('**/api/v1/agent/chat**', (route) =>
+    route.fulfill({ json: { messages: [], pending: false } }),
+  );
+  const now = new Date();
+  const later = new Date(now.getTime() + 30 * 86400000).toISOString();
+  const skills = [
+    {
+      id: crypto.randomUUID(),
+      path: 'Навыки/ДЗ к уроку.md',
+      name: 'ДЗ к уроку',
+      description: 'Как ставить домашнее задание — срок к следующему уроку.',
+      version: 2,
+      tools: ['task.create'],
+      pinned: false,
+      archived: false,
+      builtin: true,
+      uses: 3,
+      last_used: now.toISOString(),
+      archive_after: later,
+      revision: 2,
+      body: '---\nname: ДЗ к уроку\ndescription: Как ставить ДЗ\n---\n4. Сделать — вечером накануне урока.\n',
+    },
+    {
+      id: crypto.randomUUID(),
+      path: 'Навыки/Сходить куда-то.md',
+      name: 'Сходить куда-то',
+      description: 'Дела «сходить в музей» — со временем и запасом на дорогу.',
+      version: 1,
+      tools: ['task.create'],
+      pinned: false,
+      archived: true,
+      builtin: true,
+      uses: 0,
+      last_used: now.toISOString(),
+      archive_after: null,
+      revision: 1,
+      body: '---\nname: Сходить куда-то\ndescription: а\n---\n',
+    },
+  ];
+  const memory = crypto.randomUUID();
+  const calls: string[] = [];
+  const fileInfo = (s: (typeof skills)[number]) => ({
+    id: s.id,
+    path: s.path,
+    kind: 'skill',
+    chars: s.body.length,
+    limit: 6000,
+    project_id: null,
+    revision: s.revision,
+    updated_at: now.toISOString(),
+    pinned: s.pinned,
+    archived: s.archived,
+  });
+  await page.route(/\/api\/v1\/agent\/(files|skills)/, (route) => {
+    const req = route.request();
+    const parts = new URL(req.url()).pathname.split('/').slice(4);
+    if (parts[0] === 'skills' && parts.length === 1) {
+      return route.fulfill({
+        json: { skills: skills.map((s) => ({ ...s, body: undefined })), unused_days: 30 },
+      });
+    }
+    if (parts[0] === 'skills') {
+      calls.push(`${parts[2]} ${req.postData() ?? ''}`.trim());
+      const s = skills.find((x) => x.id === parts[1])!;
+      if (parts[2] === 'pin') s.pinned = (req.postDataJSON() as { pinned: boolean }).pinned;
+      if (parts[2] === 'archive') s.archived = true;
+      if (parts[2] === 'restore') s.archived = false;
+      s.archive_after = s.pinned || s.archived ? null : later;
+      return route.fulfill({ json: action({ actor: 'owner', tool: `skill.${parts[2]}` }) });
+    }
+    if (parts.length === 1) {
+      return route.fulfill({
+        json: {
+          files: [
+            {
+              id: memory,
+              path: 'Память.md',
+              kind: 'memory',
+              chars: 10,
+              limit: 2200,
+              project_id: null,
+              revision: 1,
+              updated_at: now.toISOString(),
+              pinned: false,
+              archived: false,
+            },
+            ...skills.map(fileInfo),
+          ],
+        },
+      });
+    }
+    const s = skills.find((x) => x.id === parts[1]);
+    if (!s) {
+      return route.fulfill({
+        json: {
+          id: memory,
+          path: 'Память.md',
+          kind: 'memory',
+          chars: 10,
+          limit: 2200,
+          project_id: null,
+          revision: 1,
+          updated_at: now.toISOString(),
+          pinned: false,
+          archived: false,
+          body: '# Память\n',
+          core: null,
+        },
+      });
+    }
+    return route.fulfill({ json: { ...fileInfo(s), body: s.body, core: null } });
+  });
+
+  await page.goto('/agent');
+  await page.getByRole('radio', { name: 'Записи' }).click();
+  const tree = page.getByRole('navigation', { name: 'Файлы агента' });
+  await expect(tree).toContainText('Архив навыков');
+
+  // «Навыки — все»: описания, когда пользовался, что уберёт куратор.
+  await tree.getByRole('button', { name: 'Навыки — все' }).click();
+  const screen = page.getByRole('region', { name: 'Навыки' });
+  const live = screen.getByRole('list', { name: 'Навыки агента' });
+  await expect(live).toContainText('Как ставить домашнее задание');
+  await expect(live).toContainText('пользовался 3 раза');
+  await expect(live).toContainText('в архив после');
+  const archive = screen.getByRole('list', { name: 'Архив навыков' });
+  await expect(archive).toContainText('Сходить куда-то');
+
+  // Закрепить — куратор не трогает; вернуть из архива — одной кнопкой.
+  await live.getByRole('button', { name: 'Закрепить' }).click();
+  await expect(live).toContainText('закреплён: куратор не трогает');
+  await archive.getByRole('button', { name: 'Вернуть из архива' }).click();
+  await expect(screen.getByRole('list', { name: 'Архив навыков' })).toHaveCount(0);
+  await expect(live).toContainText('Сходить куда-то');
+  expect(calls).toEqual(['pin {"pinned":true}', 'restore']);
+
+  // Открыть навык: текст, кнопки у файла, выгрузка как .md.
+  await live.getByRole('button', { name: 'ДЗ к уроку' }).click();
+  const view = page.getByRole('article', { name: 'ДЗ к уроку' });
+  await expect(view).toContainText('вечером накануне урока');
+  await expect(view.getByRole('link', { name: 'Скачать .md' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Открепить' })).toBeVisible();
+});

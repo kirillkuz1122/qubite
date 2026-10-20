@@ -132,8 +132,19 @@ fn append(body: &str, line: &str) -> String {
     }
 }
 
+/// Навыки правятся своими инструментами: одной строкой и с причиной (AGT-003).
+fn not_skill(path: &str) -> Result<()> {
+    if files::kind_of(path) == Kind::Skill {
+        return Err(Error::Invalid(
+            "навыки — skill.create (новый) и skill.patch (одна строка)".into(),
+        ));
+    }
+    Ok(())
+}
+
 async fn file(conn: &mut PgConnection, account: Uuid, path: &str) -> Result<File> {
     let path = files::normalize_path(path).map_err(Error::Invalid)?;
+    not_skill(&path)?;
     files::by_path(conn, account, &path)
         .await?
         .ok_or_else(|| Error::Invalid(format!("нет файла «{path}» — заведи его files.create")))
@@ -231,6 +242,7 @@ pub(crate) async fn plan(
         "files.create" => {
             let CreateArgs { path, body } = args(tool, arguments)?;
             let path = files::normalize_path(&path).map_err(Error::Invalid)?;
+            not_skill(&path)?;
             if matches!(
                 files::kind_of(&path),
                 Kind::Core | Kind::User | Kind::Memory
@@ -256,6 +268,7 @@ pub(crate) async fn plan(
                 return Err(Error::Invalid("пустая строка".into()));
             }
             let path = files::normalize_path(&path).map_err(Error::Invalid)?;
+            not_skill(&path)?;
             let line = as_line(&text);
             match files::by_path(conn, account, &path).await? {
                 Some(file) => {
@@ -437,8 +450,8 @@ pub(crate) async fn plan(
 
 // ---------------------------------------------------------------- база папки
 
-/// Завести «Кто я», «О тебе» и «Память», если их ещё нет. Это не действие
-/// агента, а пустая папка нового человека — в ленту не пишется.
+/// Завести «Кто я», «О тебе», «Память» и встроенные навыки, если их ещё нет.
+/// Это не действие агента, а пустая папка нового человека — в ленту не пишется.
 pub async fn ensure_base(pool: &PgPool, account: Uuid) -> Result<()> {
     let mut tx = pool.begin().await?;
     timeline::lock(&mut tx, account).await?;
@@ -473,6 +486,7 @@ pub async fn ensure_base(pool: &PgPool, account: Uuid) -> Result<()> {
         };
         qubite_sync_server::apply_in(&mut tx, account, account, &op, &rules).await?;
     }
+    crate::skills::ensure_builtin(&mut tx, account, &rules).await?;
     tx.commit().await?;
     Ok(())
 }

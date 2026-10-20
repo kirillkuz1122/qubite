@@ -3389,6 +3389,218 @@
         }
       }
     },
+    "/api/v1/agent/skills": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Навыки агента: что он умеет, когда пользовался, что в архиве.",
+        "operationId": "list_skills",
+        "responses": {
+          "200": {
+            "description": "Навыки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/skills/{id}/archive": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Убрать навык в архив: агент перестаёт его видеть, файл остаётся.",
+        "operationId": "archive_skill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID навыка",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Строка ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Уже в архиве",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого навыка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/skills/{id}/pin": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Закрепить навык (куратор его не уберёт) или открепить.",
+        "operationId": "pin_skill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID навыка",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSkillPin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Строка ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Уже так",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого навыка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/skills/{id}/restore": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Вернуть навык из архива; часы куратора идут заново.",
+        "operationId": "restore_skill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID навыка",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Строка ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Не в архиве",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого навыка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/timeline": {
       "get": {
         "tags": ["agent"],
@@ -4973,7 +5185,7 @@
           },
           "tool": {
             "type": "string",
-            "description": "`task.create`, `task.update`, `task.reschedule`, `task.trash`,\n`project.create`, `project.update`, `inbox.file`, `home.digest.write`,\n`timeline.revert`."
+            "description": "`task.create`, `task.update`, `task.reschedule`, `task.trash`,\n`project.create`, `project.update`, `inbox.file`, `home.digest.write`,\n`skill.create`, `skill.patch`, `skill.archive`, `skill.pin`,\n`skill.restore`, `skill.curate` (куратор), `timeline.revert`."
           }
         }
       },
@@ -5132,7 +5344,7 @@
           },
           "field": {
             "type": "string",
-            "description": "`title`, `deleted` или поле модуля: `due_date`, `due_time`,\n`project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,\n`color`, `tag`, `body`."
+            "description": "`title`, `deleted` или поле модуля: `due_date`, `due_time`,\n`project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,\n`color`, `tag`, `body`; у навыка ещё `pinned`, `archived`."
           }
         }
       },
@@ -5178,8 +5390,22 @@
       "AgentFileInfo": {
         "type": "object",
         "description": "Файл папки агента в списке.",
-        "required": ["id", "path", "kind", "chars", "limit", "revision", "updated_at"],
+        "required": [
+          "id",
+          "path",
+          "kind",
+          "chars",
+          "limit",
+          "revision",
+          "updated_at",
+          "pinned",
+          "archived"
+        ],
         "properties": {
+          "archived": {
+            "type": "boolean",
+            "description": "Навык в архиве (агент его не видит; вернуть — `/skills/{id}/restore`)."
+          },
           "chars": {
             "type": "integer",
             "description": "Знаков сейчас (у «Кто я» — в «Твоих правилах»).",
@@ -5201,6 +5427,10 @@
           "path": {
             "type": "string",
             "description": "«Память.md», «Проекты/Алгебра.md», «Навыки/ДЗ.md»."
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Навык закреплён: куратор его не трогает."
           },
           "project_id": {
             "type": ["string", "null"],
@@ -5495,6 +5725,112 @@
             }
           }
         }
+      },
+      "AgentSkill": {
+        "type": "object",
+        "description": "Навык.",
+        "required": [
+          "id",
+          "path",
+          "name",
+          "description",
+          "tools",
+          "pinned",
+          "archived",
+          "builtin",
+          "uses",
+          "last_used",
+          "revision"
+        ],
+        "properties": {
+          "archive_after": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда куратор уберёт в архив, если не пользоваться (нет — закреплён или уже в архиве)."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "В архиве: агент его не видит."
+          },
+          "builtin": {
+            "type": "boolean",
+            "description": "Встроенный (написан нами); копия — твоя, правится как любой."
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID файла навыка (читать и править — `/api/v1/agent/files/{id}`)."
+          },
+          "last_used": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Последний раз пользовался (не пользовался — когда завёл)."
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "«Навыки/ДЗ к уроку.md»."
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Закреплён: куратор не трогает."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Какими инструментами пользуется (навык не даёт новых)."
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Сколько раз агент им пользовался."
+          },
+          "version": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "AgentSkillList": {
+        "type": "object",
+        "description": "Все навыки (и в архиве), по имени.",
+        "required": ["skills", "unused_days"],
+        "properties": {
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSkill"
+            }
+          },
+          "unused_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько дней без дела навык живёт до архива."
+          }
+        }
+      },
+      "AgentSkillPin": {
+        "type": "object",
+        "description": "Закрепить или открепить.",
+        "required": ["pinned"],
+        "properties": {
+          "pinned": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "AgentSlot": {
         "type": "object",

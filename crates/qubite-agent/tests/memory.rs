@@ -97,8 +97,15 @@ async fn memory_lines_go_through_timeline_and_revert() {
     let kinds: Vec<Kind> = list.iter().map(|f| f.kind).collect();
     assert_eq!(
         kinds,
-        [Kind::Core, Kind::User, Kind::Memory],
-        "база — один раз"
+        [
+            Kind::Core,
+            Kind::User,
+            Kind::Memory,
+            Kind::Skill,
+            Kind::Skill,
+            Kind::Skill
+        ],
+        "база и встроенные навыки (AGT-003) — один раз"
     );
     let who = agent(pool, me).await;
 

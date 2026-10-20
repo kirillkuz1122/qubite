@@ -27,6 +27,7 @@ pub mod memory;
 pub mod proactive;
 pub mod questions;
 pub mod revert;
+pub mod skills;
 pub mod timeline;
 pub mod tools;
 
@@ -87,6 +88,8 @@ pub struct Who {
     session: Option<Uuid>,
     /// Вызов AI-шлюза, по которому агент действует (цена в ленте).
     ai_call: Option<Uuid>,
+    /// Навык, по которому агент действует (в ленте; куратор видит, что им пользуются).
+    skill: Option<Uuid>,
 }
 
 impl Who {
@@ -98,6 +101,7 @@ impl Who {
             run: Some(run.id),
             session: None,
             ai_call: None,
+            skill: None,
         }
     }
 
@@ -109,12 +113,31 @@ impl Who {
             run: None,
             session,
             ai_call: None,
+            skill: None,
+        }
+    }
+
+    /// Qubite сам (куратор навыков): права — самого человека, в ленте — «Qubite».
+    pub fn system(account: Uuid) -> Self {
+        Self {
+            account,
+            actor: Actor::System,
+            run: None,
+            session: None,
+            ai_call: None,
+            skill: None,
         }
     }
 
     /// Действия по ответу модели: в ленте видна цена вызова.
     pub fn with_ai_call(mut self, call: Uuid) -> Self {
         self.ai_call = Some(call);
+        self
+    }
+
+    /// Действие по навыку (`skill` — ID файла навыка).
+    pub fn with_skill(mut self, skill: Uuid) -> Self {
+        self.skill = Some(skill);
         self
     }
 
@@ -249,6 +272,7 @@ pub async fn start_run(pool: &PgPool, account: Uuid, trigger: Trigger) -> Result
         run: None,
         session: None,
         ai_call: None,
+        skill: None,
     };
     let module = ModuleId::new(MODULE)?;
     qubite_policy::decide::<qubite_policy::Write>(pool, &probe.subject(), &module).await?;

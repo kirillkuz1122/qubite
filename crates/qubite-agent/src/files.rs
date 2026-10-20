@@ -513,7 +513,20 @@ pub struct File {
     pub body: String,
     pub revision: i64,
     #[serde(with = "time::serde::rfc3339")]
+    pub created_at: time::OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub updated_at: time::OffsetDateTime,
+    /// Навык: закреплён (куратор не трогает).
+    pub pinned: bool,
+    /// Навык: в архиве.
+    pub archived: bool,
+    /// Навык: когда им последний раз пользовались (или вернули из архива).
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub used_at: Option<time::OffsetDateTime>,
+    /// Навык: сколько раз им пользовались.
+    pub uses: i32,
+    /// Встроенный навык: ключ из кода (`crate::skills::BUILTIN`).
+    pub builtin: Option<String>,
 }
 
 impl File {
@@ -536,7 +549,13 @@ struct FileRow {
     project_id: Option<Uuid>,
     body: String,
     revision: i64,
+    created_at: time::OffsetDateTime,
     updated_at: time::OffsetDateTime,
+    pinned: bool,
+    archived: bool,
+    used_at: Option<time::OffsetDateTime>,
+    uses: i32,
+    builtin: Option<String>,
 }
 
 impl TryFrom<FileRow> for File {
@@ -549,13 +568,20 @@ impl TryFrom<FileRow> for File {
             project_id: row.project_id,
             body: row.body,
             revision: row.revision,
+            created_at: row.created_at,
             updated_at: row.updated_at,
+            pinned: row.pinned,
+            archived: row.archived,
+            used_at: row.used_at,
+            uses: row.uses,
+            builtin: row.builtin,
         })
     }
 }
 
 const FILE_SELECT: &str = "SELECT o.id, f.path, f.kind, f.project_id, f.body, o.revision, \
-     o.updated_at FROM agent_files f JOIN objects o ON o.id = f.object_id";
+     o.created_at, o.updated_at, f.pinned, f.archived, f.used_at, f.uses, f.builtin \
+     FROM agent_files f JOIN objects o ON o.id = f.object_id";
 
 fn convert(rows: Vec<FileRow>) -> sqlx::Result<Vec<File>> {
     rows.into_iter()
@@ -649,24 +675,10 @@ fn bad(message: impl Into<String>) -> FieldsError {
     FieldsError::Invalid(message.into())
 }
 
-/// Шапка навыка в формате SKILL.md (agentskills.io): `name` и `description`.
+/// Шапка навыка в формате SKILL.md (agentskills.io): `name`, `description`,
+/// инструменты — только существующие ([`crate::skills::head`]).
 pub fn check_skill(body: &str) -> Result<(), String> {
-    let body = body.trim_start();
-    let rest = body.strip_prefix("---").ok_or(
-        "навык — SKILL.md: начинается с шапки «---», в ней name: и description:, потом «---»",
-    )?;
-    let (head, _) = rest
-        .split_once("\n---")
-        .ok_or("у шапки навыка нет закрывающей строки «---»")?;
-    for key in ["name:", "description:"] {
-        if !head
-            .lines()
-            .any(|line| line.trim_start().starts_with(key) && line.len() > key.len() + 1)
-        {
-            return Err(format!("в шапке навыка нет «{key}»"));
-        }
-    }
-    Ok(())
+    crate::skills::head(body).map(drop)
 }
 
 /// Проверить и подготовить текст файла: вычеркнуть секреты, размер, формат.
@@ -696,12 +708,27 @@ struct CreateFields {
     path: String,
     #[serde(default)]
     body: String,
+    /// Встроенный навык (заводит сервер, `crate::skills`).
+    #[serde(default)]
+    builtin: Option<String>,
 }
 
+/// Правка файла: текст и (у навыка) «закреплён» / «в архиве». `null` у
+/// флага — «нет» (так откат возвращает флаг, которого в снимке не было).
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PatchFields {
-    body: String,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default, deserialize_with = "flag")]
+    pinned: Option<bool>,
+    #[serde(default, deserialize_with = "flag")]
+    archived: Option<bool>,
+}
+
+/// Поле есть — `Some` (`null` — `false`); поля нет — `None` (через `default`).
+fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<bool>, D::Error> {
+    Ok(Some(Option::<bool>::deserialize(d)?.unwrap_or(false)))
 }
 
 /// Обработчик полей `agent.file` для движка синхронизации: здесь проходят все
@@ -750,9 +777,12 @@ impl TypeFields for FileFieldsHandler {
                 Kind::Project => project_for(conn, account, display_name(&path)).await?,
                 _ => None,
             };
+            if fields.builtin.is_some() && kind != Kind::Skill {
+                return Err(bad("встроенным бывает только навык"));
+            }
             sqlx::query(
-                "INSERT INTO agent_files (object_id, account_id, path, kind, project_id, body) \
-                 VALUES ($1, $2, $3, $4, $5, $6)",
+                "INSERT INTO agent_files (object_id, account_id, path, kind, project_id, body, \
+                 builtin) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             )
             .bind(object.id)
             .bind(account)
@@ -760,6 +790,7 @@ impl TypeFields for FileFieldsHandler {
             .bind(kind.as_str())
             .bind(project)
             .bind(&body)
+            .bind(&fields.builtin)
             .execute(&mut *conn)
             .await?;
             after_write(conn, object, &path, &body).await
@@ -782,14 +813,46 @@ impl TypeFields for FileFieldsHandler {
                     .await?
                     .ok_or_else(|| bad("файла нет"))?;
             let kind: Kind = kind.parse().map_err(bad)?;
-            let (body, _) = prepare(&path, kind, &fields.body).map_err(bad)?;
-            sqlx::query("UPDATE agent_files SET body = $2 WHERE object_id = $1")
+            let mut changed = Vec::new();
+            if let Some(body) = &fields.body {
+                let (body, _) = prepare(&path, kind, body).map_err(bad)?;
+                sqlx::query("UPDATE agent_files SET body = $2 WHERE object_id = $1")
+                    .bind(object.id)
+                    .bind(&body)
+                    .execute(&mut *conn)
+                    .await?;
+                after_write(conn, object, &path, &body).await?;
+                changed.push("body".to_owned());
+            }
+            if (fields.pinned.is_some() || fields.archived.is_some()) && kind != Kind::Skill {
+                return Err(bad("закрепить и убрать в архив можно только навык"));
+            }
+            if let Some(pinned) = fields.pinned {
+                sqlx::query("UPDATE agent_files SET pinned = $2 WHERE object_id = $1")
+                    .bind(object.id)
+                    .bind(pinned)
+                    .execute(&mut *conn)
+                    .await?;
+                changed.push("pinned".to_owned());
+            }
+            if let Some(archived) = fields.archived {
+                // Вернули из архива — часы куратора идут заново, иначе через
+                // неделю он убрал бы навык снова.
+                sqlx::query(
+                    "UPDATE agent_files SET archived = $2, \
+                     used_at = CASE WHEN archived AND NOT $2 THEN now() ELSE used_at END \
+                     WHERE object_id = $1",
+                )
                 .bind(object.id)
-                .bind(&body)
+                .bind(archived)
                 .execute(&mut *conn)
                 .await?;
-            after_write(conn, object, &path, &body).await?;
-            Ok(vec!["body".to_owned()])
+                changed.push("archived".to_owned());
+            }
+            if changed.is_empty() {
+                return Err(bad("нечего менять"));
+            }
+            Ok(changed)
         })
     }
 
@@ -799,14 +862,25 @@ impl TypeFields for FileFieldsHandler {
         object_id: Uuid,
     ) -> BoxFuture<'a, Result<Option<Value>, FieldsError>> {
         Box::pin(async move {
-            let row: Option<(String, String, Option<Uuid>, String)> = sqlx::query_as(
-                "SELECT path, kind, project_id, body FROM agent_files WHERE object_id = $1",
+            let row: Option<(String, String, Option<Uuid>, String, bool, bool)> = sqlx::query_as(
+                "SELECT path, kind, project_id, body, pinned, archived FROM agent_files \
+                 WHERE object_id = $1",
             )
             .bind(object_id)
             .fetch_optional(conn)
             .await?;
-            Ok(row.map(|(path, kind, project_id, body)| {
-                json!({ "path": path, "kind": kind, "project_id": project_id, "body": body })
+            Ok(row.map(|(path, kind, project_id, body, pinned, archived)| {
+                let mut fields =
+                    json!({ "path": path, "kind": kind, "project_id": project_id, "body": body });
+                // Флаги навыка — только когда они есть: у старых снимков их не
+                // было, и «нет» должно совпадать с «не было» (лента, откат).
+                if pinned {
+                    fields["pinned"] = Value::Bool(true);
+                }
+                if archived {
+                    fields["archived"] = Value::Bool(true);
+                }
+                fields
             }))
         })
     }

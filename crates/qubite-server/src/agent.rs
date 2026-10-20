@@ -29,7 +29,7 @@ use crate::{
 pub struct AgentFieldChange {
     /// `title`, `deleted` или поле модуля: `due_date`, `due_time`,
     /// `project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,
-    /// `color`, `tag`, `body`.
+    /// `color`, `tag`, `body`; у навыка ещё `pinned`, `archived`.
     field: String,
     #[schema(value_type = Object)]
     before: Value,
@@ -77,7 +77,8 @@ pub struct AgentAction {
     skill_id: Option<Uuid>,
     /// `task.create`, `task.update`, `task.reschedule`, `task.trash`,
     /// `project.create`, `project.update`, `inbox.file`, `home.digest.write`,
-    /// `timeline.revert`.
+    /// `skill.create`, `skill.patch`, `skill.archive`, `skill.pin`,
+    /// `skill.restore`, `skill.curate` (куратор), `timeline.revert`.
     tool: String,
     /// Что сделано.
     summary: String,

@@ -748,6 +748,7 @@ pub async fn bootstrap(pool: &PgPool) -> Result<usize> {
             run: None,
             session: None,
             ai_call: None,
+            skill: None,
         }
         .subject();
         if qubite_policy::decide::<qubite_policy::Write>(pool, &subject, &module)
@@ -810,6 +811,8 @@ const MORNING_TOOLS: &[&str] = &[
     "files.list",
     "files.read",
     "memory.add",
+    "skill.list",
+    "skill.view",
     WINDOWS_TOOL,
     PRESENCE_TOOL,
 ];
@@ -826,6 +829,8 @@ const WINDOW_TOOLS: &[&str] = &[
     "files.read",
     "memory.add",
     "question.ask",
+    "skill.list",
+    "skill.view",
 ];
 
 fn weekday_name(date: Date) -> &'static str {

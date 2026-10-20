@@ -3,6 +3,9 @@
  * «Память», «Проекты», «Навыки» и свои файлы («Расписание.md»). Читать, править руками (это твоя
  * поправка — видна в ленте), скачать `.md`; внизу файла — «Поправить»: пишешь словами, что не
  * так, агент исправляет сразу. Сверху — «Агент хочет знать».
+ *
+ * «Навыки» (AGT-003): по папке — экран всех навыков с описаниями и «когда пользовался»; у навыка —
+ * закрепить (куратор не трогает), убрать в архив и вернуть одной кнопкой.
  */
 import { Button, Field } from '@qubite/ui';
 import { useState, type FormEvent } from 'react';
@@ -15,22 +18,30 @@ import {
   useFiles,
   useFixFile,
   useQuestions,
+  useSkillChange,
+  useSkills,
+  type SkillChange,
 } from './agent-records';
 import {
   fileName,
   kindLabel,
+  skillUse,
   tree,
   usage,
   type AgentFile,
   type AgentQuestion,
+  type AgentSkill,
 } from './agent-records-view';
+
+/** «Открыт экран всех навыков», а не файл. */
+const SKILLS_VIEW = 'skills';
 
 export function AgentRecords() {
   const files = useFiles();
   const [open, setOpen] = useState<string | null>(null);
   const list = files.data?.files ?? [];
   const shown =
-    open && list.some((f) => f.id === open)
+    open === SKILLS_VIEW || (open && list.some((f) => f.id === open))
       ? open
       : (list.find((f) => f.kind === 'memory')?.id ?? null);
 
@@ -52,7 +63,18 @@ export function AgentRecords() {
         <nav className="rec-tree" aria-label="Файлы агента">
           {tree(list).map((folder) => (
             <div key={folder.name || '/'} className="rec-folder">
-              {folder.name && <p className="rec-folder-name">{folder.name}</p>}
+              {folder.name === 'Навыки' ? (
+                <button
+                  type="button"
+                  className={`rec-folder-name rec-folder-open${shown === SKILLS_VIEW ? ' on' : ''}`}
+                  aria-current={shown === SKILLS_VIEW ? 'true' : undefined}
+                  onClick={() => setOpen(SKILLS_VIEW)}
+                >
+                  Навыки — все
+                </button>
+              ) : (
+                folder.name && <p className="rec-folder-name">{folder.name}</p>
+              )}
               <ul>
                 {folder.files.map((f) => {
                   const u = usage(f);
@@ -74,9 +96,118 @@ export function AgentRecords() {
             </div>
           ))}
         </nav>
-        {shown && <FileView id={shown} />}
+        {shown === SKILLS_VIEW ? <SkillsView onOpen={setOpen} /> : shown && <FileView id={shown} />}
       </div>
     </div>
+  );
+}
+
+/** Кнопки навыка: закрепить / открепить, в архив / вернуть. */
+function SkillButtons({ skill }: { skill: AgentSkill }) {
+  const change = useSkillChange();
+  const [error, setError] = useState<string | null>(null);
+  const act = (c: SkillChange) => {
+    setError(null);
+    change.mutate({ id: skill.id, change: c }, { onError: (er) => setError(say(er)) });
+  };
+  return (
+    <>
+      <div className="act-btns">
+        {skill.archived ? (
+          <Button
+            size="sm"
+            variant="fill"
+            disabled={change.isPending}
+            onClick={() => act('restore')}
+          >
+            Вернуть из архива
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              dot={false}
+              disabled={change.isPending}
+              onClick={() => act(skill.pinned ? 'unpin' : 'pin')}
+            >
+              {skill.pinned ? 'Открепить' : 'Закрепить'}
+            </Button>
+            {!skill.pinned && (
+              <Button
+                size="sm"
+                dot={false}
+                disabled={change.isPending}
+                onClick={() => act('archive')}
+              >
+                В архив
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+      {error && (
+        <p className="act-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * Все навыки: что агент умеет, когда пользовался, что уберёт куратор. Навык — записанный способ
+ * делать типовое; он не даёт агенту новых прав и инструментов.
+ */
+function SkillsView({ onOpen }: { onOpen: (id: string) => void }) {
+  const skills = useSkills();
+  if (skills.isPending) return <p className="later">Загружаю навыки…</p>;
+  if (skills.isError) return <p className="later">{say(skills.error)}</p>;
+  const all = skills.data.skills;
+  const live = all.filter((s) => !s.archived);
+  const archived = all.filter((s) => s.archived);
+  const row = (s: AgentSkill) => (
+    <li key={s.id} className="skill-row">
+      <div>
+        <button type="button" className="skill-name" onClick={() => onOpen(s.id)}>
+          {s.name}
+        </button>
+        {s.builtin && <span className="skill-tag">встроенный</span>}
+        {s.pinned && <span className="skill-tag">закреплён</span>}
+        <p className="skill-desc">{s.description}</p>
+        <p className="act-why">{skillUse(s)}</p>
+      </div>
+      <SkillButtons skill={s} />
+    </li>
+  );
+  return (
+    <section className="rec-view panel" aria-label="Навыки">
+      <header className="rec-head">
+        <div>
+          <h2>Навыки</h2>
+          <p>
+            Агент записывает их сам, когда ты его поправил, когда дело из нескольких шагов удалось
+            или одно и то же повторилось три раза. Не пользовался {skills.data.unused_days} дней —
+            уберёт в архив сам (раз в неделю); закреплённые не трогает. Навык не даёт агенту новых
+            прав.
+          </p>
+        </div>
+      </header>
+      {live.length === 0 ? (
+        <p className="later">Навыков пока нет — агент заведёт их сам.</p>
+      ) : (
+        <ul className="skill-list" aria-label="Навыки агента">
+          {live.map(row)}
+        </ul>
+      )}
+      {archived.length > 0 && (
+        <>
+          <h3 className="rec-sub">Архив</h3>
+          <ul className="skill-list" aria-label="Архив навыков">
+            {archived.map(row)}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -89,7 +220,21 @@ function FileView({ id }: { id: string }) {
   return (
     <div className="rec-view panel">
       <FileBody key={`${file.data.id}:${file.data.revision}`} file={file.data} />
+      {file.data.kind === 'skill' && <SkillBar id={file.data.id} />}
       <FixField key={file.data.id} file={file.data} />
+    </div>
+  );
+}
+
+/** У файла навыка: как им пользуются и кнопки. */
+function SkillBar({ id }: { id: string }) {
+  const skills = useSkills();
+  const skill = skills.data?.skills.find((s) => s.id === id);
+  if (!skill) return null;
+  return (
+    <div className="skill-bar" aria-label="Навык">
+      <p className="act-why">{skillUse(skill)}</p>
+      <SkillButtons skill={skill} />
     </div>
   );
 }

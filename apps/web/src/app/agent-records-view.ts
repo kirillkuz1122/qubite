@@ -12,6 +12,8 @@ export type AgentMessage = S['AgentMessage'];
 export type AgentChat = S['AgentChat'];
 export type AgentQuestion = S['AgentQuestion'];
 export type AgentQuestions = S['AgentQuestions'];
+export type AgentSkill = S['AgentSkill'];
+export type AgentSkillList = S['AgentSkillList'];
 
 /** «Проекты/Алгебра.md» → «Алгебра». */
 export function fileName(path: string): string {
@@ -25,17 +27,20 @@ export interface Folder {
   files: AgentFileInfo[];
 }
 
-const FOLDER_ORDER = ['', 'Проекты', 'Навыки'];
+/** Папка навыков в архиве — в дереве отдельно, под «Навыками». */
+export const SKILL_ARCHIVE = 'Архив навыков';
+const FOLDER_ORDER = ['', 'Проекты', 'Навыки', SKILL_ARCHIVE];
 
 /**
- * Дерево: сверху «Кто я», «О тебе», «Память» и свои файлы агента, потом «Проекты», «Навыки» и
- * другие папки. Внутри папки — по имени.
+ * Дерево: сверху «Кто я», «О тебе», «Память» и свои файлы агента, потом «Проекты», «Навыки»,
+ * «Архив навыков» и другие папки. Внутри папки — по имени.
  */
 export function tree(files: AgentFileInfo[]): Folder[] {
   const folders = new Map<string, AgentFileInfo[]>();
   for (const f of files) {
     const slash = f.path.indexOf('/');
-    const folder = slash < 0 ? '' : f.path.slice(0, slash);
+    const folder =
+      f.kind === 'skill' && f.archived ? SKILL_ARCHIVE : slash < 0 ? '' : f.path.slice(0, slash);
     folders.set(folder, [...(folders.get(folder) ?? []), f]);
   }
   const rank = (kind: string) => ['core', 'user', 'memory'].indexOf(kind);
@@ -95,4 +100,34 @@ export function channelLabel(channel: string): string | null {
     default:
       return null;
   }
+}
+
+function day(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function times(n: number): string {
+  const n10 = n % 10;
+  const n100 = n % 100;
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return `${n} раза`;
+  return `${n} раз`;
+}
+
+/**
+ * Как навыком пользуются и что с ним сделает куратор: «пользовался 3 раза, последний — 12.10 ·
+ * в архив после 11.11, если не понадобится».
+ */
+export function skillUse(
+  s: Pick<AgentSkill, 'uses' | 'last_used' | 'archive_after' | 'pinned' | 'archived'>,
+): string {
+  const used =
+    s.uses > 0
+      ? `пользовался ${times(s.uses)}, последний — ${day(s.last_used)}`
+      : 'ещё не пользовался';
+  if (s.archived) return `${used} · в архиве: агент его не видит`;
+  if (s.pinned) return `${used} · закреплён: куратор не трогает`;
+  return s.archive_after
+    ? `${used} · в архив после ${day(s.archive_after)}, если не понадобится`
+    : used;
 }

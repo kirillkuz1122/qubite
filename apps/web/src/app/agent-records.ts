@@ -7,11 +7,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { must } from '../auth/client';
 import { TIMELINE } from './agent';
-import type { AgentChat, AgentFile, AgentFileList, AgentQuestions } from './agent-records-view';
+import type {
+  AgentChat,
+  AgentFile,
+  AgentFileList,
+  AgentQuestions,
+  AgentSkillList,
+} from './agent-records-view';
 
 export const FILES = ['agent-files'] as const;
 export const CHAT = ['agent-chat'] as const;
 export const QUESTIONS = ['agent-questions'] as const;
+export const SKILLS = ['agent-skills'] as const;
 
 export function useFiles() {
   return useQuery({
@@ -37,6 +44,7 @@ function useRefresh() {
   return () => {
     void qc.invalidateQueries({ queryKey: FILES });
     void qc.invalidateQueries({ queryKey: QUESTIONS });
+    void qc.invalidateQueries({ queryKey: SKILLS });
     void qc.invalidateQueries({ queryKey: TIMELINE });
   };
 }
@@ -119,5 +127,41 @@ export function useAnswer() {
       void qc.invalidateQueries({ queryKey: CHAT });
       void qc.invalidateQueries({ queryKey: TIMELINE });
     },
+  });
+}
+
+/** Навыки агента: описания, когда пользовался, закреплён, в архиве (AGT-003). */
+export function useSkills() {
+  return useQuery({
+    queryKey: SKILLS,
+    queryFn: (): Promise<AgentSkillList> => must(api.GET('/api/v1/agent/skills')),
+    retry: false,
+  });
+}
+
+export type SkillChange = 'pin' | 'unpin' | 'archive' | 'restore';
+
+/** Закрепить, открепить, в архив, вернуть — строка ленты, откатывается. */
+export function useSkillChange() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: SkillChange }) => {
+      const params = { params: { path: { id } } };
+      switch (change) {
+        case 'pin':
+        case 'unpin':
+          return must(
+            api.POST('/api/v1/agent/skills/{id}/pin', {
+              ...params,
+              body: { pinned: change === 'pin' },
+            }),
+          );
+        case 'archive':
+          return must(api.POST('/api/v1/agent/skills/{id}/archive', params));
+        case 'restore':
+          return must(api.POST('/api/v1/agent/skills/{id}/restore', params));
+      }
+    },
+    onSettled: refresh,
   });
 }

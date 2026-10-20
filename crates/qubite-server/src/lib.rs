@@ -6,6 +6,7 @@
 pub mod agent;
 pub mod agent_memory;
 pub mod agent_pace;
+pub mod agent_skills;
 pub mod ai;
 pub mod auth;
 pub mod changes;
@@ -196,6 +197,10 @@ impl AppState {
         agent_pace::get_pace,
         agent_pace::change_pace,
         agent_pace::answer_notice,
+        agent_skills::list_skills,
+        agent_skills::pin_skill,
+        agent_skills::archive_skill,
+        agent_skills::restore_skill,
         notices::list_notices,
         notices::read_notice,
         notices::read_all_notices,
@@ -312,6 +317,9 @@ impl AppState {
         agent_pace::NoticeAnswer,
         agent_pace::NoticeAnswered,
         notices::NoticeOption,
+        agent_skills::AgentSkill,
+        agent_skills::AgentSkillList,
+        agent_skills::AgentSkillPin,
         notices::NoticeItem,
         notices::NoticeList,
         notices::ReadCount,
@@ -517,6 +525,19 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/notifications/{id}/answer",
             post(agent_pace::answer_notice),
+        )
+        .route("/api/v1/agent/skills", get(agent_skills::list_skills))
+        .route(
+            "/api/v1/agent/skills/{id}/pin",
+            post(agent_skills::pin_skill),
+        )
+        .route(
+            "/api/v1/agent/skills/{id}/archive",
+            post(agent_skills::archive_skill),
+        )
+        .route(
+            "/api/v1/agent/skills/{id}/restore",
+            post(agent_skills::restore_skill),
         )
         .route("/api/v1/notifications", get(notices::list_notices))
         .route(

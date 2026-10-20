@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { channelLabel, fileName, tree, usage, type AgentFileInfo } from './agent-records-view';
+import {
+  channelLabel,
+  fileName,
+  skillUse,
+  tree,
+  usage,
+  type AgentFileInfo,
+} from './agent-records-view';
 import { diffLines, lineDiff, type AgentChange } from './agent-view';
 
-function file(path: string, kind: string, chars = 10, limit = 2200): AgentFileInfo {
+function file(
+  path: string,
+  kind: string,
+  chars = 10,
+  limit = 2200,
+  archived = false,
+): AgentFileInfo {
   return {
     id: path,
     path,
@@ -11,6 +24,8 @@ function file(path: string, kind: string, chars = 10, limit = 2200): AgentFileIn
     limit,
     revision: 1,
     updated_at: '2026-10-20T08:00:00Z',
+    pinned: false,
+    archived,
   } as AgentFileInfo;
 }
 
@@ -34,6 +49,35 @@ describe('папка агента', () => {
       'Расписание',
     ]);
     expect(folders[1]!.files.map((f) => fileName(f.path))).toEqual(['Алгебра', 'Английский']);
+  });
+
+  it('навыки в архиве — отдельной папкой под «Навыками»', () => {
+    const folders = tree([
+      file('Навыки/Сходить куда-то.md', 'skill', 10, 6000, true),
+      file('Навыки/ДЗ к уроку.md', 'skill'),
+      file('Память.md', 'memory'),
+    ]);
+    expect(folders.map((f) => f.name)).toEqual(['', 'Навыки', 'Архив навыков']);
+    expect(folders[2]!.files.map((f) => fileName(f.path))).toEqual(['Сходить куда-то']);
+  });
+
+  it('как навыком пользуются и что сделает куратор', () => {
+    const base = {
+      uses: 3,
+      last_used: '2026-10-12T10:00:00Z',
+      archive_after: '2026-11-11T10:00:00Z',
+      pinned: false,
+      archived: false,
+    };
+    expect(skillUse(base)).toBe(
+      'пользовался 3 раза, последний — 12.10 · в архив после 11.11, если не понадобится',
+    );
+    expect(skillUse({ ...base, uses: 0, pinned: true, archive_after: null })).toBe(
+      'ещё не пользовался · закреплён: куратор не трогает',
+    );
+    expect(skillUse({ ...base, uses: 5, archived: true, archive_after: null })).toBe(
+      'пользовался 5 раз, последний — 12.10 · в архиве: агент его не видит',
+    );
   });
 
   it('сколько места и «почти полон»', () => {

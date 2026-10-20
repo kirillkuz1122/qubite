@@ -1125,6 +1125,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/skills': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Навыки агента: что он умеет, когда пользовался, что в архиве. */
+    get: operations['list_skills'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/skills/{id}/archive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Убрать навык в архив: агент перестаёт его видеть, файл остаётся. */
+    post: operations['archive_skill'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/skills/{id}/pin': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Закрепить навык (куратор его не уберёт) или открепить. */
+    post: operations['pin_skill'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/skills/{id}/restore': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Вернуть навык из архива; часы куратора идут заново. */
+    post: operations['restore_skill'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/agent/timeline': {
     parameters: {
       query?: never;
@@ -1674,7 +1742,8 @@ export interface components {
       /**
        * @description `task.create`, `task.update`, `task.reschedule`, `task.trash`,
        *     `project.create`, `project.update`, `inbox.file`, `home.digest.write`,
-       *     `timeline.revert`.
+       *     `skill.create`, `skill.patch`, `skill.archive`, `skill.pin`,
+       *     `skill.restore`, `skill.curate` (куратор), `timeline.revert`.
        */
       tool: string;
     };
@@ -1745,7 +1814,7 @@ export interface components {
       /**
        * @description `title`, `deleted` или поле модуля: `due_date`, `due_time`,
        *     `project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,
-       *     `color`, `tag`, `body`.
+       *     `color`, `tag`, `body`; у навыка ещё `pinned`, `archived`.
        */
       field: string;
     };
@@ -1768,6 +1837,8 @@ export interface components {
     };
     /** @description Файл папки агента в списке. */
     AgentFileInfo: {
+      /** @description Навык в архиве (агент его не видит; вернуть — `/skills/{id}/restore`). */
+      archived: boolean;
       /** @description Знаков сейчас (у «Кто я» — в «Твоих правилах»). */
       chars: number;
       /** Format: uuid */
@@ -1781,6 +1852,8 @@ export interface components {
       limit: number;
       /** @description «Память.md», «Проекты/Алгебра.md», «Навыки/ДЗ.md». */
       path: string;
+      /** @description Навык закреплён: куратор его не трогает. */
+      pinned: boolean;
       /**
        * Format: uuid
        * @description Проект файла «Проекты/…», если такой есть.
@@ -1932,6 +2005,58 @@ export interface components {
     };
     AgentSchedule: {
       slots: components['schemas']['AgentSlot'][];
+    };
+    /** @description Навык. */
+    AgentSkill: {
+      /**
+       * Format: date-time
+       * @description Когда куратор уберёт в архив, если не пользоваться (нет — закреплён или уже в архиве).
+       */
+      archive_after?: string | null;
+      /** @description В архиве: агент его не видит. */
+      archived: boolean;
+      /** @description Встроенный (написан нами); копия — твоя, правится как любой. */
+      builtin: boolean;
+      description: string;
+      /**
+       * Format: uuid
+       * @description ID файла навыка (читать и править — `/api/v1/agent/files/{id}`).
+       */
+      id: string;
+      /**
+       * Format: date-time
+       * @description Последний раз пользовался (не пользовался — когда завёл).
+       */
+      last_used: string;
+      name: string;
+      /** @description «Навыки/ДЗ к уроку.md». */
+      path: string;
+      /** @description Закреплён: куратор не трогает. */
+      pinned: boolean;
+      /** Format: int64 */
+      revision: number;
+      /** @description Какими инструментами пользуется (навык не даёт новых). */
+      tools: string[];
+      /**
+       * Format: int32
+       * @description Сколько раз агент им пользовался.
+       */
+      uses: number;
+      /** Format: int32 */
+      version?: number | null;
+    };
+    /** @description Все навыки (и в архиве), по имени. */
+    AgentSkillList: {
+      skills: components['schemas']['AgentSkill'][];
+      /**
+       * Format: int64
+       * @description Сколько дней без дела навык живёт до архива.
+       */
+      unused_days: number;
+    };
+    /** @description Закрепить или открепить. */
+    AgentSkillPin: {
+      pinned: boolean;
     };
     /** @description Слот расписания (из «Расписание.md»). */
     AgentSlot: {
@@ -5768,6 +5893,180 @@ export interface operations {
       };
       /** @description Нет доступа к агенту */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_skills: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Навыки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentSkillList'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  archive_skill: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID навыка */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Строка ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Уже в архиве */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого навыка */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  pin_skill: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID навыка */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentSkillPin'];
+      };
+    };
+    responses: {
+      /** @description Строка ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Уже так */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого навыка */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  restore_skill: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID навыка */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Строка ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Не в архиве */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого навыка */
+      404: {
         headers: {
           [name: string]: unknown;
         };

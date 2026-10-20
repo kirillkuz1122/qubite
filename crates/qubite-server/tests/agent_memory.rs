@@ -160,7 +160,7 @@ async fn records_edit_fix_chat_and_questions_over_http() {
         .await;
     assert_eq!(said.status, 403, "{:?}", said.body);
 
-    // Папка: три файла заводятся сами.
+    // Папка: три файла и встроенные навыки заводятся сами.
     let list = owner.get(address, "/api/v1/agent/files").await;
     assert_eq!(list.status, 200, "{:?}", list.body);
     let paths: Vec<&str> = list.body["files"]
@@ -169,7 +169,17 @@ async fn records_edit_fix_chat_and_questions_over_http() {
         .iter()
         .map(|f| f["path"].as_str().unwrap())
         .collect();
-    assert_eq!(paths, ["Кто я.md", "О тебе.md", "Память.md"]);
+    assert_eq!(
+        paths,
+        [
+            "Кто я.md",
+            "О тебе.md",
+            "Память.md",
+            "Навыки/ДЗ к уроку.md",
+            "Навыки/Записать расписание.md",
+            "Навыки/Сходить куда-то.md"
+        ]
+    );
     let core = file(&list.body, "Кто я.md");
     assert_eq!(core["kind"], "core");
     assert_eq!(core["limit"], 1500);

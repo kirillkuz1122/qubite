@@ -387,6 +387,15 @@ pub async fn call(
         }
         "files.create" | "memory.add" | "memory.patch" | "memory.remove" | "question.ask"
         | "question.close" => crate::memory::plan(conn, account, tool, arguments).await?,
+        "skill.list" | "skill.view" => {
+            can_read(conn, who, crate::MODULE).await?;
+            return Ok(Outcome::Read(
+                crate::skills::read(conn, account, tool, arguments).await?,
+            ));
+        }
+        "skill.create" | "skill.patch" | "skill.archive" => {
+            crate::skills::plan(conn, account, tool, arguments, reason).await?
+        }
         "project.get" => {
             let ProjectRef { project_id } = args(tool, arguments)?;
             can_read(conn, who, qubite_planner::MODULE).await?;
@@ -583,7 +592,8 @@ pub async fn call(
 
 /// «Исправить»: человек поправляет результат действия агента (`object_id` —
 /// дело или проект из этого действия). Это его действие с пометкой
-/// «поправка» — по ней агент потом учится (AGT-001, AGT-003).
+/// «поправка» — по ней агент учится: задача `agent.learn` ставится той же
+/// транзакцией (AGT-003).
 pub async fn fix(
     pool: &PgPool,
     who: &Who,
@@ -645,5 +655,11 @@ pub async fn fix(
         corrects: Some(action_id),
         steps: edit_steps(object_id, title, fields)?,
     };
-    timeline::execute(pool, who, plan).await
+    // Поправка — повод агенту научиться: уточнить навык или завести новый (AGT-003).
+    let mut tx = pool.begin().await?;
+    timeline::lock(&mut tx, account).await?;
+    let correction = timeline::execute_in(&mut tx, who, plan).await?;
+    crate::skills::schedule_learn(&mut tx, account, correction.id).await?;
+    tx.commit().await?;
+    Ok(correction)
 }

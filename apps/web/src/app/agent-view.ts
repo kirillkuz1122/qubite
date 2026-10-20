@@ -29,6 +29,8 @@ const LABEL: Record<string, string> = {
   tag: 'Тег',
   body: 'Текст',
   answer: 'Ответ',
+  pinned: 'Закреплён',
+  archived: 'Архив',
 };
 
 const STATUS: Record<string, Record<string, string>> = {
@@ -83,6 +85,9 @@ export function valueLabel(
   projectName: ProjectName,
   now = new Date(),
 ): string {
+  // Флаги навыка: «нет» в снимке — это просто отсутствие поля.
+  if (field === 'pinned') return value ? 'да' : 'нет';
+  if (field === 'archived') return value ? 'в архиве' : 'на месте';
   if (value === null || value === undefined || value === '') return '—';
   switch (field) {
     case 'deleted':

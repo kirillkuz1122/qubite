@@ -51,7 +51,7 @@ pub fn revertable_fields(object_type: &str) -> &'static [&'static str] {
         ],
         qubite_planner::PROJECT_TYPE => &["color", "tag", "status", "notes"],
         qubite_inbox::ITEM_TYPE => &["status", "body"],
-        crate::files::FILE_TYPE => &["body"],
+        crate::files::FILE_TYPE => &["body", "pinned", "archived"],
         crate::questions::QUESTION_TYPE => &["status", "answer"],
         _ => &[],
     }
@@ -336,8 +336,8 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
         .map(|reason| truncate(reason, MAX_REASON_CHARS));
     let (seq, at): (i64, OffsetDateTime) = sqlx::query_as(
         "INSERT INTO agent_actions (id, account_id, run_id, batch_id, actor, tool, summary, \
-         reason, reverts, corrects, ai_call_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) \
+         reason, reverts, corrects, ai_call_id, skill_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) \
          RETURNING seq, at",
     )
     .bind(id)
@@ -355,8 +355,12 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
     .bind(plan.reverts)
     .bind(plan.corrects)
     .bind(who.ai_call)
+    .bind(who.skill)
     .fetch_one(&mut *conn)
     .await?;
+    if let Some(skill) = who.skill {
+        crate::skills::mark_used(conn, account, skill).await?;
+    }
 
     let mut changes = Vec::with_capacity(order.len());
     for object_id in order {
@@ -405,7 +409,7 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
         actor: who.actor(),
         run_id: who.run,
         batch_id: plan.batch,
-        skill_id: None,
+        skill_id: who.skill,
         tool: plan.tool,
         summary,
         reason,
