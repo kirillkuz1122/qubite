@@ -22,7 +22,7 @@ use qubite_agent::{
     brain,
     chat::{self, Channel, NewMessage},
     files::{self, Kind},
-    memory, questions,
+    memory, proactive, questions,
 };
 use qubite_jobs::Job;
 use serde::{Deserialize, Serialize};
@@ -591,8 +591,9 @@ pub async fn schedule(
 
 // ---------------------------------------------------------------- очередь
 
-/// Задачи агента в очереди `jobs`: ответ в разговоре и фоновый разбор.
-pub const KINDS: &[&str] = &[chat::CHAT_JOB, chat::REVIEW_JOB];
+/// Задачи агента в очереди `jobs`: ответ в разговоре, фоновый разбор и
+/// пробуждения «писать первым» (AGT-004).
+pub const KINDS: &[&str] = &[chat::CHAT_JOB, chat::REVIEW_JOB, proactive::WAKE_JOB];
 
 #[derive(Deserialize)]
 struct ChatPayload {
@@ -642,6 +643,17 @@ pub async fn handle(
                 .map(drop)
                 .map_err(|error| error.to_string())
         }
+        proactive::WAKE_JOB => {
+            let wake: proactive::Wake =
+                serde_json::from_value(job.payload.clone()).map_err(|error| error.to_string())?;
+            let outcome = proactive::wake(pool, gateway, &wake, Some(job.id), None)
+                .await
+                .map_err(|error| error.to_string())?;
+            if let proactive::WakeOutcome::Skipped(why) = outcome {
+                tracing::debug!(account = %wake.account_id, trigger = wake.trigger.as_str(), %why, "агент: пробуждение пропущено");
+            }
+            Ok(())
+        }
         other => Err(format!("неизвестная задача {other}")),
     }
 }
@@ -675,6 +687,12 @@ pub fn spawn(
     shutdown: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
+        // Пробуждения «писать первым» сами продлевают себя каждое утро; при
+        // старте — завести их всем, у кого есть агент (D-351).
+        match proactive::bootstrap(&pool).await {
+            Ok(count) => tracing::info!(count, "агент: пробуждения заведены"),
+            Err(error) => tracing::warn!(%error, "агент: пробуждения не заведены"),
+        }
         let config = qubite_jobs::WorkerConfig {
             worker_id: format!("agent-{}", Uuid::now_v7()),
             kinds: KINDS.iter().map(|kind| (*kind).to_owned()).collect(),

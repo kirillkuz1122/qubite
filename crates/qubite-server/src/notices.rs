@@ -63,10 +63,21 @@ pub struct NoticeItem {
     held: bool,
     /// Куда ушло наружу: `push`, `telegram`; нет — только колокольчик.
     channel: Option<String>,
+    /// Кнопки ответа («Да», «15 минут», «Позже», «Не сегодня»); пусто — нет.
+    options: Vec<NoticeOption>,
+    /// Что ответили кнопкой (`id` из `options`).
+    answer: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
     read_at: Option<OffsetDateTime>,
+}
+
+/// Кнопка ответа под сообщением.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NoticeOption {
+    id: String,
+    text: String,
 }
 
 impl From<Notice> for NoticeItem {
@@ -81,6 +92,15 @@ impl From<Notice> for NoticeItem {
             object_id: notice.object_id,
             held: notice.held,
             channel: notice.channel,
+            options: notice
+                .options
+                .into_iter()
+                .map(|choice| NoticeOption {
+                    id: choice.id,
+                    text: choice.text,
+                })
+                .collect(),
+            answer: notice.answer,
             created_at: notice.created_at,
             read_at: notice.read_at,
         }
@@ -447,6 +467,7 @@ pub async fn send_test_notice(
             why: "ты нажал «Прислать пробное»".into(),
             object_id: None,
             dedup_key: None,
+            options: Vec::new(),
         },
     )
     .await

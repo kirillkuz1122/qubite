@@ -74,6 +74,7 @@ pub async fn remind(pool: &PgPool, task_id: Uuid, at_ms: i64) -> Result<Option<c
             why: plan.why,
             object_id: Some(task.id),
             dedup_key: Some(format!("remind:{}:{at_ms}", task.id)),
+            options: Vec::new(),
         },
     )
     .await

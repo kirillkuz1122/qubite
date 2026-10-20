@@ -288,6 +288,9 @@ async fn revert_all(
             plan = plan_revert(&mut tx, who, action, batch, true).await?.0;
         }
         done.push(execute_in(&mut tx, who, plan).await?);
+        if action.tool == crate::proactive::SEND_TOOL {
+            crate::proactive::on_revert(&mut tx, account, action.id).await?;
+        }
     }
     if !conflicts.is_empty() {
         tx.rollback().await?;

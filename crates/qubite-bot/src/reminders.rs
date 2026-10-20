@@ -12,12 +12,20 @@ use crate::{
 
 /// Нажатие кнопки. Не наша кнопка — `Ignored`.
 pub async fn handle(pool: &PgPool, api: &TelegramApi, query: &CallbackQuery) -> Result<Outcome> {
-    let Some((action, id)) = query
+    // `n:r:<id>` — понял, `n:s:<id>` — через 15 минут, `n:o:<id>:<ответ>` —
+    // кнопка ответа («Да», «Позже», «Не сегодня», AGT-004).
+    let Some((action, id, choice)) = query
         .data
         .as_deref()
         .and_then(|data| data.strip_prefix("n:"))
         .and_then(|rest| rest.split_once(':'))
-        .and_then(|(action, id)| Some((action, id.parse::<Uuid>().ok()?)))
+        .and_then(|(action, rest)| {
+            let (id, choice) = match rest.split_once(':') {
+                Some((id, choice)) => (id, Some(choice)),
+                None => (rest, None),
+            };
+            Some((action, id.parse::<Uuid>().ok()?, choice))
+        })
     else {
         return Ok(Outcome::Ignored);
     };
@@ -25,6 +33,19 @@ pub async fn handle(pool: &PgPool, api: &TelegramApi, query: &CallbackQuery) -> 
     let account = qubite_notify::deliver::account_by_telegram(&mut conn, query.from.id)
         .await
         .map_err(notify_error)?;
+    if let (Some(account), "o", Some(choice)) = (account, action, choice) {
+        drop(conn);
+        let hint = match qubite_agent::proactive::answer(pool, account, id, choice).await {
+            Ok(Some(outcome)) => outcome.hint,
+            Ok(None) => "На это уже ответили".to_owned(),
+            Err(qubite_agent::Error::NotFound) => "Сообщение не найдено".to_owned(),
+            Err(error) => return Err(crate::Error::Invalid(error.to_string())),
+        };
+        if let Err(error) = api.answer_callback(&query.id, &hint).await {
+            tracing::warn!(%error, "бот: ответ на кнопку не отправлен");
+        }
+        return Ok(Outcome::Command);
+    }
     let answer = match account {
         None => "Этот Telegram не привязан к Qubite",
         Some(account) => {

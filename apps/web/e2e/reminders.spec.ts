@@ -109,3 +109,39 @@ test('профиль: каналы, тишина, «само» и пробное
   await section.getByRole('button', { name: 'Прислать пробное' }).click();
   await expect(page.getByText('Пробное отправлено')).toBeVisible();
 });
+
+test('агент спросил «есть 30 минут?» — ответ кнопкой в колокольчике', async ({ page }) => {
+  const server = await mockSync(page);
+  server.notices.push({
+    id: 'n-ask',
+    kind: 'agent',
+    origin: 'agent',
+    title: 'Есть 30 минут?',
+    body: 'Завтра алгебра — начнём ДЗ?',
+    why: 'урок завтра',
+    held: false,
+    channel: null,
+    options: [
+      { id: 'yes', text: 'Да' },
+      { id: 'short', text: '15 минут' },
+      { id: 'later', text: 'Позже' },
+      { id: 'not_today', text: 'Не сегодня' },
+    ],
+    answer: null,
+    created_at: new Date().toISOString(),
+    read_at: null,
+  });
+  await page.goto('/today');
+  await page.getByRole('button', { name: 'Уведомления: 1 новых' }).click();
+  const panel = page.getByRole('dialog', { name: 'Уведомления' });
+  const answers = panel.getByRole('group', { name: 'Ответить' });
+  await expect(answers.getByRole('button')).toHaveText(['Да', '15 минут', 'Позже', 'Не сегодня']);
+  await answers.getByRole('button', { name: 'Позже' }).click();
+  await expect(answers.getByRole('button', { name: 'Позже' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(answers.getByRole('button', { name: 'Да' })).toBeDisabled();
+  expect(server.notices[0]!.answer).toBe('later');
+  expect(server.notices[0]!.read_at).toBeTruthy();
+});

@@ -167,8 +167,19 @@ pub fn telegram_text(notice: &Notice) -> String {
     text
 }
 
-/// Кнопки под сообщением в Telegram.
+/// Кнопки под сообщением в Telegram: свои ответы сообщения («Да», «Позже»…)
+/// или обычные «Понял» и «Через 15 мин».
 pub fn telegram_buttons(notice: &Notice) -> Vec<Button> {
+    if !notice.options.is_empty() {
+        return notice
+            .options
+            .iter()
+            .map(|choice| Button {
+                text: choice.text.clone(),
+                data: format!("n:o:{}:{}", notice.id, choice.id),
+            })
+            .collect();
+    }
     vec![
         Button {
             text: "✓ Понял".into(),
@@ -390,7 +401,15 @@ pub async fn close(pool: &PgPool, channels: &Channels, id: Uuid) -> Result<usize
     .bind(id)
     .fetch_all(pool)
     .await?;
-    let text = format!("{}\n\n✓ Прочитано", telegram_text(&notice));
+    let done = notice
+        .answer
+        .as_deref()
+        .and_then(|answer| notice.options.iter().find(|choice| choice.id == answer))
+        .map_or_else(
+            || "✓ Прочитано".to_owned(),
+            |choice| format!("✓ {}", choice.text),
+        );
+    let text = format!("{}\n\n{done}", telegram_text(&notice));
     let mut closed = 0;
     for (chat, message) in sent {
         let (Ok(chat), Some(Ok(message))) =

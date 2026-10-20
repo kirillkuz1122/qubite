@@ -22,7 +22,9 @@ pub mod brain;
 pub mod chat;
 pub mod digest;
 pub mod files;
+pub mod free;
 pub mod memory;
+pub mod proactive;
 pub mod questions;
 pub mod revert;
 pub mod timeline;
@@ -211,6 +213,7 @@ pub enum Trigger {
     Inbox,
     Morning,
     Window,
+    Due,
     Reply,
     Review,
     Manual,
@@ -222,6 +225,7 @@ impl Trigger {
             Self::Inbox => "inbox",
             Self::Morning => "morning",
             Self::Window => "window",
+            Self::Due => "due",
             Self::Reply => "reply",
             Self::Review => "review",
             Self::Manual => "manual",

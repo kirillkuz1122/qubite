@@ -384,3 +384,48 @@ test('записи агента: дерево, правка руками, «По
   await expect(talk).toContainText('Запомнил. Во сколько кончаются уроки в среду?');
   await expect(talk).toContainText('действий: 2');
 });
+
+test('«Когда писать»: как часто, «не сегодня», тишина и окна', async ({ page }) => {
+  await mockSync(page);
+  await page.route('**/api/v1/agent/timeline**', (route) =>
+    route.fulfill({ json: { items: [], next: null } }),
+  );
+  const pace = {
+    mode: 'auto',
+    per_day: 3,
+    not_today: false,
+    limit: 3,
+    sent: 1,
+    quiet: null as string | null,
+    in_qubite: true,
+    windows: [{ from: '15:00', to: '17:00', minutes: 120 }],
+    patterns: ['вт 16–18: свободен 3 из 3'],
+  };
+  const changes: Record<string, unknown>[] = [];
+  await page.route('**/api/v1/agent/pace', (route) => {
+    const req = route.request();
+    if (req.method() === 'PATCH') {
+      const change = req.postDataJSON() as Record<string, unknown>;
+      changes.push(change);
+      Object.assign(pace, change);
+      if (change.mode === 'count') pace.limit = pace.per_day;
+      if (change.not_today !== undefined)
+        pace.quiet = change.not_today ? 'ты сказал «не сегодня»' : null;
+    }
+    return route.fulfill({ json: pace });
+  });
+  await page.goto('/agent');
+  await page.getByRole('radio', { name: 'Когда писать' }).click();
+  const box = page.locator('[data-obj="agent-pace"]');
+  await expect(box).toContainText('Сегодня написал 1 из 3');
+  await expect(box).toContainText('Свободно сегодня: 15:00–17:00.');
+  await expect(box).toContainText('вт 16–18: свободен 3 из 3');
+
+  await box.getByRole('radio', { name: 'Число в день' }).click();
+  await expect.poll(() => changes.at(-1)).toEqual({ mode: 'count' });
+  await expect(box.getByText('В день — не больше')).toBeVisible();
+
+  await box.getByRole('button', { name: 'Не сегодня' }).click();
+  await expect(box).toContainText('Сейчас молчит: ты сказал «не сегодня».');
+  await expect(box.getByRole('button', { name: 'Снова можно сегодня' })).toBeVisible();
+});

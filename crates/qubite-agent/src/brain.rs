@@ -175,7 +175,7 @@ const WEEKDAYS: [&str; 7] = [
     "воскресенье",
 ];
 
-async fn local_now(conn: &mut PgConnection) -> Result<PrimitiveDateTime> {
+pub(crate) async fn local_now(conn: &mut PgConnection) -> Result<PrimitiveDateTime> {
     Ok(sqlx::query_scalar(
         "SELECT (now() AT TIME ZONE coalesce( \
              (SELECT value #>> '{}' FROM platform_settings WHERE key = 'platform.timezone'), $1) \
@@ -186,7 +186,7 @@ async fn local_now(conn: &mut PgConnection) -> Result<PrimitiveDateTime> {
     .await?)
 }
 
-fn instructions(task: &str, now: PrimitiveDateTime) -> String {
+pub(crate) fn instructions(task: &str, now: PrimitiveDateTime) -> String {
     let weekday = WEEKDAYS[usize::from(now.weekday().number_days_from_monday())];
     format!(
         "{core}\n\n---\n\nСейчас у владельца: {date}, {weekday}, {hour:02}:{minute:02}.\n\n{protocol}\n\nЗадача сейчас: {task}",
@@ -256,7 +256,7 @@ fn listing(all: &[File]) -> String {
 }
 
 /// Блоки данных: правила, «О тебе», «Память», проекты, список файлов.
-async fn context(
+pub(crate) async fn context(
     conn: &mut PgConnection,
     account: Uuid,
     about_text: &str,
@@ -299,12 +299,12 @@ fn history_block(messages: &[Message]) -> String {
 // ---------------------------------------------------------------- ход
 
 /// Чем кончился один ход агента.
-struct Turn {
-    say: String,
-    actions: i32,
+pub(crate) struct Turn {
+    pub(crate) say: String,
+    pub(crate) actions: i32,
 }
 
-async fn ai_auth(
+pub(crate) async fn ai_auth(
     pool: &PgPool,
     account: Uuid,
 ) -> std::result::Result<qubite_policy::Authorized<UseAi>, String> {
@@ -320,7 +320,7 @@ async fn ai_auth(
 /// Несколько обращений к модели подряд: инструменты выполняются, результаты
 /// чтения и ошибки уходят модели следующим ходом.
 #[allow(clippy::too_many_arguments)]
-async fn run_rounds(
+pub(crate) async fn run_rounds(
     pool: &PgPool,
     gateway: &Gateway,
     auth: &qubite_policy::Authorized<UseAi>,

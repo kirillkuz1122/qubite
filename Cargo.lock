@@ -1400,6 +1400,7 @@ dependencies = [
  "qubite-db",
  "qubite-inbox",
  "qubite-jobs",
+ "qubite-notify",
  "qubite-objects",
  "qubite-planner",
  "qubite-policy",

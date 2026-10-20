@@ -130,7 +130,10 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     const path = new URL(req.url()).pathname;
     if (req.method() === 'GET' && path === '/api/v1/notifications')
       return route.fulfill({
-        json: { items: mock.notices, unread: mock.notices.filter((n) => !n.read_at).length },
+        json: {
+          items: mock.notices.map((n) => ({ options: [], answer: null, ...n })),
+          unread: mock.notices.filter((n) => !n.read_at).length,
+        },
       });
     if (path === '/api/v1/notifications/presence') {
       mock.presence.push((req.postDataJSON() as { visible: boolean }).visible);
@@ -142,6 +145,15 @@ export async function mockSync(page: Page): Promise<SyncMock> {
       if (!n) return route.fulfill({ status: 404, json: { error: 'not_found', message: '' } });
       n.read_at ??= new Date().toISOString();
       return route.fulfill({ status: 204 });
+    }
+    // Ответ кнопкой агенту (AGT-004): запомнить ответ, погасить.
+    const answered = path.match(/^\/api\/v1\/notifications\/([^/]+)\/answer$/);
+    if (req.method() === 'POST' && answered) {
+      const n = mock.notices.find((x) => x.id === answered[1]);
+      if (!n) return route.fulfill({ status: 404, json: { error: 'not_found', message: '' } });
+      n.answer = (req.postDataJSON() as { answer: string }).answer;
+      n.read_at ??= new Date().toISOString();
+      return route.fulfill({ json: { accepted: true, hint: 'Ответ принят' } });
     }
     if (path === '/api/v1/notifications/read-all') {
       const unread = mock.notices.filter((n) => !n.read_at);

@@ -11,6 +11,7 @@ description = "Агент Qubite: инструменты с проверкой �
 qubite-ai = { version = "0.1.0", path = "../qubite-ai" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }
+qubite-notify = { version = "0.1.0", path = "../qubite-notify" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-planner = { version = "0.1.0", path = "../qubite-planner" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }

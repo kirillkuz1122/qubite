@@ -5,6 +5,7 @@
 
 pub mod agent;
 pub mod agent_memory;
+pub mod agent_pace;
 pub mod ai;
 pub mod auth;
 pub mod changes;
@@ -192,6 +193,9 @@ impl AppState {
         agent_memory::answer_question,
         agent_memory::dismiss_question,
         agent_memory::schedule,
+        agent_pace::get_pace,
+        agent_pace::change_pace,
+        agent_pace::answer_notice,
         notices::list_notices,
         notices::read_notice,
         notices::read_all_notices,
@@ -302,6 +306,12 @@ impl AppState {
         agent_memory::AgentAnswered,
         agent_memory::AgentSlot,
         agent_memory::AgentSchedule,
+        agent_pace::AgentWindow,
+        agent_pace::AgentPace,
+        agent_pace::AgentPaceChange,
+        agent_pace::NoticeAnswer,
+        agent_pace::NoticeAnswered,
+        notices::NoticeOption,
         notices::NoticeItem,
         notices::NoticeList,
         notices::ReadCount,
@@ -500,6 +510,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(agent_memory::dismiss_question),
         )
         .route("/api/v1/agent/schedule", get(agent_memory::schedule))
+        .route(
+            "/api/v1/agent/pace",
+            get(agent_pace::get_pace).patch(agent_pace::change_pace),
+        )
+        .route(
+            "/api/v1/notifications/{id}/answer",
+            post(agent_pace::answer_notice),
+        )
         .route("/api/v1/notifications", get(notices::list_notices))
         .route(
             "/api/v1/notifications/{id}/read",

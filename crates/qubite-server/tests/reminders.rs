@@ -476,6 +476,7 @@ async fn quiet_holds_only_what_the_agent_starts() {
         why: String::new(),
         object_id: None,
         dedup_key: None,
+        options: Vec::new(),
     };
     let agent = qubite_notify::notice::send(&mut conn, new(Origin::Agent, "Есть 30 минут?"))
         .await

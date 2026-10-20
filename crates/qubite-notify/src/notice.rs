@@ -1,6 +1,6 @@
 //! Колокольчик: сообщения человеку, прочитано / не прочитано.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgConnection;
 use time::OffsetDateTime;
@@ -57,6 +57,17 @@ macro_rules! as_text {
 as_text!(Kind { Reminder = "reminder", Agent = "agent", System = "system" });
 as_text!(Origin { Owner = "owner", Agent = "agent", System = "system" });
 
+/// Кнопка ответа под сообщением («Да», «15 минут», «Позже», «Не сегодня»).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Choice {
+    /// Короткий ключ ответа (до 20 знаков): уходит в данные кнопки Telegram.
+    pub id: String,
+    pub text: String,
+}
+
+/// Кнопок под сообщением — не больше.
+pub const MAX_CHOICES: usize = 4;
+
 /// Сообщение в колокольчике.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Notice {
@@ -72,6 +83,10 @@ pub struct Notice {
     pub held: bool,
     /// Куда ушло наружу (`push`, `telegram`); нет — только колокольчик.
     pub channel: Option<String>,
+    /// Кнопки ответа; пусто — обычное сообщение.
+    pub options: Vec<Choice>,
+    /// Что ответили кнопкой (ключ из `options`).
+    pub answer: Option<String>,
     pub created_at: OffsetDateTime,
     pub read_at: Option<OffsetDateTime>,
 }
@@ -88,12 +103,14 @@ struct Row {
     object_id: Option<Uuid>,
     held: bool,
     channel: Option<String>,
+    options: serde_json::Value,
+    answer: Option<String>,
     created_at: OffsetDateTime,
     read_at: Option<OffsetDateTime>,
 }
 
-const SELECT: &str = "SELECT id, account_id, kind, origin, title, body, why, object_id, held, \
-     channel, created_at, read_at FROM notifications";
+const COLUMNS: &str = "id, account_id, kind, origin, title, body, why, object_id, held, \
+     channel, options, answer, created_at, read_at";
 
 impl TryFrom<Row> for Notice {
     type Error = Error;
@@ -109,6 +126,8 @@ impl TryFrom<Row> for Notice {
             object_id: row.object_id,
             held: row.held,
             channel: row.channel,
+            options: serde_json::from_value(row.options).unwrap_or_default(),
+            answer: row.answer,
             created_at: row.created_at,
             read_at: row.read_at,
         })
@@ -127,6 +146,8 @@ pub struct NewNotice {
     pub object_id: Option<Uuid>,
     /// Одно событие — одно сообщение.
     pub dedup_key: Option<String>,
+    /// Кнопки ответа (до [`MAX_CHOICES`]).
+    pub options: Vec<Choice>,
 }
 
 fn clip(text: &str, max: usize) -> String {
@@ -143,21 +164,33 @@ pub async fn send(conn: &mut PgConnection, new: NewNotice) -> Result<Option<Noti
     if title.is_empty() {
         return Err(Error::Invalid("у сообщения нужен заголовок".into()));
     }
+    if new.options.len() > MAX_CHOICES
+        || new.options.iter().any(|choice| {
+            choice.id.is_empty()
+                || choice.id.len() > 20
+                || !choice
+                    .id
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                || choice.text.trim().is_empty()
+        })
+    {
+        return Err(Error::Invalid(format!(
+            "кнопок — до {MAX_CHOICES}, ключ — латиница и цифры до 20 знаков"
+        )));
+    }
     let held = if new.origin == Origin::Agent {
-        let prefs = settings::load(conn, new.account_id).await?;
-        let local = settings::local_now(conn).await?;
-        prefs.quiet_at(local) || settings::busy_slot(conn, new.account_id).await?.is_some()
+        quiet_now(conn, new.account_id).await?.is_some()
     } else {
         false
     };
-    let row: Option<Row> = sqlx::query_as(
+    let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "INSERT INTO notifications (id, account_id, kind, origin, title, body, why, object_id, \
-             dedup_key, held) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) \
+             dedup_key, held, options) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) \
          ON CONFLICT (dedup_key) DO NOTHING \
-         RETURNING id, account_id, kind, origin, title, body, why, object_id, held, channel, \
-             created_at, read_at",
-    )
+         RETURNING {COLUMNS}"
+    )))
     .bind(Uuid::now_v7())
     .bind(new.account_id)
     .bind(new.kind.as_str())
@@ -168,6 +201,7 @@ pub async fn send(conn: &mut PgConnection, new: NewNotice) -> Result<Option<Noti
     .bind(new.object_id)
     .bind(&new.dedup_key)
     .bind(held)
+    .bind(serde_json::to_value(&new.options).unwrap_or_else(|_| json!([])))
     .fetch_optional(&mut *conn)
     .await?;
     let Some(notice) = row.map(Notice::try_from).transpose()? else {
@@ -186,10 +220,12 @@ pub async fn send(conn: &mut PgConnection, new: NewNotice) -> Result<Option<Noti
 }
 
 pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<Notice>> {
-    let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!("{SELECT} WHERE id = $1")))
-        .bind(id)
-        .fetch_optional(conn)
-        .await?;
+    let row: Option<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLUMNS} FROM notifications WHERE id = $1"
+    )))
+    .bind(id)
+    .fetch_optional(conn)
+    .await?;
     row.map(Notice::try_from).transpose()
 }
 
@@ -200,7 +236,8 @@ pub async fn list(
     limit: i64,
 ) -> Result<(Vec<Notice>, i64)> {
     let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
-        "{SELECT} WHERE account_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2"
+        "SELECT {COLUMNS} FROM notifications WHERE account_id = $1 \
+         ORDER BY created_at DESC, id DESC LIMIT $2"
     )))
     .bind(account)
     .bind(limit.clamp(1, 200))
@@ -241,6 +278,51 @@ pub async fn mark_read(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Resu
             Ok(true)
         }
     }
+}
+
+/// Почему сейчас тишина для того, где агент пишет первым: «ночь» или
+/// «урок «Алгебра»». Не тишина — `None`. Проверяет сервер, не модель (D-294).
+pub async fn quiet_now(conn: &mut PgConnection, account: Uuid) -> Result<Option<String>> {
+    let prefs = settings::load(conn, account).await?;
+    let local = settings::local_now(conn).await?;
+    if prefs.quiet_at(local) {
+        return Ok(Some("ночь".into()));
+    }
+    Ok(settings::busy_slot(conn, account)
+        .await?
+        .map(|title| format!("«{title}» по расписанию")))
+}
+
+/// Ответ кнопкой (в колокольчике или Telegram): запомнить ответ и погасить
+/// сообщение везде. Ответить можно один раз; чужое — `NotFound`. Возвращает
+/// сообщение, если ответ принят, и `None`, если уже отвечали.
+pub async fn answer(
+    conn: &mut PgConnection,
+    account: Uuid,
+    id: Uuid,
+    choice: &str,
+) -> Result<Option<Notice>> {
+    let notice = get(conn, id)
+        .await?
+        .filter(|notice| notice.account_id == account)
+        .ok_or(Error::NotFound)?;
+    if !notice.options.iter().any(|option| option.id == choice) {
+        return Err(Error::Invalid("у сообщения нет такой кнопки".into()));
+    }
+    let done = sqlx::query(
+        "UPDATE notifications SET answer = $2, answered_at = now(), \
+             read_at = coalesce(read_at, now()) \
+         WHERE id = $1 AND answer IS NULL",
+    )
+    .bind(id)
+    .bind(choice)
+    .execute(&mut *conn)
+    .await?;
+    if done.rows_affected() == 0 {
+        return Ok(None);
+    }
+    close_later(conn, &[id]).await?;
+    get(conn, id).await
 }
 
 /// Прочитать всё. Возвращает, сколько погашено.
@@ -308,6 +390,7 @@ pub async fn repeat(conn: &mut PgConnection, id: Uuid) -> Result<Option<Notice>>
             why: "ты попросил напомнить ещё раз".into(),
             object_id: old.object_id,
             dedup_key: Some(format!("repeat:{id}")),
+            options: old.options,
         },
     )
     .await

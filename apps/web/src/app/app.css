@@ -1027,6 +1027,30 @@ button.proj {
 .bell-panel li button:hover {
   background: var(--q-panel-2);
 }
+/* Кнопки ответа агенту («Да · 15 минут · Позже · Не сегодня», AGT-004). */
+.bell-panel li .bell-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 9px 30px;
+}
+.bell-panel li .bell-options button {
+  display: inline-block;
+  width: auto;
+  padding: 5px 11px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 999px);
+  font-size: 13px;
+  transition: opacity 160ms ease;
+}
+.bell-panel li .bell-options button.on {
+  border-color: var(--q-orange);
+  color: var(--q-orange);
+}
+.bell-panel li .bell-options button:disabled:not(.on) {
+  opacity: 0.45;
+  cursor: default;
+}
 .bell-dot {
   width: 8px;
   height: 8px;
@@ -1328,4 +1352,30 @@ button.proj {
 }
 .talk-form > button {
   justify-self: start;
+}
+
+/* «Когда писать» (AGT-004). */
+.pace {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+.pace-block {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 18px);
+}
+.pace-block > :is(p, ul) {
+  margin: 0;
+}
+.pace-block small,
+.pace-mute {
+  color: var(--q-mute);
+  font-size: 13px;
+}
+.pace-block .q-range {
+  width: 100%;
 }

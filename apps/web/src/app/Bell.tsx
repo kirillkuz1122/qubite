@@ -81,6 +81,33 @@ export function Bell() {
     mutationFn: () => must(api.POST('/api/v1/notifications/read-all')),
     onSettled: () => void qc.invalidateQueries({ queryKey: NOTICES }),
   });
+  // Кнопки ответа агенту («Да · 15 минут · Позже · Не сегодня», AGT-004).
+  const answer = useMutation({
+    mutationFn: ({ id, answer }: { id: string; answer: string }) =>
+      must(
+        api.POST('/api/v1/notifications/{id}/answer', {
+          params: { path: { id } },
+          body: { answer },
+        }),
+      ),
+    onMutate: ({ id, answer }) => {
+      qc.setQueryData<NoticeList>(NOTICES, (old) =>
+        old
+          ? {
+              unread: Math.max(
+                0,
+                old.unread - (old.items.some((n) => n.id === id && !n.read_at) ? 1 : 0),
+              ),
+              items: old.items.map((n) =>
+                n.id === id ? { ...n, answer, read_at: n.read_at ?? new Date().toISOString() } : n,
+              ),
+            }
+          : old,
+      );
+      void closeShown([id]);
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: NOTICES }),
+  });
   const markRead = read.mutate;
 
   // Открыли из push (`?notice=…` или сообщение service worker) — прочитано.
@@ -165,7 +192,9 @@ export function Bell() {
           className="bell-toast panel"
           role="status"
           onClick={() => {
-            markRead(toast.id);
+            // Есть кнопки ответа — открыть список, чтобы ответить.
+            if (toast.options.length > 0 && !toast.answer) setOpen(true);
+            else markRead(toast.id);
             setToast(null);
           }}
         >
@@ -200,6 +229,22 @@ export function Bell() {
                   </span>
                   <time dateTime={n.created_at}>{noticeWhen(n.created_at)}</time>
                 </button>
+                {n.options.length > 0 && (
+                  <div className="bell-options" role="group" aria-label="Ответить">
+                    {n.options.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className={n.answer === o.id ? 'on' : undefined}
+                        disabled={!!n.answer}
+                        aria-pressed={n.answer === o.id}
+                        onClick={() => answer.mutate({ id: n.id, answer: o.id })}
+                      >
+                        {o.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

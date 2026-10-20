@@ -22,7 +22,14 @@ use crate::{
 };
 
 /// Имена инструментов этой версии: читающие и меняющие.
-pub const READ_TOOLS: &[&str] = &["task.get", "task.search", "project.list", "project.get"];
+pub const READ_TOOLS: &[&str] = &[
+    "task.get",
+    "task.search",
+    "project.list",
+    "project.get",
+    crate::proactive::WINDOWS_TOOL,
+    crate::proactive::PRESENCE_TOOL,
+];
 pub const WRITE_TOOLS: &[&str] = &[
     "task.create",
     "task.update",
@@ -32,6 +39,7 @@ pub const WRITE_TOOLS: &[&str] = &[
     "project.update",
     "inbox.file",
     crate::digest::TOOL,
+    crate::proactive::SEND_TOOL,
 ];
 
 /// Что вернул инструмент.
@@ -325,6 +333,10 @@ pub async fn call(
         let action = crate::digest::write(pool, who, arguments, reason, batch).await?;
         return Ok(Outcome::Done(Box::new(action)));
     }
+    if tool == crate::proactive::SEND_TOOL {
+        let action = crate::proactive::send(pool, who, arguments, reason, batch).await?;
+        return Ok(Outcome::Done(Box::new(action)));
+    }
     let account = who.account();
     let mut pooled = pool.acquire().await?;
     let conn = &mut *pooled;
@@ -360,6 +372,12 @@ pub async fn call(
             return Ok(Outcome::Read(Value::Array(
                 projects.iter().map(project_json).collect(),
             )));
+        }
+        crate::proactive::WINDOWS_TOOL | crate::proactive::PRESENCE_TOOL => {
+            can_read(conn, who, crate::MODULE).await?;
+            return Ok(Outcome::Read(
+                crate::proactive::read_tool(conn, account, tool, arguments).await?,
+            ));
         }
         "files.list" | "files.read" | "question.list" => {
             can_read(conn, who, crate::MODULE).await?;

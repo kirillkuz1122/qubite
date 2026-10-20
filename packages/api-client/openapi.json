@@ -3153,6 +3153,82 @@
         }
       }
     },
+    "/api/v1/agent/pace": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Как часто агент пишет первым, тишина сейчас и свободные окна сегодня.",
+        "operationId": "get_pace",
+        "responses": {
+          "200": {
+            "description": "Настройка и что сейчас",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPace"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["agent"],
+        "summary": "Изменить «как часто писать первым» или сказать «не сегодня».",
+        "operationId": "change_pace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPaceChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPace"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/questions": {
       "get": {
         "tags": ["agent"],
@@ -4459,6 +4535,67 @@
         }
       }
     },
+    "/api/v1/notifications/{id}/answer": {
+      "post": {
+        "tags": ["notifications"],
+        "summary": "Ответить кнопкой под сообщением колокольчика. Сообщение гаснет везде;\nагент на «да» предложит дело, на «позже» спросит через час, на «не\nсегодня» замолчит до завтра.",
+        "operationId": "answer_notice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Сообщение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ принят",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeAnswered"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет такой кнопки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/{id}/read": {
       "post": {
         "tags": ["notifications"],
@@ -5176,6 +5313,86 @@
           }
         }
       },
+      "AgentPace": {
+        "type": "object",
+        "description": "Как часто агент пишет первым и что сейчас.",
+        "required": [
+          "mode",
+          "per_day",
+          "not_today",
+          "limit",
+          "sent",
+          "in_qubite",
+          "windows",
+          "patterns"
+        ],
+        "properties": {
+          "in_qubite": {
+            "type": "boolean",
+            "description": "Вкладка Qubite видна прямо сейчас."
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько можно сегодня (у `auto` — сколько агент выучил по ответам)."
+          },
+          "mode": {
+            "type": "string",
+            "description": "`auto` — сколько Qubite захочет (по умолчанию), `count` — не больше\n`per_day`, `off` — вообще не писать первым."
+          },
+          "not_today": {
+            "type": "boolean",
+            "description": "Ты сказал «не сегодня» — до завтра агент молчит."
+          },
+          "patterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Что агент заметил по ответам: «вт 16–18: свободен 3 из 3»."
+          },
+          "per_day": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quiet": {
+            "type": ["string", "null"],
+            "description": "Почему сейчас тишина: «ночь», «урок по расписанию», «не сегодня»."
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько уже написал первым сегодня."
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentWindow"
+            },
+            "description": "Свободные окна до конца дня."
+          }
+        }
+      },
+      "AgentPaceChange": {
+        "type": "object",
+        "description": "Изменить: только то, что пришло.",
+        "properties": {
+          "mode": {
+            "type": ["string", "null"],
+            "description": "`auto`, `count`, `off`."
+          },
+          "not_today": {
+            "type": ["boolean", "null"],
+            "description": "`true` — «не сегодня», `false` — снова можно."
+          },
+          "per_day": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "1…20, для `count`."
+          }
+        },
+        "additionalProperties": false
+      },
       "AgentQuestion": {
         "type": "object",
         "description": "Вопрос «Агент хочет знать».",
@@ -5324,6 +5541,24 @@
             "type": ["integer", "null"],
             "format": "int64",
             "description": "Передать как `before`, чтобы получить ещё; нет — дальше пусто."
+          }
+        }
+      },
+      "AgentWindow": {
+        "type": "object",
+        "description": "Свободное окно.",
+        "required": ["from", "to", "minutes"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "`ЧЧ:ММ`."
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to": {
+            "type": "string"
           }
         }
       },
@@ -6768,11 +7003,52 @@
           }
         }
       },
+      "NoticeAnswer": {
+        "type": "object",
+        "description": "Ответ кнопкой.",
+        "required": ["answer"],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "`id` кнопки из `options` сообщения."
+          }
+        },
+        "additionalProperties": false
+      },
+      "NoticeAnswered": {
+        "type": "object",
+        "description": "Что будет дальше.",
+        "required": ["accepted", "hint"],
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "description": "Принят ли ответ (уже отвечали — `false`)."
+          },
+          "hint": {
+            "type": "string",
+            "description": "«Хорошо — сейчас предложу, чем заняться»."
+          }
+        }
+      },
       "NoticeItem": {
         "type": "object",
         "description": "Сообщение в колокольчике.",
-        "required": ["id", "kind", "origin", "title", "body", "why", "held", "created_at"],
+        "required": [
+          "id",
+          "kind",
+          "origin",
+          "title",
+          "body",
+          "why",
+          "held",
+          "options",
+          "created_at"
+        ],
         "properties": {
+          "answer": {
+            "type": ["string", "null"],
+            "description": "Что ответили кнопкой (`id` из `options`)."
+          },
           "body": {
             "type": "string",
             "description": "Подробности: «в 16:00»."
@@ -6801,6 +7077,13 @@
             "type": ["string", "null"],
             "format": "uuid",
             "description": "Дело, к которому ведёт сообщение."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoticeOption"
+            },
+            "description": "Кнопки ответа («Да», «15 минут», «Позже», «Не сегодня»); пусто — нет."
           },
           "origin": {
             "type": "string",
@@ -6833,6 +7116,19 @@
           "unread": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "NoticeOption": {
+        "type": "object",
+        "description": "Кнопка ответа под сообщением.",
+        "required": ["id", "text"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },

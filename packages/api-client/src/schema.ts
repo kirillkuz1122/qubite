@@ -1039,6 +1039,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/pace': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Как часто агент пишет первым, тишина сейчас и свободные окна сегодня. */
+    get: operations['get_pace'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Изменить «как часто писать первым» или сказать «не сегодня». */
+    patch: operations['change_pace'];
+    trace?: never;
+  };
   '/api/v1/agent/questions': {
     parameters: {
       query?: never;
@@ -1450,6 +1468,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/notifications/{id}/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ответить кнопкой под сообщением колокольчика. Сообщение гаснет везде;
+     *     агент на «да» предложит дело, на «позже» спросит через час, на «не
+     *     сегодня» замолчит до завтра.
+     */
+    post: operations['answer_notice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/notifications/{id}/read': {
     parameters: {
       query?: never;
@@ -1812,6 +1851,48 @@ export interface components {
       status: string;
       text: string;
     };
+    /** @description Как часто агент пишет первым и что сейчас. */
+    AgentPace: {
+      /** @description Вкладка Qubite видна прямо сейчас. */
+      in_qubite: boolean;
+      /**
+       * Format: int64
+       * @description Сколько можно сегодня (у `auto` — сколько агент выучил по ответам).
+       */
+      limit: number;
+      /**
+       * @description `auto` — сколько Qubite захочет (по умолчанию), `count` — не больше
+       *     `per_day`, `off` — вообще не писать первым.
+       */
+      mode: string;
+      /** @description Ты сказал «не сегодня» — до завтра агент молчит. */
+      not_today: boolean;
+      /** @description Что агент заметил по ответам: «вт 16–18: свободен 3 из 3». */
+      patterns: string[];
+      /** Format: int64 */
+      per_day: number;
+      /** @description Почему сейчас тишина: «ночь», «урок по расписанию», «не сегодня». */
+      quiet?: string | null;
+      /**
+       * Format: int64
+       * @description Сколько уже написал первым сегодня.
+       */
+      sent: number;
+      /** @description Свободные окна до конца дня. */
+      windows: components['schemas']['AgentWindow'][];
+    };
+    /** @description Изменить: только то, что пришло. */
+    AgentPaceChange: {
+      /** @description `auto`, `count`, `off`. */
+      mode?: string | null;
+      /** @description `true` — «не сегодня», `false` — снова можно. */
+      not_today?: boolean | null;
+      /**
+       * Format: int64
+       * @description 1…20, для `count`.
+       */
+      per_day?: number | null;
+    };
     /** @description Вопрос «Агент хочет знать». */
     AgentQuestion: {
       /** Format: date-time */
@@ -1875,6 +1956,14 @@ export interface components {
        * @description Передать как `before`, чтобы получить ещё; нет — дальше пусто.
        */
       next?: number | null;
+    };
+    /** @description Свободное окно. */
+    AgentWindow: {
+      /** @description `ЧЧ:ММ`. */
+      from: string;
+      /** Format: int64 */
+      minutes: number;
+      to: string;
     };
     /** @description Модель из каталога провайдера. */
     AiCatalogItem: {
@@ -2519,8 +2608,22 @@ export interface components {
       /** @description Не короче 10 символов. Человек может сменить его через «Забыли пароль». */
       password: string;
     };
+    /** @description Ответ кнопкой. */
+    NoticeAnswer: {
+      /** @description `id` кнопки из `options` сообщения. */
+      answer: string;
+    };
+    /** @description Что будет дальше. */
+    NoticeAnswered: {
+      /** @description Принят ли ответ (уже отвечали — `false`). */
+      accepted: boolean;
+      /** @description «Хорошо — сейчас предложу, чем заняться». */
+      hint: string;
+    };
     /** @description Сообщение в колокольчике. */
     NoticeItem: {
+      /** @description Что ответили кнопкой (`id` из `options`). */
+      answer?: string | null;
       /** @description Подробности: «в 16:00». */
       body: string;
       /** @description Куда ушло наружу: `push`, `telegram`; нет — только колокольчик. */
@@ -2538,6 +2641,8 @@ export interface components {
        * @description Дело, к которому ведёт сообщение.
        */
       object_id?: string | null;
+      /** @description Кнопки ответа («Да», «15 минут», «Позже», «Не сегодня»); пусто — нет. */
+      options: components['schemas']['NoticeOption'][];
       /** @description `owner` — человек сам попросил (приходит всегда), `agent` — агент первым. */
       origin: string;
       /** Format: date-time */
@@ -2551,6 +2656,11 @@ export interface components {
       items: components['schemas']['NoticeItem'][];
       /** Format: int64 */
       unread: number;
+    };
+    /** @description Кнопка ответа под сообщением. */
+    NoticeOption: {
+      id: string;
+      text: string;
     };
     NotificationChange: {
       enabled: boolean;
@@ -5461,6 +5571,77 @@ export interface operations {
       };
     };
   };
+  get_pace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Настройка и что сейчас */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentPace'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change_pace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentPaceChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentPace'];
+        };
+      };
+      /** @description Неверное значение */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   list_questions: {
     parameters: {
       query?: never;
@@ -6543,6 +6724,51 @@ export interface operations {
       };
       /** @description Нужно войти */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  answer_notice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Сообщение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NoticeAnswer'];
+      };
+    };
+    responses: {
+      /** @description Ответ принят */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NoticeAnswered'];
+        };
+      };
+      /** @description Нет такой кнопки */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого сообщения */
+      404: {
         headers: {
           [name: string]: unknown;
         };
