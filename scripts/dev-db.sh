@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Локальные PostgreSQL 18 + pgvector в Docker — две отдельные (D-281):
 #
-#   qubite-dev-db  — порт 55432, база `qubite`: данные `just dev` (owner, дела…).
+#   qubite-dev-db  — порт 55432, база `postgres`: данные `just dev` (owner, дела…).
 #                    Лежат в томе Docker `qubite-dev-pgdata` и переживают
 #                    перезагрузку, `up`/`down` и любые тесты.
 #   qubite-test-db — порт 55433, только для тестов: каждый тест создаёт свою
@@ -22,7 +22,7 @@ DEV_PORT="${QUBITE_DEV_DB_PORT:-55432}"
 DEV_VOLUME=qubite-dev-pgdata
 TEST=qubite-test-db
 TEST_PORT="${QUBITE_TEST_DB_PORT:-55433}"
-DEV_URL="postgres://qubite:qubite@127.0.0.1:${DEV_PORT}/qubite"
+DEV_URL="postgres://qubite:qubite@127.0.0.1:${DEV_PORT}/postgres"
 TEST_URL="postgres://qubite:qubite@127.0.0.1:${TEST_PORT}/postgres"
 # Метка нового устройства: контейнер без неё — старый, с данными в памяти.
 LABEL=qubite.dev-db=2
@@ -44,7 +44,7 @@ wait_ready() {
 }
 
 # Старый qubite-dev-db (до D-281) держал данные в памяти, в базе `postgres`.
-# Если он ещё работает — перенести эти данные в новую базу `qubite`, не теряя.
+# Если он ещё работает — перенести эти данные в новый контейнер, не теряя.
 migrate_old_dev() {
   local dump=""
   if running "$DEV"; then
@@ -55,7 +55,7 @@ migrate_old_dev() {
   docker rm -f "$DEV" >/dev/null
   start_dev
   if [ -n "$dump" ]; then
-    docker exec -i "$DEV" psql -U qubite -d qubite -q -v ON_ERROR_STOP=1 >/dev/null <"$dump"
+    docker exec -i "$DEV" psql -U qubite -d postgres -q -v ON_ERROR_STOP=1 >/dev/null <"$dump"
     echo "Перенесено. Копия осталась в $dump — её можно удалить."
   fi
 }
@@ -68,7 +68,7 @@ start_dev() {
     docker start "$DEV" >/dev/null
   else
     docker run -d --name "$DEV" --label "$LABEL" --restart unless-stopped \
-      -e POSTGRES_USER=qubite -e POSTGRES_PASSWORD=qubite -e POSTGRES_DB=qubite \
+      -e POSTGRES_USER=qubite -e POSTGRES_PASSWORD=qubite \
       -p "127.0.0.1:${DEV_PORT}:5432" \
       -v "${DEV_VOLUME}:/var/lib/postgresql" \
       "$IMAGE" >/dev/null

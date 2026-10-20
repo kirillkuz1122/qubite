@@ -801,3 +801,80 @@ async fn chatgpt_provider_is_off_unless_flag_key_and_login() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// D-287: модели подписки ChatGPT видны в `qubite ai catalog` без запущенного
+/// сервера и без флага — команда сама берёт их у OpenAI, если вход выполнен.
+#[tokio::test]
+async fn chatgpt_catalog_loads_from_cli_without_server() {
+    let (test_db, db, owner) = setup().await;
+    let models = serde_json::json!({ "models": [
+        { "slug": "gpt-6.1-sol", "display_name": "GPT-6.1 Sol", "visibility": "list" }
+    ]});
+    let api = FakeHttp::start([], Action::Respond(200, models.to_string())).await;
+    let key = qubite_ai::secret::SecretBox::generate_key();
+    let secret = qubite_ai::secret::SecretBox::from_base64(&key).unwrap();
+    let api_url = format!("{}/v1", api.root_url());
+    let args = settings(&["--ai-secret-key", &key, "--ai-chatgpt-api-url", &api_url]);
+
+    // До входа — понятная подсказка, а не «ничего».
+    let before = ai::run(
+        &db,
+        &args,
+        AiCommand::Catalog {
+            search: Some("chatgpt".into()),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(before.contains("qubite ai chatgpt login"), "{before}");
+
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_session (singleton, host_id, client_id, account_id, scopes, \
+         access_token_enc, refresh_token_enc, expires_at) \
+         VALUES (true, $1, 'oaiapp_test', $2, $3, $4, $5, now() + interval '1 hour')",
+    )
+    .bind(qubite_ai::chatgpt::new_host_id())
+    .bind(owner)
+    .bind(qubite_ai::chatgpt::SCOPES)
+    .bind(secret.seal("chatgpt.access", "at-1"))
+    .bind(secret.seal("chatgpt.refresh", "rt-1"))
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let listed = ai::run(
+        &db,
+        &args,
+        AiCommand::Catalog {
+            search: Some("chatgpt".into()),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        listed.contains("chatgpt:gpt-6.1-sol | $0.000000 / $0.000000"),
+        "{listed}"
+    );
+    assert!(api.received()[0].line.starts_with("GET /v1/models"));
+    let on = ai::run(
+        &db,
+        &args,
+        AiCommand::Model {
+            id: "chatgpt:gpt-6.1-sol".into(),
+            state: Some(OnOff::On),
+            providers: None,
+            data_collection: None,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(on.contains("разрешена"), "{on}");
+    // Флага нет — провайдер заведён выключенным: модели видны, запросов нет.
+    let enabled: bool = sqlx::query_scalar("SELECT enabled FROM ai_providers WHERE id = 'chatgpt'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert!(!enabled);
+    db.close().await;
+    test_db.drop_db().await;
+}

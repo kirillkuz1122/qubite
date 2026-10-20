@@ -451,6 +451,41 @@ async fn start_chatgpt(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<Ar
     Ok(Some(provider))
 }
 
+/// Модели подписки ChatGPT — в каталог по запросу команды (без запущенного
+/// сервера): если вход выполнен и задан ключ шифрования. Флаг
+/// `QUBITE_AI_CHATGPT_ENABLED` здесь не нужен — он решает, работает ли
+/// провайдер, а не видно ли его модели. Возвращает, что не так, если не вышло.
+async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<String>> {
+    if !chatgpt::status(pool).await?.connected {
+        return Ok(Some("ChatGPT не подключён: qubite ai chatgpt login".into()));
+    }
+    let Some(secret) = args.secret_box()? else {
+        return Ok(Some(
+            "не задан QUBITE_AI_SECRET_KEY — модели подписки не получить".into(),
+        ));
+    };
+    catalog::ensure_provider(
+        pool,
+        chatgpt::PROVIDER_ID,
+        "chatgpt",
+        &args.chatgpt_api_url,
+        args.chatgpt_enabled,
+    )
+    .await?;
+    let provider = ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
+        .map_err(anyhow::Error::msg)?;
+    match tokio::time::timeout(Duration::from_secs(30), provider.models()).await {
+        Ok(Ok(entries)) => {
+            catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
+            Ok(None)
+        }
+        Ok(Err(error)) => Ok(Some(format!(
+            "модели подписки ChatGPT не получены: {error}"
+        ))),
+        Err(_) => Ok(Some("модели подписки ChatGPT не получены за 30 с".into())),
+    }
+}
+
 /// Обновить цены и allowlist из каталога OpenRouter.
 pub async fn sync_catalog(
     pool: &PgPool,
@@ -517,7 +552,8 @@ pub enum AiCommand {
     },
     /// Модели: цены, разрешена ли, заблокирована ли.
     Models,
-    /// Каталог OpenRouter (обновляется при запуске и раз в сутки): что можно включить.
+    /// Каталог: что можно включить. OpenRouter обновляется при запуске сервера и раз в
+    /// сутки; модели подписки ChatGPT команда сама берёт у OpenAI (если вход выполнен).
     Catalog {
         /// Часть имени модели, например `gemini`.
         search: Option<String>,
@@ -794,7 +830,17 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
         } => {
             let console = owner(pool).await?;
             let runtime = start(db, args).await?;
-            if runtime.openrouter.is_none() {
+            let model = catalog::model_id(&model);
+            if catalog::split_model_id(&model).0 == chatgpt::PROVIDER_ID {
+                if !args.chatgpt_enabled {
+                    bail!("ChatGPT выключен: QUBITE_AI_CHATGPT_ENABLED=true (в .env)");
+                }
+                if runtime.chatgpt.is_none() {
+                    bail!(
+                        "ChatGPT не готов: нужен вход (qubite ai chatgpt login) и QUBITE_AI_SECRET_KEY"
+                    );
+                }
+            } else if runtime.openrouter.is_none() {
                 bail!("не задан QUBITE_AI_OPENROUTER_API_KEY");
             }
             let module =
@@ -900,23 +946,36 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             Ok(out)
         }
         AiCommand::Catalog { search } => {
-            let rows: Vec<(String, i64, i64, i32, bool)> = sqlx::query_as(
-                "SELECT c.external_id, c.price_in_per_mtok, c.price_out_per_mtok, c.context_tokens, \
-                        coalesce(m.enabled, false) \
+            // Модели подписки ChatGPT — сразу из OpenAI (сервер для этого не нужен).
+            let chatgpt_note = refresh_chatgpt_catalog(pool, args).await?;
+            let rows: Vec<(String, String, i64, i64, i32, bool)> = sqlx::query_as(
+                "SELECT c.provider_id, c.external_id, c.price_in_per_mtok, c.price_out_per_mtok, \
+                        c.context_tokens, coalesce(m.enabled, false) \
                  FROM ai_catalog c LEFT JOIN ai_models m \
                    ON m.provider_id = c.provider_id AND m.external_id = c.external_id \
-                 WHERE c.provider_id = $1 AND ($2::text IS NULL OR c.external_id ILIKE '%' || $2 || '%') \
-                 ORDER BY c.price_out_per_mtok, c.external_id LIMIT 100",
+                 WHERE $1::text IS NULL OR c.external_id ILIKE '%' || $1 || '%' \
+                    OR c.provider_id ILIKE '%' || $1 || '%' \
+                 ORDER BY c.provider_id, c.price_out_per_mtok, c.external_id LIMIT 100",
             )
-            .bind(OPENROUTER)
             .bind(search.as_deref())
             .fetch_all(pool)
             .await?;
+            let note = chatgpt_note
+                .filter(|_| {
+                    search
+                        .as_deref()
+                        .is_none_or(|s| "chatgpt".contains(&s.to_lowercase()))
+                })
+                .map(|note| format!("\n({note})"))
+                .unwrap_or_default();
             if rows.is_empty() {
-                return Ok("В каталоге ничего (нет ключа OpenRouter, каталог ещё не загружен или ничего не найдено).".into());
+                return Ok(format!(
+                    "В каталоге ничего (нет ключа OpenRouter, каталог ещё не загружен или ничего не найдено).{note}"
+                ));
             }
             let mut out = String::from("модель | $ за 1M вход / выход | контекст | разрешена\n");
-            for (id, price_in, price_out, context, enabled) in rows {
+            for (provider, external, price_in, price_out, context, enabled) in rows {
+                let id = catalog::model_id_for(&provider, &external);
                 out.push_str(&format!(
                     "{id} | {} / {} | {context} | {}\n",
                     format_usd(price_in),
@@ -941,6 +1000,11 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             match state {
                 Some(OnOff::On) => {
                     let (provider, external) = catalog::split_model_id(&id);
+                    if provider == chatgpt::PROVIDER_ID
+                        && let Some(note) = refresh_chatgpt_catalog(pool, args).await?
+                    {
+                        bail!("{note}");
+                    }
                     admin::enable_from_catalog(pool, &owner, provider, external)
                         .await
                         .or_else(|error| match error {

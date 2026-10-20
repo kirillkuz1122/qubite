@@ -5,7 +5,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # агента — .env основной копии), а тестам .env не нужен вовсе.
 
 # База `just dev` (постоянная) и база тестов (своя, D-281) — scripts/dev-db.sh
-dev_db_url := "postgres://qubite:qubite@127.0.0.1:55432/qubite"
+dev_db_url := "postgres://qubite:qubite@127.0.0.1:55432/postgres"
 test_db_url := "postgres://qubite:qubite@127.0.0.1:55433/postgres"
 # Нет DATABASE_URL ни в окружении, ни в .env этой копии — локальная база разработки
 use_dev_db := 'if [ -z "${DATABASE_URL:-}" ] && ! grep -qs "^DATABASE_URL=" .env; then export DATABASE_URL=' + dev_db_url + '; fi'
