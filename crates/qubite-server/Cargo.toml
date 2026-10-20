@@ -21,6 +21,7 @@ qubite-ai = { version = "0.1.0", path = "../qubite-ai" }
 qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
 qubite-bot = { version = "0.1.0", path = "../qubite-bot" }
 qubite-db = { version = "0.1.0", path = "../qubite-db" }
+qubite-home = { version = "0.1.0", path = "../qubite-home" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-planner = { version = "0.1.0", path = "../qubite-planner" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }

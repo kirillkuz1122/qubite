@@ -214,7 +214,7 @@ export function Landing() {
             <a href="#story">Как устроено</a>
             <a href="#command">Command</a>
             <a href="#study">Для учёбы</a>
-            <Link to="/today">Приложение</Link>
+            <Link to="/home">Приложение</Link>
             <Link to="/design">Дизайн-система</Link>
           </nav>
           <span className="c">
@@ -280,7 +280,7 @@ function Top() {
         <Link className="ld-in" to="/auth">
           Войти
         </Link>
-        <Link className="q-btn" to="/today">
+        <Link className="q-btn" to="/home">
           <span className="q-dot" />
           Начать
         </Link>
@@ -935,11 +935,11 @@ function Final({ ready, width, pal }: SceneProps) {
       <canvas ref={cv} className="ld-field" aria-hidden="true" />
       <h2 className="q-sr">Начни с одной точки</h2>
       <div className="ld-final-acts" ref={acts}>
-        <Link className="q-btn q-fill" to="/today">
+        <Link className="q-btn q-fill" to="/home">
           <span className="q-dot" />
           Начать
         </Link>
-        <Link className="q-btn" to="/today">
+        <Link className="q-btn" to="/home">
           Посмотреть приложение
         </Link>
       </div>

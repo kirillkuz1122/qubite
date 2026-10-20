@@ -15,8 +15,8 @@ test('лендинг открывается: заголовок, строка Co
   await expect(page.getByRole('heading', { name: 'Мысль — это точка.' })).toBeAttached();
   await expect(page.getByRole('textbox', { name: 'Строка Command' })).toBeVisible();
   await page.getByRole('link', { name: 'Начать' }).first().click();
-  await expect(page).toHaveURL(/\/today$/);
-  await expect(page.getByRole('heading', { name: 'Сегодня', level: 1 })).toBeAttached();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeAttached();
 });
 
 test('в подвале лендинга видно, что сервер работает', async ({ page }) => {

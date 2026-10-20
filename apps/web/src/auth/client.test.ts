@@ -21,11 +21,11 @@ const status = (over: Partial<PlatformStatus> = {}): PlatformStatus => ({
 describe('Qubite Auth: помощники', () => {
   it('возврат после входа — только на этот сайт', () => {
     expect(safePath('/inbox')).toBe('/inbox');
-    expect(safePath('//evil.example')).toBe('/today');
-    expect(safePath('/\\evil.example')).toBe('/today');
-    expect(safePath('https://evil.example')).toBe('/today');
-    expect(safePath('/a\nb')).toBe('/today');
-    expect(safePath(undefined)).toBe('/today');
+    expect(safePath('//evil.example')).toBe('/home');
+    expect(safePath('/\\evil.example')).toBe('/home');
+    expect(safePath('https://evil.example')).toBe('/home');
+    expect(safePath('/a\nb')).toBe('/home');
+    expect(safePath(undefined)).toBe('/home');
   });
 
   it('провайдер виден, только если настроен на сервере и включён owner', () => {

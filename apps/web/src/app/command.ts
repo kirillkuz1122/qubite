@@ -29,7 +29,8 @@ export interface CommandEntry extends CommandHit {
 }
 
 const SECTION_WORDS: Record<SectionId, string[]> = {
-  today: ['главная', 'домой', 'день', 'today'],
+  home: ['главная', 'домой', 'сводка', 'погода', 'курсы', 'новости', 'home'],
+  today: ['сегодня', 'день', 'today'],
   inbox: ['входящие', 'мысли', 'идеи', 'inbox', 'элик'],
   planner: ['планер', 'планировщик', 'дела', 'неделя', 'задачи', 'проекты', 'прото'],
   agent: ['агент', 'лента', 'что сделал', 'откат', 'история', 'agent'],
@@ -38,6 +39,7 @@ const SECTION_WORDS: Record<SectionId, string[]> = {
 };
 
 const SECTION_COLOR = {
+  home: 'orange',
   today: 'orange',
   inbox: 'yellow',
   planner: 'ink',

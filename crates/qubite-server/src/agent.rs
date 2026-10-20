@@ -76,7 +76,8 @@ pub struct AgentAction {
     batch_id: Uuid,
     skill_id: Option<Uuid>,
     /// `task.create`, `task.update`, `task.reschedule`, `task.trash`,
-    /// `project.create`, `project.update`, `inbox.file`, `timeline.revert`.
+    /// `project.create`, `project.update`, `inbox.file`, `home.digest.write`,
+    /// `timeline.revert`.
     tool: String,
     /// Что сделано.
     summary: String,

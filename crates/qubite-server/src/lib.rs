@@ -9,6 +9,7 @@ pub mod auth;
 pub mod changes;
 pub mod console;
 pub mod email;
+pub mod home;
 pub mod inbox;
 pub mod maintenance;
 pub mod modules;
@@ -49,6 +50,8 @@ pub struct AppState {
     pub oauth: Arc<qubite_oauth::OAuth>,
     /// Каналы напоминаний: push (ключ VAPID) и Telegram (токен бота).
     pub notify: qubite_notify::deliver::Channels,
+    /// Погода, курсы и новости для Главной (источники без ключей, кэш).
+    pub home: Arc<qubite_home::Sources>,
 }
 
 impl AppState {
@@ -70,7 +73,14 @@ impl AppState {
                 qubite_oauth::OAuthSettings::default(),
             )),
             notify: qubite_notify::deliver::Channels::default(),
+            home: Arc::new(qubite_home::Sources::default()),
         }
+    }
+
+    /// Источники Главной (в тестах — поддельный сервер).
+    pub fn with_home(mut self, sources: qubite_home::Sources) -> Self {
+        self.home = Arc::new(sources);
+        self
     }
 
     pub fn with_notify(mut self, channels: qubite_notify::deliver::Channels) -> Self {
@@ -178,7 +188,14 @@ impl AppState {
         notices::change_notify_settings,
         notices::push_subscribe,
         notices::push_unsubscribe,
-        notices::send_test_notice
+        notices::send_test_notice,
+        home::overview,
+        home::change_settings,
+        home::places,
+        home::locate,
+        home::weather,
+        home::rates,
+        home::news
     ),
     components(schemas(
         Health,
@@ -268,7 +285,26 @@ impl AppState {
         notices::NotifySettingsChange,
         notices::PushKeys,
         notices::PushSubscribe,
-        notices::PushUnsubscribe
+        notices::PushUnsubscribe,
+        home::HomePlace,
+        home::HomeSettings,
+        home::HomeSettingsChange,
+        home::HomePlaces,
+        home::LocateRequest,
+        home::HomeDigestLink,
+        home::HomeDigestItem,
+        home::HomeDigest,
+        home::HomeFiled,
+        home::HomeOverview,
+        home::HomeFreshness,
+        home::HomeWeatherNow,
+        home::HomeWeatherDay,
+        home::HomeWeather,
+        home::HomeRate,
+        home::HomeCurrency,
+        home::HomeRates,
+        home::HomeNewsItem,
+        home::HomeNews
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -278,7 +314,8 @@ impl AppState {
         (name = "sync", description = "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"),
         (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"),
         (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление"),
-        (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина")
+        (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
+        (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов")
     )
 )]
 pub struct ApiDoc;
@@ -439,6 +476,13 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/v1/notifications/test",
             post(notices::send_test_notice),
         )
+        .route("/api/v1/home", get(home::overview))
+        .route("/api/v1/home/settings", patch(home::change_settings))
+        .route("/api/v1/home/places", get(home::places))
+        .route("/api/v1/home/locate", post(home::locate))
+        .route("/api/v1/home/weather", get(home::weather))
+        .route("/api/v1/home/rates", get(home::rates))
+        .route("/api/v1/home/news", get(home::news))
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы
         // (им нужно знать, owner ли пришёл).

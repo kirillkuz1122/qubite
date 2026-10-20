@@ -31,6 +31,7 @@ pub const WRITE_TOOLS: &[&str] = &[
     "project.create",
     "project.update",
     "inbox.file",
+    crate::digest::TOOL,
 ];
 
 /// Что вернул инструмент.
@@ -320,6 +321,10 @@ pub async fn call(
     reason: Option<&str>,
     batch: Option<Uuid>,
 ) -> Result<Outcome> {
+    if tool == crate::digest::TOOL {
+        let action = crate::digest::write(pool, who, arguments, reason, batch).await?;
+        return Ok(Outcome::Done(Box::new(action)));
+    }
     let account = who.account();
     let mut pooled = pool.acquire().await?;
     let conn = &mut *pooled;

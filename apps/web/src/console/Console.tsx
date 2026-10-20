@@ -42,12 +42,12 @@ export function ConsolePage() {
       <div className="cs">
         <DotGrid />
         <header className="cs-top">
-          <Link className="cs-mark" to="/today" aria-label="Qubite — в приложение">
+          <Link className="cs-mark" to="/home" aria-label="Qubite — в приложение">
             <DotText text="qubite" pitch={3} assemble={false} repel={0} label="Qubite" />
             <span className="q-dot" />
             <span className="cs-badge">Owner Console</span>
           </Link>
-          <Link className="cs-back" to="/today">
+          <Link className="cs-back" to="/home">
             В Qubite →
           </Link>
         </header>

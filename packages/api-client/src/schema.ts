@@ -957,6 +957,132 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/home': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Главная: настройки, сводка от AI, что агент разложил и что пришло в тишину. */
+    get: operations['overview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/locate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * «Определить по геолокации»: найти город по координатам браузера и
+     *     поставить его в настройку. Координаты не сохраняются — только город и
+     *     его точка из справочника (D-328).
+     */
+    post: operations['locate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/news': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Новости по темам: ИИ и технологии, программирование, олимпиады и учёба
+     *     (RSS Хабра, кэш на сервере — час).
+     */
+    get: operations['news'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/places': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Найти город по названию (для настройки погоды). */
+    get: operations['places'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/rates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Курсы (кэш на сервере — час). */
+    get: operations['rates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Изменить город, валюты или темы новостей. */
+    patch: operations['change_settings'];
+    trace?: never;
+  };
+  '/api/v1/home/weather': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Погода (кэш на сервере — 30 минут). */
+    get: operations['weather'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/inbox': {
     parameters: {
       query?: never;
@@ -1341,7 +1467,8 @@ export interface components {
       summary: string;
       /**
        * @description `task.create`, `task.update`, `task.reschedule`, `task.trash`,
-       *     `project.create`, `project.update`, `inbox.file`, `timeline.revert`.
+       *     `project.create`, `project.update`, `inbox.file`, `home.digest.write`,
+       *     `timeline.revert`.
        */
       tool: string;
     };
@@ -1650,6 +1777,205 @@ export interface components {
       /** @description Версия Qubite. */
       version: string;
     };
+    HomeCurrency: {
+      code: string;
+      name: string;
+    };
+    /** @description Сводка от AI на сегодня. */
+    HomeDigest: {
+      /**
+       * Format: uuid
+       * @description Строка ленты агента: там видно «почему» и можно откатить.
+       */
+      action_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      items: components['schemas']['HomeDigestItem'][];
+    };
+    /** @description Пункт сводки от AI. */
+    HomeDigestItem: {
+      /**
+       * @description `important` — важное, `noticed` — что агент заметил, `question` —
+       *     вопрос агента, `news` — новость, `tip` — что AI считает нужным.
+       */
+      kind: string;
+      link: components['schemas']['HomeDigestLink'];
+      text: string;
+    };
+    /** @description Куда ведёт пункт сводки. */
+    HomeDigestLink: {
+      /** Format: uuid */
+      id?: string | null;
+      /** @description Название дела, проекта, мысли или записи ленты. */
+      title?: string | null;
+      /** @description `task`, `project`, `inbox`, `action` (запись ленты агента) или `url` (статья). */
+      type: string;
+      /** @description Статья — только `https://`. */
+      url?: string | null;
+    };
+    /** @description Что агент разложил из Входящих. */
+    HomeFiled: {
+      /**
+       * Format: uuid
+       * @description Строка ленты агента.
+       */
+      action_id: string;
+      /** Format: date-time */
+      at: string;
+      /**
+       * Format: uuid
+       * @description Что получилось (дело или проект).
+       */
+      object_id?: string | null;
+      reason?: string | null;
+      /** @description «Разложил мысль «…» → дело «…»». */
+      summary: string;
+    };
+    /** @description Когда получено и не устарело ли. */
+    HomeFreshness: {
+      /** Format: date-time */
+      fetched_at: string;
+      /** @description Источник сейчас не ответил — показано последнее известное. */
+      stale: boolean;
+    };
+    /** @description Новости по темам из настройки. */
+    HomeNews: components['schemas']['HomeFreshness'] & {
+      items: components['schemas']['HomeNewsItem'][];
+    };
+    HomeNewsItem: {
+      /** Format: date-time */
+      published?: string | null;
+      /** @description «Хабр». */
+      source: string;
+      title: string;
+      /** @description `ai`, `code`, `study`. */
+      topic: string;
+      /** @description «ИИ и технологии». */
+      topic_title: string;
+      /** @description Только `https://`. */
+      url: string;
+    };
+    /** @description Главная: то, что знает только сервер. */
+    HomeOverview: {
+      /** @description Агент включён (есть грант): тогда есть место для сводки. */
+      agent: boolean;
+      digest?: components['schemas']['HomeDigest'] | null;
+      /** @description Что агент разложил из Входящих за сутки. */
+      filed: components['schemas']['HomeFiled'][];
+      /** @description Не прочитанное, что пришло в тишину (ночью, на уроке): утренняя сводка (D-319). */
+      held: components['schemas']['NoticeItem'][];
+      settings: components['schemas']['HomeSettings'];
+    };
+    /** @description Город погоды. */
+    HomePlace: {
+      /** Format: double */
+      latitude: number;
+      /** Format: double */
+      longitude: number;
+      /** @description «Челябинск». */
+      name: string;
+      /** @description «Челябинская область, Россия». */
+      region: string;
+    };
+    /** @description Найденные города. */
+    HomePlaces: {
+      items: components['schemas']['HomePlace'][];
+    };
+    HomeRate: {
+      /**
+       * Format: double
+       * @description Изменение к прошлому дню ЦБ.
+       */
+      change?: number | null;
+      /** @description `USD`. */
+      code: string;
+      /** @description «Доллар США». */
+      name: string;
+      /**
+       * Format: int32
+       * @description За сколько единиц курс (у иены — 100).
+       */
+      nominal: number;
+      /**
+       * Format: double
+       * @description Рублей за `nominal` единиц.
+       */
+      value: number;
+    };
+    /** @description Курсы ЦБ РФ на день. */
+    HomeRates: components['schemas']['HomeFreshness'] & {
+      /** @description Все валюты ЦБ (для настройки). */
+      available: components['schemas']['HomeCurrency'][];
+      /** @description День курса, `ГГГГ-ММ-ДД`. */
+      date: string;
+      /** @description Валюты из настройки, в её порядке. */
+      items: components['schemas']['HomeRate'][];
+    };
+    /** @description Настройки виджетов Главной. */
+    HomeSettings: {
+      /** @description Коды валют ЦБ в порядке показа: `USD`, `EUR`, `CNY`. */
+      currencies: string[];
+      place: components['schemas']['HomePlace'];
+      /**
+       * @description Темы новостей: `ai` — ИИ и технологии, `code` — программирование,
+       *     `study` — олимпиады и учёба. Пусто — без новостей.
+       */
+      topics: string[];
+    };
+    /** @description Изменение настроек: только то, что меняется. */
+    HomeSettingsChange: {
+      /** @description До 6 кодов валют ЦБ. */
+      currencies?: string[] | null;
+      place?: components['schemas']['HomePlace'] | null;
+      topics?: string[] | null;
+    };
+    /** @description Погода в городе из настройки (Open-Meteo). */
+    HomeWeather: components['schemas']['HomeFreshness'] & {
+      /** @description Сегодня и два следующих дня. */
+      days: components['schemas']['HomeWeatherDay'][];
+      now: components['schemas']['HomeWeatherNow'];
+      place: string;
+    };
+    HomeWeatherDay: {
+      /** Format: int32 */
+      code: number;
+      /** @description `ГГГГ-ММ-ДД`. */
+      date: string;
+      /** Format: double */
+      max: number;
+      /** Format: double */
+      min: number;
+      /**
+       * Format: int32
+       * @description Вероятность осадков, %.
+       */
+      precipitation?: number | null;
+      text: string;
+    };
+    HomeWeatherNow: {
+      /**
+       * Format: int32
+       * @description Код погоды WMO.
+       */
+      code: number;
+      /** Format: double */
+      feels_like?: number | null;
+      is_day: boolean;
+      /**
+       * Format: double
+       * @description °C.
+       */
+      temperature: number;
+      /** @description «небольшой дождь». */
+      text: string;
+      /**
+       * Format: double
+       * @description Ветер, м/с.
+       */
+      wind?: number | null;
+    };
     /** @description Привязанный способ входа. */
     IdentityItem: {
       display_name: string;
@@ -1763,6 +2089,13 @@ export interface components {
     /** @description Адрес провайдера для привязки. */
     LinkStarted: {
       authorize_url: string;
+    };
+    /** @description Координаты из браузера (геолокация). */
+    LocateRequest: {
+      /** Format: double */
+      latitude: number;
+      /** Format: double */
+      longitude: number;
     };
     LoginMethods: {
       google: boolean;
@@ -4573,6 +4906,301 @@ export interface operations {
       };
       /** @description Нет доступа к агенту */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Главная */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeOverview'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  locate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LocateRequest'];
+      };
+    };
+    responses: {
+      /** @description Город найден и сохранён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeSettings'];
+        };
+      };
+      /** @description Неверные координаты */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description По этому месту город не нашёлся */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Поиск сейчас не отвечает */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  news: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Новости (пусто — темы выключены) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeNews'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Ленты не отвечают */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  places: {
+    parameters: {
+      query: {
+        /** @description Название города (от 2 букв). */
+        q: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description До 5 городов */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomePlaces'];
+        };
+      };
+      /** @description Слишком длинный запрос */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Поиск городов сейчас не отвечает */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  rates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Курсы */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeRates'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description ЦБ не отвечает */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  change_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HomeSettingsChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeSettings'];
+        };
+      };
+      /** @description Неверные значения */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  weather: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Погода */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeWeather'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Источник погоды не отвечает */
+      502: {
         headers: {
           [name: string]: unknown;
         };

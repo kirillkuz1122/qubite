@@ -2885,6 +2885,330 @@
         }
       }
     },
+    "/api/v1/home": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Главная: настройки, сводка от AI, что агент разложил и что пришло в тишину.",
+        "operationId": "overview",
+        "responses": {
+          "200": {
+            "description": "Главная",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/locate": {
+      "post": {
+        "tags": ["home"],
+        "summary": "«Определить по геолокации»: найти город по координатам браузера и\nпоставить его в настройку. Координаты не сохраняются — только город и\nего точка из справочника (D-328).",
+        "operationId": "locate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Город найден и сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные координаты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "По этому месту город не нашёлся",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Поиск сейчас не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/news": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Новости по темам: ИИ и технологии, программирование, олимпиады и учёба\n(RSS Хабра, кэш на сервере — час).",
+        "operationId": "news",
+        "responses": {
+          "200": {
+            "description": "Новости (пусто — темы выключены)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeNews"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Ленты не отвечают",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/places": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Найти город по названию (для настройки погоды).",
+        "operationId": "places",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Название города (от 2 букв).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "До 5 городов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePlaces"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Слишком длинный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Поиск городов сейчас не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/rates": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Курсы (кэш на сервере — час).",
+        "operationId": "rates",
+        "responses": {
+          "200": {
+            "description": "Курсы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeRates"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "ЦБ не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/settings": {
+      "patch": {
+        "tags": ["home"],
+        "summary": "Изменить город, валюты или темы новостей.",
+        "operationId": "change_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeSettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные значения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/weather": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Погода (кэш на сервере — 30 минут).",
+        "operationId": "weather",
+        "responses": {
+          "200": {
+            "description": "Погода",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeWeather"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Источник погоды не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inbox": {
       "get": {
         "tags": ["inbox"],
@@ -3983,7 +4307,7 @@
           },
           "tool": {
             "type": "string",
-            "description": "`task.create`, `task.update`, `task.reschedule`, `task.trash`,\n`project.create`, `project.update`, `inbox.file`, `timeline.revert`."
+            "description": "`task.create`, `task.update`, `task.reschedule`, `task.trash`,\n`project.create`, `project.update`, `inbox.file`, `home.digest.write`,\n`timeline.revert`."
           }
         }
       },
@@ -4643,6 +4967,460 @@
           }
         }
       },
+      "HomeCurrency": {
+        "type": "object",
+        "required": ["code", "name"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeDigest": {
+        "type": "object",
+        "description": "Сводка от AI на сегодня.",
+        "required": ["id", "action_id", "created_at", "items"],
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Строка ленты агента: там видно «почему» и можно откатить."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeDigestItem"
+            }
+          }
+        }
+      },
+      "HomeDigestItem": {
+        "type": "object",
+        "description": "Пункт сводки от AI.",
+        "required": ["kind", "text", "link"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`important` — важное, `noticed` — что агент заметил, `question` —\nвопрос агента, `news` — новость, `tip` — что AI считает нужным."
+          },
+          "link": {
+            "$ref": "#/components/schemas/HomeDigestLink"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeDigestLink": {
+        "type": "object",
+        "description": "Куда ведёт пункт сводки.",
+        "required": ["type"],
+        "properties": {
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "title": {
+            "type": ["string", "null"],
+            "description": "Название дела, проекта, мысли или записи ленты."
+          },
+          "type": {
+            "type": "string",
+            "description": "`task`, `project`, `inbox`, `action` (запись ленты агента) или `url` (статья)."
+          },
+          "url": {
+            "type": ["string", "null"],
+            "description": "Статья — только `https://`."
+          }
+        }
+      },
+      "HomeFiled": {
+        "type": "object",
+        "description": "Что агент разложил из Входящих.",
+        "required": ["action_id", "summary", "at"],
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Строка ленты агента."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "object_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Что получилось (дело или проект)."
+          },
+          "reason": {
+            "type": ["string", "null"]
+          },
+          "summary": {
+            "type": "string",
+            "description": "«Разложил мысль «…» → дело «…»»."
+          }
+        }
+      },
+      "HomeFreshness": {
+        "type": "object",
+        "description": "Когда получено и не устарело ли.",
+        "required": ["fetched_at", "stale"],
+        "properties": {
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "Источник сейчас не ответил — показано последнее известное."
+          }
+        }
+      },
+      "HomeNews": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeNewsItem"
+                }
+              }
+            }
+          }
+        ],
+        "description": "Новости по темам из настройки."
+      },
+      "HomeNewsItem": {
+        "type": "object",
+        "required": ["topic", "topic_title", "title", "url", "source"],
+        "properties": {
+          "published": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "description": "«Хабр»."
+          },
+          "title": {
+            "type": "string"
+          },
+          "topic": {
+            "type": "string",
+            "description": "`ai`, `code`, `study`."
+          },
+          "topic_title": {
+            "type": "string",
+            "description": "«ИИ и технологии»."
+          },
+          "url": {
+            "type": "string",
+            "description": "Только `https://`."
+          }
+        }
+      },
+      "HomeOverview": {
+        "type": "object",
+        "description": "Главная: то, что знает только сервер.",
+        "required": ["settings", "agent", "filed", "held"],
+        "properties": {
+          "agent": {
+            "type": "boolean",
+            "description": "Агент включён (есть грант): тогда есть место для сводки."
+          },
+          "digest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HomeDigest",
+                "description": "Сводка от AI на сегодня; нет — агент её ещё не написал или его нет."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeFiled"
+            },
+            "description": "Что агент разложил из Входящих за сутки."
+          },
+          "held": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoticeItem"
+            },
+            "description": "Не прочитанное, что пришло в тишину (ночью, на уроке): утренняя сводка (D-319)."
+          },
+          "settings": {
+            "$ref": "#/components/schemas/HomeSettings"
+          }
+        }
+      },
+      "HomePlace": {
+        "type": "object",
+        "description": "Город погоды.",
+        "required": ["name", "region", "latitude", "longitude"],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "name": {
+            "type": "string",
+            "description": "«Челябинск»."
+          },
+          "region": {
+            "type": "string",
+            "description": "«Челябинская область, Россия»."
+          }
+        }
+      },
+      "HomePlaces": {
+        "type": "object",
+        "description": "Найденные города.",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomePlace"
+            }
+          }
+        }
+      },
+      "HomeRate": {
+        "type": "object",
+        "required": ["code", "name", "nominal", "value"],
+        "properties": {
+          "change": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Изменение к прошлому дню ЦБ."
+          },
+          "code": {
+            "type": "string",
+            "description": "`USD`."
+          },
+          "name": {
+            "type": "string",
+            "description": "«Доллар США»."
+          },
+          "nominal": {
+            "type": "integer",
+            "format": "int32",
+            "description": "За сколько единиц курс (у иены — 100).",
+            "minimum": 0
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "description": "Рублей за `nominal` единиц."
+          }
+        }
+      },
+      "HomeRates": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["date", "items", "available"],
+            "properties": {
+              "available": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeCurrency"
+                },
+                "description": "Все валюты ЦБ (для настройки)."
+              },
+              "date": {
+                "type": "string",
+                "description": "День курса, `ГГГГ-ММ-ДД`."
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeRate"
+                },
+                "description": "Валюты из настройки, в её порядке."
+              }
+            }
+          }
+        ],
+        "description": "Курсы ЦБ РФ на день."
+      },
+      "HomeSettings": {
+        "type": "object",
+        "description": "Настройки виджетов Главной.",
+        "required": ["place", "currencies", "topics"],
+        "properties": {
+          "currencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Коды валют ЦБ в порядке показа: `USD`, `EUR`, `CNY`."
+          },
+          "place": {
+            "$ref": "#/components/schemas/HomePlace"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Темы новостей: `ai` — ИИ и технологии, `code` — программирование,\n`study` — олимпиады и учёба. Пусто — без новостей."
+          }
+        }
+      },
+      "HomeSettingsChange": {
+        "type": "object",
+        "description": "Изменение настроек: только то, что меняется.",
+        "properties": {
+          "currencies": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "До 6 кодов валют ЦБ."
+          },
+          "place": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/HomePlace",
+                "description": "Город из поиска (`/api/v1/home/places`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "topics": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "HomeWeather": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["place", "now", "days"],
+            "properties": {
+              "days": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeWeatherDay"
+                },
+                "description": "Сегодня и два следующих дня."
+              },
+              "now": {
+                "$ref": "#/components/schemas/HomeWeatherNow"
+              },
+              "place": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "Погода в городе из настройки (Open-Meteo)."
+      },
+      "HomeWeatherDay": {
+        "type": "object",
+        "required": ["date", "code", "text", "max", "min"],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "date": {
+            "type": "string",
+            "description": "`ГГГГ-ММ-ДД`."
+          },
+          "max": {
+            "type": "number",
+            "format": "double"
+          },
+          "min": {
+            "type": "number",
+            "format": "double"
+          },
+          "precipitation": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Вероятность осадков, %.",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeWeatherNow": {
+        "type": "object",
+        "required": ["temperature", "code", "text", "is_day"],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Код погоды WMO.",
+            "minimum": 0
+          },
+          "feels_like": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "is_day": {
+            "type": "boolean"
+          },
+          "temperature": {
+            "type": "number",
+            "format": "double",
+            "description": "°C."
+          },
+          "text": {
+            "type": "string",
+            "description": "«небольшой дождь»."
+          },
+          "wind": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Ветер, м/с."
+          }
+        }
+      },
       "IdentityItem": {
         "type": "object",
         "description": "Привязанный способ входа.",
@@ -4899,6 +5677,22 @@
             "type": "string"
           }
         }
+      },
+      "LocateRequest": {
+        "type": "object",
+        "description": "Координаты из браузера (геолокация).",
+        "required": ["latitude", "longitude"],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
       },
       "LoginMethods": {
         "type": "object",
@@ -5939,6 +6733,10 @@
     {
       "name": "notifications",
       "description": "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"
+    },
+    {
+      "name": "home",
+      "description": "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"
     }
   ]
 }

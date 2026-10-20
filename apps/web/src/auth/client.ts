@@ -138,8 +138,8 @@ export function shownProviders(
   return providers.filter((p) => methods[p.id] === true);
 }
 
-/** Путь на этом сайте (как проверяет сервер): `/today`, но не `//чужой.сайт`. */
-export function safePath(path: unknown, fallback = '/today'): string {
+/** Путь на этом сайте (как проверяет сервер): `/home`, но не `//чужой.сайт`. По умолчанию — Главная (D-327). */
+export function safePath(path: unknown, fallback = '/home'): string {
   if (typeof path !== 'string') return fallback;
   const ok =
     path.startsWith('/') &&

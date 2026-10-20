@@ -36,6 +36,7 @@ import { ShellCtx, type ShellApi } from './context';
 import { SECTIONS, plural, dayLabel, isoWeek, weekLabel, type SectionId } from './data';
 import { AgentScreen } from './screens/Agent';
 import { DocsScreen } from './screens/Docs';
+import { HomeScreen } from './screens/Home';
 import { InboxScreen } from './screens/Inbox';
 import { PlannerScreen } from './screens/Planner';
 import { SettingsScreen } from './screens/Settings';
@@ -47,6 +48,7 @@ import { usePlanner, type PlannerApi } from './planner-context';
 import './app.css';
 
 const SCREENS: Record<SectionId, () => ReactNode> = {
+  home: () => <HomeScreen />,
   today: () => <TodayScreen />,
   inbox: () => <InboxScreen />,
   planner: () => <PlannerScreen />,
@@ -62,7 +64,7 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
 const toPlanner = (p: ParsedCommand) => p.kind === 'task' && p.review === null;
 
 function sectionOf(path: string): SectionId {
-  return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'today';
+  return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'home';
 }
 
 function left(p: PlannerApi) {
@@ -72,6 +74,21 @@ function left(p: PlannerApi) {
 function subtitle(id: SectionId, s: State, p: PlannerApi, wide: boolean, inbox: number): ReactNode {
   const today = p.week[p.today]!;
   switch (id) {
+    case 'home': {
+      const n = left(p);
+      return (
+        <>
+          {dayLabel(today.date, !wide)} · <b>{n}</b> {plural(n, 'дело', 'дела', 'дел')} ·{' '}
+          {inbox ? (
+            <>
+              <b>{inbox}</b> {plural(inbox, 'мысль', 'мысли', 'мыслей')}
+            </>
+          ) : (
+            'всё разобрано'
+          )}
+        </>
+      );
+    }
     case 'today': {
       const n = left(p);
       return (

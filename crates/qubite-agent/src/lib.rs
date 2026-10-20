@@ -18,6 +18,7 @@
 //! Агенту нужен грант на модуль `agent`; без него инструменты отказывают,
 //! а Qubite работает как обычный планер. Решения — D-300…D-309.
 
+pub mod digest;
 pub mod revert;
 pub mod timeline;
 pub mod tools;

@@ -4,7 +4,7 @@ import { mockAuth, OWNER } from './auth-mock';
 
 /* Qubite Auth (AUTH-005): сервер подделан теми же ответами, браузер настоящий. */
 
-test('лендинг → вход → «Сегодня»; неверный пароль — понятная ошибка', async ({ page }) => {
+test('лендинг → вход → «Главная»; неверный пароль — понятная ошибка', async ({ page }) => {
   const server = await mockAuth(page);
   await page.goto('/');
   await page.getByRole('link', { name: 'Войти' }).first().click();
@@ -22,7 +22,7 @@ test('лендинг → вход → «Сегодня»; неверный па�
 
   await password.fill(server.password);
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/home$/);
   expect(server.calls.filter((c) => c.path === '/api/auth/login')).toHaveLength(2);
 });
 

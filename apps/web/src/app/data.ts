@@ -1,10 +1,11 @@
 /**
  * Разделы оболочки и тестовые данные Docs (DS-007, в памяти — настоящие придут в DOC-002).
  * «Входящие» (CMD-007), «Сегодня» и Planner (PLAN-001) — уже на настоящих данных.
+ * «Главная» (HOME-001) — первый экран после входа (D-327).
  */
 import type { ColorName, CompanionKind, IconName } from '@qubite/ui';
 
-export type SectionId = 'today' | 'inbox' | 'planner' | 'agent' | 'docs' | 'settings';
+export type SectionId = 'home' | 'today' | 'inbox' | 'planner' | 'agent' | 'docs' | 'settings';
 
 export interface Section {
   id: SectionId;
@@ -18,6 +19,7 @@ export interface Section {
 }
 
 export const SECTIONS: Section[] = [
+  { id: 'home', path: '/home', name: 'Главная', title: 'ГЛАВНАЯ', icon: 'home', who: 'proto' },
   { id: 'today', path: '/today', name: 'Сегодня', title: 'СЕГОДНЯ', icon: 'today', who: 'proto' },
   { id: 'inbox', path: '/inbox', name: 'Входящие', title: 'ВХОДЯЩИЕ', icon: 'inbox', who: 'elik' },
   {
