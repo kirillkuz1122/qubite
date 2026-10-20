@@ -55,6 +55,9 @@ pub struct Message {
     /// Фото приходит в нескольких размерах — берём самый большой.
     #[serde(default)]
     pub photo: Vec<FileRef>,
+    /// Ответ на сообщение (на сообщение агента — значит, пишут агенту).
+    #[serde(default)]
+    pub reply_to_message: Option<Box<Message>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -768,3 +768,76 @@ async fn only_the_owner_controls_maintenance_and_others_are_told_to_wait() {
     assert_eq!(inbox_count(&lab.db).await, 0);
     lab.finish().await;
 }
+
+#[tokio::test]
+async fn agent_gets_slash_agent_and_replies_to_its_messages_the_rest_goes_to_inbox() {
+    let lab = Lab::new().await;
+    lab.link(lab.owner, OWNER_TG, 1).await;
+
+    lab.tg
+        .push(message(2, OWNER_TG, "/agent русский у меня по вт и чт"));
+    lab.tg.push(message(3, OWNER_TG, "/agent"));
+    lab.tg.push(message(4, OWNER_TG, "купить хлеб"));
+    let outcomes = lab.poll().await;
+    let Outcome::Agent(first) = outcomes[0] else {
+        panic!("{outcomes:?}");
+    };
+    assert_eq!(outcomes[1], Outcome::Ignored, "пустая команда — подсказка");
+    assert!(matches!(outcomes[2], Outcome::Saved(_)), "{outcomes:?}");
+    assert_eq!(inbox_count(&lab.db).await, 1);
+    assert!(
+        lab.tg
+            .sent_to(OWNER_TG)
+            .contains(&qubite_bot::agent::HELP.to_owned())
+    );
+
+    let (text, channel, status, job): (String, String, String, i64) = sqlx::query_as(
+        "SELECT m.text, m.channel, m.status, \
+         (SELECT count(*) FROM jobs WHERE kind = 'agent.chat') \
+         FROM agent_messages m WHERE m.id = $1",
+    )
+    .bind(first)
+    .fetch_one(lab.db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        (text.as_str(), channel.as_str(), status.as_str(), job),
+        ("русский у меня по вт и чт", "telegram", "pending", 1)
+    );
+
+    // Агент ответил в Telegram (это делает `qubite serve`), владелец отвечает ему.
+    let reply_id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO agent_messages (id, account_id, role, channel, text, reply_to, \
+         telegram_chat, telegram_message) VALUES ($1, $2, 'agent', 'telegram', 'Во сколько?', $3, $4, 555)",
+    )
+    .bind(reply_id)
+    .bind(lab.owner)
+    .bind(first)
+    .bind(OWNER_TG)
+    .execute(lab.db.pool())
+    .await
+    .unwrap();
+    let mut answer = message(5, OWNER_TG, "третьим уроком");
+    answer["message"]["reply_to_message"] = json!({
+        "message_id": 555,
+        "date": 1_792_224_000,
+        "chat": { "id": OWNER_TG, "type": "private" },
+        "text": "Во сколько?"
+    });
+    lab.tg.push(answer.clone());
+    let outcomes = lab.poll().await;
+    assert!(matches!(outcomes[0], Outcome::Agent(_)), "{outcomes:?}");
+
+    // Повтор от Telegram — без второго сообщения агенту.
+    answer["update_id"] = json!(6);
+    lab.tg.push(answer);
+    assert_eq!(lab.poll().await, [Outcome::Ignored]);
+    let owner_messages: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM agent_messages WHERE role = 'owner'")
+            .fetch_one(lab.db.pool())
+            .await
+            .unwrap();
+    assert_eq!(owner_messages, 2);
+    lab.finish().await;
+}

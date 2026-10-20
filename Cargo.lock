@@ -1395,15 +1395,18 @@ dependencies = [
 name = "qubite-agent"
 version = "0.1.0"
 dependencies = [
+ "qubite-ai",
  "qubite-auth",
  "qubite-db",
  "qubite-inbox",
+ "qubite-jobs",
  "qubite-objects",
  "qubite-planner",
  "qubite-policy",
  "qubite-sync",
  "qubite-sync-server",
  "qubite-testkit",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",
@@ -1465,6 +1468,7 @@ name = "qubite-bot"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "qubite-agent",
  "qubite-auth",
  "qubite-db",
  "qubite-inbox",

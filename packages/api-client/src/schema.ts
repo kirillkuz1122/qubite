@@ -940,6 +940,173 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/chat': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Разговор с агентом (чат раздела «Агент», бот, «Поправить», ответы). */
+    get: operations['chat_list'];
+    put?: never;
+    /**
+     * Написать агенту. Он ответит в разговоре через несколько секунд (спрашивать
+     *     `GET /api/v1/agent/chat`, пока `pending`); его действия — в ленте.
+     */
+    post: operations['chat_say'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/files': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Папка агента: «Кто я», «О тебе», «Память», проекты, навыки, свои файлы.
+     *     Новому человеку первые три файла заводятся сами.
+     */
+    get: operations['list_files'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/files/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Один файл. */
+    get: operations['get_file'];
+    /**
+     * Поправить файл руками. Это твоя поправка: видна в ленте и откатывается.
+     *     Пароли и коды вычёркиваются; размер и формат (расписание, навык) проверяются.
+     */
+    put: operations['edit_file'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/files/{id}/download': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Выгрузить файл как `.md` (навык — как `SKILL.md`). */
+    get: operations['download_file'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/files/{id}/fix': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * «Поправить» файл словами: «это не так, на самом деле…». Агент исправляет
+     *     сразу, без «да» (D-324); правка видна в ленте и откатывается.
+     */
+    post: operations['fix_file'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/questions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Открытые вопросы агента. */
+    get: operations['list_questions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/questions/{id}/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ответить на вопрос: агент запишет ответ туда, где он пригодится. */
+    post: operations['answer_question'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/questions/{id}/dismiss': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** «Не сейчас»: вопрос закрывается; агент может спросить снова через неделю. */
+    post: operations['dismiss_question'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/schedule': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Расписание, которое сервер разобрал из «Расписание.md» агента (D-322). */
+    get: operations['schedule'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/agent/timeline': {
     parameters: {
       query?: never;
@@ -1487,6 +1654,15 @@ export interface components {
        */
       reverted_by?: string | null;
     };
+    /** @description Ответ на вопрос. */
+    AgentAnswer: {
+      answer: string;
+    };
+    /** @description Ответил: строка ленты и сообщение агенту (он запишет ответ, куда нужно). */
+    AgentAnswered: {
+      action: components['schemas']['AgentAction'];
+      message: components['schemas']['AgentMessage'];
+    };
     /** @description «Было → стало» по одному объекту. */
     AgentChange: {
       /** @description Объект создан этим действием. */
@@ -1498,6 +1674,13 @@ export interface components {
       object_type: string;
       /** @description Название после действия. */
       title: string;
+    };
+    /** @description Разговор. */
+    AgentChat: {
+      /** @description По порядку, старые сверху. */
+      messages: components['schemas']['AgentMessage'][];
+      /** @description Агент ещё отвечает на что-то — спросить снова через секунду-другую. */
+      pending: boolean;
     };
     /** @description Поле, которое поменяли после действия: три значения. */
     AgentConflict: {
@@ -1527,6 +1710,55 @@ export interface components {
        */
       field: string;
     };
+    /** @description Файл целиком. */
+    AgentFile: components['schemas']['AgentFileInfo'] & {
+      /** @description Текст, который правится (у «Кто я» — только «Твои правила»). */
+      body: string;
+      /** @description У «Кто я» — основа: её пишем мы, агент её не меняет. */
+      core?: string | null;
+    };
+    /** @description Правка руками. */
+    AgentFileEdit: {
+      /** @description Весь текст (у «Кто я» — «Твои правила»). */
+      body: string;
+      /**
+       * Format: int64
+       * @description Версия, которую ты видел; изменилась — 409, перечитать.
+       */
+      revision: number;
+    };
+    /** @description Файл папки агента в списке. */
+    AgentFileInfo: {
+      /** @description Знаков сейчас (у «Кто я» — в «Твоих правилах»). */
+      chars: number;
+      /** Format: uuid */
+      id: string;
+      /**
+       * @description `core` — «Кто я»; `user` — «О тебе»; `memory` — «Память»;
+       *     `project` — файл проекта; `skill` — навык; `file` — свой файл агента.
+       */
+      kind: string;
+      /** @description Сколько можно. */
+      limit: number;
+      /** @description «Память.md», «Проекты/Алгебра.md», «Навыки/ДЗ.md». */
+      path: string;
+      /**
+       * Format: uuid
+       * @description Проект файла «Проекты/…», если такой есть.
+       */
+      project_id?: string | null;
+      /**
+       * Format: int64
+       * @description Версия — передать при правке руками.
+       */
+      revision: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /** @description Папка агента. */
+    AgentFileList: {
+      files: components['schemas']['AgentFileInfo'][];
+    };
     /** @description Исправить результат действия (это твоя поправка — агент на ней учится). */
     AgentFixRequest: {
       /**
@@ -1541,6 +1773,61 @@ export interface components {
       object_id: string;
       /** @description Новое название. */
       title?: string | null;
+    };
+    /** @description «Поправить»: что не так в файле — агент исправит сразу. */
+    AgentFixText: {
+      text: string;
+    };
+    /** @description Сообщение разговора с агентом. */
+    AgentMessage: {
+      /**
+       * Format: int32
+       * @description Сколько действий агент сделал в ответ (в ленте).
+       */
+      actions: number;
+      /** Format: date-time */
+      at: string;
+      /** @description `web` — чат, `telegram` — бот, `fix` — «Поправить», `question` — ответ на вопрос. */
+      channel: string;
+      /**
+       * Format: uuid
+       * @description Файл, к которому «Поправить».
+       */
+      file_id?: string | null;
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: uuid
+       * @description Ответ агента — на какое сообщение.
+       */
+      reply_to?: string | null;
+      /** @description `owner` — ты, `agent` — агент. */
+      role: string;
+      /**
+       * Format: int64
+       * @description Порядок; курсор `after`.
+       */
+      seq: number;
+      /** @description У твоего: `pending` — агент думает; `done`; `failed`. */
+      status: string;
+      text: string;
+    };
+    /** @description Вопрос «Агент хочет знать». */
+    AgentQuestion: {
+      /** Format: date-time */
+      asked_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description Варианты ответа кнопками (можно и словами). */
+      options: string[];
+      /** Format: uuid */
+      project_id?: string | null;
+      text: string;
+      /** @description Зачем агенту это знать. */
+      why: string;
+    };
+    AgentQuestions: {
+      questions: components['schemas']['AgentQuestion'][];
     };
     /** @description Откатить. */
     AgentRevertRequest: {
@@ -1557,6 +1844,28 @@ export interface components {
        *     действия объект меняли: решить и повторить с `force`.
        */
       status: string;
+    };
+    /** @description Написать агенту. */
+    AgentSay: {
+      text: string;
+    };
+    AgentSchedule: {
+      slots: components['schemas']['AgentSlot'][];
+    };
+    /** @description Слот расписания (из «Расписание.md»). */
+    AgentSlot: {
+      ends_at: string;
+      place: string;
+      /** @description «Не беспокоить»: агент молчит. */
+      quiet: boolean;
+      /** @description `ЧЧ:ММ`. */
+      starts_at: string;
+      title: string;
+      /**
+       * Format: int32
+       * @description 1 — понедельник … 7 — воскресенье.
+       */
+      weekday: number;
     };
     /** @description Страница ленты: новые сверху. */
     AgentTimelinePage: {
@@ -4848,6 +5157,436 @@ export interface operations {
       };
       /** @description Уже откачено, объекта больше нет или его только что изменили */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  chat_list: {
+    parameters: {
+      query?: {
+        /** @description Только после этого `seq`; нет — последние `limit`. */
+        after?: number | null;
+        /** @description 1…200, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сообщения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentChat'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  chat_say: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentSay'];
+      };
+    };
+    responses: {
+      /** @description Принято, агент думает */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentMessage'];
+        };
+      };
+      /** @description Пусто или слишком длинно */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права писать агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_files: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Файлы папки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentFileList'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID файла */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Файл */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentFile'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого файла */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  edit_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID файла */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentFileEdit'];
+      };
+    };
+    responses: {
+      /** @description Правка — строка ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Слишком длинно, неверная таблица расписания или ничего не изменилось */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого файла */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Файл уже изменили — перечитать */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  download_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID файла */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Markdown */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/markdown': string;
+        };
+      };
+      /** @description Нет такого файла */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  fix_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID файла */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentFixText'];
+      };
+    };
+    responses: {
+      /** @description Принято, агент исправляет */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentMessage'];
+        };
+      };
+      /** @description Нет права писать агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого файла */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_questions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Вопросы, старые сверху */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentQuestions'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  answer_question: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID вопроса */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentAnswer'];
+      };
+    };
+    responses: {
+      /** @description Ответ принят, агент записывает */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAnswered'];
+        };
+      };
+      /** @description Пустой ответ или вопрос уже закрыт */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого вопроса */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  dismiss_question: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID вопроса */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Закрыт — строка ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Нет такого вопроса */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  schedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Слоты по дням и времени */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentSchedule'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
         headers: {
           [name: string]: unknown;
         };

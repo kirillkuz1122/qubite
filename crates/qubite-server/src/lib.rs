@@ -4,6 +4,7 @@
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
 pub mod agent;
+pub mod agent_memory;
 pub mod ai;
 pub mod auth;
 pub mod changes;
@@ -180,6 +181,17 @@ impl AppState {
         agent::revert,
         agent::revert_batch,
         agent::fix,
+        agent_memory::list_files,
+        agent_memory::get_file,
+        agent_memory::edit_file,
+        agent_memory::download_file,
+        agent_memory::fix_file,
+        agent_memory::chat_list,
+        agent_memory::chat_say,
+        agent_memory::list_questions,
+        agent_memory::answer_question,
+        agent_memory::dismiss_question,
+        agent_memory::schedule,
         notices::list_notices,
         notices::read_notice,
         notices::read_all_notices,
@@ -276,6 +288,20 @@ impl AppState {
         agent::AgentRevertResult,
         agent::AgentRevertRequest,
         agent::AgentFixRequest,
+        agent_memory::AgentFileInfo,
+        agent_memory::AgentFileList,
+        agent_memory::AgentFile,
+        agent_memory::AgentFileEdit,
+        agent_memory::AgentFixText,
+        agent_memory::AgentMessage,
+        agent_memory::AgentChat,
+        agent_memory::AgentSay,
+        agent_memory::AgentQuestion,
+        agent_memory::AgentQuestions,
+        agent_memory::AgentAnswer,
+        agent_memory::AgentAnswered,
+        agent_memory::AgentSlot,
+        agent_memory::AgentSchedule,
         notices::NoticeItem,
         notices::NoticeList,
         notices::ReadCount,
@@ -313,7 +339,7 @@ impl AppState {
         (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)"),
         (name = "sync", description = "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"),
         (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"),
-        (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление"),
+        (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"),
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
         (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов")
     )
@@ -450,6 +476,30 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/v1/agent/batches/{id}/revert",
             post(agent::revert_batch),
         )
+        .route("/api/v1/agent/files", get(agent_memory::list_files))
+        .route(
+            "/api/v1/agent/files/{id}",
+            get(agent_memory::get_file).put(agent_memory::edit_file),
+        )
+        .route(
+            "/api/v1/agent/files/{id}/download",
+            get(agent_memory::download_file),
+        )
+        .route("/api/v1/agent/files/{id}/fix", post(agent_memory::fix_file))
+        .route(
+            "/api/v1/agent/chat",
+            get(agent_memory::chat_list).post(agent_memory::chat_say),
+        )
+        .route("/api/v1/agent/questions", get(agent_memory::list_questions))
+        .route(
+            "/api/v1/agent/questions/{id}/answer",
+            post(agent_memory::answer_question),
+        )
+        .route(
+            "/api/v1/agent/questions/{id}/dismiss",
+            post(agent_memory::dismiss_question),
+        )
+        .route("/api/v1/agent/schedule", get(agent_memory::schedule))
         .route("/api/v1/notifications", get(notices::list_notices))
         .route(
             "/api/v1/notifications/{id}/read",

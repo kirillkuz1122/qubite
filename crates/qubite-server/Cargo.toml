@@ -28,6 +28,7 @@ qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-oauth = { version = "0.1.0", path = "../qubite-oauth" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
 qubite-mail = { version = "0.1.0", path = "../qubite-mail" }
+qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }
 qubite-notify = { version = "0.1.0", path = "../qubite-notify" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 qubite-sync = { version = "0.1.0", path = "../qubite-sync" }
@@ -51,7 +52,6 @@ workspace = true
 
 [dev-dependencies]
 qubite-db = { path = "../qubite-db" }
-qubite-jobs = { path = "../qubite-jobs" }
 qubite-policy = { path = "../qubite-policy" }
 qubite-testkit = { path = "../qubite-testkit" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }

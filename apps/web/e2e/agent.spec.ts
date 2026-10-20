@@ -194,3 +194,193 @@ test('без доступа к агенту — понятное сообщен�
   await page.goto('/agent');
   await expect(page.getByText('Агент выключен', { exact: false })).toBeVisible();
 });
+
+/** Папка агента, вопросы и разговор (AGT-001) — сервер подделан, агент «отвечает» с задержкой. */
+async function mockRecords(page: Page) {
+  const now = new Date().toISOString();
+  const files = new Map<string, Record<string, unknown>>();
+  const add = (path: string, kind: string, body: string, limit = 2200) => {
+    const id = crypto.randomUUID();
+    files.set(id, { id, path, kind, body, limit, revision: 1, updated_at: now, project_id: null });
+    return id;
+  };
+  add('Кто я.md', 'core', '', 1500);
+  add('О тебе.md', 'user', '# О тебе\n', 1500);
+  const memory = add('Память.md', 'memory', '# Память\n\n- Русский — по средам\n');
+  add('Проекты/Алгебра.md', 'project', '- Учитель — Ирина Петровна\n', 3000);
+  add(
+    'Расписание.md',
+    'file',
+    '| День | Начало | Конец | Что |\n|---|---|---|---|\n| вт | 10:05 | 10:50 | Русский |\n',
+    6000,
+  );
+  const messages: Record<string, unknown>[] = [];
+  let seq = 0;
+  let thinking = 0;
+  const questions = [
+    {
+      id: crypto.randomUUID(),
+      text: 'Во сколько кончаются уроки в среду?',
+      project_id: null,
+      why: 'чтобы предлагать ДЗ',
+      options: ['13:00', '14:00'],
+      asked_at: now,
+    },
+  ];
+  const calls: { method: string; url: string; body: unknown }[] = [];
+  const info = (f: Record<string, unknown>) => ({
+    ...f,
+    chars: String(f.body).length,
+    body: undefined,
+  });
+  const message = (role: string, text: string, over: Record<string, unknown> = {}) => {
+    const m = {
+      id: crypto.randomUUID(),
+      seq: ++seq,
+      role,
+      channel: 'web',
+      text,
+      file_id: null,
+      reply_to: null,
+      status: 'done',
+      actions: 0,
+      at: new Date().toISOString(),
+      ...over,
+    };
+    messages.push(m);
+    return m;
+  };
+  await page.route(/\/api\/v1\/agent\/(files|chat|questions)/, (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const body = req.postDataJSON() as Record<string, string> | null;
+    calls.push({ method: req.method(), url: url.pathname, body });
+    const parts = url.pathname.split('/').slice(4); // [files, id, fix]
+    if (parts[0] === 'files' && parts.length === 1) {
+      return route.fulfill({ json: { files: [...files.values()].map(info) } });
+    }
+    if (parts[0] === 'files') {
+      const f = files.get(parts[1]!)!;
+      if (parts[2] === 'fix') {
+        const mine = message('owner', body!.text!, {
+          channel: 'fix',
+          file_id: f.id,
+          status: 'pending',
+        });
+        thinking = 2;
+        return route.fulfill({ status: 202, json: mine });
+      }
+      if (req.method() === 'PUT') {
+        f.body = body!.body;
+        f.revision = Number(f.revision) + 1;
+        return route.fulfill({ json: action({ actor: 'owner', tool: 'files.edit' }) });
+      }
+      return route.fulfill({
+        json: {
+          ...info(f),
+          body: f.body,
+          core: f.kind === 'core' ? '# Кто я\n\nЯ — агент Qubite.' : null,
+        },
+      });
+    }
+    if (parts[0] === 'chat') {
+      if (req.method() === 'POST') {
+        const mine = message('owner', body!.text!, { status: 'pending' });
+        thinking = 2;
+        return route.fulfill({ status: 202, json: mine });
+      }
+      // Агент «думает» два опроса, потом отвечает и правит файл.
+      const pending = messages.find((m) => m.status === 'pending');
+      if (pending && --thinking <= 0) {
+        pending.status = 'done';
+        if (pending.channel === 'fix') {
+          const f = files.get(memory)!;
+          f.body = String(f.body).replace('по средам', 'по вт и чт');
+          f.revision = Number(f.revision) + 1;
+          message('agent', 'Исправил: русский по вт и чт.', {
+            channel: 'fix',
+            reply_to: pending.id,
+            actions: 1,
+          });
+        } else {
+          message('agent', 'Запомнил. Во сколько кончаются уроки в среду?', {
+            reply_to: pending.id,
+            actions: 2,
+          });
+        }
+      }
+      return route.fulfill({
+        json: { messages, pending: messages.some((m) => m.status === 'pending') },
+      });
+    }
+    if (parts[0] === 'questions' && parts.length === 1) {
+      return route.fulfill({ json: { questions } });
+    }
+    questions.splice(0, 1);
+    return route.fulfill({
+      status: 202,
+      json: { action: action({}), message: message('owner', 'Ответ') },
+    });
+  });
+  return { calls, files, memory };
+}
+
+test('записи агента: дерево, правка руками, «Поправить», вопрос, разговор', async ({ page }) => {
+  await mockSync(page);
+  await page.route('**/api/v1/agent/timeline**', (route) =>
+    route.fulfill({ json: { items: [], next: null } }),
+  );
+  const server = await mockRecords(page);
+  await page.goto('/agent');
+  await page.getByRole('radio', { name: 'Записи' }).click();
+
+  const tree = page.getByRole('navigation', { name: 'Файлы агента' });
+  await expect(tree.getByRole('button')).toHaveText([
+    'Кто я',
+    'О тебе',
+    'Память',
+    'Расписание',
+    'Алгебра',
+  ]);
+  await expect(tree).toContainText('Проекты');
+  // Открыта «Память»: текст и сколько места.
+  const view = page.getByRole('article', { name: 'Память' });
+  await expect(view).toContainText('Русский — по средам');
+  await expect(view).toContainText('из 2 200 знаков');
+
+  // «Агент хочет знать»: ответ кнопкой.
+  const ask = page.getByRole('region', { name: 'Агент хочет знать' });
+  await expect(ask).toContainText('Во сколько кончаются уроки в среду?');
+  await ask.getByRole('button', { name: '14:00' }).click();
+  await expect(ask).toHaveCount(0);
+  expect(server.calls.find((c) => c.url.endsWith('/answer'))?.body).toEqual({ answer: '14:00' });
+
+  // «Поправить»: агент исправляет сразу, ответ виден под файлом, текст обновился.
+  const fix = page.getByRole('form', { name: 'Поправить' });
+  await fix.getByLabel('Поправить').fill('Это не так, на самом деле по вт и чт');
+  await fix.getByRole('button', { name: 'Поправить' }).click();
+  await expect(fix).toContainText('Агент: Исправил: русский по вт и чт.');
+  await expect(view).toContainText('Русский — по вт и чт');
+
+  // Руками — сохранить с версией, которую видел.
+  await view.getByRole('button', { name: 'Править' }).click();
+  await view.getByLabel('Текст файла (Markdown)').fill('# Память\n\n- Ложусь в 23:00\n');
+  await view.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(view).toContainText('Ложусь в 23:00');
+  const put = server.calls.find((c) => c.method === 'PUT');
+  expect(put?.body).toEqual({ body: '# Память\n\n- Ложусь в 23:00\n', revision: 2 });
+
+  // «Кто я»: основа видна, но правится только «Твои правила».
+  await tree.getByRole('button', { name: 'Кто я' }).click();
+  const core = page.getByRole('article', { name: 'Кто я' });
+  await expect(core.getByText('Основа — её пишем мы, агент её не меняет')).toBeVisible();
+  await expect(core.getByRole('heading', { name: 'Твои правила' })).toBeVisible();
+
+  // Разговор.
+  await page.getByRole('radio', { name: 'Разговор' }).click();
+  await page.getByRole('textbox', { name: 'Написать агенту' }).fill('Русский по вт и чт');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  const talk = page.getByRole('list', { name: 'Разговор с агентом' });
+  await expect(talk).toContainText('Запомнил. Во сколько кончаются уроки в среду?');
+  await expect(talk).toContainText('действий: 2');
+});

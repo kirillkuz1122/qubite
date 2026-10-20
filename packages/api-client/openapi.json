@@ -2784,6 +2784,535 @@
         }
       }
     },
+    "/api/v1/agent/chat": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Разговор с агентом (чат раздела «Агент», бот, «Поправить», ответы).",
+        "operationId": "chat_list",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Только после этого `seq`; нет — последние `limit`.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1…200, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChat"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["agent"],
+        "summary": "Написать агенту. Он ответит в разговоре через несколько секунд (спрашивать\n`GET /api/v1/agent/chat`, пока `pending`); его действия — в ленте.",
+        "operationId": "chat_say",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSay"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Принято, агент думает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пусто или слишком длинно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права писать агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/files": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Папка агента: «Кто я», «О тебе», «Память», проекты, навыки, свои файлы.\nНовому человеку первые три файла заводятся сами.",
+        "operationId": "list_files",
+        "responses": {
+          "200": {
+            "description": "Файлы папки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentFileList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/files/{id}": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Один файл.",
+        "operationId": "get_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID файла",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentFile"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["agent"],
+        "summary": "Поправить файл руками. Это твоя поправка: видна в ленте и откатывается.\nПароли и коды вычёркиваются; размер и формат (расписание, навык) проверяются.",
+        "operationId": "edit_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID файла",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentFileEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Правка — строка ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Слишком длинно, неверная таблица расписания или ничего не изменилось",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Файл уже изменили — перечитать",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/files/{id}/download": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Выгрузить файл как `.md` (навык — как `SKILL.md`).",
+        "operationId": "download_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID файла",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markdown",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/files/{id}/fix": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "«Поправить» файл словами: «это не так, на самом деле…». Агент исправляет\nсразу, без «да» (D-324); правка видна в ленте и откатывается.",
+        "operationId": "fix_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID файла",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentFixText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Принято, агент исправляет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права писать агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/questions": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Открытые вопросы агента.",
+        "operationId": "list_questions",
+        "responses": {
+          "200": {
+            "description": "Вопросы, старые сверху",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQuestions"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/questions/{id}/answer": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Ответить на вопрос: агент запишет ответ туда, где он пригодится.",
+        "operationId": "answer_question",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID вопроса",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Ответ принят, агент записывает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAnswered"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой ответ или вопрос уже закрыт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого вопроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/questions/{id}/dismiss": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "«Не сейчас»: вопрос закрывается; агент может спросить снова через неделю.",
+        "operationId": "dismiss_question",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID вопроса",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Закрыт — строка ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого вопроса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/schedule": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Расписание, которое сервер разобрал из «Расписание.md» агента (D-322).",
+        "operationId": "schedule",
+        "responses": {
+          "200": {
+            "description": "Слоты по дням и времени",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSchedule"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/timeline": {
       "get": {
         "tags": ["agent"],
@@ -4336,6 +4865,30 @@
           }
         }
       },
+      "AgentAnswer": {
+        "type": "object",
+        "description": "Ответ на вопрос.",
+        "required": ["answer"],
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentAnswered": {
+        "type": "object",
+        "description": "Ответил: строка ленты и сообщение агенту (он запишет ответ, куда нужно).",
+        "required": ["action", "message"],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/AgentAction"
+          },
+          "message": {
+            "$ref": "#/components/schemas/AgentMessage"
+          }
+        }
+      },
       "AgentChange": {
         "type": "object",
         "description": "«Было → стало» по одному объекту.",
@@ -4362,6 +4915,24 @@
           "title": {
             "type": "string",
             "description": "Название после действия."
+          }
+        }
+      },
+      "AgentChat": {
+        "type": "object",
+        "description": "Разговор.",
+        "required": ["messages", "pending"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentMessage"
+            },
+            "description": "По порядку, старые сверху."
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "Агент ещё отвечает на что-то — спросить снова через секунду-другую."
           }
         }
       },
@@ -4428,6 +4999,101 @@
           }
         }
       },
+      "AgentFile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AgentFileInfo"
+          },
+          {
+            "type": "object",
+            "required": ["body"],
+            "properties": {
+              "body": {
+                "type": "string",
+                "description": "Текст, который правится (у «Кто я» — только «Твои правила»)."
+              },
+              "core": {
+                "type": ["string", "null"],
+                "description": "У «Кто я» — основа: её пишем мы, агент её не меняет."
+              }
+            }
+          }
+        ],
+        "description": "Файл целиком."
+      },
+      "AgentFileEdit": {
+        "type": "object",
+        "description": "Правка руками.",
+        "required": ["body", "revision"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Весь текст (у «Кто я» — «Твои правила»)."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия, которую ты видел; изменилась — 409, перечитать."
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentFileInfo": {
+        "type": "object",
+        "description": "Файл папки агента в списке.",
+        "required": ["id", "path", "kind", "chars", "limit", "revision", "updated_at"],
+        "properties": {
+          "chars": {
+            "type": "integer",
+            "description": "Знаков сейчас (у «Кто я» — в «Твоих правилах»).",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`core` — «Кто я»; `user` — «О тебе»; `memory` — «Память»;\n`project` — файл проекта; `skill` — навык; `file` — свой файл агента."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Сколько можно.",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string",
+            "description": "«Память.md», «Проекты/Алгебра.md», «Навыки/ДЗ.md»."
+          },
+          "project_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Проект файла «Проекты/…», если такой есть."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия — передать при правке руками."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AgentFileList": {
+        "type": "object",
+        "description": "Папка агента.",
+        "required": ["files"],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFileInfo"
+            }
+          }
+        }
+      },
       "AgentFixRequest": {
         "type": "object",
         "description": "Исправить результат действия (это твоя поправка — агент на ней учится).",
@@ -4448,6 +5114,112 @@
           }
         },
         "additionalProperties": false
+      },
+      "AgentFixText": {
+        "type": "object",
+        "description": "«Поправить»: что не так в файле — агент исправит сразу.",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentMessage": {
+        "type": "object",
+        "description": "Сообщение разговора с агентом.",
+        "required": ["id", "seq", "role", "channel", "text", "status", "actions", "at"],
+        "properties": {
+          "actions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Сколько действий агент сделал в ответ (в ленте)."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "channel": {
+            "type": "string",
+            "description": "`web` — чат, `telegram` — бот, `fix` — «Поправить», `question` — ответ на вопрос."
+          },
+          "file_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Файл, к которому «Поправить»."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reply_to": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Ответ агента — на какое сообщение."
+          },
+          "role": {
+            "type": "string",
+            "description": "`owner` — ты, `agent` — агент."
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Порядок; курсор `after`."
+          },
+          "status": {
+            "type": "string",
+            "description": "У твоего: `pending` — агент думает; `done`; `failed`."
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentQuestion": {
+        "type": "object",
+        "description": "Вопрос «Агент хочет знать».",
+        "required": ["id", "text", "why", "options", "asked_at"],
+        "properties": {
+          "asked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Варианты ответа кнопками (можно и словами)."
+          },
+          "project_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "description": "Зачем агенту это знать."
+          }
+        }
+      },
+      "AgentQuestions": {
+        "type": "object",
+        "required": ["questions"],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentQuestion"
+            }
+          }
+        }
       },
       "AgentRevertRequest": {
         "type": "object",
@@ -4481,6 +5253,59 @@
           "status": {
             "type": "string",
             "description": "`reverted` — откачено; `conflict` — ничего не изменено, после\nдействия объект меняли: решить и повторить с `force`."
+          }
+        }
+      },
+      "AgentSay": {
+        "type": "object",
+        "description": "Написать агенту.",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentSchedule": {
+        "type": "object",
+        "required": ["slots"],
+        "properties": {
+          "slots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSlot"
+            }
+          }
+        }
+      },
+      "AgentSlot": {
+        "type": "object",
+        "description": "Слот расписания (из «Расписание.md»).",
+        "required": ["weekday", "starts_at", "ends_at", "title", "place", "quiet"],
+        "properties": {
+          "ends_at": {
+            "type": "string"
+          },
+          "place": {
+            "type": "string"
+          },
+          "quiet": {
+            "type": "boolean",
+            "description": "«Не беспокоить»: агент молчит."
+          },
+          "starts_at": {
+            "type": "string",
+            "description": "`ЧЧ:ММ`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "weekday": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1 — понедельник … 7 — воскресенье.",
+            "minimum": 0
           }
         }
       },
@@ -6728,7 +7553,7 @@
     },
     {
       "name": "agent",
-      "description": "Агент Qubite: лента «Что сделал агент», откат и исправление"
+      "description": "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"
     },
     {
       "name": "notifications",

@@ -1063,3 +1063,269 @@ button.proj {
   text-align: left;
   cursor: pointer;
 }
+
+/* ---------- «Агент»: записи и разговор (AGT-001) ---------- */
+.act-diff li.added b {
+  color: var(--q-ink);
+}
+.act-diff li.added > span,
+.act-diff li.removed > span {
+  display: inline-block;
+  width: 1.2em;
+  color: var(--q-dim);
+}
+.rec {
+  display: grid;
+  gap: 14px;
+}
+.rec-body {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .rec-body {
+    grid-template-columns: 220px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.rec-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec-folder + .rec-folder {
+  margin-top: 10px;
+}
+.rec-folder-name {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.rec-folder:not(:first-child) li button {
+  padding-left: 18px;
+}
+.rec-tree button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: calc(var(--q-round) * 12px);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--q-mute);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.rec-tree button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-tree button.on {
+  background: var(--q-panel);
+  color: var(--q-ink);
+}
+.rec-full {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-orange);
+}
+.rec-view {
+  min-width: 0;
+  padding: 16px;
+}
+.rec-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rec-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.rec-head p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--q-dim);
+}
+.rec-head .act-btns {
+  margin-top: 0;
+  align-items: center;
+}
+.rec-warn {
+  color: var(--q-orange);
+}
+.rec-download {
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.rec-core {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.rec-core summary {
+  cursor: pointer;
+}
+.rec-sub {
+  margin: 14px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rec-text {
+  margin: 12px 0 0;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--q-ink);
+}
+.rec-edit {
+  margin-top: 12px;
+}
+.rec-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--q-dim);
+}
+.rec-edit textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 14px);
+  background: var(--q-bg);
+  color: var(--q-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.rec-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.rec-fix {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--q-line);
+}
+.rec-fix > button {
+  justify-self: start;
+}
+.rec-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--q-mute);
+  overflow-wrap: anywhere;
+}
+.rec-ask {
+  padding: 14px 16px;
+}
+.rec-ask h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.rec-ask ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec-ask li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--q-line);
+}
+.rec-ask li:last-child {
+  border-bottom: 0;
+}
+.rec-q {
+  margin: 0;
+  font-size: 14px;
+}
+.rec-q-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rec-q-form > :not(button) {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.talk {
+  display: grid;
+  gap: 12px;
+}
+.talk-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.talk-msg {
+  max-width: min(560px, 92%);
+  padding: 10px 14px;
+  border-radius: calc(var(--q-round) * 18px);
+  background: var(--q-panel);
+  border: 1px solid var(--q-line);
+  justify-self: end;
+  animation: talk-in 0.25s ease-out;
+}
+.talk-msg.agent {
+  justify-self: start;
+  background: var(--q-panel-2);
+}
+@keyframes talk-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .talk-msg {
+    animation: none;
+  }
+}
+.talk-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.talk-meta b {
+  color: var(--q-mute);
+  font-weight: 600;
+}
+.talk-text {
+  margin: 4px 0 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.talk-think {
+  color: var(--q-dim);
+}
+.talk-form {
+  display: grid;
+  gap: 8px;
+}
+.talk-form > button {
+  justify-self: start;
+}

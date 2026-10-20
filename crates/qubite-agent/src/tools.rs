@@ -361,6 +361,14 @@ pub async fn call(
                 projects.iter().map(project_json).collect(),
             )));
         }
+        "files.list" | "files.read" | "question.list" => {
+            can_read(conn, who, crate::MODULE).await?;
+            return Ok(Outcome::Read(
+                crate::memory::read(conn, account, tool, arguments).await?,
+            ));
+        }
+        "files.create" | "memory.add" | "memory.patch" | "memory.remove" | "question.ask"
+        | "question.close" => crate::memory::plan(conn, account, tool, arguments).await?,
         "project.get" => {
             let ProjectRef { project_id } = args(tool, arguments)?;
             can_read(conn, who, qubite_planner::MODULE).await?;

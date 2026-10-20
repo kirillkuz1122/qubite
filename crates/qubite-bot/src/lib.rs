@@ -11,9 +11,12 @@
 //!   регистрации и приглашения, расход AI 80 %/100 %, сервер не отвечает и
 //!   ошибки, бэкап, место на диске. Каждый вид можно выключить.
 //! - Кнопки под напоминаниями ([`reminders`], PLAN-004): «понял» и «позже».
+//! - Разговор с агентом ([`agent`], AGT-001): `/agent текст` и ответ на
+//!   сообщение агента; отвечает `qubite serve`.
 //!
 //! Решения — D-196…D-198.
 
+pub mod agent;
 pub mod capture;
 pub mod notify;
 pub mod reminders;
@@ -125,7 +128,11 @@ impl Bot {
             .await;
             let handled = match tech {
                 Ok(Some(outcome)) => Ok(outcome),
-                Ok(None) => capture::handle(&self.pool, &self.api, &self.blobs, &update).await,
+                Ok(None) => match agent::handle(&self.pool, &self.api, &update).await {
+                    Ok(Some(outcome)) => Ok(outcome),
+                    Ok(None) => capture::handle(&self.pool, &self.api, &self.blobs, &update).await,
+                    Err(error) => Err(error),
+                },
                 Err(error) => Err(error),
             };
             let outcome = match handled {

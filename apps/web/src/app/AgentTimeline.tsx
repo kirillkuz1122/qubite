@@ -120,11 +120,18 @@ function ActionRow({
           if (lines.length === 0) return null;
           return (
             <ul className="act-diff" key={c.object_id} aria-label={`Изменения: ${c.title}`}>
-              {lines.map((l) => (
-                <li key={l.label}>
-                  <span>{l.label}:</span> <s>{l.before}</s> → <b>{l.after}</b>
-                </li>
-              ))}
+              {lines.map((l, i) =>
+                l.line ? (
+                  <li key={i} className={l.line}>
+                    <span aria-label={l.line === 'added' ? 'добавлено' : 'убрано'}>{l.label}</span>{' '}
+                    {l.line === 'added' ? <b>{l.after}</b> : <s>{l.before}</s>}
+                  </li>
+                ) : (
+                  <li key={i}>
+                    <span>{l.label}:</span> <s>{l.before}</s> → <b>{l.after}</b>
+                  </li>
+                ),
+              )}
             </ul>
           );
         })}

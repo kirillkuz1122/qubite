@@ -93,9 +93,14 @@ pub async fn push(
         .validate()
         .map_err(|error| sync_error(error.into()))?;
     let account = session.0.account_id;
+    // Только синхронизируемые модули: файлы и вопросы агента меняются через
+    // его ленту (AGT-001), а не напрямую с устройства.
+    let synced = state.sync.modules();
     let modules = qubite_sync_server::modules_of(state.db.pool(), account, &request.ops)
         .await
-        .map_err(sync_error)?;
+        .map_err(sync_error)?
+        .into_iter()
+        .filter(|module| synced.contains(module));
     let writable: HashSet<String> = allowed::<Write>(&state, &session, modules)
         .await?
         .into_iter()

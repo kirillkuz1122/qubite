@@ -243,11 +243,11 @@ pub struct TimelineQuery {
     limit: Option<i64>,
 }
 
-fn who(session: &Authenticated) -> Who {
+pub(crate) fn who(session: &Authenticated) -> Who {
     Who::owner(session.0.account_id, Some(session.0.id))
 }
 
-fn agent_error(error: qubite_agent::Error) -> ApiError {
+pub(crate) fn agent_error(error: qubite_agent::Error) -> ApiError {
     use qubite_agent::Error as E;
     match error {
         E::Denied(reason) => qubite_policy::Error::Denied(reason).into(),

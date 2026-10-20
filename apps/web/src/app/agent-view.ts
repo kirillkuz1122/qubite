@@ -28,12 +28,14 @@ const LABEL: Record<string, string> = {
   color: 'Цвет',
   tag: 'Тег',
   body: 'Текст',
+  answer: 'Ответ',
 };
 
 const STATUS: Record<string, Record<string, string>> = {
   'planner.task': { todo: 'надо', doing: 'в работе', done: 'сделано' },
   'planner.project': { active: 'идёт', archived: 'в архиве' },
   'inbox.item': { new: 'ждёт разбора', archived: 'разобрана' },
+  'agent.question': { open: 'ждёт ответа', answered: 'отвечен', dropped: 'закрыт' },
 };
 
 const PRIORITY: Record<string, string> = {
@@ -124,6 +126,30 @@ export interface DiffLine {
   label: string;
   before: string;
   after: string;
+  /** Строка файла агента: добавлена или убрана (вместо «было → стало»). */
+  line?: 'added' | 'removed';
+}
+
+/** Какие строки текста убрали и какие добавили (порядок — как в тексте). */
+export function lineDiff(before: string, after: string): { removed: string[]; added: string[] } {
+  const split = (t: string) => t.split('\n').filter((l) => l.trim() !== '');
+  const left = split(before);
+  const right = split(after);
+  const count = (lines: string[]) => {
+    const m = new Map<string, number>();
+    for (const l of lines) m.set(l, (m.get(l) ?? 0) + 1);
+    return m;
+  };
+  const keep = (lines: string[], other: Map<string, number>) =>
+    lines.filter((l) => {
+      const n = other.get(l) ?? 0;
+      if (n > 0) {
+        other.set(l, n - 1);
+        return false;
+      }
+      return true;
+    });
+  return { removed: keep(left, count(right)), added: keep(right, count(left)) };
 }
 
 /** «Было → стало» одного объекта. У нового объекта «было» — «—», название не повторяем. */
@@ -134,11 +160,25 @@ export function diffLines(
 ): DiffLine[] {
   return change.diff
     .filter((d) => !(change.created && d.field === 'title'))
-    .map((d) => ({
-      label: fieldLabel(d.field),
-      before: valueLabel(change.object_type, d.field, d.before as unknown, projectName, now),
-      after: valueLabel(change.object_type, d.field, d.after as unknown, projectName, now),
-    }));
+    .flatMap((d): DiffLine[] => {
+      if (change.object_type === 'agent.file' && d.field === 'body') {
+        const { removed, added } = lineDiff(
+          typeof d.before === 'string' ? d.before : '',
+          typeof d.after === 'string' ? d.after : '',
+        );
+        return [
+          ...removed.map((l) => ({ label: '−', before: l, after: '', line: 'removed' as const })),
+          ...added.map((l) => ({ label: '+', before: '', after: l, line: 'added' as const })),
+        ];
+      }
+      return [
+        {
+          label: fieldLabel(d.field),
+          before: valueLabel(change.object_type, d.field, d.before as unknown, projectName, now),
+          after: valueLabel(change.object_type, d.field, d.after as unknown, projectName, now),
+        },
+      ];
+    });
 }
 
 export interface ConflictLine {

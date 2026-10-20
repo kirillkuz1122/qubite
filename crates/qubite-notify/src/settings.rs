@@ -220,12 +220,25 @@ pub async fn local_now(conn: &mut PgConnection) -> Result<Time> {
     .await?)
 }
 
-/// Занятой слот расписания («урок», «тренировка», «не беспокоить») сейчас.
-///
-/// Место для AGT-001: расписание появится там (`agent_schedule_slots`), и эта
-/// проверка начнёт его читать. Пока слотов нет — `None`.
-pub async fn busy_slot(_conn: &mut PgConnection, _account: Uuid) -> Result<Option<String>> {
-    Ok(None)
+/// Занятой слот расписания («урок», «тренировка») сейчас — из «Расписание.md»
+/// агента (AGT-001, D-322): строки с «Не беспокоить» = да. Нет — `None`.
+pub async fn busy_slot(conn: &mut PgConnection, account: Uuid) -> Result<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "WITH now_local AS ( \
+             SELECT (now() AT TIME ZONE coalesce( \
+                 (SELECT value #>> '{}' FROM platform_settings WHERE key = 'platform.timezone'), $2) \
+             ) AS at) \
+         SELECT s.title FROM agent_schedule_slots s \
+         JOIN objects o ON o.id = s.file_id, now_local n \
+         WHERE s.account_id = $1 AND s.quiet AND o.deleted_at IS NULL \
+           AND s.weekday = extract(isodow FROM n.at) \
+           AND n.at::time >= s.starts_at AND n.at::time < s.ends_at \
+         ORDER BY s.starts_at LIMIT 1",
+    )
+    .bind(account)
+    .bind(qubite_planner::DEFAULT_TIMEZONE)
+    .fetch_optional(conn)
+    .await?)
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Telegram-бот Qubite: мысли во Входящие и уведомления владельцу"
 
 [dependencies]
+qubite-agent = { version = "0.1.0", path = "../qubite-agent" }
 qubite-auth = { version = "0.1.0", path = "../qubite-auth" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-notify = { version = "0.1.0", path = "../qubite-notify" }

@@ -18,7 +18,12 @@
 //! Агенту нужен грант на модуль `agent`; без него инструменты отказывают,
 //! а Qubite работает как обычный планер. Решения — D-300…D-309.
 
+pub mod brain;
+pub mod chat;
 pub mod digest;
+pub mod files;
+pub mod memory;
+pub mod questions;
 pub mod revert;
 pub mod timeline;
 pub mod tools;
@@ -78,6 +83,8 @@ pub struct Who {
     actor: Actor,
     run: Option<Uuid>,
     session: Option<Uuid>,
+    /// Вызов AI-шлюза, по которому агент действует (цена в ленте).
+    ai_call: Option<Uuid>,
 }
 
 impl Who {
@@ -88,6 +95,7 @@ impl Who {
             actor: Actor::Agent,
             run: Some(run.id),
             session: None,
+            ai_call: None,
         }
     }
 
@@ -98,7 +106,14 @@ impl Who {
             actor: Actor::Owner,
             run: None,
             session,
+            ai_call: None,
         }
+    }
+
+    /// Действия по ответу модели: в ленте видна цена вызова.
+    pub fn with_ai_call(mut self, call: Uuid) -> Self {
+        self.ai_call = Some(call);
+        self
     }
 
     pub fn account(&self) -> Uuid {
@@ -229,6 +244,7 @@ pub async fn start_run(pool: &PgPool, account: Uuid, trigger: Trigger) -> Result
         actor: Actor::Agent,
         run: None,
         session: None,
+        ai_call: None,
     };
     let module = ModuleId::new(MODULE)?;
     qubite_policy::decide::<qubite_policy::Write>(pool, &probe.subject(), &module).await?;

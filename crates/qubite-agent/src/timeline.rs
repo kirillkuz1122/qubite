@@ -31,6 +31,8 @@ pub fn registry() -> Registry {
         .with(qubite_inbox::InboxFields)
         .with(qubite_planner::ProjectFieldsHandler)
         .with(qubite_planner::TaskFieldsHandler)
+        .with(crate::files::FileFieldsHandler)
+        .with(crate::questions::QuestionFieldsHandler)
 }
 
 /// Поля, которые откат возвращает (остальные — производные: время
@@ -49,6 +51,8 @@ pub fn revertable_fields(object_type: &str) -> &'static [&'static str] {
         ],
         qubite_planner::PROJECT_TYPE => &["color", "tag", "status", "notes"],
         qubite_inbox::ITEM_TYPE => &["status", "body"],
+        crate::files::FILE_TYPE => &["body"],
+        crate::questions::QUESTION_TYPE => &["status", "answer"],
         _ => &[],
     }
 }
@@ -332,7 +336,8 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
         .map(|reason| truncate(reason, MAX_REASON_CHARS));
     let (seq, at): (i64, OffsetDateTime) = sqlx::query_as(
         "INSERT INTO agent_actions (id, account_id, run_id, batch_id, actor, tool, summary, \
-         reason, reverts, corrects) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) \
+         reason, reverts, corrects, ai_call_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) \
          RETURNING seq, at",
     )
     .bind(id)
@@ -349,6 +354,7 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
     .bind(&reason)
     .bind(plan.reverts)
     .bind(plan.corrects)
+    .bind(who.ai_call)
     .fetch_one(&mut *conn)
     .await?;
 
@@ -405,7 +411,14 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
         reason,
         reverts: plan.reverts,
         corrects: plan.corrects,
-        cost_usd_micros: None,
+        cost_usd_micros: match who.ai_call {
+            Some(call) => sqlx::query_scalar("SELECT actual_usd FROM ai_calls WHERE id = $1")
+                .bind(call)
+                .fetch_optional(&mut *conn)
+                .await?
+                .flatten(),
+            None => None,
+        },
         changes,
         state: ActionState {
             batch_size,

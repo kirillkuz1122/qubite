@@ -114,6 +114,12 @@ pub enum MockStep {
         tokens_out: u64,
         cost_usd: i64,
     },
+    /// Ответить этим текстом (агент в тестах: JSON с инструментами).
+    Reply {
+        text: String,
+        tokens_in: u64,
+        tokens_out: u64,
+    },
     /// Отказать до отправки.
     FailBeforeSend,
     /// Отказ провайдера без повтора (например, нет денег на счёте).
@@ -203,6 +209,16 @@ impl Provider for MockProvider {
                     tokens_in,
                     tokens_out,
                     cost_usd: Some(cost_usd),
+                }),
+                MockStep::Reply {
+                    text,
+                    tokens_in,
+                    tokens_out,
+                } => Ok(ProviderReply {
+                    text,
+                    tokens_in,
+                    tokens_out,
+                    cost_usd: None,
                 }),
                 MockStep::FailBeforeSend => {
                     Err(ProviderError::NotSent("mock: отказ до отправки".into()))

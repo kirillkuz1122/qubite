@@ -853,6 +853,13 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let trash = qubite_server::inbox::spawn_trash_cleanup(db.pool().clone(), args.inbox_trash_days);
     // Напоминания и доставка — задачи очереди jobs (PLAN-004), без отдельного процесса.
     let (stop_jobs, jobs_shutdown) = tokio::sync::watch::channel(false);
+    // Агент (AGT-001): ответы в разговоре и фоновый разбор — тоже задачи очереди.
+    let agent_jobs = qubite_server::agent_memory::spawn(
+        db.pool().clone(),
+        state.ai.clone(),
+        channels.clone(),
+        jobs_shutdown.clone(),
+    );
     let jobs = qubite_notify::worker::spawn(db.pool().clone(), channels, jobs_shutdown);
     let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(args.bind)
@@ -872,6 +879,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     trash.abort();
     let _ = stop_jobs.send(true);
     let _ = tokio::time::timeout(Duration::from_secs(10), jobs).await;
+    let _ = tokio::time::timeout(Duration::from_secs(10), agent_jobs).await;
     db.close().await;
     tracing::info!("Qubite остановлен");
     Ok(())
