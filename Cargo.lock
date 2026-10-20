@@ -1392,6 +1392,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-agent"
+version = "0.1.0"
+dependencies = [
+ "qubite-auth",
+ "qubite-db",
+ "qubite-inbox",
+ "qubite-objects",
+ "qubite-planner",
+ "qubite-policy",
+ "qubite-sync",
+ "qubite-sync-server",
+ "qubite-testkit",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-ai"
 version = "0.1.0"
 dependencies = [
@@ -1651,6 +1673,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
+ "qubite-agent",
  "qubite-ai",
  "qubite-auth",
  "qubite-bot",

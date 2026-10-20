@@ -769,3 +769,148 @@ a {
   animation-duration: 1.2s;
   transform: none;
 }
+
+/* ---------- «Агент»: лента «Что сделал агент» (AGT-002) ---------- */
+.lead {
+  margin: 4px 0 14px;
+  font-size: 14px;
+  color: var(--q-mute);
+}
+.acts ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.act {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--q-line);
+  font-size: 14px;
+}
+.act.reverted .act-what {
+  color: var(--q-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--q-faint);
+}
+.act-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--q-dim);
+}
+.act-head b {
+  color: var(--q-ink);
+  font-weight: 600;
+}
+.act-head .q-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--q-orange);
+}
+.act[data-actor='owner'] .act-head .q-dot {
+  background: var(--q-sky);
+}
+.act[data-actor='system'] .act-head .q-dot {
+  background: var(--q-faint);
+}
+.act .tag {
+  padding: 1px 8px;
+  border-radius: calc(var(--q-round) * 10px);
+  background: var(--q-faint);
+  color: var(--q-mute);
+}
+.act-what {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.act-why {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--q-dim);
+  overflow-wrap: anywhere;
+}
+.act-diff {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.act-diff li {
+  overflow-wrap: anywhere;
+}
+.act-diff s {
+  color: var(--q-dim);
+}
+.act-diff b {
+  color: var(--q-ink);
+  font-weight: 500;
+}
+.act-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.act-error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--q-orange);
+}
+.act-conflict,
+.act-fix {
+  margin-top: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.act-conflict p {
+  margin: 0 0 8px;
+}
+.act-conflict table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.act-conflict th,
+.act-conflict td {
+  padding: 4px 6px 4px 0;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.act-conflict thead th {
+  font-weight: 500;
+  color: var(--q-dim);
+}
+.act-conflict tbody th small {
+  display: block;
+  font-weight: 400;
+  color: var(--q-dim);
+}
+.act-fix-when {
+  display: flex;
+  gap: 10px;
+}
+.act-fix-when > * {
+  flex: 1;
+  min-width: 0;
+}
+.acts.compact .act {
+  padding: 10px 0;
+}
+.trail {
+  padding: 2px 0 6px 28px;
+  border-bottom: 1px solid var(--q-line);
+}
+.trail .acts .act:last-child {
+  border-bottom: 0;
+}
+button.proj {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--q-line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}

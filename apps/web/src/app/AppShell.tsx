@@ -33,6 +33,7 @@ import { commandView, loadHistory, remember, saveHistory, type CommandEntry } fr
 import { CommandField } from './CommandField';
 import { ShellCtx, type ShellApi } from './context';
 import { SECTIONS, plural, dayLabel, isoWeek, weekLabel, type SectionId } from './data';
+import { AgentScreen } from './screens/Agent';
 import { DocsScreen } from './screens/Docs';
 import { InboxScreen } from './screens/Inbox';
 import { PlannerScreen } from './screens/Planner';
@@ -48,6 +49,7 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
   today: () => <TodayScreen />,
   inbox: () => <InboxScreen />,
   planner: () => <PlannerScreen />,
+  agent: () => <AgentScreen />,
   docs: () => <DocsScreen />,
   settings: () => <SettingsScreen />,
 };
@@ -93,6 +95,8 @@ function subtitle(id: SectionId, s: State, p: PlannerApi, wide: boolean, inbox: 
           неделя {isoWeek(today.date)} · <b>{weekLabel(p.week)}</b>
         </>
       );
+    case 'agent':
+      return 'что сделал и почему · любое — откатить';
     case 'docs':
       return (
         <>

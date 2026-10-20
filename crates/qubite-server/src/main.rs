@@ -89,6 +89,13 @@ enum Command {
         #[command(subcommand)]
         command: qubite_server::ai::AiCommand,
     },
+    /// Агент Qubite: пример ленты «Что сделал агент» без AI.
+    Agent {
+        #[command(flatten)]
+        db: DbArgs,
+        #[command(subcommand)]
+        command: qubite_server::agent::AgentCommand,
+    },
 }
 
 #[derive(Args)]
@@ -609,6 +616,14 @@ async fn run(dotenv: Option<std::path::PathBuf>) -> anyhow::Result<()> {
             let db = Database::connect(&db.config()).await?;
             db.migrate().await?;
             let result = qubite_server::ai::run(&db, &ai, command).await;
+            db.close().await;
+            println!("{}", result?);
+            Ok(())
+        }
+        Command::Agent { db, command } => {
+            let db = Database::connect(&db.config()).await?;
+            db.migrate().await?;
+            let result = qubite_server::agent::run(&db, command).await;
             db.close().await;
             println!("{}", result?);
             Ok(())

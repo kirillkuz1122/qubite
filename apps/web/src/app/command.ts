@@ -32,6 +32,7 @@ const SECTION_WORDS: Record<SectionId, string[]> = {
   today: ['главная', 'домой', 'день', 'today'],
   inbox: ['входящие', 'мысли', 'идеи', 'inbox', 'элик'],
   planner: ['планер', 'планировщик', 'дела', 'неделя', 'задачи', 'проекты', 'прото'],
+  agent: ['агент', 'лента', 'что сделал', 'откат', 'история', 'agent'],
   docs: ['доки', 'документы', 'конспекты', 'заметки', 'нейт'],
   settings: ['настройки', 'параметры', 'вид', 'settings', 'фоти'],
 };
@@ -40,6 +41,7 @@ const SECTION_COLOR = {
   today: 'orange',
   inbox: 'yellow',
   planner: 'ink',
+  agent: 'orange',
   docs: 'sky',
   settings: 'mute',
 } as const;

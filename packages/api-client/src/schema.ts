@@ -865,6 +865,98 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/actions/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Одно действие. */
+    get: operations['action'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/actions/{id}/fix': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Исправить результат действия: «не в чт, а в ср». Это твоё действие с
+     *     пометкой «поправка».
+     */
+    post: operations['fix'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/actions/{id}/revert': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Откатить действие (как `git revert`: новое обратное действие, его тоже
+     *     можно откатить). Если после действия объект меняли — `conflict` с тремя
+     *     значениями и ничего не изменено; повторить с `force`, чтобы вернуть как было.
+     */
+    post: operations['revert'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/batches/{id}/revert': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Откатить пакет — все шаги одного решения одной кнопкой. */
+    post: operations['revert_batch'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/timeline': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Лента «Что сделал агент» — вся, у дела, у проекта или одного пакета. */
+    get: operations['timeline'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/inbox': {
     parameters: {
       query?: never;
@@ -1057,6 +1149,150 @@ export interface components {
       sessions: number;
       /** @description `active`, `pending_email` или `blocked`. */
       status: string;
+    };
+    /** @description Строка ленты. */
+    AgentAction: {
+      /** @description `agent` — агент, `owner` — ты, `system` — Qubite. */
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      /**
+       * Format: uuid
+       * @description Шаги одного решения откатываются вместе.
+       */
+      batch_id: string;
+      changes: components['schemas']['AgentChange'][];
+      /**
+       * Format: uuid
+       * @description … или поправка к действию.
+       */
+      corrects?: string | null;
+      /**
+       * Format: int64
+       * @description Цена вызова AI, миллионные доли доллара.
+       */
+      cost_usd_micros?: number | null;
+      /** Format: uuid */
+      id: string;
+      /** @description Почему. */
+      reason?: string | null;
+      /**
+       * Format: uuid
+       * @description Это откат действия …
+       */
+      reverts?: string | null;
+      /** Format: uuid */
+      run_id?: string | null;
+      /**
+       * Format: int64
+       * @description Порядок ленты; курсор «ещё».
+       */
+      seq: number;
+      /** Format: uuid */
+      skill_id?: string | null;
+      state: components['schemas']['AgentActionState'];
+      /** @description Что сделано. */
+      summary: string;
+      /**
+       * @description `task.create`, `task.update`, `task.reschedule`, `task.trash`,
+       *     `project.create`, `project.update`, `inbox.file`, `timeline.revert`.
+       */
+      tool: string;
+    };
+    /** @description Что с действием сейчас. */
+    AgentActionState: {
+      /**
+       * Format: int64
+       * @description Шагов в пакете (1 — одиночное действие).
+       */
+      batch_size: number;
+      /** @description Твои поправки к действию. */
+      corrected_by: string[];
+      /**
+       * Format: uuid
+       * @description Откачено этим действием (если откат не откатили обратно).
+       */
+      reverted_by?: string | null;
+    };
+    /** @description «Было → стало» по одному объекту. */
+    AgentChange: {
+      /** @description Объект создан этим действием. */
+      created: boolean;
+      diff: components['schemas']['AgentFieldChange'][];
+      /** Format: uuid */
+      object_id: string;
+      /** @description `planner.task`, `planner.project`, `inbox.item`. */
+      object_type: string;
+      /** @description Название после действия. */
+      title: string;
+    };
+    /** @description Поле, которое поменяли после действия: три значения. */
+    AgentConflict: {
+      /** @description Что сделало действие. */
+      action: Record<string, never>;
+      /** Format: uuid */
+      action_id: string;
+      /** @description До действия (`null` — объекта не было). */
+      before: Record<string, never>;
+      field: string;
+      /** @description Что сейчас. */
+      now: Record<string, never>;
+      /** Format: uuid */
+      object_id: string;
+      object_type: string;
+      /** @description Название сейчас. */
+      title: string;
+    };
+    /** @description Одно поле: было и стало (`null` — пусто или объекта не было). */
+    AgentFieldChange: {
+      after: Record<string, never>;
+      before: Record<string, never>;
+      /**
+       * @description `title`, `deleted` или поле модуля: `due_date`, `due_time`,
+       *     `project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,
+       *     `color`, `tag`, `body`.
+       */
+      field: string;
+    };
+    /** @description Исправить результат действия (это твоя поправка — агент на ней учится). */
+    AgentFixRequest: {
+      /**
+       * @description Поля, как в синхронизации: `due_date`, `due_time`, `project_id`,
+       *     `priority`, … (`null` очищает).
+       */
+      fields?: Record<string, never>;
+      /**
+       * Format: uuid
+       * @description Дело или проект из этого действия.
+       */
+      object_id: string;
+      /** @description Новое название. */
+      title?: string | null;
+    };
+    /** @description Откатить. */
+    AgentRevertRequest: {
+      /** @description Вернуть как было, даже если после действия объект меняли. */
+      force?: boolean;
+    };
+    /** @description Чем кончился откат. */
+    AgentRevertResult: {
+      /** @description Новые действия-откаты. */
+      actions: components['schemas']['AgentAction'][];
+      conflicts: components['schemas']['AgentConflict'][];
+      /**
+       * @description `reverted` — откачено; `conflict` — ничего не изменено, после
+       *     действия объект меняли: решить и повторить с `force`.
+       */
+      status: string;
+    };
+    /** @description Страница ленты: новые сверху. */
+    AgentTimelinePage: {
+      items: components['schemas']['AgentAction'][];
+      /**
+       * Format: int64
+       * @description Передать как `before`, чтобы получить ещё; нет — дальше пусто.
+       */
+      next?: number | null;
     };
     /** @description Модель из каталога провайдера. */
     AiCatalogItem: {
@@ -3825,6 +4061,267 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Readiness'];
+        };
+      };
+    };
+  };
+  action: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID действия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Действие */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого действия */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  fix: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID действия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentFixRequest'];
+      };
+    };
+    responses: {
+      /** @description Поправка — новое действие в ленте */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Неверные поля или нечего менять */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого действия или объекта в нём */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  revert: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID действия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentRevertRequest'];
+      };
+    };
+    responses: {
+      /** @description Откачено или конфликт */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentRevertResult'];
+        };
+      };
+      /** @description Нет доступа к агенту или к модулю объекта */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого действия */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Уже откачено, объекта больше нет или его только что изменили */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  revert_batch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID пакета */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentRevertRequest'];
+      };
+    };
+    responses: {
+      /** @description Откачено или конфликт */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentRevertResult'];
+        };
+      };
+      /** @description Нет доступа к агенту или к модулю объекта */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого пакета */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Уже откачено, объекта больше нет или его только что изменили */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  timeline: {
+    parameters: {
+      query?: {
+        /** @description Лента одного объекта (дело, мысль). */
+        object?: string | null;
+        /** @description Лента проекта: сам проект и дела, которые были или стали в нём. */
+        project?: string | null;
+        /** @description Шаги одного пакета. */
+        batch?: string | null;
+        /** @description Курсор `next` прошлой страницы. */
+        before?: number | null;
+        /** @description 1…100, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Страница ленты, новые сверху */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentTimelinePage'];
+        };
+      };
+      /** @description Сразу несколько фильтров */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };

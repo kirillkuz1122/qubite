@@ -4,7 +4,7 @@
  */
 import type { ColorName, CompanionKind, IconName } from '@qubite/ui';
 
-export type SectionId = 'today' | 'inbox' | 'planner' | 'docs' | 'settings';
+export type SectionId = 'today' | 'inbox' | 'planner' | 'agent' | 'docs' | 'settings';
 
 export interface Section {
   id: SectionId;
@@ -28,6 +28,7 @@ export const SECTIONS: Section[] = [
     icon: 'planner',
     who: 'proto',
   },
+  { id: 'agent', path: '/agent', name: 'Агент', title: 'АГЕНТ', icon: 'agent', who: 'proto' },
   { id: 'docs', path: '/docs', name: 'Docs', title: 'DOCS', icon: 'docs', who: 'neit' },
   {
     id: 'settings',

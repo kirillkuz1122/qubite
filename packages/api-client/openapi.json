@@ -2520,6 +2520,371 @@
         }
       }
     },
+    "/api/v1/agent/actions/{id}": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Одно действие.",
+        "operationId": "action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID действия",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Действие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого действия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/actions/{id}/fix": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Исправить результат действия: «не в чт, а в ср». Это твоё действие с\nпометкой «поправка».",
+        "operationId": "fix",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID действия",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentFixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Поправка — новое действие в ленте",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные поля или нечего менять",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого действия или объекта в нём",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/actions/{id}/revert": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Откатить действие (как `git revert`: новое обратное действие, его тоже\nможно откатить). Если после действия объект меняли — `conflict` с тремя\nзначениями и ничего не изменено; повторить с `force`, чтобы вернуть как было.",
+        "operationId": "revert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID действия",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRevertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Откачено или конфликт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevertResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту или к модулю объекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого действия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Уже откачено, объекта больше нет или его только что изменили",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/batches/{id}/revert": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Откатить пакет — все шаги одного решения одной кнопкой.",
+        "operationId": "revert_batch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID пакета",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRevertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Откачено или конфликт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevertResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту или к модулю объекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого пакета",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Уже откачено, объекта больше нет или его только что изменили",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/timeline": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Лента «Что сделал агент» — вся, у дела, у проекта или одного пакета.",
+        "operationId": "timeline",
+        "parameters": [
+          {
+            "name": "object",
+            "in": "query",
+            "description": "Лента одного объекта (дело, мысль).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "description": "Лента проекта: сам проект и дела, которые были или стали в нём.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "batch",
+            "in": "query",
+            "description": "Шаги одного пакета.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Курсор `next` прошлой страницы.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1…100, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница ленты, новые сверху",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTimelinePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Сразу несколько фильтров",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inbox": {
       "get": {
         "tags": ["inbox"],
@@ -3211,6 +3576,270 @@
           "status": {
             "type": "string",
             "description": "`active`, `pending_email` или `blocked`."
+          }
+        }
+      },
+      "AgentAction": {
+        "type": "object",
+        "description": "Строка ленты.",
+        "required": ["id", "seq", "at", "actor", "batch_id", "tool", "summary", "changes", "state"],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "description": "`agent` — агент, `owner` — ты, `system` — Qubite."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Шаги одного решения откатываются вместе."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentChange"
+            }
+          },
+          "corrects": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "… или поправка к действию."
+          },
+          "cost_usd_micros": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Цена вызова AI, миллионные доли доллара."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Почему."
+          },
+          "reverts": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Это откат действия …"
+          },
+          "run_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Порядок ленты; курсор «ещё»."
+          },
+          "skill_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AgentActionState"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Что сделано."
+          },
+          "tool": {
+            "type": "string",
+            "description": "`task.create`, `task.update`, `task.reschedule`, `task.trash`,\n`project.create`, `project.update`, `inbox.file`, `timeline.revert`."
+          }
+        }
+      },
+      "AgentActionState": {
+        "type": "object",
+        "description": "Что с действием сейчас.",
+        "required": ["corrected_by", "batch_size"],
+        "properties": {
+          "batch_size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Шагов в пакете (1 — одиночное действие)."
+          },
+          "corrected_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Твои поправки к действию."
+          },
+          "reverted_by": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Откачено этим действием (если откат не откатили обратно)."
+          }
+        }
+      },
+      "AgentChange": {
+        "type": "object",
+        "description": "«Было → стало» по одному объекту.",
+        "required": ["object_id", "object_type", "title", "created", "diff"],
+        "properties": {
+          "created": {
+            "type": "boolean",
+            "description": "Объект создан этим действием."
+          },
+          "diff": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFieldChange"
+            }
+          },
+          "object_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object_type": {
+            "type": "string",
+            "description": "`planner.task`, `planner.project`, `inbox.item`."
+          },
+          "title": {
+            "type": "string",
+            "description": "Название после действия."
+          }
+        }
+      },
+      "AgentConflict": {
+        "type": "object",
+        "description": "Поле, которое поменяли после действия: три значения.",
+        "required": [
+          "action_id",
+          "object_id",
+          "object_type",
+          "title",
+          "field",
+          "before",
+          "action",
+          "now"
+        ],
+        "properties": {
+          "action": {
+            "type": "object",
+            "description": "Что сделало действие."
+          },
+          "action_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "before": {
+            "type": "object",
+            "description": "До действия (`null` — объекта не было)."
+          },
+          "field": {
+            "type": "string"
+          },
+          "now": {
+            "type": "object",
+            "description": "Что сейчас."
+          },
+          "object_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object_type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название сейчас."
+          }
+        }
+      },
+      "AgentFieldChange": {
+        "type": "object",
+        "description": "Одно поле: было и стало (`null` — пусто или объекта не было).",
+        "required": ["field", "before", "after"],
+        "properties": {
+          "after": {
+            "type": "object"
+          },
+          "before": {
+            "type": "object"
+          },
+          "field": {
+            "type": "string",
+            "description": "`title`, `deleted` или поле модуля: `due_date`, `due_time`,\n`project_id`, `priority`, `status`, `notes`, `subtasks`, `recurrence`,\n`color`, `tag`, `body`."
+          }
+        }
+      },
+      "AgentFixRequest": {
+        "type": "object",
+        "description": "Исправить результат действия (это твоя поправка — агент на ней учится).",
+        "required": ["object_id"],
+        "properties": {
+          "fields": {
+            "type": "object",
+            "description": "Поля, как в синхронизации: `due_date`, `due_time`, `project_id`,\n`priority`, … (`null` очищает)."
+          },
+          "object_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Дело или проект из этого действия."
+          },
+          "title": {
+            "type": ["string", "null"],
+            "description": "Новое название."
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentRevertRequest": {
+        "type": "object",
+        "description": "Откатить.",
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "description": "Вернуть как было, даже если после действия объект меняли."
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgentRevertResult": {
+        "type": "object",
+        "description": "Чем кончился откат.",
+        "required": ["status", "actions", "conflicts"],
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentAction"
+            },
+            "description": "Новые действия-откаты."
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentConflict"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "`reverted` — откачено; `conflict` — ничего не изменено, после\nдействия объект меняли: решить и повторить с `force`."
+          }
+        }
+      },
+      "AgentTimelinePage": {
+        "type": "object",
+        "description": "Страница ленты: новые сверху.",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentAction"
+            }
+          },
+          "next": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Передать как `before`, чтобы получить ещё; нет — дальше пусто."
           }
         }
       },
@@ -4716,6 +5345,10 @@
     {
       "name": "inbox",
       "description": "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"
+    },
+    {
+      "name": "agent",
+      "description": "Агент Qubite: лента «Что сделал агент», откат и исправление"
     }
   ]
 }

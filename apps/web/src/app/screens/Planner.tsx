@@ -1,7 +1,8 @@
 import { loop, MASS } from '@qubite/motion';
 import { Segmented, useFlow, useSpring } from '@qubite/ui';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
+import { AgentTimeline } from '../AgentTimeline';
 import { SecHead, TaskList } from '../parts';
 import { usePlanner } from '../planner-context';
 
@@ -42,6 +43,7 @@ function Week() {
   const planner = usePlanner();
   const shell = useShell();
   const [cur, setCur] = useState(() => planner.today);
+  const [openProject, setOpenProject] = useState<string | null>(null);
   const [shownDay, setShownDay] = useState(cur);
   const { node: flowNode, to: flowTo } = useFlow(70, 0, { className: 'q-chip-flow' });
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
@@ -117,6 +119,7 @@ function Week() {
               {day.today ? 'сегодня' : `${day.d}, ${day.n}`}
             </div>
           )}
+          detail={(t) => <AgentTimeline trail={{ object: t.id }} compact />}
           onToggle={(t, d) => {
             void planner.toggle(t.id, d);
             if (d) shell.cheer('proto');
@@ -132,18 +135,33 @@ function Week() {
         </p>
       )}
       {planner.projects.map((p) => (
-        <div className="proj" key={p.id}>
-          <span className="q-dot" style={{ background: `var(--q-${p.color})` }} />
-          <span className="name">{p.name}</span>
-          <span className="bar" aria-hidden="true">
-            {Array.from({ length: p.dots }, (_, k) => (
-              <i key={k} style={k < p.filled ? { background: `var(--q-${p.color})` } : undefined} />
-            ))}
-          </span>
-          <span className="n">
-            {p.done}/{p.total}
-          </span>
-        </div>
+        <Fragment key={p.id}>
+          <button
+            type="button"
+            className="proj"
+            aria-expanded={openProject === p.id}
+            onClick={() => setOpenProject(openProject === p.id ? null : p.id)}
+          >
+            <span className="q-dot" style={{ background: `var(--q-${p.color})` }} />
+            <span className="name">{p.name}</span>
+            <span className="bar" aria-hidden="true">
+              {Array.from({ length: p.dots }, (_, k) => (
+                <i
+                  key={k}
+                  style={k < p.filled ? { background: `var(--q-${p.color})` } : undefined}
+                />
+              ))}
+            </span>
+            <span className="n">
+              {p.done}/{p.total}
+            </span>
+          </button>
+          {openProject === p.id && (
+            <div className="trail">
+              <AgentTimeline trail={{ project: p.id }} compact />
+            </div>
+          )}
+        </Fragment>
       ))}
     </>
   );

@@ -176,6 +176,19 @@ pub async fn apply_one(
     apply_once(&mut conn, owner, device, op, rules).await
 }
 
+/// То же на своём соединении. Если оно уже в транзакции, операция идёт во
+/// вложенной (точка сохранения) и закрепляется вместе с внешней: так агент
+/// пишет изменение и строку своей ленты одной транзакцией (AGT-002).
+pub async fn apply_in(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    device: Uuid,
+    op: &Operation,
+    rules: &Rules,
+) -> Result<OpResult> {
+    apply_once(conn, owner, device, op, rules).await
+}
+
 /// Модули, которых касается пакет (создание — по типу, правка — по объекту).
 /// Чужие и несуществующие объекты не учитываются: они и так «не найдены».
 pub async fn modules_of(pool: &PgPool, owner: Uuid, ops: &[Operation]) -> Result<Vec<String>> {

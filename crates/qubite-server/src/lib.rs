@@ -3,6 +3,7 @@
 //! `router` собирает все маршруты; его же используют интеграционные тесты,
 //! поэтому тесты проверяют настоящий сервер, а не копию.
 
+pub mod agent;
 pub mod ai;
 pub mod auth;
 pub mod changes;
@@ -154,7 +155,12 @@ impl AppState {
         inbox::change,
         inbox::remove,
         inbox::restore,
-        inbox::decide
+        inbox::decide,
+        agent::timeline,
+        agent::action,
+        agent::revert,
+        agent::revert_batch,
+        agent::fix
     ),
     components(schemas(
         Health,
@@ -225,7 +231,16 @@ impl AppState {
         inbox::CaptureRequest,
         inbox::ChangeRequest,
         inbox::RevisionBody,
-        inbox::DecideRequest
+        inbox::DecideRequest,
+        agent::AgentFieldChange,
+        agent::AgentChange,
+        agent::AgentActionState,
+        agent::AgentAction,
+        agent::AgentTimelinePage,
+        agent::AgentConflict,
+        agent::AgentRevertResult,
+        agent::AgentRevertRequest,
+        agent::AgentFixRequest
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -233,7 +248,8 @@ impl AppState {
         (name = "modules", description = "Каталог модулей и права пользователя"),
         (name = "owner", description = "Owner Console. Для всех, кроме owner, этих адресов нет (404)"),
         (name = "sync", description = "Синхронизация устройств: пакет операций, изменения после курсора, WebSocket «есть новое»"),
-        (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети")
+        (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"),
+        (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление")
     )
 )]
 pub struct ApiDoc;
@@ -360,6 +376,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/inbox/{id}/restore", post(inbox::restore))
         .route("/api/v1/inbox/{id}/decide", post(inbox::decide))
+        .route("/api/v1/agent/timeline", get(agent::timeline))
+        .route("/api/v1/agent/actions/{id}", get(agent::action))
+        .route("/api/v1/agent/actions/{id}/revert", post(agent::revert))
+        .route("/api/v1/agent/actions/{id}/fix", post(agent::fix))
+        .route(
+            "/api/v1/agent/batches/{id}/revert",
+            post(agent::revert_batch),
+        )
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы
         // (им нужно знать, owner ли пришёл).
