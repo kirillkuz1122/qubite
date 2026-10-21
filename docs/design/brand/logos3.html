@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T5;src:url(../fonts/Tiny5-latin.woff2)}
+@font-face{font-family:T5;src:url(../fonts/Tiny5-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-latin.woff2)}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-cyrillic.woff2);unicode-range:U+0400-045F}
+body{margin:0;background:#100f0d}</style></head><body><canvas id=c></canvas>
+<script>
+const INK='#f3ede3',OR='#ff9852',BG='#100f0d',PANEL='#1b1916',MUTE='#a59c90';
+const G=(rows,ext=[])=>{const o=[];rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch==='x')o.push({x,y,c:INK});if(ch==='o')o.push({x,y,c:OR});}));return o.concat(ext);};
+const ring=(n,cx,cy,R,skip=()=>false)=>{const o=[];for(let y=0;y<n;y++)for(let x=0;x<n;x++){const d=Math.hypot(x-cx,y-cy);if(Math.abs(d-R)<0.55&&!skip(x,y))o.push({x,y,c:INK});}return o;};
+const rect=(x0,y0,w,h,fill=true)=>{const o=[];for(let y=y0;y<y0+h;y++)for(let x=x0;x<x0+w;x++){const corner=(x===x0||x===x0+w-1)&&(y===y0||y===y0+h-1);if(corner)continue;if(fill||x===x0||x===x0+w-1||y===y0||y===y0+h-1)o.push({x,y,c:INK});}return o;};
+const big=(x,y,s=2.2,c=OR)=>({x,y,c,s});
+const L=[
+ {n:'1 · Кет |•⟩',d:'так физики пишут состояние кубита; внутри — точка-агент',
+  cells:G(['x......x...','x.......x..','x........x.','x.........x','x........x.','x.......x..','x......x...'],[big(4.6,3,2.4)])},
+ {n:'1б · Кет |q⟩',d:'то же, внутри — буква q; хвост q — оранжевый',
+  cells:G(['x......x...','x...xx..x..','x..x.x...x.','x..x.x....x','x...xx...x.','x....x..x..','x....o.x...'])},
+ {n:'2 · Вектор состояния',d:'круг состояния и стрелка из центра к точке — куда сейчас направлено твоё время',
+  cells:(()=>{const o=ring(11,5,5,4.6,(x,y)=>x>=7&&y<=3);o.push({x:5,y:5,c:INK},{x:6,y:4,c:INK});o.push(big(7.6,2.4,2.4));return o;})()},
+ {n:'4 · Q-пузырь',d:'облачко сообщения с хвостиком — это и буква Q, и «агент пишет»',
+  cells:(()=>{const o=rect(0,0,9,9,false);o.push({x:0,y:0,c:INK},{x:8,y:0,c:INK},{x:0,y:8,c:INK},{x:8,y:8,c:INK});o.push({x:8,y:9,c:INK},{x:9,y:9,c:INK},{x:9,y:10,c:INK});o.push(big(4,4,2.6));return o;})()},
+ {n:'7 · Игральный кубик',d:'грань кубика и так из точек; три точки по диагонали, средняя — оранжевая',
+  cells:(()=>{const o=rect(0,0,9,9,true).filter(c=>!((c.x>=1&&c.x<=2&&c.y>=1&&c.y<=2)||(c.x>=6&&c.x<=7&&c.y>=6&&c.y<=7)||(c.x>=3&&c.x<=5&&c.y>=3&&c.y<=5)));o.push(big(4,4,2.6));return o;})()},
+ {n:'9 · Распад на частицы',d:'квадрат, у которого угол рассыпается на точки: агент дробит большое на маленькие шаги',
+  cells:(()=>{const o=rect(0,2,8,8,true).filter(c=>!(c.x+(9-c.y)>=12));
+    [[6.6,2.2],[8.6,1.6],[7.7,3.6],[9.8,3.2],[10.3,0.4]].forEach(([x,y])=>o.push({x,y,c:INK}));o.push({x:9.2,y:-0.6,c:OR});return o;})()},
+ {n:'10а · Хаос',d:'мысли вразброс, как во Входящих; одна — оранжевая: агент её уже заметил',
+  cells:[[0.3,1.2],[2.4,0],[4.9,0.9],[7.6,0.2],[1.5,3.4],[4,3.1],[6.7,2.8],[8.7,3.5],[0,6],[2.7,5.6],[5.4,5.9],[8,6.4],[1.4,8.4],[4.2,8.7],[6.9,8.9]].map(([x,y],i)=>({x,y,c:i===6?OR:INK}))},
+ {n:'10б · Хаос → порядок',d:'слева мысли вразброс, справа — те же точки разложены по полочкам',
+  cells:[[0,0.6],[1.6,2.4],[0.3,4.3],[2.2,5.6],[0.7,7.6],[2.7,0.2],[1.2,9],[3.2,8.2]].map(([x,y])=>({x,y,c:INK})).concat((()=>{const o=[];for(let r=0;r<4;r++)for(let c=0;c<3;c++)o.push({x:5+c*1.7,y:0.7+r*2.6,c:r===0&&c===0?OR:INK});return o;})())},
+ {n:'12 · Лицо помощника',d:'квадрат с глазами: Qubite — это кто-то, а не что-то; один глаз — оранжевая искра',
+  cells:(()=>{const o=rect(0,0,9,9,true).filter(c=>!((c.x>=2&&c.x<=3&&c.y>=2&&c.y<=3)||(c.x>=5&&c.x<=6&&c.y>=2&&c.y<=3)||(c.y===6&&c.x>=3&&c.x<=5)||(c.y===5&&(c.x===2||c.x===6))));o.push(big(5.5,2.5,2));return o;})()},
+ {n:'14 · Локоть-линейка',d:'cubit — древняя мера длины: египетская линейка-локоть с делениями; последнее — оранжевое',
+  cells:(()=>{const o=[];for(let x=0;x<11;x++)o.push({x,y:8,c:INK});[5,2,3,2,4,2,3,2,5,2].forEach((h,i)=>{for(let k=1;k<=h;k++)o.push({x:i,y:8-k,c:INK});});for(let k=1;k<=6;k++)o.push({x:10,y:8-k,c:INK});o.push(big(10,0.6,2.2));return o;})()},
+ {n:'15 · Локоть-сгиб',d:'рука, согнутая в локте: два отрезка и оранжевый сустав — «мера» и «угол» в одном',
+  cells:(()=>{const o=[];for(let i=0;i<7;i++)o.push({x:1,y:i,c:INK});for(let i=2;i<9;i++)o.push({x:i,y:8,c:INK});o.push(big(1,8,2.4));return o;})()},
+];
+function rr(g,x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,Math.max(0,r));g.fill();}
+function draw(g,l,mode,X,Y,S){
+  const cs=l.cells,minx=Math.min(...cs.map(c=>c.x-(c.s?c.s/2-0.5:0))),maxx=Math.max(...cs.map(c=>c.x+(c.s?c.s/2-0.5:0))),miny=Math.min(...cs.map(c=>c.y-(c.s?c.s/2-0.5:0))),maxy=Math.max(...cs.map(c=>c.y+(c.s?c.s/2-0.5:0)));
+  const w=maxx-minx+1,h=maxy-miny+1,n=Math.max(w,h),p=S/n,ox=X+(S-w*p)/2-minx*p,oy=Y+(S-h*p)/2-miny*p;
+  const gap=mode==='dots'?.08:.1,s=p*(1-gap);
+  const orange=()=>cs.filter(c=>c.c===OR).forEach(c=>{const k=(c.s||1),sz=k*p*(mode==='solid'?0.92:1-gap),cx=ox+c.x*p+p/2,cy=oy+c.y*p+p/2;rr(g,cx-sz/2,cy-sz/2,sz,sz,mode==='pixel'?sz*.06:sz/2,OR);});
+  if(mode==='solid'){const o=document.createElement('canvas');o.width=o.height=Math.ceil(S+80);const q=o.getContext('2d');q.filter=`blur(${p*0.12}px)`;
+    const grid=cs.filter(c=>c.c===INK).every(c=>Number.isInteger(c.x)&&Number.isInteger(c.y));
+    cs.filter(c=>c.c===INK).forEach(c=>{const x=40+ox-X+c.x*p,y=40+oy-Y+c.y*p;grid?rr(q,x-.5,y-.5,p+1,p+1,0,'#fff'):rr(q,x+p*.04,y+p*.04,p*.92,p*.92,p*.46,'#fff');});
+    const im=q.getImageData(0,0,o.width,o.height),d=im.data;for(let i=0;i<d.length;i+=4){d[i]=243;d[i+1]=237;d[i+2]=227;d[i+3]=d[i+3]>128?255:0;}
+    const o2=document.createElement('canvas');o2.width=o.width;o2.height=o.height;o2.getContext('2d').putImageData(im,0,0);g.drawImage(o2,X-40,Y-40);orange();return;}
+  cs.filter(c=>c.c===INK).forEach(c=>rr(g,ox+c.x*p+(p-s)/2,oy+c.y*p+(p-s)/2,s,s,mode==='dots'?s/2:s*.06,INK));orange();
+}
+window.board=(from,to,title)=>{const items=L.slice(from,to),W=110+items.length*340,H=1200,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle=BG;g.fillRect(0,0,W,H);g.fillStyle='rgba(243,237,227,.05)';for(let y=10;y<H;y+=20)for(let x=10;x<W;x+=20){g.beginPath();g.arc(x,y,1.1,0,7);g.fill();}
+  g.font='44px T5';g.fillStyle=INK;g.fillText(title,70,90);
+  g.font='18px Fira';g.fillStyle=MUTE;g.fillText('каждый знак: точки · пиксели · сплошной. только 2D',70,130);
+  ['точки','пиксели','сплошной'].forEach((t,i)=>{g.save();g.translate(60,320+i*290);g.rotate(-Math.PI/2);g.font='16px Fira';g.fillStyle=MUTE;g.fillText(t,-40,0);g.restore();});
+  items.forEach((l,i)=>{const x=110+i*340;
+    ['dots','pixel','solid'].forEach((m,j)=>{const y=190+j*290;rr(g,x,y,280,260,32,PANEL);g.strokeStyle='rgba(243,237,227,.12)';g.lineWidth=1.5;g.beginPath();g.roundRect(x,y,280,260,32);g.stroke();draw(g,l,m,x+65,y+55,150);});
+    g.font='22px Fira';g.fillStyle=INK;g.fillText(l.n,x,1080);
+    g.font='15px Fira';g.fillStyle=MUTE;let line='',yy=1108;for(const w of l.d.split(' ')){if(g.measureText(line+w).width>285){g.fillText(line,x,yy);line='';yy+=22;}line+=w+' ';}g.fillText(line,x,yy);});
+};
+</script></body></html>
