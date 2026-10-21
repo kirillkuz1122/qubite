@@ -337,6 +337,18 @@ pub async fn call(
         let action = crate::proactive::send(pool, who, arguments, reason, batch).await?;
         return Ok(Outcome::Done(Box::new(action)));
     }
+    if tool == crate::why::TOOL {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WhyArgs {
+            batch_id: Uuid,
+            answer: String,
+        }
+        let WhyArgs { batch_id, answer } = args(tool, arguments)?;
+        let why = crate::why::answer(pool, who, batch_id, &answer).await?;
+        let lesson = why.kind.is_some_and(crate::why::Kind::lesson);
+        return Ok(Outcome::Read(json!({ "recorded": true, "lesson": lesson })));
+    }
     let account = who.account();
     let mut pooled = pool.acquire().await?;
     let conn = &mut *pooled;

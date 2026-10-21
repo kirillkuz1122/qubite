@@ -940,6 +940,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/batches/{id}/why': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * «Почему откатил?» — ответ на пакет отката (по желанию, D-397). «Ошибся»,
+     *     «не надо такого» и свои слова — урок агенту; «не сейчас» — нет.
+     */
+    post: operations['revert_why'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/agent/chat': {
     parameters: {
       query?: never;
@@ -974,7 +994,8 @@ export interface paths {
      */
     get: operations['list_files'];
     put?: never;
-    post?: never;
+    /** «Новый файл» руками (D-391): строка ленты с откатом. */
+    post: operations['create_file'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1761,6 +1782,7 @@ export interface components {
        * @description Откачено этим действием (если откат не откатили обратно).
        */
       reverted_by?: string | null;
+      why?: components['schemas']['AgentRevertWhy'] | null;
     };
     /** @description Ответ на вопрос. */
     AgentAnswer: {
@@ -1870,6 +1892,13 @@ export interface components {
     /** @description Папка агента. */
     AgentFileList: {
       files: components['schemas']['AgentFileInfo'][];
+    };
+    /** @description «Новый файл» руками. */
+    AgentFileNew: {
+      /** @description Текст (Markdown), можно пустой. */
+      body?: string;
+      /** @description Имя или путь: «Кружок», «Проекты/Робототехника» (`.md` допишется сам). */
+      path: string;
     };
     /** @description Исправить результат действия (это твоя поправка — агент на ней учится). */
     AgentFixRequest: {
@@ -1998,6 +2027,22 @@ export interface components {
        *     действия объект меняли: решить и повторить с `force`.
        */
       status: string;
+    };
+    /** @description «Почему откатил?» и ответ. */
+    AgentRevertWhy: {
+      /** @description Свой текст (у кнопок пусто). */
+      answer: string;
+      /**
+       * @description `mistake` — ошибся, `not_now` — не сейчас, `never` — не надо такого,
+       *     `own` — свой текст; `null` — ещё не ответил.
+       */
+      kind?: string | null;
+      /** @description Агент на этом учится («не сейчас» и молчание — не урок). */
+      lesson: boolean;
+    };
+    /** @description Ответ на «почему откатил»: `ошибся`, `не сейчас`, `не надо такого` или свои слова. */
+    AgentRevertWhyAnswer: {
+      answer: string;
     };
     /** @description Написать агенту. */
     AgentSay: {
@@ -5401,6 +5446,60 @@ export interface operations {
       };
     };
   };
+  revert_why: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID пакета отката */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentRevertWhyAnswer'];
+      };
+    };
+    responses: {
+      /** @description Ответ записан */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentRevertWhy'];
+        };
+      };
+      /** @description Пустой ответ или уже ответили */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Про этот откат не спрашивали */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   chat_list: {
     parameters: {
       query?: {
@@ -5505,6 +5604,48 @@ export interface operations {
         };
       };
       /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentFileNew'];
+      };
+    };
+    responses: {
+      /** @description Файл заведён — новое действие в ленте */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentAction'];
+        };
+      };
+      /** @description Неверное имя, такой уже есть или слишком длинный */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять */
       403: {
         headers: {
           [name: string]: unknown;

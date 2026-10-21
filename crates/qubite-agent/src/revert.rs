@@ -296,6 +296,8 @@ async fn revert_all(
         tx.rollback().await?;
         return Ok(RevertOutcome::Conflict { conflicts });
     }
+    // Откатил действие агента — он спросит «почему» (по желанию, D-397).
+    crate::why::ask(&mut tx, who, batch, &live).await?;
     tx.commit().await?;
     Ok(RevertOutcome::Reverted { actions: done })
 }

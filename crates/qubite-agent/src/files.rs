@@ -939,6 +939,13 @@ mod tests {
         assert_eq!(slots[0].title, "Алгебра");
         assert_eq!(slots[1].weekday, 2);
         assert!(slots[1].quiet);
+        // «Не беспокоить» по умолчанию «да» (D-391): и без колонки, и с пустой ячейкой.
+        let slots = schedule::parse(
+            "| День | Начало | Конец | Что | Где | Не беспокоить |\n|-|-|-|-|-|-|\n\
+             | пн | 8:30 | 9:15 | Алгебра | | |\n| ср | 16:00 | 17:00 | Кружок | | нет |",
+        )
+        .unwrap();
+        assert!(slots[0].quiet && !slots[1].quiet);
         assert!(
             schedule::parse("| День | Начало | Конец | Что |\n|-|-|-|-|\n| пн | 9 | 10:00 | А |")
                 .unwrap_err()

@@ -4,6 +4,9 @@
  * поправка — видна в ленте), скачать `.md`; внизу файла — «Поправить»: пишешь словами, что не
  * так, агент исправляет сразу. Сверху — «Агент хочет знать».
  *
+ * AGT-007 (D-391): главный путь — поле внизу: «поменяй…», «заведи файл про…» — агент делает сам.
+ * Кнопка «Новый файл» — для тех, кто хочет завести файл руками (имя и текст).
+ *
  * «Навыки» (AGT-003): по папке — экран всех навыков с описаниями и «когда пользовался»; у навыка —
  * закрепить (куратор не трогает), убрать в архив и вернуть одной кнопкой.
  */
@@ -13,11 +16,13 @@ import { Fail, say } from '../auth/client';
 import {
   useAnswer,
   useChat,
+  useCreateFile,
   useEditFile,
   useFile,
   useFiles,
   useFixFile,
   useQuestions,
+  useSay,
   useSkillChange,
   useSkills,
   type SkillChange,
@@ -39,6 +44,7 @@ const SKILLS_VIEW = 'skills';
 export function AgentRecords() {
   const files = useFiles();
   const [open, setOpen] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const list = files.data?.files ?? [];
   const shown =
     open === SKILLS_VIEW || (open && list.some((f) => f.id === open))
@@ -61,6 +67,15 @@ export function AgentRecords() {
       <Questions />
       <div className="rec-body">
         <nav className="rec-tree" aria-label="Файлы агента">
+          <Button
+            size="sm"
+            dot={false}
+            className="rec-new"
+            aria-pressed={creating}
+            onClick={() => setCreating((c) => !c)}
+          >
+            Новый файл
+          </Button>
           {tree(list).map((folder) => (
             <div key={folder.name || '/'} className="rec-folder">
               {folder.name === 'Навыки' ? (
@@ -68,7 +83,10 @@ export function AgentRecords() {
                   type="button"
                   className={`rec-folder-name rec-folder-open${shown === SKILLS_VIEW ? ' on' : ''}`}
                   aria-current={shown === SKILLS_VIEW ? 'true' : undefined}
-                  onClick={() => setOpen(SKILLS_VIEW)}
+                  onClick={() => {
+                    setCreating(false);
+                    setOpen(SKILLS_VIEW);
+                  }}
                 >
                   Навыки — все
                 </button>
@@ -84,7 +102,10 @@ export function AgentRecords() {
                         type="button"
                         className={f.id === shown ? 'on' : undefined}
                         aria-current={f.id === shown ? 'true' : undefined}
-                        onClick={() => setOpen(f.id)}
+                        onClick={() => {
+                          setCreating(false);
+                          setOpen(f.id);
+                        }}
                       >
                         <span>{fileName(f.path)}</span>
                         {u.full && <i className="rec-full" title="почти полон" />}
@@ -96,7 +117,18 @@ export function AgentRecords() {
             </div>
           ))}
         </nav>
-        {shown === SKILLS_VIEW ? <SkillsView onOpen={setOpen} /> : shown && <FileView id={shown} />}
+        {creating ? (
+          <NewFile
+            onDone={(id) => {
+              setCreating(false);
+              if (id) setOpen(id);
+            }}
+          />
+        ) : shown === SKILLS_VIEW ? (
+          <SkillsView onOpen={setOpen} />
+        ) : (
+          shown && <FileView id={shown} />
+        )}
       </div>
     </div>
   );
@@ -207,6 +239,7 @@ function SkillsView({ onOpen }: { onOpen: (id: string) => void }) {
           </ul>
         </>
       )}
+      <SayField />
     </section>
   );
 }
@@ -376,12 +409,14 @@ function FixField({ file }: { file: AgentFile }) {
 
   return (
     <form className="rec-fix" onSubmit={submit} aria-label="Поправить">
+      <p className="rec-fix-title">Скажи агенту — он сделает сам</p>
+      <Hints onPick={setText} />
       <Field
-        label="Поправить"
-        placeholder="Что не так? Например: «на самом деле русский по вт и чт»"
+        label="Поправить или попросить"
+        placeholder="Например: «на самом деле русский по вт и чт» или «заведи файл про кружок»"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        hint="Агент исправит сразу — правка будет видна в «Ленте», её можно откатить."
+        hint="Агент сделает сразу — правка будет видна в «Ленте», её можно откатить."
       />
       <Button
         size="sm"
@@ -406,6 +441,142 @@ function FixField({ file }: { file: AgentFile }) {
           {error}
         </p>
       )}
+    </form>
+  );
+}
+
+/** Подсказки для поля внизу: с чего начать фразу. */
+const HINTS = ['Поменяй ', 'Допиши: ', 'Заведи файл про '] as const;
+
+function Hints({ onPick }: { onPick: (text: string) => void }) {
+  return (
+    <div className="rec-hints" aria-label="Подсказки">
+      {HINTS.map((h) => (
+        <button key={h} type="button" className="rec-hint-chip" onClick={() => onPick(h)}>
+          {h.trim().replace(/:$/, '')} …
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Поле внизу экрана навыков: сказать агенту что угодно (как в «Разговоре»). */
+function SayField() {
+  const sayTo = useSay();
+  const chat = useChat();
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const messages = chat.data?.messages ?? [];
+  const mine = sent ? messages.find((m) => m.id === sent) : undefined;
+  const answer = sent ? messages.find((m) => m.reply_to === sent) : undefined;
+  const thinking = !!sent && (!mine || mine.status === 'pending');
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const t = text.trim();
+    if (!t) return;
+    setError(null);
+    sayTo.mutate(t, {
+      onSuccess: (m) => {
+        setSent(m.id);
+        setText('');
+      },
+      onError: (er) => setError(say(er)),
+    });
+  }
+
+  return (
+    <form className="rec-fix" onSubmit={submit} aria-label="Скажи агенту">
+      <p className="rec-fix-title">Скажи агенту — он сделает сам</p>
+      <Hints onPick={setText} />
+      <Field
+        label="Попросить агента"
+        placeholder="Например: «ДЗ ставь вечером накануне» или «заведи файл про олимпиаду»"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <Button
+        size="sm"
+        variant="fill"
+        type="submit"
+        disabled={sayTo.isPending || thinking || !text.trim()}
+      >
+        Отправить
+      </Button>
+      {thinking && (
+        <p className="rec-status" role="status">
+          Агент делает…
+        </p>
+      )}
+      {answer && (
+        <p className="rec-status" role="status">
+          <b>Агент:</b> {answer.text}
+        </p>
+      )}
+      {error && (
+        <p className="act-error" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
+/** «Новый файл» руками: имя и текст. Проще — попросить агента в поле внизу. */
+function NewFile({ onDone }: { onDone: (id: string | null) => void }) {
+  const create = useCreateFile();
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setError(null);
+    create.mutate(
+      { path: name.trim(), body: text },
+      {
+        onSuccess: (a) => onDone(a.changes[0]?.object_id ?? null),
+        onError: (er) => setError(say(er)),
+      },
+    );
+  }
+
+  return (
+    <form className="rec-view panel rec-edit" onSubmit={submit} aria-label="Новый файл">
+      <header className="rec-head">
+        <div>
+          <h2>Новый файл</h2>
+          <p>
+            Проще сказать агенту «заведи файл про …» в поле внизу любого файла. Свой файл — в
+            «Ленте», его можно откатить. Папка — через «/»: «Проекты/Робототехника».
+          </p>
+        </div>
+      </header>
+      <Field
+        label="Имя файла"
+        placeholder="Например: Кружок"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <label className="rec-label" htmlFor="rec-new-text">
+        Текст (Markdown, можно пустой)
+      </label>
+      <textarea id="rec-new-text" value={text} rows={8} onChange={(e) => setText(e.target.value)} />
+      {error && (
+        <p className="act-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="act-btns">
+        <Button size="sm" variant="fill" type="submit" disabled={create.isPending || !name.trim()}>
+          Завести
+        </Button>
+        <Button size="sm" dot={false} type="button" onClick={() => onDone(null)}>
+          Отмена
+        </Button>
+      </div>
     </form>
   );
 }

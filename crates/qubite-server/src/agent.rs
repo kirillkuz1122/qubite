@@ -59,6 +59,37 @@ pub struct AgentActionState {
     corrected_by: Vec<Uuid>,
     /// Шагов в пакете (1 — одиночное действие).
     batch_size: i64,
+    /// У отката действия агента — вопрос «почему откатил» (D-397).
+    why: Option<AgentRevertWhy>,
+}
+
+/// «Почему откатил?» и ответ.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AgentRevertWhy {
+    /// `mistake` — ошибся, `not_now` — не сейчас, `never` — не надо такого,
+    /// `own` — свой текст; `null` — ещё не ответил.
+    kind: Option<String>,
+    /// Свой текст (у кнопок пусто).
+    answer: String,
+    /// Агент на этом учится («не сейчас» и молчание — не урок).
+    lesson: bool,
+}
+
+impl From<qubite_agent::why::Why> for AgentRevertWhy {
+    fn from(why: qubite_agent::why::Why) -> Self {
+        Self {
+            kind: why.kind.map(|kind| kind.as_str().to_owned()),
+            answer: why.answer,
+            lesson: why.kind.is_some_and(qubite_agent::why::Kind::lesson),
+        }
+    }
+}
+
+/// Ответ на «почему откатил»: `ошибся`, `не сейчас`, `не надо такого` или свои слова.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AgentRevertWhyAnswer {
+    answer: String,
 }
 
 /// Строка ленты.
@@ -133,6 +164,7 @@ impl From<qubite_agent::Action> for AgentAction {
                 reverted_by: action.state.reverted_by,
                 corrected_by: action.state.corrected_by,
                 batch_size: action.state.batch_size,
+                why: action.state.why.map(AgentRevertWhy::from),
             },
         }
     }
@@ -381,6 +413,29 @@ pub async fn revert_batch(
         .await
         .map_err(agent_error)?;
     Ok(Json(outcome.into()))
+}
+
+/// «Почему откатил?» — ответ на пакет отката (по желанию, D-397). «Ошибся»,
+/// «не надо такого» и свои слова — урок агенту; «не сейчас» — нет.
+#[utoipa::path(post, path = "/api/v1/agent/batches/{id}/why", tag = "agent",
+    request_body = AgentRevertWhyAnswer,
+    params(("id" = Uuid, Path, description = "ID пакета отката")),
+    responses(
+        (status = 200, description = "Ответ записан", body = AgentRevertWhy),
+        (status = 400, description = "Пустой ответ или уже ответили", body = ApiErrorBody),
+        (status = 403, description = "Нет доступа к агенту", body = ApiErrorBody),
+        (status = 404, description = "Про этот откат не спрашивали", body = ApiErrorBody),
+    ))]
+pub async fn revert_why(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    Json(request): Json<AgentRevertWhyAnswer>,
+) -> Result<Json<AgentRevertWhy>, ApiError> {
+    let why = qubite_agent::why::answer(state.db.pool(), &who(&session), id, &request.answer)
+        .await
+        .map_err(agent_error)?;
+    Ok(Json(why.into()))
 }
 
 /// Исправить результат действия: «не в чт, а в ср». Это твоё действие с

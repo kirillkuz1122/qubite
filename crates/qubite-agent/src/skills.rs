@@ -67,6 +67,27 @@ pub const BUILTIN: &[Builtin] = &[
         key: "schedule",
         body: include_str!("skills/schedule.md"),
     },
+    // AGT-007 (D-392, D-395): интересы владельца и банк идей.
+    Builtin {
+        key: "olympiad",
+        body: include_str!("skills/olympiad.md"),
+    },
+    Builtin {
+        key: "hackathon",
+        body: include_str!("skills/hackathon.md"),
+    },
+    Builtin {
+        key: "project-work",
+        body: include_str!("skills/project-work.md"),
+    },
+    Builtin {
+        key: "exam",
+        body: include_str!("skills/exam.md"),
+    },
+    Builtin {
+        key: "reading",
+        body: include_str!("skills/reading.md"),
+    },
 ];
 
 impl Builtin {

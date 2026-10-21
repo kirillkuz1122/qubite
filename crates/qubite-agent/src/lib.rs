@@ -30,6 +30,7 @@ pub mod revert;
 pub mod skills;
 pub mod timeline;
 pub mod tools;
+pub mod why;
 
 use qubite_policy::{DenyReason, Flags, ModuleId, Subject};
 use serde::{Deserialize, Serialize};

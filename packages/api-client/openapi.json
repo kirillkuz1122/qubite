@@ -2784,6 +2784,77 @@
         }
       }
     },
+    "/api/v1/agent/batches/{id}/why": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "«Почему откатил?» — ответ на пакет отката (по желанию, D-397). «Ошибся»,\n«не надо такого» и свои слова — урок агенту; «не сейчас» — нет.",
+        "operationId": "revert_why",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID пакета отката",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRevertWhyAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ записан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevertWhy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой ответ или уже ответили",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Про этот откат не спрашивали",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/chat": {
       "get": {
         "tags": ["agent"],
@@ -2910,6 +2981,53 @@
           },
           "403": {
             "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["agent"],
+        "summary": "«Новый файл» руками (D-391): строка ленты с откатом.",
+        "operationId": "create_file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentFileNew"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Файл заведён — новое действие в ленте",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное имя, такой уже есть или слишком длинный",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять",
             "content": {
               "application/json": {
                 "schema": {
@@ -5211,6 +5329,17 @@
             "type": ["string", "null"],
             "format": "uuid",
             "description": "Откачено этим действием (если откат не откатили обратно)."
+          },
+          "why": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgentRevertWhy",
+                "description": "У отката действия агента — вопрос «почему откатил» (D-397)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -5461,6 +5590,22 @@
           }
         }
       },
+      "AgentFileNew": {
+        "type": "object",
+        "description": "«Новый файл» руками.",
+        "required": ["path"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Текст (Markdown), можно пустой."
+          },
+          "path": {
+            "type": "string",
+            "description": "Имя или путь: «Кружок», «Проекты/Робототехника» (`.md` допишется сам)."
+          }
+        },
+        "additionalProperties": false
+      },
       "AgentFixRequest": {
         "type": "object",
         "description": "Исправить результат действия (это твоя поправка — агент на ней учится).",
@@ -5702,6 +5847,36 @@
             "description": "`reverted` — откачено; `conflict` — ничего не изменено, после\nдействия объект меняли: решить и повторить с `force`."
           }
         }
+      },
+      "AgentRevertWhy": {
+        "type": "object",
+        "description": "«Почему откатил?» и ответ.",
+        "required": ["answer", "lesson"],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "Свой текст (у кнопок пусто)."
+          },
+          "kind": {
+            "type": ["string", "null"],
+            "description": "`mistake` — ошибся, `not_now` — не сейчас, `never` — не надо такого,\n`own` — свой текст; `null` — ещё не ответил."
+          },
+          "lesson": {
+            "type": "boolean",
+            "description": "Агент на этом учится («не сейчас» и молчание — не урок)."
+          }
+        }
+      },
+      "AgentRevertWhyAnswer": {
+        "type": "object",
+        "description": "Ответ на «почему откатил»: `ошибся`, `не сейчас`, `не надо такого` или свои слова.",
+        "required": ["answer"],
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "AgentSay": {
         "type": "object",

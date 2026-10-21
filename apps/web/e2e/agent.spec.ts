@@ -104,9 +104,13 @@ async function mockAgent(page: Page, projectId: string, taskId: string) {
       return;
     }
     moved.state = { ...moved.state, reverted_by: crypto.randomUUID() };
-    route.fulfill({
-      json: { status: 'reverted', actions: [action({ actor: 'owner' })], conflicts: [] },
-    });
+    const undo = action({ actor: 'owner', tool: 'timeline.revert', reverts: moved.id });
+    undo.state = { ...undo.state, why: { kind: null, answer: '', lesson: false } } as never;
+    route.fulfill({ json: { status: 'reverted', actions: [undo], conflicts: [] } });
+  });
+  await page.route('**/api/v1/agent/batches/*/why', (route) => {
+    calls.push({ url: route.request().url(), body: route.request().postDataJSON() });
+    route.fulfill({ json: { kind: 'never', answer: '', lesson: true } });
   });
   await page.route('**/api/v1/agent/actions/*/fix', (route) => {
     calls.push({ url: route.request().url(), body: route.request().postDataJSON() });
@@ -152,6 +156,15 @@ test('лента агента: было → стало, конфликт отк�
   await expect(moved).toContainText('откачено');
   expect(agent.calls[1]).toMatchObject({ body: { force: true } });
   await expect(moved.getByRole('button', { name: 'Откатить', exact: true })).toHaveCount(0);
+
+  // После отката — необязательный вопрос «почему» (D-397): «не надо такого» — урок агенту.
+  const why = moved.getByRole('form', { name: 'Почему откатил?' });
+  await expect(why).toBeVisible();
+  await why.getByRole('button', { name: 'Не надо такого' }).click();
+  await expect(why).toHaveCount(0);
+  expect(agent.calls.find((c) => c.url.endsWith('/why'))?.body).toEqual({
+    answer: 'не надо такого',
+  });
 
   // «Исправить»: не 22-го, а 21-го.
   await filed.getByRole('button', { name: 'Исправить' }).click();
@@ -261,6 +274,18 @@ async function mockRecords(page: Page) {
     const body = req.postDataJSON() as Record<string, string> | null;
     calls.push({ method: req.method(), url: url.pathname, body });
     const parts = url.pathname.split('/').slice(4); // [files, id, fix]
+    if (parts[0] === 'files' && parts.length === 1 && req.method() === 'POST') {
+      const id = add(`${body!.path}.md`, 'file', body!.body ?? '', 6000);
+      return route.fulfill({
+        json: action({
+          actor: 'owner',
+          tool: 'files.create',
+          changes: [
+            { object_id: id, object_type: 'agent.file', title: '', created: true, diff: [] },
+          ],
+        }),
+      });
+    }
     if (parts[0] === 'files' && parts.length === 1) {
       return route.fulfill({ json: { files: [...files.values()].map(info) } });
     }
@@ -341,6 +366,7 @@ test('записи агента: дерево, правка руками, «По
 
   const tree = page.getByRole('navigation', { name: 'Файлы агента' });
   await expect(tree.getByRole('button')).toHaveText([
+    'Новый файл',
     'Кто я',
     'О тебе',
     'Память',
@@ -367,6 +393,10 @@ test('записи агента: дерево, правка руками, «По
   await expect(fix).toContainText('Агент: Исправил: русский по вт и чт.');
   await expect(view).toContainText('Русский — по вт и чт');
 
+  // Подсказка в поле внизу: «Заведи файл про …» — начало фразы.
+  await fix.getByRole('button', { name: 'Заведи файл про …' }).click();
+  await expect(fix.getByLabel('Поправить')).toHaveValue('Заведи файл про ');
+
   // Руками — сохранить с версией, которую видел.
   await view.getByRole('button', { name: 'Править' }).click();
   await view.getByLabel('Текст файла (Markdown)').fill('# Память\n\n- Ложусь в 23:00\n');
@@ -374,6 +404,18 @@ test('записи агента: дерево, правка руками, «По
   await expect(view).toContainText('Ложусь в 23:00');
   const put = server.calls.find((c) => c.method === 'PUT');
   expect(put?.body).toEqual({ body: '# Память\n\n- Ложусь в 23:00\n', revision: 2 });
+
+  // «Новый файл» руками (D-391): имя и текст — файл появляется в дереве и открывается.
+  await tree.getByRole('button', { name: 'Новый файл' }).click();
+  const made = page.getByRole('form', { name: 'Новый файл' });
+  await made.getByLabel('Имя файла').fill('Кружок');
+  await made.getByLabel('Текст (Markdown, можно пустой)').fill('Робототехника по ср');
+  await made.getByRole('button', { name: 'Завести' }).click();
+  await expect(page.getByRole('article', { name: 'Кружок' })).toContainText('Робототехника по ср');
+  expect(server.calls.find((c) => c.method === 'POST' && c.url.endsWith('/files'))?.body).toEqual({
+    path: 'Кружок',
+    body: 'Робототехника по ср',
+  });
 
   // «Кто я»: основа видна, но правится только «Твои правила».
   await tree.getByRole('button', { name: 'Кто я' }).click();

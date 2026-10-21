@@ -531,6 +531,51 @@ pub async fn edit(
     timeline::execute(pool, who, plan).await
 }
 
+/// «Новый файл» руками (владелец, D-391): имя и текст. Как и правка руками —
+/// строка ленты с откатом (откат кладёт файл в корзину).
+pub async fn create(pool: &PgPool, who: &Who, path: &str, body: &str) -> Result<Action> {
+    if who.actor() != Actor::Owner {
+        return Err(Error::NeedsOwner("руками заводит только человек".into()));
+    }
+    let path = files::normalize_path(path).map_err(Error::Invalid)?;
+    match files::kind_of(&path) {
+        Kind::Skill => {
+            return Err(Error::Invalid(
+                "навык заводит агент — напиши ему в поле внизу, что он должен уметь".into(),
+            ));
+        }
+        Kind::Core | Kind::User | Kind::Memory => {
+            return Err(Error::Invalid(format!(
+                "{} уже есть — открой его",
+                name(&path)
+            )));
+        }
+        _ => {}
+    }
+    let mut conn = pool.acquire().await?;
+    if files::by_path(&mut conn, who.account(), &path)
+        .await?
+        .is_some()
+    {
+        return Err(Error::Invalid(format!(
+            "{} уже есть — открой его",
+            name(&path)
+        )));
+    }
+    drop(conn);
+    let (body, redacted) = check(&path, body)?;
+    let plan = Plan {
+        tool: "files.create".into(),
+        summary: format!("Завёл файл {}{}", name(&path), redacted_note(redacted)),
+        reason: None,
+        batch: Uuid::now_v7(),
+        reverts: None,
+        corrects: None,
+        steps: vec![create_step(&path, body)],
+    };
+    timeline::execute(pool, who, plan).await
+}
+
 /// Ответить на вопрос агента (владелец) или отмахнуться (`answer` пустой).
 pub async fn answer(pool: &PgPool, who: &Who, question_id: Uuid, answer: &str) -> Result<Action> {
     if who.actor() != Actor::Owner {

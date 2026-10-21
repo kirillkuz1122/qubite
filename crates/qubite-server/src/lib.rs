@@ -182,10 +182,12 @@ impl AppState {
         agent::action,
         agent::revert,
         agent::revert_batch,
+        agent::revert_why,
         agent::fix,
         agent_memory::list_files,
         agent_memory::get_file,
         agent_memory::edit_file,
+        agent_memory::create_file,
         agent_memory::download_file,
         agent_memory::fix_file,
         agent_memory::chat_list,
@@ -291,6 +293,8 @@ impl AppState {
         agent::AgentFieldChange,
         agent::AgentChange,
         agent::AgentActionState,
+        agent::AgentRevertWhy,
+        agent::AgentRevertWhyAnswer,
         agent::AgentAction,
         agent::AgentTimelinePage,
         agent::AgentConflict,
@@ -301,6 +305,7 @@ impl AppState {
         agent_memory::AgentFileList,
         agent_memory::AgentFile,
         agent_memory::AgentFileEdit,
+        agent_memory::AgentFileNew,
         agent_memory::AgentFixText,
         agent_memory::AgentMessage,
         agent_memory::AgentChat,
@@ -494,7 +499,11 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/v1/agent/batches/{id}/revert",
             post(agent::revert_batch),
         )
-        .route("/api/v1/agent/files", get(agent_memory::list_files))
+        .route("/api/v1/agent/batches/{id}/why", post(agent::revert_why))
+        .route(
+            "/api/v1/agent/files",
+            get(agent_memory::list_files).post(agent_memory::create_file),
+        )
         .route(
             "/api/v1/agent/files/{id}",
             get(agent_memory::get_file).put(agent_memory::edit_file),

@@ -5,7 +5,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { must } from '../auth/client';
-import type { AgentPage, AgentRevertResult } from './agent-view';
+import type { AgentPage, AgentRevertResult, AgentRevertWhy } from './agent-view';
 
 /** Какая часть ленты: вся, у дела (мысли) или у проекта. */
 export type Trail = { object: string } | { project: string } | null;
@@ -66,6 +66,24 @@ export function useFix() {
         api.POST('/api/v1/agent/actions/{id}/fix', {
           params: { path: { id: action } },
           body: { object_id: object, title: title ?? null, fields: fields as never },
+        }),
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: TIMELINE }),
+  });
+}
+
+/**
+ * «Почему откатил?» — ответ на пакет отката: кнопка или свои слова. «Ошибся», «не надо такого» и
+ * свои слова — урок агенту, «не сейчас» — нет (D-397).
+ */
+export function useRevertWhy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batch, answer }: { batch: string; answer: string }) =>
+      must<AgentRevertWhy>(
+        api.POST('/api/v1/agent/batches/{id}/why', {
+          params: { path: { id: batch } },
+          body: { answer },
         }),
       ),
     onSettled: () => qc.invalidateQueries({ queryKey: TIMELINE }),

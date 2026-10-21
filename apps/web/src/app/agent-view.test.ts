@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   actorLabel,
+  asksWhy,
   conflictLines,
   costLabel,
   dateLabel,
@@ -8,6 +9,7 @@ import {
   fixTarget,
   valueLabel,
   whenLabel,
+  whyLine,
   type AgentAction,
   type AgentChange,
 } from './agent-view';
@@ -120,5 +122,41 @@ describe('лента агента словами', () => {
       ),
     ).toBeUndefined();
     expect(fixTarget(action({ changes: [change({ object_type: 'inbox.item' })] }))).toBeUndefined();
+  });
+});
+
+describe('почему откатил (D-397)', () => {
+  it('спрашивает только у отката без ответа', () => {
+    const asked = { kind: null, answer: '', lesson: false };
+    expect(
+      asksWhy(action({ reverts: 'a1', state: { batch_size: 1, corrected_by: [], why: asked } })),
+    ).toBe(true);
+    expect(asksWhy(action({ state: { batch_size: 1, corrected_by: [], why: asked } }))).toBe(false);
+    expect(asksWhy(action({ reverts: 'a1' }))).toBe(false);
+    expect(
+      asksWhy(
+        action({
+          reverts: 'a1',
+          state: {
+            batch_size: 1,
+            corrected_by: [],
+            why: { kind: 'never', answer: '', lesson: true },
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+  it('ответ словами: урок или нет', () => {
+    expect(whyLine({ kind: 'mistake', answer: '', lesson: true })).toBe(
+      'почему откатил: ошибся — агент учтёт',
+    );
+    expect(whyLine({ kind: 'not_now', answer: '', lesson: false })).toBe(
+      'почему откатил: не сейчас — не урок',
+    );
+    expect(whyLine({ kind: 'own', answer: 'физру не делаю', lesson: true })).toBe(
+      'почему откатил: «физру не делаю» — агент учтёт',
+    );
+    expect(whyLine({ kind: null, answer: '', lesson: false })).toBeNull();
+    expect(whyLine(undefined)).toBeNull();
   });
 });

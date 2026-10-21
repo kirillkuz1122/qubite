@@ -11,7 +11,7 @@ use qubite_agent::{
     files::{self, Kind},
     fix, memory, revert_action, revert_batch,
     skills::{self, OwnerChange},
-    start_run, timeline,
+    start_run, timeline, why,
 };
 use qubite_ai::{
     AiConfig, Gateway, MockProvider, MockStep,
@@ -100,7 +100,16 @@ async fn skills_are_written_refined_by_one_line_and_reverted() {
     let names: Vec<&str> = all.iter().map(|s| s.name.as_str()).collect();
     assert_eq!(
         names,
-        ["ДЗ к уроку", "Записать расписание", "Сходить куда-то"]
+        [
+            "ДЗ к уроку",
+            "Записать расписание",
+            "Подготовка к контрольной",
+            "Подготовка к олимпиаде",
+            "Проектная деятельность",
+            "Прочитать книгу к сроку",
+            "Сходить куда-то",
+            "Хакатон или конкурс",
+        ]
     );
     assert!(all.iter().all(|s| s.builtin && s.version == Some(1)));
     let page = timeline::list(pool, me, Feed::All, None, 10).await.unwrap();
@@ -318,16 +327,16 @@ async fn curator_archives_unused_skills_weekly_and_they_come_back() {
     // Свежие навыки куратор не трогает.
     let now = OffsetDateTime::now_utc();
     assert!(skills::curate(pool, me, now).await.unwrap().is_empty());
-    // Через 31 день: два встроенных — в архив, закреплённый остался.
+    // Через 31 день: встроенные — тоже в архив (D-396), закреплённый остался.
     let later = now + Duration::days(31);
-    assert_eq!(skills::curate_all(pool, later).await.unwrap(), 2);
+    assert_eq!(skills::curate_all(pool, later).await.unwrap(), 7);
     let page = timeline::list(pool, me, Feed::All, None, 10).await.unwrap();
     let curated: Vec<_> = page
         .items
         .iter()
         .filter(|a| a.tool == "skill.curate")
         .collect();
-    assert_eq!(curated.len(), 2);
+    assert_eq!(curated.len(), 7);
     assert!(curated.iter().all(|a| a.actor == Actor::System));
     assert!(
         curated[0]
@@ -345,7 +354,9 @@ async fn curator_archives_unused_skills_weekly_and_they_come_back() {
         .filter(|s| s.archived)
         .map(|s| s.name.as_str())
         .collect();
-    assert_eq!(archived, ["ДЗ к уроку", "Сходить куда-то"]);
+    assert_eq!(archived.len(), 7);
+    assert!(archived.contains(&"ДЗ к уроку") && archived.contains(&"Подготовка к олимпиаде"));
+    assert!(all.iter().filter(|s| s.archived).all(|s| s.builtin));
     assert!(
         skills::prompt_list(&all).contains("Записать расписание")
             && !skills::prompt_list(&all).contains("ДЗ к уроку"),
@@ -362,7 +373,7 @@ async fn curator_archives_unused_skills_weekly_and_they_come_back() {
     else {
         panic!("откат без конфликта");
     };
-    assert_eq!(actions.len(), 2);
+    assert_eq!(actions.len(), 7);
     let homework = skill(pool, me, "ДЗ к уроку").await;
     assert!(!homework.archived);
     // … или «Вернуть из архива»: часы куратора идут заново.
@@ -673,7 +684,7 @@ async fn review_sees_multistep_success_and_three_repeats() {
             })),
             reply(json!({
                 "tools": [{"tool": "skill.create", "why": "удачное многошаговое дело: подготовка к олимпиаде",
-                           "args": {"name": "Подготовка к олимпиаде", "description": "Проект и первые шаги к олимпиаде",
+                           "args": {"name": "Первые шаги к олимпиаде", "description": "Проект и первые шаги к олимпиаде",
                                     "body": "## Когда\nОлимпиада.\n\n## Как\n1. Проект.\n2. Регистрация.\n",
                                     "tools": ["project.create", "task.create"]}}],
             })),
@@ -705,10 +716,214 @@ async fn review_sees_multistep_success_and_three_repeats() {
     assert!(call.messages[0].content.contains("Блок multistep"));
     let mut conn = pool.acquire().await.unwrap();
     assert!(
-        skills::find(&mut conn, me, "Подготовка к олимпиаде")
+        skills::find(&mut conn, me, "Первые шаги к олимпиаде")
             .await
             .unwrap()
             .is_some()
+    );
+    drop(conn);
+
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn revert_asks_why_and_only_mistake_or_never_is_a_lesson() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let make = |title: &str| {
+        reply(json!({
+            "say": "Записал.",
+            "tools": [{"tool": "task.create", "why": "попросил владелец",
+                       "args": {"title": title, "fields": {"due_date": "2026-10-22"}}}],
+        }))
+    };
+    let (me, gateway, mock) = owner_with_ai(
+        pool,
+        vec![
+            make("Физра: отжимания"),
+            make("Физра: бег"),
+            reply(json!({"say": "Понял."})),
+            // Урок: «не надо такого» — в «О тебе».
+            reply(json!({"tools": [{"tool": "memory.add", "why": "откатил ДЗ по физре: не надо такого",
+                                     "args": {"path": "О тебе.md", "text": "ДЗ по физре делами не ставить"}}]})),
+        ],
+    )
+    .await;
+    let owner = Who::owner(me, None);
+    let made = async |text: &str| {
+        let message = say(pool, me, text).await;
+        brain::chat_turn(pool, &gateway, message.id, None)
+            .await
+            .unwrap()
+            .unwrap();
+        timeline::list(pool, me, Feed::All, None, 1)
+            .await
+            .unwrap()
+            .items[0]
+            .clone()
+    };
+    let learns = async |action: Uuid| -> i64 {
+        sqlx::query_scalar(
+            "SELECT count(*) FROM jobs WHERE kind = 'agent.learn' AND payload->>'action_id' = $1",
+        )
+        .bind(action.to_string())
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    };
+
+    // Откатил действие агента — у отката вопрос «почему», пока без ответа.
+    let first = made("ДЗ по физре: отжимания").await;
+    let RevertOutcome::Reverted { actions } =
+        revert_action(pool, &owner, first.id, false).await.unwrap()
+    else {
+        panic!("откат без конфликта");
+    };
+    let undo = timeline::get(pool, me, actions[0].id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        undo.state.why,
+        Some(why::Why {
+            kind: None,
+            answer: String::new()
+        })
+    );
+    assert!(first.state.why.is_none(), "у самого действия вопроса нет");
+    // «Не сейчас» — не урок; второй раз не отвечают.
+    let answered = why::answer(pool, &owner, undo.batch_id, "не сейчас")
+        .await
+        .unwrap();
+    assert_eq!(answered.kind, Some(why::Kind::NotNow));
+    assert_eq!(learns(undo.id).await, 0);
+    assert!(matches!(
+        why::answer(pool, &owner, undo.batch_id, "ошибся").await,
+        Err(Error::Invalid(_))
+    ));
+    // Откатил свой же откат — это не действие агента, не спрашиваем.
+    let RevertOutcome::Reverted { actions: back } =
+        revert_action(pool, &owner, undo.id, false).await.unwrap()
+    else {
+        panic!("откат без конфликта");
+    };
+    assert!(back[0].state.why.is_none());
+    assert!(matches!(
+        why::answer(pool, &owner, back[0].batch_id, "ошибся").await,
+        Err(Error::NotFound)
+    ));
+
+    // Второй откат без ответа — агент видит его в разговоре (так можно ответить и в Telegram)…
+    let second = made("ДЗ по физре: бег").await;
+    let RevertOutcome::Reverted { actions } =
+        revert_action(pool, &owner, second.id, false).await.unwrap()
+    else {
+        panic!("откат без конфликта");
+    };
+    let undo = actions[0].clone();
+    made("это я откатил — не надо такого").await;
+    let data = &mock.last_call().unwrap().messages[1].content;
+    assert!(data.contains("source=\"reverts\""), "{data}");
+    assert!(data.contains(&format!("batch_id {}", undo.batch_id)));
+    assert!(data.contains("Откатил: Создал дело «Физра: бег»"), "{data}");
+    // … и записывает ответ с его слов. «Не надо такого» — урок той же транзакцией.
+    let agent_who = agent(pool, me).await;
+    let recorded = tool(
+        pool,
+        &agent_who,
+        "revert.why",
+        json!({"batch_id": undo.batch_id, "answer": "не надо такого"}),
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(recorded.contains("\"lesson\":true"), "{recorded}");
+    assert_eq!(learns(undo.id).await, 1);
+    let mut conn = pool.acquire().await.unwrap();
+    assert!(why::open_block(&mut conn, me).await.unwrap().is_none());
+    drop(conn);
+
+    // Урок: агент видит, что откатили и почему, и пишет в «О тебе».
+    assert_eq!(
+        brain::learn(pool, &gateway, me, undo.id, None)
+            .await
+            .unwrap(),
+        1
+    );
+    let call = mock.last_call().unwrap();
+    assert!(
+        call.messages[0]
+            .content
+            .contains("откатил то, что ты сделал")
+    );
+    let data = &call.messages[1].content;
+    assert!(data.contains("Ты сделал"), "{data}");
+    assert!(data.contains("ответил: «не надо такого»"), "{data}");
+    let mut conn = pool.acquire().await.unwrap();
+    let about = files::by_path(&mut conn, me, "О тебе.md")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(about.body.contains("ДЗ по физре делами не ставить"));
+    drop(conn);
+
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn owner_makes_a_new_file_through_the_timeline() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = person(pool, "me@qubite.ru").await;
+    memory::ensure_base(pool, me).await.unwrap();
+    let owner = Who::owner(me, None);
+
+    let made = memory::create(
+        pool,
+        &owner,
+        " Кружок ",
+        "# Кружок\nРобототехника по ср, 16:00\n",
+    )
+    .await
+    .unwrap();
+    assert_eq!(made.summary, "Завёл файл «Кружок»");
+    assert_eq!(made.actor, Actor::Owner);
+    let mut conn = pool.acquire().await.unwrap();
+    let file = files::by_path(&mut conn, me, "Кружок.md")
+        .await
+        .unwrap()
+        .unwrap();
+    drop(conn);
+    assert_eq!(file.kind, Kind::File);
+    // Такой уже есть, «О тебе» есть всегда, навык заводит агент, агент руками не заводит.
+    for (path, needle) in [
+        ("кружок", "уже есть"),
+        ("О тебе", "уже есть"),
+        ("Навыки/Мой навык", "навык заводит агент"),
+    ] {
+        let error = memory::create(pool, &owner, path, "").await.unwrap_err();
+        assert!(error.to_string().contains(needle), "{path}: {error}");
+    }
+    let who = agent(pool, me).await;
+    assert!(matches!(
+        memory::create(pool, &who, "Ещё", "").await,
+        Err(Error::NeedsOwner(_))
+    ));
+    // Откат — файл в корзину; у отката своего действия вопроса «почему» нет.
+    let RevertOutcome::Reverted { actions } =
+        revert_action(pool, &owner, made.id, false).await.unwrap()
+    else {
+        panic!("откат без конфликта");
+    };
+    assert!(actions[0].state.why.is_none());
+    let mut conn = pool.acquire().await.unwrap();
+    assert!(
+        files::by_path(&mut conn, me, "Кружок.md")
+            .await
+            .unwrap()
+            .is_none()
     );
     drop(conn);
 

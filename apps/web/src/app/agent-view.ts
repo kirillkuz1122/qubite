@@ -247,3 +247,26 @@ export function fixTarget(a: AgentAction): AgentChange | undefined {
     a.changes.find((c) => c.object_type === 'planner.project')
   );
 }
+
+export type AgentRevertWhy = S['AgentRevertWhy'];
+
+/** Кнопки «почему откатил» (D-397); можно и своими словами. */
+export const WHY_BUTTONS = ['ошибся', 'не сейчас', 'не надо такого'] as const;
+
+const WHY_LABEL: Record<string, string> = {
+  mistake: 'ошибся',
+  not_now: 'не сейчас',
+  never: 'не надо такого',
+};
+
+/** Откат действия агента, а ответа «почему» ещё нет — можно спросить. */
+export function asksWhy(a: AgentAction): boolean {
+  return !!a.reverts && !!a.state.why && a.state.why.kind == null;
+}
+
+/** Что ответил на «почему откатил» и учится ли на этом агент. */
+export function whyLine(why: AgentRevertWhy | null | undefined): string | null {
+  if (!why?.kind) return null;
+  const said = why.kind === 'own' ? `«${why.answer}»` : (WHY_LABEL[why.kind] ?? why.kind);
+  return `почему откатил: ${said} — ${why.lesson ? 'агент учтёт' : 'не урок'}`;
+}

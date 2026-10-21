@@ -2,20 +2,31 @@
  * Лента «Что сделал агент» (AGT-002, AGENT §5): кто · что · почему · было → стало, и кнопки
  * «Откатить», «Откатить пакет», «Исправить». Откат, который наткнулся на более позднюю правку,
  * ничего не меняет и показывает три значения — решаешь ты (как черновик Console, D-233).
+ * После отката действия агента — необязательный вопрос «почему» (AGT-007, D-397).
  * Одна и та же лента — целиком (раздел «Агент») и короткая у проекта и дела.
  */
 import { Button, Field } from '@qubite/ui';
 import { useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
-import { useFix, useRevert, useTimeline, type RevertTarget, type Trail } from './agent';
+import {
+  useFix,
+  useRevert,
+  useRevertWhy,
+  useTimeline,
+  type RevertTarget,
+  type Trail,
+} from './agent';
 import {
   actorLabel,
+  asksWhy,
   canRevert,
   conflictLines,
   costLabel,
   diffLines,
   fixTarget,
   whenLabel,
+  whyLine,
+  WHY_BUTTONS,
   type AgentAction,
   type AgentConflict,
   type ProjectName,
@@ -83,6 +94,9 @@ function ActionRow({
     conflicts: AgentConflict[];
   } | null>(null);
   const [fixing, setFixing] = useState(false);
+  // Только что откатил действие агента — пакет отката, про который спросить «почему».
+  const [asked, setAsked] = useState<string | null>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reverted = !!a.state.reverted_by;
   const fix = fixTarget(a);
@@ -93,8 +107,11 @@ function ActionRow({
     revert.mutate(
       { target, force },
       {
-        onSuccess: (r) =>
-          setConflict(r.status === 'conflict' ? { target, conflicts: r.conflicts } : null),
+        onSuccess: (r) => {
+          setConflict(r.status === 'conflict' ? { target, conflicts: r.conflicts } : null);
+          const undo = r.actions.find((x) => x.state.why && x.state.why.kind == null);
+          if (undo && !compact) setAsked(undo.batch_id);
+        },
         onError: (e) => setError(say(e)),
       },
     );
@@ -114,6 +131,7 @@ function ActionRow({
       </div>
       <p className="act-what">{a.summary}</p>
       {a.reason && <p className="act-why">почему: {a.reason}</p>}
+      {whyLine(a.state.why) && <p className="act-why">{whyLine(a.state.why)}</p>}
       {!compact &&
         a.changes.map((c) => {
           const lines = diffLines(c, names);
@@ -167,6 +185,15 @@ function ActionRow({
       {reverted && !compact && (
         <p className="act-why">Откачено — отмену можно откатить в строке «Ты · Откатил: …» выше.</p>
       )}
+      {asked && <WhyAsk batch={asked} onDone={() => setAsked(null)} />}
+      {!compact && asksWhy(a) && !whyOpen && (
+        <div className="act-btns">
+          <Button size="sm" dot={false} onClick={() => setWhyOpen(true)}>
+            Почему откатил?
+          </Button>
+        </div>
+      )}
+      {whyOpen && asksWhy(a) && <WhyAsk batch={a.batch_id} onDone={() => setWhyOpen(false)} />}
       {conflict && (
         <Conflict
           conflicts={conflict.conflicts}
@@ -190,6 +217,68 @@ function ActionRow({
         </p>
       )}
     </li>
+  );
+}
+
+/**
+ * «Почему откатил?» — по желанию: кнопкой или своими словами (можно ответить и агенту в Telegram).
+ * «Ошибся» и «не надо такого» — урок для навыков и «О тебе»; «не сейчас» и молчание — нет.
+ */
+function WhyAsk({ batch, onDone }: { batch: string; onDone: () => void }) {
+  const why = useRevertWhy();
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const send = (answer: string) => {
+    setError(null);
+    why.mutate({ batch, answer }, { onSuccess: onDone, onError: (e) => setError(say(e)) });
+  };
+  return (
+    <form
+      className="act-ask panel"
+      aria-label="Почему откатил?"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (text.trim()) send(text.trim());
+      }}
+    >
+      <p>
+        <b>Почему откатил?</b> Можно не отвечать. «Ошибся» и «не надо такого» — агент учтёт, «не
+        сейчас» — нет.
+      </p>
+      <div className="act-btns">
+        {WHY_BUTTONS.map((w) => (
+          <Button
+            key={w}
+            size="sm"
+            dot={false}
+            type="button"
+            disabled={why.isPending}
+            onClick={() => send(w)}
+          >
+            {w[0]!.toUpperCase() + w.slice(1)}
+          </Button>
+        ))}
+      </div>
+      <Field
+        label="Своими словами"
+        placeholder="Например: «ДЗ по физре я не делаю»"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      {error && (
+        <p className="act-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="act-btns">
+        <Button size="sm" variant="fill" type="submit" disabled={why.isPending || !text.trim()}>
+          Ответить
+        </Button>
+        <Button size="sm" dot={false} type="button" onClick={onDone}>
+          Пропустить
+        </Button>
+      </div>
+    </form>
   );
 }
 

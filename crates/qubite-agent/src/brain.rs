@@ -70,6 +70,7 @@ const CHAT_TOOLS: &[&str] = &[
     "skill.create",
     "skill.patch",
     "skill.archive",
+    crate::why::TOOL,
 ];
 
 /// В фоновом разборе — только папка, навыки и вопросы.
@@ -127,6 +128,7 @@ const PROTOCOL: &str = r#"Данные приходят отдельными б�
 - skill.create {"name", "description", "body", "tools"?} (обязательно "why") — завести навык: когда владелец тебя поправил, когда удалось дело из нескольких шагов, когда одно и то же повторилось три раза. body — разделы «## Когда», «## Как» (шаги по номерам), «## Подводные камни», «## Как проверить»; tools — какими из этих инструментов пользуется.
 - skill.patch {"name", "old", "new"} (обязательно "why": что поправил владелец и когда) — уточнить навык ОДНОЙ строкой: old — кусок одной строки точно как в навыке, new — на что заменить, без переносов. Навык не переписывай.
 - skill.archive {"name"} — убрать устаревший навык в архив (закреплённый — нельзя).
+- revert.why {"batch_id", "answer"} — владелец словами объяснил, почему откатил твоё действие (блок reverts): answer — "ошибся", "не сейчас", "не надо такого" или его слова. Только с его слов, сам не придумывай.
 
 Навыки (блок skills — их имена и описания) — записанные способы делать типовое. Дело похоже на навык — открой его skill.view и делай по нему, в вызовах укажи "skill". Владелец поправил то, что ты сделал по навыку, — уточни навык (skill.patch), чтобы в следующий раз сделать по-новому. Навык не даёт новых инструментов и прав: всё — этими инструментами и в тех же границах.
 
@@ -143,11 +145,14 @@ const CHAT_TASK_TEXT: &str = "Владелец пишет тебе (блок own
 запомни важное в нужный файл, заведи файл проекта или расписание, если узнал о них; \
 чего не знаешь, но нужно для дела — спроси (question.ask) или переспроси в ответе. \
 Владелец поправляет, как ты что-то делаешь («нет, ДЗ — вечером накануне»), — это поправка: \
-уточни навык одной строкой (skill.patch) или заведи новый (skill.create).";
+уточни навык одной строкой (skill.patch) или заведи новый (skill.create). \
+Просит завести файл («заведи файл про …») — заведи (files.create) и запиши туда, что он сказал. \
+Блок reverts — что владелец недавно откатил, не сказав почему; объясняет — запиши revert.why.";
 
 const FIX_TASK_TEXT: &str = "Владелец нажал «Поправить» у файла (блок fix_file) и написал, что \
 не так (блок owner). Исправь файл сразу, без переспросов (memory.patch / memory.remove / \
-memory.add; навык — skill.patch одной строкой), и коротко скажи в say, что исправил.";
+memory.add; навык — skill.patch одной строкой), и коротко скажи в say, что исправил. Просит \
+завести новый файл («заведи файл про …») — заведи его (files.create) и запиши туда, что он сказал.";
 
 const ANSWER_TASK_TEXT: &str = "Владелец ответил на твой вопрос (блок owner). Запиши ответ туда, \
 где он пригодится (память, файл проекта, расписание), и коротко поблагодари в say.";
@@ -160,6 +165,14 @@ const REVIEW_TASK_TEXT: &str = "Это фоновый разбор после р
 если оно типовое и навыка для него нет (skill.list) — запиши навык (skill.create). Блок repeats — \
 одно и то же ты сделал три раза и больше: заведи навык или уточни подходящий. Нечего делать — \
 верни {\"tools\": []}.";
+
+const LEARN_REVERT_TEXT: &str = "Владелец откатил то, что ты сделал, и сказал почему (блок \
+correction), — научись на этом; владельцу ничего не пиши (say не нужен). Сначала skill.list и \
+skill.view. «ошибся» — ты сделал не так: действовал по навыку или навык про это есть — уточни его \
+ОДНОЙ строкой (skill.patch), в why — что откатил владелец и когда. «не надо такого» — такого он не \
+хочет вовсе: запиши это одной строкой в «О тебе.md» (memory.add) и, если был навык, уточни его. \
+Свои слова владельца — пойми, что из этого следует, и запиши туда же. Разовая мелочь — ничего не \
+делай ({\"tools\": []}).";
 
 const LEARN_TASK_TEXT: &str = "Владелец исправил то, что ты сделал (блок correction), — это \
 поправка, научись на ней; владельцу ничего не пиши (say не нужен). Сначала skill.list и skill.view. \
@@ -558,6 +571,9 @@ pub async fn chat_turn(
     if !history.is_empty() {
         data.push(Untrusted::new("chat", history_block(&history)));
     }
+    if let Some(reverts) = crate::why::open_block(&mut conn, account).await? {
+        data.push(Untrusted::new("reverts", reverts));
+    }
     data.push(Untrusted::new("owner", message.text.clone()));
     drop(conn);
 
@@ -744,11 +760,22 @@ pub async fn learn(
     let Some(fixed) = timeline::get(pool, account, correction).await? else {
         return Ok(0);
     };
-    let Some(original) = (match fixed.corrects {
+    // Поправка («Исправить») или откат с ответом «почему» (D-397).
+    let Some(original) = (match fixed.corrects.or(fixed.reverts) {
         Some(id) => timeline::get(pool, account, id).await?,
         None => None,
     }) else {
         return Ok(0);
+    };
+    let why = match fixed.reverts {
+        Some(_) => {
+            let mut conn = pool.acquire().await?;
+            match crate::why::of_batch(&mut conn, fixed.batch_id).await? {
+                Some(why) if why.kind.is_some_and(crate::why::Kind::lesson) => Some(why),
+                _ => return Ok(0),
+            }
+        }
+        None => None,
     };
     let run = match start_run(pool, account, Trigger::Review).await {
         Ok(run) => run,
@@ -775,13 +802,28 @@ pub async fn learn(
             files::display_name(&skill.path)
         ));
     }
-    text.push_str(&format!(
-        "Что получилось:\n{}\nВладелец исправил ({}): {}\nЧто он поменял:\n{}",
-        changes_text(&original),
-        day(fixed.at),
-        fixed.summary,
-        changes_text(&fixed)
-    ));
+    match &why {
+        Some(why) => {
+            let said = match why.kind {
+                Some(crate::why::Kind::Own) => why.answer.clone(),
+                Some(kind) => kind.label().to_owned(),
+                None => String::new(),
+            };
+            text.push_str(&format!(
+                "Что получилось:\n{}\nВладелец откатил это ({}) и на вопрос «почему» ответил: «{}»",
+                changes_text(&original),
+                day(fixed.at),
+                said
+            ));
+        }
+        None => text.push_str(&format!(
+            "Что получилось:\n{}\nВладелец исправил ({}): {}\nЧто он поменял:\n{}",
+            changes_text(&original),
+            day(fixed.at),
+            fixed.summary,
+            changes_text(&fixed)
+        )),
+    }
     let mut data = context(
         &mut conn,
         account,
@@ -797,7 +839,11 @@ pub async fn learn(
         &auth,
         &Who::agent(&run),
         REVIEW_TASK,
-        LEARN_TASK_TEXT,
+        if why.is_some() {
+            LEARN_REVERT_TEXT
+        } else {
+            LEARN_TASK_TEXT
+        },
         LEARN_TOOLS,
         data,
         job,

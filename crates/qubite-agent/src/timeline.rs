@@ -97,6 +97,8 @@ pub struct ActionState {
     pub corrected_by: Vec<Uuid>,
     /// Шагов в пакете (1 — одиночное действие).
     pub batch_size: i64,
+    /// У отката действия агента — вопрос «почему откатил» и ответ (D-397).
+    pub why: Option<crate::why::Why>,
 }
 
 /// «Было → стало» по одному объекту.
@@ -575,6 +577,7 @@ pub(crate) async fn load_actions(
     .await?;
     let sizes: HashMap<Uuid, i64> = sizes.into_iter().collect();
     let links = Links::load(conn, account).await?;
+    let whys = crate::why::load(conn, &batches).await?;
 
     let mut changes: HashMap<Uuid, Vec<Change>> = HashMap::new();
     for row in change_rows {
@@ -609,6 +612,7 @@ pub(crate) async fn load_actions(
                     reverted_by: links.reverted_by(row.id),
                     corrected_by: links.corrected_by(row.id),
                     batch_size: sizes.get(&row.batch_id).copied().unwrap_or(1),
+                    why: row.reverts.and_then(|_| whys.get(&row.batch_id).cloned()),
                 },
             })
         })

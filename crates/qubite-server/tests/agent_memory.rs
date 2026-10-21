@@ -177,7 +177,12 @@ async fn records_edit_fix_chat_and_questions_over_http() {
             "Память.md",
             "Навыки/ДЗ к уроку.md",
             "Навыки/Записать расписание.md",
-            "Навыки/Сходить куда-то.md"
+            "Навыки/Подготовка к контрольной.md",
+            "Навыки/Подготовка к олимпиаде.md",
+            "Навыки/Проектная деятельность.md",
+            "Навыки/Прочитать книгу к сроку.md",
+            "Навыки/Сходить куда-то.md",
+            "Навыки/Хакатон или конкурс.md"
         ]
     );
     let core = file(&list.body, "Кто я.md");
@@ -213,6 +218,35 @@ async fn records_edit_fix_chat_and_questions_over_http() {
         )
         .await;
     assert_eq!(stale.status, 409);
+
+    // «Новый файл» руками (D-391) — строка ленты; такой же второй раз — 400.
+    let made = owner
+        .post_json(
+            address,
+            "/api/v1/agent/files",
+            json!({"path": "Кружок", "body": "# Кружок\nРобототехника по ср\n"}),
+        )
+        .await;
+    assert_eq!(made.status, 200, "{:?}", made.body);
+    assert_eq!(made.body["tool"], "files.create");
+    assert_eq!(made.body["summary"], "Завёл файл «Кружок»");
+    assert_eq!(made.body["state"]["why"], Value::Null);
+    let again = owner
+        .post_json(address, "/api/v1/agent/files", json!({"path": "кружок.md"}))
+        .await;
+    assert_eq!(again.status, 400);
+    // «Почему откатил» — только у отката действия агента.
+    let why = owner
+        .post_json(
+            address,
+            &format!(
+                "/api/v1/agent/batches/{}/why",
+                made.body["batch_id"].as_str().unwrap()
+            ),
+            json!({"answer": "ошибся"}),
+        )
+        .await;
+    assert_eq!(why.status, 404);
     let current = owner
         .get(address, &format!("/api/v1/agent/files/{memory_id}"))
         .await;

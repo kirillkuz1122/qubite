@@ -61,6 +61,16 @@ export function useEditFile() {
   });
 }
 
+/** «Новый файл» руками (D-391): имя и текст; строка ленты, откатывается. */
+export function useCreateFile() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ path, body }: { path: string; body: string }) =>
+      must(api.POST('/api/v1/agent/files', { body: { path, body } })),
+    onSettled: refresh,
+  });
+}
+
 /** «Поправить»: агент исправит файл сразу. */
 export function useFixFile() {
   const qc = useQueryClient();

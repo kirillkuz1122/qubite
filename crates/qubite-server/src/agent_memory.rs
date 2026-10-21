@@ -109,6 +109,17 @@ pub struct AgentFileEdit {
     revision: i64,
 }
 
+/// «Новый файл» руками.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AgentFileNew {
+    /// Имя или путь: «Кружок», «Проекты/Робототехника» (`.md` допишется сам).
+    path: String,
+    /// Текст (Markdown), можно пустой.
+    #[serde(default)]
+    body: String,
+}
+
 /// «Поправить»: что не так в файле — агент исправит сразу.
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -208,6 +219,30 @@ pub async fn edit_file(
         id,
         &request.body,
         request.revision,
+    )
+    .await
+    .map_err(agent_error)?;
+    Ok(Json(action.into()))
+}
+
+/// «Новый файл» руками (D-391): строка ленты с откатом.
+#[utoipa::path(post, path = "/api/v1/agent/files", tag = "agent",
+    request_body = AgentFileNew,
+    responses(
+        (status = 200, description = "Файл заведён — новое действие в ленте", body = AgentAction),
+        (status = 400, description = "Неверное имя, такой уже есть или слишком длинный", body = ApiErrorBody),
+        (status = 403, description = "Нет права менять", body = ApiErrorBody),
+    ))]
+pub async fn create_file(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Json(request): Json<AgentFileNew>,
+) -> Result<Json<AgentAction>, ApiError> {
+    let action = memory::create(
+        state.db.pool(),
+        &who(&session),
+        &request.path,
+        &request.body,
     )
     .await
     .map_err(agent_error)?;

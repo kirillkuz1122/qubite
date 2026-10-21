@@ -978,13 +978,21 @@ a.set {
   color: var(--q-orange);
 }
 .act-conflict,
-.act-fix {
+.act-fix,
+.act-ask {
   margin-top: 10px;
   padding: 12px 14px;
   font-size: 13px;
 }
 .act-conflict p {
   margin: 0 0 8px;
+}
+.act-ask {
+  display: grid;
+  gap: 8px;
+}
+.act-ask p {
+  margin: 0;
 }
 .act-conflict table {
   width: 100%;
@@ -1370,6 +1378,35 @@ button.proj {
 }
 .rec-fix > button {
   justify-self: start;
+}
+.rec-fix-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rec-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rec-hint-chip {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--q-mute);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.rec-hint-chip:hover {
+  opacity: 0.75;
+}
+.rec-new {
+  width: 100%;
+  margin-bottom: 10px;
 }
 .rec-status {
   margin: 0;

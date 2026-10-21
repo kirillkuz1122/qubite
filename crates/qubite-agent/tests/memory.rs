@@ -95,16 +95,13 @@ async fn memory_lines_go_through_timeline_and_revert() {
         files::list(&mut conn, me).await.unwrap()
     };
     let kinds: Vec<Kind> = list.iter().map(|f| f.kind).collect();
+    assert_eq!(&kinds[..3], [Kind::Core, Kind::User, Kind::Memory]);
     assert_eq!(
-        kinds,
-        [
-            Kind::Core,
-            Kind::User,
-            Kind::Memory,
-            Kind::Skill,
-            Kind::Skill,
-            Kind::Skill
-        ],
+        kinds[3..]
+            .iter()
+            .filter(|kind| **kind == Kind::Skill)
+            .count(),
+        qubite_agent::skills::BUILTIN.len(),
         "база и встроенные навыки (AGT-003) — один раз"
     );
     let who = agent(pool, me).await;
