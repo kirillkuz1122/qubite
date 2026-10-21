@@ -1,0 +1,275 @@
+/* Лаборатория редактора (DOC-001). Стиль DS-007; движется только transform/opacity. */
+.lab {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 96px;
+  color: var(--q-ink);
+  font-family: var(--q-text);
+}
+.lab-head {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding-bottom: 20px;
+}
+.lab-head h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: 0.02em;
+}
+.lab-back {
+  color: var(--q-mute);
+  text-decoration: none;
+  font-size: 14px;
+}
+.lab-lead,
+.lab-about {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--q-mute);
+  line-height: 1.6;
+}
+.lab-about {
+  font-size: 13px;
+  color: var(--q-dim);
+}
+.lab kbd {
+  padding: 0 5px;
+  border: 1px solid var(--q-line);
+  border-radius: 6px;
+  font-family: inherit;
+  color: var(--q-ink);
+}
+.lab-net {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+.lab-state {
+  font-size: 13px;
+  color: var(--q-green);
+}
+.lab-state[data-same='false'] {
+  color: var(--q-orange);
+}
+.lab-wait {
+  color: var(--q-dim);
+}
+.lab-copies {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+}
+.lab-copy {
+  min-width: 0;
+  border: 1px solid var(--q-line);
+  border-radius: 18px;
+  background: var(--q-panel);
+  overflow: hidden;
+}
+.lab-copy-head {
+  padding: 12px 16px 0;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.lab-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--q-line);
+  scrollbar-width: none;
+}
+.lab-bar button {
+  flex: none;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--q-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.12s ease-out;
+  touch-action: manipulation;
+}
+.lab-bar button:active {
+  transform: scale(0.94);
+}
+.lab-field {
+  position: relative;
+}
+.lab-box {
+  padding: 6px 16px 18px;
+}
+.lab-doc {
+  min-height: 260px;
+  outline: none;
+  line-height: 1.6;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  caret-color: var(--q-orange);
+}
+.lab-doc > * + *,
+.lab-doc .lab-p + * {
+  margin-top: 8px;
+}
+.lab-doc p,
+.lab-doc .lab-p {
+  margin: 0;
+}
+.lab-doc h1,
+.lab-doc .lab-h1 {
+  margin: 10px 0 0;
+  font-size: 22px;
+}
+.lab-doc h2,
+.lab-doc .lab-h2 {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+.lab-doc ul,
+.lab-doc ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+.lab-doc blockquote,
+.lab-doc .lab-quote {
+  margin: 6px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--q-orange);
+  color: var(--q-mute);
+}
+.lab-doc pre,
+.lab-doc .lab-code {
+  display: block;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--q-bg);
+  font-family: var(--q-text);
+  font-size: 13px;
+  white-space: pre-wrap;
+  tab-size: 4;
+}
+.lab-doc pre code {
+  font: inherit;
+}
+
+/* чек-лист Tiptap: настоящий флажок слева */
+.lab-doc ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+.lab-doc li[data-type='taskItem'] {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.lab-doc li[data-type='taskItem'] > label {
+  flex: none;
+  padding-top: 3px;
+}
+.lab-doc li[data-type='taskItem'] > div {
+  flex: 1;
+  min-width: 0;
+}
+.lab-doc li[data-type='taskItem'][data-checked='true'] > div,
+.lab-doc .lab-li-done {
+  color: var(--q-dim);
+  text-decoration: line-through;
+}
+.lab-doc input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--q-orange);
+}
+
+/* чек-лист Lexical: флажок рисуется ::before, нажатие по нему — CheckListPlugin */
+.lab-doc .lab-checklist {
+  padding-left: 0;
+  list-style: none;
+}
+.lab-doc .lab-li-check {
+  position: relative;
+  padding-left: 28px;
+  list-style: none;
+  outline: none;
+}
+.lab-doc .lab-li-check::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--q-mute);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.lab-doc .lab-li-done::before {
+  border-color: var(--q-orange);
+  background: var(--q-orange);
+}
+.lab-doc .lab-li-nested {
+  list-style: none;
+}
+
+.lab-slash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 220px;
+  max-height: 280px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--q-line);
+  border-radius: 14px;
+  background: var(--q-panel);
+  box-shadow: 0 12px 32px var(--q-shadow);
+  animation: lab-pop 0.16s ease-out;
+}
+.lab-slash li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.lab-slash li[aria-selected='true'] {
+  background: var(--q-faint);
+}
+.lab-slash small {
+  color: var(--q-dim);
+}
+@keyframes lab-pop {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 520px) {
+  .lab {
+    padding: 20px 12px 80px;
+  }
+  .lab-copies {
+    grid-template-columns: 1fr;
+  }
+  .lab-doc {
+    min-height: 200px;
+    font-size: 16px; /* меньше 16 px — телефон увеличивает страницу при фокусе */
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-slash {
+    animation: none;
+  }
+}

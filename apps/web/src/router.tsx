@@ -2,6 +2,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   parseSearchWith,
   stringifySearchWith,
@@ -101,6 +102,16 @@ const designRoute = createRoute({
 });
 
 /**
+ * Лаборатория редактора (DOC-001): два прототипа, А (Tiptap) и Б (Lexical). Только по
+ * прямой ссылке и с витрины; грузится отдельным куском, сайт от неё не тяжелеет.
+ */
+const labEditorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/lab/editor',
+  component: lazyRouteComponent(() => import('./lab/EditorLab'), 'EditorLab'),
+});
+
+/**
  * Qubite Auth (AUTH-005, D-034): одна рамка на вход, регистрацию, письма, аккаунт,
  * «разрешить вход приложению» и юридические страницы. В production это поддомен
  * `auth.` — тот же сайт, те же адреса; адреса совпадают с теми, что сервер пишет
@@ -165,6 +176,7 @@ export const router = createRouter({
     appRoute.addChildren(sectionRoutes),
     authRoute.addChildren(authRoutes),
     designRoute,
+    labEditorRoute,
     consoleRoute,
     consoleTabRoute,
   ]),

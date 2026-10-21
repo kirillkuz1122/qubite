@@ -163,6 +163,15 @@ export function DesignPage() {
       >
         <Crew />
       </Section>
+
+      <Section
+        title="ЛАБОРАТОРИЯ"
+        note="Прототипы, которые ещё выбираем. Два редактора документов на одном сценарии (DOC-001)."
+      >
+        <a className="ds-lab" href="/lab/editor">
+          Лаборатория редактора →
+        </a>
+      </Section>
     </div>
   );
 }

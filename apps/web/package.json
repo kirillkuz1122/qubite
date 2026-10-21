@@ -12,14 +12,32 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@lexical/code": "0.52.0",
+    "@lexical/list": "0.52.0",
+    "@lexical/markdown": "0.52.0",
+    "@lexical/react": "0.52.0",
+    "@lexical/rich-text": "0.52.0",
+    "@lexical/selection": "0.52.0",
+    "@lexical/utils": "0.52.0",
+    "@lexical/yjs": "0.52.0",
     "@qubite/api-client": "workspace:*",
     "@qubite/motion": "workspace:*",
     "@qubite/sync-client": "workspace:*",
     "@qubite/ui": "workspace:*",
     "@tanstack/react-query": "^5.104.3",
     "@tanstack/react-router": "^1.170.44",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-collaboration": "3.32.0",
+    "@tiptap/extension-list": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "@tiptap/y-tiptap": "3.0.10",
+    "lexical": "0.52.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "y-protocols": "1.0.6",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

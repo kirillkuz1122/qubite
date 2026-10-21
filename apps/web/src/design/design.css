@@ -347,3 +347,15 @@
     padding: 14px;
   }
 }
+.ds-lab {
+  display: inline-block;
+  padding: 12px 18px;
+  border: 1px solid var(--q-line);
+  border-radius: 14px;
+  color: var(--q-ink);
+  text-decoration: none;
+  transition: transform 0.15s ease-out;
+}
+.ds-lab:active {
+  transform: scale(0.97);
+}
