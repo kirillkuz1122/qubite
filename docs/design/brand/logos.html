@@ -1,0 +1,55 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T5;src:url(../fonts/Tiny5-latin.woff2)}
+@font-face{font-family:T5;src:url(../fonts/Tiny5-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-latin.woff2)}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-cyrillic.woff2);unicode-range:U+0400-045F}
+body{margin:0;background:#100f0d}</style></head><body><canvas id=c></canvas>
+<script>
+const INK='#f3ede3',OR='#ff9852',BG='#100f0d',PANEL='#1b1916',MUTE='#a59c90';
+// знаки — векторно в квадрате 0..1
+const L=[
+ {n:'1 · Кубит',d:'круг состояния и одна точка на нём — сам кубит; читается как Q',f:g=>{
+   g.strokeStyle=INK;g.lineWidth=.12;g.beginPath();g.arc(.46,.46,.31,0,7);g.stroke();
+   g.fillStyle=OR;g.beginPath();g.arc(.76,.76,.13,0,7);g.fill();}},
+ {n:'2 · Куб',d:'куб (qu-be) из рёбер, внутри — точка-агент',f:g=>{
+   g.strokeStyle=INK;g.lineWidth=.085;g.lineJoin='round';const c=[.5,.52],r=.4;
+   const P=a=>[c[0]+r*Math.cos(a),c[1]+r*Math.sin(a)];g.beginPath();
+   for(let i=0;i<6;i++){const[x,y]=P(-Math.PI/2+i*Math.PI/3);i?g.lineTo(x,y):g.moveTo(x,y);}g.closePath();g.stroke();
+   g.beginPath();g.moveTo(...c);g.lineTo(...P(Math.PI/2));g.moveTo(...c);g.lineTo(...P(-Math.PI/6));g.moveTo(...c);g.lineTo(...P(Math.PI*7/6));g.stroke();
+   g.fillStyle=OR;g.beginPath();g.arc(c[0],c[1]-.2,.1,0,7);g.fill();}},
+ {n:'3 · Суперпозиция',d:'0 и 1 одновременно: половина заполнена, половина — нет',f:g=>{
+   g.fillStyle=INK;g.beginPath();g.arc(.5,.5,.38,Math.PI/2,Math.PI*1.5);g.fill();
+   g.strokeStyle=INK;g.lineWidth=.1;g.beginPath();g.arc(.5,.5,.33,-Math.PI/2,Math.PI/2);g.stroke();
+   g.fillStyle=OR;g.beginPath();g.arc(.6,.5,.11,0,7);g.fill();}},
+ {n:'4 · Укус',d:'кубик с откусанным углом (qu-bite), в укусе — точка',f:g=>{
+   g.fillStyle=INK;g.beginPath();g.roundRect(.12,.12,.76,.76,.2);g.fill();
+   g.globalCompositeOperation='destination-out';g.beginPath();g.arc(.86,.14,.27,0,7);g.fill();g.globalCompositeOperation='source-over';
+   g.fillStyle=OR;g.beginPath();g.arc(.84,.16,.1,0,7);g.fill();}},
+ {n:'5 · Орбита',d:'ядро — ты, вокруг — агент, который всё помнит',f:g=>{
+   g.fillStyle=INK;g.beginPath();g.arc(.5,.5,.15,0,7);g.fill();
+   g.strokeStyle=INK;g.lineWidth=.07;g.beginPath();g.ellipse(.5,.5,.41,.24,-Math.PI/5,0,7);g.stroke();
+   const a=.35,x=.5+.41*Math.cos(a)*Math.cos(-Math.PI/5)-.24*Math.sin(a)*Math.sin(-Math.PI/5),y=.5+.41*Math.cos(a)*Math.sin(-Math.PI/5)+.24*Math.sin(a)*Math.cos(-Math.PI/5);
+   g.fillStyle=OR;g.beginPath();g.arc(x,y,.1,0,7);g.fill();}},
+];
+function vec(l,S){const o=document.createElement('canvas');o.width=o.height=S;const g=o.getContext('2d');g.scale(S,S);l.f(g);return o;}
+function grid(l,N){const S=N*8,o=vec(l,S),d=o.getContext('2d').getImageData(0,0,S,S).data,out=[];
+  for(let r=0;r<N;r++){out.push([]);for(let c=0;c<N;c++){let a=0,R=0,n=0;for(let y=0;y<8;y++)for(let x=0;x<8;x++){const i=((r*8+y)*S+c*8+x)*4;if(d[i+3]>100){a++;R+=d[i]-d[i+2];}n++;}
+   out[r].push(a/n>.38?(R/a>60?'o':'x'):null);}}return out;}
+function rr(g,x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,r);g.fill();}
+function draw(g,l,mode,x,y,S){
+  if(mode==='solid'){g.drawImage(vec(l,S),x,y);return;}
+  const N=11,G=grid(l,N),p=S/N,s=p*.95;
+  G.forEach((row,r)=>row.forEach((v,c)=>{if(v)rr(g,x+c*p,y+r*p,s,s,mode==='dots'?s/2:s*.08,v==='o'?OR:INK);}));}
+window.board=()=>{const W=1800,H=1180,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle=BG;g.fillRect(0,0,W,H);g.fillStyle='rgba(243,237,227,.05)';for(let y=10;y<H;y+=20)for(let x=10;x<W;x+=20){g.beginPath();g.arc(x,y,1.1,0,7);g.fill();}
+  g.font='44px T5';g.fillStyle=INK;g.fillText('логотип qubite — 5 вариантов',70,90);
+  g.font='18px Fira';g.fillStyle=MUTE;g.fillText('один знак — в любом стиле: точки («Частицы») · пиксели («Пиксель») · сплошной',70,130);
+  ['точки','пиксели','сплошной'].forEach((t,i)=>{g.save();g.translate(60,320+i*290);g.rotate(-Math.PI/2);g.font='16px Fira';g.fillStyle=MUTE;g.fillText(t,-40,0);g.restore();});
+  L.forEach((l,i)=>{const x=110+i*340;
+    ['dots','pixel','solid'].forEach((m,j)=>{const y=190+j*290;rr(g,x,y,280,260,32,PANEL);g.strokeStyle='rgba(243,237,227,.12)';g.lineWidth=1.5;g.beginPath();g.roundRect(x,y,280,260,32);g.stroke();draw(g,l,m,x+50,y+40,180);});
+    g.font='22px Fira';g.fillStyle=INK;g.fillText(l.n,x,1080);
+    g.font='15px Fira';g.fillStyle=MUTE;const words=l.d.split(' ');let line='',yy=1108;for(const w of words){if(g.measureText(line+w).width>280){g.fillText(line,x,yy);line='';yy+=22;}line+=w+' ';}g.fillText(line,x,yy);});
+};
+window.icon=(i,mode)=>{const S=640,c=document.getElementById('c');c.width=c.height=S;const g=c.getContext('2d');g.fillStyle=BG;g.fillRect(0,0,S,S);draw(g,L[i],mode,110,110,420);};
+</script></body></html>
