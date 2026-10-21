@@ -183,7 +183,8 @@ const at = (pts: readonly Pt[], i: number): Pt => pts[i] ?? [10, 10, 0];
 
 /**
  * Значок из точек. Сменился `name` — те же точки перетекают в новый вид пружиной
- * (глаз пароля открывается и закрывается, D-430); двигается только transform точек.
+ * (глаз пароля открывается и закрывается, D-430). В покое — обычные точки без трансформаций;
+ * пока перетекают, кадр меняет только координаты точек маленького SVG.
  */
 export function DotIcon({ name, size = 20 }: { name: IconName; size?: number }) {
   const svg = useRef<SVGSVGElement>(null);
@@ -200,8 +201,10 @@ export function DotIcon({ name, size = 20 }: { name: IconName; size?: number }) 
       const x = p[0] + (q[0] - p[0]) * k;
       const y = p[1] + (q[1] - p[1]) * k;
       const r = Math.max(0, p[2] + (q[2] - p[2]) * k);
-      (dots[i] as SVGElement).style.transform =
-        `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${r.toFixed(3)})`;
+      const d = dots[i] as SVGCircleElement;
+      d.setAttribute('cx', x.toFixed(2));
+      d.setAttribute('cy', y.toFixed(2));
+      d.setAttribute('r', r.toFixed(3));
     }
   };
   const s = useSpring(1, MASS.dot, paint);
@@ -238,9 +241,7 @@ export function DotIcon({ name, size = 20 }: { name: IconName; size?: number }) 
     >
       {Array.from({ length: n }, (_, i) => {
         const [x, y, r] = at(to.current, i);
-        return (
-          <circle key={i} r={1} style={{ transform: `translate(${x}px, ${y}px) scale(${r})` }} />
-        );
+        return <circle key={i} cx={x} cy={y} r={r} />;
       })}
     </svg>
   );

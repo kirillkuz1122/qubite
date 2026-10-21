@@ -66,13 +66,12 @@ describe('смена вкладки (DS-008)', () => {
 describe('значок из точек', () => {
   it('при смене значка точки начинают путь со старого места', () => {
     const { container, rerender } = render(<DotIcon name="eye" />);
-    const before = [...container.querySelectorAll('circle')].map((c) => c.style.transform);
-    expect(before).toHaveLength(9);
+    expect(container.querySelectorAll('circle')).toHaveLength(9);
     rerender(<DotIcon name="eye-off" />);
     const dots = [...container.querySelectorAll('circle')];
     // те же 9 точек (лишняя сожмётся), в первом кадре — там, где были
     expect(dots).toHaveLength(9);
-    expect(dots[0]!.style.transform).toBe('translate(1.20px, 10.00px) scale(1.000)');
-    expect(dots[8]!.style.transform).toBe('translate(10.00px, 10.00px) scale(2.500)');
+    expect([dots[0]!.getAttribute('cx'), dots[0]!.getAttribute('cy')]).toEqual(['1.20', '10.00']);
+    expect(dots[8]!.getAttribute('r')).toBe('2.500');
   });
 });
