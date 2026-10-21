@@ -61,6 +61,8 @@ test('дело: стрелкой вниз к найденному — откры
   await input.fill('позвонить бабушке');
   // по умолчанию — записать новое дело, найденное ниже
   await expect(list(page).getByRole('option', { selected: true })).toContainText('Дело');
+  // найденное дело приходит из синхронизации — стрелка только после того, как оно в списке
+  await expect(list(page).getByRole('option', { name: /Позвонить бабушке/ })).toBeVisible();
   await input.press('ArrowDown');
   await expect(list(page).getByRole('option', { selected: true })).toContainText(
     'Позвонить бабушке',
