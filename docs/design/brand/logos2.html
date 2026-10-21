@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T5;src:url(../fonts/Tiny5-latin.woff2)}
+@font-face{font-family:T5;src:url(../fonts/Tiny5-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-latin.woff2)}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-cyrillic.woff2);unicode-range:U+0400-045F}
+body{margin:0;background:#100f0d}</style></head><body><canvas id=c></canvas>
+<script>
+const INK='#f3ede3',OR='#ff9852',PE='#ffb98a',BG='#100f0d',PANEL='#1b1916',MUTE='#a59c90';
+// каждый знак — клетки одного размера; x,y — в клетках; n — размер поля
+const g2=(rows,ext=[])=>{const out=[];rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch!=='.')out.push({x,y,c:ch==='o'?OR:INK});}));return out.concat(ext);};
+const L=[
+ {n:'6 · Укус',d:'кубик из 16 одинаковых точек; одна «откушена» и стала оранжевой — это агент взял кусочек информации',
+  n_:4.6,cells:g2(['xxx.','xxxx','xxxx','xxxx'],[{x:3.45,y:-0.45,c:OR}])},
+ {n:'7 · Байт + кубит',d:'8 точек — 8 битов, байт информации; девятая, в центре, — кубит: qubit + byte',
+  n_:3,cells:g2(['xxx','xox','xxx'])},
+ {n:'8 · Q из байта',d:'8 битов по кругу дают Q, хвост — оранжевый кубит',
+  n_:3.7,cells:g2(['xxx','x.x','xxx'],[{x:2.7,y:2.7,c:OR}])},
+ {n:'9 · Суперпозиция',d:'две точки — 0 и 1 — наложены: там, где они вместе, — третий цвет',
+  n_:3,sp:true},
+ {n:'10 · Список',d:'строки информации, как дела в планере; первая точка — оранжевая: агент уже взялся',
+  n_:4,cells:g2(['oxxx','xxx.','xx..'])},
+];
+function rr(g,x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,Math.max(0,r));g.fill();}
+function draw(g,l,mode,X,Y,S){
+  const n=l.n_,p=S/n;
+  if(l.sp){const R=p*1.15,cy=Y+S/2,x1=X+S/2-p*0.55,x2=X+S/2+p*0.55;
+    const shape=(cx,col)=>{if(mode==='pixel')rr(g,cx-R,cy-R,2*R,2*R,R*.08,col);else{g.fillStyle=col;g.beginPath();g.arc(cx,cy,R,0,7);g.fill();}};
+    shape(x1,INK);shape(x2,OR);
+    g.save();g.beginPath();if(mode==='pixel')g.rect(x1-R,cy-R,2*R,2*R);else g.arc(x1,cy,R,0,7);g.clip();shape(x2,PE);g.restore();
+    if(mode==='dots'){g.fillStyle=BG;for(let i=-3;i<=3;i++)for(let j=-3;j<=3;j++){}} return;}
+  const h=Math.max(...l.cells.map(c=>c.y))+1,w=Math.max(...l.cells.map(c=>c.x))+1;
+  const ox=X+(S-w*p)/2,oy=Y+(S-h*p)/2+(Math.min(...l.cells.map(c=>c.y))<0?p*0.25:0);
+  const gap=mode==='solid'?0:(mode==='dots'?.08:.1),s=p*(1-gap);
+  if(mode==='solid'){ // кремовые клетки склеиваем в одну фигуру со скруглёнными краями
+    const o=document.createElement('canvas');o.width=o.height=Math.ceil(S+40);const q=o.getContext('2d');q.filter=`blur(${p*0.12}px)`;
+    l.cells.filter(c=>c.c===INK).forEach(c=>rr(q,20+(ox-X)+c.x*p-0.5,20+(oy-Y)+c.y*p-0.5,p+1,p+1,0,'#fff'));
+    const im=q.getImageData(0,0,o.width,o.height),d=im.data;for(let i=0;i<d.length;i+=4){const a=d[i+3]>128?255:0;d[i]=243;d[i+1]=237;d[i+2]=227;d[i+3]=a;}
+    const o2=document.createElement('canvas');o2.width=o.width;o2.height=o.height;o2.getContext('2d').putImageData(im,0,0);g.drawImage(o2,X-20,Y-20);
+    l.cells.filter(c=>c.c===OR).forEach(c=>{const s2=p*0.92;rr(g,ox+c.x*p+(p-s2)/2,oy+c.y*p+(p-s2)/2,s2,s2,s2/2,OR);});return;}
+  l.cells.forEach(c=>{const r=mode==='dots'?s/2:s*.06;rr(g,ox+c.x*p+(p-s)/2,oy+c.y*p+(p-s)/2,s,s,r,c.c);});
+}
+window.board=()=>{const W=1800,H=1180,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle=BG;g.fillRect(0,0,W,H);g.fillStyle='rgba(243,237,227,.05)';for(let y=10;y<H;y+=20)for(let x=10;x<W;x+=20){g.beginPath();g.arc(x,y,1.1,0,7);g.fill();}
+  g.font='44px T5';g.fillStyle=INK;g.fillText('логотип qubite — ещё 5 вариантов',70,90);
+  g.font='18px Fira';g.fillStyle=MUTE;g.fillText('qubite = qubit + byte: суперпозиция и информация. все точки одного размера',70,130);
+  ['точки','пиксели','сплошной'].forEach((t,i)=>{g.save();g.translate(60,320+i*290);g.rotate(-Math.PI/2);g.font='16px Fira';g.fillStyle=MUTE;g.fillText(t,-40,0);g.restore();});
+  L.forEach((l,i)=>{const x=110+i*340;
+    ['dots','pixel','solid'].forEach((m,j)=>{const y=190+j*290;rr(g,x,y,280,260,32,PANEL);g.strokeStyle='rgba(243,237,227,.12)';g.lineWidth=1.5;g.beginPath();g.roundRect(x,y,280,260,32);g.stroke();draw(g,l,m,x+60,y+50,160);});
+    g.font='22px Fira';g.fillStyle=INK;g.fillText(l.n,x,1080);
+    g.font='15px Fira';g.fillStyle=MUTE;let line='',yy=1108;for(const w of l.d.split(' ')){if(g.measureText(line+w).width>285){g.fillText(line,x,yy);line='';yy+=22;}line+=w+' ';}g.fillText(line,x,yy);});
+};
+</script></body></html>
