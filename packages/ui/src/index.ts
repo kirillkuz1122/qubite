@@ -37,6 +37,8 @@ export { useSlide, type SlideHandle } from './Slide';
 export { usePress } from './press';
 export { useFlip } from './flip';
 export { Presence, type PresenceProps } from './Presence';
+export { Sheet, type SheetProps } from './Sheet';
+export { Swap, type SwapProps } from './Swap';
 export { useLeaving, type Leaving } from './leaving';
 export { EdgeScroll, type EdgeScrollProps } from './EdgeScroll';
 export { flyDot } from './fly';

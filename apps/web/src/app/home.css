@@ -64,9 +64,7 @@
   background: none;
   color: var(--q-mute);
   font-size: 12.5px;
-  text-decoration: underline;
-  text-decoration-color: var(--q-faint);
-  text-underline-offset: 3px;
+  text-decoration: none;
   cursor: pointer;
 }
 .home-link:hover {
@@ -162,23 +160,21 @@
   color: var(--q-dim);
 }
 .home-gear {
-  width: 32px;
-  height: 32px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: -6px 0;
+  padding: 0;
   border: 0;
   border-radius: calc(var(--q-round) * 50%);
   background: none;
   color: var(--q-dim);
-  font-size: 16px;
-  line-height: 1;
   cursor: pointer;
-  transition: transform 0.25s;
 }
 .home-gear:hover,
 .home-gear[aria-expanded='true'] {
   color: var(--q-ink);
-}
-.home-gear[aria-expanded='true'] {
-  transform: rotate(60deg);
 }
 .home-now {
   display: flex;
@@ -254,10 +250,6 @@
 }
 
 /* ---------- настройки виджетов ---------- */
-.home-set {
-  margin-top: 12px;
-  padding: 14px 16px;
-}
 .home-set-now {
   margin: 0 0 10px;
   font-size: 14px;
@@ -311,13 +303,19 @@
   border-bottom: 1px solid var(--q-line);
   font-size: 14px;
   overflow-wrap: anywhere;
+  position: relative;
 }
 .home-news a {
   text-decoration: none;
 }
-.home-news a:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--q-faint);
+/* нажимается вся карточка новости, не только текст (отзыв 21.10) */
+.home-news a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.home-news li:hover a {
+  color: var(--q-orange);
 }
 .home-news small {
   display: block;

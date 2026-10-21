@@ -4,6 +4,7 @@
  * а новое всплывает здесь же. Прочитал здесь — гаснет в Telegram и в системных уведомлениях.
  */
 import type { components } from '@qubite/api-client';
+import { DotIcon, Presence, Sheet } from '@qubite/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
@@ -38,7 +39,12 @@ function usePresence(on: boolean) {
   }, [on]);
 }
 
-export function Bell() {
+/**
+ * Где колокольчик (D-421, D-433): на ПК — в левой панели рядом с владельцем, список выезжает
+ * справа от панели и не закрывает ни шапку с помощником, ни Command; на телефоне — в шапке рядом
+ * с заголовком, список — нижним листом.
+ */
+export function Bell({ wide }: { wide: boolean }) {
   const me = useMe();
   const on = !!me.data;
   const qc = useQueryClient();
@@ -149,9 +155,9 @@ export function Bell() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Клик мимо панели или Escape — закрыть.
+  // Клик мимо панели или Escape — закрыть (на телефоне это делает лист сам).
   useEffect(() => {
-    if (!open) return;
+    if (!open || !wide) return;
     const away = (e: PointerEvent) => {
       if (!box.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -162,12 +168,57 @@ export function Bell() {
       document.removeEventListener('pointerdown', away);
       document.removeEventListener('keydown', esc);
     };
-  }, [open]);
+  }, [open, wide]);
 
   if (!on) return null;
   const unread = list.data?.unread ?? 0;
+  const body = (
+    <>
+      {list.data && list.data.items.length === 0 && (
+        <p className="bell-empty">
+          Пока тихо. Напоминания о делах со временем появятся здесь — за 15 минут, а «сходить
+          куда-то» — за час.
+        </p>
+      )}
+      <ul>
+        {list.data?.items.map((n) => (
+          <li key={n.id} className={n.read_at ? 'read' : undefined}>
+            <button type="button" onClick={() => !n.read_at && markRead(n.id)}>
+              <span className="bell-dot" aria-hidden="true" />
+              <span className="bell-t">
+                <b>{n.title}</b>
+                <small>{noticeLine(n)}</small>
+              </span>
+              <time dateTime={n.created_at}>{noticeWhen(n.created_at)}</time>
+            </button>
+            {n.options.length > 0 && (
+              <div className="bell-options" role="group" aria-label="Ответить">
+                {n.options.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={n.answer === o.id ? 'on' : undefined}
+                    disabled={!!n.answer}
+                    aria-pressed={n.answer === o.id}
+                    onClick={() => answer.mutate({ id: n.id, answer: o.id })}
+                  >
+                    {o.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+  const all = unread > 0 && (
+    <button type="button" className="bell-all" onClick={() => readAll.mutate()}>
+      Прочитать всё
+    </button>
+  );
   return (
-    <div className="bell" ref={box}>
+    <div className={wide ? 'bell bell-side' : 'bell'} ref={box}>
       <button
         type="button"
         className={open ? 'bell-btn on' : 'bell-btn'}
@@ -175,80 +226,46 @@ export function Bell() {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-          <path
-            d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Zm4 4a2 2 0 0 0 4 0"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <DotIcon name="bell" size={wide ? 20 : 18} />
         {unread > 0 && <b className="bell-n">{unread > 99 ? '99+' : unread}</b>}
       </button>
-      {toast && !open && (
-        <button
-          type="button"
-          className="bell-toast panel"
-          role="status"
-          onClick={() => {
-            // Есть кнопки ответа — открыть список, чтобы ответить.
-            if (toast.options.length > 0 && !toast.answer) setOpen(true);
-            else markRead(toast.id);
-            setToast(null);
-          }}
-        >
-          <b>{toast.title}</b>
-          <small>{noticeLine(toast)}</small>
-        </button>
-      )}
-      {open && (
-        <div className="bell-panel panel" role="dialog" aria-label="Уведомления">
-          <div className="bell-head">
-            <b>Уведомления</b>
-            {unread > 0 && (
-              <button type="button" className="bell-all" onClick={() => readAll.mutate()}>
-                Прочитать всё
-              </button>
-            )}
+      <Presence className="bell-toast panel" show={!!toast && !open}>
+        {toast && (
+          <button
+            type="button"
+            role="status"
+            onClick={() => {
+              // Есть кнопки ответа — открыть список, чтобы ответить.
+              if (toast.options.length > 0 && !toast.answer) setOpen(true);
+              else markRead(toast.id);
+              setToast(null);
+            }}
+          >
+            <b>{toast.title}</b>
+            <small>{noticeLine(toast)}</small>
+          </button>
+        )}
+      </Presence>
+      {wide ? (
+        <Presence className="bell-panel panel" show={open}>
+          <div role="dialog" aria-label="Уведомления">
+            <div className="bell-head">
+              <b>Уведомления</b>
+              {all}
+            </div>
+            {body}
           </div>
-          {list.data && list.data.items.length === 0 && (
-            <p className="bell-empty">
-              Пока тихо. Напоминания о делах со временем появятся здесь — за 15 минут, а «сходить
-              куда-то» — за час.
-            </p>
-          )}
-          <ul>
-            {list.data?.items.map((n) => (
-              <li key={n.id} className={n.read_at ? 'read' : undefined}>
-                <button type="button" onClick={() => !n.read_at && markRead(n.id)}>
-                  <span className="bell-dot" aria-hidden="true" />
-                  <span className="bell-t">
-                    <b>{n.title}</b>
-                    <small>{noticeLine(n)}</small>
-                  </span>
-                  <time dateTime={n.created_at}>{noticeWhen(n.created_at)}</time>
-                </button>
-                {n.options.length > 0 && (
-                  <div className="bell-options" role="group" aria-label="Ответить">
-                    {n.options.map((o) => (
-                      <button
-                        key={o.id}
-                        type="button"
-                        className={n.answer === o.id ? 'on' : undefined}
-                        disabled={!!n.answer}
-                        aria-pressed={n.answer === o.id}
-                        onClick={() => answer.mutate({ id: n.id, answer: o.id })}
-                      >
-                        {o.text}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+        </Presence>
+      ) : (
+        <Sheet
+          open={open}
+          onClose={() => setOpen(false)}
+          title="Уведомления"
+          className="bell-sheet"
+        >
+          {all && <div className="bell-head">{all}</div>}
+          {body}
+        </Sheet>
       )}
     </div>
   );

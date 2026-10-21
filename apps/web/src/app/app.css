@@ -9,6 +9,7 @@ button {
 }
 a {
   color: inherit;
+  text-decoration: none;
 }
 .panel {
   border-radius: calc(var(--q-round) * 24px);
@@ -105,6 +106,12 @@ a {
   position: absolute;
   left: 14px;
   top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.head-title .bell {
+  margin: -12px 0;
 }
 .head-crew {
   position: absolute;
@@ -438,8 +445,10 @@ a {
   padding: 0 0 12px;
   border-bottom: 1px solid var(--q-line);
 }
-.proj-add {
-  margin: 4px 0 6px;
+.sec-h-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .proj-new {
   display: grid;
@@ -527,7 +536,7 @@ a {
   position: relative;
   z-index: 5;
   opacity: 0.92;
-  box-shadow: 0 12px 30px rgb(0 0 0 / 0.35);
+  box-shadow: 0 12px 30px var(--q-shadow);
   pointer-events: none;
 }
 .card:focus-visible {
@@ -891,7 +900,7 @@ a.set {
 
 /* ---------- «Агент»: лента «Что сделал агент» (AGT-002) ---------- */
 .lead {
-  margin: 4px 0 14px;
+  margin: 14px 0;
   font-size: 14px;
   color: var(--q-mute);
 }
@@ -1042,28 +1051,31 @@ button.proj {
   cursor: pointer;
 }
 
-/* ---------- колокольчик (PLAN-004) ---------- */
-.bell {
-  position: absolute;
-  z-index: 30;
-  top: 14px;
-  right: 10px;
+/* ---------- колокольчик (PLAN-004, D-421): на ПК — в левой панели, на телефоне — у заголовка ---------- */
+.side-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
 }
-@media (min-width: 900px) {
-  .bell {
-    top: 22px;
-    right: 32px;
-  }
+.side-foot .side-me {
+  flex: 1;
+  margin-top: 0;
+}
+.bell {
+  position: relative;
+  flex: none;
 }
 .bell-btn {
   position: relative;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--q-line);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: calc(var(--q-round) * 50%);
-  background: var(--q-panel);
+  background: none;
   color: var(--q-mute);
   cursor: pointer;
   transition: transform 0.18s ease;
@@ -1072,48 +1084,48 @@ button.proj {
 .bell-btn.on {
   color: var(--q-ink);
 }
+.bell-btn.on {
+  background: var(--q-panel);
+}
 .bell-btn:active {
   transform: scale(0.94);
 }
 .bell-n {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  top: 4px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: calc(var(--q-round) * 8px);
   background: var(--q-orange);
   color: var(--q-on-accent);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  line-height: 18px;
+  line-height: 16px;
   text-align: center;
 }
+/* список и всплывашка — справа от левой панели, ниже шапки с помощником и выше Command */
 .bell-panel,
 .bell-toast {
-  position: absolute;
-  right: 0;
-  top: 48px;
-  width: min(340px, calc(100vw - 32px));
-  animation: bell-in 0.22s ease both;
+  position: fixed;
+  z-index: 60;
+  left: 260px;
+  bottom: 104px;
+  width: 360px;
 }
 .bell-panel {
-  max-height: min(70vh, 520px);
+  max-height: min(calc(100vh - 290px), 560px);
   overflow-y: auto;
-  padding: 10px 6px 6px;
+  overscroll-behavior: contain;
+  padding: 12px 6px 6px;
 }
-@keyframes bell-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bell-panel,
-  .bell-toast {
-    animation: none;
-  }
+/* на телефоне всплывашка — над каплей разделов */
+.bell:not(.bell-side) .bell-toast {
+  left: 16px;
+  right: 16px;
+  bottom: 96px;
+  width: auto;
 }
 .bell-head {
   display: flex;
@@ -1121,7 +1133,12 @@ button.proj {
   justify-content: space-between;
   padding: 0 10px 8px;
 }
+.bell-sheet .bell-head {
+  justify-content: flex-end;
+  padding: 0 0 4px;
+}
 .bell-all {
+  min-height: 32px;
   border: 0;
   background: none;
   color: var(--q-orange);
@@ -1133,48 +1150,55 @@ button.proj {
   color: var(--q-mute);
   font-size: 13px;
 }
-.bell-panel ul {
+.bell-sheet .bell-empty {
+  margin: 4px 0 8px;
+}
+.bell-panel ul,
+.bell-sheet ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.bell-panel li button {
+.bell-panel li > button,
+.bell-sheet li > button {
   display: grid;
   grid-template-columns: 10px 1fr auto;
   gap: 10px;
   align-items: start;
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px;
   border: 0;
   border-radius: calc(var(--q-round) * 16px);
   background: none;
   text-align: left;
   cursor: pointer;
 }
-.bell-panel li button:hover {
+.bell-panel li > button:hover,
+.bell-sheet li > button:hover {
   background: var(--q-panel-2);
 }
 /* Кнопки ответа агенту («Да · 15 минут · Позже · Не сегодня», AGT-004). */
-.bell-panel li .bell-options {
+.bell-options {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 10px 9px 30px;
+  padding: 0 10px 10px 30px;
 }
-.bell-panel li .bell-options button {
-  display: inline-block;
-  width: auto;
-  padding: 5px 11px;
-  border: 1px solid var(--q-line);
-  border-radius: calc(var(--q-round) * 999px);
+.bell-options button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--q-line-2);
+  border-radius: calc(var(--q-round) * 16px);
+  background: none;
   font-size: 13px;
+  cursor: pointer;
   transition: opacity 160ms ease;
 }
-.bell-panel li .bell-options button.on {
+.bell-options button.on {
   border-color: var(--q-orange);
   color: var(--q-orange);
 }
-.bell-panel li .bell-options button:disabled:not(.on) {
+.bell-options button:disabled:not(.on) {
   opacity: 0.45;
   cursor: default;
 }
@@ -1185,15 +1209,17 @@ button.proj {
   border-radius: calc(var(--q-round) * 50%);
   background: var(--q-orange);
 }
-.bell-panel li.read .bell-dot {
+.bell li.read .bell-dot,
+.bell-sheet li.read .bell-dot {
   background: var(--q-faint);
 }
-.bell-panel li.read b {
+.bell li.read b,
+.bell-sheet li.read b {
   color: var(--q-mute);
   font-weight: 400;
 }
 .bell-t,
-.bell-toast {
+.bell-toast button {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1203,14 +1229,17 @@ button.proj {
   color: var(--q-mute);
   font-size: 12.5px;
 }
-.bell-panel time {
+.bell-panel time,
+.bell-sheet time {
   color: var(--q-mute);
   font-size: 12px;
 }
-.bell-toast {
+.bell-toast button {
   gap: 2px;
+  width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--q-line);
+  border: 0;
+  background: none;
   text-align: left;
   cursor: pointer;
 }
@@ -1239,6 +1268,9 @@ button.proj {
     grid-template-columns: 220px minmax(0, 1fr);
     align-items: start;
   }
+}
+.rec-tree {
+  position: relative;
 }
 .rec-tree ul {
   margin: 0;
@@ -1278,9 +1310,19 @@ button.proj {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.rec-tree button {
+  position: relative;
+  z-index: 1;
+}
 .rec-tree button.on {
-  background: var(--q-panel);
   color: var(--q-ink);
+}
+.q-slide.rec-slide {
+  border-radius: calc(var(--q-round) * 12px);
+  border: 0;
+}
+.rec-pane {
+  min-width: 0;
 }
 .rec-full {
   flex: none;
@@ -1319,6 +1361,10 @@ button.proj {
 .rec-download {
   font-size: 13px;
   color: var(--q-mute);
+  text-decoration: none;
+}
+.rec-download:hover {
+  color: var(--q-ink);
 }
 .rec-core {
   margin-top: 12px;
@@ -1513,11 +1559,13 @@ button.proj {
 /* «Когда писать» (AGT-004). */
 .pace {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   max-width: 640px;
 }
 .pace-block {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   justify-items: start;
   padding: 14px 16px;
@@ -1606,4 +1654,8 @@ button.proj {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
   }
+}
+/* лист уведомлений на телефоне не закрывает шапку с помощником */
+.q-sheet.bell-sheet {
+  max-height: calc(100vh - 128px);
 }

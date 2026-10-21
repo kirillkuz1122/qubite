@@ -10,8 +10,8 @@
  * «Навыки» (AGT-003): по папке — экран всех навыков с описаниями и «когда пользовался»; у навыка —
  * закрепить (куратор не трогает), убрать в архив и вернуть одной кнопкой.
  */
-import { Button, Field } from '@qubite/ui';
-import { useState, type FormEvent } from 'react';
+import { Button, Field, Swap, useSlide } from '@qubite/ui';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
 import {
   useAnswer,
@@ -50,6 +50,23 @@ export function AgentRecords() {
     open === SKILLS_VIEW || (open && list.some((f) => f.id === open))
       ? open
       : (list.find((f) => f.kind === 'memory')?.id ?? null);
+  const folders = tree(list);
+  const order = [
+    'new',
+    ...folders.flatMap((d) => [
+      ...(d.name === 'Навыки' ? [SKILLS_VIEW] : []),
+      ...d.files.map((f) => f.id),
+    ]),
+  ];
+
+  // подсветка открытого файла перетекает к новому (DS-008, как выделение строк)
+  const nav = useRef<HTMLElement>(null);
+  const sel = useSlide(36, 'q-slide rec-slide');
+  useLayoutEffect(() => {
+    const b = nav.current?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (b && !b.classList.contains('rec-folder-open')) sel.to(b.offsetTop, b.offsetHeight);
+    else sel.hide();
+  });
 
   if (files.isPending) return <p className="later">Загружаю записи…</p>;
   if (files.isError) {
@@ -66,7 +83,8 @@ export function AgentRecords() {
     <div className="rec">
       <Questions />
       <div className="rec-body">
-        <nav className="rec-tree" aria-label="Файлы агента">
+        <nav className="rec-tree" aria-label="Файлы агента" ref={nav}>
+          {sel.node}
           <Button
             size="sm"
             dot={false}
@@ -76,7 +94,7 @@ export function AgentRecords() {
           >
             Новый файл
           </Button>
-          {tree(list).map((folder) => (
+          {folders.map((folder) => (
             <div key={folder.name || '/'} className="rec-folder">
               {folder.name === 'Навыки' ? (
                 <button
@@ -117,18 +135,20 @@ export function AgentRecords() {
             </div>
           ))}
         </nav>
-        {creating ? (
-          <NewFile
-            onDone={(id) => {
-              setCreating(false);
-              if (id) setOpen(id);
-            }}
-          />
-        ) : shown === SKILLS_VIEW ? (
-          <SkillsView onOpen={setOpen} />
-        ) : (
-          shown && <FileView id={shown} />
-        )}
+        <Swap view={creating ? 'new' : (shown ?? '')} order={order} className="rec-pane">
+          {creating ? (
+            <NewFile
+              onDone={(id) => {
+                setCreating(false);
+                if (id) setOpen(id);
+              }}
+            />
+          ) : shown === SKILLS_VIEW ? (
+            <SkillsView onOpen={setOpen} />
+          ) : (
+            shown && <FileView id={shown} />
+          )}
+        </Swap>
       </div>
     </div>
   );

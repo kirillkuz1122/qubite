@@ -145,3 +145,37 @@ test('агент спросил «есть 30 минут?» — ответ кн�
   expect(server.notices[0]!.answer).toBe('later');
   expect(server.notices[0]!.read_at).toBeTruthy();
 });
+
+test('колокольчик из точек: на ПК — в левой панели, список не закрывает шапку с помощником (D-421)', async ({
+  page,
+}) => {
+  const wide = (page.viewportSize()?.width ?? 0) >= 900;
+  const server = await mockSync(page);
+  server.notices.push({
+    id: 'n1',
+    kind: 'reminder',
+    origin: 'owner',
+    title: 'Сходить в музей',
+    body: 'в 18:00',
+    why: '',
+    held: false,
+    channel: null,
+    created_at: new Date().toISOString(),
+    read_at: null,
+  });
+  await page.goto('/home');
+  const bell = page.getByRole('button', { name: 'Уведомления: 1 новых' });
+  await expect(bell.locator('circle').first()).toBeAttached();
+  if (wide)
+    await expect(
+      page.locator('.side-foot').getByRole('button', { name: /Уведомления/ }),
+    ).toBeVisible();
+  await bell.click();
+  const panel = page.getByRole('dialog', { name: 'Уведомления' });
+  await expect(panel).toContainText('Сходить в музей');
+  // список ниже шапки: заголовок раздела и помощник остаются видны
+  const head = await page.locator('.head').boundingBox();
+  await expect
+    .poll(async () => (await panel.boundingBox())!.y)
+    .toBeGreaterThanOrEqual(head!.y + head!.height - 1);
+});

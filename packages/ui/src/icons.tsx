@@ -1,3 +1,7 @@
+import { MASS } from '@qubite/motion';
+import { useLayoutEffect, useRef } from 'react';
+import { loop, useSpring } from './useSpring';
+
 /** Значки из точек: 8–10 точек на 20×20, цвет — currentColor. */
 const ICONS = {
   home: [
@@ -151,17 +155,93 @@ const ICONS = {
     [10, 16.4, 0.9],
     [14.8, 15.2, 0.9],
   ],
+  /** колокольчик: купол из точек, язычок снизу — уведомления (D-421) */
+  bell: [
+    [10, 2.2, 1.2],
+    [7, 4.8, 1.25],
+    [13, 4.8, 1.25],
+    [5.6, 8.2, 1.25],
+    [14.4, 8.2, 1.25],
+    [5, 11.6, 1.25],
+    [15, 11.6, 1.25],
+    [3.2, 14.6, 1.25],
+    [6.6, 14.6, 1.25],
+    [10, 14.6, 1.25],
+    [13.4, 14.6, 1.25],
+    [16.8, 14.6, 1.25],
+    [10, 17.9, 1.5],
+  ],
 } as const;
 
 export type IconName = keyof typeof ICONS;
 export const ICON_NAMES = Object.keys(ICONS) as IconName[];
 
+type Pt = readonly [number, number, number];
+
+/** Точка значка, которой нет в новом виде, сжимается в центр (r = 0). */
+const at = (pts: readonly Pt[], i: number): Pt => pts[i] ?? [10, 10, 0];
+
+/**
+ * Значок из точек. Сменился `name` — те же точки перетекают в новый вид пружиной
+ * (глаз пароля открывается и закрывается, D-430); двигается только transform точек.
+ */
 export function DotIcon({ name, size = 20 }: { name: IconName; size?: number }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const from = useRef<readonly Pt[]>(ICONS[name]);
+  const to = useRef<readonly Pt[]>(ICONS[name]);
+  const paint = (k: number) => {
+    const dots = svg.current?.children;
+    if (!dots) return;
+    const a = from.current;
+    const b = to.current;
+    for (let i = 0; i < dots.length; i++) {
+      const p = at(a, i);
+      const q = at(b, i);
+      const x = p[0] + (q[0] - p[0]) * k;
+      const y = p[1] + (q[1] - p[1]) * k;
+      const r = Math.max(0, p[2] + (q[2] - p[2]) * k);
+      (dots[i] as SVGElement).style.transform =
+        `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${r.toFixed(3)})`;
+    }
+  };
+  const s = useSpring(1, MASS.dot, paint);
+  const prev = useRef(name);
+  useLayoutEffect(() => {
+    if (prev.current === name) return;
+    // перетекание начинается с того места, где точки сейчас
+    const k = Math.min(1, Math.max(0, s.x));
+    const a = from.current;
+    const b = to.current;
+    const n = Math.max(a.length, b.length);
+    from.current = Array.from({ length: n }, (_, i) => {
+      const p = at(a, i);
+      const q = at(b, i);
+      return [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k, p[2] + (q[2] - p[2]) * k];
+    });
+    to.current = ICONS[name];
+    prev.current = name;
+    const L = loop();
+    L.set(s, 0);
+    paint(0); // до первой отрисовки — иначе мелькнёт новый вид
+    L.to(s, 1);
+  });
+  const n = Math.max(from.current.length, to.current.length);
   return (
-    <svg className="q-ico" width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
-      {ICONS[name].map(([x, y, r], i) => (
-        <circle key={i} cx={x} cy={y} r={r} />
-      ))}
+    <svg
+      ref={svg}
+      className="q-ico"
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      data-icon={name}
+    >
+      {Array.from({ length: n }, (_, i) => {
+        const [x, y, r] = at(to.current, i);
+        return (
+          <circle key={i} r={1} style={{ transform: `translate(${x}px, ${y}px) scale(${r})` }} />
+        );
+      })}
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 import { loop, MASS } from '@qubite/motion';
 import type { TaskStatus } from '@qubite/sync-client';
-import { Button, Field, Segmented, useFlow, useSpring } from '@qubite/ui';
+import { Button, Field, Presence, Segmented, Swap, useFlow, useSpring } from '@qubite/ui';
 import {
   useEffect,
   useLayoutEffect,
@@ -16,34 +16,24 @@ import { SecHead, TaskList } from '../parts';
 import { usePlanner } from '../planner-context';
 
 type Mode = 'week' | 'board';
+const MODES: readonly Mode[] = ['week', 'board'];
 
 export function PlannerScreen() {
   const [mode, setMode] = useState<Mode>('week');
-  const view = useRef<HTMLDivElement>(null);
-  const vs = useSpring(0, MASS.pill, (v) => {
-    const el = view.current;
-    if (!el) return;
-    el.style.opacity = Math.min(1, Math.max(0, 1 - Math.abs(v))).toFixed(3);
-    el.style.transform = v === 0 ? '' : `translateX(${(v * 26).toFixed(2)}px)`;
-  });
   return (
     <>
       <Segmented<Mode>
         label="Вид"
         value={mode}
-        onChange={(m) => {
-          if (m === mode) return;
-          setMode(m);
-          const L = loop();
-          L.set(vs, m === 'board' ? 1 : -1);
-          L.to(vs, 0);
-        }}
+        onChange={(m) => setMode(m)}
         options={[
           { value: 'week', label: 'Неделя' },
           { value: 'board', label: 'Доска' },
         ]}
       />
-      <div ref={view}>{mode === 'week' ? <Week /> : <Board />}</div>
+      <Swap view={mode} order={MODES}>
+        {mode === 'week' ? <Week /> : <Board />}
+      </Swap>
     </>
   );
 }
@@ -168,10 +158,18 @@ function Projects() {
 
   return (
     <>
+      {/* «+ Новый проект» — справа от заголовка (отзыв 21.10, D-435) */}
       <SecHead text="ПРОЕКТЫ" label="Проекты">
-        <span className="n">{planner.projects.length}</span>
+        <span className="sec-h-end">
+          <span className="n">{planner.projects.length}</span>
+          {!adding && (
+            <Button className="proj-add" size="sm" onClick={() => setAdding(true)}>
+              + Новый проект
+            </Button>
+          )}
+        </span>
       </SecHead>
-      {adding ? (
+      <Presence show={adding}>
         <form className="proj-new" onSubmit={create} aria-label="Новый проект">
           <Field
             label="Название проекта"
@@ -189,14 +187,10 @@ function Projects() {
             </Button>
           </div>
         </form>
-      ) : (
-        <Button className="proj-add" size="sm" onClick={() => setAdding(true)}>
-          + Новый проект
-        </Button>
-      )}
+      </Presence>
       {planner.loaded && planner.projects.length === 0 && !adding && (
         <p className="later">
-          Проектов пока нет. Создай кнопкой выше или в Command: «новый проект Алгебра».
+          Проектов пока нет. Создай кнопкой «+ Новый проект» или в Command: «новый проект Алгебра».
         </p>
       )}
       {planner.projects.map((p) => (

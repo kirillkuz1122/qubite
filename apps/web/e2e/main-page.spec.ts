@@ -263,6 +263,13 @@ test('настройки у виджетов: город поиском и ге�
   expect(home.located[0]).toEqual({ latitude: 56.80123, longitude: 60.55555 });
   await expect(page.locator('.home-card').first()).toContainText('Екатеринбург');
 
+  // Настройки — модальным окном (D-434): закрыть и открыть следующее.
+  await page
+    .getByRole('dialog', { name: 'Город погоды' })
+    .getByRole('button', { name: 'Закрыть' })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
   // Валюты.
   await page.getByRole('button', { name: 'Настроить: Валюты' }).click();
   const money = page.getByRole('group', { name: 'Валюты' });
@@ -271,6 +278,9 @@ test('настройки у виджетов: город поиском и ге�
     .poll(() => home.patches.at(-1))
     .toEqual({ currencies: ['USD', 'EUR', 'CNY', 'KZT'] });
   await expect(page.locator('.home-rates')).toContainText('16,80 ₽ за 100');
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // Темы новостей.
   await page.getByRole('button', { name: 'Настроить: Темы новостей' }).click();

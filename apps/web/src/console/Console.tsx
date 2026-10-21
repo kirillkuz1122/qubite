@@ -1,9 +1,22 @@
-import { Button, DotGrid, DotText, Field, Note, Segmented, useMedia, WIDE } from '@qubite/ui';
+import {
+  Button,
+  DotGrid,
+  DotText,
+  Field,
+  Note,
+  Segmented,
+  Sheet,
+  Swap,
+  useMedia,
+  WIDE,
+} from '@qubite/ui';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Fail, must, say, useMe } from '../auth/client';
 import { DangerCtx, TABS, type Danger, type TabId } from './api';
+
+const TAB_ORDER = TABS.map((t) => t.id);
 import { AiTab } from './Ai';
 import { LogTab } from './Log';
 import { ModulesTab } from './Modules';
@@ -73,16 +86,25 @@ export function ConsolePage() {
               options={TABS.map((t) => ({ value: t.id, label: t.label }))}
             />
           </nav>
-          <section className="cs-body" aria-label={head.label}>
-            {current === 'platform' && <PlatformTab ownerId={me.data.id} />}
-            {current === 'people' && <PeopleTab ownerId={me.data.id} />}
-            {current === 'modules' && <ModulesTab />}
-            {current === 'ai' && <AiTab />}
-            {current === 'log' && <LogTab />}
-            {current === 'server' && <ServerTab />}
-          </section>
+          <Swap view={current} order={TAB_ORDER}>
+            <section className="cs-body" aria-label={head.label}>
+              {current === 'platform' && <PlatformTab ownerId={me.data.id} />}
+              {current === 'people' && <PeopleTab ownerId={me.data.id} />}
+              {current === 'modules' && <ModulesTab />}
+              {current === 'ai' && <AiTab />}
+              {current === 'log' && <LogTab />}
+              {current === 'server' && <ServerTab />}
+            </section>
+          </Swap>
         </main>
-        {danger.asking && <ConfirmPassword onDone={danger.done} />}
+        <Sheet
+          open={danger.asking}
+          onClose={() => danger.done(false)}
+          title="Подтвердите паролем"
+          className="cs-confirm"
+        >
+          {danger.asking && <ConfirmPassword onDone={danger.done} />}
+        </Sheet>
       </div>
     </DangerCtx.Provider>
   );
@@ -135,42 +157,27 @@ function ConfirmPassword({ onDone }: { onDone(ok: boolean): void }) {
       setBusy(false);
     }
   };
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onDone(false);
-    addEventListener('keydown', esc);
-    return () => removeEventListener('keydown', esc);
-  }, [onDone]);
   return (
-    <div className="cs-veil">
-      <form
-        className="cs-confirm cs-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Подтвердите паролем"
-        onSubmit={submit}
-        noValidate
-      >
-        <h2 className="cs-h">Подтвердите паролем</h2>
-        <p className="cs-small">
-          Это опасное действие. Следующие 10 минут пароль спрашивать не будем.
-        </p>
-        <Field
-          label="Пароль"
-          type="password"
-          autoComplete="current-password"
-          autoFocus
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={error}
-        />
-        <div className="cs-row">
-          <Button type="submit" variant="fill" disabled={busy || !password}>
-            {busy ? 'Проверяем…' : 'Подтвердить'}
-          </Button>
-          <Button onClick={() => onDone(false)}>Отмена</Button>
-        </div>
-        {error === null && busy && <Note>Проверяем пароль…</Note>}
-      </form>
-    </div>
+    <form aria-label="Подтверждение паролем" onSubmit={submit} noValidate>
+      <p className="cs-small">
+        Это опасное действие. Следующие 10 минут пароль спрашивать не будем.
+      </p>
+      <Field
+        label="Пароль"
+        type="password"
+        autoComplete="current-password"
+        autoFocus
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        error={error}
+      />
+      <div className="cs-row">
+        <Button type="submit" variant="fill" disabled={busy || !password}>
+          {busy ? 'Проверяем…' : 'Подтвердить'}
+        </Button>
+        <Button onClick={() => onDone(false)}>Отмена</Button>
+      </div>
+      {error === null && busy && <Note>Проверяем пароль…</Note>}
+    </form>
   );
 }

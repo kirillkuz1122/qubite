@@ -1,5 +1,5 @@
 import { drag, project, rubber } from '@qubite/motion';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFlow } from './Flow';
 
 export interface SegmentedProps<T extends string> {
@@ -9,7 +9,10 @@ export interface SegmentedProps<T extends string> {
   label: string;
   /** panel — в рамке (по умолчанию), chips — фильтры без рамки, с числами и прокруткой */
   variant?: 'panel' | 'chips';
-  /** пункты переносятся в несколько рядов; подложка перетекает и между рядами */
+  /**
+   * пункты переносятся в несколько рядов; подложка перетекает и между рядами.
+   * Без него рамка сама переходит в ряды, если пункты не помещаются по ширине (DS-008).
+   */
   wrap?: boolean;
 }
 
@@ -24,11 +27,13 @@ export function Segmented<T extends string>({
   onChange,
   label,
   variant = 'panel',
-  wrap = false,
+  wrap: wrapAsked = false,
 }: SegmentedProps<T>) {
   const chips = variant === 'chips';
+  const over = useOverflow(chips || wrapAsked, options.length);
+  const wrap = wrapAsked || over.mode === 'wrap';
   const { node, to, hold } = useFlow(36, chips ? 0 : 4, chips ? { className: 'q-chip-flow' } : {});
-  const box = useRef<HTMLDivElement>(null);
+  const box = over.box;
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const first = useRef(true);
   const latest = useRef({ value, options, onChange });
@@ -47,7 +52,7 @@ export function Segmented<T extends string>({
     place(value, first.current);
     first.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, to, wrap]);
+  }, [value, to, wrap, over.mode]);
 
   useEffect(() => {
     const el = box.current;
@@ -111,7 +116,9 @@ export function Segmented<T extends string>({
   return (
     <div
       ref={box}
-      className={[chips ? 'q-chips' : 'q-seg', wrap && 'q-wrap'].filter(Boolean).join(' ')}
+      className={[chips ? 'q-chips' : 'q-seg', wrap && 'q-wrap', over.mode === 'tight' && 'q-tight']
+        .filter(Boolean)
+        .join(' ')}
       role="radiogroup"
       aria-label={label}
       onPointerDown={() => (dragged.current = false)}
@@ -139,4 +146,37 @@ export function Segmented<T extends string>({
       ))}
     </div>
   );
+}
+
+/** Сколько полей у пункта убирает плотный режим (по 4 px с каждой стороны). */
+const TIGHT = 8;
+
+/**
+ * Помещаются ли пункты рамки в одну строку (телефон 360 px): сумма ширин пунктов против ширины
+ * родителя. Чуть не хватает — пункты плотнее (`tight`); всё равно нет — рамка переходит в ряды
+ * (`wrap`), а не уезжает за край экрана.
+ */
+function useOverflow(off: boolean, count: number) {
+  const box = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<'line' | 'tight' | 'wrap'>('line');
+  useLayoutEffect(() => {
+    const el = box.current;
+    const parent = el?.parentElement;
+    if (off || !el || !parent) return;
+    const check = () => {
+      const bs = el.querySelectorAll<HTMLElement>(':scope > button');
+      let need = 10; // рамка и отступы
+      for (const b of bs) need += b.offsetWidth;
+      if (el.classList.contains('q-tight')) need += TIGHT * bs.length;
+      const room = parent.clientWidth + 1;
+      if (room <= 1 || need <= room) setMode('line');
+      else setMode(need - TIGHT * bs.length <= room ? 'tight' : 'wrap');
+    };
+    check();
+    if (typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(check);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [off, count]);
+  return { box, mode };
 }

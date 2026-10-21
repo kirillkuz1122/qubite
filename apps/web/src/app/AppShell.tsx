@@ -388,7 +388,10 @@ export function AppShell() {
             <span className="q-dot" />
           </div>
           <SideNav items={items} current={id} onGo={go} />
-          <SideMe />
+          <div className="side-foot">
+            <SideMe />
+            <Bell wide />
+          </div>
         </aside>
       )}
 
@@ -396,8 +399,11 @@ export function AppShell() {
         <div className="main-in">
           <header className="head" style={{ height: headH }}>
             <h1 className="q-sr">{sec.name}</h1>
-            <div className="head-title" aria-hidden="true">
-              <DotText text={sec.title} pitch={pitch} label={sec.name} />
+            <div className="head-title">
+              <span aria-hidden="true">
+                <DotText text={sec.title} pitch={pitch} label={sec.name} />
+              </span>
+              {!wide && <Bell wide={false} />}
             </div>
             <div className="head-crew">
               <Crew
@@ -411,7 +417,6 @@ export function AppShell() {
             <div className="head-sub" ref={sub}>
               {subtitle(id, state, planner, wide, inbox.items.length)}
             </div>
-            <Bell />
           </header>
           <div className="screen" ref={screen} data-screen={view}>
             {SCREENS[view]()}

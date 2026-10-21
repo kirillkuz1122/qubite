@@ -134,6 +134,10 @@ body {
 .q-seg button.q-on {
   color: var(--q-ink);
 }
+/* чуть не помещается по ширине — пункты плотнее (Segmented, DS-008) */
+.q-seg.q-tight button {
+  padding: 0 10px;
+}
 
 /* переключатель */
 .q-switch {
@@ -1064,4 +1068,81 @@ html.q-own-scroll::-webkit-scrollbar {
 .q-edge-labels button.q-on {
   color: var(--q-ink);
   border-color: var(--q-orange);
+}
+
+/* модальное окно (Sheet, DS-008): на ПК — в центре, на телефоне — нижний лист */
+.q-sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.q-sheet-wrap.q-wide {
+  align-items: center;
+  padding: 24px;
+}
+.q-sheet-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--q-veil);
+}
+.q-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 16px 24px;
+  border: 1px solid var(--q-line);
+  border-bottom: 0;
+  border-radius: calc(var(--q-round) * 24px) calc(var(--q-round) * 24px) 0 0;
+  background: var(--q-panel);
+  outline: none;
+  will-change: transform, opacity;
+}
+.q-wide .q-sheet {
+  width: min(480px, 100%);
+  max-height: min(80vh, 720px);
+  padding: 8px 24px 24px;
+  border-bottom: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 24px);
+}
+.q-sheet-head {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -4px 8px;
+  padding: 10px 4px 8px;
+  background: var(--q-panel);
+}
+.q-sheet-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.q-sheet-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--q-round) * 22px);
+  background: none;
+  color: var(--q-dim);
+  fill: currentColor;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.q-sheet-x:hover,
+.q-sheet-x:focus-visible {
+  color: var(--q-ink);
 }

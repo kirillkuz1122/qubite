@@ -1,4 +1,4 @@
-import { Button, Check, Field, Presence, useFlip } from '@qubite/ui';
+import { Button, Check, DotIcon, Field, Presence, Sheet, useFlip } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { plannerData, type PlannerProject, type PlannerTask } from '@qubite/sync-client';
@@ -60,7 +60,7 @@ export function HomeScreen() {
         <TodayPart />
         <InboxPart filed={data?.filed ?? []} />
         <Deadlines />
-        <Widgets settings={data?.settings ?? null} onLayout={relayout} />
+        <Widgets settings={data?.settings ?? null} />
         <News settings={data?.settings ?? null} />
       </div>
     </div>
@@ -293,8 +293,14 @@ function Deadlines() {
 
 type Part = 'weather' | 'rates' | 'news';
 
+const PART_NAME: Record<Part, string> = {
+  weather: 'Город погоды',
+  rates: 'Валюты',
+  news: 'Темы новостей',
+};
+
 function Gear({ part, open, onClick }: { part: Part; open: boolean; onClick: () => void }) {
-  const name = { weather: 'Город погоды', rates: 'Валюты', news: 'Темы новостей' }[part];
+  const name = PART_NAME[part];
   return (
     <button
       className="home-gear"
@@ -303,14 +309,20 @@ function Gear({ part, open, onClick }: { part: Part; open: boolean; onClick: () 
       aria-expanded={open}
       onClick={onClick}
     >
-      ⚙
+      <DotIcon name="settings" size={18} />
     </button>
   );
 }
 
-function Widgets({ settings, onLayout }: { settings: HomeSettings | null; onLayout: () => void }) {
+/** Настройки виджетов — модальным окном, а не раскрытием в блоке (отзыв 21.10, D-434). */
+function Widgets({ settings }: { settings: HomeSettings | null }) {
   const [open, setOpen] = useState<Part | null>(null);
-  const toggle = (p: Part) => setOpen((o) => (o === p ? null : p));
+  // какое окно было открыто последним — пока окно уходит, в нём то же содержимое
+  const [shown, setShown] = useState<Part>('weather');
+  const toggle = (p: Part) => {
+    setShown(p);
+    setOpen((o) => (o === p ? null : p));
+  };
   return (
     <>
       <SecHead text="ПОГОДА И КУРСЫ" label="Погода и курсы" />
@@ -318,10 +330,14 @@ function Widgets({ settings, onLayout }: { settings: HomeSettings | null; onLayo
         <Weather open={open === 'weather'} onGear={() => toggle('weather')} />
         <Rates open={open === 'rates'} onGear={() => toggle('rates')} />
       </div>
-      <Presence className="home-set panel" show={open !== null && !!settings} onLayout={onLayout}>
-        {settings && open === 'weather' && <PlaceSettings settings={settings} />}
-        {settings && open === 'rates' && <CurrencySettings settings={settings} />}
-      </Presence>
+      <Sheet
+        open={open !== null && !!settings}
+        onClose={() => setOpen(null)}
+        title={PART_NAME[shown]}
+      >
+        {settings && shown === 'weather' && <PlaceSettings settings={settings} />}
+        {settings && shown === 'rates' && <CurrencySettings settings={settings} />}
+      </Sheet>
     </>
   );
 }
@@ -571,7 +587,7 @@ function News({ settings }: { settings: HomeSettings | null }) {
       <SecHead text="НОВОСТИ" label="Новости">
         <Gear part="news" open={open} onClick={() => setOpen((o) => !o)} />
       </SecHead>
-      <Presence className="home-set panel" show={open && !!settings}>
+      <Sheet open={open && !!settings} onClose={() => setOpen(false)} title="Темы новостей">
         <div className="home-checks" role="group" aria-label="Темы новостей">
           {TOPICS.map((t) => (
             <Check
@@ -587,7 +603,7 @@ function News({ settings }: { settings: HomeSettings | null }) {
             </Check>
           ))}
         </div>
-      </Presence>
+      </Sheet>
       {settings && topics.length === 0 && <p className="later">Темы новостей выключены.</p>}
       {topics.length > 0 && news.isError && <p className="later">Новости сейчас недоступны.</p>}
       {topics.length > 0 && news.data?.items.length === 0 && (

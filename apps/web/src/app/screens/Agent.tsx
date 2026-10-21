@@ -1,4 +1,4 @@
-import { Segmented } from '@qubite/ui';
+import { Segmented, Swap } from '@qubite/ui';
 import { useState } from 'react';
 import { AgentChat } from '../AgentChat';
 import { AgentPaceView } from '../AgentPace';
@@ -6,6 +6,8 @@ import { AgentRecords } from '../AgentRecords';
 import { AgentTimeline } from '../AgentTimeline';
 
 type Tab = 'feed' | 'records' | 'talk' | 'pace';
+
+const TABS: readonly Tab[] = ['feed', 'records', 'talk', 'pace'];
 
 const LEAD: Record<Tab, string> = {
   feed: 'Агент сам раскладывает мысли, ставит дела и ведёт свои записи. Здесь всё, что он сделал: любое действие можно откатить или исправить — так он учится.',
@@ -35,11 +37,13 @@ export function AgentScreen() {
           { value: 'pace', label: 'Когда писать' },
         ]}
       />
-      <p className="lead">{LEAD[tab]}</p>
-      {tab === 'feed' && <AgentTimeline trail={null} />}
-      {tab === 'records' && <AgentRecords />}
-      {tab === 'talk' && <AgentChat />}
-      {tab === 'pace' && <AgentPaceView />}
+      <Swap view={tab} order={TABS}>
+        <p className="lead">{LEAD[tab]}</p>
+        {tab === 'feed' && <AgentTimeline trail={null} />}
+        {tab === 'records' && <AgentRecords />}
+        {tab === 'talk' && <AgentChat />}
+        {tab === 'pace' && <AgentPaceView />}
+      </Swap>
     </>
   );
 }

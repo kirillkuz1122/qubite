@@ -2,7 +2,7 @@
 .ds {
   max-width: 980px;
   margin: 0 auto;
-  padding: 40px 20px 120px;
+  padding: 40px 16px 120px;
 }
 .ds-head {
   display: grid;
@@ -298,6 +298,7 @@
 }
 .ds-char {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-content: start;
   padding: 18px;
@@ -318,6 +319,7 @@
 }
 .ds-char-demo {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   justify-items: start;
   min-height: 92px;
@@ -341,10 +343,11 @@
 }
 @media (max-width: 420px) {
   .ds-chars {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
+  /* телефон 360 px: ряд «Раздел» помещается в карточку целиком */
   .ds-char {
-    padding: 14px;
+    padding: 14px 10px;
   }
 }
 .ds-lab {

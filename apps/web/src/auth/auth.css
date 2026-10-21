@@ -11,6 +11,10 @@
 }
 .auth a {
   color: inherit;
+  text-decoration: none;
+}
+.auth a:hover {
+  color: var(--q-ink);
 }
 .auth-top {
   position: relative;
@@ -158,11 +162,13 @@
   border: 0;
   background: none;
   font: inherit;
-  text-decoration: underline;
+  color: var(--q-mute);
   cursor: pointer;
 }
+.auth-linkbtn:hover:not(:disabled) {
+  color: var(--q-ink);
+}
 .auth-linkbtn:disabled {
-  text-decoration: none;
   cursor: default;
   color: var(--q-dim);
 }
