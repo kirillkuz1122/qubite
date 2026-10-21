@@ -141,3 +141,23 @@ describe('недавнее', () => {
     expect(loadHistory()).toEqual([]);
   });
 });
+
+describe('проекты из Command (D-289)', () => {
+  const withProjects = { ...state, projects: [{ id: 'p1', name: 'Алгебра', tag: 'алгебра' }] };
+  const v = (text: string) => commandView(text, parseCommand(text), withProjects, inbox, []);
+
+  it('«новый проект …» создаёт проект, а такой же — открывает', () => {
+    const made = v('новый проект Олимпиада по информатике');
+    expect(made.hits[0]).toMatchObject({
+      title: 'Создать проект «Олимпиада по информатике»',
+      run: { type: 'project.new', name: 'Олимпиада по информатике' },
+    });
+    expect(made.active).toBe(0);
+    expect(v('/проект алгебра').hits[0]?.title).toBe('Открыть проект «Алгебра»');
+  });
+
+  it('`#тег` без проекта — подсказка «новый проект», с проектом — нет', () => {
+    expect(v('#учёба повторить графы завтра').hits[0]?.title).toBe('Новый проект «Учеба»');
+    expect(v('#алгебра № 5 завтра').hits[0]?.id).not.toBe('project-new');
+  });
+});

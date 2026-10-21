@@ -27,7 +27,7 @@ import {
   type NavItem,
   type ParsedCommand,
 } from '@qubite/ui';
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
@@ -45,6 +45,7 @@ import { reveal } from './reveal';
 import { useStore, type State } from './state';
 import { useInbox } from './inbox-context';
 import { usePlanner, type PlannerApi } from './planner-context';
+import { useMe } from '../auth/client';
 import './app.css';
 
 const SCREENS: Record<SectionId, () => ReactNode> = {
@@ -61,7 +62,9 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
  * Куда летит точка из Command. Дело, в котором разбор уверен, — сразу в Planner (PLAN-001, D-263);
  * остальное, пока нет заметок (DOC-002), — во «Входящие» черновиком с разбором (CMD-003, D-240).
  */
-const toPlanner = (p: ParsedCommand) => p.kind === 'task' && p.review === null;
+/** Уверенное дело с сутью — в Planner; без сути («#учёба завтра !») — во «Входящие» (D-289). */
+const toPlanner = (p: ParsedCommand) =>
+  p.kind === 'task' && p.review === null && p.text.trim() !== '';
 
 function sectionOf(path: string): SectionId {
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'home';
@@ -210,7 +213,13 @@ export function AppShell() {
   const input = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const parsed = value.trim() ? parseCommand(value) : null;
-  const cmd = commandView(value, parsed, { ...state, week: planner.week }, inbox.items, history);
+  const cmd = commandView(
+    value,
+    parsed,
+    { ...state, week: planner.week, projects: planner.projects },
+    inbox.items,
+    history,
+  );
   const shown = focused && (wide || open);
   const count = (cmd.parsed ? 1 : 0) + cmd.hits.length;
   const active = shown ? Math.min(picked ?? cmd.active, count - 1) : -1;
@@ -279,6 +288,16 @@ export function AppShell() {
       saveHistory([]);
       setHistory([]);
       change('');
+      return;
+    }
+    if (r.type === 'project.new') {
+      setHistory(remember(history, value, 'search'));
+      void planner.newProject(r.name).then(({ id }) => {
+        go('planner');
+        reveal('planner', `proj-${id}`, true);
+        api.cheer('proto');
+      });
+      finish();
       return;
     }
     if (r.type === 'save') {
@@ -356,7 +375,6 @@ export function AppShell() {
 
   const pitch = wide ? 5.6 : 4.4;
   const headH = wide ? 136 : 112;
-  const leftToday = left(planner);
 
   return (
     <ShellCtx.Provider value={api}>
@@ -370,18 +388,7 @@ export function AppShell() {
             <span className="q-dot" />
           </div>
           <SideNav items={items} current={id} onGo={go} />
-          <div className="side-crew">
-            <b>Помощники рядом.</b> Элик поймал {inbox.items.length}{' '}
-            {plural(inbox.items.length, 'мысль', 'мысли', 'мыслей')}, Прото держит {leftToday}{' '}
-            {plural(leftToday, 'дело', 'дела', 'дел')} на сегодня.
-          </div>
-          <div className="side-me">
-            <span className="side-av">К</span>
-            <div>
-              Кирилл
-              <small>владелец</small>
-            </div>
-          </div>
+          <SideMe />
         </aside>
       )}
 
@@ -466,4 +473,22 @@ function visibleTarget(id: SectionId): Element | null {
   const all = document.querySelectorAll<HTMLElement>(`[data-nav-target="${id}"]`);
   for (const el of all) if (el.offsetParent !== null || el.getClientRects().length) return el;
   return all[0] ?? null;
+}
+
+/** Внизу боковой панели — кто вошёл на самом деле, ссылка на «Аккаунт». */
+function SideMe() {
+  const me = useMe().data;
+  if (!me) return null;
+  const name = me.display_name || me.email;
+  return (
+    <Link className="side-me" to="/account" aria-label={`Аккаунт: ${name}`}>
+      <span className="side-av" aria-hidden="true">
+        {name.trim().charAt(0).toUpperCase()}
+      </span>
+      <span className="side-me-who">
+        {name}
+        <small>{me.is_owner ? 'владелец' : me.email}</small>
+      </span>
+    </Link>
+  );
 }

@@ -369,6 +369,73 @@ fn is_unsafe(method: &Method) -> bool {
     !matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS)
 }
 
+/// Подходит ли адрес запроса к домену cookie (`.qubiteapp.ru` — сам домен и поддомены).
+fn host_in_domain(host: &str, domain: &str) -> bool {
+    let host = host.rsplit_once(':').map_or(host, |(name, port)| {
+        if port.chars().all(|c| c.is_ascii_digit()) {
+            name
+        } else {
+            host
+        }
+    });
+    let domain = domain.trim_start_matches('.');
+    host.eq_ignore_ascii_case(domain)
+        || host
+            .to_ascii_lowercase()
+            .ends_with(&format!(".{}", domain.to_ascii_lowercase()))
+}
+
+/// D-288: `QUBITE_SESSION_COOKIE_DOMAIN` не подходит к адресу запроса (например,
+/// `.qubiteapp.ru` из серверного `.env`, а сайт открыт на localhost) — браузер такую
+/// cookie выбросил бы, и вход «не сохранялся» бы после обновления страницы. Тогда
+/// домен у cookie не ставим: она остаётся у того адреса, с которого пришёл запрос.
+pub async fn cookie_domain_layer(
+    State(state): State<AppState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let Some(domain) = state.auth.cookie_domain.clone() else {
+        return next.run(request).await;
+    };
+    let host = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    let mut response = next.run(request).await;
+    if host.is_empty() || host_in_domain(&host, &domain) {
+        return response;
+    }
+    let suffix = format!("; Domain={domain}");
+    let headers = response.headers_mut();
+    let cookies: Vec<HeaderValue> = headers
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .cloned()
+        .collect();
+    if cookies.is_empty() {
+        return response;
+    }
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        tracing::warn!(
+            %domain, %host,
+            "QUBITE_SESSION_COOKIE_DOMAIN не подходит к адресу сайта — cookie ставятся без домена \
+             (для localhost эту настройку не задают)"
+        );
+    });
+    headers.remove(header::SET_COOKIE);
+    for cookie in cookies {
+        let fixed = cookie.to_str().map(|c| c.replace(&suffix, "")).ok();
+        match fixed.and_then(|c| HeaderValue::from_str(&c).ok()) {
+            Some(value) => headers.append(header::SET_COOKIE, value),
+            None => headers.append(header::SET_COOKIE, cookie),
+        };
+    }
+    response
+}
+
 /// Слой перед всеми маршрутами: находит сессию по cookie, проверяет CSRF у
 /// изменяющих запросов, продлевает срок cookie, стирает cookie мёртвой сессии.
 pub async fn session_layer(
@@ -981,4 +1048,19 @@ fn no_store(mut response: Response) -> Response {
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
+}
+
+#[cfg(test)]
+mod cookie_domain_tests {
+    use super::host_in_domain;
+
+    #[test]
+    fn host_matches_domain_and_subdomains_only() {
+        assert!(host_in_domain("qubiteapp.ru", ".qubiteapp.ru"));
+        assert!(host_in_domain("auth.qubiteapp.ru:443", ".qubiteapp.ru"));
+        assert!(host_in_domain("Auth.QubiteApp.ru", "qubiteapp.ru"));
+        assert!(!host_in_domain("localhost:5173", ".qubiteapp.ru"));
+        assert!(!host_in_domain("127.0.0.1:8080", ".qubiteapp.ru"));
+        assert!(!host_in_domain("evilqubiteapp.ru", ".qubiteapp.ru"));
+    }
 }

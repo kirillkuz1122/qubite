@@ -61,6 +61,80 @@ test('дела и проекты с сервера: «Сегодня», неде
   await expect(col('Готово')).toContainText('Конспект по физике');
 });
 
+test('доска: перенести дело меню, клавишами и мышью; проект — кнопкой и из Command (D-289)', async ({
+  page,
+}) => {
+  const server = await mockSync(page);
+  server.addTask('Эссе по литературе', { due_date: day() });
+  await page.goto('/planner');
+  await page.getByRole('radio', { name: 'Доска' }).click();
+  const col = (name: string) => page.getByRole('group', { name: new RegExp(`^${name}:`) });
+  const card = page.locator('[data-card]').filter({ hasText: 'Эссе по литературе' });
+
+  await card.getByRole('button', { name: 'Переместить в…' }).click();
+  await card.getByRole('menuitem', { name: 'В работе' }).click();
+  await expect(col('В работе')).toContainText('Эссе по литературе');
+  await expect
+    .poll(() =>
+      server.ops.some(
+        (op) => op.kind === 'patch' && (op.fields as Record<string, unknown>).status === 'doing',
+      ),
+    )
+    .toBe(true);
+
+  await card.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(col('Готово')).toContainText('Эссе по литературе');
+  await expect(card).toBeFocused();
+
+  if (!isPhone(page)) {
+    await card.dragTo(col('Надо'));
+    await expect(col('Надо')).toContainText('Эссе по литературе');
+  }
+  // доска без горизонтальной прокрутки
+  expect(await page.locator('.board').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(
+    true,
+  );
+
+  await page.getByRole('radio', { name: 'Неделя' }).click();
+  await page.getByRole('button', { name: '+ Новый проект' }).click();
+  await page.getByLabel('Название проекта').fill('Физика');
+  await page
+    .getByRole('form', { name: 'Новый проект' })
+    .getByRole('button', { name: 'Создать' })
+    .click();
+  await expect(page.getByRole('region', { name: 'Дела проекта Физика' })).toContainText('#физика');
+
+  const input = await openCommand(page);
+  await input.fill('новый проект Олимпиада');
+  await expect(page.getByText('Создать проект «Олимпиада»')).toBeVisible();
+  await input.press('Enter');
+  await expect(page.locator('.proj').filter({ hasText: 'Олимпиада' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect
+    .poll(() =>
+      server.ops
+        .filter((op) => op.kind === 'create' && op.object_type === 'planner.project')
+        .map((op) => op.title),
+    )
+    .toEqual(['Физика', 'Олимпиада']);
+});
+
+test('строка без сути («#учёба завтра в 15:00 !») — не дело с меткой в названии, а во «Входящие»', async ({
+  page,
+}) => {
+  const server = await mockSync(page);
+  await page.goto('/planner');
+  const input = await openCommand(page);
+  await input.fill('#учёба завтра в 15:00 !');
+  await expect(page.getByText('Новый проект «Учеба»')).toBeVisible();
+  await input.press('Enter');
+  await expect.poll(() => server.ops.length).toBeGreaterThan(0);
+  expect(server.ops.every((op) => op.object_type !== 'planner.task')).toBe(true);
+});
+
 test('дело из Command с #проектом создаёт проект и встаёт на сегодня', async ({ page }) => {
   const server = await mockSync(page);
   await page.goto('/today');

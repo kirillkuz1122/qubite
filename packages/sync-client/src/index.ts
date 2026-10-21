@@ -35,6 +35,7 @@ export {
   patchTask,
   plannerData,
   setTaskDone,
+  setTaskStatus,
   splitProjectTag,
   tagFrom,
   toProject,

@@ -9,6 +9,8 @@ import {
   findProject,
   plannerData,
   setTaskDone,
+  setTaskStatus,
+  tagFrom,
   type PlannerProject,
   type PlannerTask,
 } from '@qubite/sync-client';
@@ -80,12 +82,37 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
         projectId =
           findProject(projects, tag)?.id ?? (await createProject(c, nameFromTag(tag), { tag })).id;
       }
-      await createTask(c, title || text.trim() || 'Новое дело', {
+      // Название — только суть: метки, срок и важность ушли в поля (D-289). Сути нет — так и
+      // пишем, а не повторяем строку с метками.
+      await createTask(c, title || 'Дело без названия', {
         ...task,
         ...(projectId ? { project_id: projectId } : {}),
         ...(options.fromInbox ? { from_inbox: options.fromInbox } : {}),
       });
       void c.sync();
+    },
+    [ready],
+  );
+
+  const move = useCallback(
+    async (id: string, status: PlannerTask['status']) => {
+      const c = await ready();
+      await setTaskStatus(c, id, status);
+      void c.sync();
+    },
+    [ready],
+  );
+
+  const newProject = useCallback(
+    async (name: string) => {
+      const c = await ready();
+      const tag = tagFrom(name);
+      const { projects } = await plannerData(c);
+      const found = findProject(projects, tag);
+      if (found) return { id: found.id, tag: found.tag, created: false };
+      const made = await createProject(c, name, { tag });
+      void c.sync();
+      return { id: made.id, tag, created: true };
     },
     [ready],
   );
@@ -99,11 +126,13 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
         week.findIndex((d) => d.today),
       ),
       board: buildBoard(data.tasks, data.projects, now.getTime()),
-      projects: buildProjects(data.projects, data.tasks),
+      projects: buildProjects(data.projects, data.tasks, iso(now)),
       loaded,
       toggle,
       add,
+      move,
+      newProject,
     };
-  }, [data, now, loaded, toggle, add]);
+  }, [data, now, loaded, toggle, add, move, newProject]);
   return <PlannerCtx.Provider value={value}>{children}</PlannerCtx.Provider>;
 }

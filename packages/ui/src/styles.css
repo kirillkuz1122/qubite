@@ -60,6 +60,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
   will-change: transform;
   touch-action: manipulation;
@@ -323,16 +324,26 @@ body {
 }
 .q-field-eye {
   flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
   height: 36px;
   margin-right: 7px;
-  padding: 0 12px;
+  padding: 0;
   border: 0;
   border-radius: calc(var(--q-round) * 18px);
-  background: var(--q-panel-2);
-  color: var(--q-mute);
-  font: inherit;
-  font-size: 12px;
+  background: none;
+  color: var(--q-dim);
   cursor: pointer;
+  transition: color 0.15s ease;
+}
+.q-field-eye:hover,
+.q-field-eye:focus-visible,
+.q-field-eye[aria-pressed='true'] {
+  color: var(--q-orange);
+}
+.q-field-eye .q-ico {
+  fill: currentColor;
 }
 .q-field-note {
   margin: 6px 0 0 2px;

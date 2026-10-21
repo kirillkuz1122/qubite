@@ -3,12 +3,17 @@
  * (дела, мысли во «Входящих», документы). Всё ищется на устройстве, без сети и без AI.
  * Здесь только данные: что нашлось и что сделать при выборе; делает оболочка (`AppShell`).
  */
+import { findProject, tagFrom } from '@qubite/sync-client';
 import { matchScore, type CommandHit, type ParsedCommand, type ThemeChoice } from '@qubite/ui';
 import { SECTIONS, type Day, type InboxItem, type SectionId } from './data';
 import type { State } from './state';
 
-/** Где искать объекты: дела недели (Planner, PLAN-001) и документы. */
-export type CommandData = Pick<State, 'docs'> & { week: Day[] };
+/** Где искать объекты: дела недели (Planner, PLAN-001), проекты и документы. */
+export type CommandData = Pick<State, 'docs'> & {
+  week: Day[];
+  /** проекты Planner: есть ли уже такой `#тег` */
+  projects?: readonly { id: string; name: string; tag: string }[];
+};
 
 /** Что сделать, когда пункт выбран. */
 export type CommandRun =
@@ -19,7 +24,9 @@ export type CommandRun =
   | { type: 'fill'; text: string }
   | { type: 'history.clear' }
   /** сохранить строку как мысль (когда поиск ничего не нашёл) */
-  | { type: 'save' };
+  | { type: 'save' }
+  /** создать проект Planner (или открыть такой же, если уже есть) */
+  | { type: 'project.new'; name: string };
 
 export interface CommandEntry extends CommandHit {
   run: CommandRun;
@@ -220,6 +227,26 @@ export function commandView(
     }));
     return { parsed: null, hits, heading: 'Недавнее', active: -1 };
   }
+  // «новый проект Алгебра», «/проект Алгебра» — создать проект прямо из строки
+  const project = /^\s*(?:\/проект|\/project|(?:новый|создать|создай)\s+проект)\s+(.+?)\s*$/i.exec(
+    value,
+  )?.[1];
+  if (project) {
+    const tag = tagFrom(project);
+    const existing = findProject([...(state.projects ?? [])], tag);
+    const name = project.replace(/^#/, '');
+    const hit: CommandEntry = {
+      id: 'project-new',
+      title: existing ? `Открыть проект «${existing.name}»` : `Создать проект «${name}»`,
+      where: existing
+        ? 'такой проект уже есть — Planner'
+        : `Planner — новый проект, дела в него: #${tag}`,
+      color: 'ink',
+      group: 'action',
+      run: { type: 'project.new', name },
+    };
+    return { parsed: null, hits: [hit], heading: 'Проект', active: 0 };
+  }
   if (parsed.kind === 'search') {
     const hits = findEntries(parsed.text, state, inbox);
     if (!hits.length)
@@ -235,6 +262,18 @@ export function commandView(
     return { parsed: null, hits, heading: 'Найдено', active: 0 };
   }
   const hits = findEntries(parsed.text || value, state, inbox);
+  // `#тег` дела, а такого проекта ещё нет — сказать заранее: он создастся вместе с делом
+  const tag = parsed.kind === 'task' ? parsed.parse.project : null;
+  if (tag && state.projects && !findProject([...state.projects], tag))
+    hits.unshift({
+      id: 'project-new',
+      title: `Новый проект «${tag.charAt(0).toUpperCase()}${tag.slice(1).replace(/_/g, ' ')}»`,
+      where: 'создастся вместе с делом; или создай только проект',
+      color: 'ink',
+      group: 'action',
+      score: 0,
+      run: { type: 'project.new', name: tag.replace(/_/g, ' ') },
+    });
   const top = hits[0];
   const short = value.trim().split(/\s+/).length <= 2;
   const exact =

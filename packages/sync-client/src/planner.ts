@@ -235,6 +235,16 @@ export function setTaskDone(client: SyncClient, id: string, done: boolean): Prom
   );
 }
 
+/** Перенести дело в колонку доски: «Надо», «В работе», «Готово». */
+export function setTaskStatus(
+  client: SyncClient,
+  id: string,
+  status: TaskStatus,
+): Promise<LocalObject> {
+  if (status === 'done') return setTaskDone(client, id, true);
+  return client.patch(id, { status }, { completed_at_ms: null });
+}
+
 /** Галочка шага: весь список уходит целиком (так его проверяет сервер). */
 export async function toggleSubtask(
   client: SyncClient,

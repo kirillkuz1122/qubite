@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME } from '../auth/client';
 import { useEffect } from 'react';
 import { useSync } from './sync-context';
-import { AccountSyncProvider, clearAccountStore } from './sync';
-import { forgetSyncAccount, syncDbName } from './sync-context';
+import { AccountSyncProvider } from './sync';
+import { clearAccountStore, forgetSyncAccount, syncDbName } from './sync-context';
 
 const offline: Transport = {
   push: () => Promise.reject(new Error('нет сети')),

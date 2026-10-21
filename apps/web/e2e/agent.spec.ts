@@ -179,7 +179,12 @@ test('лента у проекта и у дела в Planner', async ({ page }) 
   await expect(trail).toContainText('Разложил мысль');
   expect(agent.queries.some((q) => q.includes(`project=${russian}`))).toBe(true);
 
-  await page.locator('.row').filter({ hasText: 'Упр. 145' }).click();
+  // раскрытый проект показывает и свои дела (D-289) — берём строку дела в самом проекте
+  await page
+    .getByRole('region', { name: 'Дела проекта Русский' })
+    .locator('.row')
+    .filter({ hasText: 'Упр. 145' })
+    .click();
   await expect.poll(() => agent.queries.some((q) => q.includes(`object=${task}`))).toBe(true);
 });
 

@@ -135,6 +135,8 @@ export interface BoardCard {
 }
 
 export interface BoardColumn {
+  /** какой статус у дел в колонке — куда переносит перетаскивание */
+  status: PlannerTask['status'];
   name: string;
   color: ColorName;
   cards: BoardCard[];
@@ -167,27 +169,36 @@ export function buildBoard(
     .filter((t) => t.status === 'done' && (t.completed_at_ms ?? nowMs) >= nowMs - DONE_DAYS * 864e5)
     .sort((a, b) => (b.completed_at_ms ?? nowMs) - (a.completed_at_ms ?? nowMs));
   return [
-    { name: 'Надо', color: 'faint', cards: open('todo').map(card) },
-    { name: 'В работе', color: 'orange', cards: open('doing').map(card) },
-    { name: 'Готово', color: 'green', cards: done.map(card) },
+    { status: 'todo', name: 'Надо', color: 'faint', cards: open('todo').map(card) },
+    { status: 'doing', name: 'В работе', color: 'orange', cards: open('doing').map(card) },
+    { status: 'done', name: 'Готово', color: 'green', cards: done.map(card) },
   ];
 }
 
 export interface ProjectBar {
   id: string;
   name: string;
+  /** тег для Command: `#алгебра` */
+  tag: string;
   color: ColorName;
   done: number;
   total: number;
   /** точек в полоске (не больше 12, чтобы влезло на телефоне) */
   dots: number;
   filled: number;
+  /** дела проекта: сначала несделанные по сроку, потом сделанные */
+  tasks: Task[];
 }
 
 const MAX_DOTS = 12;
 
 /** Идущие проекты с прогрессом: сколько дел сделано из всех. */
-export function buildProjects(projects: PlannerProject[], tasks: PlannerTask[]): ProjectBar[] {
+export function buildProjects(
+  projects: PlannerProject[],
+  tasks: PlannerTask[],
+  today = '',
+): ProjectBar[] {
+  const byId = new Map(projects.map((p) => [p.id, p]));
   return projects
     .filter((p) => p.status === 'active')
     .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
@@ -197,7 +208,25 @@ export function buildProjects(projects: PlannerProject[], tasks: PlannerTask[]):
       const total = own.length;
       const dots = Math.min(total, MAX_DOTS);
       const filled = total > MAX_DOTS ? Math.round((done / total) * MAX_DOTS) : done;
-      return { id: p.id, name: p.title, color: p.color, done, total, dots, filled };
+      const rows = [...own]
+        .sort(
+          (a, b) =>
+            Number(a.status === 'done') - Number(b.status === 'done') ||
+            (a.due_date ?? '9').localeCompare(b.due_date ?? '9') ||
+            byTime(a, b),
+        )
+        .map((t) => toRow(t, byId, today));
+      return {
+        id: p.id,
+        name: p.title,
+        tag: p.tag,
+        color: p.color,
+        done,
+        total,
+        dots,
+        filled,
+        tasks: rows,
+      };
     });
 }
 

@@ -14,6 +14,8 @@ const EMAIL = process.env.QUBITE_E2E_EMAIL ?? '';
 const PASSWORD = process.env.QUBITE_E2E_PASSWORD ?? '';
 
 test.skip(!BASE, 'нужен настоящий сервер: QUBITE_E2E_REAL');
+// Сценарии меняют общие тумблеры (вход, техработы) — только по очереди.
+test.describe.configure({ mode: 'serial' });
 test.use({ baseURL: BASE ?? 'http://localhost' });
 
 test('настоящий сервер: вход, сессия на «Аккаунте», выход', async ({ page }) => {

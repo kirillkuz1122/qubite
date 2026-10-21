@@ -155,9 +155,13 @@
   .cs-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  /* кнопка — на одной линии с полями (над полями — подпись) */
+  /* кнопка — на одной линии с полями: под подписью поля и той же высоты, что поле */
   .cs-grid > .q-btn {
-    margin-top: 25px;
+    justify-self: start;
+    height: 50px;
+    /* высота подписи поля (13px × межстрочный 1.55) + её отступ 7px */
+    margin-top: calc(13px * 1.55 + 7px);
+    border-radius: calc(var(--q-round) * 25px);
   }
 }
 .cs-filters {

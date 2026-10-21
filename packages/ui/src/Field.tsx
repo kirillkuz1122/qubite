@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { caretPoint, focusOn } from './dots/attention';
+import { DotIcon } from './icons';
 import { useSpring } from './useSpring';
 
 export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -18,7 +19,7 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   hint?: ReactNode;
   /** ошибка под полем: поле краснеет и коротко качается */
   error?: string | null;
-  /** для пароля: кнопка «показать» */
+  /** для пароля: кнопка-глаз «показать / спрятать» */
   reveal?: boolean;
   /** пароль показан или спрятан (помощники отворачиваются, когда он виден) */
   onReveal?: (shown: boolean) => void;
@@ -97,7 +98,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
               onReveal?.(!shown);
             }}
           >
-            {shown ? 'спрятать' : 'показать'}
+            <DotIcon name={shown ? 'eye-off' : 'eye'} size={22} />
           </button>
         )}
       </div>

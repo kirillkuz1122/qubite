@@ -9,6 +9,7 @@ import {
   newSubtask,
   plannerData,
   setTaskDone,
+  setTaskStatus,
   splitProjectTag,
   tagFrom,
   toggleSubtask,
@@ -151,6 +152,22 @@ describe('Planner: проекты и дела', () => {
       ['Зарядка', 'done'],
       ['Зарядка', 'todo'],
     ]);
+    client.close();
+  });
+
+  it('перенос по доске: «в работе» и обратно, «готово» ставит время (D-289)', async () => {
+    const client = await open(new PlannerServer());
+    const task = await createTask(client, 'Эссе');
+    await setTaskStatus(client, task.id, 'doing');
+    let [t] = (await plannerData(client)).tasks;
+    expect(t).toMatchObject({ status: 'doing', completed_at_ms: null });
+    await setTaskStatus(client, task.id, 'done');
+    [t] = (await plannerData(client)).tasks;
+    expect(t!.status).toBe('done');
+    expect(t!.completed_at_ms).not.toBeNull();
+    await setTaskStatus(client, task.id, 'todo');
+    [t] = (await plannerData(client)).tasks;
+    expect(t).toMatchObject({ status: 'todo', completed_at_ms: null });
     client.close();
   });
 

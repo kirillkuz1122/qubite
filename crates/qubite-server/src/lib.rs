@@ -587,6 +587,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             state.clone(),
             notifications::errors_layer,
         ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::cookie_domain_layer,
+        ))
         .with_state(state)
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,

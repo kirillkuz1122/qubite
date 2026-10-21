@@ -50,7 +50,12 @@ export function parseCommand(input: string, now: LocalNow = localNow()): ParsedC
   return {
     kind: p.kind,
     title: labelOf(p),
-    where: p.kind === 'task' && p.review ? 'Входящие — черновик дела' : WHERE[p.kind],
+    where:
+      p.kind === 'task' && p.review
+        ? 'Входящие — черновик дела'
+        : p.kind === 'task' && !p.title.trim()
+          ? 'Входящие — что сделать? Допиши суть или разберёшь потом'
+          : WHERE[p.kind],
     when: p.when,
     details,
     text: p.title || p.url || '',
