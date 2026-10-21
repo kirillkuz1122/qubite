@@ -8,8 +8,9 @@ const apiTarget = process.env.QUBITE_API ?? 'http://127.0.0.1:8080';
 export default defineConfig({
   plugins: [react()],
   server: {
-    // временные ссылки Cloudflare (cloudflared tunnel), чтобы открыть сайт с телефона
-    allowedHosts: ['.trycloudflare.com'],
+    // временные ссылки туннелей, чтобы открыть сайт с телефона: Cloudflare (cloudflared),
+    // localhost.run и Pinggy (через ssh), Tailscale (MagicDNS / Funnel)
+    allowedHosts: ['.trycloudflare.com', '.lhr.life', '.localhost.run', '.pinggy.link', '.ts.net'],
     // ws — WebSocket «есть новое» для Входящих (/api/v1/sync/ws)
     proxy: { '/api': { target: apiTarget, changeOrigin: false, ws: true } },
   },
