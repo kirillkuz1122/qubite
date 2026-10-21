@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T5;src:url(../fonts/Tiny5-latin.woff2)}
+@font-face{font-family:T5;src:url(../fonts/Tiny5-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-latin.woff2)}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;font-weight:600;src:url(../fonts/FiraCode-SemiBold-latin.woff2)}
+@font-face{font-family:Fira;font-weight:600;src:url(../fonts/FiraCode-SemiBold-cyrillic.woff2);unicode-range:U+0400-045F}
+body{margin:0;background:#100f0d}
+</style></head><body><canvas id=c></canvas>
+<script>
+const C={bg:'#100f0d',bg2:'#0a0908',panel:'#1b1916',panel2:'#24211d',ink:'#f3ede3',mute:'#a59c90',dim:'#8a8176',orange:'#ff9852',sky:'#71cfff',yellow:'#ffe163',green:'#90dea5',peach:'#ffb98a',paper:'#f3eee5'};
+function rr(x,y,w,h,r,col,g){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,r);g.fill();}
+// растр текста в сетку точек
+function dots(g,text,font,px,cx,cy,pitch,col,size=0.95,round=0.5){
+  const o=document.createElement('canvas'),og=o.getContext('2d');og.font=`${px}px ${font}`;
+  const w=Math.ceil(og.measureText(text).width)+4,h=Math.ceil(px*1.2);o.width=w;o.height=h;
+  og.font=`${px}px ${font}`;og.textBaseline='middle';og.fillStyle='#fff';og.fillText(text,2,h/2);
+  const d=og.getImageData(0,0,w,h).data;
+  let step=px;for(let y=0;y<h;y++){let run=0;for(let x=0;x<w;x++){const on=d[(y*w+x)*4+3]>128;if(on)run++;else{if(run>1&&run<step)step=run;run=0;}}}
+  let x0=w,y0=h,x1=0,y1=0;for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(d[(y*w+x)*4+3]>128){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}const cols=Math.round((x1-x0+1)/step),rows=Math.round((y1-y0+1)/step);
+  const ox=cx-cols*pitch/2,oy=cy-rows*pitch/2;const s=pitch*size;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const X=Math.floor(x0+c*step+step/2),Y=Math.floor(y0+r*step+step/2);
+    if(d[(Y*w+X)*4+3]>128){const col2=typeof col==='function'?col(c,r):col;rr(ox+c*pitch,oy+r*pitch,s,s,s*round,col2,g);}}
+  return {cols,rows,ox,oy};
+}
+function grid(g,W,H,p,col){g.fillStyle=col;for(let y=p/2;y<H;y+=p)for(let x=p/2;x<W;x+=p){g.beginPath();g.arc(x,y,1.1,0,7);g.fill();}}
+function logo(W){const c=document.getElementById('c');c.width=W;c.height=W;const g=c.getContext('2d');
+  g.fillStyle=C.bg;g.fillRect(0,0,W,W);grid(g,W,W,W/40,'rgba(243,237,227,0.07)');
+  const Q=['.XXXXX.','XX...XX','X.....X','X.....X','X.....X','XX..XXX','.XXXX.o'];
+  const n=7,p=W/10.5,s=p*0.95,ox=(W-n*p)/2+p*0.025,oy=(W-n*p)/2+p*0.025;
+  Q.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='X')rr(ox+c*p,oy+r*p,s,s,s*0.5,C.ink,g);
+    if(ch==='o'){const b=s*1.35;rr(ox+c*p-(b-s)/2+p*0.35,oy+r*p-(b-s)/2+p*0.35,b,b,b*0.5,C.orange,g);}}));}
+function board(){const W=1600,H=1000;const c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle=C.bg;g.fillRect(0,0,W,H);grid(g,W,H,20,'rgba(243,237,227,0.06)');
+  {const Q=['.XXXXX.','XX...XX','X.....X','X.....X','X.....X','XX..XXX','.XXXX.o'];const p=11,s=p*0.95;Q.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='X')rr(80+c*p,62+r*p,s,s,s/2,C.ink,g);if(ch==='o')rr(80+c*p+3,62+r*p+3,s*1.35,s*1.35,s*0.68,C.orange,g);}));}
+  g.font='64px T5';g.fillStyle=C.ink;g.fillText('qubite',180,132);
+  g.font='22px Fira';g.fillStyle=C.mute;g.fillText('стиль «Частицы» · умный планер-агент',80,190);
+  // палитра
+  const pal=[['фон','#100f0d'],['панель','#1b1916'],['текст','#f3ede3'],['приглушённый','#a59c90'],['оранжевый','#ff9852'],['небесный','#71cfff'],['жёлтый','#ffe163'],['зелёный','#90dea5'],['персик','#ffb98a'],['бумага','#f3eee5']];
+  pal.forEach(([n,v],i)=>{const x=80+(i%5)*150,y=240+Math.floor(i/5)*150;rr(x,y,120,80,18,v,g);g.strokeStyle='rgba(243,237,227,0.16)';g.lineWidth=1.5;g.beginPath();g.roundRect(x,y,120,80,18);g.stroke();
+    g.font='16px Fira';g.fillStyle=C.ink;g.fillText(n,x,y+104);g.fillStyle=C.dim;g.fillText(v,x,y+124);});
+  // точка
+  g.font='600 18px Fira';g.fillStyle=C.ink;g.fillText('ТОЧКА — основа всего',80,580);
+  for(let i=0;i<14;i++)for(let j=0;j<5;j++){const t=(i+j)%7;const col=[C.ink,C.ink,C.orange,C.ink,C.sky,C.ink,C.yellow][t];rr(80+i*26,600+j*26,23,23,11.5,col,g);}
+  g.font='16px Fira';g.fillStyle=C.mute;['квадрат со скруглением 50%, размер 95% шага','заголовки — пиксельный шрифт, собранный из точек','текст — моноширинный Fira Code','фон — тёплый почти-чёрный с сеткой точек'].forEach((t,i)=>g.fillText(t,80,760+i*28));
+  // помощники
+  g.font='600 18px Fira';g.fillStyle=C.ink;g.fillText('ПОМОЩНИКИ — плоские фигуры, глаза-точки',900,240);
+  const base=520;
+  function eyes(x,y,col){rr(x,y,12,12,6,col,g);rr(x+26,y,12,12,6,col,g);}
+  g.fillStyle=C.orange;g.beginPath();g.arc(990,base,90,Math.PI,0);g.fill();eyes(970,base-50,C.bg);rr(978,base-26,22,5,2.5,C.bg,g);
+  rr(1110,base-230,90,230,26,'#3a352f',g);eyes(1136,base-190,C.ink);rr(1144,base-162,22,5,2.5,C.ink,g);
+  rr(1230,base-170,80,170,40,C.yellow,g);eyes(1250,base-130,C.bg);rr(1300,base-106,24,6,3,C.bg,g);
+  rr(1350,base-200,90,200,26,C.sky,g);g.strokeStyle=C.bg;g.lineWidth=4;g.beginPath();g.arc(1376,base-160,13,0,7);g.arc(1414,base-160,13,0,7);g.stroke();rr(1370,base-166,12,12,6,C.bg,g);rr(1408,base-166,12,12,6,C.bg,g);
+  g.font='14px Fira';g.fillStyle=C.mute;['заботливый','организатор','ловец мыслей','мудрец'].forEach((t,i)=>g.fillText(t,[935,1110,1225,1350][i],base+28));
+  // карточка интерфейса
+  rr(900,600,620,300,28,C.panel,g);g.strokeStyle='rgba(243,237,227,0.12)';g.lineWidth=1.5;g.beginPath();g.roundRect(900,600,620,300,28);g.stroke();
+  g.font='40px T5';g.fillStyle=C.ink;g.fillText('сегодня',932,664);
+  [['повторить графы','15:00',C.orange],['ДЗ по русскому','весь день',C.sky],['сходить в музей','18:30',C.yellow]].forEach(([t,tm,col],i)=>{const y=710+i*58;
+    g.strokeStyle=C.dim;g.lineWidth=2;g.setLineDash([3,4]);g.beginPath();g.arc(945,y,13,0,7);g.stroke();g.setLineDash([]);
+    g.font='20px Fira';g.fillStyle=C.ink;g.fillText(t,975,y+6);rr(975,y+16,8,8,4,col,g);g.font='16px Fira';g.fillStyle=C.mute;g.fillText(tm,1400,y+6);});
+  rr(930,860,560,0.01,0,C.bg,g);
+}
+window.render=(m,W)=>{m==='logo'?logo(W):board();};
+</script></body></html>
