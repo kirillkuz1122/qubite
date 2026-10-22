@@ -13,6 +13,7 @@ import {
   splitProjectTag,
   tagFrom,
   toggleSubtask,
+  updateProject,
 } from './planner';
 import type { ObjectSnapshot, OpResult, PushRequest, PushResponse } from './protocol';
 
@@ -45,6 +46,7 @@ class PlannerServer implements Transport {
         return { status: 'conflict', op_id: op.op_id, current };
       const next: ObjectSnapshot = { ...current, revision: current.revision + 1 };
       if (op.kind === 'patch') next.fields = { ...current.fields, ...op.fields };
+      if (op.kind === 'set_title') next.title = op.title;
       this.objects.set(op.object_id, next);
       this.log.push(op.object_id);
       if (op.kind === 'patch' && op.fields.status === 'done' && current.fields?.recurrence) {
@@ -134,6 +136,37 @@ describe('Planner: проекты и дела', () => {
     ]);
     data = await plannerData(client);
     expect(data.tasks.every((t) => !t.pending)).toBe(true);
+    client.close();
+  });
+
+  it('страница проекта: название, цвет и описание без сети (PROJ-001)', async () => {
+    const server = new PlannerServer();
+    const client = await open(server);
+    const project = await createProject(client, 'Кубит');
+    await client.sync();
+    server.offline = true;
+    await updateProject(client, project.id, {
+      title: ' Qubite ',
+      color: 'green',
+      notes: 'Личная цифровая среда',
+    });
+    // ничего не поменялось — операции нет
+    await updateProject(client, project.id, { title: 'Qubite', color: 'green' });
+    let data = await plannerData(client);
+    expect(data.projects[0]).toMatchObject({
+      title: 'Qubite',
+      color: 'green',
+      notes: 'Личная цифровая среда',
+      pending: true,
+    });
+    server.offline = false;
+    expect((await client.sync()).status).toBe('synced');
+    const saved = server.objects.get(project.id)!;
+    expect(saved.title).toBe('Qubite');
+    expect(saved.fields).toMatchObject({ color: 'green', notes: 'Личная цифровая среда' });
+    expect(saved.revision).toBe(3);
+    data = await plannerData(client);
+    expect(data.projects[0]!.pending).toBe(false);
     client.close();
   });
 

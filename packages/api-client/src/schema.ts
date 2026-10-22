@@ -1268,6 +1268,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Мои документы (свежие сверху) — чтобы привязать к проекту. */
+    get: operations['list_my_docs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Документ целиком. */
+    get: operations['get_my_doc'];
+    /** Поправить документ: название и текст. */
+    put: operations['edit_my_doc'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english': {
     parameters: {
       query?: never;
@@ -1740,6 +1775,113 @@ export interface paths {
     /** Прочитано: гаснет и в Telegram. */
     post: operations['read_notice'];
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Страница проекта: заголовок, дела, файлы, документы, память агента, лента. */
+    get: operations['project_page'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}/docs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Новый документ сразу в проекте. */
+    post: operations['create_project_doc'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}/docs/{doc}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Привязать свой документ к проекту. */
+    post: operations['link_project_doc'];
+    /** Убрать документ из проекта (сам документ остаётся). */
+    delete: operations['unlink_project_doc'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}/feed': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Лента проекта: следующая страница (старше `before`). */
+    get: operations['project_feed'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}/files': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Положить файл в проект: тело запроса — сам файл, `Content-Type` — его тип.
+     *     До 25 МБ.
+     */
+    post: operations['upload_project_file'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/projects/{id}/files/{name}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Скачать файл проекта. */
+    get: operations['download_project_file'];
+    put?: never;
+    post?: never;
+    /** Убрать файл из проекта. */
+    delete: operations['remove_project_file'];
     options?: never;
     head?: never;
     patch?: never;
@@ -3121,6 +3263,12 @@ export interface components {
       /** @description Не короче 10 символов. Человек может сменить его через «Забыли пароль». */
       password: string;
     };
+    /** @description Новый документ в проекте. */
+    NewProjectDoc: {
+      /** @description Текст Markdown, можно пустой. */
+      body?: string;
+      title: string;
+    };
     /** @description Ответ кнопкой. */
     NoticeAnswer: {
       /** @description `id` кнопки из `options` сообщения. */
@@ -3274,6 +3422,156 @@ export interface components {
     Presence: {
       /** @description Вкладка Qubite видна (раз в минуту, пока видна; `false` — спрятана или закрывается). */
       visible: boolean;
+    };
+    /** @description Документ целиком. */
+    ProjectDoc: components['schemas']['ProjectDocItem'] & {
+      /** @description Текст Markdown. */
+      body: string;
+    };
+    /** @description Правка документа. */
+    ProjectDocEdit: {
+      body: string;
+      /**
+       * Format: int64
+       * @description Версия, которую ты видел; изменилась — 409, перечитать.
+       */
+      revision: number;
+      title: string;
+    };
+    /** @description Документ в списке. */
+    ProjectDocItem: {
+      /** Format: uuid */
+      id: string;
+      /** @description Первая строка текста. */
+      preview: string;
+      /** @description Проекты, в которые он входит. */
+      project_ids: string[];
+      /** Format: int64 */
+      revision: number;
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /** @description Список документов (привязать к проекту). */
+    ProjectDocList: {
+      docs: components['schemas']['ProjectDocItem'][];
+    };
+    /** @description Событие календаря в проекте (появятся с CAL-001, D-472). */
+    ProjectEventItem: {
+      /** @description `2026-10-23`. */
+      date: string;
+      /** Format: uuid */
+      id: string;
+      /** @description `16:00`. */
+      time?: string | null;
+      title: string;
+    };
+    /** @description Лента: следующая страница. */
+    ProjectFeed: {
+      items: components['schemas']['ProjectFeedItem'][];
+    };
+    /** @description Строка ленты проекта. */
+    ProjectFeedItem: {
+      /** Format: date-time */
+      at: string;
+      /** @description `owner` — ты (или агент от твоего имени — он виден в ленте агента), `system` — сервер. */
+      by: string;
+      /** @description Что поменялось (`due_date`, `status`, `title`, …) или имя файла. */
+      details: string[];
+      /**
+       * @description `created`, `changed`, `done`, `deleted`, `restored`, `file_added`,
+       *     `file_removed`, `doc_linked`, `doc_unlinked`.
+       */
+      kind: string;
+      /** @description `project`, `task`, `doc`. */
+      object: string;
+      /** Format: uuid */
+      object_id: string;
+      /**
+       * Format: int64
+       * @description Курсор `before` для следующей страницы.
+       */
+      seq: number;
+      /** @description Название сейчас. */
+      title: string;
+    };
+    /** @description Файл проекта. */
+    ProjectFileItem: {
+      /** Format: date-time */
+      created_at: string;
+      mime: string;
+      /** @description Имя в проекте (оно же адрес скачивания). */
+      name: string;
+      /** @description sha256 содержимого (hex). */
+      sha256: string;
+      /**
+       * Format: int64
+       * @description Байт.
+       */
+      size: number;
+    };
+    /** @description Заголовок проекта. */
+    ProjectHead: {
+      /** @description `orange`, `sky`, `yellow`, `green`, `peach`. */
+      color: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description Описание проекта. */
+      notes: string;
+      /** Format: int64 */
+      revision: number;
+      /** @description `active` или `archived`. */
+      status: string;
+      /** @description Тег для Command без «#». */
+      tag: string;
+      title: string;
+    };
+    /**
+     * @description Память агента о проекте — файл «Проекты/<проект>.md» в папке агента.
+     *     Править — `PUT /api/v1/agent/files/{file_id}` (строка ленты с откатом).
+     */
+    ProjectMemory: {
+      body: string;
+      chars: number;
+      /** Format: uuid */
+      file_id: string;
+      limit: number;
+      /** @description «Проекты/Алгебра.md». */
+      path: string;
+      /** Format: int64 */
+      revision: number;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /** @description Страница проекта. */
+    ProjectPage: {
+      /** @description Есть ли доступ к агенту (иначе память и лента агента не видны). */
+      agent: boolean;
+      /** @description `null` — нет права на Docs. */
+      docs?: components['schemas']['ProjectDocItem'][] | null;
+      /** @description События календаря (CAL-001); пока всегда пусто — точка подключения. */
+      events: components['schemas']['ProjectEventItem'][];
+      /** @description Последние изменения (свежие сверху). */
+      feed: components['schemas']['ProjectFeedItem'][];
+      files: components['schemas']['ProjectFileItem'][];
+      memory?: components['schemas']['ProjectMemory'] | null;
+      project: components['schemas']['ProjectHead'];
+      /** @description Живые дела проекта по сроку. */
+      tasks: components['schemas']['ProjectTaskItem'][];
+    };
+    /** @description Дело проекта (коротко; целиком — в синхронизации). */
+    ProjectTaskItem: {
+      /** @description `2026-10-23`. */
+      due_date?: string | null;
+      /** @description `16:00`. */
+      due_time?: string | null;
+      /** Format: uuid */
+      id: string;
+      /** @description `todo`, `doing`, `done`. */
+      status: string;
+      title: string;
     };
     /** @description Браузер, подписанный на push. */
     PushDevice: {
@@ -6708,6 +7006,121 @@ export interface operations {
       };
     };
   };
+  list_my_docs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Документы */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectDocList'];
+        };
+      };
+      /** @description Нет доступа к Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_my_doc: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Документ */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectDoc'];
+        };
+      };
+      /** @description Нет такого документа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  edit_my_doc: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectDocEdit'];
+      };
+    };
+    responses: {
+      /** @description Документ */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectDoc'];
+        };
+      };
+      /** @description Нет названия или слишком длинный */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого документа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Уже изменили — перечитать */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   english_overview: {
     parameters: {
       query?: never;
@@ -7904,6 +8317,334 @@ export interface operations {
         };
       };
       /** @description Нет такого сообщения */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  project_page: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Страница проекта */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectPage'];
+        };
+      };
+      /** @description Нет доступа к Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого проекта (или он чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_project_doc: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NewProjectDoc'];
+      };
+    };
+    responses: {
+      /** @description Документ */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectDoc'];
+        };
+      };
+      /** @description Нет названия или слишком длинный */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Planner или Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого проекта */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  link_project_doc: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+        /** @description ID документа */
+        doc: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Документ в проекте */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectDocItem'];
+        };
+      };
+      /** @description Нет такого проекта или документа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  unlink_project_doc: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+        /** @description ID документа */
+        doc: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Убран из проекта */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не был в проекте */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  project_feed: {
+    parameters: {
+      query?: {
+        /** @description Курсор: `seq` последней показанной строки. */
+        before?: number | null;
+      };
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Строки ленты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectFeed'];
+        };
+      };
+      /** @description Нет такого проекта */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  upload_project_file: {
+    parameters: {
+      query: {
+        /** @description Имя файла («отчёт.pdf»); занято — допишется «(2)». */
+        name: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/octet-stream': number[];
+      };
+    };
+    responses: {
+      /** @description Файл в проекте */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProjectFileItem'];
+        };
+      };
+      /** @description Нет имени, слишком большой, слишком много файлов */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого проекта */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  download_project_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+        /** @description Имя файла */
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Файл */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/octet-stream': number[];
+        };
+      };
+      /** @description Нет такого файла или проекта */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  remove_project_file: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID проекта */
+        id: string;
+        /** @description Имя файла */
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Убран */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого файла или проекта */
       404: {
         headers: {
           [name: string]: unknown;

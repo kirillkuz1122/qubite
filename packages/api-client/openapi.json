@@ -3923,6 +3923,145 @@
         }
       }
     },
+    "/api/v1/docs": {
+      "get": {
+        "tags": ["planner"],
+        "summary": "Мои документы (свежие сверху) — чтобы привязать к проекту.",
+        "operationId": "list_my_docs",
+        "responses": {
+          "200": {
+            "description": "Документы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDocList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/{id}": {
+      "get": {
+        "tags": ["planner"],
+        "summary": "Документ целиком.",
+        "operationId": "get_my_doc",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Документ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDoc"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого документа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["planner"],
+        "summary": "Поправить документ: название и текст.",
+        "operationId": "edit_my_doc",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectDocEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Документ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDoc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет названия или слишком длинный",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого документа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Уже изменили — перечитать",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english": {
       "get": {
         "tags": ["english"],
@@ -5307,6 +5446,463 @@
           },
           "404": {
             "description": "Нет такого сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "tags": ["planner"],
+        "summary": "Страница проекта: заголовок, дела, файлы, документы, память агента, лента.",
+        "operationId": "project_page",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница проекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого проекта (или он чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/docs": {
+      "post": {
+        "tags": ["planner"],
+        "summary": "Новый документ сразу в проекте.",
+        "operationId": "create_project_doc",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProjectDoc"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Документ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDoc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет названия или слишком длинный",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Planner или Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого проекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/docs/{doc}": {
+      "post": {
+        "tags": ["planner"],
+        "summary": "Привязать свой документ к проекту.",
+        "operationId": "link_project_doc",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "doc",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Документ в проекте",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDocItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого проекта или документа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["planner"],
+        "summary": "Убрать документ из проекта (сам документ остаётся).",
+        "operationId": "unlink_project_doc",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "doc",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Убран из проекта"
+          },
+          "404": {
+            "description": "Не был в проекте",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/feed": {
+      "get": {
+        "tags": ["planner"],
+        "summary": "Лента проекта: следующая страница (старше `before`).",
+        "operationId": "project_feed",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Курсор: `seq` последней показанной строки.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Строки ленты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectFeed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого проекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/files": {
+      "post": {
+        "tags": ["planner"],
+        "summary": "Положить файл в проект: тело запроса — сам файл, `Content-Type` — его тип.\nДо 25 МБ.",
+        "operationId": "upload_project_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Имя файла («отчёт.pdf»); занято — допишется «(2)».",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Файл в проекте",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectFileItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет имени, слишком большой, слишком много файлов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого проекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/files/{name}": {
+      "get": {
+        "tags": ["planner"],
+        "summary": "Скачать файл проекта.",
+        "operationId": "download_project_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Имя файла",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла или проекта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["planner"],
+        "summary": "Убрать файл из проекта.",
+        "operationId": "remove_project_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID проекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Имя файла",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Убран"
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого файла или проекта",
             "content": {
               "application/json": {
                 "schema": {
@@ -8279,6 +8875,21 @@
           }
         }
       },
+      "NewProjectDoc": {
+        "type": "object",
+        "description": "Новый документ в проекте.",
+        "required": ["title"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Текст Markdown, можно пустой."
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "NoticeAnswer": {
         "type": "object",
         "description": "Ответ кнопкой.",
@@ -8647,6 +9258,352 @@
           }
         },
         "additionalProperties": false
+      },
+      "ProjectDoc": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProjectDocItem"
+          },
+          {
+            "type": "object",
+            "required": ["body"],
+            "properties": {
+              "body": {
+                "type": "string",
+                "description": "Текст Markdown."
+              }
+            }
+          }
+        ],
+        "description": "Документ целиком."
+      },
+      "ProjectDocEdit": {
+        "type": "object",
+        "description": "Правка документа.",
+        "required": ["title", "body", "revision"],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Версия, которую ты видел; изменилась — 409, перечитать."
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectDocItem": {
+        "type": "object",
+        "description": "Документ в списке.",
+        "required": ["id", "title", "preview", "revision", "project_ids", "updated_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preview": {
+            "type": "string",
+            "description": "Первая строка текста."
+          },
+          "project_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Проекты, в которые он входит."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProjectDocList": {
+        "type": "object",
+        "description": "Список документов (привязать к проекту).",
+        "required": ["docs"],
+        "properties": {
+          "docs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDocItem"
+            }
+          }
+        }
+      },
+      "ProjectEventItem": {
+        "type": "object",
+        "description": "Событие календаря в проекте (появятся с CAL-001, D-472).",
+        "required": ["id", "title", "date"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "`2026-10-23`."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "time": {
+            "type": ["string", "null"],
+            "description": "`16:00`."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectFeed": {
+        "type": "object",
+        "description": "Лента: следующая страница.",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectFeedItem"
+            }
+          }
+        }
+      },
+      "ProjectFeedItem": {
+        "type": "object",
+        "description": "Строка ленты проекта.",
+        "required": ["seq", "at", "kind", "object", "object_id", "title", "details", "by"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "by": {
+            "type": "string",
+            "description": "`owner` — ты (или агент от твоего имени — он виден в ленте агента), `system` — сервер."
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Что поменялось (`due_date`, `status`, `title`, …) или имя файла."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`created`, `changed`, `done`, `deleted`, `restored`, `file_added`,\n`file_removed`, `doc_linked`, `doc_unlinked`."
+          },
+          "object": {
+            "type": "string",
+            "description": "`project`, `task`, `doc`."
+          },
+          "object_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Курсор `before` для следующей страницы."
+          },
+          "title": {
+            "type": "string",
+            "description": "Название сейчас."
+          }
+        }
+      },
+      "ProjectFileItem": {
+        "type": "object",
+        "description": "Файл проекта.",
+        "required": ["name", "size", "mime", "sha256", "created_at"],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя в проекте (оно же адрес скачивания)."
+          },
+          "sha256": {
+            "type": "string",
+            "description": "sha256 содержимого (hex)."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Байт."
+          }
+        }
+      },
+      "ProjectHead": {
+        "type": "object",
+        "description": "Заголовок проекта.",
+        "required": ["id", "title", "color", "tag", "status", "notes", "revision", "created_at"],
+        "properties": {
+          "color": {
+            "type": "string",
+            "description": "`orange`, `sky`, `yellow`, `green`, `peach`."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Описание проекта."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "description": "`active` или `archived`."
+          },
+          "tag": {
+            "type": "string",
+            "description": "Тег для Command без «#»."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectMemory": {
+        "type": "object",
+        "description": "Память агента о проекте — файл «Проекты/<проект>.md» в папке агента.\nПравить — `PUT /api/v1/agent/files/{file_id}` (строка ленты с откатом).",
+        "required": ["file_id", "path", "body", "chars", "limit", "revision", "updated_at"],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "chars": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "file_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string",
+            "description": "«Проекты/Алгебра.md»."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProjectPage": {
+        "type": "object",
+        "description": "Страница проекта.",
+        "required": ["project", "tasks", "files", "agent", "feed", "events"],
+        "properties": {
+          "agent": {
+            "type": "boolean",
+            "description": "Есть ли доступ к агенту (иначе память и лента агента не видны)."
+          },
+          "docs": {
+            "type": ["array", "null"],
+            "items": {
+              "$ref": "#/components/schemas/ProjectDocItem"
+            },
+            "description": "`null` — нет права на Docs."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectEventItem"
+            },
+            "description": "События календаря (CAL-001); пока всегда пусто — точка подключения."
+          },
+          "feed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectFeedItem"
+            },
+            "description": "Последние изменения (свежие сверху)."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectFileItem"
+            }
+          },
+          "memory": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProjectMemory",
+                "description": "Память агента о проекте; `null` — файла ещё нет (или нет агента)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectHead"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectTaskItem"
+            },
+            "description": "Живые дела проекта по сроку."
+          }
+        }
+      },
+      "ProjectTaskItem": {
+        "type": "object",
+        "description": "Дело проекта (коротко; целиком — в синхронизации).",
+        "required": ["id", "title", "status"],
+        "properties": {
+          "due_date": {
+            "type": ["string", "null"],
+            "description": "`2026-10-23`."
+          },
+          "due_time": {
+            "type": ["string", "null"],
+            "description": "`16:00`."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "`todo`, `doing`, `done`."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
       },
       "PushDevice": {
         "type": "object",
@@ -9134,6 +10091,10 @@
     {
       "name": "home",
       "description": "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"
+    },
+    {
+      "name": "planner",
+      "description": "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"
     },
     {
       "name": "english",

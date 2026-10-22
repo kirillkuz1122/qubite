@@ -70,9 +70,17 @@ const appRoute = createRoute({
     </RequireAccount>
   ),
 });
-const sectionRoutes = SECTIONS.map((s) =>
-  createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
-);
+const sectionRoutes = [
+  ...SECTIONS.map((s) =>
+    createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
+  ),
+  // страница проекта (PROJ-001): её рисует раздел Planner по адресу
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/planner/project/$id',
+    component: () => null,
+  }),
+];
 
 /**
  * Owner Console (ACC-003): `/console/<раздел>`. Гостя — на вход; не owner видит «Такой

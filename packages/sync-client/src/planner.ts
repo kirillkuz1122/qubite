@@ -86,6 +86,8 @@ export interface PlannerProject {
   color: ProjectColor;
   tag: string;
   status: 'active' | 'archived';
+  /** описание проекта (PROJ-001) */
+  notes: string;
   pending: boolean;
 }
 
@@ -167,6 +169,7 @@ export function toProject(o: LocalObject): PlannerProject {
     color: color && PROJECT_COLORS.includes(color) ? color : 'orange',
     tag: str(f.tag) ?? tagFrom(o.title),
     status: f.status === 'archived' ? 'archived' : 'active',
+    notes: str(f.notes) ?? '',
     pending: o.pending,
   };
 }
@@ -192,6 +195,31 @@ export async function createProject(
   const fields: Fields = { tag: tagFrom(options.tag ?? title) };
   if (options.color) fields.color = options.color;
   return client.create(PLANNER_PROJECT, title, fields, { color: 'orange', status: 'active' });
+}
+
+/** Что можно поменять у проекта на его странице (PROJ-001). */
+export interface ProjectPatch {
+  title?: string;
+  color?: ProjectColor;
+  notes?: string;
+  status?: 'active' | 'archived';
+}
+
+/** Изменить проект (без сети — тоже): название — отдельной операцией, поля — одной. */
+export async function updateProject(
+  client: SyncClient,
+  id: string,
+  patch: ProjectPatch,
+): Promise<LocalObject> {
+  const { title, ...rest } = patch;
+  let object = await client.get(id);
+  if (!object) throw new Error(`проект ${id} не найден на устройстве`);
+  if (title !== undefined && title.trim() && title.trim() !== object.title)
+    object = await client.setTitle(id, title.trim());
+  const fields: Fields = Object.fromEntries(
+    Object.entries(rest).filter(([k, v]) => v !== undefined && object!.fields?.[k] !== v),
+  );
+  return Object.keys(fields).length ? client.patch(id, fields) : object;
 }
 
 /** Новый шаг с галочкой (ID придумывает устройство). */

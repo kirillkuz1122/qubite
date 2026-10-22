@@ -112,6 +112,12 @@ export async function mockSync(page: Page): Promise<SyncMock> {
             ...(op.fields as object),
           },
         });
+      } else if (current && op.kind === 'set_title') {
+        mock.objects.set(id, {
+          ...current,
+          title: op.title,
+          revision: (current.revision as number) + 1,
+        });
       } else if (current && op.kind === 'patch') {
         mock.objects.set(id, {
           ...current,

@@ -445,6 +445,9 @@ a {
   padding: 0 0 12px;
   border-bottom: 1px solid var(--q-line);
 }
+.proj-open {
+  padding: 8px 0 4px;
+}
 .sec-h-end {
   display: flex;
   align-items: center;

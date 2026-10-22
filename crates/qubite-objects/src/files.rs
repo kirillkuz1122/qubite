@@ -212,3 +212,31 @@ pub async fn attachments(conn: &mut PgConnection, object_id: Uuid) -> Result<Vec
         })
         .collect()
 }
+
+/// Открепить файл от объекта. Содержимое остаётся на диске (его могут
+/// использовать другие объекты). `false` — такого вложения не было.
+pub async fn detach(
+    conn: &mut PgConnection,
+    object_id: Uuid,
+    name: &str,
+    actor: Uuid,
+) -> Result<bool> {
+    let mut tx = conn.begin().await?;
+    let removed: Option<Vec<u8>> = sqlx::query_scalar(
+        "DELETE FROM attachments WHERE object_id = $1 AND name = $2 RETURNING sha256",
+    )
+    .bind(object_id)
+    .bind(name)
+    .fetch_optional(&mut *tx)
+    .await?;
+    if removed.is_some() {
+        events::append(
+            &mut tx,
+            NewEvent::for_object("attachment.removed", object_id, actor)
+                .with_payload(serde_json::json!({ "name": name })),
+        )
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(removed.is_some())
+}

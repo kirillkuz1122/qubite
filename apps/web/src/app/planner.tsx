@@ -11,8 +11,10 @@ import {
   setTaskDone,
   setTaskStatus,
   tagFrom,
+  updateProject,
   type PlannerProject,
   type PlannerTask,
+  type ProjectPatch,
 } from '@qubite/sync-client';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlannerCtx, type PlannerApi } from './planner-context';
@@ -69,15 +71,15 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
   );
 
   const add = useCallback(
-    async (text: string, options: { fromInbox?: string } = {}) => {
+    async (text: string, options: { fromInbox?: string; projectId?: string } = {}) => {
       const c = await ready();
       const now = new Date();
       const parsed = parse(text, localNow(now));
       const { title, tag, task } = parsed
         ? taskFrom(parsed, iso(now))
         : { title: '', tag: null, task: { due_date: iso(now) } };
-      let projectId: string | undefined;
-      if (tag) {
+      let projectId = options.projectId;
+      if (tag && !projectId) {
         const { projects } = await plannerData(c);
         projectId =
           findProject(projects, tag)?.id ?? (await createProject(c, nameFromTag(tag), { tag })).id;
@@ -117,6 +119,15 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     [ready],
   );
 
+  const editProject = useCallback(
+    async (id: string, patch: ProjectPatch) => {
+      const c = await ready();
+      await updateProject(c, id, patch);
+      void c.sync();
+    },
+    [ready],
+  );
+
   const value = useMemo<PlannerApi>(() => {
     const week = buildWeek(data.tasks, data.projects, now);
     return {
@@ -127,12 +138,14 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
       ),
       board: buildBoard(data.tasks, data.projects, now.getTime()),
       projects: buildProjects(data.projects, data.tasks, iso(now)),
+      data,
       loaded,
       toggle,
       add,
       move,
       newProject,
+      editProject,
     };
-  }, [data, now, loaded, toggle, add, move, newProject]);
+  }, [data, now, loaded, toggle, add, move, newProject, editProject]);
   return <PlannerCtx.Provider value={value}>{children}</PlannerCtx.Provider>;
 }

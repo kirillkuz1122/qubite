@@ -22,6 +22,7 @@ pub mod notices;
 pub mod notifications;
 pub mod oauth;
 pub mod platform;
+pub mod projects;
 pub mod registration;
 pub mod sync;
 
@@ -59,6 +60,8 @@ pub struct AppState {
     pub home: Arc<qubite_home::Sources>,
     /// «Английский»: голос репетитора.
     pub english: Arc<qubite_english::Settings>,
+    /// Файлы по хешу содержимого (файлы проектов, PROJ-001).
+    pub blobs: qubite_objects::BlobStore,
 }
 
 impl AppState {
@@ -82,7 +85,15 @@ impl AppState {
             notify: qubite_notify::deliver::Channels::default(),
             home: Arc::new(qubite_home::Sources::default()),
             english: Arc::new(qubite_english::Settings::default()),
+            // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
+            blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
         }
+    }
+
+    /// Где лежат файлы (`<QUBITE_DATA_DIR>/blobs`, общая папка с ботом).
+    pub fn with_blobs(mut self, blobs: qubite_objects::BlobStore) -> Self {
+        self.blobs = blobs;
+        self
     }
 
     /// Источники Главной (в тестах — поддельный сервер).
@@ -237,7 +248,18 @@ impl AppState {
         english::english_finish,
         english::english_turn,
         english::english_speech,
-        english::english_live
+        english::english_live,
+        projects::project_page,
+        projects::project_feed,
+        projects::upload_project_file,
+        projects::download_project_file,
+        projects::remove_project_file,
+        projects::create_project_doc,
+        projects::link_project_doc,
+        projects::unlink_project_doc,
+        projects::list_my_docs,
+        projects::get_my_doc,
+        projects::edit_my_doc
     ),
     components(schemas(
         Health,
@@ -387,7 +409,20 @@ impl AppState {
         english::EnglishSay,
         english::EnglishTurn,
         english::EnglishTurnError,
-        english::EnglishLatency
+        english::EnglishLatency,
+        projects::ProjectHead,
+        projects::ProjectTaskItem,
+        projects::ProjectFileItem,
+        projects::ProjectDocItem,
+        projects::ProjectDoc,
+        projects::ProjectMemory,
+        projects::ProjectFeedItem,
+        projects::ProjectEventItem,
+        projects::ProjectPage,
+        projects::ProjectFeed,
+        projects::NewProjectDoc,
+        projects::ProjectDocEdit,
+        projects::ProjectDocList
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -399,6 +434,7 @@ impl AppState {
         (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"),
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
         (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"),
+        (name = "planner", description = "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"),
         (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)")
     )
 )]
@@ -636,6 +672,32 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/messages/{id}/speech",
             post(english::english_speech),
+        )
+        .route("/api/v1/projects/{id}", get(projects::project_page))
+        .route("/api/v1/projects/{id}/feed", get(projects::project_feed))
+        // Файл проекта — до 25 МБ (D-473): тело больше обычного лимита.
+        .route(
+            "/api/v1/projects/{id}/files",
+            post(projects::upload_project_file).layer(DefaultBodyLimit::max(
+                qubite_planner::folder::MAX_FILE_BYTES + 1024,
+            )),
+        )
+        .route(
+            "/api/v1/projects/{id}/files/{name}",
+            get(projects::download_project_file).delete(projects::remove_project_file),
+        )
+        .route(
+            "/api/v1/projects/{id}/docs",
+            post(projects::create_project_doc),
+        )
+        .route(
+            "/api/v1/projects/{id}/docs/{doc}",
+            post(projects::link_project_doc).delete(projects::unlink_project_doc),
+        )
+        .route("/api/v1/docs", get(projects::list_my_docs))
+        .route(
+            "/api/v1/docs/{id}",
+            get(projects::get_my_doc).put(projects::edit_my_doc),
         )
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы

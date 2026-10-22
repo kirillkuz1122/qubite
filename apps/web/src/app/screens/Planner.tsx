@@ -10,15 +10,31 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useShell } from '../context';
 import { AgentTimeline } from '../AgentTimeline';
+import { ProjectPage } from '../ProjectPage';
+import { projectFromPath, projectPath } from '../project-view';
 import { SecHead, TaskList } from '../parts';
 import { usePlanner } from '../planner-context';
 
 type Mode = 'week' | 'board';
 const MODES: readonly Mode[] = ['week', 'board'];
+const PAGES = ['list', 'project'] as const;
 
+/** Planner: неделя и доска; по адресу `/planner/project/<id>` — страница проекта (PROJ-001). */
 export function PlannerScreen() {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const project = projectFromPath(path);
+  // Swap держит прежнее содержимое, пока новое въезжает, — ID нужен и после возврата к списку
+  return (
+    <Swap view={project ? 'project' : 'list'} order={PAGES}>
+      {project ? <ProjectPage key={project} id={project} /> : <PlannerHome />}
+    </Swap>
+  );
+}
+
+function PlannerHome() {
   const [mode, setMode] = useState<Mode>('week');
   return (
     <>
@@ -136,6 +152,7 @@ function Week() {
 function Projects() {
   const planner = usePlanner();
   const shell = useShell();
+  const navigate = useNavigate();
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
@@ -218,6 +235,11 @@ function Projects() {
           </button>
           {open === p.id && (
             <div className="proj-tasks" role="region" aria-label={`Дела проекта ${p.name}`}>
+              <div className="proj-open">
+                <Button size="sm" onClick={() => void navigate({ to: projectPath(p.id) })}>
+                  Открыть проект →
+                </Button>
+              </div>
               {p.tasks.length === 0 ? (
                 <p className="later">
                   Дел пока нет — напиши в Command «#{p.tag} что сделать завтра».

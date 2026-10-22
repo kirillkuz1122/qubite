@@ -250,7 +250,7 @@ pub async fn create_file(
 }
 
 /// `filename*` по RFC 5987: имя файла по-русски.
-fn encode_filename(name: &str) -> String {
+pub(crate) fn encode_filename(name: &str) -> String {
     name.bytes()
         .map(|b| {
             if b.is_ascii_alphanumeric() || b"-._".contains(&b) {

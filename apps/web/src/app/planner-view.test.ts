@@ -20,6 +20,7 @@ const algebra: PlannerProject = {
   color: 'sky',
   tag: 'алгебра',
   status: 'active',
+  notes: '',
   pending: false,
 };
 

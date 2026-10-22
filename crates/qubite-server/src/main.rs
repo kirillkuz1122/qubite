@@ -258,6 +258,9 @@ struct ServeArgs {
 
     #[command(flatten)]
     overrides: OverrideArgs,
+    /// Папка данных Qubite: файлы проектов (`blobs`, та же, что у `qubite bot`).
+    #[arg(long, env = "QUBITE_DATA_DIR", default_value = "./data")]
+    data_dir: std::path::PathBuf,
     /// Через сколько дней корзина Входящих удаляется навсегда; 0 — никогда (D-199).
     #[arg(long, env = "QUBITE_INBOX_TRASH_DAYS", default_value_t = qubite_inbox::TRASH_DAYS)]
     inbox_trash_days: u32,
@@ -836,7 +839,8 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let mut state = qubite_server::AppState::with_auth(db.clone(), auth)
         .with_oauth(args.oauth.settings())
         .with_notify(channels.clone())
-        .with_english(args.ai.english());
+        .with_english(args.ai.english())
+        .with_blobs(qubite_objects::BlobStore::new(args.data_dir.join("blobs")));
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
             state = state.with_ai(ai.gateway);
