@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# После `git pull --rebase`: дописать в .env новые переменные из .env.example
+[ "${1:-}" = "rebase" ] || exit 0
+exec "$(git rev-parse --show-toplevel)/scripts/env-sync.sh" --if-exists

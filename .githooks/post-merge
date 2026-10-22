@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# После `git pull` (слияние): дописать в .env новые переменные из .env.example
+exec "$(git rev-parse --show-toplevel)/scripts/env-sync.sh" --if-exists

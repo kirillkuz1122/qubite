@@ -19,6 +19,8 @@ setup:
     pnpm install
     pnpm --filter @qubite/web exec playwright install firefox chromium
     scripts/dev-db.sh up
+    git config core.hooksPath .githooks
+    scripts/env-sync.sh
     @echo "Готово. Дальше: just dev"
 
 # Запустить базу, Rust-сервер (:8080) и сайт (:5173) вместе; Ctrl+C останавливает всё
@@ -92,6 +94,10 @@ db-status:
     @scripts/dev-db.sh status
 db-reset:
     @scripts/dev-db.sh reset
+
+# Дописать в .env новые переменные из .env.example (заполненное не трогает; после git pull — само)
+env-sync:
+    @scripts/env-sync.sh
 
 # Команда сервера с настройками из .env, например `just qubite ai chatgpt login`
 qubite *args: db-up
