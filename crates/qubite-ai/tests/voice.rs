@@ -387,10 +387,15 @@ async fn voice_not_ready_without_provider() {
 // ---------------------------------------------------------------- ElevenLabs
 
 fn adapter(base_url: String) -> Arc<ElevenLabs> {
+    adapter_via(base_url, None)
+}
+
+fn adapter_via(base_url: String, proxy: Option<String>) -> Arc<ElevenLabs> {
     Arc::new(
         ElevenLabs::new(ElevenLabsConfig {
             base_url,
             connect_timeout: Duration::from_secs(2),
+            proxy,
             ..ElevenLabsConfig::new(Secret::new("xi-test-key-not-real"))
         })
         .unwrap(),
@@ -408,7 +413,11 @@ async fn elevenlabs_adapter_on_fake_server() {
                 200,
                 r#"{"language_code":"en","language_probability":0.98,"text":"He go to school.","words":[{"text":"He","start":0.1,"end":0.3,"type":"word"},{"text":"school.","start":1.2,"end":2.6,"type":"word"}]}"#.into(),
             ),
-            Action::Respond(200, "ID3-FAKE-MP3".into()),
+            Action::Reply(
+                200,
+                vec![("content-type", "audio/mpeg".into())],
+                "ID3-FAKE-MP3".into(),
+            ),
             Action::Respond(
                 401,
                 r#"{"detail":{"status":"quota_exceeded","message":"This request exceeds your quota."}}"#
@@ -694,7 +703,11 @@ async fn elevenlabs_speech_stream_on_fake_server() {
     env.budget(me, 1_000_000).await;
     // Нечётное число байт: последний ждёт пары и в поток не уходит.
     let server = FakeHttp::start(
-        [Action::Respond(200, "ABCDE".into())],
+        [Action::Reply(
+            200,
+            vec![("content-type", "application/octet-stream".into())],
+            "ABCDE".into(),
+        )],
         Action::Respond(500, "{}".into()),
     )
     .await;
@@ -717,5 +730,199 @@ async fn elevenlabs_speech_stream_on_fake_server() {
         )),
         "{line}"
     );
+    env.close().await;
+}
+
+// ---------------------------------------------------------------- сеть (баг владельца 22.10, D-515)
+
+/// Из закрытой страны ElevenLabs отвечает 302: по редиректу не идём (иначе
+/// HTML-страница играла бы как шипение), отказ — с адресом и подсказкой, без
+/// повторов и без «другую модель: []». HTML вместо звука — тоже отказ.
+#[tokio::test]
+async fn elevenlabs_redirect_and_html_are_clear_refusals() {
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru", true).await;
+    let limit = env.budget(me, 1_000_000).await;
+    let server = FakeHttp::start(
+        [
+            Action::Reply(
+                302,
+                vec![("location", "https://elevenlabs.io/blocked?from=ru".into())],
+                String::new(),
+            ),
+            Action::Reply(
+                200,
+                vec![("content-type", "text/html; charset=utf-8".into())],
+                "<html>blocked</html>".into(),
+            ),
+            // Так отвечает ElevenLabs из России (проверено владельцем curl-ом).
+            Action::Reply(
+                302,
+                vec![(
+                    "location",
+                    "https://help.elevenlabs.io/hc/en-us/articles/22497891312401-Do-you-restrict-access-for-any-specific-countries".into(),
+                )],
+                String::new(),
+            ),
+        ],
+        Action::Respond(500, "{}".into()),
+    )
+    .await;
+    let gateway = env.gateway(adapter(server.root_url()));
+    let auth = env.auth(me).await;
+
+    let error = gateway
+        .speak(&auth, say("el-302", "Hello."))
+        .await
+        .unwrap_err();
+    let text = error.to_string();
+    assert!(matches!(error, AiError::ProviderRefused { .. }), "{text}");
+    assert!(
+        text.contains("HTTP 302 → https://elevenlabs.io/blocked"),
+        "{text}"
+    );
+    assert!(!text.contains("from=ru"), "адрес без параметров: {text}");
+    assert!(text.contains("QUBITE_PROXY"), "{text}");
+    assert!(
+        !text.contains("другую модель"),
+        "пустой список не показываем: {text}"
+    );
+    assert_eq!(
+        server.received().len(),
+        1,
+        "по редиректу не пошли, не повторяли"
+    );
+
+    let error = gateway
+        .speak_stream(&auth, say("el-html", "Hello."))
+        .await
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("«text/html»"), "{error}");
+    assert_eq!(server.received().len(), 2);
+
+    let error = gateway
+        .speak(&auth, say("el-country", "Hi."))
+        .await
+        .unwrap_err();
+    let text = error.to_string();
+    assert!(
+        text.contains("ElevenLabs закрыт для твоей страны"),
+        "{text}"
+    );
+    assert!(text.contains("QUBITE_PROXY"), "{text}");
+    assert_eq!(server.received().len(), 3);
+    assert_eq!(env.spent(limit).await, (0, 0), "отказ — резерв вернулся");
+    env.close().await;
+}
+
+/// HTTP-прокси, который соединяет с `target` и запоминает строку CONNECT.
+async fn connect_proxy(
+    target: std::net::SocketAddr,
+) -> (u16, tokio::sync::mpsc::UnboundedReceiver<String>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        while let Ok((mut socket, _)) = listener.accept().await {
+            let tx = tx.clone();
+            tokio::spawn(async move {
+                let mut head = Vec::new();
+                while !head.ends_with(b"\r\n\r\n") {
+                    let mut b = [0u8; 1];
+                    socket.read_exact(&mut b).await.unwrap();
+                    head.push(b[0]);
+                }
+                let _ = tx.send(
+                    String::from_utf8_lossy(&head)
+                        .lines()
+                        .next()
+                        .unwrap_or_default()
+                        .to_owned(),
+                );
+                socket.write_all(b"HTTP/1.1 200 OK\r\n\r\n").await.unwrap();
+                let mut upstream = tokio::net::TcpStream::connect(target).await.unwrap();
+                let _ = tokio::io::copy_bidirectional(&mut socket, &mut upstream).await;
+            });
+        }
+    });
+    (port, rx)
+}
+
+/// Живое распознавание идёт через прокси (QUBITE_PROXY / QUBITE_ELEVENLABS_PROXY);
+/// 302 на WebSocket — тот же понятный отказ с адресом.
+#[tokio::test]
+async fn elevenlabs_live_goes_through_proxy_and_redirect_is_explained() {
+    use futures_util::SinkExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio_tungstenite::tungstenite::Message;
+
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru", true).await;
+    env.budget(me, 1_000_000).await;
+    let auth = env.auth(me).await;
+    let live = |id: &str| voice::LiveRequest {
+        request_id: id.into(),
+        model: "elevenlabs/scribe_v2_realtime".into(),
+        language: None,
+        sample_rate: 16_000,
+        silence_secs: 0.5,
+    };
+
+    // Распознавание за прокси: хост elevenlabs.test знает только прокси.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (tcp, _) = listener.accept().await.unwrap();
+        let mut socket = tokio_tungstenite::accept_async(tcp).await.unwrap();
+        socket
+            .send(Message::text(
+                r#"{"message_type":"partial_transcript","text":"Hi"}"#,
+            ))
+            .await
+            .unwrap();
+        std::future::pending::<()>().await;
+    });
+    let (proxy, mut connects) = connect_proxy(address).await;
+    let gateway = env.gateway(adapter_via(
+        format!("http://elevenlabs.test:{}", address.port()),
+        Some(format!("http://127.0.0.1:{proxy}")),
+    ));
+    let mut listen = gateway.listen_live(&auth, live("via-proxy")).await.unwrap();
+    assert_eq!(
+        listen.next().await,
+        Some(voice::LiveOut::Partial("Hi".into()))
+    );
+    assert_eq!(
+        connects.recv().await.unwrap(),
+        format!("CONNECT elevenlabs.test:{} HTTP/1.1", address.port())
+    );
+    drop(listen);
+
+    // 302 вместо WebSocket.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut tcp, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 2048];
+        let _ = tcp.read(&mut buf).await;
+        tcp.write_all(b"HTTP/1.1 302 Found\r\nLocation: https://elevenlabs.io/app/blocked\r\ncontent-length: 0\r\n\r\n")
+            .await
+            .unwrap();
+    });
+    let gateway = env.gateway(adapter(format!("http://{address}")));
+    let error = gateway
+        .listen_live(&auth, live("redirect"))
+        .await
+        .err()
+        .unwrap();
+    let text = error.to_string();
+    assert!(
+        text.contains("HTTP 302 → https://elevenlabs.io/app/blocked"),
+        "{text}"
+    );
+    assert!(text.contains("включи VPN"), "{text}");
+    assert!(!text.contains("другую модель"), "{text}");
     env.close().await;
 }

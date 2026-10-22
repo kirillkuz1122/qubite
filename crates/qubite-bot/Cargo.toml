@@ -14,6 +14,7 @@ qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-notify = { version = "0.1.0", path = "../qubite-notify" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-oauth = { version = "0.1.0", path = "../qubite-oauth" }
+qubite-net = { version = "0.1.0", path = "../qubite-net" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 qubite-sync = { version = "0.1.0", path = "../qubite-sync" }
 qubite-sync-server = { version = "0.1.0", path = "../qubite-sync-server" }

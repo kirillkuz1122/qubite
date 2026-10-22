@@ -7,6 +7,12 @@
 //! 404, 413, 422 — работа не выполнена и повтор не поможет; остальное (5xx,
 //! обрыв после отправки) — неизвестно, резерв удерживается.
 //!
+//! По редиректам не ходим (D-515): из закрытой страны ElevenLabs отвечает 302,
+//! и после перехода приходит HTML-страница — её байты играли бы как шипение.
+//! 3xx — понятный отказ с адресом из `Location`; звук проверяется по
+//! `content-type`. Прокси — `QUBITE_ELEVENLABS_PROXY` или общий `QUBITE_PROXY`
+//! ([`qubite_net`]), и для REST, и для живого распознавания (WebSocket).
+//!
 //! Ключ — `QUBITE_ELEVENLABS_API_KEY`, только из окружения, в журнал не пишется.
 //! Реальных вызовов в тестах нет: тесты поднимают поддельный сервер.
 
@@ -38,6 +44,8 @@ pub struct ElevenLabsConfig {
     pub base_url: String,
     pub api_key: Secret,
     pub connect_timeout: Duration,
+    /// Прокси (`http://`, `socks5://`); без него — системный `HTTPS_PROXY`.
+    pub proxy: Option<String>,
 }
 
 impl ElevenLabsConfig {
@@ -46,6 +54,7 @@ impl ElevenLabsConfig {
             base_url: DEFAULT_BASE_URL.into(),
             api_key,
             connect_timeout: Duration::from_secs(10),
+            proxy: None,
         }
     }
 }
@@ -74,9 +83,10 @@ struct Word {
 impl ElevenLabs {
     pub fn new(config: ElevenLabsConfig) -> Result<Self, String> {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let client = reqwest::Client::builder()
+        let client = qubite_net::client(config.proxy.as_deref())?
             .connect_timeout(config.connect_timeout)
             .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| format!("HTTP-клиент не создан: {error}"))?;
         Ok(Self { client, config })
@@ -86,10 +96,11 @@ impl ElevenLabs {
         format!("{}/{path}", self.config.base_url.trim_end_matches('/'))
     }
 
+    /// Запрос → тип и тело ответа 2xx; остальное — [`refusal`].
     async fn post(
         &self,
         request: reqwest::RequestBuilder,
-    ) -> Result<(u16, Vec<u8>), ProviderError> {
+    ) -> Result<(Option<String>, Vec<u8>), ProviderError> {
         let response = request
             .header("xi-api-key", self.config.api_key.expose())
             .send()
@@ -102,16 +113,14 @@ impl ElevenLabs {
                 }
             })?;
         let status = response.status().as_u16();
+        let content_type = header(response.headers(), "content-type");
+        let location = header(response.headers(), "location");
         let body = response.bytes().await.map_err(|error| {
             ProviderError::Unknown(format!("ответ не дочитан: {}", without_url(&error)))
         })?;
         match status {
-            200..=299 => Ok((status, body.to_vec())),
-            429 => Err(ProviderError::NotSent(error_message(status, &body))),
-            400 | 401 | 402 | 403 | 404 | 413 | 422 => {
-                Err(ProviderError::Refused(error_message(status, &body)))
-            }
-            _ => Err(ProviderError::Unknown(error_message(status, &body))),
+            200..=299 => Ok((content_type, body.to_vec())),
+            _ => Err(refusal(status, location.as_deref(), &body)),
         }
     }
 
@@ -133,7 +142,14 @@ impl ElevenLabs {
                 format!("multipart/form-data; boundary={boundary}"),
             )
             .body(body);
-        let (_, body) = self.post(request).await?;
+        let (content_type, body) = self.post(request).await?;
+        if let Some(t) = content_type.filter(|t| !t.contains("json")) {
+            // Страница перехвата сети вместо ответа — работа не сделана.
+            return Err(ProviderError::Refused(blocked(&format!(
+                "вместо ответа пришло «{}»",
+                t.split(';').next().unwrap_or_default().trim()
+            ))));
+        }
         let parsed: SttResponse = serde_json::from_slice(&body).map_err(|error| {
             // Ответ 200 пришёл, работа сделана — деньги могли уйти.
             ProviderError::Unknown(format!("ответ распознавания не прочитан: {error}"))
@@ -171,7 +187,8 @@ impl ElevenLabs {
                 "text": call.text,
                 "model_id": call.external_id,
             }));
-        let (_, audio) = self.post(request).await?;
+        let (content_type, audio) = self.post(request).await?;
+        audio_only(content_type.as_deref())?;
         if audio.is_empty() {
             return Err(ProviderError::Unknown("пустой звук в ответе".into()));
         }
@@ -215,15 +232,11 @@ impl ElevenLabs {
             })?;
         let status = response.status().as_u16();
         if !(200..300).contains(&status) {
+            let location = header(response.headers(), "location");
             let body = response.bytes().await.unwrap_or_default();
-            return Err(match status {
-                429 => ProviderError::NotSent(error_message(status, &body)),
-                400 | 401 | 402 | 403 | 404 | 413 | 422 => {
-                    ProviderError::Refused(error_message(status, &body))
-                }
-                _ => ProviderError::Unknown(error_message(status, &body)),
-            });
+            return Err(refusal(status, location.as_deref(), &body));
         }
+        audio_only(header(response.headers(), "content-type").as_deref())?;
         let (tx, rx) = tokio::sync::mpsc::channel(32);
         tokio::spawn(async move {
             // Куски — целыми отсчётами (2 байта): лишний байт ждёт следующего.
@@ -293,22 +306,46 @@ impl ElevenLabs {
         let key = HeaderValue::from_str(self.config.api_key.expose())
             .map_err(|_| ProviderError::Refused("ключ с недопустимыми символами".into()))?;
         request.headers_mut().insert("xi-api-key", key);
-        let connect = tokio::time::timeout(
-            self.config.connect_timeout,
-            tokio_tungstenite::connect_async(request),
-        )
-        .await
-        .map_err(|_| ProviderError::NotSent("распознавание не ответило вовремя".into()))?;
+        let host = request.uri().host().unwrap_or_default().to_owned();
+        let port = request
+            .uri()
+            .port_u16()
+            .unwrap_or(match request.uri().scheme_str() {
+                Some("wss") => 443,
+                _ => 80,
+            });
+        let proxy = qubite_net::for_host(&host, self.config.proxy.as_deref())
+            .map_err(ProviderError::Refused)?;
+        let connect = async {
+            match &proxy {
+                Some(proxy) => {
+                    let stream =
+                        qubite_net::tunnel(proxy, &host, port, self.config.connect_timeout)
+                            .await
+                            .map_err(|error| {
+                                ProviderError::NotSent(format!(
+                                    "прокси {}: {error}",
+                                    qubite_net::hide(proxy.as_str())
+                                ))
+                            })?;
+                    Ok(tokio_tungstenite::client_async_tls(request, stream).await)
+                }
+                None => Ok(tokio_tungstenite::connect_async(request).await),
+            }
+        };
+        let connect = tokio::time::timeout(self.config.connect_timeout, connect)
+            .await
+            .map_err(|_| ProviderError::NotSent("распознавание не ответило вовремя".into()))??;
         let (socket, _) = connect.map_err(|error| {
             use tokio_tungstenite::tungstenite::Error as WsError;
             match error {
                 WsError::Http(response) => {
                     let status = response.status().as_u16();
+                    let location = header(response.headers(), "location");
                     let body = response.body().clone().unwrap_or_default();
-                    if status == 429 {
-                        ProviderError::NotSent(error_message(status, &body))
-                    } else {
-                        ProviderError::Refused(error_message(status, &body))
+                    match refusal(status, location.as_deref(), &body) {
+                        ProviderError::Unknown(reason) => ProviderError::Refused(reason),
+                        other => other,
                     }
                 }
                 WsError::Io(error) => ProviderError::NotSent(format!("нет соединения: {error}")),
@@ -467,6 +504,76 @@ fn without_url(error: &reqwest::Error) -> String {
         error.truncate(at);
     }
     error
+}
+
+fn header(headers: &reqwest::header::HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+}
+
+/// Ответ не 2xx → отказ шлюзу. 3xx и 403 «по стране» — подсказка про VPN и
+/// прокси с адресом, куда перенаправили (без параметров).
+fn refusal(status: u16, location: Option<&str>, body: &[u8]) -> ProviderError {
+    match status {
+        300..=399 => {
+            let target = location.map(|l| l.split(['?', '#']).next().unwrap_or_default());
+            // Справка «Do you restrict access… for any specific countries» — блок по стране.
+            if target.is_some_and(|l| l.contains("help.elevenlabs.io") && l.contains("restrict")) {
+                return ProviderError::Refused(format!(
+                    "ElevenLabs закрыт для твоей страны (HTTP {status} → справка про ограничения по странам) — \
+                     задай QUBITE_PROXY (например, порт Hiddify: http://127.0.0.1:12334) или включи VPN для сервера Qubite"
+                ));
+            }
+            let target = target
+                .map(|l| format!(" → {}", l.chars().take(120).collect::<String>()))
+                .unwrap_or_default();
+            ProviderError::Refused(blocked(&format!("HTTP {status}{target}")))
+        }
+        429 => ProviderError::NotSent(error_message(status, body)),
+        403 if regional(body) => ProviderError::Refused(blocked(&error_message(status, body))),
+        400 | 401 | 402 | 403 | 404 | 413 | 422 => {
+            ProviderError::Refused(error_message(status, body))
+        }
+        _ => ProviderError::Unknown(error_message(status, body)),
+    }
+}
+
+/// Отказ по стране: в ответе про регион или страну.
+fn regional(body: &[u8]) -> bool {
+    let text = String::from_utf8_lossy(body).to_ascii_lowercase();
+    ["region", "country", "location", "geo"]
+        .iter()
+        .any(|word| text.contains(word))
+}
+
+fn blocked(what: &str) -> String {
+    format!(
+        "ElevenLabs недоступен из этой сети — {what}. Так он отвечает на страны с ограничениями: \
+         включи VPN для сервера Qubite или задай прокси QUBITE_PROXY / QUBITE_ELEVENLABS_PROXY \
+         (Hiddify: http://127.0.0.1:12334)"
+    )
+}
+
+/// Речь — только звук: страница или JSON вместо звука (перехват сети) — отказ,
+/// а не шипение. Точный тип звука не требуем — у потока PCM он бывает разный.
+fn audio_only(content_type: Option<&str>) -> Result<(), ProviderError> {
+    let Some(t) = content_type else {
+        return Ok(());
+    };
+    let t = t
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    if t.starts_with("text/") || ["html", "json", "xml"].iter().any(|k| t.contains(k)) {
+        return Err(ProviderError::Refused(blocked(&format!(
+            "вместо звука пришло «{t}»"
+        ))));
+    }
+    Ok(())
 }
 
 /// «HTTP 401: quota_exceeded — …» — коротко, без тела целиком.

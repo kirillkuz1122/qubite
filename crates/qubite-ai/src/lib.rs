@@ -88,14 +88,14 @@ pub enum AiError {
     NoModelForTask(String),
     #[error("запрос с этим request_id уже был (статус {status}) — повторно не выполняется")]
     DuplicateRequest { status: String },
-    #[error("провайдер недоступен; можно выбрать другую модель: {alternatives:?}")]
+    #[error("провайдер недоступен{}", others(.alternatives))]
     ProviderUnavailable { alternatives: Vec<String> },
-    #[error("{reason}; другие модели: {alternatives:?}")]
+    #[error("{reason}{}", others(.alternatives))]
     SubscriptionLimit {
         reason: String,
         alternatives: Vec<String>,
     },
-    #[error("провайдер отказал ({reason}); можно выбрать другую модель: {alternatives:?}")]
+    #[error("провайдер отказал ({reason}){}", others(.alternatives))]
     ProviderRefused {
         reason: String,
         alternatives: Vec<String>,
@@ -141,6 +141,15 @@ impl From<qubite_policy::Error> for AiError {
             qubite_policy::Error::Db(error) => Self::Db(error),
             qubite_policy::Error::Audit(error) => Self::Audit(error),
         }
+    }
+}
+
+/// «; можно выбрать другую модель: …» — только когда есть из чего выбрать.
+fn others(alternatives: &[String]) -> String {
+    if alternatives.is_empty() {
+        String::new()
+    } else {
+        format!("; можно выбрать другую модель: {}", alternatives.join(", "))
     }
 }
 

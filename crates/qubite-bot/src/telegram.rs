@@ -133,7 +133,13 @@ struct FileInfo {
 impl TelegramApi {
     pub fn new(base: impl Into<String>, token: impl Into<String>) -> Self {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let http = reqwest::Client::builder()
+        // Прокси — `QUBITE_TELEGRAM_PROXY` или общий `QUBITE_PROXY` (D-515).
+        let proxy = qubite_net::configured(Some("telegram"));
+        let builder = qubite_net::client(proxy.as_deref()).unwrap_or_else(|error| {
+            tracing::warn!(%error, "Telegram — без прокси");
+            reqwest::Client::builder()
+        });
+        let http = builder
             .timeout(Duration::from_secs(60))
             .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
             .build()

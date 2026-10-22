@@ -19,7 +19,8 @@ export const RECONNECT_MS = [1_000, 3_000, 9_000];
 export const STABLE_MS = 10_000;
 
 /**
- * Отказы, которые не пройдут от повтора: лимит AI, защита от зацикливания, нет прав. На них
+ * Отказы, которые не пройдут от повтора: лимит AI, защита от зацикливания, нет прав, отказ
+ * провайдера (ElevenLabs из закрытой страны отвечает 302, неверный ключ). На них
  * микрофон выключается и экран ждёт «Попробовать снова», а не слушает и не подключается по кругу.
  */
 export const STOP_CODES = new Set([
@@ -29,6 +30,7 @@ export const STOP_CODES = new Set([
   'rate_limited',
   'repeated_request',
   'subscription_limit',
+  'provider_refused',
   'ai_not_granted',
   'module_not_granted',
   'action_not_granted',

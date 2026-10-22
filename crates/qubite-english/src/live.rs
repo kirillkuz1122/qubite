@@ -284,7 +284,8 @@ fn ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-/// Отказ, который не пройдёт от повтора (лимит, зацикливание, нет прав): экран
+/// Отказ, который не пройдёт от повтора (лимит, зацикливание, нет прав, отказ
+/// провайдера): экран
 /// выключает микрофон и ждёт «Попробовать снова», а не слушает по кругу.
 fn stops(error: &AiError) -> bool {
     matches!(
@@ -296,6 +297,8 @@ fn stops(error: &AiError) -> bool {
             | AiError::RateLimited { .. }
             | AiError::RepeatedRequest
             | AiError::SubscriptionLimit { .. }
+            // 302 из закрытой страны, неверный ключ: повтор не поможет (D-515).
+            | AiError::ProviderRefused { .. }
     )
 }
 

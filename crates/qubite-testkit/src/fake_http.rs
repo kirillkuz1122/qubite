@@ -23,6 +23,8 @@ pub enum Action {
     With(Responder),
     /// Ответить статусом и JSON.
     Respond(u16, String),
+    /// Ответить статусом, своими заголовками и телом (звук, редирект, HTML).
+    Reply(u16, Vec<(&'static str, String)>, String),
     /// Прочитать запрос и закрыть соединение без ответа (обрыв после отправки).
     Close,
     /// Прочитать запрос и молчать.
@@ -34,6 +36,7 @@ impl std::fmt::Debug for Action {
         match self {
             Self::With(_) => f.write_str("With(..)"),
             Self::Respond(status, _) => write!(f, "Respond({status})"),
+            Self::Reply(status, _, _) => write!(f, "Reply({status})"),
             Self::Close => f.write_str("Close"),
             Self::Hang => f.write_str("Hang"),
         }
@@ -193,6 +196,18 @@ async fn serve(mut stream: TcpStream, state: &Shared) {
                 "HTTP/1.1 {status} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                 body.len()
             );
+            let _ = stream.write_all(response.as_bytes()).await;
+            let _ = stream.shutdown().await;
+        }
+        Action::Reply(status, headers, body) => {
+            let mut response = format!("HTTP/1.1 {status} X\r\n");
+            for (name, value) in headers {
+                response.push_str(&format!("{name}: {value}\r\n"));
+            }
+            response.push_str(&format!(
+                "content-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            ));
             let _ = stream.write_all(response.as_bytes()).await;
             let _ = stream.shutdown().await;
         }

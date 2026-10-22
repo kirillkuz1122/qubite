@@ -1426,6 +1426,7 @@ dependencies = [
  "qubite-auth",
  "qubite-db",
  "qubite-kernel",
+ "qubite-net",
  "qubite-objects",
  "qubite-policy",
  "qubite-testkit",
@@ -1475,6 +1476,7 @@ dependencies = [
  "qubite-auth",
  "qubite-db",
  "qubite-inbox",
+ "qubite-net",
  "qubite-notify",
  "qubite-oauth",
  "qubite-objects",
@@ -1632,6 +1634,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-net"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "reqwest",
+ "tokio",
+]
+
+[[package]]
 name = "qubite-notify"
 version = "0.1.0"
 dependencies = [
@@ -1762,6 +1773,7 @@ dependencies = [
  "qubite-jobs",
  "qubite-kernel",
  "qubite-mail",
+ "qubite-net",
  "qubite-notify",
  "qubite-oauth",
  "qubite-objects",

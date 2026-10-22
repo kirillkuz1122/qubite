@@ -28,6 +28,7 @@ qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-planner = { version = "0.1.0", path = "../qubite-planner" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-oauth = { version = "0.1.0", path = "../qubite-oauth" }
+qubite-net = { version = "0.1.0", path = "../qubite-net" }
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
 qubite-mail = { version = "0.1.0", path = "../qubite-mail" }
 qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }

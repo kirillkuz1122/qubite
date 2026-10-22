@@ -543,3 +543,35 @@ async fn budget_error_stops_listening_instead_of_falling_back() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// ElevenLabs отказал (302 из закрытой страны): экран узнаёт сразу, запись
+/// целиком не начинается — она упёрлась бы в тот же отказ (D-515).
+#[tokio::test]
+async fn provider_refusal_stops_listening_instead_of_falling_back() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let voice = Arc::new(MockVoice::new().script([MockHeard::Refuse]));
+    let gateway = setup(pool, me, Vec::new(), Some(voice.clone())).await;
+    qubite_english::start(pool, me).await.unwrap();
+    let mut talk = open(pool, gateway, me);
+
+    talk.tx.send(In::Listen).await.unwrap();
+    let got = talk.until_reply(Instant::now()).await;
+    assert!(
+        matches!(&got[0].1, Out::Error { code: "provider_refused", message, .. } if !message.contains("другую модель")),
+        "{:?}",
+        got.iter().map(|(_, o)| o).collect::<Vec<_>>()
+    );
+    talk.tx.send(In::Audio(speech())).await.unwrap();
+    talk.tx.send(In::Done).await.unwrap();
+    let more = tokio::time::timeout(Duration::from_millis(300), talk.rx.recv()).await;
+    assert!(
+        more.is_err(),
+        "после отказа провайдера — тишина, без записи"
+    );
+    assert_eq!((voice.live_calls(), voice.stt_calls()), (1, 0));
+    drop(talk);
+    db.close().await;
+    test_db.drop_db().await;
+}

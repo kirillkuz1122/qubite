@@ -60,6 +60,8 @@ pub struct ChatGptConfig {
     pub auth_base: String,
     pub api_base: String,
     pub connect_timeout: Duration,
+    /// Прокси (`QUBITE_PROXY`); без него — системный `HTTPS_PROXY`.
+    pub proxy: Option<String>,
 }
 
 impl Default for ChatGptConfig {
@@ -68,6 +70,7 @@ impl Default for ChatGptConfig {
             auth_base: AUTH_BASE.into(),
             api_base: API_BASE.into(),
             connect_timeout: Duration::from_secs(10),
+            proxy: None,
         }
     }
 }
@@ -94,7 +97,7 @@ impl ChatGptConfig {
 
 fn http_client(config: &ChatGptConfig) -> Result<reqwest::Client, String> {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    reqwest::Client::builder()
+    qubite_net::client(config.proxy.as_deref())?
         .connect_timeout(config.connect_timeout)
         .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
         .build()

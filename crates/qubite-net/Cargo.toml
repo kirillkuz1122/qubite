@@ -1,0 +1,18 @@
+[package]
+name = "qubite-net"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+base64 = "0.22.1"
+reqwest = { version = "0.13.5", default-features = false, features = ["socks"] }
+tokio = { version = "1.53.3", features = ["net", "io-util", "time"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

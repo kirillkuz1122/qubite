@@ -195,6 +195,15 @@ pub struct AiArgs {
     pub elevenlabs_voice_id: String,
 }
 
+/// Прокси сервиса: `QUBITE_<СЕРВИС>_PROXY` или общий `QUBITE_PROXY` (D-515).
+fn proxy(service: &str) -> Option<String> {
+    let proxy = qubite_net::configured(Some(service));
+    if let Some(proxy) = &proxy {
+        tracing::info!(service, proxy = %qubite_net::hide(proxy), "внешние запросы — через прокси");
+    }
+    proxy
+}
+
 impl AiArgs {
     pub fn gateway_config(&self) -> AiConfig {
         AiConfig {
@@ -221,6 +230,7 @@ impl AiArgs {
         ChatGptConfig {
             auth_base: self.chatgpt_auth_url.clone(),
             api_base: self.chatgpt_api_url.clone(),
+            proxy: proxy("chatgpt"),
             ..ChatGptConfig::default()
         }
     }
@@ -257,6 +267,7 @@ impl AiArgs {
         };
         let config = ElevenLabsConfig {
             base_url: self.elevenlabs_base_url.clone(),
+            proxy: proxy("elevenlabs"),
             ..ElevenLabsConfig::new(Secret::new(key.trim()))
         };
         Ok(Some(Arc::new(
@@ -275,6 +286,7 @@ impl AiArgs {
         let config = OpenRouterConfig {
             base_url: self.openrouter_base_url.clone(),
             data_collection: self.data_collection.map(|d| d.as_str().to_owned()),
+            proxy: proxy("openrouter"),
             ..OpenRouterConfig::new(Secret::new(key.trim()))
         };
         Ok(Some(Arc::new(

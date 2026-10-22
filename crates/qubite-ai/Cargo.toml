@@ -9,6 +9,7 @@ description = "AI-шлюз: провайдеры (OpenRouter, mock), катал�
 
 [dependencies]
 qubite-kernel = { version = "0.1.0", path = "../qubite-kernel" }
+qubite-net = { version = "0.1.0", path = "../qubite-net" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-policy = { version = "0.1.0", path = "../qubite-policy" }
 # TLS — rustls с ring: без C-библиотеки aws-lc, сборка под aarch64 остаётся простой.

@@ -35,6 +35,8 @@ pub struct OpenRouterConfig {
     /// `Some("deny")` — только провайдеры, которые не собирают данные;
     /// `None` — не указывать (у OpenRouter это `allow`). D-211.
     pub data_collection: Option<String>,
+    /// Прокси (`QUBITE_PROXY`); без него — системный `HTTPS_PROXY`.
+    pub proxy: Option<String>,
 }
 
 impl OpenRouterConfig {
@@ -44,6 +46,7 @@ impl OpenRouterConfig {
             api_key,
             connect_timeout: Duration::from_secs(10),
             data_collection: None,
+            proxy: None,
         }
     }
 }
@@ -75,7 +78,7 @@ impl OpenRouter {
     pub fn new(config: OpenRouterConfig) -> Result<Self, String> {
         // Криптография TLS — ring (чистая сборка под aarch64, без C-зависимостей aws-lc).
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let client = reqwest::Client::builder()
+        let client = qubite_net::client(config.proxy.as_deref())?
             .connect_timeout(config.connect_timeout)
             .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
             .build()
