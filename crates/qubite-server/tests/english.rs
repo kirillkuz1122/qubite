@@ -172,7 +172,10 @@ async fn english_conversation_over_http() {
     let screen = me.get(address, "/api/v1/english").await;
     assert_eq!(screen.status, 200, "{:?}", screen.body);
     assert_eq!(screen.body["session"], Value::Null);
-    assert_eq!(screen.body["voice"], json!({"listen": true, "speak": true}));
+    assert_eq!(
+        screen.body["voice"],
+        json!({"listen": true, "speak": true, "live": true})
+    );
 
     let started = me.post(address, "/api/v1/english/session").await;
     assert_eq!(started.status, 200, "{:?}", started.body);
@@ -292,6 +295,113 @@ async fn english_conversation_over_http() {
     .await;
     assert_eq!(status, 403);
 
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+/// Разговор потоком по WebSocket: текст — ответ кусками и голос PCM кадрами,
+/// потом записанный ход и замеры; чужой сайт — отказ.
+#[tokio::test]
+async fn english_live_over_websocket() {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest, http::HeaderValue};
+
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap()
+        .id;
+    let chunks = [
+        "{\"say\": \"",
+        "\\\"He go\\\"? No. ",
+        "He goes. Say it again.\", ",
+        "\"verdict\": \"mistake\", \"mistakes\": [{\"wrong\": \"He go\", \"right\": \"He goes\", \"why\": \"he → goes\"}], \"repeat\": \"He goes home.\"}",
+    ]
+    .map(String::from)
+    .to_vec();
+    let (gateway, _voice) = gateway(
+        pool,
+        owner,
+        vec![MockStep::Stream {
+            chunks,
+            delay_ms: 30,
+            tokens_in: 100,
+            tokens_out: 40,
+        }],
+        vec![],
+    )
+    .await;
+    let address =
+        serve(AppState::with_auth(db.clone(), AuthSettings::default()).with_ai(Arc::new(gateway)))
+            .await;
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    let connect = |origin: &str| {
+        let mut request = format!("ws://{address}/api/v1/english/live")
+            .into_client_request()
+            .unwrap();
+        request.headers_mut().insert(
+            "cookie",
+            HeaderValue::from_str(&format!(
+                "qubite_session={}",
+                me.session.as_deref().unwrap()
+            ))
+            .unwrap(),
+        );
+        request
+            .headers_mut()
+            .insert("origin", HeaderValue::from_str(origin).unwrap());
+        tokio_tungstenite::connect_async(request)
+    };
+    assert!(
+        connect("https://evil.example").await.is_err(),
+        "с чужого сайта — нельзя"
+    );
+    let (mut socket, _) = connect(&format!("http://{address}")).await.unwrap();
+    socket
+        .send(Message::text(r#"{"type":"text","text":"He go home"}"#))
+        .await
+        .unwrap();
+    let mut said = String::new();
+    let mut audio = 0;
+    let mut metrics = None;
+    let turn = loop {
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(10), socket.next())
+            .await
+            .expect("ответ за 10 с")
+            .unwrap()
+            .unwrap();
+        match frame {
+            Message::Binary(pcm) => {
+                assert!(!said.is_empty(), "голос — после первых слов");
+                audio += pcm.len();
+            }
+            Message::Text(text) => {
+                let json: Value = serde_json::from_str(text.as_str()).unwrap();
+                match json["type"].as_str().unwrap() {
+                    "say" => said.push_str(json["text"].as_str().unwrap()),
+                    "metrics" => metrics = Some(json),
+                    "reply" => break json["turn"].clone(),
+                    "error" => panic!("{json}"),
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    };
+    assert_eq!(said, "\"He go\"? No. He goes. Say it again.");
+    assert!(audio > 0, "голос пришёл кадрами");
+    let metrics = metrics.expect("замеры до хода");
+    assert!(metrics["first_audio_ms"].as_u64().unwrap() <= metrics["reply_ms"].as_u64().unwrap());
+    assert_eq!(turn["tutor"]["verdict"], "mistake");
+    assert_eq!(turn["tutor"]["mistakes"][0]["right"], "He goes");
+    assert_eq!(turn["learner"]["via"], "text");
+    assert!(turn["tutor"]["latency"]["first_audio_ms"].is_u64());
+
+    let screen = me.get(address, "/api/v1/english").await;
+    assert_eq!(screen.body["voice"]["live"], true);
     db.close().await;
     test_db.drop_db().await;
 }

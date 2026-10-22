@@ -236,7 +236,8 @@ impl AppState {
         english::english_start,
         english::english_finish,
         english::english_turn,
-        english::english_speech
+        english::english_speech,
+        english::english_live
     ),
     components(schemas(
         Health,
@@ -385,7 +386,8 @@ impl AppState {
         english::EnglishFinished,
         english::EnglishSay,
         english::EnglishTurn,
-        english::EnglishTurnError
+        english::EnglishTurnError,
+        english::EnglishLatency
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -620,6 +622,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/home/rates", get(home::rates))
         .route("/api/v1/home/news", get(home::news))
         .route("/api/v1/english", get(english::english_overview))
+        .route("/api/v1/english/live", get(english::english_live))
         .route("/api/v1/english/session", post(english::english_start))
         .route(
             "/api/v1/english/session/finish",

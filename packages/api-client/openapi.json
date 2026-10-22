@@ -3962,6 +3962,39 @@
         }
       }
     },
+    "/api/v1/english/live": {
+      "get": {
+        "tags": ["english"],
+        "summary": "Разговор потоком (WebSocket): ответ почти сразу, как у живого собеседника.",
+        "description": "С экрана: двоичные кадры — PCM 16 бит, 16 кГц, моно (микрофон); текстом —\n`{\"type\":\"listen\"}` (начал говорить), `{\"type\":\"done\"}` (пауза / «Готово»),\n`{\"type\":\"text\",\"text\":\"…\"}`, `{\"type\":\"interrupt\"}` (перебил).\nНа экран: двоичные кадры — голос репетитора, PCM 16 бит, 24 кГц, моно,\nкусками по мере синтеза; текстом — `{\"type\":\"partial\",\"text\"}`,\n`{\"type\":\"heard\",\"text\"}`, `{\"type\":\"say\",\"text\"}` (кусок ответа),\n`{\"type\":\"metrics\", …}` ([`EnglishLatency`]), `{\"type\":\"reply\",\"turn\"}`\n([`EnglishTurn`]), `{\"type\":\"error\",\"error\",\"message\",\"heard\"}`.\nПрава — как у хода; браузер подключается только со своего сайта.",
+        "operationId": "english_live",
+        "responses": {
+          "101": {
+            "description": "Соединение открыто"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Чужой сайт или нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/messages/{id}/speech": {
       "post": {
         "tags": ["english"],
@@ -6882,6 +6915,37 @@
           }
         }
       },
+      "EnglishLatency": {
+        "type": "object",
+        "description": "Замеры одного хода, мс от конца фразы.",
+        "required": ["reply_ms"],
+        "properties": {
+          "first_audio_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "До первого звука ответа — «через сколько ответил».",
+            "minimum": 0
+          },
+          "first_text_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "До первого слова ответа.",
+            "minimum": 0
+          },
+          "heard_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Распознавание после конца фразы.",
+            "minimum": 0
+          },
+          "reply_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Модель дописала ответ.",
+            "minimum": 0
+          }
+        }
+      },
       "EnglishMessage": {
         "type": "object",
         "description": "Реплика.",
@@ -6909,6 +6973,17 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "latency": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishLatency",
+                "description": "Замеры задержки ответа (разговор потоком)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "mistakes": {
             "type": "array",
@@ -7156,11 +7231,15 @@
       "EnglishVoice": {
         "type": "object",
         "description": "Готов ли голос на сервере.",
-        "required": ["listen", "speak"],
+        "required": ["listen", "speak", "live"],
         "properties": {
           "listen": {
             "type": "boolean",
             "description": "Распознавание речи (можно говорить)."
+          },
+          "live": {
+            "type": "boolean",
+            "description": "Распознавание на ходу: ответ почти сразу после паузы (`/english/live`)."
           },
           "speak": {
             "type": "boolean",

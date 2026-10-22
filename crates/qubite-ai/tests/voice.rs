@@ -491,3 +491,231 @@ async fn elevenlabs_unreachable_is_not_sent() {
     assert_eq!(env.spent(limit).await, (0, 0), "не ушло — не стоило денег");
     env.close().await;
 }
+
+// ---------------------------------------------------------------- потоком (ENG-001)
+
+#[tokio::test]
+async fn speech_stream_and_live_listening_are_charged() {
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru", true).await;
+    let limit = env.budget(me, 1_000_000).await;
+    let mock = Arc::new(MockVoice::new().script([MockHeard::Text {
+        text: "I goed home".into(),
+        seconds: 1.0,
+    }]));
+    let gateway = env.gateway(mock.clone());
+    assert!(gateway.voice_ready(voice::STT_LIVE).await.unwrap());
+    let auth = env.auth(me).await;
+
+    // Речь потоком: куски по мере синтеза, списание по знакам — сразу.
+    let mut stream = gateway
+        .speak_stream(&auth, say("tts-stream", "Wrong."))
+        .await
+        .unwrap();
+    assert_eq!(stream.mime, voice::STREAM_MIME);
+    assert_eq!(stream.cost_usd, 600, "6 знаков по $100 за миллион");
+    let mut parts = 0;
+    while let Some(chunk) = stream.chunks.recv().await {
+        assert!(chunk.unwrap().ends_with(b"Wrong.|"));
+        parts += 1;
+    }
+    assert_eq!(parts, 3);
+
+    // Живое распознавание: резерв до соединения, списание по секундам звука.
+    let mut listen = gateway
+        .listen_live(
+            &auth,
+            voice::LiveRequest {
+                request_id: "live-1".into(),
+                model: "elevenlabs/scribe_v2_realtime".into(),
+                language: None,
+                sample_rate: 16_000,
+                silence_secs: 0.5,
+            },
+        )
+        .await
+        .unwrap();
+    let (reserved, _) = env.spent(limit).await;
+    assert!(reserved > 0, "резерв на 120 с до первого звука");
+    listen.send(vec![9u8; 40_000]).await.unwrap(); // 1,25 с
+    listen.commit().await;
+    let mut events = Vec::new();
+    while let Some(event) = listen.next().await {
+        let done = matches!(event, voice::LiveOut::Committed(_));
+        events.push(event);
+        if done {
+            break;
+        }
+    }
+    assert_eq!(
+        events.last(),
+        Some(&voice::LiveOut::Committed("I goed home".into()))
+    );
+    assert!(matches!(events[0], voice::LiveOut::Partial(_)));
+    let (_, seconds, cost) = listen.finish().await.unwrap();
+    assert_eq!(seconds, 2, "1,25 с — вверх до 2");
+    // 2 с по $166,67 за миллион секунд = 334 микродоллара (вверх).
+    assert_eq!(cost, 334);
+    assert_eq!(
+        env.spent(limit).await,
+        (0, 600 + 334),
+        "резерв отпущен, списан факт"
+    );
+
+    // Длиннее резерва — отказ, звук не уходит.
+    let mut long = gateway
+        .listen_live(
+            &auth,
+            voice::LiveRequest {
+                request_id: "live-2".into(),
+                model: "elevenlabs/scribe_v2_realtime".into(),
+                language: None,
+                sample_rate: 16_000,
+                silence_secs: 0.5,
+            },
+        )
+        .await
+        .unwrap();
+    let error = long.send(vec![1u8; 16_000 * 2 * 121]).await.unwrap_err();
+    assert!(matches!(error, AiError::Invalid(_)), "{error}");
+    long.finish().await.unwrap();
+    env.close().await;
+}
+
+// Обратный вызов рукопожатия tungstenite возвращает большой `Err` — это их тип.
+#[allow(clippy::result_large_err)]
+#[tokio::test]
+async fn elevenlabs_live_protocol_on_fake_websocket() {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::{
+        Message,
+        handshake::server::{Request, Response},
+    };
+
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru", true).await;
+    env.budget(me, 1_000_000).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (seen_tx, mut seen_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    tokio::spawn(async move {
+        let (tcp, _) = listener.accept().await.unwrap();
+        let seen = seen_tx.clone();
+        let mut socket = tokio_tungstenite::accept_hdr_async(
+            tcp,
+            move |request: &Request, response: Response| {
+                let _ = seen.send(format!(
+                    "{} key={}",
+                    request.uri(),
+                    request
+                        .headers()
+                        .get("xi-api-key")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("")
+                ));
+                Ok(response)
+            },
+        )
+        .await
+        .unwrap();
+        socket
+            .send(Message::text(
+                r#"{"message_type":"session_started","session_id":"s1"}"#,
+            ))
+            .await
+            .unwrap();
+        while let Some(Ok(Message::Text(text))) = socket.next().await {
+            let _ = seen_tx.send(text.to_string());
+            let json: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+            if json["commit"] == true {
+                socket
+                    .send(Message::text(
+                        r#"{"message_type":"committed_transcript","text":"He go home."}"#,
+                    ))
+                    .await
+                    .unwrap();
+            } else {
+                socket
+                    .send(Message::text(
+                        r#"{"message_type":"partial_transcript","text":"He go"}"#,
+                    ))
+                    .await
+                    .unwrap();
+            }
+        }
+    });
+    let gateway = env.gateway(adapter(format!("http://{address}")));
+    let auth = env.auth(me).await;
+    let mut listen = gateway
+        .listen_live(
+            &auth,
+            voice::LiveRequest {
+                request_id: "el-live".into(),
+                model: "elevenlabs/scribe_v2_realtime".into(),
+                language: Some("en".into()),
+                sample_rate: 16_000,
+                silence_secs: 0.5,
+            },
+        )
+        .await
+        .unwrap();
+    listen.send(vec![1, 2, 3, 4]).await.unwrap();
+    assert_eq!(
+        listen.next().await,
+        Some(voice::LiveOut::Partial("He go".into()))
+    );
+    listen.commit().await;
+    assert_eq!(
+        listen.next().await,
+        Some(voice::LiveOut::Committed("He go home.".into()))
+    );
+    listen.finish().await.unwrap();
+
+    let handshake = seen_rx.recv().await.unwrap();
+    assert!(
+        handshake.starts_with("/v1/speech-to-text/realtime?model_id=scribe_v2_realtime&audio_format=pcm_16000&commit_strategy=vad&vad_silence_threshold_secs=0.50&language_code=en"),
+        "{handshake}"
+    );
+    assert!(handshake.ends_with("key=xi-test-key-not-real"));
+    let audio: serde_json::Value = serde_json::from_str(&seen_rx.recv().await.unwrap()).unwrap();
+    assert_eq!(audio["message_type"], "input_audio_chunk");
+    assert_eq!(audio["audio_base_64"], "AQIDBA==");
+    assert_eq!(audio["commit"], false);
+    assert_eq!(audio["sample_rate"], 16_000);
+    let commit: serde_json::Value = serde_json::from_str(&seen_rx.recv().await.unwrap()).unwrap();
+    assert_eq!(commit["commit"], true);
+    env.close().await;
+}
+
+#[tokio::test]
+async fn elevenlabs_speech_stream_on_fake_server() {
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru", true).await;
+    env.budget(me, 1_000_000).await;
+    // Нечётное число байт: последний ждёт пары и в поток не уходит.
+    let server = FakeHttp::start(
+        [Action::Respond(200, "ABCDE".into())],
+        Action::Respond(500, "{}".into()),
+    )
+    .await;
+    let gateway = env.gateway(adapter(server.root_url()));
+    let auth = env.auth(me).await;
+    let mut stream = gateway
+        .speak_stream(&auth, say("el-stream", "Again."))
+        .await
+        .unwrap();
+    let mut audio = Vec::new();
+    while let Some(chunk) = stream.chunks.recv().await {
+        audio.extend(chunk.unwrap());
+    }
+    assert_eq!(audio, b"ABCD", "куски — целыми отсчётами по 2 байта");
+    let line = &server.received()[0].line;
+    assert!(
+        line.starts_with(&format!(
+            "POST /v1/text-to-speech/{}/stream?output_format=pcm_24000",
+            elevenlabs::DEFAULT_VOICE
+        )),
+        "{line}"
+    );
+    env.close().await;
+}

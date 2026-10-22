@@ -702,3 +702,49 @@ async fn owner_enables_any_catalog_model() {
     assert_eq!(audit, 1);
     env.finish().await;
 }
+
+/// Поток (ENG-001): куски текста идут в `delta`, расход — из последнего куска,
+/// списание — как у обычного ответа; оборванный поток — «неизвестно».
+#[tokio::test]
+async fn streaming_reply_sends_pieces_and_charges_usage() {
+    let env = Env::new().await.with_catalog().await;
+    let (_, auth, limit) = env.user().await;
+    let sse = [
+        ": OPENROUTER PROCESSING\n\n",
+        "data: {\"choices\":[{\"delta\":{\"content\":\"Say \"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"content\":\"it again.\"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{}}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":10,\"cost\":0.00002}}\n\n",
+        "data: [DONE]\n\n",
+    ]
+    .concat();
+    let cut = "data: {\"choices\":[{\"delta\":{\"content\":\"Say \"}}]}\n\n".to_owned();
+    let fake = FakeHttp::start(
+        [Action::Respond(200, sse), Action::Respond(200, cut)],
+        Action::Close,
+    )
+    .await;
+    let gateway = env.gateway(adapter(fake.base_url()));
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let reply = gateway
+        .complete_stream(&auth, request("stream-ok"), tx)
+        .await
+        .unwrap();
+    let mut pieces = Vec::new();
+    while let Ok(piece) = rx.try_recv() {
+        pieces.push(piece);
+    }
+    assert_eq!(pieces, ["Say ", "it again."]);
+    assert_eq!(reply.text, "Say it again.");
+    assert_eq!((reply.tokens_in, reply.tokens_out), (100, 10));
+    assert!(reply.cost_usd > 0);
+    assert_eq!(env.usage(limit).await, (0, reply.cost_usd));
+    assert!(fake.received()[0].body.contains("\"stream\":true"));
+
+    let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+    let error = gateway
+        .complete_stream(&auth, request("stream-cut"), tx)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, AiError::ResultUnknown { .. }), "{error}");
+    env.finish().await;
+}

@@ -16,6 +16,7 @@
 //! `write` — разговаривать, `ai` + бюджет — модель и голос. Без голосового
 //! провайдера всё работает текстом.
 
+pub mod live;
 pub mod notes;
 pub mod tutor;
 
@@ -157,6 +158,8 @@ pub struct Message {
     pub repeated: bool,
     /// Речь уже готова (повтор бесплатно).
     pub has_speech: bool,
+    /// Замеры задержки ответа (разговор потоком).
+    pub latency: Option<live::Latency>,
     #[serde(with = "time::serde::rfc3339")]
     pub at: OffsetDateTime,
 }
@@ -173,6 +176,7 @@ struct MessageRow {
     repeat: String,
     repeated: bool,
     has_speech: bool,
+    latency: Option<serde_json::Value>,
     created_at: OffsetDateTime,
 }
 
@@ -189,13 +193,14 @@ impl From<MessageRow> for Message {
             repeat: row.repeat,
             repeated: row.repeated,
             has_speech: row.has_speech,
+            latency: row.latency.and_then(|v| serde_json::from_value(v).ok()),
             at: row.created_at,
         }
     }
 }
 
 const MESSAGE: &str = "SELECT id, seq, role, text, via, verdict, mistakes, repeat, repeated, \
-     speech IS NOT NULL AS has_speech, created_at FROM english_messages";
+     speech IS NOT NULL AS has_speech, latency, created_at FROM english_messages";
 
 async fn message(conn: &mut PgConnection, id: Uuid) -> Result<Message> {
     let row: MessageRow = sqlx::query_as(sqlx::AssertSqlSafe(format!("{MESSAGE} WHERE id = $1")))
@@ -220,6 +225,8 @@ async fn messages(conn: &mut PgConnection, session: Uuid) -> Result<Vec<Message>
 pub struct Voice {
     pub listen: bool,
     pub speak: bool,
+    /// Распознавание на ходу (ответ почти сразу после паузы).
+    pub live: bool,
 }
 
 /// Экран «Английский».
@@ -250,7 +257,7 @@ async fn may_write(pool: &PgPool, account: Uuid) -> Result<()> {
     Ok(())
 }
 
-async fn may_use_ai(pool: &PgPool, account: Uuid) -> Result<Authorized<UseAi>> {
+pub(crate) async fn may_use_ai(pool: &PgPool, account: Uuid) -> Result<Authorized<UseAi>> {
     Ok(qubite_policy::decide::<UseAi>(pool, &Subject::account(account, None), &module()).await?)
 }
 
@@ -259,6 +266,7 @@ pub async fn voice(gateway: &Gateway) -> Result<Voice> {
     Ok(Voice {
         listen: gateway.voice_ready(STT).await?,
         speak: gateway.voice_ready(TTS).await?,
+        live: gateway.voice_ready(voice::STT_LIVE).await?,
     })
 }
 
@@ -539,27 +547,23 @@ fn dialog(history: &[Message]) -> String {
         .join("\n")
 }
 
-/// Сказать репетитору (`key` — ID действия от экрана: повтор с тем же ключом
-/// не платится дважды). Голос сначала распознаётся; ответ — с разбором ошибок.
-pub async fn turn(
-    pool: &PgPool,
-    gateway: &Gateway,
-    settings: &Settings,
-    account: Uuid,
-    key: Uuid,
-    said: Said,
-) -> Result<Turn> {
+/// Пустую и слишком длинную реплику — отказ; иначе — без пробелов по краям.
+pub(crate) fn check_text(text: &str) -> Result<String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Err(Error::Invalid("пустая реплика".into()));
+    }
+    if text.chars().count() > MAX_TEXT {
+        return Err(Error::Invalid(format!("реплика длиннее {MAX_TEXT} знаков")));
+    }
+    Ok(text.to_owned())
+}
+
+/// Перед ходом: права (разговаривать и AI), заснувший разговор — закрыть,
+/// идущий — взять или начать.
+pub(crate) async fn begin(pool: &PgPool, account: Uuid) -> Result<(Authorized<UseAi>, Session)> {
     may_write(pool, account).await?;
     let auth = may_use_ai(pool, account).await?;
-    if let Said::Text(text) = &said {
-        let text = text.trim();
-        if text.is_empty() {
-            return Err(Error::Invalid("пустая реплика".into()));
-        }
-        if text.chars().count() > MAX_TEXT {
-            return Err(Error::Invalid(format!("реплика длиннее {MAX_TEXT} знаков")));
-        }
-    }
     close_idle(pool, account).await?;
     let session = {
         let mut conn = pool.acquire().await?;
@@ -569,11 +573,156 @@ pub async fn turn(
         Some(session) => session,
         None => create_session(pool, account, false).await?,
     };
+    Ok((auth, session))
+}
+
+/// Запрос к модели репетитора: заметки, разговор, слова ученика — данные.
+pub(crate) async fn tutor_request(
+    pool: &PgPool,
+    gateway: &Gateway,
+    account: Uuid,
+    session: Uuid,
+    key: Uuid,
+    text: &str,
+) -> Result<AiRequest> {
+    let mut conn = pool.acquire().await?;
+    let mut history: Vec<Message> = messages(&mut conn, session).await?;
+    let skip = history
+        .len()
+        .saturating_sub(usize::try_from(HISTORY).unwrap_or(16));
+    history.drain(..skip);
+    let notes_body = qubite_agent::files::by_path(&mut conn, account, notes::PATH)
+        .await?
+        .map(|file| file.body.chars().take(3000).collect::<String>());
+    drop(conn);
+    let mut data = Vec::new();
+    if let Some(body) = notes_body.filter(|b| !b.trim().is_empty()) {
+        data.push(Untrusted::new("notes", body));
+    }
+    if !history.is_empty() {
+        data.push(Untrusted::new("dialog", dialog(&history)));
+    }
+    data.push(Untrusted::new("learner", text.to_owned()));
+    Ok(AiRequest {
+        request_id: format!("english:{key}:tutor"),
+        model: gateway.model_for(TUTOR_TASK).await?,
+        prompt: tutor::PROMPT.into(),
+        untrusted: data,
+        input_tokens: 0,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        job_id: None,
+    })
+}
+
+/// Что сказал ученик (для записи).
+pub(crate) struct Learner {
+    pub(crate) text: String,
+    pub(crate) via: &'static str,
+    pub(crate) stt_call: Option<Uuid>,
+}
+
+/// Обе реплики, речь (если уже есть) и счётчики разговора — одной транзакцией.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn save(
+    pool: &PgPool,
+    account: Uuid,
+    session: Uuid,
+    learner: &Learner,
+    reply: &tutor::Reply,
+    ai_call: Uuid,
+    latency: Option<serde_json::Value>,
+    speech: Option<(Vec<u8>, String, Uuid)>,
+) -> Result<(Session, Message, Message)> {
+    let mut tx = pool.begin().await?;
+    let learner_id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO english_messages (id, session_id, account_id, role, text, via, stt_call) \
+         VALUES ($1, $2, $3, 'learner', $4, $5, $6)",
+    )
+    .bind(learner_id)
+    .bind(session)
+    .bind(account)
+    .bind(&learner.text)
+    .bind(learner.via)
+    .bind(learner.stt_call)
+    .execute(&mut *tx)
+    .await?;
+    let tutor_id = Uuid::now_v7();
+    let (speech, speech_mime, tts_call) = match speech {
+        Some((audio, mime, call)) => (Some(audio), Some(mime), Some(call)),
+        None => (None, None, None),
+    };
+    sqlx::query(
+        "INSERT INTO english_messages (id, session_id, account_id, role, text, verdict, mistakes, \
+         repeat, repeated, ai_call, latency, speech, speech_mime, tts_call) \
+         VALUES ($1, $2, $3, 'tutor', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+    )
+    .bind(tutor_id)
+    .bind(session)
+    .bind(account)
+    .bind(&reply.say)
+    .bind(reply.verdict.as_str())
+    .bind(serde_json::to_value(&reply.mistakes).unwrap_or_default())
+    .bind(&reply.repeat)
+    .bind(reply.repeated)
+    .bind(ai_call)
+    .bind(latency)
+    .bind(speech)
+    .bind(speech_mime)
+    .bind(tts_call)
+    .execute(&mut *tx)
+    .await?;
+    let session: Session = sqlx::query_as(
+        "UPDATE english_sessions SET last_at = now(), turns = turns + 1, \
+         correct = correct + ($2 = 'ok')::int, mistakes = mistakes + ($2 = 'mistake')::int \
+         WHERE id = $1 \
+         RETURNING id, started_at, last_at, finished_at, turns, correct, mistakes, memory_action",
+    )
+    .bind(session)
+    .bind(reply.verdict.as_str())
+    .fetch_one(&mut *tx)
+    .await?;
+    let learner = message(&mut tx, learner_id).await?;
+    let tutor = message(&mut tx, tutor_id).await?;
+    tx.commit().await?;
+    Ok((session, learner, tutor))
+}
+
+/// Ошибке AI — распознанный текст, чтобы он не пропал.
+pub(crate) fn with_heard(error: AiError, heard: Option<&str>) -> Error {
+    match Error::from(error) {
+        Error::Ai { error, .. } => Error::Ai {
+            error,
+            heard: heard.map(str::to_owned),
+        },
+        other => other,
+    }
+}
+
+/// Сказать репетитору (`key` — ID действия от экрана: повтор с тем же ключом
+/// не платится дважды). Голос сначала распознаётся; ответ — с разбором ошибок.
+/// Ход целиком (без потока); разговор потоком — [`live`].
+pub async fn turn(
+    pool: &PgPool,
+    gateway: &Gateway,
+    settings: &Settings,
+    account: Uuid,
+    key: Uuid,
+    said: Said,
+) -> Result<Turn> {
+    if let Said::Text(text) = &said {
+        check_text(text)?;
+    }
+    let (auth, session) = begin(pool, account).await?;
 
     // 1. Голос → текст (через шлюз: грант, бюджет, журнал).
     let mut cost = 0;
-    let (text, via, stt_call) = match said {
-        Said::Text(text) => (text.trim().to_owned(), "text", None),
+    let learner = match said {
+        Said::Text(text) => Learner {
+            text: text.trim().to_owned(),
+            via: "text",
+            stt_call: None,
+        },
         Said::Voice {
             audio,
             mime,
@@ -600,100 +749,41 @@ pub async fn turn(
                     "не расслышал ни слова — скажи ещё раз, ближе к микрофону".into(),
                 ));
             }
-            (text, "voice", Some(heard.call_id))
+            Learner {
+                text,
+                via: "voice",
+                stt_call: Some(heard.call_id),
+            }
         }
     };
 
-    // 2. Модель: заметки, разговор, слова ученика — данные.
-    let mut conn = pool.acquire().await?;
-    let mut history: Vec<Message> = messages(&mut conn, session.id).await?;
-    let skip = history
-        .len()
-        .saturating_sub(usize::try_from(HISTORY).unwrap_or(16));
-    history.drain(..skip);
-    let notes_body = qubite_agent::files::by_path(&mut conn, account, notes::PATH)
-        .await?
-        .map(|file| file.body.chars().take(3000).collect::<String>());
-    drop(conn);
-    let mut data = Vec::new();
-    if let Some(body) = notes_body.filter(|b| !b.trim().is_empty()) {
-        data.push(Untrusted::new("notes", body));
-    }
-    if !history.is_empty() {
-        data.push(Untrusted::new("dialog", dialog(&history)));
-    }
-    data.push(Untrusted::new("learner", text.clone()));
-    let heard = (via == "voice").then(|| text.clone());
-    let with_heard = |error: AiError| match Error::from(error) {
-        Error::Ai { error, .. } => Error::Ai {
-            error,
-            heard: heard.clone(),
-        },
-        other => other,
-    };
-    let model = gateway.model_for(TUTOR_TASK).await.map_err(with_heard)?;
-    let response = gateway
-        .complete(
-            &auth,
-            AiRequest {
-                request_id: format!("english:{key}:tutor"),
-                model,
-                prompt: tutor::PROMPT.into(),
-                untrusted: data,
-                input_tokens: 0,
-                max_output_tokens: MAX_OUTPUT_TOKENS,
-                job_id: None,
-            },
-        )
+    // 2. Модель.
+    let heard = (learner.via == "voice").then_some(learner.text.as_str());
+    let request = tutor_request(pool, gateway, account, session.id, key, &learner.text)
         .await
-        .map_err(with_heard)?;
+        .map_err(|error| match error {
+            Error::Ai { error, .. } => with_heard(error, heard),
+            other => other,
+        })?;
+    let response = gateway
+        .complete(&auth, request)
+        .await
+        .map_err(|error| with_heard(error, heard))?;
     cost += response.cost_usd;
     let reply = tutor::parse(&response.text);
 
-    // 3. Обе реплики и счётчики — одной транзакцией.
-    let mut tx = pool.begin().await?;
-    let learner_id = Uuid::now_v7();
-    sqlx::query(
-        "INSERT INTO english_messages (id, session_id, account_id, role, text, via, stt_call) \
-         VALUES ($1, $2, $3, 'learner', $4, $5, $6)",
+    // 3. Обе реплики и счётчики.
+    let (session, learner, tutor) = save(
+        pool,
+        account,
+        session.id,
+        &learner,
+        &reply,
+        response.call_id,
+        None,
+        None,
     )
-    .bind(learner_id)
-    .bind(session.id)
-    .bind(account)
-    .bind(&text)
-    .bind(via)
-    .bind(stt_call)
-    .execute(&mut *tx)
     .await?;
-    let tutor_id = Uuid::now_v7();
-    sqlx::query(
-        "INSERT INTO english_messages (id, session_id, account_id, role, text, verdict, mistakes, \
-         repeat, repeated, ai_call) VALUES ($1, $2, $3, 'tutor', $4, $5, $6, $7, $8, $9)",
-    )
-    .bind(tutor_id)
-    .bind(session.id)
-    .bind(account)
-    .bind(&reply.say)
-    .bind(reply.verdict.as_str())
-    .bind(serde_json::to_value(&reply.mistakes).unwrap_or_default())
-    .bind(&reply.repeat)
-    .bind(reply.repeated)
-    .bind(response.call_id)
-    .execute(&mut *tx)
-    .await?;
-    let session: Session = sqlx::query_as(
-        "UPDATE english_sessions SET last_at = now(), turns = turns + 1, \
-         correct = correct + ($2 = 'ok')::int, mistakes = mistakes + ($2 = 'mistake')::int \
-         WHERE id = $1 \
-         RETURNING id, started_at, last_at, finished_at, turns, correct, mistakes, memory_action",
-    )
-    .bind(session.id)
-    .bind(reply.verdict.as_str())
-    .fetch_one(&mut *tx)
-    .await?;
-    let learner = message(&mut tx, learner_id).await?;
-    let tutor = message(&mut tx, tutor_id).await?;
-    tx.commit().await?;
     Ok(Turn {
         session,
         learner,

@@ -195,7 +195,7 @@ pub async fn socket(
     Ok(upgrade.on_upgrade(move |socket| run_socket(socket, state, authorized, changes)))
 }
 
-fn same_origin(headers: &HeaderMap) -> bool {
+pub(crate) fn same_origin(headers: &HeaderMap) -> bool {
     let origin = headers
         .get(header::ORIGIN)
         .and_then(|value| value.to_str().ok());

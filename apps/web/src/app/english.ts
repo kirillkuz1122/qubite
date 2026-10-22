@@ -3,7 +3,7 @@
  * Всё платное (распознавание, модель, речь) делает сервер через AI-шлюз с бюджетом.
  */
 import { CSRF_HEADER, csrfFromCookie, type components } from '@qubite/api-client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { Fail, must } from '../auth/client';
 import { MAX_RECORD_MS, pickMime, toBase64 } from './english-view';
@@ -82,21 +82,25 @@ export async function sendTurn(saying: Saying): Promise<EnglishTurn> {
   return r.data as EnglishTurn;
 }
 
-/** Ход: ответ репетитора сразу кладётся в экран (без лишнего запроса). */
+/** Записанный ход — в экран без лишнего запроса. */
+export function appendTurn(qc: QueryClient, t: EnglishTurn) {
+  qc.setQueryData<EnglishOverview>(ENGLISH, (o) =>
+    o
+      ? {
+          ...o,
+          session: t.session,
+          messages: [...o.messages, t.learner, t.tutor],
+        }
+      : o,
+  );
+}
+
+/** Ход целиком (запасной путь без потока). */
 export function useTurn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: sendTurn,
-    onSuccess: (t) =>
-      qc.setQueryData<EnglishOverview>(ENGLISH, (o) =>
-        o
-          ? {
-              ...o,
-              session: t.session,
-              messages: [...o.messages, t.learner, t.tutor],
-            }
-          : o,
-      ),
+    onSuccess: (t) => appendTurn(qc, t),
   });
 }
 

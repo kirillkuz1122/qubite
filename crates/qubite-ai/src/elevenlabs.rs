@@ -17,7 +17,10 @@ use serde::Deserialize;
 
 use crate::{
     provider::{BoxFuture, ProviderError},
-    voice::{Heard, Spoken, SttCall, TtsCall, VoiceProvider},
+    voice::{
+        AudioChunks, Heard, LiveCall, LiveIn, LiveLink, LiveOut, Spoken, SttCall, TtsCall,
+        VoiceProvider,
+    },
 };
 
 /// ID провайдера в базе (`ai_providers.id`).
@@ -179,6 +182,225 @@ impl ElevenLabs {
     }
 }
 
+impl ElevenLabs {
+    /// Речь потоком: `POST /v1/text-to-speech/{голос}/stream` в PCM 24 кГц —
+    /// первые куски приходят через сотни миллисекунд, остальное догоняет.
+    async fn tts_stream(&self, call: &TtsCall) -> Result<AudioChunks, ProviderError> {
+        let voice: String = call
+            .voice
+            .chars()
+            .filter(char::is_ascii_alphanumeric)
+            .collect();
+        if voice.is_empty() {
+            return Err(ProviderError::Refused("голос не задан".into()));
+        }
+        let mut response = self
+            .client
+            .post(self.url(&format!(
+                "v1/text-to-speech/{voice}/stream?output_format={STREAM_FORMAT}"
+            )))
+            .header("xi-api-key", self.config.api_key.expose())
+            .json(&serde_json::json!({
+                "text": call.text,
+                "model_id": call.external_id,
+            }))
+            .send()
+            .await
+            .map_err(|error| {
+                if error.is_connect() {
+                    ProviderError::NotSent(format!("нет соединения: {}", without_url(&error)))
+                } else {
+                    ProviderError::Unknown(format!("обрыв: {}", without_url(&error)))
+                }
+            })?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            let body = response.bytes().await.unwrap_or_default();
+            return Err(match status {
+                429 => ProviderError::NotSent(error_message(status, &body)),
+                400 | 401 | 402 | 403 | 404 | 413 | 422 => {
+                    ProviderError::Refused(error_message(status, &body))
+                }
+                _ => ProviderError::Unknown(error_message(status, &body)),
+            });
+        }
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
+        tokio::spawn(async move {
+            // Куски — целыми отсчётами (2 байта): лишний байт ждёт следующего.
+            let mut carry: Option<u8> = None;
+            loop {
+                match response.chunk().await {
+                    Ok(Some(bytes)) => {
+                        let mut out = Vec::with_capacity(bytes.len() + 1);
+                        out.extend(carry.take());
+                        out.extend_from_slice(&bytes);
+                        if out.len() % 2 == 1 {
+                            carry = out.pop();
+                        }
+                        if !out.is_empty() && tx.send(Ok(out)).await.is_err() {
+                            return; // слушатель ушёл (перебили) — бросаем поток
+                        }
+                    }
+                    Ok(None) => return,
+                    Err(error) => {
+                        let _ = tx
+                            .send(Err(ProviderError::Unknown(format!(
+                                "речь оборвалась: {}",
+                                without_url(&error)
+                            ))))
+                            .await;
+                        return;
+                    }
+                }
+            }
+        });
+        Ok(rx)
+    }
+
+    /// Живое распознавание: WebSocket `/v1/speech-to-text/realtime`, звук —
+    /// PCM 16 бит кусками в base64, конец фразы — по паузе (VAD провайдера)
+    /// или по команде «Готово» (`commit`).
+    async fn live(&self, call: &LiveCall) -> Result<LiveLink, ProviderError> {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::{
+            Message, client::IntoClientRequest, http::HeaderValue,
+        };
+
+        let base = self.config.base_url.trim_end_matches('/');
+        let base = base
+            .strip_prefix("https://")
+            .map(|rest| format!("wss://{rest}"))
+            .or_else(|| {
+                base.strip_prefix("http://")
+                    .map(|rest| format!("ws://{rest}"))
+            })
+            .unwrap_or_else(|| base.to_owned());
+        let mut url = format!(
+            "{base}/v1/speech-to-text/realtime?model_id={}&audio_format=pcm_{}&commit_strategy=vad&vad_silence_threshold_secs={:.2}",
+            call.external_id, call.sample_rate, call.silence_secs
+        );
+        if let Some(language) = call
+            .language
+            .as_deref()
+            .filter(|l| l.chars().all(|c| c.is_ascii_alphabetic()))
+        {
+            url.push_str("&language_code=");
+            url.push_str(language);
+        }
+        let mut request = url
+            .into_client_request()
+            .map_err(|error| ProviderError::Refused(format!("неверный адрес: {error}")))?;
+        let key = HeaderValue::from_str(self.config.api_key.expose())
+            .map_err(|_| ProviderError::Refused("ключ с недопустимыми символами".into()))?;
+        request.headers_mut().insert("xi-api-key", key);
+        let connect = tokio::time::timeout(
+            self.config.connect_timeout,
+            tokio_tungstenite::connect_async(request),
+        )
+        .await
+        .map_err(|_| ProviderError::NotSent("распознавание не ответило вовремя".into()))?;
+        let (socket, _) = connect.map_err(|error| {
+            use tokio_tungstenite::tungstenite::Error as WsError;
+            match error {
+                WsError::Http(response) => {
+                    let status = response.status().as_u16();
+                    let body = response.body().clone().unwrap_or_default();
+                    if status == 429 {
+                        ProviderError::NotSent(error_message(status, &body))
+                    } else {
+                        ProviderError::Refused(error_message(status, &body))
+                    }
+                }
+                WsError::Io(error) => ProviderError::NotSent(format!("нет соединения: {error}")),
+                other => ProviderError::NotSent(format!("соединение не открылось: {other}")),
+            }
+        })?;
+        let (mut sink, mut stream) = socket.split();
+        let (audio_tx, mut audio_rx) = tokio::sync::mpsc::channel::<LiveIn>(64);
+        let (events_tx, events_rx) = tokio::sync::mpsc::channel(64);
+        let rate = call.sample_rate;
+        tokio::spawn(async move {
+            use base64::Engine;
+            loop {
+                tokio::select! {
+                    input = audio_rx.recv() => {
+                        let message = match input {
+                            Some(LiveIn::Audio(pcm)) => serde_json::json!({
+                                "message_type": "input_audio_chunk",
+                                "audio_base_64": base64::engine::general_purpose::STANDARD.encode(pcm),
+                                "commit": false,
+                                "sample_rate": rate,
+                            }),
+                            Some(LiveIn::Commit) => serde_json::json!({
+                                "message_type": "input_audio_chunk",
+                                "audio_base_64": "",
+                                "commit": true,
+                                "sample_rate": rate,
+                            }),
+                            None => {
+                                let _ = sink.close().await;
+                                return;
+                            }
+                        };
+                        if sink.send(Message::text(message.to_string())).await.is_err() {
+                            let _ = events_tx.send(LiveOut::Failed("соединение с распознаванием оборвалось".into())).await;
+                            return;
+                        }
+                    }
+                    frame = stream.next() => {
+                        let Some(Ok(frame)) = frame else {
+                            let _ = events_tx.send(LiveOut::Failed("распознавание закрыло соединение".into())).await;
+                            return;
+                        };
+                        let Message::Text(text) = frame else { continue };
+                        let Some(event) = live_event(text.as_str()) else { continue };
+                        let failed = matches!(event, LiveOut::Failed(_));
+                        if events_tx.send(event).await.is_err() || failed {
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+        Ok(LiveLink {
+            audio: audio_tx,
+            events: events_rx,
+        })
+    }
+}
+
+/// Формат потоковой речи у ElevenLabs (см. [`crate::voice::STREAM_MIME`]).
+pub const STREAM_FORMAT: &str = "pcm_24000";
+
+/// Сообщение живого распознавания → событие. Служебные — `None`.
+fn live_event(text: &str) -> Option<LiveOut> {
+    let json: serde_json::Value = serde_json::from_str(text).ok()?;
+    let kind = json["message_type"].as_str()?;
+    let said = || json["text"].as_str().unwrap_or_default().to_owned();
+    match kind {
+        "partial_transcript" => Some(LiveOut::Partial(said())),
+        "committed_transcript" => Some(LiveOut::Committed(said())),
+        "session_started"
+        | "committed_transcript_with_timestamps"
+        | "committed_transcript_entities"
+        | "edited_transcript"
+        | "warning" => None,
+        other => {
+            let detail = json["error"]
+                .as_str()
+                .or_else(|| json["message"].as_str())
+                .unwrap_or_default();
+            Some(LiveOut::Failed(
+                format!("ElevenLabs: {other} {detail}")
+                    .trim()
+                    .chars()
+                    .take(200)
+                    .collect(),
+            ))
+        }
+    }
+}
+
 impl VoiceProvider for ElevenLabs {
     fn transcribe<'a>(&'a self, call: &'a SttCall) -> BoxFuture<'a, Result<Heard, ProviderError>> {
         Box::pin(self.stt(call))
@@ -186,6 +408,20 @@ impl VoiceProvider for ElevenLabs {
 
     fn speak<'a>(&'a self, call: &'a TtsCall) -> BoxFuture<'a, Result<Spoken, ProviderError>> {
         Box::pin(self.tts(call))
+    }
+
+    fn speak_stream<'a>(
+        &'a self,
+        call: &'a TtsCall,
+    ) -> BoxFuture<'a, Result<AudioChunks, ProviderError>> {
+        Box::pin(self.tts_stream(call))
+    }
+
+    fn listen_live<'a>(
+        &'a self,
+        call: &'a LiveCall,
+    ) -> BoxFuture<'a, Result<LiveLink, ProviderError>> {
+        Box::pin(self.live(call))
     }
 }
 
@@ -279,6 +515,26 @@ mod tests {
         assert!(text.contains("name=\"model_id\"\r\n\r\nscribe_v1\r\n"));
         assert!(text.contains("filename=\"speech.webm\"\r\nContent-Type: audio/webm\r\n\r\nOPUS"));
         assert!(text.ends_with(&format!("--{boundary}--\r\n")));
+    }
+
+    #[test]
+    fn live_events_map_to_partial_committed_failed() {
+        assert_eq!(
+            live_event(r#"{"message_type":"partial_transcript","text":"I go"}"#),
+            Some(LiveOut::Partial("I go".into()))
+        );
+        assert_eq!(
+            live_event(r#"{"message_type":"committed_transcript","text":"I go home."}"#),
+            Some(LiveOut::Committed("I go home.".into()))
+        );
+        assert_eq!(
+            live_event(r#"{"message_type":"session_started","session_id":"x"}"#),
+            None
+        );
+        assert!(matches!(
+            live_event(r#"{"message_type":"quota_exceeded","error":"no credits"}"#),
+            Some(LiveOut::Failed(m)) if m.contains("quota_exceeded")
+        ));
     }
 
     #[test]

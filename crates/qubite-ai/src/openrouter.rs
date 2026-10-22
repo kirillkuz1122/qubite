@@ -19,7 +19,7 @@ use std::time::Duration;
 use qubite_kernel::Secret;
 use serde::Deserialize;
 
-use crate::provider::{BoxFuture, Provider, ProviderCall, ProviderError, ProviderReply};
+use crate::provider::{BoxFuture, Delta, Provider, ProviderCall, ProviderError, ProviderReply};
 
 /// Адрес API OpenRouter по умолчанию.
 pub const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api/v1";
@@ -87,12 +87,16 @@ impl OpenRouter {
         format!("{}/{path}", self.config.base_url.trim_end_matches('/'))
     }
 
-    async fn send(&self, call: &ProviderCall) -> Result<ProviderReply, ProviderError> {
+    async fn send(
+        &self,
+        call: &ProviderCall,
+        delta: Option<Delta>,
+    ) -> Result<ProviderReply, ProviderError> {
         let mut body = serde_json::json!({
             "model": call.external_id,
             "messages": call.messages,
             "max_tokens": call.max_output_tokens,
-            "stream": false,
+            "stream": delta.is_some(),
             "usage": { "include": true },
         });
         if let Some(provider) = provider_preferences(call, self.config.data_collection.as_deref()) {
@@ -114,6 +118,9 @@ impl OpenRouter {
                 }
             })?;
         let status = response.status().as_u16();
+        if let (200..=299, Some(delta)) = (status, &delta) {
+            return read_stream(response, delta, call).await;
+        }
         let text = response.text().await.map_err(|error| {
             ProviderError::Unknown(format!("ответ не дочитан: {}", without_url(&error)))
         })?;
@@ -158,8 +165,72 @@ impl Provider for OpenRouter {
         &'a self,
         call: &'a ProviderCall,
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
-        Box::pin(self.send(call))
+        Box::pin(self.send(call, None))
     }
+
+    fn stream<'a>(
+        &'a self,
+        call: &'a ProviderCall,
+        delta: Delta,
+    ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
+        Box::pin(self.send(call, Some(delta)))
+    }
+}
+
+/// Поток OpenRouter (SSE): куски `choices[0].delta.content` — в `delta`
+/// сразу; расход — из последнего куска (`usage`), конец — `[DONE]`. Итог
+/// собирается в обычный ответ и разбирается [`parse_reply`]: те же правила
+/// «расход не сообщён — худший».
+async fn read_stream(
+    mut response: reqwest::Response,
+    delta: &Delta,
+    call: &ProviderCall,
+) -> Result<ProviderReply, ProviderError> {
+    let mut buffer = String::new();
+    let mut text = String::new();
+    let mut usage = serde_json::Value::Null;
+    let mut done = false;
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        ProviderError::Unknown(format!("поток оборвался: {}", without_url(&error)))
+    })? {
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(end) = buffer.find('\n') {
+            let line: String = buffer.drain(..=end).collect();
+            let Some(data) = line.trim().strip_prefix("data:").map(str::trim) else {
+                continue; // пустые строки и «: OPENROUTER PROCESSING»
+            };
+            if data == "[DONE]" {
+                done = true;
+                continue;
+            }
+            let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else {
+                continue;
+            };
+            if let Some(error) = json.get("error") {
+                return Err(ProviderError::Unknown(format!(
+                    "ошибка во время ответа: {}",
+                    error["message"].as_str().unwrap_or_default()
+                )));
+            }
+            if let Some(piece) = json["choices"][0]["delta"]["content"].as_str()
+                && !piece.is_empty()
+            {
+                text.push_str(piece);
+                let _ = delta.send(piece.to_owned());
+            }
+            if json["usage"].is_object() {
+                usage = json["usage"].clone();
+            }
+        }
+    }
+    if !done {
+        return Err(ProviderError::Unknown("поток оборвался без [DONE]".into()));
+    }
+    let whole = serde_json::json!({
+        "choices": [{ "message": { "content": text } }],
+        "usage": usage,
+    });
+    parse_reply(&whole.to_string(), call)
 }
 
 /// Настройки маршрута для OpenRouter (`provider`): закреплённые провайдеры —

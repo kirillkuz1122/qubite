@@ -1285,6 +1285,34 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/live': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Разговор потоком (WebSocket): ответ почти сразу, как у живого собеседника.
+     * @description С экрана: двоичные кадры — PCM 16 бит, 16 кГц, моно (микрофон); текстом —
+     *     `{"type":"listen"}` (начал говорить), `{"type":"done"}` (пауза / «Готово»),
+     *     `{"type":"text","text":"…"}`, `{"type":"interrupt"}` (перебил).
+     *     На экран: двоичные кадры — голос репетитора, PCM 16 бит, 24 кГц, моно,
+     *     кусками по мере синтеза; текстом — `{"type":"partial","text"}`,
+     *     `{"type":"heard","text"}`, `{"type":"say","text"}` (кусок ответа),
+     *     `{"type":"metrics", …}` ([`EnglishLatency`]), `{"type":"reply","turn"}`
+     *     ([`EnglishTurn`]), `{"type":"error","error","message","heard"}`.
+     *     Права — как у хода; браузер подключается только со своего сайта.
+     */
+    get: operations['english_live'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/messages/{id}/speech': {
     parameters: {
       query?: never;
@@ -2481,6 +2509,29 @@ export interface components {
     EnglishFinished: {
       session?: components['schemas']['EnglishSession'] | null;
     };
+    /** @description Замеры одного хода, мс от конца фразы. */
+    EnglishLatency: {
+      /**
+       * Format: int64
+       * @description До первого звука ответа — «через сколько ответил».
+       */
+      first_audio_ms?: number | null;
+      /**
+       * Format: int64
+       * @description До первого слова ответа.
+       */
+      first_text_ms?: number | null;
+      /**
+       * Format: int64
+       * @description Распознавание после конца фразы.
+       */
+      heard_ms?: number | null;
+      /**
+       * Format: int64
+       * @description Модель дописала ответ.
+       */
+      reply_ms: number;
+    };
     /** @description Реплика. */
     EnglishMessage: {
       /** Format: date-time */
@@ -2489,6 +2540,7 @@ export interface components {
       has_speech: boolean;
       /** Format: uuid */
       id: string;
+      latency?: components['schemas']['EnglishLatency'] | null;
       mistakes: components['schemas']['EnglishMistake'][];
       /** @description Что повторить правильно (пусто — ничего). */
       repeat: string;
@@ -2609,6 +2661,8 @@ export interface components {
     EnglishVoice: {
       /** @description Распознавание речи (можно говорить). */
       listen: boolean;
+      /** @description Распознавание на ходу: ответ почти сразу после паузы (`/english/live`). */
+      live: boolean;
       /** @description Речь репетитора (он говорит вслух). */
       speak: boolean;
     };
@@ -6682,6 +6736,42 @@ export interface operations {
         };
       };
       /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_live: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Соединение открыто */
+      101: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Чужой сайт или нет доступа к агенту */
       403: {
         headers: {
           [name: string]: unknown;

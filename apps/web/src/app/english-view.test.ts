@@ -8,6 +8,7 @@ import {
   scoreLabel,
   toBase64,
   voiceNote,
+  waitLabel,
 } from './english-view';
 
 describe('английский: маскот и подписи', () => {
@@ -46,6 +47,11 @@ describe('английский: маскот и подписи', () => {
     expect(scoreLabel(0, 0)).toBe('ещё ни одной реплики');
     expect(minutesLabel('2026-10-22T10:00:00Z', '2026-10-22T10:04:10Z')).toBe('5 мин');
     expect(minutesLabel('2026-10-22T10:00:00Z', '2026-10-22T10:00:05Z')).toBe('1 мин');
+  });
+
+  it('замер ответа — в секундах с запятой', () => {
+    expect(waitLabel(940)).toBe('ответил через 0,9 с');
+    expect(waitLabel(1260)).toBe('ответил через 1,3 с');
   });
 
   it('честно пишет, почему голоса нет', () => {

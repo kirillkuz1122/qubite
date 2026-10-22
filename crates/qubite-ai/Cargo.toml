@@ -20,8 +20,11 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres", "macros", "uuid", "time", "json"] }
 thiserror = "2.0.21"
+# Распознавание речи в реальном времени (ElevenLabs, WebSocket); TLS — тот же rustls с ring.
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 time = { version = "0.3.55", features = ["serde"] }
-tokio = { version = "1.53.3", features = ["time", "sync", "net", "io-util"] }
+tokio = { version = "1.53.3", features = ["time", "sync", "net", "io-util", "macros", "rt"] }
 tracing = "0.1.44"
 uuid = { version = "1.28.0", features = ["v4", "v7", "serde"] }
 
@@ -33,6 +36,8 @@ qubite-db = { path = "../qubite-db" }
 qubite-testkit = { path = "../qubite-testkit" }
 time = { version = "0.3.55", features = ["macros"] }
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "time", "sync"] }
+# Поддельный сервер живого распознавания (WebSocket).
+tokio-tungstenite = "0.29.0"
 
 [lints]
 workspace = true

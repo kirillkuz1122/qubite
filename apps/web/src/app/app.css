@@ -1736,6 +1736,14 @@ button.proj {
 .eng-play {
   margin-top: 8px;
 }
+.eng-hint {
+  margin: 0;
+  color: var(--q-mute);
+  font-size: 14px;
+}
+.talk-msg[data-draft] {
+  opacity: 0.75;
+}
 .talk-msg[data-verdict='mistake'] {
   border-color: var(--q-orange);
 }

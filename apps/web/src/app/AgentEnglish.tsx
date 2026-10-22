@@ -3,6 +3,11 @@
  * текстом. Нейт живой: слушает, думает, говорит, сердится на ошибку и (ворчливо) радуется верному.
  * Ошибки — списком «как сказал → как правильно — почему», «повтори» — отдельной строкой.
  * Итог разговора — в записях агента, «Английский.md».
+ *
+ * Разговор потоком (D-457…D-459): микрофон включён — говори как с человеком; полсекунды паузы —
+ * Нейт отвечает, текст появляется по словам, голос играет сразу кусками. Заговорил поверх — он
+ * замолкает. Под ответом — через сколько он ответил. Нет потока (старый браузер, сеть) —
+ * запасной путь: «Говорить» → «Готово» и ответ целиком.
  */
 import {
   Button,
@@ -14,9 +19,12 @@ import {
   WIDE,
   type CompanionHandle,
 } from '@qubite/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
+import { canLive, LiveTalk } from './english-live';
 import {
+  appendTurn,
   canRecord,
   fetchSpeech,
   record,
@@ -32,6 +40,7 @@ import {
 import {
   minutesLabel,
   moodFor,
+  waitLabel,
   phaseLabel,
   REACTION_MS,
   reactionOf,
@@ -55,6 +64,16 @@ export function AgentEnglish() {
   const urls = useRef(new Map<string, string>());
   const end = useRef<HTMLDivElement>(null);
   const mic = canRecord();
+  const qc = useQueryClient();
+  // Разговор потоком: соединение, черновики, замеры.
+  const talkRef = useRef<LiveTalk | null>(null);
+  const [stream, setStream] = useState<'off' | 'on' | 'broken'>('off');
+  const [micOn, setMicOn] = useState(false);
+  const [voicePlaying, setVoicePlaying] = useState(false);
+  const [heard, setHeard] = useState<string | null>(null);
+  const [saying, setSaying] = useState<string | null>(null);
+  const [waits, setWaits] = useState<Record<string, number>>({});
+  const pendingReaction = useRef<Phase | null>(null);
 
   /** Замолчать: прошлый звук больше не меняет, что делает Нейт. */
   const hush = useCallback(() => {
@@ -68,8 +87,9 @@ export function AgentEnglish() {
 
   const data = screen.data;
   const messages = data?.messages ?? [];
-  const voice = data?.voice ?? { listen: false, speak: false };
+  const voice = data?.voice ?? { listen: false, speak: false, live: false };
   const live = !!data?.session;
+  const streaming = stream === 'on';
   const last = messages.at(-1)?.id;
 
   // Нейт всегда показывает, что происходит.
@@ -91,6 +111,91 @@ export function AgentEnglish() {
       map.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [hush]);
+
+  // Идёт разговор — открыть поток; закончился или ушёл с экрана — закрыть.
+  useEffect(() => {
+    if (!live || !canLive()) return;
+    const react = (p: Phase | null) => {
+      if (!p) return setPhase('idle');
+      setPhase(p);
+      setTimeout(() => setPhase((now) => (now === p ? 'idle' : now)), REACTION_MS);
+    };
+    const t = new LiveTalk({
+      onSpeech: (on) => {
+        setPhase(on ? 'listening' : 'thinking');
+        if (on) setHeard('');
+      },
+      onPartial: (text) => setHeard(text),
+      onHeard: (text) => {
+        setHeard(text);
+        setPhase('thinking');
+      },
+      onSay: (piece) => setSaying((now) => (now ?? '') + piece),
+      onVoice: (on) => {
+        setVoicePlaying(on);
+        if (on) setPhase('speaking');
+        else {
+          const p = pendingReaction.current;
+          pendingReaction.current = null;
+          react(p);
+        }
+      },
+      onReply: (turn, wait) => {
+        appendTurn(qc, turn);
+        setHeard(null);
+        setSaying(null);
+        if (wait !== null) setWaits((w) => ({ ...w, [turn.tutor.id]: wait }));
+        const p = reactionOf(turn.tutor.verdict, turn.tutor.repeated);
+        // Говорит — отреагирует, когда договорит.
+        setVoicePlaying((on) => {
+          if (on) pendingReaction.current = p;
+          else react(p);
+          return on;
+        });
+      },
+      onError: (_code, message, heardText) => {
+        setPhase('idle');
+        setSaying(null);
+        if (heardText) setText(heardText);
+        setHeard(null);
+        setError(message);
+      },
+      onClose: () => {
+        talkRef.current = null;
+        setMicOn(false);
+        setStream('broken');
+      },
+    });
+    talkRef.current = t;
+    t.ready().then(
+      () => setStream('on'),
+      () => setStream('broken'),
+    );
+    return () => {
+      t.close();
+      talkRef.current = null;
+      setMicOn(false);
+      setStream('off');
+    };
+  }, [live, qc]);
+
+  async function toggleMic() {
+    const t = talkRef.current;
+    if (!t) return;
+    setError(null);
+    if (t.listening) {
+      t.stopMic();
+      setMicOn(false);
+      return;
+    }
+    try {
+      hush();
+      await t.listen();
+      setMicOn(true);
+    } catch {
+      setError('Микрофон недоступен: разреши его браузеру или пиши текстом.');
+    }
+  }
 
   const play = useCallback(
     async (m: EnglishMessage) => {
@@ -166,7 +271,20 @@ export function AgentEnglish() {
   function submit(e: FormEvent) {
     e.preventDefault();
     const t = text.trim();
-    if (t) void talk({ text: t });
+    if (!t) return;
+    const lt = talkRef.current;
+    if (streaming && lt) {
+      setError(null);
+      hush();
+      lt.hush();
+      setText('');
+      setHeard(t);
+      setSaying(null);
+      setPhase('thinking');
+      lt.text(t);
+      return;
+    }
+    void talk({ text: t });
   }
 
   async function begin() {
@@ -191,8 +309,8 @@ export function AgentEnglish() {
     );
   }
 
-  const busy = turn.isPending || phase === 'thinking';
-  const listening = phase === 'listening';
+  const busy = turn.isPending || (phase === 'thinking' && !streaming);
+  const listening = phase === 'listening' && !streaming;
   const note = voiceNote(voice.listen, voice.speak, mic);
   const totals = data?.totals;
 
@@ -239,9 +357,35 @@ export function AgentEnglish() {
         <>
           <ol className="talk-list" aria-label="Разговор с Нейтом" aria-live="polite">
             {messages.map((m) => (
-              <Line key={m.id} m={m} speak={voice.speak} onPlay={() => void play(m)} />
+              <Line
+                key={m.id}
+                m={m}
+                speak={voice.speak}
+                wait={waits[m.id] ?? m.latency?.first_audio_ms ?? null}
+                onPlay={() => void play(m)}
+              />
             ))}
-            {busy && (
+            {heard !== null && (
+              <li className="talk-msg" data-draft="">
+                <p className="talk-meta">
+                  <b>Ты</b> · голосом
+                </p>
+                <p className="talk-text" lang="en">
+                  {heard || '…'}
+                </p>
+              </li>
+            )}
+            {saying !== null && (
+              <li className="talk-msg agent" data-draft="">
+                <p className="talk-meta">
+                  <b>Нейт</b>
+                </p>
+                <p className="talk-text" lang="en">
+                  {saying}
+                </p>
+              </li>
+            )}
+            {(busy || (streaming && phase === 'thinking' && saying === null)) && (
               <li className="talk-msg agent" role="status">
                 <p className="talk-text talk-think">Нейт думает…</p>
               </li>
@@ -249,7 +393,22 @@ export function AgentEnglish() {
           </ol>
           <div ref={end} />
           <div className="eng-controls">
-            {voice.listen && mic && (
+            {streaming && (voice.live || voice.listen) && (
+              <Button variant="fill" onClick={() => void toggleMic()} aria-pressed={micOn}>
+                {micOn ? 'Выключить микрофон' : 'Включить микрофон'}
+              </Button>
+            )}
+            {streaming && micOn && (
+              <p className="eng-hint">
+                Говори — полсекунды паузы, и Нейт ответит. Перебей его голосом.
+              </p>
+            )}
+            {streaming && voicePlaying && (
+              <Button size="sm" dot={false} onClick={() => talkRef.current?.interrupt()}>
+                Перебить
+              </Button>
+            )}
+            {!streaming && (stream === 'broken' || !canLive()) && voice.listen && mic && (
               <Button
                 variant="fill"
                 onClick={() => void micDown()}
@@ -277,6 +436,9 @@ export function AgentEnglish() {
               onClick={() => {
                 rec.current?.cancel();
                 rec.current = null;
+                talkRef.current?.stopMic();
+                talkRef.current?.hush();
+                setMicOn(false);
                 hush();
                 setPhase('idle');
                 finish.mutate(undefined, { onError: (e) => setError(say(e)) });
@@ -298,7 +460,18 @@ export function AgentEnglish() {
 }
 
 /** Одна реплика: у Нейта — ошибки, «повтори» и «Ещё раз». */
-function Line({ m, speak, onPlay }: { m: EnglishMessage; speak: boolean; onPlay: () => void }) {
+function Line({
+  m,
+  speak,
+  wait,
+  onPlay,
+}: {
+  m: EnglishMessage;
+  speak: boolean;
+  /** Через сколько ответил (мс от конца фразы до первого звука). */
+  wait: number | null;
+  onPlay: () => void;
+}) {
   const tutor = m.role === 'tutor';
   return (
     <li
@@ -310,6 +483,7 @@ function Line({ m, speak, onPlay }: { m: EnglishMessage; speak: boolean; onPlay:
         {!tutor && m.via === 'voice' && <> · голосом</>}
         {tutor && m.verdict === 'mistake' && <> · ошибка</>}
         {tutor && (m.verdict === 'ok' || m.repeated) && <> · верно</>}
+        {tutor && wait !== null && <> · {waitLabel(wait)}</>}
       </p>
       <p className="talk-text" lang="en">
         {m.text}

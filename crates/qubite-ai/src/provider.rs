@@ -16,6 +16,10 @@ use tokio::sync::Notify;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// Куда провайдер отдаёт текст ответа по кусочкам, пока модель пишет
+/// (ENG-001: репетитор начинает говорить с первого предложения).
+pub type Delta = tokio::sync::mpsc::UnboundedSender<String>;
+
 /// Роль сообщения в разговоре с моделью.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -101,6 +105,21 @@ pub trait Provider: Send + Sync {
         &'a self,
         call: &'a ProviderCall,
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>>;
+
+    /// То же, но текст уходит в `delta` по мере того, как модель пишет.
+    /// Итог — как у [`Provider::complete`]. Провайдер без потока отдаёт
+    /// ответ одним куском в конце.
+    fn stream<'a>(
+        &'a self,
+        call: &'a ProviderCall,
+        delta: Delta,
+    ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
+        Box::pin(async move {
+            let reply = self.complete(call).await?;
+            let _ = delta.send(reply.text.clone());
+            Ok(reply)
+        })
+    }
 }
 
 /// Как поведёт себя mock-провайдер на очередном вызове.
@@ -117,6 +136,13 @@ pub enum MockStep {
     /// Ответить этим текстом (агент в тестах: JSON с инструментами).
     Reply {
         text: String,
+        tokens_in: u64,
+        tokens_out: u64,
+    },
+    /// Ответить кусками с паузой `delay_ms` перед каждым (поток модели).
+    Stream {
+        chunks: Vec<String>,
+        delay_ms: u64,
         tokens_in: u64,
         tokens_out: u64,
     },
@@ -177,61 +203,128 @@ impl Provider for MockProvider {
         &'a self,
         call: &'a ProviderCall,
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
-        Box::pin(async move {
-            self.calls.fetch_add(1, Ordering::SeqCst);
-            *self.last.lock().expect("mock") = Some(call.clone());
-            let step = self
-                .steps
-                .lock()
-                .expect("mock")
-                .pop_front()
-                .unwrap_or_else(|| self.fallback.clone());
-            self.called.notify_one();
-            match step {
-                MockStep::Succeed {
-                    tokens_in,
-                    tokens_out,
-                } => {
-                    let last = call.messages.last().map_or("", |m| m.content.as_str());
-                    Ok(ProviderReply {
-                        text: format!("mock: {}", last.chars().take(40).collect::<String>()),
-                        tokens_in,
-                        tokens_out,
-                        cost_usd: None,
-                    })
+        Box::pin(self.answer(call, None))
+    }
+
+    fn stream<'a>(
+        &'a self,
+        call: &'a ProviderCall,
+        delta: Delta,
+    ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
+        Box::pin(self.answer(call, Some(delta)))
+    }
+}
+
+impl MockProvider {
+    async fn answer(
+        &self,
+        call: &ProviderCall,
+        delta: Option<Delta>,
+    ) -> Result<ProviderReply, ProviderError> {
+        let (reply, chunks) = self.step(call).await;
+        if let (Some(delta), Ok(reply)) = (&delta, &reply) {
+            match chunks {
+                // Потоковый шаг: куски с паузами, как пишет модель.
+                Some((delay, chunks)) => {
+                    for chunk in chunks {
+                        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                        let _ = delta.send(chunk);
+                    }
                 }
-                MockStep::SucceedWithCost {
-                    tokens_in,
-                    tokens_out,
-                    cost_usd,
-                } => Ok(ProviderReply {
-                    text: "mock".into(),
-                    tokens_in,
-                    tokens_out,
-                    cost_usd: Some(cost_usd),
-                }),
-                MockStep::Reply {
-                    text,
-                    tokens_in,
-                    tokens_out,
-                } => Ok(ProviderReply {
-                    text,
+                // Обычный шаг в потоковом вызове — одним куском.
+                None => {
+                    let _ = delta.send(reply.text.clone());
+                }
+            }
+        } else if let (None, Some((delay, chunks))) = (&delta, chunks) {
+            // Без потока ответ приходит целиком, когда модель дописала.
+            tokio::time::sleep(std::time::Duration::from_millis(
+                delay * chunks.len() as u64,
+            ))
+            .await;
+        }
+        reply
+    }
+
+    /// Ответ на шаг; у потокового — ещё пауза и куски.
+    #[allow(clippy::type_complexity)]
+    async fn step(
+        &self,
+        call: &ProviderCall,
+    ) -> (
+        Result<ProviderReply, ProviderError>,
+        Option<(u64, Vec<String>)>,
+    ) {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        *self.last.lock().expect("mock") = Some(call.clone());
+        let step = self
+            .steps
+            .lock()
+            .expect("mock")
+            .pop_front()
+            .unwrap_or_else(|| self.fallback.clone());
+        self.called.notify_one();
+        let reply = match step {
+            MockStep::Succeed {
+                tokens_in,
+                tokens_out,
+            } => {
+                let last = call.messages.last().map_or("", |m| m.content.as_str());
+                Ok(ProviderReply {
+                    text: format!("mock: {}", last.chars().take(40).collect::<String>()),
                     tokens_in,
                     tokens_out,
                     cost_usd: None,
-                }),
-                MockStep::FailBeforeSend => {
-                    Err(ProviderError::NotSent("mock: отказ до отправки".into()))
-                }
-                MockStep::Refuse => Err(ProviderError::Refused("mock: нет денег на счёте".into())),
-                MockStep::UsageLimit => Err(ProviderError::UsageLimit(
-                    "mock: лимит подписки исчерпан".into(),
-                )),
-                MockStep::DropAfterSend => {
-                    Err(ProviderError::Unknown("mock: обрыв после отправки".into()))
-                }
-                MockStep::Hang => std::future::pending().await,
+                })
             }
-        })
+            MockStep::SucceedWithCost {
+                tokens_in,
+                tokens_out,
+                cost_usd,
+            } => Ok(ProviderReply {
+                text: "mock".into(),
+                tokens_in,
+                tokens_out,
+                cost_usd: Some(cost_usd),
+            }),
+            MockStep::Reply {
+                text,
+                tokens_in,
+                tokens_out,
+            } => Ok(ProviderReply {
+                text,
+                tokens_in,
+                tokens_out,
+                cost_usd: None,
+            }),
+            MockStep::Stream {
+                chunks,
+                delay_ms,
+                tokens_in,
+                tokens_out,
+            } => {
+                return (
+                    Ok(ProviderReply {
+                        text: chunks.concat(),
+                        tokens_in,
+                        tokens_out,
+                        cost_usd: None,
+                    }),
+                    Some((delay_ms, chunks)),
+                );
+            }
+            MockStep::FailBeforeSend => {
+                Err(ProviderError::NotSent("mock: отказ до отправки".into()))
+            }
+            MockStep::Refuse => Err(ProviderError::Refused("mock: нет денег на счёте".into())),
+            MockStep::UsageLimit => Err(ProviderError::UsageLimit(
+                "mock: лимит подписки исчерпан".into(),
+            )),
+            MockStep::DropAfterSend => {
+                Err(ProviderError::Unknown("mock: обрыв после отправки".into()))
+            }
+            MockStep::Hang => std::future::pending().await,
+        };
+        (reply, None)
     }
 }

@@ -36,7 +36,7 @@ use uuid::Uuid;
 use crate::{
     openrouter::{CatalogEntry, CatalogError},
     provider::{
-        BoxFuture, ChatMessage, Provider, ProviderCall, ProviderError, ProviderReply, Role,
+        BoxFuture, ChatMessage, Delta, Provider, ProviderCall, ProviderError, ProviderReply, Role,
     },
     secret::SecretBox,
 };
@@ -710,7 +710,11 @@ impl ChatGpt {
         *self.paused_until.lock().expect("пауза") = Some(Instant::now() + LIMIT_PAUSE);
     }
 
-    async fn send(&self, call: &ProviderCall) -> Result<ProviderReply, ProviderError> {
+    async fn send(
+        &self,
+        call: &ProviderCall,
+        delta: Option<Delta>,
+    ) -> Result<ProviderReply, ProviderError> {
         if self.paused() {
             return Err(ProviderError::UsageLimit(usage_limit_message()));
         }
@@ -755,10 +759,13 @@ impl ChatGpt {
                     }
                 })?;
             let status = response.status().as_u16();
-            let text = response
-                .text()
-                .await
-                .map_err(|e| ProviderError::Unknown(format!("ответ не дочитан: {}", short(&e))))?;
+            let text = if (200..300).contains(&status) {
+                read_events(response, delta.as_ref()).await?
+            } else {
+                response.text().await.map_err(|e| {
+                    ProviderError::Unknown(format!("ответ не дочитан: {}", short(&e)))
+                })?
+            };
             if (200..300).contains(&status) {
                 let reply = parse_stream(&text);
                 if matches!(reply, Err(ProviderError::UsageLimit(_))) {
@@ -812,8 +819,63 @@ impl Provider for ChatGpt {
         &'a self,
         call: &'a ProviderCall,
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
-        Box::pin(self.send(call))
+        Box::pin(self.send(call, None))
     }
+
+    fn stream<'a>(
+        &'a self,
+        call: &'a ProviderCall,
+        delta: Delta,
+    ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
+        Box::pin(self.send(call, Some(delta)))
+    }
+}
+
+/// Дочитать поток событий; куски текста (`response.output_text.delta`) —
+/// в `delta` сразу, как пришли. Итог разбирает [`parse_stream`].
+async fn read_events(
+    mut response: reqwest::Response,
+    delta: Option<&Delta>,
+) -> Result<String, ProviderError> {
+    let mut body: Vec<u8> = Vec::new();
+    let mut seen = 0;
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| ProviderError::Unknown(format!("ответ не дочитан: {}", short(&e))))?
+    {
+        body.extend_from_slice(&chunk);
+        let Some(delta) = delta else { continue };
+        // Готовые события — до последнего «\n\n».
+        let text = String::from_utf8_lossy(&body);
+        let Some(end) = text.rfind("\n\n") else {
+            continue;
+        };
+        for piece in text_deltas(&text[seen..end]) {
+            let _ = delta.send(piece);
+        }
+        seen = end;
+    }
+    String::from_utf8(body).map_err(|_| ProviderError::Unknown("поток не в UTF-8".into()))
+}
+
+/// Куски текста из готовых событий потока.
+fn text_deltas(events: &str) -> Vec<String> {
+    events
+        .split("\n\n")
+        .filter_map(|event| {
+            let data: String = event
+                .lines()
+                .filter_map(|line| line.strip_prefix("data:"))
+                .map(str::trim_start)
+                .collect::<Vec<_>>()
+                .join("\n");
+            let json: serde_json::Value = serde_json::from_str(&data).ok()?;
+            (json["type"] == "response.output_text.delta")
+                .then(|| json["delta"].as_str().unwrap_or_default().to_owned())
+                .filter(|piece| !piece.is_empty())
+        })
+        .collect()
 }
 
 fn usage_limit_message() -> String {
@@ -1009,6 +1071,16 @@ mod tests {
             .iter()
             .map(|e| format!("event: {}\ndata: {e}\n\n", e["type"].as_str().unwrap()))
             .collect()
+    }
+
+    #[test]
+    fn text_pieces_come_from_delta_events_only() {
+        let events = sse(&[
+            serde_json::json!({"type": "response.created"}),
+            serde_json::json!({"type": "response.output_text.delta", "delta": "Say "}),
+            serde_json::json!({"type": "response.output_text.delta", "delta": "again."}),
+        ]);
+        assert_eq!(text_deltas(&events), ["Say ", "again."]);
     }
 
     #[test]

@@ -104,3 +104,8 @@ export function voiceNote(listen: boolean, speak: boolean, mic: boolean): string
   if (!mic) return 'Браузер не даёт микрофон — пиши текстом.';
   return null;
 }
+
+/** «ответил через 0,9 с» — замер от конца фразы до первого звука. */
+export function waitLabel(ms: number): string {
+  return `ответил через ${(Math.max(0, ms) / 1000).toFixed(1).replace('.', ',')} с`;
+}

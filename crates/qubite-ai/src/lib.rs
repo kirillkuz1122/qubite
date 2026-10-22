@@ -43,8 +43,8 @@ use uuid::Uuid;
 pub use budget::{PeriodKeys, Reservation};
 pub use guard::Untrusted;
 pub use provider::{
-    ChatMessage, MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply,
-    Role, Routing,
+    ChatMessage, Delta, MockProvider, MockStep, Provider, ProviderCall, ProviderError,
+    ProviderReply, Role, Routing,
 };
 pub use voice::{
     ListenRequest, MockHeard, MockVoice, SpeakRequest, Speech, Transcript, VoiceProvider,
@@ -264,11 +264,15 @@ enum Work<'a> {
     Chat {
         guarded: &'a guard::Guarded,
         max_output_tokens: u32,
+        /// Отдавать текст по кусочкам (поток модели).
+        delta: Option<provider::Delta>,
     },
     /// Распознать речь.
     Listen(&'a voice::Listen),
     /// Сказать текст голосом.
     Speak(&'a voice::Say),
+    /// Живое распознавание (открывается и закрывается само, [`voice::LiveListen`]).
+    Live,
 }
 
 impl Work<'_> {
@@ -277,8 +281,9 @@ impl Work<'_> {
     fn fits(&self, capabilities: &[String]) -> bool {
         let has = |name: &str| capabilities.iter().any(|c| c == name);
         match self {
-            Self::Chat { .. } => !has(voice::STT) && !has(voice::TTS),
+            Self::Chat { .. } => !has(voice::STT) && !has(voice::TTS) && !has(voice::STT_LIVE),
             Self::Listen(_) => has(voice::STT),
+            Self::Live => has(voice::STT_LIVE),
             Self::Speak(_) => has(voice::TTS),
         }
     }
@@ -289,6 +294,7 @@ enum Done {
     Chat(ProviderReply),
     Listen(voice::Heard),
     Speak(voice::Spoken),
+    SpeakStream(voice::AudioChunks),
 }
 
 /// Сколько израсходовано: токены у моделей, секунды или знаки у голоса.
@@ -296,6 +302,15 @@ struct Usage {
     units_in: u64,
     units_out: u64,
     reported_usd: Option<i64>,
+}
+
+/// Вызов, для которого уже сделан резерв и отметка «отправляется».
+struct Opened {
+    id: Uuid,
+    model: ModelRow,
+    reservations: Vec<Reservation>,
+    estimate_usd: i64,
+    account_id: Uuid,
 }
 
 /// Один платный вызов для [`Gateway::run`].
@@ -459,6 +474,27 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: AiRequest,
     ) -> Result<AiResponse> {
+        self.answer(auth, request, None).await
+    }
+
+    /// То же потоком: текст уходит в `delta` по мере того, как модель пишет
+    /// (ENG-001), а права, резерв и списание — те же, что у [`Self::complete`].
+    /// Повтор «точно не ушёл» начинается заново — до первого куска.
+    pub async fn complete_stream(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: AiRequest,
+        delta: provider::Delta,
+    ) -> Result<AiResponse> {
+        self.answer(auth, request, Some(delta)).await
+    }
+
+    async fn answer(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: AiRequest,
+        delta: Option<provider::Delta>,
+    ) -> Result<AiResponse> {
         let guarded =
             guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
         let fingerprint = self.fingerprint(
@@ -489,6 +525,7 @@ impl Gateway {
                     work: Work::Chat {
                         guarded: &guarded,
                         max_output_tokens: request.max_output_tokens,
+                        delta,
                     },
                 },
             )
@@ -512,7 +549,7 @@ impl Gateway {
     fn can_run(&self, provider_id: &str, work: &Work<'_>) -> bool {
         match work {
             Work::Chat { .. } => self.providers.contains_key(provider_id),
-            Work::Listen(_) | Work::Speak(_) => self.voices.contains_key(provider_id),
+            Work::Listen(_) | Work::Speak(_) | Work::Live => self.voices.contains_key(provider_id),
         }
     }
 
@@ -528,6 +565,7 @@ impl Gateway {
             Work::Chat {
                 guarded,
                 max_output_tokens,
+                delta,
             } => {
                 let provider = self.providers[&model.provider_id].clone();
                 let call = ProviderCall {
@@ -543,9 +581,19 @@ impl Gateway {
                     },
                     account_id,
                 };
-                tokio::time::timeout(self.config.timeout, provider.complete(&call))
-                    .await
-                    .map(|reply| reply.map(Done::Chat))
+                match delta {
+                    Some(delta) => {
+                        tokio::time::timeout(
+                            self.config.timeout,
+                            provider.stream(&call, delta.clone()),
+                        )
+                        .await
+                    }
+                    None => {
+                        tokio::time::timeout(self.config.timeout, provider.complete(&call)).await
+                    }
+                }
+                .map(|reply| reply.map(Done::Chat))
             }
             Work::Listen(listen) => {
                 let provider = self.voices[&model.provider_id].clone();
@@ -560,6 +608,8 @@ impl Gateway {
                     .await
                     .map(|heard| heard.map(Done::Listen))
             }
+            // Живое распознавание идёт мимо `run` (длина звука известна в конце).
+            Work::Live => Ok(Err(ProviderError::Refused("не через run".into()))),
             Work::Speak(say) => {
                 let provider = self.voices[&model.provider_id].clone();
                 let call = voice::TtsCall {
@@ -568,84 +618,88 @@ impl Gateway {
                     text: say.text.clone(),
                     account_id,
                 };
-                tokio::time::timeout(self.config.timeout, provider.speak(&call))
-                    .await
-                    .map(|spoken| spoken.map(Done::Speak))
+                if say.stream {
+                    tokio::time::timeout(self.config.timeout, provider.speak_stream(&call))
+                        .await
+                        .map(|chunks| chunks.map(Done::SpeakStream))
+                } else {
+                    tokio::time::timeout(self.config.timeout, provider.speak(&call))
+                        .await
+                        .map(|spoken| spoken.map(Done::Speak))
+                }
             }
         }
     }
 
-    /// Общий путь любого платного вызова: права → модель → защита от
-    /// зацикливания → резерв и «отправляется» → провайдер → списание.
-    /// Возвращает ID вызова, ответ провайдера и списанную сумму.
-    async fn run(&self, auth: &Authorized<UseAi>, plan: Plan<'_>) -> Result<(Uuid, Done, i64)> {
-        if plan.request_id.is_empty() || plan.request_id.len() > 200 {
+    /// Запрос с таким ID уже был — второй раз не выполняется.
+    async fn check_request(&self, auth: &Authorized<UseAi>, request_id: &str) -> Result<()> {
+        if request_id.is_empty() || request_id.len() > 200 {
             return Err(AiError::Invalid("request_id: от 1 до 200 символов".into()));
         }
         if let Some(status) = sqlx::query_scalar::<_, String>(
             "SELECT status FROM ai_calls WHERE account_id = $1 AND request_id = $2",
         )
         .bind(auth.account_id())
-        .bind(plan.request_id)
+        .bind(request_id)
         .fetch_optional(&self.pool)
         .await?
         {
             return Err(AiError::DuplicateRequest { status });
         }
 
-        let attempts = self.config.retry_delays.len() + 1;
-        let mut call_id: Option<Uuid> = None;
-        for attempt in 1..=attempts {
-            // Перед каждой попыткой — права заново: отзыв гранта останавливает повтор.
-            let auth = match auth.recheck(&self.pool).await {
-                Ok(auth) => auth,
-                Err(error) => {
-                    if let Some(id) = call_id {
-                        self.finish_without_call(id, "denied", "access_revoked")
-                            .await?;
-                    }
-                    return Err(error.into());
+        Ok(())
+    }
+
+    /// Одна попытка до вызова провайдера: права заново, модель, защита от
+    /// зацикливания (только в первой), резерв и отметка «отправляется».
+    async fn open_attempt(
+        &self,
+        auth: &Authorized<UseAi>,
+        plan: &Plan<'_>,
+        attempt: usize,
+        call_id: Option<Uuid>,
+    ) -> Result<Opened> {
+        // Перед каждой попыткой — права заново: отзыв гранта останавливает повтор.
+        let auth = match auth.recheck(&self.pool).await {
+            Ok(auth) => auth,
+            Err(error) => {
+                if let Some(id) = call_id {
+                    self.finish_without_call(id, "denied", "access_revoked")
+                        .await?;
                 }
-            };
-            let model = self.load_model(plan.model).await?;
-            if !plan.work.fits(&model.capabilities) || !self.can_run(&model.provider_id, &plan.work)
-            {
-                return Err(AiError::ModelNotAllowed);
+                return Err(error.into());
             }
+        };
+        let model = self.load_model(plan.model).await?;
+        if !plan.work.fits(&model.capabilities) || !self.can_run(&model.provider_id, &plan.work) {
+            return Err(AiError::ModelNotAllowed);
+        }
 
-            let estimate_usd = cost(
-                plan.input_units,
-                plan.max_output_units,
-                model.price_in_per_mtok,
-                model.price_out_per_mtok,
-            );
-            let estimate_tokens = i64::try_from(plan.input_units)
-                .unwrap_or(i64::MAX)
-                .saturating_add(i64::try_from(plan.max_output_units).unwrap_or(i64::MAX));
+        let estimate_usd = cost(
+            plan.input_units,
+            plan.max_output_units,
+            model.price_in_per_mtok,
+            model.price_out_per_mtok,
+        );
+        let estimate_tokens = i64::try_from(plan.input_units)
+            .unwrap_or(i64::MAX)
+            .saturating_add(i64::try_from(plan.max_output_units).unwrap_or(i64::MAX));
 
-            // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
-            let mut tx = self.pool.begin().await?;
-            if call_id.is_none() {
-                self.loop_guard(&mut tx, auth.account_id(), plan.job_id, &plan.fingerprint)
-                    .await?;
-            }
-            let keys =
-                budget::period_keys(&mut tx, (self.config.clock)(), &self.timezone()).await?;
-            let scope = budget::Scope {
-                account_id: auth.account_id(),
-                module_id: auth.module().as_str(),
-                model_id: &model.id,
-                provider_id: &model.provider_id,
-            };
-            let reservations = match budget::reserve(
-                &mut tx,
-                &scope,
-                &keys,
-                estimate_usd,
-                estimate_tokens,
-            )
-            .await
-            {
+        // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
+        let mut tx = self.pool.begin().await?;
+        if call_id.is_none() {
+            self.loop_guard(&mut tx, auth.account_id(), plan.job_id, &plan.fingerprint)
+                .await?;
+        }
+        let keys = budget::period_keys(&mut tx, (self.config.clock)(), &self.timezone()).await?;
+        let scope = budget::Scope {
+            account_id: auth.account_id(),
+            module_id: auth.module().as_str(),
+            model_id: &model.id,
+            provider_id: &model.provider_id,
+        };
+        let reservations =
+            match budget::reserve(&mut tx, &scope, &keys, estimate_usd, estimate_tokens).await {
                 Ok(reservations) => reservations,
                 Err(error) => {
                     drop(tx);
@@ -655,70 +709,92 @@ impl Gateway {
                     return Err(error);
                 }
             };
-            let reservations_json =
-                serde_json::to_value(&reservations).expect("резерв сериализуется");
-            let id = match call_id {
-                None => {
-                    let id = qubite_objects::new_id();
-                    let inserted = sqlx::query(
-                        "INSERT INTO ai_calls (id, request_id, account_id, module_id, model_id, status, \
-                         attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint) \
-                         VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10)",
-                    )
-                    .bind(id)
-                    .bind(plan.request_id)
-                    .bind(auth.account_id())
-                    .bind(auth.module().as_str())
-                    .bind(&model.id)
-                    .bind(estimate_usd)
-                    .bind(estimate_tokens)
-                    .bind(&reservations_json)
-                    .bind(plan.job_id)
-                    .bind(&plan.fingerprint)
-                    .execute(&mut *tx)
-                    .await;
-                    if let Err(sqlx::Error::Database(db)) = &inserted
-                        && db.code().as_deref() == Some("23505")
-                    {
-                        // Тот же request_id параллельно — резерв откатывается вместе с транзакцией.
-                        return Err(AiError::DuplicateRequest {
-                            status: "sending".into(),
-                        });
-                    }
-                    inserted?;
-                    id
+        let reservations_json = serde_json::to_value(&reservations).expect("резерв сериализуется");
+        let id = match call_id {
+            None => {
+                let id = qubite_objects::new_id();
+                let inserted = sqlx::query(
+                    "INSERT INTO ai_calls (id, request_id, account_id, module_id, model_id, status, \
+                     attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint) \
+                     VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10)",
+                )
+                .bind(id)
+                .bind(plan.request_id)
+                .bind(auth.account_id())
+                .bind(auth.module().as_str())
+                .bind(&model.id)
+                .bind(estimate_usd)
+                .bind(estimate_tokens)
+                .bind(&reservations_json)
+                .bind(plan.job_id)
+                .bind(&plan.fingerprint)
+                .execute(&mut *tx)
+                .await;
+                if let Err(sqlx::Error::Database(db)) = &inserted
+                    && db.code().as_deref() == Some("23505")
+                {
+                    // Тот же request_id параллельно — резерв откатывается вместе с транзакцией.
+                    return Err(AiError::DuplicateRequest {
+                        status: "sending".into(),
+                    });
                 }
-                Some(id) => {
-                    sqlx::query(
-                        "UPDATE ai_calls SET status = 'sending', attempts = attempts + 1, \
-                         estimate_usd = $2, estimate_tokens = $3, reservations = $4, updated_at = now() \
-                         WHERE id = $1",
-                    )
-                    .bind(id)
-                    .bind(estimate_usd)
-                    .bind(estimate_tokens)
-                    .bind(&reservations_json)
-                    .execute(&mut *tx)
-                    .await?;
-                    id
-                }
-            };
-            call_id = Some(id);
-            event(
-                &mut tx,
-                id,
-                "call.sending",
-                serde_json::json!({
-                    "attempt": attempt,
-                    "estimate_usd": estimate_usd,
-                    "guard": plan.signals,
-                }),
-            )
-            .await?;
-            tx.commit().await?;
+                inserted?;
+                id
+            }
+            Some(id) => {
+                sqlx::query(
+                    "UPDATE ai_calls SET status = 'sending', attempts = attempts + 1, \
+                     estimate_usd = $2, estimate_tokens = $3, reservations = $4, updated_at = now() \
+                     WHERE id = $1",
+                )
+                .bind(id)
+                .bind(estimate_usd)
+                .bind(estimate_tokens)
+                .bind(&reservations_json)
+                .execute(&mut *tx)
+                .await?;
+                id
+            }
+        };
+        event(
+            &mut tx,
+            id,
+            "call.sending",
+            serde_json::json!({
+                "attempt": attempt,
+                "estimate_usd": estimate_usd,
+                "guard": plan.signals,
+            }),
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(Opened {
+            id,
+            model,
+            reservations,
+            estimate_usd,
+            account_id: auth.account_id(),
+        })
+    }
 
+    /// Общий путь любого платного вызова: права → модель → защита от
+    /// зацикливания → резерв и «отправляется» → провайдер → списание.
+    /// Возвращает ID вызова, ответ провайдера и списанную сумму.
+    async fn run(&self, auth: &Authorized<UseAi>, plan: Plan<'_>) -> Result<(Uuid, Done, i64)> {
+        self.check_request(auth, plan.request_id).await?;
+        let attempts = self.config.retry_delays.len() + 1;
+        let mut call_id: Option<Uuid> = None;
+        for attempt in 1..=attempts {
+            let Opened {
+                id,
+                model,
+                reservations,
+                estimate_usd,
+                account_id,
+            } = self.open_attempt(auth, &plan, attempt, call_id).await?;
+            call_id = Some(id);
             let outcome = self
-                .send(&model, auth.account_id(), plan.input_units, &plan.work)
+                .send(&model, account_id, plan.input_units, &plan.work)
                 .await;
             match outcome {
                 Ok(Ok(done)) => {

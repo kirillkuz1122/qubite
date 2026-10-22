@@ -92,8 +92,34 @@ pub struct EnglishMessage {
     repeated: bool,
     /// Голос уже готов (повтор бесплатно).
     has_speech: bool,
+    /// Замеры задержки ответа (разговор потоком).
+    latency: Option<EnglishLatency>,
     #[serde(with = "time::serde::rfc3339")]
     at: OffsetDateTime,
+}
+
+/// Замеры одного хода, мс от конца фразы.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishLatency {
+    /// До первого звука ответа — «через сколько ответил».
+    first_audio_ms: Option<u64>,
+    /// До первого слова ответа.
+    first_text_ms: Option<u64>,
+    /// Распознавание после конца фразы.
+    heard_ms: Option<u64>,
+    /// Модель дописала ответ.
+    reply_ms: u64,
+}
+
+impl From<qubite_english::live::Latency> for EnglishLatency {
+    fn from(l: qubite_english::live::Latency) -> Self {
+        Self {
+            first_audio_ms: l.first_audio_ms,
+            first_text_ms: l.first_text_ms,
+            heard_ms: l.heard_ms,
+            reply_ms: l.reply_ms,
+        }
+    }
 }
 
 impl From<qubite_english::Message> for EnglishMessage {
@@ -117,6 +143,7 @@ impl From<qubite_english::Message> for EnglishMessage {
             repeat: m.repeat,
             repeated: m.repeated,
             has_speech: m.has_speech,
+            latency: m.latency.map(Into::into),
             at: m.at,
         }
     }
@@ -129,6 +156,8 @@ pub struct EnglishVoice {
     listen: bool,
     /// Речь репетитора (он говорит вслух).
     speak: bool,
+    /// Распознавание на ходу: ответ почти сразу после паузы (`/english/live`).
+    live: bool,
 }
 
 /// Итоги по всем разговорам.
@@ -244,6 +273,7 @@ pub async fn english_overview(
         voice: EnglishVoice {
             listen: o.voice.listen,
             speak: o.voice.speak,
+            live: o.voice.live,
         },
     }))
 }
@@ -387,4 +417,133 @@ pub async fn english_speech(
         speech.audio,
     )
         .into_response())
+}
+
+// ---------------------------------------------------------------- потоком
+
+/// Разговор потоком (WebSocket): ответ почти сразу, как у живого собеседника.
+///
+/// С экрана: двоичные кадры — PCM 16 бит, 16 кГц, моно (микрофон); текстом —
+/// `{"type":"listen"}` (начал говорить), `{"type":"done"}` (пауза / «Готово»),
+/// `{"type":"text","text":"…"}`, `{"type":"interrupt"}` (перебил).
+/// На экран: двоичные кадры — голос репетитора, PCM 16 бит, 24 кГц, моно,
+/// кусками по мере синтеза; текстом — `{"type":"partial","text"}`,
+/// `{"type":"heard","text"}`, `{"type":"say","text"}` (кусок ответа),
+/// `{"type":"metrics", …}` ([`EnglishLatency`]), `{"type":"reply","turn"}`
+/// ([`EnglishTurn`]), `{"type":"error","error","message","heard"}`.
+/// Права — как у хода; браузер подключается только со своего сайта.
+#[utoipa::path(get, path = "/api/v1/english/live", tag = "english",
+    responses(
+        (status = 101, description = "Соединение открыто"),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Чужой сайт или нет доступа к агенту", body = ApiErrorBody),
+    ))]
+pub async fn english_live(
+    State(state): State<AppState>,
+    session: Authenticated,
+    headers: axum::http::HeaderMap,
+    upgrade: axum::extract::ws::WebSocketUpgrade,
+) -> Result<Response, ApiError> {
+    if session.0.kind == "web" && !crate::sync::same_origin(&headers) {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "origin_rejected",
+            "Подключение с другого сайта запрещено",
+        ));
+    }
+    crate::modules::authorize::<qubite_policy::Write>(&state, &session, qubite_english::MODULE)
+        .await?;
+    let account = session.0.account_id;
+    Ok(upgrade.on_upgrade(move |socket| run_live(socket, state, account)))
+}
+
+async fn run_live(socket: axum::extract::ws::WebSocket, state: AppState, account: Uuid) {
+    use axum::extract::ws::Message;
+    use futures_util::{SinkExt, StreamExt};
+    use qubite_english::live::{In, Out};
+
+    let (mut sink, mut stream) = socket.split();
+    let (in_tx, in_rx) = tokio::sync::mpsc::channel::<In>(256);
+    let (out_tx, mut out_rx) = tokio::sync::mpsc::channel::<Out>(256);
+    let reader = tokio::spawn(async move {
+        while let Some(Ok(frame)) = stream.next().await {
+            let msg = match frame {
+                Message::Binary(pcm) => In::Audio(pcm.to_vec()),
+                Message::Text(text) => {
+                    let Ok(json) = serde_json::from_str::<Value>(text.as_str()) else {
+                        continue;
+                    };
+                    match json["type"].as_str().unwrap_or_default() {
+                        "listen" => In::Listen,
+                        "done" => In::Done,
+                        "interrupt" => In::Interrupt,
+                        "text" => In::Text(json["text"].as_str().unwrap_or_default().to_owned()),
+                        _ => continue,
+                    }
+                }
+                Message::Close(_) => break,
+                _ => continue,
+            };
+            if in_tx.send(msg).await.is_err() {
+                break;
+            }
+        }
+    });
+    let writer = tokio::spawn(async move {
+        while let Some(out) = out_rx.recv().await {
+            let frame = match out {
+                Out::Audio(pcm) => Message::Binary(pcm.into()),
+                Out::Partial(text) => {
+                    text_frame(serde_json::json!({"type": "partial", "text": text}))
+                }
+                Out::Heard(text) => text_frame(serde_json::json!({"type": "heard", "text": text})),
+                Out::Say(text) => text_frame(serde_json::json!({"type": "say", "text": text})),
+                Out::Metrics(latency) => {
+                    let mut json =
+                        serde_json::to_value(EnglishLatency::from(latency)).unwrap_or_default();
+                    json["type"] = "metrics".into();
+                    text_frame(json)
+                }
+                Out::Reply(turn) => {
+                    let t = *turn;
+                    let turn = EnglishTurn {
+                        session: t.session.into(),
+                        learner: t.learner.into(),
+                        tutor: t.tutor.into(),
+                        cost_usd_micros: t.cost_usd_micros,
+                    };
+                    text_frame(serde_json::json!({"type": "reply", "turn": turn}))
+                }
+                Out::Error {
+                    code,
+                    message,
+                    heard,
+                } => text_frame(
+                    serde_json::json!({"type": "error", "error": code, "message": message, "heard": heard}),
+                ),
+            };
+            if sink.send(frame).await.is_err() {
+                break;
+            }
+        }
+        let _ = sink.close().await;
+    });
+    if let Err(error) = qubite_english::live::serve(
+        state.db.pool(),
+        &state.ai,
+        &state.english,
+        account,
+        in_rx,
+        out_tx,
+    )
+    .await
+    {
+        tracing::warn!(%error, "английский потоком: разговор оборвался");
+    }
+    reader.abort();
+    let _ = writer.await;
+}
+
+fn text_frame(json: Value) -> axum::extract::ws::Message {
+    axum::extract::ws::Message::Text(json.to_string().into())
 }

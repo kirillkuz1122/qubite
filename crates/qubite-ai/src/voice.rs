@@ -25,7 +25,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
-    AiError, Done, Gateway, Plan, Result, Work,
+    AiError, Done, Gateway, Opened, Plan, Result, Usage, Work,
     provider::{BoxFuture, ProviderError},
 };
 
@@ -33,6 +33,10 @@ use crate::{
 pub const STT: &str = "stt";
 /// Способность модели «говорит».
 pub const TTS: &str = "tts";
+/// Способность модели «распознаёт речь на ходу» (единица — секунда звука).
+pub const STT_LIVE: &str = "stt_live";
+/// Задача шлюза: модель живого распознавания.
+pub const STT_LIVE_TASK: &str = "voice.stt.live";
 /// Задачи шлюза: модель распознавания и речи по умолчанию (`ai_model_defaults`).
 pub const STT_TASK: &str = "voice.stt";
 pub const TTS_TASK: &str = "voice.tts";
@@ -77,6 +81,51 @@ pub struct TtsCall {
     pub account_id: Uuid,
 }
 
+/// Формат потоковой речи: PCM 16 бит, 24 кГц, моно — браузер играет кусками
+/// сразу (Web Audio), без ожидания целого файла.
+pub const STREAM_MIME: &str = "audio/pcm;rate=24000";
+
+/// Куски речи по мере синтеза. Ошибка посреди потока — последним элементом.
+pub type AudioChunks = tokio::sync::mpsc::Receiver<Result<Vec<u8>, ProviderError>>;
+
+/// Живое распознавание: что идёт провайдеру.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LiveIn {
+    /// PCM 16 бит моно с частотой [`LiveCall::sample_rate`].
+    Audio(Vec<u8>),
+    /// Фраза кончилась (кнопка «Готово»): распознай, что есть.
+    Commit,
+}
+
+/// Живое распознавание: что пришло от провайдера.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LiveOut {
+    /// Черновик (ещё изменится).
+    Partial(String),
+    /// Фраза кончилась (провайдер услышал паузу или была команда «Готово»).
+    Committed(String),
+    /// Провайдер оборвал распознавание.
+    Failed(String),
+}
+
+/// Что открыть у провайдера живого распознавания.
+#[derive(Debug, Clone)]
+pub struct LiveCall {
+    pub external_id: String,
+    pub language: Option<String>,
+    /// Частота PCM, Гц (16 000).
+    pub sample_rate: u32,
+    /// Сколько тишины — конец фразы, с.
+    pub silence_secs: f32,
+    pub account_id: Uuid,
+}
+
+/// Открытое живое распознавание: звук — в `audio`, текст — из `events`.
+pub struct LiveLink {
+    pub audio: tokio::sync::mpsc::Sender<LiveIn>,
+    pub events: tokio::sync::mpsc::Receiver<LiveOut>,
+}
+
 /// Готовая речь.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Spoken {
@@ -90,6 +139,32 @@ pub struct Spoken {
 pub trait VoiceProvider: Send + Sync {
     fn transcribe<'a>(&'a self, call: &'a SttCall) -> BoxFuture<'a, Result<Heard, ProviderError>>;
     fn speak<'a>(&'a self, call: &'a TtsCall) -> BoxFuture<'a, Result<Spoken, ProviderError>>;
+
+    /// Речь потоком ([`STREAM_MIME`]): куски по мере синтеза. Провайдер без
+    /// потока отдаёт целый звук одним куском.
+    fn speak_stream<'a>(
+        &'a self,
+        call: &'a TtsCall,
+    ) -> BoxFuture<'a, Result<AudioChunks, ProviderError>> {
+        Box::pin(async move {
+            let spoken = self.speak(call).await?;
+            let (tx, rx) = tokio::sync::mpsc::channel(1);
+            let _ = tx.send(Ok(spoken.audio)).await;
+            Ok(rx)
+        })
+    }
+
+    /// Живое распознавание: звук идёт кусками, текст приходит, пока человек
+    /// говорит, конец фразы — по паузе. Нет у провайдера — отказ (экран
+    /// распознаёт запись целиком, [`VoiceProvider::transcribe`]).
+    fn listen_live<'a>(
+        &'a self,
+        _call: &'a LiveCall,
+    ) -> BoxFuture<'a, Result<LiveLink, ProviderError>> {
+        Box::pin(async {
+            Err(ProviderError::Refused("живого распознавания нет".into()))
+        })
+    }
 }
 
 /// Запрос на распознавание.
@@ -148,6 +223,8 @@ pub(crate) struct Listen {
 pub(crate) struct Say {
     pub(crate) voice: String,
     pub(crate) text: String,
+    /// Потоком ([`STREAM_MIME`]) или целым файлом (MP3).
+    pub(crate) stream: bool,
 }
 
 /// Сколько секунд списать: большее из длины по словам клиента и по словам
@@ -182,10 +259,10 @@ impl Gateway {
     /// задачи выбрана, включена и не заблокирована. Без этого экраны честно
     /// пишут «голос не настроен» и работают текстом.
     pub async fn voice_ready(&self, capability: &str) -> Result<bool> {
-        let task = if capability == STT {
-            STT_TASK
-        } else {
-            TTS_TASK
+        let task = match capability {
+            STT => STT_TASK,
+            STT_LIVE => STT_LIVE_TASK,
+            _ => TTS_TASK,
         };
         let Ok(model) = self.model_for(task).await else {
             return Ok(false);
@@ -287,6 +364,7 @@ impl Gateway {
         let say = Say {
             voice: request.voice.clone(),
             text: text.to_owned(),
+            stream: false,
         };
         let fingerprint = self.fingerprint([
             request.model.as_bytes(),
@@ -321,6 +399,224 @@ impl Gateway {
     }
 }
 
+/// Речь потоком и её цена (списана при старте: синтез платится за знаки).
+pub struct SpeechStream {
+    pub call_id: Uuid,
+    pub chunks: AudioChunks,
+    pub mime: &'static str,
+    pub cost_usd: i64,
+}
+
+/// Запрос на живое распознавание.
+#[derive(Debug, Clone)]
+pub struct LiveRequest {
+    pub request_id: String,
+    pub model: String,
+    pub language: Option<String>,
+    pub sample_rate: u32,
+    pub silence_secs: f32,
+}
+
+/// Открытое живое распознавание: резерв на [`MAX_SECONDS`] сделан до
+/// соединения, списание — по секундам звука, который ушёл провайдеру
+/// ([`LiveListen::finish`] — обязательно; без него вызов останется «неизвестен»,
+/// и резерв удержится).
+pub struct LiveListen<'g> {
+    gateway: &'g Gateway,
+    opened: Option<Opened>,
+    link: LiveLink,
+    bytes: u64,
+    sample_rate: u32,
+}
+
+impl LiveListen<'_> {
+    pub fn call_id(&self) -> Option<Uuid> {
+        self.opened.as_ref().map(|o| o.id)
+    }
+
+    /// Секунд звука ушло (вверх).
+    pub fn seconds(&self) -> u64 {
+        self.bytes.div_ceil(u64::from(self.sample_rate) * 2)
+    }
+
+    /// Кусок PCM провайдеру. Больше [`MAX_SECONDS`] за фразу — отказ (резерв кончился).
+    pub async fn send(&mut self, pcm: Vec<u8>) -> Result<()> {
+        let next = self.bytes + pcm.len() as u64;
+        if next.div_ceil(u64::from(self.sample_rate) * 2) > MAX_SECONDS {
+            return Err(AiError::Invalid(format!(
+                "фраза длиннее {MAX_SECONDS} с — скажи короче"
+            )));
+        }
+        self.bytes = next;
+        let _ = self.link.audio.send(LiveIn::Audio(pcm)).await;
+        Ok(())
+    }
+
+    /// «Готово»: распознать, что сказано.
+    pub async fn commit(&self) {
+        let _ = self.link.audio.send(LiveIn::Commit).await;
+    }
+
+    /// Следующее событие (черновик, фраза, обрыв); `None` — провайдер закрыл.
+    pub async fn next(&mut self) -> Option<LiveOut> {
+        self.link.events.recv().await
+    }
+
+    /// Закрыть и списать по секундам звука (не меньше секунды, если звук был).
+    /// Возвращает ID вызова, секунды и цену.
+    pub async fn finish(mut self) -> Result<(Uuid, u64, i64)> {
+        let opened = self.opened.take().expect("finish один раз");
+        let seconds = self.seconds().min(MAX_SECONDS);
+        let usage = Usage {
+            units_in: seconds,
+            units_out: 0,
+            reported_usd: None,
+        };
+        let cost = self
+            .gateway
+            .settle_success(
+                opened.id,
+                &opened.model,
+                &opened.reservations,
+                opened.estimate_usd,
+                usage,
+                false,
+            )
+            .await?;
+        Ok((opened.id, seconds, cost))
+    }
+}
+
+impl Drop for LiveListen<'_> {
+    fn drop(&mut self) {
+        if let Some(opened) = &self.opened {
+            tracing::warn!(call_id = %opened.id, "живое распознавание не закрыто — резерв удержится до выяснения");
+        }
+    }
+}
+
+impl Gateway {
+    /// Речь потоком ([`STREAM_MIME`]): репетитор начинает говорить, пока
+    /// синтез ещё идёт. Списание — сразу по числу знаков.
+    pub async fn speak_stream(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: SpeakRequest,
+    ) -> Result<SpeechStream> {
+        let text = request.text.trim();
+        if text.is_empty() {
+            return Err(AiError::Invalid("нечего сказать".into()));
+        }
+        let chars = text.chars().count();
+        if chars > MAX_SPEECH_CHARS {
+            return Err(AiError::Invalid(format!(
+                "текст для речи длиннее {MAX_SPEECH_CHARS} знаков"
+            )));
+        }
+        let say = Say {
+            voice: request.voice.clone(),
+            text: text.to_owned(),
+            stream: true,
+        };
+        let fingerprint = self.fingerprint([
+            request.model.as_bytes(),
+            b"tts-stream".as_slice(),
+            request.voice.as_bytes(),
+            text.as_bytes(),
+        ]);
+        let (call_id, done, cost_usd) = self
+            .run(
+                auth,
+                Plan {
+                    request_id: &request.request_id,
+                    model: &request.model,
+                    fingerprint,
+                    input_units: chars as u64,
+                    max_output_units: 0,
+                    job_id: None,
+                    signals: Vec::new(),
+                    work: Work::Speak(&say),
+                },
+            )
+            .await?;
+        let Done::SpeakStream(chunks) = done else {
+            unreachable!("на поток речи — поток")
+        };
+        Ok(SpeechStream {
+            call_id,
+            chunks,
+            mime: STREAM_MIME,
+            cost_usd,
+        })
+    }
+
+    /// Открыть живое распознавание: права, модель, защита от зацикливания и
+    /// резерв на [`MAX_SECONDS`] — до соединения с провайдером.
+    pub async fn listen_live(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: LiveRequest,
+    ) -> Result<LiveListen<'_>> {
+        if !(8_000..=48_000).contains(&request.sample_rate) {
+            return Err(AiError::Invalid("частота звука — от 8 до 48 кГц".into()));
+        }
+        self.check_request(auth, &request.request_id).await?;
+        let fingerprint = self.fingerprint([
+            request.model.as_bytes(),
+            b"stt-live".as_slice(),
+            request.request_id.as_bytes(),
+        ]);
+        let plan = Plan {
+            request_id: &request.request_id,
+            model: &request.model,
+            fingerprint,
+            input_units: MAX_SECONDS,
+            max_output_units: 0,
+            job_id: None,
+            signals: Vec::new(),
+            work: Work::Live,
+        };
+        let opened = self.open_attempt(auth, &plan, 1, None).await?;
+        let provider = self.voices[&opened.model.provider_id].clone();
+        let call = LiveCall {
+            external_id: opened.model.external_id.clone(),
+            language: request.language,
+            sample_rate: request.sample_rate,
+            silence_secs: request.silence_secs,
+            account_id: opened.account_id,
+        };
+        match tokio::time::timeout(self.config.timeout, provider.listen_live(&call)).await {
+            Ok(Ok(link)) => Ok(LiveListen {
+                gateway: self,
+                opened: Some(opened),
+                link,
+                bytes: 0,
+                sample_rate: request.sample_rate,
+            }),
+            Ok(Err(
+                ProviderError::NotSent(reason)
+                | ProviderError::Refused(reason)
+                | ProviderError::UsageLimit(reason),
+            )) => {
+                self.release_not_sent(opened.id, &opened.reservations, 1, "refused", &reason)
+                    .await?;
+                Err(AiError::ProviderRefused {
+                    reason,
+                    alternatives: Vec::new(),
+                })
+            }
+            Ok(Err(ProviderError::Unknown(reason))) => {
+                self.mark_unknown(opened.id, &reason).await?;
+                Err(AiError::ResultUnknown { call_id: opened.id })
+            }
+            Err(_) => {
+                self.mark_unknown(opened.id, "таймаут соединения").await?;
+                Err(AiError::ResultUnknown { call_id: opened.id })
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------- подделка
 
 /// Как поведёт себя [`MockVoice`] на очередном распознавании.
@@ -344,6 +640,9 @@ pub struct MockVoice {
     tts_calls: AtomicUsize,
     last_speech: Mutex<Option<TtsCall>>,
     refuse_speech: bool,
+    /// Пауза перед каждым куском потоковой речи, мс.
+    tts_chunk_ms: u64,
+    live_calls: AtomicUsize,
 }
 
 impl Default for MockVoice {
@@ -360,7 +659,20 @@ impl MockVoice {
             tts_calls: AtomicUsize::new(0),
             last_speech: Mutex::new(None),
             refuse_speech: false,
+            tts_chunk_ms: 0,
+            live_calls: AtomicUsize::new(0),
         }
+    }
+
+    /// Потоковая речь — тремя кусками с этой паузой перед каждым.
+    pub fn with_tts_delay(mut self, ms: u64) -> Self {
+        self.tts_chunk_ms = ms;
+        self
+    }
+
+    /// Сколько раз открывали живое распознавание.
+    pub fn live_calls(&self) -> usize {
+        self.live_calls.load(Ordering::SeqCst)
     }
 
     /// Что распознать на следующих вызовах (по порядку).
@@ -433,6 +745,93 @@ impl VoiceProvider for MockVoice {
             Ok(Spoken {
                 audio: format!("MOCK-MP3:{}", call.text).into_bytes(),
                 mime: "audio/mpeg".into(),
+            })
+        })
+    }
+
+    /// Три куска `PCM:<текст>` с паузой [`MockVoice::with_tts_delay`].
+    fn speak_stream<'a>(
+        &'a self,
+        call: &'a TtsCall,
+    ) -> BoxFuture<'a, Result<AudioChunks, ProviderError>> {
+        Box::pin(async move {
+            self.tts_calls.fetch_add(1, Ordering::SeqCst);
+            *self.last_speech.lock().expect("mock") = Some(call.clone());
+            if self.refuse_speech {
+                return Err(ProviderError::Refused("mock: нет символов на счёте".into()));
+            }
+            let (tx, rx) = tokio::sync::mpsc::channel(8);
+            let text = call.text.clone();
+            let delay = self.tts_chunk_ms;
+            tokio::spawn(async move {
+                for part in 0..3 {
+                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                    if tx
+                        .send(Ok(format!("PCM{part}:{text}|").into_bytes()))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+            });
+            Ok(rx)
+        })
+    }
+
+    /// Живое распознавание: на каждый кусок речи — черновик; тишина (кусок из
+    /// нулей) после речи или «Готово» — фраза из сценария ([`MockVoice::script`]).
+    fn listen_live<'a>(
+        &'a self,
+        _call: &'a LiveCall,
+    ) -> BoxFuture<'a, Result<LiveLink, ProviderError>> {
+        Box::pin(async move {
+            self.live_calls.fetch_add(1, Ordering::SeqCst);
+            let next = self.heard.lock().expect("mock").pop_front();
+            let (text, fail) = match next {
+                Some(MockHeard::Text { text, .. }) => (text, None),
+                Some(MockHeard::Refuse) => {
+                    return Err(ProviderError::Refused("mock: неверный ключ".into()));
+                }
+                Some(MockHeard::FailBeforeSend) => {
+                    return Err(ProviderError::NotSent("mock: нет соединения".into()));
+                }
+                Some(MockHeard::DropAfterSend) => (String::new(), Some("mock: обрыв")),
+                None => ("Hello".to_owned(), None),
+            };
+            let (audio_tx, mut audio_rx) = tokio::sync::mpsc::channel::<LiveIn>(64);
+            let (events_tx, events_rx) = tokio::sync::mpsc::channel(64);
+            tokio::spawn(async move {
+                let mut spoke = false;
+                while let Some(input) = audio_rx.recv().await {
+                    if let Some(reason) = fail {
+                        let _ = events_tx.send(LiveOut::Failed(reason.into())).await;
+                        return;
+                    }
+                    let commit = match input {
+                        LiveIn::Audio(pcm) if pcm.iter().any(|b| *b != 0) => {
+                            spoke = true;
+                            let words = text.split_whitespace().count().max(1);
+                            let partial: String = text
+                                .split_whitespace()
+                                .take(words.div_ceil(2))
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            let _ = events_tx.send(LiveOut::Partial(partial)).await;
+                            false
+                        }
+                        LiveIn::Audio(_) => spoke,
+                        LiveIn::Commit => true,
+                    };
+                    if commit {
+                        let _ = events_tx.send(LiveOut::Committed(text.clone())).await;
+                        return;
+                    }
+                }
+            });
+            Ok(LiveLink {
+                audio: audio_tx,
+                events: events_rx,
             })
         })
     }
