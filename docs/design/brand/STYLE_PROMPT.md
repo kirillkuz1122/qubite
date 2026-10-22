@@ -1,7 +1,6 @@
 # Стиль Qubite «Частицы» — описание для генерации картинок
 
-Картинки рядом: `qubite-logo-640.png` (логотип, аватар бота) и `qubite-style.png` (лист стиля).
-Исходник обеих — `render.html` (рисуется в браузере, можно поменять и перерисовать).
+Картинки рядом: **`qubite-style-2.png`** — лист стиля (логотип |q⟩, помощники из частиц; исходник `style2.html`), `ketq-icon-dots-640.png` — логотип и аватар бота. Старые: `qubite-style.png`, `qubite-logo-640.png` (`render.html`).
 
 ## Для ChatGPT / нейросетей (вставлять целиком, на английском — так точнее)
 
@@ -15,9 +14,10 @@ Main ink: warm cream #f3ede3. Secondary text: #a59c90.
 Accents (use sparingly, one or two per image): orange #ff9852 (main accent), sky blue #71cfff,
 yellow #ffe163, mint green #90dea5, peach #ffb98a. No purple, no neon, no glow.
 Headlines: chunky pixel font (Tiny5), as if assembled from dots. Body text: monospace Fira Code.
-Characters (mascots): flat geometric shapes with no outlines and no shading — an orange half-circle "hill",
-a tall dark-brown rounded rectangle (#3a352f), a yellow pill with a small beak line, a sky-blue tall rectangle
-with round glasses. Faces are minimal: two dot eyes and a short line mouth. Friendly, slightly playful.
+Characters (mascots) are ALSO made of dots (an LED-matrix look, not solid shapes): an orange half-circle "hill",
+a tall dark-brown rounded rectangle (#3a352f) with cream dot eyes, a yellow pill with a small beak, a sky-blue tall
+rectangle with square glasses. Faces are minimal: eyes and mouth are 2x2 / 3x1 gaps in the dot grid. Friendly, slightly playful.
+Logo: the quantum "ket" |q⟩ drawn in dots — a vertical bar, a dotted lowercase q whose tail is orange #ff9852, and an angle bracket.
 Mood: cozy, focused, quiet tech; flat 2D, lots of empty space, clean alignment, no clutter, no 3D, no photorealism.
 Light variant (optional): "warm paper" background #f3eee5 with dark ink #1f1a17 and slightly deeper accents.
 ```
@@ -31,4 +31,4 @@ Light variant (optional): "warm paper" background #f3eee5 with dark ink #1f1a17 
 - **Помощники:** плоские фигуры без обводки и теней — оранжевый полукруг, высокий тёмный прямоугольник, жёлтая «таблетка» с клювиком, небесный прямоугольник в очках; лицо — две точки-глаза и чёрточка.
 - **Настроение:** уютно, спокойно, плоско, много воздуха.
 - **Светлая тема:** «тёплая бумага» `#f3eee5`, тёмный текст `#1f1a17`.
-- **Логотип:** буква Q из точек кремового цвета, хвост — одна крупная оранжевая точка.
+- **Логотип (пробный, D-446):** кет |q⟩ из точек — черта, q с оранжевым хвостом, угловая скобка. Помощники — тоже из частиц.

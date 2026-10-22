@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:T5;src:url(../fonts/Tiny5-latin.woff2)}
+@font-face{font-family:T5;src:url(../fonts/Tiny5-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-latin.woff2)}
+@font-face{font-family:Fira;src:url(../fonts/FiraCode-Regular-cyrillic.woff2);unicode-range:U+0400-045F}
+@font-face{font-family:Fira;font-weight:600;src:url(../fonts/FiraCode-SemiBold-latin.woff2)}
+@font-face{font-family:Fira;font-weight:600;src:url(../fonts/FiraCode-SemiBold-cyrillic.woff2);unicode-range:U+0400-045F}
+body{margin:0;background:#100f0d}</style></head><body><canvas id=c></canvas>
+<script>
+const C={bg:'#100f0d',panel:'#1b1916',ink:'#f3ede3',mute:'#a59c90',dim:'#8a8176',orange:'#ff9852',sky:'#71cfff',yellow:'#ffe163',green:'#90dea5',peach:'#ffb98a',paper:'#f3eee5',brown:'#3a352f'};
+function rr(g,x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,Math.max(0,r));g.fill();}
+function txt(g,t,x,y,f,c){g.font=f;g.fillStyle=c;g.fillText(t,x,y);}
+// логотип |q⟩ из точек
+const KQ=['x.....x...','x..xx..x..','x.x.x...x.','x.x.x....x','x..xx...x.','x...o..x..','x...o.x...'];
+function logo(g,X,Y,p){const s=p*.9;KQ.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch!=='.')rr(g,X+x*p+(p-s)/2,Y+y*p+(p-s)/2,s,s,s/2,ch==='o'?C.orange:C.ink);}));}
+// любую фигуру — в частицы: рисуем на холсте и снимаем цвет в узлах сетки
+function particles(g,draw,X,Y,W,H,pitch,holes=[],paint={}){const o=document.createElement('canvas');o.width=W;o.height=H;const q=o.getContext('2d');draw(q);
+  const d=q.getImageData(0,0,W,H).data,s=pitch*.9,hs=new Set(holes.map(h=>h.join(',')));
+  for(let r=0;r*pitch<H;r++)for(let c=0;c*pitch<W;c++){const x=c*pitch+pitch/2,y=r*pitch+pitch/2,i=(Math.floor(y)*W+Math.floor(x))*4;
+    if(d[i+3]<128||hs.has(c+','+r))continue;const col=paint[c+','+r]||`rgb(${d[i]},${d[i+1]},${d[i+2]})`;rr(g,X+x-s/2,Y+y-s/2,s,s,s/2,col);}}
+const sq=(c0,r0,w,h)=>{const o=[];for(let r=r0;r<r0+h;r++)for(let c=c0;c<c0+w;c++)o.push([c,r]);return o;};
+const ring=(c0,r0,n)=>sq(c0,r0,n,n).filter(([c,r])=>c===c0||c===c0+n-1||r===r0||r===r0+n-1);
+function mascots(g,X,Y,pitch){
+  particles(g,q=>{q.fillStyle=C.orange;q.beginPath();q.arc(95,240,95,Math.PI,0);q.fill();},X,Y,190,240,pitch,[...sq(5,17,2,2),...sq(12,17,2,2),...sq(8,21,3,1)]);
+  const ink={};[...sq(2,4,2,2),...sq(6,4,2,2),...sq(3,8,4,1)].forEach(([c,r])=>ink[c+','+r]=C.ink);
+  particles(g,q=>{q.fillStyle=C.brown;q.beginPath();q.roundRect(0,0,100,240,28);q.fill();},X+215,Y,100,240,pitch,[],ink);
+  particles(g,q=>{q.fillStyle=C.yellow;q.beginPath();q.roundRect(0,60,90,180,45);q.fill();},X+340,Y,100,240,pitch,[...sq(1,10,2,2),...sq(5,10,2,2),...sq(6,14,3,1)]);
+  particles(g,q=>{q.fillStyle=C.sky;q.beginPath();q.roundRect(0,30,100,210,28);q.fill();},X+455,Y,100,240,pitch,[...ring(1,6,3),...ring(6,6,3),[4,7],[5,7],...sq(3,12,4,1)],{'2,7':C.bg,'7,7':C.bg});
+}
+window.board=()=>{const W=1600,H=1000,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
+  g.fillStyle=C.bg;g.fillRect(0,0,W,H);g.fillStyle='rgba(243,237,227,.06)';for(let y=10;y<H;y+=20)for(let x=10;x<W;x+=20){g.beginPath();g.arc(x,y,1.1,0,7);g.fill();}
+  logo(g,80,58,11);txt(g,'qubite',215,128,'64px T5',C.ink);
+  txt(g,'стиль «Частицы» · всё собрано из точек',80,190,'22px Fira',C.mute);
+  const pal=[['фон','#100f0d'],['панель','#1b1916'],['текст','#f3ede3'],['приглушённый','#a59c90'],['оранжевый','#ff9852'],['небесный','#71cfff'],['жёлтый','#ffe163'],['зелёный','#90dea5'],['персик','#ffb98a'],['бумага','#f3eee5']];
+  pal.forEach(([n,v],i)=>{const x=80+(i%5)*150,y=240+Math.floor(i/5)*150;
+    // плашка цвета — тоже из точек
+    for(let yy=0;yy<4;yy++)for(let xx=0;xx<6;xx++)rr(g,x+xx*20,y+yy*20,18,18,9,v);
+    if(i<2){g.strokeStyle='rgba(243,237,227,.18)';g.lineWidth=1.5;for(let yy=0;yy<4;yy++)for(let xx=0;xx<6;xx++){g.beginPath();g.arc(x+xx*20+9,y+yy*20+9,9,0,7);g.stroke();}}
+    txt(g,n,x,y+104,'16px Fira',C.ink);txt(g,v,x,y+124,'16px Fira',C.dim);});
+  txt(g,'ТОЧКА — основа всего',80,580,'600 18px Fira',C.ink);
+  for(let i=0;i<14;i++)for(let j=0;j<5;j++){const t=(i*3+j*5)%11;const col=[C.ink,C.ink,C.orange,C.ink,C.sky,C.ink,C.yellow,C.ink,C.green,C.ink,C.peach][t];rr(g,80+i*26,600+j*26,23,23,11.5,col);}
+  ['квадрат со скруглением 50%, размер 95% шага сетки','фигуры, плашки и помощники — из тех же точек','заголовки — пиксельный шрифт Tiny5, текст — Fira Code','фон — тёплый почти-чёрный с еле видной сеткой точек'].forEach((t,i)=>txt(g,t,80,760+i*28,'16px Fira',C.mute));
+  txt(g,'ПОМОЩНИКИ — тоже из частиц',900,240,'600 18px Fira',C.ink);
+  mascots(g,900,270,10);
+  txt(g,'заботливый',915,540,'14px Fira',C.mute);txt(g,'организатор',1110,540,'14px Fira',C.mute);txt(g,'ловец мыслей',1230,540,'14px Fira',C.mute);txt(g,'мудрец',1365,540,'14px Fira',C.mute);
+  rr(g,900,600,620,300,28,C.panel);g.strokeStyle='rgba(243,237,227,.12)';g.lineWidth=1.5;g.beginPath();g.roundRect(900,600,620,300,28);g.stroke();
+  txt(g,'сегодня',932,664,'40px T5',C.ink);
+  [['повторить графы','15:00',C.orange],['ДЗ по английскому','весь день',C.sky],['сходить в музей','18:30',C.yellow]].forEach(([t,tm,col],i)=>{const y=710+i*58;
+    for(let k=0;k<8;k++){const a=k/8*Math.PI*2;rr(g,945+Math.cos(a)*12-2.5,y+Math.sin(a)*12-2.5,5,5,2.5,C.dim);}
+    txt(g,t,975,y+6,'20px Fira',C.ink);rr(g,975,y+16,8,8,4,col,g);txt(g,tm,1400,y+6,'16px Fira',C.mute);});
+};
+window.mascotsOnly=()=>{const W=900,H=420,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');g.fillStyle=C.bg;g.fillRect(0,0,W,H);mascots(g,140,90,10);};
+</script></body></html>
