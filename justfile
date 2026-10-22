@@ -23,14 +23,21 @@ setup:
     scripts/env-sync.sh
     @echo "Готово. Дальше: just dev"
 
-# Запустить базу, Rust-сервер (:8080) и сайт (:5173) вместе; Ctrl+C останавливает всё
+# Запустить базу, Rust-сервер (:8080), сайт (:5173) и Telegram-бота (если задан токен) вместе;
+# Ctrl+C останавливает всё
 dev: db-up
     #!/usr/bin/env bash
     set -euo pipefail
     {{use_dev_db}}
     cargo run --bin qubite -- serve &
     server=$!
-    trap 'kill $server 2>/dev/null || true' EXIT
+    bot=
+    # Бот — отдельный процесс (`qubite bot`); без токена он не нужен и не запускается
+    if [ -n "${QUBITE_TELEGRAM_BOT_TOKEN:-}" ] || grep -qs '^QUBITE_TELEGRAM_BOT_TOKEN=[^[:space:]#]' .env; then
+        cargo run --bin qubite -- bot &
+        bot=$!
+    fi
+    trap 'kill $server $bot 2>/dev/null || true' EXIT
     pnpm dev
 
 # Все проверки, как в CI: формат, линтеры, типы, тесты сервера и сайта, клиент API, программа английского, секреты
