@@ -1,0 +1,262 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m3-l1",
+  "level": "a1",
+  "module": "a1-m3",
+  "detail": "full",
+  "title": { "ru": "Что в холодильнике?", "en": "What's in the fridge?" },
+  "goal_ru": "После урока ты сможешь сказать, какая еда есть дома, и спросить, есть ли что-то.",
+  "can_do_en": "I can talk about food at home and ask if there is any.",
+  "minutes": 15,
+  "theme": "food",
+  "interests": ["sport", "health"],
+  "words": [
+    {
+      "en": "fridge",
+      "ru": "холодильник",
+      "example_en": "What's in the fridge?",
+      "example_ru": "Что в холодильнике?"
+    },
+    {
+      "en": "milk / water / juice",
+      "ru": "молоко / вода / сок",
+      "example_en": "There's some milk.",
+      "example_ru": "Есть немного молока.",
+      "note_ru": "Жидкости не считаются: нельзя «a milk», «two milks»."
+    },
+    {
+      "en": "bread / cheese / butter",
+      "ru": "хлеб / сыр / масло",
+      "example_en": "There isn't any bread.",
+      "example_ru": "Хлеба нет."
+    },
+    {
+      "en": "eggs",
+      "ru": "яйца",
+      "example_en": "There are six eggs.",
+      "example_ru": "Есть шесть яиц."
+    },
+    {
+      "en": "apples / bananas / tomatoes",
+      "ru": "яблоки / бананы / помидоры",
+      "example_en": "Are there any bananas?",
+      "example_ru": "Есть бананы?"
+    },
+    {
+      "en": "meat / chicken / fish",
+      "ru": "мясо / курица / рыба",
+      "example_en": "There's some chicken.",
+      "example_ru": "Есть курица."
+    },
+    {
+      "en": "rice / pasta",
+      "ru": "рис / макароны",
+      "example_en": "We have pasta for dinner.",
+      "example_ru": "На ужин макароны."
+    },
+    {
+      "en": "sausages",
+      "ru": "сосиски, колбаса",
+      "example_en": "There are some sausages.",
+      "example_ru": "Есть сосиски."
+    },
+    {
+      "en": "yoghurt",
+      "ru": "йогурт",
+      "example_en": "Is there any yoghurt?",
+      "example_ru": "Йогурт есть?"
+    },
+    {
+      "en": "empty",
+      "ru": "пустой",
+      "example_en": "The fridge is empty!",
+      "example_ru": "Холодильник пустой!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Исчисляемые и неисчисляемые; some / any",
+    "explain_ru": "Есть вещи, которые можно посчитать: an egg, two eggs, some apples. А есть «вещество», его не считают: milk, water, bread, cheese, rice, meat — у них нет a и нет -s. Хлеб — именно так: bread, а не breads! Про такое «немного / сколько-то» — some: There's some milk. There are some eggs. В вопросах и с not — any: Is there any cheese? There aren't any bananas.",
+    "explain_en": "Countable: an egg, some eggs. Uncountable: some milk, some bread (no a, no -s). Use any in questions and negatives: Is there any juice? There isn't any bread.",
+    "examples": [
+      { "en": "There's some cheese, but there isn't any bread.", "ru": "Сыр есть, а хлеба нет." },
+      { "en": "Are there any eggs? — Yes, there are six.", "ru": "Яйца есть? — Да, шесть." },
+      {
+        "en": "Is there any milk? — No, the fridge is empty.",
+        "ru": "Молоко есть? — Нет, холодильник пуст."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "a bread / breads",
+        "right": "some bread / a loaf of bread",
+        "why_ru": "bread не считается."
+      },
+      {
+        "wrong": "There are some milk.",
+        "right": "There's some milk.",
+        "why_ru": "Неисчисляемое — с is."
+      },
+      {
+        "wrong": "Is there some juice?",
+        "right": "Is there any juice?",
+        "why_ru": "В обычном вопросе — any."
+      },
+      {
+        "wrong": "two cheeses (о куске сыра)",
+        "right": "some cheese / two pieces of cheese",
+        "why_ru": "Сыр как продукт не считают."
+      }
+    ],
+    "tutor_notes_ru": "Дать два столбика: «считаем» / «не считаем», ученик раскладывает. Some в вежливых просьбах (Would you like some tea?) — отложить на кафе. Пересечение с There is/are из m2."
+  },
+  "phrases": [
+    { "en": "What's for dinner?", "ru": "Что на ужин?" },
+    { "en": "We've got no milk.", "ru": "У нас нет молока." },
+    { "en": "I'm starving!", "ru": "Умираю с голоду!" },
+    { "en": "Can you buy some bread?", "ru": "Можешь купить хлеба?" }
+  ],
+  "talk": {
+    "topics_ru": ["что сейчас в твоём холодильнике", "что ты ешь после школы", "еда спортсмена"],
+    "questions_en": [
+      "What's in your fridge right now?",
+      "What do you usually eat after school?",
+      "Is there any ice cream at home?",
+      "What do you have for breakfast?"
+    ],
+    "tutor_notes_ru": "Ловить «a bread», «breads». Нейт: «Breads? How many breads, exactly?»."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "bread", "ru": "хлеб" },
+        { "en": "cheese", "ru": "сыр" },
+        { "en": "eggs", "ru": "яйца" },
+        { "en": "meat", "ru": "мясо" },
+        { "en": "rice", "ru": "рис" },
+        { "en": "empty", "ru": "пустой" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "question": "Выбери правильную фразу.",
+      "options": ["There are some breads.", "There's some bread.", "There's a bread."],
+      "answer": "There's some bread."
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь some или any.",
+      "text": "There's ___ milk, but there aren't ___ eggs. Is there ___ cheese?",
+      "answers": ["some", "any", "any"],
+      "options": ["some", "any"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "В холодильнике есть сок?",
+      "answer": "Is there any juice in the fridge?",
+      "extra": ["are", "some"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай маму (без текста). Что нужно купить?",
+      "audio": "We've got some eggs and some cheese, but there isn't any bread and there isn't any milk. Can you buy them after school?",
+      "show_text": false,
+      "question": "Что купить?",
+      "options": ["яйца и сыр", "хлеб и молоко", "сыр и хлеб"],
+      "answer": "хлеб и молоко"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Есть немного курицы и риса, но нет помидоров.",
+      "answers": [
+        "There's some chicken and rice, but there aren't any tomatoes.",
+        "There is some chicken and some rice, but there aren't any tomatoes."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Открой холодильник на картинке: что есть, чего нет?",
+      "image": {
+        "prompt_en": "An open fridge with a carton of milk, six eggs, a piece of cheese, two tomatoes, a yoghurt and some sausages, but no bread and no fruit, bright flat illustration, no text",
+        "alt_ru": "Открытый холодильник: молоко, шесть яиц, кусок сыра, два помидора, йогурт, сосиски; хлеба и фруктов нет."
+      },
+      "say": "What's in the fridge? What isn't there?",
+      "must_use": ["some", "any"],
+      "min_sentences": 5,
+      "example": "There's some milk and some cheese. There are six eggs and two tomatoes. There's a yoghurt. There are some sausages. There isn't any bread and there aren't any apples."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Что сейчас в твоём холодильнике? 4–5 фраз.",
+      "mode": "answer",
+      "say": "Imagine you open your fridge now. What's there?",
+      "example": "There's some milk and some butter. There are some eggs. There isn't any juice. There's some pasta from yesterday.",
+      "must_use": ["some", "any"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "Is there any milk? — No, the fridge is empty.",
+      "focus_ru": "empty — «ЭМП-ти», не «эмпи»."
+    }
+  ],
+  "homework": {
+    "about_ru": "Загляни в холодильник по-настоящему и надиктуй список покупок по-английски: что есть, чего не хватает.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Список: что есть и что купить.",
+        "mode": "answer",
+        "say": "What's at home, and what do we need to buy?",
+        "example": "There's some cheese and some eggs. There isn't any bread. We need some bread, some milk and some bananas."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Что можно посчитать?",
+        "question": "Какое слово бывает с a?",
+        "options": ["milk", "egg", "bread"],
+        "answer": "egg"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 75% заданий и в описании холодильника (t7) нет «a bread / some milks»."
+  },
+  "review": {
+    "lessons": ["a0-m3-l2", "a1-m2-l1"],
+    "words_to_srs": true,
+    "note_ru": "like/don't like о еде (A0) + There is/are."
+  }
+}

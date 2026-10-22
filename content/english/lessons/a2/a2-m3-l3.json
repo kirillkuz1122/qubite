@@ -1,0 +1,214 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m3-l3",
+  "level": "a2",
+  "module": "a2-m3",
+  "detail": "detailed",
+  "title": { "ru": "Когда я был маленьким", "en": "When I was little" },
+  "goal_ru": "После урока ты сможешь рассказать о привычках из детства с used to.",
+  "can_do_en": "I can talk about past habits using used to.",
+  "minutes": 15,
+  "theme": "family",
+  "interests": ["games", "movies", "sport"],
+  "words": [
+    {
+      "en": "used to",
+      "ru": "раньше (делал, а теперь нет)",
+      "example_en": "I used to be afraid of the dark.",
+      "example_ru": "Раньше я боялся темноты."
+    },
+    {
+      "en": "childhood",
+      "ru": "детство",
+      "example_en": "in my childhood",
+      "example_ru": "в детстве"
+    },
+    {
+      "en": "kindergarten",
+      "ru": "детский сад",
+      "example_en": "I used to hate kindergarten.",
+      "example_ru": "Я терпеть не мог детский сад."
+    },
+    {
+      "en": "cartoons",
+      "ru": "мультфильмы",
+      "example_en": "I used to watch cartoons every morning.",
+      "example_ru": "Раньше я каждое утро смотрел мультики."
+    },
+    {
+      "en": "toy",
+      "ru": "игрушка",
+      "example_en": "My favourite toy was a robot.",
+      "example_ru": "Моя любимая игрушка — робот."
+    },
+    {
+      "en": "be afraid of",
+      "ru": "бояться",
+      "example_en": "I used to be afraid of dogs.",
+      "example_ru": "Раньше я боялся собак."
+    },
+    {
+      "en": "anymore / not any more",
+      "ru": "больше не",
+      "example_en": "I don't watch cartoons anymore.",
+      "example_ru": "Я больше не смотрю мультики."
+    },
+    {
+      "en": "grow up (grew up)",
+      "ru": "расти, вырасти",
+      "example_en": "I grew up in a small town.",
+      "example_ru": "Я вырос в маленьком городе."
+    },
+    {
+      "en": "change",
+      "ru": "меняться",
+      "example_en": "A lot has changed.",
+      "example_ru": "Многое изменилось."
+    }
+  ],
+  "grammar": {
+    "title_ru": "used to + глагол: привычки и состояния в прошлом, которых больше нет",
+    "explain_ru": "used to — «раньше (а теперь нет)»: I used to play with LEGO every day. I used to have long hair. Отрицание: I didn't use to like vegetables (без d!). Вопрос: Did you use to…? Сравни сейчас: I used to hate maths, but now I love it. Для одного случая в прошлом used to НЕ используем: I went to Moscow in 2020 (не used to go).",
+    "explain_en": "used to + verb for past habits and states that aren't true now: I used to play with LEGO. I didn't use to like fish. Did you use to…? Not for one-time events.",
+    "examples": [
+      {
+        "en": "When I was little, I used to want to be an astronaut.",
+        "ru": "В детстве я хотел быть космонавтом."
+      },
+      {
+        "en": "I didn't use to like reading, but now I read every evening.",
+        "ru": "Раньше я не любил читать, а теперь читаю каждый вечер."
+      },
+      { "en": "Did you use to have a favourite toy?", "ru": "У тебя была любимая игрушка?" }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I use to play.",
+        "right": "I used to play.",
+        "why_ru": "В утверждении — used (с d)."
+      },
+      {
+        "wrong": "I didn't used to.",
+        "right": "I didn't use to.",
+        "why_ru": "После did — use (без d)."
+      },
+      {
+        "wrong": "I used to go to Moscow once.",
+        "right": "I went to Moscow once.",
+        "why_ru": "Один раз — Past Simple."
+      },
+      {
+        "wrong": "I'm used to play (о прошлом)",
+        "right": "I used to play.",
+        "why_ru": "be used to — другое значение («привык»), его дадим в B1."
+      }
+    ],
+    "tutor_notes_ru": "Тёплая тема — детство. Контраст «тогда — сейчас» (used to … but now …). Нейт рассказывает, что «used to be a calculator» — для смеха. be used to (привык) не вводить."
+  },
+  "phrases": [
+    { "en": "When I was little…", "ru": "Когда я был маленьким…" },
+    { "en": "…but now…", "ru": "…а теперь…" },
+    { "en": "I can't believe I used to…", "ru": "Не верится, что я раньше…" },
+    { "en": "Those were the days!", "ru": "Вот были времена!" }
+  ],
+  "talk": {
+    "topics_ru": ["детство", "что изменилось в тебе", "старые игры и мультфильмы"],
+    "questions_en": [
+      "What did you use to do when you were little?",
+      "What were you afraid of?",
+      "What games did you use to play?",
+      "What has changed the most since you were a kid?"
+    ],
+    "tutor_notes_ru": "Попросить ученика сравнить «я в 7 лет» и «я сейчас» — 3 пары used to / now."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "I didn't ___ like vegetables.",
+      "options": ["used to", "use to", "using to"],
+      "answer": "use to"
+    },
+    {
+      "id": "t2",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "ask_en": "Translate.",
+      "from": "ru",
+      "text": "Раньше я боялся собак, а теперь у меня есть собака.",
+      "answers": [
+        "I used to be afraid of dogs, but now I have a dog.",
+        "I used to be scared of dogs, but now I've got a dog."
+      ]
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Два фото одного человека: в 6 лет и сейчас. Расскажи, что он раньше делал и что сейчас.",
+      "ask_en": "Then and now: what did he use to do?",
+      "image": {
+        "prompt_en": "Split image: left a 6-year-old boy with a toy robot, watching cartoons on TV, wearing a superhero costume; right the same boy at 15 coding a real robot on a laptop with headphones, flat warm illustration, no text",
+        "alt_ru": "Слева: мальчик 6 лет с игрушечным роботом смотрит мультики в костюме супергероя. Справа: он же в 15 лет программирует настоящего робота в наушниках."
+      },
+      "say": "What did he use to do? What does he do now?",
+      "must_use": ["used to", "now"],
+      "min_sentences": 4,
+      "example": "When he was little, he used to play with a toy robot. He used to watch cartoons and wear a superhero costume. Now he doesn't watch cartoons anymore. He builds and codes real robots."
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что мама раньше делала, а теперь нет?",
+      "ask_en": "Listen. What did Mum use to do?",
+      "audio": "When I was your age, we didn't have smartphones. I used to write letters to my friends and I used to spend hours at the library. Now I just send messages, like you.",
+      "show_text": false,
+      "question": "Что она раньше делала?",
+      "options": ["играла в игры", "писала письма и сидела в библиотеке", "смотрела стримы"],
+      "answer": "писала письма и сидела в библиотеке"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ты в 7 лет и ты сейчас: 4 пары «used to … but now …».",
+      "ask_en": "You at seven and you now.",
+      "mode": "answer",
+      "say": "You at seven versus you now. Four differences.",
+      "example": "When I was seven, I used to want to be a firefighter, but now I want to be a programmer. I used to hate maths, but now it's my favourite subject. I used to go to bed at nine — now at midnight. And I didn't use to like football, but now I play every week.",
+      "must_use": ["used to", "but now"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Спроси бабушку, дедушку или родителей, что они раньше делали в твоём возрасте, и перескажи 4 фразы с used to.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Детство твоих родных.",
+        "ask_en": "Your family's childhood.",
+        "mode": "answer",
+        "say": "What did your parents or grandparents use to do at your age?",
+        "example": "My grandpa used to play football in the street all day. He didn't use to have a TV. He used to go fishing with his dad every Sunday."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в сравнении (t5) used to / didn't use to без ошибок формы."
+  },
+  "review": {
+    "lessons": ["a2-m1-l4", "a2-m2-l4"],
+    "words_to_srs": true,
+    "note_ru": "Описание людей и «сколько уже» — в рассказах о детстве."
+  }
+}

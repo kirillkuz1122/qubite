@@ -1,0 +1,207 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m5-l1",
+  "level": "a2",
+  "module": "a2-m5",
+  "detail": "detailed",
+  "title": { "ru": "Надо и стоит", "en": "Must, have to, should" },
+  "goal_ru": "После урока ты сможешь говорить о правилах и давать советы: must, have to, should.",
+  "can_do_en": "I can talk about rules and give advice with must, have to and should.",
+  "minutes": 15,
+  "theme": "internet",
+  "interests": ["school", "games", "programming"],
+  "words": [
+    {
+      "en": "password",
+      "ru": "пароль",
+      "example_en": "You should use a strong password.",
+      "example_ru": "Используй надёжный пароль."
+    },
+    {
+      "en": "share",
+      "ru": "делиться, давать другим",
+      "example_en": "You mustn't share your password.",
+      "example_ru": "Нельзя никому давать пароль."
+    },
+    {
+      "en": "personal information",
+      "ru": "личные данные",
+      "example_en": "Don't post personal information.",
+      "example_ru": "Не публикуй личные данные."
+    },
+    {
+      "en": "stranger",
+      "ru": "незнакомец",
+      "example_en": "Don't meet strangers from the internet alone.",
+      "example_ru": "Не встречайся один с незнакомцами из интернета."
+    },
+    {
+      "en": "scam",
+      "ru": "мошенничество, развод",
+      "example_en": "That message is a scam.",
+      "example_ru": "Это сообщение — развод."
+    },
+    {
+      "en": "two-factor authentication",
+      "ru": "двухфакторная защита",
+      "example_en": "You should turn on two-factor authentication.",
+      "example_ru": "Включи двухфакторную защиту."
+    },
+    {
+      "en": "rule",
+      "ru": "правило",
+      "example_en": "Our school has strict rules.",
+      "example_ru": "В школе строгие правила."
+    },
+    {
+      "en": "allowed / not allowed",
+      "ru": "разрешено / запрещено",
+      "example_en": "Phones aren't allowed in class.",
+      "example_ru": "Телефоны на уроке запрещены."
+    },
+    {
+      "en": "advice",
+      "ru": "совет",
+      "example_en": "Can I give you some advice?",
+      "example_ru": "Можно дать совет?",
+      "note_ru": "advice — неисчисляемое: some advice, a piece of advice (не «an advice»)."
+    }
+  ],
+  "grammar": {
+    "title_ru": "must / mustn't, have to / don't have to, should / shouldn't",
+    "explain_ru": "must — «обязан» (правило, сильно): You must wear a uniform. mustn't — «нельзя»: You mustn't share your password. have to — «приходится, нужно» (внешние обстоятельства): I have to get up at six. don't have to — «не обязательно» (НЕ «нельзя»!): You don't have to come. should — совет «стоит»: You should take a break. shouldn't — «не стоит». После всех — простой глагол без to (кроме have to).",
+    "explain_en": "must = strong rule; mustn't = not allowed. have to = necessary; don't have to = not necessary. should = advice. You mustn't share your password. You don't have to come. You should take a break.",
+    "examples": [
+      {
+        "en": "You mustn't click on strange links — it could be a scam.",
+        "ru": "Нельзя переходить по странным ссылкам — это может быть мошенничество."
+      },
+      {
+        "en": "At our school we have to wear a uniform, but we don't have to wear a tie.",
+        "ru": "У нас в школе обязательна форма, но галстук носить не нужно."
+      },
+      {
+        "en": "You should turn on two-factor authentication.",
+        "ru": "Тебе стоит включить двухфакторную защиту."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "You don't have to share your password (в значении «нельзя»).",
+        "right": "You mustn't share your password.",
+        "why_ru": "don't have to — «не обязательно», а «нельзя» — mustn't."
+      },
+      { "wrong": "You must to go.", "right": "You must go.", "why_ru": "После must — без to." },
+      {
+        "wrong": "You should to rest.",
+        "right": "You should rest.",
+        "why_ru": "После should — без to."
+      },
+      { "wrong": "He have to go.", "right": "He has to go.", "why_ru": "he — has to." }
+    ],
+    "tutor_notes_ru": "Самая важная ловушка — mustn't vs don't have to. Тема — цифровая безопасность (полезно и реально) и школьные правила. Нейт — «строгий админ» сервера."
+  },
+  "phrases": [
+    { "en": "If I were you, I'd…", "ru": "На твоём месте я бы… (пока — готовой фразой)" },
+    { "en": "You'd better…", "ru": "Тебе лучше бы…" },
+    { "en": "That's against the rules.", "ru": "Это против правил." },
+    { "en": "Better safe than sorry.", "ru": "Береженого бог бережёт." }
+  ],
+  "talk": {
+    "topics_ru": ["безопасность в интернете", "правила в школе и дома", "советы новичку"],
+    "questions_en": [
+      "What are the rules at your school?",
+      "What do you have to do at home?",
+      "What should people never do online?",
+      "What advice would you give a new student?"
+    ],
+    "tutor_notes_ru": "Ученик составляет «правила сервера» для своей игровой команды — с must/mustn't/should. Нейт проверяет логику."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "mustn't или don't have to?",
+      "ask_en": "mustn't or don't have to?",
+      "question": "It's Saturday — you ___ get up early.",
+      "options": ["mustn't", "don't have to", "must"],
+      "answer": "don't have to"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь must, mustn't, have to, don't have to, should.",
+      "ask_en": "Fill in the modal verbs.",
+      "text": "You ___ tell anyone your password. You ___ use the same password everywhere — it's risky. You ___ change it every day — once a year is OK.",
+      "answers": ["mustn't", "shouldn't", "don't have to"],
+      "options": ["mustn't", "shouldn't", "don't have to"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай правила лагеря без текста. Что можно НЕ делать?",
+      "ask_en": "Listen to the camp rules. What don't you have to do?",
+      "audio": "Welcome to camp! You must be in your room by ten. You mustn't leave the camp without a teacher. You don't have to go to the evening disco, but you should try it — it's fun!",
+      "show_text": false,
+      "question": "Что не обязательно?",
+      "options": ["быть в комнате к десяти", "ходить на вечернюю дискотеку", "выходить с учителем"],
+      "answer": "ходить на вечернюю дискотеку"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Скриншот подозрительного сообщения. Объясни другу, что это и что ему стоит и нельзя делать.",
+      "ask_en": "Explain what this is and give advice.",
+      "image": {
+        "prompt_en": "A smartphone screen with a suspicious chat message from an unknown account with a gift box emoji, a big red link button and a timer icon, a game currency icon, flat UI illustration, no readable text",
+        "alt_ru": "Сообщение от неизвестного аккаунта: подарок, большая красная кнопка-ссылка, таймер, иконка игровой валюты — похоже на «бесплатную валюту за вход»."
+      },
+      "say": "Your friend got this message. What should he do?",
+      "must_use": ["mustn't", "should"],
+      "min_sentences": 4,
+      "example": "This is a scam. They want your password. You mustn't click on the link. You shouldn't answer the message. You should block this account and tell an adult. And you should turn on two-factor authentication."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Составь «правила сервера» для своей игровой команды или чата: 3 must/mustn't, 2 should, 1 don't have to.",
+      "ask_en": "Write the rules for your team's chat.",
+      "mode": "answer",
+      "say": "You're the admin now. Give me the rules of your server.",
+      "example": "Rule one: you must be polite. You mustn't share other people's photos. You mustn't spam. You should help new players. You should report scams. You don't have to play every day — it's just for fun.",
+      "must_use": ["must", "mustn't", "should", "don't have to"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Расскажи Нейту, какие правила у тебя дома и в школе: что обязательно, что нельзя, что не обязательно — и одно правило, которое ты бы поменял.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Правила дома и в школе.",
+        "ask_en": "Rules at home and at school.",
+        "mode": "answer",
+        "say": "Rules at home and at school. And one rule you'd change.",
+        "example": "At school we have to wear a uniform and we mustn't use phones in class. At home I have to walk the dog, but I don't have to cook. I think schools shouldn't start at eight — it's too early!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в правилах (t5) mustn't и don't have to различены верно."
+  },
+  "review": {
+    "lessons": ["a1-m2-l4", "a1-m4-l4"],
+    "words_to_srs": true,
+    "note_ru": "Повелительное (Don't…) → модальные; соцсети и онлайн."
+  }
+}

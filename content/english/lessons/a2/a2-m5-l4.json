@@ -1,0 +1,221 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m5-l4",
+  "level": "a2",
+  "module": "a2-m5",
+  "detail": "detailed",
+  "title": { "ru": "Жизнь онлайн", "en": "Life online" },
+  "goal_ru": "После урока ты сможешь высказать мнение и согласиться или не согласиться.",
+  "can_do_en": "I can give my opinion simply and agree or disagree politely.",
+  "minutes": 15,
+  "theme": "internet",
+  "interests": ["games", "society", "school"],
+  "words": [
+    {
+      "en": "In my opinion / I think",
+      "ru": "По-моему / я думаю",
+      "example_en": "In my opinion, social media is useful.",
+      "example_ru": "По-моему, соцсети полезны."
+    },
+    {
+      "en": "agree / disagree",
+      "ru": "соглашаться / не соглашаться",
+      "example_en": "I agree with you.",
+      "example_ru": "Я с тобой согласен."
+    },
+    {
+      "en": "That's true, but…",
+      "ru": "Это правда, но…",
+      "example_en": "That's true, but it's also dangerous.",
+      "example_ru": "Правда, но это ещё и опасно."
+    },
+    {
+      "en": "screen time",
+      "ru": "время за экраном",
+      "example_en": "My screen time is six hours a day.",
+      "example_ru": "У меня шесть часов экранного времени в день."
+    },
+    {
+      "en": "addicted (to)",
+      "ru": "зависимый (от)",
+      "example_en": "Some teenagers are addicted to their phones.",
+      "example_ru": "Некоторые подростки зависимы от телефонов."
+    },
+    {
+      "en": "useful / harmful",
+      "ru": "полезный / вредный",
+      "example_en": "Is gaming harmful?",
+      "example_ru": "Игры вредны?"
+    },
+    {
+      "en": "advantage / disadvantage",
+      "ru": "плюс / минус",
+      "example_en": "One advantage is…",
+      "example_ru": "Один плюс —…"
+    },
+    {
+      "en": "fake news",
+      "ru": "фейковые новости",
+      "example_en": "There's a lot of fake news online.",
+      "example_ru": "В сети много фейков."
+    },
+    {
+      "en": "on the other hand",
+      "ru": "с другой стороны",
+      "example_en": "On the other hand, you can learn a lot.",
+      "example_ru": "С другой стороны, можно многому научиться."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Мнение и аргумент: I think…, because…; agree / disagree; связки but, however, on the other hand",
+    "explain_ru": "Мнение: I think (that)…, In my opinion…, I believe… Причина: because + предложение, because of + существительное. Согласие: I agree (with you). Exactly! Несогласие вежливо: I'm not sure about that. I see your point, but… I don't agree (не «I'm not agree»!). Контраст: but, however (в начале предложения), on the other hand.",
+    "explain_en": "I think…, In my opinion… because… I agree / I don't agree. I see your point, but… However, … On the other hand, …",
+    "examples": [
+      {
+        "en": "I think gaming isn't harmful because it helps you think fast.",
+        "ru": "По-моему, игры не вредны, потому что учат думать быстро."
+      },
+      {
+        "en": "I see your point, but six hours a day is too much.",
+        "ru": "Понимаю тебя, но шесть часов в день — слишком."
+      },
+      {
+        "en": "Social media connects people. On the other hand, there's a lot of fake news.",
+        "ru": "Соцсети соединяют людей. С другой стороны, там много фейков."
+      }
+    ],
+    "mistakes": [
+      { "wrong": "I am agree.", "right": "I agree.", "why_ru": "agree — глагол, am не нужен." },
+      {
+        "wrong": "I'm not agree with you.",
+        "right": "I don't agree with you.",
+        "why_ru": "Отрицание глагола — don't."
+      },
+      {
+        "wrong": "because the internet (без глагола)",
+        "right": "because of the internet / because the internet is…",
+        "why_ru": "because + предложение; because of + существительное."
+      },
+      { "wrong": "On my opinion", "right": "In my opinion", "why_ru": "Предлог — in." }
+    ],
+    "tutor_notes_ru": "Итог модуля «Технологии». Нейт всегда занимает противоположную сторону. Учить не только спорить, но и признавать довод («That's true, but…»). Тема screen time — без морали, на фактах ученика."
+  },
+  "phrases": [
+    { "en": "Exactly!", "ru": "Именно!" },
+    { "en": "I see your point, but…", "ru": "Понимаю, но…" },
+    { "en": "I'm not so sure.", "ru": "Я не уверен." },
+    { "en": "Let's agree to disagree.", "ru": "Останемся каждый при своём." }
+  ],
+  "talk": {
+    "topics_ru": ["вредны ли игры", "соцсети: плюсы и минусы", "телефоны в школе"],
+    "questions_en": [
+      "Is gaming harmful? Why or why not?",
+      "What are the advantages of social media?",
+      "Should phones be allowed at school?",
+      "How much screen time is too much?"
+    ],
+    "tutor_notes_ru": "Мини-дебаты 3 раунда: ученик выбирает сторону, Нейт — против; в конце ученик признаёт один довод Нейта (That's true, but…)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "ask_en": "Which is correct?",
+      "question": "Я не согласен.",
+      "options": ["I'm not agree.", "I don't agree.", "I not agree."],
+      "answer": "I don't agree."
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "vocab",
+      "ask_ru": "Вставь связку.",
+      "ask_en": "Fill in the linking words.",
+      "text": "Social media is useful ___ you can talk to friends. ___, it can be harmful. ___ my opinion, you just need limits.",
+      "answers": ["because", "However", "In"],
+      "options": ["because", "However", "In"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай спор без текста. С чем Лена согласна?",
+      "ask_en": "Listen. What does Lena agree with?",
+      "audio": "— I think phones should be banned at school. — I see your point, they're distracting. But in my opinion, we need them for emergencies. — That's true. Maybe they should be in our bags during lessons? — Yes, I agree with that.",
+      "show_text": false,
+      "question": "На чём они сошлись?",
+      "options": [
+        "запретить телефоны полностью",
+        "телефоны в сумках во время уроков",
+        "телефоны можно всегда"
+      ],
+      "answer": "телефоны в сумках во время уроков"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Мини-дебаты: «Видеоигры — пустая трата времени». Нейт за, ты — против (или наоборот). 3 раунда, в конце признай один его довод.",
+      "ask_en": "Debate: 'Video games are a waste of time.'",
+      "scenario_ru": "Дебаты на 3 раунда.",
+      "tutor_role": "debater who says games are a waste of time",
+      "learner_role": "debater who defends games",
+      "opening": "Video games are a waste of time. Change my mind.",
+      "goals_ru": [
+        "3 аргумента с because",
+        "вежливое несогласие",
+        "признать один довод: That's true, but…"
+      ],
+      "must_use": ["In my opinion", "I see your point, but", "That's true, but"],
+      "min_turns": 6,
+      "example": [
+        "T: Video games are a waste of time.",
+        "L: I don't agree. In my opinion, games help you think fast and solve problems.",
+        "T: People play for ten hours a day!",
+        "L: I see your point, but that's a problem of time, not of games.",
+        "T: Kids don't go outside.",
+        "L: That's true, but a lot of people play games and do sport too."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Твоё мнение о своём экранном времени: сколько, хорошо ли это, что бы ты изменил. Плюсы и минусы.",
+      "ask_en": "Your opinion about your own screen time.",
+      "mode": "answer",
+      "say": "Your screen time. Honest numbers. Good or bad? Advantages and disadvantages.",
+      "example": "My screen time is about five hours a day. In my opinion, it's not all bad, because I code and learn English online. On the other hand, I sometimes scroll for an hour and it's a waste of time. I think I should turn off notifications in the evening.",
+      "must_use": ["In my opinion", "On the other hand"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Технологии»: голосом — мнение на тему «AI в учёбе: помощь или обман?» — минута, с аргументами за и против и твоим выводом.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Минута мнения: AI в учёбе.",
+        "ask_en": "One minute: AI in studying — help or cheating?",
+        "mode": "answer",
+        "say": "AI for homework. Help or cheating? One minute.",
+        "example": "In my opinion, AI is a great tool if you use it correctly. It can explain difficult topics because it's patient. On the other hand, if you just copy answers, you don't learn anything. So I think students should use AI to learn, not to cheat."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в дебатах (t4) ты аргументировал с because и вежливо признал довод."
+  },
+  "review": {
+    "lessons": ["a2-m1-l1", "a2-m5-l1"],
+    "words_to_srs": true,
+    "note_ru": "Сравнения и should — в аргументах."
+  }
+}

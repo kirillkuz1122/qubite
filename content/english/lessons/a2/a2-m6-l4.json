@@ -1,0 +1,239 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m6-l4",
+  "level": "a2",
+  "module": "a2-m6",
+  "detail": "detailed",
+  "title": { "ru": "Итог: интервью A2", "en": "Boss lesson: the A2 interview" },
+  "goal_ru": "После урока ты сможешь пять минут отвечать на вопросы интервью о себе, опыте и планах.",
+  "can_do_en": "I can take part in a five-minute interview about myself, my experience, a story from my past, my plans and my opinions.",
+  "minutes": 20,
+  "theme": "intro",
+  "interests": ["olympiads", "programming", "travel", "games"],
+  "tutor_language_ru": "Итоговый урок: всё по-английски (A2), русский — только разбор ошибок в конце. Нейт — интервьюер международной летней школы: вежливый, но придирчивый.",
+  "words": [
+    {
+      "en": "Let me think…",
+      "ru": "Дай подумать…",
+      "example_en": "Let me think… I'd say chess.",
+      "example_ru": "Дай подумать… Пожалуй, шахматы."
+    },
+    {
+      "en": "to be honest",
+      "ru": "честно говоря",
+      "example_en": "To be honest, I was scared.",
+      "example_ru": "Честно говоря, мне было страшно."
+    },
+    {
+      "en": "for example",
+      "ru": "например",
+      "example_en": "For example, last year I…",
+      "example_ru": "Например, в прошлом году я…"
+    },
+    {
+      "en": "what I mean is…",
+      "ru": "я имею в виду…",
+      "example_en": "What I mean is, it's useful.",
+      "example_ru": "Я имею в виду, это полезно."
+    },
+    {
+      "en": "Could you repeat the question?",
+      "ru": "Можете повторить вопрос?",
+      "example_en": "Sorry, could you repeat the question?",
+      "example_ru": "Простите, можете повторить вопрос?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Повторение A2: сравнения, Present Perfect, прошедшие времена, used to, будущее и условия, модальные, пассив, who/which",
+    "explain_ru": "Новых правил нет. В интервью ты переключаешься между временами по смыслу: опыт — Present Perfect (I've taken part in…), история — Past Simple + Continuous, раньше — used to, планы — going to, прогноз — will, условие — If…, will…, мнение — I think… because…, советы — should. Выигрывают связки и «тянущие время» фразы (Let me think…, To be honest…).",
+    "explain_en": "No new rules. Switch tenses by meaning: experience (Present Perfect), stories (Past Simple/Continuous), used to, plans (going to), predictions (will), conditions (If…), opinions (I think… because…).",
+    "examples": [
+      {
+        "en": "I've been interested in programming since I was eleven. I used to play games, but now I make them.",
+        "ru": "Я увлекаюсь программированием с одиннадцати лет. Раньше я играл в игры, а теперь их делаю."
+      },
+      {
+        "en": "If I get into this summer school, I'll work on a real project.",
+        "ru": "Если попаду в эту летнюю школу, поработаю над настоящим проектом."
+      },
+      {
+        "en": "To be honest, the hardest thing I've ever done was my first olympiad.",
+        "ru": "Честно говоря, самое трудное, что я делал, — первая олимпиада."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I live here for five years.",
+        "right": "I've lived here for five years.",
+        "why_ru": "Главная калька A2."
+      },
+      {
+        "wrong": "If I will get in, I will…",
+        "right": "If I get in, I'll…",
+        "why_ru": "После if — настоящее."
+      },
+      {
+        "wrong": "I've won it in 2025.",
+        "right": "I won it in 2025.",
+        "why_ru": "Есть дата — Past Simple."
+      },
+      {
+        "wrong": "I'm agree / more better",
+        "right": "I agree / better",
+        "why_ru": "Типичные ошибки A2."
+      }
+    ],
+    "tutor_notes_ru": "«Босс» A2. Структура (5 частей по ~1 минуте): 1) о себе и сравнения; 2) опыт и достижения; 3) история из прошлого; 4) планы и «что если»; 5) мнение о технологиях. Потом ролевая поездка (аэропорт/гостиница). Не перебивать; записывать ошибки; в конце — 3 главные по-русски и сравнение с итогом A1. Зачёт: понятность, ≥ 6 разных конструкций A2 к месту, нет кальки for/since и will после if. После зачёта — достижение «Интервью», открыт B1 (план), агент дописывает уроки B1 по семенам."
+  },
+  "phrases": [
+    { "en": "That's a good question.", "ru": "Хороший вопрос." },
+    { "en": "I'd say…", "ru": "Я бы сказал…" },
+    { "en": "As I said before…", "ru": "Как я уже говорил…" },
+    { "en": "Thank you for your time.", "ru": "Спасибо за ваше время." }
+  ],
+  "talk": {
+    "topics_ru": ["интервью в международную летнюю школу"],
+    "questions_en": [
+      "Tell me about yourself. How are you different from your friends?",
+      "What's the most interesting thing you've ever done?",
+      "Tell me about a time when something went wrong.",
+      "What did you use to do when you were younger?",
+      "What are you going to do after school? What will you do if your plan doesn't work?",
+      "Do you think AI will change education? Why?"
+    ],
+    "tutor_notes_ru": "Интервьюер переспрашивает (Why? Can you give an example?) — тянуть ответ до 3–5 предложений. В конце ученик задаёт 2 вопроса интервьюеру (Could you tell me…?)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Разминка: выбери правильное.",
+      "ask_en": "Warm-up: choose the correct option.",
+      "question": "I ___ chess since I was seven, and I ___ my first tournament in 2022.",
+      "options": ["play / have won", "have played / won", "played / have won"],
+      "answer": "have played / won"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Разминка: вставь по смыслу.",
+      "ask_en": "Warm-up: fill in the gaps.",
+      "text": "If I ___ (get) into the school, I ___ (work) on AI. The teacher ___ helped me most is my coach. Phones ___ (make) in many countries.",
+      "answers": ["get", "will work", "who", "are made"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай ответ другого кандидата без текста. Почему он хочет в летнюю школу?",
+      "ask_en": "Listen to another candidate. Why does he want to join?",
+      "audio": "To be honest, I used to think programming was boring. But two years ago I made a small game for my brother, and he loved it. Since then I've built three more games. If I join your school, I'll learn how to work in a real team — that's the thing I've never done.",
+      "show_text": false,
+      "question": "Зачем ему летняя школа?",
+      "options": [
+        "научиться работать в настоящей команде",
+        "сделать первую игру",
+        "выиграть олимпиаду"
+      ],
+      "answer": "научиться работать в настоящей команде"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Главное задание: интервью на 5 минут в международную летнюю школу. Отвечай развёрнуто — 3–5 предложений на вопрос.",
+      "ask_en": "The main task: a five-minute interview.",
+      "scenario_ru": "Отбор в международную летнюю IT-школу, онлайн-собеседование.",
+      "tutor_role": "interviewer of an international summer school",
+      "learner_role": "candidate",
+      "opening": "Hello and welcome. Let's start. Tell me about yourself — and how are you different from your friends?",
+      "goals_ru": [
+        "о себе со сравнениями",
+        "опыт и достижения (Present Perfect + Past)",
+        "история «что-то пошло не так» (Past Continuous, связки)",
+        "used to — что изменилось",
+        "планы и условие (going to, If…, will)",
+        "мнение о технологиях с аргументами",
+        "2 вопроса интервьюеру (Could you tell me…?)"
+      ],
+      "must_use": ["I've", "used to", "If", "In my opinion", "Could you tell me"],
+      "min_turns": 10,
+      "example": [
+        "T: Tell me about yourself.",
+        "L: I'm fifteen and I live in Chelyabinsk. I'm probably more patient than my friends — I can sit with one problem for hours.",
+        "T: What's the most interesting thing you've done?",
+        "L: I've taken part in a regional olympiad. I got there in 2025 after two years of training.",
+        "T: Tell me about a time something went wrong.",
+        "L: While I was presenting my project, my laptop suddenly died…"
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Последний вопрос интервьюера: «Опиши эту картинку и скажи, что бы ты сделал на месте этого человека».",
+      "ask_en": "Describe the picture and say what this person should do.",
+      "image": {
+        "prompt_en": "A teenager alone at a foreign airport late at night, looking at a phone with a low battery icon, a departures board behind showing a cancelled flight, a closed information desk, a café still open, realistic soft illustration, no readable text",
+        "alt_ru": "Подросток один ночью в зарубежном аэропорту, телефон почти сел, на табло рейс отменён, справочная закрыта, кафе ещё работает."
+      },
+      "say": "What's happening? What should this person do?",
+      "must_use": ["should", "If"],
+      "min_sentences": 5,
+      "example": "A teenager is at an airport at night and his flight has been cancelled. His phone is almost dead and the information desk is closed. He should go to the café and charge his phone. If he can't call his parents, he should ask a staff member for help. He shouldn't leave the airport alone."
+    },
+    {
+      "id": "t6",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "В конце — попроси интервьюера рассказать о программе: два вежливых косвенных вопроса.",
+      "ask_en": "Ask the interviewer two polite questions.",
+      "mode": "answer",
+      "say": "Do you have any questions for us?",
+      "example": "Yes, thank you. Could you tell me how many students there are in a team? And do you know when the results will be announced?",
+      "must_use": ["Could you tell me"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши лучшую версию ответа «Tell me about yourself» на 2 минуты — она попадёт в «Английский.md» рядом с монологами A0 и A1.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Финальный рассказ о себе уровня A2.",
+        "ask_en": "Your final A2 self-introduction.",
+        "mode": "answer",
+        "say": "Tell me about yourself. Final A2 version.",
+        "example": "I'm Kirill… I've been… When I was younger, I used to… Last year… Next year I'm going to… In my opinion…"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 3,
+    "required": ["t4", "t6"],
+    "about_ru": "Уровень A2 пройден, если интервью (t4) понятное, в нём к месту ≥ 6 конструкций A2, нет кальки «I live here for…» и will после if, ты задал вежливые вопросы (t6) и верно 75% остальных заданий."
+  },
+  "review": {
+    "lessons": [
+      "a1-m6-l4",
+      "a2-m1-l2",
+      "a2-m2-l3",
+      "a2-m2-l4",
+      "a2-m3-l2",
+      "a2-m3-l3",
+      "a2-m4-l2",
+      "a2-m4-l4",
+      "a2-m5-l1",
+      "a2-m5-l4",
+      "a2-m6-l1",
+      "a2-m6-l3"
+    ],
+    "words_to_srs": true,
+    "note_ru": "Итог A2: монолог сравнивается с итогами A0 и A1. Слабые места — в первые уроки B1, которые агент допишет."
+  }
+}

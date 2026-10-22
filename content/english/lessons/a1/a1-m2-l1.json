@@ -1,0 +1,260 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m2-l1",
+  "level": "a1",
+  "module": "a1-m2",
+  "detail": "full",
+  "title": { "ru": "Моя комната", "en": "My room" },
+  "goal_ru": "После урока ты сможешь описать свою комнату: что в ней есть и чего нет.",
+  "can_do_en": "I can describe my room: what there is and what there isn't.",
+  "minutes": 15,
+  "theme": "home",
+  "interests": ["games", "programming", "music"],
+  "words": [
+    {
+      "en": "bed",
+      "ru": "кровать",
+      "example_en": "There's a bed by the window.",
+      "example_ru": "У окна кровать."
+    },
+    {
+      "en": "desk / chair",
+      "ru": "письменный стол / стул",
+      "example_en": "There's a desk and a chair.",
+      "example_ru": "Есть стол и стул."
+    },
+    {
+      "en": "wardrobe",
+      "ru": "шкаф для одежды",
+      "example_en": "There's a big wardrobe.",
+      "example_ru": "Есть большой шкаф."
+    },
+    {
+      "en": "shelf / shelves",
+      "ru": "полка / полки",
+      "example_en": "There are two shelves.",
+      "example_ru": "Есть две полки."
+    },
+    {
+      "en": "window / door",
+      "ru": "окно / дверь",
+      "example_en": "There's one window.",
+      "example_ru": "Одно окно."
+    },
+    {
+      "en": "lamp",
+      "ru": "лампа",
+      "example_en": "There's a lamp on the desk.",
+      "example_ru": "На столе лампа."
+    },
+    {
+      "en": "poster",
+      "ru": "постер",
+      "example_en": "There are posters on the wall.",
+      "example_ru": "На стене постеры."
+    },
+    {
+      "en": "wall / floor",
+      "ru": "стена / пол",
+      "example_en": "The walls are grey.",
+      "example_ru": "Стены серые."
+    },
+    {
+      "en": "monitor / keyboard",
+      "ru": "монитор / клавиатура",
+      "example_en": "There are two monitors!",
+      "example_ru": "Там два монитора!"
+    },
+    {
+      "en": "carpet / plant",
+      "ru": "ковёр / растение",
+      "example_en": "There isn't a carpet.",
+      "example_ru": "Ковра нет."
+    }
+  ],
+  "grammar": {
+    "title_ru": "There is / There are; Is there…? There isn't / aren't any",
+    "explain_ru": "«В комнате есть кровать» по-английски начинается не с «в комнате», а с There is: There is a bed in my room. Много вещей — There are: There are two shelves. Нет: There isn't a carpet / There aren't any plants. Вопрос: Is there a TV? Are there any posters? Сокращение: There's.",
+    "explain_en": "There's a bed. There are two shelves. There isn't a TV. There aren't any plants. Is there a lamp? — Yes, there is.",
+    "examples": [
+      {
+        "en": "There's a desk by the window and there are three shelves.",
+        "ru": "У окна стол и три полки."
+      },
+      { "en": "There aren't any plants in my room.", "ru": "В моей комнате нет растений." },
+      { "en": "Is there a TV? — No, there isn't.", "ru": "Есть телевизор? — Нет." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "In my room is a bed.",
+        "right": "There is a bed in my room.",
+        "why_ru": "«Что-то где-то есть» — начинаем с There is."
+      },
+      {
+        "wrong": "There is two monitors.",
+        "right": "There are two monitors.",
+        "why_ru": "Много — are."
+      },
+      {
+        "wrong": "My room has a bed (везде)",
+        "right": "There's a bed in my room.",
+        "why_ru": "has тоже можно, но There is — естественнее для описания."
+      },
+      {
+        "wrong": "There aren't plants.",
+        "right": "There aren't any plants.",
+        "why_ru": "В отрицании с множественным числом — any."
+      }
+    ],
+    "tutor_notes_ru": "Новая конструкция, которой в русском нет. Перевернуть русский порядок: «В комнате есть стол» → «Есть стол в комнате». Предлоги места (on, by) дать в примерах, подробно — следующий урок. Повторить цвета и a/an."
+  },
+  "phrases": [
+    { "en": "There's … in my room.", "ru": "В моей комнате есть …" },
+    { "en": "Is there a …? — Yes, there is. / No, there isn't.", "ru": "Есть …? — Да. / Нет." },
+    { "en": "My room is small but cosy.", "ru": "Моя комната маленькая, но уютная." },
+    { "en": "It's a bit messy.", "ru": "Там небольшой беспорядок." }
+  ],
+  "talk": {
+    "topics_ru": ["твоя комната", "рабочее место / сетап", "комната мечты"],
+    "questions_en": [
+      "Is your room big or small?",
+      "What's on your desk?",
+      "Is there a TV in your room?",
+      "What is there in your dream room?"
+    ],
+    "tutor_notes_ru": "«Сетап» (компьютер, мониторы) — живая тема для геймера и программиста. Комната мечты — с фантазией (There's a pool!)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "wardrobe", "ru": "шкаф" },
+        { "en": "shelf", "ru": "полка" },
+        { "en": "desk", "ru": "письменный стол" },
+        { "en": "carpet", "ru": "ковёр" },
+        { "en": "plant", "ru": "растение" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Is или are?",
+      "question": "There ___ three posters on the wall.",
+      "options": ["is", "are"],
+      "answer": "are"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь is, are, isn't или aren't.",
+      "text": "There ___ a bed and there ___ two chairs. There ___ any plants.",
+      "answers": ["is", "are", "aren't"],
+      "options": ["is", "are", "aren't", "isn't"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "В твоей комнате есть телевизор?",
+      "answer": "Is there a TV in your room?",
+      "extra": ["are", "has"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста: сколько мониторов у Тома?",
+      "audio": "My room is small. There's a bed, a desk and a big chair. On the desk there are two monitors and a keyboard. There isn't a TV.",
+      "show_text": false,
+      "question": "Сколько мониторов?",
+      "options": ["один", "два", "три"],
+      "answer": "два"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "В моей комнате есть большое окно, но нет ковра.",
+      "answers": [
+        "There's a big window in my room, but there isn't a carpet.",
+        "There is a big window in my room but there is no carpet."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Опиши комнату подростка: что в ней есть и чего нет.",
+      "image": {
+        "prompt_en": "Cosy teenager bedroom: a bed with a blue blanket, a desk with two monitors and a keyboard, a gaming chair, three posters on the wall, a bookshelf, a small plant, no TV, isometric flat illustration, no text",
+        "alt_ru": "Комната: кровать с синим одеялом, стол с двумя мониторами и клавиатурой, игровое кресло, три постера, книжная полка, маленькое растение; телевизора нет."
+      },
+      "say": "What is there in this room?",
+      "must_use": ["There's", "There are", "There isn't"],
+      "min_sentences": 5,
+      "example": "There's a bed with a blue blanket. There's a desk and there are two monitors on it. There are three posters on the wall. There's a small plant. There isn't a TV."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Опиши Нейту свою комнату — 5 фраз.",
+      "mode": "answer",
+      "say": "Describe your room. Big? Messy? What's there?",
+      "example": "My room is small but cosy. There's a bed and a desk. There's a laptop on the desk. There are two shelves with books. There isn't a TV.",
+      "must_use": ["There's", "There are"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "There are three shelves and there's a lamp.",
+      "focus_ru": "there — «зэа», звонкое th."
+    }
+  ],
+  "homework": {
+    "about_ru": "Придумай и опиши голосом комнату мечты — 5–6 фраз с There is / There are. Можно фантазировать.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Комната мечты.",
+        "mode": "answer",
+        "say": "Describe your dream room.",
+        "example": "In my dream room there's a huge bed. There are three monitors and a 3D printer. There's a mini fridge with ice cream. There isn't a desk for homework!"
+      },
+      {
+        "id": "h2",
+        "type": "translate",
+        "skill": "writing",
+        "ask_ru": "Переведи.",
+        "from": "ru",
+        "text": "Есть ли постеры на стене? — Да.",
+        "answers": ["Are there any posters on the wall? — Yes, there are."]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и ты описал свою комнату с There is/are без «In my room is…» (t8)."
+  },
+  "review": {
+    "lessons": ["a0-m2-l2", "a0-m2-l3"],
+    "words_to_srs": true,
+    "note_ru": "Вещи, a/an и цвета из A0 — в описании комнаты."
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m2-l3",
+  "level": "a2",
+  "module": "a2-m2",
+  "detail": "detailed",
+  "title": { "ru": "Был или бывал?", "en": "Past Simple or Present Perfect?" },
+  "goal_ru": "После урока ты сможешь выбирать между Past Simple и Present Perfect.",
+  "can_do_en": "I can choose between the Past Simple and the Present Perfect.",
+  "minutes": 15,
+  "theme": "olympiads",
+  "interests": ["sport", "travel", "games"],
+  "words": [
+    {
+      "en": "recently / lately",
+      "ru": "недавно / в последнее время",
+      "example_en": "I've learned a lot recently.",
+      "example_ru": "Я недавно многому научился."
+    },
+    {
+      "en": "so far",
+      "ru": "пока что, до сих пор",
+      "example_en": "So far I've solved three problems.",
+      "example_ru": "Пока я решил три задачи."
+    },
+    {
+      "en": "this year / today",
+      "ru": "в этом году / сегодня (ещё не кончились)",
+      "example_en": "I've had two tests this week.",
+      "example_ru": "На этой неделе у меня уже было две контрольные."
+    },
+    {
+      "en": "in 2024 / last month / when I was ten",
+      "ru": "в 2024 / в прошлом месяце / когда мне было 10",
+      "example_en": "I won it in 2024.",
+      "example_ru": "Я выиграл это в 2024-м."
+    },
+    {
+      "en": "achievement",
+      "ru": "достижение",
+      "example_en": "My biggest achievement so far…",
+      "example_ru": "Моё главное достижение на сегодня…"
+    },
+    {
+      "en": "diploma / medal",
+      "ru": "диплом / медаль",
+      "example_en": "I've got three diplomas.",
+      "example_ru": "У меня три диплома."
+    },
+    {
+      "en": "stage / round",
+      "ru": "этап / тур",
+      "example_en": "I got to the regional stage.",
+      "example_ru": "Я прошёл на региональный этап."
+    },
+    {
+      "en": "improve",
+      "ru": "улучшить(ся)",
+      "example_en": "My English has improved.",
+      "example_ru": "Мой английский стал лучше."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Simple — законченное время; Present Perfect — период до сейчас или результат",
+    "explain_ru": "Простой тест: есть законченное время (yesterday, last year, in 2024, when I was ten, «когда?») → Past Simple: I won the olympiad in 2024. Время не названо, важен опыт или результат сейчас, или период ещё идёт (today, this year, so far, recently, ever, never) → Present Perfect: I've won two olympiads (за всю жизнь). Типичный разговор: Have you ever…? (Perfect) — Yes, I have. — When did you…? (Past).",
+    "explain_en": "Finished time (yesterday, last year, in 2024) → Past Simple. No time, life experience, or unfinished period (today, this year, so far) → Present Perfect. Have you ever…? — When did you…?",
+    "examples": [
+      {
+        "en": "I've taken part in five olympiads so far. My first one was in 2023.",
+        "ru": "Я пока участвовал в пяти олимпиадах. Первая была в 2023-м."
+      },
+      {
+        "en": "My English has improved a lot this year.",
+        "ru": "Мой английский сильно улучшился за этот год."
+      },
+      {
+        "en": "Did you see the match last night? — No, I've been busy all week.",
+        "ru": "Видел матч вчера? — Нет, я всю неделю занят."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I've won it in 2024.",
+        "right": "I won it in 2024.",
+        "why_ru": "Есть «в 2024» — Past Simple."
+      },
+      {
+        "wrong": "When have you started?",
+        "right": "When did you start?",
+        "why_ru": "Вопрос «когда?» — Past Simple."
+      },
+      {
+        "wrong": "I've seen him yesterday.",
+        "right": "I saw him yesterday.",
+        "why_ru": "yesterday — законченное время."
+      },
+      {
+        "wrong": "I've got to the final last week.",
+        "right": "I got to the final last week.",
+        "why_ru": "last week — законченное время, Past Simple."
+      }
+    ],
+    "tutor_notes_ru": "Самое трудное место A2 для русских (у нас одно прошедшее). Не давить правилами — тренировать на маркерах и на диалоге «Have you ever…? — When did you…?». Тема — достижения: ученику приятно рассказывать, а Нейту — ворчливо признавать."
+  },
+  "phrases": [
+    { "en": "So far, so good.", "ru": "Пока всё хорошо." },
+    { "en": "My biggest achievement is…", "ru": "Моё главное достижение —…" },
+    { "en": "I'm proud of it.", "ru": "Я этим горжусь." },
+    { "en": "It was a long time ago.", "ru": "Это было давно." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "достижения",
+      "что изменилось за этот год",
+      "первая олимпиада, первый код, первый матч"
+    ],
+    "questions_en": [
+      "What's your biggest achievement so far?",
+      "How many olympiads have you taken part in?",
+      "When did you start coding?",
+      "What has changed in your life this year?"
+    ],
+    "tutor_notes_ru": "Нейт, как журналист, берёт интервью «путь чемпиона»: Perfect для итогов, Past для эпизодов."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери время.",
+      "ask_en": "Choose the tense.",
+      "question": "I ___ my first program when I was eleven.",
+      "options": ["have written", "wrote", "have wrote"],
+      "answer": "wrote"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глаголы в Past Simple или Present Perfect.",
+      "ask_en": "Past Simple or Present Perfect?",
+      "text": "I ___ (take) part in four olympiads so far. Last year I ___ (get) to the regional stage. This year my results ___ (improve) a lot.",
+      "answers": ["have taken", "got", "have improved"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай интервью без текста. Когда Ира выиграла первую медаль?",
+      "ask_en": "Listen. When did Ira win her first medal?",
+      "audio": "I've been in the swimming team for five years. I've won seven medals so far. My first medal? I won it when I was nine — it was a small city competition, but I was so happy.",
+      "show_text": false,
+      "question": "Когда первая медаль?",
+      "options": ["пять лет назад", "в девять лет", "в этом году"],
+      "answer": "в девять лет"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт — журналист городского портала, берёт интервью «Путь чемпиона». Расскажи о своих достижениях: итоги (Perfect) и эпизоды (Past).",
+      "ask_en": "Answer the journalist's questions about your achievements.",
+      "scenario_ru": "Интервью для новостей школы.",
+      "tutor_role": "journalist from the school news",
+      "learner_role": "young champion",
+      "opening": "So, tell our readers. What have you achieved so far?",
+      "goals_ru": [
+        "сказать об итогах с so far / ever",
+        "рассказать 2 эпизода с датой в Past Simple",
+        "ответить на When did you…?"
+      ],
+      "must_use": ["so far", "When"],
+      "min_turns": 5,
+      "example": [
+        "T: What have you achieved so far?",
+        "L: I've taken part in six olympiads and I've won two diplomas.",
+        "T: When did you start?",
+        "L: I started in the fifth grade. My first olympiad was in 2022.",
+        "T: And your best result?",
+        "L: Last spring I got to the regional stage."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Что изменилось в твоей жизни за этот год? 3 Perfect + 2 Past с датой.",
+      "ask_en": "What has changed this year?",
+      "mode": "answer",
+      "say": "This year. What has changed? Give me details with dates.",
+      "example": "This year I've grown ten centimetres. I've started learning C++ and I've made two new friends. In September I joined a robotics club. In March I went to my first hackathon.",
+      "must_use": ["I've", "in"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Опыт»: запиши «резюме» на минуту — опыт, достижения, что уже сделал в этом году и ещё нет, и пара историй с датами.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Резюме голосом.",
+        "ask_en": "Your spoken CV.",
+        "mode": "answer",
+        "say": "Your one-minute CV. Experience, achievements, plans.",
+        "example": "I've been coding for three years. I've taken part in five olympiads and I've won two diplomas. My first diploma was in 2024. This year I've already finished an online course, but I haven't built my own website yet."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в интервью (t4) нет Present Perfect с законченным временем."
+  },
+  "review": {
+    "lessons": ["a2-m2-l1", "a2-m2-l2", "a1-m5-l4"],
+    "words_to_srs": true,
+    "note_ru": "Весь модуль + did-вопросы из A1."
+  }
+}

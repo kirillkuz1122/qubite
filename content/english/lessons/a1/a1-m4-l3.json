@@ -1,0 +1,279 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m4-l3",
+  "level": "a1",
+  "module": "a1-m4",
+  "detail": "full",
+  "title": { "ru": "Что ты делаешь сейчас?", "en": "What are you doing now?" },
+  "goal_ru": "После урока ты сможешь сказать, что происходит прямо сейчас, и описать картинку.",
+  "can_do_en": "I can say what is happening now and describe a picture.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["games", "sport", "internet"],
+  "words": [
+    {
+      "en": "now / right now",
+      "ru": "сейчас / прямо сейчас",
+      "example_en": "I'm doing my homework right now.",
+      "example_ru": "Я прямо сейчас делаю домашку."
+    },
+    {
+      "en": "at the moment",
+      "ru": "в данный момент",
+      "example_en": "She's sleeping at the moment.",
+      "example_ru": "Она сейчас спит."
+    },
+    {
+      "en": "wear",
+      "ru": "быть одетым в, носить",
+      "example_en": "He's wearing a red hoodie.",
+      "example_ru": "На нём красное худи."
+    },
+    {
+      "en": "sit / stand",
+      "ru": "сидеть / стоять",
+      "example_en": "They're sitting on a bench.",
+      "example_ru": "Они сидят на скамейке."
+    },
+    {
+      "en": "talk / chat",
+      "ru": "разговаривать / болтать",
+      "example_en": "We're chatting online.",
+      "example_ru": "Мы болтаем онлайн."
+    },
+    {
+      "en": "wait (for)",
+      "ru": "ждать",
+      "example_en": "I'm waiting for the bus.",
+      "example_ru": "Жду автобус."
+    },
+    {
+      "en": "laugh / smile",
+      "ru": "смеяться / улыбаться",
+      "example_en": "Why are you laughing?",
+      "example_ru": "Почему ты смеёшься?"
+    },
+    {
+      "en": "run / jump",
+      "ru": "бежать / прыгать",
+      "example_en": "The dog is running.",
+      "example_ru": "Собака бежит."
+    },
+    {
+      "en": "rain / snow",
+      "ru": "идёт дождь / снег",
+      "example_en": "It's snowing!",
+      "example_ru": "Идёт снег!"
+    },
+    {
+      "en": "in the picture",
+      "ru": "на картинке",
+      "example_en": "In the picture, a boy is skating.",
+      "example_ru": "На картинке мальчик катается."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Continuous: am / is / are + глагол-ing — то, что идёт сейчас",
+    "explain_ru": "Когда действие идёт ПРЯМО СЕЙЧАС, нужны два кусочка: am/is/are + глагол с -ing. I'm reading. She's sleeping. They're playing. Вопрос — поменяй местами: Are you sleeping? What are you doing? Отрицание: I'm not playing. Картинку описывают так же: In the picture, a girl is running.",
+    "explain_en": "Now: am/is/are + verb-ing. I'm reading. He's running. What are you doing? I'm not sleeping. In the picture, two boys are playing chess.",
+    "examples": [
+      {
+        "en": "What are you doing? — I'm watching a stream.",
+        "ru": "Что делаешь? — Смотрю стрим."
+      },
+      {
+        "en": "It's raining, so we're staying at home.",
+        "ru": "Идёт дождь, поэтому мы сидим дома."
+      },
+      {
+        "en": "In the picture, a boy is wearing headphones and he's smiling.",
+        "ru": "На картинке мальчик в наушниках и улыбается."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I reading now.",
+        "right": "I'm reading now.",
+        "why_ru": "Нужны оба кусочка: am + -ing."
+      },
+      { "wrong": "He is play.", "right": "He is playing.", "why_ru": "После is здесь — -ing." },
+      {
+        "wrong": "What you are doing?",
+        "right": "What are you doing?",
+        "why_ru": "В вопросе are — перед you."
+      },
+      {
+        "wrong": "sitting → siting, running → runing",
+        "right": "sitting, running",
+        "why_ru": "Короткие слова — удвоить согласную."
+      }
+    ],
+    "tutor_notes_ru": "Главный навык урока — описывать картинку (это будет во всех следующих уроках!). Нейт присылает картинку — ученик описывает: кто, где, что делает, во что одет. Можно описывать по камере/фото ученика, если он хочет."
+  },
+  "phrases": [
+    { "en": "What are you doing?", "ru": "Что ты делаешь?" },
+    { "en": "I'm busy right now.", "ru": "Я сейчас занят." },
+    { "en": "In the picture, I can see…", "ru": "На картинке я вижу…" },
+    { "en": "On the left / On the right…", "ru": "Слева / Справа…" }
+  ],
+  "talk": {
+    "topics_ru": ["что ты делаешь прямо сейчас", "что делают люди вокруг", "описание фото"],
+    "questions_en": [
+      "What are you doing right now?",
+      "What is your family doing now?",
+      "What's the weather like now — is it raining?",
+      "What are you wearing today?"
+    ],
+    "tutor_notes_ru": "Подловить на I'm read: «You're reading? Or you *read*? Or nothing at all?». В конце — ученик загадывает действие, Нейт угадывает вопросами Are you…?"
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "question": "Look! The cat ___ on the keyboard.",
+      "options": ["sleep", "is sleeping", "sleeping"],
+      "answer": "is sleeping"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь в Present Continuous.",
+      "text": "I ___ (wait) for the bus. My friends ___ (play) football. It ___ (snow).",
+      "answers": ["am waiting", "are playing", "is snowing"],
+      "hint_ru": "Можно сокращать: I'm waiting."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Что ты сейчас делаешь?",
+      "answer": "What are you doing now?",
+      "extra": ["do", "is"]
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "wear", "ru": "быть одетым в" },
+        { "en": "wait for", "ru": "ждать" },
+        { "en": "laugh", "ru": "смеяться" },
+        { "en": "sit", "ru": "сидеть" },
+        { "en": "at the moment", "ru": "в данный момент" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай звонок без текста. Что делает Сэм?",
+      "audio": "Hi, Mum! No, I'm not at home. I'm sitting in a café with Alex. We're doing our physics project. Yes, I'm eating too.",
+      "show_text": false,
+      "question": "Что делает Сэм?",
+      "options": ["играет дома", "делает проект по физике в кафе", "ждёт автобус"],
+      "answer": "делает проект по физике в кафе"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Идёт дождь. Мы сидим дома и смотрим фильм.",
+      "answers": [
+        "It's raining. We're sitting at home and watching a film.",
+        "It is raining. We are staying at home and watching a movie."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Опиши картинку: кто где, что делает, во что одет. Минимум 6 фраз.",
+      "image": {
+        "prompt_en": "A busy city park scene in autumn: a boy in a red hoodie skateboarding, two girls sitting on a bench and laughing at a phone, an old man walking a dog, a girl with headphones running, light rain starting, colourful flat illustration, no text",
+        "alt_ru": "Парк осенью: мальчик в красном худи катается на скейте, две девочки на скамейке смеются над телефоном, дедушка гуляет с собакой, девочка в наушниках бежит, начинается дождь."
+      },
+      "say": "What's happening in the picture?",
+      "must_use": ["is", "are", "-ing"],
+      "min_sentences": 6,
+      "example": "In the picture, it's autumn and it's starting to rain. A boy in a red hoodie is skateboarding. Two girls are sitting on a bench. They're laughing at a phone. An old man is walking his dog. On the right, a girl is running and she's wearing headphones."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Скажи, что ты делаешь прямо сейчас и что делают люди дома (или вокруг).",
+      "mode": "answer",
+      "say": "What are you doing right now? And your family?",
+      "example": "Right now I'm sitting in my room and talking to you. My mum is cooking dinner. My sister is watching cartoons. It's snowing outside.",
+      "must_use": ["I'm", "is"]
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Игра «Угадай»: ты загадал действие — Нейт угадывает вопросами Are you…? Потом наоборот: угадай ты.",
+      "scenario_ru": "Игра-пантомима голосом.",
+      "tutor_role": "guesser, then the one who thinks of an action",
+      "learner_role": "the one who thinks of an action, then guesser",
+      "opening": "Think of an action. I'll guess. Are you swimming?",
+      "goals_ru": [
+        "отвечать Yes, I am / No, I'm not",
+        "задать 3 вопроса Are you…-ing?",
+        "угадать действие"
+      ],
+      "must_use": ["Are you", "No, I'm not"],
+      "min_turns": 6,
+      "example": [
+        "T: Are you swimming?",
+        "L: No, I'm not.",
+        "T: Are you cooking?",
+        "L: Yes, I am!",
+        "T: My turn. Guess.",
+        "L: Are you sleeping?",
+        "T: No, I'm not. I never sleep."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Сфотографируй что-то интересное на улице или дома (или возьми любую фотографию) и опиши, что на ней происходит, — 5 фраз голосом.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Опиши своё фото: что происходит.",
+        "mode": "answer",
+        "say": "Describe your photo. What's happening?",
+        "example": "In my photo, my cat is sitting on the window. It's looking at the snow. It's snowing a lot. My dad is cleaning the car outside."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Выбери правильное.",
+        "question": "Сейчас идёт снег.",
+        "options": ["It snows now.", "It's snowing now.", "It snowing now."],
+        "answer": "It's snowing now."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 75% заданий и в описании парка (t7) 6 фраз с am/is/are + -ing без пропусков."
+  },
+  "review": {
+    "lessons": ["a0-m2-l3", "a1-m2-l2", "a1-m4-l2"],
+    "words_to_srs": true,
+    "note_ru": "Цвета и одежда, предлоги места — в описании картинки; -ing уже знаком из прошлого урока."
+  }
+}

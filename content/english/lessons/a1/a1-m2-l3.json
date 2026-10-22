@@ -1,0 +1,291 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m2-l3",
+  "level": "a1",
+  "module": "a1-m2",
+  "detail": "full",
+  "title": { "ru": "Мой город", "en": "My city" },
+  "goal_ru": "После урока ты сможешь рассказать, что есть в твоём городе и районе.",
+  "can_do_en": "I can say what there is in my town and my neighbourhood.",
+  "minutes": 15,
+  "theme": "city",
+  "interests": ["sport", "travel", "games"],
+  "words": [
+    {
+      "en": "park",
+      "ru": "парк",
+      "example_en": "There's a big park near my house.",
+      "example_ru": "Рядом с домом большой парк."
+    },
+    {
+      "en": "shopping centre",
+      "ru": "торговый центр",
+      "example_en": "We go to the shopping centre at the weekend.",
+      "example_ru": "На выходных ходим в торговый центр."
+    },
+    {
+      "en": "cinema",
+      "ru": "кинотеатр",
+      "example_en": "Is there a cinema?",
+      "example_ru": "Там есть кинотеатр?"
+    },
+    {
+      "en": "library",
+      "ru": "библиотека",
+      "example_en": "The library is old.",
+      "example_ru": "Библиотека старая."
+    },
+    {
+      "en": "sports ground / gym",
+      "ru": "спортплощадка / спортзал",
+      "example_en": "There's a gym near school.",
+      "example_ru": "Рядом со школой спортзал."
+    },
+    {
+      "en": "bus stop",
+      "ru": "автобусная остановка",
+      "example_en": "The bus stop is next to the shop.",
+      "example_ru": "Остановка рядом с магазином."
+    },
+    {
+      "en": "lake",
+      "ru": "озеро",
+      "example_en": "There are a lot of lakes near Chelyabinsk.",
+      "example_ru": "Под Челябинском много озёр."
+    },
+    {
+      "en": "factory",
+      "ru": "завод",
+      "example_en": "There are big factories in my city.",
+      "example_ru": "В моём городе большие заводы."
+    },
+    {
+      "en": "near",
+      "ru": "рядом, недалеко",
+      "example_en": "Is it near here?",
+      "example_ru": "Это недалеко?"
+    },
+    {
+      "en": "a lot of / some",
+      "ru": "много / несколько",
+      "example_en": "There are a lot of cafés.",
+      "example_ru": "Много кафе."
+    },
+    {
+      "en": "neighbourhood",
+      "ru": "район (где живёшь)",
+      "example_en": "My neighbourhood is quiet.",
+      "example_ru": "Мой район тихий."
+    }
+  ],
+  "grammar": {
+    "title_ru": "There is / are о городе + a lot of / some / any; описание: big, quiet, busy",
+    "explain_ru": "Повторяем There is / There are, но в городе: There's a park. There are a lot of shops (много магазинов). There are some cafés (несколько). В вопросе и отрицании — any: Are there any museums? There aren't any clubs. Описание города — прилагательные: My city is big and busy. My street is quiet.",
+    "explain_en": "There's a cinema. There are a lot of shops. There aren't any beaches. Is there a gym near here? My city is big and busy.",
+    "examples": [
+      {
+        "en": "There are a lot of lakes near Chelyabinsk.",
+        "ru": "Рядом с Челябинском много озёр."
+      },
+      {
+        "en": "Are there any good parks in your city?",
+        "ru": "Есть ли в твоём городе хорошие парки?"
+      },
+      {
+        "en": "My neighbourhood is quiet, but the centre is busy.",
+        "ru": "Мой район тихий, а центр шумный."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "There are many shops (в утверждении — звучит книжно)",
+        "right": "There are a lot of shops.",
+        "why_ru": "В разговоре в утверждениях — a lot of."
+      },
+      {
+        "wrong": "There aren't some museums.",
+        "right": "There aren't any museums.",
+        "why_ru": "В отрицании — any."
+      },
+      {
+        "wrong": "In my city there is a lot of parks.",
+        "right": "There are a lot of parks in my city.",
+        "why_ru": "Много — are; There в начале."
+      },
+      {
+        "wrong": "It's near of my house.",
+        "right": "It's near my house.",
+        "why_ru": "near — без of."
+      }
+    ],
+    "tutor_notes_ru": "Брать реальный город ученика (Челябинск: озёра, заводы, Кировка, парк Гагарина). Не требовать точных фактов — важен язык. Ученик рассказывает Нейту, «который никогда не был на Урале»."
+  },
+  "phrases": [
+    { "en": "I live in …", "ru": "Я живу в …" },
+    {
+      "en": "It's a big / small / quiet / busy city.",
+      "ru": "Это большой / маленький / тихий / шумный город."
+    },
+    { "en": "There's nothing to do here.", "ru": "Тут нечего делать." },
+    { "en": "My favourite place is …", "ru": "Моё любимое место — …" }
+  ],
+  "talk": {
+    "topics_ru": ["твой город", "твой район", "любимое место в городе"],
+    "questions_en": [
+      "Where do you live?",
+      "Is your city big or small?",
+      "What is there in your neighbourhood?",
+      "What's your favourite place in the city? Why?"
+    ],
+    "tutor_notes_ru": "Нейт расспрашивает как турист: Is there a cinema? Are there any good cafés? Ученик рекламирует город."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "library", "ru": "библиотека" },
+        { "en": "cinema", "ru": "кинотеатр" },
+        { "en": "bus stop", "ru": "остановка" },
+        { "en": "factory", "ru": "завод" },
+        { "en": "lake", "ru": "озеро" },
+        { "en": "neighbourhood", "ru": "район" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "some или any?",
+      "question": "Are there ___ museums in your town?",
+      "options": ["some", "any", "a"],
+      "answer": "any"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "There ___ a lot of shops, but there ___ any cinemas. My street is very ___.",
+      "answers": ["are", "aren't", "quiet"],
+      "options": ["are", "aren't", "quiet"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Рядом с моим домом есть большой парк.",
+      "answer": "There's a big park near my house.",
+      "extra": ["of", "are"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай рассказ без текста. Чего НЕТ в районе Эммы?",
+      "audio": "I live in a small town. In my neighbourhood there's a park, a library and some cafés. There aren't any cinemas, so we go to the next town to watch films.",
+      "show_text": false,
+      "question": "Чего нет в её районе?",
+      "options": ["парка", "библиотеки", "кинотеатра"],
+      "answer": "кинотеатра"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я живу в Челябинске. Это большой город, и рядом много озёр.",
+      "answers": [
+        "I live in Chelyabinsk. It's a big city and there are a lot of lakes near it.",
+        "I live in Chelyabinsk. It is a big city, and there are a lot of lakes nearby."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это карта района. Расскажи, что в нём есть и чего нет.",
+      "image": {
+        "prompt_en": "Simple colourful cartoon map of a neighbourhood: a park with trees, a library, a gym, two cafés, a bus stop and a small lake, no cinema, top-down flat style, icons only, no labels",
+        "alt_ru": "Карта района: парк, библиотека, спортзал, два кафе, остановка, маленькое озеро; кинотеатра нет."
+      },
+      "say": "What is there in this neighbourhood?",
+      "must_use": ["There's", "There are", "any"],
+      "min_sentences": 5,
+      "example": "There's a park with a lot of trees. There's a library and a gym. There are two cafés. There's a small lake. There aren't any cinemas."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт — турист и впервые в твоём городе. Он задаёт вопросы — ответь и посоветуй любимое место.",
+      "scenario_ru": "Нейт приехал на Урал и расспрашивает о городе.",
+      "tutor_role": "a tourist who has never been to the Urals",
+      "learner_role": "local guide",
+      "opening": "So, I'm here for two days. Is there anything to do in this city?",
+      "goals_ru": [
+        "рассказать, что есть в городе",
+        "ответить на Is there…? / Are there any…?",
+        "назвать любимое место и почему"
+      ],
+      "must_use": ["There are", "My favourite place is"],
+      "min_turns": 5,
+      "example": [
+        "T: Is there anything to do in this city?",
+        "L: Yes! There are a lot of parks and lakes.",
+        "T: Are there any good cafés?",
+        "L: Yes, there are some cafés in the centre.",
+        "T: And your favourite place?",
+        "L: My favourite place is the Gagarin park. It's big and quiet."
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "There are a lot of lakes near my city.",
+      "focus_ru": "a lot of — слитно: «э-ло-тэв»."
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши голосом мини-рекламу своего района для иностранца: 5–6 фраз и любимое место.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Реклама района.",
+        "mode": "answer",
+        "say": "Sell me your neighbourhood. Why should I visit?",
+        "example": "My neighbourhood is quiet and green. There's a big park and a new gym. There are some cafés. There aren't any cinemas, but the centre is near. My favourite place is the lake."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Выбери правильное.",
+        "question": "Выбери фразу без ошибки.",
+        "options": ["It's near of school.", "It's near school.", "It's near to of school."],
+        "answer": "It's near school."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в роли гида (t8) ты ответил на вопросы туриста с There is/are."
+  },
+  "review": {
+    "lessons": ["a0-m2-l1", "a1-m2-l1", "a1-m2-l2"],
+    "words_to_srs": true,
+    "note_ru": "Откуда ты (A0) + There is/are и предлоги."
+  }
+}

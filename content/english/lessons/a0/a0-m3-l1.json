@@ -1,0 +1,239 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m3-l1",
+  "level": "a0",
+  "module": "a0-m3",
+  "detail": "full",
+  "title": { "ru": "Дни и время", "en": "Days and time" },
+  "goal_ru": "После урока ты сможешь назвать день недели и сказать, который час.",
+  "can_do_en": "I can say the day of the week and tell the time.",
+  "minutes": 12,
+  "theme": "time",
+  "interests": ["school", "games", "sport"],
+  "words": [
+    {
+      "en": "Monday, Tuesday, Wednesday",
+      "ru": "понедельник, вторник, среда",
+      "example_en": "Today is Monday.",
+      "example_ru": "Сегодня понедельник.",
+      "note_ru": "Wednesday читается «ВЕНЗ-дэй» — d не слышно."
+    },
+    {
+      "en": "Thursday, Friday",
+      "ru": "четверг, пятница",
+      "example_en": "Friday is cool!",
+      "example_ru": "Пятница — это круто!"
+    },
+    {
+      "en": "Saturday, Sunday",
+      "ru": "суббота, воскресенье",
+      "example_en": "On Sunday I'm at home.",
+      "example_ru": "В воскресенье я дома."
+    },
+    {
+      "en": "today / tomorrow",
+      "ru": "сегодня / завтра",
+      "example_en": "Tomorrow is Friday.",
+      "example_ru": "Завтра пятница."
+    },
+    { "en": "time", "ru": "время", "example_en": "What time is it?", "example_ru": "Который час?" },
+    {
+      "en": "o'clock",
+      "ru": "ровно (о часах)",
+      "example_en": "It's seven o'clock.",
+      "example_ru": "Ровно семь."
+    },
+    {
+      "en": "half past",
+      "ru": "половина (после часа)",
+      "example_en": "It's half past four.",
+      "example_ru": "Половина пятого (4:30).",
+      "note_ru": "half past four = 4:30, «половина ПОСЛЕ четырёх», а не «половина пятого» дословно."
+    },
+    {
+      "en": "morning / evening",
+      "ru": "утро / вечер",
+      "example_en": "Good morning!",
+      "example_ru": "Доброе утро!"
+    },
+    {
+      "en": "weekend",
+      "ru": "выходные",
+      "example_en": "It's the weekend!",
+      "example_ru": "Выходные!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "It's Monday; It's 7 o'clock; on Monday, at 7",
+    "explain_ru": "День и время говорим через It's (it is): It's Monday. It's seven o'clock. Можно проще — цифрами: It's seven fifteen (7:15). «В понедельник» — on Monday, «в 7 часов» — at seven. Дни недели — с большой буквы.",
+    "explain_en": "What day is it today? — It's Friday. What time is it? — It's seven o'clock. on Monday, at seven.",
+    "examples": [
+      { "en": "What day is it today? — It's Wednesday.", "ru": "Какой сегодня день? — Среда." },
+      {
+        "en": "What time is it? — It's half past eight.",
+        "ru": "Который час? — Половина девятого."
+      },
+      { "en": "The match is on Saturday at six.", "ru": "Матч в субботу в шесть." }
+    ],
+    "mistakes": [
+      { "wrong": "Today Monday.", "right": "Today is Monday.", "why_ru": "Снова нужен is." },
+      { "wrong": "in Monday", "right": "on Monday", "why_ru": "С днями недели — on." },
+      { "wrong": "in 7 o'clock", "right": "at 7 o'clock", "why_ru": "С точным временем — at." },
+      {
+        "wrong": "half past five (о 5:30, думая «половина пятого»)",
+        "right": "half past four = 4:30",
+        "why_ru": "half past — после названного часа."
+      }
+    ],
+    "tutor_notes_ru": "Время цифрами (seven fifteen) — проще и честно разрешено. half past — дать, ловушку объяснить. on/at — только на днях и часах, in не трогать. Числа до 20 повторить; 30, 45 сказать как thirty, forty-five без правил."
+  },
+  "phrases": [
+    { "en": "What day is it today?", "ru": "Какой сегодня день?" },
+    { "en": "What time is it?", "ru": "Который час?" },
+    { "en": "See you on Friday!", "ru": "Увидимся в пятницу!" },
+    { "en": "Good morning! / Good evening!", "ru": "Доброе утро! / Добрый вечер!" }
+  ],
+  "talk": {
+    "topics_ru": ["какой сегодня день", "любимый день недели", "во сколько тренировка или кружок"],
+    "questions_en": [
+      "What day is it today?",
+      "What's your favourite day? Why?",
+      "What time is it now?",
+      "Is tomorrow a school day?"
+    ],
+    "tutor_notes_ru": "Брать реальную дату и время ученика. Ответ «Friday» без «It's» на A0 принимать, но просить полную фразу один раз."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини день и перевод.",
+      "pairs": [
+        { "en": "Monday", "ru": "понедельник" },
+        { "en": "Wednesday", "ru": "среда" },
+        { "en": "Thursday", "ru": "четверг" },
+        { "en": "Saturday", "ru": "суббота" },
+        { "en": "Sunday", "ru": "воскресенье" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери время.",
+      "audio": "It's half past seven.",
+      "question": "Который час?",
+      "options": ["7:00", "7:30", "6:30"],
+      "answer": "7:30"
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери предлог.",
+      "question": "See you ___ Friday!",
+      "options": ["in", "on", "at"],
+      "answer": "on"
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь on или at.",
+      "text": "The game is ___ Saturday ___ six o'clock.",
+      "answers": ["on", "at"],
+      "options": ["on", "at"]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Который час?",
+      "answer": "What time is it?",
+      "extra": ["day", "are"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Сегодня пятница. Завтра выходные!",
+      "answers": [
+        "Today is Friday. Tomorrow is the weekend!",
+        "It's Friday today. Tomorrow is the weekend!"
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Посмотри на часы и календарь. Скажи, какой день и который час.",
+      "image": {
+        "prompt_en": "A wall calendar page showing the word 'Saturday' with a football icon and a round clock showing 4:30, simple flat illustration",
+        "alt_ru": "Календарь со словом «Saturday» и мячом, рядом часы показывают 4:30."
+      },
+      "say": "What day is it? What time is it?",
+      "must_use": ["It's"],
+      "min_sentences": 2,
+      "example": "It's Saturday. It's half past four. It's football time!"
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори дни недели вслух.",
+      "mode": "repeat",
+      "say": "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday",
+      "focus_ru": "Thursday — [θ], язык между зубами; Wednesday — без d."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту: какой сегодня день и который час.",
+      "mode": "answer",
+      "say": "What day is it today? And what time is it?",
+      "example": "It's Tuesday. It's six fifteen.",
+      "must_use": ["It's"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Три раза в течение дня посмотри на часы и скажи время вслух по-английски. Последний раз — Нейту.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Скажи, какой день и время, и что ты сейчас: устал, голоден, доволен.",
+        "mode": "answer",
+        "say": "What day and time is it? How are you?",
+        "example": "It's Monday. It's eight o'clock. I'm tired."
+      },
+      {
+        "id": "h2",
+        "type": "listen",
+        "skill": "listening",
+        "ask_ru": "Послушай и напиши день по-русски.",
+        "audio": "The test is on Thursday.",
+        "question": "Когда контрольная?",
+        "answer": "в четверг",
+        "also": ["четверг"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и ты назвал сегодняшний день и время через It's (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l2", "a0-m1-l3"],
+    "words_to_srs": true,
+    "note_ru": "Числа — во времени; «как дела» — в домашке."
+  }
+}

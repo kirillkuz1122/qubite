@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qubite.app/schema/english/overlay.schema.json",
+  "title": "Личный слой программы — изменения под одного человека поверх базы",
+  "description": "База (course.json + lessons/) не правится под человека. Всё личное — список операций; программа человека = база + операции по порядку. Одна операция = одно действие агента в «Ленте» (D-501): откат удаляет операцию. Хранится у человека (ENG-002), не в репозитории; в репозитории — только пример.",
+  "type": "object",
+  "required": ["base", "base_version", "start", "interests", "ops"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "base": { "const": "qubite-english-base" },
+    "base_version": { "type": "integer", "minimum": 1 },
+    "start": {
+      "description": "Откуда человек начинает",
+      "type": "object",
+      "required": ["level", "lesson", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "$ref": "common.schema.json#/$defs/level" },
+        "lesson": { "$ref": "common.schema.json#/$defs/lessonId" },
+        "source": { "enum": ["placement", "person", "agent"] }
+      }
+    },
+    "interests": {
+      "description": "Интересы — агент подставляет их в темы и задания",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/theme" }
+    },
+    "daily_minutes": {
+      "description": "Цель минут в день (GAME.md)",
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 120
+    },
+    "ops": { "type": "array", "items": { "$ref": "#/$defs/op" } }
+  },
+  "$defs": {
+    "opBase": {
+      "type": "object",
+      "required": ["id", "op", "by", "at", "reason_ru"],
+      "properties": {
+        "id": {
+          "description": "Ссылка на действие в «Ленте» (для отката)",
+          "type": "string",
+          "minLength": 1
+        },
+        "op": { "type": "string" },
+        "by": { "enum": ["agent", "person", "owner"] },
+        "at": { "type": "string", "format": "date-time" },
+        "reason_ru": {
+          "description": "Почему (видно в «Ленте»)",
+          "$ref": "common.schema.json#/$defs/text"
+        }
+      }
+    },
+    "op": {
+      "type": "object",
+      "required": ["op"],
+      "properties": {
+        "op": {
+          "enum": [
+            "skip",
+            "repeat",
+            "insert",
+            "move",
+            "swap_theme",
+            "add_words",
+            "add_tasks",
+            "remove_tasks",
+            "set_pass",
+            "note"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "const": "skip" } } },
+          "then": {
+            "description": "Пропустить урок (знает и так / не нужен)",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson"],
+            "unevaluatedProperties": false,
+            "properties": { "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" } }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "repeat" } } },
+          "then": {
+            "description": "Повторить урок ещё раз — после урока after (или сразу следующим)",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "after": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "focus_ru": { "$ref": "common.schema.json#/$defs/text" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "insert" } } },
+          "then": {
+            "description": "Свой урок (id my-…) — целиком, по схеме урока, после урока after",
+            "$ref": "#/$defs/opBase",
+            "required": ["after", "lesson"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "after": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "lesson": { "$ref": "lesson.schema.json" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "move" } } },
+          "then": {
+            "description": "Переставить урок (тема нужна раньше — например, перед поездкой)",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "after"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "after": { "$ref": "common.schema.json#/$defs/anyLessonId" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "swap_theme" } } },
+          "then": {
+            "description": "Заменить тему урока на интерес человека: цель, грамматика и критерии те же, слова и задания — свои",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "theme"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "theme": { "$ref": "common.schema.json#/$defs/theme" },
+              "words": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/word" } },
+              "tasks": {
+                "description": "Замена заданий с теми же id",
+                "type": "array",
+                "items": { "$ref": "common.schema.json#/$defs/task" }
+              },
+              "talk_questions_en": {
+                "type": "array",
+                "items": { "$ref": "common.schema.json#/$defs/text" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "add_words" } } },
+          "then": {
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "words"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "words": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "common.schema.json#/$defs/word" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "add_tasks" } } },
+          "then": {
+            "description": "Добавить задания (новые id: t101…, чтобы не спорить с базой)",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "tasks"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "tasks": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "common.schema.json#/$defs/task" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "remove_tasks" } } },
+          "then": {
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "task_ids"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "task_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "pattern": "^[th][0-9]+$" }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "set_pass" } } },
+          "then": {
+            "description": "Строже или мягче критерий урока",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "min_accuracy": { "type": "number", "minimum": 0.5, "maximum": 1 },
+              "min_speak": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "note" } } },
+          "then": {
+            "description": "Заметка агенту к уроку («путает he/she — давить на это»)",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "note_ru"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "note_ru": { "$ref": "common.schema.json#/$defs/text" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

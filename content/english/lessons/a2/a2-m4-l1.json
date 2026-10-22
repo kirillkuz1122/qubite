@@ -1,0 +1,202 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m4-l1",
+  "level": "a2",
+  "module": "a2-m4",
+  "detail": "detailed",
+  "title": { "ru": "Will или going to?", "en": "Will or going to?" },
+  "goal_ru": "После урока ты сможешь делать прогнозы и принимать решения на ходу с will.",
+  "can_do_en": "I can make predictions and spontaneous decisions with will.",
+  "minutes": 15,
+  "theme": "future",
+  "interests": ["programming", "science", "games"],
+  "words": [
+    {
+      "en": "will / won't",
+      "ru": "будет / не будет",
+      "example_en": "Robots will do a lot of jobs.",
+      "example_ru": "Роботы будут делать много работы."
+    },
+    {
+      "en": "I think… will",
+      "ru": "думаю, что… будет",
+      "example_en": "I think it will rain.",
+      "example_ru": "Думаю, будет дождь."
+    },
+    {
+      "en": "probably / definitely",
+      "ru": "наверное / точно",
+      "example_en": "I'll probably be late.",
+      "example_ru": "Наверное, я опоздаю.",
+      "note_ru": "probably — после will, но перед won't: I probably won't come."
+    },
+    {
+      "en": "maybe / perhaps",
+      "ru": "может быть",
+      "example_en": "Maybe I'll become a scientist.",
+      "example_ru": "Может, стану учёным."
+    },
+    {
+      "en": "I'll…",
+      "ru": "Я (сейчас) …",
+      "example_en": "I'll help you!",
+      "example_ru": "Я помогу!"
+    },
+    {
+      "en": "promise",
+      "ru": "обещать",
+      "example_en": "I promise I'll call you.",
+      "example_ru": "Обещаю, позвоню."
+    },
+    {
+      "en": "flying cars / AI",
+      "ru": "летающие машины / ИИ",
+      "example_en": "Will there be flying cars?",
+      "example_ru": "Будут ли летающие машины?"
+    },
+    {
+      "en": "in ten years / by 2040",
+      "ru": "через десять лет / к 2040",
+      "example_en": "In ten years I'll be twenty-five.",
+      "example_ru": "Через десять лет мне будет 25."
+    }
+  ],
+  "grammar": {
+    "title_ru": "will: прогнозы, решения на ходу, обещания; going to: план и видимые признаки",
+    "explain_ru": "will + глагол — когда (1) думаешь/предсказываешь: I think AI will change schools; (2) решаешь прямо сейчас: The phone's ringing — I'll answer it!; (3) обещаешь или предлагаешь: I'll help you. going to — когда план уже был: I'm going to study IT (решил давно), или признаки видны: Look at the clouds — it's going to rain. Отрицание — won't. Вопрос: Will you…? Will there be…?",
+    "explain_en": "will: predictions (I think it will…), decisions now (I'll answer it!), promises (I'll help). going to: plans made before (I'm going to…) and predictions with evidence (Look! It's going to fall!).",
+    "examples": [
+      {
+        "en": "I think robots will teach some lessons in 2040.",
+        "ru": "Думаю, в 2040-м роботы будут вести часть уроков."
+      },
+      { "en": "You're cold? I'll close the window.", "ru": "Тебе холодно? Сейчас закрою окно." },
+      {
+        "en": "I've decided — I'm going to apply to a physics-maths school.",
+        "ru": "Я решил — буду поступать в физмат."
+      }
+    ],
+    "mistakes": [
+      { "wrong": "I will to go.", "right": "I will go.", "why_ru": "После will — без to." },
+      {
+        "wrong": "I think it won't rain.",
+        "right": "I don't think it will rain.",
+        "why_ru": "По-английски чаще отрицают think."
+      },
+      {
+        "wrong": "Phone rings: I'm going to answer it.",
+        "right": "I'll answer it.",
+        "why_ru": "Решение в момент речи — will."
+      },
+      { "wrong": "Will you to come?", "right": "Will you come?", "why_ru": "Без to." }
+    ],
+    "tutor_notes_ru": "Тема — технологии будущего: ученику интересно спорить о ИИ и роботах. Нейт делает мрачные прогнозы («AI will replace tutors. Oh wait.»). Тренировать оба значения на коротких ситуациях."
+  },
+  "phrases": [
+    { "en": "I bet…", "ru": "Спорим, что…" },
+    { "en": "I don't think so.", "ru": "Не думаю." },
+    { "en": "I'll do it!", "ru": "Я сделаю!" },
+    { "en": "We'll see.", "ru": "Посмотрим." }
+  ],
+  "talk": {
+    "topics_ru": ["технологии через 20 лет", "твоя жизнь через 10 лет", "школа будущего"],
+    "questions_en": [
+      "What will schools be like in 2050?",
+      "Will AI replace programmers?",
+      "Where do you think you'll live in ten years?",
+      "Will people live on Mars?"
+    ],
+    "tutor_notes_ru": "Каждый прогноз — с причиной (because). Нейт спорит."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "will или going to?",
+      "ask_en": "will or going to?",
+      "question": "Look at that black sky! It ___ rain.",
+      "options": ["will", "is going to", "won't"],
+      "answer": "is going to"
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "will или going to?",
+      "ask_en": "will or going to?",
+      "question": "— I can't open this file. — Wait, I ___ help you.",
+      "options": ["'ll", "'m going to", "am"],
+      "answer": "'ll"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что, по мнению учёной, будет к 2050 году?",
+      "ask_en": "Listen. What will happen by 2050?",
+      "audio": "I don't think we'll have flying cars by 2050 — they're too dangerous. But I'm sure AI will help doctors a lot, and most people will probably work from home.",
+      "show_text": false,
+      "question": "Что, по её мнению, будет?",
+      "options": [
+        "летающие машины",
+        "ИИ поможет врачам, многие будут работать из дома",
+        "люди переедут на Марс"
+      ],
+      "answer": "ИИ поможет врачам, многие будут работать из дома"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Город будущего. Сделай 5 прогнозов: что будет, чего не будет.",
+      "ask_en": "Make predictions about this future city.",
+      "image": {
+        "prompt_en": "A futuristic city in 2060: drones delivering packages, robots cleaning streets, solar panels on every roof, people with AR glasses, a few flying taxis, green parks between towers, bright optimistic flat illustration, no text",
+        "alt_ru": "Город 2060: дроны доставляют посылки, роботы убирают улицы, солнечные панели на крышах, люди в AR-очках, летающие такси, парки между башнями."
+      },
+      "say": "Is this our future? Make predictions.",
+      "must_use": ["will", "won't", "I think"],
+      "min_sentences": 5,
+      "example": "I think drones will deliver all our shopping. Robots will probably clean the streets. Every house will have solar panels. I don't think there will be many flying taxis — they're too expensive. People won't need phones — they'll have AR glasses."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Нейт говорит: «ИИ заменит всех программистов к 2035». Согласись или поспорь — 4 прогноза с will/won't и причинами.",
+      "ask_en": "Agree or disagree with Nate's prediction.",
+      "mode": "answer",
+      "say": "My prediction: AI will replace all programmers by 2035. Agree? Prove me wrong.",
+      "example": "I don't think AI will replace all programmers. It will probably write simple code, but people will still design systems. Companies will need people who understand the problems. And someone will have to check the AI's code!",
+      "must_use": ["will", "won't"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши «письмо себе через 10 лет»: 5 прогнозов о себе и мире с will и 2 плана с going to.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Письмо себе в будущее.",
+        "ask_en": "A message to future you.",
+        "mode": "answer",
+        "say": "Record a message to yourself in ten years.",
+        "example": "Hi, future me! You'll be twenty-five. I think you'll live in a big city and work in IT. Maybe you'll have your own company. I'm going to work hard at olympiads, and I'm going to learn English — so you'll speak it well!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в споре (t5) will/won't без to и с аргументами."
+  },
+  "review": {
+    "lessons": ["a1-m6-l1", "a2-m1-l1"],
+    "words_to_srs": true,
+    "note_ru": "going to (A1) против will; сравнения в аргументах."
+  }
+}

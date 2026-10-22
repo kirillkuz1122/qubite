@@ -1,0 +1,291 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m2-l4",
+  "level": "a1",
+  "module": "a1-m2",
+  "detail": "full",
+  "title": { "ru": "Как пройти?", "en": "How do I get to…?" },
+  "goal_ru": "После урока ты сможешь спросить дорогу и объяснить, как пройти.",
+  "can_do_en": "I can ask for and give simple directions.",
+  "minutes": 15,
+  "theme": "city",
+  "interests": ["travel", "games"],
+  "words": [
+    {
+      "en": "go straight on",
+      "ru": "идти прямо",
+      "example_en": "Go straight on.",
+      "example_ru": "Идите прямо."
+    },
+    {
+      "en": "turn left / turn right",
+      "ru": "повернуть налево / направо",
+      "example_en": "Turn left at the bank.",
+      "example_ru": "У банка поверните налево."
+    },
+    {
+      "en": "on the left / on the right",
+      "ru": "слева / справа",
+      "example_en": "It's on the right.",
+      "example_ru": "Это справа."
+    },
+    {
+      "en": "corner",
+      "ru": "угол",
+      "example_en": "It's on the corner.",
+      "example_ru": "Это на углу."
+    },
+    {
+      "en": "street / road",
+      "ru": "улица / дорога",
+      "example_en": "Go along this street.",
+      "example_ru": "Идите по этой улице."
+    },
+    {
+      "en": "crossroads / traffic lights",
+      "ru": "перекрёсток / светофор",
+      "example_en": "Turn right at the traffic lights.",
+      "example_ru": "На светофоре направо."
+    },
+    {
+      "en": "opposite",
+      "ru": "напротив",
+      "example_en": "It's opposite the park.",
+      "example_ru": "Это напротив парка."
+    },
+    {
+      "en": "excuse me",
+      "ru": "извините (чтобы обратиться)",
+      "example_en": "Excuse me, where is the station?",
+      "example_ru": "Извините, где вокзал?"
+    },
+    {
+      "en": "far / close",
+      "ru": "далеко / близко",
+      "example_en": "Is it far? — No, it's close.",
+      "example_ru": "Далеко? — Нет, близко."
+    },
+    {
+      "en": "station",
+      "ru": "вокзал, станция",
+      "example_en": "How do I get to the station?",
+      "example_ru": "Как добраться до вокзала?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Повелительное наклонение: Go… Turn… Don't…; вежливый вопрос",
+    "explain_ru": "Объясняя дорогу, говорим просто глаголом без «ты» — это команда (повелительное наклонение): Go straight on. Turn left. Don't cross the road. Это НЕ грубо — так объясняют дорогу все. Вежливо спросить: Excuse me, how do I get to the station? или Excuse me, is there a pharmacy near here?",
+    "explain_en": "Give directions with the base verb: Go straight on. Turn left at the traffic lights. Ask politely: Excuse me, how do I get to…?",
+    "examples": [
+      {
+        "en": "Excuse me, how do I get to the cinema?",
+        "ru": "Извините, как пройти к кинотеатру?"
+      },
+      {
+        "en": "Go straight on, then turn right. It's opposite the bank.",
+        "ru": "Идите прямо, потом направо. Это напротив банка."
+      },
+      {
+        "en": "Don't turn left — it's the wrong way.",
+        "ru": "Не поворачивайте налево — это не туда."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "You go straight.",
+        "right": "Go straight on.",
+        "why_ru": "Для указаний — просто глагол, без you."
+      },
+      {
+        "wrong": "Turn on left.",
+        "right": "Turn left.",
+        "why_ru": "turn left — без предлога; но on the left — «слева»."
+      },
+      {
+        "wrong": "Where is station?",
+        "right": "Excuse me, where is the station?",
+        "why_ru": "the перед станцией + вежливое начало."
+      },
+      { "wrong": "How I get to…?", "right": "How do I get to…?", "why_ru": "В вопросе — do." }
+    ],
+    "tutor_notes_ru": "Различать turn left (действие) и on the left (место). Нейт в роли растерянного туриста; ученик ведёт его по карте на картинке. Повторить предлоги места из m2-l2 (next to, opposite)."
+  },
+  "phrases": [
+    { "en": "Excuse me, how do I get to …?", "ru": "Извините, как пройти к …?" },
+    { "en": "Is it far from here?", "ru": "Это далеко отсюда?" },
+    { "en": "It's about five minutes on foot.", "ru": "Минут пять пешком." },
+    { "en": "You can't miss it!", "ru": "Не промахнётесь!" },
+    { "en": "Sorry, I'm not from here.", "ru": "Извините, я не местный." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "дорога от дома до школы",
+      "как добраться до любимого места",
+      "навигатор против спросить человека"
+    ],
+    "questions_en": [
+      "How do you get from home to school?",
+      "Is your school far from your home?",
+      "How do I get from your school to the nearest café?",
+      "Do you use maps on your phone?"
+    ],
+    "tutor_notes_ru": "Ученик объясняет Нейту маршрут «дом → школа». Нейт специально путает left/right и переспрашивает."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини фразу и перевод.",
+      "pairs": [
+        { "en": "go straight on", "ru": "идти прямо" },
+        { "en": "turn right", "ru": "повернуть направо" },
+        { "en": "on the left", "ru": "слева" },
+        { "en": "opposite", "ru": "напротив" },
+        { "en": "traffic lights", "ru": "светофор" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как вежливо спросить дорогу?",
+      "question": "Извините, как пройти к вокзалу?",
+      "options": [
+        "Where station?",
+        "Excuse me, how do I get to the station?",
+        "You tell me station."
+      ],
+      "answer": "Excuse me, how do I get to the station?"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "Go straight ___, then ___ left at the traffic lights. The library is on the ___.",
+      "answers": ["on", "turn", "right"],
+      "options": ["on", "turn", "right"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Это напротив парка, на углу.",
+      "answer": "It's opposite the park, on the corner.",
+      "extra": ["of", "in"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста и выбери, где кафе.",
+      "audio": "Go straight on, then turn right at the traffic lights. The café is on the left, next to the bank.",
+      "show_text": false,
+      "question": "Где кафе?",
+      "options": ["справа, у банка", "слева, рядом с банком", "напротив светофора"],
+      "answer": "слева, рядом с банком"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Это далеко? — Нет, минут пять пешком. Поверните налево.",
+      "answers": [
+        "Is it far? — No, it's about five minutes on foot. Turn left.",
+        "Is it far? No, it's five minutes on foot. Turn left."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "На карте — ты (звёздочка) и кинотеатр. Объясни дорогу.",
+      "image": {
+        "prompt_en": "Simple street map: a star marking 'you are here' at the bottom, a straight road going up to traffic lights, turn right, a cinema on the left opposite a park, flat map style with icons, no words",
+        "alt_ru": "Карта: звёздочка внизу, дорога прямо до светофора, там направо, кинотеатр слева напротив парка."
+      },
+      "say": "How do I get to the cinema?",
+      "must_use": ["go straight on", "turn right", "opposite"],
+      "min_sentences": 3,
+      "example": "Go straight on to the traffic lights. Turn right. The cinema is on the left, opposite the park."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт — турист на улице, ищет вокзал. Объясни ему дорогу (можно придумать) и ответь, далеко ли.",
+      "scenario_ru": "На улице к тебе обращается иностранец.",
+      "tutor_role": "a lost tourist",
+      "learner_role": "local teenager",
+      "opening": "Excuse me! Sorry. How do I get to the railway station?",
+      "goals_ru": [
+        "объяснить путь из 3 шагов",
+        "сказать, далеко ли",
+        "ответить, когда он переспросит left/right"
+      ],
+      "must_use": ["Turn", "on the"],
+      "min_turns": 4,
+      "example": [
+        "T: Excuse me! How do I get to the railway station?",
+        "L: Go straight on, then turn left at the traffic lights.",
+        "T: Left? Not right?",
+        "L: Left. The station is on the right, opposite the shopping centre.",
+        "T: Is it far?",
+        "L: No, it's about ten minutes on foot."
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Объясни Нейту, как дойти от твоего дома до школы (или до магазина).",
+      "mode": "answer",
+      "say": "How do I get from your home to your school?",
+      "example": "Go out of the house and turn right. Go straight on along the street. Turn left at the traffic lights. The school is on the right, opposite the park.",
+      "must_use": ["turn", "straight on"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Где что»: запиши голосом, что есть в твоём районе и как от дома дойти до любимого места.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Район + дорога до любимого места.",
+        "mode": "answer",
+        "say": "What's in your neighbourhood, and how do I get to your favourite place?",
+        "example": "In my neighbourhood there's a park and some shops. My favourite place is the lake. Go out of my house, turn left, go straight on for ten minutes. You can't miss it!"
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Выбери правильное.",
+        "question": "Магазин справа.",
+        "options": [
+          "The shop is turn right.",
+          "The shop is on the right.",
+          "The shop is in right."
+        ],
+        "answer": "The shop is on the right."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и турист в диалоге (t8) «дошёл» по твоим указаниям."
+  },
+  "review": {
+    "lessons": ["a1-m2-l2", "a1-m2-l3"],
+    "words_to_srs": true,
+    "note_ru": "Предлоги места и город — в маршрутах."
+  }
+}

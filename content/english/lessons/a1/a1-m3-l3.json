@@ -1,0 +1,285 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m3-l3",
+  "level": "a1",
+  "module": "a1-m3",
+  "detail": "full",
+  "title": { "ru": "В кафе", "en": "At the café" },
+  "goal_ru": "После урока ты сможешь вежливо заказать еду и напиток в кафе.",
+  "can_do_en": "I can order food and drinks politely in a café.",
+  "minutes": 15,
+  "theme": "food",
+  "interests": ["travel", "friends"],
+  "words": [
+    {
+      "en": "menu",
+      "ru": "меню",
+      "example_en": "Can I see the menu, please?",
+      "example_ru": "Можно меню?"
+    },
+    {
+      "en": "I'd like",
+      "ru": "я бы хотел",
+      "example_en": "I'd like a burger, please.",
+      "example_ru": "Мне бургер, пожалуйста.",
+      "note_ru": "I'd like = I would like — вежливее, чем I want."
+    },
+    {
+      "en": "Can I have…?",
+      "ru": "Можно мне…?",
+      "example_en": "Can I have a cola?",
+      "example_ru": "Можно колу?"
+    },
+    {
+      "en": "chips / fries",
+      "ru": "картошка фри (брит. / амер.)",
+      "example_en": "Fish and chips, please.",
+      "example_ru": "Рыбу с картошкой, пожалуйста."
+    },
+    {
+      "en": "salad / soup",
+      "ru": "салат / суп",
+      "example_en": "I'd like a soup.",
+      "example_ru": "Мне суп."
+    },
+    {
+      "en": "sandwich",
+      "ru": "сэндвич",
+      "example_en": "A cheese sandwich, please.",
+      "example_ru": "Сэндвич с сыром, пожалуйста."
+    },
+    {
+      "en": "drink",
+      "ru": "напиток; пить",
+      "example_en": "Anything to drink?",
+      "example_ru": "Что-нибудь попить?"
+    },
+    {
+      "en": "for here / to go",
+      "ru": "здесь / с собой",
+      "example_en": "For here or to go?",
+      "example_ru": "Здесь или с собой?"
+    },
+    {
+      "en": "bill",
+      "ru": "счёт",
+      "example_en": "Can we have the bill, please?",
+      "example_ru": "Можно счёт?"
+    },
+    {
+      "en": "waiter",
+      "ru": "официант",
+      "example_en": "The waiter is busy.",
+      "example_ru": "Официант занят."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Вежливые просьбы: I'd like…, Can I have…?, Would you like…?",
+    "explain_ru": "I want — звучит как «хочу и всё» (грубовато для кафе). Вежливо: I'd like a burger, please. или Can I have a burger, please? Официант спросит: Would you like anything to drink? (Хотите что-нибудь…?) Ответ: Yes, please. A cola. / No, thank you. Please в конце — обязательно, без него англичане морщатся.",
+    "explain_en": "Order politely: I'd like…, please. / Can I have…, please? The waiter asks: Would you like a drink? — Yes, please. / No, thanks.",
+    "examples": [
+      {
+        "en": "Can I have a cheeseburger and fries, please?",
+        "ru": "Можно чизбургер и картошку, пожалуйста?"
+      },
+      { "en": "Would you like some water? — No, thank you.", "ru": "Хотите воды? — Нет, спасибо." },
+      { "en": "I'd like a tea with milk, please.", "ru": "Мне чай с молоком, пожалуйста." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I want burger.",
+        "right": "I'd like a burger, please.",
+        "why_ru": "Вежливо — I'd like + a + please."
+      },
+      {
+        "wrong": "Give me cola.",
+        "right": "Can I have a cola, please?",
+        "why_ru": "Give me — как приказ."
+      },
+      {
+        "wrong": "Would you like drink? — Yes.",
+        "right": "Yes, please.",
+        "why_ru": "На предложение отвечают Yes, please."
+      },
+      {
+        "wrong": "Can I have the check (в Англии)",
+        "right": "Can we have the bill, please?",
+        "why_ru": "В Британии — bill, в США — check."
+      }
+    ],
+    "tutor_notes_ru": "Ролевой урок. Нейт — придирчивый официант, который делает вид, что не услышал, если нет please («Sorry? I didn't hear the magic word.»). Повторить some (Would you like some water?) и how much (цены из прошлого урока)."
+  },
+  "phrases": [
+    { "en": "A table for two, please.", "ru": "Столик на двоих, пожалуйста." },
+    { "en": "I'd like…, please.", "ru": "Мне…, пожалуйста." },
+    { "en": "What do you recommend?", "ru": "Что посоветуете?" },
+    { "en": "Can we have the bill, please?", "ru": "Можно счёт?" },
+    { "en": "It was delicious!", "ru": "Было очень вкусно!" }
+  ],
+  "talk": {
+    "topics_ru": ["любимое кафе", "что ты заказываешь в фастфуде", "еда в поездке"],
+    "questions_en": [
+      "What's your favourite café?",
+      "What do you usually order?",
+      "Do you eat out often?",
+      "What would you like now?"
+    ],
+    "tutor_notes_ru": "Если ученик говорит I want — Нейт вежливо-ядовито поправляет. Можно разыграть заказ на английском в «Макдоналдсе за границей»."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "menu", "ru": "меню" },
+        { "en": "bill", "ru": "счёт" },
+        { "en": "waiter", "ru": "официант" },
+        { "en": "to go", "ru": "с собой" },
+        { "en": "chips", "ru": "картошка фри" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как вежливо заказать?",
+      "question": "Мне бургер, пожалуйста.",
+      "options": ["I want burger.", "I'd like a burger, please.", "Give me a burger."],
+      "answer": "I'd like a burger, please."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос официанта.",
+      "from_ru": "Хотите что-нибудь попить?",
+      "answer": "Would you like anything to drink?",
+      "extra": ["do", "want"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "Would you like some water? — Yes, ___. And ___ I have a sandwich?",
+      "answers": ["please", "can"],
+      "options": ["please", "can", "want"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай заказ без текста. Что берёт девушка?",
+      "audio": "Hi! Can I have a chicken salad and an orange juice, please? To go.",
+      "show_text": false,
+      "question": "Что она заказала?",
+      "options": [
+        "куриный салат и апельсиновый сок с собой",
+        "суп и сок здесь",
+        "бургер и колу с собой"
+      ],
+      "answer": "куриный салат и апельсиновый сок с собой"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Можно счёт, пожалуйста? Было очень вкусно!",
+      "answers": [
+        "Can we have the bill, please? It was delicious!",
+        "Can I have the bill, please? It was delicious!"
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Посмотри на меню и скажи, что ты бы заказал и почему.",
+      "image": {
+        "prompt_en": "A chalkboard café menu with pictures and prices: burger £6, fish and chips £8, tomato soup £4, cheese sandwich £3.50, cola £2, milkshake £3, hand-drawn style, only food pictures and prices",
+        "alt_ru": "Меню на доске: бургер £6, рыба с картошкой £8, томатный суп £4, сэндвич с сыром £3.50, кола £2, молочный коктейль £3."
+      },
+      "say": "What would you like? How much is it?",
+      "must_use": ["I'd like"],
+      "min_sentences": 3,
+      "example": "I'd like fish and chips. It's eight pounds. And I'd like a milkshake — it's three pounds. It's eleven pounds."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты с другом в кафе в Лондоне. Нейт — официант. Попроси столик, закажи еду и напиток, спроси совета, попроси счёт.",
+      "scenario_ru": "Кафе в Лондоне, обед.",
+      "tutor_role": "a fussy waiter who ignores orders without please",
+      "learner_role": "customer",
+      "opening": "Good afternoon. Table for how many?",
+      "goals_ru": [
+        "попросить столик",
+        "заказать еду и напиток вежливо",
+        "спросить What do you recommend?",
+        "попросить счёт"
+      ],
+      "must_use": ["I'd like", "please", "the bill"],
+      "min_turns": 6,
+      "example": [
+        "T: Good afternoon. Table for how many?",
+        "L: A table for two, please.",
+        "T: Ready to order?",
+        "L: What do you recommend?",
+        "T: Fish and chips. Obviously.",
+        "L: OK. I'd like fish and chips, please.",
+        "T: Would you like anything to drink?",
+        "L: Yes, please. A cola.",
+        "L: Can we have the bill, please?"
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вежливый заказ с интонацией.",
+      "mode": "repeat",
+      "say": "Hi! Can I have a cheeseburger and a milkshake, please?",
+      "focus_ru": "please — тянуть «пли-из», интонация вверх в вопросе."
+    }
+  ],
+  "homework": {
+    "about_ru": "Открой меню любимого кафе или доставки и «закажи» вслух по-английски обед на двоих, с напитками и ценой.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Заказ из своего меню.",
+        "mode": "answer",
+        "say": "Order lunch for you and your friend.",
+        "example": "Hi! Can I have two pizzas, please? A margherita and a pepperoni. And I'd like two colas. How much is it?"
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "vocab",
+        "ask_ru": "Что ответить на «Would you like some tea?», если хочешь?",
+        "question": "Would you like some tea?",
+        "options": ["Yes, I like.", "Yes, please.", "Yes, I would like tea please give."],
+        "answer": "Yes, please."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в кафе (t8) ты заказал вежливо — без I want и с please."
+  },
+  "review": {
+    "lessons": ["a1-m3-l1", "a1-m3-l2"],
+    "words_to_srs": true,
+    "note_ru": "Еда и some/any; цены и how much — счёт в кафе."
+  }
+}

@@ -1,0 +1,249 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m6-l2",
+  "level": "a2",
+  "module": "a2-m6",
+  "detail": "detailed",
+  "title": {
+    "ru": "В гостинице",
+    "en": "At the hotel"
+  },
+  "goal_ru": "После урока ты сможешь заселиться в гостиницу и вежливо пожаловаться на проблему.",
+  "can_do_en": "I can check in to a hotel and complain politely about a problem.",
+  "minutes": 15,
+  "theme": "travel",
+  "interests": ["olympiads", "sport"],
+  "words": [
+    {
+      "en": "reservation / booking",
+      "ru": "бронь",
+      "example_en": "I have a reservation for two nights.",
+      "example_ru": "У меня бронь на две ночи."
+    },
+    {
+      "en": "reception",
+      "ru": "ресепшн, стойка",
+      "example_en": "Call reception.",
+      "example_ru": "Позвони на ресепшн."
+    },
+    {
+      "en": "key card",
+      "ru": "ключ-карта",
+      "example_en": "My key card doesn't work.",
+      "example_ru": "Ключ-карта не работает."
+    },
+    {
+      "en": "single / double room",
+      "ru": "одноместный / двухместный номер",
+      "example_en": "a double room",
+      "example_ru": "двухместный номер"
+    },
+    {
+      "en": "Wi-Fi password",
+      "ru": "пароль от Wi-Fi",
+      "example_en": "What's the Wi-Fi password?",
+      "example_ru": "Какой пароль от Wi-Fi?"
+    },
+    {
+      "en": "air conditioning / heating",
+      "ru": "кондиционер / отопление",
+      "example_en": "The heating isn't working.",
+      "example_ru": "Не работает отопление."
+    },
+    {
+      "en": "noisy / dirty",
+      "ru": "шумный / грязный",
+      "example_en": "The room is very noisy.",
+      "example_ru": "В номере очень шумно."
+    },
+    {
+      "en": "towel",
+      "ru": "полотенце",
+      "example_en": "There are no towels.",
+      "example_ru": "Нет полотенец."
+    },
+    {
+      "en": "complain / complaint",
+      "ru": "жаловаться / жалоба",
+      "example_en": "I'd like to make a complaint.",
+      "example_ru": "Хочу пожаловаться."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Вежливая жалоба: I'm afraid…, There seems to be…, Could you…? ; there is/are no…",
+    "explain_ru": "Жаловаться по-английски = очень вежливо. Начало: I'm sorry to bother you, but… / I'm afraid there's a problem with… Смягчить: There seems to be a problem with the heating. Попросить: Could you send someone? Would it be possible to change rooms? Отсутствие: There's no hot water. There are no towels. Не говорить «You must…» — звучит грубо.",
+    "explain_en": "Polite complaints: I'm afraid there's a problem with… There seems to be… There's no hot water. Could you…? Would it be possible to…?",
+    "examples": [
+      {
+        "en": "I'm sorry to bother you, but the Wi-Fi isn't working in room 305.",
+        "ru": "Извините за беспокойство, но в номере 305 не работает Wi-Fi."
+      },
+      {
+        "en": "There seems to be a problem with my key card.",
+        "ru": "Похоже, что-то с моей ключ-картой."
+      },
+      {
+        "en": "Would it be possible to change rooms? It's very noisy.",
+        "ru": "Можно сменить номер? Очень шумно."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "You must fix it now!",
+        "right": "Could you fix it, please?",
+        "why_ru": "must к сотруднику — грубо."
+      },
+      {
+        "wrong": "There is not towels.",
+        "right": "There are no towels.",
+        "why_ru": "Нет вещей — there are no."
+      },
+      {
+        "wrong": "I want to change room.",
+        "right": "Would it be possible to change rooms?",
+        "why_ru": "Вежливее; и change rooms — во множественном."
+      },
+      {
+        "wrong": "The heating doesn't working.",
+        "right": "The heating isn't working.",
+        "why_ru": "Сейчас не работает — isn't working."
+      }
+    ],
+    "tutor_notes_ru": "Нейт — администратор, который сначала «не замечает» проблему; ученик настаивает вежливо. Дальше — проблема посерьёзнее (нет брони) — ученик сохраняет вежливость."
+  },
+  "phrases": [
+    {
+      "en": "I have a reservation under the name…",
+      "ru": "У меня бронь на имя…"
+    },
+    {
+      "en": "What time is breakfast?",
+      "ru": "Во сколько завтрак?"
+    },
+    {
+      "en": "Could I have a late check-out?",
+      "ru": "Можно выехать позже?"
+    },
+    {
+      "en": "Thank you for your help.",
+      "ru": "Спасибо за помощь."
+    }
+  ],
+  "talk": {
+    "topics_ru": ["гостиницы, где ты жил", "что важно в гостинице", "смешные проблемы в поездках"],
+    "questions_en": [
+      "Have you ever stayed in a hotel? Where?",
+      "What's important for you in a hotel?",
+      "What was the worst room you've ever stayed in?",
+      "Would you complain or just stay quiet?"
+    ],
+    "tutor_notes_ru": "Различить вежливую настойчивость и грубость — Нейт хвалит формулировки, а не громкость."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери самый вежливый вариант.",
+      "ask_en": "Choose the most polite option.",
+      "question": "Ты хочешь сменить номер.",
+      "options": [
+        "Change my room!",
+        "I want another room.",
+        "Would it be possible to change rooms?"
+      ],
+      "answer": "Would it be possible to change rooms?"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "ask_en": "Fill in the gaps.",
+      "text": "I'm sorry to bother you, but there ___ no towels, and there ___ to be a problem with the heating.",
+      "answers": ["are", "seems"],
+      "options": ["are", "seems", "is"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай звонок на ресепшн без текста. Что предложил администратор?",
+      "ask_en": "Listen. What did the receptionist offer?",
+      "audio": "— Reception, how can I help? — Hi, I'm in room 512. I'm afraid the air conditioning isn't working and it's really hot. — I'm so sorry. I'll send someone in ten minutes, and if they can't fix it, we'll move you to another room.",
+      "show_text": false,
+      "question": "Что предложили?",
+      "options": [
+        "вернуть деньги",
+        "прислать мастера, а если не починит — переселить",
+        "принести вентилятор"
+      ],
+      "answer": "прислать мастера, а если не починит — переселить"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты приехал на соревнования и заселяешься. Сначала регистрация, потом звонишь с жалобой (шум, нет Wi-Fi, не работает карта).",
+      "ask_en": "Check in, then call reception with a complaint.",
+      "scenario_ru": "Гостиница на сборах.",
+      "tutor_role": "receptionist who first tries to ignore the problem",
+      "learner_role": "guest",
+      "opening": "Good evening! Welcome. Do you have a reservation?",
+      "goals_ru": [
+        "заселиться (бронь на имя, сколько ночей)",
+        "спросить про завтрак и Wi-Fi",
+        "вежливо пожаловаться и добиться решения"
+      ],
+      "must_use": ["I'm afraid", "Could you", "Would it be possible"],
+      "min_turns": 6,
+      "example": [
+        "T: Do you have a reservation?",
+        "L: Yes, under the name Ivanov, for three nights.",
+        "T: Room 214. Breakfast is from seven.",
+        "L: Thanks. What's the Wi-Fi password?",
+        "L: (later) Hello, I'm sorry to bother you, but I'm afraid my key card doesn't work.",
+        "T: Have you tried it again?",
+        "L: Yes, five times. Could you send someone, please?"
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Позвони на ресепшн: две проблемы в номере, вежливо, и попроси решение.",
+      "ask_en": "Call reception about two problems in your room.",
+      "mode": "answer",
+      "say": "Reception, how can I help you?",
+      "example": "Hello, this is room 214. I'm sorry to bother you, but I'm afraid there are no towels and the Wi-Fi isn't working. Could you send someone, please?",
+      "must_use": ["I'm afraid", "Could you"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Придумай самую нелепую проблему в гостинице и надиктуй вежливую жалобу (чем вежливее и смешнее — тем лучше).",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Вежливая жалоба на нелепую проблему.",
+        "ask_en": "A polite complaint about a ridiculous problem.",
+        "mode": "answer",
+        "say": "The most ridiculous hotel problem. Complain politely.",
+        "example": "Hello, I'm sorry to bother you, but I'm afraid there seems to be a goat in my bathroom. Would it be possible to move it — or me — to another room?"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в гостинице (t4) жалоба вежливая и проблема решена."
+  },
+  "review": {
+    "lessons": ["a1-m3-l3", "a2-m5-l2"],
+    "words_to_srs": true,
+    "note_ru": "Вежливость кафе (A1) и техподдержки — теперь в гостинице."
+  }
+}

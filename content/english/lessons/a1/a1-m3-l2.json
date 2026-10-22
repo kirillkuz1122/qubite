@@ -1,0 +1,278 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m3-l2",
+  "level": "a1",
+  "module": "a1-m3",
+  "detail": "full",
+  "title": { "ru": "Сколько стоит?", "en": "How much is it?" },
+  "goal_ru": "После урока ты сможешь спросить цену, назвать её и купить что-то в магазине.",
+  "can_do_en": "I can ask about prices and buy things in a shop.",
+  "minutes": 15,
+  "theme": "shopping",
+  "interests": ["games", "programming", "music"],
+  "words": [
+    {
+      "en": "thirty, forty, fifty",
+      "ru": "тридцать, сорок, пятьдесят",
+      "example_en": "It's forty pounds.",
+      "example_ru": "Это сорок фунтов.",
+      "note_ru": "forty — без u!"
+    },
+    {
+      "en": "a hundred / a thousand",
+      "ru": "сто / тысяча",
+      "example_en": "It's a hundred and fifty roubles.",
+      "example_ru": "Это сто пятьдесят рублей.",
+      "note_ru": "Между сотнями и десятками — and: a hundred AND fifty."
+    },
+    { "en": "price", "ru": "цена", "example_en": "What's the price?", "example_ru": "Какая цена?" },
+    {
+      "en": "cost",
+      "ru": "стоить",
+      "example_en": "How much does it cost?",
+      "example_ru": "Сколько это стоит?"
+    },
+    {
+      "en": "cheap / expensive",
+      "ru": "дешёвый / дорогой",
+      "example_en": "It's too expensive!",
+      "example_ru": "Слишком дорого!"
+    },
+    {
+      "en": "pay",
+      "ru": "платить",
+      "example_en": "Can I pay by card?",
+      "example_ru": "Можно картой?"
+    },
+    {
+      "en": "by card / in cash",
+      "ru": "картой / наличными",
+      "example_en": "I pay in cash.",
+      "example_ru": "Плачу наличными."
+    },
+    {
+      "en": "change",
+      "ru": "сдача",
+      "example_en": "Here's your change.",
+      "example_ru": "Вот ваша сдача."
+    },
+    {
+      "en": "sale",
+      "ru": "распродажа, скидка",
+      "example_en": "The game is on sale.",
+      "example_ru": "Игра со скидкой."
+    },
+    {
+      "en": "receipt",
+      "ru": "чек",
+      "example_en": "Can I have the receipt?",
+      "example_ru": "Можно чек?",
+      "note_ru": "p не читается: «ри-СИТ»."
+    }
+  ],
+  "grammar": {
+    "title_ru": "How much…? / How many…?; цены и числа до 1000; this / these",
+    "explain_ru": "How much — «сколько» для того, что не считают, и для денег: How much is it? How much milk? How many — для того, что считают: How many eggs? Про вещь рядом: this (одна) / these (несколько): How much is this T-shirt? How much are these headphones? Цены: 250 = two hundred and fifty, $9.99 = nine ninety-nine.",
+    "explain_en": "How much is it? How much are these? How much money? How many apples? this T-shirt / these headphones.",
+    "examples": [
+      {
+        "en": "How much are these headphones? — They're forty-nine pounds.",
+        "ru": "Сколько стоят эти наушники? — 49 фунтов."
+      },
+      { "en": "How many games have you got?", "ru": "Сколько у тебя игр?" },
+      { "en": "It's two hundred and thirty roubles.", "ru": "Это 230 рублей." }
+    ],
+    "mistakes": [
+      { "wrong": "How many is it?", "right": "How much is it?", "why_ru": "Цена — how much." },
+      {
+        "wrong": "How much apples?",
+        "right": "How many apples?",
+        "why_ru": "Яблоки считаются — how many."
+      },
+      {
+        "wrong": "How much is these?",
+        "right": "How much are these?",
+        "why_ru": "these — много, значит are."
+      },
+      { "wrong": "two hundreds", "right": "two hundred", "why_ru": "В числах hundred без -s." }
+    ],
+    "tutor_notes_ru": "Числа 20–1000 — быстрые игры на слух (Нейт называет цену, ученик пишет). Ценники в фунтах и рублях. Тема — покупка гаджетов и игр в стиме, это живо."
+  },
+  "phrases": [
+    { "en": "How much is it?", "ru": "Сколько это стоит?" },
+    { "en": "Can I pay by card?", "ru": "Можно оплатить картой?" },
+    { "en": "That's too expensive.", "ru": "Это слишком дорого." },
+    { "en": "I'll take it.", "ru": "Беру." },
+    { "en": "Just looking, thanks.", "ru": "Я просто смотрю, спасибо." }
+  ],
+  "talk": {
+    "topics_ru": ["покупка гаджета", "игры со скидкой", "карманные деньги"],
+    "questions_en": [
+      "What do you want to buy?",
+      "How much is a good gaming mouse?",
+      "Do you buy games on sale?",
+      "Is your phone cheap or expensive?"
+    ],
+    "tutor_notes_ru": "Нейт — продавец, который всё время задирает цену; ученик торгуется простыми фразами (That's too expensive. Is it on sale?)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай цену без текста и напиши числом.",
+      "audio": "It's three hundred and forty roubles.",
+      "show_text": false,
+      "question": "Сколько стоит?",
+      "answer": "340"
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери цену.",
+      "audio": "These headphones are on sale. They're forty-nine ninety-nine.",
+      "question": "Сколько стоят наушники?",
+      "options": ["14.99", "40.99", "49.99"],
+      "answer": "49.99"
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "much или many?",
+      "question": "How ___ games are on sale?",
+      "options": ["much", "many"],
+      "answer": "many"
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь is или are, this или these.",
+      "text": "How much ___ ___ T-shirt? How much ___ these socks?",
+      "answers": ["is", "this", "are"],
+      "options": ["is", "this", "are", "these"]
+    },
+    {
+      "id": "t5",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "cheap", "ru": "дешёвый" },
+        { "en": "expensive", "ru": "дорогой" },
+        { "en": "change", "ru": "сдача" },
+        { "en": "receipt", "ru": "чек" },
+        { "en": "sale", "ru": "скидка" }
+      ]
+    },
+    {
+      "id": "t6",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Можно оплатить картой?",
+      "answer": "Can I pay by card?",
+      "extra": ["with", "in"]
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Сколько стоят эти наушники? Это слишком дорого.",
+      "answers": [
+        "How much are these headphones? That's too expensive.",
+        "How much are these headphones? It's too expensive."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Витрина магазина электроники с ценниками. Назови вещи и цены, скажи, что дёшево, а что дорого.",
+      "image": {
+        "prompt_en": "Electronics shop window with price tags: a gaming mouse £25, a keyboard £60, headphones £49.99, a game controller £35 with a red SALE sticker, flat bright illustration, only the price numbers and the word SALE visible",
+        "alt_ru": "Витрина: мышь £25, клавиатура £60, наушники £49.99, геймпад £35 со скидкой."
+      },
+      "say": "What can you see? How much are they?",
+      "must_use": ["How much", "cheap", "expensive"],
+      "min_sentences": 4,
+      "example": "The mouse is twenty-five pounds. It's cheap. The keyboard is sixty pounds — it's expensive. The headphones are forty-nine ninety-nine. The controller is on sale."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты в магазине в Лондоне покупаешь наушники. Нейт — продавец. Узнай цену, попроси дешевле и заплати картой.",
+      "scenario_ru": "Магазин электроники в Лондоне.",
+      "tutor_role": "shop assistant who always offers the most expensive thing",
+      "learner_role": "customer with £50",
+      "opening": "Hello! Can I help you?",
+      "goals_ru": [
+        "спросить цену",
+        "сказать, что дорого",
+        "спросить про скидку или вещь дешевле",
+        "заплатить картой и попросить чек"
+      ],
+      "must_use": ["How much", "too expensive", "by card"],
+      "min_turns": 5,
+      "example": [
+        "T: Hello! Can I help you?",
+        "L: Yes, please. How much are these headphones?",
+        "T: Only ninety-nine pounds!",
+        "L: That's too expensive. Are there any cheaper ones?",
+        "T: These are on sale, forty-five pounds.",
+        "L: I'll take them. Can I pay by card?",
+        "T: Of course.",
+        "L: Can I have the receipt, please?"
+      ]
+    },
+    {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух цены — быстро и чётко.",
+      "mode": "repeat",
+      "say": "It's two hundred and fifty roubles. And these are forty-nine ninety-nine.",
+      "focus_ru": "fifty и fifteen — разное ударение: FIF-ty / fif-TEEN."
+    }
+  ],
+  "homework": {
+    "about_ru": "Найди в интернете цены на 3 вещи, которые хочешь (игра, гаджет, кроссовки), и назови их голосом по-английски.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "3 желанные вещи и их цены.",
+        "mode": "answer",
+        "say": "Three things you want. How much are they?",
+        "example": "I want a new mouse. It's two thousand five hundred roubles. I want a game — it's on sale, nine hundred roubles."
+      },
+      {
+        "id": "h2",
+        "type": "listen",
+        "skill": "listening",
+        "ask_ru": "Послушай и запиши число.",
+        "audio": "seven hundred and eighty-five",
+        "question": "Какое число?",
+        "answer": "785"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в магазине (t9) ты спросил цену и вежливо купил вещь."
+  },
+  "review": {
+    "lessons": ["a0-m1-l3", "a0-m2-l2", "a1-m3-l1"],
+    "words_to_srs": true,
+    "note_ru": "Числа до 20 (A0) → до 1000; вещи и a/an."
+  }
+}

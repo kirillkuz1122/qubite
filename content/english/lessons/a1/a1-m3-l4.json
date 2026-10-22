@@ -1,0 +1,253 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m3-l4",
+  "level": "a1",
+  "module": "a1-m3",
+  "detail": "full",
+  "title": { "ru": "Моё любимое блюдо", "en": "My favourite dish" },
+  "goal_ru": "После урока ты сможешь рассказать, как приготовить простое блюдо, по шагам.",
+  "can_do_en": "I can explain how to make a simple dish step by step.",
+  "minutes": 15,
+  "theme": "food",
+  "interests": ["programming", "science", "health"],
+  "words": [
+    {
+      "en": "cook",
+      "ru": "готовить",
+      "example_en": "I can cook pasta.",
+      "example_ru": "Я умею готовить макароны."
+    },
+    {
+      "en": "boil",
+      "ru": "варить, кипятить",
+      "example_en": "Boil the water.",
+      "example_ru": "Вскипяти воду."
+    },
+    { "en": "fry", "ru": "жарить", "example_en": "Fry the eggs.", "example_ru": "Пожарь яйца." },
+    {
+      "en": "cut",
+      "ru": "резать",
+      "example_en": "Cut the tomatoes.",
+      "example_ru": "Нарежь помидоры."
+    },
+    {
+      "en": "mix",
+      "ru": "смешать",
+      "example_en": "Mix the eggs and the milk.",
+      "example_ru": "Смешай яйца с молоком."
+    },
+    { "en": "add", "ru": "добавить", "example_en": "Add some salt.", "example_ru": "Добавь соли." },
+    {
+      "en": "pan / pot",
+      "ru": "сковорода / кастрюля",
+      "example_en": "Put the pan on the stove.",
+      "example_ru": "Поставь сковороду на плиту."
+    },
+    {
+      "en": "salt / pepper / sugar",
+      "ru": "соль / перец / сахар",
+      "example_en": "Add a little pepper.",
+      "example_ru": "Добавь немного перца."
+    },
+    {
+      "en": "minutes",
+      "ru": "минуты",
+      "example_en": "Cook for five minutes.",
+      "example_ru": "Готовь пять минут."
+    },
+    {
+      "en": "tasty / delicious",
+      "ru": "вкусный / очень вкусный",
+      "example_en": "It's really tasty!",
+      "example_ru": "Очень вкусно!"
+    },
+    {
+      "en": "dish",
+      "ru": "блюдо",
+      "example_en": "My favourite dish is pancakes.",
+      "example_ru": "Моё любимое блюдо — блины."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Инструкция по шагам: First…, Then…, Next…, Finally… + повелительное; a little / a lot of",
+    "explain_ru": "Рецепт — это как алгоритм: шаги по порядку, каждый — команда: Cut the tomatoes. Boil the water. Связки: First (сначала), Then (потом), Next (дальше), After that (после этого), Finally (в конце). Сколько: a little salt (немного — для неисчисляемого), a few tomatoes (несколько — для исчисляемого), for five minutes (в течение пяти минут).",
+    "explain_en": "A recipe is a list of steps: First boil the water. Then add the pasta. Cook for ten minutes. Finally add some cheese. a little salt, a few tomatoes.",
+    "examples": [
+      {
+        "en": "First, mix two eggs and a little milk.",
+        "ru": "Сначала смешай два яйца с небольшим количеством молока."
+      },
+      { "en": "Then fry it for three minutes.", "ru": "Потом жарь три минуты." },
+      { "en": "Finally, add some cheese. Delicious!", "ru": "В конце добавь сыр. Вкуснота!" }
+    ],
+    "mistakes": [
+      {
+        "wrong": "You must to cut tomatoes.",
+        "right": "Cut the tomatoes.",
+        "why_ru": "В рецепте — просто глагол."
+      },
+      {
+        "wrong": "Cook during five minutes.",
+        "right": "Cook for five minutes.",
+        "why_ru": "«в течение» времени — for."
+      },
+      {
+        "wrong": "a few salt",
+        "right": "a little salt",
+        "why_ru": "Соль не считается — a little."
+      },
+      {
+        "wrong": "Finish, add cheese.",
+        "right": "Finally, add some cheese.",
+        "why_ru": "«В конце» — finally."
+      }
+    ],
+    "tutor_notes_ru": "Для программиста — сравнить рецепт с алгоритмом (шаг 1, шаг 2, цикл «пока не закипит»). Повторить исчисляемые/неисчисляемые. Нейт в образе шеф-повара из ТВ-шоу, который ругает блюдо (ошибку!), а не повара."
+  },
+  "phrases": [
+    { "en": "It's easy to make.", "ru": "Это легко приготовить." },
+    { "en": "You need…", "ru": "Тебе понадобится…" },
+    { "en": "Step one…", "ru": "Шаг первый…" },
+    { "en": "Enjoy!", "ru": "Приятного аппетита!" }
+  ],
+  "talk": {
+    "topics_ru": ["твоё любимое блюдо", "что ты умеешь готовить", "русская кухня для иностранца"],
+    "questions_en": [
+      "What's your favourite dish?",
+      "Can you cook? What can you make?",
+      "What do you need for pancakes?",
+      "What Russian dish can you recommend to me?"
+    ],
+    "tutor_notes_ru": "Ученик объясняет Нейту рецепт русского блюда (блины, сырники, пельмени) — Нейт задаёт уточняющие вопросы (How long? How much sugar?)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини действие и перевод.",
+      "pairs": [
+        { "en": "boil", "ru": "варить" },
+        { "en": "fry", "ru": "жарить" },
+        { "en": "cut", "ru": "резать" },
+        { "en": "mix", "ru": "смешать" },
+        { "en": "add", "ru": "добавить" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "a little или a few?",
+      "question": "Add ___ sugar and ___ strawberries.",
+      "options": ["a few / a little", "a little / a few", "a lot / a few of"],
+      "answer": "a little / a few"
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери шаг рецепта.",
+      "from_ru": "Потом жарь яйца три минуты.",
+      "answer": "Then fry the eggs for three minutes.",
+      "extra": ["during", "you"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Расставь связки.",
+      "text": "___ boil the water. ___ add the pasta. ___, add some cheese.",
+      "answers": ["First", "Then", "Finally"],
+      "options": ["First", "Then", "Finally"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай рецепт без текста. Сколько минут жарить?",
+      "audio": "To make an omelette, first mix three eggs with a little milk. Add some salt. Then fry it in a hot pan for four minutes. Finally, add some cheese.",
+      "show_text": false,
+      "question": "Сколько минут жарить омлет?",
+      "options": ["3", "4", "10"],
+      "answer": "4"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи шаг.",
+      "from": "ru",
+      "text": "Нарежь помидоры и добавь немного соли.",
+      "answers": ["Cut the tomatoes and add a little salt.", "Cut the tomatoes and add some salt."]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Четыре картинки — рецепт. Расскажи шаги по порядку.",
+      "image": {
+        "prompt_en": "Four-step recipe illustration for a sandwich: 1 cutting bread, 2 putting cheese and tomato slices on it, 3 heating it in a pan, 4 a finished golden toasted sandwich on a plate, clean flat style, numbers only",
+        "alt_ru": "Рецепт горячего бутерброда: режут хлеб; кладут сыр и помидор; греют на сковороде; готовый бутерброд."
+      },
+      "say": "How do you make this sandwich?",
+      "must_use": ["First", "Then", "Finally"],
+      "min_sentences": 4,
+      "example": "First, cut the bread. Then put some cheese and tomatoes on it. Next, fry it in a pan for two minutes. Finally, enjoy your sandwich!"
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту, как приготовить твоё любимое блюдо (или самое простое, что умеешь).",
+      "mode": "answer",
+      "say": "Teach me to cook your favourite dish. Step by step. I'm a terrible cook.",
+      "example": "My favourite dish is pancakes. You need eggs, milk, flour and a little sugar. First, mix the eggs and the milk. Then add the flour and the sugar. Fry them in a pan for two minutes. Finally, add some jam. Enjoy!",
+      "must_use": ["First", "Then"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "Finally, add a little salt. It's delicious!",
+      "focus_ru": "delicious — «ди-ЛИ-шэс»."
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Еда и магазин»: приготовь что-то простое (бутерброд считается!) и запиши голосом, как ты это сделал, — по шагам, с ценой продуктов, если знаешь.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Рецепт голосом: что нужно, шаги, вкус.",
+        "mode": "answer",
+        "say": "What did you make? Tell me the recipe.",
+        "example": "I can make cheese toast. You need bread, butter and cheese. First, cut the bread. Then add some butter and some cheese. Put it in the microwave for one minute. It's tasty and cheap!"
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь for или a little.",
+        "text": "Boil the eggs ___ ten minutes and add ___ salt.",
+        "answers": ["for", "a little"],
+        "options": ["for", "a little"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и твой рецепт (t8) — понятные шаги с First/Then и повелительными глаголами."
+  },
+  "review": {
+    "lessons": ["a1-m2-l4", "a1-m3-l1", "a1-m3-l3"],
+    "words_to_srs": true,
+    "note_ru": "Повелительное из «Как пройти?», еда и some/any — в рецептах."
+  }
+}

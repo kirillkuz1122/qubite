@@ -1,0 +1,229 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m4-l4",
+  "level": "a2",
+  "module": "a2-m4",
+  "detail": "detailed",
+  "title": { "ru": "Кем я буду", "en": "My future job" },
+  "goal_ru": "После урока ты сможешь рассказать о профессии мечты и почему она тебе подходит.",
+  "can_do_en": "I can talk about my dream job and why it suits me.",
+  "minutes": 15,
+  "theme": "work",
+  "interests": ["programming", "science", "games", "olympiads"],
+  "words": [
+    {
+      "en": "software developer / engineer",
+      "ru": "разработчик / инженер",
+      "example_en": "I want to be a software developer.",
+      "example_ru": "Хочу быть разработчиком."
+    },
+    {
+      "en": "scientist / researcher",
+      "ru": "учёный / исследователь",
+      "example_en": "She's going to be a researcher.",
+      "example_ru": "Она будет исследователем."
+    },
+    {
+      "en": "game designer",
+      "ru": "геймдизайнер",
+      "example_en": "A game designer creates the rules of a game.",
+      "example_ru": "Геймдизайнер придумывает правила игры."
+    },
+    {
+      "en": "doctor / pilot / lawyer",
+      "ru": "врач / пилот / юрист",
+      "example_en": "My cousin is a pilot.",
+      "example_ru": "Мой двоюродный брат — пилот."
+    },
+    {
+      "en": "salary",
+      "ru": "зарплата",
+      "example_en": "IT jobs have high salaries.",
+      "example_ru": "В IT высокие зарплаты."
+    },
+    {
+      "en": "university / degree",
+      "ru": "университет / диплом",
+      "example_en": "You need a degree in maths.",
+      "example_ru": "Нужен диплом по математике."
+    },
+    {
+      "en": "skills / qualities",
+      "ru": "навыки / качества",
+      "example_en": "You need to be patient.",
+      "example_ru": "Надо быть терпеливым."
+    },
+    {
+      "en": "work from home / in an office",
+      "ru": "работать из дома / в офисе",
+      "example_en": "I'd like to work from home.",
+      "example_ru": "Хотел бы работать из дома."
+    },
+    {
+      "en": "I'd like to / I'd love to",
+      "ru": "я бы хотел / очень хотел бы",
+      "example_en": "I'd love to work at a big tech company.",
+      "example_ru": "Очень хотел бы работать в большой IT-компании."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Мечты и планы о работе: want to / would like to / will / going to; навыки: need to, be good at -ing",
+    "explain_ru": "Собираем всё будущее: I want to / I'd like to be an engineer (желание). I'm going to study at… (план). I think I'll work… (прогноз). Что нужно для работы: You need to be good at maths. You have to study for six years. Чем хорош: I'm good at solving problems (после at — -ing). Профессия — с a/an: I want to be a doctor (не «be doctor»).",
+    "explain_en": "I'd like to be a scientist. I'm going to study physics. I think I'll work abroad. You need to be good at maths. I'm good at solving problems. Use a/an with jobs: an engineer.",
+    "examples": [
+      {
+        "en": "I'd like to be a game designer because I'm good at coming up with ideas.",
+        "ru": "Хочу быть геймдизайнером, потому что хорошо придумываю идеи."
+      },
+      {
+        "en": "To be a doctor, you need to study for many years.",
+        "ru": "Чтобы стать врачом, нужно учиться много лет."
+      },
+      {
+        "en": "I'm going to apply to a university in Moscow, and I think I'll work in AI.",
+        "ru": "Буду поступать в университет в Москве и, думаю, буду работать в ИИ."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I want to be programmer.",
+        "right": "I want to be a programmer.",
+        "why_ru": "Профессия — с a."
+      },
+      {
+        "wrong": "I'm good in maths.",
+        "right": "I'm good at maths.",
+        "why_ru": "Хорош в — good at."
+      },
+      {
+        "wrong": "I'm good at solve problems.",
+        "right": "I'm good at solving problems.",
+        "why_ru": "После at — -ing."
+      },
+      { "wrong": "I would like be…", "right": "I would like to be…", "why_ru": "would like + to." }
+    ],
+    "tutor_notes_ru": "Итог модуля «Будущее». Тема живая для 9-классника, который думает о физмате и IT. Нейт задаёт «каверзные» вопросы собеседования: What are your weaknesses? Why should we hire you? (по-доброму)."
+  },
+  "phrases": [
+    { "en": "My dream job is…", "ru": "Работа мечты —…" },
+    { "en": "It suits me because…", "ru": "Мне это подходит, потому что…" },
+    { "en": "The best thing about it is…", "ru": "Лучшее в этом —…" },
+    { "en": "I haven't decided yet, but…", "ru": "Ещё не решил, но…" }
+  ],
+  "talk": {
+    "topics_ru": ["работа мечты", "что нужно, чтобы её получить", "профессии будущего"],
+    "questions_en": [
+      "What's your dream job? Why?",
+      "What do you need to do to get it?",
+      "What are you good at?",
+      "Which jobs will disappear in the future?"
+    ],
+    "tutor_notes_ru": "Нейт — «рекрутер» и слегка ворчит на ответы «I don't know». Помочь ученику сформулировать сильные стороны."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини профессию и описание.",
+      "ask_en": "Match the job and the description.",
+      "pairs": [
+        { "en": "software developer", "ru": "writes code for apps" },
+        { "en": "researcher", "ru": "does experiments and studies" },
+        { "en": "game designer", "ru": "creates rules and levels" },
+        { "en": "lawyer", "ru": "helps people with the law" },
+        { "en": "pilot", "ru": "flies planes" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "ask_en": "Fill in the gaps.",
+      "text": "I'd like ___ be ___ engineer. I'm good ___ building things.",
+      "answers": ["to", "an", "at"],
+      "options": ["to", "an", "at", "a"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Почему Маша хочет стать исследователем?",
+      "ask_en": "Listen. Why does Masha want to be a researcher?",
+      "audio": "I'd love to be a researcher in biology. I'm good at noticing small details and I'm very patient. The salary isn't the highest, but I think I'll be happy because every day will be different.",
+      "show_text": false,
+      "question": "Почему?",
+      "options": [
+        "высокая зарплата",
+        "она внимательна к деталям, терпелива, и каждый день разный",
+        "можно работать из дома"
+      ],
+      "answer": "она внимательна к деталям, терпелива, и каждый день разный"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Собеседование в летнюю IT-школу (или стажировку). Нейт — интервьюер.",
+      "ask_en": "A job interview for a summer IT school.",
+      "scenario_ru": "Отбор в летнюю школу программирования.",
+      "tutor_role": "interviewer at a summer IT school",
+      "learner_role": "candidate",
+      "opening": "Good afternoon. So, why do you want to join our summer school?",
+      "goals_ru": [
+        "сказать, кем хочешь стать и почему",
+        "назвать 2 навыка (good at -ing)",
+        "сказать о плане (going to) и опыте (Present Perfect)"
+      ],
+      "must_use": ["I'd like to", "good at", "I've"],
+      "min_turns": 5,
+      "example": [
+        "T: Why do you want to join our summer school?",
+        "L: I'd like to be a software developer, and I want to learn from professionals.",
+        "T: What are you good at?",
+        "L: I'm good at solving problems and I'm good at working in a team.",
+        "T: Any experience?",
+        "L: I've taken part in five olympiads and I've built a small website."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Работа мечты: что это, почему подходит, что нужно сделать, где будешь работать (прогноз).",
+      "ask_en": "Your dream job.",
+      "mode": "answer",
+      "say": "Your dream job. What, why, how you'll get there.",
+      "example": "My dream job is a machine learning engineer. It suits me because I'm good at maths and I love coding. I need to go to a good university, so I'm going to apply to a physics and maths school next year. I think I'll work at a big tech company — or I'll start my own.",
+      "must_use": ["going to", "will", "good at"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Будущее»: голосом — твоё будущее в трёх временных точках: следующая неделя (договорённости), следующий год (планы и условия), через 10 лет (прогнозы и работа).",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Будущее в трёх точках.",
+        "ask_en": "Your future at three points.",
+        "mode": "answer",
+        "say": "Next week, next year, in ten years. Go.",
+        "example": "Next week I'm taking part in the school olympiad. Next year I'm going to apply to a new school — if I pass the exams, I'll study physics and maths. In ten years I think I'll be a developer and maybe I'll live abroad."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и на собеседовании (t4) ты назвал цель, навыки и опыт без ошибок a/at/-ing."
+  },
+  "review": {
+    "lessons": ["a1-m4-l1", "a2-m2-l3", "a2-m4-l1", "a2-m4-l2"],
+    "words_to_srs": true,
+    "note_ru": "can (A1), опыт (Perfect), будущее (will/going to/if)."
+  }
+}

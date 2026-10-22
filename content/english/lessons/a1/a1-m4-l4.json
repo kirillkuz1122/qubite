@@ -1,0 +1,283 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m4-l4",
+  "level": "a1",
+  "module": "a1-m4",
+  "detail": "full",
+  "title": { "ru": "Обычно или сейчас?", "en": "Usually or now?" },
+  "goal_ru": "После урока ты сможешь различать «обычно делаю» и «делаю сейчас» и не путать времена.",
+  "can_do_en": "I can contrast what I usually do with what I am doing now.",
+  "minutes": 15,
+  "theme": "internet",
+  "interests": ["games", "sport", "music"],
+  "words": [
+    {
+      "en": "message / text",
+      "ru": "сообщение / написать сообщение",
+      "example_en": "I'm texting my friend.",
+      "example_ru": "Пишу другу."
+    },
+    {
+      "en": "online / offline",
+      "ru": "в сети / не в сети",
+      "example_en": "He's online now.",
+      "example_ru": "Он сейчас в сети."
+    },
+    {
+      "en": "post",
+      "ru": "пост; выкладывать",
+      "example_en": "She posts videos every week.",
+      "example_ru": "Она выкладывает видео каждую неделю."
+    },
+    {
+      "en": "follow",
+      "ru": "подписываться, следить",
+      "example_en": "I follow a lot of coders.",
+      "example_ru": "Я подписан на многих программистов."
+    },
+    {
+      "en": "call",
+      "ru": "звонить; звонок",
+      "example_en": "Can I call you later? I'm eating.",
+      "example_ru": "Перезвоню? Я ем."
+    },
+    {
+      "en": "usually / today",
+      "ru": "обычно / сегодня",
+      "example_en": "I usually walk, but today I'm taking the bus.",
+      "example_ru": "Обычно хожу пешком, а сегодня еду на автобусе."
+    },
+    {
+      "en": "this week",
+      "ru": "на этой неделе",
+      "example_en": "This week I'm preparing for an olympiad.",
+      "example_ru": "На этой неделе готовлюсь к олимпиаде."
+    },
+    {
+      "en": "busy",
+      "ru": "занятой",
+      "example_en": "Sorry, I'm busy right now.",
+      "example_ru": "Прости, я сейчас занят."
+    },
+    {
+      "en": "know / want / need",
+      "ru": "знать / хотеть / нужно",
+      "example_en": "I know the answer.",
+      "example_ru": "Я знаю ответ.",
+      "note_ru": "Эти глаголы (знать, хотеть, любить) обычно НЕ бывают в -ing."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Simple или Present Continuous?",
+    "explain_ru": "Present Simple (I play) — то, что бывает обычно, регулярно, всегда: usually, every day, on Mondays, never. Present Continuous (I'm playing) — то, что идёт сейчас или временно: now, right now, at the moment, today, this week. Сравни: I usually walk to school, but today I'm taking the bus. Глаголы чувств и знания (know, want, like, need, understand) почти не бывают с -ing: I know (не I'm knowing).",
+    "explain_en": "Present Simple for habits (I usually play on Fridays). Present Continuous for now and temporary things (I'm playing now / this week). Don't use -ing with know, want, like, need: I want pizza.",
+    "examples": [
+      {
+        "en": "My brother usually plays football, but this week he's playing basketball.",
+        "ru": "Брат обычно играет в футбол, а на этой неделе — в баскетбол."
+      },
+      {
+        "en": "I don't usually stream, but I'm streaming today!",
+        "ru": "Обычно я не стримлю, но сегодня — стрим!"
+      },
+      {
+        "en": "I know this song — they're playing it on the radio again.",
+        "ru": "Знаю эту песню — её опять крутят по радио."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I'm usually walking to school.",
+        "right": "I usually walk to school.",
+        "why_ru": "usually — привычка → Present Simple."
+      },
+      {
+        "wrong": "Look! He plays chess now.",
+        "right": "Look! He's playing chess now.",
+        "why_ru": "now / look — сейчас → Continuous."
+      },
+      { "wrong": "I'm wanting pizza.", "right": "I want pizza.", "why_ru": "want не берёт -ing." },
+      {
+        "wrong": "Do you play now?",
+        "right": "Are you playing now?",
+        "why_ru": "now → вопрос через are."
+      }
+    ],
+    "tutor_notes_ru": "Ключ — слова-маркеры. Ученик сортирует фразы на «обычно» / «сейчас». Тема — соцсети и мессенджеры: «обычно я пишу в Telegram, а сейчас смотрю стрим». Это итог модуля «Хобби и умения»."
+  },
+  "phrases": [
+    { "en": "Sorry, I'm busy at the moment.", "ru": "Извини, я сейчас занят." },
+    { "en": "Can I call you back?", "ru": "Могу перезвонить?" },
+    { "en": "What's going on?", "ru": "Что происходит?" },
+    { "en": "As usual!", "ru": "Как обычно!" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "обычный вечер против сегодняшнего",
+      "соцсети и мессенджеры",
+      "что ты делаешь на этой неделе необычного"
+    ],
+    "questions_en": [
+      "What do you usually do in the evening?",
+      "What are you doing this week that's different?",
+      "How often do you post online?",
+      "Who do you follow?"
+    ],
+    "tutor_notes_ru": "Нейт «звонит» ученику в неудобный момент — ученик отвечает Sorry, I'm… и предлагает перезвонить. Ловить usually + -ing."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "question": "I usually ___ to school, but today I ___ the bus.",
+      "options": ["walk / take", "walk / am taking", "am walking / take"],
+      "answer": "walk / am taking"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глагол в нужное время.",
+      "text": "Shh! The baby ___ (sleep). She ___ (sleep) a lot every day.",
+      "answers": ["is sleeping", "sleeps"]
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "question": "Выбери правильную фразу.",
+      "options": ["I'm knowing the answer.", "I know the answer.", "I am know the answer."],
+      "answer": "I know the answer."
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини слово-маркер и время.",
+      "pairs": [
+        { "en": "every day", "ru": "I play" },
+        { "en": "right now", "ru": "I'm playing" },
+        { "en": "never", "ru": "I don't play" },
+        { "en": "this week", "ru": "I'm not playing" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Обычно она выкладывает видео по пятницам.",
+      "answer": "She usually posts videos on Fridays.",
+      "extra": ["is", "posting"]
+    },
+    {
+      "id": "t6",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Почему Ник сегодня не на тренировке?",
+      "audio": "I usually go to the gym on Wednesdays, but today I'm not going. I'm staying at home because I'm preparing for the maths olympiad tomorrow.",
+      "show_text": false,
+      "question": "Почему Ник не на тренировке?",
+      "options": ["болеет", "готовится к олимпиаде", "смотрит матч"],
+      "answer": "готовится к олимпиаде"
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Обычно я играю вечером, но на этой неделе я готовлюсь к контрольной.",
+      "answers": [
+        "I usually play in the evening, but this week I'm preparing for a test.",
+        "Usually I play in the evening, but this week I'm studying for a test."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Две картинки: обычный вечер Алекса и сегодняшний. Сравни.",
+      "image": {
+        "prompt_en": "Split image. Left side labelled with a calendar icon: a teenage boy playing video games on a sofa in the evening. Right side labelled with a 'today' star icon: the same boy studying at a desk with books and a clock showing late evening, flat cartoon style, no words",
+        "alt_ru": "Слева: обычный вечер — мальчик играет на диване. Справа: сегодня — он сидит за столом с книгами поздно вечером."
+      },
+      "say": "What does Alex usually do? What is he doing today?",
+      "must_use": ["usually", "today"],
+      "min_sentences": 4,
+      "example": "Alex usually plays video games in the evening. He sits on the sofa. But today he isn't playing. He's studying at his desk because he has a test."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт звонит тебе в неудобный момент. Скажи, что делаешь, договорись перезвонить и расскажи, что ты обычно делаешь в это время.",
+      "scenario_ru": "Звонок по видео не вовремя.",
+      "tutor_role": "a friend calling at a bad time",
+      "learner_role": "busy teenager",
+      "opening": "Hey! What are you doing? Wanna play?",
+      "goals_ru": [
+        "сказать, что делаешь сейчас (Continuous)",
+        "сказать, что обычно делаешь (Simple)",
+        "предложить перезвонить"
+      ],
+      "must_use": ["I'm", "usually", "call you back"],
+      "min_turns": 4,
+      "example": [
+        "T: Hey! What are you doing? Wanna play?",
+        "L: Sorry, I'm doing my physics homework right now.",
+        "T: Physics on a Saturday?",
+        "L: I usually play on Saturdays, but I have a test on Monday.",
+        "T: Boring. Later?",
+        "L: Yes! Can I call you back at six?"
+      ]
+    },
+    {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи: что ты делаешь обычно по вечерам и что необычного ты делаешь на этой неделе.",
+      "mode": "answer",
+      "say": "Your usual evening — and what's different this week?",
+      "example": "I usually do my homework and then play games. But this week I'm learning to cook, so every evening I'm making dinner.",
+      "must_use": ["usually", "this week"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Хобби и умения»: голосом — что ты умеешь, что любишь делать, что обычно делаешь в свободное время и что делаешь прямо сейчас.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Итоговый рассказ о хобби — 6–8 фраз.",
+        "mode": "answer",
+        "say": "Tell me about you and your hobbies — skills, likes, routine, now.",
+        "example": "I can code in Python and I can play chess well. I love gaming and I'm into robotics. I usually code in the evening. Right now I'm building a small robot for a competition."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Поставь глагол в нужное время.",
+        "text": "Look! It ___ (snow). It ___ (not snow) here in May.",
+        "answers": ["is snowing", "doesn't snow"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 3,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в диалоге (t9) оба времени использованы к месту."
+  },
+  "review": {
+    "lessons": ["a1-m1-l4", "a1-m4-l2", "a1-m4-l3"],
+    "words_to_srs": true,
+    "note_ru": "Частота (Simple) против now (Continuous) — сводим модуль."
+  }
+}

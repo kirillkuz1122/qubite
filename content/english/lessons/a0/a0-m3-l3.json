@@ -1,0 +1,249 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m3-l3",
+  "level": "a0",
+  "module": "a0-m3",
+  "detail": "full",
+  "title": { "ru": "Школьные предметы", "en": "School subjects" },
+  "goal_ru": "После урока ты сможешь назвать школьные предметы и сказать, какой у тебя любимый.",
+  "can_do_en": "I can name school subjects and say which one I like best.",
+  "minutes": 12,
+  "theme": "school",
+  "interests": ["olympiads", "programming", "science"],
+  "words": [
+    {
+      "en": "maths",
+      "ru": "математика",
+      "example_en": "I have maths on Monday.",
+      "example_ru": "У меня математика в понедельник.",
+      "note_ru": "maths (брит.) = math (амер.)."
+    },
+    {
+      "en": "computer science",
+      "ru": "информатика",
+      "example_en": "Computer science is my favourite.",
+      "example_ru": "Информатика — мой любимый предмет."
+    },
+    {
+      "en": "physics",
+      "ru": "физика",
+      "example_en": "Physics is hard.",
+      "example_ru": "Физика сложная."
+    },
+    {
+      "en": "English / Russian",
+      "ru": "английский / русский",
+      "example_en": "I have English today.",
+      "example_ru": "Сегодня у меня английский."
+    },
+    {
+      "en": "history / biology",
+      "ru": "история / биология",
+      "example_en": "I don't like history.",
+      "example_ru": "Я не люблю историю."
+    },
+    {
+      "en": "PE",
+      "ru": "физкультура",
+      "example_en": "PE is on Friday.",
+      "example_ru": "Физкультура в пятницу."
+    },
+    {
+      "en": "lesson",
+      "ru": "урок",
+      "example_en": "The lesson is at nine.",
+      "example_ru": "Урок в девять."
+    },
+    {
+      "en": "teacher",
+      "ru": "учитель",
+      "example_en": "My maths teacher is cool.",
+      "example_ru": "Мой учитель математики классный."
+    },
+    {
+      "en": "easy / hard",
+      "ru": "лёгкий / трудный",
+      "example_en": "English is easy!",
+      "example_ru": "Английский лёгкий!"
+    },
+    {
+      "en": "interesting / boring",
+      "ru": "интересный / скучный",
+      "example_en": "Biology is interesting.",
+      "example_ru": "Биология интересная."
+    }
+  ],
+  "grammar": {
+    "title_ru": "I have maths on Monday; It's easy / hard",
+    "explain_ru": "«У меня математика» — I have maths (have = иметь). Когда: I have maths on Monday at nine. Какой предмет: Maths is hard. Physics is interesting. Предметы — без a: I have physics, а не a physics.",
+    "explain_en": "I have maths on Monday. Physics is interesting. My favourite subject is computer science.",
+    "examples": [
+      { "en": "I have English on Tuesday.", "ru": "У меня английский во вторник." },
+      { "en": "My favourite subject is physics.", "ru": "Мой любимый предмет — физика." },
+      {
+        "en": "History is boring, but the teacher is cool.",
+        "ru": "История скучная, но учитель классный."
+      }
+    ],
+    "mistakes": [
+      { "wrong": "I have a maths.", "right": "I have maths.", "why_ru": "Предметы — без a." },
+      {
+        "wrong": "Physics is interested.",
+        "right": "Physics is interesting.",
+        "why_ru": "Предмет — interesting (интересный); interested — «я заинтересован»."
+      },
+      { "wrong": "In me is maths.", "right": "I have maths.", "why_ru": "«У меня есть» — I have." },
+      {
+        "wrong": "informatics",
+        "right": "computer science",
+        "why_ru": "Так информатику называют в английских школах."
+      }
+    ],
+    "tutor_notes_ru": "Для олимпиадника — дать computer science, maths, physics первыми и спросить, к какой олимпиаде готовится (записать в заметки). boring/bored и interesting/interested — коротко, не нагружать. Повторить дни и время из m3-l1."
+  },
+  "phrases": [
+    { "en": "What's your favourite subject?", "ru": "Какой твой любимый предмет?" },
+    { "en": "I have … on … at …", "ru": "У меня … в … в … (часов)" },
+    { "en": "It's easy / hard / interesting.", "ru": "Он лёгкий / трудный / интересный." },
+    { "en": "I'm good at maths.", "ru": "Я хорош в математике." }
+  ],
+  "talk": {
+    "topics_ru": ["любимый предмет", "расписание завтра", "олимпиады"],
+    "questions_en": [
+      "What's your favourite subject?",
+      "What lessons do you have tomorrow?",
+      "Is physics easy or hard for you?",
+      "Who is your favourite teacher?"
+    ],
+    "tutor_notes_ru": "Если в записях агента есть «Расписание.md» — спросить про настоящие уроки завтра. Нейт — «учёный» помощник, искренне радуется физике и информатике."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини предмет и перевод.",
+      "pairs": [
+        { "en": "maths", "ru": "математика" },
+        { "en": "computer science", "ru": "информатика" },
+        { "en": "physics", "ru": "физика" },
+        { "en": "PE", "ru": "физкультура" },
+        { "en": "history", "ru": "история" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "vocab",
+      "ask_ru": "Как сказать «информатика»?",
+      "question": "информатика",
+      "options": ["informatics", "computer science", "computer lesson"],
+      "answer": "computer science"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, когда физика.",
+      "audio": "I have physics on Wednesday at ten. It's hard, but interesting.",
+      "question": "Когда физика?",
+      "options": ["в среду в 10", "во вторник в 10", "в среду в 2"],
+      "answer": "в среду в 10"
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "I ___ maths ___ Monday.",
+      "answers": ["have", "on"],
+      "options": ["have", "on", "is", "at"]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Мой любимый предмет — информатика.",
+      "answer": "My favourite subject is computer science.",
+      "extra": ["a", "have"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Физика интересная, но трудная.",
+      "answers": ["Physics is interesting, but hard.", "Physics is interesting but difficult."]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это расписание на понедельник. Скажи, какие уроки и когда.",
+      "image": {
+        "prompt_en": "A school timetable card for Monday with three rows of icons and times: 9:00 calculator icon, 10:00 laptop icon, 11:00 atom icon, clean flat infographic, no words",
+        "alt_ru": "Расписание на понедельник: 9:00 — калькулятор (математика), 10:00 — ноутбук (информатика), 11:00 — атом (физика)."
+      },
+      "say": "What lessons do you have on Monday?",
+      "must_use": ["I have", "at"],
+      "min_sentences": 3,
+      "example": "I have maths at nine. I have computer science at ten. I have physics at eleven."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "Computer science is my favourite subject.",
+      "focus_ru": "subject — «САБ-джект», ударение в начале."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту: любимый предмет, какой он и когда он у тебя.",
+      "mode": "answer",
+      "say": "What's your favourite subject? When do you have it?",
+      "example": "My favourite subject is computer science. It's interesting. I have it on Tuesday at ten.",
+      "must_use": ["favourite subject"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Посмотри завтрашнее расписание и расскажи голосом, какие уроки и какие из них лёгкие или трудные.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Расскажи про уроки завтра.",
+        "mode": "answer",
+        "say": "What lessons do you have tomorrow?",
+        "example": "Tomorrow I have maths, English and PE. Maths is hard. PE is easy."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "vocab",
+        "ask_ru": "Выбери правильное слово.",
+        "question": "Physics is very ___.",
+        "options": ["interesting", "interested"],
+        "answer": "interesting"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и ты рассказал о любимом предмете (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m3-l1", "a0-m3-l2"],
+    "words_to_srs": true,
+    "note_ru": "Дни и время — в расписании; like/don't like — о предметах."
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qubite.app/schema/english/course.schema.json",
+  "title": "Программа английского Qubite: уровни → модули → уроки",
+  "description": "Оглавление программы. Порядок уроков — порядок в файле. Урок с detail full/detailed лежит отдельным файлом (file), outline — только цель и семена для агента (B1–B2: подробности агент допишет сам).",
+  "type": "object",
+  "required": ["id", "version", "title_ru", "placement", "levels"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "const": "qubite-english-base" },
+    "version": {
+      "description": "Растёт при изменении базы; личный слой помнит, к какой версии он писался",
+      "type": "integer",
+      "minimum": 1
+    },
+    "title_ru": { "$ref": "common.schema.json#/$defs/text" },
+    "placement": {
+      "description": "Путь к входному тесту",
+      "type": "string",
+      "pattern": "^[a-z0-9/_-]+\\.json$"
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/level" }
+    }
+  },
+  "$defs": {
+    "level": {
+      "type": "object",
+      "required": [
+        "id",
+        "cefr",
+        "title_ru",
+        "about_ru",
+        "can_do_en",
+        "words_total",
+        "tutor_language",
+        "exit",
+        "modules"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/level" },
+        "cefr": { "enum": ["Pre-A1", "A1", "A2", "B1", "B2"] },
+        "title_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "about_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "can_do_en": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string", "pattern": "^I can " }
+        },
+        "words_total": {
+          "description": "Примерный словарь к концу уровня",
+          "type": "integer",
+          "minimum": 50
+        },
+        "tutor_language": {
+          "description": "На каком языке репетитор ведёт урок (D-491)",
+          "type": "object",
+          "required": ["mode", "rules_ru"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["ru_heavy", "ru_support", "en_simple", "en"] },
+            "rules_ru": { "$ref": "common.schema.json#/$defs/text" }
+          }
+        },
+        "exit": {
+          "description": "Как перейти на следующий уровень",
+          "type": "object",
+          "required": ["about_ru", "min_lessons_passed", "boss_lesson"],
+          "additionalProperties": false,
+          "properties": {
+            "about_ru": { "$ref": "common.schema.json#/$defs/text" },
+            "min_lessons_passed": {
+              "description": "Доля пройденных уроков уровня (0–1)",
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1
+            },
+            "boss_lesson": {
+              "description": "Итоговый урок-проверка уровня",
+              "$ref": "common.schema.json#/$defs/lessonId"
+            }
+          }
+        },
+        "modules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/module" } }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": ["id", "title_ru", "title_en", "goal_ru", "lessons"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/moduleId" },
+        "title_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "title_en": { "$ref": "common.schema.json#/$defs/text" },
+        "goal_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "lessons": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/lessonRef" } }
+      }
+    },
+    "lessonRef": {
+      "type": "object",
+      "required": ["id", "title_ru", "goal_ru", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/lessonId" },
+        "title_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "goal_ru": { "type": "string", "pattern": "^После урока ты сможешь " },
+        "detail": { "enum": ["full", "detailed", "outline"] },
+        "file": { "type": "string", "pattern": "^lessons/(a0|a1|a2|b1|b2)/[a-z0-9-]+\\.json$" },
+        "grammar_ru": {
+          "description": "Грамматика урока (семя для агента)",
+          "$ref": "common.schema.json#/$defs/text"
+        },
+        "topics_ru": {
+          "description": "Темы разговора (семя для агента)",
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/text" }
+        }
+      },
+      "if": { "properties": { "detail": { "const": "outline" } } },
+      "then": { "required": ["grammar_ru", "topics_ru"], "not": { "required": ["file"] } },
+      "else": { "required": ["file"] }
+    }
+  }
+}

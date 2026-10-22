@@ -1,0 +1,200 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m2-l4",
+  "level": "a2",
+  "module": "a2-m2",
+  "detail": "detailed",
+  "title": { "ru": "Сколько уже?", "en": "For and since" },
+  "goal_ru": "После урока ты сможешь сказать, как долго ты чем-то занимаешься, с for и since.",
+  "can_do_en": "I can say how long I have done something using for and since.",
+  "minutes": 15,
+  "theme": "sport",
+  "interests": ["programming", "music", "friends"],
+  "words": [
+    {
+      "en": "for",
+      "ru": "в течение (сколько времени)",
+      "example_en": "for three years",
+      "example_ru": "три года"
+    },
+    {
+      "en": "since",
+      "ru": "с (какого момента)",
+      "example_en": "since 2022 / since I was ten",
+      "example_ru": "с 2022 года / с десяти лет"
+    },
+    {
+      "en": "How long…?",
+      "ru": "Как долго…? Сколько уже…?",
+      "example_en": "How long have you lived here?",
+      "example_ru": "Сколько ты здесь живёшь?"
+    },
+    {
+      "en": "know (known)",
+      "ru": "знать (знаком)",
+      "example_en": "I've known Max for six years.",
+      "example_ru": "Я знаю Макса шесть лет."
+    },
+    {
+      "en": "have (had)",
+      "ru": "иметь (есть уже)",
+      "example_en": "I've had this phone since May.",
+      "example_ru": "Телефон у меня с мая."
+    },
+    {
+      "en": "be (been) in a club",
+      "ru": "быть в кружке, секции",
+      "example_en": "I've been in the chess club for two years.",
+      "example_ru": "Я хожу в шахматный кружок два года."
+    },
+    {
+      "en": "move",
+      "ru": "переезжать",
+      "example_en": "We moved here in 2020.",
+      "example_ru": "Мы переехали сюда в 2020-м."
+    },
+    {
+      "en": "ages",
+      "ru": "очень долго, сто лет",
+      "example_en": "I haven't seen him for ages!",
+      "example_ru": "Сто лет его не видел!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Perfect + for / since: то, что началось в прошлом и длится до сих пор",
+    "explain_ru": "По-русски «я живу здесь 5 лет» — в настоящем. По-английски — Present Perfect, потому что началось давно и продолжается: I've lived here for five years. for — СКОЛЬКО времени (for 5 years, for two weeks, for ages). since — С КАКОГО момента (since 2021, since Monday, since I was ten). Вопрос: How long have you…? Начало — Past Simple: I started in 2021.",
+    "explain_en": "Started in the past and still true: Present Perfect + for/since. I've lived here for five years / since 2021. How long have you known him? for + period, since + point in time.",
+    "examples": [
+      {
+        "en": "How long have you played basketball? — For four years, since I was eleven.",
+        "ru": "Сколько ты играешь в баскетбол? — Четыре года, с одиннадцати лет."
+      },
+      {
+        "en": "I've known my best friend since first grade.",
+        "ru": "Я знаю лучшего друга с первого класса."
+      },
+      { "en": "We've had our dog for two months.", "ru": "Собака у нас два месяца." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I live here for five years.",
+        "right": "I've lived here for five years.",
+        "why_ru": "Длится до сих пор — Present Perfect."
+      },
+      {
+        "wrong": "since three years",
+        "right": "for three years",
+        "why_ru": "Количество времени — for."
+      },
+      { "wrong": "for 2021", "right": "since 2021", "why_ru": "Точка начала — since." },
+      {
+        "wrong": "How long do you know him?",
+        "right": "How long have you known him?",
+        "why_ru": "Калька с русского — частая ошибка."
+      }
+    ],
+    "tutor_notes_ru": "Главная калька русских: «I live here for 5 years». Ловить в каждой фразе. Ось времени на экране: since — точка, for — отрезок. Тема — спорт и кружки, дружба, гаджеты."
+  },
+  "phrases": [
+    { "en": "How long have you…?", "ru": "Сколько ты уже…?" },
+    { "en": "Since I was a kid.", "ru": "С детства." },
+    { "en": "For ages!", "ru": "Целую вечность!" },
+    { "en": "Long time no see!", "ru": "Сто лет не виделись!" }
+  ],
+  "talk": {
+    "topics_ru": ["секции и кружки", "друзья", "твои вещи и питомцы"],
+    "questions_en": [
+      "How long have you lived in your city?",
+      "How long have you known your best friend?",
+      "What clubs are you in? Since when?",
+      "How long have you had your phone?"
+    ],
+    "tutor_notes_ru": "Нейт задаёт How long…? про всё подряд — ученик отвечает и сам спрашивает Нейта (How long have you been a tutor?)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "for или since?",
+      "ask_en": "for or since?",
+      "text": "I've been in the robotics club ___ 2023. I've known Max ___ six years. We haven't seen our cousins ___ ages.",
+      "answers": ["since", "for", "for"],
+      "options": ["for", "since"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "ask_en": "Which is correct?",
+      "question": "Я знаю его с детства.",
+      "options": [
+        "I know him since I was a kid.",
+        "I've known him since I was a kid.",
+        "I've known him for I was a kid."
+      ],
+      "answer": "I've known him since I was a kid."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "ask_en": "Make the question.",
+      "from_ru": "Сколько ты уже играешь на гитаре?",
+      "answer": "How long have you played the guitar?",
+      "extra": ["do", "since"]
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Сколько лет Дима в команде?",
+      "ask_en": "Listen. How long has Dima been in the team?",
+      "audio": "I started playing hockey when I was six. I've been in this team since 2022, so that's about four years. And I've had these skates for only two months — they're new!",
+      "show_text": false,
+      "question": "Сколько лет он в этой команде?",
+      "options": ["около четырёх лет", "с шести лет", "два месяца"],
+      "answer": "около четырёх лет"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи о 4 вещах в твоей жизни: как давно (for/since) и когда началось (Past Simple).",
+      "ask_en": "Four things in your life: how long and when did it start?",
+      "mode": "answer",
+      "say": "Four things: your city, your best friend, your hobby, your phone. How long? Since when?",
+      "example": "I've lived in Chelyabinsk since I was born. I've known Max for eight years — we met in kindergarten. I've been into coding since 2023. And I've had my phone for a year, but it's already old.",
+      "must_use": ["for", "since"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Опыт»: «ось времени моей жизни» голосом — 5 событий с датами (Past Simple) и что продолжается до сих пор (for/since).",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Ось времени твоей жизни.",
+        "ask_en": "The timeline of your life.",
+        "mode": "answer",
+        "say": "Your life timeline. Dates and things that are still true.",
+        "example": "I was born in 2011. I started school in 2018. We moved to this flat in 2020, so I've lived here for six years. I started coding in 2023, and I've been in the olympiad team since last year."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 1,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t5) нет кальки «I live here for…»."
+  },
+  "review": {
+    "lessons": ["a2-m2-l1", "a2-m2-l3", "a1-m5-l1"],
+    "words_to_srs": true,
+    "note_ru": "was born (A1) + Perfect с for/since."
+  }
+}

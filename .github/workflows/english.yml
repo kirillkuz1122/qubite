@@ -1,0 +1,36 @@
+# Программа английского (ENG-000): все файлы content/english — по JSON Schema и без битых связей.
+name: english
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/english/**'
+      - 'scripts/check-english.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/english.yml'
+  pull_request:
+    paths:
+      - 'content/english/**'
+      - 'scripts/check-english.mjs'
+
+concurrency:
+  group: english-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Зависимости
+        run: pnpm install --frozen-lockfile
+      - name: Программа английского по схеме
+        run: pnpm check:english

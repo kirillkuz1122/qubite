@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qubite.app/schema/english/placement.schema.json",
+  "title": "Входной тест (~5 минут, D-508)",
+  "description": "Ступени снизу вверх: A0 → B2. Ступень пройдена (уровень уже знаешь), если верно не меньше pass_min её вопросов; первая непройденная ступень останавливает тест — с неё и учиться (все пройдены — B2). В конце — разговор, который может сдвинуть уровень на одну ступень. Человек может поправить уровень сам.",
+  "type": "object",
+  "required": ["id", "minutes", "about_ru", "stages", "speaking", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "const": "placement" },
+    "minutes": { "type": "integer", "minimum": 3, "maximum": 10 },
+    "about_ru": { "$ref": "common.schema.json#/$defs/text" },
+    "stages": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["level", "pass_min", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "level": { "$ref": "common.schema.json#/$defs/level" },
+          "pass_min": { "type": "integer", "minimum": 1 },
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 6,
+            "items": {
+              "allOf": [
+                { "$ref": "common.schema.json#/$defs/task" },
+                { "properties": { "type": { "enum": ["choose", "fill", "listen", "build"] } } }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "speaking": {
+      "description": "Короткий разговор в конце: репетитор задаёт вопросы своего уровня и решает ±1 ступень",
+      "type": "object",
+      "required": ["about_ru", "questions"],
+      "additionalProperties": false,
+      "properties": {
+        "about_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "questions": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "object",
+            "required": ["level", "say", "good_sign_ru"],
+            "additionalProperties": false,
+            "properties": {
+              "level": { "$ref": "common.schema.json#/$defs/level" },
+              "say": { "$ref": "common.schema.json#/$defs/text" },
+              "good_sign_ru": {
+                "description": "Что в ответе говорит «уровень есть»",
+                "$ref": "common.schema.json#/$defs/text"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "description": "С какого урока начать при каждом уровне",
+      "type": "object",
+      "required": ["start_lesson", "about_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "start_lesson": {
+          "type": "object",
+          "required": ["a0", "a1", "a2", "b1", "b2"],
+          "additionalProperties": false,
+          "properties": {
+            "a0": { "$ref": "common.schema.json#/$defs/lessonId" },
+            "a1": { "$ref": "common.schema.json#/$defs/lessonId" },
+            "a2": { "$ref": "common.schema.json#/$defs/lessonId" },
+            "b1": { "$ref": "common.schema.json#/$defs/lessonId" },
+            "b2": { "$ref": "common.schema.json#/$defs/lessonId" }
+          }
+        },
+        "about_ru": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    }
+  }
+}

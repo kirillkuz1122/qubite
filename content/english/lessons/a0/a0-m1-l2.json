@@ -1,0 +1,237 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m1-l2",
+  "level": "a0",
+  "module": "a0-m1",
+  "detail": "full",
+  "title": { "ru": "Как дела?", "en": "How are you?" },
+  "goal_ru": "После урока ты сможешь спросить «как дела?» и честно ответить, как ты себя чувствуешь.",
+  "can_do_en": "I can ask how someone is and say how I feel.",
+  "minutes": 10,
+  "theme": "feelings",
+  "interests": ["school", "games"],
+  "words": [
+    {
+      "en": "fine",
+      "ru": "нормально, хорошо",
+      "example_en": "I'm fine, thanks.",
+      "example_ru": "Нормально, спасибо."
+    },
+    {
+      "en": "good",
+      "ru": "хорошо, хороший",
+      "example_en": "I'm good!",
+      "example_ru": "У меня всё хорошо!"
+    },
+    {
+      "en": "great",
+      "ru": "отлично",
+      "example_en": "I'm great today!",
+      "example_ru": "Сегодня у меня всё отлично!"
+    },
+    {
+      "en": "tired",
+      "ru": "уставший",
+      "example_en": "I'm tired after school.",
+      "example_ru": "Я устал после школы."
+    },
+    {
+      "en": "happy",
+      "ru": "счастливый, довольный",
+      "example_en": "I'm happy — it's Friday!",
+      "example_ru": "Я доволен — сегодня пятница!"
+    },
+    {
+      "en": "sad",
+      "ru": "грустный",
+      "example_en": "I'm a bit sad.",
+      "example_ru": "Мне немного грустно."
+    },
+    { "en": "hungry", "ru": "голодный", "example_en": "I'm hungry.", "example_ru": "Я голоден." },
+    {
+      "en": "bored",
+      "ru": "скучающий",
+      "example_en": "I'm bored.",
+      "example_ru": "Мне скучно.",
+      "note_ru": "«Мне скучно» = I'm bored, а не I'm boring («я скучный»)."
+    },
+    {
+      "en": "thanks",
+      "ru": "спасибо",
+      "example_en": "Fine, thanks. And you?",
+      "example_ru": "Нормально, спасибо. А ты?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "I'm + как себя чувствую; How are you?",
+    "explain_ru": "Чувства говорим тоже через am: I'm tired — «я (есть) уставший». По-русски «мне скучно», а по-английски «я скучающий» — I'm bored. Спросить: How are you? Ответ — I'm fine / good / tired, и вежливо спросить в ответ: And you?",
+    "explain_en": "How are you? — I'm fine, thanks. And you? Feelings: I'm tired, I'm happy, I'm bored.",
+    "examples": [
+      { "en": "How are you?", "ru": "Как дела? / Как ты?" },
+      { "en": "I'm tired, but I'm OK.", "ru": "Я устал, но нормально." },
+      { "en": "I'm not hungry.", "ru": "Я не голоден." }
+    ],
+    "mistakes": [
+      { "wrong": "I tired.", "right": "I'm tired.", "why_ru": "Снова нужен am: I am tired." },
+      {
+        "wrong": "I'm boring.",
+        "right": "I'm bored.",
+        "why_ru": "boring — «скучный» (сам человек), bored — «мне скучно»."
+      },
+      {
+        "wrong": "How are you? — Normal.",
+        "right": "I'm fine / I'm OK.",
+        "why_ru": "«Normal» так не отвечают — говорят fine или OK."
+      }
+    ],
+    "tutor_notes_ru": "Повторить I'm из урока 1. Учить честно отвечать, а не только «fine». Шутка Нейта на I'm boring: «Yes, you are. Kidding — you mean bored». Отрицание I'm not … дать только в примерах, не грузить правилом."
+  },
+  "phrases": [
+    { "en": "How are you?", "ru": "Как дела?" },
+    { "en": "I'm fine, thanks. And you?", "ru": "Нормально, спасибо. А ты?" },
+    { "en": "Not bad.", "ru": "Неплохо." },
+    { "en": "I'm a bit tired.", "ru": "Я немного устал." },
+    { "en": "Me too!", "ru": "Я тоже!" }
+  ],
+  "talk": {
+    "topics_ru": ["как прошёл день", "настроение после школы"],
+    "questions_en": [
+      "How are you today?",
+      "Are you tired?",
+      "Are you hungry?",
+      "And how am I? Guess!"
+    ],
+    "tutor_notes_ru": "В начале разговора повторить знакомство (урок 1). На «fine» Нейт ворчит «Everybody says fine. Really?» и просит слово из урока. «And how am I?» — Нейт играет настроение маскотом (angry/happy), ученик угадывает: You're angry!"
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "tired", "ru": "уставший" },
+        { "en": "happy", "ru": "довольный" },
+        { "en": "hungry", "ru": "голодный" },
+        { "en": "sad", "ru": "грустный" },
+        { "en": "bored", "ru": "скучающий" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "vocab",
+      "ask_ru": "Как сказать «Мне скучно»?",
+      "question": "Мне скучно.",
+      "options": ["I'm boring.", "I'm bored.", "Me bored."],
+      "answer": "I'm bored.",
+      "explain_ru": "I'm boring — «я скучный человек». Нейт бы с этим поспорил."
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, как себя чувствует говорящий.",
+      "audio": "Hi! I'm a bit tired, but I'm happy.",
+      "show_text": true,
+      "question": "Как он себя чувствует?",
+      "options": ["Голоден и грустит", "Устал, но доволен", "Скучает"],
+      "answer": "Устал, но доволен"
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери ответ.",
+      "from_ru": "Нормально, спасибо. А ты?",
+      "answer": "Fine, thanks. And you?",
+      "extra": ["I", "how"]
+    },
+    {
+      "id": "t5",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "How ___ you? — I ___ hungry!",
+      "answers": ["are", "am"],
+      "options": ["are", "am", "is"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи на английский.",
+      "from": "ru",
+      "text": "Я устал, но у меня всё хорошо.",
+      "answers": ["I'm tired, but I'm fine.", "I'm tired, but I'm good.", "I'm tired but I'm OK."]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "I'm fine, thanks. And you?",
+      "focus_ru": "«thanks» — язык между зубами [θ], не «сэнкс»."
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Посмотри на смайлики и скажи, как себя чувствует каждый.",
+      "image": {
+        "prompt_en": "Four big cartoon emoji faces in a row: tired yawning, happy smiling, sad with a tear, hungry looking at a pizza, simple flat style, white background",
+        "alt_ru": "Четыре смайлика: зевает от усталости, улыбается, грустит со слезой, голодный смотрит на пиццу."
+      },
+      "say": "How are they? Say a sentence for each face.",
+      "must_use": ["tired", "happy"],
+      "min_sentences": 3,
+      "example": "He's tired. She's happy. He's sad. She's hungry."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту честно, как ты сейчас.",
+      "mode": "answer",
+      "say": "So. How are you today? And don't just say fine.",
+      "example": "I'm a bit tired, but I'm happy. And you?",
+      "must_use": ["I'm"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Вечером спроси себя по-английски «How are you?» и запиши ответ голосом. Завтра Нейт спросит то же самое.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Скажи, как ты себя чувствуешь вечером, двумя словами из урока.",
+        "mode": "answer",
+        "say": "How are you this evening?",
+        "example": "I'm tired and hungry."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "vocab",
+        "ask_ru": "Что ответить на «How are you?»",
+        "question": "How are you?",
+        "options": ["I'm fine, thanks.", "My name is Max.", "Bye!"],
+        "answer": "I'm fine, thanks."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и ты ответил Нейту, как себя чувствуешь, полной фразой (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l1"],
+    "words_to_srs": true,
+    "note_ru": "Начать с «Hello! What's your name?» из урока 1."
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m4-l2",
+  "level": "a2",
+  "module": "a2-m4",
+  "detail": "detailed",
+  "title": { "ru": "Если пойдёт дождь…", "en": "If it rains…" },
+  "goal_ru": "После урока ты сможешь говорить о реальных условиях: «если…, то…».",
+  "can_do_en": "I can talk about real possibilities using the first conditional.",
+  "minutes": 15,
+  "theme": "olympiads",
+  "interests": ["sport", "games", "school"],
+  "words": [
+    {
+      "en": "if",
+      "ru": "если",
+      "example_en": "If I win, I'll get a prize.",
+      "example_ru": "Если выиграю, получу приз."
+    },
+    {
+      "en": "unless",
+      "ru": "если не",
+      "example_en": "I won't go unless you come.",
+      "example_ru": "Не пойду, если ты не пойдёшь."
+    },
+    {
+      "en": "as soon as",
+      "ru": "как только",
+      "example_en": "I'll call you as soon as I finish.",
+      "example_ru": "Позвоню, как только закончу."
+    },
+    {
+      "en": "pass / fail (an exam)",
+      "ru": "сдать / провалить",
+      "example_en": "If I fail, I'll try again.",
+      "example_ru": "Если провалю, попробую ещё раз."
+    },
+    {
+      "en": "score",
+      "ru": "набрать (баллы)",
+      "example_en": "If I score 80 points, I'll get to the next stage.",
+      "example_ru": "Если наберу 80, пройду дальше."
+    },
+    {
+      "en": "get to the next stage",
+      "ru": "пройти на следующий этап",
+      "example_en": "If you solve four problems, you'll get to the next stage.",
+      "example_ru": "Решишь четыре — пройдёшь дальше."
+    },
+    {
+      "en": "be allowed to",
+      "ru": "можно (разрешено)",
+      "example_en": "If I finish early, I'll be allowed to leave.",
+      "example_ru": "Если закончу раньше, отпустят."
+    },
+    {
+      "en": "otherwise",
+      "ru": "иначе",
+      "example_en": "Hurry, otherwise we'll be late.",
+      "example_ru": "Быстрее, иначе опоздаем."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Первое условное: If + Present Simple, … will + глагол",
+    "explain_ru": "Реальное условие о будущем: If + НАСТОЯЩЕЕ, will + глагол. If it rains, we'll stay at home. Важно: после if НЕ ставим will, даже если по-русски «если пойдёт» — будущее! If I win (не If I will win). Части можно менять местами: We'll stay at home if it rains (тогда без запятой). Так же после when, as soon as, unless: I'll call you when I get home.",
+    "explain_en": "If + present, will + verb: If it rains, we'll stay home. No will after if/when/as soon as: I'll call you when I arrive. unless = if not.",
+    "examples": [
+      {
+        "en": "If I solve five problems, I'll get to the regional stage.",
+        "ru": "Если решу пять задач, пройду на регион."
+      },
+      {
+        "en": "I'll text you as soon as the results come out.",
+        "ru": "Напишу, как только выйдут результаты."
+      },
+      {
+        "en": "You won't improve unless you practise every day.",
+        "ru": "Не станешь лучше, если не будешь тренироваться каждый день."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "If it will rain, we'll stay home.",
+        "right": "If it rains, we'll stay home.",
+        "why_ru": "После if — настоящее (калька с русского «если пойдёт»)."
+      },
+      {
+        "wrong": "When I will finish, I'll call.",
+        "right": "When I finish, I'll call.",
+        "why_ru": "После when — тоже настоящее."
+      },
+      {
+        "wrong": "If I win, I get a prize (о будущем).",
+        "right": "If I win, I'll get a prize.",
+        "why_ru": "Во второй части — will."
+      },
+      {
+        "wrong": "Unless you don't hurry…",
+        "right": "Unless you hurry…",
+        "why_ru": "unless уже значит «если не»."
+      }
+    ],
+    "tutor_notes_ru": "Главная ловушка русских: will после if. Ловить каждый раз. Темы: олимпиады, экзамены, игры (If we win this match, we'll go to the finals). Игра «цепочка»: If I…, I'll… → If I…, I'll…"
+  },
+  "phrases": [
+    { "en": "What will you do if…?", "ru": "Что будешь делать, если…?" },
+    { "en": "If all goes well…", "ru": "Если всё пойдёт хорошо…" },
+    { "en": "Fingers crossed!", "ru": "Скрестим пальцы!" },
+    { "en": "Just in case.", "ru": "На всякий случай." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "олимпиады и экзамены: что если",
+      "планы на выходные с условием погоды",
+      "цепочка последствий"
+    ],
+    "questions_en": [
+      "What will you do if you get to the national stage?",
+      "What will you do this weekend if it snows?",
+      "What will happen if you don't sleep before the olympiad?",
+      "Will you go abroad if you get the chance?"
+    ],
+    "tutor_notes_ru": "Игра «Цепочка»: Нейт — If I don't sleep, I'll be tired. Ученик — If I'm tired, I'll… — и так 5 звеньев. Смешно и тренирует форму."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "If I ___ this problem, I'll get full marks.",
+      "options": ["will solve", "solve", "solved"],
+      "answer": "solve"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глаголы в нужную форму.",
+      "ask_en": "Put the verbs in the correct form.",
+      "text": "If we ___ (win) this match, we ___ (play) in the final. I ___ (call) you as soon as it ___ (finish).",
+      "answers": ["win", "will play", "will call", "finishes"]
+    },
+    {
+      "id": "t3",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Игра «Цепочка»: продолжай с последнего следствия: If I…, I'll… Минимум 5 звеньев.",
+      "ask_en": "Continue the chain of consequences.",
+      "scenario_ru": "Цепочка последствий — кто дольше.",
+      "tutor_role": "chain starter",
+      "learner_role": "chain player",
+      "opening": "If I don't sleep tonight, I'll be tired tomorrow.",
+      "goals_ru": ["5 звеньев без will после if", "держать логику"],
+      "must_use": ["If", "will"],
+      "min_turns": 5,
+      "example": [
+        "T: If I don't sleep tonight, I'll be tired tomorrow.",
+        "L: If I'm tired tomorrow, I'll make mistakes at the olympiad.",
+        "T: If you make mistakes, you won't get to the next stage.",
+        "L: If I don't get to the next stage, I'll be sad.",
+        "T: If you're sad, you'll eat a whole cake.",
+        "L: If I eat a whole cake, I won't sleep again!"
+      ]
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай правила олимпиады без текста. Что будет, если опоздать больше чем на 30 минут?",
+      "ask_en": "Listen to the rules. What happens if you're more than 30 minutes late?",
+      "audio": "Please listen carefully. If you finish early, you can leave after two hours. If you use your phone, you'll be disqualified. And if you're more than thirty minutes late, you won't be allowed to take part.",
+      "show_text": false,
+      "question": "Что будет при опоздании больше 30 минут?",
+      "options": ["дисквалифицируют", "не допустят", "можно уйти через два часа"],
+      "answer": "не допустят"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Скоро важное событие (олимпиада, экзамен, матч). Расскажи 4 «если»: что будет, если всё пойдёт хорошо, и что — если нет.",
+      "ask_en": "Your next big event: what if?",
+      "mode": "answer",
+      "say": "Your next big event. What will happen if it goes well? And if it doesn't?",
+      "example": "My next olympiad is in December. If I solve four problems, I'll get to the regional stage. If I get to the regional stage, I'll go to a training camp. If it doesn't go well, I won't give up — I'll try again next year.",
+      "must_use": ["If", "will"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши голосом план «на всякий случай» на выходные: 4 фразы «если погода / если друзья / если успею…».",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Выходные с условиями.",
+        "ask_en": "Your weekend — with conditions.",
+        "mode": "answer",
+        "say": "Your weekend. If this, then that.",
+        "example": "If it's sunny on Saturday, we'll go to the lake. If it rains, I'll stay at home and code. If Max is free, we'll play chess. I'll do my homework as soon as I wake up — probably."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t3"],
+    "about_ru": "Пройден, если верно 75% заданий и в цепочке (t3) ни разу нет will после if."
+  },
+  "review": {
+    "lessons": ["a2-m4-l1", "a1-m6-l3"],
+    "words_to_srs": true,
+    "note_ru": "will из прошлого урока, погода (A1) — в условиях."
+  }
+}

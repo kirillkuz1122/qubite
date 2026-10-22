@@ -16,10 +16,13 @@
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
     "e2e": "pnpm --filter @qubite/web e2e",
-    "gen:api": "pnpm --filter @qubite/api-client gen"
+    "gen:api": "pnpm --filter @qubite/api-client gen",
+    "check:english": "node scripts/check-english.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",

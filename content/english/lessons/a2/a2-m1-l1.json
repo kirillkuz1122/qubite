@@ -1,0 +1,202 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m1-l1",
+  "level": "a2",
+  "module": "a2-m1",
+  "detail": "detailed",
+  "title": { "ru": "Больше, быстрее, лучше", "en": "Bigger, faster, better" },
+  "goal_ru": "После урока ты сможешь сравнить два телефона, две игры или два языка программирования.",
+  "can_do_en": "I can compare two things using comparative adjectives.",
+  "minutes": 15,
+  "theme": "programming",
+  "interests": ["games", "sport", "music"],
+  "words": [
+    {
+      "en": "fast / slow",
+      "ru": "быстрый / медленный",
+      "example_en": "C++ is faster than Python.",
+      "example_ru": "C++ быстрее Python."
+    },
+    {
+      "en": "cheap / expensive",
+      "ru": "дешёвый / дорогой",
+      "example_en": "This phone is more expensive.",
+      "example_ru": "Этот телефон дороже."
+    },
+    {
+      "en": "easy / difficult",
+      "ru": "лёгкий / трудный",
+      "example_en": "Python is easier to learn.",
+      "example_ru": "Python легче выучить."
+    },
+    {
+      "en": "powerful",
+      "ru": "мощный",
+      "example_en": "My new laptop is more powerful.",
+      "example_ru": "Новый ноутбук мощнее."
+    },
+    {
+      "en": "battery",
+      "ru": "батарея",
+      "example_en": "The battery lasts longer.",
+      "example_ru": "Батарея держит дольше."
+    },
+    {
+      "en": "screen",
+      "ru": "экран",
+      "example_en": "Its screen is bigger.",
+      "example_ru": "У него экран больше."
+    },
+    {
+      "en": "graphics",
+      "ru": "графика",
+      "example_en": "The graphics are better.",
+      "example_ru": "Графика лучше."
+    },
+    {
+      "en": "than",
+      "ru": "чем",
+      "example_en": "It's lighter than my old one.",
+      "example_ru": "Он легче моего старого."
+    },
+    {
+      "en": "much / a bit",
+      "ru": "намного / чуть-чуть (+ сравнение)",
+      "example_en": "It's much faster.",
+      "example_ru": "Он намного быстрее."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Сравнительная степень: -er / more … than; good → better, bad → worse",
+    "explain_ru": "Короткие прилагательные (1 слог) + -er: fast → faster, big → bigger (удвоили g), easy → easier (y → i). Длинные (2+ слога) — more: more expensive, more powerful. «Чем» — than. Неправильные: good → better, bad → worse, far → further. Усилить: much faster, a bit cheaper.",
+    "explain_en": "Short adjectives: fast → faster, big → bigger, easy → easier. Long adjectives: more expensive. Irregular: good → better, bad → worse. Use than: Python is easier than C++. much better, a bit cheaper.",
+    "examples": [
+      {
+        "en": "Python is easier than C++, but C++ is much faster.",
+        "ru": "Python легче C++, но C++ намного быстрее."
+      },
+      {
+        "en": "The new game is more interesting than the old one.",
+        "ru": "Новая игра интереснее старой."
+      },
+      { "en": "My internet is worse than yours.", "ru": "У меня интернет хуже, чем у тебя." }
+    ],
+    "mistakes": [
+      { "wrong": "more faster", "right": "faster", "why_ru": "Либо -er, либо more — не вместе." },
+      { "wrong": "expensiver", "right": "more expensive", "why_ru": "Длинное слово — с more." },
+      { "wrong": "gooder / more good", "right": "better", "why_ru": "good — неправильное." },
+      {
+        "wrong": "faster that / faster then",
+        "right": "faster than",
+        "why_ru": "«чем» — than (then — «потом»)."
+      }
+    ],
+    "tutor_notes_ru": "Темы-«холивары» подростка: iPhone vs Android, Python vs C++, Minecraft vs Roblox. Ученик должен не просто сравнить, а сказать почему (because). Нейт спорит, требуя аргумент."
+  },
+  "phrases": [
+    { "en": "In my opinion, … is better because…", "ru": "По-моему, … лучше, потому что…" },
+    { "en": "It's much more … than…", "ru": "Он намного более …, чем…" },
+    { "en": "They're about the same.", "ru": "Они примерно одинаковые." },
+    { "en": "It depends on what you need.", "ru": "Зависит от того, что нужно." }
+  ],
+  "talk": {
+    "topics_ru": ["iPhone или Android", "Python или C++", "две любимые игры"],
+    "questions_en": [
+      "Which is better for beginners: Python or C++? Why?",
+      "Compare your phone with your friend's phone.",
+      "Is gaming on PC better than on console?",
+      "Which is more difficult: maths or physics?"
+    ],
+    "tutor_notes_ru": "Нейт занимает противоположную позицию в любом сравнении, чтобы ученик спорил. Каждое сравнение — с because."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь прилагательное в сравнительную степень.",
+      "ask_en": "Use the comparative form.",
+      "text": "My new laptop is ___ (fast) and ___ (powerful), but it's ___ (expensive) than my old one.",
+      "answers": ["faster", "more powerful", "more expensive"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "ask_en": "Choose the correct option.",
+      "question": "This game is ___ than the first one.",
+      "options": ["more better", "better", "gooder"],
+      "answer": "better"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Почему Сэм выбрал телефон Б?",
+      "ask_en": "Listen. Why did Sam choose phone B?",
+      "audio": "Phone A has a bigger screen and it's a bit cheaper. But phone B is much faster, the camera is better and the battery lasts longer. So I bought phone B.",
+      "show_text": false,
+      "question": "Почему он выбрал Б?",
+      "options": [
+        "он дешевле и с большим экраном",
+        "он быстрее, камера лучше, батарея дольше",
+        "он красивее"
+      ],
+      "answer": "он быстрее, камера лучше, батарея дольше"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Сравни два ноутбука по характеристикам на картинке.",
+      "ask_en": "Compare the two laptops.",
+      "image": {
+        "prompt_en": "Two laptops side by side with spec icons: laptop A small and light with a battery icon showing 10 hours and a price tag 600, laptop B big and heavy with a fast-speed icon, a big screen and a price tag 1200, clean product comparison infographic, only numbers",
+        "alt_ru": "Ноутбук А: маленький, лёгкий, батарея 10 ч, цена 600. Ноутбук Б: большой, тяжёлый, быстрый, большой экран, цена 1200."
+      },
+      "say": "Which laptop is better for you? Compare them.",
+      "must_use": ["than", "more"],
+      "min_sentences": 4,
+      "example": "Laptop A is smaller and lighter than laptop B. Its battery lasts longer. Laptop B is faster and its screen is bigger, but it's much more expensive. For school, laptop A is better because I carry it every day."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Выбери «холивар» и защити свою сторону: 4 сравнения с because.",
+      "ask_en": "Pick a side and defend it.",
+      "mode": "answer",
+      "say": "Python or C++? iPhone or Android? Pick one and convince me. I disagree already.",
+      "example": "I think C++ is better for olympiads because it's much faster than Python. Python is easier, but programs in Python are slower. C++ is more difficult, but it's more powerful.",
+      "must_use": ["than", "because"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Сравни две вещи, между которыми ты сейчас выбираешь (игра, гаджет, кружок), — 5 фраз голосом, и скажи, что выберешь.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Сравнение двух вещей и твой выбор.",
+        "ask_en": "Compare two things you are choosing between.",
+        "mode": "answer",
+        "say": "What are you choosing between? Compare them.",
+        "example": "I'm choosing between two keyboards. The first one is cheaper and lighter. The second one is more expensive, but it's much better for gaming. I think I'm going to buy the second one."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий урока (вместе с теми, что агент добавит) и в споре (t5) ≥ 4 правильных сравнения с than и аргументом."
+  },
+  "review": {
+    "lessons": ["a1-m3-l2", "a1-m4-l1"],
+    "words_to_srs": true,
+    "note_ru": "Цены и прилагательные (cheap, expensive), умения (can) — в сравнениях."
+  }
+}

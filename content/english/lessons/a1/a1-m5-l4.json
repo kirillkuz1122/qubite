@@ -1,0 +1,273 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m5-l4",
+  "level": "a1",
+  "module": "a1-m5",
+  "detail": "full",
+  "title": { "ru": "А ты…? Выходные", "en": "Did you…? The weekend" },
+  "goal_ru": "После урока ты сможешь расспросить о выходных и рассказать о своих с did и didn't.",
+  "can_do_en": "I can ask and answer questions about last weekend.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["sport", "games", "travel"],
+  "words": [
+    {
+      "en": "did / didn't",
+      "ru": "помощник прошлого / не (в прошлом)",
+      "example_en": "Did you go out? — No, I didn't.",
+      "example_ru": "Ты выходил? — Нет."
+    },
+    {
+      "en": "go out",
+      "ru": "выходить погулять, тусить",
+      "example_en": "We went out on Friday.",
+      "example_ru": "В пятницу мы ходили гулять."
+    },
+    {
+      "en": "sleep in",
+      "ru": "отсыпаться",
+      "example_en": "I slept in on Sunday.",
+      "example_ru": "В воскресенье я отсыпался."
+    },
+    {
+      "en": "have a party",
+      "ru": "устроить вечеринку",
+      "example_en": "Did they have a party?",
+      "example_ru": "У них была вечеринка?"
+    },
+    {
+      "en": "clean my room",
+      "ru": "убирать в комнате",
+      "example_en": "I didn't clean my room.",
+      "example_ru": "Я не убрал комнату."
+    },
+    {
+      "en": "anything / nothing",
+      "ru": "что-нибудь / ничего",
+      "example_en": "Did you do anything fun?",
+      "example_ru": "Делал что-нибудь весёлое?"
+    },
+    {
+      "en": "happen",
+      "ru": "случаться",
+      "example_en": "What happened?",
+      "example_ru": "Что случилось?"
+    },
+    {
+      "en": "spend (spent)",
+      "ru": "проводить (время), тратить",
+      "example_en": "I spent all day outside.",
+      "example_ru": "Я весь день провёл на улице."
+    },
+    {
+      "en": "fall (fell)",
+      "ru": "падать",
+      "example_en": "I fell off my bike.",
+      "example_ru": "Я упал с велосипеда."
+    },
+    {
+      "en": "forget (forgot)",
+      "ru": "забывать",
+      "example_en": "I forgot my homework!",
+      "example_ru": "Я забыл домашку!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Simple: вопросы и отрицания с did / didn't",
+    "explain_ru": "Помнишь do/does в вопросах? В прошлом это одно слово для всех — did. И главное: когда есть did, глагол возвращается в простую форму, без -ed и без неправильной формы: Did you go? (не Did you went?) I didn't go (не didn't went). Did «забрал» прошлое себе. Ответы: Yes, I did. / No, I didn't. Вопросы: What did you do? Where did you go?",
+    "explain_en": "Did + base verb: Did you go out? — Yes, I did. I didn't go (not didn't went). What did you do? Where did you go?",
+    "examples": [
+      {
+        "en": "What did you do at the weekend? — I didn't do much. I slept in.",
+        "ru": "Что делал на выходных? — Ничего особенного, отсыпался."
+      },
+      {
+        "en": "Did your team win? — No, we didn't. We lost 2–3.",
+        "ru": "Твоя команда выиграла? — Нет, проиграли 2:3."
+      },
+      { "en": "Where did you spend the holidays?", "ru": "Где ты провёл каникулы?" }
+    ],
+    "mistakes": [
+      { "wrong": "Did you went?", "right": "Did you go?", "why_ru": "После did — простой глагол." },
+      {
+        "wrong": "I didn't saw it.",
+        "right": "I didn't see it.",
+        "why_ru": "После didn't — простой глагол."
+      },
+      {
+        "wrong": "Where you went?",
+        "right": "Where did you go?",
+        "why_ru": "Вопрос о прошлом — через did."
+      },
+      {
+        "wrong": "Did you was at home?",
+        "right": "Were you at home?",
+        "why_ru": "С was/were did не нужен."
+      }
+    ],
+    "tutor_notes_ru": "Схема как с do: (Wh) + did + кто + глагол? Ловить «Did you went» — самая частая ошибка. Отдельно: с was/were did не нужен. Урок — итог модуля «Вчера»: в разговоре всё прошедшее вместе."
+  },
+  "phrases": [
+    { "en": "How was your weekend?", "ru": "Как выходные?" },
+    { "en": "Did you do anything fun?", "ru": "Делал что-нибудь интересное?" },
+    { "en": "Not much, to be honest.", "ru": "Честно говоря, ничего особенного." },
+    { "en": "What happened next?", "ru": "А что было дальше?" },
+    { "en": "No way!", "ru": "Да ладно!" }
+  ],
+  "talk": {
+    "topics_ru": ["прошлые выходные", "каникулы", "смешной случай"],
+    "questions_en": [
+      "How was your weekend? Did you go out?",
+      "Did you do anything fun?",
+      "What did you do on Sunday?",
+      "Did anything funny happen last week?"
+    ],
+    "tutor_notes_ru": "Нейт рассказывает свои выходные «робота» и ждёт, что ученик сам задаст 3 вопроса с did. Реакции: No way! Really? What happened next?"
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вопрос.",
+      "question": "Ты ходил вчера в кино?",
+      "options": [
+        "Did you went to the cinema?",
+        "Did you go to the cinema?",
+        "You went to the cinema?"
+      ],
+      "answer": "Did you go to the cinema?"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь did, didn't или глагол в простой форме.",
+      "text": "___ you win? — No, we ___. We didn't ___ (play) well.",
+      "answers": ["Did", "didn't", "play"],
+      "options": ["Did", "didn't", "play", "played"]
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Что ты делал в воскресенье?",
+      "answer": "What did you do on Sunday?",
+      "extra": ["does", "done"]
+    },
+    {
+      "id": "t4",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Нужен ли did?",
+      "question": "___ you at home yesterday?",
+      "options": ["Did", "Were", "Was"],
+      "answer": "Were"
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай диалог без текста. Почему Джейк не убрал комнату?",
+      "audio": "Did you clean your room, Jake? — No, I didn't. — Why not? — I spent all day at the skate park. Then I fell off my board and hurt my leg. — Oh no!",
+      "show_text": false,
+      "question": "Почему он не убрался?",
+      "options": ["забыл", "весь день был в скейт-парке и потом ушиб ногу", "болел"],
+      "answer": "весь день был в скейт-парке и потом ушиб ногу"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я не делал ничего особенного. Я отсыпался и играл.",
+      "answers": [
+        "I didn't do anything special. I slept in and played games.",
+        "I didn't do much. I slept in and played."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини вопрос и ответ.",
+      "pairs": [
+        { "en": "Did you go out?", "ru": "No, I didn't. I stayed in." },
+        { "en": "Where did you go?", "ru": "To the lake." },
+        { "en": "Was it fun?", "ru": "Yes, it was." },
+        { "en": "What happened?", "ru": "I fell off my bike." }
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Понедельник, утро. Нейт и ты обсуждаете выходные. Расскажи свои и задай ему 3 вопроса с did.",
+      "scenario_ru": "Разговор перед первым уроком в понедельник.",
+      "tutor_role": "classmate with a crazy weekend story",
+      "learner_role": "you",
+      "opening": "Morning! How was your weekend?",
+      "goals_ru": [
+        "рассказать о своих выходных (2–3 события)",
+        "задать 3 вопроса с did",
+        "реагировать: No way! What happened next?"
+      ],
+      "must_use": ["Did you", "didn't", "What happened"],
+      "min_turns": 6,
+      "example": [
+        "T: Morning! How was your weekend?",
+        "L: It was OK. I slept in and went to the gym. Did you do anything fun?",
+        "T: I went to a concert. And I lost my phone there.",
+        "L: No way! Did you find it?",
+        "T: No, I didn't.",
+        "L: What happened next?"
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи о прошлых выходных: что делал, что не успел, что случилось.",
+      "mode": "answer",
+      "say": "Your last weekend. What did you do — and what didn't you do?",
+      "example": "On Saturday I went to my robotics club and we built a new robot. In the evening I watched a film. On Sunday I slept in. I didn't clean my room and I didn't do my English homework — sorry, Nate!",
+      "must_use": ["didn't"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Вчера»: возьми интервью у кого-то дома о его выходных (3 вопроса с did) и перескажи Нейту голосом в прошедшем.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Перескажи интервью: что он/она делал(а).",
+        "mode": "answer",
+        "say": "Who did you interview? What did they do at the weekend?",
+        "example": "I asked my dad. On Saturday he went fishing. He didn't catch anything! On Sunday he cooked dinner and watched football."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Исправь — впиши правильную форму.",
+        "text": "Did she ___ (went) to school? She didn't ___ (forgot) her bag.",
+        "answers": ["go", "forget"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в диалоге (t8) ты сам задал 3 вопроса с did без «Did you went»."
+  },
+  "review": {
+    "lessons": ["a1-m1-l3", "a1-m5-l1", "a1-m5-l2", "a1-m5-l3"],
+    "words_to_srs": true,
+    "note_ru": "do/does → did; весь модуль прошедшего."
+  }
+}

@@ -1,0 +1,272 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m6-l4",
+  "level": "a1",
+  "module": "a1-m6",
+  "detail": "full",
+  "title": { "ru": "Итог: моя жизнь по-английски", "en": "Boss lesson: my life in English" },
+  "goal_ru": "После урока ты сможешь две минуты рассказывать о своей жизни и отвечать на вопросы о ней.",
+  "can_do_en": "I can talk for two minutes about my life — routine, home, hobbies, past weekend and plans — and answer questions.",
+  "minutes": 20,
+  "theme": "intro",
+  "interests": ["games", "programming", "olympiads", "sport"],
+  "tutor_language_ru": "Итоговый урок: Нейт ведёт только по-английски (уровень A1), по-русски — только объявление заданий и разбор ошибок в конце. Во время монолога не перебивает.",
+  "words": [
+    {
+      "en": "first of all",
+      "ru": "во-первых, для начала",
+      "example_en": "First of all, let me introduce myself.",
+      "example_ru": "Для начала представлюсь."
+    },
+    {
+      "en": "as for",
+      "ru": "что касается",
+      "example_en": "As for hobbies, I love coding.",
+      "example_ru": "Что до хобби, обожаю программировать."
+    },
+    {
+      "en": "because",
+      "ru": "потому что",
+      "example_en": "I like maths because it's logical.",
+      "example_ru": "Люблю математику, потому что она логичная."
+    },
+    {
+      "en": "so",
+      "ru": "поэтому",
+      "example_en": "It was cold, so I stayed at home.",
+      "example_ru": "Было холодно, поэтому я остался дома."
+    },
+    {
+      "en": "anyway",
+      "ru": "в общем, так или иначе",
+      "example_en": "Anyway, that's my week.",
+      "example_ru": "В общем, вот такая неделя."
+    },
+    {
+      "en": "I mean",
+      "ru": "то есть, я имею в виду",
+      "example_en": "I like games — I mean, strategy games.",
+      "example_ru": "Люблю игры — то есть стратегии."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Повторение A1: Present Simple и Continuous, there is/are, can, Past Simple, going to",
+    "explain_ru": "Новых правил нет — собираем все времена A1 в один рассказ. Обычно — Present Simple (I usually get up at 7). Сейчас — Continuous (Right now I'm preparing for…). Прошлое — Past Simple (Last weekend I went…, Did you…?). Планы — going to. Умения — can. Связки делают речь живой: because, so, first of all, as for, anyway.",
+    "explain_en": "No new rules. Mix the tenses: I usually… / Right now I'm… / Last weekend I went… / Next week I'm going to… / I can… Join ideas with because, so, as for, anyway.",
+    "examples": [
+      {
+        "en": "I usually code after school, but right now I'm preparing for an olympiad.",
+        "ru": "Обычно я программирую после школы, а сейчас готовлюсь к олимпиаде."
+      },
+      {
+        "en": "Last weekend I went to the lake, so I didn't do my homework.",
+        "ru": "В выходные я ездил на озеро, поэтому не сделал домашку."
+      },
+      {
+        "en": "Next summer I'm going to learn to dive because I can't swim well.",
+        "ru": "Следующим летом научусь нырять, потому что плаваю плохо."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "He play / she go",
+        "right": "He plays / she goes",
+        "why_ru": "Хвостик -s — главная ошибка A1."
+      },
+      {
+        "wrong": "I am go / I'm usually walking",
+        "right": "I go / I usually walk",
+        "why_ru": "am не нужен с обычным глаголом; usually — Simple."
+      },
+      {
+        "wrong": "Did you went? / I goed",
+        "right": "Did you go? / I went",
+        "why_ru": "После did — простой глагол; went — неправильный."
+      },
+      {
+        "wrong": "I going to / I'm going to playing",
+        "right": "I'm going to play",
+        "why_ru": "be + going to + простой глагол."
+      }
+    ],
+    "tutor_notes_ru": "Это «босс» уровня A1. Порядок: разминка (быстрые задания) → монолог 2 минуты (засечь, не перебивать, записывать ошибки) → вопросы Нейта по монологу → ученик задаёт вопросы → разбор 3 главных ошибок по-русски. Зачёт: монолог понятен, ≥ 4 времени из A1 к месту, нет систематического пропуска -s. После зачёта — достижение «Моя жизнь», уровень A2 открыт; файл «Английский.md» — сравнение с монологом A0."
+  },
+  "phrases": [
+    { "en": "Let me tell you about my life.", "ru": "Расскажу о своей жизни." },
+    { "en": "That's a good question.", "ru": "Хороший вопрос." },
+    { "en": "Let me think…", "ru": "Дай подумать…" },
+    { "en": "Anyway, that's me!", "ru": "В общем, вот такой я!" }
+  ],
+  "talk": {
+    "topics_ru": ["вся жизнь ученика: день, дом, город, хобби, выходные, планы"],
+    "questions_en": [
+      "What do you usually do on weekdays?",
+      "Tell me about your room and your neighbourhood.",
+      "What can you do well?",
+      "What did you do last weekend?",
+      "What are you doing these days?",
+      "What are you going to do next summer?"
+    ],
+    "tutor_notes_ru": "После монолога Нейт задаёт 3–4 уточняющих вопроса по тому, что услышал (Why? How often? Did you…?). Затем ученик задаёт Нейту 4 вопроса в разных временах."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Разминка: выбери верное время.",
+      "question": "Look! My cat ___ my homework.",
+      "options": ["eats", "is eating", "ate"],
+      "answer": "is eating"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глаголы в нужное время.",
+      "text": "Max usually ___ (play) football, but yesterday he ___ (go) to the cinema. Next week he ___ (visit) his grandma.",
+      "answers": ["plays", "went", "is going to visit"]
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Что ты делал на прошлых выходных?",
+      "answer": "What did you do last weekend?",
+      "extra": ["went", "does"]
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Быстрый повтор уровня.",
+      "pairs": [
+        { "en": "wardrobe", "ru": "шкаф" },
+        { "en": "bought", "ru": "купил" },
+        { "en": "can't stand", "ru": "терпеть не могу" },
+        { "en": "opposite", "ru": "напротив" },
+        { "en": "receipt", "ru": "чек" },
+        { "en": "freezing", "ru": "мороз" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай рассказ без текста и выбери, что правда.",
+      "audio": "Hi, I'm Leo. I live in a small flat near the centre. I usually walk to school. I can play the guitar, but I can't sing. Last summer I went to a music camp and I met my best friend there. This year we're going to start a band.",
+      "show_text": false,
+      "question": "Что правда про Лео?",
+      "options": [
+        "Он хорошо поёт и ездит в школу на автобусе",
+        "Он познакомился с лучшим другом в музыкальном лагере",
+        "Он собирается переехать в другой город"
+      ],
+      "answer": "Он познакомился с лучшим другом в музыкальном лагере"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Обычно я встаю в семь, но вчера я проспал, потому что поздно лёг.",
+      "answers": [
+        "I usually get up at seven, but yesterday I overslept because I went to bed late.",
+        "Usually I get up at seven, but yesterday I got up late because I went to bed late."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Главное задание: 2 минуты о своей жизни. Нейт не перебивает. План: обычный день → дом и город → умения и хобби → прошлые выходные → что сейчас → планы.",
+      "mode": "answer",
+      "say": "Two minutes. Your life. Every tense you know. Go!",
+      "example": "First of all, I'm Kirill, I'm fifteen and I live in Chelyabinsk. On weekdays I usually get up at seven and go to school by bus. My room is small, but there's a big desk with two monitors. I can code in Python and C++ and I'm really into olympiads. Last weekend I went to a regional olympiad — the problems were hard, but I solved three. Right now I'm learning dynamic programming. Next summer I'm going to go to a programming camp. Anyway, that's me!",
+      "must_use": ["usually", "last", "going to", "can"]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Картинка-история: опиши, что этот человек обычно делает, что делает сейчас и что, судя по всему, будет делать.",
+      "image": {
+        "prompt_en": "A teenage girl at a railway station with a big suitcase and a guitar case, looking at a departure board, a calendar on the wall showing summer, her phone showing a photo of her usual day at school, warm flat illustration, no text",
+        "alt_ru": "Девочка на вокзале с чемоданом и гитарой смотрит на табло; на стене календарь с летом; в телефоне фото её обычного школьного дня."
+      },
+      "say": "Tell me her story: usually, now, next.",
+      "must_use": ["usually", "is", "going to"],
+      "min_sentences": 5,
+      "example": "She usually goes to school and studies a lot. But now it's summer. She's standing at the station and she's looking at the board. She has a big suitcase and a guitar. She's going to travel — maybe she's going to a music camp."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Твоя очередь: задай Нейту 4 вопроса в разных временах (обычно, сейчас, вчера, планы).",
+      "scenario_ru": "Интервью с Нейтом.",
+      "tutor_role": "Nate answering about his life",
+      "learner_role": "interviewer",
+      "opening": "Fine. My turn to answer. Ask me four questions — different tenses.",
+      "goals_ru": [
+        "вопрос в Present Simple",
+        "вопрос в Present Continuous",
+        "вопрос в Past Simple",
+        "вопрос с going to"
+      ],
+      "must_use": ["do you", "are you", "did you", "going to"],
+      "min_turns": 4,
+      "example": [
+        "L: What do you usually do in the evening?",
+        "T: I correct people's mistakes. It's my hobby.",
+        "L: What are you doing now?",
+        "T: Talking to you, obviously.",
+        "L: What did you do yesterday?",
+        "T: I taught two hundred students.",
+        "L: What are you going to do next year?",
+        "T: Teach you B1."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши лучшую версию рассказа «Моя жизнь» — она попадёт в «Английский.md». Нейт сравнит её с твоим первым монологом A0 и покажет, что выросло.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Итоговая версия рассказа о жизни (2 минуты).",
+        "mode": "answer",
+        "say": "Your life in English. Final version.",
+        "example": "I'm Kirill, I'm fifteen and I live in Chelyabinsk. I usually… Last weekend I… Right now I'm… Next summer I'm going to… Anyway, that's me!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 3,
+    "required": ["t7", "t9"],
+    "about_ru": "Уровень A1 пройден, если монолог (t7) понятен, в нём к месту ≥ 4 времени A1 и нет систематического пропуска -s, ты задал 4 вопроса в разных временах (t9) и верно 75% остальных заданий."
+  },
+  "review": {
+    "lessons": [
+      "a0-m3-l4",
+      "a1-m1-l2",
+      "a1-m1-l3",
+      "a1-m2-l1",
+      "a1-m3-l3",
+      "a1-m4-l1",
+      "a1-m4-l4",
+      "a1-m5-l3",
+      "a1-m5-l4",
+      "a1-m6-l1",
+      "a1-m6-l2",
+      "a1-m6-l3"
+    ],
+    "words_to_srs": true,
+    "note_ru": "Итог A1: монолог сравнивается с итогом A0. Слабые места (по ошибкам) — в первые уроки A2 и в повторение."
+  }
+}

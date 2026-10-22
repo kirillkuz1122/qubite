@@ -1,0 +1,222 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m3-l2",
+  "level": "a2",
+  "module": "a2-m3",
+  "detail": "detailed",
+  "title": { "ru": "Рассказываем историю", "en": "Telling a story" },
+  "goal_ru": "После урока ты сможешь рассказать историю по порядку: сначала, потом, вдруг, в конце.",
+  "can_do_en": "I can tell a story in order using sequencing words.",
+  "minutes": 15,
+  "theme": "travel",
+  "interests": ["sport", "games", "friends"],
+  "words": [
+    {
+      "en": "at first / in the beginning",
+      "ru": "сначала / в начале",
+      "example_en": "At first, everything was fine.",
+      "example_ru": "Сначала всё было хорошо."
+    },
+    {
+      "en": "after that / later",
+      "ru": "после этого / позже",
+      "example_en": "After that we got lost.",
+      "example_ru": "После этого мы заблудились."
+    },
+    {
+      "en": "suddenly / all of a sudden",
+      "ru": "вдруг",
+      "example_en": "All of a sudden, it started to rain.",
+      "example_ru": "Вдруг пошёл дождь."
+    },
+    {
+      "en": "luckily / unfortunately",
+      "ru": "к счастью / к сожалению",
+      "example_en": "Luckily, a man helped us.",
+      "example_ru": "К счастью, нам помог мужчина."
+    },
+    {
+      "en": "in the end / finally",
+      "ru": "в конце концов / наконец",
+      "example_en": "In the end, we got home at midnight.",
+      "example_ru": "В итоге мы добрались домой в полночь."
+    },
+    {
+      "en": "get lost",
+      "ru": "заблудиться",
+      "example_en": "We got lost in the forest.",
+      "example_ru": "Мы заблудились в лесу."
+    },
+    {
+      "en": "miss (the bus)",
+      "ru": "опоздать (на автобус)",
+      "example_en": "We missed the last bus.",
+      "example_ru": "Мы опоздали на последний автобус."
+    },
+    {
+      "en": "scared / relieved",
+      "ru": "испуганный / с облегчением",
+      "example_en": "I was so relieved!",
+      "example_ru": "Я так обрадовался (с облегчением)!"
+    },
+    {
+      "en": "decide",
+      "ru": "решить",
+      "example_en": "We decided to walk.",
+      "example_ru": "Мы решили пойти пешком."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Связки рассказа + прошедшие времена; прилагательные чувств",
+    "explain_ru": "Хорошая история = порядок + чувства. Порядок: At first → Then / After that → Suddenly → Luckily / Unfortunately → In the end. Времена: фон — Past Continuous (It was raining), события — Past Simple (We missed the bus). Чувства — was + прилагательное: I was scared / relieved / excited. Не надо повторять and then… and then… — меняй связки.",
+    "explain_en": "Order: At first… Then… Suddenly… Luckily… In the end… Background: Past Continuous. Events: Past Simple. Feelings: I was scared, I was relieved.",
+    "examples": [
+      {
+        "en": "At first, the trip was perfect. Then we decided to take a shortcut.",
+        "ru": "Сначала поездка была идеальной. Потом мы решили срезать."
+      },
+      {
+        "en": "Suddenly we realised we were lost. Unfortunately, my phone was dead.",
+        "ru": "Вдруг мы поняли, что заблудились. К сожалению, телефон сел."
+      },
+      {
+        "en": "Luckily, a kind woman showed us the way. In the end, we got home safe.",
+        "ru": "К счастью, добрая женщина показала дорогу. В итоге мы добрались домой."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "And then… and then… and then…",
+        "right": "At first… After that… Suddenly… In the end…",
+        "why_ru": "Разнообразь связки — история живее."
+      },
+      {
+        "wrong": "In the end of the trip",
+        "right": "At the end of the trip / In the end, …",
+        "why_ru": "at the end of — «в конце чего-то»; in the end — «в итоге»."
+      },
+      {
+        "wrong": "I was scaring.",
+        "right": "I was scared.",
+        "why_ru": "scared — мне страшно; scaring — я пугаю."
+      },
+      {
+        "wrong": "Luckily, the bus was leaving (о событии)",
+        "right": "Luckily, we caught the bus.",
+        "why_ru": "Событие — Past Simple."
+      }
+    ],
+    "tutor_notes_ru": "Метод: картинки-комикс → ученик рассказывает, Нейт «зевает», если связок нет. Чувства — ключ к живой речи: спрашивать How did you feel?"
+  },
+  "phrases": [
+    { "en": "It all started when…", "ru": "Всё началось, когда…" },
+    { "en": "You won't believe it, but…", "ru": "Не поверишь, но…" },
+    { "en": "I was so scared!", "ru": "Мне было так страшно!" },
+    { "en": "What a day!", "ru": "Ну и денёк!" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "поездка, которая пошла не по плану",
+      "самый страшный момент",
+      "история из лагеря"
+    ],
+    "questions_en": [
+      "Tell me about a trip that went wrong.",
+      "Have you ever got lost? What happened?",
+      "How did you feel?",
+      "How did it end?"
+    ],
+    "tutor_notes_ru": "После каждого куска Нейт спрашивает And then? How did you feel? — тянет историю дальше."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "vocab",
+      "ask_ru": "Расставь связки.",
+      "ask_en": "Put the linking words in the story.",
+      "text": "___, the hike was fun. ___ it started to rain. ___, we had a tent. ___, we got home tired but happy.",
+      "answers": ["At first", "Suddenly", "Luckily", "In the end"],
+      "options": ["At first", "Suddenly", "Luckily", "In the end"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "vocab",
+      "ask_ru": "Выбери правильное слово.",
+      "ask_en": "Choose the right word.",
+      "question": "When we found the way, I was so ___.",
+      "options": ["relieved", "relieving", "scaring"],
+      "answer": "relieved"
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Комикс из 6 кадров — расскажи историю со связками и чувствами.",
+      "ask_en": "Tell the story with linking words and feelings.",
+      "image": {
+        "prompt_en": "Six-panel comic: two teenagers hiking happily in a forest; they take a narrow path; it gets dark and they look scared; one phone shows a dead battery; an old man with a lantern points the way; they arrive at a village bus stop relieved, flat illustration, no text",
+        "alt_ru": "Комикс: двое весело идут по лесу; сворачивают на узкую тропу; темнеет, им страшно; телефон сел; старик с фонарём показывает дорогу; они с облегчением выходят к остановке в деревне."
+      },
+      "say": "Tell me the story. Use at first, suddenly, luckily, in the end.",
+      "must_use": ["At first", "Suddenly", "Luckily", "In the end"],
+      "min_sentences": 6,
+      "example": "At first, two friends were hiking in the forest and they were happy. Then they decided to take a small path. Suddenly it got dark and they were scared. Unfortunately, the phone was dead. Luckily, an old man with a lamp showed them the way. In the end, they got to the bus stop and they were so relieved."
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай историю без текста. Как всё закончилось?",
+      "ask_en": "Listen. How did it end?",
+      "audio": "We were going to a chess tournament in another city. At first everything was fine, but then our train stopped for two hours. We were sure we were going to be late. Luckily, the organisers waited for us, and in the end I played all my games and won a medal.",
+      "show_text": false,
+      "question": "Чем закончилось?",
+      "options": [
+        "опоздали и не играли",
+        "организаторы подождали, и он выиграл медаль",
+        "поезд не поехал"
+      ],
+      "answer": "организаторы подождали, и он выиграл медаль"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи настоящую историю «пошло не по плану» — 6–8 фраз, минимум 4 связки и 2 чувства.",
+      "ask_en": "Tell me a real 'it went wrong' story.",
+      "mode": "answer",
+      "say": "A real story. Something didn't go to plan. I'm listening — and I'm counting your linking words.",
+      "example": "It all started when we went to Yekaterinburg for an olympiad. At first, everything was fine. Then we missed our train because the taxi was late. I was really scared. Luckily, there was another train an hour later. In the end, we arrived just in time and I was so relieved.",
+      "must_use": ["At first", "In the end"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши голосом историю из лагеря, поездки или соревнования — как будто рассказываешь на YouTube.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "История для «ролика».",
+        "ask_en": "Story for your 'video'.",
+        "mode": "answer",
+        "say": "Story time! Like a YouTuber.",
+        "example": "Hi guys! Story time. Last summer I was at a camp…"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в своей истории (t5) ≥ 4 разные связки и чувства."
+  },
+  "review": {
+    "lessons": ["a2-m3-l1", "a1-m5-l4"],
+    "words_to_srs": true,
+    "note_ru": "Фон и событие из прошлого урока — теперь в целой истории."
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m1-l2",
+  "level": "a1",
+  "module": "a1-m1",
+  "detail": "full",
+  "title": { "ru": "День друга", "en": "My friend's day" },
+  "goal_ru": "После урока ты сможешь рассказать о дне друга или брата, не забывая окончание -s.",
+  "can_do_en": "I can describe another person's daily routine.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["sport", "games", "music"],
+  "words": [
+    {
+      "en": "come home",
+      "ru": "приходить домой",
+      "example_en": "He comes home at three.",
+      "example_ru": "Он приходит домой в три."
+    },
+    {
+      "en": "have lunch / dinner",
+      "ru": "обедать / ужинать",
+      "example_en": "She has lunch at school.",
+      "example_ru": "Она обедает в школе.",
+      "note_ru": "have → has с he/she."
+    },
+    {
+      "en": "do homework",
+      "ru": "делать домашку",
+      "example_en": "He does his homework in the evening.",
+      "example_ru": "Он делает домашку вечером.",
+      "note_ru": "do → does [даз]."
+    },
+    {
+      "en": "train",
+      "ru": "тренироваться",
+      "example_en": "She trains three times a week.",
+      "example_ru": "Она тренируется три раза в неделю."
+    },
+    {
+      "en": "watch videos",
+      "ru": "смотреть видео",
+      "example_en": "He watches videos before bed.",
+      "example_ru": "Он смотрит видео перед сном.",
+      "note_ru": "watch → watches (после -ch добавляем -es)."
+    },
+    {
+      "en": "play",
+      "ru": "играть",
+      "example_en": "He plays basketball.",
+      "example_ru": "Он играет в баскетбол."
+    },
+    {
+      "en": "go to bed",
+      "ru": "ложиться спать",
+      "example_en": "She goes to bed at eleven.",
+      "example_ru": "Она ложится спать в одиннадцать."
+    },
+    {
+      "en": "study",
+      "ru": "учиться, заниматься",
+      "example_en": "He studies a lot.",
+      "example_ru": "Он много занимается.",
+      "note_ru": "study → studies (y → ies)."
+    },
+    {
+      "en": "in the afternoon / in the evening",
+      "ru": "днём / вечером",
+      "example_en": "In the evening she reads.",
+      "example_ru": "Вечером она читает."
+    },
+    {
+      "en": "every day",
+      "ru": "каждый день",
+      "example_en": "He codes every day.",
+      "example_ru": "Он программирует каждый день."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Simple: he / she / it + -s",
+    "explain_ru": "Главное правило A1: про одного человека (he, she, it, my friend, Max) к глаголу добавляем -s: I play → he plays. После -ch, -sh, -s, -o — -es: watches, goes, does. Согласная + y → -ies: study → studies. Особый глагол: have → has. Запомни как «он-она-оно — хвостик s».",
+    "explain_en": "He / she / it + verb + s: he plays, she watches, he goes, she studies, he has.",
+    "examples": [
+      {
+        "en": "Max gets up at seven and goes to school by bus.",
+        "ru": "Макс встаёт в семь и едет в школу на автобусе."
+      },
+      {
+        "en": "My sister watches anime every evening.",
+        "ru": "Моя сестра каждый вечер смотрит аниме."
+      },
+      { "en": "He has lunch at school.", "ru": "Он обедает в школе." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "He play basketball.",
+        "right": "He plays basketball.",
+        "why_ru": "С he — хвостик s."
+      },
+      {
+        "wrong": "She haves lunch.",
+        "right": "She has lunch.",
+        "why_ru": "have → has — особый случай."
+      },
+      { "wrong": "He gos to bed.", "right": "He goes to bed.", "why_ru": "go → goes, с -es." },
+      {
+        "wrong": "My friends plays.",
+        "right": "My friends play.",
+        "why_ru": "Друзей много (they) — без s."
+      }
+    ],
+    "tutor_notes_ru": "Это ошибка, которая живёт годами — ловить -s в КАЖДОЙ фразе урока и дальше по программе (записать в заметки ученика). Нейт может притворно «терять» хвостик: «He play? Who stole the S?»."
+  },
+  "phrases": [
+    { "en": "What does he do after school?", "ru": "Что он делает после школы?" },
+    { "en": "He's always busy.", "ru": "Он всегда занят." },
+    { "en": "She's crazy about basketball.", "ru": "Она без ума от баскетбола." },
+    { "en": "On weekdays… / At the weekend…", "ru": "По будням… / На выходных…" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "день лучшего друга",
+      "день брата или сестры",
+      "день известного игрока или блогера"
+    ],
+    "questions_en": [
+      "Tell me about your best friend's day.",
+      "What does he or she do after school?",
+      "When does your mum or dad get up?",
+      "Does your friend play games?"
+    ],
+    "tutor_notes_ru": "Вопросы с does пока только задаёт Нейт (разбор — следующий урок). Можно рассказывать про любимого стримера или спортсмена — интерес ученика."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "question": "My brother ___ basketball every day.",
+      "options": ["play", "plays", "playes"],
+      "answer": "plays"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глагол в нужную форму.",
+      "text": "She ___ (watch) videos and ___ (go) to bed at 11. He ___ (have) dinner at 7.",
+      "answers": ["watches", "goes", "has"]
+    },
+    {
+      "id": "t3",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини: I → he.",
+      "pairs": [
+        { "en": "I study", "ru": "he studies" },
+        { "en": "I do", "ru": "he does" },
+        { "en": "I have", "ru": "he has" },
+        { "en": "I watch", "ru": "he watches" },
+        { "en": "I train", "ru": "he trains" }
+      ]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Макс делает домашку вечером.",
+      "answer": "Max does his homework in the evening.",
+      "extra": ["do", "makes"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста: что Анна делает после школы?",
+      "audio": "This is my friend Anna. She comes home at two. She has lunch, then she trains. She plays volleyball. In the evening she does her homework.",
+      "show_text": false,
+      "question": "Каким спортом занимается Анна?",
+      "options": ["баскетбол", "волейбол", "футбол"],
+      "answer": "волейбол"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Мой папа встаёт в шесть и едет на работу на автобусе.",
+      "answers": ["My dad gets up at six and goes to work by bus."]
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "reading",
+      "ask_ru": "Переведи на русский.",
+      "from": "en",
+      "text": "He studies a lot, but he plays games every day too.",
+      "answers": [
+        "Он много учится, но и каждый день играет в игры.",
+        "Он много занимается, но ещё и играет каждый день."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это день девочки-спортсменки по часам. Расскажи, что она делает, — не забудь -s!",
+      "image": {
+        "prompt_en": "Infographic of a teenage girl's day with clocks: 7:00 running in the park, 8:00 school, 15:00 lunch at home, 17:00 volleyball training, 21:00 reading in bed, flat colourful style, no words",
+        "alt_ru": "День девочки: 7:00 бег в парке, 8:00 школа, 15:00 обед дома, 17:00 тренировка по волейболу, 21:00 читает в кровати."
+      },
+      "say": "What does she do every day?",
+      "must_use": ["she"],
+      "min_sentences": 5,
+      "example": "She gets up early and runs in the park at seven. She goes to school at eight. She has lunch at three. At five she trains. At nine she reads in bed."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о дне друга или брата — 5 фраз, каждую с -s.",
+      "mode": "answer",
+      "say": "Tell me about your friend's day. I'm counting the S's.",
+      "example": "My friend Max gets up at seven. He goes to school by bus. After school he plays football. In the evening he does his homework and watches videos.",
+      "must_use": ["he", "does"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Опиши голосом день одного из родителей (или любимого блогера). Нейт посчитает хвостики -s.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "День мамы, папы или блогера — 5 фраз.",
+        "mode": "answer",
+        "say": "Describe a day of someone in your family.",
+        "example": "My mum gets up at six. She has coffee. She goes to work by car. She comes home at six and cooks dinner."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь форму глагола.",
+        "text": "My cat ___ (sleep) all day and ___ (eat) at night.",
+        "answers": ["sleeps", "eats"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе о друге не больше одного пропущенного -s (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m2-l4", "a1-m1-l1"],
+    "words_to_srs": true,
+    "note_ru": "he/she из A0 и слова утра — теперь с -s."
+  }
+}

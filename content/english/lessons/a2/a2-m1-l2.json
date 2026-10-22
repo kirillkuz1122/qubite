@@ -1,0 +1,204 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m1-l2",
+  "level": "a2",
+  "module": "a2-m1",
+  "detail": "detailed",
+  "title": { "ru": "Самая лучшая игра", "en": "The best game ever" },
+  "goal_ru": "После урока ты сможешь сказать, что самое лучшее, худшее, сложное — и почему.",
+  "can_do_en": "I can talk about the best, the worst and the most difficult things and explain why.",
+  "minutes": 15,
+  "theme": "games",
+  "interests": ["movies", "music", "sport", "olympiads"],
+  "words": [
+    {
+      "en": "the best / the worst",
+      "ru": "лучший / худший",
+      "example_en": "It's the best game ever.",
+      "example_ru": "Лучшая игра на свете."
+    },
+    {
+      "en": "the most popular",
+      "ru": "самый популярный",
+      "example_en": "It's the most popular game in my class.",
+      "example_ru": "Самая популярная игра в классе."
+    },
+    {
+      "en": "ever",
+      "ru": "когда-либо, на свете",
+      "example_en": "the hardest problem I've ever seen",
+      "example_ru": "самая трудная задача из всех, что я видел"
+    },
+    {
+      "en": "in the world / in my class",
+      "ru": "в мире / в классе",
+      "example_en": "the tallest building in the world",
+      "example_ru": "самое высокое здание в мире"
+    },
+    {
+      "en": "boring / exciting",
+      "ru": "скучный / захватывающий",
+      "example_en": "the most exciting level",
+      "example_ru": "самый захватывающий уровень"
+    },
+    {
+      "en": "level / boss",
+      "ru": "уровень / босс",
+      "example_en": "The final boss is the hardest.",
+      "example_ru": "Финальный босс — самый сложный."
+    },
+    {
+      "en": "character",
+      "ru": "персонаж",
+      "example_en": "My favourite character is the funniest.",
+      "example_ru": "Мой любимый персонаж — самый смешной."
+    },
+    {
+      "en": "ranking / top",
+      "ru": "рейтинг / топ",
+      "example_en": "my top three games",
+      "example_ru": "мой топ-3 игр"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Превосходная степень: the -est / the most; the best, the worst",
+    "explain_ru": "«Самый» — the + -est для коротких (the fastest, the biggest, the easiest) и the most для длинных (the most popular). Неправильные: good → the best, bad → the worst. Где «самый» — in (in the world, in my class), а «из всех, что…» — of (of all) или с ever: the best film I've ever seen (эту часть фразы дать целиком, Present Perfect — в m2).",
+    "explain_en": "the + -est: the fastest, the biggest. the most + long adjective: the most popular. good → the best, bad → the worst. the best in the world / in my class.",
+    "examples": [
+      {
+        "en": "Minecraft is the most popular game in my class.",
+        "ru": "Minecraft — самая популярная игра в классе."
+      },
+      {
+        "en": "The final level is the hardest, and the boss is the scariest.",
+        "ru": "Финальный уровень самый сложный, а босс — самый страшный."
+      },
+      { "en": "That was the worst film of the year.", "ru": "Это был худший фильм года." }
+    ],
+    "mistakes": [
+      { "wrong": "the most fastest", "right": "the fastest", "why_ru": "Либо -est, либо most." },
+      { "wrong": "the most good", "right": "the best", "why_ru": "good — неправильное." },
+      {
+        "wrong": "the biggest of the world",
+        "right": "the biggest in the world",
+        "why_ru": "Место — in."
+      },
+      {
+        "wrong": "It's best game.",
+        "right": "It's the best game.",
+        "why_ru": "С превосходной — the."
+      }
+    ],
+    "tutor_notes_ru": "Формат «топ-3» — ученик делает рейтинг (игры, фильмы, задачи олимпиад) и объясняет каждое место. Сравнить с прошлым уроком: faster than → the fastest."
+  },
+  "phrases": [
+    { "en": "My top three…", "ru": "Мой топ-3…" },
+    { "en": "Number one is…, because…", "ru": "Номер один — …, потому что…" },
+    { "en": "It's by far the best.", "ru": "Это лучшее с огромным отрывом." },
+    { "en": "It's overrated.", "ru": "Его переоценивают." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "топ-3 игр",
+      "самый сложный предмет и самая трудная задача",
+      "лучший и худший день года"
+    ],
+    "questions_en": [
+      "What's the best game ever? Why?",
+      "What's the most difficult subject at school?",
+      "Who is the funniest person in your class?",
+      "What's the most overrated thing on the internet?"
+    ],
+    "tutor_notes_ru": "Нейт оспаривает рейтинг («Number one? Really? It's the most overrated game in history.»). Ученик защищает с because."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь в превосходную степень.",
+      "ask_en": "Use the superlative form.",
+      "text": "It's ___ (good) game, but the last level is ___ (difficult) and the boss is ___ (big) in the series.",
+      "answers": ["the best", "the most difficult", "the biggest"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "ask_en": "Choose the correct option.",
+      "question": "This is the most popular app ___ the world.",
+      "options": ["of", "in", "at"],
+      "answer": "in"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай топ-3 без текста. Какая игра на первом месте и почему?",
+      "ask_en": "Listen. What's number one and why?",
+      "audio": "My top three games. Number three is a racing game — it's the fastest. Number two is a puzzle game — it's the most relaxing. And number one is a strategy game, because it's the most difficult and you need to think a lot.",
+      "show_text": false,
+      "question": "Что на первом месте?",
+      "options": [
+        "гонки — самые быстрые",
+        "головоломка — самая спокойная",
+        "стратегия — самая сложная"
+      ],
+      "answer": "стратегия — самая сложная"
+    },
+    {
+      "id": "t4",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Сделай свой топ-3 (игры, фильмы, блогеры) и объясни каждое место.",
+      "ask_en": "Give your top three and explain.",
+      "mode": "answer",
+      "say": "Your top three. Games, films, anything. And justify every place.",
+      "example": "My top three games. Number three is Terraria — it's the most creative. Number two is Chess.com — it's the most useful for my brain. Number one is Factorio, because it's the most interesting game for programmers.",
+      "must_use": ["the most", "the best"]
+    },
+    {
+      "id": "t5",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Три персонажа игры с характеристиками. Скажи, кто самый сильный, быстрый, умный.",
+      "ask_en": "Who is the strongest, the fastest, the smartest?",
+      "image": {
+        "prompt_en": "Three game character cards side by side with stat bars: a big knight with the highest strength bar, a small ninja with the highest speed bar, a wizard with the highest intelligence bar, colourful game UI style, only bars and icons",
+        "alt_ru": "Три карточки: рыцарь — самая высокая сила, ниндзя — самая высокая скорость, волшебник — самый высокий интеллект."
+      },
+      "say": "Compare the characters. Who would you choose?",
+      "must_use": ["the strongest", "the fastest"],
+      "min_sentences": 4,
+      "example": "The knight is the strongest, but he's the slowest. The ninja is the fastest. The wizard is the smartest. I'd choose the ninja because speed is the most important in this game."
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши голосом «самое-самое» своей недели: лучший момент, худший момент, самое трудное задание.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Лучшее, худшее и самое трудное за неделю.",
+        "ask_en": "The best, the worst and the hardest thing this week.",
+        "mode": "answer",
+        "say": "Your week: the best moment, the worst moment, the hardest task.",
+        "example": "The best moment was on Friday — we won a basketball match. The worst moment was the physics test. The hardest task was problem five at the olympiad."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в топ-3 (t4) превосходная степень с the и объяснения."
+  },
+  "review": {
+    "lessons": ["a2-m1-l1", "a1-m4-l2"],
+    "words_to_srs": true,
+    "note_ru": "Сравнительная степень → превосходная; хобби и игры."
+  }
+}

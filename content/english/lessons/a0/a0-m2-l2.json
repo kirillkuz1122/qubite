@@ -1,0 +1,226 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m2-l2",
+  "level": "a0",
+  "module": "a0-m2",
+  "detail": "full",
+  "title": { "ru": "Мои вещи", "en": "My things" },
+  "goal_ru": "После урока ты сможешь назвать вещи в рюкзаке и на столе и спросить «что это?».",
+  "can_do_en": "I can name everyday things and ask what something is.",
+  "minutes": 12,
+  "theme": "school",
+  "interests": ["programming", "games"],
+  "words": [
+    {
+      "en": "phone",
+      "ru": "телефон",
+      "example_en": "This is my phone.",
+      "example_ru": "Это мой телефон."
+    },
+    {
+      "en": "laptop",
+      "ru": "ноутбук",
+      "example_en": "It's a laptop.",
+      "example_ru": "Это ноутбук."
+    },
+    { "en": "book", "ru": "книга", "example_en": "Is it a book?", "example_ru": "Это книга?" },
+    {
+      "en": "pen / pencil",
+      "ru": "ручка / карандаш",
+      "example_en": "It's a pen.",
+      "example_ru": "Это ручка."
+    },
+    {
+      "en": "bag",
+      "ru": "рюкзак, сумка",
+      "example_en": "My bag is big.",
+      "example_ru": "Мой рюкзак большой."
+    },
+    {
+      "en": "headphones",
+      "ru": "наушники",
+      "example_en": "These are my headphones.",
+      "example_ru": "Это мои наушники."
+    },
+    {
+      "en": "charger",
+      "ru": "зарядка",
+      "example_en": "Where's my charger?",
+      "example_ru": "Где моя зарядка?"
+    },
+    {
+      "en": "notebook",
+      "ru": "тетрадь",
+      "example_en": "It's a notebook.",
+      "example_ru": "Это тетрадь.",
+      "note_ru": "notebook — тетрадь; ноутбук — laptop."
+    },
+    { "en": "apple", "ru": "яблоко", "example_en": "It's an apple.", "example_ru": "Это яблоко." }
+  ],
+  "grammar": {
+    "title_ru": "a / an; this is; What's this? — It's a…",
+    "explain_ru": "В английском перед одной вещью ставят маленькое слово a: a phone, a book. Если слово начинается с гласного звука — an: an apple, an egg. По-русски этого слова нет, поэтому его все забывают! «Это …» — This is a … или It's a …. Спросить: What's this?",
+    "explain_en": "One thing: a phone, a book, an apple. What's this? — It's a pen.",
+    "examples": [
+      { "en": "What's this? — It's a charger.", "ru": "Что это? — Это зарядка." },
+      { "en": "This is my laptop.", "ru": "Это мой ноутбук." },
+      { "en": "It's an apple.", "ru": "Это яблоко." }
+    ],
+    "mistakes": [
+      { "wrong": "It's phone.", "right": "It's a phone.", "why_ru": "Перед одной вещью нужен a." },
+      { "wrong": "a apple", "right": "an apple", "why_ru": "Перед гласным звуком — an." },
+      {
+        "wrong": "This is a my phone.",
+        "right": "This is my phone.",
+        "why_ru": "Есть my — a не нужен."
+      },
+      { "wrong": "notebook (о ноутбуке)", "right": "laptop", "why_ru": "notebook — тетрадь." }
+    ],
+    "tutor_notes_ru": "a/an — первая встреча с артиклем, главная ловушка для русских. Не объяснять the. Ловить «It's phone» каждый раз, но мягко. Правило «a нет, если есть my»."
+  },
+  "phrases": [
+    { "en": "What's this?", "ru": "Что это?" },
+    { "en": "It's a …", "ru": "Это …" },
+    { "en": "This is my …", "ru": "Это мой …" },
+    { "en": "Where's my charger?!", "ru": "Где моя зарядка?!" }
+  ],
+  "talk": {
+    "topics_ru": ["что у тебя в рюкзаке", "что на столе", "любимый гаджет"],
+    "questions_en": [
+      "What's in your bag?",
+      "What's this? (Nate shows a picture)",
+      "Is it a laptop or a notebook?",
+      "What's on your desk now?"
+    ],
+    "tutor_notes_ru": "Игра «Что это?»: Нейт показывает картинку вещи, ученик отвечает It's a/an …. Подлавливать notebook/laptop."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "laptop", "ru": "ноутбук" },
+        { "en": "notebook", "ru": "тетрадь" },
+        { "en": "charger", "ru": "зарядка" },
+        { "en": "headphones", "ru": "наушники" },
+        { "en": "bag", "ru": "рюкзак" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "a или an?",
+      "question": "It's ___ apple.",
+      "options": ["a", "an"],
+      "answer": "an"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь a или an (или ничего — тогда «-»).",
+      "text": "It's ___ phone. It's ___ egg. This is ___ my bag.",
+      "answers": ["a", "an", "-"],
+      "options": ["a", "an", "-"]
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, что ищет Нейт.",
+      "audio": "Oh no. Where's my charger?",
+      "question": "Что он ищет?",
+      "options": ["телефон", "зарядку", "наушники"],
+      "answer": "зарядку"
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Это мой ноутбук.",
+      "answer": "This is my laptop.",
+      "extra": ["a", "notebook"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Что это? — Это тетрадь.",
+      "answers": ["What's this? — It's a notebook.", "What is this? It is a notebook."]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "This is my phone and these are my headphones.",
+      "focus_ru": "«th» в this — язык между зубами, звонко."
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Что лежит на столе? Назови 4 вещи с a/an.",
+      "image": {
+        "prompt_en": "Top-down view of a teenager's desk: a laptop, a phone, a notebook, a pen, an apple and headphones, clean flat illustration, no text",
+        "alt_ru": "Стол сверху: ноутбук, телефон, тетрадь, ручка, яблоко и наушники."
+      },
+      "say": "What's on the desk?",
+      "must_use": ["a", "an"],
+      "min_sentences": 4,
+      "example": "It's a laptop. It's a phone. It's a notebook. It's an apple."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Покажи (назови) три вещи рядом с тобой.",
+      "mode": "answer",
+      "say": "Look around. What's this? And this? Three things.",
+      "example": "This is my phone. It's a pen. This is my bag.",
+      "must_use": ["This is", "It's a"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Сфотографируй (или просто посмотри) свой рюкзак и назови вслух всё, что в нём, с a/an.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Назови вслух 5 вещей из рюкзака.",
+        "mode": "answer",
+        "say": "What's in your bag?",
+        "example": "A book, a pen, a notebook, a phone and an apple."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Где нет ошибки?",
+        "question": "Выбери правильное.",
+        "options": ["It's laptop.", "It's a laptop.", "It's an laptop."],
+        "answer": "It's a laptop."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 70% заданий и ты описал стол с a/an без пропусков (t8)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l3", "a0-m2-l1"],
+    "words_to_srs": true,
+    "note_ru": "Числа — сколько вещей (two pens); am/are — в вопросах о вещах."
+  }
+}

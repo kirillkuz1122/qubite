@@ -1,0 +1,277 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m6-l2",
+  "level": "a1",
+  "module": "a1-m6",
+  "detail": "full",
+  "title": { "ru": "Давай встретимся!", "en": "Let's meet!" },
+  "goal_ru": "После урока ты сможешь пригласить друга, договориться о времени и вежливо отказаться.",
+  "can_do_en": "I can invite a friend, arrange a time and politely say no.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["games", "sport", "movies"],
+  "words": [
+    {
+      "en": "Let's…",
+      "ru": "Давай…",
+      "example_en": "Let's go to the cinema!",
+      "example_ru": "Пошли в кино!"
+    },
+    {
+      "en": "Do you want to…?",
+      "ru": "Хочешь…?",
+      "example_en": "Do you want to play tonight?",
+      "example_ru": "Хочешь поиграть вечером?"
+    },
+    {
+      "en": "How about…? / What about…?",
+      "ru": "Как насчёт…?",
+      "example_en": "How about Saturday?",
+      "example_ru": "Как насчёт субботы?"
+    },
+    {
+      "en": "free / busy",
+      "ru": "свободен / занят",
+      "example_en": "Are you free on Friday?",
+      "example_ru": "Ты свободен в пятницу?"
+    },
+    {
+      "en": "meet",
+      "ru": "встречаться",
+      "example_en": "Where shall we meet?",
+      "example_ru": "Где встретимся?"
+    },
+    {
+      "en": "sounds good / great",
+      "ru": "звучит хорошо / отлично",
+      "example_en": "Sounds great!",
+      "example_ru": "Отлично!"
+    },
+    {
+      "en": "I'm afraid I can't",
+      "ru": "боюсь, не смогу",
+      "example_en": "I'm afraid I can't. I'm busy.",
+      "example_ru": "Боюсь, не могу. Я занят."
+    },
+    {
+      "en": "another time",
+      "ru": "в другой раз",
+      "example_en": "Maybe another time?",
+      "example_ru": "Может, в другой раз?"
+    },
+    {
+      "en": "in the morning / at night",
+      "ru": "утром / ночью",
+      "example_en": "Let's meet in the morning.",
+      "example_ru": "Давай утром."
+    },
+    {
+      "en": "outside",
+      "ru": "снаружи, у входа",
+      "example_en": "Let's meet outside the cinema.",
+      "example_ru": "Встретимся у входа в кино."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Предложения и приглашения; предлоги времени in / on / at",
+    "explain_ru": "Предложить: Let's + глагол (Let's play!), Do you want to + глагол? How about + -ing или день? (How about going to the park? How about Saturday?). Согласиться: Sounds great! / OK, why not? Отказаться вежливо: I'm afraid I can't. / Sorry, I'm busy. Maybe another time? Время: at — точное (at 5, at night), on — день (on Friday, on 5 May), in — часть дня, месяц, год (in the morning, in May, in 2027).",
+    "explain_en": "Let's go! Do you want to come? How about Saturday? — Sounds great! / Sorry, I'm afraid I can't. at 5 o'clock, on Friday, in the evening.",
+    "examples": [
+      {
+        "en": "Do you want to play online tonight? — Sounds good! At eight?",
+        "ru": "Поиграем вечером онлайн? — Давай! В восемь?"
+      },
+      {
+        "en": "Let's meet on Saturday at two, outside the cinema.",
+        "ru": "Давай встретимся в субботу в два у кино."
+      },
+      {
+        "en": "I'm afraid I can't — I have a training. How about Sunday?",
+        "ru": "Боюсь, не смогу — тренировка. Как насчёт воскресенья?"
+      }
+    ],
+    "mistakes": [
+      { "wrong": "Let's to go.", "right": "Let's go.", "why_ru": "После Let's — без to." },
+      {
+        "wrong": "How about go to the park?",
+        "right": "How about going to the park?",
+        "why_ru": "После How about — -ing."
+      },
+      {
+        "wrong": "in Friday / at the evening",
+        "right": "on Friday / in the evening",
+        "why_ru": "День — on; часть дня — in (но at night)."
+      },
+      {
+        "wrong": "No. (на приглашение)",
+        "right": "Sorry, I'm afraid I can't.",
+        "why_ru": "Голое No звучит грубо."
+      }
+    ],
+    "tutor_notes_ru": "Ролевой урок о дружбе. Отказ — важный навык: учить отказать и предложить другое время. Таблица in/on/at — показать картинкой «пирамиды» (in — большое, on — день, at — точка)."
+  },
+  "phrases": [
+    { "en": "Are you free on…?", "ru": "Ты свободен в…?" },
+    { "en": "Sounds great!", "ru": "Отлично!" },
+    { "en": "I'm afraid I can't.", "ru": "Боюсь, не смогу." },
+    { "en": "See you there!", "ru": "Увидимся там!" },
+    { "en": "Text me when you're there.", "ru": "Напиши, когда будешь на месте." }
+  ],
+  "talk": {
+    "topics_ru": ["куда позвать друзей", "как договариваетесь", "лучший день для встречи"],
+    "questions_en": [
+      "Where do you usually meet your friends?",
+      "Are you free this Saturday?",
+      "Do you want to go to a quest room with me?",
+      "How do you say no to a friend politely?"
+    ],
+    "tutor_notes_ru": "Нейт приглашает на скучные вещи («a lecture about tax?») — ученик вежливо отказывается и предлагает своё."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "in, on или at?",
+      "question": "Let's meet ___ Saturday ___ 3 o'clock.",
+      "options": ["in / at", "on / at", "at / in"],
+      "answer": "on / at"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь in, on или at.",
+      "text": "I'm busy ___ the morning, but I'm free ___ 4 o'clock. My birthday is ___ May.",
+      "answers": ["in", "at", "in"],
+      "options": ["in", "on", "at"]
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери предложение.",
+      "from_ru": "Как насчёт того, чтобы пойти в парк?",
+      "answer": "How about going to the park?",
+      "extra": ["go", "to go"]
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини фразу и смысл.",
+      "pairs": [
+        { "en": "Sounds great!", "ru": "согласие" },
+        { "en": "I'm afraid I can't.", "ru": "вежливый отказ" },
+        { "en": "How about Sunday?", "ru": "другое предложение" },
+        { "en": "Are you free?", "ru": "вопрос о времени" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай голосовое сообщение без текста. Когда и где встреча?",
+      "audio": "Hey, it's Ben. Do you want to go bowling? How about Friday at six? Let's meet outside the shopping centre. Text me!",
+      "show_text": false,
+      "question": "Когда и где?",
+      "options": ["в пятницу в 6 у ТЦ", "в субботу в 6 у боулинга", "в пятницу в 7 у школы"],
+      "answer": "в пятницу в 6 у ТЦ"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи сообщение другу.",
+      "from": "ru",
+      "text": "Извини, в субботу не могу — у меня олимпиада. Может, в воскресенье?",
+      "answers": [
+        "Sorry, I can't on Saturday — I have an olympiad. How about Sunday?",
+        "Sorry, I'm afraid I can't on Saturday, I have an olympiad. Maybe on Sunday?"
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт зовёт тебя куда-то дважды: на первое — откажи вежливо и предложи своё, на второе — согласись и договорись о времени и месте.",
+      "scenario_ru": "Переписка-звонок с другом о выходных.",
+      "tutor_role": "a friend with strange ideas for the weekend",
+      "learner_role": "you",
+      "opening": "Hey! Do you want to come to a two-hour lecture about tax on Saturday?",
+      "goals_ru": [
+        "вежливо отказаться",
+        "предложить своё (How about…?)",
+        "договориться: день, время (in/on/at), место"
+      ],
+      "must_use": ["I'm afraid I can't", "How about", "Let's meet"],
+      "min_turns": 6,
+      "example": [
+        "T: Do you want to come to a lecture about tax on Saturday?",
+        "L: I'm afraid I can't. How about going to the cinema?",
+        "T: Fine. When?",
+        "L: On Sunday at four?",
+        "T: Sounds good. Where?",
+        "L: Let's meet outside the cinema. See you there!"
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это календарь друга на неделю. Найди время, когда вы оба свободны, и пригласи его.",
+      "image": {
+        "prompt_en": "A weekly calendar from Monday to Sunday with icons: Monday football, Tuesday piano, Wednesday free, Thursday maths club, Friday free evening, Saturday grandma, Sunday free afternoon, clean flat planner style, only weekday initials",
+        "alt_ru": "Календарь: пн — футбол, вт — пианино, ср — свободен, чт — матклуб, пт — свободен вечером, сб — у бабушки, вс — свободен днём."
+      },
+      "say": "When is he free? Invite him.",
+      "must_use": ["on", "free", "Do you want to"],
+      "min_sentences": 4,
+      "example": "On Monday he's busy — he has football. He's free on Wednesday and on Friday evening. On Saturday he's at his grandma's. Do you want to play chess on Friday evening? Let's meet at six."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори с интонацией.",
+      "mode": "repeat",
+      "say": "Sounds great! See you on Friday at six!",
+      "focus_ru": "Радостная интонация — вверх на great."
+    }
+  ],
+  "homework": {
+    "about_ru": "Напиши (или надиктуй) по-английски настоящее приглашение другу — куда, когда, где встретиться. Можно отправить ему!",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Приглашение голосом: куда, когда, где.",
+        "mode": "answer",
+        "say": "Invite a friend to something this week.",
+        "example": "Hey Max! Do you want to go to the new escape room? How about Saturday at three? Let's meet outside the metro. Text me!"
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь in, on или at.",
+        "text": "See you ___ Monday ___ the afternoon, ___ 2:30.",
+        "answers": ["on", "in", "at"],
+        "options": ["in", "on", "at"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 75% заданий и в диалоге (t7) ты отказал вежливо и договорился о дне, времени и месте."
+  },
+  "review": {
+    "lessons": ["a0-m3-l1", "a1-m4-l2", "a1-m6-l1"],
+    "words_to_srs": true,
+    "note_ru": "Дни и время (A0) + хобби и планы."
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qubite.app/schema/english/lesson.schema.json",
+  "title": "Урок английского Qubite",
+  "description": "Один урок: цель, слова, грамматика, фразы, разговор, задания, домашка, критерии «пройден», связи для повторения. detail=full — урок расписан целиком (A0, A1); detailed — подробно, остальные задания агент делает сам по словам и грамматике (A2).",
+  "type": "object",
+  "required": [
+    "id",
+    "level",
+    "module",
+    "detail",
+    "title",
+    "goal_ru",
+    "can_do_en",
+    "minutes",
+    "theme",
+    "words",
+    "grammar",
+    "phrases",
+    "talk",
+    "tasks",
+    "homework",
+    "pass",
+    "review"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+    "level": { "$ref": "common.schema.json#/$defs/level" },
+    "module": { "$ref": "common.schema.json#/$defs/moduleId" },
+    "detail": { "enum": ["full", "detailed"] },
+    "title": {
+      "type": "object",
+      "required": ["ru", "en"],
+      "additionalProperties": false,
+      "properties": {
+        "ru": { "$ref": "common.schema.json#/$defs/text" },
+        "en": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    },
+    "goal_ru": { "type": "string", "pattern": "^После урока ты сможешь " },
+    "can_do_en": {
+      "description": "Цель в стиле CEFR «I can …»",
+      "type": "string",
+      "pattern": "^I can "
+    },
+    "minutes": { "type": "integer", "minimum": 5, "maximum": 40 },
+    "theme": { "$ref": "common.schema.json#/$defs/theme" },
+    "interests": {
+      "description": "На какие интересы человека агент может заменить тему урока, не ломая цель",
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/theme" }
+    },
+    "tutor_language_ru": {
+      "description": "Особое правило языка репетитора для урока (иначе — правило уровня из course.json)",
+      "$ref": "common.schema.json#/$defs/text"
+    },
+    "words": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "common.schema.json#/$defs/word" }
+    },
+    "grammar": {
+      "type": "object",
+      "required": [
+        "title_ru",
+        "explain_ru",
+        "explain_en",
+        "examples",
+        "mistakes",
+        "tutor_notes_ru"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "explain_ru": {
+          "description": "Объяснение по-русски простыми словами — для A0/A1 и когда не понял",
+          "$ref": "common.schema.json#/$defs/text"
+        },
+        "explain_en": {
+          "description": "То же на простом английском — для A2+ и повторения",
+          "$ref": "common.schema.json#/$defs/text"
+        },
+        "examples": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "common.schema.json#/$defs/pair" }
+        },
+        "mistakes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "common.schema.json#/$defs/mistake" }
+        },
+        "tutor_notes_ru": {
+          "description": "Как агенту объяснять: порядок, ловушки, чего не грузить",
+          "$ref": "common.schema.json#/$defs/text"
+        }
+      }
+    },
+    "phrases": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "common.schema.json#/$defs/pair" }
+    },
+    "talk": {
+      "description": "Разговор с репетитором в конце урока (и в свободном разговоре по уроку)",
+      "type": "object",
+      "required": ["topics_ru", "questions_en", "tutor_notes_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "topics_ru": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "common.schema.json#/$defs/text" }
+        },
+        "questions_en": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "common.schema.json#/$defs/text" }
+        },
+        "tutor_notes_ru": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "common.schema.json#/$defs/task" }
+    },
+    "homework": {
+      "description": "Своя домашка репетитора (D-500): дело в Planner со сроком",
+      "type": "object",
+      "required": ["about_ru", "minutes", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "about_ru": { "$ref": "common.schema.json#/$defs/text" },
+        "minutes": { "type": "integer", "minimum": 3, "maximum": 30 },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "common.schema.json#/$defs/task" }
+        }
+      }
+    },
+    "pass": {
+      "description": "Когда урок пройден",
+      "type": "object",
+      "required": ["min_accuracy", "min_speak", "about_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "min_accuracy": {
+          "description": "Доля верных заданий урока (0–1)",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1
+        },
+        "min_speak": {
+          "description": "Сколько заданий «сказать вслух» (speak, describe_image, roleplay) зачтено",
+          "type": "integer",
+          "minimum": 0
+        },
+        "required": {
+          "description": "Задания, без которых урок не пройден",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^t[0-9]+$" }
+        },
+        "about_ru": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["lessons", "words_to_srs"],
+      "additionalProperties": false,
+      "properties": {
+        "lessons": {
+          "description": "Прошлые уроки, чьи слова и грамматику агент вплетает в задания",
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/anyLessonId" }
+        },
+        "words_to_srs": {
+          "description": "Слова и фразы урока — в колоду повторения",
+          "type": "boolean"
+        },
+        "note_ru": { "$ref": "common.schema.json#/$defs/text" }
+      }
+    }
+  }
+}

@@ -1,0 +1,275 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m2-l2",
+  "level": "a1",
+  "module": "a1-m2",
+  "detail": "full",
+  "title": { "ru": "В, на, под", "en": "In, on, under" },
+  "goal_ru": "После урока ты сможешь сказать, где лежит вещь, и спросить, где она.",
+  "can_do_en": "I can say where things are and ask where something is.",
+  "minutes": 15,
+  "theme": "home",
+  "interests": ["games", "school"],
+  "words": [
+    {
+      "en": "in",
+      "ru": "в, внутри",
+      "example_en": "It's in my bag.",
+      "example_ru": "Это в моём рюкзаке."
+    },
+    {
+      "en": "on",
+      "ru": "на (поверхности)",
+      "example_en": "It's on the desk.",
+      "example_ru": "Это на столе."
+    },
+    {
+      "en": "under",
+      "ru": "под",
+      "example_en": "The cat is under the bed.",
+      "example_ru": "Кот под кроватью."
+    },
+    {
+      "en": "next to",
+      "ru": "рядом с",
+      "example_en": "next to the lamp",
+      "example_ru": "рядом с лампой"
+    },
+    {
+      "en": "behind",
+      "ru": "за, позади",
+      "example_en": "behind the door",
+      "example_ru": "за дверью"
+    },
+    {
+      "en": "in front of",
+      "ru": "перед",
+      "example_en": "in front of the TV",
+      "example_ru": "перед телевизором"
+    },
+    {
+      "en": "between",
+      "ru": "между",
+      "example_en": "between the books",
+      "example_ru": "между книгами"
+    },
+    {
+      "en": "keys",
+      "ru": "ключи",
+      "example_en": "Where are my keys?",
+      "example_ru": "Где мои ключи?"
+    },
+    {
+      "en": "socks",
+      "ru": "носки",
+      "example_en": "My socks are under the bed.",
+      "example_ru": "Мои носки под кроватью."
+    },
+    {
+      "en": "find / lose",
+      "ru": "находить / терять",
+      "example_en": "I can't find my phone!",
+      "example_ru": "Не могу найти телефон!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Предлоги места + the; Where is…? Where are…?",
+    "explain_ru": "Где вещь — It's on the desk. Перед конкретной вещью в комнате ставим the: the desk, the bed — понятно, о каком столе речь (он один). Спросить: Where is my phone? (одна вещь) / Where are my keys? (много). Ответ: It's… / They're…",
+    "explain_en": "Where is my phone? — It's on the desk. Where are my keys? — They're in your bag. Use the: on the desk, under the bed.",
+    "examples": [
+      {
+        "en": "Where's my charger? — It's next to the laptop.",
+        "ru": "Где зарядка? — Рядом с ноутбуком."
+      },
+      {
+        "en": "Where are my socks? — They're under the bed. Again.",
+        "ru": "Где мои носки? — Под кроватью. Опять."
+      },
+      { "en": "The cat is between the monitors.", "ru": "Кот между мониторами." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "It's on table.",
+        "right": "It's on the table.",
+        "why_ru": "Перед конкретной вещью — the."
+      },
+      {
+        "wrong": "Where is my keys?",
+        "right": "Where are my keys?",
+        "why_ru": "Ключи — много: are."
+      },
+      { "wrong": "next the lamp", "right": "next to the lamp", "why_ru": "Рядом — next to, с to." },
+      {
+        "wrong": "It's in the desk (о вещи сверху)",
+        "right": "It's on the desk.",
+        "why_ru": "На поверхности — on; in — внутри (в ящике)."
+      }
+    ],
+    "tutor_notes_ru": "Первое серьёзное the: правило «вещь, о которой понятно, какая» — только на примерах комнаты. a/the сравнить: There's a lamp. The lamp is on the desk. Игра «Найди вещь» на картинке."
+  },
+  "phrases": [
+    { "en": "Where's my …?", "ru": "Где мой …?" },
+    { "en": "I can't find my …!", "ru": "Не могу найти …!" },
+    { "en": "Have a look under the …", "ru": "Посмотри под …" },
+    { "en": "Here it is!", "ru": "Вот он!" }
+  ],
+  "talk": {
+    "topics_ru": ["вечно потерянные вещи", "где что лежит на твоём столе", "прятки с котом"],
+    "questions_en": [
+      "What do you often lose?",
+      "Where is your phone now?",
+      "What's on your desk right now?",
+      "Where do you keep your books?"
+    ],
+    "tutor_notes_ru": "Нейт «потерял» вещь — ученик помогает найти по картинке, давая подсказки предлогами."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини предлог и перевод.",
+      "pairs": [
+        { "en": "under", "ru": "под" },
+        { "en": "behind", "ru": "за" },
+        { "en": "next to", "ru": "рядом с" },
+        { "en": "between", "ru": "между" },
+        { "en": "in front of", "ru": "перед" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "question": "Где мои ключи?",
+      "options": ["Where is my keys?", "Where are my keys?", "Where my keys are?"],
+      "answer": "Where are my keys?"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь предлог.",
+      "text": "The phone is ___ the desk. The pens are ___ the box. The cat is ___ the bed.",
+      "answers": ["on", "in", "under"],
+      "options": ["on", "in", "under"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери ответ.",
+      "from_ru": "Они рядом с ноутбуком.",
+      "answer": "They're next to the laptop.",
+      "extra": ["it's", "a"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста, где мама нашла наушники.",
+      "audio": "Your headphones? They're not on the desk. They're behind the sofa, next to your socks.",
+      "show_text": false,
+      "question": "Где наушники?",
+      "options": ["на столе", "за диваном", "под кроватью"],
+      "answer": "за диваном"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Не могу найти зарядку! — Посмотри под кроватью.",
+      "answers": [
+        "I can't find my charger! — Have a look under the bed.",
+        "I can't find my charger! Look under the bed."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Найди на картинке 5 вещей и скажи, где каждая.",
+      "image": {
+        "prompt_en": "Messy teenager room: a phone on the bed, socks under the desk, a cat between two monitors, a backpack behind the door, a ball in front of the wardrobe, playful flat illustration, no text",
+        "alt_ru": "Беспорядок: телефон на кровати, носки под столом, кот между двумя мониторами, рюкзак за дверью, мяч перед шкафом."
+      },
+      "say": "Where are the things? Five sentences.",
+      "must_use": ["under", "between", "behind"],
+      "min_sentences": 5,
+      "example": "The phone is on the bed. The socks are under the desk. The cat is between the monitors. The bag is behind the door. The ball is in front of the wardrobe."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт «потерял» очки в твоей комнате (на картинке выше). Он спрашивает — ты подсказываешь, где искать, пока не найдёт.",
+      "scenario_ru": "Нейт в гостях и всё время теряет вещи.",
+      "tutor_role": "a forgetful Nate looking for his things",
+      "learner_role": "host who helps",
+      "opening": "Where are my glasses? I can't find them anywhere!",
+      "goals_ru": [
+        "дать 3 подсказки с предлогами",
+        "ответить на Is it…? / Are they…?",
+        "сказать Here they are!"
+      ],
+      "must_use": ["They're", "Have a look"],
+      "min_turns": 4,
+      "example": [
+        "T: Where are my glasses?",
+        "L: Have a look on the desk.",
+        "T: Not on the desk.",
+        "L: Are they under the bed?",
+        "T: No!",
+        "L: They're on your head!"
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Скажи, где сейчас лежат 3 твои вещи.",
+      "mode": "answer",
+      "say": "Where are your phone, your bag and your keys right now?",
+      "example": "My phone is in my hand. My bag is next to the door. My keys are on the shelf.",
+      "must_use": ["is", "are"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Спрячь дома 3 вещи (или представь) и запиши голосом подсказки, где они, — Нейт «будет искать».",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "3 подсказки — где спрятаны вещи.",
+        "mode": "answer",
+        "say": "You hid three things. Where are they?",
+        "example": "The pen is behind the books. The coin is under the lamp. The phone is between the pillows."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "a или the?",
+        "text": "There's ___ lamp in my room. ___ lamp is on the desk.",
+        "answers": ["a", "The"],
+        "options": ["a", "The"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 75% заданий и на картинке (t7) у всех вещей верный предлог и the."
+  },
+  "review": {
+    "lessons": ["a1-m2-l1"],
+    "words_to_srs": true,
+    "note_ru": "Мебель из прошлого урока — теперь с предлогами."
+  }
+}

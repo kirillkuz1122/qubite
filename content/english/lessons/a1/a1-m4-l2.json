@@ -1,0 +1,271 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m4-l2",
+  "level": "a1",
+  "module": "a1-m4",
+  "detail": "full",
+  "title": { "ru": "Обожаю играть", "en": "I love gaming" },
+  "goal_ru": "После урока ты сможешь рассказать о хобби: что обожаешь, любишь и терпеть не можешь делать.",
+  "can_do_en": "I can talk about my hobbies and what I love, like and hate doing.",
+  "minutes": 15,
+  "theme": "games",
+  "interests": ["sport", "music", "programming", "movies"],
+  "words": [
+    {
+      "en": "love / like / don't mind",
+      "ru": "обожать / любить / не против",
+      "example_en": "I don't mind cooking.",
+      "example_ru": "Я не против готовить."
+    },
+    {
+      "en": "hate / can't stand",
+      "ru": "ненавидеть / терпеть не могу",
+      "example_en": "I can't stand waiting.",
+      "example_ru": "Терпеть не могу ждать."
+    },
+    {
+      "en": "be into",
+      "ru": "увлекаться",
+      "example_en": "I'm into robotics.",
+      "example_ru": "Я увлекаюсь робототехникой."
+    },
+    {
+      "en": "gaming",
+      "ru": "видеоигры (как хобби)",
+      "example_en": "Gaming is my favourite hobby.",
+      "example_ru": "Игры — моё любимое хобби."
+    },
+    {
+      "en": "hang out (with friends)",
+      "ru": "тусоваться (с друзьями)",
+      "example_en": "I love hanging out with friends.",
+      "example_ru": "Обожаю тусоваться с друзьями."
+    },
+    {
+      "en": "listen to music",
+      "ru": "слушать музыку",
+      "example_en": "I like listening to music on the bus.",
+      "example_ru": "Люблю слушать музыку в автобусе.",
+      "note_ru": "listen TO music — с to."
+    },
+    {
+      "en": "read / watch series",
+      "ru": "читать / смотреть сериалы",
+      "example_en": "She hates reading.",
+      "example_ru": "Она ненавидит читать."
+    },
+    {
+      "en": "go running / go swimming",
+      "ru": "бегать / ходить плавать",
+      "example_en": "I go running on Sundays.",
+      "example_ru": "По воскресеньям бегаю."
+    },
+    {
+      "en": "free time",
+      "ru": "свободное время",
+      "example_en": "What do you do in your free time?",
+      "example_ru": "Что ты делаешь в свободное время?"
+    },
+    {
+      "en": "hobby",
+      "ru": "хобби",
+      "example_en": "My hobby is chess.",
+      "example_ru": "Моё хобби — шахматы."
+    }
+  ],
+  "grammar": {
+    "title_ru": "love / like / hate + глагол-ing",
+    "explain_ru": "После love, like, hate, don't mind, can't stand, be into глагол берёт окончание -ing: I love playing. I hate waiting. I'm into coding. Так говорят о занятии вообще. Написание: play → playing, swim → swimming (удвоили m), code → coding (убрали e), run → running.",
+    "explain_en": "love / like / don't mind / hate / can't stand + verb-ing: I love gaming. I hate getting up early. I'm into drawing.",
+    "examples": [
+      {
+        "en": "I love playing strategy games, but I hate losing.",
+        "ru": "Обожаю стратегии, но ненавижу проигрывать."
+      },
+      { "en": "My brother is into skateboarding.", "ru": "Брат увлекается скейтом." },
+      {
+        "en": "What do you like doing in your free time?",
+        "ru": "Что ты любишь делать в свободное время?"
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I like play games.",
+        "right": "I like playing games.",
+        "why_ru": "После like — -ing."
+      },
+      { "wrong": "I'm into code.", "right": "I'm into coding.", "why_ru": "После be into — -ing." },
+      {
+        "wrong": "swiming / codeing",
+        "right": "swimming / coding",
+        "why_ru": "Короткое слово — удвоить согласную; немая e — убрать."
+      },
+      { "wrong": "I listen music.", "right": "I listen to music.", "why_ru": "listen всегда с to." }
+    ],
+    "tutor_notes_ru": "Шкала чувств на экране: love → like → don't mind → don't like → hate → can't stand. Ученик ставит свои занятия на шкалу. Записать хобби в заметки (интересы для swap_theme). I like to play — тоже верно, но учим -ing как основной."
+  },
+  "phrases": [
+    { "en": "What do you do in your free time?", "ru": "Чем занимаешься в свободное время?" },
+    { "en": "I'm really into…", "ru": "Я реально увлекаюсь…" },
+    { "en": "It's not my thing.", "ru": "Это не моё." },
+    { "en": "How about you?", "ru": "А ты?" }
+  ],
+  "talk": {
+    "topics_ru": ["твоё главное хобби", "игры: какие и почему", "что ты терпеть не можешь"],
+    "questions_en": [
+      "What do you love doing in your free time?",
+      "What games are you into?",
+      "What do you hate doing?",
+      "Do you like hanging out with friends or staying at home?"
+    ],
+    "tutor_notes_ru": "Нейт спрашивает подробности о любимой игре: жанр, с кем играет, сколько часов — это готовит Present Continuous в следующем уроке."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини выражение и перевод.",
+      "pairs": [
+        { "en": "can't stand", "ru": "терпеть не могу" },
+        { "en": "don't mind", "ru": "не против" },
+        { "en": "be into", "ru": "увлекаться" },
+        { "en": "hang out", "ru": "тусоваться" },
+        { "en": "free time", "ru": "свободное время" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вариант.",
+      "question": "I hate ___ up early.",
+      "options": ["get", "getting", "to getting"],
+      "answer": "getting"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глагол в -ing.",
+      "text": "I love ___ (swim), my sister likes ___ (draw), and Max is into ___ (code).",
+      "answers": ["swimming", "drawing", "coding"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Что ты любишь делать в свободное время?",
+      "answer": "What do you like doing in your free time?",
+      "extra": ["does", "to"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что Мия терпеть не может?",
+      "audio": "In my free time I love reading fantasy books. I don't mind cooking. But I can't stand watching football on TV — it's so boring!",
+      "show_text": false,
+      "question": "Что Мия терпеть не может?",
+      "options": ["читать", "готовить", "смотреть футбол"],
+      "answer": "смотреть футбол"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я увлекаюсь шахматами, но ненавижу проигрывать.",
+      "answers": [
+        "I'm into chess, but I hate losing.",
+        "I'm into playing chess, but I hate losing."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Посмотри на лица ребят и скажи, кто что любит или ненавидит делать.",
+      "image": {
+        "prompt_en": "Four panels: a happy boy playing a video game, a bored girl reading a textbook, a smiling girl running in a park, an annoyed boy washing dishes, expressive cartoon faces, flat style, no text",
+        "alt_ru": "Мальчик радостно играет; девочка скучает над учебником; девочка с улыбкой бегает; мальчик недовольно моет посуду."
+      },
+      "say": "What do they love or hate doing?",
+      "must_use": ["loves", "hates"],
+      "min_sentences": 4,
+      "example": "He loves playing video games. She doesn't like reading textbooks. She loves running. He can't stand washing the dishes."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о своём хобби: что это, почему любишь, с кем, как часто.",
+      "mode": "answer",
+      "say": "Tell me about your favourite hobby. Why do you love it?",
+      "example": "I'm really into gaming. I love playing strategy games with my friends online. We play three times a week. I hate losing, but I don't mind it when we lose together.",
+      "must_use": ["love", "-ing"]
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты знакомишься с новым одноклассником (Нейтом). Узнайте, есть ли у вас общие хобби.",
+      "scenario_ru": "Первый день нового одноклассника.",
+      "tutor_role": "new classmate from the UK",
+      "learner_role": "you",
+      "opening": "Hi! I'm new here. So, what do you do in your free time?",
+      "goals_ru": [
+        "рассказать о 2 хобби",
+        "спросить о его хобби",
+        "найти общее (Me too! / So do I)"
+      ],
+      "must_use": ["How about you?", "into"],
+      "min_turns": 5,
+      "example": [
+        "T: What do you do in your free time?",
+        "L: I love coding and I'm into chess. How about you?",
+        "T: I can't stand chess. But I love gaming.",
+        "L: Me too! What games are you into?",
+        "T: Strategy games.",
+        "L: Cool, let's play together!"
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Расставь 6 занятий на шкалу «обожаю → терпеть не могу» и запиши голосом.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "6 занятий по шкале от love до can't stand.",
+        "mode": "answer",
+        "say": "Six activities: from love to can't stand.",
+        "example": "I love gaming. I like coding. I don't mind cooking. I don't like reading. I hate cleaning my room. I can't stand waiting for the bus."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "vocab",
+        "ask_ru": "Вставь предлог.",
+        "text": "I like listening ___ music.",
+        "answers": ["to"],
+        "options": ["to", "at", "-"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе о хобби (t8) после love/like/hate стоит -ing."
+  },
+  "review": {
+    "lessons": ["a0-m3-l2", "a1-m1-l4", "a1-m4-l1"],
+    "words_to_srs": true,
+    "note_ru": "like из A0 → like doing; частота и can."
+  }
+}

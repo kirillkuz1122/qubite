@@ -1,0 +1,256 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m1-l1",
+  "level": "a0",
+  "module": "a0-m1",
+  "detail": "full",
+  "title": { "ru": "Привет, я…", "en": "Hello, I'm…" },
+  "goal_ru": "После урока ты сможешь поздороваться, назвать своё имя и спросить имя собеседника.",
+  "can_do_en": "I can say hello, tell my name and ask someone's name.",
+  "minutes": 10,
+  "theme": "intro",
+  "interests": ["games", "internet"],
+  "words": [
+    {
+      "en": "hello",
+      "ru": "привет, здравствуйте",
+      "example_en": "Hello, Nate!",
+      "example_ru": "Привет, Нейт!"
+    },
+    {
+      "en": "hi",
+      "ru": "привет (проще)",
+      "example_en": "Hi! I'm Kirill.",
+      "example_ru": "Привет! Я Кирилл."
+    },
+    { "en": "bye", "ru": "пока", "example_en": "Bye! See you!", "example_ru": "Пока! Увидимся!" },
+    {
+      "en": "name",
+      "ru": "имя",
+      "example_en": "My name is Anna.",
+      "example_ru": "Меня зовут Анна."
+    },
+    {
+      "en": "my",
+      "ru": "мой, моя",
+      "example_en": "My name is Max.",
+      "example_ru": "Меня зовут Макс."
+    },
+    {
+      "en": "your",
+      "ru": "твой, ваш",
+      "example_en": "What's your name?",
+      "example_ru": "Как тебя зовут?"
+    },
+    {
+      "en": "I",
+      "ru": "я",
+      "example_en": "I'm Kirill.",
+      "example_ru": "Я Кирилл.",
+      "note_ru": "Всегда с большой буквы, даже в середине предложения."
+    },
+    { "en": "you", "ru": "ты, вы", "example_en": "And you?", "example_ru": "А ты?" },
+    {
+      "en": "nice to meet you",
+      "ru": "приятно познакомиться",
+      "example_en": "Nice to meet you, Nate.",
+      "example_ru": "Приятно познакомиться, Нейт."
+    }
+  ],
+  "grammar": {
+    "title_ru": "I'm = I am; My name is…",
+    "explain_ru": "По-русски говорим «Я Кирилл» — без глагола. По-английски глагол нужен всегда: I am Kirill, коротко — I'm Kirill. Второй способ: My name is Kirill — «моё имя — Кирилл». Спросить: What's your name? (What's = What is).",
+    "explain_en": "Say your name: I'm Kirill. / My name is Kirill. Ask: What's your name?",
+    "examples": [
+      { "en": "I'm Kirill.", "ru": "Я Кирилл." },
+      { "en": "My name is Nate.", "ru": "Меня зовут Нейт." },
+      { "en": "What's your name?", "ru": "Как тебя зовут?" }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I Kirill.",
+        "right": "I'm Kirill.",
+        "why_ru": "В английском нужен глагол am — «я есть Кирилл»."
+      },
+      {
+        "wrong": "My name Kirill.",
+        "right": "My name is Kirill.",
+        "why_ru": "Пропущено is — без него нет предложения."
+      },
+      {
+        "wrong": "What your name?",
+        "right": "What's your name?",
+        "why_ru": "Нужно is: What is → What's."
+      }
+    ],
+    "tutor_notes_ru": "Самый первый урок: всё по-русски, английские фразы медленно и по два раза. Не говорить слово «глагол to be» — просто «тут нужно am». Ошибку «I Kirill» ловить обязательно и с юмором («Ты Кирилл или ты *есть* Кирилл?»). Хвалить каждую верную фразу."
+  },
+  "phrases": [
+    { "en": "Hello! I'm …", "ru": "Привет! Я …" },
+    { "en": "What's your name?", "ru": "Как тебя зовут?" },
+    { "en": "My name is …", "ru": "Меня зовут …" },
+    { "en": "Nice to meet you!", "ru": "Приятно познакомиться!" },
+    { "en": "Nice to meet you too.", "ru": "Мне тоже приятно." },
+    { "en": "Bye! See you!", "ru": "Пока! Увидимся!" }
+  ],
+  "talk": {
+    "topics_ru": ["знакомство с Нейтом", "твой ник в игре"],
+    "questions_en": [
+      "Hello! I'm Nate. What's your name?",
+      "Nice to meet you! Do you have a nickname?",
+      "What's my name? Say it!"
+    ],
+    "tutor_notes_ru": "Нейт первый представляется, ждёт полную фразу, а не одно имя: на «Kirill» отвечает «Full sentence, please: I'm Kirill». Ник в игре — по желанию, это ниточка к уроку про алфавит. В конце — «Bye!» и чтобы ученик ответил тоже."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "hello", "ru": "привет" },
+        { "en": "bye", "ru": "пока" },
+        { "en": "name", "ru": "имя" },
+        { "en": "my", "ru": "мой" },
+        { "en": "your", "ru": "твой" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай Нейта и выбери, как его зовут.",
+      "audio": "Hello! My name is Nate.",
+      "show_text": true,
+      "question": "Как его зовут?",
+      "options": ["Nick", "Nate", "Max"],
+      "answer": "Nate"
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как правильно сказать «Я Кирилл»?",
+      "question": "Я Кирилл.",
+      "options": ["I Kirill.", "I'm Kirill.", "My Kirill."],
+      "answer": "I'm Kirill.",
+      "explain_ru": "I'm = I am. Без am не бывает."
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос из плиток.",
+      "from_ru": "Как тебя зовут?",
+      "answer": "What's your name?",
+      "extra": ["my", "you"]
+    },
+    {
+      "id": "t5",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь пропущенное слово.",
+      "text": "My name ___ Anna.",
+      "answers": ["is"],
+      "options": ["is", "am", "I"],
+      "translation_ru": "Меня зовут Анна."
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи на английский.",
+      "from": "ru",
+      "text": "Привет! Приятно познакомиться.",
+      "answers": ["Hello! Nice to meet you.", "Hi! Nice to meet you."]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори за Нейтом вслух.",
+      "mode": "repeat",
+      "say": "Nice to meet you!",
+      "focus_ru": "«meet» — долгое «и-и», не «мит»."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту вслух полной фразой.",
+      "mode": "answer",
+      "say": "Hello! What's your name?",
+      "example": "Hello! I'm Kirill. Nice to meet you!",
+      "must_use": ["I'm"]
+    },
+    {
+      "id": "t9",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Посмотри на картинку: два персонажа знакомятся. Скажи, что говорит каждый.",
+      "image": {
+        "prompt_en": "Two friendly cartoon teenagers meeting in a school corridor, waving hello, speech bubbles empty, bright flat illustration",
+        "alt_ru": "Двое подростков в школьном коридоре машут друг другу, у них пустые облачка для реплик."
+      },
+      "say": "What do they say? Use hello and name.",
+      "must_use": ["hello", "name"],
+      "min_sentences": 2,
+      "example": "Hello! My name is Tom. Hi, Tom! I'm Lisa. Nice to meet you!"
+    },
+    {
+      "id": "t10",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Мини-диалог: ты встретил Нейта в игре. Поздоровайся, назовись, спроси его имя и попрощайся.",
+      "scenario_ru": "Онлайн-игра, новый игрок в команде.",
+      "tutor_role": "Nate, a new player in your team",
+      "learner_role": "you",
+      "opening": "Hi!",
+      "goals_ru": ["поздороваться", "назвать своё имя", "спросить имя", "попрощаться"],
+      "must_use": ["What's your name?", "bye"],
+      "min_turns": 3,
+      "example": [
+        "T: Hi!",
+        "L: Hi! I'm Kirill. What's your name?",
+        "T: I'm Nate. Nice to meet you.",
+        "L: Nice to meet you too. Bye!"
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Две минуты: закрепить знакомство голосом. Завтра Нейт сам спросит, как тебя зовут, — ответь без подсказки.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Запиши голосом: поздоровайся, назови имя и скажи «приятно познакомиться».",
+        "mode": "answer",
+        "say": "Introduce yourself.",
+        "example": "Hello! My name is Kirill. Nice to meet you!"
+      },
+      {
+        "id": "h2",
+        "type": "translate",
+        "skill": "writing",
+        "ask_ru": "Переведи.",
+        "from": "ru",
+        "text": "Как тебя зовут? Меня зовут Макс.",
+        "answers": ["What's your name? My name is Max.", "What's your name? I'm Max."]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 70% заданий и ты сам вслух представился полной фразой (t8)."
+  },
+  "review": {
+    "lessons": [],
+    "words_to_srs": true,
+    "note_ru": "Первый урок — повторения нет; фразы знакомства Нейт повторяет в начале следующих трёх уроков."
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m1-l4",
+  "level": "a0",
+  "module": "a0-m1",
+  "detail": "full",
+  "title": { "ru": "Алфавит и ник", "en": "The alphabet and your nickname" },
+  "goal_ru": "После урока ты сможешь продиктовать своё имя и игровой ник по буквам.",
+  "can_do_en": "I can spell my name and my nickname.",
+  "minutes": 12,
+  "theme": "games",
+  "interests": ["internet", "programming"],
+  "words": [
+    {
+      "en": "letter",
+      "ru": "буква",
+      "example_en": "K is a letter.",
+      "example_ru": "K — это буква."
+    },
+    {
+      "en": "spell",
+      "ru": "сказать по буквам",
+      "example_en": "How do you spell it?",
+      "example_ru": "Как это пишется по буквам?"
+    },
+    {
+      "en": "A, E, I",
+      "ru": "эй, и:, ай",
+      "example_en": "A-N-N-A",
+      "example_ru": "Анна по буквам",
+      "note_ru": "Самые коварные: A [эй], E [и:], I [ай] — не как в русском."
+    },
+    {
+      "en": "G, J",
+      "ru": "джи:, джей",
+      "example_en": "G for game, J for jump.",
+      "example_ru": "G — game, J — jump.",
+      "note_ru": "G и J — частая путаница: G [джи:], J [джей]."
+    },
+    {
+      "en": "Y, W",
+      "ru": "уай, дабл-ю",
+      "example_en": "W-W-W",
+      "example_ru": "три W",
+      "note_ru": "W — «двойная u»."
+    },
+    {
+      "en": "nickname",
+      "ru": "ник, прозвище",
+      "example_en": "My nickname is ShadowFox.",
+      "example_ru": "Мой ник — ShadowFox."
+    },
+    {
+      "en": "double",
+      "ru": "двойная (буква)",
+      "example_en": "double L",
+      "example_ru": "две L подряд"
+    },
+    {
+      "en": "capital letter",
+      "ru": "заглавная буква",
+      "example_en": "K is a capital letter.",
+      "example_ru": "K — заглавная."
+    },
+    {
+      "en": "underscore",
+      "ru": "нижнее подчёркивание _",
+      "example_en": "kirill underscore 14",
+      "example_ru": "kirill_14"
+    }
+  ],
+  "grammar": {
+    "title_ru": "How do you spell…? — It's K-I-R-I-L-L",
+    "explain_ru": "Чтобы спросить, как пишется слово: How do you spell it? (дословно «как ты это пишешь по буквам?»). Отвечают буквами через дефис: K-I-R-I-L-L. Две одинаковые буквы подряд — double: K-I-R-I-double L.",
+    "explain_en": "How do you spell your name? — K-I-R-I-double L.",
+    "examples": [
+      { "en": "How do you spell your name?", "ru": "Как пишется твоё имя?" },
+      { "en": "It's M-A-X.", "ru": "М-А-Х." },
+      { "en": "Double O, like in 'cool'.", "ru": "Две O, как в «cool»." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "E [е] — как русская Е",
+        "right": "E [и:]",
+        "why_ru": "Английская E называется «и:»."
+      },
+      { "wrong": "I [и]", "right": "I [ай]", "why_ru": "Английская I называется «ай»." },
+      {
+        "wrong": "How spell your name?",
+        "right": "How do you spell your name?",
+        "why_ru": "В вопросе нужен помощник do — подробно разберём в A1."
+      }
+    ],
+    "tutor_notes_ru": "Весь алфавит не зубрить — показать на экране таблицей и тренировать на своём имени и нике. Особо: A/E/I, G/J, Y, W, R [а:]. Вопрос с do дать фразой целиком, без правила. Ник берём настоящий (если ученик не хочет — придумать)."
+  },
+  "phrases": [
+    { "en": "How do you spell it?", "ru": "Как это пишется?" },
+    { "en": "Can you say that again?", "ru": "Можешь повторить?" },
+    { "en": "My nickname is …", "ru": "Мой ник — …" },
+    { "en": "Capital K, small i…", "ru": "Заглавная K, маленькая i…" }
+  ],
+  "talk": {
+    "topics_ru": ["ник в игре", "имя по буквам", "логины и почта"],
+    "questions_en": [
+      "What's your nickname?",
+      "How do you spell it?",
+      "How do you spell your name?",
+      "Spell my name: N…"
+    ],
+    "tutor_notes_ru": "Нейт диктует ник по буквам — ученик пишет; потом наоборот. Если ученик ошибся в букве, Нейт пишет неправильный ник на экране — пусть увидит, что вышло (смешно и наглядно)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, какая буква.",
+      "audio": "E",
+      "question": "Какая буква?",
+      "options": ["A", "E", "I"],
+      "answer": "E"
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай, как Нейт диктует ник, и напиши его.",
+      "audio": "My nickname is G-I-G-A double B-Y-T-E.",
+      "question": "Напиши ник.",
+      "answer": "gigabbyte",
+      "also": ["GIGABBYTE"],
+      "explain_ru": "G [джи:], I [ай], double B — две B."
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "vocab",
+      "ask_ru": "Какая буква звучит как «джей»?",
+      "question": "«джей»",
+      "options": ["G", "J", "Y"],
+      "answer": "J"
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "letter", "ru": "буква" },
+        { "en": "spell", "ru": "сказать по буквам" },
+        { "en": "nickname", "ru": "ник" },
+        { "en": "double", "ru": "двойная" },
+        { "en": "capital letter", "ru": "заглавная буква" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Как пишется твой ник?",
+      "answer": "How do you spell your nickname?",
+      "extra": ["is", "my"]
+    },
+    {
+      "id": "t6",
+      "type": "fill",
+      "skill": "vocab",
+      "ask_ru": "Вставь слово.",
+      "text": "My ___ is ShadowFox. — How do you ___ it?",
+      "answers": ["nickname", "spell"],
+      "options": ["nickname", "spell", "letter"]
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Мой ник — Fox. Как пишется твой?",
+      "answers": [
+        "My nickname is Fox. How do you spell yours?",
+        "My nickname is Fox. How do you spell your nickname?"
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Продиктуй своё имя по буквам.",
+      "mode": "answer",
+      "say": "How do you spell your name?",
+      "example": "K-I-R-I-double L.",
+      "focus_ru": "I — «ай», R — «а:», double для двух одинаковых."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты регистрируешься на турнир по игре. Организатор (Нейт) спрашивает имя, ник и возраст — ник продиктуй по буквам.",
+      "scenario_ru": "Регистрация на онлайн-турнир по телефону.",
+      "tutor_role": "tournament organiser",
+      "learner_role": "player",
+      "opening": "Hello! Tournament registration. What's your name?",
+      "goals_ru": ["назвать имя", "назвать ник и продиктовать его по буквам", "сказать возраст"],
+      "must_use": ["My nickname is"],
+      "min_turns": 4,
+      "example": [
+        "T: Hello! Tournament registration. What's your name?",
+        "L: I'm Kirill.",
+        "T: And your nickname?",
+        "L: My nickname is Fox. F-O-X.",
+        "T: How old are you?",
+        "L: I'm fourteen."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Продиктуй по буквам ник друга и название любимой игры — голосом. Нейт завтра попробует записать их с твоих слов.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Скажи по буквам название своей любимой игры.",
+        "mode": "answer",
+        "say": "What's your favourite game? Spell it.",
+        "example": "Minecraft. M-I-N-E-C-R-A-F-T."
+      },
+      {
+        "id": "h2",
+        "type": "listen",
+        "skill": "listening",
+        "ask_ru": "Послушай и напиши слово.",
+        "audio": "J-U-M-P",
+        "question": "Какое слово?",
+        "answer": "jump"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 1,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 70% заданий и ты продиктовал имя без ошибки в буквах (t8)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l1", "a0-m1-l3"],
+    "words_to_srs": true,
+    "note_ru": "Знакомство + возраст в ролевой регистрации; числа — в нике (kirill_14)."
+  }
+}

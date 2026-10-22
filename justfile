@@ -33,8 +33,8 @@ dev: db-up
     trap 'kill $server 2>/dev/null || true' EXIT
     pnpm dev
 
-# Все проверки, как в CI: формат, линтеры, типы, тесты сервера и сайта, клиент API, секреты
-check: db-up check-server check-web check-api secrets
+# Все проверки, как в CI: формат, линтеры, типы, тесты сервера и сайта, клиент API, программа английского, секреты
+check: db-up check-server check-web check-api check-english secrets
 
 # Проверки Rust-сервера
 check-server: db-up
@@ -49,6 +49,10 @@ check-web:
     pnpm typecheck
     pnpm test
     pnpm build
+
+# Программа английского (content/english) — по схемам и без битых связей (ENG-000)
+check-english:
+    node scripts/check-english.mjs
 
 # Клиент API совпадает с описанием сервера (как в CI): перегенерировать и сравнить
 check-api:

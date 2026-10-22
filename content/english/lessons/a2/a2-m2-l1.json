@@ -1,0 +1,221 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m2-l1",
+  "level": "a2",
+  "module": "a2-m2",
+  "detail": "detailed",
+  "title": { "ru": "Ты когда-нибудь…?", "en": "Have you ever…?" },
+  "goal_ru": "После урока ты сможешь спросить о жизненном опыте и рассказать о своём.",
+  "can_do_en": "I can ask about and describe life experiences.",
+  "minutes": 15,
+  "theme": "travel",
+  "interests": ["games", "sport", "olympiads", "food"],
+  "words": [
+    {
+      "en": "ever / never",
+      "ru": "когда-нибудь / никогда",
+      "example_en": "Have you ever been to Moscow?",
+      "example_ru": "Ты когда-нибудь был в Москве?"
+    },
+    {
+      "en": "been (to)",
+      "ru": "бывал (в)",
+      "example_en": "I've been to Kazan twice.",
+      "example_ru": "Я дважды был в Казани.",
+      "note_ru": "been to — съездил и вернулся; gone to — уехал и ещё там."
+    },
+    {
+      "en": "seen / done / eaten",
+      "ru": "видел / делал / ел (3-я форма)",
+      "example_en": "I've never eaten sushi.",
+      "example_ru": "Я никогда не ел суши."
+    },
+    {
+      "en": "tried",
+      "ru": "пробовал",
+      "example_en": "Have you ever tried skydiving?",
+      "example_ru": "Пробовал прыжки с парашютом?"
+    },
+    {
+      "en": "won / lost",
+      "ru": "выигрывал / проигрывал",
+      "example_en": "I've won two olympiads.",
+      "example_ru": "Я выиграл две олимпиады."
+    },
+    {
+      "en": "met",
+      "ru": "встречал",
+      "example_en": "Have you ever met a famous person?",
+      "example_ru": "Встречал знаменитость?"
+    },
+    {
+      "en": "broken",
+      "ru": "ломал",
+      "example_en": "I've broken my arm once.",
+      "example_ru": "Я однажды ломал руку."
+    },
+    {
+      "en": "once / twice / three times",
+      "ru": "один раз / два / три раза",
+      "example_en": "I've flown three times.",
+      "example_ru": "Я летал трижды."
+    },
+    {
+      "en": "abroad",
+      "ru": "за границей, за границу",
+      "example_en": "Have you ever been abroad?",
+      "example_ru": "Был за границей?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Perfect для опыта: have / has + 3-я форма; ever, never",
+    "explain_ru": "Когда важно, ЧТО было в жизни, а не КОГДА, — Present Perfect: have/has + 3-я форма глагола. I've been to Kazan. She has never flown. Have you ever tried…? — Yes, I have. / No, I haven't. 3-я форма правильных — как прошлое (played, tried); у неправильных — своя: been, seen, done, eaten, won, met, broken, flown. Как только называешь КОГДА (last year, in 2023) — переходи на Past Simple: I've been to Kazan. I went there last summer.",
+    "explain_en": "Experience: have/has + past participle. Have you ever been abroad? — Yes, I have. I've been to Turkey. I've never eaten sushi. When? → Past Simple: I went there in 2024.",
+    "examples": [
+      {
+        "en": "Have you ever won a competition? — Yes, I have. I won a city olympiad last year.",
+        "ru": "Ты когда-нибудь выигрывал соревнования? — Да. В прошлом году — городскую олимпиаду."
+      },
+      { "en": "My dad has been to twenty countries.", "ru": "Папа был в двадцати странах." },
+      { "en": "I've never broken a bone.", "ru": "Я ни разу ничего не ломал." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Did you ever be in Moscow?",
+        "right": "Have you ever been to Moscow?",
+        "why_ru": "Опыт — Present Perfect; «бывал в» — been to."
+      },
+      {
+        "wrong": "I have been in Kazan last year.",
+        "right": "I went to Kazan last year.",
+        "why_ru": "Есть «когда» — Past Simple."
+      },
+      {
+        "wrong": "I've never ate sushi.",
+        "right": "I've never eaten sushi.",
+        "why_ru": "После have — 3-я форма (eaten)."
+      },
+      { "wrong": "She have tried.", "right": "She has tried.", "why_ru": "she → has." }
+    ],
+    "tutor_notes_ru": "Ввести таблицу трёх форм для 20 глаголов из A1 (go-went-been/gone, see-saw-seen…). Игра «Never have I ever» (без взрослых тем!). Сразу тренировать переход: Have you ever…? — Yes. — When did you…?"
+  },
+  "phrases": [
+    { "en": "Have you ever…?", "ru": "Ты когда-нибудь…?" },
+    { "en": "Yes, once. / No, never.", "ru": "Да, однажды. / Нет, никогда." },
+    { "en": "When was that?", "ru": "Когда это было?" },
+    { "en": "What was it like?", "ru": "И как?" }
+  ],
+  "talk": {
+    "topics_ru": ["поездки", "необычный опыт", "достижения и олимпиады"],
+    "questions_en": [
+      "Have you ever been abroad?",
+      "Have you ever won a prize?",
+      "What's the strangest food you've ever eaten?",
+      "Have you ever met someone famous?"
+    ],
+    "tutor_notes_ru": "После каждого Yes — уточнить в Past Simple (When? What was it like?). Это ключ урока: Perfect открывает тему, Simple рассказывает."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини глагол и 3-ю форму.",
+      "ask_en": "Match the verb and the past participle.",
+      "pairs": [
+        { "en": "go", "ru": "been / gone" },
+        { "en": "eat", "ru": "eaten" },
+        { "en": "see", "ru": "seen" },
+        { "en": "fly", "ru": "flown" },
+        { "en": "break", "ru": "broken" },
+        { "en": "win", "ru": "won" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Present Perfect или Past Simple?",
+      "ask_en": "Present Perfect or Past Simple?",
+      "question": "I ___ to Saint Petersburg last summer.",
+      "options": ["have been", "went", "have gone"],
+      "answer": "went"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Чего Лиза никогда не делала?",
+      "ask_en": "Listen. What has Lisa never done?",
+      "audio": "I've been abroad three times — to Turkey, to China and to Georgia. I've tried a lot of strange food. But I've never flown alone, and I've never been on a really long flight.",
+      "show_text": false,
+      "question": "Чего она никогда не делала?",
+      "options": ["не была за границей", "не летала одна", "не пробовала странную еду"],
+      "answer": "не летала одна"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Игра «Never have I ever»: по очереди говорите «I've never…», а другой отвечает «Me neither» или «I have! …» и рассказывает когда.",
+      "ask_en": "Play 'Never have I ever'.",
+      "scenario_ru": "Игра на опыт (без взрослых тем).",
+      "tutor_role": "player",
+      "learner_role": "player",
+      "opening": "I'll start. I've never ridden a horse.",
+      "goals_ru": [
+        "сказать 3 фразы I've never…",
+        "ответить на фразы Нейта",
+        "после «I have!» — рассказать в Past Simple, когда"
+      ],
+      "must_use": ["I've never", "I have"],
+      "min_turns": 6,
+      "example": [
+        "T: I've never ridden a horse.",
+        "L: I have! I rode a horse last summer in the village.",
+        "T: Fine. Your turn.",
+        "L: I've never been abroad.",
+        "T: I have. I've been everywhere — I'm online.",
+        "L: I've never broken a bone."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи о трёх своих необычных «опытах» и одном, которого ещё не было, но хочется.",
+      "ask_en": "Tell me about three experiences and one you want.",
+      "mode": "answer",
+      "say": "Three interesting things you've done. And one thing you've never done but want to.",
+      "example": "I've been to a national olympiad in Moscow — I went there last spring. I've built a robot from nothing. I've tried snowboarding twice. But I've never been abroad, and I really want to go to Japan.",
+      "must_use": ["I've", "never"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Возьми у кого-то дома интервью «Have you ever…?» — 4 вопроса, — и перескажи с уточнениями в Past Simple.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Пересказ интервью.",
+        "ask_en": "Report your interview.",
+        "mode": "answer",
+        "say": "Who did you interview? What have they done?",
+        "example": "I interviewed my grandpa. He has been to Kazakhstan many times — he worked there in the 1990s. He has never used a computer. He has caught a really big fish!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t5) Present Perfect для опыта и Past Simple для «когда» стоят к месту."
+  },
+  "review": {
+    "lessons": ["a1-m5-l3", "a1-m5-l4"],
+    "words_to_srs": true,
+    "note_ru": "Неправильные глаголы A1 — теперь с 3-й формой; Past Simple для уточнений."
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m6-l1",
+  "level": "a2",
+  "module": "a2-m6",
+  "detail": "detailed",
+  "title": {
+    "ru": "В аэропорту",
+    "en": "At the airport"
+  },
+  "goal_ru": "После урока ты сможешь пройти регистрацию, найти выход и спросить о рейсе.",
+  "can_do_en": "I can check in, find my gate and ask about my flight.",
+  "minutes": 15,
+  "theme": "travel",
+  "interests": ["olympiads", "sport"],
+  "words": [
+    {
+      "en": "check in",
+      "ru": "регистрироваться",
+      "example_en": "Where do I check in?",
+      "example_ru": "Где регистрация?"
+    },
+    {
+      "en": "passport / boarding pass",
+      "ru": "паспорт / посадочный талон",
+      "example_en": "Here's my passport.",
+      "example_ru": "Вот мой паспорт."
+    },
+    {
+      "en": "luggage / hand luggage",
+      "ru": "багаж / ручная кладь",
+      "example_en": "I only have hand luggage.",
+      "example_ru": "У меня только ручная кладь."
+    },
+    {
+      "en": "gate",
+      "ru": "выход на посадку",
+      "example_en": "Which gate is it?",
+      "example_ru": "Какой выход?"
+    },
+    {
+      "en": "flight / delayed / cancelled",
+      "ru": "рейс / задержан / отменён",
+      "example_en": "Our flight is delayed.",
+      "example_ru": "Наш рейс задержан."
+    },
+    {
+      "en": "board / boarding",
+      "ru": "садиться / посадка",
+      "example_en": "Boarding starts at 9:20.",
+      "example_ru": "Посадка начинается в 9:20."
+    },
+    {
+      "en": "security check",
+      "ru": "досмотр",
+      "example_en": "Take your laptop out at security.",
+      "example_ru": "На досмотре достаньте ноутбук."
+    },
+    {
+      "en": "window / aisle seat",
+      "ru": "место у окна / у прохода",
+      "example_en": "Can I have a window seat?",
+      "example_ru": "Можно место у окна?"
+    },
+    {
+      "en": "departures / arrivals",
+      "ru": "вылет / прилёт",
+      "example_en": "Check the departures board.",
+      "example_ru": "Посмотри табло вылета."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Вопросы в путешествии: Which…? How long…? Could you tell me where…? (косвенный вопрос)",
+    "explain_ru": "Вежливый вопрос незнакомому — косвенный: Could you tell me where the gate is? (не where is the gate!). После Could you tell me / Do you know порядок слов как в обычном предложении. Другие вопросы: Which gate? How long is the flight? What time does boarding start? Is the flight on time?",
+    "explain_en": "Polite indirect questions: Could you tell me where gate 12 is? Do you know what time boarding starts? (normal word order after the first part).",
+    "examples": [
+      {
+        "en": "Excuse me, could you tell me where the check-in desks are?",
+        "ru": "Извините, не подскажете, где стойки регистрации?"
+      },
+      {
+        "en": "Do you know if the flight to Moscow is delayed?",
+        "ru": "Не знаете, рейс в Москву задержан?"
+      },
+      {
+        "en": "Which gate does the flight leave from?",
+        "ru": "С какого выхода рейс?"
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Could you tell me where is the gate?",
+        "right": "Could you tell me where the gate is?",
+        "why_ru": "В косвенном вопросе — прямой порядок слов."
+      },
+      {
+        "wrong": "Do you know what time does boarding start?",
+        "right": "Do you know what time boarding starts?",
+        "why_ru": "Без does внутри."
+      },
+      {
+        "wrong": "My flight is late for two hours.",
+        "right": "My flight is delayed by two hours.",
+        "why_ru": "О рейсе — delayed (by)."
+      },
+      {
+        "wrong": "luggages",
+        "right": "luggage / bags",
+        "why_ru": "luggage — неисчисляемое."
+      }
+    ],
+    "tutor_notes_ru": "Ролевой урок перед поездкой на олимпиаду/соревнования. Косвенные вопросы — главная грамматика. Нейт — строгий сотрудник регистрации и потом голос объявлений (тренировка на слух без текста)."
+  },
+  "phrases": [
+    {
+      "en": "I'd like a window seat, please.",
+      "ru": "Мне место у окна, пожалуйста."
+    },
+    {
+      "en": "Is this the queue for…?",
+      "ru": "Это очередь на…?"
+    },
+    {
+      "en": "I've missed my flight!",
+      "ru": "Я опоздал на рейс!"
+    },
+    {
+      "en": "Have a nice flight!",
+      "ru": "Хорошего полёта!"
+    }
+  ],
+  "talk": {
+    "topics_ru": ["твои перелёты", "поездка на соревнования", "что делать, если рейс задержали"],
+    "questions_en": [
+      "Have you ever flown? Where to?",
+      "Do you prefer a window or an aisle seat?",
+      "What do you do when your flight is delayed?",
+      "Where would you like to fly?"
+    ],
+    "tutor_notes_ru": "Нейт объявляет по «громкой связи» (только аудио) — ученик ловит номер выхода и время."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вежливый вопрос.",
+      "ask_en": "Make a polite question.",
+      "from_ru": "Не подскажете, где выход 14?",
+      "answer": "Could you tell me where gate 14 is?",
+      "extra": ["does", "is gate"]
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Объявление в аэропорту (только звук). Куда и когда идти?",
+      "ask_en": "Airport announcement. Which gate and when?",
+      "audio": "Attention please. Flight SU 1427 to Moscow is delayed by forty minutes. Boarding will now start at 10:15 from gate 22. We apologise for the delay.",
+      "show_text": false,
+      "question": "Какой выход и когда посадка?",
+      "options": ["выход 22, в 10:15", "выход 14, в 10:40", "выход 22, в 9:35"],
+      "answer": "выход 22, в 10:15"
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Табло вылета. Расскажи, что с какими рейсами.",
+      "ask_en": "Read the departures board.",
+      "image": {
+        "prompt_en": "Airport departures board with four rows: flight to Moscow 09:30 gate 12 ON TIME green, flight to Istanbul 10:05 gate 7 DELAYED orange, flight to Kazan 10:40 gate 3 BOARDING blue, flight to Sochi 11:15 CANCELLED red, realistic display style",
+        "alt_ru": "Табло: Москва 9:30 выход 12 по расписанию; Стамбул 10:05 выход 7 задержан; Казань 10:40 выход 3 посадка; Сочи 11:15 отменён."
+      },
+      "say": "What's happening with the flights?",
+      "must_use": ["delayed", "gate"],
+      "min_sentences": 4,
+      "example": "The flight to Moscow leaves at 9:30 from gate 12 — it's on time. The flight to Istanbul is delayed. The Kazan flight is boarding now at gate 3. The flight to Sochi is cancelled."
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Регистрация на рейс на международную олимпиаду. Нейт — сотрудник стойки.",
+      "ask_en": "Check in for your flight.",
+      "scenario_ru": "Стойка регистрации, ты летишь на соревнования.",
+      "tutor_role": "check-in agent",
+      "learner_role": "passenger",
+      "opening": "Good morning. Passport, please. Where are you flying today?",
+      "goals_ru": [
+        "ответить о рейсе и багаже",
+        "попросить место у окна",
+        "спросить косвенным вопросом про выход и время посадки"
+      ],
+      "must_use": ["Could you tell me", "window seat"],
+      "min_turns": 5,
+      "example": [
+        "T: Passport, please. Where are you flying today?",
+        "L: Here you are. I'm flying to Istanbul for an olympiad.",
+        "T: Any luggage?",
+        "L: Only hand luggage. Can I have a window seat, please?",
+        "T: Sure. Here's your boarding pass.",
+        "L: Could you tell me which gate it is and what time boarding starts?"
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вежливые вопросы — с правильным порядком слов и интонацией.",
+      "ask_en": "Repeat the polite questions.",
+      "mode": "repeat",
+      "say": "Excuse me, could you tell me where gate twelve is? Do you know if the flight is on time?",
+      "focus_ru": "После could you tell me — «where gate twelve IS», глагол в конце."
+    }
+  ],
+  "homework": {
+    "about_ru": "Представь, что летишь на соревнования за границу. Надиктуй «план аэропорта»: что делаешь шаг за шагом и какие вопросы задашь.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Шаги в аэропорту + 2 вежливых вопроса.",
+        "ask_en": "Your airport steps and two polite questions.",
+        "mode": "answer",
+        "say": "Walk me through the airport.",
+        "example": "First, I'm going to check in and get my boarding pass. Then I'll go through security — I have to take out my laptop. I'll ask: Could you tell me where gate 7 is? And: Do you know if the flight is on time?"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и на регистрации (t4) косвенный вопрос с прямым порядком слов."
+  },
+  "review": {
+    "lessons": ["a1-m2-l4", "a2-m4-l3"],
+    "words_to_srs": true,
+    "note_ru": "Как пройти (A1) → вежливые вопросы; расписания (Present Simple)."
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m3-l4",
+  "level": "a2",
+  "module": "a2-m3",
+  "detail": "detailed",
+  "title": { "ru": "Эпичный провал", "en": "An epic fail" },
+  "goal_ru": "После урока ты сможешь живо пересказать смешную или неловкую историю.",
+  "can_do_en": "I can tell a funny or embarrassing story in a lively way.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["school", "games", "internet"],
+  "words": [
+    {
+      "en": "embarrassing",
+      "ru": "неловкий, стыдный",
+      "example_en": "It was so embarrassing!",
+      "example_ru": "Было так стыдно!"
+    },
+    {
+      "en": "embarrassed",
+      "ru": "смущённый",
+      "example_en": "I was really embarrassed.",
+      "example_ru": "Мне было очень неловко."
+    },
+    {
+      "en": "fail",
+      "ru": "провал",
+      "example_en": "That was an epic fail.",
+      "example_ru": "Это был эпичный провал."
+    },
+    {
+      "en": "laugh at",
+      "ru": "смеяться над",
+      "example_en": "Everyone laughed at me.",
+      "example_ru": "Все надо мной смеялись."
+    },
+    {
+      "en": "slip / trip over",
+      "ru": "поскользнуться / споткнуться о",
+      "example_en": "I tripped over my bag.",
+      "example_ru": "Я споткнулся о рюкзак."
+    },
+    {
+      "en": "by mistake / by accident",
+      "ru": "по ошибке / случайно",
+      "example_en": "I sent it to the wrong chat by mistake.",
+      "example_ru": "Я по ошибке отправил это не в тот чат."
+    },
+    {
+      "en": "quickly / slowly / loudly",
+      "ru": "быстро / медленно / громко",
+      "example_en": "I quickly deleted it.",
+      "example_ru": "Я быстро это удалил."
+    },
+    {
+      "en": "turn red",
+      "ru": "покраснеть",
+      "example_en": "I turned red.",
+      "example_ru": "Я покраснел."
+    },
+    {
+      "en": "pretend",
+      "ru": "притворяться",
+      "example_en": "I pretended nothing happened.",
+      "example_ru": "Я сделал вид, что ничего не случилось."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Наречия образа действия (-ly) и живой рассказ; повтор прошедших времён",
+    "explain_ru": "Наречие отвечает «как?»: quick → quickly, loud → loudly, careful → carefully, happy → happily. Неправильные: good → well, fast → fast, hard → hard. Наречие обычно после глагола или в конце: He shouted loudly. I quickly deleted the message (можно и перед глаголом). Плюс всё прошедшее модуля: фон (was -ing), события (Past Simple), связки, used to. Для живости — прямая речь: And the teacher said, «Is this your homework?»",
+    "explain_en": "Adverbs say how: quickly, loudly, carefully. Irregular: well, fast, hard. Use past tenses, linking words and direct speech to make a story lively.",
+    "examples": [
+      {
+        "en": "I was walking confidently to the stage when I tripped over a cable.",
+        "ru": "Я уверенно шёл к сцене и споткнулся о провод."
+      },
+      {
+        "en": "I quickly deleted the message, but my mum had already read it.",
+        "ru": "Я быстро удалил сообщение, но мама его уже прочитала."
+      },
+      {
+        "en": "The teacher looked at me and said slowly, «Interesting answer.»",
+        "ru": "Учительница посмотрела и медленно сказала: «Интересный ответ»."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "He speaks English very good.",
+        "right": "He speaks English very well.",
+        "why_ru": "Как говорит — наречие well."
+      },
+      {
+        "wrong": "I was very embarrassing.",
+        "right": "I was very embarrassed.",
+        "why_ru": "Чувство — -ed; то, что вызывает, — -ing."
+      },
+      {
+        "wrong": "fastly / hardly (о «усердно»)",
+        "right": "fast / hard",
+        "why_ru": "hardly значит «почти не»."
+      },
+      {
+        "wrong": "I laughed on him.",
+        "right": "I laughed at him.",
+        "why_ru": "смеяться над — laugh at."
+      }
+    ],
+    "tutor_notes_ru": "Итог модуля «Истории». Нейт сам рассказывает свой «провал» первым, чтобы снять неловкость. Никаких унизительных историй о других людях — только свои, смешные. -ed/-ing чувств (embarrassed/embarrassing) — повторить."
+  },
+  "phrases": [
+    { "en": "I wanted the ground to swallow me up.", "ru": "Хотелось провалиться сквозь землю." },
+    { "en": "Everyone burst out laughing.", "ru": "Все расхохотались." },
+    { "en": "Now it's funny, but then…", "ru": "Сейчас смешно, а тогда…" },
+    { "en": "Has that ever happened to you?", "ru": "С тобой такое бывало?" }
+  ],
+  "talk": {
+    "topics_ru": ["неловкие моменты в школе", "сообщение не в тот чат", "провалы в играх"],
+    "questions_en": [
+      "What's the most embarrassing thing that has happened to you at school?",
+      "Have you ever sent a message to the wrong person?",
+      "What's your funniest gaming fail?",
+      "How did you feel? What did you do?"
+    ],
+    "tutor_notes_ru": "Нейт начинает: «Once I explained the Present Perfect for 20 minutes. To a microwave.» Ученик рассказывает свой — Нейт смеётся (маскот happy), ругает только ошибки."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Сделай наречие.",
+      "ask_en": "Make adverbs.",
+      "text": "She walked ___ (quiet) into the room. He answered ___ (good). They laughed ___ (loud).",
+      "answers": ["quietly", "well", "loudly"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "vocab",
+      "ask_ru": "Выбери правильное слово.",
+      "ask_en": "Choose the right word.",
+      "question": "It was a really ___ moment, and I was so ___.",
+      "options": [
+        "embarrassed / embarrassing",
+        "embarrassing / embarrassed",
+        "embarrassing / embarrassing"
+      ],
+      "answer": "embarrassing / embarrassed"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай историю без текста. Куда Влад отправил фото?",
+      "ask_en": "Listen. Where did Vlad send the photo?",
+      "audio": "I took a funny photo of my sleeping brother and wanted to send it to my friend. But I sent it to the family chat by mistake! I quickly deleted it, but my grandma had already seen it. She replied: «Lovely! Send more!»",
+      "show_text": false,
+      "question": "Куда он отправил фото?",
+      "options": ["другу", "в семейный чат", "учителю"],
+      "answer": "в семейный чат"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Придумай историю по картинке: что случилось, как это произошло и что было потом.",
+      "ask_en": "Tell the story of this picture.",
+      "image": {
+        "prompt_en": "A school assembly hall: a teenage boy on stage has just tripped over a microphone cable, papers flying, the audience of students laughing, a teacher covering her eyes, comic flat illustration, no text",
+        "alt_ru": "Актовый зал: мальчик на сцене споткнулся о провод микрофона, листы разлетаются, ученики смеются, учительница закрыла глаза."
+      },
+      "say": "What happened here? Tell the story — how, and what happened next.",
+      "must_use": ["was", "suddenly", "-ly"],
+      "min_sentences": 6,
+      "example": "The boy was walking confidently to the stage. He was going to give a speech. Suddenly he tripped over a cable and his papers flew everywhere. Everyone burst out laughing. He turned red, but he quickly picked up the papers and said, «Well, that was my introduction.» In the end, everyone clapped."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Твой «эпичный провал» (смешной, не обидный): фон, событие, чувства, чем кончилось, прямая речь.",
+      "ask_en": "Tell me your epic fail.",
+      "mode": "answer",
+      "say": "Your epic fail. I told you mine. Your turn — and make it lively.",
+      "example": "Last year I was presenting my project in front of the class. I was speaking confidently when suddenly my presentation changed to a photo of me as a baby — my sister had added it! Everyone burst out laughing. I wanted the ground to swallow me up. But the teacher said, «Great project. Cute baby.» Now it's funny.",
+      "must_use": ["suddenly", "embarrassed"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Истории»: запиши голосом лучшую свою историю (2 минуты) — с фоном, событиями, связками, чувствами и прямой речью.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Лучшая история модуля.",
+        "ask_en": "Your best story.",
+        "mode": "answer",
+        "say": "Your best story. Two minutes. Make me laugh — or at least not yawn.",
+        "example": "It all started when…"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и история (t5) живая: связки, оба прошедших времени, наречия и чувства."
+  },
+  "review": {
+    "lessons": ["a2-m3-l1", "a2-m3-l2", "a2-m3-l3"],
+    "words_to_srs": true,
+    "note_ru": "Весь модуль «Истории»."
+  }
+}

@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qubite.app/schema/english/common.schema.json",
+  "title": "Общие части программы английского Qubite",
+  "$defs": {
+    "level": {
+      "description": "Уровень: a0 — с нуля (Pre-A1 по CEFR), дальше A1…B2",
+      "enum": ["a0", "a1", "a2", "b1", "b2"]
+    },
+    "lessonId": {
+      "description": "Урок базы: <уровень>-m<модуль>-l<урок>, например a1-m2-l3",
+      "type": "string",
+      "pattern": "^(a0|a1|a2|b1|b2)-m[0-9]+-l[0-9]+$"
+    },
+    "customLessonId": {
+      "description": "Свой урок человека (личный слой): my-<слова через дефис>",
+      "type": "string",
+      "pattern": "^my-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "anyLessonId": {
+      "anyOf": [{ "$ref": "#/$defs/lessonId" }, { "$ref": "#/$defs/customLessonId" }]
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^(a0|a1|a2|b1|b2)-m[0-9]+$"
+    },
+    "text": { "type": "string", "minLength": 1 },
+    "theme": {
+      "description": "Тема урока (её можно заменить на интерес человека)",
+      "enum": [
+        "intro",
+        "school",
+        "friends",
+        "family",
+        "home",
+        "city",
+        "food",
+        "shopping",
+        "games",
+        "programming",
+        "olympiads",
+        "science",
+        "music",
+        "sport",
+        "movies",
+        "internet",
+        "travel",
+        "nature",
+        "health",
+        "feelings",
+        "time",
+        "work",
+        "money",
+        "society",
+        "future"
+      ]
+    },
+    "pair": {
+      "type": "object",
+      "required": ["en", "ru"],
+      "additionalProperties": false,
+      "properties": {
+        "en": { "$ref": "#/$defs/text" },
+        "ru": { "$ref": "#/$defs/text" }
+      }
+    },
+    "word": {
+      "type": "object",
+      "required": ["en", "ru", "example_en", "example_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "en": { "$ref": "#/$defs/text" },
+        "ru": { "$ref": "#/$defs/text" },
+        "example_en": { "$ref": "#/$defs/text" },
+        "example_ru": { "$ref": "#/$defs/text" },
+        "note_ru": { "description": "Произношение, ловушка, форма", "$ref": "#/$defs/text" }
+      }
+    },
+    "mistake": {
+      "type": "object",
+      "required": ["wrong", "right", "why_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "wrong": { "$ref": "#/$defs/text" },
+        "right": { "$ref": "#/$defs/text" },
+        "why_ru": { "$ref": "#/$defs/text" }
+      }
+    },
+    "image": {
+      "description": "Картинка для «опиши картинку»: генерирует ENG-002 по prompt_en (или берёт из кэша)",
+      "type": "object",
+      "required": ["prompt_en", "alt_ru"],
+      "additionalProperties": false,
+      "properties": {
+        "prompt_en": { "description": "Описание для генератора картинок", "$ref": "#/$defs/text" },
+        "alt_ru": {
+          "description": "Что на картинке — для экранного диктора и для проверки ответа",
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "taskBase": {
+      "type": "object",
+      "required": ["id", "type", "skill", "ask_ru"],
+      "properties": {
+        "id": {
+          "description": "t1… в уроке, h1… в домашке, p1… во входном тесте",
+          "type": "string",
+          "pattern": "^[thp][0-9]+$"
+        },
+        "type": { "type": "string" },
+        "skill": { "enum": ["vocab", "grammar", "listening", "speaking", "reading", "writing"] },
+        "ask_ru": { "description": "Инструкция на экране по-русски", "$ref": "#/$defs/text" },
+        "ask_en": {
+          "description": "Та же инструкция по-английски (A2+ показывать её)",
+          "$ref": "#/$defs/text"
+        },
+        "hint_ru": { "$ref": "#/$defs/text" },
+        "explain_ru": {
+          "description": "Что сказать после ответа (почему так)",
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "task": {
+      "description": "Задание. Тип — в поле type",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "choose",
+            "match",
+            "build",
+            "translate",
+            "fill",
+            "listen",
+            "speak",
+            "describe_image",
+            "roleplay"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "choose" } } },
+          "then": { "$ref": "#/$defs/choose" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "match" } } },
+          "then": { "$ref": "#/$defs/match" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "build" } } },
+          "then": { "$ref": "#/$defs/build" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "translate" } } },
+          "then": { "$ref": "#/$defs/translate" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "fill" } } },
+          "then": { "$ref": "#/$defs/fill" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "listen" } } },
+          "then": { "$ref": "#/$defs/listen" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "speak" } } },
+          "then": { "$ref": "#/$defs/speak" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "describe_image" } } },
+          "then": { "$ref": "#/$defs/describe_image" }
+        },
+        {
+          "if": { "properties": { "type": { "const": "roleplay" } } },
+          "then": { "$ref": "#/$defs/roleplay" }
+        }
+      ]
+    },
+    "choose": {
+      "description": "Выбрать один ответ из вариантов (answer — один из options)",
+      "$ref": "#/$defs/taskBase",
+      "required": ["question", "options", "answer"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "question": { "$ref": "#/$defs/text" },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "answer": { "$ref": "#/$defs/text" }
+      }
+    },
+    "match": {
+      "description": "Соединить пары: en — левая колонка, ru — правая (обычно перевод; можно «вопрос — ответ» или «I — he»)",
+      "$ref": "#/$defs/taskBase",
+      "required": ["pairs"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/pair" }
+        }
+      }
+    },
+    "build": {
+      "description": "Собрать фразу из плиток: плитки = слова answer + лишние extra",
+      "$ref": "#/$defs/taskBase",
+      "required": ["from_ru", "answer"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "from_ru": { "description": "Что собрать (смысл по-русски)", "$ref": "#/$defs/text" },
+        "answer": { "$ref": "#/$defs/text" },
+        "also": {
+          "description": "Другие верные порядки",
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "extra": {
+          "description": "Лишние плитки-ловушки",
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "translate": {
+      "description": "Перевести фразу; answers — принимаемые варианты (сверку по смыслу делает модель)",
+      "$ref": "#/$defs/taskBase",
+      "required": ["from", "text", "answers"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "from": { "enum": ["ru", "en"] },
+        "text": { "$ref": "#/$defs/text" },
+        "answers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "fill": {
+      "description": "Вставить слово: в text столько ___, сколько строк в answers",
+      "$ref": "#/$defs/taskBase",
+      "required": ["text", "answers"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "text": { "type": "string", "pattern": "___" },
+        "answers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+        "options": {
+          "description": "Банк слов (если нет — вписать самому)",
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "translation_ru": { "$ref": "#/$defs/text" }
+      }
+    },
+    "listen": {
+      "description": "Послушать (голос репетитора, текст не показывать) и ответить",
+      "$ref": "#/$defs/taskBase",
+      "required": ["audio", "question", "answer"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "audio": { "description": "Что произносит голос", "$ref": "#/$defs/text" },
+        "show_text": {
+          "description": "Показать текст после ответа (до ответа — никогда)",
+          "type": "boolean"
+        },
+        "question": { "$ref": "#/$defs/text" },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "answer": { "$ref": "#/$defs/text" },
+        "also": { "type": "array", "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "speak": {
+      "description": "Сказать вслух: repeat — повторить фразу say; answer — ответить на вопрос say своими словами",
+      "$ref": "#/$defs/taskBase",
+      "required": ["mode", "say"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "mode": { "enum": ["repeat", "answer"] },
+        "say": { "$ref": "#/$defs/text" },
+        "example": {
+          "description": "Пример хорошего ответа (для answer — обязателен)",
+          "$ref": "#/$defs/text"
+        },
+        "must_use": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "focus_ru": {
+          "description": "На что смотреть: звук, окончание, порядок слов",
+          "$ref": "#/$defs/text"
+        }
+      },
+      "if": { "properties": { "mode": { "const": "answer" } } },
+      "then": { "required": ["example"] }
+    },
+    "describe_image": {
+      "description": "Описать картинку голосом или текстом",
+      "$ref": "#/$defs/taskBase",
+      "required": ["image", "say", "min_sentences", "example"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "say": { "description": "Вопрос репетитора", "$ref": "#/$defs/text" },
+        "must_use": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "min_sentences": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "example": { "$ref": "#/$defs/text" }
+      }
+    },
+    "roleplay": {
+      "description": "Ролевой диалог с репетитором",
+      "$ref": "#/$defs/taskBase",
+      "required": ["scenario_ru", "tutor_role", "learner_role", "opening", "goals_ru", "min_turns"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "scenario_ru": { "$ref": "#/$defs/text" },
+        "tutor_role": { "$ref": "#/$defs/text" },
+        "learner_role": { "$ref": "#/$defs/text" },
+        "opening": { "description": "Первая реплика репетитора", "$ref": "#/$defs/text" },
+        "goals_ru": {
+          "description": "Что ученик должен сделать в диалоге",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/text" }
+        },
+        "must_use": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "min_turns": { "type": "integer", "minimum": 2, "maximum": 20 },
+        "example": {
+          "description": "Пример диалога: строки «T: …» и «L: …»",
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    }
+  }
+}

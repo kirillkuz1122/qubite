@@ -1,0 +1,270 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m3-l2",
+  "level": "a0",
+  "module": "a0-m3",
+  "detail": "full",
+  "title": { "ru": "Люблю и не люблю", "en": "I like, I don't like" },
+  "goal_ru": "После урока ты сможешь сказать, что ты любишь и не любишь из еды, игр и музыки.",
+  "can_do_en": "I can say what I like and don't like.",
+  "minutes": 12,
+  "theme": "food",
+  "interests": ["games", "music", "sport", "movies"],
+  "words": [
+    {
+      "en": "like",
+      "ru": "нравится, любить",
+      "example_en": "I like pizza.",
+      "example_ru": "Я люблю пиццу."
+    },
+    {
+      "en": "don't like",
+      "ru": "не нравится",
+      "example_en": "I don't like milk.",
+      "example_ru": "Я не люблю молоко."
+    },
+    {
+      "en": "love",
+      "ru": "обожать",
+      "example_en": "I love music!",
+      "example_ru": "Я обожаю музыку!"
+    },
+    {
+      "en": "pizza / burgers",
+      "ru": "пицца / бургеры",
+      "example_en": "Do you like burgers?",
+      "example_ru": "Ты любишь бургеры?"
+    },
+    {
+      "en": "ice cream",
+      "ru": "мороженое",
+      "example_en": "I love ice cream.",
+      "example_ru": "Обожаю мороженое."
+    },
+    {
+      "en": "tea / coffee / juice",
+      "ru": "чай / кофе / сок",
+      "example_en": "I like tea.",
+      "example_ru": "Я люблю чай."
+    },
+    {
+      "en": "music",
+      "ru": "музыка",
+      "example_en": "I like rock music.",
+      "example_ru": "Я люблю рок."
+    },
+    {
+      "en": "games",
+      "ru": "игры",
+      "example_en": "I love video games.",
+      "example_ru": "Обожаю видеоигры."
+    },
+    {
+      "en": "football / chess",
+      "ru": "футбол / шахматы",
+      "example_en": "I don't like football.",
+      "example_ru": "Я не люблю футбол."
+    },
+    {
+      "en": "too",
+      "ru": "тоже",
+      "example_en": "I like it too.",
+      "example_ru": "Мне тоже нравится."
+    }
+  ],
+  "grammar": {
+    "title_ru": "I like … / I don't like … / Do you like…?",
+    "explain_ru": "«Мне нравится пицца» по-английски — «я люблю пиццу»: I like pizza. Не нравится — I don't like pizza (don't = do not). Спросить: Do you like pizza? Ответ: Yes, I do. / No, I don't. Когда в целом про вещи — во множественном: I like games, I like cats.",
+    "explain_en": "I like pizza. I don't like milk. Do you like games? — Yes, I do. / No, I don't.",
+    "examples": [
+      {
+        "en": "I like chess, but I don't like football.",
+        "ru": "Я люблю шахматы, но не люблю футбол."
+      },
+      { "en": "Do you like ice cream? — Yes, I do!", "ru": "Ты любишь мороженое? — Да!" },
+      { "en": "I love cats.", "ru": "Обожаю кошек." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Me like pizza.",
+        "right": "I like pizza.",
+        "why_ru": "«Мне нравится» → «я люблю» — I like."
+      },
+      {
+        "wrong": "I not like milk.",
+        "right": "I don't like milk.",
+        "why_ru": "Отрицание — через don't."
+      },
+      {
+        "wrong": "You like pizza?",
+        "right": "Do you like pizza?",
+        "why_ru": "Вопрос начинается с Do."
+      },
+      {
+        "wrong": "I like cat.",
+        "right": "I like cats.",
+        "why_ru": "Любишь кошек вообще — cats, с s."
+      }
+    ],
+    "tutor_notes_ru": "Первая встреча с do/don't — без правил Present Simple, как фразы. Записать в заметки, что ученик любит (еда, игры, музыка) — для тем. Нейт шутит над вкусами («Pineapple pizza? I'm calling the police.»), но не над человеком."
+  },
+  "phrases": [
+    { "en": "I like … / I love …", "ru": "Я люблю … / обожаю …" },
+    { "en": "I don't like …", "ru": "Я не люблю …" },
+    { "en": "Do you like …? — Yes, I do. / No, I don't.", "ru": "Ты любишь …? — Да. / Нет." },
+    { "en": "Me too! / Me neither.", "ru": "Я тоже! / Я тоже нет." }
+  ],
+  "talk": {
+    "topics_ru": ["еда", "музыка", "игры и спорт"],
+    "questions_en": [
+      "Do you like pizza?",
+      "What music do you like?",
+      "Do you like football or chess?",
+      "What don't you like?"
+    ],
+    "tutor_notes_ru": "Нейт рассказывает свои вкусы (He doesn't like Mondays) — ученик отвечает Me too / I don't. Требовать хотя бы одно I don't like."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "ice cream", "ru": "мороженое" },
+        { "en": "juice", "ru": "сок" },
+        { "en": "chess", "ru": "шахматы" },
+        { "en": "music", "ru": "музыка" },
+        { "en": "love", "ru": "обожать" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как сказать «Я не люблю молоко»?",
+      "question": "Я не люблю молоко.",
+      "options": ["I not like milk.", "I don't like milk.", "Me don't like milk."],
+      "answer": "I don't like milk."
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, что Нейт НЕ любит.",
+      "audio": "I like chess and I love tea. I don't like football.",
+      "question": "Что он не любит?",
+      "options": ["шахматы", "чай", "футбол"],
+      "answer": "футбол"
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Ты любишь видеоигры?",
+      "answer": "Do you like video games?",
+      "extra": ["are", "likes"]
+    },
+    {
+      "id": "t5",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "___ you like burgers? — No, I ___.",
+      "answers": ["Do", "don't"],
+      "options": ["Do", "don't", "not"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Мне нравится рок, но я не люблю рэп.",
+      "answers": ["I like rock, but I don't like rap.", "I like rock music, but I don't like rap."]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "На картинке еда и вещи. Скажи, что ты любишь, а что нет.",
+      "image": {
+        "prompt_en": "A grid of six simple icons: pizza, broccoli, ice cream, a football, a chess board, a game controller, flat colourful style, no text",
+        "alt_ru": "Шесть картинок: пицца, брокколи, мороженое, футбольный мяч, шахматы, геймпад."
+      },
+      "say": "What do you like? What don't you like?",
+      "must_use": ["I like", "I don't like"],
+      "min_sentences": 4,
+      "example": "I like pizza. I don't like broccoli. I love ice cream. I like chess and video games."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "Do you like chess? — Yes, I do!",
+      "focus_ru": "Интонация вопроса — вверх в конце."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт выбирает, что заказать на вечеринку класса. Ответь, что ты любишь и не любишь, и спроси его.",
+      "scenario_ru": "Подготовка к вечеринке класса: что взять поесть и какую музыку включить.",
+      "tutor_role": "classmate planning a party",
+      "learner_role": "you",
+      "opening": "Party on Friday! Do you like pizza?",
+      "goals_ru": [
+        "ответить про еду",
+        "сказать, какую музыку любишь",
+        "спросить Нейта Do you like…?"
+      ],
+      "must_use": ["Do you like"],
+      "min_turns": 4,
+      "example": [
+        "T: Party on Friday! Do you like pizza?",
+        "L: Yes, I do. I love pizza!",
+        "T: Good. Music? I like rock.",
+        "L: I don't like rock. I like pop. Do you like juice?",
+        "T: Yes, I do."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Расскажи голосом о трёх вещах, которые ты любишь, и двух, которые не любишь.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "3 «люблю» и 2 «не люблю».",
+        "mode": "answer",
+        "say": "What do you like and what don't you like?",
+        "example": "I like pizza, chess and video games. I don't like milk and I don't like Mondays."
+      },
+      {
+        "id": "h2",
+        "type": "translate",
+        "skill": "writing",
+        "ask_ru": "Переведи.",
+        "from": "ru",
+        "text": "Ты любишь шахматы? — Да.",
+        "answers": ["Do you like chess? — Yes, I do."]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и в диалоге ты сам задал вопрос Do you like…? (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m2-l3", "a0-m3-l1"],
+    "words_to_srs": true,
+    "note_ru": "«Любимое» из урока цветов + дни (вечеринка в пятницу)."
+  }
+}

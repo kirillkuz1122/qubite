@@ -1,0 +1,262 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m6-l1",
+  "level": "a1",
+  "module": "a1-m6",
+  "detail": "full",
+  "title": { "ru": "Я собираюсь", "en": "I'm going to…" },
+  "goal_ru": "После урока ты сможешь рассказать о планах на выходные и каникулы с going to.",
+  "can_do_en": "I can talk about my plans for the weekend and the holidays.",
+  "minutes": 15,
+  "theme": "future",
+  "interests": ["travel", "olympiads", "programming", "sport"],
+  "words": [
+    {
+      "en": "plan",
+      "ru": "план; планировать",
+      "example_en": "What are your plans?",
+      "example_ru": "Какие у тебя планы?"
+    },
+    {
+      "en": "tomorrow / next week",
+      "ru": "завтра / на следующей неделе",
+      "example_en": "Next week I'm going to start a new project.",
+      "example_ru": "На следующей неделе начну новый проект."
+    },
+    {
+      "en": "this weekend / this summer",
+      "ru": "в эти выходные / этим летом",
+      "example_en": "This summer I'm going to travel.",
+      "example_ru": "Этим летом я собираюсь путешествовать."
+    },
+    {
+      "en": "holidays",
+      "ru": "каникулы",
+      "example_en": "What are you going to do in the holidays?",
+      "example_ru": "Что будешь делать на каникулах?"
+    },
+    {
+      "en": "learn",
+      "ru": "учить, научиться",
+      "example_en": "I'm going to learn C++.",
+      "example_ru": "Я собираюсь выучить C++."
+    },
+    {
+      "en": "take part in",
+      "ru": "участвовать в",
+      "example_en": "I'm going to take part in an olympiad.",
+      "example_ru": "Я собираюсь участвовать в олимпиаде."
+    },
+    {
+      "en": "prepare for",
+      "ru": "готовиться к",
+      "example_en": "I'm going to prepare for the exams.",
+      "example_ru": "Буду готовиться к экзаменам."
+    },
+    {
+      "en": "summer camp",
+      "ru": "летний лагерь",
+      "example_en": "She's going to go to a summer camp.",
+      "example_ru": "Она поедет в летний лагерь."
+    },
+    {
+      "en": "probably",
+      "ru": "наверное",
+      "example_en": "I'm probably going to stay at home.",
+      "example_ru": "Наверное, останусь дома."
+    },
+    {
+      "en": "goal",
+      "ru": "цель",
+      "example_en": "My goal is to win the regional stage.",
+      "example_ru": "Моя цель — выиграть региональный этап."
+    }
+  ],
+  "grammar": {
+    "title_ru": "be going to + глагол: планы и намерения",
+    "explain_ru": "Когда уже решил и собираешься что-то сделать — am/is/are + going to + глагол: I'm going to learn Python. She's going to visit her grandma. Отрицание: I'm not going to play this weekend. Вопрос: Are you going to…? What are you going to do? Маркеры: tomorrow, next week, this summer, in the holidays.",
+    "explain_en": "Plans: be going to + verb. I'm going to study. He isn't going to come. What are you going to do this weekend?",
+    "examples": [
+      {
+        "en": "This summer I'm going to go to a programming camp.",
+        "ru": "Этим летом я поеду в лагерь по программированию."
+      },
+      {
+        "en": "My brother isn't going to study — he's going to sleep.",
+        "ru": "Брат не собирается учиться — он собирается спать."
+      },
+      { "en": "What are you going to do after school?", "ru": "Что будешь делать после школы?" }
+    ],
+    "mistakes": [
+      { "wrong": "I going to play.", "right": "I'm going to play.", "why_ru": "Нужен am." },
+      {
+        "wrong": "I'm going to playing.",
+        "right": "I'm going to play.",
+        "why_ru": "После to — простой глагол."
+      },
+      {
+        "wrong": "Tomorrow I play football (о плане).",
+        "right": "Tomorrow I'm going to play football.",
+        "why_ru": "План — going to."
+      },
+      {
+        "wrong": "Are you going to go to…? (это не ошибка)",
+        "right": "Are you going to go… / Are you going to the camp?",
+        "why_ru": "going to go — нормально; можно и короче."
+      }
+    ],
+    "tutor_notes_ru": "going to — первое будущее (will — в A2). Тема — цели: олимпиады, проекты, лагеря. Записать планы ученика в заметки — Нейт потом спросит «Did you do it?» (связь с прошлым временем)."
+  },
+  "phrases": [
+    { "en": "What are your plans for…?", "ru": "Какие планы на…?" },
+    { "en": "I haven't decided yet.", "ru": "Я ещё не решил." },
+    { "en": "I'm going to try.", "ru": "Попробую." },
+    { "en": "Good luck!", "ru": "Удачи!" }
+  ],
+  "talk": {
+    "topics_ru": ["планы на выходные", "планы на каникулы", "цели на год: олимпиады, проекты"],
+    "questions_en": [
+      "What are you going to do this weekend?",
+      "What are your plans for the summer?",
+      "Are you going to take part in any olympiads this year?",
+      "What new skill are you going to learn?"
+    ],
+    "tutor_notes_ru": "Нейт сравнивает планы с реальностью из прошлых уроков: «Last week you said you were going to clean your room. Did you?» — без укора, с юмором."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "question": "I ___ learn C++ this summer.",
+      "options": ["going to", "am going to", "am going"],
+      "answer": "am going to"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь am / is / are + going to.",
+      "text": "We ___ visit Moscow. My sister ___ go to a camp. ___ you ___ come?",
+      "answers": ["are going to", "is going to", "Are", "going to"]
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Что ты собираешься делать на каникулах?",
+      "answer": "What are you going to do in the holidays?",
+      "extra": ["doing", "will"]
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини выражение и перевод.",
+      "pairs": [
+        { "en": "take part in", "ru": "участвовать в" },
+        { "en": "prepare for", "ru": "готовиться к" },
+        { "en": "probably", "ru": "наверное" },
+        { "en": "goal", "ru": "цель" },
+        { "en": "next week", "ru": "на следующей неделе" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что Эмма НЕ собирается делать летом?",
+      "audio": "This summer I'm going to go to a science camp for two weeks. Then I'm going to visit my cousins in Kazan. I'm not going to study at all — well, maybe a little!",
+      "show_text": false,
+      "question": "Что она не собирается делать?",
+      "options": ["ехать в лагерь", "навещать двоюродных", "учиться"],
+      "answer": "учиться"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "В этом году я собираюсь участвовать в олимпиаде по информатике.",
+      "answers": [
+        "This year I'm going to take part in the computer science olympiad.",
+        "I'm going to take part in a computer science olympiad this year."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это доска планов подростка на лето. Расскажи, что он собирается делать.",
+      "image": {
+        "prompt_en": "A cork board with pinned notes and pictures for summer plans: a tent by a lake, a laptop with code, a plane ticket, a bicycle, a book stack, a trophy, cheerful flat style, no words",
+        "alt_ru": "Доска планов: палатка у озера, ноутбук с кодом, билет на самолёт, велосипед, стопка книг, кубок."
+      },
+      "say": "What's he going to do this summer?",
+      "must_use": ["is going to"],
+      "min_sentences": 5,
+      "example": "He's going to go camping by a lake. He's going to learn to code. He's going to fly somewhere. He's going to ride his bike a lot. He's going to read some books and maybe win a competition."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о своих планах: на выходные, на каникулы и одна большая цель на год.",
+      "mode": "answer",
+      "say": "Plans. Weekend, holidays, one big goal. Go.",
+      "example": "This weekend I'm going to meet my friends and finish my project. In the holidays I'm probably going to visit my grandma. My big goal this year is to get to the regional stage of the olympiad — I'm going to train every day.",
+      "must_use": ["going to"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух — разговорный вариант gonna.",
+      "mode": "repeat",
+      "say": "I'm going to try. — I'm gonna try.",
+      "focus_ru": "В живой речи going to звучит «гона». Писать так в тексте не нужно, но понимать — да."
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши три плана на неделю голосом. В следующее воскресенье Нейт спросит, что получилось (Did you…?).",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "3 плана на эту неделю.",
+        "mode": "answer",
+        "say": "Three plans for this week.",
+        "example": "On Tuesday I'm going to solve five problems on Codeforces. On Thursday I'm going to train. At the weekend I'm going to clean my room. Really."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Где нет ошибки?",
+        "question": "Выбери правильную фразу.",
+        "options": [
+          "She's going to visiting us.",
+          "She's going to visit us.",
+          "She going to visit us."
+        ],
+        "answer": "She's going to visit us."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе о планах (t8) going to собран правильно."
+  },
+  "review": {
+    "lessons": ["a1-m4-l1", "a1-m4-l3", "a1-m5-l4"],
+    "words_to_srs": true,
+    "note_ru": "be + -ing знаком из Continuous; can — что научишься делать."
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m5-l1",
+  "level": "a1",
+  "module": "a1-m5",
+  "detail": "full",
+  "title": { "ru": "Где ты был?", "en": "Where were you?" },
+  "goal_ru": "После урока ты сможешь сказать, где ты был и каким был день, с was и were.",
+  "can_do_en": "I can say where I was and what it was like using was and were.",
+  "minutes": 15,
+  "theme": "time",
+  "interests": ["travel", "sport", "games"],
+  "words": [
+    {
+      "en": "was / were",
+      "ru": "был(а) / были",
+      "example_en": "I was at home yesterday.",
+      "example_ru": "Вчера я был дома."
+    },
+    {
+      "en": "yesterday",
+      "ru": "вчера",
+      "example_en": "Where were you yesterday?",
+      "example_ru": "Где ты был вчера?"
+    },
+    {
+      "en": "last night / last week",
+      "ru": "вчера вечером / на прошлой неделе",
+      "example_en": "Last night I was tired.",
+      "example_ru": "Вчера вечером я устал."
+    },
+    { "en": "ago", "ru": "назад", "example_en": "two days ago", "example_ru": "два дня назад" },
+    {
+      "en": "at home / at school / at a friend's",
+      "ru": "дома / в школе / у друга",
+      "example_en": "I was at a friend's house.",
+      "example_ru": "Я был у друга."
+    },
+    {
+      "en": "at the cinema / at the match",
+      "ru": "в кино / на матче",
+      "example_en": "We were at the match on Sunday.",
+      "example_ru": "В воскресенье мы были на матче."
+    },
+    {
+      "en": "fun / boring",
+      "ru": "весело / скучно",
+      "example_en": "It was fun!",
+      "example_ru": "Было весело!"
+    },
+    {
+      "en": "awful / amazing",
+      "ru": "ужасный / потрясающий",
+      "example_en": "The film was amazing.",
+      "example_ru": "Фильм был потрясающий."
+    },
+    {
+      "en": "crowded",
+      "ru": "людный, битком",
+      "example_en": "The bus was crowded.",
+      "example_ru": "Автобус был битком."
+    },
+    {
+      "en": "born",
+      "ru": "родился",
+      "example_en": "I was born in 2011.",
+      "example_ru": "Я родился в 2011 году.",
+      "note_ru": "«родился» — was born; год: twenty eleven."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Simple глагола be: was / were",
+    "explain_ru": "am и is в прошлом → was; are → were. I was, he/she/it was; you/we/they were. Отрицание: wasn't, weren't. Вопрос: Where were you? Was it fun? — Yes, it was. / No, it wasn't. Маркеры прошлого: yesterday, last night, last week, two days ago, in 2020.",
+    "explain_en": "am/is → was, are → were. I was at home. They were at school. Was it fun? — Yes, it was. Where were you yesterday?",
+    "examples": [
+      {
+        "en": "Where were you yesterday? — I was at the olympiad.",
+        "ru": "Где ты был вчера? — На олимпиаде."
+      },
+      {
+        "en": "The tasks were hard, but it was interesting.",
+        "ru": "Задачи были сложные, но было интересно."
+      },
+      { "en": "I was born in Chelyabinsk in 2011.", "ru": "Я родился в Челябинске в 2011-м." }
+    ],
+    "mistakes": [
+      { "wrong": "I were at home.", "right": "I was at home.", "why_ru": "С I — was." },
+      { "wrong": "They was tired.", "right": "They were tired.", "why_ru": "Много — were." },
+      {
+        "wrong": "Yesterday I am at school.",
+        "right": "Yesterday I was at school.",
+        "why_ru": "yesterday — прошлое."
+      },
+      {
+        "wrong": "I born in 2011.",
+        "right": "I was born in 2011.",
+        "why_ru": "«родился» — was born."
+      }
+    ],
+    "tutor_notes_ru": "Первый урок прошлого — только be. Привязка: am/is → was, are → were. Годы: twenty eleven, two thousand and nine. Тема — где был на выходных, на олимпиаде, на матче."
+  },
+  "phrases": [
+    { "en": "Where were you?", "ru": "Где ты был?" },
+    { "en": "How was your weekend?", "ru": "Как выходные?" },
+    { "en": "It was great / OK / a disaster.", "ru": "Отлично / нормально / катастрофа." },
+    { "en": "I wasn't there.", "ru": "Меня там не было." }
+  ],
+  "talk": {
+    "topics_ru": ["где ты был вчера", "лучший и худший день недели", "где ты родился"],
+    "questions_en": [
+      "Where were you yesterday at six?",
+      "How was your weekend?",
+      "Were you tired after school?",
+      "Where were you born?"
+    ],
+    "tutor_notes_ru": "Детективная игра: Нейт — следователь, «пропал торт», ученик даёт алиби: I was at… with…"
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "was или were?",
+      "question": "My friends ___ at the cinema yesterday.",
+      "options": ["was", "were"],
+      "answer": "were"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь was, were, wasn't или weren't.",
+      "text": "___ you at school yesterday? — No, I ___. I ___ ill.",
+      "answers": ["Were", "wasn't", "was"],
+      "options": ["Were", "wasn't", "was", "weren't"]
+    },
+    {
+      "id": "t3",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "yesterday", "ru": "вчера" },
+        { "en": "last night", "ru": "вчера вечером" },
+        { "en": "two days ago", "ru": "два дня назад" },
+        { "en": "crowded", "ru": "битком" },
+        { "en": "amazing", "ru": "потрясающий" }
+      ]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Как прошли твои выходные?",
+      "answer": "How was your weekend?",
+      "extra": ["were", "did"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Где была Кейт в субботу?",
+      "audio": "On Saturday I wasn't at home. I was at a football match with my dad. It was cold and the stadium was crowded, but the match was amazing!",
+      "show_text": false,
+      "question": "Где была Кейт?",
+      "options": ["дома", "на футбольном матче", "в кино"],
+      "answer": "на футбольном матче"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Вчера я был на олимпиаде. Задачи были трудные.",
+      "answers": [
+        "Yesterday I was at the olympiad. The problems were hard.",
+        "I was at the olympiad yesterday. The tasks were difficult."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Фотографии из телефона с датами. Расскажи, где был этот человек и как там было.",
+      "image": {
+        "prompt_en": "Three phone photo cards with small date stickers: a crowded stadium (Saturday), a quiet library (Monday), a rainy beach (last summer), flat illustration with tiny calendar icons, no words",
+        "alt_ru": "Три фото: людный стадион (суббота), тихая библиотека (понедельник), пляж под дождём (прошлым летом)."
+      },
+      "say": "Where was he? What was it like?",
+      "must_use": ["was", "were"],
+      "min_sentences": 4,
+      "example": "On Saturday he was at a stadium. It was crowded. On Monday he was at the library. It was quiet. Last summer he was at the beach, but the weather was awful."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Детектив: из учительской пропал торт! Нейт — следователь. Дай алиби: где ты был вчера с 3 до 6, с кем, что там было.",
+      "scenario_ru": "Шуточное расследование.",
+      "tutor_role": "suspicious detective",
+      "learner_role": "suspect with an alibi",
+      "opening": "Somebody ate the teachers' cake yesterday. Where were you at three o'clock?",
+      "goals_ru": [
+        "сказать, где был в 3, 4 и 6",
+        "сказать, с кем был",
+        "ответить на Was it…? / Were you…?"
+      ],
+      "must_use": ["I was", "We were", "wasn't"],
+      "min_turns": 5,
+      "example": [
+        "T: Where were you at three o'clock?",
+        "L: I was at home.",
+        "T: Alone?",
+        "L: No, I wasn't. My sister was at home too.",
+        "T: And at five?",
+        "L: We were at the gym. It was crowded!",
+        "T: Hmm. Were you hungry?"
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи, где ты был в прошлые выходные и как там было.",
+      "mode": "answer",
+      "say": "So. How was your weekend? Where were you?",
+      "example": "My weekend was OK. On Saturday I was at my grandma's. It was boring. On Sunday I was at the cinema with friends. The film was amazing.",
+      "must_use": ["was", "were"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши голосом «дневник за 3 дня»: где ты был вчера, позавчера и неделю назад и как там было.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Где ты был в разные дни.",
+        "mode": "answer",
+        "say": "Yesterday, two days ago, last week — where were you?",
+        "example": "Yesterday I was at school and then at home. Two days ago I was at the robotics club. Last week I was ill — I wasn't at school."
+      },
+      {
+        "id": "h2",
+        "type": "translate",
+        "skill": "writing",
+        "ask_ru": "Переведи.",
+        "from": "ru",
+        "text": "Я родился в 2011 году.",
+        "answers": ["I was born in 2011."]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе о выходных (t9) was/were без ошибок."
+  },
+  "review": {
+    "lessons": ["a0-m1-l2", "a0-m3-l1", "a1-m2-l3"],
+    "words_to_srs": true,
+    "note_ru": "Чувства (tired, happy) и места города — в прошлом."
+  }
+}

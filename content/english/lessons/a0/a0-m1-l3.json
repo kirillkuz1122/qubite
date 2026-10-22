@@ -1,0 +1,252 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m1-l3",
+  "level": "a0",
+  "module": "a0-m1",
+  "detail": "full",
+  "title": { "ru": "Числа и возраст", "en": "Numbers and age" },
+  "goal_ru": "После урока ты сможешь считать до 20 и сказать, сколько тебе лет.",
+  "can_do_en": "I can count to 20 and say how old I am.",
+  "minutes": 12,
+  "theme": "intro",
+  "interests": ["games", "sport"],
+  "words": [
+    {
+      "en": "one, two, three, four, five",
+      "ru": "один, два, три, четыре, пять",
+      "example_en": "One, two, three — go!",
+      "example_ru": "Раз, два, три — поехали!"
+    },
+    {
+      "en": "six, seven, eight, nine, ten",
+      "ru": "шесть, семь, восемь, девять, десять",
+      "example_en": "I have ten minutes.",
+      "example_ru": "У меня десять минут."
+    },
+    {
+      "en": "eleven, twelve",
+      "ru": "одиннадцать, двенадцать",
+      "example_en": "It's twelve.",
+      "example_ru": "Двенадцать."
+    },
+    {
+      "en": "thirteen … nineteen",
+      "ru": "тринадцать … девятнадцать",
+      "example_en": "I'm fifteen.",
+      "example_ru": "Мне пятнадцать.",
+      "note_ru": "-teen: ударение в конце — thir-TEEN."
+    },
+    {
+      "en": "twenty",
+      "ru": "двадцать",
+      "example_en": "Twenty points!",
+      "example_ru": "Двадцать очков!"
+    },
+    {
+      "en": "zero",
+      "ru": "ноль",
+      "example_en": "Zero lives left!",
+      "example_ru": "Жизней — ноль!"
+    },
+    {
+      "en": "old",
+      "ru": "старый; (сколько) лет",
+      "example_en": "How old are you?",
+      "example_ru": "Сколько тебе лет?"
+    },
+    {
+      "en": "years old",
+      "ru": "лет (о возрасте)",
+      "example_en": "I'm fourteen years old.",
+      "example_ru": "Мне четырнадцать лет."
+    },
+    {
+      "en": "level",
+      "ru": "уровень",
+      "example_en": "I'm level twenty in the game.",
+      "example_ru": "У меня двадцатый уровень в игре."
+    }
+  ],
+  "grammar": {
+    "title_ru": "I'm 14 — не «I have 14 years»",
+    "explain_ru": "По-русски «мне 14 лет», и хочется сказать I have 14 years. Так нельзя! По-английски «я (есть) 14»: I'm fourteen или I'm fourteen years old. Спросить: How old are you? — дословно «насколько ты старый?».",
+    "explain_en": "How old are you? — I'm fourteen. / I'm fourteen years old.",
+    "examples": [
+      { "en": "How old are you?", "ru": "Сколько тебе лет?" },
+      { "en": "I'm fourteen.", "ru": "Мне четырнадцать." },
+      { "en": "My brother is ten.", "ru": "Моему брату десять." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I have 14 years.",
+        "right": "I'm 14.",
+        "why_ru": "Возраст — через am, а не через have."
+      },
+      {
+        "wrong": "I'm 14 year old.",
+        "right": "I'm 14 years old.",
+        "why_ru": "Лет много — years, с s."
+      },
+      {
+        "wrong": "thirty (вместо 13)",
+        "right": "thirteen",
+        "why_ru": "13 — thir-TEEN (ударение в конце), 30 — THIR-ty."
+      }
+    ],
+    "tutor_notes_ru": "Главная ловушка — I have 14 years: ловить жёстко и смешно («You *have* fourteen years? Where do you keep them?»). Числа 13–19 против 30–90 — только ударение, на A0 дать 13–19 и 20. My brother is ten — дать как пример, he/she будет в m2-l4."
+  },
+  "phrases": [
+    { "en": "How old are you?", "ru": "Сколько тебе лет?" },
+    { "en": "I'm fourteen (years old).", "ru": "Мне четырнадцать (лет)." },
+    { "en": "What's your level?", "ru": "Какой у тебя уровень?" },
+    { "en": "Three, two, one — go!", "ru": "Три, два, один — поехали!" }
+  ],
+  "talk": {
+    "topics_ru": ["возраст", "уровень в игре", "счёт в игре"],
+    "questions_en": [
+      "How old are you?",
+      "How old is your friend?",
+      "What's your level in your favourite game?",
+      "Count from ten to zero. Fast!"
+    ],
+    "tutor_notes_ru": "Обратный отсчёт — как в игре, на скорость. Возраст спросить у ученика и про друга/брата (ответ может быть просто «Ten» — это нормально на A0, но предложить полную фразу)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини число и слово.",
+      "pairs": [
+        { "en": "three", "ru": "3" },
+        { "en": "eight", "ru": "8" },
+        { "en": "twelve", "ru": "12" },
+        { "en": "fifteen", "ru": "15" },
+        { "en": "twenty", "ru": "20" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери число.",
+      "audio": "Seventeen.",
+      "question": "Какое число?",
+      "options": ["7", "17", "70"],
+      "answer": "17"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и напиши, сколько ей лет (цифрой).",
+      "audio": "Hi, I'm Lisa. I'm thirteen years old.",
+      "question": "Сколько лет Лизе?",
+      "answer": "13"
+    },
+    {
+      "id": "t4",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как сказать «Мне 14 лет»?",
+      "question": "Мне 14 лет.",
+      "options": ["I have 14 years.", "I'm 14 years old.", "My 14 years."],
+      "answer": "I'm 14 years old."
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Сколько тебе лет?",
+      "answer": "How old are you?",
+      "extra": ["have", "years"]
+    },
+    {
+      "id": "t6",
+      "type": "fill",
+      "skill": "vocab",
+      "ask_ru": "Продолжи ряд.",
+      "text": "two, four, six, ___, ten",
+      "answers": ["eight"],
+      "options": ["seven", "eight", "nine"]
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Мне пятнадцать лет.",
+      "answers": ["I'm fifteen.", "I'm fifteen years old.", "I am fifteen years old."]
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Посчитай вслух от 10 до 20.",
+      "mode": "repeat",
+      "say": "ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen, twenty",
+      "focus_ru": "Ударение в -teen — в конце: thir-TEEN."
+    },
+    {
+      "id": "t9",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "На экране игры счёт и уровни. Назови вслух, что видишь: уровень, жизни, очки.",
+      "image": {
+        "prompt_en": "Retro video game screen interface showing 'LEVEL 12', three hearts for lives, and 'SCORE 18', pixel art, colorful, no other text",
+        "alt_ru": "Экран ретро-игры: уровень 12, три сердечка-жизни, очки 18."
+      },
+      "say": "What can you see? Say the numbers.",
+      "must_use": ["level"],
+      "min_sentences": 2,
+      "example": "Level twelve. Three lives. Eighteen points."
+    },
+    {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту полной фразой.",
+      "mode": "answer",
+      "say": "How old are you? And no 'I have years', please.",
+      "example": "I'm fourteen years old.",
+      "must_use": ["I'm"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Числа живут везде: посчитай по-английски ступеньки в подъезде или очки в своей игре. Голосом — возраст трёх людей, которых знаешь.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Скажи, сколько лет тебе и двум знакомым (можно просто: Max — twelve).",
+        "mode": "answer",
+        "say": "How old are you and your friends?",
+        "example": "I'm fourteen. Max is twelve. Anna is fifteen."
+      },
+      {
+        "id": "h2",
+        "type": "listen",
+        "skill": "listening",
+        "ask_ru": "Послушай и напиши число цифрами.",
+        "audio": "nineteen",
+        "question": "Какое число?",
+        "answer": "19"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t10"],
+    "about_ru": "Пройден, если верно 70% заданий и ты сказал свой возраст через I'm (t10)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l1", "a0-m1-l2"],
+    "words_to_srs": true,
+    "note_ru": "Начать с «How are you?», в конце — знакомство с возрастом: I'm Kirill, I'm 14."
+  }
+}

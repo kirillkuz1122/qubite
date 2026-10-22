@@ -1,0 +1,273 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m6-l3",
+  "level": "a1",
+  "module": "a1-m6",
+  "detail": "full",
+  "title": { "ru": "Погода и одежда", "en": "Weather and clothes" },
+  "goal_ru": "После урока ты сможешь сказать, какая погода, и посоветовать, что надеть.",
+  "can_do_en": "I can talk about the weather and say what to wear.",
+  "minutes": 15,
+  "theme": "nature",
+  "interests": ["travel", "sport"],
+  "words": [
+    {
+      "en": "sunny / cloudy",
+      "ru": "солнечно / облачно",
+      "example_en": "It's sunny today.",
+      "example_ru": "Сегодня солнечно."
+    },
+    {
+      "en": "rainy / snowy / windy",
+      "ru": "дождливо / снежно / ветрено",
+      "example_en": "It's windy and rainy.",
+      "example_ru": "Ветрено и дождливо."
+    },
+    {
+      "en": "hot / warm / cold / freezing",
+      "ru": "жарко / тепло / холодно / мороз",
+      "example_en": "It's freezing — minus twenty-five!",
+      "example_ru": "Мороз — минус двадцать пять!"
+    },
+    {
+      "en": "degrees",
+      "ru": "градусы",
+      "example_en": "It's minus ten degrees.",
+      "example_ru": "Минус десять."
+    },
+    {
+      "en": "weather forecast",
+      "ru": "прогноз погоды",
+      "example_en": "The forecast says it's going to snow.",
+      "example_ru": "По прогнозу будет снег."
+    },
+    {
+      "en": "jacket / coat",
+      "ru": "куртка / пальто",
+      "example_en": "Wear a warm jacket.",
+      "example_ru": "Надень тёплую куртку."
+    },
+    {
+      "en": "hat / scarf / gloves",
+      "ru": "шапка / шарф / перчатки",
+      "example_en": "Don't forget your gloves.",
+      "example_ru": "Не забудь перчатки."
+    },
+    {
+      "en": "T-shirt / shorts / trainers",
+      "ru": "футболка / шорты / кроссовки",
+      "example_en": "It's hot — wear shorts.",
+      "example_ru": "Жарко — надень шорты."
+    },
+    {
+      "en": "umbrella",
+      "ru": "зонт",
+      "example_en": "Take an umbrella.",
+      "example_ru": "Возьми зонт."
+    },
+    {
+      "en": "put on / take off",
+      "ru": "надеть / снять",
+      "example_en": "Put on your hat!",
+      "example_ru": "Надень шапку!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "It's + погода; What's the weather like?; совет: You should… / Take… / Don't forget…",
+    "explain_ru": "Погода — всегда через It: It's cold. It's raining (идёт прямо сейчас). It snows a lot here in winter (обычно). It's going to rain (прогноз, видно по тучам). Спросить: What's the weather like? Совет, что надеть: Wear a hat. Take an umbrella. Don't forget your gloves. Или мягче: You should wear a coat.",
+    "explain_en": "It's sunny. It's raining now. It's going to snow. What's the weather like? Advice: Wear a coat. Take an umbrella. You should wear gloves.",
+    "examples": [
+      {
+        "en": "What's the weather like in Chelyabinsk? — It's freezing, minus twenty.",
+        "ru": "Какая погода в Челябинске? — Мороз, минус двадцать."
+      },
+      {
+        "en": "Look at those clouds — it's going to rain. Take an umbrella!",
+        "ru": "Посмотри на тучи — будет дождь. Возьми зонт!"
+      },
+      { "en": "You should wear a scarf. It's windy.", "ru": "Надень шарф. Ветрено." }
+    ],
+    "mistakes": [
+      { "wrong": "Today is cold.", "right": "It's cold today.", "why_ru": "Погода — с It." },
+      {
+        "wrong": "It's rain.",
+        "right": "It's raining. / It's rainy.",
+        "why_ru": "Идёт дождь — raining; дождливо — rainy."
+      },
+      {
+        "wrong": "Dress the hat.",
+        "right": "Put on your hat. / Wear a hat.",
+        "why_ru": "dress — одевать кого-то; надеть вещь — put on / wear."
+      },
+      {
+        "wrong": "You should to wear…",
+        "right": "You should wear…",
+        "why_ru": "После should — без to."
+      }
+    ],
+    "tutor_notes_ru": "Брать реальную погоду у ученика (Челябинск: морозы, ветер). Сравнить с Лондоном Нейта (дождь). Повторить going to (прогноз) и Present Continuous (идёт дождь). should — дать как фразу, подробно — A2."
+  },
+  "phrases": [
+    { "en": "What's the weather like?", "ru": "Какая погода?" },
+    { "en": "It's minus twenty outside!", "ru": "На улице минус двадцать!" },
+    { "en": "Wrap up warm!", "ru": "Одевайся теплее!" },
+    { "en": "What a lovely day!", "ru": "Какой чудесный день!" }
+  ],
+  "talk": {
+    "topics_ru": ["погода сейчас", "любимая погода и время года", "что ты носишь зимой"],
+    "questions_en": [
+      "What's the weather like today?",
+      "What's your favourite season? Why?",
+      "What do you wear in winter?",
+      "Is it going to snow this week?"
+    ],
+    "tutor_notes_ru": "Нейт жалуется на лондонский дождь и не верит в «минус тридцать» — ученик рассказывает, как живут в мороз."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "freezing", "ru": "мороз" },
+        { "en": "windy", "ru": "ветрено" },
+        { "en": "gloves", "ru": "перчатки" },
+        { "en": "scarf", "ru": "шарф" },
+        { "en": "umbrella", "ru": "зонт" },
+        { "en": "weather forecast", "ru": "прогноз погоды" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "question": "Сегодня холодно.",
+      "options": ["Today is cold.", "It's cold today.", "Is cold today."],
+      "answer": "It's cold today."
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "Look at the clouds! It's ___ to rain. ___ an umbrella.",
+      "answers": ["going", "Take"],
+      "options": ["going", "Take", "Put"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери совет.",
+      "from_ru": "Тебе стоит надеть тёплую куртку.",
+      "answer": "You should wear a warm jacket.",
+      "extra": ["to", "dress"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай прогноз без текста. Какая погода будет в субботу?",
+      "audio": "Here's the weather forecast. On Friday it's going to be cloudy and cold, minus five. On Saturday it's going to snow a lot, and it's going to be windy. On Sunday it's going to be sunny but freezing.",
+      "show_text": false,
+      "question": "Что в субботу?",
+      "options": ["облачно, минус пять", "сильный снег и ветер", "солнечно и мороз"],
+      "answer": "сильный снег и ветер"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "На улице минус двадцать. Не забудь шапку и перчатки!",
+      "answers": ["It's minus twenty outside. Don't forget your hat and gloves!"]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Четыре окна — четыре погоды. Опиши каждую и скажи, что надеть.",
+      "image": {
+        "prompt_en": "Four window frames showing different weather: a hot sunny beach day, a rainy grey city street, a snowy freezing forest, a windy autumn park with flying leaves, flat illustration, no text",
+        "alt_ru": "Четыре окна: жаркий солнечный пляж; дождливая серая улица; снежный морозный лес; ветреный осенний парк с летящими листьями."
+      },
+      "say": "What's the weather like? What should you wear?",
+      "must_use": ["It's", "wear"],
+      "min_sentences": 4,
+      "example": "In the first window it's hot and sunny — wear shorts and a T-shirt. In the second it's raining, so take an umbrella. In the third it's freezing — you should wear a coat, a hat and gloves. In the last one it's windy — put on a jacket and a scarf."
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт летит к тебе в гости зимой и собирается взять только футболки. Расскажи, какая погода, и что ему взять.",
+      "scenario_ru": "Звонок перед поездкой Нейта на Урал зимой.",
+      "tutor_role": "Nate packing for a winter trip to the Urals",
+      "learner_role": "local friend",
+      "opening": "I'm coming to Chelyabinsk next week! I'm going to bring T-shirts and shorts. Good idea?",
+      "goals_ru": [
+        "описать зимнюю погоду (градусы, ветер, снег)",
+        "дать 3 совета, что взять",
+        "ответить на его удивление"
+      ],
+      "must_use": ["It's", "You should", "Don't forget"],
+      "min_turns": 5,
+      "example": [
+        "T: I'm going to bring T-shirts and shorts. Good idea?",
+        "L: No! It's freezing here. It's minus twenty-five.",
+        "T: Minus? Is that legal?",
+        "L: You should bring a warm coat and boots.",
+        "T: What else?",
+        "L: Don't forget a hat, a scarf and gloves. It's very windy."
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Какая погода у тебя сейчас и что ты надел(а) сегодня?",
+      "mode": "answer",
+      "say": "What's the weather like where you are? What are you wearing today?",
+      "example": "It's cloudy and cold, about minus eight. It's going to snow tonight. Today I'm wearing jeans, a black hoodie and a warm jacket.",
+      "must_use": ["It's", "wearing"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Посмотри прогноз на 3 дня и надиктуй его по-английски с советом, что надеть.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Прогноз на 3 дня + совет.",
+        "mode": "answer",
+        "say": "Give me the weather forecast for three days.",
+        "example": "Tomorrow it's going to be sunny but cold, minus ten. On Wednesday it's going to snow. On Thursday it's going to be windy. Wear a warm coat all week!"
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "vocab",
+        "ask_ru": "Как сказать «надень шапку»?",
+        "question": "Надень шапку!",
+        "options": ["Dress your hat!", "Put on your hat!", "Wear on your hat!"],
+        "answer": "Put on your hat!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и Нейт после разговора (t8) «правильно собрал чемодан»."
+  },
+  "review": {
+    "lessons": ["a1-m4-l3", "a1-m6-l1"],
+    "words_to_srs": true,
+    "note_ru": "It's raining — Continuous; прогноз — going to."
+  }
+}

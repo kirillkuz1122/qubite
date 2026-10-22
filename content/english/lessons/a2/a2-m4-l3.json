@@ -1,0 +1,221 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m4-l3",
+  "level": "a2",
+  "module": "a2-m4",
+  "detail": "detailed",
+  "title": { "ru": "Уже договорились", "en": "Arrangements" },
+  "goal_ru": "После урока ты сможешь рассказать о расписании на неделю и договорённостях.",
+  "can_do_en": "I can talk about my arrangements and timetable for the coming week.",
+  "minutes": 15,
+  "theme": "time",
+  "interests": ["school", "sport", "olympiads"],
+  "words": [
+    {
+      "en": "appointment",
+      "ru": "запись (к врачу и т.п.)",
+      "example_en": "I've got a dentist appointment on Tuesday.",
+      "example_ru": "Во вторник я записан к стоматологу."
+    },
+    {
+      "en": "arrange / arrangement",
+      "ru": "договориться / договорённость",
+      "example_en": "We've arranged to meet at six.",
+      "example_ru": "Договорились встретиться в шесть."
+    },
+    {
+      "en": "schedule / timetable",
+      "ru": "расписание",
+      "example_en": "The train leaves at 7:15 — it's in the timetable.",
+      "example_ru": "Поезд в 7:15 — по расписанию."
+    },
+    {
+      "en": "leave / arrive",
+      "ru": "отправляться / прибывать",
+      "example_en": "The bus leaves at eight.",
+      "example_ru": "Автобус отходит в восемь."
+    },
+    {
+      "en": "start / finish",
+      "ru": "начинаться / заканчиваться",
+      "example_en": "The olympiad starts at ten.",
+      "example_ru": "Олимпиада начинается в десять."
+    },
+    {
+      "en": "the day after tomorrow",
+      "ru": "послезавтра",
+      "example_en": "I'm flying the day after tomorrow.",
+      "example_ru": "Я лечу послезавтра."
+    },
+    {
+      "en": "fully booked",
+      "ru": "всё занято",
+      "example_en": "My week is fully booked.",
+      "example_ru": "Неделя забита."
+    },
+    {
+      "en": "reschedule / cancel",
+      "ru": "перенести / отменить",
+      "example_en": "Can we reschedule?",
+      "example_ru": "Можем перенести?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Continuous для договорённостей; Present Simple для расписаний",
+    "explain_ru": "О будущем можно говорить и через настоящие времена. Present Continuous — когда уже договорились (есть время, место, люди): I'm meeting Max at six. We're flying to Sochi on Friday. Present Simple — для расписаний и графиков: The train leaves at 7:15. The olympiad starts at ten. Сравни: going to — намерение (I'm going to start running), Continuous — точная договорённость (I'm running with Max tomorrow at 7).",
+    "explain_en": "Arrangements: Present Continuous (I'm meeting Max at six). Timetables: Present Simple (The train leaves at 7:15). Intentions: going to.",
+    "examples": [
+      {
+        "en": "What are you doing on Saturday? — I'm going to the cinema with Anna.",
+        "ru": "Что делаешь в субботу? — Иду в кино с Аней."
+      },
+      {
+        "en": "The bus to the camp leaves at 8 a.m., so I'm getting up at six.",
+        "ru": "Автобус в лагерь в 8 утра, поэтому встаю в шесть."
+      },
+      {
+        "en": "I can't on Wednesday — I'm seeing the dentist.",
+        "ru": "В среду не могу — у меня стоматолог."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I meet Max tomorrow (о договорённости).",
+        "right": "I'm meeting Max tomorrow.",
+        "why_ru": "Договорённость — Continuous."
+      },
+      {
+        "wrong": "The train is leaving at 7:15 (по расписанию).",
+        "right": "The train leaves at 7:15.",
+        "why_ru": "Расписание — Simple (Continuous тоже встречается, но Simple естественнее)."
+      },
+      {
+        "wrong": "What will you do on Saturday? (о планах)",
+        "right": "What are you doing on Saturday?",
+        "why_ru": "О договорённостях спрашивают Continuous."
+      },
+      {
+        "wrong": "after tomorrow",
+        "right": "the day after tomorrow",
+        "why_ru": "«послезавтра» — целиком."
+      }
+    ],
+    "tutor_notes_ru": "Если у агента есть доступ к календарю/делам ученика (Planner, CAL-001) — брать реальную неделю. Три «будущих» в одном разговоре: going to (намерение), Continuous (договорённость), will (решение сейчас)."
+  },
+  "phrases": [
+    { "en": "What are you up to this weekend?", "ru": "Что делаешь на выходных?" },
+    { "en": "I'm free on…", "ru": "Я свободен в…" },
+    { "en": "Let me check my calendar.", "ru": "Сейчас гляну календарь." },
+    { "en": "Can we make it another day?", "ru": "Можем в другой день?" }
+  ],
+  "talk": {
+    "topics_ru": ["твоя неделя", "занятой день", "поездка: расписание транспорта"],
+    "questions_en": [
+      "What are you doing this weekend?",
+      "What time does your first lesson start tomorrow?",
+      "Are you doing anything special next week?",
+      "When does your next olympiad start?"
+    ],
+    "tutor_notes_ru": "Нейт пытается назначить «урок» на занятое время — ученик объясняет, чем занят, и предлагает другое время (повтор a1-m6-l2)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "The film ___ at 7:40, so let's meet at 7:20.",
+      "options": ["starts", "is starting to", "will starting"],
+      "answer": "starts"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глаголы в нужное время.",
+      "ask_en": "Put the verbs in the correct form.",
+      "text": "On Friday I ___ (meet) Anna at the café. Our train ___ (leave) at 6:30 on Saturday, and we ___ (stay) with my aunt.",
+      "answers": ["am meeting", "leaves", "are staying"]
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это календарь на неделю. Расскажи, что у человека запланировано.",
+      "ask_en": "What's she doing this week?",
+      "image": {
+        "prompt_en": "A weekly digital calendar from Monday to Sunday with icons and times: Mon 16:00 tooth icon, Tue 17:00 swimming, Wed 15:00 laptop coding club, Thu free, Fri 19:00 cinema with two people, Sat 07:30 train icon, Sun train back, clean planner UI, only times and icons",
+        "alt_ru": "Календарь: пн 16:00 стоматолог, вт 17:00 плавание, ср 15:00 кружок программирования, чт свободно, пт 19:00 кино вдвоём, сб 7:30 поезд, вс — обратно."
+      },
+      "say": "What's she doing this week? When is she free?",
+      "must_use": ["is", "-ing", "leaves"],
+      "min_sentences": 5,
+      "example": "On Monday she's seeing the dentist at four. On Tuesday she's swimming at five. On Wednesday she's going to the coding club. She's free on Thursday. On Friday she's going to the cinema with a friend. On Saturday her train leaves at half past seven."
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Нейт хочет поставить дополнительный урок английского на этой неделе. Ты занят — объясни чем и найдите время.",
+      "ask_en": "Find a time for an extra lesson with Nate.",
+      "scenario_ru": "Нейт ищет окно в твоём расписании.",
+      "tutor_role": "a pushy tutor",
+      "learner_role": "busy student",
+      "opening": "I want an extra lesson this week. Monday at five?",
+      "goals_ru": [
+        "отказать 2 раза с Present Continuous (чем занят)",
+        "назвать расписание (Simple)",
+        "договориться"
+      ],
+      "must_use": ["I'm", "-ing", "free"],
+      "min_turns": 5,
+      "example": [
+        "T: Monday at five?",
+        "L: Sorry, I'm seeing the dentist on Monday.",
+        "T: Tuesday?",
+        "L: I'm training on Tuesday. My training starts at five and finishes at seven.",
+        "T: Thursday, then.",
+        "L: Yes, I'm free on Thursday. Let's say six?"
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи свою реальную неделю: договорённости, расписания и свободное время.",
+      "ask_en": "Tell me about your real week.",
+      "mode": "answer",
+      "say": "Your real week. What are you doing, and when?",
+      "example": "This week is busy. On Tuesday I'm going to the robotics club — it starts at four. On Wednesday I'm writing a physics test. On Friday I'm meeting Max to work on our project. I'm free on Saturday afternoon.",
+      "must_use": ["I'm", "starts"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Открой свой Planner / календарь и надиктуй Нейту следующую неделю по-английски. Он запомнит и в пятницу спросит, как прошло.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Следующая неделя по календарю.",
+        "ask_en": "Next week from your calendar.",
+        "mode": "answer",
+        "say": "Next week. Read me your calendar — in English.",
+        "example": "Next Monday I'm having a maths test. On Wednesday I'm going to the dentist at 3:30. The olympiad starts on Saturday at ten."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в разговоре (t4) договорённости — в Continuous, расписание — в Simple."
+  },
+  "review": {
+    "lessons": ["a1-m6-l2", "a2-m4-l1"],
+    "words_to_srs": true,
+    "note_ru": "Приглашения и in/on/at (A1) + все формы будущего."
+  }
+}

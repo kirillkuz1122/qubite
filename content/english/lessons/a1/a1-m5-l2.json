@@ -1,0 +1,273 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m5-l2",
+  "level": "a1",
+  "module": "a1-m5",
+  "detail": "full",
+  "title": { "ru": "Я играл, я смотрел", "en": "I played, I watched" },
+  "goal_ru": "После урока ты сможешь рассказать, что ты делал вчера, правильными глаголами с -ed.",
+  "can_do_en": "I can say what I did yesterday using regular verbs.",
+  "minutes": 15,
+  "theme": "games",
+  "interests": ["sport", "programming", "movies"],
+  "words": [
+    {
+      "en": "played",
+      "ru": "играл",
+      "example_en": "I played chess.",
+      "example_ru": "Я играл в шахматы."
+    },
+    {
+      "en": "watched",
+      "ru": "смотрел",
+      "example_en": "We watched a film.",
+      "example_ru": "Мы смотрели фильм.",
+      "note_ru": "Читается «вочт» — -ed звучит как [t]."
+    },
+    {
+      "en": "stayed",
+      "ru": "остался",
+      "example_en": "I stayed at home.",
+      "example_ru": "Я остался дома."
+    },
+    {
+      "en": "visited",
+      "ru": "навестил, посетил",
+      "example_en": "I visited my grandma.",
+      "example_ru": "Я навестил бабушку.",
+      "note_ru": "После t и d — [ид]: visit-ID."
+    },
+    {
+      "en": "studied",
+      "ru": "занимался, учил",
+      "example_en": "She studied for the test.",
+      "example_ru": "Она готовилась к контрольной.",
+      "note_ru": "y → ied."
+    },
+    {
+      "en": "cooked",
+      "ru": "приготовил",
+      "example_en": "Dad cooked dinner.",
+      "example_ru": "Папа приготовил ужин."
+    },
+    {
+      "en": "walked",
+      "ru": "гулял, шёл пешком",
+      "example_en": "I walked my dog.",
+      "example_ru": "Я выгулял собаку."
+    },
+    {
+      "en": "listened",
+      "ru": "слушал",
+      "example_en": "I listened to a podcast.",
+      "example_ru": "Я слушал подкаст."
+    },
+    {
+      "en": "tried",
+      "ru": "попробовал, пытался",
+      "example_en": "I tried a new game.",
+      "example_ru": "Я попробовал новую игру."
+    },
+    {
+      "en": "finished",
+      "ru": "закончил",
+      "example_en": "I finished my project.",
+      "example_ru": "Я закончил проект."
+    },
+    {
+      "en": "stopped",
+      "ru": "остановился, перестал",
+      "example_en": "The rain stopped.",
+      "example_ru": "Дождь перестал.",
+      "note_ru": "stop → stopped (удвоили p)."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Simple правильных глаголов: + -ed",
+    "explain_ru": "Чтобы сказать «делал / сделал» в прошлом, большинству глаголов добавляем -ed: play → played, watch → watched. Форма одна для всех лиц — I played, he played, they played (никакого -s!). Написание: e → +d (live → lived), согласная + y → ied (study → studied), коротко → удвоить (stop → stopped). Произношение: [t] после глухих (watched), [d] после звонких (played), [ид] после t/d (visited).",
+    "explain_en": "Regular verbs + -ed: played, watched, studied, stopped. Same form for everyone: I played, she played. Pronounce: watched [t], played [d], visited [id].",
+    "examples": [
+      {
+        "en": "Yesterday I stayed at home and played a new game.",
+        "ru": "Вчера я остался дома и играл в новую игру."
+      },
+      { "en": "My sister studied all evening.", "ru": "Сестра весь вечер занималась." },
+      {
+        "en": "We watched the final and shouted a lot.",
+        "ru": "Мы смотрели финал и много кричали."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Yesterday I play chess.",
+        "right": "Yesterday I played chess.",
+        "why_ru": "yesterday → -ed."
+      },
+      { "wrong": "He playeds / He played-s", "right": "He played.", "why_ru": "В прошлом -s нет." },
+      { "wrong": "studyed / stoped", "right": "studied / stopped", "why_ru": "Правила написания." },
+      {
+        "wrong": "watch-ED (как «вотчед»)",
+        "right": "watched [вочт]",
+        "why_ru": "-ed после ch читается как [t]."
+      }
+    ],
+    "tutor_notes_ru": "Только правильные глаголы, отрицания и вопросы — через урок (m5-l4). Произношение -ed — три звука, тренировать на слух. Нейт ругает «вотчед» с удовольствием."
+  },
+  "phrases": [
+    { "en": "What did you do yesterday?", "ru": "Что ты делал вчера?" },
+    { "en": "Nothing special.", "ru": "Ничего особенного." },
+    { "en": "It was a lazy day.", "ru": "Это был ленивый день." },
+    { "en": "And then…", "ru": "А потом…" }
+  ],
+  "talk": {
+    "topics_ru": ["вчерашний вечер", "что нового попробовал на неделе", "последний матч или стрим"],
+    "questions_en": [
+      "What did you do yesterday evening?",
+      "Did you play any games? What game?",
+      "What did you watch last week?",
+      "What new thing did you try this month?"
+    ],
+    "tutor_notes_ru": "Вопрос What did you do? дать фразой, отвечать -ed глаголами. Если ученик использует неправильный глагол (went) правильно — похвалить, если ошибся (goed) — отметить, разберём в следующем уроке."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глагол в прошедшее.",
+      "text": "Yesterday I ___ (stay) at home. I ___ (study) for two hours and ___ (watch) a film.",
+      "answers": ["stayed", "studied", "watched"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как пишется?",
+      "question": "stop → ?",
+      "options": ["stoped", "stopped", "stopt"],
+      "answer": "stopped"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, как звучит -ed.",
+      "audio": "visited",
+      "question": "Окончание звучит как…",
+      "options": ["[t]", "[d]", "[id]"],
+      "answer": "[id]"
+    },
+    {
+      "id": "t4",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини глагол и прошедшую форму.",
+      "pairs": [
+        { "en": "try", "ru": "tried" },
+        { "en": "live", "ru": "lived" },
+        { "en": "plan", "ru": "planned" },
+        { "en": "finish", "ru": "finished" },
+        { "en": "cook", "ru": "cooked" }
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Вчера вечером я закончил свой проект.",
+      "answer": "Last night I finished my project.",
+      "extra": ["finish", "yesterday"]
+    },
+    {
+      "id": "t6",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай рассказ без текста. Что Том делал вечером?",
+      "audio": "Yesterday was a lazy day. I stayed in bed until eleven. In the afternoon I played online with my friends. In the evening I cooked pasta and watched two episodes of my favourite series.",
+      "show_text": false,
+      "question": "Что он делал вечером?",
+      "options": ["играл онлайн", "готовил пасту и смотрел сериал", "спал"],
+      "answer": "готовил пасту и смотрел сериал"
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "В субботу мы навестили бабушку, а потом гуляли в парке.",
+      "answers": [
+        "On Saturday we visited our grandma, and then we walked in the park.",
+        "On Saturday we visited grandma and then walked in the park."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это «лента» вчерашнего дня Лизы (иконки и время). Расскажи, что она делала вчера.",
+      "image": {
+        "prompt_en": "A vertical timeline infographic of yesterday with times and icons: 10:00 a dog on a leash, 13:00 a cooking pot, 15:00 a laptop with code, 19:00 a TV screen, 22:00 headphones with music notes, clean flat style, only times",
+        "alt_ru": "Таймлайн вчерашнего дня: 10:00 выгул собаки, 13:00 готовка, 15:00 ноутбук с кодом, 19:00 телевизор, 22:00 наушники с музыкой."
+      },
+      "say": "What did Lisa do yesterday?",
+      "must_use": ["-ed"],
+      "min_sentences": 5,
+      "example": "At ten she walked her dog. At one she cooked lunch. At three she coded on her laptop. At seven she watched TV. At ten she listened to music."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о вчерашнем дне — только правильные глаголы с -ed (5 фраз).",
+      "mode": "answer",
+      "say": "What did you do yesterday? Regular verbs only. Pronounce that -ed!",
+      "example": "Yesterday I walked to school. After school I played chess with my friend. Then I studied for the physics test. In the evening I watched a video and listened to music.",
+      "must_use": ["-ed"]
+    },
+    {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори — следи за тремя звуками -ed.",
+      "mode": "repeat",
+      "say": "I watched, I played, I visited.",
+      "focus_ru": "watched [t] — played [d] — visited [id]."
+    }
+  ],
+  "homework": {
+    "about_ru": "Вечером запиши голосом 5 вещей, которые ты сделал сегодня, — глаголами с -ed.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "5 дел за сегодня, -ed.",
+        "mode": "answer",
+        "say": "Five things you did today.",
+        "example": "I walked to school. I finished my maths homework. I played football. I talked to Max. I cooked eggs."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Поставь в прошедшее.",
+        "text": "She ___ (try) a new game and ___ (stop) after one hour.",
+        "answers": ["tried", "stopped"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t9) все глаголы в прошедшем с -ed."
+  },
+  "review": {
+    "lessons": ["a1-m1-l1", "a1-m4-l2", "a1-m5-l1"],
+    "words_to_srs": true,
+    "note_ru": "Действия дня из «Моего утра» — теперь в прошлом; was/were вместе с -ed."
+  }
+}

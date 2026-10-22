@@ -1,0 +1,279 @@
+{
+  "$schema": "schema/placement.schema.json",
+  "id": "placement",
+  "minutes": 5,
+  "about_ru": "Короткий тест, чтобы не начинать с «hello», если ты уже знаешь больше. Идёт снизу вверх: 5 ступеней по 4 вопроса (выбрать, вставить, послушать, собрать). Ступень пройдена — 3 верных из 4. Первая непройденная — с неё и учимся. В конце — минута разговора с Нейтом: он может сдвинуть уровень на одну ступень. Уровень потом всегда можно поправить в настройках английского или сказать Нейту «мне слишком легко».",
+  "stages": [
+    {
+      "level": "a0",
+      "pass_min": 3,
+      "items": [
+        {
+          "id": "p1",
+          "type": "choose",
+          "skill": "vocab",
+          "ask_ru": "Как сказать «Привет, меня зовут Кирилл»?",
+          "question": "Привет, меня зовут Кирилл.",
+          "options": [
+            "Hello, my name is Kirill.",
+            "Bye, my name Kirill.",
+            "Hello, I name is Kirill."
+          ],
+          "answer": "Hello, my name is Kirill."
+        },
+        {
+          "id": "p2",
+          "type": "listen",
+          "skill": "listening",
+          "ask_ru": "Послушай и выбери число.",
+          "audio": "I am fourteen.",
+          "question": "Сколько ему лет?",
+          "options": ["4", "14", "40"],
+          "answer": "14"
+        },
+        {
+          "id": "p3",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь слово.",
+          "text": "I ___ from Russia.",
+          "answers": ["am"],
+          "options": ["am", "is", "are"]
+        },
+        {
+          "id": "p4",
+          "type": "choose",
+          "skill": "vocab",
+          "ask_ru": "Выбери перевод слова.",
+          "question": "Tuesday",
+          "options": ["понедельник", "вторник", "четверг"],
+          "answer": "вторник"
+        }
+      ]
+    },
+    {
+      "level": "a1",
+      "pass_min": 3,
+      "items": [
+        {
+          "id": "p5",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь глагол в нужной форме.",
+          "text": "My brother ___ to school by bus.",
+          "answers": ["goes"],
+          "options": ["go", "goes", "going"]
+        },
+        {
+          "id": "p6",
+          "type": "choose",
+          "skill": "grammar",
+          "ask_ru": "Выбери правильный вопрос.",
+          "question": "Где ты живёшь?",
+          "options": ["Where you live?", "Where do you live?", "Where does you live?"],
+          "answer": "Where do you live?"
+        },
+        {
+          "id": "p7",
+          "type": "listen",
+          "skill": "listening",
+          "ask_ru": "Послушай и ответь: что он делал вчера?",
+          "audio": "Yesterday I stayed at home and played games with my friends online.",
+          "question": "Что он делал вчера?",
+          "options": ["Гулял с друзьями", "Играл в игры дома", "Ходил в школу"],
+          "answer": "Играл в игры дома"
+        },
+        {
+          "id": "p8",
+          "type": "build",
+          "skill": "grammar",
+          "ask_ru": "Собери фразу.",
+          "from_ru": "В моей комнате есть стол.",
+          "answer": "There is a desk in my room",
+          "extra": ["are", "have"]
+        }
+      ]
+    },
+    {
+      "level": "a2",
+      "pass_min": 3,
+      "items": [
+        {
+          "id": "p9",
+          "type": "choose",
+          "skill": "grammar",
+          "ask_ru": "Выбери правильный вариант.",
+          "question": "___ you ever been to Moscow?",
+          "options": ["Did", "Have", "Were"],
+          "answer": "Have"
+        },
+        {
+          "id": "p10",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь слово.",
+          "text": "This phone is ___ than my old one.",
+          "answers": ["faster"],
+          "options": ["fast", "faster", "fastest"]
+        },
+        {
+          "id": "p11",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь слово.",
+          "text": "I was coding when the lights ___ out.",
+          "answers": ["went"],
+          "options": ["go", "went", "were going"]
+        },
+        {
+          "id": "p12",
+          "type": "listen",
+          "skill": "listening",
+          "ask_ru": "Послушай и выбери ответ.",
+          "audio": "If it rains tomorrow, we won't go to the park. We'll stay at home and watch a film instead.",
+          "question": "Что они сделают, если пойдёт дождь?",
+          "options": ["Пойдут в парк", "Посмотрят фильм дома", "Пойдут в кино"],
+          "answer": "Посмотрят фильм дома"
+        }
+      ]
+    },
+    {
+      "level": "b1",
+      "pass_min": 3,
+      "items": [
+        {
+          "id": "p13",
+          "type": "choose",
+          "skill": "grammar",
+          "ask_ru": "Выбери правильный вариант.",
+          "question": "If I ___ more time, I would learn Japanese.",
+          "options": ["have", "had", "will have"],
+          "answer": "had"
+        },
+        {
+          "id": "p14",
+          "type": "choose",
+          "skill": "grammar",
+          "ask_ru": "Выбери, как передать слова: «I am tired».",
+          "question": "She said that she ___ tired.",
+          "options": ["is being", "was", "has"],
+          "answer": "was"
+        },
+        {
+          "id": "p15",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь слово.",
+          "text": "I've ___ preparing for the olympiad for three months.",
+          "answers": ["been"],
+          "options": ["been", "being", "be"]
+        },
+        {
+          "id": "p16",
+          "type": "listen",
+          "skill": "listening",
+          "ask_ru": "Послушай и выбери, что думает говорящий.",
+          "audio": "Although online lessons are convenient, I think students lose a lot when they can't discuss ideas face to face.",
+          "question": "Что думает говорящий об онлайн-уроках?",
+          "options": [
+            "Они удобные, но без живого общения теряется много",
+            "Они лучше обычных во всём",
+            "Они неудобные и бесполезные"
+          ],
+          "answer": "Они удобные, но без живого общения теряется много"
+        }
+      ]
+    },
+    {
+      "level": "b2",
+      "pass_min": 3,
+      "items": [
+        {
+          "id": "p17",
+          "type": "choose",
+          "skill": "grammar",
+          "ask_ru": "Выбери правильный вариант.",
+          "question": "If I had read the statement carefully, I ___ that bug.",
+          "options": ["wouldn't make", "wouldn't have made", "didn't make"],
+          "answer": "wouldn't have made"
+        },
+        {
+          "id": "p18",
+          "type": "choose",
+          "skill": "vocab",
+          "ask_ru": "Что значит выражение?",
+          "question": "The final task was a piece of cake.",
+          "options": [
+            "Задача была очень лёгкой",
+            "Задача была про еду",
+            "Задача была самой сложной"
+          ],
+          "answer": "Задача была очень лёгкой"
+        },
+        {
+          "id": "p19",
+          "type": "fill",
+          "skill": "grammar",
+          "ask_ru": "Вставь слово.",
+          "text": "The server must ___ crashed during the night — nobody could log in this morning.",
+          "answers": ["have"],
+          "options": ["has", "have", "had"]
+        },
+        {
+          "id": "p20",
+          "type": "listen",
+          "skill": "listening",
+          "ask_ru": "Послушай (быстрая речь) и выбери главную мысль.",
+          "audio": "Admittedly, AI tools can speed things up, but if you rely on them for every single step, you'll never really get the hang of solving problems on your own.",
+          "question": "Главная мысль?",
+          "options": [
+            "AI ускоряет работу, но если полагаться на него во всём, сам не научишься",
+            "AI всегда лучше человека",
+            "AI нельзя использовать в учёбе никогда"
+          ],
+          "answer": "AI ускоряет работу, но если полагаться на него во всём, сам не научишься"
+        }
+      ]
+    }
+  ],
+  "speaking": {
+    "about_ru": "Нейт задаёт 2–3 вопроса уровня, на котором остановился тест, и одного уровня выше. Отвечает свободно и без ошибок, мешающих пониманию, на вопрос уровня выше — уровень +1; молчит или отвечает словами вместо фраз на свой — уровень −1. Остальное — как в тесте. Ответ по-русски — не ошибка, а знак уровня ниже.",
+    "questions": [
+      {
+        "level": "a0",
+        "say": "Hi! What's your name? How old are you?",
+        "good_sign_ru": "Отвечает фразой: «My name is…, I'm 14», а не одним словом."
+      },
+      {
+        "level": "a1",
+        "say": "What do you usually do after school?",
+        "good_sign_ru": "2–3 предложения в Present Simple: «I usually go home, then I…»."
+      },
+      {
+        "level": "a2",
+        "say": "Tell me about something interesting you've done this year.",
+        "good_sign_ru": "Present Perfect или Past Simple к месту, связки first/then, 3–5 предложений."
+      },
+      {
+        "level": "b1",
+        "say": "Do you think students should use AI for homework? Why or why not?",
+        "good_sign_ru": "Мнение с причинами и уступкой (because, although), держит мысль минуту."
+      },
+      {
+        "level": "b2",
+        "say": "Imagine you could change one thing about how schools teach. What would it be, and what could go wrong?",
+        "good_sign_ru": "Свободно, условные предложения, сам видит минусы, точные слова, без долгих пауз."
+      }
+    ]
+  },
+  "result": {
+    "start_lesson": {
+      "a0": "a0-m1-l1",
+      "a1": "a1-m1-l1",
+      "a2": "a2-m1-l1",
+      "b1": "b1-m1-l1",
+      "b2": "b2-m1-l1"
+    },
+    "about_ru": "Уровень → первый урок уровня. Пройденные уровни ниже не пропадают: их итоговые уроки открыты для повторения, а слова прошлых уровней агент проверяет быстрыми заданиями в первую неделю и пропущенное возвращает в повторение."
+  }
+}

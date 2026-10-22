@@ -1,0 +1,221 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m2-l2",
+  "level": "a2",
+  "module": "a2-m2",
+  "detail": "detailed",
+  "title": { "ru": "Уже, только что, ещё не", "en": "Just, already, yet" },
+  "goal_ru": "После урока ты сможешь рассказать, что уже сделано, а что ещё нет.",
+  "can_do_en": "I can say what I have already done and what I haven't done yet.",
+  "minutes": 15,
+  "theme": "programming",
+  "interests": ["school", "games", "olympiads"],
+  "words": [
+    {
+      "en": "just",
+      "ru": "только что",
+      "example_en": "I've just finished.",
+      "example_ru": "Я только что закончил."
+    },
+    {
+      "en": "already",
+      "ru": "уже",
+      "example_en": "I've already fixed the bug.",
+      "example_ru": "Я уже починил баг."
+    },
+    {
+      "en": "yet",
+      "ru": "ещё (не) / уже (в вопросе)",
+      "example_en": "Have you finished yet? — Not yet.",
+      "example_ru": "Ты уже закончил? — Ещё нет."
+    },
+    {
+      "en": "bug / fix",
+      "ru": "ошибка в программе / исправить",
+      "example_en": "I've just fixed a bug.",
+      "example_ru": "Я только что исправил баг."
+    },
+    {
+      "en": "test / run",
+      "ru": "тестировать / запускать",
+      "example_en": "Have you run the tests?",
+      "example_ru": "Ты запустил тесты?"
+    },
+    {
+      "en": "send / upload",
+      "ru": "отправить / загрузить",
+      "example_en": "I've already uploaded the file.",
+      "example_ru": "Я уже загрузил файл."
+    },
+    {
+      "en": "deadline",
+      "ru": "крайний срок",
+      "example_en": "The deadline is tomorrow!",
+      "example_ru": "Дедлайн завтра!"
+    },
+    {
+      "en": "to-do list",
+      "ru": "список дел",
+      "example_en": "What's on your to-do list?",
+      "example_ru": "Что в твоём списке дел?"
+    },
+    {
+      "en": "update",
+      "ru": "обновить; обновление",
+      "example_en": "The game has just updated.",
+      "example_ru": "Игра только что обновилась."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Perfect для новостей и результата: just, already, yet",
+    "explain_ru": "Present Perfect — когда важен РЕЗУЛЬТАТ сейчас: I've fixed the bug (баг исправлен — программа работает). just — только что, already — уже: ставятся между have и глаголом (I've just finished, I've already sent it). yet — в конце, в вопросах («уже?») и отрицаниях («ещё не»): Have you finished yet? I haven't finished yet. Не путать: already — в утверждении, yet — в вопросе и отрицании.",
+    "explain_en": "Result now: I've fixed the bug. just / already go after have: I've just finished. yet goes at the end in questions and negatives: Have you done it yet? I haven't done it yet.",
+    "examples": [
+      {
+        "en": "I've just pushed the code, but I haven't run the tests yet.",
+        "ru": "Я только что отправил код, но тесты ещё не запускал."
+      },
+      {
+        "en": "Have you done your physics homework yet? — Yes, I've already done it.",
+        "ru": "Ты уже сделал физику? — Да, уже сделал."
+      },
+      { "en": "The new update has just come out!", "ru": "Только что вышло новое обновление!" }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I've finished just.",
+        "right": "I've just finished.",
+        "why_ru": "just — между have и глаголом."
+      },
+      {
+        "wrong": "I haven't finished already.",
+        "right": "I haven't finished yet.",
+        "why_ru": "В отрицании — yet."
+      },
+      {
+        "wrong": "I just finish.",
+        "right": "I've just finished.",
+        "why_ru": "Нужны have + 3-я форма."
+      },
+      {
+        "wrong": "Did you finish yet? (брит.)",
+        "right": "Have you finished yet?",
+        "why_ru": "С yet в британском — Present Perfect (в американском Past тоже встречается)."
+      }
+    ],
+    "tutor_notes_ru": "Формат — «стендап» команды разработки: что уже сделано, что ещё нет, что только что. Для ученика-программиста — родная среда. Можно брать реальный список дел из Planner (если агент видит дела — спросить, что выполнено)."
+  },
+  "phrases": [
+    { "en": "Not yet.", "ru": "Ещё нет." },
+    { "en": "I've just done it!", "ru": "Только что сделал!" },
+    { "en": "Have you heard the news?", "ru": "Слышал новость?" },
+    { "en": "It's done!", "ru": "Готово!" }
+  ],
+  "talk": {
+    "topics_ru": ["список дел на неделю", "проект или домашка", "новости из игр и технологий"],
+    "questions_en": [
+      "What have you already done today?",
+      "What haven't you done yet this week?",
+      "Have you finished your project yet?",
+      "Has your favourite game updated recently?"
+    ],
+    "tutor_notes_ru": "Нейт — тимлид на утреннем созвоне: «Status update. What have you done? What haven't you done yet?»."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь just, already или yet.",
+      "ask_en": "Fill in just, already or yet.",
+      "text": "Have you fixed the bug ___? — Yes, I've ___ fixed it. Actually, I've ___ done it — two seconds ago!",
+      "answers": ["yet", "already", "just"],
+      "options": ["just", "already", "yet"]
+    },
+    {
+      "id": "t2",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "ask_en": "Put the words in order.",
+      "from_ru": "Я ещё не запускал тесты.",
+      "answer": "I haven't run the tests yet.",
+      "extra": ["already", "ran"]
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это список дел с галочками. Скажи, что уже сделано, а что ещё нет.",
+      "ask_en": "What has she already done? What hasn't she done yet?",
+      "image": {
+        "prompt_en": "A to-do list on a phone screen with icons: a ticked maths book, a ticked shopping bag, a ticked dog, an unticked laptop with code, an unticked broom, an unticked envelope, clean flat UI, icons and checkboxes only",
+        "alt_ru": "Список дел: ✓ математика, ✓ покупки, ✓ выгулять собаку; ✗ код, ✗ уборка, ✗ письмо."
+      },
+      "say": "What has she done? What hasn't she done yet?",
+      "must_use": ["already", "yet"],
+      "min_sentences": 4,
+      "example": "She has already done her maths homework. She has already been shopping and walked the dog. But she hasn't finished her code yet. She hasn't cleaned her room yet and she hasn't sent the email."
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Утренний созвон команды. Нейт — тимлид. Отчитайся: что уже сделал, что только что, что ещё нет — и почему.",
+      "ask_en": "Give your team lead a status update.",
+      "scenario_ru": "Стендап команды на хакатоне.",
+      "tutor_role": "strict team lead",
+      "learner_role": "developer",
+      "opening": "Morning. Status update. What have you done since yesterday?",
+      "goals_ru": ["2 дела already", "1 дело just", "2 дела not … yet с причиной"],
+      "must_use": ["already", "just", "yet"],
+      "min_turns": 4,
+      "example": [
+        "T: Status update. What have you done?",
+        "L: I've already made the login page and I've just fixed the big bug.",
+        "T: Tests?",
+        "L: I haven't written the tests yet, because the bug took three hours.",
+        "T: Deadline is tomorrow.",
+        "L: I know. I'm going to finish them today."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Твой список дел на эту неделю: что уже сделано, что ещё нет.",
+      "ask_en": "Your to-do list this week.",
+      "mode": "answer",
+      "say": "Your to-do list this week. Done? Not done yet?",
+      "example": "This week I've already done my history project and I've just finished a book. I haven't prepared for the English test yet, and I haven't cleaned my room yet. Classic.",
+      "must_use": ["already", "yet"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Вечером надиктуй Нейту «отчёт дня»: 3 дела, которые уже сделаны, и 2, которые ещё нет. (Если есть дела в Planner — по ним.)",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Отчёт дня.",
+        "ask_en": "Today's status report.",
+        "mode": "answer",
+        "say": "Daily report. Go.",
+        "example": "Today I've already done my maths, I've walked the dog and I've just eaten dinner. I haven't finished my essay yet and I haven't replied to Max yet."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в отчёте тимлиду (t4) just/already/yet стоят на месте."
+  },
+  "review": {
+    "lessons": ["a2-m2-l1", "a1-m6-l1"],
+    "words_to_srs": true,
+    "note_ru": "Present Perfect опыта → результата; планы going to."
+  }
+}

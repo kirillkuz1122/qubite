@@ -1,0 +1,247 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m3-l4",
+  "level": "a0",
+  "module": "a0-m3",
+  "detail": "full",
+  "title": { "ru": "Итог: познакомься с Нейтом", "en": "Boss lesson: meet Nate" },
+  "goal_ru": "После урока ты сможешь минуту рассказывать о себе по-английски без подсказок.",
+  "can_do_en": "I can talk about myself for one minute: name, age, city, family, likes and my day.",
+  "minutes": 15,
+  "theme": "intro",
+  "interests": ["games", "school", "olympiads"],
+  "tutor_language_ru": "Итоговый урок: Нейт говорит только по-английски, медленно; по-русски — только объявляет задание и разбирает ошибки в конце. Подсказки — только если ученик молчит 10 секунд.",
+  "words": [
+    {
+      "en": "about",
+      "ru": "о, про",
+      "example_en": "Tell me about you.",
+      "example_ru": "Расскажи о себе."
+    },
+    {
+      "en": "and / but",
+      "ru": "и / но",
+      "example_en": "I like chess, but I don't like football.",
+      "example_ru": "Я люблю шахматы, но не люблю футбол."
+    },
+    {
+      "en": "also",
+      "ru": "также",
+      "example_en": "I also like music.",
+      "example_ru": "Ещё я люблю музыку."
+    },
+    {
+      "en": "really",
+      "ru": "правда, очень",
+      "example_en": "I really like maths.",
+      "example_ru": "Я правда люблю математику."
+    },
+    {
+      "en": "so",
+      "ru": "итак, так что",
+      "example_en": "So, that's me!",
+      "example_ru": "Итак, это я!"
+    },
+    {
+      "en": "That's me!",
+      "ru": "Вот такой я!",
+      "example_en": "So, that's me!",
+      "example_ru": "Ну вот, это я!"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Повторение A0: am / is / are, a/an, like / don't like, on / at",
+    "explain_ru": "Новых правил нет. Собираем всё вместе: I'm … (имя, возраст, откуда); This is my … (вещь, человек); He's / She's …; I like … / I don't like …; I have … on … at …. Связываем фразы словами and, but, also — так рассказ звучит живо.",
+    "explain_en": "No new rules. Use: I'm…, I'm from…, This is my…, He's/She's…, I like…/I don't like…, I have… on… at… Join ideas with and, but, also.",
+    "examples": [
+      {
+        "en": "I'm Kirill. I'm fourteen and I'm from Chelyabinsk.",
+        "ru": "Я Кирилл. Мне 14, я из Челябинска."
+      },
+      {
+        "en": "I like computer science, but I don't like history.",
+        "ru": "Я люблю информатику, но не люблю историю."
+      },
+      { "en": "My sister is ten. Her name is Anna.", "ru": "Моей сестре 10. Её зовут Анна." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I Kirill, I 14.",
+        "right": "I'm Kirill. I'm 14.",
+        "why_ru": "Главная ошибка A0 — потерять am."
+      },
+      { "wrong": "I have 14 years.", "right": "I'm 14.", "why_ru": "Возраст — через am." },
+      { "wrong": "She name is…", "right": "Her name is…", "why_ru": "Её — her." },
+      { "wrong": "I not like…", "right": "I don't like…", "why_ru": "Отрицание — don't." }
+    ],
+    "tutor_notes_ru": "Это «босс» уровня A0. Сначала разминка (быстрые вопросы), потом монолог на минуту (засечь время), потом диалог. Ошибки во время монолога НЕ прерывать — записывать и разобрать после (по-русски, 3 главные). Монолог зачтён, если понятен, ≥ 6 фраз и нет ошибок «I Kirill / I have 14 years». После зачёта — достижение «Знакомство» и открытие уровня A1."
+  },
+  "phrases": [
+    { "en": "Let me tell you about me.", "ru": "Давай расскажу о себе." },
+    { "en": "So, that's me!", "ru": "Вот такой я!" },
+    { "en": "And what about you?", "ru": "А ты?" },
+    { "en": "Sorry, can you repeat that?", "ru": "Извини, можешь повторить?" }
+  ],
+  "talk": {
+    "topics_ru": ["всё о себе", "вопросы Нейту"],
+    "questions_en": [
+      "What's your name and how old are you?",
+      "Where are you from?",
+      "Tell me about your family or your best friend.",
+      "What do you like? What don't you like?",
+      "What's your favourite subject?",
+      "What day is it today?"
+    ],
+    "tutor_notes_ru": "В конце ученик задаёт Нейту 3 вопроса (Where are you from? What's your favourite…? Do you like…?) — Нейт отвечает в характере. Если монолог не зачтён — Нейт называет 1–2 конкретных пробела и через день предлагает повтор."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Разминка на слух: послушай Нейта и выбери, что правда.",
+      "audio": "I'm Nate. I'm from London. I like tea and physics. I don't like Mondays.",
+      "question": "Что правда про Нейта?",
+      "options": [
+        "Он из Лондона и любит физику",
+        "Он из Москвы и любит понедельники",
+        "Он не любит чай"
+      ],
+      "answer": "Он из Лондона и любит физику"
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "question": "Выбери правильную фразу.",
+      "options": ["I have fourteen years.", "I'm fourteen.", "I fourteen."],
+      "answer": "I'm fourteen."
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь am, is, are.",
+      "text": "I ___ from Russia. My friend ___ from Japan. You ___ from the UK.",
+      "answers": ["am", "is", "are"],
+      "options": ["am", "is", "are"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Я люблю шахматы, но не люблю футбол.",
+      "answer": "I like chess, but I don't like football.",
+      "extra": ["not", "likes"]
+    },
+    {
+      "id": "t5",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Быстрый повтор: соедини пары.",
+      "pairs": [
+        { "en": "Thursday", "ru": "четверг" },
+        { "en": "tired", "ru": "уставший" },
+        { "en": "laptop", "ru": "ноутбук" },
+        { "en": "her", "ru": "её" },
+        { "en": "computer science", "ru": "информатика" },
+        { "en": "half past", "ru": "половина (после)" }
+      ]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Это мой брат. Его зовут Тим. Ему девять, и он любит футбол.",
+      "answers": ["This is my brother. His name is Tim. He's nine and he likes football."]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Главное задание: минута о себе. Нейт не перебивает. Расскажи: имя, возраст, город, семья или друг, что любишь и не любишь, любимый предмет.",
+      "mode": "answer",
+      "say": "One minute. Tell me about you. Go!",
+      "example": "Hi! I'm Kirill. I'm fourteen and I'm from Chelyabinsk, in Russia. I have a sister. Her name is Anna, she's ten. I like computer science and chess, but I don't like history. My favourite colour is blue. So, that's me!",
+      "must_use": ["I'm", "I like", "I don't like"]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это новый ученик в классе. Придумай его и представь: имя, возраст, откуда, что любит.",
+      "image": {
+        "prompt_en": "A cartoon teenage boy with a skateboard and a backpack, waving, standing in front of a classroom door, flat bright illustration, no text",
+        "alt_ru": "Мальчик-подросток со скейтбордом и рюкзаком машет рукой у двери класса."
+      },
+      "say": "This is a new student. Who is he?",
+      "must_use": ["His name is", "He's"],
+      "min_sentences": 4,
+      "example": "This is a new student. His name is Leo. He's fifteen. He's from Spain. He likes skateboarding."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Теперь ты спрашиваешь: задай Нейту минимум 3 вопроса о нём.",
+      "scenario_ru": "Твоя очередь брать интервью у Нейта.",
+      "tutor_role": "Nate, answering questions about himself",
+      "learner_role": "interviewer",
+      "opening": "Your turn. Ask me anything. In English!",
+      "goals_ru": ["спросить, откуда он", "спросить про любимое", "спросить Do you like…?"],
+      "must_use": ["Where are you from?", "Do you like"],
+      "min_turns": 3,
+      "example": [
+        "T: Your turn. Ask me anything. In English!",
+        "L: Where are you from?",
+        "T: London. Rainy London.",
+        "L: What's your favourite subject?",
+        "T: Physics, obviously.",
+        "L: Do you like pizza?",
+        "T: Only without pineapple."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши финальную версию рассказа о себе — она попадёт в «Английский.md» как первая точка: через месяц сравним, как ты вырос.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Минута о себе — лучшая версия.",
+        "mode": "answer",
+        "say": "Tell me about you one more time. Best version.",
+        "example": "Hi! I'm Kirill. I'm fourteen and I'm from Chelyabinsk. I like computer science and chess. So, that's me!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 3,
+    "required": ["t7", "t9"],
+    "about_ru": "Уровень A0 пройден, если монолог (t7) понятен, в нём от 6 фраз без ошибок «I Kirill / I have 14 years», ты задал Нейту 3 вопроса (t9) и верно 75% остальных заданий."
+  },
+  "review": {
+    "lessons": [
+      "a0-m1-l1",
+      "a0-m1-l2",
+      "a0-m1-l3",
+      "a0-m1-l4",
+      "a0-m2-l1",
+      "a0-m2-l2",
+      "a0-m2-l3",
+      "a0-m2-l4",
+      "a0-m3-l1",
+      "a0-m3-l2",
+      "a0-m3-l3"
+    ],
+    "words_to_srs": true,
+    "note_ru": "Итог уровня: в разминке — по одному слову из каждого урока; слабые места — в первые уроки A1."
+  }
+}

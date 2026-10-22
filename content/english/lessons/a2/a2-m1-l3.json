@@ -1,0 +1,210 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m1-l3",
+  "level": "a2",
+  "module": "a2-m1",
+  "detail": "detailed",
+  "title": { "ru": "Слишком и достаточно", "en": "Too and enough" },
+  "goal_ru": "После урока ты сможешь сказать «слишком сложно», «недостаточно быстро» и «такой же, как».",
+  "can_do_en": "I can say something is too difficult, not fast enough, or as good as something else.",
+  "minutes": 15,
+  "theme": "olympiads",
+  "interests": ["sport", "games", "school"],
+  "words": [
+    {
+      "en": "too",
+      "ru": "слишком",
+      "example_en": "It's too hard for me.",
+      "example_ru": "Это слишком сложно для меня."
+    },
+    {
+      "en": "enough",
+      "ru": "достаточно",
+      "example_en": "My code isn't fast enough.",
+      "example_ru": "Мой код недостаточно быстрый."
+    },
+    {
+      "en": "as … as",
+      "ru": "такой же …, как",
+      "example_en": "He's as tall as his dad.",
+      "example_ru": "Он такого же роста, как папа."
+    },
+    {
+      "en": "not as … as",
+      "ru": "не такой …, как",
+      "example_en": "Python isn't as fast as C++.",
+      "example_ru": "Python не такой быстрый, как C++."
+    },
+    {
+      "en": "time limit",
+      "ru": "ограничение по времени",
+      "example_en": "My solution was too slow for the time limit.",
+      "example_ru": "Решение не уложилось в ограничение по времени."
+    },
+    {
+      "en": "memory",
+      "ru": "память",
+      "example_en": "There isn't enough memory.",
+      "example_ru": "Не хватает памяти."
+    },
+    {
+      "en": "old / young",
+      "ru": "старый / молодой",
+      "example_en": "I'm not old enough to drive.",
+      "example_ru": "Мне ещё рано водить."
+    },
+    {
+      "en": "loud / quiet",
+      "ru": "громкий / тихий",
+      "example_en": "The music is too loud.",
+      "example_ru": "Музыка слишком громкая."
+    }
+  ],
+  "grammar": {
+    "title_ru": "too + прил.; прил. + enough; enough + сущ.; as … as / not as … as",
+    "explain_ru": "too (слишком) — ПЕРЕД прилагательным: too hard, too slow. enough (достаточно) — ПОСЛЕ прилагательного: fast enough, old enough; но ПЕРЕД существительным: enough time, enough memory. Сравнение «такой же» — as … as: as fast as. «Не такой» — not as … as: Python isn't as fast as C++. Для кого — for me; что сделать — to + глагол: too cold to swim.",
+    "explain_en": "too + adjective (too slow). adjective + enough (fast enough). enough + noun (enough time). as fast as / not as fast as. too cold to swim; old enough to drive.",
+    "examples": [
+      {
+        "en": "My solution is correct, but it isn't fast enough — it's too slow for the time limit.",
+        "ru": "Решение верное, но недостаточно быстрое — слишком медленное для ограничения по времени."
+      },
+      {
+        "en": "I didn't have enough time to finish problem five.",
+        "ru": "Мне не хватило времени дорешать пятую задачу."
+      },
+      {
+        "en": "The second round wasn't as hard as the first.",
+        "ru": "Второй тур был не такой сложный, как первый."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "enough fast",
+        "right": "fast enough",
+        "why_ru": "enough — после прилагательного."
+      },
+      {
+        "wrong": "time enough",
+        "right": "enough time",
+        "why_ru": "Перед существительным — enough."
+      },
+      {
+        "wrong": "It's very hard to solve (о невозможном)",
+        "right": "It's too hard to solve.",
+        "why_ru": "too — «настолько, что не получается»; very — просто «очень»."
+      },
+      { "wrong": "as fast than", "right": "as fast as", "why_ru": "as … as — с as оба раза." }
+    ],
+    "tutor_notes_ru": "Тема олимпиад: TL (time limit), ML (memory limit), «не хватило времени». Различить very и too: very hard — трудно, но можно; too hard — не смог. Нейт сравнивает себя с учеником: «You're not as fast as me. Yet.»"
+  },
+  "phrases": [
+    { "en": "It's too … for me.", "ru": "Это слишком … для меня." },
+    { "en": "I didn't have enough time.", "ru": "Мне не хватило времени." },
+    { "en": "It's not as bad as it looks.", "ru": "Не так страшно, как кажется." },
+    { "en": "Close enough!", "ru": "Почти! Сойдёт!" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "олимпиады и контрольные: чего не хватило",
+      "что для тебя слишком рано/поздно/сложно",
+      "сравнить себя год назад и сейчас"
+    ],
+    "questions_en": [
+      "Was your last test too hard or easy enough?",
+      "Do you have enough free time?",
+      "What are you not old enough to do yet?",
+      "Are you as good at physics as at maths?"
+    ],
+    "tutor_notes_ru": "Ученик рассказывает про последнюю олимпиаду или контрольную: что было слишком сложно, чего не хватило. Нейт — ворчливый тренер."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный порядок.",
+      "ask_en": "Choose the correct order.",
+      "question": "My code isn't ___.",
+      "options": ["enough fast", "fast enough", "too enough fast"],
+      "answer": "fast enough"
+    },
+    {
+      "id": "t2",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь too, enough или as.",
+      "ask_en": "Fill in too, enough or as.",
+      "text": "The problem was ___ hard. I didn't have ___ time. Round two wasn't ___ difficult as round one.",
+      "answers": ["too", "enough", "as"],
+      "options": ["too", "enough", "as"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Почему решение Ани не прошло?",
+      "ask_en": "Listen. Why didn't Anya's solution pass?",
+      "audio": "My idea was right, and the answers were correct on small tests. But on the big tests my program was too slow. It wasn't fast enough for the time limit, so I got only forty points.",
+      "show_text": false,
+      "question": "Почему не прошло?",
+      "options": [
+        "ответы неверные",
+        "слишком медленно для ограничения по времени",
+        "не хватило памяти"
+      ],
+      "answer": "слишком медленно для ограничения по времени"
+    },
+    {
+      "id": "t4",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "ask_en": "Translate.",
+      "from": "ru",
+      "text": "Мне ещё рано водить машину, но я уже достаточно взрослый, чтобы ездить один на автобусе.",
+      "answers": [
+        "I'm not old enough to drive a car, but I'm old enough to take the bus alone.",
+        "I'm too young to drive, but I'm old enough to go by bus alone."
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи о последней олимпиаде или контрольной: что было слишком трудно, чего не хватило, что было не так плохо, как ты думал.",
+      "ask_en": "Tell me about your last olympiad or test.",
+      "mode": "answer",
+      "say": "Your last olympiad or test. What was too hard? What wasn't enough?",
+      "example": "The first three problems were easy enough. Problem four was too hard for me — I didn't have enough time. But the test wasn't as bad as I thought. Next time I'm going to be faster.",
+      "must_use": ["too", "enough"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Сравни себя год назад и сейчас: 4 фразы с as … as, too и enough.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Ты год назад и сейчас.",
+        "ask_en": "You a year ago and now.",
+        "mode": "answer",
+        "say": "Compare yourself a year ago and now.",
+        "example": "A year ago I wasn't as tall as my brother — now I am. A year ago C++ was too difficult for me. Now I'm good enough to solve regional problems. But I still don't have enough free time."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 1,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t5) too и enough стоят на месте."
+  },
+  "review": {
+    "lessons": ["a2-m1-l1", "a2-m1-l2"],
+    "words_to_srs": true,
+    "note_ru": "Сравнения — теперь с as…as; прошедшее (A1) в рассказе о контрольной."
+  }
+}

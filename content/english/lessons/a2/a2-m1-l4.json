@@ -1,0 +1,214 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m1-l4",
+  "level": "a2",
+  "module": "a2-m1",
+  "detail": "detailed",
+  "title": { "ru": "Какой он?", "en": "What's he like?" },
+  "goal_ru": "После урока ты сможешь описать внешность и характер человека.",
+  "can_do_en": "I can describe a person's appearance and personality.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["movies", "games", "sport"],
+  "words": [
+    {
+      "en": "tall / short / medium height",
+      "ru": "высокий / низкий / среднего роста",
+      "example_en": "He's tall and thin.",
+      "example_ru": "Он высокий и худой."
+    },
+    {
+      "en": "curly / straight / dark / fair hair",
+      "ru": "кудрявые / прямые / тёмные / светлые волосы",
+      "example_en": "She has long curly hair.",
+      "example_ru": "У неё длинные кудрявые волосы."
+    },
+    {
+      "en": "glasses / beard",
+      "ru": "очки / борода",
+      "example_en": "He wears glasses.",
+      "example_ru": "Он носит очки."
+    },
+    {
+      "en": "friendly / shy",
+      "ru": "дружелюбный / застенчивый",
+      "example_en": "She's shy at first.",
+      "example_ru": "Сначала она стесняется."
+    },
+    {
+      "en": "funny / serious",
+      "ru": "смешной / серьёзный",
+      "example_en": "He's really funny.",
+      "example_ru": "Он очень смешной."
+    },
+    {
+      "en": "smart / hard-working / lazy",
+      "ru": "умный / трудолюбивый / ленивый",
+      "example_en": "She's smart and hard-working.",
+      "example_ru": "Она умная и трудолюбивая."
+    },
+    {
+      "en": "kind / rude",
+      "ru": "добрый / грубый",
+      "example_en": "Don't be rude.",
+      "example_ru": "Не груби."
+    },
+    {
+      "en": "confident / calm",
+      "ru": "уверенный / спокойный",
+      "example_en": "He's always calm.",
+      "example_ru": "Он всегда спокоен."
+    },
+    {
+      "en": "look like",
+      "ru": "быть похожим (внешне)",
+      "example_en": "I look like my mum.",
+      "example_ru": "Я похож на маму."
+    }
+  ],
+  "grammar": {
+    "title_ru": "What does he look like? / What is he like?; порядок прилагательных; has got",
+    "explain_ru": "Два разных вопроса: What does he look like? — «как он выглядит?» (внешность). What is he like? — «какой он?» (характер). Внешность: He's tall. He has (has got) short dark hair. Порядок прилагательных: размер/длина → форма → цвет + сущ.: long curly dark hair. Похож: She looks like her dad (внешне), she's like her dad (характером).",
+    "explain_en": "What does she look like? — She's tall, she has long curly hair. What is she like? — She's friendly and funny. Order: long curly dark hair.",
+    "examples": [
+      {
+        "en": "What does your best friend look like? — He's tall, he has short fair hair and he wears glasses.",
+        "ru": "Как выглядит лучший друг? — Высокий, светлые короткие волосы, очки."
+      },
+      {
+        "en": "What's your teacher like? — She's strict but kind.",
+        "ru": "Какая учительница? — Строгая, но добрая."
+      },
+      {
+        "en": "I look like my dad, but I'm like my mum — calm and serious.",
+        "ru": "Внешне я как папа, а характером — как мама: спокойный и серьёзный."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "How does he look like?",
+        "right": "What does he look like?",
+        "why_ru": "С look like — What."
+      },
+      {
+        "wrong": "She has a long hair.",
+        "right": "She has long hair.",
+        "why_ru": "hair (волосы на голове) — без a и без -s."
+      },
+      { "wrong": "dark long hair", "right": "long dark hair", "why_ru": "Длина — перед цветом." },
+      {
+        "wrong": "He is like tall.",
+        "right": "He's tall. / He looks tall.",
+        "why_ru": "like — только «похож на»."
+      }
+    ],
+    "tutor_notes_ru": "Различение look like / be like — главное. Описывать героев игр, фильмов, друзей — по выбору. Ничего обидного о реальных людях: Нейт сразу пресекает (это его правило — язвить только над ошибкой)."
+  },
+  "phrases": [
+    { "en": "He's the kind of person who…", "ru": "Он из тех, кто…" },
+    { "en": "She's a bit shy at first.", "ru": "Сначала она стесняется." },
+    { "en": "We have a lot in common.", "ru": "У нас много общего." },
+    { "en": "He looks like a superhero!", "ru": "Он похож на супергероя!" }
+  ],
+  "talk": {
+    "topics_ru": ["лучший друг", "любимый герой игры или фильма", "какой ты сам"],
+    "questions_en": [
+      "What does your best friend look like?",
+      "What's he or she like?",
+      "Who do you look like in your family?",
+      "Describe your favourite game character."
+    ],
+    "tutor_notes_ru": "Игра «Угадай героя»: ученик описывает известного персонажа без имени — Нейт угадывает. Потом наоборот."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Какой вопрос — о характере?",
+      "ask_en": "Which question is about personality?",
+      "question": "Какой он по характеру?",
+      "options": ["What does he look like?", "What is he like?", "How does he look like?"],
+      "answer": "What is he like?"
+    },
+    {
+      "id": "t2",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "ask_en": "Put the words in order.",
+      "from_ru": "У неё длинные кудрявые тёмные волосы.",
+      "answer": "She has long curly dark hair.",
+      "extra": ["a", "hairs"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Кто из трёх — Том?",
+      "ask_en": "Listen. Which one is Tom?",
+      "audio": "Tom? He's not very tall. He has short curly red hair and he wears glasses. He's a bit shy, but he's really funny when you know him.",
+      "show_text": false,
+      "question": "Как выглядит Том?",
+      "options": [
+        "высокий, прямые тёмные волосы",
+        "невысокий, короткие рыжие кудри, очки",
+        "среднего роста, борода"
+      ],
+      "answer": "невысокий, короткие рыжие кудри, очки"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Опиши трёх участников команды хакатона: как выглядят и какие, судя по виду, по характеру.",
+      "ask_en": "Describe the three team members.",
+      "image": {
+        "prompt_en": "Three teenage hackathon team members at a table with laptops: a tall girl with long straight dark hair smiling confidently, a short boy with curly fair hair and glasses looking serious, a boy with a red cap laughing, friendly flat illustration, no text",
+        "alt_ru": "Команда хакатона: высокая девочка с длинными прямыми тёмными волосами уверенно улыбается; невысокий мальчик с кудрявыми светлыми волосами в очках серьёзен; мальчик в красной кепке смеётся."
+      },
+      "say": "What do they look like? What do you think they're like?",
+      "must_use": ["has", "looks"],
+      "min_sentences": 5,
+      "example": "The girl is tall and she has long straight dark hair. She looks confident — maybe she's the team leader. The boy in the middle is short, he has curly fair hair and he wears glasses. He looks serious and smart. The boy in the red cap looks funny and friendly."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Опиши лучшего друга: внешность + характер + чем вы похожи.",
+      "ask_en": "Describe your best friend.",
+      "mode": "answer",
+      "say": "Your best friend. Looks, personality, and what you have in common.",
+      "example": "My best friend Max is medium height and he has short dark hair. He's very funny and kind, but sometimes he's a bit lazy. We have a lot in common — we both love chess and coding.",
+      "must_use": ["has", "he's"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Сравниваем»: опиши голосом двух людей (или героев) и сравни их — внешность, характер, кто «самый…».",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Два человека: описание и сравнение.",
+        "ask_en": "Describe and compare two people.",
+        "mode": "answer",
+        "say": "Describe two people you know and compare them.",
+        "example": "My sister is shorter than me and she has long fair hair. She's more confident than me. My brother is the tallest in our family. He's calm, but he's not as hard-working as my sister."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в описании друга (t5) внешность и характер разделены правильно."
+  },
+  "review": {
+    "lessons": ["a0-m2-l4", "a2-m1-l1", "a2-m1-l2"],
+    "words_to_srs": true,
+    "note_ru": "Семья и друзья из A0 — теперь подробно; сравнения."
+  }
+}

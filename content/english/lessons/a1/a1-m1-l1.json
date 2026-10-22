@@ -1,0 +1,274 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m1-l1",
+  "level": "a1",
+  "module": "a1-m1",
+  "detail": "full",
+  "title": { "ru": "Моё утро", "en": "My morning" },
+  "goal_ru": "После урока ты сможешь рассказать, что ты делаешь утром и во сколько.",
+  "can_do_en": "I can describe my morning routine with times.",
+  "minutes": 15,
+  "theme": "time",
+  "interests": ["school", "sport", "games"],
+  "words": [
+    {
+      "en": "wake up",
+      "ru": "просыпаться",
+      "example_en": "I wake up at seven.",
+      "example_ru": "Я просыпаюсь в семь."
+    },
+    {
+      "en": "get up",
+      "ru": "вставать",
+      "example_en": "I get up at 7:10.",
+      "example_ru": "Я встаю в 7:10."
+    },
+    {
+      "en": "have a shower",
+      "ru": "принимать душ",
+      "example_en": "I have a shower in the morning.",
+      "example_ru": "Утром я принимаю душ."
+    },
+    {
+      "en": "have breakfast",
+      "ru": "завтракать",
+      "example_en": "I have breakfast at half past seven.",
+      "example_ru": "Я завтракаю в полвосьмого."
+    },
+    {
+      "en": "get dressed",
+      "ru": "одеваться",
+      "example_en": "I get dressed quickly.",
+      "example_ru": "Я быстро одеваюсь."
+    },
+    {
+      "en": "brush my teeth",
+      "ru": "чистить зубы",
+      "example_en": "I brush my teeth.",
+      "example_ru": "Я чищу зубы."
+    },
+    {
+      "en": "go to school",
+      "ru": "идти в школу",
+      "example_en": "I go to school at eight.",
+      "example_ru": "Я иду в школу в восемь."
+    },
+    {
+      "en": "by bus / on foot",
+      "ru": "на автобусе / пешком",
+      "example_en": "I go to school on foot.",
+      "example_ru": "Я хожу в школу пешком."
+    },
+    {
+      "en": "check my phone",
+      "ru": "проверять телефон",
+      "example_en": "I check my phone in bed.",
+      "example_ru": "Я проверяю телефон в кровати."
+    },
+    {
+      "en": "then / after that",
+      "ru": "потом / после этого",
+      "example_en": "Then I have breakfast.",
+      "example_ru": "Потом я завтракаю."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Present Simple: I / you / we / they + глагол",
+    "explain_ru": "Когда говорим о привычках и том, что бывает каждый день, — время Present Simple. С I, you, we, they — просто глагол, как в словаре: I get up, we go, they have. Никаких окончаний! Время — at: at seven. Порядок рассказа: first (сначала), then (потом), after that (после этого).",
+    "explain_en": "For routines use the Present Simple: I get up at seven. Then I have breakfast. We go to school at eight.",
+    "examples": [
+      {
+        "en": "I wake up at 6:45, but I get up at seven.",
+        "ru": "Я просыпаюсь в 6:45, но встаю в семь."
+      },
+      { "en": "We have breakfast together.", "ru": "Мы завтракаем вместе." },
+      {
+        "en": "First I brush my teeth, then I get dressed.",
+        "ru": "Сначала чищу зубы, потом одеваюсь."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I am get up at seven.",
+        "right": "I get up at seven.",
+        "why_ru": "am с обычным глаголом не нужен — это частая ошибка после A0."
+      },
+      {
+        "wrong": "I go to the school.",
+        "right": "I go to school.",
+        "why_ru": "Ходить учиться — to school, без the."
+      },
+      {
+        "wrong": "I eat breakfast in 7.",
+        "right": "I have breakfast at 7.",
+        "why_ru": "Завтракать — have breakfast; время — at."
+      },
+      {
+        "wrong": "I go in school by foot.",
+        "right": "I go to school on foot.",
+        "why_ru": "Куда — to; пешком — on foot."
+      }
+    ],
+    "tutor_notes_ru": "Главная ловушка после A0: ученик ставит am везде (I am go). Объяснить: am — когда нет другого глагола. «have» в выражениях (have breakfast, have a shower) — не «иметь». Брать реальное утро ученика."
+  },
+  "phrases": [
+    { "en": "What time do you get up?", "ru": "Во сколько ты встаёшь?" },
+    { "en": "First…, then…, after that…", "ru": "Сначала…, потом…, после этого…" },
+    { "en": "I'm always late!", "ru": "Я всегда опаздываю!" },
+    { "en": "I'm not a morning person.", "ru": "Я не жаворонок." }
+  ],
+  "talk": {
+    "topics_ru": ["твоё утро", "будильник", "дорога в школу"],
+    "questions_en": [
+      "What time do you get up on school days?",
+      "What do you have for breakfast?",
+      "How do you go to school?",
+      "Are you a morning person?"
+    ],
+    "tutor_notes_ru": "Вопросы с do дать как готовые фразы (вопросы разбираем в a1-m1-l3). Нейт рассказывает своё «утро робота» для смеха. Ловить I am + глагол."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини действие и перевод.",
+      "pairs": [
+        { "en": "wake up", "ru": "просыпаться" },
+        { "en": "get up", "ru": "вставать" },
+        { "en": "get dressed", "ru": "одеваться" },
+        { "en": "have breakfast", "ru": "завтракать" },
+        { "en": "brush my teeth", "ru": "чистить зубы" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "question": "Я встаю в семь.",
+      "options": ["I am get up at seven.", "I get up at seven.", "I get up in seven."],
+      "answer": "I get up at seven."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Потом я иду в школу пешком.",
+      "answer": "Then I go to school on foot.",
+      "extra": ["the", "by"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "vocab",
+      "ask_ru": "Вставь слово.",
+      "text": "I ___ breakfast at 7:30. Then I ___ dressed.",
+      "answers": ["have", "get"],
+      "options": ["have", "get", "go"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай Лизу (текст не показывается) и выбери, как она ходит в школу.",
+      "audio": "I wake up at half past six. I have a shower, then I have breakfast. I go to school by bus at quarter to eight.",
+      "show_text": false,
+      "question": "Как Лиза добирается до школы?",
+      "options": ["пешком", "на автобусе", "на машине"],
+      "answer": "на автобусе"
+    },
+    {
+      "id": "t6",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай ещё раз: во сколько Лиза просыпается?",
+      "audio": "I wake up at half past six. I have a shower, then I have breakfast. I go to school by bus at quarter to eight.",
+      "show_text": true,
+      "question": "Во сколько она просыпается?",
+      "options": ["6:00", "6:30", "7:30"],
+      "answer": "6:30"
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Сначала я проверяю телефон, потом встаю.",
+      "answers": [
+        "First I check my phone, then I get up.",
+        "First I check my phone and then I get up."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Комикс из 4 картинок: утро подростка. Расскажи по порядку, что он делает, с first / then / after that.",
+      "image": {
+        "prompt_en": "Four-panel comic strip of a teenage boy's morning: alarm clock ringing at 7:00, brushing teeth, eating breakfast, walking to school with a backpack, bright flat style, no text",
+        "alt_ru": "Четыре кадра: будильник в 7:00, мальчик чистит зубы, завтракает, идёт в школу с рюкзаком."
+      },
+      "say": "Tell me his morning. Use first, then, after that.",
+      "must_use": ["first", "then"],
+      "min_sentences": 4,
+      "example": "First he wakes up at seven. Then he brushes his teeth. After that he has breakfast. Then he goes to school on foot."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту своё утро в школьный день — 4–5 фраз со временем.",
+      "mode": "answer",
+      "say": "Your school morning. Times, please. And no 'I am get up'.",
+      "example": "I wake up at 6:50, but I get up at seven. First I have a shower. Then I have breakfast at 7:20. After that I go to school by bus.",
+      "must_use": ["at", "then"]
+    },
+    {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух — быстро и чётко.",
+      "mode": "repeat",
+      "say": "I get up, I get dressed, and I go to school.",
+      "focus_ru": "get up — связно: «ге-тап»."
+    }
+  ],
+  "homework": {
+    "about_ru": "Завтра утром, пока собираешься, проговаривай по-английски, что делаешь («I'm… — нет! I brush my teeth»). Потом запиши Нейту короткий рассказ.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Расскажи своё утро выходного дня (чем оно отличается).",
+        "mode": "answer",
+        "say": "And your Sunday morning?",
+        "example": "On Sunday I get up at ten. I have breakfast and I play games."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь to, at или on.",
+        "text": "I go ___ school ___ foot ___ eight o'clock.",
+        "answers": ["to", "on", "at"],
+        "options": ["to", "on", "at"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и ты рассказал своё утро без «I am + глагол» (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m3-l1", "a0-m3-l3"],
+    "words_to_srs": true,
+    "note_ru": "Время и at из A0; школа и предметы."
+  }
+}

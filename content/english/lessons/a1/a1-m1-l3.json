@@ -1,0 +1,263 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m1-l3",
+  "level": "a1",
+  "module": "a1-m1",
+  "detail": "full",
+  "title": { "ru": "Ты…? Вопросы", "en": "Do you…? Questions" },
+  "goal_ru": "После урока ты сможешь задавать вопросы о привычках с do и does и коротко отвечать.",
+  "can_do_en": "I can ask and answer questions about habits and routines.",
+  "minutes": 15,
+  "theme": "friends",
+  "interests": ["games", "programming", "sport"],
+  "words": [
+    {
+      "en": "do / does",
+      "ru": "вспомогательный глагол для вопроса",
+      "example_en": "Do you play chess?",
+      "example_ru": "Ты играешь в шахматы?"
+    },
+    {
+      "en": "don't / doesn't",
+      "ru": "не (с глаголом)",
+      "example_en": "He doesn't like maths.",
+      "example_ru": "Он не любит математику."
+    },
+    {
+      "en": "what / when / where",
+      "ru": "что / когда / где",
+      "example_en": "When do you go to bed?",
+      "example_ru": "Когда ты ложишься спать?"
+    },
+    {
+      "en": "who / how",
+      "ru": "кто / как",
+      "example_en": "How do you go to school?",
+      "example_ru": "Как ты добираешься до школы?"
+    },
+    {
+      "en": "live",
+      "ru": "жить",
+      "example_en": "Where do you live?",
+      "example_ru": "Где ты живёшь?"
+    },
+    {
+      "en": "speak",
+      "ru": "говорить (на языке)",
+      "example_en": "Does she speak English?",
+      "example_ru": "Она говорит по-английски?"
+    },
+    {
+      "en": "code",
+      "ru": "программировать",
+      "example_en": "Do you code in Python?",
+      "example_ru": "Ты пишешь на Python?"
+    },
+    {
+      "en": "use",
+      "ru": "использовать",
+      "example_en": "What apps do you use?",
+      "example_ru": "Какими приложениями ты пользуешься?"
+    },
+    {
+      "en": "want",
+      "ru": "хотеть",
+      "example_en": "What do you want?",
+      "example_ru": "Что ты хочешь?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Вопросы и отрицания: Do you…? Does he…? I don't, he doesn't",
+    "explain_ru": "В вопросе нужен помощник do (с I, you, we, they) или does (с he, she, it). Помощник встаёт в начало: You play → Do you play? He plays → Does he play? Важно: когда есть does, хвостик -s у глагола пропадает — he уже «отдал» его помощнику: Does he play? (не plays). Отрицание так же: I don't play, he doesn't play. С вопросительным словом: Where do you live? When does he get up?",
+    "explain_en": "Do you play? — Yes, I do. / No, I don't. Does he play? — Yes, he does. / No, he doesn't. Where do you live? When does she get up?",
+    "examples": [
+      {
+        "en": "Do you code? — Yes, I do. I code in Python.",
+        "ru": "Ты программируешь? — Да, на Python."
+      },
+      {
+        "en": "Does your sister play games? — No, she doesn't.",
+        "ru": "Твоя сестра играет в игры? — Нет."
+      },
+      { "en": "What time does the lesson start?", "ru": "Во сколько начинается урок?" }
+    ],
+    "mistakes": [
+      {
+        "wrong": "You play chess?",
+        "right": "Do you play chess?",
+        "why_ru": "Без do это не вопрос, а утверждение с интонацией."
+      },
+      {
+        "wrong": "Does he plays?",
+        "right": "Does he play?",
+        "why_ru": "s уже у does — у глагола его нет."
+      },
+      {
+        "wrong": "Where you live?",
+        "right": "Where do you live?",
+        "why_ru": "После where нужен do."
+      },
+      {
+        "wrong": "He don't like maths.",
+        "right": "He doesn't like maths.",
+        "why_ru": "С he — doesn't."
+      }
+    ],
+    "tutor_notes_ru": "Схема на экране: (Wh-) + do/does + кто + глагол? Разбирать порядок плитками. Главный навык урока — ученик САМ задаёт вопросы (в разговоре Нейт отвечает только на правильно заданный вопрос — игра «Interview Nate»)."
+  },
+  "phrases": [
+    { "en": "Do you…? — Yes, I do. / No, I don't.", "ru": "Ты…? — Да. / Нет." },
+    { "en": "Does he…? — Yes, he does. / No, he doesn't.", "ru": "Он…? — Да. / Нет." },
+    { "en": "What about you?", "ru": "А ты?" },
+    { "en": "Really? Why?", "ru": "Правда? Почему?" }
+  ],
+  "talk": {
+    "topics_ru": ["интервью с Нейтом", "привычки друзей", "приложения и игры"],
+    "questions_en": [
+      "Do you code? What language?",
+      "Does your best friend play games?",
+      "Where do you live?",
+      "What apps do you use every day?"
+    ],
+    "tutor_notes_ru": "Игра: ученик берёт интервью у Нейта — Нейт отвечает только на правильный вопрос, на неправильный делает вид, что не понял («Is that a question or a statement?»)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Do или Does?",
+      "question": "___ your brother speak English?",
+      "options": ["Do", "Does", "Is"],
+      "answer": "Does"
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вопрос.",
+      "question": "Он играет в футбол?",
+      "options": ["Does he plays football?", "Does he play football?", "He plays football?"],
+      "answer": "Does he play football?"
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Во сколько ты ложишься спать?",
+      "answer": "What time do you go to bed?",
+      "extra": ["does", "are"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь do, does, don't или doesn't.",
+      "text": "___ you like maths? — Yes, I ___. But my friend ___ like it.",
+      "answers": ["Do", "do", "doesn't"],
+      "options": ["Do", "do", "doesn't", "don't"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай вопрос Нейта (без текста) и выбери подходящий ответ.",
+      "audio": "Does your sister code?",
+      "show_text": false,
+      "question": "Какой ответ подходит?",
+      "options": ["Yes, she does.", "Yes, I do.", "Yes, she is."],
+      "answer": "Yes, she does."
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Где ты живёшь? Ты ходишь в школу пешком?",
+      "answers": [
+        "Where do you live? Do you go to school on foot?",
+        "Where do you live? Do you walk to school?"
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини вопрос и ответ.",
+      "pairs": [
+        { "en": "Do you code?", "ru": "Yes, I do." },
+        { "en": "Does he train?", "ru": "No, he doesn't." },
+        { "en": "Where do you live?", "ru": "In Chelyabinsk." },
+        { "en": "When does she get up?", "ru": "At seven." }
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Интервью: узнай у Нейта 5 вещей о его дне. Он отвечает только на правильно заданные вопросы!",
+      "scenario_ru": "Ты журналист школьной газеты, Нейт — гость.",
+      "tutor_role": "Nate, a strict interviewee who ignores wrong questions",
+      "learner_role": "school journalist",
+      "opening": "Go on, ask me. Correct questions only.",
+      "goals_ru": ["5 вопросов с do/does или вопросительным словом", "реагировать: Really? Why?"],
+      "must_use": ["Do you", "What time", "Where"],
+      "min_turns": 5,
+      "example": [
+        "T: Go on, ask me. Correct questions only.",
+        "L: What time do you get up?",
+        "T: I never sleep. I'm a tutor.",
+        "L: Really? Do you have breakfast?",
+        "T: I have data for breakfast.",
+        "L: Where do you live?"
+      ]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь коротко и полно: Yes, I do / No, I don't + одна фраза.",
+      "mode": "answer",
+      "say": "Do you play video games? Does your best friend play too?",
+      "example": "Yes, I do. I play Minecraft. My friend doesn't play games, he plays football.",
+      "must_use": ["do", "doesn't"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Задай по-английски 3 вопроса кому-то дома (пусть отвечают по-русски — ты переведёшь). Запиши вопросы и ответы Нейту голосом.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Перескажи: что ты спросил и что ответили (he/she + -s!).",
+        "mode": "answer",
+        "say": "Who did you ask? What did they say?",
+        "example": "I asked my dad: Do you like coffee? Yes, he does. When do you get up? He gets up at six."
+      },
+      {
+        "id": "h2",
+        "type": "build",
+        "skill": "grammar",
+        "ask_ru": "Собери вопрос.",
+        "from_ru": "Какими приложениями пользуется твоя мама?",
+        "answer": "What apps does your mum use?",
+        "extra": ["do", "uses"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в интервью (t8) хотя бы 4 из 5 вопросов собраны правильно."
+  },
+  "review": {
+    "lessons": ["a0-m3-l2", "a1-m1-l2"],
+    "words_to_srs": true,
+    "note_ru": "Do you like…? из A0 — теперь со всеми глаголами; -s из прошлого урока."
+  }
+}

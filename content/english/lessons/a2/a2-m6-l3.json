@@ -1,0 +1,218 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m6-l3",
+  "level": "a2",
+  "module": "a2-m6",
+  "detail": "detailed",
+  "title": { "ru": "Олимпиада за границей", "en": "An olympiad abroad" },
+  "goal_ru": "После урока ты сможешь рассказать о соревновании и описать людей и вещи с who, which, that.",
+  "can_do_en": "I can talk about a competition and describe people and things using who, which and that.",
+  "minutes": 15,
+  "theme": "olympiads",
+  "interests": ["programming", "science", "sport", "travel"],
+  "words": [
+    {
+      "en": "contestant / participant",
+      "ru": "участник",
+      "example_en": "There were 300 contestants.",
+      "example_ru": "Было 300 участников."
+    },
+    {
+      "en": "team leader / coach",
+      "ru": "руководитель команды / тренер",
+      "example_en": "Our coach is very calm.",
+      "example_ru": "Наш тренер очень спокойный."
+    },
+    {
+      "en": "round / day / problem set",
+      "ru": "тур / день / набор задач",
+      "example_en": "The second round was harder.",
+      "example_ru": "Второй тур был сложнее."
+    },
+    {
+      "en": "gold / silver / bronze medal",
+      "ru": "золото / серебро / бронза",
+      "example_en": "She won a silver medal.",
+      "example_ru": "Она взяла серебро."
+    },
+    {
+      "en": "opening ceremony",
+      "ru": "церемония открытия",
+      "example_en": "The opening ceremony was amazing.",
+      "example_ru": "Церемония открытия была потрясающей."
+    },
+    {
+      "en": "excursion",
+      "ru": "экскурсия",
+      "example_en": "After the contest there was an excursion.",
+      "example_ru": "После тура была экскурсия."
+    },
+    {
+      "en": "make friends with",
+      "ru": "подружиться с",
+      "example_en": "I made friends with a boy from Brazil.",
+      "example_ru": "Я подружился с мальчиком из Бразилии."
+    },
+    {
+      "en": "nervous / confident",
+      "ru": "нервный / уверенный",
+      "example_en": "I was nervous before the first round.",
+      "example_ru": "Перед первым туром я волновался."
+    },
+    {
+      "en": "represent",
+      "ru": "представлять (страну, школу)",
+      "example_en": "He represented Russia.",
+      "example_ru": "Он представлял Россию."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Определительные придаточные: who (люди), which (вещи), that (и то и другое), where (места)",
+    "explain_ru": "Чтобы уточнить, О КОМ или О ЧЁМ речь, добавляем кусочек с who / which / that: the boy who won gold — мальчик, который взял золото; the problem which (that) nobody solved — задача, которую никто не решил; the city where the olympiad was — город, где была олимпиада. who — для людей, which — для вещей, that — для обоих (в разговоре чаще). Не повторяй «он/она» после who: the girl who she won ✗.",
+    "explain_en": "Relative clauses: who for people, which for things, that for both, where for places. The boy who won gold. The problem that nobody solved. The city where we stayed.",
+    "examples": [
+      {
+        "en": "The girl who sat next to me was from Japan.",
+        "ru": "Девочка, которая сидела рядом, была из Японии."
+      },
+      {
+        "en": "Problem 3 was the one that nobody solved.",
+        "ru": "Задача 3 — та, которую никто не решил."
+      },
+      {
+        "en": "We visited a castle where a famous scientist used to live.",
+        "ru": "Мы побывали в замке, где раньше жил знаменитый учёный."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "the boy which won",
+        "right": "the boy who won",
+        "why_ru": "Для людей — who (или that)."
+      },
+      {
+        "wrong": "the girl who she won gold",
+        "right": "the girl who won gold",
+        "why_ru": "she не повторяем — who его заменил."
+      },
+      {
+        "wrong": "the city which we stayed",
+        "right": "the city where we stayed",
+        "why_ru": "Место, где — where."
+      },
+      {
+        "wrong": "the problem what nobody solved",
+        "right": "the problem that nobody solved",
+        "why_ru": "what не используется так."
+      }
+    ],
+    "tutor_notes_ru": "Тема — мечта олимпиадника (D-505: информатика, математика, физика). Ученик рассказывает о реальной или воображаемой международной олимпиаде, используя всё A2: прошедшие, Perfect, сравнения, чувства. Нейт — журналист олимпиадной газеты."
+  },
+  "phrases": [
+    { "en": "It was an unforgettable experience.", "ru": "Это был незабываемый опыт." },
+    { "en": "I was proud to represent…", "ru": "Я гордился, что представлял…" },
+    { "en": "The hardest part was…", "ru": "Самым трудным было…" },
+    { "en": "We still keep in touch.", "ru": "Мы до сих пор на связи." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "олимпиада, на которой ты был",
+      "международная олимпиада мечты",
+      "друзья из других городов и стран"
+    ],
+    "questions_en": [
+      "Tell me about the best olympiad you've been to.",
+      "Who was the strongest contestant you met?",
+      "What was the problem that you liked most?",
+      "Which international olympiad would you like to go to?"
+    ],
+    "tutor_notes_ru": "Если реальной поездки не было — придумать «IOI 2028 в Токио». Требовать who/which/that при описании людей и задач."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь who, which или where.",
+      "ask_en": "Fill in who, which or where.",
+      "text": "The boy ___ won gold was only fifteen. The problem ___ I liked most was about graphs. The hotel ___ we stayed was near the sea.",
+      "answers": ["who", "which", "where"],
+      "options": ["who", "which", "where"]
+    },
+    {
+      "id": "t2",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "ask_en": "Put the words in order.",
+      "from_ru": "Девочка, которая сидела рядом со мной, была из Бразилии.",
+      "answer": "The girl who sat next to me was from Brazil.",
+      "extra": ["she", "which"]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай рассказ без текста. Что было самым трудным для Ильи?",
+      "ask_en": "Listen. What was the hardest part for Ilya?",
+      "audio": "The olympiad was in Hungary. There were contestants from forty countries. The problems were hard, but the hardest part was the first morning — I was so nervous that I couldn't eat breakfast. In the end I got a bronze medal, and I made friends with a boy who now studies in Germany.",
+      "show_text": false,
+      "question": "Что было самым трудным?",
+      "options": ["задачи второго дня", "волнение в первое утро", "перелёт"],
+      "answer": "волнение в первое утро"
+    },
+    {
+      "id": "t4",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Фото с церемонии награждения международной олимпиады. Опиши, кто есть кто, с who/which/that.",
+      "ask_en": "Describe the award ceremony using who, which, that.",
+      "image": {
+        "prompt_en": "International olympiad award ceremony on a stage: three teenagers on a podium with gold, silver and bronze medals, flags behind them, a smiling coach in the front row holding a phone, a big screen showing a graph problem, confetti, flat celebratory illustration, no readable text",
+        "alt_ru": "Награждение: трое подростков на пьедестале с золотом, серебром и бронзой, флаги, тренер в первом ряду снимает на телефон, на экране задача про граф, конфетти."
+      },
+      "say": "Who is who? What can you see?",
+      "must_use": ["who", "which"],
+      "min_sentences": 5,
+      "example": "This is the award ceremony of an international olympiad. The girl who is standing in the middle won the gold medal. The boy who is on the left got silver. The man who is taking photos is probably their coach. The screen shows the problem which was the hardest."
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи об олимпиаде (реальной или воображаемой за границей): где, кто был, какие задачи, как ты себя чувствовал, результат, с кем подружился.",
+      "ask_en": "Tell me about an olympiad — real or imagined.",
+      "mode": "answer",
+      "say": "Interview for the olympiad newspaper. Tell me everything.",
+      "example": "Last spring I went to the regional olympiad in computer science. There were about a hundred contestants. The problem that I liked most was about shortest paths. I was nervous at first, but then I felt more confident. I got a diploma, and I made friends with a guy who lives in Magnitogorsk — we still keep in touch.",
+      "must_use": ["who", "that"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Запиши «пост для соцсетей» команды олимпиадников: кто в команде (who), что выиграли (which/that), где были (where).",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Пост команды.",
+        "ask_en": "A team post.",
+        "mode": "answer",
+        "say": "A post about your (real or dream) team.",
+        "example": "Meet our team! Anna is the one who solves geometry in seconds. Max is the guy who writes the fastest code. We're going to the city where the national stage takes place — wish us luck!"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t5) who/which/that без повторного «он/она»."
+  },
+  "review": {
+    "lessons": ["a2-m2-l3", "a2-m3-l2", "a2-m6-l1"],
+    "words_to_srs": true,
+    "note_ru": "Достижения (Perfect/Past), история со связками, поездка."
+  }
+}

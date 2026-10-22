@@ -1,0 +1,262 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m1-l4",
+  "level": "a1",
+  "module": "a1-m1",
+  "detail": "full",
+  "title": { "ru": "Как часто?", "en": "How often?" },
+  "goal_ru": "После урока ты сможешь сказать, как часто ты что-то делаешь: всегда, обычно, иногда, никогда.",
+  "can_do_en": "I can say how often I do things.",
+  "minutes": 15,
+  "theme": "games",
+  "interests": ["sport", "programming", "music", "internet"],
+  "words": [
+    {
+      "en": "always",
+      "ru": "всегда",
+      "example_en": "I always do my homework.",
+      "example_ru": "Я всегда делаю домашку."
+    },
+    {
+      "en": "usually",
+      "ru": "обычно",
+      "example_en": "I usually walk to school.",
+      "example_ru": "Обычно я хожу в школу пешком."
+    },
+    {
+      "en": "often",
+      "ru": "часто",
+      "example_en": "We often play online.",
+      "example_ru": "Мы часто играем онлайн."
+    },
+    {
+      "en": "sometimes",
+      "ru": "иногда",
+      "example_en": "I sometimes cook.",
+      "example_ru": "Иногда я готовлю."
+    },
+    {
+      "en": "rarely",
+      "ru": "редко",
+      "example_en": "He rarely reads books.",
+      "example_ru": "Он редко читает книги."
+    },
+    {
+      "en": "never",
+      "ru": "никогда",
+      "example_en": "I never drink coffee.",
+      "example_ru": "Я никогда не пью кофе.",
+      "note_ru": "never уже значит «не» — второе not не нужно."
+    },
+    {
+      "en": "once / twice a week",
+      "ru": "раз / два раза в неделю",
+      "example_en": "I train twice a week.",
+      "example_ru": "Я тренируюсь два раза в неделю."
+    },
+    {
+      "en": "three times a day",
+      "ru": "три раза в день",
+      "example_en": "I check my phone a hundred times a day.",
+      "example_ru": "Я проверяю телефон сто раз в день."
+    },
+    {
+      "en": "late",
+      "ru": "поздно, опаздывать",
+      "example_en": "He is often late.",
+      "example_ru": "Он часто опаздывает."
+    },
+    {
+      "en": "stream",
+      "ru": "смотреть или вести стрим",
+      "example_en": "She streams on Fridays.",
+      "example_ru": "Она стримит по пятницам."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Слова частоты: always, usually, often, sometimes, never — где их ставить",
+    "explain_ru": "Слова частоты ставим ПЕРЕД обычным глаголом: I always get up at seven. He never plays football. Но ПОСЛЕ am/is/are: I'm always tired. He is never late. Never уже отрицательное: I never drink coffee (не I don't never). Точнее: once a week — раз в неделю, twice — дважды, three times — три раза. Спросить: How often do you…?",
+    "explain_en": "Put always/usually/often/sometimes/never before the main verb (I usually walk) but after be (I'm always late). How often do you play? — Twice a week.",
+    "examples": [
+      { "en": "I usually code after dinner.", "ru": "Я обычно программирую после ужина." },
+      { "en": "She is always happy on Fridays.", "ru": "По пятницам она всегда довольная." },
+      {
+        "en": "How often do you play chess? — Once a week.",
+        "ru": "Как часто ты играешь в шахматы? — Раз в неделю."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I play always games.",
+        "right": "I always play games.",
+        "why_ru": "Частота — перед глаголом."
+      },
+      {
+        "wrong": "I always am tired.",
+        "right": "I'm always tired.",
+        "why_ru": "С am/is/are — после."
+      },
+      {
+        "wrong": "I don't never drink coffee.",
+        "right": "I never drink coffee.",
+        "why_ru": "Двойного отрицания нет."
+      },
+      {
+        "wrong": "two times in week",
+        "right": "twice a week",
+        "why_ru": "«в неделю» — a week; два раза — twice."
+      }
+    ],
+    "tutor_notes_ru": "Хорошая тема для честного разговора о привычках (экран, сон, спорт) — без морали, Нейт только язвит («A hundred times a day? Your phone is tired.»). Проверять -s у he/she вместе с частотой."
+  },
+  "phrases": [
+    { "en": "How often do you…?", "ru": "Как часто ты…?" },
+    { "en": "Not very often.", "ru": "Не очень часто." },
+    { "en": "All the time!", "ru": "Постоянно!" },
+    { "en": "It depends.", "ru": "Смотря как / по-разному." }
+  ],
+  "talk": {
+    "topics_ru": [
+      "привычки: сон, экран, спорт",
+      "как часто играешь и программируешь",
+      "что ты никогда не делаешь"
+    ],
+    "questions_en": [
+      "How often do you play video games?",
+      "What do you never do?",
+      "Are you often late?",
+      "How often does your friend train?"
+    ],
+    "tutor_notes_ru": "Игра «Правда или ложь»: ученик говорит 3 фразы с частотой о себе, одна — неправда, Нейт угадывает (и наоборот)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "always", "ru": "всегда" },
+        { "en": "usually", "ru": "обычно" },
+        { "en": "sometimes", "ru": "иногда" },
+        { "en": "rarely", "ru": "редко" },
+        { "en": "never", "ru": "никогда" },
+        { "en": "twice a week", "ru": "два раза в неделю" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где слово стоит правильно?",
+      "question": "Я обычно хожу пешком.",
+      "options": ["I walk usually.", "I usually walk.", "Usually I walks."],
+      "answer": "I usually walk."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Он никогда не опаздывает.",
+      "answer": "He is never late.",
+      "extra": ["doesn't", "not"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "How ___ do you train? — ___ a week, on Tuesday and Friday.",
+      "answers": ["often", "Twice"],
+      "options": ["often", "Twice", "Once", "always"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста и выбери, что Макс делает НИКОГДА.",
+      "audio": "I usually play games after school. I sometimes read. I always walk my dog. And I never watch TV — it's boring.",
+      "show_text": false,
+      "question": "Что Макс никогда не делает?",
+      "options": ["играет", "читает", "смотрит телевизор"],
+      "answer": "смотрит телевизор"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я часто программирую вечером, но никогда не пью кофе.",
+      "answers": ["I often code in the evening, but I never drink coffee."]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это недельный трекер привычек. Скажи, как часто человек делает каждое дело.",
+      "image": {
+        "prompt_en": "A weekly habit tracker grid with seven day columns and four rows of icons: a running shoe ticked on 2 days, a book ticked on 7 days, a game controller ticked on 4 days, a broccoli ticked on 0 days, clean flat infographic, no words",
+        "alt_ru": "Трекер: бег — 2 дня из 7, книга — все 7, геймпад — 4, брокколи — ни одного."
+      },
+      "say": "How often does he do these things?",
+      "must_use": ["twice a week", "never"],
+      "min_sentences": 4,
+      "example": "He runs twice a week. He reads every day — he always reads. He often plays games. He never eats broccoli."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Игра «Правда или ложь»: скажи 3 фразы о себе со словами частоты, одна — неправда.",
+      "mode": "answer",
+      "say": "Three sentences. One is a lie. I'll find it.",
+      "example": "I always get up at six. I sometimes cook pizza. I never play games.",
+      "must_use": ["always", "never"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "I usually code after dinner, but I'm always tired on Mondays.",
+      "focus_ru": "usually — «Ю-жуэ-ли»."
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Мой обычный день»: голосом — твой будний день от утра до вечера, 6–8 фраз, со временем и словами частоты.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Твой будний день целиком.",
+        "mode": "answer",
+        "say": "Your weekday, from morning to night.",
+        "example": "I usually get up at seven. I go to school by bus. I have six lessons. After school I sometimes train. In the evening I do my homework and I often play games. I go to bed at eleven."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Поставь слово на место (впиши фразу целиком).",
+        "text": "(often) She ___ late.",
+        "answers": ["is often"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 75% заданий и в описании трекера (t7) слова частоты стоят на месте."
+  },
+  "review": {
+    "lessons": ["a1-m1-l1", "a1-m1-l2", "a1-m1-l3"],
+    "words_to_srs": true,
+    "note_ru": "Весь модуль: утро, -s, вопросы — в домашке-итоге."
+  }
+}

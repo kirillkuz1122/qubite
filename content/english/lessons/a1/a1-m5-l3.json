@@ -1,0 +1,289 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m5-l3",
+  "level": "a1",
+  "module": "a1-m5",
+  "detail": "full",
+  "title": { "ru": "Я пошёл, я увидел", "en": "I went, I saw" },
+  "goal_ru": "После урока ты сможешь использовать 20 самых частых неправильных глаголов в прошедшем.",
+  "can_do_en": "I can use the most common irregular verbs in the past.",
+  "minutes": 20,
+  "theme": "friends",
+  "interests": ["travel", "games", "sport"],
+  "words": [
+    {
+      "en": "go → went",
+      "ru": "идти → пошёл",
+      "example_en": "I went to the cinema.",
+      "example_ru": "Я сходил в кино."
+    },
+    {
+      "en": "have → had",
+      "ru": "иметь → имел",
+      "example_en": "I had pizza for lunch.",
+      "example_ru": "На обед у меня была пицца."
+    },
+    {
+      "en": "do → did",
+      "ru": "делать → сделал",
+      "example_en": "I did my homework.",
+      "example_ru": "Я сделал домашку."
+    },
+    {
+      "en": "see → saw",
+      "ru": "видеть → увидел",
+      "example_en": "I saw a great film.",
+      "example_ru": "Я посмотрел классный фильм."
+    },
+    {
+      "en": "get → got",
+      "ru": "получать → получил",
+      "example_en": "I got a good mark.",
+      "example_ru": "Я получил хорошую оценку."
+    },
+    {
+      "en": "make → made",
+      "ru": "делать, создавать → сделал",
+      "example_en": "I made a website.",
+      "example_ru": "Я сделал сайт."
+    },
+    {
+      "en": "eat → ate / drink → drank",
+      "ru": "есть → ел / пить → пил",
+      "example_en": "We ate burgers and drank cola.",
+      "example_ru": "Мы ели бургеры и пили колу."
+    },
+    {
+      "en": "buy → bought",
+      "ru": "покупать → купил",
+      "example_en": "I bought new headphones.",
+      "example_ru": "Я купил новые наушники.",
+      "note_ru": "bought читается «бо:т»."
+    },
+    {
+      "en": "come → came / take → took",
+      "ru": "приходить → пришёл / брать → взял",
+      "example_en": "He came late and took my seat.",
+      "example_ru": "Он пришёл поздно и занял моё место."
+    },
+    {
+      "en": "say → said / tell → told",
+      "ru": "сказать → сказал / рассказать → рассказал",
+      "example_en": "She said hi and told a joke.",
+      "example_ru": "Она поздоровалась и рассказала шутку.",
+      "note_ru": "said читается «сэд»."
+    },
+    {
+      "en": "write → wrote / read → read",
+      "ru": "писать → написал / читать → прочитал",
+      "example_en": "I wrote the code and read the docs.",
+      "example_ru": "Я написал код и прочитал документацию.",
+      "note_ru": "read в прошлом читается «рэд»."
+    },
+    {
+      "en": "win → won / lose → lost",
+      "ru": "выигрывать → выиграл / проигрывать → проиграл",
+      "example_en": "We won the first game but lost the second.",
+      "example_ru": "Первую игру мы выиграли, вторую проиграли."
+    },
+    {
+      "en": "meet → met / leave → left",
+      "ru": "встретить → встретил / уйти → ушёл",
+      "example_en": "I met Max and we left at six.",
+      "example_ru": "Я встретил Макса, и мы ушли в шесть."
+    },
+    {
+      "en": "think → thought / know → knew",
+      "ru": "думать → думал / знать → знал",
+      "example_en": "I thought it was easy.",
+      "example_ru": "Я думал, что это легко."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Simple неправильных глаголов",
+    "explain_ru": "Самые частые глаголы — «неправильные»: у них своя форма прошлого, без -ed: go → went, see → saw, have → had. Их не выводят по правилу — их запоминают, как слова. Хорошая новость: форма одна для всех (I went, she went) и их всего 20–30 частых. Учим группами по звучанию: buy-bought, think-thought, bring-brought; win-won; meet-met, leave-left.",
+    "explain_en": "Irregular verbs have their own past form: go → went, see → saw, buy → bought. Same form for everyone. Learn them in groups: bought/thought/brought, met/left/felt.",
+    "examples": [
+      {
+        "en": "On Saturday I went to the shopping centre and bought new trainers.",
+        "ru": "В субботу я сходил в ТЦ и купил новые кроссовки."
+      },
+      {
+        "en": "We won the tournament! I didn't think it was possible.",
+        "ru": "Мы выиграли турнир! Не думал, что это возможно."
+      },
+      {
+        "en": "She wrote a program that made a game.",
+        "ru": "Она написала программу, которая сделала игру."
+      }
+    ],
+    "mistakes": [
+      { "wrong": "I goed / I wented", "right": "I went", "why_ru": "go — неправильный: went." },
+      { "wrong": "I buyed", "right": "I bought", "why_ru": "buy → bought [бо:т]." },
+      {
+        "wrong": "I see him yesterday.",
+        "right": "I saw him yesterday.",
+        "why_ru": "yesterday → прошлая форма."
+      },
+      { "wrong": "said [сэйд]", "right": "said [сэд]", "why_ru": "Пишется ai, читается «сэд»." }
+    ],
+    "tutor_notes_ru": "14 строк слов = ~24 глагола — урок на 20 минут, можно разбить на 2 сессии. Не давать таблицу из трёх колонок (V3 — в A2). Тренировать «быстрым огнём»: Нейт говорит go — ученик went. Глаголы — в колоду повторения с высоким приоритетом. Остальные неправильные агент вводит по мере встречи."
+  },
+  "phrases": [
+    { "en": "Guess what happened!", "ru": "Угадай, что случилось!" },
+    { "en": "I had a great time.", "ru": "Я отлично провёл время." },
+    { "en": "We had fun.", "ru": "Нам было весело." },
+    { "en": "You won't believe it…", "ru": "Ты не поверишь…" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "последняя поездка или прогулка",
+      "что ты купил недавно",
+      "последняя победа или проигрыш"
+    ],
+    "questions_en": [
+      "Where did you go last weekend?",
+      "What did you buy recently?",
+      "Did you win or lose your last game?",
+      "What did you have for dinner yesterday?"
+    ],
+    "tutor_notes_ru": "Быстрая игра «Fire»: Нейт называет глагол — ученик форму прошлого за 2 секунды. 3 ошибки подряд — Нейт «злится» (маскот angry). Потом — рассказ."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Соедини глагол и прошедшую форму.",
+      "pairs": [
+        { "en": "go", "ru": "went" },
+        { "en": "buy", "ru": "bought" },
+        { "en": "see", "ru": "saw" },
+        { "en": "win", "ru": "won" },
+        { "en": "write", "ru": "wrote" },
+        { "en": "meet", "ru": "met" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "match",
+      "skill": "grammar",
+      "ask_ru": "Ещё пары.",
+      "pairs": [
+        { "en": "eat", "ru": "ate" },
+        { "en": "take", "ru": "took" },
+        { "en": "think", "ru": "thought" },
+        { "en": "leave", "ru": "left" },
+        { "en": "tell", "ru": "told" },
+        { "en": "lose", "ru": "lost" }
+      ]
+    },
+    {
+      "id": "t3",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "question": "Yesterday I ___ new headphones.",
+      "options": ["buyed", "bought", "buy"],
+      "answer": "bought"
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь в прошедшее.",
+      "text": "Last Saturday we ___ (go) to the lake. We ___ (have) a picnic and ___ (see) a huge fish.",
+      "answers": ["went", "had", "saw"]
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Мы выиграли первую игру, но проиграли вторую.",
+      "answer": "We won the first game but lost the second.",
+      "extra": ["win", "losed"]
+    },
+    {
+      "id": "t6",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что случилось на турнире?",
+      "audio": "Guess what! Last week we went to a robotics competition in Yekaterinburg. We made a small robot and it won second place! We got a prize and ate pizza to celebrate.",
+      "show_text": false,
+      "question": "Какое место занял робот?",
+      "options": ["первое", "второе", "третье"],
+      "answer": "второе"
+    },
+    {
+      "id": "t7",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я встретил друга, и мы пошли в кино. Фильм нам понравился.",
+      "answers": [
+        "I met my friend and we went to the cinema. We liked the film.",
+        "I met a friend and we went to the cinema. We liked the movie."
+      ]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Комикс «Субботний день Макса» — расскажи, что он делал. Используй неправильные глаголы.",
+      "image": {
+        "prompt_en": "Six-panel comic of a teenage boy's Saturday: he meets a friend at a bus stop, they go to a shopping centre, he buys a game, they eat burgers, they see a film at the cinema, he comes home tired at night, bright flat style, no text",
+        "alt_ru": "Комикс: встречает друга на остановке; едут в ТЦ; покупает игру; едят бургеры; смотрят фильм в кино; поздно приходит домой уставший."
+      },
+      "say": "What did Max do on Saturday?",
+      "must_use": ["met", "went", "bought"],
+      "min_sentences": 6,
+      "example": "On Saturday Max met his friend at the bus stop. They went to the shopping centre. Max bought a new game. Then they ate burgers. After that they saw a film. He came home late and he was very tired."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи о лучшем дне за последний месяц — минимум 5 неправильных глаголов.",
+      "mode": "answer",
+      "say": "Tell me about the best day last month. Five irregular verbs at least.",
+      "example": "The best day was two weeks ago. I went to the city olympiad in computer science. I wrote three programs. I thought the last problem was impossible, but I did it! I got a diploma and my parents bought me a cake.",
+      "must_use": ["went", "got"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Два дня подряд: по 2 минуты «быстрого огня» с Нейтом (глагол → прошлое) и короткий рассказ о том, что ты сделал за день.",
+    "minutes": 8,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Что ты сделал сегодня — неправильными глаголами.",
+        "mode": "answer",
+        "say": "Today — what did you do? Irregular verbs, please.",
+        "example": "I got up late. I had breakfast in five minutes. I went to school by bus. I saw my friends. I did my homework and I read a book."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Поставь в прошедшее.",
+        "text": "He ___ (say) nothing, ___ (take) his bag and ___ (leave).",
+        "answers": ["said", "took", "left"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе (t9) ≥ 5 неправильных глаголов без «goed/buyed»."
+  },
+  "review": {
+    "lessons": ["a1-m3-l2", "a1-m5-l1", "a1-m5-l2"],
+    "words_to_srs": true,
+    "note_ru": "Магазин (bought), was/were и -ed — вперемешку с неправильными. Неправильные глаголы — приоритет в колоде на 2 недели."
+  }
+}

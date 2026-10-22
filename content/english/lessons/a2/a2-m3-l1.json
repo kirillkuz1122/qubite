@@ -1,0 +1,199 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m3-l1",
+  "level": "a2",
+  "module": "a2-m3",
+  "detail": "detailed",
+  "title": { "ru": "Я играл, когда…", "en": "I was playing when…" },
+  "goal_ru": "После урока ты сможешь рассказать, что происходило, когда случилось событие.",
+  "can_do_en": "I can describe what was happening when something happened.",
+  "minutes": 15,
+  "theme": "games",
+  "interests": ["programming", "sport", "friends"],
+  "words": [
+    {
+      "en": "suddenly",
+      "ru": "вдруг",
+      "example_en": "Suddenly the screen went black.",
+      "example_ru": "Вдруг экран погас."
+    },
+    {
+      "en": "while",
+      "ru": "пока, в то время как",
+      "example_en": "While I was coding, my cat jumped on the keyboard.",
+      "example_ru": "Пока я программировал, кот прыгнул на клавиатуру."
+    },
+    {
+      "en": "when",
+      "ru": "когда",
+      "example_en": "I was sleeping when the alarm rang.",
+      "example_ru": "Я спал, когда зазвенел будильник."
+    },
+    {
+      "en": "the lights went out",
+      "ru": "выключили свет",
+      "example_en": "The lights went out during the final.",
+      "example_ru": "Свет вырубился во время финала."
+    },
+    {
+      "en": "crash",
+      "ru": "вылететь, упасть (о программе)",
+      "example_en": "The game crashed.",
+      "example_ru": "Игра вылетела."
+    },
+    {
+      "en": "ring (rang)",
+      "ru": "звонить, звенеть",
+      "example_en": "My phone rang.",
+      "example_ru": "Зазвонил телефон."
+    },
+    {
+      "en": "drop (dropped)",
+      "ru": "уронить",
+      "example_en": "I dropped my phone.",
+      "example_ru": "Я уронил телефон."
+    },
+    {
+      "en": "happen",
+      "ru": "происходить",
+      "example_en": "What were you doing when it happened?",
+      "example_ru": "Что ты делал, когда это случилось?"
+    }
+  ],
+  "grammar": {
+    "title_ru": "Past Continuous (was/were + -ing) и Past Simple вместе",
+    "explain_ru": "Past Continuous — «фон», длинное действие в прошлом: I was playing, they were sleeping (was/were + -ing). Past Simple — короткое событие, которое «врезалось»: the lights went out. Вместе: I was playing (фон) when the lights went out (событие). While + фон: While I was coding, the cat jumped on the keyboard. Вопрос: What were you doing at 9 last night?",
+    "explain_en": "Past Continuous (was/were + -ing) for the background, Past Simple for the short event: I was playing when the lights went out. While I was coding, my cat jumped on the keyboard.",
+    "examples": [
+      {
+        "en": "I was winning the match when the game crashed!",
+        "ru": "Я выигрывал матч, когда игра вылетела!"
+      },
+      {
+        "en": "While we were walking home, it started to snow.",
+        "ru": "Пока мы шли домой, пошёл снег."
+      },
+      {
+        "en": "What were you doing at nine last night? — I was watching a stream.",
+        "ru": "Что ты делал вчера в девять? — Смотрел стрим."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "I played when the lights were going out.",
+        "right": "I was playing when the lights went out.",
+        "why_ru": "Фон — Continuous, событие — Simple."
+      },
+      { "wrong": "I was play.", "right": "I was playing.", "why_ru": "После was — -ing." },
+      { "wrong": "We was sleeping.", "right": "We were sleeping.", "why_ru": "we — were." },
+      {
+        "wrong": "When I was coding, the cat was jumping on the keyboard (о прыжке).",
+        "right": "…the cat jumped on the keyboard.",
+        "why_ru": "Прыжок — короткое событие → Simple."
+      }
+    ],
+    "tutor_notes_ru": "Рисовать на экране «длинную линию» (фон) и «молнию» (событие). Истории-катастрофы: игра вылетела, свет погас, кот на клавиатуре — смешно и запоминается."
+  },
+  "phrases": [
+    { "en": "You won't believe what happened!", "ru": "Не поверишь, что случилось!" },
+    { "en": "I was just about to win!", "ru": "Я уже почти выиграл!" },
+    { "en": "Just my luck!", "ru": "Везёт как утопленнику!" },
+    { "en": "What were you doing when…?", "ru": "Что ты делал, когда…?" }
+  ],
+  "talk": {
+    "topics_ru": ["игровые «катастрофы»", "что ты делал вчера в 9 вечера", "неожиданные события"],
+    "questions_en": [
+      "What were you doing at nine last night?",
+      "Has a game ever crashed when you were winning?",
+      "What were you doing when you heard some big news?",
+      "Tell me about a time something went wrong."
+    ],
+    "tutor_notes_ru": "Нейт рассказывает своё «падение сервера во время урока» — ученик отвечает своей историей."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь глаголы в Past Continuous или Past Simple.",
+      "ask_en": "Past Continuous or Past Simple?",
+      "text": "I ___ (play) the final round when my mum ___ (turn off) the Wi-Fi.",
+      "answers": ["was playing", "turned off"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "While we ___ to school, we saw an accident.",
+      "options": ["walked", "were walking", "was walking"],
+      "answer": "were walking"
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Комната в момент, когда погас свет. Скажи, кто что делал, когда это случилось.",
+      "ask_en": "What were they doing when the lights went out?",
+      "image": {
+        "prompt_en": "A family living room at the moment of a power cut, dark with a lightning icon: a boy at a computer with headphones, a girl painting, dad cooking in the kitchen, a cat on the table eating, mum on the phone, playful flat illustration with dim light, no text",
+        "alt_ru": "Момент отключения света: мальчик за компьютером в наушниках, девочка рисует, папа готовит, кот на столе ест, мама говорит по телефону."
+      },
+      "say": "What were they doing when the lights went out?",
+      "must_use": ["was", "were", "when"],
+      "min_sentences": 5,
+      "example": "When the lights went out, the boy was playing a game. His sister was painting. Dad was cooking dinner. Mum was talking on the phone. And the cat was eating from the table!"
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что случилось, пока Артём писал код?",
+      "ask_en": "Listen. What happened while Artyom was coding?",
+      "audio": "I was writing the code for my project. It was almost finished. While I was saving the file, my laptop suddenly turned off — the battery was dead. And I didn't have a copy.",
+      "show_text": false,
+      "question": "Что случилось?",
+      "options": ["кот прыгнул на клавиатуру", "ноутбук выключился — села батарея", "погас свет"],
+      "answer": "ноутбук выключился — села батарея"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи свою историю «всё шло хорошо, когда вдруг…».",
+      "ask_en": "Tell me a story when something suddenly went wrong.",
+      "mode": "answer",
+      "say": "Tell me about a moment when everything was going well — and then suddenly…",
+      "example": "Last month I was playing in an online tournament. We were winning 2–0. Suddenly my internet stopped working. While I was trying to reconnect, my team lost the round. Just my luck!",
+      "must_use": ["was", "when", "suddenly"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Спроси двоих: What were you doing at 8 pm yesterday? Перескажи Нейту — и добавь, что делал ты.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Что делали ты и двое других вчера в 8 вечера.",
+        "ask_en": "What were you and two other people doing at 8 pm yesterday?",
+        "mode": "answer",
+        "say": "Yesterday at 8 pm. You and two other people.",
+        "example": "At eight o'clock yesterday I was doing my homework. My dad was watching the news and my sister was talking to her friend on the phone."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t5"],
+    "about_ru": "Пройден, если верно 75% заданий и в истории (t5) фон и событие в правильных временах."
+  },
+  "review": {
+    "lessons": ["a1-m4-l3", "a1-m5-l3"],
+    "words_to_srs": true,
+    "note_ru": "Present Continuous → Past Continuous; неправильные глаголы."
+  }
+}

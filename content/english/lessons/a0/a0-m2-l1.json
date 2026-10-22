@@ -1,0 +1,253 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m2-l1",
+  "level": "a0",
+  "module": "a0-m2",
+  "detail": "full",
+  "title": { "ru": "Откуда ты?", "en": "Where are you from?" },
+  "goal_ru": "После урока ты сможешь сказать, откуда ты, и спросить об этом другого.",
+  "can_do_en": "I can say where I am from and ask where others are from.",
+  "minutes": 12,
+  "theme": "city",
+  "interests": ["travel", "games", "sport"],
+  "words": [
+    {
+      "en": "from",
+      "ru": "из (откуда)",
+      "example_en": "I'm from Chelyabinsk.",
+      "example_ru": "Я из Челябинска."
+    },
+    {
+      "en": "Russia",
+      "ru": "Россия",
+      "example_en": "I'm from Russia.",
+      "example_ru": "Я из России."
+    },
+    {
+      "en": "city",
+      "ru": "город",
+      "example_en": "Chelyabinsk is a big city.",
+      "example_ru": "Челябинск — большой город."
+    },
+    {
+      "en": "country",
+      "ru": "страна",
+      "example_en": "What country are you from?",
+      "example_ru": "Из какой ты страны?"
+    },
+    {
+      "en": "where",
+      "ru": "где, откуда",
+      "example_en": "Where are you from?",
+      "example_ru": "Откуда ты?"
+    },
+    {
+      "en": "big / small",
+      "ru": "большой / маленький",
+      "example_en": "My town is small.",
+      "example_ru": "Мой город маленький."
+    },
+    {
+      "en": "the UK / the USA",
+      "ru": "Великобритания / США",
+      "example_en": "Nate is from the UK.",
+      "example_ru": "Нейт из Великобритании.",
+      "note_ru": "С артиклем the: the UK, the USA."
+    },
+    {
+      "en": "China, Japan, Germany",
+      "ru": "Китай, Япония, Германия",
+      "example_en": "Is she from Japan?",
+      "example_ru": "Она из Японии?"
+    },
+    {
+      "en": "Russian / English",
+      "ru": "русский / английский (язык)",
+      "example_en": "I speak Russian.",
+      "example_ru": "Я говорю по-русски.",
+      "note_ru": "Названия языков и стран — с большой буквы."
+    }
+  ],
+  "grammar": {
+    "title_ru": "am / are: I am, you are, Are you…?",
+    "explain_ru": "Помнишь I'm? Это I am. С you — другое слово: you are (коротко you're). Вопрос — меняем местами: You are from Russia → Are you from Russia? Ответ: Yes, I am. / No, I'm not.",
+    "explain_en": "I am (I'm), you are (you're). Question: Are you from Russia? — Yes, I am. / No, I'm not.",
+    "examples": [
+      { "en": "Where are you from?", "ru": "Откуда ты?" },
+      { "en": "I'm from Chelyabinsk, in Russia.", "ru": "Я из Челябинска, это в России." },
+      { "en": "Are you from Moscow? — No, I'm not.", "ru": "Ты из Москвы? — Нет." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Where you from?",
+        "right": "Where are you from?",
+        "why_ru": "Без are вопрос не собран."
+      },
+      { "wrong": "I from Russia.", "right": "I'm from Russia.", "why_ru": "Опять пропал am." },
+      { "wrong": "You is from…", "right": "You are from…", "why_ru": "С you всегда are." },
+      {
+        "wrong": "Yes, I'm.",
+        "right": "Yes, I am.",
+        "why_ru": "В коротком ответе «да» не сокращают."
+      }
+    ],
+    "tutor_notes_ru": "Ввести пару am/are, is — пока только в примерах (it's, Nate is). Порядок слов в вопросе показать перестановкой плиток. Нейт «из Великобритании» — пусть ученик спросит его сам."
+  },
+  "phrases": [
+    { "en": "Where are you from?", "ru": "Откуда ты?" },
+    { "en": "I'm from …", "ru": "Я из …" },
+    { "en": "It's in Russia.", "ru": "Это в России." },
+    { "en": "Are you from …? — Yes, I am. / No, I'm not.", "ru": "Ты из …? — Да. / Нет." }
+  ],
+  "talk": {
+    "topics_ru": ["родной город", "откуда Нейт", "откуда игроки в онлайн-игре"],
+    "questions_en": [
+      "Where are you from?",
+      "Is it a big city?",
+      "Are you from Moscow?",
+      "Where am I from? Ask me!"
+    ],
+    "tutor_notes_ru": "Нейт «из Лондона», ворчит про погоду. Ученик должен сам задать Where are you from? — это главная цель."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "city", "ru": "город" },
+        { "en": "country", "ru": "страна" },
+        { "en": "where", "ru": "где" },
+        { "en": "big", "ru": "большой" },
+        { "en": "small", "ru": "маленький" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильный вопрос.",
+      "question": "Откуда ты?",
+      "options": ["Where you from?", "Where are you from?", "Where is you from?"],
+      "answer": "Where are you from?"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь am или are.",
+      "text": "I ___ from Chelyabinsk. ___ you from Moscow?",
+      "answers": ["am", "Are"],
+      "options": ["am", "Are", "is"]
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери ответ.",
+      "from_ru": "Нет. Я из Челябинска.",
+      "answer": "No, I'm not. I'm from Chelyabinsk.",
+      "extra": ["are", "in"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, откуда девочка.",
+      "audio": "Hi! I'm Yuki. I'm from Japan. I'm fourteen.",
+      "question": "Откуда Юки?",
+      "options": ["Китай", "Япония", "Германия"],
+      "answer": "Япония"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я из России. Это большая страна.",
+      "answers": ["I'm from Russia. It's a big country.", "I am from Russia. It is a big country."]
+    },
+    {
+      "id": "t7",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту.",
+      "mode": "answer",
+      "say": "So, where are you from?",
+      "example": "I'm from Chelyabinsk. It's in Russia.",
+      "must_use": ["from"]
+    },
+    {
+      "id": "t8",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "На картинке — игроки из разных стран с флагами. Скажи, кто откуда.",
+      "image": {
+        "prompt_en": "Four cartoon teenage gamers with headsets, each with a small flag above: UK, Japan, Germany, Russia, friendly flat illustration, no text",
+        "alt_ru": "Четыре подростка-геймера с наушниками, над каждым флажок: Великобритания, Япония, Германия, Россия."
+      },
+      "say": "Where are they from?",
+      "must_use": ["from"],
+      "min_sentences": 3,
+      "example": "He's from the UK. She's from Japan. He's from Germany. She's from Russia."
+    },
+    {
+      "id": "t9",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Ты в голосовом чате игры. Познакомься с игроком: имя, возраст, откуда. Спроси и его.",
+      "scenario_ru": "Голосовой чат команды в онлайн-игре.",
+      "tutor_role": "a player from London",
+      "learner_role": "player from Russia",
+      "opening": "Hey! New guy? What's your name?",
+      "goals_ru": ["назвать имя и возраст", "сказать, откуда ты", "спросить, откуда собеседник"],
+      "must_use": ["Where are you from?"],
+      "min_turns": 4,
+      "example": [
+        "T: Hey! New guy? What's your name?",
+        "L: Hi! I'm Kirill. I'm fourteen.",
+        "T: Cool. I'm Nate.",
+        "L: Where are you from?",
+        "T: London. And you?",
+        "L: I'm from Chelyabinsk, in Russia."
+      ]
+    }
+  ],
+  "homework": {
+    "about_ru": "Расскажи голосом о себе: имя, возраст, город, страна. Это уже настоящее маленькое знакомство.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Представься: имя, возраст, откуда.",
+        "mode": "answer",
+        "say": "Tell me about you: name, age, city.",
+        "example": "Hi! I'm Kirill. I'm fourteen. I'm from Chelyabinsk, in Russia."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь слово.",
+        "text": "Are you from the UK? — No, I'm ___.",
+        "answers": ["not"],
+        "options": ["not", "no", "am"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и в диалоге ты сам спросил «Where are you from?» (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l1", "a0-m1-l3"],
+    "words_to_srs": true,
+    "note_ru": "Знакомство (имя, возраст) входит в ролевой диалог."
+  }
+}

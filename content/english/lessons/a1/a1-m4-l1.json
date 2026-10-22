@@ -1,0 +1,261 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a1-m4-l1",
+  "level": "a1",
+  "module": "a1-m4",
+  "detail": "full",
+  "title": { "ru": "Я умею", "en": "I can code" },
+  "goal_ru": "После урока ты сможешь сказать, что ты умеешь и не умеешь, и спросить об этом.",
+  "can_do_en": "I can say what I can and can't do and ask others about their skills.",
+  "minutes": 15,
+  "theme": "programming",
+  "interests": ["sport", "music", "games", "science"],
+  "words": [
+    {
+      "en": "can / can't",
+      "ru": "умею, могу / не умею",
+      "example_en": "I can swim, but I can't dive.",
+      "example_ru": "Я умею плавать, но не умею нырять.",
+      "note_ru": "can't — британцы говорят «ка:нт», американцы — «кэнт»."
+    },
+    {
+      "en": "code / program",
+      "ru": "программировать",
+      "example_en": "I can code in Python.",
+      "example_ru": "Я умею писать на Python."
+    },
+    {
+      "en": "swim / dive",
+      "ru": "плавать / нырять",
+      "example_en": "Can you swim?",
+      "example_ru": "Ты умеешь плавать?"
+    },
+    {
+      "en": "ride a bike",
+      "ru": "кататься на велосипеде",
+      "example_en": "She can ride a bike.",
+      "example_ru": "Она умеет кататься на велосипеде."
+    },
+    {
+      "en": "play the guitar / the piano",
+      "ru": "играть на гитаре / пианино",
+      "example_en": "He can play the guitar.",
+      "example_ru": "Он умеет играть на гитаре.",
+      "note_ru": "Инструмент — с the: play the piano; спорт — без: play chess."
+    },
+    {
+      "en": "draw",
+      "ru": "рисовать",
+      "example_en": "I can't draw at all.",
+      "example_ru": "Я совсем не умею рисовать."
+    },
+    {
+      "en": "solve problems",
+      "ru": "решать задачи",
+      "example_en": "I can solve hard maths problems.",
+      "example_ru": "Я умею решать сложные задачи по математике."
+    },
+    {
+      "en": "build",
+      "ru": "строить, собирать",
+      "example_en": "I can build a robot.",
+      "example_ru": "Я умею собирать робота."
+    },
+    {
+      "en": "well / a bit / at all",
+      "ru": "хорошо / немного / совсем (не)",
+      "example_en": "I can speak English a bit.",
+      "example_ru": "Я немного говорю по-английски."
+    },
+    {
+      "en": "skill",
+      "ru": "умение, навык",
+      "example_en": "Coding is a useful skill.",
+      "example_ru": "Программирование — полезный навык."
+    }
+  ],
+  "grammar": {
+    "title_ru": "can / can't + глагол; Can you…?",
+    "explain_ru": "can — «умею, могу». После can — просто глагол без to и без -s, даже с he: He can swim (не cans, не can to swim, не can swims). Не умею — can't (cannot). Вопрос: Can you swim? — Yes, I can. / No, I can't. Насколько хорошо: I can swim well. I can draw a bit. I can't draw at all.",
+    "explain_en": "can + verb: I can code. He can swim (no -s, no to). Can you dance? — Yes, I can. / No, I can't. I can swim well. I can't draw at all.",
+    "examples": [
+      {
+        "en": "I can code in Python and C++, but I can't draw.",
+        "ru": "Я умею писать на Python и C++, но не умею рисовать."
+      },
+      {
+        "en": "Can your friend play the guitar? — Yes, he can. Very well.",
+        "ru": "Твой друг умеет на гитаре? — Да. Очень хорошо."
+      },
+      { "en": "My sister can't swim at all.", "ru": "Сестра совсем не умеет плавать." }
+    ],
+    "mistakes": [
+      { "wrong": "I can to swim.", "right": "I can swim.", "why_ru": "После can — без to." },
+      {
+        "wrong": "He cans code. / He can codes.",
+        "right": "He can code.",
+        "why_ru": "У can нет -s, и у глагола после него — тоже."
+      },
+      {
+        "wrong": "Do you can swim?",
+        "right": "Can you swim?",
+        "why_ru": "can сам делает вопрос — do не нужен."
+      },
+      {
+        "wrong": "I can play guitar well very.",
+        "right": "I can play the guitar very well.",
+        "why_ru": "very well — вместе, в конце; инструмент с the."
+      }
+    ],
+    "tutor_notes_ru": "Олимпиадник и программист — в теме: languages (Python, C++), solve problems, build robots. Различить can (умение) и like (нравится). Повтор правила -s: «can — единственный глагол, который не берёт -s»."
+  },
+  "phrases": [
+    { "en": "Can you…? — Yes, I can. / No, I can't.", "ru": "Ты умеешь…? — Да. / Нет." },
+    { "en": "I'm good at…", "ru": "Я хорош в…" },
+    { "en": "I'm learning to…", "ru": "Я учусь…" },
+    { "en": "Not really.", "ru": "Не очень." }
+  ],
+  "talk": {
+    "topics_ru": ["твои навыки", "программирование и олимпиады", "чему хочешь научиться"],
+    "questions_en": [
+      "What can you do well?",
+      "What programming languages can you use?",
+      "Can you play an instrument?",
+      "What can't you do, but want to learn?"
+    ],
+    "tutor_notes_ru": "Нейт хвастается странными умениями («I can speak 50 languages, but I can't ride a bike — no legs.»). Ученик спрашивает в ответ Can you…?"
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини действие и перевод.",
+      "pairs": [
+        { "en": "ride a bike", "ru": "кататься на велосипеде" },
+        { "en": "dive", "ru": "нырять" },
+        { "en": "draw", "ru": "рисовать" },
+        { "en": "solve problems", "ru": "решать задачи" },
+        { "en": "build", "ru": "собирать" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Где нет ошибки?",
+      "question": "Он умеет программировать.",
+      "options": ["He can codes.", "He cans code.", "He can code."],
+      "answer": "He can code."
+    },
+    {
+      "id": "t3",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери вопрос.",
+      "from_ru": "Ты умеешь играть на пианино?",
+      "answer": "Can you play the piano?",
+      "extra": ["do", "to"]
+    },
+    {
+      "id": "t4",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "I can swim very ___, but I can't draw ___ all.",
+      "answers": ["well", "at"],
+      "options": ["well", "at", "good"]
+    },
+    {
+      "id": "t5",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Что Дэн НЕ умеет?",
+      "audio": "I'm Dan. I can code in Java and I can build small robots. I can play the drums a bit. But I can't swim — I'm learning now.",
+      "show_text": false,
+      "question": "Что Дэн не умеет?",
+      "options": ["программировать", "плавать", "играть на барабанах"],
+      "answer": "плавать"
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Я умею решать сложные задачи, но совсем не умею рисовать.",
+      "answers": [
+        "I can solve hard problems, but I can't draw at all.",
+        "I can solve difficult problems but I can't draw at all."
+      ]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "На картинке — ребята на кружках. Скажи, кто что умеет.",
+      "image": {
+        "prompt_en": "Four cartoon teenagers in a school club room: a girl coding on a laptop, a boy building a small robot, a girl playing the guitar, a boy drawing badly with a confused face, flat colourful style, no text",
+        "alt_ru": "Подростки на кружке: девочка программирует, мальчик собирает робота, девочка на гитаре, мальчик неумело рисует и растерян."
+      },
+      "say": "What can they do? What can't they do?",
+      "must_use": ["can", "can't"],
+      "min_sentences": 4,
+      "example": "She can code. He can build robots. She can play the guitar very well. He can't draw at all."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о своих умениях: 3 «умею», 2 «не умею», 1 «учусь».",
+      "mode": "answer",
+      "say": "Impress me. What can you do? And what can't you do?",
+      "example": "I can code in Python. I can solve olympiad problems. I can ride a bike well. I can't sing and I can't dance at all. I'm learning to play the guitar.",
+      "must_use": ["can", "can't"]
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух — слышно разницу can / can't?",
+      "mode": "repeat",
+      "say": "I can swim, but I can't dive.",
+      "focus_ru": "can — коротко «кэн», can't — долго и с t."
+    }
+  ],
+  "homework": {
+    "about_ru": "Спроси у друга или родителя по-английски 3 вопроса Can you…? и перескажи Нейту ответы.",
+    "minutes": 6,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Что умеет человек, которого ты спросил.",
+        "mode": "answer",
+        "say": "What can your friend or your mum do?",
+        "example": "My mum can cook very well. She can drive a car. She can't play games — she hates them."
+      },
+      {
+        "id": "h2",
+        "type": "choose",
+        "skill": "grammar",
+        "ask_ru": "Выбери правильный вопрос.",
+        "question": "Она умеет плавать?",
+        "options": ["Does she can swim?", "Can she swim?", "Can she swims?"],
+        "answer": "Can she swim?"
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t8"],
+    "about_ru": "Пройден, если верно 75% заданий и в рассказе о себе (t8) can без to и без -s."
+  },
+  "review": {
+    "lessons": ["a0-m3-l3", "a1-m1-l2", "a1-m1-l3"],
+    "words_to_srs": true,
+    "note_ru": "Предметы (A0), -s и do-вопросы — в сравнении с can."
+  }
+}

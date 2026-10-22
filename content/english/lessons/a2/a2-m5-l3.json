@@ -1,0 +1,217 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m5-l3",
+  "level": "a2",
+  "module": "a2-m5",
+  "detail": "detailed",
+  "title": { "ru": "Как это сделано", "en": "How it's made" },
+  "goal_ru": "После урока ты сможешь рассказать, где и как что-то делается, с пассивом.",
+  "can_do_en": "I can say where and how things are made using the present passive.",
+  "minutes": 15,
+  "theme": "science",
+  "interests": ["programming", "games", "food"],
+  "words": [
+    {
+      "en": "is made / are made",
+      "ru": "делается / делаются",
+      "example_en": "Phones are made in China.",
+      "example_ru": "Телефоны делают в Китае."
+    },
+    {
+      "en": "produce",
+      "ru": "производить",
+      "example_en": "Steel is produced in Chelyabinsk.",
+      "example_ru": "В Челябинске производят сталь."
+    },
+    {
+      "en": "design",
+      "ru": "проектировать, разрабатывать",
+      "example_en": "The chip is designed in the USA.",
+      "example_ru": "Чип разрабатывают в США."
+    },
+    {
+      "en": "build / assemble",
+      "ru": "строить / собирать",
+      "example_en": "Cars are assembled by robots.",
+      "example_ru": "Машины собирают роботы."
+    },
+    {
+      "en": "store / send",
+      "ru": "хранить / отправлять",
+      "example_en": "Your data is stored on a server.",
+      "example_ru": "Твои данные хранятся на сервере."
+    },
+    {
+      "en": "steel / plastic / glass",
+      "ru": "сталь / пластик / стекло",
+      "example_en": "The case is made of plastic.",
+      "example_ru": "Корпус из пластика."
+    },
+    {
+      "en": "made of / made from",
+      "ru": "сделано из (видно материал / не видно)",
+      "example_en": "Paper is made from wood.",
+      "example_ru": "Бумагу делают из дерева."
+    },
+    {
+      "en": "factory / plant",
+      "ru": "фабрика / завод",
+      "example_en": "The tractors are made at a plant in Chelyabinsk.",
+      "example_ru": "Тракторы делают на заводе в Челябинске."
+    },
+    {
+      "en": "by",
+      "ru": "кем (в пассиве)",
+      "example_en": "The game was made by a small team.",
+      "example_ru": "Игру сделала маленькая команда."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Пассив в Present Simple: is / are + 3-я форма (by …)",
+    "explain_ru": "Когда важнее ЧТО делается, а не КТО делает, — пассив: am/is/are + 3-я форма. They make phones in China → Phones are made in China. Кто — by: Cars are assembled by robots. Вопрос: Where is it made? What is it made of? В прошлом — was/were (The game was released in 2024) — дать фразами, подробно в B1.",
+    "explain_en": "Present passive: is/are + past participle. Phones are made in China. Your data is stored on servers. Cars are assembled by robots. Where is it made? What is it made of?",
+    "examples": [
+      {
+        "en": "Most smartphones are designed in one country and assembled in another.",
+        "ru": "Большинство смартфонов разрабатывают в одной стране, а собирают в другой."
+      },
+      {
+        "en": "When you send a message, it is encrypted and sent to a server.",
+        "ru": "Когда ты отправляешь сообщение, его шифруют и отправляют на сервер."
+      },
+      {
+        "en": "Chelyabinsk is known for its steel and tractors.",
+        "ru": "Челябинск известен сталью и тракторами."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Phones are make in China.",
+        "right": "Phones are made in China.",
+        "why_ru": "Нужна 3-я форма: made."
+      },
+      {
+        "wrong": "It made in Russia.",
+        "right": "It is made in Russia.",
+        "why_ru": "Без is — это «оно сделало»."
+      },
+      {
+        "wrong": "made from plastic (о корпусе)",
+        "right": "made of plastic",
+        "why_ru": "Материал виден — of; превратился (бумага из дерева) — from."
+      },
+      {
+        "wrong": "The game is made from a small team.",
+        "right": "…by a small team.",
+        "why_ru": "Кем — by."
+      }
+    ],
+    "tutor_notes_ru": "Темы: как делают телефоны, как работает доставка сообщения, чем славится Челябинск (сталь, тракторы, шоколад «Конфил»). Ученик объясняет Нейту процесс — пассив + последовательность (First…, then…)."
+  },
+  "phrases": [
+    { "en": "It's known for…", "ru": "Известен своим…" },
+    { "en": "Here's how it works.", "ru": "Вот как это работает." },
+    { "en": "First…, then…, finally…", "ru": "Сначала…, потом…, в конце…" },
+    { "en": "Believe it or not…", "ru": "Хочешь верь, хочешь нет…" }
+  ],
+  "talk": {
+    "topics_ru": [
+      "где сделан твой телефон",
+      "как доставляется сообщение",
+      "чем знаменит твой город"
+    ],
+    "questions_en": [
+      "Where is your phone made?",
+      "What is your city known for?",
+      "How is a message sent from your phone to a friend?",
+      "What is chocolate made from?"
+    ],
+    "tutor_notes_ru": "Нейт «не верит», что в Челябинске делают тракторы и шоколад — ученик объясняет пассивом."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Поставь в пассив.",
+      "ask_en": "Use the passive.",
+      "text": "My phone ___ (design) in the USA and ___ (assemble) in China. The screen ___ (make) of glass.",
+      "answers": ["is designed", "is assembled", "is made"]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "Paper is made ___ wood.",
+      "options": ["of", "from", "by"],
+      "answer": "from"
+    },
+    {
+      "id": "t3",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Схема: путь сообщения от тебя к другу. Объясни пассивом по шагам.",
+      "ask_en": "Explain how a message is sent.",
+      "image": {
+        "prompt_en": "Simple infographic of a message's journey: a phone typing, a lock icon (encryption), arrows to a cloud server, a database icon, arrows to a second phone with a notification bell, clean flat diagram with numbers 1-5, no words",
+        "alt_ru": "Схема: 1 — пишут на телефоне, 2 — замок (шифрование), 3 — сервер в облаке, 4 — база данных, 5 — второй телефон с уведомлением."
+      },
+      "say": "How is a message sent? Step by step.",
+      "must_use": ["is", "sent"],
+      "min_sentences": 5,
+      "example": "First, the message is typed on your phone. Then it is encrypted. After that, it is sent to a server. It is stored in a database for a moment. Finally, it is delivered to your friend's phone and a notification is shown."
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай без текста. Из чего делают корпус этого телефона?",
+      "ask_en": "Listen. What is the phone's case made of?",
+      "audio": "This phone is designed in Finland and assembled in Vietnam. The screen is made of special glass, and the back is made of recycled plastic. Each phone is tested by robots before it is sent to shops.",
+      "show_text": false,
+      "question": "Из чего задняя крышка?",
+      "options": ["из стекла", "из переработанного пластика", "из металла"],
+      "answer": "из переработанного пластика"
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту, чем известен твой город и что в нём производят.",
+      "ask_en": "What is your city known for? What is made there?",
+      "mode": "answer",
+      "say": "What is your city known for? What's made there? I don't believe you already.",
+      "example": "Chelyabinsk is known for its factories. Steel is produced here, and tractors are made at a big plant. Believe it or not, chocolate is made here too! And a lot of olympiad winners are trained here.",
+      "must_use": ["is", "are", "known for"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Выбери любую вещь у себя (телефон, кроссовки, клавиатура) — найди, где её делают, и расскажи пассивом: где разработана, где собрана, из чего сделана.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "История одной вещи.",
+        "ask_en": "The story of one thing.",
+        "mode": "answer",
+        "say": "Pick one thing. Where is it made? What is it made of?",
+        "example": "My keyboard is designed in Taiwan and made in China. The keys are made of plastic and the case is made of aluminium. It's sold all over the world."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t3"],
+    "about_ru": "Пройден, если верно 75% заданий и в схеме (t3) пассив собран верно в каждом шаге."
+  },
+  "review": {
+    "lessons": ["a1-m3-l4", "a2-m2-l1"],
+    "words_to_srs": true,
+    "note_ru": "3-я форма из Present Perfect — теперь в пассиве; шаги процесса как в рецепте."
+  }
+}

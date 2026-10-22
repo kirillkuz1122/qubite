@@ -1,0 +1,250 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m2-l4",
+  "level": "a0",
+  "module": "a0-m2",
+  "detail": "full",
+  "title": { "ru": "Семья и друзья", "en": "Family and friends" },
+  "goal_ru": "После урока ты сможешь представить родных и друзей: кто это, как зовут, сколько лет.",
+  "can_do_en": "I can introduce my family and friends: who they are, their names and ages.",
+  "minutes": 12,
+  "theme": "family",
+  "interests": ["friends", "sport", "games"],
+  "words": [
+    {
+      "en": "mum / dad",
+      "ru": "мама / папа",
+      "example_en": "This is my mum.",
+      "example_ru": "Это моя мама."
+    },
+    {
+      "en": "brother / sister",
+      "ru": "брат / сестра",
+      "example_en": "My brother is ten.",
+      "example_ru": "Моему брату десять."
+    },
+    {
+      "en": "friend",
+      "ru": "друг, подруга",
+      "example_en": "Max is my best friend.",
+      "example_ru": "Макс — мой лучший друг."
+    },
+    {
+      "en": "best friend",
+      "ru": "лучший друг",
+      "example_en": "She's my best friend.",
+      "example_ru": "Она — моя лучшая подруга."
+    },
+    {
+      "en": "he / she",
+      "ru": "он / она",
+      "example_en": "He's twelve.",
+      "example_ru": "Ему двенадцать."
+    },
+    {
+      "en": "his / her",
+      "ru": "его / её",
+      "example_en": "Her name is Anna.",
+      "example_ru": "Её зовут Анна."
+    },
+    {
+      "en": "grandma / grandpa",
+      "ru": "бабушка / дедушка",
+      "example_en": "My grandma is from Kazan.",
+      "example_ru": "Моя бабушка из Казани."
+    },
+    {
+      "en": "cat / dog",
+      "ru": "кот / собака",
+      "example_en": "Our cat is black.",
+      "example_ru": "Наш кот чёрный."
+    },
+    {
+      "en": "family",
+      "ru": "семья",
+      "example_en": "My family is small.",
+      "example_ru": "Моя семья небольшая."
+    }
+  ],
+  "grammar": {
+    "title_ru": "he is / she is; his / her",
+    "explain_ru": "Про одного человека (он, она, оно) — is: he is (he's), she is (she's), it is (it's). Чьё: his — его, her — её. Сравни: She is Anna = Her name is Anna. Итак: I am, you are, he/she/it is.",
+    "explain_en": "I am, you are, he/she/it is. His name is Max. Her name is Anna.",
+    "examples": [
+      {
+        "en": "This is my sister. Her name is Anna. She's eleven.",
+        "ru": "Это моя сестра. Её зовут Анна. Ей одиннадцать."
+      },
+      { "en": "This is Max. He's my best friend.", "ru": "Это Макс. Он мой лучший друг." },
+      { "en": "Is he your brother? — Yes, he is.", "ru": "Он твой брат? — Да." }
+    ],
+    "mistakes": [
+      {
+        "wrong": "She name is Anna.",
+        "right": "Her name is Anna.",
+        "why_ru": "«Её имя» — her, а she — «она»."
+      },
+      {
+        "wrong": "He are my brother.",
+        "right": "He is my brother.",
+        "why_ru": "С he/she всегда is."
+      },
+      {
+        "wrong": "His name is Anna (о сестре).",
+        "right": "Her name is Anna.",
+        "why_ru": "Про девочку — her, про мальчика — his."
+      },
+      {
+        "wrong": "My brother has ten years.",
+        "right": "My brother is ten.",
+        "why_ru": "Возраст — через is, как I'm 14."
+      }
+    ],
+    "tutor_notes_ru": "Русские путают he/she и his/her на слух — проверять каждую фразу. Свести таблицу am/are/is в конце урока (итог модуля). Если ученик не хочет говорить о семье — можно о друзьях, героях игр или команде (interests)."
+  },
+  "phrases": [
+    { "en": "This is my …", "ru": "Это мой / моя …" },
+    { "en": "His / Her name is …", "ru": "Его / Её зовут …" },
+    { "en": "He's / She's … (years old).", "ru": "Ему / Ей … (лет)." },
+    { "en": "Have you got a brother or a sister?", "ru": "У тебя есть брат или сестра?" }
+  ],
+  "talk": {
+    "topics_ru": ["семья", "лучший друг", "питомец"],
+    "questions_en": [
+      "Tell me about your family.",
+      "Who is your best friend? What's his or her name?",
+      "How old is he or she?",
+      "Have you got a cat or a dog?"
+    ],
+    "tutor_notes_ru": "Ловить his/her. Если ученик говорит про друга — спросить, откуда друг и какой его любимый цвет (повтор модуля)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини слово и перевод.",
+      "pairs": [
+        { "en": "brother", "ru": "брат" },
+        { "en": "sister", "ru": "сестра" },
+        { "en": "friend", "ru": "друг" },
+        { "en": "grandma", "ru": "бабушка" },
+        { "en": "family", "ru": "семья" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "his или her?",
+      "question": "This is my sister. ___ name is Lisa.",
+      "options": ["His", "Her", "She"],
+      "answer": "Her"
+    },
+    {
+      "id": "t3",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь am, are или is.",
+      "text": "I ___ Kirill. You ___ Nate. He ___ my friend.",
+      "answers": ["am", "are", "is"],
+      "options": ["am", "are", "is"]
+    },
+    {
+      "id": "t4",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и ответь: сколько лет брату?",
+      "audio": "This is my brother. His name is Tim. He's nine. And this is our dog, Rex.",
+      "question": "Сколько лет Тиму?",
+      "options": ["5", "9", "19"],
+      "answer": "9"
+    },
+    {
+      "id": "t5",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Это Макс. Он мой лучший друг.",
+      "answer": "This is Max. He is my best friend.",
+      "extra": ["his", "are"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Её зовут Анна. Ей двенадцать.",
+      "answers": ["Her name is Anna. She's twelve.", "Her name is Anna. She is twelve years old."]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Это семья с фотографии. Представь их: кто это, как зовут, сколько лет (придумай).",
+      "image": {
+        "prompt_en": "Cartoon family photo: mum, dad, a teenage boy, a little girl and a dog, smiling in a park, warm flat illustration, no text",
+        "alt_ru": "Семейное фото в парке: мама, папа, мальчик-подросток, маленькая девочка и собака."
+      },
+      "say": "Who are they? Give names and ages.",
+      "must_use": ["his", "her"],
+      "min_sentences": 4,
+      "example": "This is the mum. Her name is Olga. This is the boy. His name is Max. He's fourteen. This is the dog."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух — следи за he и she.",
+      "mode": "repeat",
+      "say": "He's my brother and she's my sister.",
+      "focus_ru": "he [хи:] и she [ши:] — не путать."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Расскажи Нейту о лучшем друге (или о брате/сестре): имя, возраст, откуда.",
+      "mode": "answer",
+      "say": "Tell me about your best friend.",
+      "example": "My best friend is Max. He's fifteen. He's from Chelyabinsk. His favourite game is chess.",
+      "must_use": ["his", "he's"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Итог модуля «Это я»: запиши голосом рассказ о себе и одном близком человеке — имя, возраст, город, любимое.",
+    "minutes": 7,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Ты и один человек из семьи или друзей — по 3 фразы.",
+        "mode": "answer",
+        "say": "Tell me about you and one person in your life.",
+        "example": "I'm Kirill. I'm fourteen. My favourite colour is blue. This is my sister. Her name is Anna. She's ten."
+      },
+      {
+        "id": "h2",
+        "type": "fill",
+        "skill": "grammar",
+        "ask_ru": "Вставь his или her.",
+        "text": "My dad is from Omsk. ___ name is Ivan. My mum is from Kazan. ___ name is Olga.",
+        "answers": ["His", "Her"],
+        "options": ["His", "Her"]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t9"],
+    "about_ru": "Пройден, если верно 70% заданий и ты рассказал о друге без путаницы he/she и his/her (t9)."
+  },
+  "review": {
+    "lessons": ["a0-m1-l3", "a0-m2-l1", "a0-m2-l3"],
+    "words_to_srs": true,
+    "note_ru": "Возраст, откуда и любимое — теперь о другом человеке (he/she)."
+  }
+}

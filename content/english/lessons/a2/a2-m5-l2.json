@@ -1,0 +1,232 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a2-m5-l2",
+  "level": "a2",
+  "module": "a2-m5",
+  "detail": "detailed",
+  "title": { "ru": "Помогите, не работает", "en": "Help, it's not working" },
+  "goal_ru": "После урока ты сможешь вежливо попросить о помощи и объяснить, что сломалось.",
+  "can_do_en": "I can ask for help politely and explain a technical problem.",
+  "minutes": 15,
+  "theme": "programming",
+  "interests": ["games", "internet", "shopping"],
+  "words": [
+    {
+      "en": "work / not work",
+      "ru": "работать / не работать",
+      "example_en": "My laptop isn't working.",
+      "example_ru": "Мой ноутбук не работает."
+    },
+    {
+      "en": "freeze / crash",
+      "ru": "зависать / вылетать",
+      "example_en": "The app keeps freezing.",
+      "example_ru": "Приложение постоянно зависает."
+    },
+    {
+      "en": "charge",
+      "ru": "заряжать(ся)",
+      "example_en": "It won't charge.",
+      "example_ru": "Он не заряжается."
+    },
+    {
+      "en": "screen is cracked",
+      "ru": "экран разбит",
+      "example_en": "My screen is cracked.",
+      "example_ru": "У меня разбит экран."
+    },
+    {
+      "en": "error message",
+      "ru": "сообщение об ошибке",
+      "example_en": "I get an error message.",
+      "example_ru": "Выдаёт ошибку."
+    },
+    {
+      "en": "restart / reinstall",
+      "ru": "перезагрузить / переустановить",
+      "example_en": "Have you tried restarting it?",
+      "example_ru": "Перезагрузить пробовал?"
+    },
+    {
+      "en": "log in / log out",
+      "ru": "войти / выйти (из аккаунта)",
+      "example_en": "I can't log in.",
+      "example_ru": "Не могу войти."
+    },
+    {
+      "en": "refund / repair",
+      "ru": "возврат денег / ремонт",
+      "example_en": "Can I get a refund?",
+      "example_ru": "Можно вернуть деньги?"
+    },
+    {
+      "en": "keep + -ing",
+      "ru": "постоянно, всё время",
+      "example_en": "It keeps crashing.",
+      "example_ru": "Всё время вылетает."
+    }
+  ],
+  "grammar": {
+    "title_ru": "Вежливые просьбы: Could you…?, Would you mind -ing?, Can I…?; описание проблемы: keep -ing, won't",
+    "explain_ru": "Чем вежливее, тем длиннее: Can you help me? → Could you help me, please? → Would you mind helping me? (после mind — -ing; ответ «да, помогу» — No, not at all!). Описать проблему: It doesn't work. / It keeps crashing (keep + -ing — постоянно). It won't turn on (won't — «не хочет»). Have you tried restarting it? — ещё один -ing после try.",
+    "explain_en": "Polite requests: Could you…? Would you mind -ing? (Answer: No, not at all.) Describe problems: It keeps crashing. It won't turn on. I can't log in. Have you tried restarting it?",
+    "examples": [
+      {
+        "en": "Excuse me, could you help me? My laptop won't turn on.",
+        "ru": "Извините, не могли бы помочь? Ноутбук не включается."
+      },
+      {
+        "en": "The game keeps crashing when I open the map.",
+        "ru": "Игра всё время вылетает, когда открываю карту."
+      },
+      {
+        "en": "Would you mind checking my code? — No, not at all.",
+        "ru": "Не посмотришь мой код? — Конечно, посмотрю."
+      }
+    ],
+    "mistakes": [
+      {
+        "wrong": "Would you mind to help me?",
+        "right": "Would you mind helping me?",
+        "why_ru": "После mind — -ing."
+      },
+      {
+        "wrong": "Would you mind…? — Yes! (= согласен помочь)",
+        "right": "No, not at all.",
+        "why_ru": "Mind = «возражаешь?» — «нет» значит «помогу»."
+      },
+      {
+        "wrong": "It is crashing always.",
+        "right": "It keeps crashing.",
+        "why_ru": "«всё время» о раздражающем — keep -ing."
+      },
+      {
+        "wrong": "My phone doesn't charging.",
+        "right": "My phone isn't charging. / It won't charge.",
+        "why_ru": "Смешение времён."
+      }
+    ],
+    "tutor_notes_ru": "Ролевой урок «техподдержка»: Нейт — оператор с классикой «Have you tried turning it off and on again?». Ученик объясняет проблему с ноутбуком/игрой/аккаунтом. Подходит для программиста — словарь багов."
+  },
+  "phrases": [
+    { "en": "Sorry to bother you, but…", "ru": "Извините за беспокойство, но…" },
+    { "en": "I've tried everything.", "ru": "Я всё перепробовал." },
+    { "en": "It worked yesterday!", "ru": "Вчера же работало!" },
+    { "en": "Thanks a lot, that fixed it!", "ru": "Спасибо, помогло!" }
+  ],
+  "talk": {
+    "topics_ru": ["техника, которая ломалась", "как ты чинишь баги", "плохая покупка онлайн"],
+    "questions_en": [
+      "What was the last thing that broke?",
+      "What do you do when your computer freezes?",
+      "Have you ever asked for a refund?",
+      "Do people ask you for tech help?"
+    ],
+    "tutor_notes_ru": "Ученик сам может быть «техподдержкой» для бабушки (Нейт играет бабушку, которая не может войти в мессенджер)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Выбери правильное.",
+      "ask_en": "Choose the correct option.",
+      "question": "Would you mind ___ my code?",
+      "options": ["to check", "checking", "check"],
+      "answer": "checking"
+    },
+    {
+      "id": "t2",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини проблему и совет.",
+      "ask_en": "Match the problem and the advice.",
+      "pairs": [
+        { "en": "It keeps freezing.", "ru": "Try restarting it." },
+        { "en": "It won't charge.", "ru": "Check the cable." },
+        { "en": "I can't log in.", "ru": "Reset your password." },
+        { "en": "The screen is cracked.", "ru": "Take it for repair." }
+      ]
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай звонок в поддержку без текста. Что случилось с игрой?",
+      "ask_en": "Listen to the support call. What's wrong with the game?",
+      "audio": "Hi, I bought your game yesterday. It installed fine, but it keeps crashing when I try to load my save. I've tried reinstalling it twice. Could you help me, or can I get a refund?",
+      "show_text": false,
+      "question": "В чём проблема?",
+      "options": [
+        "не устанавливается",
+        "вылетает при загрузке сохранения",
+        "не запускается вообще"
+      ],
+      "answer": "вылетает при загрузке сохранения"
+    },
+    {
+      "id": "t4",
+      "type": "roleplay",
+      "skill": "speaking",
+      "ask_ru": "Звонок в техподдержку: твой ноутбук (или аккаунт в игре) не работает. Объясни проблему, что уже пробовал, и вежливо попроси помочь.",
+      "ask_en": "Call tech support about your problem.",
+      "scenario_ru": "Техподдержка магазина электроники.",
+      "tutor_role": "a tired support agent who suggests restarting everything",
+      "learner_role": "customer",
+      "opening": "Tech support, how can I help you? Have you tried turning it off and on again?",
+      "goals_ru": [
+        "описать проблему (keep -ing / won't)",
+        "сказать, что уже пробовал (Present Perfect)",
+        "вежливо попросить ремонт или возврат"
+      ],
+      "must_use": ["Could you", "keeps", "I've tried"],
+      "min_turns": 5,
+      "example": [
+        "T: Have you tried turning it off and on again?",
+        "L: Yes, I've tried restarting it three times.",
+        "T: What exactly is the problem?",
+        "L: My laptop keeps freezing and it won't charge.",
+        "T: Hmm. Is it new?",
+        "L: Yes, I bought it last week. Could you repair it, or can I get a refund?"
+      ]
+    },
+    {
+      "id": "t5",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Нейт — бабушка, которая не может войти в мессенджер. Объясни ей по шагам (повелительное + should).",
+      "ask_en": "Help 'Grandma' log in, step by step.",
+      "mode": "answer",
+      "say": "Hello, dear. I can't log in to my messenger. It says 'error'. What should I do?",
+      "example": "Don't worry, Grandma. First, check your internet. Then open the app and tap 'Log in'. Type your phone number carefully. You'll get a code by SMS — type it in. If it still doesn't work, you should restart your phone.",
+      "must_use": ["First", "should"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Вспомни последнюю поломку (телефон, игра, код) и надиктуй «тикет в поддержку»: что случилось, что пробовал, о чём просишь.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Тикет в поддержку голосом.",
+        "ask_en": "A support ticket — spoken.",
+        "mode": "answer",
+        "say": "Write a support ticket. Out loud.",
+        "example": "Hello. My headphones stopped working last week. The left side keeps cutting out. I've tried another phone and another cable. Could you repair them, please? I bought them two months ago."
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.75,
+    "min_speak": 2,
+    "required": ["t4"],
+    "about_ru": "Пройден, если верно 75% заданий и в поддержке (t4) просьба вежливая, а проблема описана понятно."
+  },
+  "review": {
+    "lessons": ["a1-m3-l2", "a2-m2-l2", "a2-m5-l1"],
+    "words_to_srs": true,
+    "note_ru": "Покупки (A1), already/yet, should."
+  }
+}

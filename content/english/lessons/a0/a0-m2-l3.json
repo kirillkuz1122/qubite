@@ -1,0 +1,243 @@
+{
+  "$schema": "../../schema/lesson.schema.json",
+  "id": "a0-m2-l3",
+  "level": "a0",
+  "module": "a0-m2",
+  "detail": "full",
+  "title": { "ru": "Цвета и любимое", "en": "Colours and favourites" },
+  "goal_ru": "После урока ты сможешь назвать цвета и сказать, какой у тебя любимый цвет и любимая вещь.",
+  "can_do_en": "I can name colours and talk about my favourite things.",
+  "minutes": 12,
+  "theme": "games",
+  "interests": ["sport", "music", "movies"],
+  "words": [
+    { "en": "red", "ru": "красный", "example_en": "a red car", "example_ru": "красная машина" },
+    {
+      "en": "blue",
+      "ru": "синий, голубой",
+      "example_en": "My bag is blue.",
+      "example_ru": "Мой рюкзак синий."
+    },
+    {
+      "en": "green",
+      "ru": "зелёный",
+      "example_en": "a green apple",
+      "example_ru": "зелёное яблоко"
+    },
+    {
+      "en": "yellow",
+      "ru": "жёлтый",
+      "example_en": "a yellow pencil",
+      "example_ru": "жёлтый карандаш"
+    },
+    {
+      "en": "black / white",
+      "ru": "чёрный / белый",
+      "example_en": "a black phone",
+      "example_ru": "чёрный телефон"
+    },
+    {
+      "en": "orange",
+      "ru": "оранжевый; апельсин",
+      "example_en": "an orange cat",
+      "example_ru": "рыжий кот"
+    },
+    {
+      "en": "purple / pink",
+      "ru": "фиолетовый / розовый",
+      "example_en": "purple headphones",
+      "example_ru": "фиолетовые наушники"
+    },
+    {
+      "en": "favourite",
+      "ru": "любимый",
+      "example_en": "My favourite colour is blue.",
+      "example_ru": "Мой любимый цвет — синий."
+    },
+    {
+      "en": "colour",
+      "ru": "цвет",
+      "example_en": "What colour is it?",
+      "example_ru": "Какого он цвета?",
+      "note_ru": "colour (брит.) = color (амер.)."
+    },
+    { "en": "cool", "ru": "классный", "example_en": "That's cool!", "example_ru": "Классно!" }
+  ],
+  "grammar": {
+    "title_ru": "Цвет — перед вещью: a red car; My favourite … is …",
+    "explain_ru": "Прилагательное (какой?) ставим перед вещью, как по-русски: a red car — красная машина. Но не меняем его: red — и «красный», и «красная», и «красные». Любимое: My favourite colour is blue. Спросить: What's your favourite colour?",
+    "explain_en": "Colour + thing: a red car, a blue bag. My favourite colour is green. What colour is it? — It's black.",
+    "examples": [
+      { "en": "It's a black laptop.", "ru": "Это чёрный ноутбук." },
+      {
+        "en": "What colour is your phone? — It's white.",
+        "ru": "Какого цвета твой телефон? — Белый."
+      },
+      { "en": "My favourite game is Minecraft.", "ru": "Моя любимая игра — Minecraft." }
+    ],
+    "mistakes": [
+      { "wrong": "a car red", "right": "a red car", "why_ru": "Цвет — перед вещью." },
+      { "wrong": "reds cars", "right": "red cars", "why_ru": "Прилагательное не меняется." },
+      {
+        "wrong": "My favourite colour blue.",
+        "right": "My favourite colour is blue.",
+        "why_ru": "Снова нужен is."
+      },
+      {
+        "wrong": "What colour it is?",
+        "right": "What colour is it?",
+        "why_ru": "В вопросе is — перед it."
+      }
+    ],
+    "tutor_notes_ru": "Цвета дать картинками, без перевода, а не списком. Повторить a/an: an orange, a blue bag. favourite — отдельная радость: любимая игра, команда, фильм — это ниточка к интересам ученика (запомнить ответ в заметки)."
+  },
+  "phrases": [
+    { "en": "What's your favourite colour?", "ru": "Какой твой любимый цвет?" },
+    { "en": "My favourite … is …", "ru": "Мой любимый … — …" },
+    { "en": "What colour is it?", "ru": "Какого это цвета?" },
+    { "en": "That's cool!", "ru": "Классно!" }
+  ],
+  "talk": {
+    "topics_ru": ["любимый цвет", "любимая игра, команда, фильм", "цвет твоих вещей"],
+    "questions_en": [
+      "What's your favourite colour?",
+      "What colour is your phone?",
+      "What's your favourite game?",
+      "What's your favourite film?"
+    ],
+    "tutor_notes_ru": "Записать в заметки ответы про любимое — агент подставит их в темы следующих уроков. Нейт может притворно не одобрять выбор («Purple? Bold choice.»)."
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "type": "match",
+      "skill": "vocab",
+      "ask_ru": "Соедини цвет и перевод.",
+      "pairs": [
+        { "en": "red", "ru": "красный" },
+        { "en": "green", "ru": "зелёный" },
+        { "en": "yellow", "ru": "жёлтый" },
+        { "en": "purple", "ru": "фиолетовый" },
+        { "en": "white", "ru": "белый" }
+      ]
+    },
+    {
+      "id": "t2",
+      "type": "choose",
+      "skill": "grammar",
+      "ask_ru": "Как правильно: «синий рюкзак»?",
+      "question": "синий рюкзак",
+      "options": ["a bag blue", "a blue bag", "a blues bag"],
+      "answer": "a blue bag"
+    },
+    {
+      "id": "t3",
+      "type": "listen",
+      "skill": "listening",
+      "ask_ru": "Послушай и выбери, какого цвета телефон.",
+      "audio": "My phone is black, but my headphones are green.",
+      "question": "Какого цвета телефон?",
+      "options": ["зелёный", "чёрный", "белый"],
+      "answer": "чёрный"
+    },
+    {
+      "id": "t4",
+      "type": "build",
+      "skill": "grammar",
+      "ask_ru": "Собери фразу.",
+      "from_ru": "Мой любимый цвет — синий.",
+      "answer": "My favourite colour is blue.",
+      "extra": ["a", "are"]
+    },
+    {
+      "id": "t5",
+      "type": "fill",
+      "skill": "grammar",
+      "ask_ru": "Вставь слово.",
+      "text": "What colour ___ it? — It's ___ orange cat.",
+      "answers": ["is", "an"],
+      "options": ["is", "an", "a"]
+    },
+    {
+      "id": "t6",
+      "type": "translate",
+      "skill": "writing",
+      "ask_ru": "Переведи.",
+      "from": "ru",
+      "text": "Это красная машина. Классно!",
+      "answers": ["It's a red car. That's cool!", "This is a red car. Cool!"]
+    },
+    {
+      "id": "t7",
+      "type": "describe_image",
+      "skill": "speaking",
+      "ask_ru": "Опиши картинку: назови вещи и их цвета.",
+      "image": {
+        "prompt_en": "A gamer's room corner: a red gaming chair, a blue backpack, green headphones, a yellow lamp and a black cat, bright flat illustration, no text",
+        "alt_ru": "Угол комнаты геймера: красное кресло, синий рюкзак, зелёные наушники, жёлтая лампа, чёрный кот."
+      },
+      "say": "What can you see? Say the colours.",
+      "must_use": ["red", "blue"],
+      "min_sentences": 4,
+      "example": "It's a red chair. It's a blue bag. The headphones are green. It's a black cat."
+    },
+    {
+      "id": "t8",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Повтори вслух.",
+      "mode": "repeat",
+      "say": "My favourite colour is purple.",
+      "focus_ru": "favourite — «ФЭЙ-вэ-рит», ударение в начале."
+    },
+    {
+      "id": "t9",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Ответь Нейту: любимый цвет и любимая игра (или фильм, команда).",
+      "mode": "answer",
+      "say": "What's your favourite colour? And your favourite game?",
+      "example": "My favourite colour is blue. My favourite game is Minecraft.",
+      "must_use": ["favourite"]
+    }
+  ],
+  "homework": {
+    "about_ru": "Расскажи голосом о трёх своих любимых вещах: что это и какого цвета.",
+    "minutes": 5,
+    "tasks": [
+      {
+        "id": "h1",
+        "type": "speak",
+        "skill": "speaking",
+        "ask_ru": "Три любимые вещи и их цвет.",
+        "mode": "answer",
+        "say": "Tell me about three favourite things.",
+        "example": "My favourite thing is my phone. It's black. My bag is blue. My headphones are white."
+      },
+      {
+        "id": "h2",
+        "type": "translate",
+        "skill": "writing",
+        "ask_ru": "Переведи.",
+        "from": "ru",
+        "text": "Какой твой любимый цвет?",
+        "answers": [
+          "What's your favourite colour?",
+          "What is your favourite colour?",
+          "What's your favorite color?"
+        ]
+      }
+    ]
+  },
+  "pass": {
+    "min_accuracy": 0.7,
+    "min_speak": 2,
+    "required": ["t7"],
+    "about_ru": "Пройден, если верно 70% заданий и ты описал картинку с цветами перед вещами (t7)."
+  },
+  "review": {
+    "lessons": ["a0-m2-l2"],
+    "words_to_srs": true,
+    "note_ru": "Вещи и a/an из прошлого урока — теперь с цветом."
+  }
+}
