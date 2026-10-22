@@ -209,11 +209,15 @@ test('проект как папка: дело, файл, документ, па
   await expect(feed).toContainText('Документ «Устройство Qubite» — новый');
   await expect(feed).toContainText('Дело «Проект как папка» — новое');
 
-  // На телефоне 360 px страница не уезжает вбок
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  // На телефоне 360 px страница не уезжает вбок — когда вкладка доехала (Swap въезжает сбоку,
+  // в медленном браузере замер мог попасть в середину въезда)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
 });
 
 test('прямая ссылка на проект и правка заголовка', async ({ page }) => {
