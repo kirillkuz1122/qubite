@@ -10,17 +10,20 @@ body{margin:0;background:#100f0d}</style></head><body><canvas id=c></canvas>
 <script>
 const INK='#f3ede3',OR='#ff9852',BG='#100f0d',PANEL='#1b1916',MUTE='#a59c90',PAPER='#f3eee5',DARK='#1f1a17';
 // кет |•⟩: черта, точка, угловая скобка; поле 9×7 клеток
-const ROWS=['x....x...','x.....x..','x......x.','x.......x','x......x.','x.....x..','x....x...'];
-const CELLS=[];ROWS.forEach((r,y)=>[...r].forEach((c,x)=>{if(c==='x')CELLS.push([x,y]);}));
-const DOT={x:3.1,y:3,s:2.5};
+let ROWS,CELLS,QC,DOT,NW;
+function setKet(k){ROWS=k==='q'?['x.....x...','x..xx..x..','x.x.x...x.','x.x.x....x','x..xx...x.','x...o..x..','x...o.x...']:['x....x...','x.....x..','x......x.','x.......x','x......x.','x.....x..','x....x...'];
+  NW=ROWS[0].length;CELLS=[];QC=[];ROWS.forEach((r,y)=>[...r].forEach((c,x)=>{if(c==='x')CELLS.push([x,y]);if(c==='o')QC.push([x,y]);}));DOT=k==='q'?null:{x:3.1,y:3,s:2.5};}
+setKet('dot');window.setKet=setKet;
 function rr(g,x,y,w,h,r,col){g.fillStyle=col;g.beginPath();g.roundRect(x,y,w,h,Math.max(0,r));g.fill();}
 // mode: dots | pixel | solid; center: round | square
 function mark(g,X,Y,S,mode='dots',center='round',ink=INK,acc=OR){
-  const p=S/9,oy=Y+(S-7*p)/2,ox=X;
+  const p=S/NW,oy=Y+(S-7*p)/2,ox=X,b0=NW-4;
   if(mode==='solid'){const t=p*0.95;g.strokeStyle=ink;g.lineWidth=t;g.lineCap='round';g.lineJoin='round';
     g.beginPath();g.moveTo(ox+p/2,oy+p/2);g.lineTo(ox+p/2,oy+6.5*p);g.stroke();
-    g.beginPath();g.moveTo(ox+5.5*p,oy+p/2);g.lineTo(ox+8.5*p,oy+3.5*p);g.lineTo(ox+5.5*p,oy+6.5*p);g.stroke();}
-  else{const s=p*(mode==='dots'?.9:.88);CELLS.forEach(([x,y])=>rr(g,ox+x*p+(p-s)/2,oy+y*p+(p-s)/2,s,s,mode==='dots'?s/2:s*.08,ink));}
+    g.beginPath();g.moveTo(ox+(b0+.5)*p,oy+p/2);g.lineTo(ox+(b0+3.5)*p,oy+3.5*p);g.lineTo(ox+(b0+.5)*p,oy+6.5*p);g.stroke();
+    if(!DOT){g.lineWidth=t*.95;g.beginPath();g.ellipse(ox+3.5*p,oy+2.5*p,1.05*p,1.3*p,0,0,7);g.stroke();g.strokeStyle=acc;g.beginPath();g.moveTo(ox+4.55*p,oy+2.6*p);g.lineTo(ox+4.55*p,oy+6.5*p);g.stroke();}}
+  else{const s=p*(mode==='dots'?.9:.88),rad=mode==='dots'?s/2:s*.08;CELLS.forEach(([x,y])=>rr(g,ox+x*p+(p-s)/2,oy+y*p+(p-s)/2,s,s,rad,ink));QC.forEach(([x,y])=>rr(g,ox+x*p+(p-s)/2,oy+y*p+(p-s)/2,s,s,rad,acc));}
+  if(!DOT)return;
   const d=DOT.s*p*(mode==='solid'?.95:.92),cx=ox+DOT.x*p+p/2,cy=oy+DOT.y*p+p/2;
   rr(g,cx-d/2,cy-d/2,d,d,center==='round'?d/2:(mode==='pixel'?d*.06:d*.18),acc);
 }
@@ -29,8 +32,8 @@ function card(g,x,y,w,h,r=32,fill=PANEL){rr(g,x,y,w,h,r,fill);g.strokeStyle='rgb
 function txt(g,t,x,y,font,col){g.font=font;g.fillStyle=col;g.fillText(t,x,y);}
 window.variants=()=>{const W=1400,H=900,c=document.getElementById('c');c.width=W;c.height=H;const g=c.getContext('2d');
   g.fillStyle=BG;g.fillRect(0,0,W,H);bgdots(g,W,H);
-  txt(g,'кет |•⟩ — по центру квадрата',70,90,'44px T5',INK);
-  txt(g,'левая черта ближе к точке. сверху — круглая точка, снизу — квадрат',70,130,'18px Fira',MUTE);
+  txt(g,window.KTITLE||'кет |•⟩ — по центру квадрата',70,90,'44px T5',INK);
+  txt(g,window.KSUB||'левая черта ближе к точке. сверху — круглая точка, снизу — квадрат',70,130,'18px Fira',MUTE);
   ['точки','пиксели','сплошной'].forEach((m,i)=>txt(g,m,190+i*330,880,'16px Fira',MUTE));
   [['round','круглая'],['square','квадрат']].forEach(([cn,label],j)=>{txt(g,label,40,330+j*330,'16px Fira',MUTE);
     ['dots','pixel','solid'].forEach((m,i)=>{const x=130+i*330,y=180+j*330;card(g,x,y,280,280);mark(g,x+50,y+50,180,m,cn);});});
