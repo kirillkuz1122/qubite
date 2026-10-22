@@ -849,15 +849,16 @@ async fn read_events(
     {
         body.extend_from_slice(&chunk);
         let Some(delta) = delta else { continue };
-        // Готовые события — до последнего «\n\n».
-        let text = String::from_utf8_lossy(&body);
-        let Some(end) = text.rfind("\n\n") else {
+        // Готовые события — до последнего «\n\n», и только в новом хвосте:
+        // весь ответ заново на каждом куске — квадратично от длины.
+        let tail = &body[seen..];
+        let Some(end) = tail.windows(2).rposition(|pair| pair == b"\n\n") else {
             continue;
         };
-        for piece in text_deltas(&text[seen..end]) {
+        for piece in text_deltas(&String::from_utf8_lossy(&tail[..end])) {
             let _ = delta.send(piece);
         }
-        seen = end;
+        seen += end;
     }
     String::from_utf8(body).map_err(|_| ProviderError::Unknown("поток не в UTF-8".into()))
 }

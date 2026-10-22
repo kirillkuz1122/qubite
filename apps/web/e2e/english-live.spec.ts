@@ -184,6 +184,7 @@ async function mockLive(page: Page, refuse = false) {
               error: 'budget_exhausted',
               message: 'AI-лимит исчерпан (user, day, usd). Можно сохранить без AI',
               heard: null,
+              stop: true,
             }),
           );
           void ws.close();

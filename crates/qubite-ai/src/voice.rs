@@ -104,8 +104,11 @@ pub enum LiveOut {
     Partial(String),
     /// Фраза кончилась (провайдер услышал паузу или была команда «Готово»).
     Committed(String),
-    /// Провайдер оборвал распознавание.
+    /// Провайдер оборвал распознавание (можно сказать ещё раз).
     Failed(String),
+    /// Провайдер отказал насовсем (неверный ключ, кончились символы):
+    /// повтор упрётся в то же.
+    Refused(String),
 }
 
 /// Что открыть у провайдера живого распознавания.
@@ -616,44 +619,88 @@ impl Gateway {
             signals: Vec::new(),
             work: Work::Live,
         };
-        let opened = self.open_attempt(auth, &plan, 1, None).await?;
-        let provider = self.voices[&opened.model.provider_id].clone();
-        let call = LiveCall {
-            external_id: opened.model.external_id.clone(),
-            language: request.language,
-            sample_rate: request.sample_rate,
-            silence_secs: request.silence_secs,
-            account_id: opened.account_id,
-        };
-        match tokio::time::timeout(self.config.timeout, provider.listen_live(&call)).await {
-            Ok(Ok(link)) => Ok(LiveListen {
-                gateway: self,
-                opened: Some(opened),
-                link,
-                bytes: 0,
+        // Как в общем пути шлюза: «не ушло» (429, нет соединения) — повтор,
+        // лимит подписки — свой отказ, остальное — отказ провайдера. Другую
+        // модель не предлагаем: живое распознавание на экране не выбирается.
+        let attempts = self.config.retry_delays.len() + 1;
+        let mut call_id: Option<Uuid> = None;
+        for attempt in 1..=attempts {
+            let opened = self.open_attempt(auth, &plan, attempt, call_id).await?;
+            call_id = Some(opened.id);
+            let provider = self.voices[&opened.model.provider_id].clone();
+            let call = LiveCall {
+                external_id: opened.model.external_id.clone(),
+                language: request.language.clone(),
                 sample_rate: request.sample_rate,
-            }),
-            Ok(Err(
-                ProviderError::NotSent(reason)
-                | ProviderError::Refused(reason)
-                | ProviderError::UsageLimit(reason),
-            )) => {
-                self.release_not_sent(opened.id, &opened.reservations, 1, "refused", &reason)
+                silence_secs: request.silence_secs,
+                account_id: opened.account_id,
+            };
+            match tokio::time::timeout(self.config.timeout, provider.listen_live(&call)).await {
+                Ok(Ok(link)) => {
+                    return Ok(LiveListen {
+                        gateway: self,
+                        opened: Some(opened),
+                        link,
+                        bytes: 0,
+                        sample_rate: request.sample_rate,
+                    });
+                }
+                Ok(Err(ProviderError::UsageLimit(reason))) => {
+                    self.release_not_sent(
+                        opened.id,
+                        &opened.reservations,
+                        attempt,
+                        "usage_limit",
+                        &reason,
+                    )
                     .await?;
-                Err(AiError::ProviderRefused {
-                    reason,
-                    alternatives: Vec::new(),
-                })
-            }
-            Ok(Err(ProviderError::Unknown(reason))) => {
-                self.mark_unknown(opened.id, &reason).await?;
-                Err(AiError::ResultUnknown { call_id: opened.id })
-            }
-            Err(_) => {
-                self.mark_unknown(opened.id, "таймаут соединения").await?;
-                Err(AiError::ResultUnknown { call_id: opened.id })
+                    return Err(AiError::SubscriptionLimit {
+                        reason,
+                        alternatives: Vec::new(),
+                    });
+                }
+                Ok(Err(ProviderError::Refused(reason))) => {
+                    self.release_not_sent(
+                        opened.id,
+                        &opened.reservations,
+                        attempt,
+                        "refused",
+                        &reason,
+                    )
+                    .await?;
+                    return Err(AiError::ProviderRefused {
+                        reason,
+                        alternatives: Vec::new(),
+                    });
+                }
+                Ok(Err(ProviderError::NotSent(reason))) => {
+                    self.release_not_sent(
+                        opened.id,
+                        &opened.reservations,
+                        attempt,
+                        "not_sent",
+                        &reason,
+                    )
+                    .await?;
+                    if let Some(delay) = self.config.retry_delays.get(attempt - 1) {
+                        tokio::time::sleep(*delay).await;
+                        continue;
+                    }
+                    return Err(AiError::ProviderUnavailable {
+                        alternatives: Vec::new(),
+                    });
+                }
+                Ok(Err(ProviderError::Unknown(reason))) => {
+                    self.mark_unknown(opened.id, &reason).await?;
+                    return Err(AiError::ResultUnknown { call_id: opened.id });
+                }
+                Err(_) => {
+                    self.mark_unknown(opened.id, "таймаут соединения").await?;
+                    return Err(AiError::ResultUnknown { call_id: opened.id });
+                }
             }
         }
+        unreachable!("цикл попыток всегда возвращает результат")
     }
 }
 
@@ -706,8 +753,10 @@ pub enum MockHeard {
     Text { text: String, seconds: f64 },
     /// Отказ до отправки (можно повторить).
     FailBeforeSend,
-    /// Отказ без повтора (неверный ключ, нет денег).
+    /// Отказ без повтора (неверный ключ).
     Refuse,
+    /// Кончился лимит подписки (у ElevenLabs — `quota_exceeded`).
+    Limit,
     /// Обрыв после отправки.
     DropAfterSend,
 }
@@ -808,6 +857,9 @@ impl VoiceProvider for MockVoice {
                     Err(ProviderError::NotSent("mock: отказ до отправки".into()))
                 }
                 MockHeard::Refuse => Err(ProviderError::Refused("mock: неверный ключ".into())),
+                MockHeard::Limit => {
+                    Err(ProviderError::UsageLimit("mock: кончились символы".into()))
+                }
                 MockHeard::DropAfterSend => {
                     Err(ProviderError::Unknown("mock: обрыв после отправки".into()))
                 }
@@ -872,6 +924,9 @@ impl VoiceProvider for MockVoice {
                 Some(MockHeard::Text { text, .. }) => (text, None),
                 Some(MockHeard::Refuse) => {
                     return Err(ProviderError::Refused("mock: неверный ключ".into()));
+                }
+                Some(MockHeard::Limit) => {
+                    return Err(ProviderError::UsageLimit("mock: кончились символы".into()));
                 }
                 Some(MockHeard::FailBeforeSend) => {
                     return Err(ProviderError::NotSent("mock: нет соединения".into()));

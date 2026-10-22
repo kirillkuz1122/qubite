@@ -189,16 +189,14 @@ async fn read_stream(
     delta: &Delta,
     call: &ProviderCall,
 ) -> Result<ProviderReply, ProviderError> {
-    let mut buffer = String::new();
+    let mut lines = Lines::default();
     let mut text = String::new();
     let mut usage = serde_json::Value::Null;
     let mut done = false;
     while let Some(chunk) = response.chunk().await.map_err(|error| {
         ProviderError::Unknown(format!("поток оборвался: {}", without_url(&error)))
     })? {
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(end) = buffer.find('\n') {
-            let line: String = buffer.drain(..=end).collect();
+        for line in lines.push(&chunk) {
             let Some(data) = line.trim().strip_prefix("data:").map(str::trim) else {
                 continue; // пустые строки и «: OPENROUTER PROCESSING»
             };
@@ -234,6 +232,26 @@ async fn read_stream(
         "usage": usage,
     });
     parse_reply(&whole.to_string(), call)
+}
+
+/// Строки потока из кусков сети. Копит байты, а не текст: кусок может
+/// кончиться посреди русской буквы. Строка до «\n» — целая: байт «\n» не
+/// бывает внутри символа UTF-8.
+#[derive(Debug, Default)]
+struct Lines(Vec<u8>);
+
+impl Lines {
+    fn push(&mut self, chunk: &[u8]) -> Vec<String> {
+        self.0.extend_from_slice(chunk);
+        let Some(last) = self.0.iter().rposition(|b| *b == b'\n') else {
+            return Vec::new();
+        };
+        let ready: Vec<u8> = self.0.drain(..=last).collect();
+        String::from_utf8_lossy(&ready)
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
 }
 
 /// Настройки маршрута для OpenRouter (`provider`): закреплённые провайдеры —
@@ -448,6 +466,16 @@ pub fn usd_per_token_to_micros_per_mtok(price: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn letter_split_between_chunks_stays_whole() {
+        let line = "data: {\"why\":\"ошибка\"}\n".as_bytes();
+        // Режем посреди «ш» (два байта).
+        let cut = "data: {\"why\":\"о".len() + 1;
+        let mut lines = Lines::default();
+        assert!(lines.push(&line[..cut]).is_empty());
+        assert_eq!(lines.push(&line[cut..]), ["data: {\"why\":\"ошибка\"}"]);
+    }
 
     #[test]
     fn prices_convert_exactly_and_round_up() {

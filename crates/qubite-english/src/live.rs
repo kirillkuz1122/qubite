@@ -92,6 +92,9 @@ pub enum Out {
         code: &'static str,
         message: String,
         heard: Option<String>,
+        /// Повтор не поможет: экран выключает микрофон и ждёт «Попробовать
+        /// снова», а не слушает по кругу. Решает только сервер ([`stops`]).
+        stop: bool,
     },
 }
 
@@ -284,22 +287,29 @@ fn ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
-/// Отказ, который не пройдёт от повтора (лимит, зацикливание, нет прав, отказ
-/// провайдера): экран
-/// выключает микрофон и ждёт «Попробовать снова», а не слушает по кругу.
-fn stops(error: &AiError) -> bool {
-    matches!(
-        error,
-        AiError::Denied(_)
-            | AiError::BudgetNotSet
-            | AiError::BudgetExhausted { .. }
-            | AiError::PlatformCapNotSet
-            | AiError::RateLimited { .. }
-            | AiError::RepeatedRequest
-            | AiError::SubscriptionLimit { .. }
-            // 302 из закрытой страны, неверный ключ: повтор не поможет (D-515).
-            | AiError::ProviderRefused { .. }
-    )
+/// Отказ, который не пройдёт от повтора (лимит, зацикливание, нет прав, модель
+/// закрыта, отказ провайдера): экран выключает микрофон и ждёт «Попробовать
+/// снова», а не слушает по кругу.
+fn stops(error: &Error) -> bool {
+    match error {
+        Error::Denied(_) => true,
+        Error::Ai { error, .. } => matches!(
+            error,
+            AiError::Denied(_)
+                | AiError::ModelNotAllowed
+                | AiError::ModelBlocked(_)
+                | AiError::NoModelForTask(_)
+                | AiError::BudgetNotSet
+                | AiError::BudgetExhausted { .. }
+                | AiError::PlatformCapNotSet
+                | AiError::RateLimited { .. }
+                | AiError::RepeatedRequest
+                | AiError::SubscriptionLimit { .. }
+                // 302 из закрытой страны, неверный ключ: повтор не поможет (D-515).
+                | AiError::ProviderRefused { .. }
+        ),
+        Error::NotFound | Error::Invalid(_) | Error::Db(_) | Error::Policy(_) => false,
+    }
 }
 
 fn error_out(error: Error) -> Out {
@@ -309,8 +319,20 @@ fn error_out(error: Error) -> Out {
     };
     Out::Error {
         code: error.code(),
+        stop: stops(&error),
         message,
         heard,
+    }
+}
+
+/// Окончательный отказ без [`Error`] (голос не настроен, провайдер закрыл
+/// распознавание насовсем).
+fn stop_out(code: &'static str, message: String) -> Out {
+    Out::Error {
+        code,
+        message,
+        heard: None,
+        stop: true,
     }
 }
 
@@ -592,9 +614,10 @@ pub async fn serve(
                 }
                 if !voice.listen && !voice.live {
                     let _ = out
-                        .send(error_out(Error::Invalid(
+                        .send(stop_out(
+                            "invalid",
                             "голос не настроен — пиши текстом".into(),
-                        )))
+                        ))
                         .await;
                     continue;
                 }
@@ -625,14 +648,18 @@ pub async fn serve(
                         .await
                     {
                         Ok(listen) => ear = Some(Ear::Live(Box::new(listen))),
-                        // Лимит или зацикливание: запись целиком упрётся в то же.
-                        Err(error) if stops(&error) => {
-                            ear = None;
-                            turn = None;
-                            let _ = out.send(error_out(Error::from(error))).await;
+                        Err(error) => {
+                            let error = Error::from(error);
+                            if stops(&error) {
+                                // Лимит, зацикливание, отказ: запись целиком упрётся в то же.
+                                ear = None;
+                                turn = None;
+                                let _ = out.send(error_out(error)).await;
+                            } else {
+                                // Живое не открылось — распознаем запись целиком.
+                                tracing::warn!(%error, "живое распознавание не открылось");
+                            }
                         }
-                        // Живое не открылось — распознаем запись целиком.
-                        Err(error) => tracing::warn!(%error, "живое распознавание не открылось"),
                     }
                 }
             }
@@ -732,6 +759,19 @@ pub async fn serve(
                     ai,
                 ));
             }
+            Event::Live(Some(LiveOut::Refused(reason))) => {
+                // Провайдер отказал насовсем (ключ, символы): не слушать по кругу.
+                if let Some(Ear::Live(listen)) = ear.take() {
+                    let _ = listen.finish().await;
+                }
+                turn = None;
+                let _ = out
+                    .send(stop_out(
+                        "provider_refused",
+                        format!("провайдер отказал ({reason})"),
+                    ))
+                    .await;
+            }
             Event::Live(failed) => {
                 // Распознавание оборвалось: закрыть вызов, сказать экрану.
                 if let Some(Ear::Live(listen)) = ear.take() {
@@ -746,6 +786,7 @@ pub async fn serve(
                         code: "provider_unavailable",
                         message: format!("{reason} — скажи ещё раз или напиши"),
                         heard: None,
+                        stop: false,
                     })
                     .await;
             }

@@ -561,7 +561,7 @@ async fn act(
     let project_path = project_title
         .as_deref()
         .filter(|_| to != FileTo::Project)
-        .map(|project| format!("Проекты/{project}.md"));
+        .map(crate::files::project_path);
     let lines = [
         note_line.map(|line| {
             (
@@ -674,12 +674,40 @@ pub async fn answer(pool: &PgPool, who: &Who, item_id: Uuid, text: &str) -> Resu
     let account = who.account();
     let mut tx = pool.begin().await?;
     timeline::check_agent(&mut tx, who).await?;
+    // Ответы на одну мысль — по очереди: второй увидит задачу первого.
+    sqlx::query("SELECT 1 FROM inbox_items WHERE object_id = $1 FOR UPDATE")
+        .bind(item_id)
+        .execute(&mut *tx)
+        .await?;
     let item = qubite_inbox::get(&mut tx, account, item_id)
         .await?
         .filter(|item| !item.deleted)
         .ok_or(Error::NotFound)?;
-    if item.status != qubite_inbox::Status::New || !item.needs_review {
+    // Вопрос в разборе есть, только если спросил агент: «посмотри сам» от
+    // правил без AI его не пишет, и платный разбор по нему не запускается.
+    let asked = item
+        .triage
+        .details
+        .get("question")
+        .and_then(Value::as_str)
+        .is_some();
+    if item.status != qubite_inbox::Status::New || !item.needs_review || !asked {
         return Err(Error::Invalid("агент об этой мысли не спрашивал".into()));
+    }
+    // Прошлый ответ ещё разбирается — второй платный разбор не ставим.
+    let busy: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM jobs WHERE kind = $1 \
+           AND status IN ('queued', 'running') AND payload->>'item_id' = $2::text \
+           AND payload->>'answer' IS NOT NULL)",
+    )
+    .bind(JOB)
+    .bind(item_id)
+    .fetch_one(&mut *tx)
+    .await?;
+    if busy {
+        return Err(Error::Invalid(
+            "агент уже разбирает твой ответ — подожди".into(),
+        ));
     }
     qubite_inbox::schedule_triage(&mut tx, account, item_id, Some(&text))
         .await

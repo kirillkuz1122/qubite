@@ -41,6 +41,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 time = { version = "0.3.55", features = ["serde-well-known"] }
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "net", "fs"] }
+tokio-util = { version = "0.7.18", features = ["io"] }
 tower-http = { version = "0.7.1", features = ["trace", "timeout", "request-id", "util"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }

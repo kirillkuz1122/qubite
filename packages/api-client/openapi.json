@@ -4105,7 +4105,7 @@
       "get": {
         "tags": ["english"],
         "summary": "Разговор потоком (WebSocket): ответ почти сразу, как у живого собеседника.",
-        "description": "С экрана: двоичные кадры — PCM 16 бит, 16 кГц, моно (микрофон); текстом —\n`{\"type\":\"listen\"}` (начал говорить), `{\"type\":\"done\"}` (пауза / «Готово»),\n`{\"type\":\"text\",\"text\":\"…\"}`, `{\"type\":\"interrupt\"}` (перебил).\nНа экран: двоичные кадры — голос репетитора, PCM 16 бит, 24 кГц, моно,\nкусками по мере синтеза; текстом — `{\"type\":\"partial\",\"text\"}`,\n`{\"type\":\"heard\",\"text\"}`, `{\"type\":\"say\",\"text\"}` (кусок ответа),\n`{\"type\":\"metrics\", …}` ([`EnglishLatency`]), `{\"type\":\"reply\",\"turn\"}`\n([`EnglishTurn`]), `{\"type\":\"error\",\"error\",\"message\",\"heard\"}`.\nПрава — как у хода; браузер подключается только со своего сайта.",
+        "description": "С экрана: двоичные кадры — PCM 16 бит, 16 кГц, моно (микрофон); текстом —\n`{\"type\":\"listen\"}` (начал говорить), `{\"type\":\"done\"}` (пауза / «Готово»),\n`{\"type\":\"text\",\"text\":\"…\"}`, `{\"type\":\"interrupt\"}` (перебил).\nНа экран: двоичные кадры — голос репетитора, PCM 16 бит, 24 кГц, моно,\nкусками по мере синтеза; текстом — `{\"type\":\"partial\",\"text\"}`,\n`{\"type\":\"heard\",\"text\"}`, `{\"type\":\"say\",\"text\"}` (кусок ответа),\n`{\"type\":\"metrics\", …}` ([`EnglishLatency`]), `{\"type\":\"reply\",\"turn\"}`\n([`EnglishTurn`]), `{\"type\":\"error\",\"error\",\"message\",\"heard\",\"stop\"}`\n(`stop` — повтор не поможет: выключить микрофон и ждать «Попробовать снова»).\nПрава — как у хода; браузер подключается только со своего сайта.",
         "operationId": "english_live",
         "responses": {
           "101": {
@@ -9523,7 +9523,7 @@
       "ProjectPage": {
         "type": "object",
         "description": "Страница проекта.",
-        "required": ["project", "tasks", "files", "agent", "feed", "events"],
+        "required": ["project", "tasks", "files", "agent", "memory_path", "feed", "events"],
         "properties": {
           "agent": {
             "type": "boolean",
@@ -9566,6 +9566,10 @@
                 "type": "null"
               }
             ]
+          },
+          "memory_path": {
+            "type": "string",
+            "description": "Где завести память, если её нет: «Проекты/<название>.md» без служебных\nсимволов («Сайт: v2» → «Проекты/Сайт v2.md»)."
           },
           "project": {
             "$ref": "#/components/schemas/ProjectHead"

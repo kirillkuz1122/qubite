@@ -430,7 +430,8 @@ pub async fn english_speech(
 /// кусками по мере синтеза; текстом — `{"type":"partial","text"}`,
 /// `{"type":"heard","text"}`, `{"type":"say","text"}` (кусок ответа),
 /// `{"type":"metrics", …}` ([`EnglishLatency`]), `{"type":"reply","turn"}`
-/// ([`EnglishTurn`]), `{"type":"error","error","message","heard"}`.
+/// ([`EnglishTurn`]), `{"type":"error","error","message","heard","stop"}`
+/// (`stop` — повтор не поможет: выключить микрофон и ждать «Попробовать снова»).
 /// Права — как у хода; браузер подключается только со своего сайта.
 #[utoipa::path(get, path = "/api/v1/english/live", tag = "english",
     responses(
@@ -518,9 +519,10 @@ async fn run_live(socket: axum::extract::ws::WebSocket, state: AppState, account
                     code,
                     message,
                     heard,
-                } => text_frame(
-                    serde_json::json!({"type": "error", "error": code, "message": message, "heard": heard}),
-                ),
+                    stop,
+                } => text_frame(serde_json::json!({
+                    "type": "error", "error": code, "message": message, "heard": heard, "stop": stop,
+                })),
             };
             if sink.send(frame).await.is_err() {
                 break;

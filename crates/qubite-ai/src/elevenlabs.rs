@@ -3,9 +3,10 @@
 //!
 //! Как и у [`crate::openrouter`], главное — честно сказать шлюзу, **ушёл ли
 //! запрос**: нет соединения или 429 (занято, лимит частоты) — точно не ушёл;
-//! 400, 401 (неверный ключ, кончились символы — `quota_exceeded`), 402, 403,
-//! 404, 413, 422 — работа не выполнена и повтор не поможет; остальное (5xx,
-//! обрыв после отправки) — неизвестно, резерв удерживается.
+//! 401/402 с `quota_exceeded` — кончились символы (лимит подписки); 400, 401
+//! (неверный ключ), 402, 403, 404, 413, 422 — работа не выполнена и повтор не
+//! поможет; остальное (5xx, обрыв после отправки) — неизвестно, резерв
+//! удерживается.
 //!
 //! По редиректам не ходим (D-515): из закрытой страны ElevenLabs отвечает 302,
 //! и после перехода приходит HTML-страница — её байты играли бы как шипение.
@@ -391,7 +392,7 @@ impl ElevenLabs {
                         };
                         let Message::Text(text) = frame else { continue };
                         let Some(event) = live_event(text.as_str()) else { continue };
-                        let failed = matches!(event, LiveOut::Failed(_));
+                        let failed = matches!(event, LiveOut::Failed(_) | LiveOut::Refused(_));
                         if events_tx.send(event).await.is_err() || failed {
                             return;
                         }
@@ -427,13 +428,19 @@ fn live_event(text: &str) -> Option<LiveOut> {
                 .as_str()
                 .or_else(|| json["message"].as_str())
                 .unwrap_or_default();
-            Some(LiveOut::Failed(
-                format!("ElevenLabs: {other} {detail}")
-                    .trim()
-                    .chars()
-                    .take(200)
-                    .collect(),
-            ))
+            let reason = format!("ElevenLabs: {other} {detail}")
+                .trim()
+                .chars()
+                .take(200)
+                .collect();
+            // Ключ, символы, условия — повтор упрётся в то же.
+            Some(
+                if matches!(other, "quota_exceeded" | "auth_error" | "unaccepted_terms") {
+                    LiveOut::Refused(reason)
+                } else {
+                    LiveOut::Failed(reason)
+                },
+            )
         }
     }
 }
@@ -533,11 +540,18 @@ fn refusal(status: u16, location: Option<&str>, body: &[u8]) -> ProviderError {
         }
         429 => ProviderError::NotSent(error_message(status, body)),
         403 if regional(body) => ProviderError::Refused(blocked(&error_message(status, body))),
+        // Кончились символы — лимит подписки, а не «неверный ключ».
+        401 | 402 if quota(body) => ProviderError::UsageLimit(error_message(status, body)),
         400 | 401 | 402 | 403 | 404 | 413 | 422 => {
             ProviderError::Refused(error_message(status, body))
         }
         _ => ProviderError::Unknown(error_message(status, body)),
     }
+}
+
+/// Кончились символы: `quota_exceeded` в ответе.
+fn quota(body: &[u8]) -> bool {
+    String::from_utf8_lossy(body).contains("quota_exceeded")
 }
 
 /// Отказ по стране: в ответе про регион или страну.
@@ -640,7 +654,11 @@ mod tests {
         );
         assert!(matches!(
             live_event(r#"{"message_type":"quota_exceeded","error":"no credits"}"#),
-            Some(LiveOut::Failed(m)) if m.contains("quota_exceeded")
+            Some(LiveOut::Refused(m)) if m.contains("quota_exceeded")
+        ));
+        assert!(matches!(
+            live_event(r#"{"message_type":"transcriber_error","error":"oops"}"#),
+            Some(LiveOut::Failed(m)) if m.contains("transcriber_error")
         ));
     }
 
@@ -652,5 +670,18 @@ mod tests {
             "ElevenLabs HTTP 401: quota_exceeded — This request exceeds your quota."
         );
         assert_eq!(error_message(500, b"<html>"), "ElevenLabs HTTP 500");
+    }
+
+    #[test]
+    fn quota_is_a_usage_limit_not_a_bad_key() {
+        let body = br#"{"detail":{"status":"quota_exceeded","message":"no credits"}}"#;
+        assert!(matches!(
+            refusal(401, None, body),
+            ProviderError::UsageLimit(m) if m.contains("quota_exceeded")
+        ));
+        assert!(matches!(
+            refusal(401, None, br#"{"detail":{"status":"invalid_api_key"}}"#),
+            ProviderError::Refused(_)
+        ));
     }
 }

@@ -31,7 +31,8 @@ added="$(awk '
         }
         return ""
     }
-    FNR == NR { k = key($0); if (k != "") have[k] = 1; next }
+    # Первый файл — .env; FNR == NR не годится: у пустого .env так выглядит и пример.
+    FILENAME == ARGV[1] { k = key($0); if (k != "") have[k] = 1; next }
     /^[ \t]*$/ { block = ""; next }
     {
         k = key($0)

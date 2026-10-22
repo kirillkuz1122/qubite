@@ -53,10 +53,10 @@ async function mockProjects(page: Page, server: SyncMock) {
   await page.route('**/api/v1/agent/files', async (route) => {
     const { path, body } = route.request().postDataJSON() as { path: string; body: string };
     const project = [...server.objects.values()].find(
-      (o) => o.object_type === 'planner.project' && `Проекты/${o.title as string}` === path,
+      (o) => o.object_type === 'planner.project' && `Проекты/${o.title as string}.md` === path,
     );
     const file_id = crypto.randomUUID();
-    if (project) memory.set(project.id as string, { file_id, path: `${path}.md`, body });
+    if (project) memory.set(project.id as string, { file_id, path, body });
     return route.fulfill({ json: { id: crypto.randomUUID() } });
   });
   await page.route('**/api/v1/docs**', (route) => {
@@ -124,6 +124,7 @@ async function mockProjects(page: Page, server: SyncMock) {
         memory: memory.has(id!)
           ? { ...memory.get(id!)!, chars: 0, limit: 3000, revision: 1, updated_at: now() }
           : null,
+        memory_path: `Проекты/${project.title}.md`,
         feed: feed
           .filter((f) => f.project === id)
           .map((f) => ({ ...f, seq: ++seq, at: now(), object_id: id, by: 'owner' }))

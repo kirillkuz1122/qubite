@@ -441,13 +441,14 @@ async fn elevenlabs_adapter_on_fake_server() {
     let spoken = gateway.speak(&auth, say("el-tts", "Wrong.")).await.unwrap();
     assert_eq!(spoken.audio, b"ID3-FAKE-MP3");
 
-    // Кончились символы — отказ без повтора, резерв вернулся.
+    // Кончились символы — лимит подписки (не «неверный ключ»), без повтора,
+    // резерв вернулся.
     let error = gateway
         .speak(&auth, say("el-tts-2", "Again."))
         .await
         .unwrap_err();
     match error {
-        AiError::ProviderRefused { reason, .. } => assert!(reason.contains("quota_exceeded")),
+        AiError::SubscriptionLimit { reason, .. } => assert!(reason.contains("quota_exceeded")),
         other => panic!("{other}"),
     }
     let (reserved, _) = env.spent(limit).await;

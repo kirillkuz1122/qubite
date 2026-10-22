@@ -1336,7 +1336,8 @@ export interface paths {
      *     кусками по мере синтеза; текстом — `{"type":"partial","text"}`,
      *     `{"type":"heard","text"}`, `{"type":"say","text"}` (кусок ответа),
      *     `{"type":"metrics", …}` ([`EnglishLatency`]), `{"type":"reply","turn"}`
-     *     ([`EnglishTurn`]), `{"type":"error","error","message","heard"}`.
+     *     ([`EnglishTurn`]), `{"type":"error","error","message","heard","stop"}`
+     *     (`stop` — повтор не поможет: выключить микрофон и ждать «Попробовать снова»).
      *     Права — как у хода; браузер подключается только со своего сайта.
      */
     get: operations['english_live'];
@@ -3557,6 +3558,11 @@ export interface components {
       feed: components['schemas']['ProjectFeedItem'][];
       files: components['schemas']['ProjectFileItem'][];
       memory?: components['schemas']['ProjectMemory'] | null;
+      /**
+       * @description Где завести память, если её нет: «Проекты/<название>.md» без служебных
+       *     символов («Сайт: v2» → «Проекты/Сайт v2.md»).
+       */
+      memory_path: string;
       project: components['schemas']['ProjectHead'];
       /** @description Живые дела проекта по сроку. */
       tasks: components['schemas']['ProjectTaskItem'][];

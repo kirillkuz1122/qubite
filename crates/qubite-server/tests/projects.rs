@@ -504,3 +504,147 @@ async fn owner_id(db: &qubite_db::Database) -> Uuid {
         .await
         .unwrap()
 }
+
+async fn revision(db: &qubite_db::Database, id: Uuid) -> i64 {
+    sqlx::query_scalar("SELECT revision FROM objects WHERE id = $1")
+        .bind(id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap()
+}
+
+fn patch(id: Uuid, base_revision: i64, fields: Value) -> Value {
+    json!({
+        "op_id": Uuid::now_v7(),
+        "object_id": id,
+        "kind": "patch",
+        "base_revision": base_revision,
+        "fields": fields,
+    })
+}
+
+/// Лента проекта — только пока дело в нём: перенесённое из другого проекта
+/// не тянет свою прошлую историю. Страница ленты полная: короткая — значит,
+/// дальше ничего нет (иначе «Показать ещё» пропадало раньше времени).
+#[tokio::test]
+async fn project_feed_shows_only_membership_and_full_pages() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let (a, b, moved) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    push(
+        &mut owner,
+        address,
+        vec![
+            create(a, "planner.project", "A", json!({})),
+            create(b, "planner.project", "B", json!({})),
+            create(moved, "planner.task", "Дело", json!({ "project_id": a })),
+        ],
+    )
+    .await;
+    let r = revision(&db, moved).await;
+    push(
+        &mut owner,
+        address,
+        vec![patch(moved, r, json!({ "due_date": "2030-01-07" }))],
+    )
+    .await;
+    let r = revision(&db, moved).await;
+    push(
+        &mut owner,
+        address,
+        vec![patch(moved, r, json!({ "project_id": b }))],
+    )
+    .await;
+    let r = revision(&db, moved).await;
+    push(
+        &mut owner,
+        address,
+        vec![patch(moved, r, json!({ "due_date": "2030-01-08" }))],
+    )
+    .await;
+
+    let page_b = owner.get(address, &format!("/api/v1/projects/{b}")).await;
+    assert_eq!(page_b.status, 200, "{:?}", page_b.body);
+    let feed_b = kinds(&page_b.body);
+    assert!(
+        !feed_b.contains(&"task:created".to_owned()),
+        "дело создано в A — в ленте B его рождения нет: {feed_b:?}"
+    );
+    // В B — перенос (вход в проект) и правка после него; правки срока в A нет.
+    let changed: Vec<&Value> = page_b.body["feed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|item| item["kind"] == "changed")
+        .map(|item| &item["details"])
+        .collect();
+    assert_eq!(
+        changed,
+        [&json!(["due_date"]), &json!(["project"])],
+        "{feed_b:?}"
+    );
+    let feed_a = kinds(
+        &owner
+            .get(address, &format!("/api/v1/projects/{a}"))
+            .await
+            .body,
+    );
+    assert!(feed_a.contains(&"task:created".to_owned()), "{feed_a:?}");
+
+    // 60 дел: у каждого «новое» и связь с проектом (её в ленте нет). Страница —
+    // ровно 50 строк, остальное (10 дел и сам проект) — на следующей.
+    let many = Uuid::now_v7();
+    let mut ops = vec![create(many, "planner.project", "Много", json!({}))];
+    for i in 0..60 {
+        ops.push(create(
+            Uuid::now_v7(),
+            "planner.task",
+            &format!("Дело {i}"),
+            json!({ "project_id": many }),
+        ));
+    }
+    push(&mut owner, address, ops).await;
+    let page = owner
+        .get(address, &format!("/api/v1/projects/{many}"))
+        .await;
+    let first = page.body["feed"].as_array().unwrap();
+    assert_eq!(first.len(), 50, "{:?}", page.body);
+    let rest = owner
+        .get(
+            address,
+            &format!(
+                "/api/v1/projects/{many}/feed?before={}",
+                first.last().unwrap()["seq"]
+            ),
+        )
+        .await;
+    assert_eq!(rest.body["items"].as_array().unwrap().len(), 11);
+
+    // Память проекта со «служебным» названием заводится под понятным путём.
+    let site = Uuid::now_v7();
+    push(
+        &mut owner,
+        address,
+        vec![create(site, "planner.project", "Сайт: v2", json!({}))],
+    )
+    .await;
+    let page = owner
+        .get(address, &format!("/api/v1/projects/{site}"))
+        .await;
+    assert_eq!(page.body["memory_path"], "Проекты/Сайт v2.md");
+    let made = owner
+        .post_json(
+            address,
+            "/api/v1/agent/files",
+            json!({ "path": page.body["memory_path"], "body": "" }),
+        )
+        .await;
+    assert!(made.status.is_success(), "{:?}", made.body);
+    let page = owner
+        .get(address, &format!("/api/v1/projects/{site}"))
+        .await;
+    assert_eq!(page.body["memory"]["path"], "Проекты/Сайт v2.md");
+
+    db.close().await;
+    test_db.drop_db().await;
+}

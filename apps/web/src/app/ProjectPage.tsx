@@ -159,7 +159,7 @@ export function ProjectPage({ id }: { id: string }) {
         ) : tab === 'files' ? (
           <FilesTab id={id} page={data} />
         ) : tab === 'memory' ? (
-          <MemoryTab id={id} page={data} title={head.title} />
+          <MemoryTab id={id} page={data} />
         ) : (
           <FeedTab id={id} page={data} />
         )}
@@ -680,7 +680,7 @@ function DocForm({
 
 // ---------------------------------------------------------------- память агента
 
-function MemoryTab({ id, page, title }: { id: string; page: Page; title: string }) {
+function MemoryTab({ id, page }: { id: string; page: Page }) {
   const navigate = useNavigate();
   const write = useMemoryWrite(id);
   const [editing, setEditing] = useState(false);
@@ -708,7 +708,7 @@ function MemoryTab({ id, page, title }: { id: string; page: Page; title: string 
           <Button
             size="sm"
             disabled={write.isPending}
-            onClick={() => write.mutate({ path: `Проекты/${title}`, body: '' })}
+            onClick={() => write.mutate({ path: page.memory_path, body: '' })}
           >
             Завести файл проекта
           </Button>

@@ -133,6 +133,40 @@ pub fn normalize_path(raw: &str) -> Result<String, String> {
     Ok(path)
 }
 
+/// Имя файла памяти проекта по его названию: служебные символы пути («/»,
+/// «:», «?», …) — пробелом, длина — в пределах пути. «Сайт: v2» → «Сайт v2».
+pub fn project_file_name(title: &str) -> String {
+    let clean: String = title
+        .chars()
+        .map(|c| {
+            if c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    let name: String = clean
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(180)
+        .collect();
+    let name = name.trim().to_owned();
+    if name.is_empty() || name.chars().all(|c| c == '.') {
+        "Проект".to_owned()
+    } else {
+        name
+    }
+}
+
+/// «Проекты/<название>.md» — путь памяти проекта, который всегда проходит
+/// [`normalize_path`].
+pub fn project_path(title: &str) -> String {
+    format!("{PROJECTS_DIR}/{}.md", project_file_name(title))
+}
+
 /// Вид файла по пути.
 pub fn kind_of(path: &str) -> Kind {
     let lower = path.to_lowercase();
@@ -664,7 +698,9 @@ async fn project_for(
     let name = name.to_lowercase();
     Ok(rows
         .iter()
-        .find(|(_, title, _)| title.to_lowercase() == name)
+        .find(|(_, title, _)| {
+            title.to_lowercase() == name || project_file_name(title).to_lowercase() == name
+        })
         .or_else(|| rows.iter().find(|(_, _, tag)| tag.to_lowercase() == name))
         .map(|(id, ..)| *id))
 }
@@ -904,6 +940,19 @@ mod tests {
         assert_eq!(kind_of("Навыки/ДЗ.md"), Kind::Skill);
         assert_eq!(kind_of("Расписание.md"), Kind::File);
         assert_eq!(display_name("Проекты/Алгебра.md"), "Алгебра");
+    }
+
+    #[test]
+    fn project_path_survives_any_title() {
+        assert_eq!(project_path("Сайт: v2"), "Проекты/Сайт v2.md");
+        for title in ["A/B?", "\"кавычки\" <теги>", "..", "", &"я".repeat(300)] {
+            let path = project_path(title);
+            assert_eq!(
+                normalize_path(&path).as_deref(),
+                Ok(path.as_str()),
+                "{title}"
+            );
+        }
     }
 
     #[test]

@@ -22,10 +22,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
-import { canLive, LiveTalk, STOP_CODES, stopHint } from './english-live';
+import { canLive, LiveTalk, stopHint } from './english-live';
 import {
   appendTurn,
   canRecord,
+  ENGLISH,
   fetchSpeech,
   record,
   TurnFail,
@@ -76,6 +77,8 @@ export function AgentEnglish() {
   const [saying, setSaying] = useState<string | null>(null);
   const [waits, setWaits] = useState<Record<string, number>>({});
   const pendingReaction = useRef<Phase | null>(null);
+  // Связь обрывалась: ход, начатый до обрыва, сервер мог записать, а ответ на экран не дошёл.
+  const stale = useRef(false);
 
   /** Замолчать: прошлый звук больше не меняет, что делает Нейт. */
   const hush = useCallback(() => {
@@ -143,7 +146,11 @@ export function AgentEnglish() {
         }
       },
       onReply: (turn, wait) => {
-        appendTurn(qc, turn);
+        // После обрыва — весь разговор заново: в нём и ход, ответ на который пропал.
+        if (stale.current) {
+          stale.current = false;
+          void qc.invalidateQueries({ queryKey: ENGLISH });
+        } else appendTurn(qc, turn);
         setHeard(null);
         setSaying(null);
         if (wait !== null) setWaits((w) => ({ ...w, [turn.tutor.id]: wait }));
@@ -155,17 +162,29 @@ export function AgentEnglish() {
           return on;
         });
       },
-      onError: (code, message, heardText) => {
+      onError: (code, message, heardText, stop) => {
         setPhase('idle');
         setSaying(null);
         if (heardText) setText(heardText);
         setHeard(null);
-        if (STOP_CODES.has(code)) {
+        if (stop) {
           setMicOn(false);
           setBlocked(stopHint(code, message));
         } else setError(message);
       },
-      onLink: (state) => setStream(state),
+      onLink: (state) => {
+        setStream(state);
+        if (state === 'reconnecting') {
+          // Ответ на начатый ход по этой связи уже не придёт — не ждать его вечно.
+          stale.current = true;
+          setHeard(null);
+          setSaying(null);
+          setPhase('idle');
+        } else if (stale.current) {
+          // Связь вернулась — подтянуть то, что сервер успел записать без нас.
+          void qc.invalidateQueries({ queryKey: ENGLISH });
+        }
+      },
       onClose: () => {
         setMicOn(false);
         setStream('broken');
@@ -452,7 +471,8 @@ export function AgentEnglish() {
             )}
             {!streaming &&
               !blocked &&
-              (stream === 'broken' || stream === 'reconnecting' || !canLive()) &&
+              // Пока переподключаемся, включённый микрофон потока ждёт связь — вторая запись не нужна.
+              (stream === 'broken' || (stream === 'reconnecting' && !micOn) || !canLive()) &&
               voice.listen &&
               mic && (
                 <Button

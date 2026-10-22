@@ -12,7 +12,7 @@
 
 use axum::{
     Json,
-    body::Bytes,
+    body::{Body, Bytes},
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
@@ -199,6 +199,9 @@ pub struct ProjectPage {
     agent: bool,
     /// Память агента о проекте; `null` — файла ещё нет (или нет агента).
     memory: Option<ProjectMemory>,
+    /// Где завести память, если её нет: «Проекты/<название>.md» без служебных
+    /// символов («Сайт: v2» → «Проекты/Сайт v2.md»).
+    memory_path: String,
     /// Последние изменения (свежие сверху).
     feed: Vec<ProjectFeedItem>,
     /// События календаря (CAL-001); пока всегда пусто — точка подключения.
@@ -365,6 +368,7 @@ pub async fn project_page(
     let feed = folder::project_feed(&mut conn, owner, id, None, 50)
         .await
         .map_err(planner_error)?;
+    let memory_path = agent_files::project_path(&project.title);
     Ok(Json(ProjectPage {
         project: ProjectHead {
             id: project.id,
@@ -390,6 +394,7 @@ pub async fn project_page(
         docs,
         agent,
         memory,
+        memory_path,
         feed: feed.into_iter().map(ProjectFeedItem::from).collect(),
         events: Vec::new(),
     }))
@@ -486,8 +491,12 @@ pub async fn download_project_file(
         .await
         .map_err(planner_error)?;
     drop(conn);
-    let content = tokio::fs::read(state.blobs.path(file.sha256))
+    // Потоком с диска: файл до 25 МБ не держим в памяти целиком.
+    let content = state
+        .blobs
+        .open(file.sha256)
         .await
+        .map(|f| Body::from_stream(tokio_util::io::ReaderStream::new(f)))
         .map_err(|error| {
             tracing::error!(%error, "проект: файл пропал с диска");
             ApiError::new(
@@ -515,6 +524,7 @@ pub async fn download_project_file(
                 "sandbox; default-src 'none'".to_owned(),
             ),
             (header::CACHE_CONTROL, "private, max-age=0".to_owned()),
+            (header::CONTENT_LENGTH, file.size.to_string()),
         ],
         content,
     )

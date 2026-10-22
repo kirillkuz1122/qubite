@@ -18,30 +18,10 @@ export const RECONNECT_MS = [1_000, 3_000, 9_000];
 /** Связь продержалась столько — обрыв после этого снова получает все попытки. */
 export const STABLE_MS = 10_000;
 
-/**
- * Отказы, которые не пройдут от повтора: лимит AI, защита от зацикливания, нет прав, отказ
- * провайдера (ElevenLabs из закрытой страны отвечает 302, неверный ключ). На них
- * микрофон выключается и экран ждёт «Попробовать снова», а не слушает и не подключается по кругу.
- */
-export const STOP_CODES = new Set([
-  'budget_exhausted',
-  'budget_not_set',
-  'platform_cap_not_set',
-  'rate_limited',
-  'repeated_request',
-  'subscription_limit',
-  'provider_refused',
-  'ai_not_granted',
-  'module_not_granted',
-  'action_not_granted',
-  'account_inactive',
-  'unauthenticated',
-]);
-
 const LIMIT_COMMAND =
   'just qubite ai limit --scope user:<почта> --period day --metric usd --value <доллары>';
 
-/** Что сказать человеку на отказ из {@link STOP_CODES}: что случилось и что сделать. */
+/** Что сказать человеку на окончательный отказ (`stop` с сервера): что случилось и что сделать. */
 export function stopHint(code: string, message: string): string {
   switch (code) {
     case 'budget_exhausted': {
@@ -156,9 +136,12 @@ export interface LiveHandlers {
   onVoice(playing: boolean): void;
   /** Ход записан; `waitMs` — от конца твоей фразы до первого звука (замер на экране). */
   onReply(turn: EnglishTurn, waitMs: number | null): void;
-  /** Ошибка; на код из {@link STOP_CODES} микрофон уже выключен — ждём {@link LiveTalk.retry}. */
-  onError(code: string, message: string, heard: string | null): void;
-  /** Связь есть / оборвалась и переподключаемся. */
+  /**
+   * Ошибка. `stop` — повтор не поможет (лимит AI, зацикливание, нет прав, отказ провайдера;
+   * решает сервер): микрофон уже выключен — ждём {@link LiveTalk.retry}.
+   */
+  onError(code: string, message: string, heard: string | null, stop: boolean): void;
+  /** Связь есть / оборвалась и переподключаемся (недосказанная фраза пропала — см. onError). */
   onLink(state: 'on' | 'reconnecting'): void;
   /** Связи нет и больше не переподключаемся (попытки кончились или отказ по лимиту). */
   onClose(): void;
@@ -225,17 +208,23 @@ export class LiveTalk {
     this.ws = this.connect();
   }
 
+  /** Новое соединение; события старого (закрывается после «Попробовать снова») — не слушаем. */
   private connect(): WebSocket {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/api/v1/english/live`);
     ws.binaryType = 'arraybuffer';
-    ws.onmessage = (e) => this.receive(e.data as ArrayBuffer | string);
+    ws.onmessage = (e) => {
+      if (ws === this.ws) this.receive(e.data as ArrayBuffer | string);
+    };
     ws.onopen = () => {
+      if (ws !== this.ws) return;
       this.linked = true;
       this.h.onLink('on');
       this.stableTimer = setTimeout(() => (this.attempt = 0), STABLE_MS);
     };
-    ws.onclose = () => this.dropped();
+    ws.onclose = () => {
+      if (ws === this.ws) this.dropped();
+    };
     return ws;
   }
 
@@ -245,13 +234,34 @@ export class LiveTalk {
     if (this.closing) return;
     const delay = RECONNECT_MS[this.attempt];
     if (this.blocked || !this.linked || delay === undefined) {
+      // «Попробовать снова» вернёт микрофон, если он был включён.
+      this.resume ||= this.listening;
       this.stopMic();
       this.hush();
       return this.h.onClose();
     }
     this.attempt++;
+    this.lostPhrase();
+    this.hush();
     this.h.onLink('reconnecting');
     this.retryTimer = setTimeout(() => (this.ws = this.connect()), delay);
+  }
+
+  /**
+   * Связи нет — говоришь в пустоту: фраза, начатая до обрыва, на сервер не дойдёт. Забыть её и
+   * сказать об этом; пока связи нет, микрофон не слушает (см. {@link frame}).
+   */
+  private lostPhrase() {
+    this.preroll = [];
+    if (!this.vad.speaking) return;
+    this.vad = new Vad();
+    this.h.onSpeech(false);
+    this.h.onError(
+      'link_lost',
+      'Связь прервалась — фраза не дошла, скажи её ещё раз.',
+      null,
+      false,
+    );
   }
 
   /**
@@ -265,6 +275,7 @@ export class LiveTalk {
     if (ws === WebSocket.CLOSING || ws === WebSocket.CLOSED) {
       clearTimeout(this.retryTimer);
       this.h.onLink('reconnecting');
+      // Старое соединение дозакроется само; его события connect() уже не слушает.
       this.ws = this.connect();
     }
     const resume = this.resume;
@@ -330,7 +341,8 @@ export class LiveTalk {
 
   /** Кусок с микрофона: громкость → начало/конец речи; во время речи — на сервер. */
   frame(samples: Float32Array, rate: number) {
-    if (this.blocked) return;
+    // Отказ или нет связи — не слушаем: фраза ушла бы в пустоту.
+    if (this.blocked || this.ws.readyState !== WebSocket.OPEN) return;
     const ms = (samples.length / rate) * 1000;
     const pcm = downsample(samples, rate, MIC_RATE);
     const event = this.vad.push(rms(samples), ms, this.playing);
@@ -338,12 +350,11 @@ export class LiveTalk {
       if (this.playing) this.interrupt();
       this.h.onSpeech(true);
       this.send({ type: 'listen' });
-      if (this.ws.readyState === WebSocket.OPEN)
-        for (const chunk of this.preroll) this.ws.send(chunk);
+      for (const chunk of this.preroll) this.ws.send(chunk);
       this.preroll = [];
     }
     if (this.vad.speaking || event === 'end') {
-      if (this.ws.readyState === WebSocket.OPEN) this.ws.send(pcm);
+      this.ws.send(pcm);
     } else {
       this.preroll.push(pcm);
       const keep = Math.ceil(PREROLL_MS / Math.max(1, ms));
@@ -380,17 +391,19 @@ export class LiveTalk {
         return this.h.onReply(msg.turn as EnglishTurn, wait);
       }
       case 'error': {
-        const code = String(msg.error ?? 'error');
-        if (STOP_CODES.has(code)) {
+        // Окончательный ли отказ, решает сервер — один список на сервере, не два.
+        const stop = msg.stop === true;
+        if (stop) {
           this.blocked = true;
           this.resume ||= this.listening;
           this.stopMic();
           this.hush();
         }
         return this.h.onError(
-          code,
+          String(msg.error ?? 'error'),
           String(msg.message ?? ''),
           (msg.heard as string | null) ?? null,
+          stop,
         );
       }
     }

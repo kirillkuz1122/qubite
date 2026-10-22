@@ -271,14 +271,22 @@ pub async fn list_docs(conn: &mut PgConnection, owner: Uuid) -> Result<Vec<Doc>>
     Ok(rows.into_iter().map(Doc::from).collect())
 }
 
-/// Документы проекта (свежие сверху).
+/// Документы проекта (свежие сверху) — все, сколько бы документов ни было у
+/// владельца.
 pub async fn project_docs(conn: &mut PgConnection, owner: Uuid, project: Uuid) -> Result<Vec<Doc>> {
     own_project(conn, owner, project).await?;
-    Ok(list_docs(conn, owner)
-        .await?
-        .into_iter()
-        .filter(|doc| doc.project_ids.contains(&project))
-        .collect())
+    let rows: Vec<DocRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{DOC_SELECT} WHERE o.owner_id = $1 AND o.deleted_at IS NULL \
+           AND EXISTS (SELECT 1 FROM relations r WHERE r.from_id = o.id AND r.to_id = $2 \
+                       AND r.type = $3 AND r.deleted_at IS NULL) \
+         ORDER BY o.updated_at DESC, o.id"
+    )))
+    .bind(owner)
+    .bind(project)
+    .bind(PART_OF)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows.into_iter().map(Doc::from).collect())
 }
 
 /// Новый документ сразу в проекте.
@@ -411,8 +419,10 @@ struct EventRow {
     status: Option<String>,
 }
 
-/// Что происходило в проекте: сам проект, его дела и документы (ушедшие из
-/// проекта — до ухода). Свежее сверху; `before` — курсор `seq`.
+/// Что происходило в проекте: сам проект, его дела и документы — только пока
+/// они были в проекте (ушедшие — до ухода, пришедшие из другого — с прихода).
+/// Свежее сверху; `before` — курсор `seq`. Всё отбирается в SQL: страница
+/// короче `limit` — значит, дальше ничего нет.
 pub async fn project_feed(
     conn: &mut PgConnection,
     owner: Uuid,
@@ -423,21 +433,30 @@ pub async fn project_feed(
     own_project(conn, owner, project).await?;
     let rows: Vec<EventRow> = sqlx::query_as(
         "WITH members AS ( \
-             SELECT r.from_id AS id, r.deleted_at AS until FROM relations r \
-               WHERE r.to_id = $1 AND r.type = 'part_of' \
-             UNION ALL SELECT $1::uuid, NULL::timestamptz \
+             SELECT r.from_id AS id, r.created_at AS since, r.deleted_at AS until \
+               FROM relations r WHERE r.to_id = $1 AND r.type = $8 \
+             UNION ALL SELECT $1::uuid, NULL::timestamptz, NULL::timestamptz \
          ) \
          SELECT e.seq, e.at, e.actor_id, e.object_id, e.kind, e.payload, \
                 o.type AS object_type, o.title, t.status \
          FROM events e \
          JOIN objects o ON o.id = e.object_id AND o.owner_id = $2 \
          LEFT JOIN planner_tasks t ON t.object_id = o.id \
-         WHERE e.object_id IN (SELECT id FROM members) \
-           AND EXISTS (SELECT 1 FROM members m WHERE m.id = e.object_id \
+         WHERE EXISTS (SELECT 1 FROM members m WHERE m.id = e.object_id \
+                       AND (m.since IS NULL OR e.at >= m.since) \
                        AND (m.until IS NULL OR e.at <= m.until)) \
+           AND o.type IN ($5, $6, $7) \
            AND e.kind IN ('object.created', 'object.updated', 'object.deleted', \
                           'object.restored', 'attachment.added', 'attachment.removed', \
                           'relation.created', 'relation.deleted') \
+           AND (e.kind NOT IN ('attachment.added', 'attachment.removed') \
+                OR jsonb_typeof(e.payload -> 'name') = 'string') \
+           AND (e.kind NOT IN ('relation.created', 'relation.deleted') \
+                OR (o.type = $7 AND e.payload ->> 'type' = $8 \
+                    AND e.payload ->> 'to_id' = $1::text)) \
+           AND NOT (e.kind = 'relation.created' AND EXISTS ( \
+                SELECT 1 FROM events c WHERE c.object_id = e.object_id \
+                  AND c.kind = 'object.created' AND c.at = e.at)) \
            AND ($3::bigint IS NULL OR e.seq < $3) \
          ORDER BY e.seq DESC LIMIT $4",
     )
@@ -445,22 +464,18 @@ pub async fn project_feed(
     .bind(owner)
     .bind(before)
     .bind(limit.clamp(1, 200))
+    .bind(PROJECT_TYPE)
+    .bind(TASK_TYPE)
+    .bind(DOC_TYPE)
+    .bind(PART_OF)
     .fetch_all(conn)
     .await?;
-    let items: Vec<FeedItem> = rows
+    // Связи дел видны их созданием; документ, созданный прямо в проекте, входит
+    // в него той же операцией — строка «в проекте» рядом с «новый» лишняя.
+    // Оба правила — в запросе выше, здесь только перевод в строки ленты.
+    Ok(rows
         .into_iter()
         .filter_map(|row| feed_item(row, project))
-        .collect();
-    // Документ, созданный прямо в проекте, входит в него той же операцией —
-    // строка «в проекте» рядом с «новый» лишняя.
-    let born: Vec<(Uuid, OffsetDateTime)> = items
-        .iter()
-        .filter(|item| item.kind == "created")
-        .map(|item| (item.object_id, item.at))
-        .collect();
-    Ok(items
-        .into_iter()
-        .filter(|item| item.kind != "doc_linked" || !born.contains(&(item.object_id, item.at)))
         .collect())
 }
 

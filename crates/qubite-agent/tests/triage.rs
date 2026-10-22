@@ -534,6 +534,13 @@ async fn unsure_asks_and_owner_answer_goes_to_memory() {
         2,
         "ответ ставит разбор заново"
     );
+    // Второй ответ, пока первый не разобран, — не второй платный разбор.
+    assert!(
+        triage::answer(pool, &who, thought, "Математика")
+            .await
+            .is_err()
+    );
+    assert_eq!(triage_jobs(pool, thought).await, 2);
     let outcome = triage::triage(pool, &ai.gateway, thought, Some("Информатика"), None)
         .await
         .unwrap();
@@ -600,6 +607,43 @@ async fn unsure_asks_and_owner_answer_goes_to_memory() {
 
 /// D-494: заметка к проекту — строкой в память проекта (видна на странице
 /// проекта, PROJ-001), откат разбора убирает и её; без проекта — только архив.
+/// «Посмотри сам» от правил без AI — не вопрос агента: «ответ» на него не
+/// запускает платный разбор.
+#[tokio::test]
+async fn answer_without_agent_question_is_refused() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let thought = create(pool, me, "inbox.item", "что-то непонятное").await;
+    let current = item(pool, me, thought).await;
+    let mut conn = pool.acquire().await.unwrap();
+    qubite_inbox::suggest(
+        &mut conn,
+        me,
+        thought,
+        current.revision,
+        me,
+        qubite_inbox::Suggestion {
+            intent: qubite_inbox::Intent::Other,
+            by: qubite_inbox::TriageBy::Rules,
+            confidence: Some(0.1),
+            summary: None,
+            links: Vec::new(),
+            needs_review: None,
+        },
+    )
+    .await
+    .unwrap();
+    drop(conn);
+    assert!(item(pool, me, thought).await.needs_review);
+    let jobs = triage_jobs(pool, thought).await;
+    let who = Who::owner(me, None);
+    assert!(triage::answer(pool, &who, thought, "дело").await.is_err());
+    assert_eq!(triage_jobs(pool, thought).await, jobs);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
 #[tokio::test]
 async fn note_with_project_goes_to_project_memory() {
     let (test_db, db) = TestDb::migrated().await;

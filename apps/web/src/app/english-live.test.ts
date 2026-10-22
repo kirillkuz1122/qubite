@@ -123,6 +123,7 @@ describe('английский потоком: связь и отказы (ба�
       type: 'error',
       error: 'budget_exhausted',
       message: 'AI-лимит исчерпан (user, day, usd).',
+      stop: true,
     });
     // Голос в микрофон после отказа — на сервер ничего не уходит.
     const loud = new Float32Array(1600).fill(0.5);
@@ -154,6 +155,66 @@ describe('английский потоком: связь и отказы (ба�
     expect(FakeSocket.all).toHaveLength(1 + RECONNECT_MS.length);
     expect(events.filter((e) => e === 'reconnecting')).toHaveLength(RECONNECT_MS.length);
     expect(events.at(-1)).toBe('close');
+    talk.close();
+  });
+
+  it('окончательный ли отказ, решает сервер: без stop микрофон слушает дальше', () => {
+    const talk = new LiveTalk(handlers());
+    const ws = FakeSocket.all[0]!;
+    ws.open();
+    ws.message({ type: 'error', error: 'provider_unavailable', message: 'обрыв', stop: false });
+    const loud = new Float32Array(1600).fill(0.5);
+    for (let i = 0; i < 5; i++) talk.frame(loud, 16_000);
+    expect(ws.sent).toContain(JSON.stringify({ type: 'listen' }));
+    talk.close();
+  });
+
+  it('попытки переподключиться кончились — «Попробовать снова» включает микрофон обратно', () => {
+    const talk = new LiveTalk(handlers());
+    // Микрофон включён (подделка вместо getUserMedia).
+    (talk as unknown as { mic: { stop(): void } }).mic = { stop() {} };
+    FakeSocket.all[0]!.open();
+    FakeSocket.all[0]!.drop();
+    for (const delay of RECONNECT_MS) {
+      vi.advanceTimersByTime(delay);
+      FakeSocket.all.at(-1)!.drop();
+    }
+    expect(events.at(-1)).toBe('close');
+    expect(talk.listening).toBe(false);
+    expect(talk.retry()).toBe(true);
+    talk.close();
+  });
+
+  it('связь оборвалась посреди фразы — фраза пропала, экран узнаёт; без связи не слушаем', () => {
+    const talk = new LiveTalk(handlers());
+    const ws = FakeSocket.all[0]!;
+    ws.open();
+    const loud = new Float32Array(1600).fill(0.5);
+    for (let i = 0; i < 5; i++) talk.frame(loud, 16_000);
+    ws.drop();
+    expect(events).toEqual(['on', 'error:link_lost', 'reconnecting']);
+    // Говорит дальше, пока связи нет, — ничего не уходит и речь не начинается.
+    const sent = ws.sent.length;
+    for (let i = 0; i < 20; i++) talk.frame(loud, 16_000);
+    expect(ws.sent).toHaveLength(sent);
+    expect(events.at(-1)).toBe('reconnecting');
+    talk.close();
+  });
+
+  it('старое соединение после «Попробовать снова» не мешает новому', () => {
+    const talk = new LiveTalk(handlers());
+    const old = FakeSocket.all[0]!;
+    old.open();
+    old.message({ type: 'error', error: 'budget_exhausted', message: 'лимит', stop: true });
+    old.readyState = FakeSocket.CLOSING; // сервер закрывает, onclose ещё не пришёл
+    talk.retry();
+    expect(FakeSocket.all).toHaveLength(2);
+    FakeSocket.all[1]!.open();
+    old.drop(); // закрылось позже — переподключения нет
+    old.message({ type: 'error', error: 'budget_exhausted', message: 'старое', stop: true });
+    vi.advanceTimersByTime(60_000);
+    expect(FakeSocket.all).toHaveLength(2);
+    expect(events.filter((e) => e === 'error:budget_exhausted')).toHaveLength(1);
     talk.close();
   });
 
