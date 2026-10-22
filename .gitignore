@@ -6,6 +6,7 @@
 
 # Rust
 target/
+.claude/cargo-target/
 
 # JavaScript / TypeScript
 node_modules/

@@ -1,0 +1,51 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "design-explorations",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4321",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "docs/design"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@qubite/web",
+        "exec",
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort",
+        "--host",
+        "127.0.0.1"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "web-ds002",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@qubite/web",
+        "exec",
+        "vite",
+        "--port",
+        "5182",
+        "--strictPort",
+        "--host",
+        "127.0.0.1"
+      ],
+      "port": 5182
+    }
+  ]
+}
