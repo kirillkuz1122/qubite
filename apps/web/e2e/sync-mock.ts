@@ -11,8 +11,10 @@ export interface SyncMock {
   ops: Record<string, unknown>[];
   /** сеть «пропала»: push и pull обрываются */
   offline: boolean;
-  /** объект появился «на другом устройстве» */
-  addElsewhere(text: string, source?: string): void;
+  /** мысль появилась «на другом устройстве»; `fields` — поверх обычных (разбор и т. п.); вернёт ID */
+  addElsewhere(text: string, source?: string, fields?: Record<string, unknown>): string;
+  /** объект поменяли на сервере (агент разложил, откат): поля поверх, версия +1 */
+  patch(id: string, fields: Record<string, unknown>): void;
   /** проект Planner «с другого устройства»; вернёт ID */
   addProject(title: string, fields?: Record<string, unknown>): string;
   /** дело Planner «с другого устройства»; вернёт ID */
@@ -46,16 +48,23 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     objects: new Map(),
     ops: [],
     offline: false,
-    addElsewhere(text, source = 'telegram') {
-      const id = crypto.randomUUID();
+    addElsewhere(text, source = 'telegram', fields = {}) {
+      return put('inbox.item', text, {
+        body: text,
+        source,
+        kind: 'text',
+        status: 'new',
+        captured_at_ms: Date.now(),
+        ...fields,
+      });
+    },
+    patch(id, fields) {
+      const current = mock.objects.get(id)!;
       mock.objects.set(id, {
-        id,
-        object_type: 'inbox.item',
-        title: text,
-        revision: 1,
-        deleted: false,
+        ...current,
+        revision: (current.revision as number) + 1,
         updated_at_ms: Date.now(),
-        fields: { body: text, source, kind: 'text', status: 'new', captured_at_ms: Date.now() },
+        fields: { ...(current.fields as object), ...fields },
       });
       log.push(id);
     },

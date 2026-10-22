@@ -3,7 +3,7 @@
  * «Входящие» (CMD-007), «Сегодня» и Planner (PLAN-001) — уже на настоящих данных.
  * «Главная» (HOME-001) — первый экран после входа (D-327).
  */
-import type { ColorName, CompanionKind, IconName } from '@qubite/ui';
+import type { ColorName, CompanionKind, ElikMood, IconName } from '@qubite/ui';
 
 export type SectionId = 'home' | 'today' | 'inbox' | 'planner' | 'agent' | 'docs' | 'settings';
 
@@ -71,6 +71,10 @@ export interface InboxItem {
   /** что предлагает Элик */
   hint: string;
   acts: [string, InboxAct][];
+  /** настроение Элика: думает над мыслью, спрашивает (CMD-004) */
+  mood?: ElikMood;
+  /** варианты ответа на вопрос агента «посмотри сам» */
+  answers?: string[];
 }
 
 export interface Doc {

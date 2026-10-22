@@ -1146,3 +1146,29 @@ html.q-own-scroll::-webkit-scrollbar {
 .q-sheet-x:focus-visible {
   color: var(--q-ink);
 }
+
+/* Элик в строке Входящих (CMD-004): три точки, настроение — движением (ElikDots) */
+.elik-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transform-origin: 50% 70%;
+}
+.elik-dots .elik-slot {
+  display: inline-flex;
+}
+.elik-dots .elik-slot > span {
+  width: 6px;
+  height: 6px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-yellow);
+}
+.elik-dots.think .elik-slot > span {
+  background: var(--q-sky);
+}
+.elik-dots.happy .elik-slot > span {
+  background: var(--q-green);
+}
+.elik-dots.oops .elik-slot > span {
+  background: var(--q-peach);
+}

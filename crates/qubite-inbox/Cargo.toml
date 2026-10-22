@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Модуль «Входящие»: элементы, офлайн-захват через синхронизацию, место под разбор"
 
 [dependencies]
+qubite-jobs = { version = "0.1.0", path = "../qubite-jobs" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-parse = { version = "0.1.0", path = "../qubite-parse" }
 qubite-sync = { version = "0.1.0", path = "../qubite-sync" }

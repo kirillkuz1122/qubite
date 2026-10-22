@@ -3820,6 +3820,109 @@
         }
       }
     },
+    "/api/v1/agent/triage": {
+      "get": {
+        "tags": ["agent"],
+        "summary": "Что агент обдумывает и что разложил во Входящих.",
+        "operationId": "triage_overview",
+        "responses": {
+          "200": {
+            "description": "Обдумывает и разложил",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTriage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/triage/{id}/answer": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Ответить на вопрос агента «посмотри сам»: агент разложит мысль по ответу\nи запомнит, чтобы в следующий раз не спрашивать.",
+        "operationId": "triage_answer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мысли во Входящих",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentTriageAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Агент разложит по ответу"
+          },
+          "400": {
+            "description": "Пустой ответ или агент об этом не спрашивал",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такой мысли",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/home": {
       "get": {
         "tags": ["home"],
@@ -5606,6 +5709,42 @@
         },
         "additionalProperties": false
       },
+      "AgentFiled": {
+        "type": "object",
+        "description": "Что агент разложил из Входящих.",
+        "required": ["item_id", "thought", "label", "action_id", "batch_id", "at"],
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Пакет — «Откатить» откатывает его целиком."
+          },
+          "item_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "description": "«Русский · дело на чт», «идея», «в архив»."
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Почему так."
+          },
+          "thought": {
+            "type": "string",
+            "description": "Мысль, как её записали."
+          }
+        }
+      },
       "AgentFixRequest": {
         "type": "object",
         "description": "Исправить результат действия (это твоя поправка — агент на ней учится).",
@@ -6052,6 +6191,39 @@
             "type": ["integer", "null"],
             "format": "int64",
             "description": "Передать как `before`, чтобы получить ещё; нет — дальше пусто."
+          }
+        }
+      },
+      "AgentTriage": {
+        "type": "object",
+        "description": "Агент и Входящие сейчас.",
+        "required": ["thinking", "filed"],
+        "properties": {
+          "filed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFiled"
+            },
+            "description": "Разложенное за сутки и не откаченное, новые сверху."
+          },
+          "thinking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Мысли, за которые агент вот-вот возьмётся (Элик думает)."
+          }
+        }
+      },
+      "AgentTriageAnswer": {
+        "type": "object",
+        "description": "Ответ владельца на вопрос агента о мысли.",
+        "required": ["answer"],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "Вариант из вопроса или свои слова: «Информатика», «это идея»."
           }
         }
       },

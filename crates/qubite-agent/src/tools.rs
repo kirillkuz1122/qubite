@@ -11,7 +11,7 @@
 use qubite_planner::{PROJECT_TYPE, TASK_TYPE};
 use qubite_policy::{ModuleId, Read};
 use qubite_sync::OpKind;
-use serde::{Deserialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
@@ -127,22 +127,51 @@ struct ProjectRef {
     project_id: Uuid,
 }
 
-#[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
+/// Куда разложить мысль (CMD-004).
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum FileTo {
+pub enum FileTo {
+    /// Дело (со сроком или без).
     Task,
+    /// Идея — дело без срока: агент вспомнит о ней в свободное время (AGT-004).
+    Idea,
+    /// Новый проект.
     Project,
+    /// Заметка: мысль остаётся в архиве Входящих, к проекту (DOC-002 — потом).
+    Note,
+    /// Просто мысль — в архив.
+    Archive,
+}
+
+impl FileTo {
+    /// «дело», «идея» — как в пометке во Входящих.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Task => "дело",
+            Self::Idea => "идея",
+            Self::Project => "проект",
+            Self::Note => "заметка",
+            Self::Archive => "в архив",
+        }
+    }
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct InboxFile {
-    item_id: Uuid,
-    to: FileTo,
+pub(crate) struct InboxFile {
+    pub(crate) item_id: Uuid,
+    pub(crate) to: FileTo,
     /// Название дела или проекта; нет — первая строка мысли.
-    title: Option<String>,
+    pub(crate) title: Option<String>,
+    /// Поля дела (срок, важность, проект).
     #[serde(default)]
-    fields: Map<String, Value>,
+    pub(crate) fields: Map<String, Value>,
+    /// Проект заметки (у дела — `fields.project_id`).
+    #[serde(default)]
+    pub(crate) project_id: Option<Uuid>,
+    /// Дело или идея — в новый проект с этим названием.
+    #[serde(default)]
+    pub(crate) new_project: Option<String>,
 }
 
 // ---------------------------------------------------------------- фразы для ленты
@@ -315,6 +344,125 @@ fn edit_steps(
         return Err(Error::Invalid("нечего менять".into()));
     }
     Ok(steps)
+}
+
+// ---------------------------------------------------------------- разложить мысль
+
+/// Шаги «разложить мысль»: что создать и мысль — в архив, одним действием
+/// (откат вернёт всё сразу). Удалять тут нечего: мысль только уходит в архив.
+pub(crate) async fn plan_file(
+    conn: &mut PgConnection,
+    who: &Who,
+    file: InboxFile,
+) -> Result<(String, Vec<Step>)> {
+    let account = who.account();
+    let InboxFile {
+        item_id,
+        to,
+        title,
+        mut fields,
+        project_id,
+        new_project,
+    } = file;
+    let item = qubite_inbox::get(conn, account, item_id)
+        .await?
+        .filter(|item| !item.deleted)
+        .ok_or(Error::NotFound)?;
+    if item.status != qubite_inbox::Status::New {
+        return Err(Error::Invalid("эта мысль уже разобрана".into()));
+    }
+    let title = check_title(title.as_deref().unwrap_or(&item.title))?;
+    let thought = item.title.chars().take(80).collect::<String>();
+    let mut steps = Vec::new();
+    let mut new_project_title = None;
+    if let Some(name) = new_project
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        && matches!(to, FileTo::Task | FileTo::Idea)
+    {
+        let name = check_title(name)?;
+        let id = Uuid::now_v7();
+        steps.push(Step {
+            object_id: id,
+            kind: OpKind::Create {
+                object_type: PROJECT_TYPE.into(),
+                title: name.clone(),
+                fields: Some(json!({})),
+            },
+        });
+        fields.insert("project_id".into(), json!(id));
+        new_project_title = Some(name);
+    }
+    let summary = match to {
+        FileTo::Task | FileTo::Idea => {
+            guard_status(who, &fields)?;
+            if to == FileTo::Idea {
+                // Идея — без срока: о ней агент вспомнит сам в свободное время.
+                fields.remove("due_date");
+                fields.remove("due_time");
+                fields.remove("recurrence");
+            }
+            fields.insert("from_inbox".into(), json!(item_id));
+            let details = match &new_project_title {
+                Some(name) => {
+                    let mut rest = fields.clone();
+                    rest.remove("project_id");
+                    let more = task_details(conn, account, &rest).await?;
+                    let base = format!("в новом проекте «{name}»");
+                    if more.is_empty() {
+                        base
+                    } else {
+                        format!("{base}, {more}")
+                    }
+                }
+                None => task_details(conn, account, &fields).await?,
+            };
+            steps.push(Step {
+                object_id: Uuid::now_v7(),
+                kind: OpKind::Create {
+                    object_type: TASK_TYPE.into(),
+                    title: title.clone(),
+                    fields: Some(Value::Object(fields)),
+                },
+            });
+            with_details(
+                format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
+                &details,
+            )
+        }
+        FileTo::Project => {
+            steps.push(Step {
+                object_id: Uuid::now_v7(),
+                kind: OpKind::Create {
+                    object_type: PROJECT_TYPE.into(),
+                    title: title.clone(),
+                    fields: Some(Value::Object(fields)),
+                },
+            });
+            format!("Разложил мысль «{thought}» → проект «{title}»")
+        }
+        FileTo::Note => {
+            let project = match project_id {
+                Some(id) => Some(own_project(conn, account, id).await?.title),
+                None => None,
+            };
+            match project {
+                Some(project) => {
+                    format!("Разложил мысль «{thought}» → заметка к «{project}»")
+                }
+                None => format!("Разложил мысль «{thought}» → заметка"),
+            }
+        }
+        FileTo::Archive => format!("Разложил мысль «{thought}» → в архив"),
+    };
+    steps.push(Step {
+        object_id: item_id,
+        kind: OpKind::Patch {
+            fields: json!({ "status": "archived" }),
+        },
+    });
+    Ok((summary, steps))
 }
 
 // ---------------------------------------------------------------- вызов
@@ -527,64 +675,7 @@ pub async fn call(
                 edit_steps(project_id, title, fields)?,
             )
         }
-        "inbox.file" => {
-            let InboxFile {
-                item_id,
-                to,
-                title,
-                mut fields,
-            } = args(tool, arguments)?;
-            let item = qubite_inbox::get(conn, account, item_id)
-                .await?
-                .filter(|item| !item.deleted)
-                .ok_or(Error::NotFound)?;
-            if item.status != qubite_inbox::Status::New {
-                return Err(Error::Invalid("эта мысль уже разобрана".into()));
-            }
-            let title = check_title(title.as_deref().unwrap_or(&item.title))?;
-            let thought = item.title.chars().take(80).collect::<String>();
-            let (summary, create) = match to {
-                FileTo::Task => {
-                    guard_status(who, &fields)?;
-                    fields.insert("from_inbox".into(), json!(item_id));
-                    let details = task_details(conn, account, &fields).await?;
-                    (
-                        with_details(
-                            format!("Разложил мысль «{thought}» → дело «{title}»"),
-                            &details,
-                        ),
-                        OpKind::Create {
-                            object_type: TASK_TYPE.into(),
-                            title,
-                            fields: Some(Value::Object(fields)),
-                        },
-                    )
-                }
-                FileTo::Project => (
-                    format!("Разложил мысль «{thought}» → проект «{title}»"),
-                    OpKind::Create {
-                        object_type: PROJECT_TYPE.into(),
-                        title,
-                        fields: Some(Value::Object(fields)),
-                    },
-                ),
-            };
-            (
-                summary,
-                vec![
-                    Step {
-                        object_id: Uuid::now_v7(),
-                        kind: create,
-                    },
-                    Step {
-                        object_id: item_id,
-                        kind: OpKind::Patch {
-                            fields: json!({ "status": "archived" }),
-                        },
-                    },
-                ],
-            )
-        }
+        "inbox.file" => plan_file(conn, who, args(tool, arguments)?).await?,
         other => return Err(Error::Invalid(format!("нет инструмента {other}"))),
     };
     drop(pooled);

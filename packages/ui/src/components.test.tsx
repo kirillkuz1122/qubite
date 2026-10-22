@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Command } from './Command';
+import { ElikDots } from './ElikDots';
 import { LookProvider, LOOK_STORE, useLook } from './look';
 import { RingCheck } from './RingCheck';
 import { Segmented } from './Segmented';
@@ -70,5 +71,15 @@ describe('компоненты', () => {
     fireEvent.submit(input.closest('form')!);
     expect(saved).toEqual(['task']);
     expect(input).toHaveValue('');
+  });
+
+  it('Элик из точек: настроение видно по подписи, точек всегда три (CMD-004)', () => {
+    const { rerender } = render(<ElikDots mood="idle" />);
+    const elik = screen.getByRole('img', { name: 'Элик' });
+    expect(elik.querySelectorAll('.elik-slot')).toHaveLength(3);
+    rerender(<ElikDots mood="think" />);
+    expect(screen.getByRole('img', { name: 'Элик думает' })).toHaveAttribute('data-mood', 'think');
+    rerender(<ElikDots mood="oops" />);
+    expect(screen.getByRole('img', { name: 'Элик ошибся' })).toBeInTheDocument();
   });
 });

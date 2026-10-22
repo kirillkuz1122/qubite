@@ -1549,6 +1549,7 @@ name = "qubite-inbox"
 version = "0.1.0"
 dependencies = [
  "qubite-db",
+ "qubite-jobs",
  "qubite-objects",
  "qubite-parse",
  "qubite-sync",

@@ -57,9 +57,9 @@ fn clock(minutes: i64) -> String {
     format!("{:02}:{:02}", minutes / 60, minutes % 60)
 }
 
-const SHORT_DAYS: [&str; 7] = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+pub(crate) const SHORT_DAYS: [&str; 7] = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 
-fn weekday(date: Date) -> u8 {
+pub(crate) fn weekday(date: Date) -> u8 {
     date.weekday().number_from_monday()
 }
 
@@ -228,7 +228,21 @@ fn next_lesson(
     slots: &[Slot],
     now: PrimitiveDateTime,
 ) -> Option<(PrimitiveDateTime, String)> {
-    let names = [project.title.to_lowercase(), project.tag.to_lowercase()];
+    lesson_after(&[project.title.as_str(), project.tag.as_str()], slots, now)
+}
+
+/// Ближайший урок после `now` (в пределах недели), чьё название совпадает с
+/// одним из `names` («Русский» — урок «Русский язык»). Для «до следующего
+/// урока» при разборе Входящих (CMD-004).
+pub fn lesson_after(
+    names: &[&str],
+    slots: &[Slot],
+    now: PrimitiveDateTime,
+) -> Option<(PrimitiveDateTime, String)> {
+    let names: Vec<String> = names
+        .iter()
+        .map(|name| name.trim().to_lowercase())
+        .collect();
     let mut best: Option<(PrimitiveDateTime, String)> = None;
     for slot in slots {
         let title = slot.title.to_lowercase();

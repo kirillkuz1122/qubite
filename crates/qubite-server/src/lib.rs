@@ -7,6 +7,7 @@ pub mod agent;
 pub mod agent_memory;
 pub mod agent_pace;
 pub mod agent_skills;
+pub mod agent_triage;
 pub mod ai;
 pub mod auth;
 pub mod changes;
@@ -196,6 +197,8 @@ impl AppState {
         agent_memory::answer_question,
         agent_memory::dismiss_question,
         agent_memory::schedule,
+        agent_triage::triage_overview,
+        agent_triage::triage_answer,
         agent_pace::get_pace,
         agent_pace::change_pace,
         agent_pace::answer_notice,
@@ -316,6 +319,9 @@ impl AppState {
         agent_memory::AgentAnswered,
         agent_memory::AgentSlot,
         agent_memory::AgentSchedule,
+        agent_triage::AgentFiled,
+        agent_triage::AgentTriage,
+        agent_triage::AgentTriageAnswer,
         agent_pace::AgentWindow,
         agent_pace::AgentPace,
         agent_pace::AgentPaceChange,
@@ -527,6 +533,11 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(agent_memory::dismiss_question),
         )
         .route("/api/v1/agent/schedule", get(agent_memory::schedule))
+        .route("/api/v1/agent/triage", get(agent_triage::triage_overview))
+        .route(
+            "/api/v1/agent/triage/{id}/answer",
+            post(agent_triage::triage_answer),
+        )
         .route(
             "/api/v1/agent/pace",
             get(agent_pace::get_pace).patch(agent_pace::change_pace),

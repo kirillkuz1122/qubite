@@ -22,7 +22,7 @@ use qubite_agent::{
     brain,
     chat::{self, Channel, NewMessage},
     files::{self, Kind},
-    memory, proactive, questions, skills,
+    memory, proactive, questions, skills, triage,
 };
 use qubite_jobs::Job;
 use serde::{Deserialize, Serialize};
@@ -634,9 +634,10 @@ pub async fn schedule(
 
 /// Задачи агента в очереди `jobs`: ответ в разговоре, фоновый разбор,
 /// пробуждения «писать первым» (AGT-004), урок на поправке и куратор навыков
-/// раз в неделю (AGT-003).
+/// раз в неделю (AGT-003), разбор новой мысли во Входящих (CMD-004).
 pub const KINDS: &[&str] = &[
     chat::CHAT_JOB,
+    triage::JOB,
     chat::REVIEW_JOB,
     proactive::WAKE_JOB,
     skills::LEARN_JOB,
@@ -652,6 +653,13 @@ struct ChatPayload {
 struct ReviewPayload {
     account_id: Uuid,
     upto_seq: i64,
+}
+
+#[derive(Deserialize)]
+struct TriagePayload {
+    item_id: Uuid,
+    #[serde(default)]
+    answer: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -684,6 +692,17 @@ pub async fn handle(
                         .map_err(|error| error.to_string())?,
                     Err(error) => tracing::warn!(%error, "агент: ответ в Telegram не ушёл"),
                 }
+            }
+            Ok(())
+        }
+        triage::JOB => {
+            let TriagePayload { item_id, answer } =
+                serde_json::from_value(job.payload.clone()).map_err(|error| error.to_string())?;
+            let outcome = triage::triage(pool, gateway, item_id, answer.as_deref(), Some(job.id))
+                .await
+                .map_err(|error| error.to_string())?;
+            if let triage::Outcome::Skipped(why) = outcome {
+                tracing::debug!(%item_id, %why, "агент: мысль не разбирал");
             }
             Ok(())
         }

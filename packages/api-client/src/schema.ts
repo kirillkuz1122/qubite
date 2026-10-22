@@ -1231,6 +1231,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/agent/triage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Что агент обдумывает и что разложил во Входящих. */
+    get: operations['triage_overview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/agent/triage/{id}/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ответить на вопрос агента «посмотри сам»: агент разложит мысль по ответу
+     *     и запомнит, чтобы в следующий раз не спрашивать.
+     */
+    post: operations['triage_answer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/home': {
     parameters: {
       query?: never;
@@ -1900,6 +1937,26 @@ export interface components {
       /** @description Имя или путь: «Кружок», «Проекты/Робототехника» (`.md` допишется сам). */
       path: string;
     };
+    /** @description Что агент разложил из Входящих. */
+    AgentFiled: {
+      /** Format: uuid */
+      action_id: string;
+      /** Format: date-time */
+      at: string;
+      /**
+       * Format: uuid
+       * @description Пакет — «Откатить» откатывает его целиком.
+       */
+      batch_id: string;
+      /** Format: uuid */
+      item_id: string;
+      /** @description «Русский · дело на чт», «идея», «в архив». */
+      label: string;
+      /** @description Почему так. */
+      reason?: string | null;
+      /** @description Мысль, как её записали. */
+      thought: string;
+    };
     /** @description Исправить результат действия (это твоя поправка — агент на ней учится). */
     AgentFixRequest: {
       /**
@@ -2126,6 +2183,18 @@ export interface components {
        * @description Передать как `before`, чтобы получить ещё; нет — дальше пусто.
        */
       next?: number | null;
+    };
+    /** @description Агент и Входящие сейчас. */
+    AgentTriage: {
+      /** @description Разложенное за сутки и не откаченное, новые сверху. */
+      filed: components['schemas']['AgentFiled'][];
+      /** @description Мысли, за которые агент вот-вот возьмётся (Элик думает). */
+      thinking: string[];
+    };
+    /** @description Ответ владельца на вопрос агента о мысли. */
+    AgentTriageAnswer: {
+      /** @description Вариант из вопроса или свои слова: «Информатика», «это идея». */
+      answer: string;
     };
     /** @description Свободное окно. */
     AgentWindow: {
@@ -6266,6 +6335,96 @@ export interface operations {
       };
       /** @description Нет доступа к агенту */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  triage_overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обдумывает и разложил */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentTriage'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  triage_answer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID мысли во Входящих */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgentTriageAnswer'];
+      };
+    };
+    responses: {
+      /** @description Агент разложит по ответу */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Пустой ответ или агент об этом не спрашивал */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такой мысли */
+      404: {
         headers: {
           [name: string]: unknown;
         };

@@ -42,7 +42,10 @@ export function toView(o: LocalObject, now: number): InboxItem {
               ? 'с компьютера'
               : 'написал';
   const captured = typeof f.captured_at_ms === 'number' ? f.captured_at_ms : o.updated_at_ms;
-  const triage = (f.triage ?? {}) as { status?: unknown; details?: { summary?: unknown } };
+  const triage = (f.triage ?? {}) as {
+    status?: unknown;
+    details?: { summary?: unknown; by?: unknown; options?: unknown };
+  };
   let summary = text(triage.details?.summary);
   let review = f.needs_review === true ? text(f.review_reason) || 'не уверен, куда положить' : '';
   // ещё не дошло до сервера — тот же разбор прямо на устройстве, по времени записи (CMD-003)
@@ -53,6 +56,12 @@ export function toView(o: LocalObject, now: number): InboxItem {
       review = local.review ?? '';
     }
   }
+  /* агент спросил сам — его вопрос и варианты ответа кнопками */
+  const asked = review !== '' && triage.details?.by === 'ai';
+  const answers =
+    asked && Array.isArray(triage.details?.options)
+      ? triage.details.options.filter((x): x is string => typeof x === 'string').slice(0, 4)
+      : [];
   const hint = review ? `посмотри сам: ${review}` : summary || 'разберём, когда будет минутка';
   const acts: [string, InboxAct][] = [
     ['В дела', 'planner'],
@@ -67,5 +76,16 @@ export function toView(o: LocalObject, now: number): InboxItem {
     time: when(captured, now),
     hint,
     acts,
+    mood: asked ? 'ask' : 'idle',
+    answers,
   };
+}
+
+/** Мысли, за которые агент вот-вот возьмётся (CMD-004): Элик над ними думает. */
+export function withThinking(items: InboxItem[], thinking: readonly string[]): InboxItem[] {
+  if (thinking.length === 0) return items;
+  const busy = new Set(thinking);
+  return items.map((it) =>
+    busy.has(it.id) ? { ...it, mood: 'think', hint: 'думаю, куда положить…', answers: [] } : it,
+  );
 }

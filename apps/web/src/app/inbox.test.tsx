@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { InboxProvider } from './inbox';
 import { SyncProvider } from './sync';
 import { useInbox } from './inbox-context';
-import { toView, when } from './inbox-view';
+import { toView, when, withThinking } from './inbox-view';
 
 /** Сервер Входящих в памяти, с теми же правилами, что настоящий. */
 class FakeServer implements Transport {
@@ -173,5 +173,55 @@ describe('«Входящие» на настоящих данных', () => {
         details: { summary: 'Дело: с сервера' },
       }).hint,
     ).toBe('Дело: с сервера');
+  });
+
+  it('агент спросил — вопрос и варианты кнопками; агент думает — Элик думает (CMD-004)', () => {
+    const now = Date.now();
+    const base = {
+      id: 'o1',
+      object_type: 'inbox.item',
+      title: 'олимпиада в субботу',
+      revision: 2,
+      deleted: false,
+      updated_at_ms: now,
+      pending: false,
+    };
+    const asked = toView(
+      {
+        ...base,
+        fields: {
+          body: 'олимпиада в субботу',
+          needs_review: true,
+          review_reason: 'Это к «Информатике» или к «Математике»?',
+          triage: {
+            status: 'suggested',
+            details: { by: 'ai', options: ['Информатика', 'Математика', 1] },
+          },
+        },
+      },
+      now,
+    );
+    expect(asked.hint).toBe('посмотри сам: Это к «Информатике» или к «Математике»?');
+    expect(asked.mood).toBe('ask');
+    expect(asked.answers).toEqual(['Информатика', 'Математика']);
+    // «посмотри сам» от разбора без AI — без вариантов агента
+    const rules = toView(
+      {
+        ...base,
+        id: 'o2',
+        fields: {
+          needs_review: true,
+          review_reason: 'два срока',
+          triage: { status: 'suggested', details: { by: 'rules' } },
+        },
+      },
+      now,
+    );
+    expect(rules.mood).toBe('idle');
+    expect(rules.answers).toEqual([]);
+
+    const [busy, calm] = withThinking([asked, rules], ['o1']);
+    expect(busy).toMatchObject({ mood: 'think', hint: 'думаю, куда положить…', answers: [] });
+    expect(calm!.mood).toBe('idle');
   });
 });

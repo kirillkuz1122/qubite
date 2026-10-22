@@ -32,6 +32,7 @@ export {
   type FeelPart,
 } from './feel';
 export { useSpring } from './useSpring';
+export { ElikDots, type ElikMood } from './ElikDots';
 export { useFlow, type FlowHandle, type FlowOptions } from './Flow';
 export { useSlide, type SlideHandle } from './Slide';
 export { usePress } from './press';

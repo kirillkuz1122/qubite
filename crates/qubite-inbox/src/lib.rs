@@ -40,6 +40,12 @@ pub const ABOUT: &str = "about";
 pub const REVIEW_BELOW: f32 = 0.7;
 /// Сколько дней элемент лежит в корзине до удаления навсегда (по умолчанию).
 pub const TRASH_DAYS: u32 = 30;
+/// Задача очереди: агент раскладывает новую мысль (CMD-004). Ставится при
+/// записи элемента; без агента или AI обработчик просто пропускает её.
+pub const TRIAGE_JOB: &str = "agent.triage";
+/// Через сколько после записи агент берётся за мысль (пачка с устройства
+/// без сети успевает дойти целиком).
+pub const TRIAGE_DELAY: time::Duration = time::Duration::seconds(5);
 
 // ---------------------------------------------------------------- значения
 
@@ -438,6 +444,7 @@ impl TypeFields for InboxFields {
             .execute(&mut *conn)
             .await?;
             triage_by_rules(conn, object, captured, fields.tz.as_deref()).await?;
+            schedule_triage(conn, object.owner_id, object.id, None).await?;
             Ok(())
         })
     }
@@ -577,6 +584,86 @@ async fn triage_by_rules(
     .bind(details)
     .bind(review_reason.is_some())
     .bind(&review_reason)
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Поставить агенту задачу разложить мысль (CMD-004). `answer` — слова
+/// владельца в ответ на вопрос агента «посмотри сам»: агент раскладывает
+/// заново уже по ним. Одна мысль — одна задача (и одна на каждый ответ).
+pub async fn schedule_triage(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    id: Uuid,
+    answer: Option<&str>,
+) -> Result<(), FieldsError> {
+    let key = match answer {
+        Some(_) => format!("{TRIAGE_JOB}:{id}:answer:{}", Uuid::now_v7()),
+        None => format!("{TRIAGE_JOB}:{id}"),
+    };
+    let delay = if answer.is_some() {
+        time::Duration::ZERO
+    } else {
+        TRIAGE_DELAY
+    };
+    qubite_jobs::enqueue_in(
+        conn,
+        qubite_jobs::NewJob::new(
+            TRIAGE_JOB,
+            json!({ "account_id": owner, "item_id": id, "answer": answer }),
+        )
+        .idempotency_key(key)
+        .run_at(OffsetDateTime::now_utc() + delay)
+        .max_attempts(2),
+    )
+    .await
+    .map_err(|error| FieldsError::Invalid(error.to_string()))?;
+    Ok(())
+}
+
+/// Дописать подробности разбора (`triage.details`): вопрос агента и варианты
+/// ответа, пометку «разложил → …». Ключи из `extra` заменяют прежние.
+pub async fn note_triage(conn: &mut PgConnection, id: Uuid, extra: &Value) -> Result<()> {
+    sqlx::query("UPDATE inbox_items SET triage = triage || $2 WHERE object_id = $1")
+        .bind(id)
+        .bind(extra)
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+/// Вернуть разбор элемента из снимка синхронизации (`Item::fields`): откат
+/// «агент разложил» возвращает и то, что агент написал о мысли.
+pub async fn restore_triage(conn: &mut PgConnection, id: Uuid, fields: &Value) -> Result<()> {
+    let triage = fields.get("triage").cloned().unwrap_or(Value::Null);
+    let status = triage
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or(TriageStatus::Pending.as_str());
+    let status: TriageStatus = parse(status)?;
+    let intent = triage.get("intent").and_then(Value::as_str);
+    let details = triage.get("details").cloned().unwrap_or_else(|| json!({}));
+    let triaged_at = triage
+        .get("triaged_at_ms")
+        .and_then(Value::as_i64)
+        .and_then(|ms| OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000).ok());
+    sqlx::query(
+        "UPDATE inbox_items SET triage_status = $2, intent = $3, triage = $4, triaged_at = $5, \
+         needs_review = $6, review_reason = $7 WHERE object_id = $1",
+    )
+    .bind(id)
+    .bind(status.as_str())
+    .bind(intent)
+    .bind(details)
+    .bind(triaged_at)
+    .bind(
+        fields
+            .get("needs_review")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    )
+    .bind(fields.get("review_reason").and_then(Value::as_str))
     .execute(conn)
     .await?;
     Ok(())

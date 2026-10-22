@@ -291,6 +291,8 @@ async fn revert_all(
         if action.tool == crate::proactive::SEND_TOOL {
             crate::proactive::on_revert(&mut tx, account, action.id).await?;
         }
+        // Откат «разложил мысль» (и откат отката) возвращает и разбор мысли.
+        crate::triage::on_revert(&mut tx, action.id).await?;
     }
     if !conflicts.is_empty() {
         tx.rollback().await?;
