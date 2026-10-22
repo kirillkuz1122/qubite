@@ -1744,6 +1744,20 @@ button.proj {
   color: var(--q-mute);
   font-size: 14px;
 }
+.eng-blocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--q-orange);
+  border-radius: calc(var(--q-round) * 18px);
+}
+.eng-blocked p {
+  flex: 1 1 240px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .talk-msg[data-draft] {
   opacity: 0.75;
 }

@@ -107,8 +107,8 @@ const session = {
   memory_action: null,
 };
 
-/** Экран с идущим разговором и поддельный сервер потока. */
-async function mockLive(page: Page) {
+/** Экран с идущим разговором и поддельный сервер потока; `refuse` — лимит AI закончился. */
+async function mockLive(page: Page, refuse = false) {
   const greeting = message({ text: 'Back again? Good. What did you do yesterday?' });
   await page.route('**/api/v1/english', (route) =>
     route.fulfill({
@@ -124,7 +124,7 @@ async function mockLive(page: Page) {
   await page.route('**/api/v1/english/messages/*/speech', (route) =>
     route.fulfill({ status: 200, contentType: 'audio/wav', body: 'RIFF' }),
   );
-  const seen = { listen: 0, done: 0, audio: 0, interrupt: 0, texts: [] as string[] };
+  const seen = { connects: 0, listen: 0, done: 0, audio: 0, interrupt: 0, texts: [] as string[] };
   let socket: WebSocketRoute | null = null;
   /** Ответ репетитора потоком: слова, голос кусками, замер, записанный ход. */
   const answer = async (learner: string, via: string, pieces: string[], audioChunks: number) => {
@@ -168,13 +168,27 @@ async function mockLive(page: Page) {
   };
   await page.routeWebSocket('**/api/v1/english/live', (ws) => {
     socket = ws;
+    seen.connects += 1;
     ws.onMessage((msg) => {
       if (typeof msg !== 'string') {
         seen.audio += 1;
         return;
       }
       const json = JSON.parse(msg) as { type: string; text?: string };
-      if (json.type === 'listen') seen.listen += 1;
+      if (json.type === 'listen') {
+        seen.listen += 1;
+        if (refuse) {
+          ws.send(
+            JSON.stringify({
+              type: 'error',
+              error: 'budget_exhausted',
+              message: 'AI-лимит исчерпан (user, day, usd). Можно сохранить без AI',
+              heard: null,
+            }),
+          );
+          void ws.close();
+        }
+      }
       if (json.type === 'interrupt') seen.interrupt += 1;
       if (json.type === 'done') {
         seen.done += 1;
@@ -261,4 +275,31 @@ test('английский потоком: заговорил — пауза —
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow, 'без горизонтальной прокрутки').toBeLessThanOrEqual(0);
+});
+
+test('лимит AI закончился: понятно, что сделать, микрофон выключен, по кругу не подключается', async ({
+  page,
+}) => {
+  await fakeAudio(page);
+  await mockSync(page);
+  const seen = await mockLive(page, true);
+  await page.goto('/agent?tab=english');
+  await page.getByRole('button', { name: 'Включить микрофон' }).click();
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() =>
+      (window as unknown as { __speak(ms: number, l: number): Promise<void> }).__speak(400, 0.3),
+    );
+  }
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('AI-лимит закончился (user, day, usd)');
+  await expect(alert).toContainText('just qubite ai limit');
+  await expect(page.getByRole('button', { name: /микрофон|Говорить/ })).toBeHidden();
+  // Шум в микрофоне и время — ни новых «слушай», ни новых подключений.
+  await page.waitForTimeout(4_000);
+  expect(seen.listen).toBe(1);
+  expect(seen.connects).toBe(1);
+
+  await alert.getByRole('button', { name: 'Попробовать снова' }).click();
+  await expect.poll(() => seen.connects).toBe(2);
+  await expect(page.getByRole('button', { name: 'Выключить микрофон' })).toBeVisible();
 });

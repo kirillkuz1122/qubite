@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { downsample, nextStart, pcmToFloat, rms, SILENCE_MS, Vad } from './english-live';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  downsample,
+  LiveTalk,
+  nextStart,
+  pcmToFloat,
+  RECONNECT_MS,
+  rms,
+  SILENCE_MS,
+  stopHint,
+  Vad,
+  type LiveHandlers,
+} from './english-live';
 
 describe('английский потоком: звук', () => {
   it('48 кГц → 16 кГц: втрое меньше отсчётов, громкость в Int16', () => {
@@ -40,5 +51,116 @@ describe('английский потоком: звук', () => {
   it('куски голоса встают в очередь без дыр', () => {
     expect(nextStart(1.0, 0)).toBeCloseTo(1.04);
     expect(nextStart(1.0, 1.5)).toBe(1.5);
+  });
+});
+
+/** Поддельное соединение: тест сам открывает, закрывает и присылает сообщения. */
+class FakeSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+  static all: FakeSocket[] = [];
+  readyState = FakeSocket.CONNECTING;
+  binaryType = 'blob';
+  sent: unknown[] = [];
+  onopen: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  onmessage: ((e: { data: unknown }) => void) | null = null;
+  constructor(public url: string) {
+    FakeSocket.all.push(this);
+  }
+  addEventListener() {}
+  send(data: unknown) {
+    this.sent.push(data);
+  }
+  open() {
+    this.readyState = FakeSocket.OPEN;
+    this.onopen?.();
+  }
+  drop() {
+    this.readyState = FakeSocket.CLOSED;
+    this.onclose?.();
+  }
+  close() {
+    this.readyState = FakeSocket.CLOSED;
+  }
+  message(json: object) {
+    this.onmessage?.({ data: JSON.stringify(json) });
+  }
+}
+
+describe('английский потоком: связь и отказы (баг владельца 22.10.2026)', () => {
+  let events: string[];
+  const handlers = (): LiveHandlers => ({
+    onSpeech: () => {},
+    onPartial: () => {},
+    onHeard: () => {},
+    onSay: () => {},
+    onVoice: () => {},
+    onReply: () => {},
+    onError: (code) => events.push(`error:${code}`),
+    onLink: (state) => events.push(state),
+    onClose: () => events.push('close'),
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    FakeSocket.all = [];
+    events = [];
+    vi.stubGlobal('WebSocket', FakeSocket);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('лимит AI закончился — не переподключается и не слушает, пока не нажали «Попробовать снова»', () => {
+    const talk = new LiveTalk(handlers());
+    const ws = FakeSocket.all[0]!;
+    ws.open();
+    ws.message({
+      type: 'error',
+      error: 'budget_exhausted',
+      message: 'AI-лимит исчерпан (user, day, usd).',
+    });
+    // Голос в микрофон после отказа — на сервер ничего не уходит.
+    const loud = new Float32Array(1600).fill(0.5);
+    for (let i = 0; i < 20; i++) talk.frame(loud, 16_000);
+    expect(ws.sent).toEqual([]);
+    // Сервер закрыл соединение — по кругу не подключаемся.
+    ws.drop();
+    vi.advanceTimersByTime(60_000);
+    expect(FakeSocket.all).toHaveLength(1);
+    expect(events).toEqual(['on', 'error:budget_exhausted', 'close']);
+    // «Попробовать снова» — одно новое подключение.
+    talk.retry();
+    expect(FakeSocket.all).toHaveLength(2);
+    talk.close();
+  });
+
+  it('связь оборвалась — переподключается с растущей паузой, но не больше трёх раз', () => {
+    const talk = new LiveTalk(handlers());
+    FakeSocket.all[0]!.open();
+    FakeSocket.all[0]!.drop();
+    for (const [i, delay] of RECONNECT_MS.entries()) {
+      vi.advanceTimersByTime(delay - 1);
+      expect(FakeSocket.all).toHaveLength(i + 1);
+      vi.advanceTimersByTime(1);
+      expect(FakeSocket.all).toHaveLength(i + 2);
+      FakeSocket.all.at(-1)!.drop(); // сервер всё ещё недоступен
+    }
+    vi.advanceTimersByTime(60_000);
+    expect(FakeSocket.all).toHaveLength(1 + RECONNECT_MS.length);
+    expect(events.filter((e) => e === 'reconnecting')).toHaveLength(RECONNECT_MS.length);
+    expect(events.at(-1)).toBe('close');
+    talk.close();
+  });
+
+  it('подсказка на отказ говорит, что сделать', () => {
+    expect(
+      stopHint('budget_exhausted', 'AI-лимит исчерпан (user, day, usd). Можно сохранить без AI'),
+    ).toMatch(/закончился \(user, day, usd\).*just qubite ai limit/);
+    expect(stopHint('rate_limited', '')).toMatch(/зацикливания/);
   });
 });

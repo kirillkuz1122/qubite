@@ -431,3 +431,115 @@ async fn text_works_without_voice_and_without_ai_grant_is_refused() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Баг владельца 22.10.2026: ход — распознавание, ответ и голос по предложениям
+/// (6 вызовов) — упирался в «20 AI-запросов в минуту» и в повтор одной фразы.
+/// 5 минут разговора: 30 ходов, между ходами «проходит» 10 с.
+#[tokio::test]
+async fn thirty_turns_in_five_minutes_do_not_trip_the_loop_guard() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let voice = Arc::new(MockVoice::new());
+    let steps = (0..30)
+        .map(|_| MockStep::Stream {
+            chunks: tutor_chunks(),
+            delay_ms: 1,
+            tokens_in: 400,
+            tokens_out: 90,
+        })
+        .collect();
+    // Защита — как по умолчанию в .env: 20 в минуту, повтор — 3 раза за 10 минут.
+    let gateway = setup(pool, me, steps, Some(voice.clone())).await;
+    qubite_english::start(pool, me).await.unwrap();
+    let mut talk = open(pool, gateway, me);
+
+    for turn in 1..=30 {
+        talk.tx.send(In::Listen).await.unwrap();
+        for _ in 0..3 {
+            talk.tx.send(In::Audio(speech())).await.unwrap();
+        }
+        talk.tx.send(In::Audio(silence())).await.unwrap();
+        let got = talk.until_reply(Instant::now()).await;
+        match &got.last().unwrap().1 {
+            Out::Reply(_) => {}
+            Out::Error { code, message, .. } => panic!("ход {turn}: {code} — {message}"),
+            _ => unreachable!(),
+        }
+        // Прошло 10 секунд.
+        sqlx::query("UPDATE ai_calls SET created_at = created_at - interval '10 seconds'")
+            .execute(pool)
+            .await
+            .unwrap();
+    }
+
+    assert_eq!(voice.live_calls(), 30);
+    assert!(
+        voice.tts_calls() >= 90,
+        "голос по предложениям: {}",
+        voice.tts_calls()
+    );
+    let (calls, turns): (i64, i64) = sqlx::query_as(
+        "SELECT count(*), count(DISTINCT turn_id) FROM ai_calls WHERE status = 'succeeded'",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert!(calls >= 150, "вызовов {calls} — каждый списан по факту");
+    assert_eq!(turns, 30, "каждый ход — один запрос для защиты");
+    drop(talk);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+/// Лимит закончился: экран узнаёт об этом сразу, запись целиком не начинается
+/// (она упёрлась бы в тот же лимит), к провайдеру ничего не уходит.
+#[tokio::test]
+async fn budget_error_stops_listening_instead_of_falling_back() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let voice = Arc::new(MockVoice::new());
+    let gateway = setup(pool, me, Vec::new(), Some(voice.clone())).await;
+    let console = qubite_policy::decide_owner(pool, &qubite_policy::Subject::account(me, None))
+        .await
+        .unwrap();
+    admin::set_limit(
+        pool,
+        &console,
+        &LimitScope::User(me),
+        Period::Day,
+        Metric::Usd,
+        1,
+    )
+    .await
+    .unwrap();
+    qubite_english::start(pool, me).await.unwrap();
+    let mut talk = open(pool, gateway, me);
+
+    talk.tx.send(In::Listen).await.unwrap();
+    let got = talk.until_reply(Instant::now()).await;
+    assert!(
+        matches!(
+            &got[0].1,
+            Out::Error {
+                code: "budget_exhausted",
+                ..
+            }
+        ),
+        "{:?}",
+        got.iter().map(|(_, o)| o).collect::<Vec<_>>()
+    );
+    // Фраза дошла до конца — ни записи, ни распознавания, ни новых ошибок.
+    talk.tx.send(In::Audio(speech())).await.unwrap();
+    talk.tx.send(In::Done).await.unwrap();
+    let more = tokio::time::timeout(Duration::from_millis(300), talk.rx.recv()).await;
+    assert!(
+        more.is_err(),
+        "после отказа по лимиту экран больше ничего не получает"
+    );
+    assert_eq!((voice.live_calls(), voice.stt_calls()), (0, 0));
+    drop(talk);
+    db.close().await;
+    test_db.drop_db().await;
+}

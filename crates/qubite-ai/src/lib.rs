@@ -53,6 +53,10 @@ pub use voice::{
 /// Микродоллары: 1 $ = 1 000 000.
 pub const MICROS_PER_USD: i64 = 1_000_000;
 
+/// Потолок вызовов в одном ходе ([`InTurn`]): распознавание, модель и голос по
+/// предложениям укладываются с большим запасом; больше — зацикливание внутри хода.
+pub const TURN_CALLS: i64 = 40;
+
 /// Ошибки и отказы шлюза. У каждого — код для программ.
 #[derive(Debug, thiserror::Error)]
 pub enum AiError {
@@ -322,6 +326,8 @@ struct Plan<'a> {
     input_units: u64,
     max_output_units: u64,
     job_id: Option<Uuid>,
+    /// Ход живого разговора ([`InTurn`]): для защиты от зацикливания — один запрос.
+    turn: Option<Uuid>,
     signals: Vec<&'static str>,
     work: Work<'a>,
 }
@@ -337,6 +343,40 @@ pub fn cost(
         + i128::from(tokens_out) * i128::from(price_out_per_mtok);
     let rounded = (micros + 999_999) / 1_000_000;
     i64::try_from(rounded).unwrap_or(i64::MAX)
+}
+
+/// Ход живого разговора ([`Gateway::turn`]): распознавание, ответ модели и
+/// голос по предложениям — для защиты от зацикливания один запрос в минуту,
+/// проверка — по первому вызову. Права, резерв и списание — по каждому вызову.
+#[derive(Clone, Copy)]
+pub struct InTurn<'g> {
+    gateway: &'g Gateway,
+    id: Uuid,
+}
+
+impl<'g> InTurn<'g> {
+    /// [`Gateway::complete`] в этом ходе.
+    pub async fn complete(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: AiRequest,
+    ) -> Result<AiResponse> {
+        self.gateway
+            .answer(auth, request, None, Some(self.id))
+            .await
+    }
+
+    /// [`Gateway::complete_stream`] в этом ходе.
+    pub async fn complete_stream(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: AiRequest,
+        delta: provider::Delta,
+    ) -> Result<AiResponse> {
+        self.gateway
+            .answer(auth, request, Some(delta), Some(self.id))
+            .await
+    }
 }
 
 /// AI-шлюз. Один на процесс; провайдеры подключаются при запуске.
@@ -397,12 +437,15 @@ impl Gateway {
     }
 
     /// Защита от зацикливания (D-213): проверка под блокировкой аккаунта,
-    /// чтобы параллельные запросы не проскочили вместе.
+    /// чтобы параллельные запросы не проскочили вместе. Ход ([`InTurn`])
+    /// проверяется один раз, по первому вызову, и считается одним запросом в
+    /// минуту и одним повтором; вызовов в одном ходе — не больше [`TURN_CALLS`].
     async fn loop_guard(
         &self,
         conn: &mut PgConnection,
         account_id: Uuid,
         job_id: Option<Uuid>,
+        turn: Option<Uuid>,
         fingerprint: &str,
     ) -> Result<()> {
         let guard = &self.config.loop_guard;
@@ -410,9 +453,27 @@ impl Gateway {
             .bind(account_id)
             .execute(&mut *conn)
             .await?;
+        if let Some(turn) = turn {
+            let calls: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM ai_calls WHERE account_id = $1 AND turn_id = $2",
+            )
+            .bind(account_id)
+            .bind(turn)
+            .fetch_one(&mut *conn)
+            .await?;
+            if calls >= TURN_CALLS {
+                return Err(AiError::RateLimited {
+                    scope: "turn".into(),
+                });
+            }
+            if calls > 0 {
+                return Ok(());
+            }
+        }
         let (per_minute, repeats): (i64, i64) = sqlx::query_as(
-            "SELECT count(*) FILTER (WHERE created_at > now() - interval '1 minute'), \
-                    count(*) FILTER (WHERE fingerprint = $2 \
+            "SELECT count(DISTINCT coalesce(turn_id, id)) \
+                    FILTER (WHERE created_at > now() - interval '1 minute'), \
+                    count(DISTINCT coalesce(turn_id, id)) FILTER (WHERE fingerprint = $2 \
                                      AND created_at > now() - $3::float8 * interval '1 second') \
              FROM ai_calls WHERE account_id = $1 \
                AND created_at > now() - greatest($3::float8, 60) * interval '1 second'",
@@ -474,7 +535,7 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: AiRequest,
     ) -> Result<AiResponse> {
-        self.answer(auth, request, None).await
+        self.answer(auth, request, None, None).await
     }
 
     /// То же потоком: текст уходит в `delta` по мере того, как модель пишет
@@ -486,7 +547,16 @@ impl Gateway {
         request: AiRequest,
         delta: provider::Delta,
     ) -> Result<AiResponse> {
-        self.answer(auth, request, Some(delta)).await
+        self.answer(auth, request, Some(delta), None).await
+    }
+
+    /// Начать ход живого разговора: вызовы через [`InTurn`] — один запрос для
+    /// защиты от зацикливания (деньги и резерв — по каждому, как обычно).
+    pub fn turn(&self) -> InTurn<'_> {
+        InTurn {
+            gateway: self,
+            id: qubite_objects::new_id(),
+        }
     }
 
     async fn answer(
@@ -494,6 +564,7 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: AiRequest,
         delta: Option<provider::Delta>,
+        turn: Option<Uuid>,
     ) -> Result<AiResponse> {
         let guarded =
             guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
@@ -521,6 +592,7 @@ impl Gateway {
                     input_units: input_tokens,
                     max_output_units: u64::from(request.max_output_tokens),
                     job_id: request.job_id,
+                    turn,
                     signals: guarded.signals.clone(),
                     work: Work::Chat {
                         guarded: &guarded,
@@ -688,8 +760,14 @@ impl Gateway {
         // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
         let mut tx = self.pool.begin().await?;
         if call_id.is_none() {
-            self.loop_guard(&mut tx, auth.account_id(), plan.job_id, &plan.fingerprint)
-                .await?;
+            self.loop_guard(
+                &mut tx,
+                auth.account_id(),
+                plan.job_id,
+                plan.turn,
+                &plan.fingerprint,
+            )
+            .await?;
         }
         let keys = budget::period_keys(&mut tx, (self.config.clock)(), &self.timezone()).await?;
         let scope = budget::Scope {
@@ -715,8 +793,8 @@ impl Gateway {
                 let id = qubite_objects::new_id();
                 let inserted = sqlx::query(
                     "INSERT INTO ai_calls (id, request_id, account_id, module_id, model_id, status, \
-                     attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint) \
-                     VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10)",
+                     attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint, turn_id) \
+                     VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10, $11)",
                 )
                 .bind(id)
                 .bind(plan.request_id)
@@ -728,6 +806,7 @@ impl Gateway {
                 .bind(&reservations_json)
                 .bind(plan.job_id)
                 .bind(&plan.fingerprint)
+                .bind(plan.turn)
                 .execute(&mut *tx)
                 .await;
                 if let Err(sqlx::Error::Database(db)) = &inserted

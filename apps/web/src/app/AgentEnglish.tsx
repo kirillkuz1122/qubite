@@ -22,7 +22,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
-import { canLive, LiveTalk } from './english-live';
+import { canLive, LiveTalk, STOP_CODES, stopHint } from './english-live';
 import {
   appendTurn,
   canRecord,
@@ -67,7 +67,9 @@ export function AgentEnglish() {
   const qc = useQueryClient();
   // Разговор потоком: соединение, черновики, замеры.
   const talkRef = useRef<LiveTalk | null>(null);
-  const [stream, setStream] = useState<'off' | 'on' | 'broken'>('off');
+  const [stream, setStream] = useState<'off' | 'on' | 'reconnecting' | 'broken'>('off');
+  // Отказ по лимиту или зацикливанию: что сделать; микрофон ждёт «Попробовать снова».
+  const [blocked, setBlocked] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(false);
   const [voicePlaying, setVoicePlaying] = useState(false);
   const [heard, setHeard] = useState<string | null>(null);
@@ -153,15 +155,18 @@ export function AgentEnglish() {
           return on;
         });
       },
-      onError: (_code, message, heardText) => {
+      onError: (code, message, heardText) => {
         setPhase('idle');
         setSaying(null);
         if (heardText) setText(heardText);
         setHeard(null);
-        setError(message);
+        if (STOP_CODES.has(code)) {
+          setMicOn(false);
+          setBlocked(stopHint(code, message));
+        } else setError(message);
       },
+      onLink: (state) => setStream(state),
       onClose: () => {
-        talkRef.current = null;
         setMicOn(false);
         setStream('broken');
       },
@@ -175,9 +180,25 @@ export function AgentEnglish() {
       t.close();
       talkRef.current = null;
       setMicOn(false);
+      setBlocked(null);
       setStream('off');
     };
   }, [live, qc]);
+
+  /** «Попробовать снова»: снять отказ, переподключиться, вернуть микрофон, если был включён. */
+  async function retry() {
+    const t = talkRef.current;
+    if (!t) return;
+    setBlocked(null);
+    setError(null);
+    if (!t.retry()) return;
+    try {
+      await t.listen();
+      setMicOn(true);
+    } catch {
+      setError('Микрофон недоступен: разреши его браузеру или пиши текстом.');
+    }
+  }
 
   async function toggleMic() {
     const t = talkRef.current;
@@ -393,7 +414,28 @@ export function AgentEnglish() {
           </ol>
           <div ref={end} />
           <div className="eng-controls">
-            {streaming && (voice.live || voice.listen) && (
+            {blocked && (
+              <div className="eng-blocked" role="alert">
+                <p>{blocked}</p>
+                <Button size="sm" onClick={() => void retry()}>
+                  Попробовать снова
+                </Button>
+              </div>
+            )}
+            {stream === 'reconnecting' && (
+              <p className="eng-hint" role="status">
+                Связь прервалась — переподключаюсь…
+              </p>
+            )}
+            {stream === 'broken' && !blocked && canLive() && (
+              <div className="eng-blocked" role="status">
+                <p>Связь для разговора потоком не вернулась — пиши текстом или говори кнопкой.</p>
+                <Button size="sm" onClick={() => void retry()}>
+                  Попробовать снова
+                </Button>
+              </div>
+            )}
+            {streaming && !blocked && (voice.live || voice.listen) && (
               <Button variant="fill" onClick={() => void toggleMic()} aria-pressed={micOn}>
                 {micOn ? 'Выключить микрофон' : 'Включить микрофон'}
               </Button>
@@ -408,16 +450,20 @@ export function AgentEnglish() {
                 Перебить
               </Button>
             )}
-            {!streaming && (stream === 'broken' || !canLive()) && voice.listen && mic && (
-              <Button
-                variant="fill"
-                onClick={() => void micDown()}
-                disabled={busy}
-                aria-pressed={listening}
-              >
-                {listening ? 'Готово' : 'Говорить'}
-              </Button>
-            )}
+            {!streaming &&
+              !blocked &&
+              (stream === 'broken' || stream === 'reconnecting' || !canLive()) &&
+              voice.listen &&
+              mic && (
+                <Button
+                  variant="fill"
+                  onClick={() => void micDown()}
+                  disabled={busy}
+                  aria-pressed={listening}
+                >
+                  {listening ? 'Готово' : 'Говорить'}
+                </Button>
+              )}
             <form className="talk-form eng-form" onSubmit={submit} aria-label="Написать Нейту">
               <Field
                 label="Написать по-английски"

@@ -13,6 +13,54 @@ export const SPEECH_RATE = 24_000;
 export const SILENCE_MS = 500;
 /** Сколько звука до начала речи тоже отправить (первый слог не теряется). */
 export const PREROLL_MS = 300;
+/** Паузы перед переподключением, когда оборвалась связь; потом — запасной путь. */
+export const RECONNECT_MS = [1_000, 3_000, 9_000];
+/** Связь продержалась столько — обрыв после этого снова получает все попытки. */
+export const STABLE_MS = 10_000;
+
+/**
+ * Отказы, которые не пройдут от повтора: лимит AI, защита от зацикливания, нет прав. На них
+ * микрофон выключается и экран ждёт «Попробовать снова», а не слушает и не подключается по кругу.
+ */
+export const STOP_CODES = new Set([
+  'budget_exhausted',
+  'budget_not_set',
+  'platform_cap_not_set',
+  'rate_limited',
+  'repeated_request',
+  'subscription_limit',
+  'ai_not_granted',
+  'module_not_granted',
+  'action_not_granted',
+  'account_inactive',
+  'unauthenticated',
+]);
+
+const LIMIT_COMMAND =
+  'just qubite ai limit --scope user:<почта> --period day --metric usd --value <доллары>';
+
+/** Что сказать человеку на отказ из {@link STOP_CODES}: что случилось и что сделать. */
+export function stopHint(code: string, message: string): string {
+  switch (code) {
+    case 'budget_exhausted': {
+      const what = /\(([^)]+)\)/.exec(message)?.[1];
+      return (
+        `AI-лимит закончился${what ? ` (${what})` : ''}. Дневной сам обнулится в полночь; ` +
+        `поднять сейчас: ${LIMIT_COMMAND} — или попроси владельца.`
+      );
+    }
+    case 'budget_not_set':
+      return `AI-бюджет не выдан. Владелец выдаёт его: ${LIMIT_COMMAND}.`;
+    case 'rate_limited':
+      return 'Слишком много AI-запросов за минуту — сработала защита от зацикливания. Подожди минуту и попробуй снова.';
+    case 'repeated_request':
+      return 'Один и тот же запрос повторяется — защита от зацикливания остановила разговор. Попробуй снова.';
+    case 'subscription_limit':
+      return `Лимит подписки закончился: ${message}. Попробуй позже.`;
+    default:
+      return message;
+  }
+}
 
 // ---------------------------------------------------------------- чистые части
 
@@ -106,8 +154,11 @@ export interface LiveHandlers {
   onVoice(playing: boolean): void;
   /** Ход записан; `waitMs` — от конца твоей фразы до первого звука (замер на экране). */
   onReply(turn: EnglishTurn, waitMs: number | null): void;
+  /** Ошибка; на код из {@link STOP_CODES} микрофон уже выключен — ждём {@link LiveTalk.retry}. */
   onError(code: string, message: string, heard: string | null): void;
-  /** Соединение закрылось. */
+  /** Связь есть / оборвалась и переподключаемся. */
+  onLink(state: 'on' | 'reconnecting'): void;
+  /** Связи нет и больше не переподключаемся (попытки кончились или отказ по лимиту). */
   onClose(): void;
 }
 
@@ -157,13 +208,66 @@ export class LiveTalk {
   private preroll: Int16Array<ArrayBuffer>[] = [];
   private phraseEnd: number | null = null;
   private firstAudio: number | null = null;
+  /** Отказ по лимиту: не слушаем и не переподключаемся до «Попробовать снова». */
+  private blocked = false;
+  /** Микрофон был включён до отказа — «Попробовать снова» включит его обратно. */
+  private resume = false;
+  private attempt = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private stableTimer: ReturnType<typeof setTimeout> | undefined;
+  private closing = false;
+  /** Связь хоть раз была: не открылась с первого раза — сразу запасной путь, без попыток. */
+  private linked = false;
 
   constructor(private h: LiveHandlers) {
+    this.ws = this.connect();
+  }
+
+  private connect(): WebSocket {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    this.ws = new WebSocket(`${proto}://${location.host}/api/v1/english/live`);
-    this.ws.binaryType = 'arraybuffer';
-    this.ws.onmessage = (e) => this.receive(e.data as ArrayBuffer | string);
-    this.ws.onclose = () => h.onClose();
+    const ws = new WebSocket(`${proto}://${location.host}/api/v1/english/live`);
+    ws.binaryType = 'arraybuffer';
+    ws.onmessage = (e) => this.receive(e.data as ArrayBuffer | string);
+    ws.onopen = () => {
+      this.linked = true;
+      this.h.onLink('on');
+      this.stableTimer = setTimeout(() => (this.attempt = 0), STABLE_MS);
+    };
+    ws.onclose = () => this.dropped();
+    return ws;
+  }
+
+  /** Связь оборвалась: переподключиться с растущей паузой, но не по кругу. */
+  private dropped() {
+    clearTimeout(this.stableTimer);
+    if (this.closing) return;
+    const delay = RECONNECT_MS[this.attempt];
+    if (this.blocked || !this.linked || delay === undefined) {
+      this.stopMic();
+      this.hush();
+      return this.h.onClose();
+    }
+    this.attempt++;
+    this.h.onLink('reconnecting');
+    this.retryTimer = setTimeout(() => (this.ws = this.connect()), delay);
+  }
+
+  /**
+   * «Попробовать снова» после отказа по лимиту или когда попытки кончились. Возвращает, был ли
+   * включён микрофон до отказа (экран включит его обратно).
+   */
+  retry(): boolean {
+    this.blocked = false;
+    this.attempt = 0;
+    const ws = this.ws.readyState;
+    if (ws === WebSocket.CLOSING || ws === WebSocket.CLOSED) {
+      clearTimeout(this.retryTimer);
+      this.h.onLink('reconnecting');
+      this.ws = this.connect();
+    }
+    const resume = this.resume;
+    this.resume = false;
+    return resume;
   }
 
   /** Ждём открытия соединения (или ошибку). */
@@ -224,6 +328,7 @@ export class LiveTalk {
 
   /** Кусок с микрофона: громкость → начало/конец речи; во время речи — на сервер. */
   frame(samples: Float32Array, rate: number) {
+    if (this.blocked) return;
     const ms = (samples.length / rate) * 1000;
     const pcm = downsample(samples, rate, MIC_RATE);
     const event = this.vad.push(rms(samples), ms, this.playing);
@@ -231,7 +336,8 @@ export class LiveTalk {
       if (this.playing) this.interrupt();
       this.h.onSpeech(true);
       this.send({ type: 'listen' });
-      for (const chunk of this.preroll) this.ws.send(chunk);
+      if (this.ws.readyState === WebSocket.OPEN)
+        for (const chunk of this.preroll) this.ws.send(chunk);
       this.preroll = [];
     }
     if (this.vad.speaking || event === 'end') {
@@ -271,12 +377,20 @@ export class LiveTalk {
             : null;
         return this.h.onReply(msg.turn as EnglishTurn, wait);
       }
-      case 'error':
+      case 'error': {
+        const code = String(msg.error ?? 'error');
+        if (STOP_CODES.has(code)) {
+          this.blocked = true;
+          this.resume ||= this.listening;
+          this.stopMic();
+          this.hush();
+        }
         return this.h.onError(
-          String(msg.error ?? 'error'),
+          code,
           String(msg.message ?? ''),
           (msg.heard as string | null) ?? null,
         );
+      }
     }
   }
 
@@ -343,6 +457,9 @@ export class LiveTalk {
   }
 
   close() {
+    this.closing = true;
+    clearTimeout(this.retryTimer);
+    clearTimeout(this.stableTimer);
     this.stopMic();
     this.hush();
     this.ws.onclose = null;

@@ -27,7 +27,7 @@ use std::{
 };
 
 use qubite_ai::{
-    Gateway, ListenRequest, SpeakRequest,
+    AiError, Gateway, InTurn, ListenRequest, SpeakRequest,
     voice::{self, LiveListen, LiveOut, LiveRequest},
 };
 use qubite_policy::{Authorized, UseAi};
@@ -284,6 +284,21 @@ fn ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
+/// Отказ, который не пройдёт от повтора (лимит, зацикливание, нет прав): экран
+/// выключает микрофон и ждёт «Попробовать снова», а не слушает по кругу.
+fn stops(error: &AiError) -> bool {
+    matches!(
+        error,
+        AiError::Denied(_)
+            | AiError::BudgetNotSet
+            | AiError::BudgetExhausted { .. }
+            | AiError::PlatformCapNotSet
+            | AiError::RateLimited { .. }
+            | AiError::RepeatedRequest
+            | AiError::SubscriptionLimit { .. }
+    )
+}
+
 fn error_out(error: Error) -> Out {
     let (heard, message) = match &error {
         Error::Ai { heard, error } => (heard.clone(), error.to_string()),
@@ -304,6 +319,7 @@ fn error_out(error: Error) -> Out {
 async fn speak_turn(
     pool: &PgPool,
     gateway: &Gateway,
+    ai: InTurn<'_>,
     settings: &Settings,
     account: Uuid,
     auth: &Authorized<UseAi>,
@@ -329,7 +345,7 @@ async fn speak_turn(
         None
     };
     let (delta_tx, mut delta_rx) = mpsc::unbounded_channel::<String>();
-    let model = gateway.complete_stream(auth, request, delta_tx);
+    let model = ai.complete_stream(auth, request, delta_tx);
 
     let speaker = async {
         let mut say = SayStream::default();
@@ -373,7 +389,7 @@ async fn speak_turn(
                     continue;
                 }
                 sentence_no += 1;
-                let stream = gateway
+                let stream = ai
                     .speak_stream(
                         auth,
                         SpeakRequest {
@@ -457,7 +473,7 @@ async fn speak_turn(
     if !streamed && !muted.load(Ordering::SeqCst) {
         let _ = out.send(Out::Say(reply.say.clone())).await;
         if let (Some(model_id), false) = (tts_model.as_ref(), broken)
-            && let Ok(mut stream) = gateway
+            && let Ok(mut stream) = ai
                 .speak_stream(
                     auth,
                     SpeakRequest {
@@ -524,9 +540,19 @@ pub async fn serve(
     mut inbox: mpsc::Receiver<In>,
     out: mpsc::Sender<Out>,
 ) -> Result<()> {
-    let voice = ready(gateway).await?;
+    let voice = match ready(gateway).await {
+        Ok(voice) => voice,
+        Err(error) => {
+            // Экран узнаёт причину и не переподключается по кругу.
+            let _ = out.send(error_out(error)).await;
+            return Ok(());
+        }
+    };
     let mut backlog: VecDeque<In> = VecDeque::new();
     let mut ear: Option<Ear<'_>> = None;
+    // Ход начинается с фразы: распознавание, ответ и голос — один запрос
+    // для защиты от зацикливания.
+    let mut turn: Option<InTurn<'_>> = None;
     let mut closed = false;
     loop {
         // Следующее событие: отложенное (пришло, пока говорил репетитор), с
@@ -549,7 +575,7 @@ pub async fn serve(
         };
 
         // Что сказал ученик (фраза кончилась) — тогда ход.
-        let mut said: Option<(Learner, Latency, Instant)> = None;
+        let mut said: Option<(Learner, Latency, Instant, InTurn<'_>)> = None;
         match event {
             Event::In(None) => {
                 if let Some(Ear::Live(listen)) = ear.take() {
@@ -577,10 +603,12 @@ pub async fn serve(
                     }
                 };
                 ear = Some(Ear::Record(Vec::new()));
+                let ai = gateway.turn();
+                turn = Some(ai);
                 if voice.live
                     && let Ok(model) = gateway.model_for(voice::STT_LIVE_TASK).await
                 {
-                    match gateway
+                    match ai
                         .listen_live(
                             &auth,
                             LiveRequest {
@@ -594,6 +622,12 @@ pub async fn serve(
                         .await
                     {
                         Ok(listen) => ear = Some(Ear::Live(Box::new(listen))),
+                        // Лимит или зацикливание: запись целиком упрётся в то же.
+                        Err(error) if stops(&error) => {
+                            ear = None;
+                            turn = None;
+                            let _ = out.send(error_out(Error::from(error))).await;
+                        }
                         // Живое не открылось — распознаем запись целиком.
                         Err(error) => tracing::warn!(%error, "живое распознавание не открылось"),
                     }
@@ -626,14 +660,15 @@ pub async fn serve(
                 }
                 Some(Ear::Record(pcm)) if !pcm.is_empty() => {
                     let started = Instant::now();
-                    match transcribe(pool, gateway, settings, account, pcm).await {
+                    let ai = turn.take().unwrap_or_else(|| gateway.turn());
+                    match transcribe(pool, gateway, ai, settings, account, pcm).await {
                         Ok(learner) => {
                             let latency = Latency {
                                 heard_ms: Some(ms(started)),
                                 ..Latency::default()
                             };
                             let _ = out.send(Out::Heard(learner.text.clone())).await;
-                            said = Some((learner, latency, started));
+                            said = Some((learner, latency, started, ai));
                         }
                         Err(error) => {
                             let _ = out.send(error_out(error)).await;
@@ -652,6 +687,7 @@ pub async fn serve(
                         },
                         Latency::default(),
                         Instant::now(),
+                        gateway.turn(),
                     ));
                 }
                 Err(error) => {
@@ -667,6 +703,7 @@ pub async fn serve(
                 let Some(Ear::Live(listen)) = ear.take() else {
                     continue;
                 };
+                let ai = turn.take().unwrap_or_else(|| gateway.turn());
                 let call = listen.finish().await.ok().map(|(call, _, _)| call);
                 let text: String = text.trim().chars().take(MAX_TEXT).collect();
                 if text.is_empty() {
@@ -689,6 +726,7 @@ pub async fn serve(
                         ..Latency::default()
                     },
                     started,
+                    ai,
                 ));
             }
             Event::Live(failed) => {
@@ -710,7 +748,7 @@ pub async fn serve(
             }
         }
 
-        let Some((learner, latency, started)) = said else {
+        let Some((learner, latency, started, ai)) = said else {
             continue;
         };
         // Ход: пока репетитор отвечает, экран может перебить; остальное — после.
@@ -722,9 +760,10 @@ pub async fn serve(
             }
         };
         let muted = AtomicBool::new(false);
-        let turn = speak_turn(
+        let reply = speak_turn(
             pool,
             gateway,
+            ai,
             settings,
             account,
             &auth,
@@ -736,10 +775,10 @@ pub async fn serve(
             &muted,
             &out,
         );
-        tokio::pin!(turn);
+        tokio::pin!(reply);
         let result = loop {
             tokio::select! {
-                result = &mut turn => break result,
+                result = &mut reply => break result,
                 msg = inbox.recv(), if !closed => match msg {
                     Some(In::Interrupt) => muted.store(true, Ordering::SeqCst),
                     // Заговорил поверх — тоже перебил; звук его фразы не теряем.
@@ -770,6 +809,7 @@ pub async fn serve(
 async fn transcribe(
     pool: &PgPool,
     gateway: &Gateway,
+    ai: InTurn<'_>,
     settings: &Settings,
     account: Uuid,
     pcm: Vec<u8>,
@@ -777,7 +817,7 @@ async fn transcribe(
     let auth = crate::may_use_ai(pool, account).await?;
     let model = gateway.model_for(voice::STT_TASK).await?;
     let duration_ms = pcm.len() as u64 * 1000 / (u64::from(SAMPLE_RATE) * 2);
-    let heard = gateway
+    let heard = ai
         .transcribe(
             &auth,
             ListenRequest {

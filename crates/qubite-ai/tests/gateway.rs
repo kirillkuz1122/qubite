@@ -7,7 +7,8 @@ use std::{
 };
 
 use qubite_ai::{
-    AiConfig, AiError, AiRequest, Gateway, MICROS_PER_USD, MockProvider, MockStep, Role, Untrusted,
+    AiConfig, AiError, AiRequest, Gateway, MICROS_PER_USD, MockProvider, MockStep, Role,
+    TURN_CALLS, Untrusted,
     admin::{self, LimitScope, Metric, ModelSpec, Period, ProviderSpec},
     guard::signal,
 };
@@ -1339,6 +1340,68 @@ async fn loop_guard_limits_jobs_and_identical_repeats() {
             .unwrap();
     assert_eq!(fingerprint.len(), 32);
     assert!(!fingerprint.contains("одно"));
+    env.finish().await;
+}
+
+/// Ход живого разговора (ENG-001): все вызовы хода — один запрос в минуту и без
+/// проверки повторов; но первый вызов хода проверяется, а вызовов в ходе —
+/// не больше `TURN_CALLS`.
+#[tokio::test]
+async fn loop_guard_counts_a_turn_as_one_request() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    env.limit(
+        LimitScope::User(user),
+        Period::Day,
+        Metric::Usd,
+        100 * MICROS_PER_USD,
+    )
+    .await;
+    let auth = env.auth(user).await;
+    let mock = Arc::new(MockProvider::new(succeed(1)));
+    let gateway = env.gateway(&mock, guarded(2, 0, 2));
+    let same = |id: &str| AiRequest {
+        untrusted: vec![Untrusted::new("tutor", "Again.")],
+        ..request(id)
+    };
+
+    // Два хода по 5 вызовов (один текст пять раз) при потолке 2 в минуту и 2 повтора.
+    for t in 0..2 {
+        let turn = gateway.turn();
+        for i in 0..5 {
+            turn.complete(&auth, same(&format!("t{t}c{i}")))
+                .await
+                .unwrap();
+        }
+    }
+    // Третий ход — уже третий запрос за минуту: стоп на первом вызове.
+    let error = gateway
+        .turn()
+        .complete(&auth, request("t2"))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&error, AiError::RateLimited { scope } if scope == "user"),
+        "{error:?}"
+    );
+    assert_eq!(mock.calls(), 10);
+
+    // Зацикливание внутри хода: больше TURN_CALLS вызовов — стоп.
+    let gateway = env.gateway(&mock, guarded(0, 0, 0));
+    let turn = gateway.turn();
+    for i in 0..TURN_CALLS {
+        turn.complete(&auth, request(&format!("loop{i}")))
+            .await
+            .unwrap();
+    }
+    let error = turn
+        .complete(&auth, request("loop-last"))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&error, AiError::RateLimited { scope } if scope == "turn"),
+        "{error:?}"
+    );
     env.finish().await;
 }
 

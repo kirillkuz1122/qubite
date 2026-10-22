@@ -25,7 +25,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
-    AiError, Done, Gateway, Opened, Plan, Result, Usage, Work,
+    AiError, Done, Gateway, InTurn, Opened, Plan, Result, Usage, Work,
     provider::{BoxFuture, ProviderError},
 };
 
@@ -286,6 +286,15 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: ListenRequest,
     ) -> Result<Transcript> {
+        self.transcribe_in(auth, request, None).await
+    }
+
+    pub(crate) async fn transcribe_in(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: ListenRequest,
+        turn: Option<Uuid>,
+    ) -> Result<Transcript> {
         if request.audio.is_empty() {
             return Err(AiError::Invalid("пустая запись".into()));
         }
@@ -328,6 +337,7 @@ impl Gateway {
                     input_units: MAX_SECONDS,
                     max_output_units: 0,
                     job_id: None,
+                    turn,
                     signals: Vec::new(),
                     work: Work::Listen(&listen),
                 },
@@ -348,6 +358,15 @@ impl Gateway {
 
     /// Сказать текст голосом (TTS). Списание — по числу знаков.
     pub async fn speak(&self, auth: &Authorized<UseAi>, request: SpeakRequest) -> Result<Speech> {
+        self.speak_in(auth, request, None).await
+    }
+
+    pub(crate) async fn speak_in(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: SpeakRequest,
+        turn: Option<Uuid>,
+    ) -> Result<Speech> {
         let text = request.text.trim();
         if text.is_empty() {
             return Err(AiError::Invalid("нечего сказать".into()));
@@ -382,6 +401,7 @@ impl Gateway {
                     input_units: chars as u64,
                     max_output_units: 0,
                     job_id: None,
+                    turn,
                     signals: Vec::new(),
                     work: Work::Speak(&say),
                 },
@@ -503,6 +523,15 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: SpeakRequest,
     ) -> Result<SpeechStream> {
+        self.speak_stream_in(auth, request, None).await
+    }
+
+    pub(crate) async fn speak_stream_in(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: SpeakRequest,
+        turn: Option<Uuid>,
+    ) -> Result<SpeechStream> {
         let text = request.text.trim();
         if text.is_empty() {
             return Err(AiError::Invalid("нечего сказать".into()));
@@ -534,6 +563,7 @@ impl Gateway {
                     input_units: chars as u64,
                     max_output_units: 0,
                     job_id: None,
+                    turn,
                     signals: Vec::new(),
                     work: Work::Speak(&say),
                 },
@@ -557,6 +587,15 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: LiveRequest,
     ) -> Result<LiveListen<'_>> {
+        self.listen_live_in(auth, request, None).await
+    }
+
+    pub(crate) async fn listen_live_in(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: LiveRequest,
+        turn: Option<Uuid>,
+    ) -> Result<LiveListen<'_>> {
         if !(8_000..=48_000).contains(&request.sample_rate) {
             return Err(AiError::Invalid("частота звука — от 8 до 48 кГц".into()));
         }
@@ -573,6 +612,7 @@ impl Gateway {
             input_units: MAX_SECONDS,
             max_output_units: 0,
             job_id: None,
+            turn,
             signals: Vec::new(),
             work: Work::Live,
         };
@@ -614,6 +654,46 @@ impl Gateway {
                 Err(AiError::ResultUnknown { call_id: opened.id })
             }
         }
+    }
+}
+
+impl<'g> InTurn<'g> {
+    /// [`Gateway::transcribe`] в этом ходе.
+    pub async fn transcribe(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: ListenRequest,
+    ) -> Result<Transcript> {
+        self.gateway
+            .transcribe_in(auth, request, Some(self.id))
+            .await
+    }
+
+    /// [`Gateway::speak`] в этом ходе.
+    pub async fn speak(&self, auth: &Authorized<UseAi>, request: SpeakRequest) -> Result<Speech> {
+        self.gateway.speak_in(auth, request, Some(self.id)).await
+    }
+
+    /// [`Gateway::speak_stream`] в этом ходе.
+    pub async fn speak_stream(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: SpeakRequest,
+    ) -> Result<SpeechStream> {
+        self.gateway
+            .speak_stream_in(auth, request, Some(self.id))
+            .await
+    }
+
+    /// [`Gateway::listen_live`] в этом ходе.
+    pub async fn listen_live(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: LiveRequest,
+    ) -> Result<LiveListen<'g>> {
+        self.gateway
+            .listen_live_in(auth, request, Some(self.id))
+            .await
     }
 }
 

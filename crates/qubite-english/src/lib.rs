@@ -714,6 +714,8 @@ pub async fn turn(
         check_text(text)?;
     }
     let (auth, session) = begin(pool, account).await?;
+    // Распознавание и ответ — один ход для защиты от зацикливания.
+    let ai = gateway.turn();
 
     // 1. Голос → текст (через шлюз: грант, бюджет, журнал).
     let mut cost = 0;
@@ -729,7 +731,7 @@ pub async fn turn(
             duration_ms,
         } => {
             let model = gateway.model_for(voice::STT_TASK).await?;
-            let heard = gateway
+            let heard = ai
                 .transcribe(
                     &auth,
                     ListenRequest {
@@ -765,7 +767,7 @@ pub async fn turn(
             Error::Ai { error, .. } => with_heard(error, heard),
             other => other,
         })?;
-    let response = gateway
+    let response = ai
         .complete(&auth, request)
         .await
         .map_err(|error| with_heard(error, heard))?;
