@@ -597,3 +597,77 @@ async fn unsure_asks_and_owner_answer_goes_to_memory() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// D-494: заметка к проекту — строкой в память проекта (видна на странице
+/// проекта, PROJ-001), откат разбора убирает и её; без проекта — только архив.
+#[tokio::test]
+async fn note_with_project_goes_to_project_memory() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let qubite = create(pool, me, "planner.project", "Qubite").await;
+    let note = create(pool, me, "inbox.item", "стек: Rust, React, Tauri").await;
+    let loose = create(pool, me, "inbox.item", "интересная статья про ИИ").await;
+
+    let ai = ai(
+        pool,
+        me,
+        &[me],
+        vec![
+            reply(json!({
+                "kind": "note",
+                "project_id": qubite,
+                "confidence": 0.9,
+                "why": "сведения о проекте Qubite"
+            })),
+            reply(json!({ "kind": "note", "confidence": 0.9, "why": "почитать" })),
+        ],
+    )
+    .await;
+    let memory = async || {
+        let mut conn = pool.acquire().await.unwrap();
+        files::by_path(&mut conn, me, "Проекты/Qubite.md")
+            .await
+            .unwrap()
+            .map(|file| file.body)
+    };
+
+    let Outcome::Filed { action, label } = triage::triage(pool, &ai.gateway, note, None, None)
+        .await
+        .unwrap()
+    else {
+        panic!("ожидали «разложил»");
+    };
+    assert_eq!(label, "Qubite · заметка");
+    let body = memory().await.expect("файл проекта заведён");
+    assert!(body.contains("Заметка: стек: Rust, React, Tauri"), "{body}");
+    assert_eq!(
+        item(pool, me, note).await.status,
+        qubite_inbox::Status::Archived
+    );
+
+    // Без проекта — как раньше: только в архив, память не трогается.
+    let Outcome::Filed { .. } = triage::triage(pool, &ai.gateway, loose, None, None)
+        .await
+        .unwrap()
+    else {
+        panic!("ожидали «разложил»");
+    };
+    assert!(!memory().await.unwrap().contains("статья"));
+
+    // Откат разбора заметки — строки в памяти тоже нет.
+    let who = Who::owner(me, None);
+    revert_batch(pool, &who, action.batch_id, false)
+        .await
+        .unwrap();
+    assert!(
+        !memory()
+            .await
+            .unwrap_or_default()
+            .contains("стек: Rust, React, Tauri")
+    );
+    assert_eq!(item(pool, me, note).await.status, qubite_inbox::Status::New);
+
+    db.close().await;
+    test_db.drop_db().await;
+}

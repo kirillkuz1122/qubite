@@ -491,6 +491,19 @@ async fn act(
         new_project,
     };
     let remember = clean(decision.remember.as_deref(), 300).filter(|_| answered);
+    // Заметка к проекту — строкой в память проекта (D-494): её видно на
+    // странице проекта во вкладке «Память». Без проекта — только в архиве.
+    let note_line = project
+        .filter(|_| to == FileTo::Note)
+        .and_then(|_| {
+            let text = if item.body.trim().is_empty() {
+                &item.title
+            } else {
+                &item.body
+            };
+            clean(Some(text), 300)
+        })
+        .map(|text| format!("Заметка: {text}"));
 
     let account = who.account();
     let mut tx = pool.begin().await?;
@@ -542,12 +555,31 @@ async fn act(
         &json!({ "label": label, "to": to, "action_id": action.id, "batch_id": batch }),
     )
     .await?;
-    // Ответ владельца — урок: одна строка в память, чтобы не спрашивать снова.
-    if let Some(line) = remember {
-        let path = match project_title.as_deref().filter(|_| to != FileTo::Project) {
-            Some(project) => format!("Проекты/{project}.md"),
-            None => "Память.md".to_owned(),
-        };
+    // Ответ владельца — урок: одна строка в память, чтобы не спрашивать снова;
+    // заметка к проекту — строка в память проекта. Тем же пакетом: откат
+    // разбора уберёт и их.
+    let project_path = project_title
+        .as_deref()
+        .filter(|_| to != FileTo::Project)
+        .map(|project| format!("Проекты/{project}.md"));
+    let lines = [
+        note_line.map(|line| {
+            (
+                project_path.clone(),
+                line,
+                "заметка к проекту — в его память",
+            )
+        }),
+        remember.map(|line| {
+            (
+                project_path.clone(),
+                line,
+                "ты ответил на мой вопрос во Входящих",
+            )
+        }),
+    ];
+    for (path, line, reason) in lines.into_iter().flatten() {
+        let path = path.unwrap_or_else(|| "Память.md".to_owned());
         let planned = memory::plan(
             &mut tx,
             account,
@@ -564,7 +596,7 @@ async fn act(
                 Plan {
                     tool: "memory.add".into(),
                     summary,
-                    reason: Some("ты ответил на мой вопрос во Входящих".into()),
+                    reason: Some(reason.into()),
                     batch,
                     reverts: None,
                     corrects: None,
