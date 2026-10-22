@@ -835,7 +835,8 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     };
     let mut state = qubite_server::AppState::with_auth(db.clone(), auth)
         .with_oauth(args.oauth.settings())
-        .with_notify(channels.clone());
+        .with_notify(channels.clone())
+        .with_english(args.ai.english());
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
             state = state.with_ai(ai.gateway);

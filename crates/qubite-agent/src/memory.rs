@@ -619,3 +619,48 @@ pub async fn answer(pool: &PgPool, who: &Who, question_id: Uuid, answer: &str) -
     };
     timeline::execute(pool, who, plan).await
 }
+
+/// Записать свой файл агента целиком: нет — заведётся, есть — заменится
+/// (ENG-001: «Английский.md» репетитор пишет по итогам разговора, D-455).
+/// Только свои файлы (не «Кто я», «О тебе», «Память», проекты и навыки).
+/// Это действие агента — строка ленты с откатом; текст не изменился — `None`.
+pub async fn put(
+    pool: &PgPool,
+    who: &Who,
+    path: &str,
+    body: &str,
+    summary: &str,
+    reason: Option<&str>,
+) -> Result<Option<Action>> {
+    let path = files::normalize_path(path).map_err(Error::Invalid)?;
+    if files::kind_of(&path) != Kind::File {
+        return Err(Error::Invalid(format!(
+            "{} так целиком не пишется",
+            name(&path)
+        )));
+    }
+    let (body, _) = check(&path, body)?;
+    let mut conn = pool.acquire().await?;
+    let existing = files::by_path(&mut conn, who.account(), &path).await?;
+    drop(conn);
+    let step = match &existing {
+        Some(file) if file.body == body => return Ok(None),
+        Some(file) => patch_step(file, body),
+        None => create_step(&path, body),
+    };
+    let plan = Plan {
+        tool: if existing.is_some() {
+            "memory.patch"
+        } else {
+            "files.create"
+        }
+        .into(),
+        summary: format!("{}: {}", name(&path), quote(summary, 160)),
+        reason: reason.map(str::to_owned),
+        batch: Uuid::now_v7(),
+        reverts: None,
+        corrects: None,
+        steps: vec![step],
+    };
+    timeline::execute(pool, who, plan).await.map(Some)
+}

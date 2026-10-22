@@ -13,6 +13,7 @@ pub mod auth;
 pub mod changes;
 pub mod console;
 pub mod email;
+pub mod english;
 pub mod home;
 pub mod inbox;
 pub mod maintenance;
@@ -28,7 +29,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::StatusCode,
     middleware,
     response::IntoResponse,
@@ -56,6 +57,8 @@ pub struct AppState {
     pub notify: qubite_notify::deliver::Channels,
     /// Погода, курсы и новости для Главной (источники без ключей, кэш).
     pub home: Arc<qubite_home::Sources>,
+    /// «Английский»: голос репетитора.
+    pub english: Arc<qubite_english::Settings>,
 }
 
 impl AppState {
@@ -78,6 +81,7 @@ impl AppState {
             )),
             notify: qubite_notify::deliver::Channels::default(),
             home: Arc::new(qubite_home::Sources::default()),
+            english: Arc::new(qubite_english::Settings::default()),
         }
     }
 
@@ -95,6 +99,12 @@ impl AppState {
     /// Вход через провайдеров с настройками `qubite serve` (AUTH-004).
     pub fn with_oauth(mut self, settings: qubite_oauth::OAuthSettings) -> Self {
         self.oauth = Arc::new(qubite_oauth::OAuth::new(settings));
+        self
+    }
+
+    /// Настройки «Английского» (`QUBITE_ELEVENLABS_VOICE_ID`).
+    pub fn with_english(mut self, settings: qubite_english::Settings) -> Self {
+        self.english = Arc::new(settings);
         self
     }
 
@@ -221,7 +231,12 @@ impl AppState {
         home::locate,
         home::weather,
         home::rates,
-        home::news
+        home::news,
+        english::english_overview,
+        english::english_start,
+        english::english_finish,
+        english::english_turn,
+        english::english_speech
     ),
     components(schemas(
         Health,
@@ -359,7 +374,18 @@ impl AppState {
         home::HomeCurrency,
         home::HomeRates,
         home::HomeNewsItem,
-        home::HomeNews
+        home::HomeNews,
+        english::EnglishSession,
+        english::EnglishMistake,
+        english::EnglishMessage,
+        english::EnglishVoice,
+        english::EnglishTotals,
+        english::EnglishOverview,
+        english::EnglishStarted,
+        english::EnglishFinished,
+        english::EnglishSay,
+        english::EnglishTurn,
+        english::EnglishTurnError
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -370,7 +396,8 @@ impl AppState {
         (name = "inbox", description = "Входящие: всё, что брошено в Qubite Command, боту или записано без сети"),
         (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"),
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
-        (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов")
+        (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"),
+        (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)")
     )
 )]
 pub struct ApiDoc;
@@ -592,6 +619,18 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/home/weather", get(home::weather))
         .route("/api/v1/home/rates", get(home::rates))
         .route("/api/v1/home/news", get(home::news))
+        .route("/api/v1/english", get(english::english_overview))
+        .route("/api/v1/english/session", post(english::english_start))
+        .route("/api/v1/english/session/finish", post(english::english_finish))
+        // Запись голоса в base64 — до 1,6 МБ: тело больше обычного лимита.
+        .route(
+            "/api/v1/english/turn",
+            post(english::english_turn).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/english/messages/{id}/speech",
+            post(english::english_speech),
+        )
         .merge(extra)
         // Слои выполняются снизу вверх: сначала сессия, потом техработы
         // (им нужно знать, owner ли пришёл).

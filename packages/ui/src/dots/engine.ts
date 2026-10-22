@@ -44,7 +44,12 @@ export interface TextGroup {
   height: number;
 }
 
-export type Mood = 'idle' | 'happy' | 'sad' | 'shut';
+/**
+ * Настроение помощника. Разговорные (ENG-001): `listen` — слушает (наклонился, смотрит на тебя),
+ * `think` — думает (глаза вверх, покачивается, над головой мысли-точки), `talk` — говорит (рот
+ * открывается), `angry` — сердится на ошибку (брови, трясёт головой).
+ */
+export type Mood = 'idle' | 'happy' | 'sad' | 'shut' | 'listen' | 'think' | 'talk' | 'angry';
 
 interface Kind {
   cells: () => Cell[];
@@ -546,6 +551,8 @@ export class DotEngine {
     const ty = tg.y - this.box.y;
     for (const b of this.bodies) {
       b.breath = L.reduced || L.lite ? 0 : Math.sin(t * 1.7 + b.phase) * 0.014;
+      // говорит — тело чуть пружинит в такт словам
+      if (b.mood === 'talk' && !L.reduced) b.breath += Math.abs(Math.sin(t * 9)) * 0.03;
       if (t > b.nextBlink) {
         b.blink = t + 0.12;
         b.nextBlink = t + 2.2 + Math.random() * 4;
@@ -561,6 +568,21 @@ export class DotEngine {
           L.to(b.lx, -Math.sign(dx || 1));
           L.to(b.ly, -0.3);
           L.to(b.lean, -Math.sign(dx || 1) * b.K.lean * 0.6);
+        } else if (b.mood === 'listen') {
+          // наклонился к тебе и смотрит прямо
+          L.to(b.lx, 0);
+          L.to(b.ly, 0.25);
+          L.to(b.lean, b.K.lean * (0.45 + Math.sin(t * 2.2) * 0.12));
+        } else if (b.mood === 'think') {
+          // глаза вверх-вбок, медленно покачивается
+          L.to(b.lx, 0.75);
+          L.to(b.ly, -0.85);
+          L.to(b.lean, Math.sin(t * 1.6) * b.K.lean * 0.4);
+        } else if (b.mood === 'angry') {
+          // мотает головой: «нет, не так»
+          L.to(b.lx, 0);
+          L.to(b.ly, 0.1);
+          L.to(b.lean, Math.sin(t * 22) * b.K.lean * 0.35);
         } else {
           L.to(b.lx, (dx / dd) * k);
           L.to(b.ly, (dy / dd) * k);
@@ -669,6 +691,9 @@ export class DotEngine {
     const g = this.ground;
     const Lc = this.light;
     const shut = b.mood === 'shut' || (b.mood === 'happy' && b.kind === 'elik');
+    // рот открыт: 0 — закрыт, 1 — широко (говорит)
+    const open =
+      b.mood === 'talk' ? Math.abs(Math.sin(t * 11)) * (0.6 + 0.4 * Math.sin(t * 3.1)) : 0;
     const blink = t < b.blink;
     for (const e of K.eyes) {
       const q = b.point(e[0] * p, e[1] * p);
@@ -692,6 +717,33 @@ export class DotEngine {
         ctx.fill();
       }
     }
+    if (b.mood === 'angry') {
+      // брови домиком вниз: внутренний край ниже
+      ctx.fillStyle = Lc;
+      for (const e of K.eyes) {
+        const side = e[0] < 0 ? -1 : 1;
+        for (let k = 0; k < 3; k++) {
+          const q = b.point((e[0] + side * (k - 1) * 0.55) * p, (e[1] + 1.35 + k * 0.28) * p);
+          ctx.beginPath();
+          blob(ctx, q.x, q.y, p * 0.3 * dotLook.size);
+          ctx.fill();
+        }
+      }
+    }
+    if (b.mood === 'think') {
+      // мысли-точки над головой: появляются по очереди
+      ctx.fillStyle = b.color;
+      for (let k = 0; k < 3; k++) {
+        const on = (t * 1.8 - k * 0.35) % 1.4;
+        const r = on > 0 && on < 1 ? Math.sin(on * Math.PI) : 0;
+        if (r <= 0.05) continue;
+        // в пределах холста помощника: над плечом, не выше макушки + 2 клетки
+        const q = b.point((2.6 + k * 1.3) * p, (K.h + 0.4 + k * 0.9) * p);
+        ctx.beginPath();
+        blob(ctx, q.x, q.y, p * (0.25 + k * 0.12) * r * dotLook.size);
+        ctx.fill();
+      }
+    }
     if (K.glasses) {
       ctx.strokeStyle = g;
       ctx.lineWidth = p * 0.34;
@@ -705,23 +757,39 @@ export class DotEngine {
     ctx.fillStyle = g;
     if (K.mouth != null && b.mood !== 'shut') {
       const pts: [number, number][] =
-        b.mood === 'happy'
+        open > 0.08
           ? [
-              [-1.3, 0.45],
-              [-0.45, 0],
-              [0.45, 0],
-              [1.3, 0.45],
+              [-0.5, 0.45 * open],
+              [0.5, 0.45 * open],
+              [-0.55, 0],
+              [0.55, 0],
+              [-0.5, -0.45 * open],
+              [0.5, -0.45 * open],
             ]
-          : b.mood === 'sad'
+          : b.mood === 'angry'
             ? [
-                [-1.1, -0.3],
-                [0, 0.1],
-                [1.1, -0.3],
+                [-1.2, -0.45],
+                [-0.4, 0],
+                [0.4, 0],
+                [1.2, -0.45],
               ]
-            : [
-                [-0.5, 0],
-                [0.5, 0],
-              ];
+            : b.mood === 'happy'
+              ? [
+                  [-1.3, 0.45],
+                  [-0.45, 0],
+                  [0.45, 0],
+                  [1.3, 0.45],
+                ]
+              : b.mood === 'sad'
+                ? [
+                    [-1.1, -0.3],
+                    [0, 0.1],
+                    [1.1, -0.3],
+                  ]
+                : [
+                    [-0.5, 0],
+                    [0.5, 0],
+                  ];
       for (const m of pts) {
         const q = b.point(m[0] * p, (K.mouth + m[1]) * p);
         ctx.beginPath();
@@ -730,9 +798,11 @@ export class DotEngine {
       }
     }
     if (K.beak != null) {
-      const tilt = b.mood === 'happy' ? -0.35 : b.mood === 'sad' ? 0.35 : 0;
+      const tilt = b.mood === 'happy' ? -0.35 : b.mood === 'sad' || b.mood === 'angry' ? 0.35 : 0;
       for (let k = 0; k < 7; k++) {
-        const q = b.point((0.4 + k) * p, (K.beak - tilt * k) * p);
+        // говорит — клюв приоткрывается: кончик вверх-вниз
+        const gap = k >= 3 ? open * 0.5 * (k - 2) * 0.35 : 0;
+        const q = b.point((0.4 + k) * p, (K.beak - tilt * k + gap) * p);
         ctx.fillStyle = k < 3 ? g : Lc;
         ctx.beginPath();
         blob(ctx, q.x, q.y, p * (k < 3 ? 0.42 : 0.36) * dotLook.size);

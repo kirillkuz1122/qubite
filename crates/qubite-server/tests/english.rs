@@ -1,0 +1,297 @@
+//! «Английский» через настоящий HTTP-сервер (ENG-001): экран, разговор,
+//! голос в base64, речь MP3, отказ с распознанным текстом, итог в памяти.
+//! Модель и ElevenLabs — поддельные.
+
+mod common;
+
+use std::{net::SocketAddr, sync::Arc};
+
+use base64::Engine;
+use common::{Browser, EMAIL, PASSWORD};
+use qubite_ai::{
+    AiConfig, Gateway, MockHeard, MockProvider, MockStep, MockVoice,
+    admin::{self, LimitScope, Metric, ModelSpec, Period, ProviderSpec},
+    catalog, elevenlabs,
+};
+use qubite_auth::Passwords;
+use qubite_server::{AppState, auth::AuthSettings};
+use qubite_testkit::TestDb;
+use serde_json::{Value, json};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+fn reply(value: Value) -> MockStep {
+    MockStep::Reply {
+        text: value.to_string(),
+        tokens_in: 200,
+        tokens_out: 60,
+    }
+}
+
+async fn gateway(
+    pool: &PgPool,
+    owner: Uuid,
+    steps: Vec<MockStep>,
+    heard: Vec<MockHeard>,
+) -> (Gateway, Arc<MockVoice>) {
+    let console = qubite_policy::decide_owner(pool, &qubite_policy::Subject::account(owner, None))
+        .await
+        .unwrap();
+    admin::upsert_provider(
+        pool,
+        &console,
+        ProviderSpec {
+            id: "mock",
+            kind: "mock",
+            base_url: "",
+            enabled: true,
+        },
+    )
+    .await
+    .unwrap();
+    admin::upsert_model(
+        pool,
+        &console,
+        ModelSpec {
+            id: "mock-tutor",
+            provider_id: "mock",
+            external_id: "mock-model",
+            price_in_per_mtok: 0,
+            price_out_per_mtok: 1_000_000,
+            context_tokens: 100_000,
+            enabled: true,
+        },
+    )
+    .await
+    .unwrap();
+    admin::set_task_model(pool, &console, "english.tutor", Some("mock-tutor"))
+        .await
+        .unwrap();
+    admin::set_limit(
+        pool,
+        &console,
+        &LimitScope::User(owner),
+        Period::Day,
+        Metric::Usd,
+        10_000_000,
+    )
+    .await
+    .unwrap();
+    catalog::ensure_provider(
+        pool,
+        elevenlabs::PROVIDER_ID,
+        "elevenlabs",
+        elevenlabs::DEFAULT_BASE_URL,
+        true,
+    )
+    .await
+    .unwrap();
+    let model = Arc::new(MockProvider::new(MockStep::Refuse).script(steps));
+    let voice = Arc::new(MockVoice::new().script(heard));
+    (
+        Gateway::new(pool.clone(), AiConfig::default())
+            .with_provider("mock", model)
+            .with_voice(elevenlabs::PROVIDER_ID, voice.clone()),
+        voice,
+    )
+}
+
+async fn serve(state: AppState) -> SocketAddr {
+    let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    address
+}
+
+/// POST без тела, ответ — байты (речь).
+async fn post_bytes(browser: &Browser, address: SocketAddr, path: &str) -> (u16, String, Vec<u8>) {
+    let response = qubite_testkit::http_client()
+        .post(format!("http://{address}{path}"))
+        .header(
+            "cookie",
+            format!(
+                "qubite_session={}; qubite_csrf={}",
+                browser.session.as_deref().unwrap(),
+                browser.csrf.as_deref().unwrap()
+            ),
+        )
+        .header("x-csrf-token", browser.csrf.as_deref().unwrap())
+        .send()
+        .await
+        .unwrap();
+    let status = response.status().as_u16();
+    let kind = response
+        .headers()
+        .get("content-type")
+        .map(|v| v.to_str().unwrap().to_owned())
+        .unwrap_or_default();
+    (status, kind, response.bytes().await.unwrap().to_vec())
+}
+
+#[tokio::test]
+async fn english_conversation_over_http() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap()
+        .id;
+    let (gateway, voice) = gateway(
+        pool,
+        owner,
+        vec![
+            reply(json!({
+                "say": "\"Yesterday I go\"? Went. Say it again: Yesterday I went home.",
+                "verdict": "mistake",
+                "mistakes": [{"wrong": "Yesterday I go", "right": "Yesterday I went", "why": "прошлое — went"}],
+                "repeat": "Yesterday I went home."
+            })),
+            MockStep::Refuse,
+        ],
+        vec![
+            MockHeard::Text {
+                text: "Yesterday I go home".into(),
+                seconds: 2.0,
+            },
+            MockHeard::Text {
+                text: "Yesterday I went home".into(),
+                seconds: 2.0,
+            },
+        ],
+    )
+    .await;
+    let address =
+        serve(AppState::with_auth(db.clone(), AuthSettings::default()).with_ai(Arc::new(gateway)))
+            .await;
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    let screen = me.get(address, "/api/v1/english").await;
+    assert_eq!(screen.status, 200, "{:?}", screen.body);
+    assert_eq!(screen.body["session"], Value::Null);
+    assert_eq!(screen.body["voice"], json!({"listen": true, "speak": true}));
+
+    let started = me.post(address, "/api/v1/english/session").await;
+    assert_eq!(started.status, 200, "{:?}", started.body);
+    assert_eq!(started.body["messages"][0]["role"], "tutor");
+    let greeting = started.body["messages"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // Голос — base64 в JSON.
+    let audio = base64::engine::general_purpose::STANDARD.encode(b"OPUS-FAKE");
+    let turn = me
+        .post_json(
+            address,
+            "/api/v1/english/turn",
+            json!({"key": Uuid::now_v7(), "audio_base64": audio, "mime": "audio/webm;codecs=opus", "duration_ms": 2100}),
+        )
+        .await;
+    assert_eq!(turn.status, 200, "{:?}", turn.body);
+    assert_eq!(turn.body["learner"]["text"], "Yesterday I go home");
+    assert_eq!(turn.body["learner"]["via"], "voice");
+    assert_eq!(turn.body["tutor"]["verdict"], "mistake");
+    assert_eq!(
+        turn.body["tutor"]["mistakes"][0]["right"],
+        "Yesterday I went"
+    );
+    assert_eq!(turn.body["tutor"]["repeat"], "Yesterday I went home.");
+    let tutor = turn.body["tutor"]["id"].as_str().unwrap().to_owned();
+
+    // Речь — MP3; второй раз — из базы.
+    let (status, kind, bytes) = post_bytes(
+        &me,
+        address,
+        &format!("/api/v1/english/messages/{tutor}/speech"),
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(kind, "audio/mpeg");
+    assert!(bytes.starts_with(b"MOCK-MP3:"));
+    post_bytes(
+        &me,
+        address,
+        &format!("/api/v1/english/messages/{tutor}/speech"),
+    )
+    .await;
+    post_bytes(
+        &me,
+        address,
+        &format!("/api/v1/english/messages/{greeting}/speech"),
+    )
+    .await;
+    assert_eq!(voice.tts_calls(), 2);
+
+    // Модель отказала после распознавания — распознанное возвращается.
+    let failed = me
+        .post_json(
+            address,
+            "/api/v1/english/turn",
+            json!({"key": Uuid::now_v7(), "audio_base64": audio, "mime": "audio/webm", "duration_ms": 2000}),
+        )
+        .await;
+    assert_eq!(failed.status, 409, "{:?}", failed.body);
+    assert_eq!(failed.body["error"], "provider_refused");
+    assert_eq!(failed.body["heard"], "Yesterday I went home");
+
+    // Ни текста, ни записи — или оба — неверный запрос.
+    let bad = me
+        .post_json(
+            address,
+            "/api/v1/english/turn",
+            json!({"key": Uuid::now_v7()}),
+        )
+        .await;
+    assert_eq!(bad.status, 400);
+
+    let screen = me.get(address, "/api/v1/english").await;
+    assert_eq!(screen.body["messages"].as_array().unwrap().len(), 3);
+    assert_eq!(screen.body["messages"][2]["has_speech"], true);
+
+    let done = me.post(address, "/api/v1/english/session/finish").await;
+    assert_eq!(done.status, 200, "{:?}", done.body);
+    assert!(done.body["session"]["memory_action"].is_string());
+    let files = me.get(address, "/api/v1/agent/files").await;
+    assert!(
+        files.body["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["path"] == "Английский.md"),
+        "итог — в папке агента"
+    );
+
+    // Чужой без агента — 403.
+    qubite_auth::accounts::create(
+        pool,
+        &Passwords::default(),
+        qubite_auth::accounts::NewAccount {
+            email: "student@qubite.ru",
+            display_name: "",
+            password: "пароль ученика",
+            email_verified: true,
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    let mut other = Browser::default();
+    other
+        .login(address, "student@qubite.ru", "пароль ученика")
+        .await;
+    assert_eq!(other.get(address, "/api/v1/english").await.status, 403);
+    let (status, _, _) = post_bytes(
+        &other,
+        address,
+        &format!("/api/v1/english/messages/{tutor}/speech"),
+    )
+    .await;
+    assert_eq!(status, 403);
+
+    db.close().await;
+    test_db.drop_db().await;
+}

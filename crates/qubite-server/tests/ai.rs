@@ -76,10 +76,12 @@ async fn setup() -> (TestDb, Database, Uuid) {
 }
 
 async fn enabled_models(db: &Database) -> Vec<String> {
-    sqlx::query_scalar("SELECT id FROM ai_models WHERE enabled ORDER BY id")
-        .fetch_all(db.pool())
-        .await
-        .unwrap()
+    sqlx::query_scalar(
+        "SELECT id FROM ai_models WHERE enabled AND provider_id <> 'elevenlabs' ORDER BY id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap()
 }
 
 #[test]
@@ -90,8 +92,9 @@ fn every_setting_has_a_qubite_ai_env_var_and_safe_defaults() {
         .filter(|a| !matches!(a.get_id().as_str(), "help" | "version"))
     {
         let env = arg.get_env().and_then(|e| e.to_str()).unwrap_or_default();
+        // Голос (ENG-001) — свой провайдер со своими переменными.
         assert!(
-            env.starts_with("QUBITE_AI_"),
+            env.starts_with("QUBITE_AI_") || env.starts_with("QUBITE_ELEVENLABS_"),
             "{:?} без QUBITE_AI_*",
             arg.get_id()
         );
@@ -700,9 +703,18 @@ async fn owner_console_api_for_models() {
         )
         .await;
     assert_eq!(tasks.status, 200, "{:?}", tasks.body);
+    // Голосовые задачи (voice.stt / voice.tts) заводит миграция ENG-001.
+    let text_tasks = |body: &serde_json::Value| -> Vec<serde_json::Value> {
+        body.as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| !t["task"].as_str().unwrap().starts_with("voice."))
+            .cloned()
+            .collect()
+    };
     assert_eq!(
-        tasks.body,
-        serde_json::json!([{ "task": "inbox.triage", "model_id": "anthropic/claude-opus-5.5" }])
+        text_tasks(&tasks.body),
+        [serde_json::json!({ "task": "inbox.triage", "model_id": "anthropic/claude-opus-5.5" })]
     );
     let models = owner.get(address, "/api/owner/ai/models").await;
     let opus = models
@@ -720,7 +732,7 @@ async fn owner_console_api_for_models() {
             serde_json::json!({ "model_id": null }),
         )
         .await;
-    assert_eq!(cleared.body, serde_json::json!([]));
+    assert!(text_tasks(&cleared.body).is_empty());
 
     // Без входа (и не owner) — этих адресов нет.
     let mut stranger = common::Browser::default();

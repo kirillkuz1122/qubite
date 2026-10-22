@@ -3923,6 +3923,218 @@
         }
       }
     },
+    "/api/v1/english": {
+      "get": {
+        "tags": ["english"],
+        "summary": "Экран: идущий разговор, прошлый, итоги и готов ли голос.",
+        "operationId": "english_overview",
+        "responses": {
+          "200": {
+            "description": "Экран «Английский»",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/messages/{id}/speech": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Голос реплики репетитора (MP3). Готовый — бесплатно; новый — через AI-шлюз.",
+        "operationId": "english_speech",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID реплики репетитора",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Речь",
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такой реплики",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Голос не настроен или отказ AI-шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/session": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Начать разговор (или вернуть идущий): репетитор здоровается.",
+        "operationId": "english_start",
+        "responses": {
+          "200": {
+            "description": "Разговор",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishStarted"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/session/finish": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Закончить разговор: итог — в «Английский.md» (строка ленты агента).",
+        "operationId": "english_finish",
+        "responses": {
+          "200": {
+            "description": "Разговор закончен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishFinished"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/turn": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Сказать репетитору: текст или запись голоса (распознаётся через AI-шлюз).",
+        "operationId": "english_turn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishSay"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ репетитора с разбором ошибок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishTurn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пусто, слишком длинно, не расслышал",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа или AI-гранта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Отказ AI-шлюза (бюджет, провайдер); heard — что распознали",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishTurnError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/home": {
       "get": {
         "tags": ["home"],
@@ -6654,6 +6866,308 @@
           }
         }
       },
+      "EnglishFinished": {
+        "type": "object",
+        "description": "Законченный разговор (`null` — нечего было заканчивать).",
+        "properties": {
+          "session": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EnglishMessage": {
+        "type": "object",
+        "description": "Реплика.",
+        "required": [
+          "id",
+          "seq",
+          "role",
+          "text",
+          "via",
+          "mistakes",
+          "repeat",
+          "repeated",
+          "has_speech",
+          "at"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "has_speech": {
+            "type": "boolean",
+            "description": "Голос уже готов (повтор бесплатно)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mistakes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishMistake"
+            }
+          },
+          "repeat": {
+            "type": "string",
+            "description": "Что повторить правильно (пусто — ничего)."
+          },
+          "repeated": {
+            "type": "boolean",
+            "description": "Ученик правильно повторил то, что просили."
+          },
+          "role": {
+            "type": "string",
+            "description": "`learner` — ученик, `tutor` — репетитор."
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "text": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": ["string", "null"],
+            "description": "У репетитора: `ok` — верно, `mistake` — ошибки, `none` — не о языке."
+          },
+          "via": {
+            "type": "string",
+            "description": "У ученика: `text` или `voice`."
+          }
+        }
+      },
+      "EnglishMistake": {
+        "type": "object",
+        "description": "Ошибка ученика: что сказал, как правильно, почему.",
+        "required": ["wrong", "right", "why"],
+        "properties": {
+          "right": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "description": "Почему — по-русски, коротко."
+          },
+          "wrong": {
+            "type": "string"
+          }
+        }
+      },
+      "EnglishOverview": {
+        "type": "object",
+        "description": "Экран «Английский».",
+        "required": ["messages", "totals", "voice"],
+        "properties": {
+          "last": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishSession",
+                "description": "Прошлый законченный разговор."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishMessage"
+            }
+          },
+          "session": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishSession",
+                "description": "Идущий разговор; `null` — не начат."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totals": {
+            "$ref": "#/components/schemas/EnglishTotals"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/EnglishVoice"
+          }
+        }
+      },
+      "EnglishSay": {
+        "type": "object",
+        "description": "Реплика ученика: текст **или** запись голоса.",
+        "required": ["key"],
+        "properties": {
+          "audio_base64": {
+            "type": ["string", "null"],
+            "description": "Запись (base64), до 1,2 МБ."
+          },
+          "duration_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Длина записи, мс (до 120 000).",
+            "minimum": 0
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия с экрана: повтор с тем же ключом не платится дважды."
+          },
+          "mime": {
+            "type": ["string", "null"],
+            "description": "`audio/webm;codecs=opus`, `audio/mp4` …"
+          },
+          "text": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishSession": {
+        "type": "object",
+        "description": "Разговор.",
+        "required": ["id", "started_at", "last_at", "turns", "correct", "mistakes"],
+        "properties": {
+          "correct": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Верно с первого раза."
+          },
+          "finished_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memory_action": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Строка ленты агента: итог записан в «Английский.md»."
+          },
+          "mistakes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "С ошибками."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "turns": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Реплик ученика."
+          }
+        }
+      },
+      "EnglishStarted": {
+        "type": "object",
+        "description": "Начатый (или идущий) разговор.",
+        "required": ["session", "messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishMessage"
+            }
+          },
+          "session": {
+            "$ref": "#/components/schemas/EnglishSession"
+          }
+        }
+      },
+      "EnglishTotals": {
+        "type": "object",
+        "description": "Итоги по всем разговорам.",
+        "required": ["sessions", "turns", "correct", "mistakes"],
+        "properties": {
+          "correct": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mistakes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "turns": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EnglishTurn": {
+        "type": "object",
+        "description": "Ход: реплика ученика и ответ репетитора.",
+        "required": ["session", "learner", "tutor", "cost_usd_micros"],
+        "properties": {
+          "cost_usd_micros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Цена хода (распознавание + модель), миллионные доли доллара."
+          },
+          "learner": {
+            "$ref": "#/components/schemas/EnglishMessage"
+          },
+          "session": {
+            "$ref": "#/components/schemas/EnglishSession"
+          },
+          "tutor": {
+            "$ref": "#/components/schemas/EnglishMessage"
+          }
+        }
+      },
+      "EnglishTurnError": {
+        "type": "object",
+        "description": "Отказ хода: как обычная ошибка, плюс что успели распознать.",
+        "required": ["error", "message"],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "heard": {
+            "type": ["string", "null"],
+            "description": "Распознанный текст, если запись уже распознали, а ответить не вышло:\nэкран кладёт его в поле — можно отправить текстом."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "EnglishVoice": {
+        "type": "object",
+        "description": "Готов ли голос на сервере.",
+        "required": ["listen", "speak"],
+        "properties": {
+          "listen": {
+            "type": "boolean",
+            "description": "Распознавание речи (можно говорить)."
+          },
+          "speak": {
+            "type": "boolean",
+            "description": "Речь репетитора (он говорит вслух)."
+          }
+        }
+      },
       "GrantChange": {
         "allOf": [
           {
@@ -8541,6 +9055,10 @@
     {
       "name": "home",
       "description": "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"
+    },
+    {
+      "name": "english",
+      "description": "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"
     }
   ]
 }

@@ -237,7 +237,8 @@ async fn catalog_sync_applies_allowlist_and_keeps_owner_choice() {
     let env = Env::new().await.with_catalog().await;
     let pool = env.db.pool();
     let models: Vec<(String, bool, i64, i64)> = sqlx::query_as(
-        "SELECT id, enabled, price_in_per_mtok, price_out_per_mtok FROM ai_models ORDER BY id",
+        "SELECT id, enabled, price_in_per_mtok, price_out_per_mtok FROM ai_models \
+         WHERE provider_id = 'openrouter' ORDER BY id",
     )
     .fetch_all(pool)
     .await
@@ -274,11 +275,12 @@ async fn catalog_sync_applies_allowlist_and_keeps_owner_choice() {
     .unwrap();
     assert_eq!(report.enabled, [GEMINI]);
     assert_eq!(report.missing, ["nobody/missing"]);
-    let enabled: Vec<String> =
-        sqlx::query_scalar("SELECT id FROM ai_models WHERE enabled ORDER BY id")
-            .fetch_all(pool)
-            .await
-            .unwrap();
+    let enabled: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM ai_models WHERE enabled AND provider_id = 'openrouter' ORDER BY id",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap();
     assert_eq!(enabled, [GEMINI], "не из списка — выключены");
 
     // Keep: owner выключил модель вручную — обновление цен её не включит.

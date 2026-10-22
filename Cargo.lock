@@ -1526,6 +1526,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-english"
+version = "0.1.0"
+dependencies = [
+ "qubite-agent",
+ "qubite-ai",
+ "qubite-auth",
+ "qubite-db",
+ "qubite-policy",
+ "qubite-testkit",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "qubite-home"
 version = "0.1.0"
 dependencies = [
@@ -1734,6 +1754,7 @@ dependencies = [
  "qubite-bot",
  "qubite-captcha",
  "qubite-db",
+ "qubite-english",
  "qubite-home",
  "qubite-inbox",
  "qubite-jobs",

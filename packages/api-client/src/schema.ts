@@ -1268,6 +1268,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Экран: идущий разговор, прошлый, итоги и готов ли голос. */
+    get: operations['english_overview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/messages/{id}/speech': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Голос реплики репетитора (MP3). Готовый — бесплатно; новый — через AI-шлюз. */
+    post: operations['english_speech'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Начать разговор (или вернуть идущий): репетитор здоровается. */
+    post: operations['english_start'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/session/finish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Закончить разговор: итог — в «Английский.md» (строка ленты агента). */
+    post: operations['english_finish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/turn': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Сказать репетитору: текст или запись голоса (распознаётся через AI-шлюз). */
+    post: operations['english_turn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/home': {
     parameters: {
       query?: never;
@@ -2391,6 +2476,141 @@ export interface components {
       session_id: string;
       /** @description Всегда `Bearer`. */
       token_type: string;
+    };
+    /** @description Законченный разговор (`null` — нечего было заканчивать). */
+    EnglishFinished: {
+      session?: components['schemas']['EnglishSession'] | null;
+    };
+    /** @description Реплика. */
+    EnglishMessage: {
+      /** Format: date-time */
+      at: string;
+      /** @description Голос уже готов (повтор бесплатно). */
+      has_speech: boolean;
+      /** Format: uuid */
+      id: string;
+      mistakes: components['schemas']['EnglishMistake'][];
+      /** @description Что повторить правильно (пусто — ничего). */
+      repeat: string;
+      /** @description Ученик правильно повторил то, что просили. */
+      repeated: boolean;
+      /** @description `learner` — ученик, `tutor` — репетитор. */
+      role: string;
+      /** Format: int64 */
+      seq: number;
+      text: string;
+      /** @description У репетитора: `ok` — верно, `mistake` — ошибки, `none` — не о языке. */
+      verdict?: string | null;
+      /** @description У ученика: `text` или `voice`. */
+      via: string;
+    };
+    /** @description Ошибка ученика: что сказал, как правильно, почему. */
+    EnglishMistake: {
+      right: string;
+      /** @description Почему — по-русски, коротко. */
+      why: string;
+      wrong: string;
+    };
+    /** @description Экран «Английский». */
+    EnglishOverview: {
+      last?: components['schemas']['EnglishSession'] | null;
+      messages: components['schemas']['EnglishMessage'][];
+      session?: components['schemas']['EnglishSession'] | null;
+      totals: components['schemas']['EnglishTotals'];
+      voice: components['schemas']['EnglishVoice'];
+    };
+    /** @description Реплика ученика: текст **или** запись голоса. */
+    EnglishSay: {
+      /** @description Запись (base64), до 1,2 МБ. */
+      audio_base64?: string | null;
+      /**
+       * Format: int64
+       * @description Длина записи, мс (до 120 000).
+       */
+      duration_ms?: number | null;
+      /**
+       * Format: uuid
+       * @description ID действия с экрана: повтор с тем же ключом не платится дважды.
+       */
+      key: string;
+      /** @description `audio/webm;codecs=opus`, `audio/mp4` … */
+      mime?: string | null;
+      text?: string | null;
+    };
+    /** @description Разговор. */
+    EnglishSession: {
+      /**
+       * Format: int32
+       * @description Верно с первого раза.
+       */
+      correct: number;
+      /** Format: date-time */
+      finished_at?: string | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      last_at: string;
+      /**
+       * Format: uuid
+       * @description Строка ленты агента: итог записан в «Английский.md».
+       */
+      memory_action?: string | null;
+      /**
+       * Format: int32
+       * @description С ошибками.
+       */
+      mistakes: number;
+      /** Format: date-time */
+      started_at: string;
+      /**
+       * Format: int32
+       * @description Реплик ученика.
+       */
+      turns: number;
+    };
+    /** @description Начатый (или идущий) разговор. */
+    EnglishStarted: {
+      messages: components['schemas']['EnglishMessage'][];
+      session: components['schemas']['EnglishSession'];
+    };
+    /** @description Итоги по всем разговорам. */
+    EnglishTotals: {
+      /** Format: int64 */
+      correct: number;
+      /** Format: int64 */
+      mistakes: number;
+      /** Format: int64 */
+      sessions: number;
+      /** Format: int64 */
+      turns: number;
+    };
+    /** @description Ход: реплика ученика и ответ репетитора. */
+    EnglishTurn: {
+      /**
+       * Format: int64
+       * @description Цена хода (распознавание + модель), миллионные доли доллара.
+       */
+      cost_usd_micros: number;
+      learner: components['schemas']['EnglishMessage'];
+      session: components['schemas']['EnglishSession'];
+      tutor: components['schemas']['EnglishMessage'];
+    };
+    /** @description Отказ хода: как обычная ошибка, плюс что успели распознать. */
+    EnglishTurnError: {
+      error: string;
+      /**
+       * @description Распознанный текст, если запись уже распознали, а ответить не вышло:
+       *     экран кладёт его в поле — можно отправить текстом.
+       */
+      heard?: string | null;
+      message: string;
+    };
+    /** @description Готов ли голос на сервере. */
+    EnglishVoice: {
+      /** @description Распознавание речи (можно говорить). */
+      listen: boolean;
+      /** @description Речь репетитора (он говорит вслух). */
+      speak: boolean;
     };
     /** @description Какие права выдать. Все `false` — то же, что отзыв. */
     GrantChange: components['schemas']['ModuleFlags'] & {
@@ -6430,6 +6650,194 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Экран «Английский» */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishOverview'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_speech: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID реплики репетитора */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Речь */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'audio/mpeg': number[];
+        };
+      };
+      /** @description Нет такой реплики */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Голос не настроен или отказ AI-шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Разговор */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishStarted'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_finish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Разговор закончен */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishFinished'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_turn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishSay'];
+      };
+    };
+    responses: {
+      /** @description Ответ репетитора с разбором ошибок */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishTurn'];
+        };
+      };
+      /** @description Пусто, слишком длинно, не расслышал */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа или AI-гранта */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Отказ AI-шлюза (бюджет, провайдер); heard — что распознали */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishTurnError'];
         };
       };
     };

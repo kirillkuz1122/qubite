@@ -21,10 +21,12 @@ pub mod admin;
 pub mod budget;
 pub mod catalog;
 pub mod chatgpt;
+pub mod elevenlabs;
 pub mod guard;
 pub mod openrouter;
 pub mod provider;
 pub mod secret;
+pub mod voice;
 
 use std::{
     collections::HashMap,
@@ -43,6 +45,9 @@ pub use guard::Untrusted;
 pub use provider::{
     ChatMessage, MockProvider, MockStep, Provider, ProviderCall, ProviderError, ProviderReply,
     Role, Routing,
+};
+pub use voice::{
+    ListenRequest, MockHeard, MockVoice, SpeakRequest, Speech, Transcript, VoiceProvider,
 };
 
 /// Микродоллары: 1 $ = 1 000 000.
@@ -249,6 +254,61 @@ struct ModelRow {
     provider_enabled: bool,
     routing_providers: Vec<String>,
     data_collection: Option<String>,
+    /// `text` — модель; `stt` — распознавание речи (единица — секунда
+    /// звука), `tts` — синтез речи (единица — знак текста), см. [`voice`].
+    capabilities: Vec<String>,
+}
+
+/// Что выполнить у провайдера.
+enum Work<'a> {
+    Chat {
+        guarded: &'a guard::Guarded,
+        max_output_tokens: u32,
+    },
+    /// Распознать речь.
+    Listen(&'a voice::Listen),
+    /// Сказать текст голосом.
+    Speak(&'a voice::Say),
+}
+
+impl Work<'_> {
+    /// Подходит ли модель для этой работы: голосовые модели — только для
+    /// голоса, текстовые — только для текста.
+    fn fits(&self, capabilities: &[String]) -> bool {
+        let has = |name: &str| capabilities.iter().any(|c| c == name);
+        match self {
+            Self::Chat { .. } => !has(voice::STT) && !has(voice::TTS),
+            Self::Listen(_) => has(voice::STT),
+            Self::Speak(_) => has(voice::TTS),
+        }
+    }
+}
+
+/// Ответ провайдера на [`Work`].
+enum Done {
+    Chat(ProviderReply),
+    Listen(voice::Heard),
+    Speak(voice::Spoken),
+}
+
+/// Сколько израсходовано: токены у моделей, секунды или знаки у голоса.
+struct Usage {
+    units_in: u64,
+    units_out: u64,
+    reported_usd: Option<i64>,
+}
+
+/// Один платный вызов для [`Gateway::run`].
+struct Plan<'a> {
+    request_id: &'a str,
+    model: &'a str,
+    fingerprint: String,
+    /// Оценка входа сверху (токены, секунды или знаки).
+    input_units: u64,
+    max_output_units: u64,
+    job_id: Option<Uuid>,
+    signals: Vec<&'static str>,
+    work: Work<'a>,
 }
 
 /// Стоимость в микродолларах, округлённая вверх.
@@ -270,6 +330,8 @@ pub struct Gateway {
     config: AiConfig,
     timezone: RwLock<String>,
     providers: HashMap<String, Arc<dyn Provider>>,
+    /// Голосовые адаптеры: распознавание и речь ([`voice`]).
+    voices: HashMap<String, Arc<dyn voice::VoiceProvider>>,
     /// Секрет процесса для «отпечатков» запросов: в базе не текст и не хеш,
     /// который можно сверить с догадкой.
     fingerprint_key: ring::hmac::Key,
@@ -285,6 +347,7 @@ impl Gateway {
             pool,
             config,
             providers: HashMap::new(),
+            voices: HashMap::new(),
             fingerprint_key,
         }
     }
@@ -303,19 +366,12 @@ impl Gateway {
         .ok_or_else(|| AiError::NoModelForTask(task.into()))
     }
 
-    fn fingerprint(&self, request: &AiRequest) -> String {
+    /// «Отпечаток» запроса: HMAC частей с длинами (части не склеятся в другую).
+    fn fingerprint<'p>(&self, parts: impl IntoIterator<Item = &'p [u8]>) -> String {
         let mut ctx = ring::hmac::Context::with_key(&self.fingerprint_key);
-        let parts = [request.model.as_str(), request.prompt.as_str()]
-            .into_iter()
-            .chain(
-                request
-                    .untrusted
-                    .iter()
-                    .flat_map(|u| [u.source.as_str(), u.text.as_str()]),
-            );
         for part in parts {
             ctx.update(&(part.len() as u64).to_le_bytes());
-            ctx.update(part.as_bytes());
+            ctx.update(part);
         }
         ctx.sign()
             .as_ref()
@@ -403,25 +459,139 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: AiRequest,
     ) -> Result<AiResponse> {
-        if request.request_id.is_empty() || request.request_id.len() > 200 {
+        let guarded =
+            guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
+        let fingerprint = self.fingerprint(
+            [request.model.as_str(), request.prompt.as_str()]
+                .into_iter()
+                .chain(
+                    request
+                        .untrusted
+                        .iter()
+                        .flat_map(|u| [u.source.as_str(), u.text.as_str()]),
+                )
+                .map(str::as_bytes),
+        );
+        let input_tokens = guarded
+            .input_tokens_upper_bound()
+            .max(u64::from(request.input_tokens));
+        let (call_id, done, actual) = self
+            .run(
+                auth,
+                Plan {
+                    request_id: &request.request_id,
+                    model: &request.model,
+                    fingerprint,
+                    input_units: input_tokens,
+                    max_output_units: u64::from(request.max_output_tokens),
+                    job_id: request.job_id,
+                    signals: guarded.signals.clone(),
+                    work: Work::Chat {
+                        guarded: &guarded,
+                        max_output_tokens: request.max_output_tokens,
+                    },
+                },
+            )
+            .await?;
+        let Done::Chat(reply) = done else {
+            unreachable!("на текстовый запрос — текстовый ответ")
+        };
+        let mut warnings = guarded.signals.clone();
+        warnings.extend(guarded.check_output(&reply.text));
+        Ok(AiResponse {
+            call_id,
+            text: reply.text,
+            tokens_in: reply.tokens_in,
+            tokens_out: reply.tokens_out,
+            cost_usd: actual,
+            warnings: warnings.into_iter().map(Into::into).collect(),
+        })
+    }
+
+    /// Есть ли у шлюза адаптер, который выполнит эту работу у провайдера модели.
+    fn can_run(&self, provider_id: &str, work: &Work<'_>) -> bool {
+        match work {
+            Work::Chat { .. } => self.providers.contains_key(provider_id),
+            Work::Listen(_) | Work::Speak(_) => self.voices.contains_key(provider_id),
+        }
+    }
+
+    /// Вызвать провайдера (уже после резерва и отметки «отправляется»).
+    async fn send(
+        &self,
+        model: &ModelRow,
+        account_id: Uuid,
+        input_units: u64,
+        work: &Work<'_>,
+    ) -> std::result::Result<Result<Done, ProviderError>, tokio::time::error::Elapsed> {
+        match work {
+            Work::Chat {
+                guarded,
+                max_output_tokens,
+            } => {
+                let provider = self.providers[&model.provider_id].clone();
+                let call = ProviderCall {
+                    external_id: model.external_id.clone(),
+                    messages: guarded.messages.clone(),
+                    max_output_tokens: *max_output_tokens,
+                    input_tokens_estimate: input_units,
+                    routing: Routing {
+                        providers: model.routing_providers.clone(),
+                        data_collection: model.data_collection.clone(),
+                        max_price_in_per_mtok: model.price_in_per_mtok,
+                        max_price_out_per_mtok: model.price_out_per_mtok,
+                    },
+                    account_id,
+                };
+                tokio::time::timeout(self.config.timeout, provider.complete(&call))
+                    .await
+                    .map(|reply| reply.map(Done::Chat))
+            }
+            Work::Listen(listen) => {
+                let provider = self.voices[&model.provider_id].clone();
+                let call = voice::SttCall {
+                    external_id: model.external_id.clone(),
+                    audio: listen.audio.clone(),
+                    mime: listen.mime.clone(),
+                    language: listen.language.clone(),
+                    account_id,
+                };
+                tokio::time::timeout(self.config.timeout, provider.transcribe(&call))
+                    .await
+                    .map(|heard| heard.map(Done::Listen))
+            }
+            Work::Speak(say) => {
+                let provider = self.voices[&model.provider_id].clone();
+                let call = voice::TtsCall {
+                    external_id: model.external_id.clone(),
+                    voice: say.voice.clone(),
+                    text: say.text.clone(),
+                    account_id,
+                };
+                tokio::time::timeout(self.config.timeout, provider.speak(&call))
+                    .await
+                    .map(|spoken| spoken.map(Done::Speak))
+            }
+        }
+    }
+
+    /// Общий путь любого платного вызова: права → модель → защита от
+    /// зацикливания → резерв и «отправляется» → провайдер → списание.
+    /// Возвращает ID вызова, ответ провайдера и списанную сумму.
+    async fn run(&self, auth: &Authorized<UseAi>, plan: Plan<'_>) -> Result<(Uuid, Done, i64)> {
+        if plan.request_id.is_empty() || plan.request_id.len() > 200 {
             return Err(AiError::Invalid("request_id: от 1 до 200 символов".into()));
         }
         if let Some(status) = sqlx::query_scalar::<_, String>(
             "SELECT status FROM ai_calls WHERE account_id = $1 AND request_id = $2",
         )
         .bind(auth.account_id())
-        .bind(&request.request_id)
+        .bind(plan.request_id)
         .fetch_optional(&self.pool)
         .await?
         {
             return Err(AiError::DuplicateRequest { status });
         }
-        let guarded =
-            guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
-        let fingerprint = self.fingerprint(&request);
-        let input_tokens = guarded
-            .input_tokens_upper_bound()
-            .max(u64::from(request.input_tokens));
 
         let attempts = self.config.retry_delays.len() + 1;
         let mut call_id: Option<Uuid> = None;
@@ -437,27 +607,26 @@ impl Gateway {
                     return Err(error.into());
                 }
             };
-            let model = self.load_model(&request.model).await?;
-            let provider = self
-                .providers
-                .get(&model.provider_id)
-                .cloned()
-                .ok_or(AiError::ModelNotAllowed)?;
+            let model = self.load_model(plan.model).await?;
+            if !plan.work.fits(&model.capabilities) || !self.can_run(&model.provider_id, &plan.work)
+            {
+                return Err(AiError::ModelNotAllowed);
+            }
 
             let estimate_usd = cost(
-                input_tokens,
-                u64::from(request.max_output_tokens),
+                plan.input_units,
+                plan.max_output_units,
                 model.price_in_per_mtok,
                 model.price_out_per_mtok,
             );
-            let estimate_tokens = i64::try_from(input_tokens)
+            let estimate_tokens = i64::try_from(plan.input_units)
                 .unwrap_or(i64::MAX)
-                .saturating_add(i64::from(request.max_output_tokens));
+                .saturating_add(i64::try_from(plan.max_output_units).unwrap_or(i64::MAX));
 
             // Резерв и отметка «отправляется» — до вызова, одной транзакцией.
             let mut tx = self.pool.begin().await?;
             if call_id.is_none() {
-                self.loop_guard(&mut tx, auth.account_id(), request.job_id, &fingerprint)
+                self.loop_guard(&mut tx, auth.account_id(), plan.job_id, &plan.fingerprint)
                     .await?;
             }
             let keys =
@@ -497,15 +666,15 @@ impl Gateway {
                          VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10)",
                     )
                     .bind(id)
-                    .bind(&request.request_id)
+                    .bind(plan.request_id)
                     .bind(auth.account_id())
                     .bind(auth.module().as_str())
                     .bind(&model.id)
                     .bind(estimate_usd)
                     .bind(estimate_tokens)
                     .bind(&reservations_json)
-                    .bind(request.job_id)
-                    .bind(&fingerprint)
+                    .bind(plan.job_id)
+                    .bind(&plan.fingerprint)
                     .execute(&mut *tx)
                     .await;
                     if let Err(sqlx::Error::Database(db)) = &inserted
@@ -542,33 +711,47 @@ impl Gateway {
                 serde_json::json!({
                     "attempt": attempt,
                     "estimate_usd": estimate_usd,
-                    "guard": guarded.signals,
+                    "guard": plan.signals,
                 }),
             )
             .await?;
             tx.commit().await?;
 
-            let call = ProviderCall {
-                external_id: model.external_id.clone(),
-                messages: guarded.messages.clone(),
-                max_output_tokens: request.max_output_tokens,
-                input_tokens_estimate: input_tokens,
-                routing: Routing {
-                    providers: model.routing_providers.clone(),
-                    data_collection: model.data_collection.clone(),
-                    max_price_in_per_mtok: model.price_in_per_mtok,
-                    max_price_out_per_mtok: model.price_out_per_mtok,
-                },
-                account_id: auth.account_id(),
-            };
-            let outcome = tokio::time::timeout(self.config.timeout, provider.complete(&call)).await;
+            let outcome = self
+                .send(&model, auth.account_id(), plan.input_units, &plan.work)
+                .await;
             match outcome {
-                Ok(Ok(reply)) => {
-                    let mut warnings = guarded.signals.clone();
-                    warnings.extend(guarded.check_output(&reply.text));
-                    return self
-                        .settle_success(id, &model, &reservations, estimate_usd, reply, warnings)
-                        .await;
+                Ok(Ok(done)) => {
+                    let (usage, leaked) = match (&done, &plan.work) {
+                        (Done::Chat(reply), Work::Chat { guarded, .. }) => (
+                            Usage {
+                                units_in: reply.tokens_in,
+                                units_out: reply.tokens_out,
+                                reported_usd: reply.cost_usd,
+                            },
+                            !guarded.check_output(&reply.text).is_empty(),
+                        ),
+                        (Done::Listen(heard), Work::Listen(listen)) => (
+                            Usage {
+                                units_in: voice::billed_seconds(heard, listen),
+                                units_out: 0,
+                                reported_usd: None,
+                            },
+                            false,
+                        ),
+                        _ => (
+                            Usage {
+                                units_in: plan.input_units,
+                                units_out: 0,
+                                reported_usd: None,
+                            },
+                            false,
+                        ),
+                    };
+                    let actual = self
+                        .settle_success(id, &model, &reservations, estimate_usd, usage, leaked)
+                        .await?;
+                    return Ok((id, done, actual));
                 }
                 Ok(Err(ProviderError::UsageLimit(reason))) => {
                     self.release_not_sent(id, &reservations, attempt, "usage_limit", &reason)
@@ -644,7 +827,7 @@ impl Gateway {
         let model: Option<ModelRow> = sqlx::query_as(
             "SELECT m.id, m.provider_id, m.external_id, m.price_in_per_mtok, m.price_out_per_mtok, \
                     m.enabled, m.blocked_reason, p.enabled AS provider_enabled, \
-                    m.routing_providers, m.data_collection \
+                    m.routing_providers, m.data_collection, m.capabilities \
              FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id WHERE m.id = $1",
         )
         .bind(model_id)
@@ -666,18 +849,18 @@ impl Gateway {
         model: &ModelRow,
         reservations: &[Reservation],
         estimate_usd: i64,
-        reply: ProviderReply,
-        warnings: Vec<&'static str>,
-    ) -> Result<AiResponse> {
+        usage: Usage,
+        leaked: bool,
+    ) -> Result<i64> {
         // Списывается большее: расчёт по каталогу или стоимость от провайдера.
         let actual = cost(
-            reply.tokens_in,
-            reply.tokens_out,
+            usage.units_in,
+            usage.units_out,
             model.price_in_per_mtok,
             model.price_out_per_mtok,
         )
-        .max(reply.cost_usd.unwrap_or(0));
-        let tokens = i64::try_from(reply.tokens_in + reply.tokens_out).unwrap_or(i64::MAX);
+        .max(usage.reported_usd.unwrap_or(0));
+        let tokens = i64::try_from(usage.units_in + usage.units_out).unwrap_or(i64::MAX);
         let mut tx = self.pool.begin().await?;
         budget::settle(&mut tx, reservations, actual, tokens).await?;
         sqlx::query(
@@ -686,18 +869,18 @@ impl Gateway {
         )
         .bind(id)
         .bind(actual)
-        .bind(i64::try_from(reply.tokens_in).unwrap_or(i64::MAX))
-        .bind(i64::try_from(reply.tokens_out).unwrap_or(i64::MAX))
+        .bind(i64::try_from(usage.units_in).unwrap_or(i64::MAX))
+        .bind(i64::try_from(usage.units_out).unwrap_or(i64::MAX))
         .execute(&mut *tx)
         .await?;
         event(
             &mut tx,
             id,
             "call.settled",
-            serde_json::json!({ "actual_usd": actual, "reported_usd": reply.cost_usd }),
+            serde_json::json!({ "actual_usd": actual, "reported_usd": usage.reported_usd }),
         )
         .await?;
-        if warnings.contains(&guard::signal::LEAKED) {
+        if leaked {
             event(
                 &mut tx,
                 id,
@@ -711,14 +894,7 @@ impl Gateway {
             block_model(&mut tx, &model.id, id, estimate_usd, actual).await?;
         }
         tx.commit().await?;
-        Ok(AiResponse {
-            call_id: id,
-            text: reply.text,
-            tokens_in: reply.tokens_in,
-            tokens_out: reply.tokens_out,
-            cost_usd: actual,
-            warnings: warnings.into_iter().map(Into::into).collect(),
-        })
+        Ok(actual)
     }
 
     async fn mark_unknown(&self, id: Uuid, reason: &str) -> Result<()> {
@@ -759,11 +935,15 @@ impl Gateway {
         Ok(())
     }
 
-    /// Другие разрешённые модели — пользователь выбирает сам (D-076).
+    /// Другие разрешённые модели того же вида (текст, распознавание, речь) —
+    /// пользователь выбирает сам (D-076).
     async fn alternatives(&self, except: &str) -> Result<Vec<String>> {
         Ok(sqlx::query_scalar(
             "SELECT m.id FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id \
-             WHERE m.enabled AND p.enabled AND m.blocked_reason IS NULL AND m.id <> $1 ORDER BY m.id",
+             WHERE m.enabled AND p.enabled AND m.blocked_reason IS NULL AND m.id <> $1 \
+               AND ('stt' = ANY(m.capabilities)) = coalesce((SELECT 'stt' = ANY(capabilities) FROM ai_models WHERE id = $1), false) \
+               AND ('tts' = ANY(m.capabilities)) = coalesce((SELECT 'tts' = ANY(capabilities) FROM ai_models WHERE id = $1), false) \
+             ORDER BY m.id",
         )
         .bind(except)
         .fetch_all(&self.pool)

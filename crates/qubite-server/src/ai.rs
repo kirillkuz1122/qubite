@@ -19,6 +19,7 @@ use qubite_ai::{
     admin::{self, LimitScope, Metric, Period},
     catalog::{self, Allowlist, STARTER_MODELS, SyncReport},
     chatgpt::{self, ChatGpt, ChatGptConfig},
+    elevenlabs::{self, ElevenLabs, ElevenLabsConfig},
     openrouter::{self, OpenRouter, OpenRouterConfig},
     secret::SecretBox,
 };
@@ -173,6 +174,25 @@ pub struct AiArgs {
     #[arg(long = "ai-chatgpt-api-url", env = "QUBITE_AI_CHATGPT_API_URL",
           default_value = qubite_ai::chatgpt::API_BASE)]
     pub chatgpt_api_url: String,
+
+    /// Ключ ElevenLabs — голос: распознавание речи и речь (ENG-001). Задавать
+    /// только переменной окружения. Без ключа голос выключен, всё работает текстом.
+    #[arg(
+        long = "elevenlabs-api-key",
+        env = "QUBITE_ELEVENLABS_API_KEY",
+        hide_env_values = true
+    )]
+    pub elevenlabs_api_key: Option<String>,
+
+    /// Адрес API ElevenLabs (для проверки — подставной сервер).
+    #[arg(long = "elevenlabs-base-url", env = "QUBITE_ELEVENLABS_BASE_URL",
+          default_value = elevenlabs::DEFAULT_BASE_URL)]
+    pub elevenlabs_base_url: String,
+
+    /// Голос репетитора английского (ID голоса ElevenLabs).
+    #[arg(long = "elevenlabs-voice-id", env = "QUBITE_ELEVENLABS_VOICE_ID",
+          default_value = elevenlabs::DEFAULT_VOICE)]
+    pub elevenlabs_voice_id: String,
 }
 
 impl AiArgs {
@@ -217,6 +237,31 @@ impl AiArgs {
             )),
             None => Ok(None),
         }
+    }
+
+    /// Настройки «Английского»: голос репетитора.
+    pub fn english(&self) -> qubite_english::Settings {
+        qubite_english::Settings {
+            voice: self.elevenlabs_voice_id.clone(),
+            ..qubite_english::Settings::default()
+        }
+    }
+
+    fn elevenlabs(&self) -> anyhow::Result<Option<Arc<ElevenLabs>>> {
+        let Some(key) = self
+            .elevenlabs_api_key
+            .as_deref()
+            .filter(|k| !k.trim().is_empty())
+        else {
+            return Ok(None);
+        };
+        let config = ElevenLabsConfig {
+            base_url: self.elevenlabs_base_url.clone(),
+            ..ElevenLabsConfig::new(Secret::new(key.trim()))
+        };
+        Ok(Some(Arc::new(
+            ElevenLabs::new(config).map_err(anyhow::Error::msg)?,
+        )))
     }
 
     fn openrouter(&self) -> anyhow::Result<Option<Arc<OpenRouter>>> {
@@ -392,6 +437,20 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
     let chatgpt = start_chatgpt(pool, args).await?;
     if let Some(provider) = &chatgpt {
         gateway = gateway.with_provider(chatgpt::PROVIDER_ID, provider.clone());
+    }
+    // Голос (ENG-001): провайдер включён, только пока есть ключ.
+    let voice = args.elevenlabs()?;
+    catalog::ensure_provider(
+        pool,
+        elevenlabs::PROVIDER_ID,
+        "elevenlabs",
+        &args.elevenlabs_base_url,
+        voice.is_some(),
+    )
+    .await?;
+    match voice {
+        Some(provider) => gateway = gateway.with_voice(elevenlabs::PROVIDER_ID, provider),
+        None => tracing::info!("голос выключен: не задан QUBITE_ELEVENLABS_API_KEY"),
     }
     Ok(AiRuntime {
         gateway: Arc::new(gateway),

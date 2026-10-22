@@ -1659,3 +1659,97 @@ button.proj {
 .q-sheet.bell-sheet {
   max-height: calc(100vh - 128px);
 }
+
+/* «Английский» (ENG-001): Нейт и разговор с ним. */
+.eng {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.eng-stage {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 18px);
+  background: var(--q-panel);
+}
+.eng-stage > canvas {
+  flex: none;
+}
+.eng-who {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.eng-who b {
+  font-size: 16px;
+}
+.eng-phase {
+  color: var(--q-mute);
+  font-size: 14px;
+}
+.eng-score {
+  color: var(--q-dim);
+  font-size: 12px;
+}
+.eng-start {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.eng-start > p {
+  margin: 0;
+}
+.eng-last {
+  color: var(--q-mute);
+  font-size: 14px;
+}
+.eng-fix {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.eng-fix s {
+  color: var(--q-dim);
+}
+.eng-fix b {
+  color: var(--q-green);
+  font-weight: 600;
+}
+.eng-why {
+  color: var(--q-mute);
+}
+.eng-repeat {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+.eng-repeat b {
+  color: var(--q-orange);
+  font-weight: 600;
+}
+.eng-play {
+  margin-top: 8px;
+}
+.talk-msg[data-verdict='mistake'] {
+  border-color: var(--q-orange);
+}
+.eng-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  justify-items: start;
+}
+.eng-form {
+  justify-self: stretch;
+}
+@media (min-width: 900px) {
+  .eng-stage {
+    padding: 16px 24px;
+  }
+}
