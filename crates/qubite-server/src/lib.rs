@@ -621,7 +621,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/home/news", get(home::news))
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/session", post(english::english_start))
-        .route("/api/v1/english/session/finish", post(english::english_finish))
+        .route(
+            "/api/v1/english/session/finish",
+            post(english::english_finish),
+        )
         // Запись голоса в base64 — до 1,6 МБ: тело больше обычного лимита.
         .route(
             "/api/v1/english/turn",
