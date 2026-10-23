@@ -719,11 +719,32 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             auth::cookie_domain_layer,
         ))
         .with_state(state)
+        .layer(middleware::map_response(security_headers))
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             Duration::from_secs(30),
         ))
         .layer(TraceLayer::new_for_http())
+}
+
+/// Заголовки безопасности на каждый ответ (SEC-001, D-545): браузер не угадывает
+/// тип содержимого (`nosniff`), ответы сервера не встраиваются в чужие сайты
+/// (защита от «невидимой кнопки»), адрес запроса не уходит другим сайтам.
+/// Свои заголовки обработчика (например, `Content-Security-Policy` у файла
+/// проекта) не перезаписываются.
+async fn security_headers(mut response: axum::response::Response) -> axum::response::Response {
+    use axum::http::{HeaderValue, header};
+    let headers = response.headers_mut();
+    for (name, value) in [
+        (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+        (header::X_FRAME_OPTIONS, "SAMEORIGIN"),
+        (header::REFERRER_POLICY, "same-origin"),
+    ] {
+        headers
+            .entry(name)
+            .or_insert(HeaderValue::from_static(value));
+    }
+    response
 }
 
 #[derive(Debug, Serialize, ToSchema)]

@@ -26,6 +26,10 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
+# Токену CI — только чтение кода (SEC-001): проверкам писать в репозиторий не нужно.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest

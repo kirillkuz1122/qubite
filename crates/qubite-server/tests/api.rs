@@ -157,3 +157,23 @@ fn openapi_json_matches_served_document() {
     assert!(printed["paths"]["/api/health"]["get"].is_object());
     assert_eq!(printed["info"]["title"], "Qubite API");
 }
+
+/// SEC-001 (D-545): у каждого ответа — заголовки безопасности, и у ошибок тоже.
+#[tokio::test]
+async fn every_response_has_security_headers() {
+    let mut config = DbConfig::new(Secret::new("postgres://nobody:nothing@127.0.0.1:1/none"));
+    config.acquire_timeout = Duration::from_millis(300);
+    let address = spawn_server(Database::connect_lazy(&config).unwrap()).await;
+
+    for path in ["/api/health", "/api/no-such-route", "/api/auth/me"] {
+        let response = qubite_testkit::http_client()
+            .get(format!("http://{address}{path}"))
+            .send()
+            .await
+            .unwrap();
+        let headers = response.headers();
+        assert_eq!(headers["x-content-type-options"], "nosniff", "{path}");
+        assert_eq!(headers["x-frame-options"], "SAMEORIGIN", "{path}");
+        assert_eq!(headers["referrer-policy"], "same-origin", "{path}");
+    }
+}

@@ -16,6 +16,10 @@ concurrency:
   group: legacy-${{ github.ref }}
   cancel-in-progress: true
 
+# Токену CI — только чтение кода (SEC-001): проверкам писать в репозиторий не нужно.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
