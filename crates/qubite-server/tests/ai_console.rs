@@ -63,6 +63,11 @@ async fn student(db: &Database, address: SocketAddr) -> (common::Browser, uuid::
     (browser, account.id)
 }
 
+/// Явно поддельный ключ (не похож на настоящий — проверка секретов не путает).
+fn fake_key(tail: &str) -> String {
+    format!("test-key-fake-{tail}")
+}
+
 fn actions(log: &Value) -> Vec<String> {
     log.as_array()
         .unwrap()
@@ -324,7 +329,7 @@ async fn keys_need_secret_key_and_are_never_shown() {
         .put_json(
             address,
             "/api/owner/ai/keys/openrouter",
-            json!({ "key": "sk-or-v1-0123456789abcdef" }),
+            json!({ "key": fake_key("cdef") }),
         )
         .await;
     assert_eq!(reply.status, 409);
@@ -346,24 +351,27 @@ async fn keys_need_secret_key_and_are_never_shown() {
         .put_json(
             address,
             "/api/owner/ai/keys/openrouter",
-            json!({ "key": "sk-or-v1-0123456789abcdef" }),
+            json!({ "key": fake_key("cdef") }),
         )
         .await;
     assert_eq!(saved.status, 200, "{:?}", saved.body);
     assert_eq!(saved.body["keys"][0]["source"], "console");
     assert_eq!(saved.body["keys"][0]["hint"], "cdef");
-    assert!(!saved.body.to_string().contains("0123456789"));
+    assert!(!saved.body.to_string().contains("test-key-fake"));
     let stored: String = sqlx::query_scalar("SELECT key_enc FROM ai_keys")
         .fetch_one(db.pool())
         .await
         .unwrap();
-    assert!(!stored.contains("sk-or"), "в базе — только зашифрованный");
+    assert!(
+        !stored.contains("test-key"),
+        "в базе — только зашифрованный"
+    );
     let removed = owner.delete(address, "/api/owner/ai/keys/openrouter").await;
     assert_eq!(removed.body["keys"][0]["source"], "none");
     let log = owner.get(address, "/api/owner/audit?kind=ai").await.body;
     assert!(actions(&log).contains(&"ai.key_set".to_owned()));
     assert!(
-        !log.to_string().contains("0123456789"),
+        !log.to_string().contains("test-key-fake"),
         "ключа нет в журнале"
     );
     db.close().await;
@@ -405,7 +413,7 @@ async fn everyone_sees_own_ai_and_connects_own_key() {
         .put_json(
             address,
             "/api/ai/me/key",
-            json!({ "key": "sk-or-v1-mine-0000abcd" }),
+            json!({ "key": fake_key("abcd") }),
         )
         .await;
     assert_eq!(saved.status, 200, "{:?}", saved.body);

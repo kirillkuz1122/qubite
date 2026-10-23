@@ -1,0 +1,4 @@
+# Поддельные ключи в тесте AI-003 (не настоящие); в следующем коммите заменены на явно тестовые.
+a8fd4b758098ab890640ca30b7c51552e6aa42ed:crates/qubite-server/tests/ai_console.rs:generic-api-key:327
+a8fd4b758098ab890640ca30b7c51552e6aa42ed:crates/qubite-server/tests/ai_console.rs:generic-api-key:349
+a8fd4b758098ab890640ca30b7c51552e6aa42ed:crates/qubite-server/tests/ai_console.rs:generic-api-key:408
