@@ -20,11 +20,17 @@ async function shot(page: Page, name: string) {
   });
 }
 
+/** Без прокрутки вбок — когда смена вкладки (Swap) доехала: меряем устоявшийся вид. */
 async function noSideScroll(page: Page) {
-  const wide = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(wide, 'без горизонтальной прокрутки').toBeLessThanOrEqual(0);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+      { message: 'без горизонтальной прокрутки' },
+    )
+    .toBeLessThanOrEqual(0);
 }
 
 /** Поддельный микрофон и звук. */

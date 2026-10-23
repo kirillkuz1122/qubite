@@ -9,7 +9,7 @@ use qubite_kernel::Secret;
 use qubite_testkit::TestDb;
 
 /// Номер последней миграции в `crates/qubite-db/migrations`.
-const LATEST_MIGRATION: i64 = 34;
+const LATEST_MIGRATION: i64 = 35;
 use serde_json::Value;
 
 /// Запустить настоящий router на свободном порту.

@@ -2036,6 +2036,7 @@ h4.eng-h {
 }
 .eng-grid li {
   display: grid;
+  min-width: 0;
   gap: 4px;
   align-content: start;
   padding: 10px 12px;
