@@ -1,10 +1,10 @@
 import { Segmented, Swap } from '@qubite/ui';
 import { useState } from 'react';
 import { AgentChat } from '../AgentChat';
-import { AgentEnglish } from '../AgentEnglish';
 import { AgentPaceView } from '../AgentPace';
 import { AgentRecords } from '../AgentRecords';
 import { AgentTimeline } from '../AgentTimeline';
+import { EnglishModule } from '../EnglishLessons';
 
 type Tab = 'feed' | 'records' | 'talk' | 'english' | 'pace';
 
@@ -22,7 +22,7 @@ const LEAD: Record<Tab, string> = {
     'Записи агента: что он знает о тебе, проектах и расписании. Правь руками или напиши внизу файла «Поправить» — агент исправит сам.',
   talk: 'Расскажи агенту о себе — он запомнит в записях и спросит непонятное. Всё, что он сделал, — в «Ленте».',
   english:
-    'Разговор с репетитором голосом или текстом. Нейт строгий: найдёт ошибку, объяснит и заставит повторить. Ошибки и прогресс он ведёт в записях — «Английский.md».',
+    'Уроки с Нейтом по программе с нуля до A2: теория, задания, голос, огонёк. Нейт строгий: найдёт ошибку, объяснит и заставит повторить. Можно спросить по-русски.',
   pace: 'Агент сам пишет первым, когда у тебя есть свободное время: спрашивает «есть 30 минут?» и предлагает ДЗ до урока, важное или давнюю идею. Здесь — как часто.',
 };
 
@@ -53,7 +53,7 @@ export function AgentScreen() {
         {tab === 'feed' && <AgentTimeline trail={null} />}
         {tab === 'records' && <AgentRecords />}
         {tab === 'talk' && <AgentChat />}
-        {tab === 'english' && <AgentEnglish />}
+        {tab === 'english' && <EnglishModule />}
         {tab === 'pace' && <AgentPaceView />}
       </Swap>
     </>

@@ -16,6 +16,8 @@
 
 Сейчас: **108 уроков** — 36 целиком (A0: 12, A1: 24), 24 подробно (A2), 48 планом (B1, B2), **545 заданий**.
 
+Сервер встраивает эти файлы в бинарник при сборке (`crates/qubite-english/build.rs`, ENG-002): поправил урок — пересобери сервер. Личный слой человека хранится объектами `agent.english_op` (D-485).
+
 Проверка: `just check-english` (или `node scripts/check-english.mjs`) — входит в `just check` и в CI (`.github/workflows/english.yml`).
 
 ## Формат урока

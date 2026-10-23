@@ -4965,6 +4965,161 @@
         }
       }
     },
+    "/api/v1/english/home": {
+      "get": {
+        "tags": ["english"],
+        "operationId": "english_home",
+        "responses": {
+          "200": {
+            "description": "Программа, где ты, игра (lessons::Home)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/lessons/{id}": {
+      "get": {
+        "tags": ["english"],
+        "operationId": "english_lesson",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Урок, например a0-m1-l1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Урок с личным слоем (lessons::LessonView)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого урока (или он ещё планом)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/lessons/{id}/ask": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_ask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Урок",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "{\"say\": ответ Нейта}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Отказ AI-шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/lessons/{id}/start": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_lesson_start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Урок (у повторения — review)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Прохождение (lessons::RunView)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/live": {
       "get": {
         "tags": ["english"],
@@ -5054,6 +5209,231 @@
         }
       }
     },
+    "/api/v1/english/phrase": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_phrase",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishPhrase"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Речь",
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Текст не из уроков",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Голос не настроен или отказ AI-шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/placement": {
+      "get": {
+        "tags": ["english"],
+        "operationId": "english_placement",
+        "responses": {
+          "200": {
+            "description": "Входной тест: ступени с вопросами",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_place",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishPlace"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Уровень и первый урок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный сдвиг",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/program/adapt": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_adapt",
+        "responses": {
+          "200": {
+            "description": "{\"summary_ru\", \"actions\"} — правки в ленте агента",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Отказ AI-шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/runs/{id}/answer": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_answer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Прохождение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Верно ли, как правильно, опыт (lessons::Answered)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пусто, не расслышал, прохождение закончено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Отказ AI-шлюза (голос)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/runs/{id}/finish": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_run_finish",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Прохождение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Итог (lessons::Finished)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/session": {
       "post": {
         "tags": ["english"],
@@ -5101,6 +5481,60 @@
           },
           "403": {
             "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/settings": {
+      "get": {
+        "tags": ["english"],
+        "operationId": "english_settings",
+        "responses": {
+          "200": {
+            "description": "Настройки и голоса на выбор",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["english"],
+        "operationId": "english_change_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishSettingsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение",
             "content": {
               "application/json": {
                 "schema": {
@@ -8684,6 +9118,52 @@
           }
         }
       },
+      "EnglishAnswer": {
+        "type": "object",
+        "description": "Ответ на задание: значение с экрана или запись голоса.",
+        "required": ["key", "task_id", "answer"],
+        "properties": {
+          "answer": {
+            "type": "object",
+            "description": "Строка, список (пропуски) или пары (соединить)."
+          },
+          "audio_base64": {
+            "type": ["string", "null"]
+          },
+          "duration_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия экрана: повтор не платится дважды."
+          },
+          "lesson_id": {
+            "type": ["string", "null"],
+            "description": "У повторения — урок задания."
+          },
+          "mime": {
+            "type": ["string", "null"]
+          },
+          "task_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishAsk": {
+        "type": "object",
+        "description": "Вопрос Нейту.",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "EnglishFinished": {
         "type": "object",
         "description": "Законченный разговор (`null` — нечего было заканчивать).",
@@ -8863,6 +9343,39 @@
           }
         }
       },
+      "EnglishPhrase": {
+        "type": "object",
+        "description": "Какую фразу озвучить.",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст из урока (или образец голоса)."
+          },
+          "voice": {
+            "type": ["string", "null"],
+            "description": "Голос для прослушивания (иначе — свой)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishPlace": {
+        "type": "object",
+        "description": "Ответы входного теста.",
+        "required": ["answers"],
+        "properties": {
+          "answers": {
+            "type": "object",
+            "description": "`{\"p1\": \"…\", \"p3\": [\"am\"]}`."
+          },
+          "shift": {
+            "type": "integer",
+            "format": "int32",
+            "description": "«Легко» (+1) или «трудно» (−1)."
+          }
+        },
+        "additionalProperties": false
+      },
       "EnglishSay": {
         "type": "object",
         "description": "Реплика ученика: текст **или** запись голоса.",
@@ -8935,6 +9448,56 @@
             "description": "Реплик ученика."
           }
         }
+      },
+      "EnglishSettingsChange": {
+        "type": "object",
+        "description": "Поменять настройки (пустое — не трогать).",
+        "properties": {
+          "companion": {
+            "type": ["string", "null"]
+          },
+          "goal_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "level": {
+            "type": ["string", "null"]
+          },
+          "pause_days": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "remind": {
+            "type": ["boolean", "null"]
+          },
+          "remind_at": {
+            "type": ["string", "null"]
+          },
+          "rest_weekday": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "strictness": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "voice": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishStart": {
+        "type": "object",
+        "description": "Что начать.",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`lesson`, `homework` или `review`."
+          }
+        },
+        "additionalProperties": false
       },
       "EnglishStarted": {
         "type": "object",

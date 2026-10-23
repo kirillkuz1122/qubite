@@ -15,6 +15,7 @@ pub mod changes;
 pub mod console;
 pub mod email;
 pub mod english;
+pub mod english_lessons;
 pub mod home;
 pub mod inbox;
 pub mod maintenance;
@@ -277,6 +278,18 @@ impl AppState {
         english::english_turn,
         english::english_speech,
         english::english_live,
+        english_lessons::english_home,
+        english_lessons::english_placement,
+        english_lessons::english_place,
+        english_lessons::english_lesson,
+        english_lessons::english_lesson_start,
+        english_lessons::english_answer,
+        english_lessons::english_run_finish,
+        english_lessons::english_ask,
+        english_lessons::english_adapt,
+        english_lessons::english_settings,
+        english_lessons::english_change_settings,
+        english_lessons::english_phrase,
         projects::project_page,
         projects::project_feed,
         projects::upload_project_file,
@@ -455,6 +468,12 @@ impl AppState {
         english::EnglishTurn,
         english::EnglishTurnError,
         english::EnglishLatency,
+        english_lessons::EnglishPlace,
+        english_lessons::EnglishStart,
+        english_lessons::EnglishAnswer,
+        english_lessons::EnglishAsk,
+        english_lessons::EnglishSettingsChange,
+        english_lessons::EnglishPhrase,
         projects::ProjectHead,
         projects::ProjectTaskItem,
         projects::ProjectFileItem,
@@ -760,6 +779,44 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/messages/{id}/speech",
             post(english::english_speech),
+        )
+        .route("/api/v1/english/home", get(english_lessons::english_home))
+        .route(
+            "/api/v1/english/placement",
+            get(english_lessons::english_placement).post(english_lessons::english_place),
+        )
+        .route(
+            "/api/v1/english/lessons/{id}",
+            get(english_lessons::english_lesson),
+        )
+        .route(
+            "/api/v1/english/lessons/{id}/start",
+            post(english_lessons::english_lesson_start),
+        )
+        .route(
+            "/api/v1/english/lessons/{id}/ask",
+            post(english_lessons::english_ask),
+        )
+        // Ответ голосом — запись в base64, как у хода разговора.
+        .route(
+            "/api/v1/english/runs/{id}/answer",
+            post(english_lessons::english_answer).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/english/runs/{id}/finish",
+            post(english_lessons::english_run_finish),
+        )
+        .route(
+            "/api/v1/english/program/adapt",
+            post(english_lessons::english_adapt),
+        )
+        .route(
+            "/api/v1/english/settings",
+            get(english_lessons::english_settings).patch(english_lessons::english_change_settings),
+        )
+        .route(
+            "/api/v1/english/phrase",
+            post(english_lessons::english_phrase),
         )
         .route("/api/v1/projects/{id}", get(projects::project_page))
         .route("/api/v1/projects/{id}/feed", get(projects::project_feed))

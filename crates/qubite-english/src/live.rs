@@ -565,6 +565,14 @@ pub async fn serve(
     mut inbox: mpsc::Receiver<In>,
     out: mpsc::Sender<Out>,
 ) -> Result<()> {
+    // Голос — из настроек человека (D-489).
+    let personal = Settings {
+        voice: crate::lessons::voice_of(pool, account, &settings.voice)
+            .await
+            .unwrap_or_else(|_| settings.voice.clone()),
+        ..settings.clone()
+    };
+    let settings = &personal;
     let voice = match ready(gateway).await {
         Ok(voice) => voice,
         Err(error) => {

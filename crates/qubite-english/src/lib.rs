@@ -16,8 +16,12 @@
 //! `write` — разговаривать, `ai` + бюджет — модель и голос. Без голосового
 //! провайдера всё работает текстом.
 
+pub mod course;
+pub mod game;
+pub mod lessons;
 pub mod live;
 pub mod notes;
+pub mod remind;
 pub mod tutor;
 
 use qubite_ai::{
@@ -247,12 +251,12 @@ fn module() -> ModuleId {
     ModuleId::new(MODULE).expect("модуль agent")
 }
 
-async fn may_read(pool: &PgPool, account: Uuid) -> Result<()> {
+pub(crate) async fn may_read(pool: &PgPool, account: Uuid) -> Result<()> {
     qubite_policy::decide::<Read>(pool, &Subject::account(account, None), &module()).await?;
     Ok(())
 }
 
-async fn may_write(pool: &PgPool, account: Uuid) -> Result<()> {
+pub(crate) async fn may_write(pool: &PgPool, account: Uuid) -> Result<()> {
     qubite_policy::decide::<Write>(pool, &Subject::account(account, None), &module()).await?;
     Ok(())
 }
@@ -330,6 +334,19 @@ async fn close_idle(pool: &PgPool, account: Uuid) -> Result<()> {
 }
 
 async fn create_session(pool: &PgPool, account: Uuid, greet: bool) -> Result<Session> {
+    // Нейт начинает сам — с вопроса текущего урока (D-491).
+    let opening = if greet {
+        let mut conn = pool.acquire().await?;
+        lessons::current(&mut conn, account)
+            .await?
+            .and_then(|(lesson, _, _)| {
+                lesson["talk"]["questions_en"][0]
+                    .as_str()
+                    .map(str::to_owned)
+            })
+    } else {
+        None
+    };
     let mut tx = pool.begin().await?;
     let id = Uuid::now_v7();
     let inserted = sqlx::query(
@@ -357,7 +374,7 @@ async fn create_session(pool: &PgPool, account: Uuid, greet: bool) -> Result<Ses
         .bind(Uuid::now_v7())
         .bind(id)
         .bind(account)
-        .bind(tutor::GREETINGS[n])
+        .bind(opening.as_deref().unwrap_or(tutor::GREETINGS[n]))
         .execute(&mut *tx)
         .await?;
     }
@@ -594,8 +611,21 @@ pub(crate) async fn tutor_request(
     let notes_body = qubite_agent::files::by_path(&mut conn, account, notes::PATH)
         .await?
         .map(|file| file.body.chars().take(3000).collect::<String>());
+    let lesson = lessons::current(&mut conn, account).await?;
     drop(conn);
     let mut data = Vec::new();
+    let prompt = match &lesson {
+        Some((lesson, level, strictness)) => {
+            data.push(Untrusted::new("lesson", tutor::lesson_block(lesson)));
+            format!(
+                "{}\n\n{}\n{}",
+                tutor::PROMPT,
+                tutor::LESSON_RULES,
+                lessons::rules(level, *strictness)
+            )
+        }
+        None => tutor::PROMPT.to_owned(),
+    };
     if let Some(body) = notes_body.filter(|b| !b.trim().is_empty()) {
         data.push(Untrusted::new("notes", body));
     }
@@ -606,7 +636,7 @@ pub(crate) async fn tutor_request(
     Ok(AiRequest {
         request_id: format!("english:{key}:tutor"),
         model: gateway.model_for(TUTOR_TASK).await?,
-        prompt: tutor::PROMPT.into(),
+        prompt,
         untrusted: data,
         input_tokens: 0,
         max_output_tokens: MAX_OUTPUT_TOKENS,
@@ -681,6 +711,26 @@ pub(crate) async fn save(
     .bind(session)
     .bind(reply.verdict.as_str())
     .fetch_one(&mut *tx)
+    .await?;
+    // Разговор — тоже практика: минуты и 1 XP за реплику, до 30 в день.
+    let talked: i64 = sqlx::query_scalar(
+        "SELECT coalesce((counters->>'talk')::bigint, 0) FROM english_days \
+         WHERE account_id = $1 AND day = $2",
+    )
+    .bind(account)
+    .bind(game::today(&mut tx).await?)
+    .fetch_optional(&mut *tx)
+    .await?
+    .unwrap_or(0);
+    game::practice(
+        &mut tx,
+        account,
+        game::Practice {
+            xp: i64::from(talked < 30),
+            counters: vec![("talk", 1)],
+            lesson: false,
+        },
+    )
     .await?;
     let learner = message(&mut tx, learner_id).await?;
     let tutor = message(&mut tx, tutor_id).await?;
@@ -846,13 +896,14 @@ pub async fn speech(
         None => {
             let auth = may_use_ai(pool, account).await?;
             let model = gateway.model_for(voice::TTS_TASK).await?;
+            let voice = lessons::voice_of(pool, account, &settings.voice).await?;
             let spoken = gateway
                 .speak(
                     &auth,
                     SpeakRequest {
                         request_id: format!("english:speech:{message_id}:{}", Uuid::now_v7()),
                         model,
-                        voice: settings.voice.clone(),
+                        voice,
                         text,
                     },
                 )

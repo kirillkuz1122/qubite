@@ -171,7 +171,7 @@ test('английский: голос и текст, ошибки, «повто
   await fakeMedia(page);
   await mockSync(page);
   const calls = await mockEnglish(page);
-  await page.goto('/agent?tab=english');
+  await page.goto('/agent?tab=english&view=talk');
 
   await expect(page.getByRole('img', { name: 'Нейт — репетитор' })).toBeVisible();
   await expect(page.getByText('Нейт ждёт')).toBeVisible();
@@ -240,7 +240,7 @@ test('английский без ключа ElevenLabs: честно и тек�
   await fakeMedia(page);
   await mockSync(page);
   await mockEnglish(page, { listen: false, speak: false });
-  await page.goto('/agent?tab=english');
+  await page.goto('/agent?tab=english&view=talk');
   await expect(page.getByRole('status').filter({ hasText: 'Голос не настроен' })).toBeVisible();
   await page.getByRole('button', { name: 'Начать разговор' }).click();
   await expect(page.getByRole('list', { name: 'Разговор с Нейтом' })).toContainText('Tell me');

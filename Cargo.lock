@@ -1537,6 +1537,7 @@ dependencies = [
  "qubite-ai",
  "qubite-auth",
  "qubite-db",
+ "qubite-notify",
  "qubite-policy",
  "qubite-testkit",
  "serde",

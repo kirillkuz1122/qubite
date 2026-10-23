@@ -33,6 +33,7 @@ pub fn registry() -> Registry {
         .with(qubite_planner::TaskFieldsHandler)
         .with(crate::files::FileFieldsHandler)
         .with(crate::questions::QuestionFieldsHandler)
+        .with(crate::english::EnglishOpFieldsHandler)
 }
 
 /// Поля, которые откат возвращает (остальные — производные: время

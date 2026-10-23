@@ -216,7 +216,7 @@ test('английский потоком: заговорил — пауза —
   await fakeAudio(page);
   await mockSync(page);
   const seen = await mockLive(page);
-  await page.goto('/agent?tab=english');
+  await page.goto('/agent?tab=english&view=talk');
   const talk = page.getByRole('list', { name: 'Разговор с Нейтом' });
   await expect(talk).toContainText('What did you do yesterday?');
 
@@ -284,7 +284,7 @@ test('лимит AI закончился: понятно, что сделать,
   await fakeAudio(page);
   await mockSync(page);
   const seen = await mockLive(page, true);
-  await page.goto('/agent?tab=english');
+  await page.goto('/agent?tab=english&view=talk');
   await page.getByRole('button', { name: 'Включить микрофон' }).click();
   for (let i = 0; i < 3; i++) {
     await page.evaluate(() =>

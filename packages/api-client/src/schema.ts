@@ -1588,6 +1588,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/home': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['english_home'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/lessons/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['english_lesson'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/lessons/{id}/ask': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_ask'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/lessons/{id}/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_lesson_start'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/live': {
     parameters: {
       query?: never;
@@ -1634,6 +1698,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/phrase': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_phrase'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/placement': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['english_placement'];
+    put?: never;
+    post: operations['english_place'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/program/adapt': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_adapt'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/runs/{id}/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_answer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/runs/{id}/finish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_run_finish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/session': {
     parameters: {
       query?: never;
@@ -1666,6 +1810,22 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['english_settings'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['english_change_settings'];
     trace?: never;
   };
   '/api/v1/english/turn': {
@@ -3057,6 +3217,27 @@ export interface components {
       /** @description Всегда `Bearer`. */
       token_type: string;
     };
+    /** @description Ответ на задание: значение с экрана или запись голоса. */
+    EnglishAnswer: {
+      /** @description Строка, список (пропуски) или пары (соединить). */
+      answer: Record<string, never>;
+      audio_base64?: string | null;
+      /** Format: int64 */
+      duration_ms?: number | null;
+      /**
+       * Format: uuid
+       * @description ID действия экрана: повтор не платится дважды.
+       */
+      key: string;
+      /** @description У повторения — урок задания. */
+      lesson_id?: string | null;
+      mime?: string | null;
+      task_id: string;
+    };
+    /** @description Вопрос Нейту. */
+    EnglishAsk: {
+      text: string;
+    };
     /** @description Законченный разговор (`null` — нечего было заканчивать). */
     EnglishFinished: {
       session?: components['schemas']['EnglishSession'] | null;
@@ -3123,6 +3304,23 @@ export interface components {
       totals: components['schemas']['EnglishTotals'];
       voice: components['schemas']['EnglishVoice'];
     };
+    /** @description Какую фразу озвучить. */
+    EnglishPhrase: {
+      /** @description Текст из урока (или образец голоса). */
+      text: string;
+      /** @description Голос для прослушивания (иначе — свой). */
+      voice?: string | null;
+    };
+    /** @description Ответы входного теста. */
+    EnglishPlace: {
+      /** @description `{"p1": "…", "p3": ["am"]}`. */
+      answers: Record<string, never>;
+      /**
+       * Format: int32
+       * @description «Легко» (+1) или «трудно» (−1).
+       */
+      shift?: number;
+    };
     /** @description Реплика ученика: текст **или** запись голоса. */
     EnglishSay: {
       /** @description Запись (base64), до 1,2 МБ. */
@@ -3171,6 +3369,27 @@ export interface components {
        * @description Реплик ученика.
        */
       turns: number;
+    };
+    /** @description Поменять настройки (пустое — не трогать). */
+    EnglishSettingsChange: {
+      companion?: string | null;
+      /** Format: int32 */
+      goal_minutes?: number | null;
+      level?: string | null;
+      /** Format: int64 */
+      pause_days?: number | null;
+      remind?: boolean | null;
+      remind_at?: string | null;
+      /** Format: int32 */
+      rest_weekday?: number | null;
+      /** Format: int32 */
+      strictness?: number | null;
+      voice?: string | null;
+    };
+    /** @description Что начать. */
+    EnglishStart: {
+      /** @description `lesson`, `homework` или `review`. */
+      kind: string;
     };
     /** @description Начатый (или идущий) разговор. */
     EnglishStarted: {
@@ -8434,6 +8653,130 @@ export interface operations {
       };
     };
   };
+  english_home: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Программа, где ты, игра (lessons::Home) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_lesson: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Урок, например a0-m1-l1 */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Урок с личным слоем (lessons::LessonView) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого урока (или он ещё планом) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_ask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Урок */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishAsk'];
+      };
+    };
+    responses: {
+      /** @description {"say": ответ Нейта} */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Отказ AI-шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_lesson_start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Урок (у повторения — review) */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishStart'];
+      };
+    };
+    responses: {
+      /** @description Прохождение (lessons::RunView) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+    };
+  };
   english_live: {
     parameters: {
       query?: never;
@@ -8511,6 +8854,198 @@ export interface operations {
       };
     };
   };
+  english_phrase: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishPhrase'];
+      };
+    };
+    responses: {
+      /** @description Речь */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'audio/mpeg': number[];
+        };
+      };
+      /** @description Текст не из уроков */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Голос не настроен или отказ AI-шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_placement: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Входной тест: ступени с вопросами */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+    };
+  };
+  english_place: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishPlace'];
+      };
+    };
+    responses: {
+      /** @description Уровень и первый урок */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Неверный сдвиг */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_adapt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description {"summary_ru", "actions"} — правки в ленте агента */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Отказ AI-шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_answer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Прохождение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishAnswer'];
+      };
+    };
+    responses: {
+      /** @description Верно ли, как правильно, опыт (lessons::Answered) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Пусто, не расслышал, прохождение закончено */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Отказ AI-шлюза (голос) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_run_finish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Прохождение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Итог (lessons::Finished) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+    };
+  };
   english_start: {
     parameters: {
       query?: never;
@@ -8560,6 +9095,59 @@ export interface operations {
       };
       /** @description Нет доступа к агенту */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Настройки и голоса на выбор */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+    };
+  };
+  english_change_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishSettingsChange'];
+      };
+    };
+    responses: {
+      /** @description Настройки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Неверное значение */
+      400: {
         headers: {
           [name: string]: unknown;
         };

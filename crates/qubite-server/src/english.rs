@@ -229,7 +229,7 @@ pub struct EnglishTurnError {
     heard: Option<String>,
 }
 
-fn english_error(error: Error) -> ApiError {
+pub(crate) fn english_error(error: Error) -> ApiError {
     match error {
         Error::Denied(reason) => qubite_policy::Error::Denied(reason).into(),
         Error::NotFound => ApiError::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),

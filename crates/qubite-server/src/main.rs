@@ -856,6 +856,8 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
     let maintenance =
         qubite_server::ai::spawn_maintenance(db.pool().clone(), args.ai.clone(), openrouter);
     let trash = qubite_server::inbox::spawn_trash_cleanup(db.pool().clone(), args.inbox_trash_days);
+    // Напоминания английского (ENG-002): раз в день в выбранное время, не в тишину.
+    let english_remind = qubite_english::remind::spawn(db.pool().clone());
     // Напоминания и доставка — задачи очереди jobs (PLAN-004), без отдельного процесса.
     let (stop_jobs, jobs_shutdown) = tokio::sync::watch::channel(false);
     // Агент (AGT-001): ответы в разговоре и фоновый разбор — тоже задачи очереди.
@@ -882,6 +884,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .await?;
     maintenance.abort();
     trash.abort();
+    english_remind.abort();
     let _ = stop_jobs.send(true);
     let _ = tokio::time::timeout(Duration::from_secs(10), jobs).await;
     let _ = tokio::time::timeout(Duration::from_secs(10), agent_jobs).await;

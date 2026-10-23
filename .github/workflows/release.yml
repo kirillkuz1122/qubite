@@ -16,6 +16,7 @@ on:
     tags: ['v*']
     paths:
       - 'crates/**'
+      - 'content/english/**'
       - 'apps/**'
       - 'packages/**'
       - 'Cargo.toml'

@@ -405,3 +405,98 @@ async fn english_live_over_websocket() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Уроки (ENG-002) по HTTP: тест уровня → урок → ответ голосом → итог с
+/// огоньком; настройки; без входа — 401.
+#[tokio::test]
+async fn english_lesson_over_http() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap()
+        .id;
+    let (gateway, _voice) = gateway(
+        pool,
+        owner,
+        vec![],
+        vec![MockHeard::Text {
+            text: "nice to meet you".into(),
+            seconds: 1.5,
+        }],
+    )
+    .await;
+    let address =
+        serve(AppState::with_auth(db.clone(), AuthSettings::default()).with_ai(Arc::new(gateway)))
+            .await;
+    let mut guest = Browser::default();
+    assert_eq!(guest.get(address, "/api/v1/english/home").await.status, 401);
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    let test = me.get(address, "/api/v1/english/placement").await;
+    assert_eq!(test.status, 200);
+    assert_eq!(test.body["stages"].as_array().unwrap().len(), 5);
+    let placed = me
+        .post_json(
+            address,
+            "/api/v1/english/placement",
+            json!({"answers": {}, "shift": 0}),
+        )
+        .await;
+    assert_eq!(placed.status, 200, "{:?}", placed.body);
+    assert_eq!(placed.body["start_lesson"], "a0-m1-l1");
+
+    let lesson = me.get(address, "/api/v1/english/lessons/a0-m1-l1").await;
+    assert_eq!(lesson.status, 200, "{:?}", lesson.body);
+    assert_eq!(lesson.body["lesson"]["id"], "a0-m1-l1");
+    assert_eq!(
+        me.get(address, "/api/v1/english/lessons/b1-m1-l1")
+            .await
+            .status,
+        404,
+        "B1 — планом"
+    );
+
+    let run = me
+        .post_json(
+            address,
+            "/api/v1/english/lessons/a0-m1-l1/start",
+            json!({"kind": "lesson"}),
+        )
+        .await;
+    assert_eq!(run.status, 200, "{:?}", run.body);
+    let run = run.body["id"].as_str().unwrap().to_owned();
+    let audio = base64::engine::general_purpose::STANDARD.encode(b"OPUS-FAKE");
+    let said = me
+        .post_json(
+            address,
+            &format!("/api/v1/english/runs/{run}/answer"),
+            json!({"key": Uuid::now_v7(), "task_id": "t7", "audio_base64": audio, "mime": "audio/webm", "duration_ms": 1500}),
+        )
+        .await;
+    assert_eq!(said.status, 200, "{:?}", said.body);
+    assert_eq!(said.body["correct"], true);
+    assert_eq!(said.body["heard"], "nice to meet you");
+    let finished = me
+        .post(address, &format!("/api/v1/english/runs/{run}/finish"))
+        .await;
+    assert_eq!(finished.status, 200, "{:?}", finished.body);
+    assert_eq!(finished.body["passed"], false, "одно задание из десяти");
+
+    let settings = me
+        .patch_json(
+            address,
+            "/api/v1/english/settings",
+            json!({"goal_minutes": 20, "strictness": 1}),
+        )
+        .await;
+    assert_eq!(settings.status, 200, "{:?}", settings.body);
+    assert_eq!(settings.body["settings"]["goal_minutes"], 20);
+    assert!(settings.body["voices"].as_array().unwrap().len() >= 5);
+    let home = me.get(address, "/api/v1/english/home").await;
+    assert_eq!(home.status, 200);
+    assert_eq!(home.body["game"]["goal_minutes"], 20);
+    assert_eq!(home.body["next"], "a0-m1-l1");
+    test_db.drop_db().await;
+}
