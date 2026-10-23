@@ -23,16 +23,6 @@ const COL: Record<CompanionKind, keyof Palette> = {
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-/** Холст за экраном не считаем. */
-function watch(e: DotEngine): () => void {
-  if (typeof IntersectionObserver === 'undefined') return () => {};
-  const io = new IntersectionObserver((es) => es.forEach((x) => (e.on = x.isIntersecting)), {
-    rootMargin: '80px',
-  });
-  io.observe(e.canvas);
-  return () => io.disconnect();
-}
-
 /** Попал ли палец в помощника. */
 function hit(b: Body, px: number, py: number, below = true): boolean {
   const q = b.point(0, b.hPx / 2);
@@ -63,7 +53,6 @@ export function hero(
 ): HeroApi {
   const L = loop();
   const eng = new DotEngine(cv, { ground: P.bg, light: P.ink, repel: 64 });
-  const unwatch = watch(eng);
   const W = eng.W;
   const H = eng.H;
   const phone = W < 760;
@@ -180,7 +169,6 @@ export function hero(
     },
     stop() {
       stopTick();
-      unwatch();
       cv.removeEventListener('pointerdown', down);
       eng.destroy();
     },
@@ -223,7 +211,6 @@ export function story(
   const L = loop();
   const P0 = pal();
   const eng = new DotEngine(cv, { ground: P0.bg, light: P0.ink, repel: 40 });
-  const unwatch = watch(eng);
   const W = eng.W;
   const H = eng.H;
   const phone = W < 760;
@@ -649,7 +636,6 @@ export function story(
 
   return () => {
     stopTick();
-    unwatch();
     timers.forEach(clearTimeout);
     removeEventListener('resize', measure);
     cv.removeEventListener('pointerdown', down);
@@ -668,7 +654,6 @@ export interface MiniCrew {
 export function miniCrew(cv: HTMLCanvasElement, P: Palette): MiniCrew {
   const L = loop();
   const ce = new DotEngine(cv, { ground: P.panel, light: P.ink, repel: 0 });
-  const unwatch = watch(ce);
   const PIT: Record<CompanionKind, number> = { elik: 4.4, proto: 3.1, neit: 3.6, foti: 3.0 };
   const mini = {} as Record<CompanionKind, Body>;
   (Object.keys(COL) as CompanionKind[]).forEach((k) => {
@@ -696,7 +681,6 @@ export function miniCrew(cv: HTMLCanvasElement, P: Palette): MiniCrew {
     },
     stop() {
       timers.forEach(clearTimeout);
-      unwatch();
       ce.destroy();
     },
   };
@@ -713,7 +697,6 @@ export function study(
 ): () => void {
   const L = loop();
   const eng = new DotEngine(cv, { ground: P.bg, light: P.ink, repel: 30 });
-  const unwatch = watch(eng);
   const W = eng.W;
   const H = eng.H;
   const phone = W < 760;
@@ -795,7 +778,6 @@ export function study(
   });
   return () => {
     stopTick();
-    unwatch();
     removeEventListener('resize', measure);
     eng.destroy();
   };

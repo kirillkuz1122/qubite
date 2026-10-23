@@ -31,6 +31,8 @@ export interface Dot {
   h?: number;
   /** помощник, в которого точка «впитывается» */
   into?: Body | null;
+  /** где и какой точка нарисована в последний раз: стоит на месте — холст не перерисовываем */
+  drawn?: [x: number, y: number, r: number] | null;
 }
 
 export interface TextGroup {
@@ -201,7 +203,7 @@ export class DotEngine {
   repel: number;
   dots: Dot[] = [];
   bodies: Body[] = [];
-  /** false — холст за экраном: не считаем и не рисуем */
+  /** false — холст за экраном: не рисуем (помощников и не считаем) */
   on = true;
   W = 0;
   H = 0;
@@ -215,6 +217,13 @@ export class DotEngine {
   private owed = 0;
   /** когда последний раз уточняли место холста на экране, мс */
   private boxT = 0;
+  /** холст надо нарисовать заново, даже если точки стоят (новый размер, новые точки) */
+  private stale = true;
+  /** сколько точек было на холсте в прошлый раз */
+  private drawnCount = -1;
+  /** форма точки (dotLook) на прошлом рисунке */
+  private drawnLook = -1;
+  private io: IntersectionObserver | null = null;
   private stopTick: () => void;
   private onResize = () => this.resize();
   private onScroll = () => {
@@ -232,12 +241,20 @@ export class DotEngine {
     addEventListener('resize', this.onResize);
     addEventListener('scroll', this.onScroll, { passive: true, capture: true });
     this.stopTick = loop().tick((t, dt) => this.frame(t, dt));
+    // холст за экраном не рисуем (DS-010)
+    if (typeof IntersectionObserver === 'function') {
+      this.io = new IntersectionObserver((es) => es.forEach((x) => (this.on = x.isIntersecting)), {
+        rootMargin: '80px',
+      });
+      this.io.observe(canvas);
+    }
     if (loop().reduced) requestAnimationFrame(() => this.frame(performance.now() / 1000, 0));
     engines.add(this);
   }
 
   destroy(): void {
     this.stopTick();
+    this.io?.disconnect();
     removeEventListener('resize', this.onResize);
     removeEventListener('scroll', this.onScroll, { capture: true });
     engines.delete(this);
@@ -252,6 +269,7 @@ export class DotEngine {
     this.canvas.width = Math.round(r.width * dpr);
     this.canvas.height = Math.round(r.height * dpr);
     this.ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.stale = true;
   }
 
   dot(
@@ -283,6 +301,7 @@ export class DotEngine {
     }
     this.dots.push(d);
     this.dirtyColors = true;
+    this.stale = true;
     return d;
   }
 
@@ -527,7 +546,9 @@ export class DotEngine {
   }
 
   frame(t: number, dt: number): void {
-    if (!this.on || !this.ctx) return;
+    // за экраном помощников не считаем вовсе, а точки надписей досчитываем без рисования —
+    // чтобы надпись ниже экрана успела собраться так же, как раньше (DS-010)
+    if (!this.ctx || (!this.on && this.bodies.length)) return;
     const L = loop();
     if (L.lite && !L.reduced && dt > 0) {
       this.skip = !this.skip;
@@ -629,6 +650,20 @@ export class DotEngine {
         d.y = hy;
         continue;
       }
+      // точка дома и не движется — не считаем (палец рядом снова её толкнёт)
+      const near = pAct && Math.abs(d.x - px) < R + 2 && Math.abs(d.y - py) < R + 2;
+      if (
+        !near &&
+        Math.abs(d.x - hx) < 0.01 &&
+        Math.abs(d.y - hy) < 0.01 &&
+        Math.abs(d.vx) < 0.05 &&
+        Math.abs(d.vy) < 0.05
+      ) {
+        d.x = hx;
+        d.y = hy;
+        d.vx = d.vy = 0;
+        continue;
+      }
       for (let s = 0; s < steps; s++) {
         let ax = (-MATERIAL.stiffness * (d.x - hx) - MATERIAL.damping * d.vx) / d.m;
         let ay = (-MATERIAL.stiffness * (d.y - hy) - MATERIAL.damping * d.vy) / d.m;
@@ -664,6 +699,7 @@ export class DotEngine {
     }
     if (this.dirtyColors) {
       this.dirtyColors = false;
+      this.stale = true;
       this.byColor.clear();
       for (const d of this.dots) {
         const list = this.byColor.get(d.c);
@@ -671,6 +707,7 @@ export class DotEngine {
         else this.byColor.set(d.c, [d]);
       }
     }
+    if (!this.on || !this.changed(now)) return;
     /* рисуем: по одному пути на цвет */
     ctx.clearRect(0, 0, this.W, this.H);
     this.byColor.forEach((list, color) => {
@@ -683,6 +720,38 @@ export class DotEngine {
       ctx.fill();
     });
     for (const b of this.bodies) this.face(ctx, b, t);
+  }
+
+  /**
+   * Изменилось ли что-то с прошлого рисунка. Надпись, у которой все точки стоят на месте,
+   * не перерисовываем каждый кадр: на слабом телефоне это отнимало кадры у анимаций (DS-010).
+   * Помощники дышат и моргают всегда — их холст рисуется каждый кадр.
+   */
+  private changed(now: number): boolean {
+    const look = dotLook.size + dotLook.round * 10;
+    let moved = this.stale || this.bodies.length > 0 || this.drawnLook !== look;
+    let count = 0;
+    for (const d of this.dots) {
+      const shown = d.alive && now >= d.wake && d.r > 0;
+      if (!shown) continue;
+      count++;
+      const w = d.drawn;
+      if (
+        !w ||
+        Math.abs(w[0] - d.x) > 0.02 ||
+        Math.abs(w[1] - d.y) > 0.02 ||
+        Math.abs(w[2] - d.r) > 0.005
+      ) {
+        moved = true;
+        d.drawn = [d.x, d.y, d.r];
+      }
+    }
+    if (count !== this.drawnCount) moved = true;
+    if (!moved) return false;
+    this.stale = false;
+    this.drawnCount = count;
+    this.drawnLook = look;
+    return true;
   }
 
   private face(ctx: CanvasRenderingContext2D, b: Body, t: number): void {
