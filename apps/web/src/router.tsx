@@ -80,6 +80,12 @@ const sectionRoutes = [
     path: '/planner/project/$id',
     component: () => null,
   }),
+  // «Настройки → AI и бюджет» (AI-003): её рисует раздел Настройки по адресу
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/settings/ai',
+    component: () => null,
+  }),
 ];
 
 /**

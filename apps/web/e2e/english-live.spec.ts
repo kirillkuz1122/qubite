@@ -293,7 +293,12 @@ test('лимит AI закончился: понятно, что сделать,
   }
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('AI-лимит закончился (user, day, usd)');
-  await expect(alert).toContainText('just qubite ai limit');
+  // вместо команды — ссылка на настройки лимитов (AI-003)
+  await expect(alert).not.toContainText('just qubite');
+  await expect(alert.getByRole('link', { name: /Открыть настройки лимитов/ })).toHaveAttribute(
+    'href',
+    /\/(console|settings)\/ai$/,
+  );
   await expect(page.getByRole('button', { name: /микрофон|Говорить/ })).toBeHidden();
   // Шум в микрофоне и время — ни новых «слушай», ни новых подключений.
   await page.waitForTimeout(4_000);

@@ -4,6 +4,116 @@
  */
 
 export interface paths {
+  '/api/ai/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** «AI и бюджет»: свой расход, лимиты и чем подключён AI. */
+    get: operations['me'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai/me/chatgpt': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** «AI и бюджет»: отключить свою подписку ChatGPT (токены отзываются у OpenAI). */
+    delete: operations['chatgpt_logout'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai/me/chatgpt/finish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** «Войти через ChatGPT»: закончить вход вставленным адресом возврата. */
+    post: operations['chatgpt_finish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai/me/chatgpt/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * «Войти через ChatGPT»: адрес входа. Сервер сам ждёт возврата браузера на
+     *     `127.0.0.1` 5 минут; если браузер на другом компьютере — адрес возврата
+     *     вставляют в «Закончить вход».
+     */
+    post: operations['chatgpt_start'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai/me/key': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * «AI и бюджет»: свой ключ OpenRouter (тратит деньги своего счёта). Сразу
+     *     выбирается источником AI.
+     */
+    put: operations['set_my_key'];
+    post?: never;
+    /** «AI и бюджет»: убрать свой ключ (источник — снова owner). */
+    delete: operations['remove_my_key'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ai/me/source': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** «AI и бюджет»: откуда брать AI. */
+    put: operations['set_source'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/device/authorize': {
     parameters: {
       query?: never;
@@ -540,6 +650,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/owner/ai/calls': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: журнал AI-вызовов, новые сверху. */
+    get: operations['owner_calls'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/ai/catalog': {
     parameters: {
       query?: never;
@@ -550,6 +677,76 @@ export interface paths {
     /** Owner Console: каталог OpenRouter — из него включаются модели. */
     get: operations['owner_ai_catalog'];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/keys/openrouter': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Owner Console: ключ OpenRouter платформы (D-442). Действует сразу, без перезапуска. */
+    put: operations['owner_set_key'];
+    post?: never;
+    /** Owner Console: убрать ключ из Console (останется ключ из настроек сервера, если он есть). */
+    delete: operations['owner_remove_key'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/limits': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: все живые лимиты с расходом за текущий период. */
+    get: operations['owner_limits'];
+    put?: never;
+    /** Owner Console: задать лимит (прежний на то же сочетание закрывается). */
+    post: operations['owner_set_limit'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/limits/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Owner Console: снять лимит. */
+    delete: operations['owner_revoke_limit'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/loop-guard': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Owner Console: защита от зацикливания (0 — выключено, окно повторов 1…86 400 с). */
+    put: operations['owner_set_loop_guard'];
     post?: never;
     delete?: never;
     options?: never;
@@ -591,6 +788,40 @@ export interface paths {
     patch: operations['owner_ai_update_model'];
     trace?: never;
   };
+  '/api/owner/ai/overview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console → AI: сводка (режим owner, потолок, защита, ключи). */
+    get: operations['owner_overview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/owner-unlimited': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Owner Console: режим «owner без личного лимита» вкл/выкл. */
+    put: operations['owner_set_unlimited'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/ai/tasks': {
     parameters: {
       query?: never;
@@ -618,6 +849,43 @@ export interface paths {
     get?: never;
     /** Owner Console: выбрать модель для задачи (`default` — для всех без своей). */
     put: operations['owner_ai_set_task'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/unlimited': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Owner Console: «Сделать мне безлимит» — снять личные лимиты owner в $,
+     *     поставить дневной потолок платформы (если нет) и включить режим.
+     */
+    post: operations['owner_make_unlimited'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/ai/usage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Owner Console: AI Cost Center — расход по дням, модулям, моделям, людям. */
+    get: operations['owner_usage'];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -2460,6 +2728,34 @@ export interface components {
       minutes: number;
       to: string;
     };
+    /** @description AI-вызов в журнале (без текста запроса и ответа). */
+    AiCallItem: {
+      account_email?: string | null;
+      /**
+       * Format: int64
+       * @description Списано (микродоллары); у незаконченных — пусто.
+       */
+      actual_usd?: number | null;
+      /** Format: date-time */
+      at: string;
+      /** Format: int32 */
+      attempts: number;
+      error_code?: string | null;
+      /** Format: int64 */
+      estimate_usd: number;
+      /** Format: uuid */
+      id: string;
+      model_id: string;
+      module_id: string;
+      /** @description `platform`, `subscription`, `own_key`. */
+      paid_by: string;
+      /** @description `succeeded`, `failed_not_sent`, `unknown`, `sending`, `reserved`, `denied`. */
+      status: string;
+      /** Format: int64 */
+      tokens_in?: number | null;
+      /** Format: int64 */
+      tokens_out?: number | null;
+    };
     /** @description Модель из каталога провайдера. */
     AiCatalogItem: {
       /** Format: int32 */
@@ -2471,6 +2767,52 @@ export interface components {
       price_in_per_mtok: number;
       /** Format: int64 */
       price_out_per_mtok: number;
+    };
+    /** @description Живой лимит и сколько израсходовано в текущем периоде. */
+    AiLimitItem: {
+      account_email?: string | null;
+      /** Format: uuid */
+      account_id?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      /** @description `usd` (микродоллары), `requests`, `tokens`. */
+      metric: string;
+      model_id?: string | null;
+      module_id?: string | null;
+      /** @description `hour`, `day`, `month`, `all`. */
+      period: string;
+      provider_id?: string | null;
+      /** @description `platform`, `user`, `module`, `model`, `provider`, `user_module`, `each_user`. */
+      scope: string;
+      /**
+       * Format: int64
+       * @description Потрачено и зарезервировано в текущем периоде; у «на каждого» — больше
+       *     всех (у кого счётчик ближе к потолку).
+       */
+      used: number;
+      /** Format: int64 */
+      value: number;
+    };
+    /** @description Новый лимит (или новое значение — прежний на то же сочетание закрывается). */
+    AiLimitNew: {
+      /** Format: uuid */
+      account_id?: string | null;
+      /** @description `usd`, `requests`, `tokens`. */
+      metric: string;
+      model_id?: string | null;
+      module_id?: string | null;
+      /** @description `hour`, `day`, `month`, `all`. */
+      period: string;
+      provider_id?: string | null;
+      /** @description `platform`, `user`, `module`, `model`, `provider`, `user_module`, `each_user`. */
+      scope: string;
+      /**
+       * Format: int64
+       * @description Для `usd` — микродоллары (1 $ = 1 000 000). 0 — запрещено.
+       */
+      value: number;
     };
     /** @description Изменение модели. Пустые поля не меняются. */
     AiModelChange: {
@@ -2509,6 +2851,59 @@ export interface components {
       routing_providers: string[];
       /** @description Задачи, для которых выбрана модель (`default`, `inbox.triage` …). */
       tasks: string[];
+    };
+    /** @description Owner Console → AI: всё, что нужно для режима «без личного лимита» и защиты. */
+    AiOverview: {
+      /** @description ChatGPT по подписке включён на сервере. */
+      chatgpt_enabled: boolean;
+      /**
+       * Format: int64
+       * @description Сколько человек подключили свою подписку.
+       */
+      chatgpt_people: number;
+      /**
+       * Format: int64
+       * @description Какой потолок поставит «Сделать мне безлимит», если его нет (микродоллары).
+       */
+      default_platform_day_usd: number;
+      keys: components['schemas']['ProviderKeyInfo'][];
+      loop_guard: components['schemas']['LoopGuardInfo'];
+      /** @description Защита задана в Console (а не настройками сервера). */
+      loop_guard_from_console: boolean;
+      /** @description Настройки сервера — к ним вернёт «Как в настройках сервера». */
+      loop_guard_server: components['schemas']['LoopGuardInfo'];
+      /** @description Личные денежные лимиты owner — пока они есть, действуют они (режим не помогает). */
+      owner_personal_usd: components['schemas']['AiLimitItem'][];
+      /** @description Режим «owner без личного лимита» включён (D-200). */
+      owner_unlimited: boolean;
+      platform_day_usd?: components['schemas']['AiLimitItem'] | null;
+      /** @description Задан `QUBITE_AI_SECRET_KEY` (без него ключи и ChatGPT не сохранить). */
+      secret_key_set: boolean;
+      timezone: string;
+      /** Format: int64 */
+      today_requests: number;
+      /**
+       * Format: int64
+       * @description Сегодня по всей платформе: $ (микродоллары) и вызовов.
+       */
+      today_usd: number;
+      /** @description Режим действует прямо сейчас: включён, личного лимита в $ нет, потолок есть. */
+      unlimited_works: boolean;
+      /** @description Голос (ElevenLabs) включён. */
+      voice: boolean;
+    };
+    /** @description AI Cost Center: расход по дням, модулям, моделям, людям и кто платил. */
+    AiUsage: {
+      /** @description По дням, старые первыми (дни без вызовов — с нулями). */
+      by_day: components['schemas']['UsageRow'][];
+      by_model: components['schemas']['UsageRow'][];
+      by_module: components['schemas']['UsageRow'][];
+      /** @description `platform`, `subscription`, `own_key`. */
+      by_payer: components['schemas']['UsageRow'][];
+      by_person: components['schemas']['UsageRow'][];
+      /** Format: int64 */
+      days: number;
+      total: components['schemas']['UsageRow'];
     };
     /** @description Ответ с ошибкой: машиночитаемый код и понятный человеку текст. */
     ApiErrorBody: {
@@ -2578,6 +2973,20 @@ export interface components {
       revision: number;
       /** @description `new` или `archived`. */
       status?: string | null;
+    };
+    ChatGptFinish: {
+      /** @description Адрес из строки браузера после входа (`http://127.0.0.1:…/auth/callback?code=…`). */
+      callback: string;
+    };
+    /** @description Начатый вход в ChatGPT. */
+    ChatGptStart: {
+      /**
+       * @description Куда OpenAI вернёт браузер. Если сервер на другом компьютере, страница
+       *     не откроется — адрес из строки браузера вставляют в Qubite.
+       */
+      redirect_uri: string;
+      /** @description Страница входа OpenAI — открыть в браузере. */
+      url: string;
     };
     ConfirmRequest: {
       password: string;
@@ -3140,6 +3549,10 @@ export interface components {
       /** @description Заметка для себя. */
       note?: string;
     };
+    KeyChange: {
+      /** @description Ключ API целиком; на экран и в журнал — только последние 4 символа. */
+      key: string;
+    };
     /** @description Адрес провайдера для привязки. */
     LinkStarted: {
       authorize_url: string;
@@ -3174,6 +3587,41 @@ export interface components {
       /** @description CSRF-токен; то же значение лежит в cookie `qubite_csrf`. */
       csrf_token: string;
     };
+    /** @description Защита от зацикливания; `reset: true` — как в настройках сервера. */
+    LoopGuardChange: {
+      /** Format: int32 */
+      job_per_minute?: number | null;
+      /** Format: int32 */
+      repeat_limit?: number | null;
+      /** Format: int64 */
+      repeat_window_secs?: number | null;
+      reset?: boolean;
+      /** Format: int32 */
+      user_per_minute?: number | null;
+    };
+    /** @description Защита от зацикливания (0 — выключено). */
+    LoopGuardInfo: {
+      /**
+       * Format: int32
+       * @description …на одну фоновую задачу.
+       */
+      job_per_minute: number;
+      /**
+       * Format: int32
+       * @description Один и тот же запрос — не больше стольких раз…
+       */
+      repeat_limit: number;
+      /**
+       * Format: int64
+       * @description …за столько секунд (1…86 400).
+       */
+      repeat_window_secs: number;
+      /**
+       * Format: int32
+       * @description Начатых AI-вызовов в минуту на человека.
+       */
+      user_per_minute: number;
+    };
     MailRequest: {
       /** @description Почта аккаунта. */
       email: string;
@@ -3203,6 +3651,13 @@ export interface components {
       message: string;
       /** @description «Вернёмся к …» (RFC 3339), если задано. */
       until?: string | null;
+    };
+    MakeUnlimited: {
+      /**
+       * Format: int64
+       * @description Потолок платформы в день, если его ещё нет (микродоллары); не задан — $5.
+       */
+      platform_day_usd?: number | null;
     };
     /** @description Кто вошёл. */
     Me: {
@@ -3257,6 +3712,42 @@ export interface components {
       version: number;
       /** @description `locked` или `hidden` — как модуль виден без доступа. */
       visibility: string;
+    };
+    /** @description «Настройки → AI и бюджет». */
+    MyAi: {
+      /** @description Свои последние вызовы. */
+      calls: components['schemas']['AiCallItem'][];
+      chatgpt: components['schemas']['MyChatGpt'];
+      is_owner: boolean;
+      /** @description Ключи можно хранить (на сервере есть ключ шифрования). */
+      keys_available: boolean;
+      /** @description Личные лимиты, «на каждого» и потолок платформы — с расходом за текущий период. */
+      limits: components['schemas']['AiLimitItem'][];
+      /** @description Последние 4 символа своего ключа OpenRouter (если добавлен). */
+      own_key_hint?: string | null;
+      /** @description Owner выдал личный лимит в $ (путь ③ «owner разрешил свой OpenRouter»). */
+      owner_allows: boolean;
+      /** @description У owner включён режим «без личного лимита» (только для самого owner). */
+      owner_unlimited: boolean;
+      /** @description Откуда AI: `owner` (платит платформа по личному лимиту), `chatgpt`, `own_key`. */
+      source: string;
+      /** @description Свой расход за 30 дней. */
+      usage: components['schemas']['AiUsage'];
+    };
+    /** @description Подписка ChatGPT человека. */
+    MyChatGpt: {
+      /** @description Можно подключить: включено на сервере и есть ключ шифрования. */
+      available: boolean;
+      connected: boolean;
+      email?: string | null;
+      /** @description Вход закончился ошибкой (если был начат и не удался). */
+      last_error?: string | null;
+      /** @description Модель подписки для текстовых задач (`chatgpt:…`); пусто — первая из каталога. */
+      model?: string | null;
+      /** @description Модели подписки, из которых можно выбрать. */
+      models: string[];
+      /** @description Почему нельзя (если нельзя). */
+      unavailable_reason?: string | null;
     };
     NewAccountRequest: {
       display_name?: string;
@@ -3579,6 +4070,14 @@ export interface components {
       status: string;
       title: string;
     };
+    /** @description Ключ провайдера платформы. */
+    ProviderKeyInfo: {
+      /** @description Последние 4 символа (только у ключа из Console). */
+      hint?: string | null;
+      provider: string;
+      /** @description `console` — сохранён в Console, `server` — из настроек сервера, `none` — нет. */
+      source: string;
+    };
     /** @description Браузер, подписанный на push. */
     PushDevice: {
       /** Format: date-time */
@@ -3752,6 +4251,12 @@ export interface components {
       /** @description Все изменения сохраняются вместе или не сохраняется ни одно. */
       changes: components['schemas']['SettingChange'][];
     };
+    SourceChange: {
+      /** @description Модель подписки (`chatgpt:…`) для `chatgpt`; пусто — первая из каталога. */
+      chatgpt_model?: string | null;
+      /** @description `owner`, `chatgpt` или `own_key`. */
+      source: string;
+    };
     /** @description Модель для задачи. */
     TaskModel: {
       model_id: string;
@@ -3778,6 +4283,23 @@ export interface components {
       /** @description Открыть в Telegram и нажать «Начать»: `https://t.me/<бот>?start=<код>`. */
       url: string;
     };
+    Toggle: {
+      enabled: boolean;
+    };
+    /** @description Расход за группу: $, вызовы, токены. */
+    UsageRow: {
+      /** @description День (`2026-10-23`), модуль, модель или почта. */
+      key: string;
+      /** Format: int64 */
+      requests: number;
+      /** Format: int64 */
+      tokens: number;
+      /**
+       * Format: int64
+       * @description Микродоллары (списано по факту).
+       */
+      usd: number;
+    };
     /** @description Код из письма (`email` + `code`) или токен из ссылки (`token`). */
     VerifyEmailRequest: {
       /** @description 6 цифр из письма; пробелы и дефисы не мешают. */
@@ -3795,6 +4317,284 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  me: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description AI и бюджет человека */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  chatgpt_logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Отключено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `secret_key_not_set` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  chatgpt_finish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChatGptFinish'];
+      };
+    };
+    responses: {
+      /** @description Подключено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Вход не принят */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `chatgpt_disabled` или `secret_key_not_set` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  chatgpt_start: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Адрес входа */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChatGptStart'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `chatgpt_disabled` или `secret_key_not_set` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  set_my_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KeyChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Не похоже на ключ */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `secret_key_not_set` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  remove_my_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Убран */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  set_source: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SourceChange'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MyAi'];
+        };
+      };
+      /** @description Неверный выбор */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не вошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   device_authorize: {
     parameters: {
       query?: never;
@@ -5109,6 +5909,42 @@ export interface operations {
       };
     };
   };
+  owner_calls: {
+    parameters: {
+      query?: {
+        /** @description Вызовы старше этого времени (для «Ещё»). */
+        before?: string | null;
+        /** @description Только вызовы этого человека. */
+        account?: string | null;
+        /** @description Сколько, 1…200, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Вызовы */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiCallItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   owner_ai_catalog: {
     parameters: {
       query?: {
@@ -5128,6 +5964,285 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['AiCatalogItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_set_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KeyChange'];
+      };
+    };
+    responses: {
+      /** @description Сводка после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description Не похоже на ключ */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `secret_key_not_set`: не задан ключ шифрования */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_remove_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сводка после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_limits: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Лимиты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiLimitItem'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_set_limit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AiLimitNew'];
+      };
+    };
+    responses: {
+      /** @description Лимиты после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiLimitItem'][];
+        };
+      };
+      /** @description Неверное значение */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_revoke_limit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID лимита */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Лимиты после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiLimitItem'][];
+        };
+      };
+      /** @description Такого лимита нет */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_set_loop_guard: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LoopGuardChange'];
+      };
+    };
+    responses: {
+      /** @description Сводка после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description Неверное значение */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
       /** @description Не owner */
@@ -5224,6 +6339,77 @@ export interface operations {
       };
     };
   };
+  owner_overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сводка */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_set_unlimited: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Toggle'];
+      };
+    };
+    responses: {
+      /** @description Сводка после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   owner_ai_tasks: {
     parameters: {
       query?: never;
@@ -5294,6 +6480,89 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_make_unlimited: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MakeUnlimited'];
+      };
+    };
+    responses: {
+      /** @description Сводка после изменения */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiOverview'];
+        };
+      };
+      /** @description Потолок должен быть больше нуля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description `confirm_required`: нужен пароль */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  owner_usage: {
+    parameters: {
+      query?: {
+        /** @description За сколько последних дней (1…366, по умолчанию 30). */
+        days?: number | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Расход */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AiUsage'];
         };
       };
       /** @description Не owner */

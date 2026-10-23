@@ -2,17 +2,21 @@ import {
   COMPANION_COLOR,
   Range,
   Segmented,
+  Swap,
   Switch,
   useLook,
   type MotionChoice,
   type ThemeChoice,
 } from '@qubite/ui';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import { useShell } from '../context';
 import { HELPERS } from '../data';
 import { SecHead } from '../parts';
 import { useStore } from '../state';
 import { useMe } from '../../auth/client';
+import { AiSettings } from './AiSettings';
+import { useMyAi } from '../ai-me';
+import { usd } from '../ai-view';
 
 /** Кто вошёл (AUTH-005): ссылка на «Аккаунт» или на вход. */
 function AccountRow() {
@@ -48,7 +52,48 @@ function ConsoleRow() {
   );
 }
 
+const PAGES = ['list', 'ai'] as const;
+
+/** Настройки; по адресу `/settings/ai` — «AI и бюджет» (AI-003). */
 export function SettingsScreen() {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const page = path.startsWith('/settings/ai') ? 'ai' : 'list';
+  return (
+    <Swap view={page} order={PAGES}>
+      {page === 'ai' ? <AiSettings /> : <SettingsHome />}
+    </Swap>
+  );
+}
+
+/** Строка «AI и бюджет»: что подключено — коротко. */
+function AiRow() {
+  const me = useMe();
+  const ai = useMyAi();
+  const d = ai.data;
+  const line = !me.data
+    ? 'войдите, чтобы подключить AI'
+    : !d
+      ? 'расход, лимиты, «Подключить AI»'
+      : d.source === 'chatgpt'
+        ? `своя подписка ChatGPT · за 30 дн. ${usd(d.usage.total.usd)}`
+        : d.source === 'own_key'
+          ? `свой ключ OpenRouter · за 30 дн. ${usd(d.usage.total.usd)}`
+          : d.is_owner
+            ? `${d.owner_unlimited ? 'без личного лимита' : 'по лимитам'} · за 30 дн. ${usd(d.usage.total.usd)}`
+            : d.owner_allows
+              ? `owner разрешил · за 30 дн. ${usd(d.usage.total.usd)}`
+              : 'AI не подключён — подключить';
+  return (
+    <Link className="set" data-obj="set-ai" to={me.data ? '/settings/ai' : '/auth'}>
+      <span className="lbl">
+        AI и бюджет<small>{line}</small>
+      </span>
+      <span className="later">→</span>
+    </Link>
+  );
+}
+
+function SettingsHome() {
   const { look, set } = useLook();
   const { state, dispatch } = useStore();
   const shell = useShell();
@@ -163,17 +208,16 @@ export function SettingsScreen() {
       <div className="group panel">
         <AccountRow />
         <ConsoleRow />
-        <div className="set" data-obj="set-backup">
+        <AiRow />
+        <div className="set" data-obj="set-backup" aria-disabled="true">
           <span className="lbl">
-            Экспорт и бэкапы<small>последний бэкап сегодня в 4:00</small>
+            Экспорт и бэкапы
+            <small>
+              скоро: выгрузка своих данных и бэкап сервера — задача OPS-002. Пока всё хранится на
+              сервере, в базе PostgreSQL
+            </small>
           </span>
-          <span className="later">→</span>
-        </div>
-        <div className="set" data-obj="set-ai">
-          <span className="lbl">
-            AI и бюджет<small>платный AI выключен</small>
-          </span>
-          <span className="later">→</span>
+          <span className="later">скоро</span>
         </div>
       </div>
       <p className="foot">

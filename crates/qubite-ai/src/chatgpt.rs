@@ -1,8 +1,10 @@
 //! Провайдер «ChatGPT по подписке» (AI-005, D-219): Sign in with ChatGPT для
 //! open-source клиентов — https://developers.openai.com/siwc/token-sharing-open-source
 //!
-//! - **Вход:** OIDC + PKCE (S256) через системный браузер; адрес возврата —
-//!   `http://127.0.0.1:<порт>/auth/callback`. Первый вход регистрирует клиента
+//! - **Вход:** у каждого человека свой (D-493, AI-003). OIDC + PKCE (S256)
+//!   через браузер; адрес возврата — `http://127.0.0.1:<порт>/auth/callback`
+//!   (сервер слушает его сам, а если браузер на другом компьютере — человек
+//!   вставляет адрес возврата в Qubite). Первый вход регистрирует клиента
 //!   (`client_id = dynamic_agent_client`), OpenAI выдаёт свой `oaiapp_…` —
 //!   он и `ext_agent_host_id` этой установки хранятся и переиспользуются.
 //!   `ext_agent_host_id` — только в формате, который принимает OpenAI:
@@ -15,11 +17,12 @@
 //!   маршрут отклоняет); `max_output_tokens` не поддерживается.
 //! - **Деньги:** платит подписка, поэтому стоимость 0 $, а учёт — по запросам
 //!   и токенам в тех же лимитах. Подписка — **только для собственных запросов**
-//!   того, кто вошёл: чужой запрос получает отказ до отправки.
+//!   того, кто вошёл: запрос идёт с токенами его автора.
 //! - **Лимит подписки** (`subscription_sharing_usage_limit_exceeded`): понятная
 //!   ошибка и пауза новых запросов на 15 минут (время сброса OpenAI не сообщает).
 
 use std::{
+    collections::HashMap,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -219,17 +222,18 @@ pub struct LoginResult {
     pub scopes: String,
 }
 
-/// Вход через браузер. `open` получает адрес страницы входа (CLI печатает его
-/// и открывает системный браузер; тест — «нажимает» сам). Ждёт возврата на
-/// `127.0.0.1:<port>` до 5 минут. `port` 0 — любой свободный.
-pub async fn login(
-    pool: &PgPool,
-    config: &ChatGptConfig,
-    secret: &SecretBox,
-    account_id: Uuid,
-    port: u16,
-    open: impl FnOnce(&str),
-) -> Result<LoginResult, String> {
+/// Начатый вход: страница OpenAI, куда отправить человека.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoginStart {
+    pub url: String,
+    pub state: String,
+}
+
+/// Сколько живёт начатый вход (возврат позже — «начните снова»).
+const LOGIN_TTL_SECS: f64 = 600.0;
+
+/// Установка (одна на сервер): `ext_agent_host_id` и выданный `client_id`.
+async fn installation(pool: &PgPool) -> Result<(String, Option<String>), String> {
     let db = |error: sqlx::Error| format!("база: {error}");
     sqlx::query(
         "INSERT INTO ai_chatgpt_session (singleton, host_id) VALUES (true, $1) \
@@ -252,31 +256,62 @@ pub async fn login(
             .await
             .map_err(db)?;
     }
-    let (host_id, saved_client, saved_email): (String, Option<String>, Option<String>) =
-        sqlx::query_as("SELECT host_id, client_id, email FROM ai_chatgpt_session WHERE singleton")
-            .fetch_one(pool)
-            .await
-            .map_err(db)?;
-
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+    sqlx::query_as("SELECT host_id, client_id FROM ai_chatgpt_session WHERE singleton")
+        .fetch_one(pool)
         .await
-        .map_err(|error| format!("порт {port} занят ({error}); укажите другой: --port"))?;
-    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
-    // Только 127.0.0.1 (не localhost), путь и схема всегда одни и те же.
-    let redirect_uri = format!("http://127.0.0.1:{port}/auth/callback");
+        .map_err(db)
+}
+
+/// Начать вход человека `account_id` (D-493: у каждого — своя подписка).
+/// `redirect_uri` — `http://127.0.0.1:<порт>/auth/callback`; проверка возврата
+/// (state), PKCE и nonce остаются на сервере.
+pub async fn begin_login(
+    pool: &PgPool,
+    config: &ChatGptConfig,
+    secret: &SecretBox,
+    account_id: Uuid,
+    redirect_uri: &str,
+) -> Result<LoginStart, String> {
+    let db = |error: sqlx::Error| format!("база: {error}");
+    let (host_id, saved_client) = installation(pool).await?;
+    let saved_email: Option<String> =
+        sqlx::query_scalar("SELECT email FROM ai_chatgpt_tokens WHERE account_id = $1")
+            .bind(account_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(db)?
+            .flatten();
     let verifier = random_token(32);
     let state = random_token(24);
     let nonce = random_token(24);
+    sqlx::query(
+        "DELETE FROM ai_chatgpt_logins WHERE created_at < now() - $1::float8 * interval '1 second'",
+    )
+    .bind(LOGIN_TTL_SECS)
+    .execute(pool)
+    .await
+    .map_err(db)?;
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_logins (state, account_id, verifier, nonce, redirect_uri) \
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(&state)
+    .bind(account_id)
+    .bind(secret.seal("chatgpt.verifier", &verifier))
+    .bind(&nonce)
+    .bind(redirect_uri)
+    .execute(pool)
+    .await
+    .map_err(db)?;
     let client_for_request = saved_client
         .clone()
         .unwrap_or_else(|| REGISTRATION_CLIENT.into());
-
     let challenge = pkce_challenge(&verifier);
     let mut params: Vec<(&str, &str)> = vec![
         ("client_id", &client_for_request),
         ("ext_agent_host_id", &host_id),
         ("response_type", "code"),
-        ("redirect_uri", &redirect_uri),
+        ("redirect_uri", redirect_uri),
         ("scope", SCOPES),
         ("resource", RESOURCE),
         ("state", &state),
@@ -292,16 +327,69 @@ pub async fn login(
     }
     let url = reqwest::Url::parse_with_params(&config.authorize_url(), &params)
         .map_err(|error| format!("адрес входа: {error}"))?;
-    open(url.as_str());
+    Ok(LoginStart {
+        url: url.into(),
+        state,
+    })
+}
 
-    let callback = tokio::time::timeout(
-        Duration::from_secs(300),
-        wait_for_callback(&listener, &state),
+/// Закончить вход: `callback` — адрес возврата целиком (`http://127.0.0.1:…/auth/callback?code=…`)
+/// или только его параметры. Вход принимается, только если его начал этот же человек.
+pub async fn finish_login(
+    pool: &PgPool,
+    config: &ChatGptConfig,
+    secret: &SecretBox,
+    account_id: Uuid,
+    callback: &str,
+) -> Result<LoginResult, String> {
+    let db = |error: sqlx::Error| format!("база: {error}");
+    let callback = callback.trim();
+    let query = callback
+        .split_once('?')
+        .map_or(callback, |(_, query)| query)
+        .split('#')
+        .next()
+        .unwrap_or_default();
+    let params: Vec<(String, String)> = url_params(query);
+    let get = |name: &str| {
+        params
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+    };
+    let state = get("state").ok_or("в адресе нет state — скопируйте адрес целиком")?;
+    type Pending = (String, String, String, bool);
+    // Один раз: строка удаляется сразу — тот же адрес второй раз не примется.
+    let pending: Option<Pending> = sqlx::query_as(
+        "DELETE FROM ai_chatgpt_logins WHERE state = $1 AND account_id = $2 \
+         RETURNING verifier, nonce, redirect_uri, \
+                   created_at > now() - $3::float8 * interval '1 second'",
     )
+    .bind(&state)
+    .bind(account_id)
+    .bind(LOGIN_TTL_SECS)
+    .fetch_optional(pool)
     .await
-    .map_err(|_| "вход не завершён за 5 минут".to_owned())??;
-
-    let client_id = match (&saved_client, callback.client_id) {
+    .map_err(db)?;
+    let Some((verifier, nonce, redirect_uri, fresh)) = pending else {
+        return Err("этот вход не найден или уже закончен — начните снова".into());
+    };
+    if !fresh {
+        return Err("вход начат слишком давно (больше 10 минут) — начните снова".into());
+    }
+    if let Some(error) = get("error") {
+        return Err(if error == "access_denied" {
+            "вы отказались на экране входа".to_owned()
+        } else {
+            format!("OpenAI вернул ошибку: {error}")
+        });
+    }
+    let code = get("code").ok_or("в адресе нет кода входа — скопируйте адрес целиком")?;
+    let verifier = secret
+        .open("chatgpt.verifier", &verifier)
+        .map_err(|e| format!("вход: {e}"))?;
+    let (_, saved_client) = installation(pool).await?;
+    let client_id = match (&saved_client, get("client_id")) {
         (Some(saved), Some(given)) if &given != saved => {
             return Err("OpenAI вернул другой client_id — вход отклонён".into());
         }
@@ -316,7 +404,7 @@ pub async fn login(
         .form(&[
             ("grant_type", "authorization_code"),
             ("client_id", &client_id),
-            ("code", &callback.code),
+            ("code", &code),
             ("code_verifier", &verifier),
             ("redirect_uri", &redirect_uri),
             ("resource", RESOURCE),
@@ -349,12 +437,21 @@ pub async fn login(
         .as_deref()
         .ok_or("нет refresh-токена (offline_access)")?;
 
+    let mut tx = pool.begin().await.map_err(db)?;
+    sqlx::query("UPDATE ai_chatgpt_session SET client_id = $1, updated_at = now() WHERE singleton")
+        .bind(&client_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
     sqlx::query(
-        "UPDATE ai_chatgpt_session SET client_id = $1, account_id = $2, subject = $3, email = $4, \
-         scopes = $5, access_token_enc = $6, refresh_token_enc = $7, id_token_enc = $8, \
-         expires_at = now() + $9::float8 * interval '1 second', updated_at = now() WHERE singleton",
+        "INSERT INTO ai_chatgpt_tokens (account_id, subject, email, scopes, access_token_enc, \
+         refresh_token_enc, id_token_enc, expires_at, updated_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now() + $8::float8 * interval '1 second', now()) \
+         ON CONFLICT (account_id) DO UPDATE SET subject = EXCLUDED.subject, email = EXCLUDED.email, \
+         scopes = EXCLUDED.scopes, access_token_enc = EXCLUDED.access_token_enc, \
+         refresh_token_enc = EXCLUDED.refresh_token_enc, id_token_enc = EXCLUDED.id_token_enc, \
+         expires_at = EXCLUDED.expires_at, updated_at = now()",
     )
-    .bind(&client_id)
     .bind(account_id)
     .bind(&claims.sub)
     .bind(&claims.email)
@@ -363,9 +460,10 @@ pub async fn login(
     .bind(secret.seal("chatgpt.refresh", refresh))
     .bind(secret.seal("chatgpt.id", id_token))
     .bind(tokens.expires_in.unwrap_or(3600) as f64)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(db)?;
+    tx.commit().await.map_err(db)?;
     Ok(LoginResult {
         email: claims.email,
         client_id,
@@ -373,15 +471,60 @@ pub async fn login(
     })
 }
 
-struct Callback {
-    code: String,
-    client_id: Option<String>,
+/// Параметры адреса (`a=1&b=2`) с раскодированием.
+fn url_params(query: &str) -> Vec<(String, String)> {
+    reqwest::Url::parse(&format!("http://127.0.0.1/?{query}"))
+        .map(|url| {
+            url.query_pairs()
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Свой порт на 127.0.0.1 для возврата из браузера: слушатель и адрес возврата.
+/// `port` 0 — любой свободный.
+pub async fn loopback(port: u16) -> Result<(tokio::net::TcpListener, String), String> {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .map_err(|error| format!("порт {port} занят ({error}); укажите другой: --port"))?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    // Только 127.0.0.1 (не localhost), путь и схема всегда одни и те же.
+    Ok((listener, format!("http://127.0.0.1:{port}/auth/callback")))
+}
+
+/// Дождаться возврата из браузера (до 5 минут) — адрес возврата целиком.
+pub async fn await_callback(
+    listener: &tokio::net::TcpListener,
+    state: &str,
+) -> Result<String, String> {
+    tokio::time::timeout(Duration::from_secs(300), wait_for_callback(listener, state))
+        .await
+        .map_err(|_| "вход не завершён за 5 минут".to_owned())?
+}
+
+/// Вход через браузер из команды (`qubite ai chatgpt login`). `open` получает
+/// адрес страницы входа (CLI печатает его и открывает системный браузер; тест —
+/// «нажимает» сам). Ждёт возврата на `127.0.0.1:<port>` до 5 минут.
+pub async fn login(
+    pool: &PgPool,
+    config: &ChatGptConfig,
+    secret: &SecretBox,
+    account_id: Uuid,
+    port: u16,
+    open: impl FnOnce(&str),
+) -> Result<LoginResult, String> {
+    let (listener, redirect_uri) = loopback(port).await?;
+    let start = begin_login(pool, config, secret, account_id, &redirect_uri).await?;
+    open(&start.url);
+    let callback = await_callback(&listener, &start.state).await?;
+    finish_login(pool, config, secret, account_id, &callback).await
 }
 
 async fn wait_for_callback(
     listener: &tokio::net::TcpListener,
     state: &str,
-) -> Result<Callback, String> {
+) -> Result<String, String> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     loop {
         let (mut stream, _) = listener.accept().await.map_err(|e| e.to_string())?;
@@ -410,30 +553,19 @@ async fn wait_for_callback(
                 .find(|(k, _)| k == name)
                 .map(|(_, v)| v.into_owned())
         };
-        let (status, page, result) = if get("state").as_deref() != Some(state) {
+        let (status, page, done) = if get("state").as_deref() != Some(state) {
             // Чужой или подделанный возврат — не обмениваем код и ждём дальше.
-            ("400 Bad Request", "Неверный state — вход не принят.", None)
-        } else if let Some(error) = get("error") {
-            (
-                "200 OK",
-                "Вход отменён. Окно можно закрыть.",
-                Some(Err(if error == "access_denied" {
-                    "вы отказались на экране входа".to_owned()
-                } else {
-                    format!("OpenAI вернул ошибку: {error}")
-                })),
-            )
-        } else if let Some(code) = get("code") {
+            ("400 Bad Request", "Неверный state — вход не принят.", false)
+        } else if get("error").is_some() {
+            ("200 OK", "Вход отменён. Окно можно закрыть.", true)
+        } else if get("code").is_some() {
             (
                 "200 OK",
                 "Qubite подключён к ChatGPT. Окно можно закрыть.",
-                Some(Ok(Callback {
-                    code,
-                    client_id: get("client_id"),
-                })),
+                true,
             )
         } else {
-            ("400 Bad Request", "В ответе нет кода.", None)
+            ("400 Bad Request", "В ответе нет кода.", false)
         };
         let html = format!(
             "<!doctype html><meta charset=utf-8><title>Qubite</title><p style=\"font-family:sans-serif\">{page}</p>"
@@ -447,8 +579,8 @@ async fn wait_for_callback(
                 .as_bytes(),
             )
             .await;
-        if let Some(result) = result {
-            return result;
+        if done {
+            return Ok(url.into());
         }
     }
 }
@@ -485,19 +617,21 @@ pub struct Status {
     pub scopes: Option<String>,
 }
 
-pub async fn status(pool: &PgPool) -> Result<Status, sqlx::Error> {
-    type Row = (bool, Option<String>, Option<Uuid>, Option<String>);
+/// Подключена ли подписка у человека `account_id`.
+pub async fn status(pool: &PgPool, account_id: Uuid) -> Result<Status, sqlx::Error> {
+    type Row = (bool, Option<String>, Option<String>);
     let row: Option<Row> = sqlx::query_as(
-        "SELECT refresh_token_enc IS NOT NULL, email, account_id, scopes \
-         FROM ai_chatgpt_session WHERE singleton",
+        "SELECT refresh_token_enc IS NOT NULL, email, scopes \
+         FROM ai_chatgpt_tokens WHERE account_id = $1",
     )
+    .bind(account_id)
     .fetch_optional(pool)
     .await?;
     Ok(match row {
-        Some((connected, email, account_id, scopes)) => Status {
+        Some((connected, email, scopes)) => Status {
             connected,
             email,
-            account_id,
+            account_id: Some(account_id),
             scopes,
         },
         None => Status {
@@ -509,17 +643,33 @@ pub async fn status(pool: &PgPool) -> Result<Status, sqlx::Error> {
     })
 }
 
+/// Кто-нибудь подключил подписку (owner — первым): через его вход берётся
+/// список моделей подписки для каталога.
+pub async fn any_connected(pool: &PgPool) -> Result<Option<Uuid>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT t.account_id FROM ai_chatgpt_tokens t \
+         LEFT JOIN platform_owner o ON o.account_id = t.account_id \
+         WHERE t.refresh_token_enc IS NOT NULL \
+         ORDER BY o.account_id IS NULL, t.updated_at DESC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+}
+
 /// Выйти: отозвать refresh-токен у OpenAI (адрес — из OpenID-конфигурации)
-/// и стереть токены. `client_id` и `host_id` остаются для следующего входа.
-/// Возвращает `true`, если отзыв у OpenAI подтверждён.
+/// и стереть токены человека. `client_id` и `host_id` установки остаются для
+/// следующего входа. Возвращает `true`, если отзыв у OpenAI подтверждён.
 pub async fn logout(
     pool: &PgPool,
     config: &ChatGptConfig,
     secret: &SecretBox,
+    account_id: Uuid,
 ) -> Result<bool, String> {
     let row: Option<(Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT client_id, refresh_token_enc FROM ai_chatgpt_session WHERE singleton",
+        "SELECT s.client_id, t.refresh_token_enc FROM ai_chatgpt_tokens t \
+         LEFT JOIN ai_chatgpt_session s ON s.singleton WHERE t.account_id = $1",
     )
+    .bind(account_id)
     .fetch_optional(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -529,13 +679,11 @@ pub async fn logout(
     {
         revoked = revoke(config, &client_id, &refresh).await.unwrap_or(false);
     }
-    sqlx::query(
-        "UPDATE ai_chatgpt_session SET access_token_enc = NULL, refresh_token_enc = NULL, \
-         id_token_enc = NULL, expires_at = NULL, account_id = NULL, updated_at = now() WHERE singleton",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM ai_chatgpt_tokens WHERE account_id = $1")
+        .bind(account_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(revoked)
 }
 
@@ -575,7 +723,8 @@ pub struct ChatGpt {
     config: ChatGptConfig,
     pool: PgPool,
     secret: Arc<SecretBox>,
-    paused_until: Mutex<Option<Instant>>,
+    /// Пауза после лимита подписки — у каждого своя (подписки разные).
+    paused_until: Mutex<HashMap<Uuid, Instant>>,
 }
 
 /// Ошибки обновления, после которых токены уже не годятся (нужен новый вход).
@@ -600,34 +749,34 @@ impl ChatGpt {
             config,
             pool,
             secret,
-            paused_until: Mutex::new(None),
+            paused_until: Mutex::new(HashMap::new()),
         })
     }
 
-    /// Действующий access-токен и аккаунт, который вошёл. Обновление — под
+    /// Действующий access-токен человека `account_id`. Обновление — под
     /// блокировкой строки: два процесса не обновят одноразовый refresh вместе.
-    async fn access_token(&self, force_refresh: bool) -> Result<(String, Uuid), ProviderError> {
+    async fn access_token(
+        &self,
+        account_id: Uuid,
+        force_refresh: bool,
+    ) -> Result<String, ProviderError> {
         let not_sent = |what: String| ProviderError::NotSent(what);
         let db = |error: sqlx::Error| ProviderError::NotSent(format!("база: {error}"));
         let mut tx = self.pool.begin().await.map_err(db)?;
-        type Row = (
-            Option<String>,
-            Option<Uuid>,
-            Option<String>,
-            Option<String>,
-            bool,
-        );
+        type Row = (Option<String>, Option<String>, Option<String>, bool);
         let row: Option<Row> = sqlx::query_as(
-            "SELECT client_id, account_id, access_token_enc, refresh_token_enc, \
-                    coalesce(expires_at > now() + interval '5 minutes', false) \
-             FROM ai_chatgpt_session WHERE singleton FOR UPDATE",
+            "SELECT s.client_id, t.access_token_enc, t.refresh_token_enc, \
+                    coalesce(t.expires_at > now() + interval '5 minutes', false) \
+             FROM ai_chatgpt_tokens t LEFT JOIN ai_chatgpt_session s ON s.singleton \
+             WHERE t.account_id = $1 FOR UPDATE OF t",
         )
+        .bind(account_id)
         .fetch_optional(&mut *tx)
         .await
         .map_err(db)?;
-        let Some((Some(client_id), Some(account), Some(access), Some(refresh), fresh)) = row else {
+        let Some((Some(client_id), Some(access), Some(refresh), fresh)) = row else {
             return Err(ProviderError::Refused(
-                "вход в ChatGPT не выполнен: qubite ai chatgpt login".into(),
+                "ChatGPT не подключён — «Настройки → AI и бюджет → Войти через ChatGPT»".into(),
             ));
         };
         let open = |purpose: &str, sealed: &str| {
@@ -636,7 +785,7 @@ impl ChatGpt {
                 .map_err(|e| ProviderError::Refused(format!("токены ChatGPT: {e}")))
         };
         if fresh && !force_refresh {
-            return Ok((open("chatgpt.access", &access)?, account));
+            return open("chatgpt.access", &access);
         }
         let refresh = open("chatgpt.refresh", &refresh)?;
         let response = self
@@ -660,16 +809,17 @@ impl ChatGpt {
             let code = oauth_error(&body).unwrap_or_default();
             if status.is_client_error() && TERMINAL_REFRESH.contains(&code.as_str()) {
                 sqlx::query(
-                    "UPDATE ai_chatgpt_session SET access_token_enc = NULL, refresh_token_enc = NULL, \
-                     expires_at = NULL, updated_at = now() WHERE singleton",
+                    "UPDATE ai_chatgpt_tokens SET access_token_enc = NULL, refresh_token_enc = NULL, \
+                     expires_at = NULL, updated_at = now() WHERE account_id = $1",
                 )
+                .bind(account_id)
                 .execute(&mut *tx)
                 .await
                 .map_err(db)?;
                 tx.commit().await.map_err(db)?;
                 tracing::warn!(code, "сессия ChatGPT закончилась — нужен новый вход");
                 return Err(ProviderError::Refused(
-                    "сессия ChatGPT закончилась — войдите снова: qubite ai chatgpt login".into(),
+                    "сессия ChatGPT закончилась — войдите снова: «Настройки → AI и бюджет»".into(),
                 ));
             }
             // Временная ошибка — токены не трогаем (не стирать из-за сбоя сети).
@@ -682,35 +832,35 @@ impl ChatGpt {
         let new_refresh = tokens.refresh_token.as_deref().unwrap_or(&refresh);
         let scopes = tokens.scopes();
         sqlx::query(
-            "UPDATE ai_chatgpt_session SET access_token_enc = $1, refresh_token_enc = $2, \
+            "UPDATE ai_chatgpt_tokens SET access_token_enc = $1, refresh_token_enc = $2, \
              scopes = coalesce(nullif($3, ''), scopes), \
-             expires_at = now() + $4::float8 * interval '1 second', updated_at = now() WHERE singleton",
+             expires_at = now() + $4::float8 * interval '1 second', updated_at = now() \
+             WHERE account_id = $5",
         )
         .bind(self.secret.seal("chatgpt.access", &tokens.access_token))
         .bind(self.secret.seal("chatgpt.refresh", new_refresh))
         .bind(&scopes)
         .bind(tokens.expires_in.unwrap_or(3600) as f64)
+        .bind(account_id)
         .execute(&mut *tx)
         .await
         .map_err(db)?;
         tx.commit().await.map_err(db)?;
-        Ok((tokens.access_token, account))
+        Ok(tokens.access_token)
     }
 
-    fn paused(&self) -> bool {
+    fn paused(&self, account_id: Uuid) -> bool {
         let mut paused = self.paused_until.lock().expect("пауза");
-        match *paused {
-            Some(until) if Instant::now() < until => true,
-            Some(_) => {
-                *paused = None;
-                false
-            }
-            None => false,
-        }
+        let now = Instant::now();
+        paused.retain(|_, until| now < *until);
+        paused.contains_key(&account_id)
     }
 
-    fn pause(&self) {
-        *self.paused_until.lock().expect("пауза") = Some(Instant::now() + LIMIT_PAUSE);
+    fn pause(&self, account_id: Uuid) {
+        self.paused_until
+            .lock()
+            .expect("пауза")
+            .insert(account_id, Instant::now() + LIMIT_PAUSE);
     }
 
     async fn send(
@@ -718,15 +868,11 @@ impl ChatGpt {
         call: &ProviderCall,
         delta: Option<Delta>,
     ) -> Result<ProviderReply, ProviderError> {
-        if self.paused() {
+        if self.paused(call.account_id) {
             return Err(ProviderError::UsageLimit(usage_limit_message()));
         }
-        let (mut token, account) = self.access_token(false).await?;
-        if account != call.account_id {
-            return Err(ProviderError::Refused(
-                "подписка ChatGPT — только для запросов того, кто её подключил".into(),
-            ));
-        }
+        // Подписка — только своя: токен того, чей это запрос (D-493).
+        let mut token = self.access_token(call.account_id, false).await?;
         let instructions: Vec<&str> = call
             .messages
             .iter()
@@ -772,30 +918,30 @@ impl ChatGpt {
             if (200..300).contains(&status) {
                 let reply = parse_stream(&text);
                 if matches!(reply, Err(ProviderError::UsageLimit(_))) {
-                    self.pause();
+                    self.pause(call.account_id);
                 }
                 return reply;
             }
             // 401 до начала потока — запрос не принят: обновить токен и один раз повторить.
             if status == 401 && attempt == 0 {
-                token = self.access_token(true).await?.0;
+                token = self.access_token(call.account_id, true).await?;
                 continue;
             }
             let error = admission_error(status, &text);
             if matches!(error, ProviderError::UsageLimit(_)) {
-                self.pause();
+                self.pause(call.account_id);
             }
             return Err(error);
         }
         Err(ProviderError::Refused(
-            "ChatGPT не принял вход — войдите снова: qubite ai chatgpt login".into(),
+            "ChatGPT не принял вход — войдите снова: «Настройки → AI и бюджет»".into(),
         ))
     }
 
-    /// Модели, доступные подписке (`GET /v1/models`), — в каталог по цене 0 $.
-    pub async fn models(&self) -> Result<Vec<CatalogEntry>, CatalogError> {
-        let (token, _) = self
-            .access_token(false)
+    /// Модели, доступные подписке человека (`GET /v1/models`), — в каталог по цене 0 $.
+    pub async fn models(&self, account_id: Uuid) -> Result<Vec<CatalogEntry>, CatalogError> {
+        let token = self
+            .access_token(account_id, false)
             .await
             .map_err(|e| CatalogError::Unavailable(e.to_string()))?;
         let response = self
@@ -946,7 +1092,7 @@ fn admission_error(status: u16, body: &str) -> ProviderError {
     match status {
         429 | 503 => ProviderError::NotSent(format!("HTTP {status}: {message}")),
         401 => ProviderError::Refused(
-            "ChatGPT не принял вход — войдите снова: qubite ai chatgpt login".into(),
+            "ChatGPT не принял вход — войдите снова: «Настройки → AI и бюджет»".into(),
         ),
         400 | 403 | 404 => ProviderError::Refused(format!("HTTP {status}: {message}")),
         _ => ProviderError::Unknown(format!("HTTP {status}: {message}")),
@@ -967,7 +1113,7 @@ fn failure(code: &str, message: &str) -> ProviderError {
             "подписка не подходит для использования в приложениях (нужен Plus или Pro)".into(),
         ),
         "subscription_sharing_invalid_user" => ProviderError::Refused(
-            "ChatGPT не принял вход — войдите снова: qubite ai chatgpt login".into(),
+            "ChatGPT не принял вход — войдите снова: «Настройки → AI и бюджет»".into(),
         ),
         _ => ProviderError::Refused(if message.is_empty() {
             code.to_owned()

@@ -843,7 +843,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .with_blobs(qubite_objects::BlobStore::new(args.data_dir.join("blobs")));
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
-            state = state.with_ai(ai.gateway);
+            state = state.with_ai(ai.gateway).with_ai_panel(ai.panel);
             ai.openrouter
         }
         // Сервер работает и без AI (например, база ещё не поднялась при

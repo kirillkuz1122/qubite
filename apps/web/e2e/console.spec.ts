@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockAuth, OWNER, USER } from './auth-mock';
+import { mockAi } from './ai-mock';
 import { mockConsole } from './console-mock';
 
 /* Owner Console (ACC-003): сервер подделан теми же ответами, браузер настоящий. */
@@ -9,6 +10,7 @@ async function owner(page: Page, { confirmed = true } = {}) {
   const auth = await mockAuth(page, { me: OWNER });
   const console = await mockConsole(page, auth);
   console.confirmed = confirmed;
+  await mockAi(page, auth, console);
   return { auth, console };
 }
 
@@ -191,10 +193,12 @@ test('модули, AI и сервер; на телефоне нет гориз�
   expect(call?.body).toEqual({ state: 'maintenance', expected_version: 1 });
 
   await tab(page, 'AI').click();
+  await expect(page.getByRole('heading', { name: 'Мне без лимита' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Модели и ключи' }).click();
   await expect(
     page.getByRole('switch', { name: 'Модель google/gemini-2.5-flash-lite' }),
   ).toBeVisible();
-  await expect(page.getByText('qubite ai limit')).toBeVisible();
+  await expect(page.getByText('qubite ai limit')).toHaveCount(0);
 
   await tab(page, 'Сервер').click();
   await expect(page.getByText('миграция 22')).toBeVisible();

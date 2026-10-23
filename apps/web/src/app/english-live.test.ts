@@ -221,7 +221,8 @@ describe('английский потоком: связь и отказы (ба�
   it('подсказка на отказ говорит, что сделать', () => {
     expect(
       stopHint('budget_exhausted', 'AI-лимит исчерпан (user, day, usd). Можно сохранить без AI'),
-    ).toMatch(/закончился \(user, day, usd\).*just qubite ai limit/);
+    ).toMatch(/закончился \(user, day, usd\).*в настройках лимитов/);
+    expect(stopHint('budget_exhausted', '')).not.toMatch(/just|qubite ai/);
     expect(stopHint('rate_limited', '')).toMatch(/зацикливания/);
   });
 });

@@ -41,6 +41,14 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 pub use budget::{PeriodKeys, Reservation};
+
+/// «Назначение» шифрования ключа: ключ одного человека не подставить другому.
+pub fn key_purpose(account_id: Option<Uuid>) -> String {
+    match account_id {
+        Some(id) => format!("ai.key.openrouter.{id}"),
+        None => "ai.key.openrouter.platform".into(),
+    }
+}
 pub use guard::Untrusted;
 pub use provider::{
     ChatMessage, Delta, MockProvider, MockStep, Provider, ProviderCall, ProviderError,
@@ -77,7 +85,7 @@ pub enum AiError {
         metric: String,
     },
     #[error(
-        "в режиме «owner без личного лимита» нужен дневной потолок платформы в $ (qubite ai limit --scope platform --period day --metric usd …)"
+        "в режиме «owner без личного лимита» нужен дневной потолок платформы в $ — Console → AI → «Сделать мне безлимит»"
     )]
     PlatformCapNotSet,
     #[error("слишком много AI-запросов за минуту ({scope}) — похоже на зацикливание, подождите")]
@@ -102,6 +110,8 @@ pub enum AiError {
     },
     #[error("результат запроса неизвестен; резерв удерживается до выяснения")]
     ResultUnknown { call_id: Uuid },
+    #[error("{0}")]
+    SourceNotReady(String),
     #[error("неверные данные: {0}")]
     Invalid(String),
     #[error("ошибка базы данных: {0}")]
@@ -127,6 +137,7 @@ impl AiError {
             Self::ProviderRefused { .. } => "provider_refused",
             Self::SubscriptionLimit { .. } => "subscription_limit",
             Self::ResultUnknown { .. } => "result_unknown",
+            Self::SourceNotReady(_) => "source_not_ready",
             Self::Invalid(_) => "invalid",
             Self::Db(_) | Self::Audit(_) => "internal",
         }
@@ -324,6 +335,29 @@ struct Opened {
     reservations: Vec<Reservation>,
     estimate_usd: i64,
     account_id: Uuid,
+    /// Свой ключ человека (D-493); `None` — ключ платформы.
+    api_key: Option<qubite_kernel::Secret>,
+}
+
+/// Кто платит за вызов (D-531): платформа (ключ owner, лимиты owner), своя
+/// подписка ChatGPT или свой ключ человека — тогда денежные лимиты owner его не
+/// касаются, а запросы, токены и защита от зацикливания — как у всех.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaidBy {
+    Platform,
+    Subscription,
+    OwnKey,
+}
+
+impl PaidBy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Platform => "platform",
+            Self::Subscription => "subscription",
+            Self::OwnKey => "own_key",
+        }
+    }
 }
 
 /// Один платный вызов для [`Gateway::run`].
@@ -399,6 +433,8 @@ pub struct Gateway {
     /// Секрет процесса для «отпечатков» запросов: в базе не текст и не хеш,
     /// который можно сверить с догадкой.
     fingerprint_key: ring::hmac::Key,
+    /// Ключ шифрования (`QUBITE_AI_SECRET_KEY`): свои ключи людей в базе (D-493).
+    secrets: Option<Arc<secret::SecretBox>>,
 }
 
 impl Gateway {
@@ -413,7 +449,160 @@ impl Gateway {
             providers: HashMap::new(),
             voices: HashMap::new(),
             fingerprint_key,
+            secrets: None,
         }
+    }
+
+    /// Ключ шифрования: без него свои ключи людей не прочитать.
+    pub fn with_secrets(mut self, secrets: Arc<secret::SecretBox>) -> Self {
+        self.secrets = Some(secrets);
+        self
+    }
+
+    /// Защита от зацикливания сейчас: что задал owner в Console (D-534),
+    /// иначе — настройки сервера.
+    pub async fn loop_guard_now(&self) -> Result<LoopGuard> {
+        let mut conn = self.pool.acquire().await?;
+        self.current_guard(&mut conn).await
+    }
+
+    /// Настройки сервера (`QUBITE_AI_*`) — то, к чему вернёт «Как в настройках».
+    pub fn loop_guard_default(&self) -> &LoopGuard {
+        &self.config.loop_guard
+    }
+
+    async fn current_guard(&self, conn: &mut PgConnection) -> Result<LoopGuard> {
+        let row: Option<(i32, i32, i32, i32)> = sqlx::query_as(
+            "SELECT user_per_minute, job_per_minute, repeat_limit, repeat_window_secs \
+             FROM ai_loop_guard WHERE singleton",
+        )
+        .fetch_optional(&mut *conn)
+        .await?;
+        Ok(match row {
+            Some((user, job, repeat, window)) => LoopGuard {
+                user_per_minute: u32::try_from(user).unwrap_or(0),
+                job_per_minute: u32::try_from(job).unwrap_or(0),
+                repeat_limit: u32::try_from(repeat).unwrap_or(0),
+                repeat_window: Duration::from_secs(u64::try_from(window).unwrap_or(1).max(1)),
+            },
+            None => self.config.loop_guard.clone(),
+        })
+    }
+
+    /// Модель, кошелёк и ключ вызова. Для текста — выбор человека в
+    /// «Подключить AI» (`ai_sources`, D-493): своя подписка ChatGPT вместо модели
+    /// платформы или свой ключ OpenRouter к той же модели. Голос — всегда платформа.
+    async fn route(
+        &self,
+        account_id: Uuid,
+        requested: &str,
+        work: &Work<'_>,
+    ) -> Result<(ModelRow, PaidBy, Option<qubite_kernel::Secret>)> {
+        if !matches!(work, Work::Chat { .. }) {
+            return Ok((self.load_model(requested).await?, PaidBy::Platform, None));
+        }
+        if catalog::split_model_id(requested).0 == chatgpt::PROVIDER_ID {
+            return Ok((
+                self.subscription_model(Some(requested)).await?,
+                PaidBy::Subscription,
+                None,
+            ));
+        }
+        let source: Option<(String, Option<String>)> =
+            sqlx::query_as("SELECT source, chatgpt_model FROM ai_sources WHERE account_id = $1")
+                .bind(account_id)
+                .fetch_optional(&self.pool)
+                .await?;
+        match source {
+            Some((kind, chosen)) if kind == "chatgpt" => Ok((
+                self.subscription_model(chosen.as_deref()).await?,
+                PaidBy::Subscription,
+                None,
+            )),
+            Some((kind, _)) if kind == "own_key" => {
+                let model = self.load_model(requested).await?;
+                if model.provider_id != "openrouter" {
+                    return Ok((model, PaidBy::Platform, None));
+                }
+                let key = self.own_key(account_id).await?.ok_or_else(|| {
+                    AiError::SourceNotReady(
+                        "свой ключ OpenRouter не добавлен — «Настройки → AI и бюджет»".into(),
+                    )
+                })?;
+                Ok((model, PaidBy::OwnKey, Some(key)))
+            }
+            _ => Ok((self.load_model(requested).await?, PaidBy::Platform, None)),
+        }
+    }
+
+    /// Свой ключ OpenRouter человека (расшифрованный).
+    async fn own_key(&self, account_id: Uuid) -> Result<Option<qubite_kernel::Secret>> {
+        let sealed: Option<String> = sqlx::query_scalar(
+            "SELECT key_enc FROM ai_keys WHERE account_id = $1 AND provider_id = 'openrouter'",
+        )
+        .bind(account_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(sealed) = sealed else {
+            return Ok(None);
+        };
+        let secrets = self.secrets.as_ref().ok_or_else(|| {
+            AiError::SourceNotReady(
+                "на сервере не задан QUBITE_AI_SECRET_KEY — свой ключ не прочитать".into(),
+            )
+        })?;
+        let key = secrets
+            .open(&key_purpose(Some(account_id)), &sealed)
+            .map_err(|e| AiError::SourceNotReady(format!("свой ключ не прочитан: {e}")))?;
+        Ok(Some(qubite_kernel::Secret::new(key)))
+    }
+
+    /// Модель подписки ChatGPT: выбранная (если есть в каталоге подписки), иначе
+    /// разрешённая owner, иначе первая из каталога. Allowlist owner для подписки
+    /// не нужен — она не тратит деньги платформы (D-531); строка модели
+    /// заводится выключенной, чтобы вызов было к чему привязать.
+    async fn subscription_model(&self, chosen: Option<&str>) -> Result<ModelRow> {
+        let external: Option<String> = sqlx::query_scalar(
+            "SELECT external_id FROM ( \
+               SELECT m.external_id, 0 AS rank FROM ai_models m \
+                 WHERE m.provider_id = 'chatgpt' AND m.id = $1 \
+               UNION ALL SELECT c.external_id, 1 FROM ai_catalog c \
+                 WHERE c.provider_id = 'chatgpt' AND 'chatgpt:' || lower(c.external_id) = $1 \
+               UNION ALL SELECT m.external_id, 2 FROM ai_models m \
+                 WHERE m.provider_id = 'chatgpt' AND m.enabled \
+               UNION ALL SELECT c.external_id, 3 FROM ai_catalog c WHERE c.provider_id = 'chatgpt' \
+             ) x ORDER BY rank, external_id LIMIT 1",
+        )
+        .bind(chosen.unwrap_or(""))
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(external) = external else {
+            return Err(AiError::SourceNotReady(
+                "модели подписки ChatGPT ещё не получены — войдите через ChatGPT ещё раз".into(),
+            ));
+        };
+        let id = catalog::model_id_for(chatgpt::PROVIDER_ID, &external);
+        sqlx::query(
+            "INSERT INTO ai_models (id, provider_id, external_id, price_in_per_mtok, \
+             price_out_per_mtok, context_tokens, enabled) \
+             SELECT $1, provider_id, external_id, price_in_per_mtok, price_out_per_mtok, \
+                    context_tokens, false FROM ai_catalog \
+             WHERE provider_id = 'chatgpt' AND external_id = $2 ON CONFLICT (id) DO NOTHING",
+        )
+        .bind(&id)
+        .bind(&external)
+        .execute(&self.pool)
+        .await?;
+        let model = self.model_row(&id).await?;
+        if !model.provider_enabled {
+            return Err(AiError::SourceNotReady(
+                "ChatGPT по подписке выключен на сервере (QUBITE_AI_CHATGPT_ENABLED)".into(),
+            ));
+        }
+        if let Some(reason) = &model.blocked_reason {
+            return Err(AiError::ModelBlocked(reason.clone()));
+        }
+        Ok(model)
     }
 
     /// Модель для задачи модуля (`inbox.triage` …): выбор owner для задачи,
@@ -457,7 +646,7 @@ impl Gateway {
         turn: Option<Uuid>,
         fingerprint: &str,
     ) -> Result<()> {
-        let guard = &self.config.loop_guard;
+        let guard = &self.current_guard(conn).await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 7))")
             .bind(account_id)
             .execute(&mut *conn)
@@ -639,6 +828,7 @@ impl Gateway {
         &self,
         model: &ModelRow,
         account_id: Uuid,
+        api_key: Option<qubite_kernel::Secret>,
         input_units: u64,
         work: &Work<'_>,
     ) -> std::result::Result<Result<Done, ProviderError>, tokio::time::error::Elapsed> {
@@ -661,6 +851,7 @@ impl Gateway {
                         max_price_out_per_mtok: model.price_out_per_mtok,
                     },
                     account_id,
+                    api_key,
                 };
                 match delta {
                     Some(delta) => {
@@ -751,7 +942,9 @@ impl Gateway {
                 return Err(error.into());
             }
         };
-        let model = self.load_model(plan.model).await?;
+        let (model, paid_by, api_key) = self
+            .route(auth.account_id(), plan.model, &plan.work)
+            .await?;
         if !plan.work.fits(&model.capabilities) || !self.can_run(&model.provider_id, &plan.work) {
             return Err(AiError::ModelNotAllowed);
         }
@@ -784,6 +977,7 @@ impl Gateway {
             module_id: auth.module().as_str(),
             model_id: &model.id,
             provider_id: &model.provider_id,
+            own_source: paid_by != PaidBy::Platform,
         };
         let reservations =
             match budget::reserve(&mut tx, &scope, &keys, estimate_usd, estimate_tokens).await {
@@ -802,8 +996,8 @@ impl Gateway {
                 let id = qubite_objects::new_id();
                 let inserted = sqlx::query(
                     "INSERT INTO ai_calls (id, request_id, account_id, module_id, model_id, status, \
-                     attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint, turn_id) \
-                     VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10, $11)",
+                     attempts, estimate_usd, estimate_tokens, reservations, job_id, fingerprint, turn_id, \
+                     paid_by) VALUES ($1, $2, $3, $4, $5, 'sending', 1, $6, $7, $8, $9, $10, $11, $12)",
                 )
                 .bind(id)
                 .bind(plan.request_id)
@@ -816,6 +1010,7 @@ impl Gateway {
                 .bind(plan.job_id)
                 .bind(&plan.fingerprint)
                 .bind(plan.turn)
+                .bind(paid_by.as_str())
                 .execute(&mut *tx)
                 .await;
                 if let Err(sqlx::Error::Database(db)) = &inserted
@@ -862,6 +1057,7 @@ impl Gateway {
             reservations,
             estimate_usd,
             account_id: auth.account_id(),
+            api_key,
         })
     }
 
@@ -879,10 +1075,11 @@ impl Gateway {
                 reservations,
                 estimate_usd,
                 account_id,
+                api_key,
             } = self.open_attempt(auth, &plan, attempt, call_id).await?;
             call_id = Some(id);
             let outcome = self
-                .send(&model, account_id, plan.input_units, &plan.work)
+                .send(&model, account_id, api_key, plan.input_units, &plan.work)
                 .await;
             match outcome {
                 Ok(Ok(done)) => {
@@ -988,6 +1185,17 @@ impl Gateway {
     }
 
     async fn load_model(&self, model_id: &str) -> Result<ModelRow> {
+        let model = self.model_row(model_id).await?;
+        if !model.enabled || !model.provider_enabled {
+            return Err(AiError::ModelNotAllowed);
+        }
+        if let Some(reason) = &model.blocked_reason {
+            return Err(AiError::ModelBlocked(reason.clone()));
+        }
+        Ok(model)
+    }
+
+    async fn model_row(&self, model_id: &str) -> Result<ModelRow> {
         let model: Option<ModelRow> = sqlx::query_as(
             "SELECT m.id, m.provider_id, m.external_id, m.price_in_per_mtok, m.price_out_per_mtok, \
                     m.enabled, m.blocked_reason, p.enabled AS provider_enabled, \
@@ -997,14 +1205,7 @@ impl Gateway {
         .bind(model_id)
         .fetch_optional(&self.pool)
         .await?;
-        let model = model.ok_or(AiError::ModelNotAllowed)?;
-        if !model.enabled || !model.provider_enabled {
-            return Err(AiError::ModelNotAllowed);
-        }
-        if let Some(reason) = &model.blocked_reason {
-            return Err(AiError::ModelBlocked(reason.clone()));
-        }
-        Ok(model)
+        model.ok_or(AiError::ModelNotAllowed)
     }
 
     async fn settle_success(

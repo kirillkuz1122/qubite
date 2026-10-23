@@ -10,6 +10,307 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/ai/me": {
+      "get": {
+        "tags": ["ai"],
+        "summary": "«AI и бюджет»: свой расход, лимиты и чем подключён AI.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "AI и бюджет человека",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/me/chatgpt": {
+      "delete": {
+        "tags": ["ai"],
+        "summary": "«AI и бюджет»: отключить свою подписку ChatGPT (токены отзываются у OpenAI).",
+        "operationId": "chatgpt_logout",
+        "responses": {
+          "200": {
+            "description": "Отключено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`secret_key_not_set`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/me/chatgpt/finish": {
+      "post": {
+        "tags": ["ai"],
+        "summary": "«Войти через ChatGPT»: закончить вход вставленным адресом возврата.",
+        "operationId": "chatgpt_finish",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatGptFinish"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Подключено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Вход не принят",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`chatgpt_disabled` или `secret_key_not_set`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/me/chatgpt/start": {
+      "post": {
+        "tags": ["ai"],
+        "summary": "«Войти через ChatGPT»: адрес входа. Сервер сам ждёт возврата браузера на\n`127.0.0.1` 5 минут; если браузер на другом компьютере — адрес возврата\nвставляют в «Закончить вход».",
+        "operationId": "chatgpt_start",
+        "responses": {
+          "200": {
+            "description": "Адрес входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatGptStart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`chatgpt_disabled` или `secret_key_not_set`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/me/key": {
+      "put": {
+        "tags": ["ai"],
+        "summary": "«AI и бюджет»: свой ключ OpenRouter (тратит деньги своего счёта). Сразу\nвыбирается источником AI.",
+        "operationId": "set_my_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Не похоже на ключ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`secret_key_not_set`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["ai"],
+        "summary": "«AI и бюджет»: убрать свой ключ (источник — снова owner).",
+        "operationId": "remove_my_key",
+        "responses": {
+          "200": {
+            "description": "Убран",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/me/source": {
+      "put": {
+        "tags": ["ai"],
+        "summary": "«AI и бюджет»: откуда брать AI.",
+        "operationId": "set_source",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAi"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный выбор",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не вошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/device/authorize": {
       "post": {
         "tags": ["auth"],
@@ -1581,6 +1882,70 @@
         }
       }
     },
+    "/api/owner/ai/calls": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: журнал AI-вызовов, новые сверху.",
+        "operationId": "owner_calls",
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Вызовы старше этого времени (для «Ещё»).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "description": "Только вызовы этого человека.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Сколько, 1…200, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Вызовы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiCallItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/ai/catalog": {
       "get": {
         "tags": ["owner"],
@@ -1607,6 +1972,327 @@
                   "items": {
                     "$ref": "#/components/schemas/AiCatalogItem"
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/keys/openrouter": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Owner Console: ключ OpenRouter платформы (D-442). Действует сразу, без перезапуска.",
+        "operationId": "owner_set_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сводка после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Не похоже на ключ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`secret_key_not_set`: не задан ключ шифрования",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["owner"],
+        "summary": "Owner Console: убрать ключ из Console (останется ключ из настроек сервера, если он есть).",
+        "operationId": "owner_remove_key",
+        "responses": {
+          "200": {
+            "description": "Сводка после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/limits": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: все живые лимиты с расходом за текущий период.",
+        "operationId": "owner_limits",
+        "responses": {
+          "200": {
+            "description": "Лимиты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiLimitItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["owner"],
+        "summary": "Owner Console: задать лимит (прежний на то же сочетание закрывается).",
+        "operationId": "owner_set_limit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiLimitNew"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Лимиты после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiLimitItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/limits/{id}": {
+      "delete": {
+        "tags": ["owner"],
+        "summary": "Owner Console: снять лимит.",
+        "operationId": "owner_revoke_limit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID лимита",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Лимиты после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiLimitItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Такого лимита нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/loop-guard": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Owner Console: защита от зацикливания (0 — выключено, окно повторов 1…86 400 с).",
+        "operationId": "owner_set_loop_guard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoopGuardChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сводка после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
                 }
               }
             }
@@ -1726,6 +2412,84 @@
         }
       }
     },
+    "/api/owner/ai/overview": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console → AI: сводка (режим owner, потолок, защита, ключи).",
+        "operationId": "owner_overview",
+        "responses": {
+          "200": {
+            "description": "Сводка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/owner-unlimited": {
+      "put": {
+        "tags": ["owner"],
+        "summary": "Owner Console: режим «owner без личного лимита» вкл/выкл.",
+        "operationId": "owner_set_unlimited",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Toggle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сводка после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/ai/tasks": {
       "get": {
         "tags": ["owner"],
@@ -1814,6 +2578,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/unlimited": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Owner Console: «Сделать мне безлимит» — снять личные лимиты owner в $,\nпоставить дневной потолок платформы (если нет) и включить режим.",
+        "operationId": "owner_make_unlimited",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeUnlimited"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сводка после изменения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Потолок должен быть больше нуля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`confirm_required`: нужен пароль",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/ai/usage": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Owner Console: AI Cost Center — расход по дням, модулям, моделям, людям.",
+        "operationId": "owner_usage",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "description": "За сколько последних дней (1…366, по умолчанию 30).",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Расход",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsage"
                 }
               }
             }
@@ -7086,6 +7950,71 @@
           }
         }
       },
+      "AiCallItem": {
+        "type": "object",
+        "description": "AI-вызов в журнале (без текста запроса и ответа).",
+        "required": [
+          "id",
+          "at",
+          "module_id",
+          "model_id",
+          "status",
+          "estimate_usd",
+          "paid_by",
+          "attempts"
+        ],
+        "properties": {
+          "account_email": {
+            "type": ["string", "null"]
+          },
+          "actual_usd": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Списано (микродоллары); у незаконченных — пусто."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attempts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error_code": {
+            "type": ["string", "null"]
+          },
+          "estimate_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "module_id": {
+            "type": "string"
+          },
+          "paid_by": {
+            "type": "string",
+            "description": "`platform`, `subscription`, `own_key`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`succeeded`, `failed_not_sent`, `unknown`, `sending`, `reserved`, `denied`."
+          },
+          "tokens_in": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "tokens_out": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          }
+        }
+      },
       "AiCatalogItem": {
         "type": "object",
         "description": "Модель из каталога провайдера.",
@@ -7115,6 +8044,95 @@
           "price_out_per_mtok": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "AiLimitItem": {
+        "type": "object",
+        "description": "Живой лимит и сколько израсходовано в текущем периоде.",
+        "required": ["id", "scope", "period", "metric", "value", "used", "created_at"],
+        "properties": {
+          "account_email": {
+            "type": ["string", "null"]
+          },
+          "account_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "metric": {
+            "type": "string",
+            "description": "`usd` (микродоллары), `requests`, `tokens`."
+          },
+          "model_id": {
+            "type": ["string", "null"]
+          },
+          "module_id": {
+            "type": ["string", "null"]
+          },
+          "period": {
+            "type": "string",
+            "description": "`hour`, `day`, `month`, `all`."
+          },
+          "provider_id": {
+            "type": ["string", "null"]
+          },
+          "scope": {
+            "type": "string",
+            "description": "`platform`, `user`, `module`, `model`, `provider`, `user_module`, `each_user`."
+          },
+          "used": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Потрачено и зарезервировано в текущем периоде; у «на каждого» — больше\nвсех (у кого счётчик ближе к потолку)."
+          },
+          "value": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AiLimitNew": {
+        "type": "object",
+        "description": "Новый лимит (или новое значение — прежний на то же сочетание закрывается).",
+        "required": ["scope", "period", "metric", "value"],
+        "properties": {
+          "account_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "metric": {
+            "type": "string",
+            "description": "`usd`, `requests`, `tokens`."
+          },
+          "model_id": {
+            "type": ["string", "null"]
+          },
+          "module_id": {
+            "type": ["string", "null"]
+          },
+          "period": {
+            "type": "string",
+            "description": "`hour`, `day`, `month`, `all`."
+          },
+          "provider_id": {
+            "type": ["string", "null"]
+          },
+          "scope": {
+            "type": "string",
+            "description": "`platform`, `user`, `module`, `model`, `provider`, `user_module`, `each_user`."
+          },
+          "value": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Для `usd` — микродоллары (1 $ = 1 000 000). 0 — запрещено."
           }
         }
       },
@@ -7209,6 +8227,152 @@
               "type": "string"
             },
             "description": "Задачи, для которых выбрана модель (`default`, `inbox.triage` …)."
+          }
+        }
+      },
+      "AiOverview": {
+        "type": "object",
+        "description": "Owner Console → AI: всё, что нужно для режима «без личного лимита» и защиты.",
+        "required": [
+          "owner_unlimited",
+          "owner_personal_usd",
+          "unlimited_works",
+          "default_platform_day_usd",
+          "loop_guard",
+          "loop_guard_server",
+          "loop_guard_from_console",
+          "keys",
+          "secret_key_set",
+          "chatgpt_enabled",
+          "chatgpt_people",
+          "voice",
+          "timezone",
+          "today_usd",
+          "today_requests"
+        ],
+        "properties": {
+          "chatgpt_enabled": {
+            "type": "boolean",
+            "description": "ChatGPT по подписке включён на сервере."
+          },
+          "chatgpt_people": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько человек подключили свою подписку."
+          },
+          "default_platform_day_usd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Какой потолок поставит «Сделать мне безлимит», если его нет (микродоллары)."
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderKeyInfo"
+            }
+          },
+          "loop_guard": {
+            "$ref": "#/components/schemas/LoopGuardInfo"
+          },
+          "loop_guard_from_console": {
+            "type": "boolean",
+            "description": "Защита задана в Console (а не настройками сервера)."
+          },
+          "loop_guard_server": {
+            "$ref": "#/components/schemas/LoopGuardInfo",
+            "description": "Настройки сервера — к ним вернёт «Как в настройках сервера»."
+          },
+          "owner_personal_usd": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiLimitItem"
+            },
+            "description": "Личные денежные лимиты owner — пока они есть, действуют они (режим не помогает)."
+          },
+          "owner_unlimited": {
+            "type": "boolean",
+            "description": "Режим «owner без личного лимита» включён (D-200)."
+          },
+          "platform_day_usd": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AiLimitItem",
+                "description": "Дневной потолок платформы в $ — без него режим не работает (D-212)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secret_key_set": {
+            "type": "boolean",
+            "description": "Задан `QUBITE_AI_SECRET_KEY` (без него ключи и ChatGPT не сохранить)."
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "today_requests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "today_usd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сегодня по всей платформе: $ (микродоллары) и вызовов."
+          },
+          "unlimited_works": {
+            "type": "boolean",
+            "description": "Режим действует прямо сейчас: включён, личного лимита в $ нет, потолок есть."
+          },
+          "voice": {
+            "type": "boolean",
+            "description": "Голос (ElevenLabs) включён."
+          }
+        }
+      },
+      "AiUsage": {
+        "type": "object",
+        "description": "AI Cost Center: расход по дням, модулям, моделям, людям и кто платил.",
+        "required": ["days", "total", "by_day", "by_module", "by_model", "by_person", "by_payer"],
+        "properties": {
+          "by_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            },
+            "description": "По дням, старые первыми (дни без вызовов — с нулями)."
+          },
+          "by_model": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            }
+          },
+          "by_module": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            }
+          },
+          "by_payer": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            },
+            "description": "`platform`, `subscription`, `own_key`."
+          },
+          "by_person": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            }
+          },
+          "days": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "$ref": "#/components/schemas/UsageRow"
           }
         }
       },
@@ -7346,6 +8510,31 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChatGptFinish": {
+        "type": "object",
+        "required": ["callback"],
+        "properties": {
+          "callback": {
+            "type": "string",
+            "description": "Адрес из строки браузера после входа (`http://127.0.0.1:…/auth/callback?code=…`)."
+          }
+        }
+      },
+      "ChatGptStart": {
+        "type": "object",
+        "description": "Начатый вход в ChatGPT.",
+        "required": ["url", "redirect_uri"],
+        "properties": {
+          "redirect_uri": {
+            "type": "string",
+            "description": "Куда OpenAI вернёт браузер. Если сервер на другом компьютере, страница\nне откроется — адрес из строки браузера вставляют в Qubite."
+          },
+          "url": {
+            "type": "string",
+            "description": "Страница входа OpenAI — открыть в браузере."
+          }
+        }
       },
       "ConfirmRequest": {
         "type": "object",
@@ -8600,6 +9789,16 @@
           }
         }
       },
+      "KeyChange": {
+        "type": "object",
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Ключ API целиком; на экран и в журнал — только последние 4 символа."
+          }
+        }
+      },
       "LinkStarted": {
         "type": "object",
         "description": "Адрес провайдера для привязки.",
@@ -8678,6 +9877,66 @@
           }
         }
       },
+      "LoopGuardChange": {
+        "type": "object",
+        "description": "Защита от зацикливания; `reset: true` — как в настройках сервера.",
+        "properties": {
+          "job_per_minute": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          },
+          "repeat_limit": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          },
+          "repeat_window_secs": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "user_per_minute": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "LoopGuardInfo": {
+        "type": "object",
+        "description": "Защита от зацикливания (0 — выключено).",
+        "required": ["user_per_minute", "job_per_minute", "repeat_limit", "repeat_window_secs"],
+        "properties": {
+          "job_per_minute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "…на одну фоновую задачу.",
+            "minimum": 0
+          },
+          "repeat_limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Один и тот же запрос — не больше стольких раз…",
+            "minimum": 0
+          },
+          "repeat_window_secs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "…за столько секунд (1…86 400).",
+            "minimum": 0
+          },
+          "user_per_minute": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Начатых AI-вызовов в минуту на человека.",
+            "minimum": 0
+          }
+        }
+      },
       "MailRequest": {
         "type": "object",
         "required": ["email"],
@@ -8738,6 +9997,16 @@
           "until": {
             "type": ["string", "null"],
             "description": "«Вернёмся к …» (RFC 3339), если задано."
+          }
+        }
+      },
+      "MakeUnlimited": {
+        "type": "object",
+        "properties": {
+          "platform_day_usd": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Потолок платформы в день, если его ещё нет (микродоллары); не задан — $5."
           }
         }
       },
@@ -8856,6 +10125,103 @@
           "visibility": {
             "type": "string",
             "description": "`locked` или `hidden` — как модуль виден без доступа."
+          }
+        }
+      },
+      "MyAi": {
+        "type": "object",
+        "description": "«Настройки → AI и бюджет».",
+        "required": [
+          "is_owner",
+          "source",
+          "limits",
+          "owner_allows",
+          "owner_unlimited",
+          "chatgpt",
+          "keys_available",
+          "usage",
+          "calls"
+        ],
+        "properties": {
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiCallItem"
+            },
+            "description": "Свои последние вызовы."
+          },
+          "chatgpt": {
+            "$ref": "#/components/schemas/MyChatGpt"
+          },
+          "is_owner": {
+            "type": "boolean"
+          },
+          "keys_available": {
+            "type": "boolean",
+            "description": "Ключи можно хранить (на сервере есть ключ шифрования)."
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiLimitItem"
+            },
+            "description": "Личные лимиты, «на каждого» и потолок платформы — с расходом за текущий период."
+          },
+          "own_key_hint": {
+            "type": ["string", "null"],
+            "description": "Последние 4 символа своего ключа OpenRouter (если добавлен)."
+          },
+          "owner_allows": {
+            "type": "boolean",
+            "description": "Owner выдал личный лимит в $ (путь ③ «owner разрешил свой OpenRouter»)."
+          },
+          "owner_unlimited": {
+            "type": "boolean",
+            "description": "У owner включён режим «без личного лимита» (только для самого owner)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Откуда AI: `owner` (платит платформа по личному лимиту), `chatgpt`, `own_key`."
+          },
+          "usage": {
+            "$ref": "#/components/schemas/AiUsage",
+            "description": "Свой расход за 30 дней."
+          }
+        }
+      },
+      "MyChatGpt": {
+        "type": "object",
+        "description": "Подписка ChatGPT человека.",
+        "required": ["available", "connected", "models"],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Можно подключить: включено на сервере и есть ключ шифрования."
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": ["string", "null"]
+          },
+          "last_error": {
+            "type": ["string", "null"],
+            "description": "Вход закончился ошибкой (если был начат и не удался)."
+          },
+          "model": {
+            "type": ["string", "null"],
+            "description": "Модель подписки для текстовых задач (`chatgpt:…`); пусто — первая из каталога."
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Модели подписки, из которых можно выбрать."
+          },
+          "unavailable_reason": {
+            "type": ["string", "null"],
+            "description": "Почему нельзя (если нельзя)."
           }
         }
       },
@@ -9609,6 +10975,24 @@
           }
         }
       },
+      "ProviderKeyInfo": {
+        "type": "object",
+        "description": "Ключ провайдера платформы.",
+        "required": ["provider", "source"],
+        "properties": {
+          "hint": {
+            "type": ["string", "null"],
+            "description": "Последние 4 символа (только у ключа из Console)."
+          },
+          "provider": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "`console` — сохранён в Console, `server` — из настроек сервера, `none` — нет."
+          }
+        }
+      },
       "PushDevice": {
         "type": "object",
         "description": "Браузер, подписанный на push.",
@@ -9980,6 +11364,20 @@
           }
         }
       },
+      "SourceChange": {
+        "type": "object",
+        "required": ["source"],
+        "properties": {
+          "chatgpt_model": {
+            "type": ["string", "null"],
+            "description": "Модель подписки (`chatgpt:…`) для `chatgpt`; пусто — первая из каталога."
+          },
+          "source": {
+            "type": "string",
+            "description": "`owner`, `chatgpt` или `own_key`."
+          }
+        }
+      },
       "TaskModel": {
         "type": "object",
         "description": "Модель для задачи.",
@@ -10037,6 +11435,39 @@
           "url": {
             "type": "string",
             "description": "Открыть в Telegram и нажать «Начать»: `https://t.me/<бот>?start=<код>`."
+          }
+        }
+      },
+      "Toggle": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UsageRow": {
+        "type": "object",
+        "description": "Расход за группу: $, вызовы, токены.",
+        "required": ["key", "usd", "requests", "tokens"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "День (`2026-10-23`), модуль, модель или почта."
+          },
+          "requests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "usd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Микродоллары (списано по факту)."
           }
         }
       },
@@ -10103,6 +11534,10 @@
     {
       "name": "english",
       "description": "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"
+    },
+    {
+      "name": "ai",
+      "description": "AI и бюджет человека: свой расход и лимиты, «Подключить AI» (своя подписка ChatGPT, свой ключ)"
     }
   ]
 }

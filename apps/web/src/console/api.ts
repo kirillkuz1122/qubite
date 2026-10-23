@@ -13,12 +13,18 @@ export type GrantItem = S['GrantItem'];
 export type ModuleFlags = S['ModuleFlags'];
 export type InvitationItem = S['InvitationItem'];
 export type AiModelItem = S['AiModelItem'];
+export type AiLimitItem = S['AiLimitItem'];
+export type AiOverview = S['AiOverview'];
+export type AiUsage = S['AiUsage'];
+export type AiCallItem = S['AiCallItem'];
 
 export const ACCOUNTS = ['owner-accounts'] as const;
 export const MODULES = ['owner-modules'] as const;
 export const INVITATIONS = ['owner-invitations'] as const;
 export const AI_MODELS = ['owner-ai-models'] as const;
 export const AI_TASKS = ['owner-ai-tasks'] as const;
+export const AI_OVERVIEW = ['owner-ai-overview'] as const;
+export const AI_LIMITS = ['owner-ai-limits'] as const;
 
 export function useAccounts(q: string, status: string) {
   return useQuery({
@@ -83,6 +89,30 @@ export function useAiTasks() {
   return useQuery({
     queryKey: AI_TASKS,
     queryFn: () => must(api.GET('/api/owner/ai/tasks')),
+    retry: false,
+  });
+}
+
+export function useAiOverview() {
+  return useQuery({
+    queryKey: AI_OVERVIEW,
+    queryFn: () => must(api.GET('/api/owner/ai/overview')),
+    retry: false,
+  });
+}
+
+export function useAiLimits() {
+  return useQuery({
+    queryKey: AI_LIMITS,
+    queryFn: () => must(api.GET('/api/owner/ai/limits')),
+    retry: false,
+  });
+}
+
+export function useAiUsage(days: number) {
+  return useQuery({
+    queryKey: ['owner-ai-usage', days],
+    queryFn: () => must(api.GET('/api/owner/ai/usage', { params: { query: { days } } })),
     retry: false,
   });
 }

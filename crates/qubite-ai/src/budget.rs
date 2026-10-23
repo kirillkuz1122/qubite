@@ -28,6 +28,9 @@ pub struct Scope<'a> {
     pub module_id: &'a str,
     pub model_id: &'a str,
     pub provider_id: &'a str,
+    /// Платит сам человек (своя подписка или ключ, D-531): денежные лимиты
+    /// owner не действуют и личный лимит не нужен; запросы и токены — как у всех.
+    pub own_source: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -72,7 +75,7 @@ pub struct PeriodKeys {
 }
 
 impl PeriodKeys {
-    fn key(&self, period: &str) -> String {
+    pub fn key(&self, period: &str) -> String {
         match period {
             "hour" => self.hour.clone(),
             "day" => self.day.clone(),
@@ -118,7 +121,9 @@ pub async fn reserve(
         .iter()
         .any(|l| l.metric == "usd" && matches!(l.scope_kind.as_str(), "user" | "user_module"));
     let mut limits = limits;
-    if !personal_money {
+    if scope.own_source {
+        limits.retain(|l| l.metric != "usd");
+    } else if !personal_money {
         if !owner_unlimited(conn, scope.account_id).await? {
             return Err(AiError::BudgetNotSet);
         }

@@ -1,7 +1,8 @@
 //! Настройка AI владельцем (основа AI-части Owner Console): провайдеры,
 //! модели (allowlist и цены), лимиты, снятие блокировки модели, режим
-//! «owner без личного лимита». Каждое изменение — в аудите. Ключей
-//! провайдеров здесь нет.
+//! «owner без личного лимита», «сделать мне безлимит», защита от зацикливания,
+//! ключи OpenRouter (уже зашифрованные) и выбор «откуда AI» у человека (AI-003).
+//! Каждое изменение — в аудите; сами ключи в аудит не попадают.
 
 use qubite_objects::{NewAuditEntry, audit};
 use qubite_policy::{ModuleId, OwnerConsole};
@@ -373,7 +374,17 @@ async fn write_limit(
 /// провайдера и личные лимиты owner, если он их задал, продолжают работать.
 pub async fn set_owner_unlimited(pool: &PgPool, by: &OwnerConsole, enabled: bool) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let before = owner_unlimited_in(&mut tx).await?;
+    set_owner_unlimited_in(&mut tx, by, enabled).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn set_owner_unlimited_in(
+    tx: &mut sqlx::PgConnection,
+    by: &OwnerConsole,
+    enabled: bool,
+) -> Result<()> {
+    let before = owner_unlimited_in(&mut *tx).await?;
     sqlx::query(
         "INSERT INTO ai_owner_unlimited (singleton, enabled, changed_by, changed_at) \
          VALUES (true, $1, $2, now()) ON CONFLICT (singleton) DO UPDATE SET \
@@ -384,7 +395,7 @@ pub async fn set_owner_unlimited(pool: &PgPool, by: &OwnerConsole, enabled: bool
     .execute(&mut *tx)
     .await?;
     audit::record(
-        &mut tx,
+        tx,
         NewAuditEntry {
             actor_id: Some(by.account_id()),
             action: "ai.owner_unlimited_set".into(),
@@ -396,7 +407,6 @@ pub async fn set_owner_unlimited(pool: &PgPool, by: &OwnerConsole, enabled: bool
         },
     )
     .await?;
-    tx.commit().await?;
     Ok(())
 }
 
@@ -412,6 +422,311 @@ async fn owner_unlimited_in(conn: &mut sqlx::PgConnection) -> Result<bool> {
     )
     .fetch_one(conn)
     .await?)
+}
+
+/// Снять лимит (D-532). Накопленный расход остаётся в истории вызовов.
+pub async fn revoke_limit(pool: &PgPool, by: &OwnerConsole, limit_id: Uuid) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    revoke_limit_in(&mut tx, Some(by.account_id()), limit_id, None).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn revoke_limit_in(
+    conn: &mut sqlx::PgConnection,
+    actor: Option<Uuid>,
+    limit_id: Uuid,
+    reason: Option<&str>,
+) -> Result<()> {
+    type Row = (
+        String,
+        Option<Uuid>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        String,
+        String,
+        i64,
+    );
+    let row: Option<Row> = sqlx::query_as(
+        "UPDATE ai_limits SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL \
+         RETURNING scope_kind, account_id, module_id, model_id, provider_id, period, metric, limit_value",
+    )
+    .bind(limit_id)
+    .fetch_optional(&mut *conn)
+    .await?;
+    let Some((kind, account, module, model, provider, period, metric, value)) = row else {
+        return Err(AiError::Invalid(
+            "такого лимита нет (или его уже сняли)".into(),
+        ));
+    };
+    audit::record(
+        conn,
+        NewAuditEntry {
+            actor_id: actor,
+            action: "ai.limit_revoked".into(),
+            target_kind: "ai_limit".into(),
+            target_id: Some(limit_id.to_string()),
+            before: Some(serde_json::json!({
+                "scope": kind, "account_id": account, "module_id": module, "model_id": model,
+                "provider_id": provider, "period": period, "metric": metric, "value": value,
+            })),
+            reason: reason.map(Into::into),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Что сделала кнопка «Сделать мне безлимит».
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UnlimitedReport {
+    /// Сколько личных денежных лимитов owner снято.
+    pub removed_personal: usize,
+    /// Поставлен дневной потолок платформы (его не было), микродоллары.
+    pub platform_cap_set: Option<i64>,
+}
+
+/// «Сделать мне безлимит» (D-530): снять личные денежные лимиты owner (они
+/// мешают режиму, D-200), поставить дневной потолок платформы в $, если его
+/// нет (без него режим не работает, D-212), и включить режим — одним действием.
+pub async fn make_owner_unlimited(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    platform_day_usd: i64,
+) -> Result<UnlimitedReport> {
+    if platform_day_usd <= 0 {
+        return Err(AiError::Invalid(
+            "дневной потолок платформы должен быть больше нуля".into(),
+        ));
+    }
+    let mut tx = pool.begin().await?;
+    let reason = Some("кнопка «Сделать мне безлимит»");
+    let personal: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM ai_limits WHERE revoked_at IS NULL AND metric = 'usd' \
+         AND scope_kind IN ('user', 'user_module') AND account_id = $1 ORDER BY id FOR UPDATE",
+    )
+    .bind(by.account_id())
+    .fetch_all(&mut *tx)
+    .await?;
+    for id in &personal {
+        revoke_limit_in(&mut tx, Some(by.account_id()), *id, reason).await?;
+    }
+    let has_cap: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM ai_limits WHERE revoked_at IS NULL \
+         AND scope_kind = 'platform' AND period = 'day' AND metric = 'usd')",
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let mut report = UnlimitedReport {
+        removed_personal: personal.len(),
+        platform_cap_set: None,
+    };
+    if !has_cap {
+        write_limit(
+            &mut tx,
+            Some(by.account_id()),
+            reason,
+            &LimitScope::Platform,
+            Period::Day,
+            Metric::Usd,
+            platform_day_usd,
+        )
+        .await?;
+        report.platform_cap_set = Some(platform_day_usd);
+    }
+    set_owner_unlimited_in(&mut tx, by, true).await?;
+    tx.commit().await?;
+    Ok(report)
+}
+
+/// Защита от зацикливания (D-534); `None` — как в настройках сервера.
+/// `repeat_window_secs` — от 1 до 86 400, остальное — от 0 (выключено) до 10 000.
+pub async fn set_loop_guard(
+    pool: &PgPool,
+    by: &OwnerConsole,
+    guard: Option<&crate::LoopGuard>,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    match guard {
+        Some(g) => {
+            let window = g.repeat_window.as_secs();
+            if !(1..=86_400).contains(&window) {
+                return Err(AiError::Invalid(
+                    "окно повторов — от 1 до 86 400 секунд".into(),
+                ));
+            }
+            if [g.user_per_minute, g.job_per_minute, g.repeat_limit]
+                .iter()
+                .any(|v| *v > 10_000)
+            {
+                return Err(AiError::Invalid("не больше 10 000 (0 — выключено)".into()));
+            }
+            sqlx::query(
+                "INSERT INTO ai_loop_guard (singleton, user_per_minute, job_per_minute, repeat_limit, \
+                 repeat_window_secs, changed_by, changed_at) VALUES (true, $1, $2, $3, $4, $5, now()) \
+                 ON CONFLICT (singleton) DO UPDATE SET user_per_minute = EXCLUDED.user_per_minute, \
+                 job_per_minute = EXCLUDED.job_per_minute, repeat_limit = EXCLUDED.repeat_limit, \
+                 repeat_window_secs = EXCLUDED.repeat_window_secs, changed_by = EXCLUDED.changed_by, \
+                 changed_at = now()",
+            )
+            .bind(g.user_per_minute as i32)
+            .bind(g.job_per_minute as i32)
+            .bind(g.repeat_limit as i32)
+            .bind(window as i32)
+            .bind(by.account_id())
+            .execute(&mut *tx)
+            .await?;
+        }
+        None => {
+            sqlx::query("DELETE FROM ai_loop_guard")
+                .execute(&mut *tx)
+                .await?;
+        }
+    }
+    let after = guard.map(|g| {
+        serde_json::json!({
+            "user_per_minute": g.user_per_minute,
+            "job_per_minute": g.job_per_minute,
+            "repeat_limit": g.repeat_limit,
+            "repeat_window_secs": g.repeat_window.as_secs(),
+        })
+    });
+    record(
+        &mut tx,
+        by,
+        "ai.loop_guard_set",
+        "ai_loop_guard",
+        "platform".into(),
+        after.unwrap_or_else(|| serde_json::json!({ "server_settings": true })),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Сохранить ключ OpenRouter — платформы (`account_id = None`, только owner,
+/// D-442) или свой у человека (D-493). Ключ уже зашифрован; в аудит — только
+/// последние символы.
+pub async fn save_key(
+    pool: &PgPool,
+    actor: Uuid,
+    account_id: Option<Uuid>,
+    sealed: &str,
+    hint: &str,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        "DELETE FROM ai_keys WHERE account_id IS NOT DISTINCT FROM $1 AND provider_id = 'openrouter'",
+    )
+    .bind(account_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO ai_keys (id, account_id, provider_id, key_enc, hint) \
+         VALUES ($1, $2, 'openrouter', $3, $4)",
+    )
+    .bind(qubite_objects::new_id())
+    .bind(account_id)
+    .bind(sealed)
+    .bind(hint)
+    .execute(&mut *tx)
+    .await
+    .map_err(invalid)?;
+    key_audit(&mut tx, actor, account_id, "ai.key_set", Some(hint)).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Убрать ключ. Возвращает `true`, если ключ был.
+pub async fn remove_key(pool: &PgPool, actor: Uuid, account_id: Option<Uuid>) -> Result<bool> {
+    let mut tx = pool.begin().await?;
+    let removed = sqlx::query(
+        "DELETE FROM ai_keys WHERE account_id IS NOT DISTINCT FROM $1 AND provider_id = 'openrouter'",
+    )
+    .bind(account_id)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected()
+        > 0;
+    if removed {
+        key_audit(&mut tx, actor, account_id, "ai.key_removed", None).await?;
+    }
+    tx.commit().await?;
+    Ok(removed)
+}
+
+async fn key_audit(
+    conn: &mut sqlx::PgConnection,
+    actor: Uuid,
+    account_id: Option<Uuid>,
+    action: &str,
+    hint: Option<&str>,
+) -> Result<()> {
+    audit::record(
+        conn,
+        NewAuditEntry {
+            actor_id: Some(actor),
+            action: action.into(),
+            target_kind: "ai_key".into(),
+            target_id: Some(match account_id {
+                Some(id) => format!("openrouter:{id}"),
+                None => "openrouter:platform".into(),
+            }),
+            after: hint.map(|h| serde_json::json!({ "hint": h })),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Откуда у человека AI (D-493): `owner` — платит платформа по личному лимиту,
+/// `chatgpt` — своя подписка, `own_key` — свой ключ OpenRouter.
+pub async fn set_source(
+    pool: &PgPool,
+    account_id: Uuid,
+    source: &str,
+    chatgpt_model: Option<&str>,
+) -> Result<()> {
+    if !matches!(source, "owner" | "chatgpt" | "own_key") {
+        return Err(AiError::Invalid(
+            "источник: owner, chatgpt или own_key".into(),
+        ));
+    }
+    let mut tx = pool.begin().await?;
+    let before: Option<String> =
+        sqlx::query_scalar("SELECT source FROM ai_sources WHERE account_id = $1 FOR UPDATE")
+            .bind(account_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    sqlx::query(
+        "INSERT INTO ai_sources (account_id, source, chatgpt_model, changed_at) \
+         VALUES ($1, $2, $3, now()) ON CONFLICT (account_id) DO UPDATE SET \
+         source = EXCLUDED.source, chatgpt_model = EXCLUDED.chatgpt_model, changed_at = now()",
+    )
+    .bind(account_id)
+    .bind(source)
+    .bind(chatgpt_model)
+    .execute(&mut *tx)
+    .await
+    .map_err(invalid)?;
+    audit::record(
+        &mut tx,
+        NewAuditEntry {
+            actor_id: Some(account_id),
+            action: "ai.source_set".into(),
+            target_kind: "account".into(),
+            target_id: Some(account_id.to_string()),
+            before: before.map(|b| serde_json::json!({ "source": b })),
+            after: Some(serde_json::json!({ "source": source, "chatgpt_model": chatgpt_model })),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Разрешить или запретить модель (allowlist). Если allowlist задан

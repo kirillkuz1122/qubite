@@ -64,6 +64,8 @@ pub struct ProviderCall {
     pub routing: Routing,
     /// Чей это запрос (подписка ChatGPT — только для того, кто её подключил).
     pub account_id: uuid::Uuid,
+    /// Свой ключ человека (D-493); `None` — ключ платформы у адаптера.
+    pub api_key: Option<qubite_kernel::Secret>,
 }
 
 /// Ответ провайдера с фактическим расходом токенов.

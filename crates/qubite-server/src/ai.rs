@@ -275,23 +275,27 @@ impl AiArgs {
         )))
     }
 
-    fn openrouter(&self) -> anyhow::Result<Option<Arc<OpenRouter>>> {
-        let Some(key) = self
-            .openrouter_api_key
+    /// Ключ OpenRouter из настроек сервера.
+    pub fn env_key(&self) -> Option<Secret> {
+        self.openrouter_api_key
             .as_deref()
-            .filter(|k| !k.trim().is_empty())
-        else {
-            return Ok(None);
-        };
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+            .map(Secret::new)
+    }
+
+    /// Адаптер OpenRouter с ключом `key` (пустой — пока без ключа: запросы без
+    /// своего ключа человека получают отказ до отправки).
+    fn openrouter(&self, key: Secret) -> anyhow::Result<Arc<OpenRouter>> {
         let config = OpenRouterConfig {
             base_url: self.openrouter_base_url.clone(),
             data_collection: self.data_collection.map(|d| d.as_str().to_owned()),
             proxy: proxy("openrouter"),
-            ..OpenRouterConfig::new(Secret::new(key.trim()))
+            ..OpenRouterConfig::new(key)
         };
-        Ok(Some(Arc::new(
+        Ok(Arc::new(
             OpenRouter::new(config).map_err(anyhow::Error::msg)?,
-        )))
+        ))
     }
 
     /// Первый запуск — разрешить список из настроек или стартовый набор;
@@ -362,7 +366,7 @@ pub fn format_usd(micros: i64) -> String {
     )
 }
 
-/// Запущенный AI: шлюз и (если есть ключ) адаптер OpenRouter.
+/// Запущенный AI: шлюз и адаптер OpenRouter (ключ может появиться позже — из Console).
 pub struct AiRuntime {
     pub gateway: Arc<Gateway>,
     pub openrouter: Option<Arc<OpenRouter>>,
@@ -370,8 +374,10 @@ pub struct AiRuntime {
     pub catalog: Option<SyncReport>,
     /// Сколько «зависших» вызовов при запуске помечено `unknown`.
     pub recovered: u64,
-    /// Провайдер ChatGPT, если включён флагом и вход выполнен.
+    /// Провайдер ChatGPT, если включён флагом и есть ключ шифрования.
     pub chatgpt: Option<Arc<ChatGpt>>,
+    /// Для экранов AI (AI-003): ключ шифрования, адаптеры, настройки.
+    pub panel: crate::ai_console::AiPanel,
 }
 
 /// Подготовить AI при запуске сервера.
@@ -411,41 +417,41 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
         }
     }
 
-    let openrouter = args.openrouter()?;
-    let mut report = None;
-    match &openrouter {
-        Some(provider) => {
-            catalog::ensure_provider(
-                pool,
-                OPENROUTER,
-                "openrouter",
-                &args.openrouter_base_url,
-                true,
-            )
-            .await?;
-            gateway = gateway.with_provider(OPENROUTER, provider.clone());
-            match sync_catalog(pool, provider, args).await {
-                Ok(done) => report = Some(done),
-                Err(error) => tracing::warn!(
-                    %error,
-                    "каталог OpenRouter не обновлён — работают прежние цены из базы"
-                ),
-            }
-        }
-        None => {
-            if provider_exists(pool, OPENROUTER).await? {
-                catalog::ensure_provider(
-                    pool,
-                    OPENROUTER,
-                    "openrouter",
-                    &args.openrouter_base_url,
-                    false,
-                )
-                .await?;
-            }
-            tracing::info!("AI выключен: не задан QUBITE_AI_OPENROUTER_API_KEY");
-        }
+    let secrets = args.secret_box()?.map(Arc::new);
+    if let Some(secrets) = &secrets {
+        gateway = gateway.with_secrets(secrets.clone());
     }
+    // Ключ из Console главнее настроек сервера (D-442); без ключей адаптер всё
+    // равно подключён — для своих ключей людей и ключа, добавленного позже.
+    let console_key = crate::ai_console::platform_key(pool, secrets.as_deref()).await?;
+    let platform_key = console_key.or_else(|| args.env_key());
+    let has_key = platform_key.is_some();
+    let adapter = args.openrouter(platform_key.unwrap_or_else(|| Secret::new("")))?;
+    catalog::ensure_provider(
+        pool,
+        OPENROUTER,
+        "openrouter",
+        &args.openrouter_base_url,
+        true,
+    )
+    .await?;
+    gateway = gateway.with_provider(OPENROUTER, adapter.clone());
+    let mut report = None;
+    if has_key {
+        match sync_catalog(pool, &adapter, args).await {
+            Ok(done) => report = Some(done),
+            Err(error) => tracing::warn!(
+                %error,
+                "каталог OpenRouter не обновлён — работают прежние цены из базы"
+            ),
+        }
+    } else {
+        tracing::info!(
+            "ключа OpenRouter нет (QUBITE_AI_OPENROUTER_API_KEY или Console → AI → Ключи) — \
+             AI платформы выключен, свои ключи людей работают"
+        );
+    }
+    let openrouter = Some(adapter.clone());
     let chatgpt = start_chatgpt(pool, args).await?;
     if let Some(provider) = &chatgpt {
         gateway = gateway.with_provider(chatgpt::PROVIDER_ID, provider.clone());
@@ -464,60 +470,71 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
         Some(provider) => gateway = gateway.with_voice(elevenlabs::PROVIDER_ID, provider),
         None => tracing::info!("голос выключен: не задан QUBITE_ELEVENLABS_API_KEY"),
     }
+    let panel = crate::ai_console::AiPanel {
+        secrets,
+        chatgpt_enabled: args.chatgpt_enabled,
+        chatgpt_config: args.chatgpt_config(),
+        chatgpt: chatgpt.clone(),
+        openrouter: Some(adapter),
+        env_key: args.env_key(),
+        voice: args
+            .elevenlabs_api_key
+            .as_deref()
+            .is_some_and(|k| !k.trim().is_empty()),
+        timezone: args.timezone.clone(),
+        login_errors: Default::default(),
+    };
     Ok(AiRuntime {
         gateway: Arc::new(gateway),
         openrouter,
         catalog: report,
         recovered,
         chatgpt,
+        panel,
     })
 }
 
-/// ChatGPT по подписке: только при `QUBITE_AI_CHATGPT_ENABLED=true`, ключе
-/// шифрования и выполненном входе. Модели подписки — в каталог по 0 $;
-/// включает их owner (`qubite ai model chatgpt:<модель> on`).
+/// ChatGPT по подписке: только при `QUBITE_AI_CHATGPT_ENABLED=true` и ключе
+/// шифрования. Вход у каждого свой (D-493) и делается в «Настройках» без
+/// перезапуска, поэтому провайдер подключается и до первого входа. Модели
+/// подписки — в каталог по 0 $ (через вход owner или любого, кто вошёл).
 async fn start_chatgpt(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<Arc<ChatGpt>>> {
-    let connected = chatgpt::status(pool).await?.connected;
-    let ready = args.chatgpt_enabled && connected;
-    if !args.chatgpt_enabled {
-        if provider_exists(pool, chatgpt::PROVIDER_ID).await? {
-            catalog::ensure_provider(
-                pool,
-                chatgpt::PROVIDER_ID,
-                "chatgpt",
-                &args.chatgpt_api_url,
-                false,
-            )
-            .await?;
+    let secret = if args.chatgpt_enabled {
+        args.secret_box()?
+    } else {
+        None
+    };
+    let ready = secret.is_some();
+    if ready || provider_exists(pool, chatgpt::PROVIDER_ID).await? {
+        catalog::ensure_provider(
+            pool,
+            chatgpt::PROVIDER_ID,
+            "chatgpt",
+            &args.chatgpt_api_url,
+            ready,
+        )
+        .await?;
+    }
+    let Some(secret) = secret else {
+        if args.chatgpt_enabled {
+            tracing::warn!(
+                "ChatGPT включён, но не задан QUBITE_AI_SECRET_KEY — провайдер выключен"
+            );
         }
         return Ok(None);
-    }
-    let Some(secret) = args.secret_box()? else {
-        tracing::warn!("ChatGPT включён, но не задан QUBITE_AI_SECRET_KEY — провайдер выключен");
-        return Ok(None);
     };
-    catalog::ensure_provider(
-        pool,
-        chatgpt::PROVIDER_ID,
-        "chatgpt",
-        &args.chatgpt_api_url,
-        ready,
-    )
-    .await?;
-    if !ready {
-        tracing::info!("ChatGPT включён, но вход не выполнен: qubite ai chatgpt login");
-        return Ok(None);
-    }
     let provider = Arc::new(
         ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
             .map_err(anyhow::Error::msg)?,
     );
-    match tokio::time::timeout(Duration::from_secs(30), provider.models()).await {
-        Ok(Ok(entries)) => {
-            catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
+    if let Some(account) = chatgpt::any_connected(pool).await? {
+        match tokio::time::timeout(Duration::from_secs(30), provider.models(account)).await {
+            Ok(Ok(entries)) => {
+                catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
+            }
+            Ok(Err(error)) => tracing::warn!(%error, "модели подписки ChatGPT не получены"),
+            Err(_) => tracing::warn!("модели подписки ChatGPT не получены за 30 с"),
         }
-        Ok(Err(error)) => tracing::warn!(%error, "модели подписки ChatGPT не получены"),
-        Err(_) => tracing::warn!("модели подписки ChatGPT не получены за 30 с"),
     }
     Ok(Some(provider))
 }
@@ -527,9 +544,9 @@ async fn start_chatgpt(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<Ar
 /// `QUBITE_AI_CHATGPT_ENABLED` здесь не нужен — он решает, работает ли
 /// провайдер, а не видно ли его модели. Возвращает, что не так, если не вышло.
 async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<String>> {
-    if !chatgpt::status(pool).await?.connected {
+    let Some(account) = chatgpt::any_connected(pool).await? else {
         return Ok(Some("ChatGPT не подключён: qubite ai chatgpt login".into()));
-    }
+    };
     let Some(secret) = args.secret_box()? else {
         return Ok(Some(
             "не задан QUBITE_AI_SECRET_KEY — модели подписки не получить".into(),
@@ -545,7 +562,7 @@ async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result
     .await?;
     let provider = ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
         .map_err(anyhow::Error::msg)?;
-    match tokio::time::timeout(Duration::from_secs(30), provider.models()).await {
+    match tokio::time::timeout(Duration::from_secs(30), provider.models(account)).await {
         Ok(Ok(entries)) => {
             catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
             Ok(None)
@@ -570,6 +587,20 @@ pub async fn sync_catalog(
     let report = catalog::apply(pool, OPENROUTER, &entries, &args.allowlist(first_run)).await?;
     tracing::info!(enabled = ?report.enabled, missing = ?report.missing, "каталог OpenRouter обновлён");
     Ok(report)
+}
+
+/// Каталог сразу после нового ключа из Console: цены, а если моделей ещё нет —
+/// стартовый набор (D-201), как при первом запуске.
+pub async fn sync_after_key(pool: &PgPool, provider: &OpenRouter) -> anyhow::Result<SyncReport> {
+    let entries = tokio::time::timeout(Duration::from_secs(30), provider.catalog())
+        .await
+        .context("каталог OpenRouter не ответил за 30 с")??;
+    let allowlist = if catalog::has_models(pool, OPENROUTER).await? {
+        Allowlist::Keep
+    } else {
+        Allowlist::Exact(STARTER_MODELS.iter().map(|m| (*m).to_owned()).collect())
+    };
+    Ok(catalog::apply(pool, OPENROUTER, &entries, &allowlist).await?)
 }
 
 async fn provider_exists(pool: &PgPool, id: &str) -> anyhow::Result<bool> {
@@ -601,6 +632,7 @@ pub fn spawn_maintenance(
                 Err(error) => tracing::warn!(%error, "восстановление AI-вызовов не удалось"),
             }
             if let Some(provider) = &openrouter
+                && provider.has_key()
                 && last_catalog.elapsed() >= refresh
             {
                 last_catalog = tokio::time::Instant::now();
@@ -811,7 +843,7 @@ async fn run_chatgpt(
             Ok(out)
         }
         ChatgptCommand::Status => {
-            let status = chatgpt::status(pool).await?;
+            let status = chatgpt::status(pool, owner(pool).await?.account_id()).await?;
             Ok(if status.connected {
                 format!(
                     "ChatGPT подключён: {}; разрешения: {}; флаг QUBITE_AI_CHATGPT_ENABLED = {}",
@@ -827,7 +859,7 @@ async fn run_chatgpt(
             let secret = args
                 .secret_box()?
                 .context("нужен QUBITE_AI_SECRET_KEY, чтобы отозвать токен")?;
-            let revoked = chatgpt::logout(pool, &config, &secret)
+            let revoked = chatgpt::logout(pool, &config, &secret, owner(pool).await?.account_id())
                 .await
                 .map_err(anyhow::Error::msg)?;
             Ok(if revoked {
@@ -908,11 +940,13 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
                 }
                 if runtime.chatgpt.is_none() {
                     bail!(
-                        "ChatGPT не готов: нужен вход (qubite ai chatgpt login) и QUBITE_AI_SECRET_KEY"
+                        "ChatGPT не готов: нужен QUBITE_AI_SECRET_KEY и вход (qubite ai chatgpt login)"
                     );
                 }
-            } else if runtime.openrouter.is_none() {
-                bail!("не задан QUBITE_AI_OPENROUTER_API_KEY");
+            } else if !runtime.openrouter.as_ref().is_some_and(|o| o.has_key()) {
+                bail!(
+                    "нет ключа OpenRouter: QUBITE_AI_OPENROUTER_API_KEY или Console → AI → Ключи"
+                );
             }
             let module =
                 ModuleId::new(&module).with_context(|| format!("неверный модуль {module}"))?;
@@ -975,7 +1009,7 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
             .await?;
             if rows.is_empty() {
                 return Ok(
-                    "Моделей нет. Задайте QUBITE_AI_OPENROUTER_API_KEY и перезапустите сервер."
+                    "Моделей нет. Добавьте ключ OpenRouter: Console → AI → Ключи (или QUBITE_AI_OPENROUTER_API_KEY и перезапуск)."
                         .into(),
                 );
             }

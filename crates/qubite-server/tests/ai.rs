@@ -350,14 +350,12 @@ async fn without_key_ai_is_off_and_nothing_is_sent() {
     ai::start(&db, &with_key(&fake, &[])).await.unwrap();
     let requests_before = fake.received().len();
 
-    let runtime = ai::start(&db, &settings(&[])).await.unwrap();
-    assert!(runtime.openrouter.is_none());
-    let enabled: bool =
-        sqlx::query_scalar("SELECT enabled FROM ai_providers WHERE id = 'openrouter'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    assert!(!enabled, "провайдер выключен — модели не предлагаются");
+    // Адаптер есть всегда (для своих ключей людей и ключа из Console, AI-003),
+    // но без ключа платформы запрос получает отказ до отправки.
+    let runtime = ai::start(&db, &settings(&["--ai-platform-usd-per-day", "1"]))
+        .await
+        .unwrap();
+    assert!(!runtime.openrouter.as_ref().unwrap().has_key());
 
     ai::run(
         &db,
@@ -372,8 +370,17 @@ async fn without_key_ai_is_off_and_nothing_is_sent() {
         .complete(&auth, chat("no-key"))
         .await
         .unwrap_err();
-    assert!(matches!(error, AiError::ModelNotAllowed), "{error:?}");
+    assert!(
+        matches!(&error, AiError::ProviderRefused { reason, .. } if reason.contains("нет ключа OpenRouter")),
+        "{error:?}"
+    );
     assert_eq!(fake.received().len(), requests_before);
+    let status: String =
+        sqlx::query_scalar("SELECT status FROM ai_calls WHERE request_id = 'no-key'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(status, "failed_not_sent", "резерв возвращён");
     db.close().await;
     test_db.drop_db().await;
 }
@@ -642,9 +649,8 @@ async fn try_command_goes_through_budget_and_gateway() {
     .await
     .unwrap_err();
     assert!(
-        without_key
-            .to_string()
-            .contains("QUBITE_AI_OPENROUTER_API_KEY")
+        without_key.to_string().contains("нет ключа OpenRouter"),
+        "{without_key}"
     );
     db.close().await;
     test_db.drop_db().await;
@@ -774,15 +780,17 @@ async fn chatgpt_provider_is_off_unless_flag_key_and_login() {
         .await
         .unwrap();
     assert!(no_key.chatgpt.is_none());
-    // Флаг и ключ есть, входа нет — провайдер заведён, но выключен.
+    // Флаг и ключ есть, входа нет — провайдер включён: войти можно и потом, из
+    // «Настроек», у каждого свой вход (D-493).
     let args = settings(&["--ai-chatgpt-enabled", "true", "--ai-secret-key", &key]);
     let no_login = ai::start(&db, &args).await.unwrap();
-    assert!(no_login.chatgpt.is_none());
+    assert!(no_login.chatgpt.is_some());
+    assert!(no_login.panel.chatgpt_enabled && no_login.panel.secrets.is_some());
     let enabled: bool = sqlx::query_scalar("SELECT enabled FROM ai_providers WHERE id = 'chatgpt'")
         .fetch_one(db.pool())
         .await
         .unwrap();
-    assert!(!enabled);
+    assert!(enabled);
     let status = ai::run(
         &db,
         &args,
@@ -841,11 +849,17 @@ async fn chatgpt_catalog_loads_from_cli_without_server() {
     assert!(before.contains("qubite ai chatgpt login"), "{before}");
 
     sqlx::query(
-        "INSERT INTO ai_chatgpt_session (singleton, host_id, client_id, account_id, scopes, \
-         access_token_enc, refresh_token_enc, expires_at) \
-         VALUES (true, $1, 'oaiapp_test', $2, $3, $4, $5, now() + interval '1 hour')",
+        "INSERT INTO ai_chatgpt_session (singleton, host_id, client_id) \
+         VALUES (true, $1, 'oaiapp_test')",
     )
     .bind(qubite_ai::chatgpt::new_host_id())
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_tokens (account_id, scopes, access_token_enc, refresh_token_enc, \
+         expires_at) VALUES ($1, $2, $3, $4, now() + interval '1 hour')",
+    )
     .bind(owner)
     .bind(qubite_ai::chatgpt::SCOPES)
     .bind(secret.seal("chatgpt.access", "at-1"))

@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
 import { canLive, LiveTalk, stopHint } from './english-live';
+import { LimitLink } from './LimitLink';
 import {
   appendTurn,
   canRecord,
@@ -59,7 +60,14 @@ export function AgentEnglish() {
   const neit = useRef<CompanionHandle>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Ошибка и её код: отказ по лимиту показывает ссылку на настройки лимитов (AI-003).
+  const [failure, setFailure] = useState<{ text: string; code: string | null } | null>(null);
+  const setError = useCallback(
+    (text: string | null, code: string | null = null) =>
+      setFailure(text === null ? null : { text, code }),
+    [],
+  );
+  const error = failure?.text ?? null;
   const rec = useRef<Recording | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const urls = useRef(new Map<string, string>());
@@ -70,7 +78,7 @@ export function AgentEnglish() {
   const talkRef = useRef<LiveTalk | null>(null);
   const [stream, setStream] = useState<'off' | 'on' | 'reconnecting' | 'broken'>('off');
   // Отказ по лимиту или зацикливанию: что сделать; микрофон ждёт «Попробовать снова».
-  const [blocked, setBlocked] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{ text: string; code: string } | null>(null);
   const [micOn, setMicOn] = useState(false);
   const [voicePlaying, setVoicePlaying] = useState(false);
   const [heard, setHeard] = useState<string | null>(null);
@@ -169,8 +177,8 @@ export function AgentEnglish() {
         setHeard(null);
         if (stop) {
           setMicOn(false);
-          setBlocked(stopHint(code, message));
-        } else setError(message);
+          setBlocked({ text: stopHint(code, message), code });
+        } else setError(message, code);
       },
       onLink: (state) => {
         setStream(state);
@@ -202,7 +210,7 @@ export function AgentEnglish() {
       setBlocked(null);
       setStream('off');
     };
-  }, [live, qc]);
+  }, [live, qc, setError]);
 
   /** «Попробовать снова»: снять отказ, переподключиться, вернуть микрофон, если был включён. */
   async function retry() {
@@ -260,7 +268,7 @@ export function AgentEnglish() {
         if (!(e instanceof DOMException)) setError(say(e));
       }
     },
-    [voice.speak, hush],
+    [voice.speak, hush, setError],
   );
 
   async function talk(saying: Saying) {
@@ -279,7 +287,7 @@ export function AgentEnglish() {
     } catch (e) {
       setPhase('idle');
       if (e instanceof TurnFail && e.heard) setText(e.heard);
-      setError(say(e));
+      setError(say(e), e instanceof Fail ? e.code : null);
     }
   }
 
@@ -334,7 +342,7 @@ export function AgentEnglish() {
       const hello = s.messages.at(-1);
       if (hello && s.messages.length === 1) void play(hello);
     } catch (e) {
-      setError(say(e));
+      setError(say(e), e instanceof Fail ? e.code : null);
     }
   }
 
@@ -435,7 +443,8 @@ export function AgentEnglish() {
           <div className="eng-controls">
             {blocked && (
               <div className="eng-blocked" role="alert">
-                <p>{blocked}</p>
+                <p>{blocked.text}</p>
+                <LimitLink code={blocked.code} />
                 <Button size="sm" onClick={() => void retry()}>
                   Попробовать снова
                 </Button>
@@ -518,7 +527,7 @@ export function AgentEnglish() {
       )}
       {error && (
         <p className="act-error" role="alert">
-          {error}
+          {error} <LimitLink code={failure?.code ?? null} />
         </p>
       )}
     </div>

@@ -54,6 +54,10 @@ impl OpenRouterConfig {
 pub struct OpenRouter {
     client: reqwest::Client,
     config: OpenRouterConfig,
+    /// Ключ платформы: из настроек сервера или из Console (D-442) — меняется
+    /// без перезапуска. Пустой — ключа нет: запрос без своего ключа человека
+    /// получает отказ до отправки.
+    key: std::sync::RwLock<Secret>,
 }
 
 /// Модель из каталога OpenRouter. Цены — микродоллары за миллион токенов,
@@ -83,7 +87,26 @@ impl OpenRouter {
             .user_agent(concat!("qubite/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|error| format!("HTTP-клиент не создан: {error}"))?;
-        Ok(Self { client, config })
+        let key = std::sync::RwLock::new(config.api_key.clone());
+        Ok(Self {
+            client,
+            config,
+            key,
+        })
+    }
+
+    /// Заменить ключ платформы (Console → AI → Ключи). Пустой — без ключа.
+    pub fn set_key(&self, key: Secret) {
+        *self.key.write().expect("ключ") = key;
+    }
+
+    /// Есть ли ключ платформы.
+    pub fn has_key(&self) -> bool {
+        !self.key.read().expect("ключ").expose().trim().is_empty()
+    }
+
+    fn platform_key(&self) -> Secret {
+        self.key.read().expect("ключ").clone()
     }
 
     fn url(&self, path: &str) -> String {
@@ -105,10 +128,17 @@ impl OpenRouter {
         if let Some(provider) = provider_preferences(call, self.config.data_collection.as_deref()) {
             body["provider"] = provider;
         }
+        // Свой ключ человека (D-493) — иначе ключ платформы.
+        let key = call.api_key.clone().unwrap_or_else(|| self.platform_key());
+        if key.expose().trim().is_empty() {
+            return Err(ProviderError::Refused(
+                "нет ключа OpenRouter — owner добавляет его в Console → AI → Ключи".into(),
+            ));
+        }
         let response = self
             .client
             .post(self.url("chat/completions"))
-            .bearer_auth(self.config.api_key.expose())
+            .bearer_auth(key.expose())
             .header("X-Title", "Qubite")
             .json(&body)
             .send()
@@ -141,10 +171,13 @@ impl OpenRouter {
     /// (например, `openrouter/auto`) и с платой за сам запрос пропускаются:
     /// худшую стоимость для них заранее не посчитать.
     pub async fn catalog(&self) -> Result<Vec<CatalogEntry>, CatalogError> {
-        let response = self
-            .client
-            .get(self.url("models"))
-            .bearer_auth(self.config.api_key.expose())
+        let key = self.platform_key();
+        let mut request = self.client.get(self.url("models"));
+        // Каталог открытый: без ключа тоже отдаётся.
+        if !key.expose().trim().is_empty() {
+            request = request.bearer_auth(key.expose());
+        }
+        let response = request
             .send()
             .await
             .map_err(|error| CatalogError::Unavailable(without_url(&error)))?;

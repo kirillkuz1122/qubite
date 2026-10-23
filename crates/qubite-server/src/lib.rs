@@ -9,6 +9,7 @@ pub mod agent_pace;
 pub mod agent_skills;
 pub mod agent_triage;
 pub mod ai;
+pub mod ai_console;
 pub mod auth;
 pub mod changes;
 pub mod console;
@@ -62,6 +63,8 @@ pub struct AppState {
     pub english: Arc<qubite_english::Settings>,
     /// Файлы по хешу содержимого (файлы проектов, PROJ-001).
     pub blobs: qubite_objects::BlobStore,
+    /// AI кнопками (AI-003): ключ шифрования, ChatGPT, ключ OpenRouter.
+    pub ai_panel: Arc<ai_console::AiPanel>,
 }
 
 impl AppState {
@@ -87,7 +90,14 @@ impl AppState {
             english: Arc::new(qubite_english::Settings::default()),
             // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
+            ai_panel: Arc::new(ai_console::AiPanel::default()),
         }
+    }
+
+    /// Что знают экраны AI (AI-003): ключ шифрования, ChatGPT, адаптер OpenRouter.
+    pub fn with_ai_panel(mut self, panel: ai_console::AiPanel) -> Self {
+        self.ai_panel = Arc::new(panel);
+        self
     }
 
     /// Где лежат файлы (`<QUBITE_DATA_DIR>/blobs`, общая папка с ботом).
@@ -190,6 +200,24 @@ impl AppState {
         ai::owner_ai_update_model,
         ai::owner_ai_tasks,
         ai::owner_ai_set_task,
+        ai_console::owner_overview,
+        ai_console::owner_limits,
+        ai_console::owner_set_limit,
+        ai_console::owner_revoke_limit,
+        ai_console::owner_set_unlimited,
+        ai_console::owner_make_unlimited,
+        ai_console::owner_set_loop_guard,
+        ai_console::owner_set_key,
+        ai_console::owner_remove_key,
+        ai_console::owner_usage,
+        ai_console::owner_calls,
+        ai_console::me,
+        ai_console::set_source,
+        ai_console::set_my_key,
+        ai_console::remove_my_key,
+        ai_console::chatgpt_start,
+        ai_console::chatgpt_finish,
+        ai_console::chatgpt_logout,
         sync::push,
         sync::pull,
         sync::socket,
@@ -323,6 +351,23 @@ impl AppState {
         ai::DataCollectionSetting,
         ai::TaskModel,
         ai::TaskModelChange,
+        ai_console::AiLimitItem,
+        ai_console::AiLimitNew,
+        ai_console::LoopGuardInfo,
+        ai_console::ProviderKeyInfo,
+        ai_console::AiOverview,
+        ai_console::Toggle,
+        ai_console::MakeUnlimited,
+        ai_console::LoopGuardChange,
+        ai_console::KeyChange,
+        ai_console::UsageRow,
+        ai_console::AiUsage,
+        ai_console::AiCallItem,
+        ai_console::MyChatGpt,
+        ai_console::MyAi,
+        ai_console::SourceChange,
+        ai_console::ChatGptStart,
+        ai_console::ChatGptFinish,
         inbox::InboxItem,
         inbox::InboxTriage,
         inbox::InboxLink,
@@ -435,7 +480,8 @@ impl AppState {
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
         (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"),
         (name = "planner", description = "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"),
-        (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)")
+        (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"),
+        (name = "ai", description = "AI и бюджет человека: свой расход и лимиты, «Подключить AI» (своя подписка ChatGPT, свой ключ)")
     )
 )]
 pub struct ApiDoc;
@@ -550,6 +596,48 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/ai/tasks/{task}",
             axum::routing::put(ai::owner_ai_set_task),
         )
+        .route("/api/owner/ai/overview", get(ai_console::owner_overview))
+        .route(
+            "/api/owner/ai/limits",
+            get(ai_console::owner_limits).post(ai_console::owner_set_limit),
+        )
+        .route(
+            "/api/owner/ai/limits/{id}",
+            delete(ai_console::owner_revoke_limit),
+        )
+        .route(
+            "/api/owner/ai/owner-unlimited",
+            axum::routing::put(ai_console::owner_set_unlimited),
+        )
+        .route(
+            "/api/owner/ai/unlimited",
+            post(ai_console::owner_make_unlimited),
+        )
+        .route(
+            "/api/owner/ai/loop-guard",
+            axum::routing::put(ai_console::owner_set_loop_guard),
+        )
+        .route(
+            "/api/owner/ai/keys/openrouter",
+            axum::routing::put(ai_console::owner_set_key).delete(ai_console::owner_remove_key),
+        )
+        .route("/api/owner/ai/usage", get(ai_console::owner_usage))
+        .route("/api/owner/ai/calls", get(ai_console::owner_calls))
+        .route("/api/ai/me", get(ai_console::me))
+        .route(
+            "/api/ai/me/source",
+            axum::routing::put(ai_console::set_source),
+        )
+        .route(
+            "/api/ai/me/key",
+            axum::routing::put(ai_console::set_my_key).delete(ai_console::remove_my_key),
+        )
+        .route("/api/ai/me/chatgpt/start", post(ai_console::chatgpt_start))
+        .route(
+            "/api/ai/me/chatgpt/finish",
+            post(ai_console::chatgpt_finish),
+        )
+        .route("/api/ai/me/chatgpt", delete(ai_console::chatgpt_logout))
         .route("/api/v1/sync/push", post(sync::push))
         .route("/api/v1/sync/pull", get(sync::pull))
         .route("/api/v1/sync/ws", get(sync::socket))

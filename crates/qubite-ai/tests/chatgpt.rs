@@ -201,12 +201,21 @@ impl Env {
         api: &FakeHttp,
         callback: impl Fn(&reqwest::Url) -> String + Send + 'static,
     ) -> Result<chatgpt::LoginResult, String> {
+        self.login_as(self.owner.account_id(), api, callback).await
+    }
+
+    async fn login_as(
+        &self,
+        account: Uuid,
+        api: &FakeHttp,
+        callback: impl Fn(&reqwest::Url) -> String + Send + 'static,
+    ) -> Result<chatgpt::LoginResult, String> {
         let openai = self.openai.clone();
         chatgpt::login(
             self.db.pool(),
             &self.config(api),
             &self.secret,
-            self.owner.account_id(),
+            account,
             0,
             move |url| {
                 let url = reqwest::Url::parse(url).unwrap();
@@ -244,7 +253,7 @@ impl Env {
             )
             .unwrap(),
         );
-        let entries = provider.models().await.unwrap();
+        let entries = provider.models(self.owner.account_id()).await.unwrap();
         catalog::apply(self.db.pool(), "chatgpt", &entries, &Allowlist::Keep)
             .await
             .unwrap();
@@ -284,13 +293,48 @@ impl Env {
             .unwrap()
     }
 
+    /// Поле входа owner (`client_id` — у установки, остальное — у человека).
     async fn sealed(&self, column: &str) -> Option<String> {
-        sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "SELECT {column} FROM ai_chatgpt_session WHERE singleton"
-        )))
-        .fetch_one(self.db.pool())
+        let sql = if column == "client_id" {
+            "SELECT client_id FROM ai_chatgpt_session WHERE singleton".to_owned()
+        } else {
+            format!("SELECT {column} FROM ai_chatgpt_tokens WHERE account_id = $1")
+        };
+        sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
+            .bind(self.owner.account_id())
+            .fetch_optional(self.db.pool())
+            .await
+            .unwrap()
+            .flatten()
+    }
+
+    /// Человек с доступом к Docs и AI.
+    async fn person(&self, email: &str) -> Uuid {
+        let user = Uuid::now_v7();
+        sqlx::query(
+            "INSERT INTO accounts (id, email, email_verified_at, status) VALUES ($1, $2, now(), 'active')",
+        )
+        .bind(user)
+        .bind(email)
+        .execute(self.db.pool())
         .await
-        .unwrap()
+        .unwrap();
+        let flags = Flags {
+            read: true,
+            ai: true,
+            ..Flags::NONE
+        };
+        qubite_policy::grants::set(self.db.pool(), &self.owner, user, &self.docs, flags, None)
+            .await
+            .unwrap();
+        user
+    }
+
+    async fn connected(&self, account: Uuid) -> bool {
+        chatgpt::status(self.db.pool(), account)
+            .await
+            .unwrap()
+            .connected
     }
 
     async fn finish(self) {
@@ -549,7 +593,7 @@ async fn login_without_plan_scope_or_with_refusal_stores_nothing() {
         .await
         .unwrap_err();
     assert!(error.contains("отказались"), "{error}");
-    assert!(!chatgpt::status(env.db.pool()).await.unwrap().connected);
+    assert!(!env.connected(env.owner.account_id()).await);
     env.finish().await;
 }
 
@@ -618,22 +662,7 @@ async fn subscription_is_only_for_the_one_who_connected_it() {
     let api = api_server(vec![]).await;
     env.connect(&api).await;
     let (gateway, _) = env.gateway(&api).await;
-    let user = Uuid::now_v7();
-    sqlx::query(
-        "INSERT INTO accounts (id, email, email_verified_at, status) VALUES ($1, 'u@qubite.ru', now(), 'active')",
-    )
-    .bind(user)
-    .execute(env.db.pool())
-    .await
-    .unwrap();
-    let flags = Flags {
-        read: true,
-        ai: true,
-        ..Flags::NONE
-    };
-    qubite_policy::grants::set(env.db.pool(), &env.owner, user, &env.docs, flags, None)
-        .await
-        .unwrap();
+    let user = env.person("u@qubite.ru").await;
     admin::set_limit(
         env.db.pool(),
         &env.owner,
@@ -644,12 +673,13 @@ async fn subscription_is_only_for_the_one_who_connected_it() {
     )
     .await
     .unwrap();
+    // Подписку подключил owner — у человека своей нет: отказ до отправки.
     let error = gateway
         .complete(&env.auth_for(user).await, request("other"))
         .await
         .unwrap_err();
     assert!(
-        matches!(&error, AiError::ProviderRefused { reason, .. } if reason.contains("только для запросов того")),
+        matches!(&error, AiError::ProviderRefused { reason, .. } if reason.contains("ChatGPT не подключён")),
         "{error:?}"
     );
     assert!(
@@ -658,6 +688,120 @@ async fn subscription_is_only_for_the_one_who_connected_it() {
             .any(|r| r.line.starts_with("POST /v1/responses")),
         "к OpenAI ничего не ушло"
     );
+    env.finish().await;
+}
+
+#[tokio::test]
+async fn everyone_connects_own_subscription_and_it_needs_no_owner_money() {
+    let env = Env::new().await;
+    let api = api_server(vec![]).await;
+    env.connect(&api).await; // owner: at-1
+    let (gateway, _) = env.gateway(&api).await;
+    let user = env.person("u@qubite.ru").await;
+    env.login_as(user, &api, |url| back(url, "code-2", Some("oaiapp_test")))
+        .await
+        .unwrap(); // человек: at-2
+    assert!(env.connected(user).await && env.connected(env.owner.account_id()).await);
+    // Личного лимита в $ у человека нет — подписка его не требует (D-531);
+    // лимит запросов при этом действует.
+    admin::set_limit(
+        env.db.pool(),
+        &env.owner,
+        &LimitScope::EachUser,
+        Period::Day,
+        Metric::Requests,
+        1,
+    )
+    .await
+    .unwrap();
+    let auth = env.auth_for(user).await;
+    gateway.complete(&auth, request("mine")).await.unwrap();
+    assert!(matches!(
+        gateway.complete(&auth, request("mine-2")).await,
+        Err(AiError::BudgetExhausted { metric, .. }) if metric == "requests"
+    ));
+    let sent: Vec<Received> = api
+        .received()
+        .into_iter()
+        .filter(|r| r.line.starts_with("POST /v1/responses"))
+        .collect();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(
+        sent[0].header("authorization"),
+        Some("Bearer at-2"),
+        "токен человека, не owner"
+    );
+    let paid: String = sqlx::query_scalar("SELECT paid_by FROM ai_calls WHERE request_id = 'mine'")
+        .fetch_one(env.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(paid, "subscription");
+
+    // Выход человека не трогает вход owner.
+    chatgpt::logout(env.db.pool(), &env.config(&api), &env.secret, user)
+        .await
+        .unwrap();
+    assert!(!env.connected(user).await);
+    assert!(env.connected(env.owner.account_id()).await);
+    env.finish().await;
+}
+
+#[tokio::test]
+async fn pasted_callback_finishes_login_only_for_who_started_it_once() {
+    let env = Env::new().await;
+    let api = api_server(vec![]).await;
+    let config = env.config(&api);
+    let user = env.person("u@qubite.ru").await;
+    let redirect = "http://127.0.0.1:1455/auth/callback";
+    let start = chatgpt::begin_login(env.db.pool(), &config, &env.secret, user, redirect)
+        .await
+        .unwrap();
+    let url = reqwest::Url::parse(&start.url).unwrap();
+    let nonce = url
+        .query_pairs()
+        .find(|(k, _)| k == "nonce")
+        .unwrap()
+        .1
+        .into_owned();
+    env.openai.lock().unwrap().nonce = nonce;
+    let pasted = back(&url, "code-9", Some("oaiapp_test"));
+    assert!(pasted.starts_with(redirect));
+    // Чужой человек вставил тот же адрес — не принимается.
+    let error = chatgpt::finish_login(
+        env.db.pool(),
+        &config,
+        &env.secret,
+        env.owner.account_id(),
+        &pasted,
+    )
+    .await
+    .unwrap_err();
+    assert!(error.contains("не найден"), "{error}");
+    chatgpt::finish_login(env.db.pool(), &config, &env.secret, user, &pasted)
+        .await
+        .unwrap();
+    assert!(env.connected(user).await);
+    // Второй раз тот же адрес не сработает.
+    let error = chatgpt::finish_login(env.db.pool(), &config, &env.secret, user, &pasted)
+        .await
+        .unwrap_err();
+    assert!(error.contains("не найден"), "{error}");
+    // Код обменян с тем verifier, что выдан при начале входа.
+    let exchange = env
+        .auth
+        .received()
+        .into_iter()
+        .map(|r| form(&r.body))
+        .find(|p| field(p, "grant_type").as_deref() == Some("authorization_code"))
+        .unwrap();
+    assert_eq!(
+        url.query_pairs()
+            .find(|(k, _)| k == "code_challenge")
+            .unwrap()
+            .1,
+        chatgpt::pkce_challenge(&field(&exchange, "code_verifier").unwrap())
+    );
+    assert_eq!(field(&exchange, "redirect_uri").as_deref(), Some(redirect));
     env.finish().await;
 }
 
@@ -704,7 +848,7 @@ async fn expired_token_is_refreshed_and_rotated_terminal_error_needs_new_login()
     let (gateway, _) = env.gateway(&api).await;
     let auth = env.owner_ai().await;
     let expire = || async {
-        sqlx::query("UPDATE ai_chatgpt_session SET expires_at = now() WHERE singleton")
+        sqlx::query("UPDATE ai_chatgpt_tokens SET expires_at = now()")
             .execute(env.db.pool())
             .await
             .unwrap();
@@ -746,7 +890,7 @@ async fn expired_token_is_refreshed_and_rotated_terminal_error_needs_new_login()
         matches!(&error, AiError::ProviderRefused { reason, .. } if reason.contains("войдите снова")),
         "{error:?}"
     );
-    assert!(!chatgpt::status(env.db.pool()).await.unwrap().connected);
+    assert!(!env.connected(env.owner.account_id()).await);
     // client_id и host_id остаются для следующего входа.
     assert_eq!(
         env.sealed("client_id").await.as_deref(),
@@ -772,9 +916,14 @@ async fn rejected_token_is_refreshed_once_and_logout_revokes() {
         .collect();
     assert_eq!(auths, ["Bearer at-1", "Bearer at-2"]);
 
-    let revoked = chatgpt::logout(env.db.pool(), &env.config(&api), &env.secret)
-        .await
-        .unwrap();
+    let revoked = chatgpt::logout(
+        env.db.pool(),
+        &env.config(&api),
+        &env.secret,
+        env.owner.account_id(),
+    )
+    .await
+    .unwrap();
     assert!(revoked);
     let revoke = env
         .auth
@@ -788,7 +937,7 @@ async fn rejected_token_is_refreshed_once_and_logout_revokes() {
         field(&params, "token_type_hint").as_deref(),
         Some("refresh_token")
     );
-    assert!(!chatgpt::status(env.db.pool()).await.unwrap().connected);
+    assert!(!env.connected(env.owner.account_id()).await);
     assert!(matches!(
         gateway.complete(&auth, request("after")).await,
         Err(AiError::ProviderRefused { .. })
