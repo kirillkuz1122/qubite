@@ -57,6 +57,7 @@ kinds! {
     ServerErrors = "server_errors", "Ошибки сервера";
     BackupFailed = "backup_failed", "Бэкап не прошёл";
     DiskLow = "disk_low", "Кончается место на диске";
+    Deploy = "deploy", "Сервер обновился сам (или откатился)";
 }
 
 /// Положить уведомление в очередь. С тем же `dedup_key` — только один раз.

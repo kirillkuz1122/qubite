@@ -36,6 +36,8 @@ mkdir -p "${stage}/bin" "${stage}/web"
 cp "target/${target}/release/qubite" "${stage}/bin/qubite"
 cp -R apps/web/dist/. "${stage}/web/"
 cp .env.example "${stage}/qubite.env.example"
+mkdir -p "${stage}/deploy"
+cp -R deploy/pi "${stage}/deploy/pi"
 cat > "${stage}/RELEASE.txt" <<TXT
 Qubite ${version}
 Коммит: ${commit}
@@ -45,6 +47,7 @@ Qubite ${version}
 bin/qubite          сервер: serve, migrate, owner create, owner password, version, openapi
 web/                сайт (статические файлы для Caddy)
 qubite.env.example  пример настроек (заполнить и положить в /etc/qubite/qubite.env, права 600)
+deploy/pi/          службы systemd и автодеплой для Raspberry Pi (OPS-005)
 
 Быстрая проверка: bin/qubite version
 Установка — deploy/install.sh (задача OPS-001), инструкция — docs/engineering/DEPLOYMENT.md.

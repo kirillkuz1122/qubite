@@ -1,0 +1,27 @@
+# Caddy для нового Qubite на Pi (OPS-005). Подключается из /etc/caddy/Caddyfile строкой
+#   import /etc/caddy/qubite.caddy
+# Cloudflare Tunnel ведёт qubiteapp.online и auth.qubiteapp.online на этот порт.
+# Слушает только 127.0.0.1: заголовок CF-Connecting-IP приходит лишь от туннеля.
+# Сайт — одно приложение на всех хостах, /api/* — на `qubite serve` (ADR-0006).
+http://:9284 {
+	bind 127.0.0.1
+	@wrongHost not host qubiteapp.online auth.qubiteapp.online
+	respond @wrongHost "Unknown host" 404
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:9300 {
+			header_up X-Forwarded-Proto https
+			# Сервер берёт последний адрес из X-Forwarded-For. За туннелем это был бы
+			# cloudflared (127.0.0.1) — подставляем настоящий адрес из Cloudflare.
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle {
+		root * /opt/qubite/current/web
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header ?Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

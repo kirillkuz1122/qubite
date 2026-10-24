@@ -1,0 +1,12 @@
+# Все службы Qubite на Pi (OPS-005, D-567): ниже Tailscale, SSH и сервисов владельца.
+# У access.slice (Tailscale, SSH) вес 1000, у обычных служб — 100, у Qubite — 30.
+# Память: мягкий потолок на всю группу, жёсткий чуть выше — Qubite не вытеснит остальное.
+[Unit]
+Description=Qubite (низкий приоритет)
+Before=slices.target
+
+[Slice]
+CPUWeight=30
+IOWeight=30
+MemoryHigh=700M
+MemoryMax=900M

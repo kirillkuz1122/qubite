@@ -24,9 +24,10 @@ on:
       - 'pnpm-lock.yaml'
       - 'scripts/release.sh'
       - '.github/workflows/release.yml'
+      - 'deploy/pi/**'
   workflow_dispatch:
 
-# По умолчанию — только чтение; право писать (черновик Release) есть лишь у publish.
+# По умолчанию — только чтение; право писать есть лишь у publish (черновик Release) и edge.
 permissions:
   contents: read
 
@@ -143,3 +144,39 @@ jobs:
         run: >-
           gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --draft
           --title "Qubite $TAG" --notes "Сборка из CI. Проверка архива — sha256sum -c *.sha256"
+
+  # Пред-релиз `edge` — последняя сборка main для автодеплоя на Pi (OPS-005, D-566).
+  # Pi скачивает его без токена и сам ждёт, пока все проверки коммита станут зелёными.
+  # edge.json (коммит) выкладывается последним: пока его нет, Pi ничего не ставит.
+  edge:
+    name: пред-релиз edge (main)
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: edge
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Обновить edge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if ! gh release view edge --repo "$repo" >/dev/null 2>&1; then
+            gh release create edge --repo "$repo" --prerelease --target "$GITHUB_SHA" \
+              --title "edge — последняя сборка main" --notes "Обновляется сам после каждой сборки main."
+          fi
+          gh release view edge --repo "$repo" --json assets -q '.assets[].name' |
+            while read -r asset; do gh release delete-asset edge "$asset" --repo "$repo" -y; done
+          gh release upload edge release/* --repo "$repo" --clobber
+          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > edge.json
+          gh release upload edge edge.json --repo "$repo" --clobber
+          gh release edit edge --repo "$repo" --notes "Коммит $GITHUB_SHA. Обновляется сам после каждой сборки main."

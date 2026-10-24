@@ -1,0 +1,17 @@
+# Автодеплой (D-566): скачать готовую сборку `edge` из CI и обновиться. Ничего не собирает.
+[Unit]
+Description=Qubite: проверить и поставить обновление
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/qubite/bin/qubite-update
+TimeoutStartSec=20min
+
+Slice=qubite.slice
+Nice=15
+CPUWeight=10
+IOWeight=10
+IOSchedulingClass=idle
+OOMScoreAdjust=700

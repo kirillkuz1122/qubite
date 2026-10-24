@@ -1,0 +1,39 @@
+# HTTP API Qubite (`qubite serve`). Сайт отдаёт Caddy из /opt/qubite/current/web.
+#
+# Настройки: /etc/qubite/.env — файл владельца (секреты, читает сам qubite, как в разработке);
+# /etc/qubite/pi.env — адреса и база этого сервера, их пишет install.sh. Переменные
+# из pi.env уже в окружении процесса, поэтому .env их не перебивает.
+[Unit]
+Description=Qubite: сервер
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qubite
+Group=qubite
+WorkingDirectory=/etc/qubite
+EnvironmentFile=/etc/qubite/pi.env
+ExecStart=/opt/qubite/current/bin/qubite serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Скромно (D-567): уступает Tailscale и сервисам владельца, при нехватке памяти — первым.
+Slice=qubite.slice
+Nice=10
+CPUWeight=30
+IOWeight=30
+MemoryHigh=400M
+MemoryMax=550M
+OOMScoreAdjust=500
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/qubite
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,34 @@
+# Telegram-бот Qubite 2.0 (`qubite bot`). Старый бот (qubite-control-bot) — отдельная служба.
+[Unit]
+Description=Qubite: Telegram-бот
+After=network-online.target postgresql.service qubite-serve.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qubite
+Group=qubite
+WorkingDirectory=/etc/qubite
+EnvironmentFile=/etc/qubite/pi.env
+ExecStart=/opt/qubite/current/bin/qubite bot
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+
+Slice=qubite.slice
+Nice=10
+CPUWeight=20
+IOWeight=20
+MemoryHigh=120M
+MemoryMax=200M
+OOMScoreAdjust=600
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/qubite
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

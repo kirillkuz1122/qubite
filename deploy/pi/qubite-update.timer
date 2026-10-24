@@ -1,0 +1,11 @@
+# Проверка обновления раз в 5 минут (не чаще, D-567).
+[Unit]
+Description=Qubite: проверка обновления каждые 5 минут
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
