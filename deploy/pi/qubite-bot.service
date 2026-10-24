@@ -13,6 +13,8 @@ EnvironmentFile=/etc/qubite/pi.env
 ExecStart=/opt/qubite/current/bin/qubite bot
 Restart=on-failure
 RestartSec=10
+# Без токена (или с неверными ключами) бот выходит с кодом 2 — не перезапускать по кругу.
+RestartPreventExitStatus=2
 TimeoutStopSec=20
 
 Slice=qubite.slice

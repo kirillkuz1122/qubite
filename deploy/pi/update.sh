@@ -186,7 +186,7 @@ deploy() {
     "$dir/bin/qubite" version >/dev/null || die "новый бинарник не запускается"
 
     # Бэкап перед миграциями. Первая установка — базы ещё может не быть, это не страшно.
-    prev="$(readlink -f "$ROOT/current" 2>/dev/null || true)"
+    prev="$(readlink -e "$ROOT/current" 2>/dev/null || true)"
     dump=""
     if [[ -n $prev && -d $prev ]]; then
         dump="$BACKUPS/$(date +%Y%m%d-%H%M%S)-$(basename "$prev").dump"
@@ -226,7 +226,7 @@ cleanup() {
     local cur
     cur="$(readlink -f "$ROOT/current")"
     # shellcheck disable=SC2012
-    ls -1dt "$ROOT"/releases/*/ 2>/dev/null | sed 's#/$##' | grep -vxF "$cur" | tail -n +"$KEEP_RELEASES" | xargs -r rm -rf
+    ls -1dt "$ROOT"/releases/*/ 2>/dev/null | sed 's#/$##' | { grep -vxF "$cur" || true; } | tail -n +"$KEEP_RELEASES" | xargs -r rm -rf
     # shellcheck disable=SC2012
     ls -1t "$BACKUPS"/*.dump 2>/dev/null | tail -n +"$((KEEP_BACKUPS + 1))" | xargs -r rm -f
 }
