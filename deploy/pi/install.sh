@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Первая установка Qubite на Raspberry Pi (OPS-005). Повторный запуск безопасен.
 #
-#   sudo deploy/pi/install.sh [--domain qubiteapp.online] [--port 9300]
+#   sudo deploy/pi/install.sh [--domain qubiteapp.online] [--port 9300] [--owner-user kirill]
 #
 # Что делает:
 #   1. пользователь `qubite`, папки /opt/qubite, /var/lib/qubite, /etc/qubite;
 #   2. база и роль `qubite` в уже установленном PostgreSQL (пароль — случайный, только в pi.env);
-#   3. /etc/qubite/pi.env — адреса и база этого сервера (права 640, root:qubite);
+#   3. /etc/qubite/pi.env — адреса и база этого сервера (права 640, <владелец>:qubite);
 #      файл владельца /etc/qubite/qubite.env (секреты) получает те же права и ссылку .env;
 #   4. службы qubite-serve, qubite-bot, таймер qubite-update (низкий приоритет, D-567);
 #   5. первое обновление — скачать сборку edge из CI и запустить.
@@ -16,10 +16,13 @@ set -euo pipefail
 
 DOMAIN=qubiteapp.online
 PORT=9300
+# Хозяин настроек: правит /etc/qubite без sudo. По умолчанию — тот, кто запустил sudo.
+OWNER_USER="${SUDO_USER:-root}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --domain) DOMAIN="$2"; shift 2 ;;
         --port) PORT="$2"; shift 2 ;;
+        --owner-user) OWNER_USER="$2"; shift 2 ;;
         *) echo "непонятный ключ: $1" >&2; exit 1 ;;
     esac
 done
@@ -35,7 +38,7 @@ step "пользователь и папки"
 id qubite >/dev/null 2>&1 || useradd --system --user-group --home-dir /var/lib/qubite --shell /usr/sbin/nologin qubite
 install -d -m 755 /opt/qubite /opt/qubite/releases /opt/qubite/bin
 install -d -m 750 -o qubite -g qubite /var/lib/qubite
-install -d -m 750 -o root -g qubite /etc/qubite
+install -d -m 750 -o "$OWNER_USER" -g qubite /etc/qubite
 install -d -m 700 /var/backups/qubite
 
 step "PostgreSQL: роль и база qubite"
@@ -79,10 +82,10 @@ DATABASE_URL=postgres://qubite:${password}@127.0.0.1:5432/qubite
 DATABASE_MAX_CONNECTIONS=5
 QUBITE_BOT_SERVER_URL=http://127.0.0.1:${PORT}
 ENV
-chown root:qubite /etc/qubite/pi.env
+chown "$OWNER_USER":qubite /etc/qubite/pi.env
 chmod 640 /etc/qubite/pi.env
 if [[ -f /etc/qubite/qubite.env ]]; then
-    chown root:qubite /etc/qubite/qubite.env
+    chown "$OWNER_USER":qubite /etc/qubite/qubite.env
     chmod 640 /etc/qubite/qubite.env
     ln -sfn qubite.env /etc/qubite/.env
 else

@@ -95,7 +95,7 @@ Pi 5, 4 ГБ, Debian 13. Рядом работают сервисы владел
 | Что | Где |
 |---|---|
 | Версии | `/opt/qubite/releases/<коммит>/` (последние 3), текущая — ссылка `/opt/qubite/current` |
-| Секреты владельца | `/etc/qubite/qubite.env` (root:qubite, 640) и ссылка `/etc/qubite/.env` — её читает сам `qubite` |
+| Секреты владельца | `/etc/qubite/qubite.env` (kirill:qubite, 640 — владелец правит без sudo, служба только читает) и ссылка `/etc/qubite/.env` — её читает сам `qubite` |
 | Адреса и база этого сервера | `/etc/qubite/pi.env` — пишет `install.sh`, его значения сильнее `.env` |
 | Данные | `/var/lib/qubite` |
 | База | PostgreSQL 17 (общий на Pi), роль и база `qubite`, `work_mem` 4 МБ, до 12 соединений |
