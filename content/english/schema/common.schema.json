@@ -116,6 +116,10 @@
           "$ref": "#/$defs/text"
         },
         "hint_ru": { "$ref": "#/$defs/text" },
+        "answer_by": {
+          "description": "Как отвечать (ENG-006): text — только текстом (написание, грамматика, порядок слов); voice_or_text — голосом или текстом (понимание, быстрый перевод, разговорные фразы); voice — голосом (произношение). Не задано — по виду задания (course::answer_by)",
+          "enum": ["text", "voice_or_text", "voice"]
+        },
         "explain_ru": {
           "description": "Что сказать после ответа (почему так)",
           "$ref": "#/$defs/text"
@@ -282,12 +286,12 @@
       }
     },
     "speak": {
-      "description": "Сказать вслух: repeat — повторить фразу say; answer — ответить на вопрос say своими словами",
+      "description": "Сказать вслух: repeat — повторить фразу say; answer — ответить на вопрос say своими словами; transform — переделать фразу say, как просит ask_ru (в прошедшее время, в вопрос, в отрицание…), и сказать",
       "$ref": "#/$defs/taskBase",
       "required": ["mode", "say"],
       "unevaluatedProperties": false,
       "properties": {
-        "mode": { "enum": ["repeat", "answer"] },
+        "mode": { "enum": ["repeat", "answer", "transform"] },
         "say": { "$ref": "#/$defs/text" },
         "example": {
           "description": "Пример хорошего ответа (для answer — обязателен)",
@@ -299,7 +303,7 @@
           "$ref": "#/$defs/text"
         }
       },
-      "if": { "properties": { "mode": { "const": "answer" } } },
+      "if": { "properties": { "mode": { "enum": ["answer", "transform"] } } },
       "then": { "required": ["example"] }
     },
     "describe_image": {

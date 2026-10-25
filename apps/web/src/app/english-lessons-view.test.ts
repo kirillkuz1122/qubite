@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Lesson, Level, Run, Step, Task } from './english-lessons';
 import {
+  answerBy,
   byModule,
   days,
   explainAsk,
+  fixHint,
   gaps,
+  kindLabel,
   matchRight,
   optionState,
   pairsOk,
@@ -62,6 +65,32 @@ describe('уроки английского: экран', () => {
     });
     expect(q).toContain('Я Кирилл.');
     expect(q).toContain("Правильно: I'm Kirill.");
+  });
+
+  it('способ ответа: текстом — написание, голосом или текстом — понимание и разговор', () => {
+    expect(answerBy(task({ type: 'translate', from: 'ru' }))).toBe('text');
+    expect(answerBy(task({ type: 'translate', from: 'en' }))).toBe('voice_or_text');
+    expect(answerBy(task({ type: 'fill', text: 'I ___ ok' }))).toBe('text');
+    expect(answerBy(task({ type: 'listen', audio: "I'm 14." }))).toBe('text');
+    expect(answerBy(task({ type: 'speak', mode: 'repeat' }))).toBe('voice');
+    expect(answerBy(task({ type: 'speak', mode: 'transform' }))).toBe('voice_or_text');
+    expect(answerBy(task({ type: 'translate', from: 'en', answer_by: 'text' }))).toBe('text');
+    expect(kindLabel(task({ type: 'speak', mode: 'transform' }))).toBe('Переделай фразу');
+  });
+
+  it('«исправь свою фразу» — что не так, без готового ответа', () => {
+    const wrong = {
+      correct: false,
+      explain_ru: null,
+      mistakes: [{ wrong: 'Did you watched', right: 'Did you watch', why: 'после did — без -ed' }],
+    };
+    expect(fixHint(wrong)).toEqual(['«Did you watched» — после did — без -ed']);
+    expect(fixHint(wrong).join()).not.toContain('Did you watch»');
+    expect(fixHint({ ...wrong, mistakes: [], explain_ru: 'Нужен глагол.' })).toEqual([
+      'Нужен глагол.',
+    ]);
+    expect(fixHint({ ...wrong, correct: true })).toEqual([]);
+    expect(fixHint(null)).toEqual([]);
   });
 
   it('пропуски и кольцо дня', () => {

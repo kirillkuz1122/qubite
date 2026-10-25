@@ -3330,6 +3330,8 @@ export interface components {
       /** @description Строка, список (пропуски) или пары (соединить). */
       answer: Record<string, never>;
       audio_base64?: string | null;
+      /** @description Ответ голосом, уже распознанный диктовкой у поля (ENG-006). */
+      dictated?: string | null;
       /** Format: int64 */
       duration_ms?: number | null;
       /**

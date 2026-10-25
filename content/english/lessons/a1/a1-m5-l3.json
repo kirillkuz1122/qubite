@@ -242,6 +242,19 @@
       "example": "On Saturday Max met his friend at the bus stop. They went to the shopping centre. Max bought a new game. Then they ate burgers. After that they saw a film. He came home late and he was very tired."
     },
     {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Скажи то же самое, но про прошлую субботу — неправильные глаголы!",
+      "ask_en": "Say it about last Saturday.",
+      "mode": "transform",
+      "say": "On Saturdays I go to the club, I see my friends and we eat pizza.",
+      "example": "Last Saturday I went to the club, I saw my friends and we ate pizza.",
+      "must_use": ["went", "saw", "ate"],
+      "focus_ru": "Все три глагола неправильные — без «goed» и «eated».",
+      "answer_by": "voice_or_text"
+    },
+    {
       "id": "t9",
       "type": "speak",
       "skill": "speaking",

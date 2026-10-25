@@ -226,6 +226,19 @@
       ]
     },
     {
+      "id": "t10",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Переделай фразу в вопрос с did и задай её Нейту.",
+      "ask_en": "Turn it into a question with did.",
+      "mode": "transform",
+      "say": "You watched a film yesterday.",
+      "example": "Did you watch a film yesterday?",
+      "must_use": ["Did", "watch"],
+      "focus_ru": "После did глагол — в начальной форме, без -ed.",
+      "answer_by": "voice_or_text"
+    },
+    {
       "id": "t9",
       "type": "speak",
       "skill": "speaking",

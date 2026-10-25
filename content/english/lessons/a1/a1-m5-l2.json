@@ -217,6 +217,19 @@
       "example": "At ten she walked her dog. At one she cooked lunch. At three she coded on her laptop. At seven she watched TV. At ten she listened to music."
     },
     {
+      "id": "t11",
+      "type": "speak",
+      "skill": "speaking",
+      "ask_ru": "Скажи то же самое, но про вчера — в прошедшем времени.",
+      "ask_en": "Say it about yesterday.",
+      "mode": "transform",
+      "say": "Every day I walk to school and play chess after lessons.",
+      "example": "Yesterday I walked to school and played chess after lessons.",
+      "must_use": ["walked", "played"],
+      "focus_ru": "Не забудь -ed — и «every day» тоже поменяй.",
+      "answer_by": "voice_or_text"
+    },
+    {
       "id": "t9",
       "type": "speak",
       "skill": "speaking",

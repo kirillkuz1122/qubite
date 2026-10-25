@@ -9,6 +9,9 @@ import { api } from '../api';
 import { Fail, must } from '../auth/client';
 import { toBase64 } from './english-view';
 
+/** Текстом; голосом или текстом; голосом (ENG-006). */
+export type AnswerBy = 'text' | 'voice_or_text' | 'voice';
+
 /** Задание урока (поля — по `content/english/schema`). */
 export interface Task {
   id: string;
@@ -26,6 +29,8 @@ export interface Task {
   ask_ru: string;
   ask_en?: string;
   hint_ru?: string;
+  /** Как отвечать (ENG-006); не задано — по виду задания, см. `answerBy`. */
+  answer_by?: AnswerBy;
   explain_ru?: string;
   question?: string;
   options?: string[];
@@ -39,7 +44,7 @@ export interface Task {
   translation_ru?: string;
   audio?: string;
   show_text?: boolean;
-  mode?: 'repeat' | 'answer';
+  mode?: 'repeat' | 'answer' | 'transform';
   say?: string;
   example?: string | string[];
   must_use?: string[];
@@ -315,7 +320,7 @@ export async function startRun(lesson: string, kind: Run['kind']): Promise<Run> 
 }
 
 /** Ответ: значение с экрана или запись голоса. */
-export type Reply = { value: unknown } | { audio: Blob; ms: number };
+export type Reply = { value: unknown } | { audio: Blob; ms: number } | { dictated: string };
 
 export async function sendAnswer(
   run: string,
@@ -327,14 +332,16 @@ export async function sendAnswer(
   const body =
     'value' in reply
       ? { key, task_id: task, lesson_id: lesson, answer: reply.value }
-      : {
-          key,
-          task_id: task,
-          lesson_id: lesson,
-          audio_base64: toBase64(new Uint8Array(await reply.audio.arrayBuffer())),
-          mime: reply.audio.type || 'audio/webm',
-          duration_ms: Math.round(reply.ms),
-        };
+      : 'dictated' in reply
+        ? { key, task_id: task, lesson_id: lesson, dictated: reply.dictated }
+        : {
+            key,
+            task_id: task,
+            lesson_id: lesson,
+            audio_base64: toBase64(new Uint8Array(await reply.audio.arrayBuffer())),
+            mime: reply.audio.type || 'audio/webm',
+            duration_ms: Math.round(reply.ms),
+          };
   return (await must(
     api.POST('/api/v1/english/runs/{id}/answer', {
       params: { path: { id: run } },

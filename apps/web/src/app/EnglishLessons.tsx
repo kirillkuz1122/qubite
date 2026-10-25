@@ -44,6 +44,7 @@ import {
   type Delta,
   type Finished,
   type Game,
+  type AnswerBy,
   type Home,
   type Mark,
   type Reply,
@@ -52,6 +53,7 @@ import {
   type Task,
 } from './english-lessons';
 import {
+  answerBy,
   byModule,
   days,
   explainAsk,
@@ -62,6 +64,7 @@ import {
   PAIR_TONES,
   pairsOk,
   resumeAt,
+  fixHint,
   type Pair,
   ring,
   runTasks,
@@ -69,7 +72,9 @@ import {
   theory,
   tiles,
   WEEKDAYS,
+  WHY_TEXT,
 } from './english-lessons-view';
+import { useDictation } from './english-dictation';
 import { LimitLink } from './LimitLink';
 
 type Tab = 'lessons' | 'talk' | 'game' | 'settings';
@@ -486,6 +491,7 @@ function LessonPlayer({
   // «Ещё раз» — задание заново (новый ключ), у «Соедини» верные пары остаются
   const [attempt, setAttempt] = useState(0);
   const [keep, setKeep] = useState<Pair[]>([]);
+  const [fix, setFix] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
   const [done, setDone] = useState<Finished | null>(null);
@@ -547,6 +553,7 @@ function LessonPlayer({
   const next = async () => {
     setResult(null);
     setKeep([]);
+    setFix([]);
     nate.current?.setMood('idle');
     if (at + 1 < list.length) {
       setAt(at + 1);
@@ -635,6 +642,7 @@ function LessonPlayer({
             result={result}
             canMic={canRecord()}
             keep={keep}
+            fix={fix}
             onReply={(r) => void reply(r)}
           />
           {result && <Verdict a={result} />}
@@ -643,6 +651,7 @@ function LessonPlayer({
               {!result.correct && (
                 <Button
                   onClick={() => {
+                    setFix(fixHint(result));
                     setResult(null);
                     setAttempt(attempt + 1);
                     nate.current?.setMood('idle');
@@ -1058,6 +1067,7 @@ function TaskBody({
   result,
   canMic,
   keep = [],
+  fix = [],
   onReply,
 }: {
   task: Task;
@@ -1066,6 +1076,8 @@ function TaskBody({
   canMic: boolean;
   /** «Соедини» после «Ещё раз»: верные пары остаются. */
   keep?: Pair[];
+  /** «Исправь свою фразу»: что было не так в прошлый раз (без готового ответа). */
+  fix?: string[];
   onReply: (r: Reply) => void;
 }) {
   const locked = busy || !!result;
@@ -1073,7 +1085,9 @@ function TaskBody({
   switch (task.type) {
     case 'choose':
     case 'listen':
-      body = <Choose task={task} locked={locked} result={result} onReply={onReply} />;
+      body = (
+        <Choose task={task} locked={locked} result={result} voice={canMic} onReply={onReply} />
+      );
       break;
     case 'match':
       body = <Match task={task} locked={locked} result={result} keep={keep} onReply={onReply} />;
@@ -1090,7 +1104,14 @@ function TaskBody({
           <p className="eng-say" lang={task.from === 'en' ? 'en' : 'ru'}>
             {task.text}
           </p>
-          <TextAnswer label="Перевод" locked={locked} onReply={onReply} />
+          <TextAnswer
+            label="Перевод"
+            locked={locked}
+            by={answerBy(task)}
+            voice={canMic}
+            lang={task.from === 'en' ? 'ru' : 'en'}
+            onReply={onReply}
+          />
         </>
       );
       break;
@@ -1101,6 +1122,11 @@ function TaskBody({
     <div className="eng-body">
       <p className="eng-ask-text">{task.ask_ru}</p>
       {task.hint_ru && <p className="eng-hint">Подсказка: {task.hint_ru}</p>}
+      {fix.length > 0 && !result && (
+        <Note>
+          <b>Исправь свою фразу.</b> Нейт заметил: {fix.join('; ')}
+        </Note>
+      )}
       {body}
     </div>
   );
@@ -1112,14 +1138,15 @@ function Choose({
   task,
   locked,
   result,
+  voice,
   onReply,
 }: {
   task: Task;
   locked: boolean;
   result: Answered | null;
+  voice: boolean;
   onReply: (r: Reply) => void;
 }) {
-  const [typed, setTyped] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
   const listen = task.type === 'listen';
   return (
@@ -1166,18 +1193,13 @@ function Choose({
           })}
         </div>
       ) : (
-        <form
-          className="talk-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (typed.trim()) onReply({ value: typed.trim() });
-          }}
-        >
-          <Field label="Ответ" value={typed} onChange={(e) => setTyped(e.target.value)} />
-          <Button size="sm" type="submit" disabled={locked || !typed.trim()}>
-            Проверить
-          </Button>
-        </form>
+        <TextAnswer
+          label="Ответ"
+          locked={locked}
+          by={answerBy(task)}
+          voice={voice}
+          onReply={onReply}
+        />
       )}
     </>
   );
@@ -1398,6 +1420,7 @@ function Fill({
         <TextAnswer
           label="Пропущенное слово"
           locked={locked}
+          by={answerBy(task)}
           onReply={(r) => onReply('value' in r ? { value: [r.value] } : r)}
         />
       )}
@@ -1405,16 +1428,45 @@ function Fill({
   );
 }
 
+/**
+ * Поле ответа (ENG-006): где «голос или текст» — рядом «Сказать» (диктовка ENG-005: ChatGPT,
+ * запасной — ElevenLabs), сказанное видно в поле и уходит на сверку как сказанное (мягче к
+ * написанию). Где «только текст» — подсказка, почему текстом.
+ */
 function TextAnswer({
   label,
   locked,
+  by = 'text',
+  voice = false,
+  lang = 'en',
+  why = true,
   onReply,
 }: {
   label: string;
   locked: boolean;
+  by?: AnswerBy;
+  /** Микрофон есть (и это урок, не входной тест). */
+  voice?: boolean;
+  /** На каком языке ответ — для распознавания. */
+  lang?: 'en' | 'ru';
+  /** Показывать «здесь — текстом». */
+  why?: boolean;
   onReply: (r: Reply) => void;
 }) {
   const [text, setText] = useState('');
+  const dict = useDictation(lang);
+  const mic = voice && by !== 'text';
+  const listening = dict.state === 'listening';
+  const talk = async () => {
+    if (!listening) {
+      await dict.start();
+      return;
+    }
+    const said = (await dict.stop()).trim();
+    if (!said) return;
+    setText(said);
+    onReply({ dictated: said });
+  };
   return (
     <form
       className="talk-form"
@@ -1425,13 +1477,38 @@ function TextAnswer({
     >
       <Field
         label={label}
-        value={text}
+        value={listening ? dict.partial : text}
         onChange={(e) => setText(e.target.value)}
+        readOnly={listening}
+        placeholder={listening ? 'Говори — Нейт слушает…' : undefined}
         maxLength={1000}
       />
-      <Button size="sm" type="submit" disabled={locked || !text.trim()}>
-        Проверить
-      </Button>
+      <div className="eng-row">
+        <Button size="sm" type="submit" disabled={locked || listening || !text.trim()}>
+          Проверить
+        </Button>
+        {mic && (
+          <Button
+            size="sm"
+            dot={false}
+            className="eng-mic"
+            aria-pressed={listening}
+            disabled={(locked && !listening) || dict.state === 'working'}
+            onClick={() => void talk()}
+          >
+            {listening ? 'Готово' : dict.state === 'working' ? 'Слушаю…' : 'Сказать'}
+          </Button>
+        )}
+      </div>
+      {mic && !listening && (
+        <p className="eng-hint">Можно голосом — за написание не снимаем, за слова и время — да.</p>
+      )}
+      {!mic && by === 'text' && why && <p className="eng-hint">{WHY_TEXT}</p>}
+      {dict.error && (
+        <p className="eng-hint" role="status">
+          {dict.error}
+        </p>
+      )}
     </form>
   );
 }
@@ -1494,13 +1571,18 @@ function SpeakTask({
       {say && (
         <div className="eng-row">
           <p className="eng-say" lang="en">
-            {task.type === 'roleplay' ? `Нейт: ${say}` : say}
+            {task.type === 'roleplay'
+              ? `Нейт: ${say}`
+              : task.mode === 'transform'
+                ? `Было: ${say}`
+                : say}
           </p>
           <Speak text={say} />
         </div>
       )}
       {task.focus_ru && <p className="eng-hint">{task.focus_ru}</p>}
-      {task.must_use && task.must_use.length > 0 && (
+      {/* у «Переделай фразу» слова — это и есть ответ: не подсказываем */}
+      {task.must_use && task.must_use.length > 0 && task.mode !== 'transform' && (
         <p className="eng-hint">
           Используй: <span lang="en">{task.must_use.join(', ')}</span>
         </p>
@@ -1522,7 +1604,9 @@ function SpeakTask({
           )}
         </div>
       )}
-      {typing && <TextAnswer label="Ответ по-английски" locked={locked} onReply={onReply} />}
+      {typing && (
+        <TextAnswer label="Ответ по-английски" locked={locked} why={false} onReply={onReply} />
+      )}
       {err && <p className="eng-hint">{err}</p>}
       {spoken(task) && !canMic && <p className="eng-hint">Микрофона нет — отвечай текстом.</p>}
     </>

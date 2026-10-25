@@ -1,5 +1,5 @@
 /** Уроки английского (ENG-002): чистые функции экрана — плитки, подписи, кольцо, порядок. */
-import type { Game, Lesson, Level, Run, Step, Task } from './english-lessons';
+import type { AnswerBy, Answered, Game, Lesson, Level, Run, Step, Task } from './english-lessons';
 
 /** Перемешать стабильно (по id задания): плитки не прыгают при перерисовке. */
 export function shuffle<T>(list: readonly T[], seed: string): T[] {
@@ -41,7 +41,11 @@ export function kindLabel(t: Task): string {
     case 'listen':
       return 'На слух';
     case 'speak':
-      return t.mode === 'repeat' ? 'Повтори вслух' : 'Ответь вслух';
+      return t.mode === 'repeat'
+        ? 'Повтори вслух'
+        : t.mode === 'transform'
+          ? 'Переделай фразу'
+          : 'Ответь вслух';
     case 'describe_image':
       return 'Опиши картинку';
     case 'roleplay':
@@ -154,4 +158,38 @@ export function explainAsk(
     .join(' ');
   const right = answer && !answer.correct && answer.right ? ` Правильно: ${answer.right}.` : '';
   return `Объясни это задание простыми словами по-русски: ${what}.${right}`.slice(0, 1000);
+}
+
+/**
+ * Как отвечать (ENG-006, как `course::answer_by` на сервере): перевод на английский и
+ * «вставь слово» — текстом (написание, грамматика), как и ответ буква в букву (число на слух);
+ * понимание и разговор — голосом или текстом; «повтори вслух» — голосом (произношение).
+ */
+export function answerBy(t: Task): AnswerBy {
+  if (t.answer_by) return t.answer_by;
+  switch (t.type) {
+    case 'translate':
+      return t.from === 'en' ? 'voice_or_text' : 'text';
+    case 'speak':
+      return t.mode === 'repeat' ? 'voice' : 'voice_or_text';
+    case 'describe_image':
+    case 'roleplay':
+      return 'voice_or_text';
+    default:
+      return 'text';
+  }
+}
+
+/** Почему здесь текстом — подсказка под полем. */
+export const WHY_TEXT = 'Здесь — текстом: тренируем написание и порядок слов.';
+
+/**
+ * «Исправь свою фразу» (ENG-006): после ошибки — что не так, но без готового ответа, чтобы
+ * исправить самому. Нет разбора от Нейта — ничего.
+ */
+export function fixHint(a: Pick<Answered, 'correct' | 'mistakes' | 'explain_ru'> | null): string[] {
+  if (!a || a.correct) return [];
+  const list = a.mistakes.map((m) => (m.why ? `«${m.wrong}» — ${m.why}` : `«${m.wrong}»`));
+  if (list.length === 0 && a.explain_ru) list.push(a.explain_ru);
+  return list;
 }

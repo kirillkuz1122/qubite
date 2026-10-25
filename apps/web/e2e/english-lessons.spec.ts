@@ -620,3 +620,123 @@ test.describe('телефон, пальцем (ENG-006)', () => {
     await shot(page, 'match');
   });
 });
+
+test.describe('телефон: голос или текст (ENG-006)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('«Переведи» с английского — можно сказать; на английский — текстом; «исправь свою фразу»; «Переделай фразу»', async ({
+    page,
+  }) => {
+    await fakeMedia(page);
+    await mockSync(page);
+    await mockLessons(page);
+    const list = [
+      {
+        id: 't1',
+        type: 'translate',
+        ask_ru: 'Переведи на русский.',
+        from: 'en',
+        text: "Hi! I'm Nate.",
+        answers: ['Привет! Я Нейт.'],
+      },
+      {
+        id: 't2',
+        type: 'translate',
+        ask_ru: 'Переведи на английский.',
+        from: 'ru',
+        text: 'Меня зовут Кирилл.',
+        answers: ['My name is Kirill.'],
+      },
+      {
+        id: 't3',
+        type: 'speak',
+        ask_ru: 'Переделай фразу в вопрос с did.',
+        mode: 'transform',
+        say: 'You watched a film yesterday.',
+        example: 'Did you watch a film yesterday?',
+      },
+    ];
+    await page.route('**/api/v1/english/lessons/a0-m1-l1', (route) =>
+      route.fulfill({
+        json: {
+          lesson: { ...lesson, tasks: list },
+          level,
+          passed: false,
+          run: null,
+          homework_task: null,
+          strictness: 2,
+        },
+      }),
+    );
+    // подписки ChatGPT нет — диктовка идёт запасным путём (запись → ElevenLabs на сервере)
+    await page.route('**/api/v1/english/dictation', (route) =>
+      route.fulfill({ status: 503, json: { error: 'unavailable', message: 'нет подписки' } }),
+    );
+    let heard = 0;
+    await page.route('**/api/v1/english/transcribe', (route) => {
+      heard += 1;
+      return route.fulfill({ json: { text: 'привет я нейт' } });
+    });
+    const bodies: Record<string, unknown>[] = [];
+    await page.route('**/api/v1/english/runs/run-1/answer', async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      bodies.push(body);
+      const first = bodies.length === 1;
+      await route.fulfill({
+        json: {
+          task_id: body.task_id,
+          correct: !first,
+          attempts: bodies.length,
+          right: first ? 'Привет! Я Нейт.' : null,
+          explain_ru: null,
+          say: null,
+          mistakes: first ? [{ wrong: 'я нейт', right: 'Я Нейт.', why: 'имя — с большой' }] : [],
+          heard: 'dictated' in body ? body.dictated : null,
+          offline: false,
+          game: delta(),
+        },
+      });
+    });
+
+    await page.goto('/agent?tab=english');
+    await page.getByRole('button', { name: 'Начать урок' }).tap();
+    await page.getByRole('button', { name: 'К заданиям' }).tap();
+    const task = page.getByRole('region', { name: 'Задание' });
+
+    // 1. С английского — понимание: можно сказать голосом.
+    await expect(task).toContainText('Можно голосом');
+    await task.getByRole('button', { name: 'Сказать' }).tap();
+    await expect(task.getByRole('button', { name: 'Готово' })).toBeVisible();
+    await page.waitForTimeout(400);
+    await task.getByRole('button', { name: 'Готово' }).tap();
+    await expect.poll(() => heard).toBe(1);
+    await expect.poll(() => bodies.length).toBe(1);
+    expect(bodies[0]).toMatchObject({ task_id: 't1', dictated: 'привет я нейт' });
+    expect(bodies[0]).not.toHaveProperty('answer');
+    await expect(task.getByRole('status')).toContainText('Неверно');
+    // «Ещё раз» — Нейт подсказывает, что не так, но не даёт готовый ответ.
+    await task.getByRole('button', { name: 'Ещё раз' }).tap();
+    await expect(task).toContainText('Исправь свою фразу');
+    await expect(task).toContainText('«я нейт» — имя — с большой');
+    await task.getByLabel('Перевод').fill('Привет! Я Нейт.');
+    await task.getByRole('button', { name: 'Проверить' }).tap();
+    expect(bodies[1]).toMatchObject({ task_id: 't1', answer: 'Привет! Я Нейт.' });
+    await expect(task.getByRole('status')).toContainText('Верно');
+    await task.getByRole('button', { name: 'Дальше' }).tap();
+
+    // 2. На английский — написание: только текстом и понятно почему.
+    await expect(task).toContainText('Меня зовут Кирилл.');
+    await expect(task).toContainText('Здесь — текстом');
+    await expect(task.getByRole('button', { name: 'Сказать' })).toHaveCount(0);
+    await task.getByLabel('Перевод').fill('My name is Kirill.');
+    await task.getByRole('button', { name: 'Проверить' }).tap();
+    await task.getByRole('button', { name: 'Дальше' }).tap();
+
+    // 3. «Переделай фразу»: было → скажи по-новому.
+    await expect(task).toContainText('Переделай фразу');
+    await expect(task).toContainText('Было: You watched a film yesterday.');
+    await expect(task.getByRole('button', { name: 'Говорить' })).toBeVisible();
+    await noSideScroll(page);
+    await shot(page, 'voice-or-text');
+  });
+});

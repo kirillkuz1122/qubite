@@ -500,6 +500,70 @@ async fn task_feedback_goes_to_review_and_program() {
     assert_eq!(home.ops.iter().filter(|o| o.op == "feedback").count(), 2);
 }
 
+/// Ответ голосом через диктовку у поля (ENG-006): где «только текст» — нельзя; где
+/// «голос или текст» — засчитан как сказанный вслух, модель знает, что за написание не ругать.
+#[tokio::test]
+async fn dictated_answer_only_where_voice_is_allowed() {
+    let (_test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let ai = ai(
+        pool,
+        me,
+        vec![reply(
+            json!({"ok": true, "say": "Fine.", "mistakes": [], "right": ""}),
+        )],
+        vec![],
+    )
+    .await;
+    lessons::place(pool, me, &json!({}), 0).await.unwrap();
+    let run = lessons::start(pool, me, "a0-m1-l1", "lesson")
+        .await
+        .unwrap();
+    let say = |task: &'static str, text: &'static str| {
+        lessons::answer(
+            pool,
+            &ai.gateway,
+            me,
+            run.id,
+            None,
+            task,
+            Uuid::now_v7(),
+            Given::Dictated(text.into()),
+        )
+    };
+    // t6 — перевод на английский: тренируем написание, только текстом.
+    assert!(matches!(
+        say("t6", "hello nice to meet you").await,
+        Err(Error::Invalid(_))
+    ));
+    // t8 — ответь вслух: голос можно, модель знает, что ответ сказан.
+    let t8 = say("t8", "hello i'm kirill nice to meet you")
+        .await
+        .unwrap();
+    assert!(t8.correct);
+    assert_eq!(
+        t8.heard.as_deref(),
+        Some("hello i'm kirill nice to meet you")
+    );
+    let call = ai.model.last_call().unwrap();
+    let data: String = call.messages[1..]
+        .iter()
+        .map(|m| m.content.clone())
+        .collect();
+    assert!(data.contains("source=\"how\""), "{data}");
+    assert!(data.contains("голосом"), "{data}");
+    let spoken: bool = sqlx::query_scalar(
+        "SELECT spoken FROM english_answers WHERE run_id = $1 AND task_id = 't8'",
+    )
+    .bind(run.id)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert!(spoken, "сказанное диктовкой — вслух");
+    assert!(matches!(say("t8", "   ").await, Err(Error::Invalid(_))));
+}
+
 #[tokio::test]
 async fn settings_voice_sample_and_no_ai_fallback() {
     let (_test_db, db) = TestDb::migrated().await;

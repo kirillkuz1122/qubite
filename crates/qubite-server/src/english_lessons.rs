@@ -150,6 +150,8 @@ pub struct EnglishAnswer {
     audio_base64: Option<String>,
     mime: Option<String>,
     duration_ms: Option<u64>,
+    /// Ответ голосом, уже распознанный диктовкой у поля (ENG-006).
+    dictated: Option<String>,
 }
 
 #[utoipa::path(post, path = "/api/v1/english/runs/{id}/answer", tag = "english",
@@ -166,9 +168,10 @@ pub async fn english_answer(
     Path(run): Path<Uuid>,
     Json(body): Json<EnglishAnswer>,
 ) -> Result<Json<Value>, ApiError> {
-    let given = match (body.answer, body.audio_base64) {
-        (Some(value), None) => Given::Value(value),
-        (None, Some(audio)) => Given::Voice {
+    let given = match (body.answer, body.audio_base64, body.dictated) {
+        (Some(value), None, None) => Given::Value(value),
+        (None, None, Some(said)) => Given::Dictated(said),
+        (None, Some(audio), None) => Given::Voice {
             audio: base64::engine::general_purpose::STANDARD
                 .decode(audio.trim())
                 .map_err(|_| {
@@ -181,7 +184,7 @@ pub async fn english_answer(
             return Err(ApiError::new(
                 StatusCode::BAD_REQUEST,
                 "invalid",
-                "нужен ответ или запись — что-то одно",
+                "нужен ответ, запись или сказанное — что-то одно",
             ));
         }
     };

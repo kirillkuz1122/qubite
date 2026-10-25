@@ -585,6 +585,23 @@ pub fn task_xp(task: &Value) -> i64 {
     }
 }
 
+/// Как отвечать на задание (ENG-006, слова владельца 25.10): `text` — только текстом
+/// (написание, грамматика, порядок слов), `voice_or_text` — голосом или текстом (понимание,
+/// быстрый перевод, разговорные фразы), `voice` — голосом (произношение; без микрофона —
+/// текстом). Ответ, который сверяется буква в букву (число, имя на слух), — текстом:
+/// распознавание напишет «fourteen» вместо «14». Своё `answer_by` у задания — главнее.
+pub fn answer_by(task: &Value) -> &str {
+    if let Some(by) = task["answer_by"].as_str() {
+        return by;
+    }
+    match task["type"].as_str().unwrap_or_default() {
+        "translate" if task["from"] == "en" => "voice_or_text",
+        "speak" if task["mode"] == "repeat" => "voice",
+        "speak" | "describe_image" | "roleplay" => "voice_or_text",
+        _ => "text",
+    }
+}
+
 /// Задание говорят вслух.
 pub fn is_spoken(task: &Value) -> bool {
     matches!(
@@ -660,6 +677,29 @@ mod tests {
             summary: "правка".into(),
             op: value,
         }
+    }
+
+    #[test]
+    fn answer_by_text_voice_or_both() {
+        let by = |t: Value| answer_by(&t).to_owned();
+        assert_eq!(by(json!({"type": "translate", "from": "ru"})), "text");
+        assert_eq!(
+            by(json!({"type": "translate", "from": "en"})),
+            "voice_or_text"
+        );
+        assert_eq!(by(json!({"type": "fill", "text": "I ___ ok"})), "text");
+        assert_eq!(by(json!({"type": "listen", "audio": "I'm 14."})), "text");
+        assert_eq!(by(json!({"type": "speak", "mode": "repeat"})), "voice");
+        assert_eq!(
+            by(json!({"type": "speak", "mode": "transform"})),
+            "voice_or_text"
+        );
+        assert_eq!(by(json!({"type": "roleplay"})), "voice_or_text");
+        assert_eq!(
+            by(json!({"type": "translate", "from": "en", "answer_by": "text"})),
+            "text",
+            "своё у задания главнее"
+        );
     }
 
     #[test]

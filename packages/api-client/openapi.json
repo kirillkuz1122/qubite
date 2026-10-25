@@ -9429,6 +9429,10 @@
           "audio_base64": {
             "type": ["string", "null"]
           },
+          "dictated": {
+            "type": ["string", "null"],
+            "description": "Ответ голосом, уже распознанный диктовкой у поля (ENG-006)."
+          },
           "duration_ms": {
             "type": ["integer", "null"],
             "format": "int64",
