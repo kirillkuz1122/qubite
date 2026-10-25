@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
 import { canLive, LiveTalk, stopHint } from './english-live';
+import { EnglishRealtime } from './EnglishRealtime';
 import { LimitLink } from './LimitLink';
 import {
   appendTurn,
@@ -51,7 +52,19 @@ import {
   type Phase,
 } from './english-view';
 
+/**
+ * Голос разговора — из настроек «Английского» (ENG-005): живой через подписку ChatGPT или
+ * ElevenLabs (распознал → ответил → озвучил), он же запасной.
+ */
 export function AgentEnglish() {
+  const screen = useEnglish();
+  // Старый сервер без выбора голоса — ElevenLabs.
+  const engine = (screen.data?.engine as { engine?: string } | undefined)?.engine;
+  if (screen.data && engine === 'chatgpt') return <EnglishRealtime data={screen.data} />;
+  return <ElevenLabsEnglish />;
+}
+
+function ElevenLabsEnglish() {
   const wide = useMedia(WIDE);
   const screen = useEnglish();
   const start = useStart();

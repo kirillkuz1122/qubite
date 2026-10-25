@@ -269,15 +269,27 @@ pub async fn english_settings(
     let learner = lessons::settings(state.db.pool(), session.0.account_id)
         .await
         .map_err(english_error)?;
-    Ok(Json(settings_body(learner)))
+    settings_body(&state, session.0.account_id, learner).await
 }
 
-fn settings_body(learner: lessons::Learner) -> Value {
-    json!({
+/// Настройки, голоса ElevenLabs и ChatGPT на выбор, какой голос работает (ENG-005).
+async fn settings_body(
+    state: &AppState,
+    account: uuid::Uuid,
+    learner: lessons::Learner,
+) -> Result<Json<Value>, ApiError> {
+    let engine = qubite_english::realtime::engine(state.db.pool(), &state.ai, account)
+        .await
+        .map_err(english_error)?;
+    use qubite_ai::realtime as rt;
+    Ok(Json(json!({
         "settings": learner,
         "voices": lessons::VOICES.iter().map(|(id, name, about)| json!({"id": id, "name": name, "about": about})).collect::<Vec<_>>(),
         "sample": lessons::SAMPLE,
-    })
+        "engine": crate::english::EnglishEngine::from(engine),
+        "realtime_models": rt::MODELS.iter().map(|(id, name, about)| json!({"id": id, "name": name, "about": about})).collect::<Vec<_>>(),
+        "realtime_voices": rt::VOICES.iter().map(|(id, about)| json!({"id": id, "about": about})).collect::<Vec<_>>(),
+    })))
 }
 
 /// Поменять настройки (пустое — не трогать).
@@ -293,6 +305,12 @@ pub struct EnglishSettingsChange {
     rest_weekday: Option<i16>,
     pause_days: Option<i64>,
     companion: Option<String>,
+    /// Голос разговора: `chatgpt` (живой, подписка), `elevenlabs`; пусто — сам.
+    voice_engine: Option<String>,
+    /// Модель живого голоса (`chatgpt:gpt-realtime-1.5` …); пусто — по умолчанию.
+    realtime_model: Option<String>,
+    /// Голос ChatGPT (`marin` …); пусто — по умолчанию.
+    realtime_voice: Option<String>,
 }
 
 #[utoipa::path(patch, path = "/api/v1/english/settings", tag = "english",
@@ -319,11 +337,14 @@ pub async fn english_change_settings(
             rest_weekday: b.rest_weekday,
             pause_days: b.pause_days,
             companion: b.companion,
+            voice_engine: b.voice_engine,
+            realtime_model: b.realtime_model,
+            realtime_voice: b.realtime_voice,
         },
     )
     .await
     .map_err(english_error)?;
-    Ok(Json(settings_body(learner)))
+    settings_body(&state, session.0.account_id, learner).await
 }
 
 /// Какую фразу озвучить.

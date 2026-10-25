@@ -3,7 +3,7 @@
  * Тела — JSON из `qubite_english::lessons` (в схеме — объект), типы — здесь. Сверку ответов,
  * опыт и огонёк считает сервер; голос — через AI-шлюз с бюджетом.
  */
-import { CSRF_HEADER, csrfFromCookie } from '@qubite/api-client';
+import { CSRF_HEADER, csrfFromCookie, type components } from '@qubite/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { Fail, must } from '../auth/client';
@@ -171,6 +171,10 @@ export interface Learner {
   rest_weekday: number | null;
   paused_until: string | null;
   companion: string | null;
+  /** Голос разговора (ENG-005): `chatgpt`, `elevenlabs`; `null` — сам. */
+  voice_engine: string | null;
+  realtime_model: string | null;
+  realtime_voice: string | null;
 }
 
 export interface OverlayOp {
@@ -251,6 +255,10 @@ export interface SettingsBody {
   settings: Learner;
   voices: Voice[];
   sample: string;
+  /** Какой голос работает и сколько живого разговора сегодня (ENG-005). */
+  engine?: components['schemas']['EnglishEngine'];
+  realtime_models?: Voice[];
+  realtime_voices?: { id: string; about: string }[];
 }
 
 export const ENGLISH_HOME = ['english', 'home'] as const;
@@ -382,6 +390,8 @@ export function useChangeSettings() {
     onSuccess: (s) => {
       qc.setQueryData(['english', 'settings'], s);
       void qc.invalidateQueries({ queryKey: ENGLISH_HOME });
+      // Голос разговора мог смениться (ENG-005) — «Разговор» перечитает экран.
+      void qc.invalidateQueries({ queryKey: ['english'], exact: true });
     },
   });
 }

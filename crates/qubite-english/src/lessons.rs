@@ -72,6 +72,13 @@ pub struct Learner {
     pub rest_weekday: Option<i16>,
     pub paused_until: Option<Date>,
     pub companion: Option<String>,
+    /// Голос разговора (ENG-005): `chatgpt` — живой через подписку,
+    /// `elevenlabs`; `None` — сам (ChatGPT, если подписка подключена).
+    pub voice_engine: Option<String>,
+    /// Модель realtime (`None` — по умолчанию, 1.5).
+    pub realtime_model: Option<String>,
+    /// Голос realtime (`None` — marin).
+    pub realtime_voice: Option<String>,
 }
 
 type LearnerRow = (
@@ -85,13 +92,17 @@ type LearnerRow = (
     Option<i16>,
     Option<Date>,
     Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
 );
 
 pub(crate) async fn learner(conn: &mut PgConnection, account: Uuid) -> Result<Learner> {
     game::ensure(conn, account).await?;
     let r: LearnerRow = sqlx::query_as(
         "SELECT level, placed_at, goal_minutes, strictness, voice, remind, remind_at, \
-         rest_weekday, paused_until, companion FROM english_learners WHERE account_id = $1",
+         rest_weekday, paused_until, companion, voice_engine, realtime_model, realtime_voice \
+         FROM english_learners WHERE account_id = $1",
     )
     .bind(account)
     .fetch_one(conn)
@@ -107,6 +118,9 @@ pub(crate) async fn learner(conn: &mut PgConnection, account: Uuid) -> Result<Le
         rest_weekday: r.7,
         paused_until: r.8,
         companion: r.9,
+        voice_engine: r.10,
+        realtime_model: r.11,
+        realtime_voice: r.12,
     })
 }
 
@@ -126,6 +140,11 @@ pub struct LearnerChange {
     pub pause_days: Option<i64>,
     /// Пустая строка — без спутника.
     pub companion: Option<String>,
+    /// `chatgpt` / `elevenlabs`; пустая строка — сам.
+    pub voice_engine: Option<String>,
+    /// Пустая строка — по умолчанию.
+    pub realtime_model: Option<String>,
+    pub realtime_voice: Option<String>,
 }
 
 /// Голоса ElevenLabs на выбор (готовые, есть у всех ключей): id, имя, о голосе.
@@ -180,6 +199,28 @@ pub async fn change_settings(
     {
         return invalid("такого голоса нет в списке");
     }
+    if let Some(engine) = &change.voice_engine
+        && ![
+            "",
+            crate::realtime::ENGINE_CHATGPT,
+            crate::realtime::ENGINE_ELEVENLABS,
+        ]
+        .contains(&engine.as_str())
+    {
+        return invalid("голос — ChatGPT или ElevenLabs");
+    }
+    if let Some(model) = &change.realtime_model
+        && !model.is_empty()
+        && !qubite_ai::realtime::MODELS.iter().any(|m| m.0 == model)
+    {
+        return invalid("такой модели живого голоса нет");
+    }
+    if let Some(voice) = &change.realtime_voice
+        && !voice.is_empty()
+        && !qubite_ai::realtime::VOICES.iter().any(|v| v.0 == voice)
+    {
+        return invalid("такого голоса ChatGPT нет в списке");
+    }
     let remind_at = match &change.remind_at {
         Some(text) => {
             let format = time::macros::format_description!("[hour]:[minute]");
@@ -227,7 +268,10 @@ pub async fn change_settings(
          remind = coalesce($6, remind), remind_at = coalesce($7, remind_at), \
          rest_weekday = CASE WHEN $8::smallint IS NULL THEN rest_weekday ELSE nullif($8, 0) END, \
          paused_until = CASE WHEN $9 THEN $10 ELSE paused_until END, \
-         companion = CASE WHEN $11::text IS NULL THEN companion ELSE nullif($11, '') END \
+         companion = CASE WHEN $11::text IS NULL THEN companion ELSE nullif($11, '') END, \
+         voice_engine = CASE WHEN $12::text IS NULL THEN voice_engine ELSE nullif($12, '') END, \
+         realtime_model = CASE WHEN $13::text IS NULL THEN realtime_model ELSE nullif($13, '') END, \
+         realtime_voice = CASE WHEN $14::text IS NULL THEN realtime_voice ELSE nullif($14, '') END \
          WHERE account_id = $1",
     )
     .bind(account)
@@ -241,6 +285,9 @@ pub async fn change_settings(
     .bind(pause.is_some())
     .bind(pause.flatten())
     .bind(&change.companion)
+    .bind(&change.voice_engine)
+    .bind(&change.realtime_model)
+    .bind(&change.realtime_voice)
     .execute(&mut *tx)
     .await?;
     let out = learner(&mut tx, account).await?;

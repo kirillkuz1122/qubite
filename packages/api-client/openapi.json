@@ -5344,6 +5344,167 @@
         }
       }
     },
+    "/api/v1/english/realtime": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Живой разговор с Нейтом через свою подписку ChatGPT: временный ключ\nOpenAI Realtime. Основной токен подписки остаётся на сервере.",
+        "operationId": "english_realtime",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishRealtimeStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ключ сеанса и разговор",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishRealtimeStarted"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту или AI-гранта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ChatGPT не подключён, лимит подписки, свои лимиты, отказ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/realtime/{id}/finish": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Живой разговор закончился: длительность — в учёт AI-шлюза.",
+        "operationId": "english_realtime_finish",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID сеанса",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishRealtimeFinish"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Засчитано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishRealtimeFinished"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого сеанса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/realtime/{id}/lines": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Реплики расшифровки живого разговора — в историю разговора.",
+        "operationId": "english_realtime_lines",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID сеанса",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishRealtimeLines"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Записано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishRealtimeSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные реплики",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого сеанса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/runs/{id}/answer": {
       "post": {
         "tags": ["english"],
@@ -9164,6 +9325,71 @@
         },
         "additionalProperties": false
       },
+      "EnglishEngine": {
+        "type": "object",
+        "description": "Какой голос у разговора (ENG-005).",
+        "required": [
+          "engine",
+          "chatgpt_connected",
+          "realtime_ready",
+          "model",
+          "voice",
+          "sessions_today",
+          "seconds_today",
+          "day_sessions",
+          "day_secs",
+          "max_session_secs"
+        ],
+        "properties": {
+          "chatgpt_connected": {
+            "type": "boolean",
+            "description": "Подписка ChatGPT подключена у этого человека."
+          },
+          "chosen": {
+            "type": ["string", "null"],
+            "description": "Выбор человека: `chatgpt`, `elevenlabs`; `null` — сам."
+          },
+          "day_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "day_sessions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "engine": {
+            "type": "string",
+            "description": "Что работает сейчас: `chatgpt` (живой разговор) или `elevenlabs`."
+          },
+          "max_session_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "model": {
+            "type": "string",
+            "description": "Модель и голос живого разговора."
+          },
+          "realtime_ready": {
+            "type": "boolean",
+            "description": "Сервер умеет живой разговор."
+          },
+          "seconds_today": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessions_today": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сегодня: сеансов и секунд; лимиты."
+          },
+          "voice": {
+            "type": "string"
+          }
+        }
+      },
       "EnglishFinished": {
         "type": "object",
         "description": "Законченный разговор (`null` — нечего было заканчивать).",
@@ -9305,8 +9531,12 @@
       "EnglishOverview": {
         "type": "object",
         "description": "Экран «Английский».",
-        "required": ["messages", "totals", "voice"],
+        "required": ["messages", "totals", "voice", "engine"],
         "properties": {
+          "engine": {
+            "$ref": "#/components/schemas/EnglishEngine",
+            "description": "Какой голос у разговора: ChatGPT (живой) или ElevenLabs."
+          },
           "last": {
             "oneOf": [
               {
@@ -9375,6 +9605,181 @@
           }
         },
         "additionalProperties": false
+      },
+      "EnglishRealtimeFinish": {
+        "type": "object",
+        "required": ["seconds"],
+        "properties": {
+          "end": {
+            "type": "boolean",
+            "description": "Закончить и разговор (итог — в «Английский.md»); `false` — только сеанс."
+          },
+          "seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько длился разговор без пауз, с.",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishRealtimeFinished": {
+        "type": "object",
+        "required": ["seconds"],
+        "properties": {
+          "seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько засчитано, с.",
+            "minimum": 0
+          },
+          "session": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishSession",
+                "description": "Закрытый разговор (если `end`)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EnglishRealtimeLine": {
+        "type": "object",
+        "description": "Реплика расшифровки.",
+        "required": ["item", "role", "text"],
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "ID элемента разговора у OpenAI."
+          },
+          "role": {
+            "type": "string",
+            "description": "`learner` или `tutor`."
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishRealtimeLines": {
+        "type": "object",
+        "required": ["lines"],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishRealtimeLine"
+            },
+            "description": "До 50 реплик за раз."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishRealtimeSaved": {
+        "type": "object",
+        "description": "Записанные реплики (новые) и разговор.",
+        "required": ["session", "messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishMessage"
+            }
+          },
+          "session": {
+            "$ref": "#/components/schemas/EnglishSession"
+          }
+        }
+      },
+      "EnglishRealtimeSession": {
+        "type": "object",
+        "description": "Сеанс OpenAI Realtime для браузера.",
+        "required": [
+          "id",
+          "client_secret",
+          "expires_at",
+          "model",
+          "external_model",
+          "voice",
+          "calls_url",
+          "max_seconds"
+        ],
+        "properties": {
+          "calls_url": {
+            "type": "string",
+            "description": "Куда браузер отправляет SDP-предложение (`Authorization: Bearer <ключ>`)."
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "Временный ключ: только чтобы подключиться (живёт 2 минуты)."
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Когда ключ перестанет годиться (Unix-время, с)."
+          },
+          "external_model": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID сеанса (вызов AI-шлюза)."
+          },
+          "max_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько можно говорить в этом сеансе, с.",
+            "minimum": 0
+          },
+          "model": {
+            "type": "string",
+            "description": "Модель в Qubite и у OpenAI."
+          },
+          "voice": {
+            "type": "string"
+          }
+        }
+      },
+      "EnglishRealtimeStart": {
+        "type": "object",
+        "description": "Начать живой разговор.",
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия с экрана: повтор с тем же ключом не выдаёт второй сеанс."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishRealtimeStarted": {
+        "type": "object",
+        "description": "Живой разговор начат.",
+        "required": ["session", "messages", "realtime"],
+        "properties": {
+          "fallback": {
+            "type": ["string", "null"],
+            "description": "Выбранная модель не пустила — работает другая (что сказать)."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishMessage"
+            }
+          },
+          "realtime": {
+            "$ref": "#/components/schemas/EnglishRealtimeSession"
+          },
+          "session": {
+            "$ref": "#/components/schemas/EnglishSession"
+          }
+        }
       },
       "EnglishSay": {
         "type": "object",
@@ -9467,6 +9872,14 @@
             "type": ["integer", "null"],
             "format": "int64"
           },
+          "realtime_model": {
+            "type": ["string", "null"],
+            "description": "Модель живого голоса (`chatgpt:gpt-realtime-1.5` …); пусто — по умолчанию."
+          },
+          "realtime_voice": {
+            "type": ["string", "null"],
+            "description": "Голос ChatGPT (`marin` …); пусто — по умолчанию."
+          },
           "remind": {
             "type": ["boolean", "null"]
           },
@@ -9483,6 +9896,10 @@
           },
           "voice": {
             "type": ["string", "null"]
+          },
+          "voice_engine": {
+            "type": ["string", "null"],
+            "description": "Голос разговора: `chatgpt` (живой, подписка), `elevenlabs`; пусто — сам."
           }
         },
         "additionalProperties": false

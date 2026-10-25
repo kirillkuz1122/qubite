@@ -292,7 +292,7 @@ fn ms(since: Instant) -> u64 {
 /// снова», а не слушает по кругу.
 fn stops(error: &Error) -> bool {
     match error {
-        Error::Denied(_) => true,
+        Error::Denied(_) | Error::NoSubscription => true,
         Error::Ai { error, .. } => matches!(
             error,
             AiError::Denied(_)
@@ -305,6 +305,7 @@ fn stops(error: &Error) -> bool {
                 | AiError::RateLimited { .. }
                 | AiError::RepeatedRequest
                 | AiError::SubscriptionLimit { .. }
+                | AiError::SessionLimit(_)
                 // 302 из закрытой страны, неверный ключ: повтор не поможет (D-515).
                 | AiError::ProviderRefused { .. }
         ),

@@ -15,7 +15,7 @@ use axum::{
 };
 use clap::{Args, Subcommand, ValueEnum};
 use qubite_ai::{
-    AiConfig, Gateway, LoopGuard, MICROS_PER_USD,
+    AiConfig, Gateway, LoopGuard, MICROS_PER_USD, RealtimeLimits,
     admin::{self, LimitScope, Metric, Period},
     catalog::{self, Allowlist, STARTER_MODELS, SyncReport},
     chatgpt::{self, ChatGpt, ChatGptConfig},
@@ -175,6 +175,24 @@ pub struct AiArgs {
           default_value = qubite_ai::chatgpt::API_BASE)]
     pub chatgpt_api_url: String,
 
+    /// Живой разговор (ENG-005): самый длинный сеанс realtime, минут.
+    #[arg(long = "ai-realtime-max-minutes", env = "QUBITE_AI_REALTIME_MAX_MINUTES",
+          default_value_t = 15, value_parser = clap::value_parser!(u64).range(1..=60))]
+    pub realtime_max_minutes: u64,
+
+    /// Живой разговор: минут в день на человека (0 — без проверки).
+    #[arg(long = "ai-realtime-day-minutes", env = "QUBITE_AI_REALTIME_DAY_MINUTES",
+          default_value_t = 60, value_parser = clap::value_parser!(u64).range(0..=1440))]
+    pub realtime_day_minutes: u64,
+
+    /// Живой разговор: сеансов в день на человека (0 — без проверки).
+    #[arg(
+        long = "ai-realtime-day-sessions",
+        env = "QUBITE_AI_REALTIME_DAY_SESSIONS",
+        default_value_t = 20
+    )]
+    pub realtime_day_sessions: u32,
+
     /// Ключ ElevenLabs — голос: распознавание речи и речь (ENG-001). Задавать
     /// только переменной окружения. Без ключа голос выключен, всё работает текстом.
     #[arg(
@@ -214,6 +232,11 @@ impl AiArgs {
                 job_per_minute: self.job_requests_per_minute,
                 repeat_limit: self.repeat_limit,
                 repeat_window: Duration::from_secs(self.repeat_window_secs),
+            },
+            realtime: RealtimeLimits {
+                max_session_secs: self.realtime_max_minutes * 60,
+                day_sessions: self.realtime_day_sessions,
+                day_secs: self.realtime_day_minutes * 60,
             },
             ..AiConfig::default()
         }
@@ -454,7 +477,9 @@ pub async fn start(db: &Database, args: &AiArgs) -> anyhow::Result<AiRuntime> {
     let openrouter = Some(adapter.clone());
     let chatgpt = start_chatgpt(pool, args).await?;
     if let Some(provider) = &chatgpt {
-        gateway = gateway.with_provider(chatgpt::PROVIDER_ID, provider.clone());
+        gateway = gateway
+            .with_provider(chatgpt::PROVIDER_ID, provider.clone())
+            .with_realtime(chatgpt::PROVIDER_ID, provider.clone());
     }
     // Голос (ENG-001): провайдер включён, только пока есть ключ.
     let voice = args.elevenlabs()?;

@@ -944,3 +944,83 @@ async fn rejected_token_is_refreshed_once_and_logout_revokes() {
     ));
     env.finish().await;
 }
+
+// ---------------------------------------------------------------- живой голос (ENG-005)
+
+#[tokio::test]
+async fn realtime_key_comes_from_own_subscription_token_refreshed_once() {
+    let env = Env::new().await;
+    let api = api_server(vec![
+        Action::Respond(401, r#"{"detail":"expired"}"#.into()),
+        Action::Respond(
+            200,
+            r#"{"value":"ek_live_1","expires_at":1900000000,"session":{"type":"realtime"}}"#.into(),
+        ),
+        Action::Respond(
+            403,
+            r#"{"error":{"code":"subscription_sharing_usage_limit_exceeded","message":"limit"}}"#
+                .into(),
+        ),
+    ])
+    .await;
+    env.connect(&api).await;
+    let (gateway, provider) = env.gateway(&api).await;
+    let gateway = gateway.with_realtime(chatgpt::PROVIDER_ID, provider);
+    let auth = env.owner_ai().await;
+    let request = |id: &str| qubite_ai::RealtimeRequest {
+        request_id: id.into(),
+        model: qubite_ai::realtime::DEFAULT_MODEL.into(),
+        prompt: "Ты — Нейт".into(),
+        untrusted: vec![Untrusted::new("lesson", "Present Simple")],
+        voice: "marin".into(),
+        language: None,
+    };
+
+    let s = gateway.realtime_open(&auth, request("rt-1")).await.unwrap();
+    assert_eq!(s.key, "ek_live_1");
+    assert_eq!(s.expires_at, 1_900_000_000);
+    assert_eq!(s.calls_url, format!("{}/v1/realtime/calls", api.root_url()));
+
+    let sent: Vec<Received> = api
+        .received()
+        .into_iter()
+        .filter(|r| r.line.starts_with("POST /v1/realtime/client_secrets"))
+        .collect();
+    let auths: Vec<&str> = sent
+        .iter()
+        .filter_map(|r| r.header("authorization"))
+        .collect();
+    assert_eq!(
+        auths,
+        ["Bearer at-1", "Bearer at-2"],
+        "401 → обновить и повторить"
+    );
+    let body: serde_json::Value = serde_json::from_str(&sent[1].body).unwrap();
+    assert_eq!(body["session"]["model"], "gpt-realtime-1.5");
+    assert_eq!(body["session"]["audio"]["output"]["voice"], "marin");
+    assert_eq!(
+        body["session"]["audio"]["input"]["transcription"]["model"],
+        qubite_ai::realtime::TRANSCRIBE_MODEL
+    );
+    assert!(
+        body["session"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("Ты — Нейт")
+    );
+    assert!(
+        !sent.iter().any(|r| r.body.contains("rt-")),
+        "refresh-токен в API не уходит"
+    );
+
+    // Лимит подписки — понятная ошибка, и новые запросы на паузе.
+    assert!(matches!(
+        gateway.realtime_open(&auth, request("rt-2")).await,
+        Err(AiError::SubscriptionLimit { .. })
+    ));
+    assert!(matches!(
+        gateway.realtime_open(&auth, request("rt-3")).await,
+        Err(AiError::SubscriptionLimit { .. })
+    ));
+    env.finish().await;
+}

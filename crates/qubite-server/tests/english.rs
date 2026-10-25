@@ -500,3 +500,112 @@ async fn english_lesson_over_http() {
     assert_eq!(home.body["next"], "a0-m1-l1");
     test_db.drop_db().await;
 }
+
+/// Живой голос через подписку ChatGPT (ENG-005): настройка, ключ сеанса,
+/// расшифровка в историю, конец. OpenAI — подделка.
+#[tokio::test]
+async fn english_realtime_over_http() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap()
+        .id;
+    catalog::ensure_provider(pool, "chatgpt", "chatgpt", "", true)
+        .await
+        .unwrap();
+    let provider = Arc::new(qubite_ai::MockRealtime::new());
+    let gateway =
+        Gateway::new(pool.clone(), AiConfig::default()).with_realtime("chatgpt", provider);
+    let address =
+        serve(AppState::with_auth(db.clone(), AuthSettings::default()).with_ai(Arc::new(gateway)))
+            .await;
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    // Подписки нет: голос — ElevenLabs, живой разговор — понятный отказ.
+    let screen = me.get(address, "/api/v1/english").await;
+    assert_eq!(screen.status, 200, "{:?}", screen.body);
+    assert_eq!(screen.body["engine"]["engine"], "elevenlabs");
+    assert_eq!(screen.body["engine"]["chatgpt_connected"], false);
+    let refused = me
+        .post_json(
+            address,
+            "/api/v1/english/realtime",
+            json!({"key": Uuid::now_v7()}),
+        )
+        .await;
+    assert_eq!(refused.status, 409, "{:?}", refused.body);
+    assert_eq!(refused.body["error"], "chatgpt_not_connected");
+
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_tokens (account_id, access_token_enc, refresh_token_enc) \
+         VALUES ($1, 'a', 'r')",
+    )
+    .bind(owner)
+    .execute(pool)
+    .await
+    .unwrap();
+    let settings = me.get(address, "/api/v1/english/settings").await;
+    assert_eq!(settings.body["engine"]["engine"], "chatgpt");
+    assert!(settings.body["realtime_models"].as_array().unwrap().len() >= 2);
+    let changed = me
+        .patch_json(
+            address,
+            "/api/v1/english/settings",
+            json!({"realtime_voice": "cedar"}),
+        )
+        .await;
+    assert_eq!(changed.status, 200, "{:?}", changed.body);
+    assert_eq!(changed.body["settings"]["realtime_voice"], "cedar");
+
+    let started = me
+        .post_json(
+            address,
+            "/api/v1/english/realtime",
+            json!({"key": Uuid::now_v7()}),
+        )
+        .await;
+    assert_eq!(started.status, 200, "{:?}", started.body);
+    let rt = &started.body["realtime"];
+    assert_eq!(rt["client_secret"], "ek_test_1");
+    assert_eq!(rt["voice"], "cedar");
+    assert_eq!(rt["external_model"], "gpt-realtime-1.5");
+    assert!(
+        rt["calls_url"]
+            .as_str()
+            .unwrap()
+            .ends_with("/realtime/calls")
+    );
+    let id = rt["id"].as_str().unwrap().to_owned();
+
+    let saved = me
+        .post_json(
+            address,
+            &format!("/api/v1/english/realtime/{id}/lines"),
+            json!({"lines": [
+                {"item": "i1", "role": "tutor", "text": "What's up?"},
+                {"item": "i2", "role": "learner", "text": "I is fine"}
+            ]}),
+        )
+        .await;
+    assert_eq!(saved.status, 200, "{:?}", saved.body);
+    assert_eq!(saved.body["messages"].as_array().unwrap().len(), 2);
+    assert_eq!(saved.body["session"]["turns"], 1);
+
+    let finished = me
+        .post_json(
+            address,
+            &format!("/api/v1/english/realtime/{id}/finish"),
+            json!({"seconds": 1, "end": true}),
+        )
+        .await;
+    assert_eq!(finished.status, 200, "{:?}", finished.body);
+    assert_eq!(finished.body["seconds"], 1);
+    assert!(finished.body["session"]["finished_at"].is_string());
+    let screen = me.get(address, "/api/v1/english").await;
+    assert_eq!(screen.body["last"]["turns"], 1, "разговор в истории");
+    assert_eq!(screen.body["engine"]["sessions_today"], 1);
+    db.close().await;
+    test_db.drop_db().await;
+}

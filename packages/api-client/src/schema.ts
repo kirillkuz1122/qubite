@@ -1746,6 +1746,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/realtime': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Живой разговор с Нейтом через свою подписку ChatGPT: временный ключ
+     *     OpenAI Realtime. Основной токен подписки остаётся на сервере.
+     */
+    post: operations['english_realtime'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/realtime/{id}/finish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Живой разговор закончился: длительность — в учёт AI-шлюза. */
+    post: operations['english_realtime_finish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/realtime/{id}/lines': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Реплики расшифровки живого разговора — в историю разговора. */
+    post: operations['english_realtime_lines'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/runs/{id}/answer': {
     parameters: {
       query?: never;
@@ -3238,6 +3292,33 @@ export interface components {
     EnglishAsk: {
       text: string;
     };
+    /** @description Какой голос у разговора (ENG-005). */
+    EnglishEngine: {
+      /** @description Подписка ChatGPT подключена у этого человека. */
+      chatgpt_connected: boolean;
+      /** @description Выбор человека: `chatgpt`, `elevenlabs`; `null` — сам. */
+      chosen?: string | null;
+      /** Format: int64 */
+      day_secs: number;
+      /** Format: int32 */
+      day_sessions: number;
+      /** @description Что работает сейчас: `chatgpt` (живой разговор) или `elevenlabs`. */
+      engine: string;
+      /** Format: int64 */
+      max_session_secs: number;
+      /** @description Модель и голос живого разговора. */
+      model: string;
+      /** @description Сервер умеет живой разговор. */
+      realtime_ready: boolean;
+      /** Format: int64 */
+      seconds_today: number;
+      /**
+       * Format: int64
+       * @description Сегодня: сеансов и секунд; лимиты.
+       */
+      sessions_today: number;
+      voice: string;
+    };
     /** @description Законченный разговор (`null` — нечего было заканчивать). */
     EnglishFinished: {
       session?: components['schemas']['EnglishSession'] | null;
@@ -3298,6 +3379,8 @@ export interface components {
     };
     /** @description Экран «Английский». */
     EnglishOverview: {
+      /** @description Какой голос у разговора: ChatGPT (живой) или ElevenLabs. */
+      engine: components['schemas']['EnglishEngine'];
       last?: components['schemas']['EnglishSession'] | null;
       messages: components['schemas']['EnglishMessage'][];
       session?: components['schemas']['EnglishSession'] | null;
@@ -3320,6 +3403,82 @@ export interface components {
        * @description «Легко» (+1) или «трудно» (−1).
        */
       shift?: number;
+    };
+    EnglishRealtimeFinish: {
+      /** @description Закончить и разговор (итог — в «Английский.md»); `false` — только сеанс. */
+      end?: boolean;
+      /**
+       * Format: int64
+       * @description Сколько длился разговор без пауз, с.
+       */
+      seconds: number;
+    };
+    EnglishRealtimeFinished: {
+      /**
+       * Format: int64
+       * @description Сколько засчитано, с.
+       */
+      seconds: number;
+      session?: components['schemas']['EnglishSession'] | null;
+    };
+    /** @description Реплика расшифровки. */
+    EnglishRealtimeLine: {
+      /** @description ID элемента разговора у OpenAI. */
+      item: string;
+      /** @description `learner` или `tutor`. */
+      role: string;
+      text: string;
+    };
+    EnglishRealtimeLines: {
+      /** @description До 50 реплик за раз. */
+      lines: components['schemas']['EnglishRealtimeLine'][];
+    };
+    /** @description Записанные реплики (новые) и разговор. */
+    EnglishRealtimeSaved: {
+      messages: components['schemas']['EnglishMessage'][];
+      session: components['schemas']['EnglishSession'];
+    };
+    /** @description Сеанс OpenAI Realtime для браузера. */
+    EnglishRealtimeSession: {
+      /** @description Куда браузер отправляет SDP-предложение (`Authorization: Bearer <ключ>`). */
+      calls_url: string;
+      /** @description Временный ключ: только чтобы подключиться (живёт 2 минуты). */
+      client_secret: string;
+      /**
+       * Format: int64
+       * @description Когда ключ перестанет годиться (Unix-время, с).
+       */
+      expires_at: number;
+      external_model: string;
+      /**
+       * Format: uuid
+       * @description ID сеанса (вызов AI-шлюза).
+       */
+      id: string;
+      /**
+       * Format: int64
+       * @description Сколько можно говорить в этом сеансе, с.
+       */
+      max_seconds: number;
+      /** @description Модель в Qubite и у OpenAI. */
+      model: string;
+      voice: string;
+    };
+    /** @description Начать живой разговор. */
+    EnglishRealtimeStart: {
+      /**
+       * Format: uuid
+       * @description ID действия с экрана: повтор с тем же ключом не выдаёт второй сеанс.
+       */
+      key: string;
+    };
+    /** @description Живой разговор начат. */
+    EnglishRealtimeStarted: {
+      /** @description Выбранная модель не пустила — работает другая (что сказать). */
+      fallback?: string | null;
+      messages: components['schemas']['EnglishMessage'][];
+      realtime: components['schemas']['EnglishRealtimeSession'];
+      session: components['schemas']['EnglishSession'];
     };
     /** @description Реплика ученика: текст **или** запись голоса. */
     EnglishSay: {
@@ -3378,6 +3537,10 @@ export interface components {
       level?: string | null;
       /** Format: int64 */
       pause_days?: number | null;
+      /** @description Модель живого голоса (`chatgpt:gpt-realtime-1.5` …); пусто — по умолчанию. */
+      realtime_model?: string | null;
+      /** @description Голос ChatGPT (`marin` …); пусто — по умолчанию. */
+      realtime_voice?: string | null;
       remind?: boolean | null;
       remind_at?: string | null;
       /** Format: int32 */
@@ -3385,6 +3548,8 @@ export interface components {
       /** Format: int32 */
       strictness?: number | null;
       voice?: string | null;
+      /** @description Голос разговора: `chatgpt` (живой, подписка), `elevenlabs`; пусто — сам. */
+      voice_engine?: string | null;
     };
     /** @description Что начать. */
     EnglishStart: {
@@ -8969,6 +9134,129 @@ export interface operations {
       };
       /** @description Отказ AI-шлюза */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_realtime: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishRealtimeStart'];
+      };
+    };
+    responses: {
+      /** @description Ключ сеанса и разговор */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishRealtimeStarted'];
+        };
+      };
+      /** @description Нет доступа к агенту или AI-гранта */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description ChatGPT не подключён, лимит подписки, свои лимиты, отказ */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_realtime_finish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID сеанса */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishRealtimeFinish'];
+      };
+    };
+    responses: {
+      /** @description Засчитано */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishRealtimeFinished'];
+        };
+      };
+      /** @description Нет такого сеанса */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_realtime_lines: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID сеанса */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishRealtimeLines'];
+      };
+    };
+    responses: {
+      /** @description Записано */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishRealtimeSaved'];
+        };
+      };
+      /** @description Неверные реплики */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет такого сеанса */
+      404: {
         headers: {
           [name: string]: unknown;
         };

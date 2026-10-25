@@ -278,6 +278,9 @@ impl AppState {
         english::english_turn,
         english::english_speech,
         english::english_live,
+        english::english_realtime,
+        english::english_realtime_lines,
+        english::english_realtime_finish,
         english_lessons::english_home,
         english_lessons::english_placement,
         english_lessons::english_place,
@@ -468,6 +471,15 @@ impl AppState {
         english::EnglishTurn,
         english::EnglishTurnError,
         english::EnglishLatency,
+        english::EnglishEngine,
+        english::EnglishRealtimeStart,
+        english::EnglishRealtimeSession,
+        english::EnglishRealtimeStarted,
+        english::EnglishRealtimeLine,
+        english::EnglishRealtimeLines,
+        english::EnglishRealtimeSaved,
+        english::EnglishRealtimeFinish,
+        english::EnglishRealtimeFinished,
         english_lessons::EnglishPlace,
         english_lessons::EnglishStart,
         english_lessons::EnglishAnswer,
@@ -767,6 +779,15 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/live", get(english::english_live))
         .route("/api/v1/english/session", post(english::english_start))
+        .route("/api/v1/english/realtime", post(english::english_realtime))
+        .route(
+            "/api/v1/english/realtime/{id}/lines",
+            post(english::english_realtime_lines),
+        )
+        .route(
+            "/api/v1/english/realtime/{id}/finish",
+            post(english::english_realtime_finish),
+        )
         .route(
             "/api/v1/english/session/finish",
             post(english::english_finish),

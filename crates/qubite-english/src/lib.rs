@@ -21,6 +21,7 @@ pub mod game;
 pub mod lessons;
 pub mod live;
 pub mod notes;
+pub mod realtime;
 pub mod remind;
 pub mod tutor;
 
@@ -75,6 +76,11 @@ pub enum Error {
     NotFound,
     #[error("{0}")]
     Invalid(String),
+    /// Живой голос ChatGPT, а подписка не подключена (ENG-005).
+    #[error(
+        "ChatGPT не подключён — «Настройки → AI и бюджет → Войти через ChatGPT» или голос ElevenLabs в настройках «Английского»"
+    )]
+    NoSubscription,
     /// Отказ AI-шлюза. `heard` — что успели распознать (чтобы не пропало:
     /// экран кладёт это в поле, можно отправить текстом).
     #[error("{error}")]
@@ -95,6 +101,7 @@ impl Error {
             Self::Denied(reason) => reason.code(),
             Self::NotFound => "not_found",
             Self::Invalid(_) => "invalid",
+            Self::NoSubscription => "chatgpt_not_connected",
             Self::Ai { error, .. } => error.code(),
             Self::Db(_) | Self::Policy(_) => "internal",
         }
@@ -712,30 +719,42 @@ pub(crate) async fn save(
     .bind(reply.verdict.as_str())
     .fetch_one(&mut *tx)
     .await?;
-    // Разговор — тоже практика: минуты и 1 XP за реплику, до 30 в день.
+    practice_talk(&mut tx, account, 1).await?;
+    let learner = message(&mut tx, learner_id).await?;
+    let tutor = message(&mut tx, tutor_id).await?;
+    tx.commit().await?;
+    Ok((session, learner, tutor))
+}
+
+/// Разговор — тоже практика: минуты и 1 XP за реплику ученика, до 30 в день.
+pub(crate) async fn practice_talk(
+    conn: &mut PgConnection,
+    account: Uuid,
+    lines: i64,
+) -> Result<()> {
+    if lines <= 0 {
+        return Ok(());
+    }
     let talked: i64 = sqlx::query_scalar(
         "SELECT coalesce((counters->>'talk')::bigint, 0) FROM english_days \
          WHERE account_id = $1 AND day = $2",
     )
     .bind(account)
-    .bind(game::today(&mut tx).await?)
-    .fetch_optional(&mut *tx)
+    .bind(game::today(conn).await?)
+    .fetch_optional(&mut *conn)
     .await?
     .unwrap_or(0);
     game::practice(
-        &mut tx,
+        conn,
         account,
         game::Practice {
-            xp: i64::from(talked < 30),
-            counters: vec![("talk", 1)],
+            xp: lines.min((30 - talked).max(0)),
+            counters: vec![("talk", lines)],
             lesson: false,
         },
     )
     .await?;
-    let learner = message(&mut tx, learner_id).await?;
-    let tutor = message(&mut tx, tutor_id).await?;
-    tx.commit().await?;
-    Ok((session, learner, tutor))
+    Ok(())
 }
 
 /// Ошибке AI — распознанный текст, чтобы он не пропал.

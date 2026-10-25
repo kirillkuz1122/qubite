@@ -41,6 +41,7 @@ use crate::{
     provider::{
         BoxFuture, ChatMessage, Delta, Provider, ProviderCall, ProviderError, ProviderReply, Role,
     },
+    realtime::{KEY_TTL_SECS, RealtimeCall, RealtimeKey, RealtimeProvider},
     secret::SecretBox,
 };
 
@@ -980,6 +981,113 @@ impl Provider for ChatGpt {
     }
 }
 
+impl ChatGpt {
+    /// Временный ключ realtime (ENG-005): `POST /v1/realtime/client_secrets`
+    /// с токеном того, чей это сеанс. Основной токен остаётся на сервере.
+    async fn realtime_secret(&self, call: &RealtimeCall) -> Result<RealtimeKey, ProviderError> {
+        if self.paused(call.account_id) {
+            return Err(ProviderError::UsageLimit(usage_limit_message()));
+        }
+        let mut token = self.access_token(call.account_id, false).await?;
+        let body = realtime_body(call);
+        for attempt in 0..2 {
+            let response = self
+                .client
+                .post(self.config.api("realtime/client_secrets"))
+                .bearer_auth(&token)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|error| {
+                    if error.is_connect() {
+                        ProviderError::NotSent(format!("нет соединения: {}", short(&error)))
+                    } else {
+                        ProviderError::Unknown(format!("обрыв: {}", short(&error)))
+                    }
+                })?;
+            let status = response.status().as_u16();
+            let text = response
+                .text()
+                .await
+                .map_err(|e| ProviderError::Unknown(format!("ответ не дочитан: {}", short(&e))))?;
+            if (200..300).contains(&status) {
+                return parse_realtime_key(&text);
+            }
+            if status == 401 && attempt == 0 {
+                token = self.access_token(call.account_id, true).await?;
+                continue;
+            }
+            let error = admission_error(status, &text);
+            if matches!(error, ProviderError::UsageLimit(_)) {
+                self.pause(call.account_id);
+            }
+            return Err(error);
+        }
+        Err(ProviderError::Refused(
+            "ChatGPT не принял вход — войдите снова: «Настройки → AI и бюджет»".into(),
+        ))
+    }
+}
+
+impl RealtimeProvider for ChatGpt {
+    fn client_secret<'a>(
+        &'a self,
+        call: &'a RealtimeCall,
+    ) -> BoxFuture<'a, Result<RealtimeKey, ProviderError>> {
+        Box::pin(self.realtime_secret(call))
+    }
+
+    fn calls_url(&self) -> String {
+        self.config.api("realtime/calls")
+    }
+}
+
+/// Настройки сеанса realtime: инструкции, голос, расшифровка речи человека,
+/// конец фразы — по смыслу паузы (semantic VAD), перебивать можно.
+pub(crate) fn realtime_body(call: &RealtimeCall) -> serde_json::Value {
+    let mut transcription = serde_json::json!({ "model": call.transcribe });
+    if let Some(language) = &call.language {
+        transcription["language"] = language.as_str().into();
+    }
+    serde_json::json!({
+        "expires_after": { "anchor": "created_at", "seconds": KEY_TTL_SECS },
+        "session": {
+            "type": "realtime",
+            "model": call.external_id,
+            "instructions": call.instructions,
+            "output_modalities": ["audio"],
+            "audio": {
+                "input": {
+                    "transcription": transcription,
+                    "turn_detection": { "type": "semantic_vad", "eagerness": "auto" },
+                    "noise_reduction": { "type": "near_field" },
+                },
+                "output": { "voice": call.voice },
+            },
+        },
+    })
+}
+
+/// Ответ `client_secrets`: `{"value": "ek_…", "expires_at": …}` (в старом
+/// виде — внутри `client_secret`).
+pub(crate) fn parse_realtime_key(body: &str) -> Result<RealtimeKey, ProviderError> {
+    let json: serde_json::Value = serde_json::from_str(body)
+        .map_err(|_| ProviderError::Unknown("ответ без ключа realtime".into()))?;
+    let root = if json["value"].is_string() {
+        &json
+    } else {
+        &json["client_secret"]
+    };
+    let value = root["value"]
+        .as_str()
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| ProviderError::Unknown("ответ без ключа realtime".into()))?;
+    Ok(RealtimeKey {
+        value: value.to_owned(),
+        expires_at: root["expires_at"].as_i64().unwrap_or(0),
+    })
+}
+
 /// Дочитать поток событий; куски текста (`response.output_text.delta`) —
 /// в `delta` сразу, как пришли. Итог разбирает [`parse_stream`].
 async fn read_events(
@@ -1207,6 +1315,47 @@ fn output_text(response: &serde_json::Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn realtime_session_has_instructions_voice_and_transcription() {
+        let call = RealtimeCall {
+            external_id: "gpt-realtime-1.5".into(),
+            instructions: "Ты — Нейт".into(),
+            voice: "marin".into(),
+            transcribe: "gpt-4o-mini-transcribe".into(),
+            language: None,
+            account_id: Uuid::nil(),
+        };
+        let body = realtime_body(&call);
+        assert_eq!(body["session"]["type"], "realtime");
+        assert_eq!(body["session"]["model"], "gpt-realtime-1.5");
+        assert_eq!(body["session"]["instructions"], "Ты — Нейт");
+        assert_eq!(body["session"]["audio"]["output"]["voice"], "marin");
+        assert_eq!(
+            body["session"]["audio"]["input"]["transcription"]["model"],
+            "gpt-4o-mini-transcribe"
+        );
+        assert!(
+            body["session"]["audio"]["input"]["transcription"]
+                .get("language")
+                .is_none(),
+            "язык не задан — человек говорит и по-русски"
+        );
+        assert_eq!(body["expires_after"]["seconds"], KEY_TTL_SECS);
+    }
+
+    #[test]
+    fn realtime_key_is_read_in_both_shapes() {
+        let new = parse_realtime_key(r#"{"value":"ek_1","expires_at":100,"session":{}}"#).unwrap();
+        assert_eq!((new.value.as_str(), new.expires_at), ("ek_1", 100));
+        let old =
+            parse_realtime_key(r#"{"client_secret":{"value":"ek_2","expires_at":7}}"#).unwrap();
+        assert_eq!(old.value, "ek_2");
+        assert!(matches!(
+            parse_realtime_key("{}"),
+            Err(ProviderError::Unknown(_))
+        ));
+    }
 
     #[test]
     fn pkce_matches_rfc7636_example() {

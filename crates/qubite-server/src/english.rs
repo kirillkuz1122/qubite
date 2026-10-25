@@ -5,7 +5,11 @@
 //! - `POST /api/v1/english/session` — начать (репетитор здоровается);
 //! - `POST /api/v1/english/session/finish` — закончить, итог — в «Английский.md»;
 //! - `POST /api/v1/english/turn` — сказать (текст или запись голоса);
-//! - `POST /api/v1/english/messages/{id}/speech` — голос реплики репетитора (MP3).
+//! - `POST /api/v1/english/messages/{id}/speech` — голос реплики репетитора (MP3);
+//! - `POST /api/v1/english/realtime` — живой голос через подписку ChatGPT
+//!   (ENG-005): временный ключ, браузер говорит с моделью напрямую (WebRTC);
+//! - `POST /api/v1/english/realtime/{id}/lines` — реплики расшифровки в разговор;
+//! - `POST /api/v1/english/realtime/{id}/finish` — сколько длился, закончить.
 //!
 //! Права — модуль `agent`: `read` — смотреть, `write` — разговаривать, `ai`
 //! и бюджет — модель и голос (всё через AI-шлюз). Логика — `qubite-english`.
@@ -160,6 +164,46 @@ pub struct EnglishVoice {
     live: bool,
 }
 
+/// Какой голос у разговора (ENG-005).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishEngine {
+    /// Выбор человека: `chatgpt`, `elevenlabs`; `null` — сам.
+    chosen: Option<String>,
+    /// Что работает сейчас: `chatgpt` (живой разговор) или `elevenlabs`.
+    engine: String,
+    /// Подписка ChatGPT подключена у этого человека.
+    chatgpt_connected: bool,
+    /// Сервер умеет живой разговор.
+    realtime_ready: bool,
+    /// Модель и голос живого разговора.
+    model: String,
+    voice: String,
+    /// Сегодня: сеансов и секунд; лимиты.
+    sessions_today: i64,
+    seconds_today: i64,
+    day_sessions: u32,
+    day_secs: u64,
+    max_session_secs: u64,
+}
+
+impl From<qubite_english::realtime::EngineState> for EnglishEngine {
+    fn from(e: qubite_english::realtime::EngineState) -> Self {
+        Self {
+            chosen: e.chosen,
+            engine: e.engine.into(),
+            chatgpt_connected: e.chatgpt_connected,
+            realtime_ready: e.realtime_ready,
+            model: e.model,
+            voice: e.voice,
+            sessions_today: e.usage.sessions,
+            seconds_today: e.usage.seconds,
+            day_sessions: e.usage.day_sessions,
+            day_secs: e.usage.day_secs,
+            max_session_secs: e.usage.max_session_secs,
+        }
+    }
+}
+
 /// Итоги по всем разговорам.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct EnglishTotals {
@@ -179,6 +223,8 @@ pub struct EnglishOverview {
     last: Option<EnglishSession>,
     totals: EnglishTotals,
     voice: EnglishVoice,
+    /// Какой голос у разговора: ChatGPT (живой) или ElevenLabs.
+    engine: EnglishEngine,
 }
 
 /// Начатый (или идущий) разговор.
@@ -234,6 +280,9 @@ pub(crate) fn english_error(error: Error) -> ApiError {
         Error::Denied(reason) => qubite_policy::Error::Denied(reason).into(),
         Error::NotFound => ApiError::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
         Error::Invalid(message) => ApiError::new(StatusCode::BAD_REQUEST, "invalid", message),
+        error @ Error::NoSubscription => {
+            ApiError::new(StatusCode::CONFLICT, error.code(), error.to_string())
+        }
         Error::Ai { error, .. } => error.into(),
         other => {
             tracing::error!(error = %other, "английский: внутренняя ошибка");
@@ -260,6 +309,9 @@ pub async fn english_overview(
     let o = qubite_english::overview(state.db.pool(), &state.ai, session.0.account_id)
         .await
         .map_err(english_error)?;
+    let engine = qubite_english::realtime::engine(state.db.pool(), &state.ai, session.0.account_id)
+        .await
+        .map_err(english_error)?;
     Ok(Json(EnglishOverview {
         session: o.session.map(Into::into),
         messages: messages(o.messages),
@@ -275,6 +327,7 @@ pub async fn english_overview(
             speak: o.voice.speak,
             live: o.voice.live,
         },
+        engine: engine.into(),
     }))
 }
 
@@ -417,6 +470,189 @@ pub async fn english_speech(
         speech.audio,
     )
         .into_response())
+}
+
+// ---------------------------------------------------------------- живой голос ChatGPT
+
+/// Начать живой разговор.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishRealtimeStart {
+    /// ID действия с экрана: повтор с тем же ключом не выдаёт второй сеанс.
+    key: Uuid,
+}
+
+/// Сеанс OpenAI Realtime для браузера.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishRealtimeSession {
+    /// ID сеанса (вызов AI-шлюза).
+    id: Uuid,
+    /// Временный ключ: только чтобы подключиться (живёт 2 минуты).
+    client_secret: String,
+    /// Когда ключ перестанет годиться (Unix-время, с).
+    expires_at: i64,
+    /// Модель в Qubite и у OpenAI.
+    model: String,
+    external_model: String,
+    voice: String,
+    /// Куда браузер отправляет SDP-предложение (`Authorization: Bearer <ключ>`).
+    calls_url: String,
+    /// Сколько можно говорить в этом сеансе, с.
+    max_seconds: u64,
+}
+
+/// Живой разговор начат.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishRealtimeStarted {
+    session: EnglishSession,
+    messages: Vec<EnglishMessage>,
+    realtime: EnglishRealtimeSession,
+    /// Выбранная модель не пустила — работает другая (что сказать).
+    fallback: Option<String>,
+}
+
+/// Реплика расшифровки.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishRealtimeLine {
+    /// ID элемента разговора у OpenAI.
+    item: String,
+    /// `learner` или `tutor`.
+    role: String,
+    text: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishRealtimeLines {
+    /// До 50 реплик за раз.
+    lines: Vec<EnglishRealtimeLine>,
+}
+
+/// Записанные реплики (новые) и разговор.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishRealtimeSaved {
+    session: EnglishSession,
+    messages: Vec<EnglishMessage>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishRealtimeFinish {
+    /// Сколько длился разговор без пауз, с.
+    seconds: u64,
+    /// Закончить и разговор (итог — в «Английский.md»); `false` — только сеанс.
+    #[serde(default)]
+    end: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishRealtimeFinished {
+    /// Сколько засчитано, с.
+    seconds: u64,
+    /// Закрытый разговор (если `end`).
+    session: Option<EnglishSession>,
+}
+
+/// Живой разговор с Нейтом через свою подписку ChatGPT: временный ключ
+/// OpenAI Realtime. Основной токен подписки остаётся на сервере.
+#[utoipa::path(post, path = "/api/v1/english/realtime", tag = "english",
+    request_body = EnglishRealtimeStart,
+    responses(
+        (status = 200, description = "Ключ сеанса и разговор", body = EnglishRealtimeStarted),
+        (status = 403, description = "Нет доступа к агенту или AI-гранта", body = ApiErrorBody),
+        (status = 409, description = "ChatGPT не подключён, лимит подписки, свои лимиты, отказ", body = ApiErrorBody),
+    ))]
+pub async fn english_realtime(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Json(body): Json<EnglishRealtimeStart>,
+) -> Result<Response, ApiError> {
+    let s =
+        qubite_english::realtime::open(state.db.pool(), &state.ai, session.0.account_id, body.key)
+            .await
+            .map_err(english_error)?;
+    let r = s.realtime;
+    let started = EnglishRealtimeStarted {
+        session: s.session.into(),
+        messages: messages(s.messages),
+        realtime: EnglishRealtimeSession {
+            id: r.call_id,
+            client_secret: r.key,
+            expires_at: r.expires_at,
+            model: r.model,
+            external_model: r.external_id,
+            voice: r.voice,
+            calls_url: r.calls_url,
+            max_seconds: r.max_seconds,
+        },
+        fallback: s.fallback,
+    };
+    Ok(([(header::CACHE_CONTROL, "no-store")], Json(started)).into_response())
+}
+
+/// Реплики расшифровки живого разговора — в историю разговора.
+#[utoipa::path(post, path = "/api/v1/english/realtime/{id}/lines", tag = "english",
+    params(("id" = Uuid, Path, description = "ID сеанса")),
+    request_body = EnglishRealtimeLines,
+    responses(
+        (status = 200, description = "Записано", body = EnglishRealtimeSaved),
+        (status = 400, description = "Неверные реплики", body = ApiErrorBody),
+        (status = 404, description = "Нет такого сеанса", body = ApiErrorBody),
+    ))]
+pub async fn english_realtime_lines(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    Json(body): Json<EnglishRealtimeLines>,
+) -> Result<Json<EnglishRealtimeSaved>, ApiError> {
+    let lines = body
+        .lines
+        .into_iter()
+        .map(|l| qubite_english::realtime::Line {
+            item: l.item,
+            role: l.role,
+            text: l.text,
+        })
+        .collect();
+    let (s, list) =
+        qubite_english::realtime::lines(state.db.pool(), session.0.account_id, id, lines)
+            .await
+            .map_err(english_error)?;
+    Ok(Json(EnglishRealtimeSaved {
+        session: s.into(),
+        messages: messages(list),
+    }))
+}
+
+/// Живой разговор закончился: длительность — в учёт AI-шлюза.
+#[utoipa::path(post, path = "/api/v1/english/realtime/{id}/finish", tag = "english",
+    params(("id" = Uuid, Path, description = "ID сеанса")),
+    request_body = EnglishRealtimeFinish,
+    responses(
+        (status = 200, description = "Засчитано", body = EnglishRealtimeFinished),
+        (status = 404, description = "Нет такого сеанса", body = ApiErrorBody),
+    ))]
+pub async fn english_realtime_finish(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    Json(body): Json<EnglishRealtimeFinish>,
+) -> Result<Json<EnglishRealtimeFinished>, ApiError> {
+    let (seconds, closed) = qubite_english::realtime::finish(
+        state.db.pool(),
+        &state.ai,
+        session.0.account_id,
+        id,
+        body.seconds,
+        body.end,
+    )
+    .await
+    .map_err(english_error)?;
+    Ok(Json(EnglishRealtimeFinished {
+        seconds,
+        session: closed.map(Into::into),
+    }))
 }
 
 // ---------------------------------------------------------------- потоком

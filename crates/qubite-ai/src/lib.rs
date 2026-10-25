@@ -25,6 +25,7 @@ pub mod elevenlabs;
 pub mod guard;
 pub mod openrouter;
 pub mod provider;
+pub mod realtime;
 pub mod secret;
 pub mod voice;
 
@@ -53,6 +54,10 @@ pub use guard::Untrusted;
 pub use provider::{
     ChatMessage, Delta, MockProvider, MockStep, Provider, ProviderCall, ProviderError,
     ProviderReply, Role, Routing,
+};
+pub use realtime::{
+    MockRealtime, MockRealtimeStep, RealtimeLimits, RealtimeProvider, RealtimeRequest,
+    RealtimeSession,
 };
 pub use voice::{
     ListenRequest, MockHeard, MockVoice, SpeakRequest, Speech, Transcript, VoiceProvider,
@@ -112,6 +117,9 @@ pub enum AiError {
     ResultUnknown { call_id: Uuid },
     #[error("{0}")]
     SourceNotReady(String),
+    /// Свои лимиты живого разговора (сеансов или минут в день, ENG-005).
+    #[error("{0}")]
+    SessionLimit(String),
     #[error("неверные данные: {0}")]
     Invalid(String),
     #[error("ошибка базы данных: {0}")]
@@ -138,6 +146,7 @@ impl AiError {
             Self::SubscriptionLimit { .. } => "subscription_limit",
             Self::ResultUnknown { .. } => "result_unknown",
             Self::SourceNotReady(_) => "source_not_ready",
+            Self::SessionLimit(_) => "realtime_limit",
             Self::Invalid(_) => "invalid",
             Self::Db(_) | Self::Audit(_) => "internal",
         }
@@ -181,6 +190,8 @@ pub struct AiConfig {
     pub clock: Clock,
     /// Защита от зацикливания (D-213).
     pub loop_guard: LoopGuard,
+    /// Свои лимиты живого разговора (ENG-005).
+    pub realtime: realtime::RealtimeLimits,
 }
 
 /// Защита от зацикливания: запрос, который мог бы уйти, проверяется до резерва.
@@ -225,6 +236,7 @@ impl Default for AiConfig {
             retry_delays: vec![Duration::from_secs(1), Duration::from_secs(2)],
             clock: Arc::new(OffsetDateTime::now_utc),
             loop_guard: LoopGuard::default(),
+            realtime: realtime::RealtimeLimits::default(),
         }
     }
 }
@@ -297,6 +309,8 @@ enum Work<'a> {
     Speak(&'a voice::Say),
     /// Живое распознавание (открывается и закрывается само, [`voice::LiveListen`]).
     Live,
+    /// Временный ключ живого разговора ([`realtime`]).
+    Realtime(&'a realtime::Open),
 }
 
 impl Work<'_> {
@@ -305,10 +319,16 @@ impl Work<'_> {
     fn fits(&self, capabilities: &[String]) -> bool {
         let has = |name: &str| capabilities.iter().any(|c| c == name);
         match self {
-            Self::Chat { .. } => !has(voice::STT) && !has(voice::TTS) && !has(voice::STT_LIVE),
+            Self::Chat { .. } => {
+                !has(voice::STT)
+                    && !has(voice::TTS)
+                    && !has(voice::STT_LIVE)
+                    && !has(realtime::REALTIME)
+            }
             Self::Listen(_) => has(voice::STT),
             Self::Live => has(voice::STT_LIVE),
             Self::Speak(_) => has(voice::TTS),
+            Self::Realtime(_) => has(realtime::REALTIME),
         }
     }
 }
@@ -319,6 +339,11 @@ enum Done {
     Listen(voice::Heard),
     Speak(voice::Spoken),
     SpeakStream(voice::AudioChunks),
+    Realtime {
+        key: realtime::RealtimeKey,
+        model: String,
+        calls_url: String,
+    },
 }
 
 /// Сколько израсходовано: токены у моделей, секунды или знаки у голоса.
@@ -430,6 +455,8 @@ pub struct Gateway {
     providers: HashMap<String, Arc<dyn Provider>>,
     /// Голосовые адаптеры: распознавание и речь ([`voice`]).
     voices: HashMap<String, Arc<dyn voice::VoiceProvider>>,
+    /// Живой разговор ([`realtime`]).
+    realtimes: HashMap<String, Arc<dyn realtime::RealtimeProvider>>,
     /// Секрет процесса для «отпечатков» запросов: в базе не текст и не хеш,
     /// который можно сверить с догадкой.
     fingerprint_key: ring::hmac::Key,
@@ -448,6 +475,7 @@ impl Gateway {
             config,
             providers: HashMap::new(),
             voices: HashMap::new(),
+            realtimes: HashMap::new(),
             fingerprint_key,
             secrets: None,
         }
@@ -498,6 +526,25 @@ impl Gateway {
         requested: &str,
         work: &Work<'_>,
     ) -> Result<(ModelRow, PaidBy, Option<qubite_kernel::Secret>)> {
+        if let Work::Realtime(_) = work {
+            // Своя подписка: allowlist owner не нужен (D-531), выключенная
+            // строка модели — тоже годится; провайдер и блокировка — как у всех.
+            let model = self.model_row(requested).await?;
+            if !model.provider_enabled {
+                return Err(AiError::SourceNotReady(
+                    "ChatGPT по подписке выключен на сервере (QUBITE_AI_CHATGPT_ENABLED)".into(),
+                ));
+            }
+            if let Some(reason) = &model.blocked_reason {
+                return Err(AiError::ModelBlocked(reason.clone()));
+            }
+            let paid = if model.provider_id == chatgpt::PROVIDER_ID {
+                PaidBy::Subscription
+            } else {
+                PaidBy::Platform
+            };
+            return Ok((model, paid, None));
+        }
         if !matches!(work, Work::Chat { .. }) {
             return Ok((self.load_model(requested).await?, PaidBy::Platform, None));
         }
@@ -566,10 +613,12 @@ impl Gateway {
             "SELECT external_id FROM ( \
                SELECT m.external_id, 0 AS rank FROM ai_models m \
                  WHERE m.provider_id = 'chatgpt' AND m.id = $1 \
+                   AND NOT ('realtime' = ANY(m.capabilities)) \
                UNION ALL SELECT c.external_id, 1 FROM ai_catalog c \
                  WHERE c.provider_id = 'chatgpt' AND 'chatgpt:' || lower(c.external_id) = $1 \
                UNION ALL SELECT m.external_id, 2 FROM ai_models m \
                  WHERE m.provider_id = 'chatgpt' AND m.enabled \
+                   AND NOT ('realtime' = ANY(m.capabilities)) \
                UNION ALL SELECT c.external_id, 3 FROM ai_catalog c WHERE c.provider_id = 'chatgpt' \
              ) x ORDER BY rank, external_id LIMIT 1",
         )
@@ -820,6 +869,7 @@ impl Gateway {
         match work {
             Work::Chat { .. } => self.providers.contains_key(provider_id),
             Work::Listen(_) | Work::Speak(_) | Work::Live => self.voices.contains_key(provider_id),
+            Work::Realtime(_) => self.realtimes.contains_key(provider_id),
         }
     }
 
@@ -879,6 +929,10 @@ impl Gateway {
                 tokio::time::timeout(self.config.timeout, provider.transcribe(&call))
                     .await
                     .map(|heard| heard.map(Done::Listen))
+            }
+            Work::Realtime(open) => {
+                self.send_realtime(&model.provider_id, &model.external_id, account_id, open)
+                    .await
             }
             // Живое распознавание идёт мимо `run` (длина звука известна в конце).
             Work::Live => Ok(Err(ProviderError::Refused("не через run".into()))),
@@ -1308,6 +1362,7 @@ impl Gateway {
              WHERE m.enabled AND p.enabled AND m.blocked_reason IS NULL AND m.id <> $1 \
                AND ('stt' = ANY(m.capabilities)) = coalesce((SELECT 'stt' = ANY(capabilities) FROM ai_models WHERE id = $1), false) \
                AND ('tts' = ANY(m.capabilities)) = coalesce((SELECT 'tts' = ANY(capabilities) FROM ai_models WHERE id = $1), false) \
+               AND ('realtime' = ANY(m.capabilities)) = coalesce((SELECT 'realtime' = ANY(capabilities) FROM ai_models WHERE id = $1), false) \
              ORDER BY m.id",
         )
         .bind(except)

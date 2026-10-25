@@ -19,6 +19,7 @@ import {
   type CompanionHandle,
 } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Fail, say } from '../auth/client';
 import { AgentEnglish } from './AgentEnglish';
@@ -44,6 +45,7 @@ import {
   type Home,
   type Reply,
   type Run,
+  type SettingsBody,
   type Task,
 } from './english-lessons';
 import {
@@ -1271,7 +1273,10 @@ function SettingsView() {
   const current = s.voice ?? body.voices[0]?.id;
   return (
     <section className="eng-card eng-settings" aria-label="Настройки английского">
-      <h3 className="eng-h">Голос Нейта</h3>
+      <VoiceEngine body={body} set={set} />
+      <h3 className="eng-h">
+        Голос Нейта — ElevenLabs{body.engine?.engine === 'chatgpt' && ' (запасной)'}
+      </h3>
       <ul className="eng-voices">
         {body.voices.map((v) => (
           <li key={v.id} data-on={v.id === current ? '' : undefined}>
@@ -1397,5 +1402,84 @@ function SettingsView() {
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Голос разговора (ENG-005): живой через свою подписку ChatGPT или ElevenLabs. По умолчанию —
+ * ChatGPT, если подписка подключена. У ChatGPT — модель и голос, и сколько потрачено сегодня.
+ */
+function VoiceEngine({
+  body,
+  set,
+}: {
+  body: SettingsBody;
+  set: (c: Record<string, unknown>) => void;
+}) {
+  const e = body.engine;
+  if (!e) return null;
+  const engine = (e.chosen ?? e.engine) === 'chatgpt' ? 'chatgpt' : 'elevenlabs';
+  const s = body.settings;
+  const model = s.realtime_model ?? e.model;
+  const voice = s.realtime_voice ?? e.voice;
+  return (
+    <>
+      <h3 className="eng-h">Голос разговора</h3>
+      <Segmented<'chatgpt' | 'elevenlabs'>
+        label="Голос разговора"
+        value={engine}
+        onChange={(v) => set({ voice_engine: v })}
+        options={[
+          { value: 'chatgpt', label: 'ChatGPT — живой' },
+          { value: 'elevenlabs', label: 'ElevenLabs' },
+        ]}
+      />
+      <p className="eng-hint">
+        {engine === 'chatgpt'
+          ? 'Говоришь с Нейтом вживую, как по телефону: он слышит сразу, отвечает голосом, можно перебивать. Работает по твоей подписке ChatGPT — денег с Qubite не тратит.'
+          : 'Ты договорил — Нейт распознаёт фразу, отвечает с разбором ошибок и озвучивает ответ голосом ElevenLabs.'}
+        {e.chosen === null && ' Выбрано само: ChatGPT, если подписка подключена.'}
+      </p>
+      {engine === 'chatgpt' && !e.chatgpt_connected && (
+        <Note>
+          Подписка ChatGPT не подключена — <Link to="/settings/ai">войди через ChatGPT</Link>, иначе
+          разговор будет через ElevenLabs.
+        </Note>
+      )}
+      {engine === 'chatgpt' && (
+        <>
+          <h3 className="eng-h">Модель живого голоса</h3>
+          <Segmented
+            label="Модель живого голоса"
+            value={model}
+            onChange={(v) => set({ realtime_model: v })}
+            options={(body.realtime_models ?? []).map((m) => ({
+              value: m.id,
+              label: m.name.replace(/^GPT /, ''),
+            }))}
+          />
+          <p className="eng-hint">
+            {(body.realtime_models ?? []).find((m) => m.id === model)?.about}
+          </p>
+          <h3 className="eng-h">Голос ChatGPT</h3>
+          <Segmented
+            label="Голос ChatGPT"
+            variant="chips"
+            value={voice}
+            onChange={(v) => set({ realtime_voice: v })}
+            options={(body.realtime_voices ?? []).map((v) => ({ value: v.id, label: v.id }))}
+          />
+          <p className="eng-hint">
+            {(body.realtime_voices ?? []).find((v) => v.id === voice)?.about}. Голос слышно с первой
+            фразы разговора.
+          </p>
+          <p className="eng-hint">
+            Сегодня: разговоров {e.sessions_today} из {e.day_sessions || '∞'}, минут{' '}
+            {Math.ceil(e.seconds_today / 60)} из {e.day_secs ? e.day_secs / 60 : '∞'}; один разговор
+            — до {e.max_session_secs / 60} мин.
+          </p>
+        </>
+      )}
+    </>
   );
 }
