@@ -130,4 +130,6 @@ journalctl -u qubite-serve -u qubite-bot -u qubite-update -f   # логи
 - Сообщения бота (в том числе об обновлении) приходят, когда к аккаунту owner привязан Telegram (Профиль → входы). До этого они ждут в очереди.
 - ChatGPT по подписке: Настройки → AI → ChatGPT → «Войти через ChatGPT». После входа браузер откроет `127.0.0.1:1455/…` и скажет «не удаётся подключиться»: это нормально, адрес из строки браузера вставить в поле на сайте. До OpenAI Pi ходит напрямую (через системный VPN), `QUBITE_PROXY` не нужен.
 
+- Голос (ElevenLabs) — через отдельный VPN: служба `qubite-elevenlabs-proxy` (xray, вход `127.0.0.1:10890`, конфиг `/etc/qubite/elevenlabs-xray.json` из VLESS-ключа владельца), в `.env` — `QUBITE_ELEVENLABS_PROXY=http://127.0.0.1:10890`. Через системный VPN (Таллин) ElevenLabs не пускал, поэтому только этот xray (пользователь `qubite-el`) идёт мимо sing-box: правило `ip rule … uidrange … lookup main` (приоритет 8990) ставит и убирает сама служба. Остальной трафик Pi — через системный VPN, как раньше. Выключить: `sudo systemctl stop qubite-elevenlabs-proxy` (правило уйдёт).
+
 **Установка с нуля:** склонировать репозиторий, положить `.env` владельца в `/etc/qubite/qubite.env`, `sudo deploy/pi/install.sh`, затем создать owner (команду печатает `install.sh`), подключить `qubite.caddy` в Caddy и маршруты в туннеле.

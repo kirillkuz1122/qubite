@@ -1,7 +1,12 @@
 # Отдельный VPN только для ElevenLabs (голос): xray с VLESS-подключением владельца,
 # вход — HTTP-прокси на 127.0.0.1:10890. Qubite ходит через него только к ElevenLabs
-# (QUBITE_ELEVENLABS_PROXY), остальное — как раньше. Системный VPN Pi не трогает:
-# ни маршрутов, ни TUN. Конфиг /etc/qubite/elevenlabs-xray.json — секрет, не в git.
+# (QUBITE_ELEVENLABS_PROXY), остальное — как раньше. Конфиг /etc/qubite/elevenlabs-xray.json —
+# секрет, не в git.
+#
+# Через системный VPN Pi (sing-box, Таллин) немецкий сервер выходил в интернет тоже из
+# Таллина, и ElevenLabs не пускал. Поэтому только этот процесс (пользователь qubite-el)
+# идёт мимо sing-box: правило `ip rule uidrange` живёт, пока работает служба.
+# Сам sing-box, его конфиг и весь остальной трафик Pi не меняются.
 [Unit]
 Description=Qubite: VPN только для ElevenLabs
 After=network-online.target
@@ -9,9 +14,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=qubite
+User=qubite-el
 Group=qubite
+# «+» — от root: правило маршрутизации только для uid qubite-el, приоритет выше правил sing-box (9000+).
+ExecStartPre=+/bin/sh -c 'ip rule del priority 8990 2>/dev/null; ip rule add priority 8990 uidrange $(id -u qubite-el)-$(id -u qubite-el) lookup main'
+ExecStartPre=+/bin/sh -c 'ip -6 rule del priority 8990 2>/dev/null; ip -6 rule add priority 8990 uidrange $(id -u qubite-el)-$(id -u qubite-el) lookup main'
 ExecStart=/usr/bin/xray run -c /etc/qubite/elevenlabs-xray.json
+ExecStopPost=+/bin/sh -c 'ip rule del priority 8990 2>/dev/null; ip -6 rule del priority 8990 2>/dev/null; true'
 Restart=on-failure
 RestartSec=10
 
