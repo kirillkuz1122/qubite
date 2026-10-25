@@ -9,7 +9,9 @@
 //! - `POST /api/v1/english/realtime` — живой голос через подписку ChatGPT
 //!   (ENG-005): временный ключ, браузер говорит с моделью напрямую (WebRTC);
 //! - `POST /api/v1/english/realtime/{id}/lines` — реплики расшифровки в разговор;
-//! - `POST /api/v1/english/realtime/{id}/finish` — сколько длился, закончить.
+//! - `POST /api/v1/english/realtime/{id}/finish` — сколько длился, закончить;
+//! - `POST /api/v1/english/dictation` — диктовка через ChatGPT (ключ сеанса
+//!   распознавания), `POST /api/v1/english/transcribe` — запасной путь (ElevenLabs).
 //!
 //! Права — модуль `agent`: `read` — смотреть, `write` — разговаривать, `ai`
 //! и бюджет — модель и голос (всё через AI-шлюз). Логика — `qubite-english`.
@@ -572,23 +574,113 @@ pub async fn english_realtime(
         qubite_english::realtime::open(state.db.pool(), &state.ai, session.0.account_id, body.key)
             .await
             .map_err(english_error)?;
-    let r = s.realtime;
     let started = EnglishRealtimeStarted {
         session: s.session.into(),
         messages: messages(s.messages),
-        realtime: EnglishRealtimeSession {
-            id: r.call_id,
-            client_secret: r.key,
-            expires_at: r.expires_at,
-            model: r.model,
-            external_model: r.external_id,
-            voice: r.voice,
-            calls_url: r.calls_url,
-            max_seconds: r.max_seconds,
-        },
+        realtime: realtime_session(s.realtime),
         fallback: s.fallback,
     };
     Ok(([(header::CACHE_CONTROL, "no-store")], Json(started)).into_response())
+}
+
+fn realtime_session(r: qubite_ai::RealtimeSession) -> EnglishRealtimeSession {
+    EnglishRealtimeSession {
+        id: r.call_id,
+        client_secret: r.key,
+        expires_at: r.expires_at,
+        model: r.model,
+        external_model: r.external_id,
+        voice: r.voice,
+        calls_url: r.calls_url,
+        max_seconds: r.max_seconds,
+    }
+}
+
+/// Диктовка: «скажи → получи текст».
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishDictationStart {
+    /// ID действия с экрана.
+    key: Uuid,
+    /// Язык речи (`en`, `ru`); не задан — определит сам.
+    language: Option<String>,
+}
+
+/// Диктовка через свою подписку ChatGPT: временный ключ сеанса только
+/// распознавания (до 2 минут). Конец — `/realtime/{id}/finish`. Нет подписки —
+/// 409 `chatgpt_not_connected`: экран берёт запасной путь `/english/transcribe`.
+#[utoipa::path(post, path = "/api/v1/english/dictation", tag = "english",
+    request_body = EnglishDictationStart,
+    responses(
+        (status = 200, description = "Ключ сеанса распознавания", body = EnglishRealtimeSession),
+        (status = 409, description = "ChatGPT не подключён, лимит подписки, свои лимиты", body = ApiErrorBody),
+    ))]
+pub async fn english_dictation(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Json(body): Json<EnglishDictationStart>,
+) -> Result<Response, ApiError> {
+    let r = qubite_english::realtime::dictation(
+        state.db.pool(),
+        &state.ai,
+        session.0.account_id,
+        body.key,
+        body.language,
+    )
+    .await
+    .map_err(english_error)?;
+    Ok((
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(realtime_session(r)),
+    )
+        .into_response())
+}
+
+/// Запись голоса для распознавания (запасной путь диктовки).
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishTranscribe {
+    key: Uuid,
+    /// Запись (base64), до 1,2 МБ.
+    audio_base64: String,
+    mime: Option<String>,
+    duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EnglishTranscribed {
+    text: String,
+}
+
+/// Распознать запись целиком (ElevenLabs через AI-шлюз) — запасной путь диктовки.
+#[utoipa::path(post, path = "/api/v1/english/transcribe", tag = "english",
+    request_body = EnglishTranscribe,
+    responses(
+        (status = 200, description = "Распознанный текст", body = EnglishTranscribed),
+        (status = 400, description = "Запись не прочитана", body = ApiErrorBody),
+        (status = 409, description = "Голос не настроен или отказ AI-шлюза", body = ApiErrorBody),
+    ))]
+pub async fn english_transcribe(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Json(body): Json<EnglishTranscribe>,
+) -> Result<Json<EnglishTranscribed>, ApiError> {
+    let audio = base64::engine::general_purpose::STANDARD
+        .decode(body.audio_base64.trim())
+        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid", "запись не прочитана"))?;
+    let text = qubite_english::realtime::transcribe(
+        state.db.pool(),
+        &state.ai,
+        &state.english,
+        session.0.account_id,
+        body.key,
+        audio,
+        body.mime.unwrap_or_else(|| "audio/webm".into()),
+        body.duration_ms.unwrap_or(0),
+    )
+    .await
+    .map_err(english_error)?;
+    Ok(Json(EnglishTranscribed { text }))
 }
 
 /// Реплики расшифровки живого разговора — в историю разговора.

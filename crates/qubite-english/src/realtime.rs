@@ -159,6 +159,7 @@ pub async fn open(pool: &PgPool, gateway: &Gateway, account: Uuid, key: Uuid) ->
         untrusted: untrusted.clone(),
         voice: voice.clone(),
         language: None,
+        transcription_only: false,
     };
     let (realtime, fallback) = match gateway.realtime_open(&auth, request(&model, "")).await {
         Ok(realtime) => (realtime, None),
@@ -306,7 +307,7 @@ pub async fn finish(
     end: bool,
 ) -> Result<(u64, Option<Session>)> {
     may_write(pool, account).await?;
-    session_of(pool, account, call).await?;
+    // Сеанс — свой (это проверяет шлюз); у диктовки разговора нет.
     let counted = gateway.realtime_finish(account, call, seconds).await?;
     let closed = if end {
         crate::finish(pool, account).await?
@@ -314,4 +315,68 @@ pub async fn finish(
         None
     };
     Ok((counted, closed))
+}
+
+// ---------------------------------------------------------------- диктовка
+
+/// Диктовка через ChatGPT: временный ключ сеанса только распознавания
+/// (`gpt-4o-mini-transcribe`, до 2 минут). Браузер подключается так же, как к
+/// живому разговору, и получает текст событиями. Нет подписки —
+/// [`Error::NoSubscription`]: экран берёт запасной путь ([`transcribe`]).
+pub async fn dictation(
+    pool: &PgPool,
+    gateway: &Gateway,
+    account: Uuid,
+    key: Uuid,
+    language: Option<String>,
+) -> Result<RealtimeSession> {
+    may_write(pool, account).await?;
+    if language
+        .as_deref()
+        .is_some_and(|l| l.len() != 2 || !l.bytes().all(|b| b.is_ascii_lowercase()))
+    {
+        return Err(Error::Invalid("язык — две буквы, например en".into()));
+    }
+    if !chatgpt::status(pool, account).await?.connected {
+        return Err(Error::NoSubscription);
+    }
+    let auth = crate::may_use_ai(pool, account).await?;
+    Ok(gateway
+        .realtime_open(
+            &auth,
+            RealtimeRequest::dictation(format!("english:{key}:dictation"), language),
+        )
+        .await?)
+}
+
+/// Запасной путь диктовки — запись целиком через ElevenLabs (AI-шлюз,
+/// бюджет owner). Возвращает распознанный текст.
+#[allow(clippy::too_many_arguments)]
+pub async fn transcribe(
+    pool: &PgPool,
+    gateway: &Gateway,
+    settings: &crate::Settings,
+    account: Uuid,
+    key: Uuid,
+    audio: Vec<u8>,
+    mime: String,
+    duration_ms: u64,
+) -> Result<String> {
+    may_write(pool, account).await?;
+    let auth = crate::may_use_ai(pool, account).await?;
+    let model = gateway.model_for(qubite_ai::voice::STT_TASK).await?;
+    let heard = gateway
+        .transcribe(
+            &auth,
+            qubite_ai::ListenRequest {
+                request_id: format!("english:{key}:transcribe"),
+                model,
+                audio,
+                mime,
+                language: settings.listen_language.clone(),
+                duration_ms,
+            },
+        )
+        .await?;
+    Ok(heard.text)
 }

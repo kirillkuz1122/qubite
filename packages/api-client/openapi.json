@@ -4965,6 +4965,45 @@
         }
       }
     },
+    "/api/v1/english/dictation": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Диктовка через свою подписку ChatGPT: временный ключ сеанса только\nраспознавания (до 2 минут). Конец — `/realtime/{id}/finish`. Нет подписки —\n409 `chatgpt_not_connected`: экран берёт запасной путь `/english/transcribe`.",
+        "operationId": "english_dictation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishDictationStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ключ сеанса распознавания",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishRealtimeSession"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ChatGPT не подключён, лимит подписки, свои лимиты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/home": {
       "get": {
         "tags": ["english"],
@@ -5696,6 +5735,55 @@
           },
           "400": {
             "description": "Неверное значение",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/transcribe": {
+      "post": {
+        "tags": ["english"],
+        "summary": "Распознать запись целиком (ElevenLabs через AI-шлюз) — запасной путь диктовки.",
+        "operationId": "english_transcribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishTranscribe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Распознанный текст",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnglishTranscribed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Запись не прочитана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Голос не настроен или отказ AI-шлюза",
             "content": {
               "application/json": {
                 "schema": {
@@ -9325,6 +9413,23 @@
         },
         "additionalProperties": false
       },
+      "EnglishDictationStart": {
+        "type": "object",
+        "description": "Диктовка: «скажи → получи текст».",
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия с экрана."
+          },
+          "language": {
+            "type": ["string", "null"],
+            "description": "Язык речи (`en`, `ru`); не задан — определит сам."
+          }
+        },
+        "additionalProperties": false
+      },
       "EnglishEngine": {
         "type": "object",
         "description": "Какой голос у разговора (ENG-005).",
@@ -9952,6 +10057,39 @@
           "turns": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "EnglishTranscribe": {
+        "type": "object",
+        "description": "Запись голоса для распознавания (запасной путь диктовки).",
+        "required": ["key", "audio_base64"],
+        "properties": {
+          "audio_base64": {
+            "type": "string",
+            "description": "Запись (base64), до 1,2 МБ."
+          },
+          "duration_ms": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mime": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishTranscribed": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string"
           }
         }
       },

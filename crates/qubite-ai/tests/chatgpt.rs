@@ -974,6 +974,7 @@ async fn realtime_key_comes_from_own_subscription_token_refreshed_once() {
         untrusted: vec![Untrusted::new("lesson", "Present Simple")],
         voice: "marin".into(),
         language: None,
+        transcription_only: false,
     };
 
     let s = gateway.realtime_open(&auth, request("rt-1")).await.unwrap();

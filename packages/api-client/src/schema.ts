@@ -1588,6 +1588,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/dictation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Диктовка через свою подписку ChatGPT: временный ключ сеанса только
+     *     распознавания (до 2 минут). Конец — `/realtime/{id}/finish`. Нет подписки —
+     *     409 `chatgpt_not_connected`: экран берёт запасной путь `/english/transcribe`.
+     */
+    post: operations['english_dictation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/home': {
     parameters: {
       query?: never;
@@ -1880,6 +1901,23 @@ export interface paths {
     options?: never;
     head?: never;
     patch: operations['english_change_settings'];
+    trace?: never;
+  };
+  '/api/v1/english/transcribe': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Распознать запись целиком (ElevenLabs через AI-шлюз) — запасной путь диктовки. */
+    post: operations['english_transcribe'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/api/v1/english/turn': {
@@ -3292,6 +3330,16 @@ export interface components {
     EnglishAsk: {
       text: string;
     };
+    /** @description Диктовка: «скажи → получи текст». */
+    EnglishDictationStart: {
+      /**
+       * Format: uuid
+       * @description ID действия с экрана.
+       */
+      key: string;
+      /** @description Язык речи (`en`, `ru`); не задан — определит сам. */
+      language?: string | null;
+    };
     /** @description Какой голос у разговора (ENG-005). */
     EnglishEngine: {
       /** @description Подписка ChatGPT подключена у этого человека. */
@@ -3571,6 +3619,19 @@ export interface components {
       sessions: number;
       /** Format: int64 */
       turns: number;
+    };
+    /** @description Запись голоса для распознавания (запасной путь диктовки). */
+    EnglishTranscribe: {
+      /** @description Запись (base64), до 1,2 МБ. */
+      audio_base64: string;
+      /** Format: int64 */
+      duration_ms?: number | null;
+      /** Format: uuid */
+      key: string;
+      mime?: string | null;
+    };
+    EnglishTranscribed: {
+      text: string;
     };
     /** @description Ход: реплика ученика и ответ репетитора. */
     EnglishTurn: {
@@ -8818,6 +8879,39 @@ export interface operations {
       };
     };
   };
+  english_dictation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishDictationStart'];
+      };
+    };
+    responses: {
+      /** @description Ключ сеанса распознавания */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishRealtimeSession'];
+        };
+      };
+      /** @description ChatGPT не подключён, лимит подписки, свои лимиты */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   english_home: {
     parameters: {
       query?: never;
@@ -9436,6 +9530,48 @@ export interface operations {
       };
       /** @description Неверное значение */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_transcribe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishTranscribe'];
+      };
+    };
+    responses: {
+      /** @description Распознанный текст */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EnglishTranscribed'];
+        };
+      };
+      /** @description Запись не прочитана */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Голос не настроен или отказ AI-шлюза */
+      409: {
         headers: {
           [name: string]: unknown;
         };

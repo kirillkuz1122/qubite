@@ -1049,6 +1049,22 @@ pub(crate) fn realtime_body(call: &RealtimeCall) -> serde_json::Value {
     if let Some(language) = &call.language {
         transcription["language"] = language.as_str().into();
     }
+    if call.transcription_only {
+        // Диктовка: только распознавание, конец фразы — по паузе.
+        return serde_json::json!({
+            "expires_after": { "anchor": "created_at", "seconds": KEY_TTL_SECS },
+            "session": {
+                "type": "transcription",
+                "audio": {
+                    "input": {
+                        "transcription": transcription,
+                        "turn_detection": { "type": "server_vad", "silence_duration_ms": 700 },
+                        "noise_reduction": { "type": "near_field" },
+                    },
+                },
+            },
+        });
+    }
     serde_json::json!({
         "expires_after": { "anchor": "created_at", "seconds": KEY_TTL_SECS },
         "session": {
@@ -1324,6 +1340,7 @@ mod tests {
             voice: "marin".into(),
             transcribe: "gpt-4o-mini-transcribe".into(),
             language: None,
+            transcription_only: false,
             account_id: Uuid::nil(),
         };
         let body = realtime_body(&call);
@@ -1342,6 +1359,19 @@ mod tests {
             "язык не задан — человек говорит и по-русски"
         );
         assert_eq!(body["expires_after"]["seconds"], KEY_TTL_SECS);
+
+        let dictation = realtime_body(&RealtimeCall {
+            external_id: "gpt-4o-mini-transcribe".into(),
+            language: Some("en".into()),
+            transcription_only: true,
+            ..call
+        });
+        assert_eq!(dictation["session"]["type"], "transcription");
+        assert!(dictation["session"].get("instructions").is_none());
+        assert_eq!(
+            dictation["session"]["audio"]["input"]["transcription"]["language"],
+            "en"
+        );
     }
 
     #[test]

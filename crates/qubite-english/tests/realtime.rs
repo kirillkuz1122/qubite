@@ -264,3 +264,33 @@ async fn mini_model_refused_falls_back_to_main_one() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn dictation_needs_own_subscription_and_finishes_without_conversation() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let provider = Arc::new(MockRealtime::new());
+    let ai = gateway(pool, provider.clone()).await;
+    assert!(matches!(
+        realtime::dictation(pool, &ai, me, Uuid::now_v7(), None).await,
+        Err(Error::NoSubscription)
+    ));
+    connect_chatgpt(pool, me).await;
+    assert!(matches!(
+        realtime::dictation(pool, &ai, me, Uuid::now_v7(), Some("english".into())).await,
+        Err(Error::Invalid(_))
+    ));
+    let d = realtime::dictation(pool, &ai, me, Uuid::now_v7(), Some("en".into()))
+        .await
+        .unwrap();
+    assert_eq!(d.key, "ek_test_1");
+    assert!(provider.calls()[0].transcription_only);
+    let (seconds, closed) = realtime::finish(pool, &ai, me, d.call_id, 3, false)
+        .await
+        .unwrap();
+    assert!(seconds <= 3);
+    assert!(closed.is_none());
+    db.close().await;
+    test_db.drop_db().await;
+}

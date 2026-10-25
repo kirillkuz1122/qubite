@@ -51,6 +51,11 @@ pub const MODELS: &[(&str, &str, &str)] = &[
 ];
 /// Распознавание речи человека внутри сеанса (расшифровка на экране).
 pub const TRANSCRIBE_MODEL: &str = "gpt-4o-mini-transcribe";
+/// Модель диктовки (сеанс только распознавания, «скажи → получи текст»).
+pub const TRANSCRIBE_ID: &str = "chatgpt:gpt-4o-mini-transcribe";
+/// Самая длинная диктовка за раз, с. Диктовки не считаются в «разговоров в
+/// день» (их много в одном уроке), но их секунды — в «минут в день».
+pub const DICTATION_MAX_SECS: u64 = 120;
 /// Голоса OpenAI Realtime: ID, о голосе.
 pub const VOICES: &[(&str, &str)] = &[
     ("marin", "женский, живой — по умолчанию"),
@@ -100,6 +105,8 @@ pub struct RealtimeCall {
     pub transcribe: String,
     /// Язык расшифровки; `None` — определит сама (человек говорит и по-русски).
     pub language: Option<String>,
+    /// Только распознавание (диктовка): модель не отвечает.
+    pub transcription_only: bool,
     /// Чья подписка: только своя (AI-005).
     pub account_id: Uuid,
 }
@@ -135,6 +142,24 @@ pub struct RealtimeRequest {
     pub untrusted: Vec<guard::Untrusted>,
     pub voice: String,
     pub language: Option<String>,
+    /// Только распознавание (диктовка, модель [`TRANSCRIBE_ID`]): без
+    /// инструкций и голоса, короче ([`DICTATION_MAX_SECS`]).
+    pub transcription_only: bool,
+}
+
+impl RealtimeRequest {
+    /// Диктовка: сеанс только распознавания речи.
+    pub fn dictation(request_id: String, language: Option<String>) -> Self {
+        Self {
+            request_id,
+            model: TRANSCRIBE_ID.into(),
+            prompt: String::new(),
+            untrusted: Vec::new(),
+            voice: "-".into(),
+            language,
+            transcription_only: true,
+        }
+    }
 }
 
 /// Выданный сеанс: ключ для браузера и сколько можно говорить.
@@ -166,6 +191,7 @@ pub(crate) struct Open {
     pub(crate) instructions: String,
     pub(crate) voice: String,
     pub(crate) language: Option<String>,
+    pub(crate) transcription_only: bool,
 }
 
 impl Gateway {
@@ -199,13 +225,14 @@ impl Gateway {
     /// по часам, но не больше его потолка.
     pub async fn realtime_usage(&self, account_id: Uuid) -> Result<RealtimeUsage> {
         let (sessions, seconds): (i64, i64) = sqlx::query_as(
-            "SELECT count(*), coalesce(sum(coalesce(seconds, \
+            "SELECT count(*) FILTER (WHERE model_id <> $3), coalesce(sum(coalesce(seconds, \
                  least(ceil(extract(epoch FROM now() - started_at))::int, max_seconds))), 0)::bigint \
              FROM ai_realtime_sessions WHERE account_id = $1 \
                AND started_at >= (date_trunc('day', now() AT TIME ZONE $2) AT TIME ZONE $2)",
         )
         .bind(account_id)
         .bind(self.timezone())
+        .bind(TRANSCRIBE_ID)
         .fetch_one(&self.pool)
         .await?;
         let limits = &self.config.realtime;
@@ -233,7 +260,10 @@ impl Gateway {
         self.close_stale_realtime(account).await?;
         let usage = self.realtime_usage(account).await?;
         let limits = &self.config.realtime;
-        if limits.day_sessions > 0 && usage.sessions >= i64::from(limits.day_sessions) {
+        if !request.transcription_only
+            && limits.day_sessions > 0
+            && usage.sessions >= i64::from(limits.day_sessions)
+        {
             return Err(AiError::SessionLimit(format!(
                 "на сегодня живых разговоров уже {} из {} — завтра снова можно, а пока — ElevenLabs или текст",
                 usage.sessions, limits.day_sessions
@@ -251,20 +281,31 @@ impl Gateway {
                 limits.day_secs / 60
             )));
         }
-        let max_seconds = limits.max_session_secs.min(left);
+        let cap = if request.transcription_only {
+            DICTATION_MAX_SECS
+        } else {
+            limits.max_session_secs
+        };
+        let max_seconds = cap.min(left);
 
-        let guarded =
-            guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
-        let instructions = guarded
-            .messages
-            .iter()
-            .map(|m| m.content.as_str())
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let (instructions, signals) = if request.transcription_only {
+            (String::new(), Vec::new())
+        } else {
+            let guarded =
+                guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
+            let text = guarded
+                .messages
+                .iter()
+                .map(|m| m.content.as_str())
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            (text, guarded.signals)
+        };
         let open = Open {
             instructions,
             voice: request.voice.clone(),
             language: request.language.clone(),
+            transcription_only: request.transcription_only,
         };
         // В отпечатке — ID запроса: одинаковые инструкции у разных сеансов — не повтор.
         let fingerprint = self.fingerprint([
@@ -283,7 +324,7 @@ impl Gateway {
                     max_output_units: 0,
                     job_id: None,
                     turn: None,
-                    signals: guarded.signals.clone(),
+                    signals,
                     work: Work::Realtime(&open),
                 },
             )
@@ -412,6 +453,7 @@ impl Gateway {
             voice: open.voice.clone(),
             transcribe: TRANSCRIBE_MODEL.into(),
             language: open.language.clone(),
+            transcription_only: open.transcription_only,
             account_id,
         };
         tokio::time::timeout(self.config.timeout, provider.client_secret(&call))

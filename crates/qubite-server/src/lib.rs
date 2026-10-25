@@ -281,6 +281,8 @@ impl AppState {
         english::english_realtime,
         english::english_realtime_lines,
         english::english_realtime_finish,
+        english::english_dictation,
+        english::english_transcribe,
         english_lessons::english_home,
         english_lessons::english_placement,
         english_lessons::english_place,
@@ -480,6 +482,9 @@ impl AppState {
         english::EnglishRealtimeSaved,
         english::EnglishRealtimeFinish,
         english::EnglishRealtimeFinished,
+        english::EnglishDictationStart,
+        english::EnglishTranscribe,
+        english::EnglishTranscribed,
         english_lessons::EnglishPlace,
         english_lessons::EnglishStart,
         english_lessons::EnglishAnswer,
@@ -787,6 +792,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/realtime/{id}/finish",
             post(english::english_realtime_finish),
+        )
+        .route(
+            "/api/v1/english/dictation",
+            post(english::english_dictation),
+        )
+        .route(
+            "/api/v1/english/transcribe",
+            post(english::english_transcribe).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route(
             "/api/v1/english/session/finish",

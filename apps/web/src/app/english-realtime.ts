@@ -230,7 +230,7 @@ export const TIME_FAILURE: RtFailure = {
 
 // ---------------------------------------------------------------- сервер Qubite
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   const csrf = csrfFromCookie();
   if (csrf) headers[CSRF_HEADER] = csrf;
@@ -260,14 +260,14 @@ export async function startRealtime(): Promise<RealtimeStarted> {
 }
 
 export async function saveLines(id: string, items: Item[]) {
-  return post<components['schemas']['EnglishRealtimeSaved']>(
+  return postJson<components['schemas']['EnglishRealtimeSaved']>(
     `/api/v1/english/realtime/${id}/lines`,
     { lines: items.map((i) => ({ item: i.id, role: i.role, text: i.text })) },
   );
 }
 
 export async function finishRealtime(id: string, seconds: number, end: boolean) {
-  return post<components['schemas']['EnglishRealtimeFinished']>(
+  return postJson<components['schemas']['EnglishRealtimeFinished']>(
     `/api/v1/english/realtime/${id}/finish`,
     { seconds: Math.max(0, Math.round(seconds)), end },
   );

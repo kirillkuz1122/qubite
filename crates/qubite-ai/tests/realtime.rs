@@ -112,6 +112,7 @@ fn request(id: &str) -> RealtimeRequest {
         untrusted: vec![Untrusted::new("lesson", "Present Simple")],
         voice: DEFAULT_VOICE.into(),
         language: None,
+        transcription_only: false,
     }
 }
 
@@ -325,5 +326,44 @@ async fn provider_off_or_text_model_gives_no_session() {
         Err(AiError::SourceNotReady(_))
     ));
     assert!(provider.calls().is_empty());
+    env.finish().await;
+}
+
+#[tokio::test]
+async fn dictation_is_short_and_not_counted_as_a_conversation() {
+    let env = Env::new().await;
+    let me = env.user("me@qubite.ru").await;
+    let provider = Arc::new(MockRealtime::new());
+    let gateway = env.gateway(
+        provider.clone(),
+        RealtimeLimits {
+            max_session_secs: 900,
+            day_sessions: 1,
+            day_secs: 3600,
+        },
+    );
+    let auth = env.auth(me).await;
+    let talk = gateway.realtime_open(&auth, request("talk")).await.unwrap();
+    gateway.realtime_finish(me, talk.call_id, 1).await.unwrap();
+    // Разговоров на сегодня больше нет, а диктовать можно — она не разговор.
+    assert!(matches!(
+        gateway.realtime_open(&auth, request("talk-2")).await,
+        Err(AiError::SessionLimit(_))
+    ));
+    let d = gateway
+        .realtime_open(
+            &auth,
+            RealtimeRequest::dictation("d-1".into(), Some("en".into())),
+        )
+        .await
+        .unwrap();
+    assert_eq!(d.max_seconds, qubite_ai::realtime::DICTATION_MAX_SECS);
+    assert_eq!(d.external_id, "gpt-4o-mini-transcribe");
+    let call = provider.calls().pop().unwrap();
+    assert!(call.transcription_only);
+    assert!(call.instructions.is_empty(), "у диктовки нет инструкций");
+    assert_eq!(call.language.as_deref(), Some("en"));
+    let usage = gateway.realtime_usage(me).await.unwrap();
+    assert_eq!(usage.sessions, 1, "диктовка — не разговор");
     env.finish().await;
 }
