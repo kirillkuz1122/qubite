@@ -3,7 +3,11 @@ import type { Lesson, Level, Run, Step, Task } from './english-lessons';
 import {
   byModule,
   days,
+  explainAsk,
   gaps,
+  matchRight,
+  optionState,
+  pairsOk,
   resumeAt,
   ring,
   runTasks,
@@ -21,6 +25,43 @@ describe('уроки английского: экран', () => {
     expect([...a].sort()).toEqual(["What's", 'my', 'name?', 'you', 'your'].sort());
     expect(tiles(t)).toEqual(a);
     expect(shuffle([1, 2, 3, 4, 5], 'x')).toHaveLength(5);
+  });
+
+  it('«Соедини»: правые слова перемешаны, каждая пара сверяется отдельно', () => {
+    const t = task({
+      type: 'match',
+      pairs: [
+        { en: 'hello', ru: 'привет' },
+        { en: 'bye', ru: 'пока' },
+        { en: 'name', ru: 'имя' },
+      ],
+    });
+    expect([...matchRight(t)].sort()).toEqual(['имя', 'пока', 'привет']);
+    expect(matchRight(t)).toEqual(matchRight(t));
+    expect(
+      pairsOk(t, [
+        ['hello', 'привет'],
+        ['bye', 'имя'],
+      ]),
+    ).toEqual([true, false]);
+  });
+
+  it('вариант: выбран → верно / неверно, верный подсвечен после ошибки', () => {
+    expect(optionState('a', 'a', null)).toBe('picked');
+    expect(optionState('b', 'a', null)).toBeUndefined();
+    expect(optionState('a', 'a', { correct: true, right: null })).toBe('ok');
+    expect(optionState('a', 'a', { correct: false, right: 'b' })).toBe('bad');
+    expect(optionState('b', 'a', { correct: false, right: 'b' })).toBe('ok');
+    expect(optionState('c', 'a', { correct: false, right: 'b' })).toBeUndefined();
+  });
+
+  it('«объясни» — вопрос Нейту с заданием и правильным ответом', () => {
+    const q = explainAsk(task({ ask_ru: 'Выбери.', question: 'Я Кирилл.' }), {
+      correct: false,
+      right: "I'm Kirill.",
+    });
+    expect(q).toContain('Я Кирилл.');
+    expect(q).toContain("Правильно: I'm Kirill.");
   });
 
   it('пропуски и кольцо дня', () => {

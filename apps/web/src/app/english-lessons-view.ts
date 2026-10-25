@@ -108,3 +108,50 @@ export function byModule(steps: Step[], level: string): { title: string; steps: 
 }
 
 export const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+
+/** Пара «Соедини»: английское и перевод. */
+export type Pair = [string, string];
+
+/** Сколько цветов у пар «Соедини»: дальше цвета повторяются, номер — нет. */
+export const PAIR_TONES = 4;
+
+/** Правые слова «Соедини» — перемешаны стабильно, не по алфавиту (иначе порядок подсказывает). */
+export function matchRight(task: Task): string[] {
+  return shuffle(
+    (task.pairs ?? []).map((p) => p.ru),
+    `${task.id}:ru`,
+  );
+}
+
+/** Верна ли каждая соединённая пара (по парам задания). */
+export function pairsOk(task: Task, made: readonly Pair[]): boolean[] {
+  const right = task.pairs ?? [];
+  return made.map(([en, ru]) => right.some((p) => p.en === en && p.ru === ru));
+}
+
+/**
+ * Состояние варианта после ответа: выбранный неверный — `bad`, верный — `ok`,
+ * пока ответа нет — выбранный `picked`.
+ */
+export function optionState(
+  option: string,
+  picked: string | null,
+  verdict: { correct: boolean; right: string | null } | null,
+): 'ok' | 'bad' | 'picked' | undefined {
+  if (!verdict) return option === picked ? 'picked' : undefined;
+  if (option === picked) return verdict.correct ? 'ok' : 'bad';
+  if (!verdict.correct && verdict.right !== null && option === verdict.right) return 'ok';
+  return undefined;
+}
+
+/** Вопрос Нейту «объясни задание»: что спросили, что ответил, как правильно. */
+export function explainAsk(
+  task: Task,
+  answer: { correct: boolean; right: string | null } | null,
+): string {
+  const what = [task.ask_ru, task.question, task.text, task.from_ru, task.say]
+    .filter(Boolean)
+    .join(' ');
+  const right = answer && !answer.correct && answer.right ? ` Правильно: ${answer.right}.` : '';
+  return `Объясни это задание простыми словами по-русски: ${what}.${right}`.slice(0, 1000);
+}

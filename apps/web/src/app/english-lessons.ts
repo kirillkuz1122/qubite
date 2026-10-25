@@ -359,6 +359,24 @@ export async function askNate(lesson: string, text: string): Promise<string> {
   return r.say;
 }
 
+/** Отметка у задания (ENG-006): слишком легко / трудно / ошибка в задании. */
+export type Mark = 'easy' | 'hard' | 'broken';
+
+export async function markTask(
+  run: string,
+  task: string,
+  kind: Mark,
+  lesson: string | null,
+  note?: string,
+): Promise<{ action: string; summary_ru: string }> {
+  return (await must(
+    api.POST('/api/v1/english/runs/{id}/feedback', {
+      params: { path: { id: run } },
+      body: { task_id: task, lesson_id: lesson, kind, note: note || null },
+    }),
+  )) as unknown as { action: string; summary_ru: string };
+}
+
 export function useAdapt() {
   const qc = useQueryClient();
   return useMutation({

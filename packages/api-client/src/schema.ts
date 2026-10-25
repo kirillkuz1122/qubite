@@ -1837,6 +1837,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/runs/{id}/feedback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_feedback'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/runs/{id}/finish': {
     parameters: {
       query?: never;
@@ -3366,6 +3382,16 @@ export interface components {
        */
       sessions_today: number;
       voice: string;
+    };
+    /** @description Отметка у задания: слишком легко, слишком трудно, ошибка в задании. */
+    EnglishFeedback: {
+      /** @description `easy`, `hard` или `broken`. */
+      kind: string;
+      /** @description Урок задания — только у повторения (там задания из разных уроков). */
+      lesson_id?: string | null;
+      /** @description Что не так — своими словами (до 500 знаков). */
+      note?: string | null;
+      task_id: string;
     };
     /** @description Законченный разговор (`null` — нечего было заканчивать). */
     EnglishFinished: {
@@ -9396,6 +9422,42 @@ export interface operations {
       };
       /** @description Отказ AI-шлюза (голос) */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_feedback: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Прохождение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishFeedback'];
+      };
+    };
+    responses: {
+      /** @description {"action", "summary_ru"} — строка ленты агента */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого прохождения или задания */
+      404: {
         headers: {
           [name: string]: unknown;
         };

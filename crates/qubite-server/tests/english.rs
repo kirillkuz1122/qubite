@@ -484,6 +484,25 @@ async fn english_lesson_over_http() {
     assert_eq!(finished.status, 200, "{:?}", finished.body);
     assert_eq!(finished.body["passed"], false, "одно задание из десяти");
 
+    // Отметка у задания (ENG-006): «ошибка в задании» — строка ленты.
+    let mark = me
+        .post_json(
+            address,
+            &format!("/api/v1/english/runs/{run}/feedback"),
+            json!({"task_id": "t3", "kind": "broken", "note": "два верных ответа"}),
+        )
+        .await;
+    assert_eq!(mark.status, 200, "{:?}", mark.body);
+    assert!(mark.body["action"].is_string());
+    let odd = me
+        .post_json(
+            address,
+            &format!("/api/v1/english/runs/{run}/feedback"),
+            json!({"task_id": "t3", "kind": "boring"}),
+        )
+        .await;
+    assert_eq!(odd.status, 422, "{:?}", odd.body);
+
     let settings = me
         .patch_json(
             address,

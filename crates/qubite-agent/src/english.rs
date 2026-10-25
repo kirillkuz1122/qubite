@@ -38,6 +38,7 @@ pub const OPS: &[&str] = &[
     "remove_tasks",
     "set_pass",
     "note",
+    "feedback",
 ];
 
 fn bad(message: impl Into<String>) -> FieldsError {

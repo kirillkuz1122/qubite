@@ -292,6 +292,7 @@ impl AppState {
         english_lessons::english_run_finish,
         english_lessons::english_ask,
         english_lessons::english_adapt,
+        english_lessons::english_feedback,
         english_lessons::english_settings,
         english_lessons::english_change_settings,
         english_lessons::english_phrase,
@@ -489,6 +490,7 @@ impl AppState {
         english_lessons::EnglishStart,
         english_lessons::EnglishAnswer,
         english_lessons::EnglishAsk,
+        english_lessons::EnglishFeedback,
         english_lessons::EnglishSettingsChange,
         english_lessons::EnglishPhrase,
         projects::ProjectHead,
@@ -839,6 +841,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/runs/{id}/finish",
             post(english_lessons::english_run_finish),
+        )
+        .route(
+            "/api/v1/english/runs/{id}/feedback",
+            post(english_lessons::english_feedback),
         )
         .route(
             "/api/v1/english/program/adapt",

@@ -5604,6 +5604,56 @@
         }
       }
     },
+    "/api/v1/english/runs/{id}/feedback": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_feedback",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Прохождение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishFeedback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "{\"action\", \"summary_ru\"} — строка ленты агента",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого прохождения или задания",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/runs/{id}/finish": {
       "post": {
         "tags": ["english"],
@@ -9494,6 +9544,29 @@
             "type": "string"
           }
         }
+      },
+      "EnglishFeedback": {
+        "type": "object",
+        "description": "Отметка у задания: слишком легко, слишком трудно, ошибка в задании.",
+        "required": ["task_id", "kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`easy`, `hard` или `broken`."
+          },
+          "lesson_id": {
+            "type": ["string", "null"],
+            "description": "Урок задания — только у повторения (там задания из разных уроков)."
+          },
+          "note": {
+            "type": ["string", "null"],
+            "description": "Что не так — своими словами (до 500 знаков)."
+          },
+          "task_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "EnglishFinished": {
         "type": "object",

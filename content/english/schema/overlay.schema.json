@@ -68,7 +68,8 @@
             "add_tasks",
             "remove_tasks",
             "set_pass",
-            "note"
+            "note",
+            "feedback"
           ]
         }
       },
@@ -219,6 +220,22 @@
             "properties": {
               "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
               "note_ru": { "$ref": "common.schema.json#/$defs/text" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "feedback" } } },
+          "then": {
+            "description": "Отметка ученика у задания (ENG-006): слишком легко, слишком трудно, ошибка в задании. Программу не меняет — её читает агент, когда правит программу",
+            "$ref": "#/$defs/opBase",
+            "required": ["lesson", "task", "kind"],
+            "unevaluatedProperties": false,
+            "properties": {
+              "lesson": { "$ref": "common.schema.json#/$defs/anyLessonId" },
+              "task": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "run": { "description": "Прохождение, где отметили", "type": "string" },
+              "kind": { "enum": ["easy", "hard", "broken"] },
+              "note_ru": { "type": "string", "maxLength": 500 }
             }
           }
         }

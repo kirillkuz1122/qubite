@@ -1776,6 +1776,7 @@ button.proj {
 /* Уроки английского (ENG-002): карточки, кольцо дня, огонёк, путь, задания. */
 .eng-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
   padding: 14px 16px;
@@ -1966,10 +1967,178 @@ h4.eng-h {
   flex-wrap: wrap;
   gap: 8px;
 }
+.eng-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.eng-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.eng-task-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.eng-task-head .eng-kind {
+  margin: 0;
+}
+/* «Что-то не так?» — тихая ссылка-действие, но с зоной нажатия 44 px */
+.q-btn.eng-mark {
+  min-height: 44px;
+  border-color: transparent;
+  color: var(--q-mute);
+}
+.q-btn.eng-mark:hover {
+  color: var(--q-ink);
+}
+.eng-marks {
+  display: grid;
+  gap: 8px;
+}
+.eng-marks > p {
+  margin: 0;
+}
+.eng-opt-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.eng-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 4px;
+}
+.eng-progress span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--q-faint);
+  transition: background-color 0.2s;
+}
+.eng-progress span[data-on] {
+  background: var(--q-green);
+}
+.eng-progress span[data-now] {
+  background: var(--q-orange);
+}
+/* Варианты ответа (ENG-006): крупные, текст переносится, состояние видно цветом и рамкой */
+.q-btn.eng-opt {
+  height: auto;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-width: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+  justify-content: flex-start;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.q-btn.eng-tile {
+  min-height: 44px;
+}
+.eng-choices {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.q-btn.eng-opt[aria-disabled='true'] {
+  cursor: default;
+}
+.q-btn.eng-opt[data-state='picked'] {
+  border-color: var(--q-ink);
+  background: var(--q-ink);
+  color: var(--q-bg);
+}
+.q-btn.eng-opt[data-state='ok'] {
+  border-color: var(--q-green);
+  background: var(--q-panel-2);
+  color: var(--q-ink);
+}
+.q-btn.eng-opt[data-state='bad'] {
+  border-color: var(--q-orange);
+  border-style: dashed;
+  color: var(--q-mute);
+}
+.q-btn.eng-opt[data-state='bad'] > span:last-child {
+  text-decoration: line-through;
+}
 .eng-match {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
+}
+/* пара «Соедини»: номер в кружке и рамка своего цвета — с обеих сторон */
+.q-btn.eng-pair {
+  gap: 8px;
+  width: 100%;
+}
+.eng-pair-n {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px dashed var(--q-line-2);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+.q-btn.eng-pair[data-pair='1'] {
+  --eng-tone: var(--q-sky);
+}
+.q-btn.eng-pair[data-pair='2'] {
+  --eng-tone: var(--q-yellow);
+}
+.q-btn.eng-pair[data-pair='3'] {
+  --eng-tone: var(--q-peach);
+}
+.q-btn.eng-pair[data-pair='4'] {
+  --eng-tone: var(--q-mute);
+}
+.q-btn.eng-pair[data-pair] {
+  border-color: var(--eng-tone);
+}
+.q-btn.eng-pair[data-pair] .eng-pair-n {
+  border: 0;
+  background: var(--eng-tone);
+  color: var(--q-on-accent);
+}
+.q-btn.eng-pair[data-pair='4'] .eng-pair-n {
+  color: var(--q-bg);
+}
+.q-btn.eng-pair[data-state='picked'] .eng-pair-n {
+  border-color: var(--q-bg);
+}
+.q-btn.eng-pair[data-state='ok'] {
+  border-color: var(--q-green);
+}
+.q-btn.eng-pair[data-state='bad'] {
+  border-color: var(--q-orange);
+}
+.q-btn.eng-pair[data-state='picked'] {
+  border-color: var(--q-ink);
+}
+/* недоступная кнопка видна как недоступная (у Button своего вида нет) */
+.eng .q-btn:disabled,
+.eng-marks .q-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.q-btn.eng-pair[data-state='ok'] .eng-pair-n {
+  background: var(--q-green);
+}
+.q-btn.eng-pair[data-state='bad'] .eng-pair-n {
+  background: var(--q-orange);
 }
 .eng-match > div {
   display: grid;
@@ -1985,6 +2154,12 @@ h4.eng-h {
 .eng-gap {
   color: var(--q-orange);
   font-weight: 600;
+}
+.eng-gap[data-state='ok'] {
+  color: var(--q-green);
+}
+.eng-gap[data-state='bad'] {
+  text-decoration: line-through;
 }
 .eng-picture {
   display: grid;

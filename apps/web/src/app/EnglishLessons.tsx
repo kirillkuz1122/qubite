@@ -12,6 +12,7 @@ import {
   Note,
   Presence,
   Segmented,
+  Sheet,
   Swap,
   Switch,
   useMedia,
@@ -35,6 +36,7 @@ import {
   useChangeSettings,
   useEnglishHome,
   useEnglishSettings,
+  markTask,
   useLesson,
   usePlace,
   usePlacementTest,
@@ -43,6 +45,7 @@ import {
   type Finished,
   type Game,
   type Home,
+  type Mark,
   type Reply,
   type Run,
   type SettingsBody,
@@ -51,9 +54,15 @@ import {
 import {
   byModule,
   days,
+  explainAsk,
   gaps,
   kindLabel,
+  matchRight,
+  optionState,
+  PAIR_TONES,
+  pairsOk,
   resumeAt,
+  type Pair,
   ring,
   runTasks,
   spoken,
@@ -336,7 +345,7 @@ function LessonsHome({ onOpen }: { onOpen: (lesson: string, kind: Run['kind']) =
   const level = home.levels.find((l) => l.id === home.learner.level);
   const homework = home.steps.filter((s) => s.homework);
   return (
-    <>
+    <div className="eng-stack">
       <Today home={home} />
       <section className="eng-card eng-next" aria-label="Следующий урок">
         {next ? (
@@ -381,12 +390,15 @@ function LessonsHome({ onOpen }: { onOpen: (lesson: string, kind: Run['kind']) =
       )}
       <Quests game={home.game} />
       <Path home={home} onOpen={onOpen} />
-    </>
+    </div>
   );
 }
 
 function Path({ home, onOpen }: { home: Home; onOpen: (l: string, k: Run['kind']) => void }) {
   const [level, setLevel] = useState(home.learner.level);
+  // отметки ученика у заданий — не правки Нейта, их показываем отдельно (ENG-006)
+  const ops = home.ops.filter((o) => o.op !== 'feedback');
+  const marks = home.ops.length - ops.length;
   return (
     <section className="eng-card" aria-label="Программа">
       <h3 className="eng-h">Программа</h3>
@@ -426,13 +438,18 @@ function Path({ home, onOpen }: { home: Home; onOpen: (l: string, k: Run['kind']
           </ol>
         </div>
       ))}
-      {home.ops.length > 0 && (
+      {marks > 0 && (
+        <p className="eng-hint">
+          Твоих отметок у заданий: {marks}. Нейт учтёт их, когда подстроит программу.
+        </p>
+      )}
+      {ops.length > 0 && (
         <div className="eng-ops">
           <p className="eng-hint">
             Нейт подстроил программу под тебя (откатить — в «Ленте» агента):
           </p>
           <ul>
-            {home.ops.map((o) => (
+            {ops.map((o) => (
               <li key={o.id}>
                 {o.summary}
                 {o.state !== 'applied' && <em> · {o.state === 'stale' ? 'устарела' : 'ждёт'}</em>}
@@ -466,12 +483,29 @@ function LessonPlayer({
   const [run, setRun] = useState<Run | null>(null);
   const [at, setAt] = useState(0);
   const [result, setResult] = useState<Answered | null>(null);
+  // «Ещё раз» — задание заново (новый ключ), у «Соедини» верные пары остаются
+  const [attempt, setAttempt] = useState(0);
+  const [keep, setKeep] = useState<Pair[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
   const [done, setDone] = useState<Finished | null>(null);
   const [toast, setToast] = useState<Delta | null>(null);
   const lesson = view.data?.lesson ?? null;
   const list = useMemo(() => (run ? runTasks(lesson, run) : []), [lesson, run]);
+  const stage = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLElement>(null);
+  // Задание — сразу перед глазами (на телефоне шапка «Агента» занимает полэкрана)…
+  useEffect(() => {
+    if (phase === 'theory') return;
+    const el = stage.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top < 0 || top > globalThis.innerHeight * 0.25) el.scrollIntoView({ block: 'start' });
+  }, [phase, at]);
+  // …и после ответа видно, верно ли, и кнопку «Дальше».
+  useEffect(() => {
+    if (result) card.current?.querySelector('.eng-next-row')?.scrollIntoView({ block: 'nearest' });
+  }, [result]);
 
   const begin = async () => {
     setErr(null);
@@ -493,6 +527,11 @@ function LessonPlayer({
     nate.current?.setMood('think');
     try {
       const a = await sendAnswer(run.id, item.task.id, r, item.lesson);
+      if (item.task.type === 'match' && 'value' in r) {
+        const made = r.value as Pair[];
+        const ok = pairsOk(item.task, made);
+        setKeep(made.filter((_, i) => ok[i]));
+      }
       setResult(a);
       setToast(a.game);
       nate.current?.setMood(a.correct ? 'happy' : 'angry');
@@ -507,6 +546,7 @@ function LessonPlayer({
 
   const next = async () => {
     setResult(null);
+    setKeep([]);
     nate.current?.setMood('idle');
     if (at + 1 < list.length) {
       setAt(at + 1);
@@ -537,7 +577,7 @@ function LessonPlayer({
 
   return (
     <div className="eng-lesson">
-      <div className="eng-stage">
+      <div className="eng-stage" ref={stage}>
         <Companion ref={nate} kind="neit" pitch={wide ? 6 : 5} label="Нейт — репетитор" />
         <div className="eng-who">
           <b>{title}</b>
@@ -546,6 +586,13 @@ function LessonPlayer({
             {phase === 'tasks' && item && `Задание ${at + 1} из ${list.length}`}
             {phase === 'result' && 'Итог'}
           </span>
+          {phase === 'tasks' && list.length > 0 && (
+            <Progress
+              total={list.length}
+              done={at + (result?.correct ? 1 : 0)}
+              now={result ? null : at}
+            />
+          )}
         </div>
         <Button size="sm" dot={false} onClick={onClose} className="eng-close">
           Выйти
@@ -567,25 +614,45 @@ function LessonPlayer({
       {phase === 'theory' && view.data && <Theory view={view.data} onGo={() => void begin()} />}
 
       {phase === 'tasks' && item && (
-        <section className="eng-card eng-task" aria-label="Задание">
-          <p className="eng-kind">{kindLabel(item.task)}</p>
+        <section className="eng-card eng-task" aria-label="Задание" ref={card}>
+          <div className="eng-task-head">
+            <p className="eng-kind">{kindLabel(item.task)}</p>
+            {run && (
+              <TaskFeedback
+                key={`${item.lesson ?? ''}:${item.task.id}`}
+                run={run.id}
+                lesson={item.lesson ?? id}
+                taskLesson={item.lesson}
+                task={item.task}
+                result={result}
+              />
+            )}
+          </div>
           <TaskBody
-            key={`${item.lesson ?? ''}:${item.task.id}`}
+            key={`${item.lesson ?? ''}:${item.task.id}:${attempt}`}
             task={item.task}
             busy={busy}
             result={result}
             canMic={canRecord()}
+            keep={keep}
             onReply={(r) => void reply(r)}
           />
           {result && <Verdict a={result} />}
           {result && (
-            <div className="eng-row">
+            <div className="eng-row eng-next-row">
               {!result.correct && (
-                <Button size="sm" onClick={() => setResult(null)}>
+                <Button
+                  onClick={() => {
+                    setResult(null);
+                    setAttempt(attempt + 1);
+                    nate.current?.setMood('idle');
+                  }}
+                >
                   Ещё раз
                 </Button>
               )}
-              <Button variant="fill" onClick={() => void next()} disabled={busy}>
+              {/* фокус сразу на «Дальше»: Enter — следующее задание */}
+              <Button variant="fill" autoFocus onClick={() => void next()} disabled={busy}>
                 {at + 1 < list.length ? 'Дальше' : 'Закончить'}
               </Button>
             </div>
@@ -596,7 +663,19 @@ function LessonPlayer({
         <p className="later">Повторять пока нечего — ошибок на сегодня нет.</p>
       )}
 
-      {phase === 'result' && done && <Result f={done} kind={kind} onClose={onClose} />}
+      {phase === 'result' && done && (
+        <Result
+          f={done}
+          kind={kind}
+          onClose={onClose}
+          onAgain={() => {
+            setDone(null);
+            setRun(null);
+            setAt(0);
+            void begin();
+          }}
+        />
+      )}
 
       <Presence show={!!toast && (toast.xp > 0 || toast.unlocked.length > 0)}>
         {toast && <Gain d={toast} />}
@@ -718,6 +797,156 @@ function Ask({ lesson }: { lesson: string }) {
   );
 }
 
+/** Полоска хода урока точками: пройдено, текущее, впереди. */
+function Progress({ total, done, now }: { total: number; done: number; now: number | null }) {
+  return (
+    <div
+      className="eng-progress"
+      role="progressbar"
+      aria-label="Ход урока"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={done}
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} data-on={i < done ? '' : undefined} data-now={i === now ? '' : undefined} />
+      ))}
+    </div>
+  );
+}
+
+const MARKS: { kind: Mark; label: string; about: string }[] = [
+  { kind: 'easy', label: 'Слишком легко', about: 'Нейт ускорит: пропустит знакомое' },
+  { kind: 'hard', label: 'Слишком трудно', about: 'вернётся завтра, Нейт сбавит темп' },
+  { kind: 'broken', label: 'Ошибка в задании', about: 'запишем, чтобы исправить' },
+];
+
+/**
+ * «Что-то не так?» у задания (ENG-006): слишком легко / трудно → отметка, по ней Нейт после
+ * урока подстраивает темп программы; ошибка в задании → запись для исправления (задание не
+ * мучает в повторении); «Объясни» → Нейт объясняет это задание по-русски. Отметки — в «Ленте»
+ * агента, любую можно откатить.
+ */
+function TaskFeedback({
+  run,
+  lesson,
+  taskLesson,
+  task,
+  result,
+}: {
+  run: string;
+  lesson: string;
+  taskLesson: string | null;
+  task: Task;
+  result: Answered | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<{ kind: Mark | 'explain'; text: string } | null>(null);
+  // отметка остаётся видна на кнопке и после «Объясни»
+  const [marked, setMarked] = useState<(typeof MARKS)[number] | null>(null);
+  const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
+  const fail = (e: unknown) => setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
+  const mark = async (kind: Mark) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await markTask(run, task.id, kind, taskLesson, kind === 'broken' ? note : '');
+      setDone({ kind, text: r.summary_ru });
+      setMarked(MARKS.find((m) => m.kind === kind) ?? null);
+      setBroken(false);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const explain = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      setDone({ kind: 'explain', text: await askNate(lesson, explainAsk(task, result)) });
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button size="sm" dot={false} className="eng-mark" onClick={() => setOpen(true)}>
+        {marked ? `Отмечено: ${marked.label.toLowerCase()}` : 'Что-то не так?'}
+      </Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Что с заданием?">
+        <div className="eng-marks">
+          <p className="eng-hint">
+            Нейт подстроит программу под тебя. Отметки видны в «Ленте» агента — любую можно
+            откатить.
+          </p>
+          {MARKS.map((m) => (
+            <Button
+              key={m.kind}
+              dot={false}
+              className="eng-opt"
+              data-state={marked?.kind === m.kind ? 'picked' : undefined}
+              disabled={busy || marked?.kind === m.kind}
+              onClick={() => (m.kind === 'broken' ? setBroken(true) : void mark(m.kind))}
+            >
+              <span className="eng-opt-text">
+                <b>{m.label}</b>
+                <span className="eng-hint">{m.about}</span>
+              </span>
+            </Button>
+          ))}
+          <Presence show={broken}>
+            <form
+              className="talk-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void mark('broken');
+              }}
+            >
+              <Field
+                label="Что не так? (можно пропустить)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Подходят два ответа"
+                maxLength={500}
+              />
+              <Button size="sm" type="submit" disabled={busy}>
+                Отправить
+              </Button>
+            </form>
+          </Presence>
+          <Button
+            dot={false}
+            className="eng-opt"
+            data-state={done?.kind === 'explain' ? 'picked' : undefined}
+            disabled={busy}
+            onClick={() => void explain()}
+          >
+            <span className="eng-opt-text">
+              <b>Объясни</b>
+              <span className="eng-hint">Нейт объяснит это задание по-русски</span>
+            </span>
+          </Button>
+          {busy && <p className="eng-hint">Нейт думает…</p>}
+          {done && (
+            <Note tone="ok">{done.kind === 'explain' ? <>Нейт: {done.text}</> : done.text}</Note>
+          )}
+          {err && (
+            <p className="act-error" role="alert">
+              {err.text} <LimitLink code={err.code} />
+            </p>
+          )}
+        </div>
+      </Sheet>
+    </>
+  );
+}
+
 function Verdict({ a }: { a: Answered }) {
   return (
     <div className="eng-verdict" data-ok={a.correct ? '' : undefined} role="status">
@@ -768,7 +997,17 @@ function Gain({ d }: { d: Delta }) {
   );
 }
 
-function Result({ f, kind, onClose }: { f: Finished; kind: Run['kind']; onClose: () => void }) {
+function Result({
+  f,
+  kind,
+  onClose,
+  onAgain,
+}: {
+  f: Finished;
+  kind: Run['kind'];
+  onClose: () => void;
+  onAgain: () => void;
+}) {
   return (
     <section className="eng-card eng-result" aria-label="Итог">
       <h3 className="eng-h">
@@ -776,8 +1015,12 @@ function Result({ f, kind, onClose }: { f: Finished; kind: Run['kind']; onClose:
       </h3>
       {kind !== 'review' && (
         <p>
-          Верно {Math.round(f.accuracy * 100)}% (нужно {Math.round(f.need_accuracy * 100)}%), вслух{' '}
-          {f.spoken} из {f.need_speak}
+          Верно {Math.round(f.accuracy * 100)}% (нужно {Math.round(f.need_accuracy * 100)}%)
+          {f.need_speak > 0 && (
+            <>
+              , вслух {f.spoken} (нужно {f.need_speak})
+            </>
+          )}
           {f.missing.length > 0 && <> · не сделано обязательное: {f.missing.join(', ')}</>}
         </p>
       )}
@@ -793,9 +1036,16 @@ function Result({ f, kind, onClose }: { f: Finished; kind: Run['kind']; onClose:
       {f.homework_task && kind === 'lesson' && (
         <Note tone="ok">Домашка — уже в Planner, срок завтра.</Note>
       )}
-      <Button variant="fill" onClick={onClose}>
-        К урокам
-      </Button>
+      <div className="eng-row">
+        {kind !== 'review' && !f.passed && (
+          <Button variant="fill" onClick={onAgain}>
+            Пройти ещё раз
+          </Button>
+        )}
+        <Button variant={kind === 'review' || f.passed ? 'fill' : 'outline'} onClick={onClose}>
+          К урокам
+        </Button>
+      </div>
     </section>
   );
 }
@@ -807,12 +1057,15 @@ function TaskBody({
   busy,
   result,
   canMic,
+  keep = [],
   onReply,
 }: {
   task: Task;
   busy: boolean;
   result: Answered | null;
   canMic: boolean;
+  /** «Соедини» после «Ещё раз»: верные пары остаются. */
+  keep?: Pair[];
   onReply: (r: Reply) => void;
 }) {
   const locked = busy || !!result;
@@ -820,16 +1073,16 @@ function TaskBody({
   switch (task.type) {
     case 'choose':
     case 'listen':
-      body = <Choose task={task} locked={locked} answered={!!result} onReply={onReply} />;
+      body = <Choose task={task} locked={locked} result={result} onReply={onReply} />;
       break;
     case 'match':
-      body = <Match task={task} locked={locked} onReply={onReply} />;
+      body = <Match task={task} locked={locked} result={result} keep={keep} onReply={onReply} />;
       break;
     case 'build':
       body = <Build task={task} locked={locked} onReply={onReply} />;
       break;
     case 'fill':
-      body = <Fill task={task} locked={locked} onReply={onReply} />;
+      body = <Fill task={task} locked={locked} result={result} onReply={onReply} />;
       break;
     case 'translate':
       body = (
@@ -853,18 +1106,21 @@ function TaskBody({
   );
 }
 
+const STATE_WORD = { ok: ' — верно', bad: ' — неверно', picked: ' — выбрано' } as const;
+
 function Choose({
   task,
   locked,
-  answered,
+  result,
   onReply,
 }: {
   task: Task;
   locked: boolean;
-  answered: boolean;
+  result: Answered | null;
   onReply: (r: Reply) => void;
 }) {
   const [typed, setTyped] = useState('');
+  const [picked, setPicked] = useState<string | null>(null);
   const listen = task.type === 'listen';
   return (
     <>
@@ -872,7 +1128,7 @@ function Choose({
         <div className="eng-row">
           <Speak text={task.audio} label="Послушать" />
           {/* текст речи спрятан до ответа (D-491) */}
-          {answered && task.show_text !== false && (
+          {result && task.show_text !== false && (
             <span className="eng-hint" lang="en">
               «{task.audio}»
             </span>
@@ -885,12 +1141,29 @@ function Choose({
         </p>
       )}
       {task.options ? (
-        <div className="eng-options" role="group" aria-label="Варианты">
-          {task.options.map((o) => (
-            <Button key={o} dot={false} disabled={locked} onClick={() => onReply({ value: o })}>
-              <span lang="en">{o}</span>
-            </Button>
-          ))}
+        <div className="eng-options eng-choices" role="group" aria-label="Варианты">
+          {task.options.map((o) => {
+            const state = optionState(o, picked, result);
+            return (
+              <Button
+                key={o}
+                dot={false}
+                className="eng-opt"
+                data-state={state}
+                disabled={locked && !state}
+                aria-disabled={locked || undefined}
+                aria-pressed={o === picked}
+                onClick={() => {
+                  if (locked) return;
+                  setPicked(o);
+                  onReply({ value: o });
+                }}
+              >
+                <span lang="en">{o}</span>
+                {state && <span className="q-sr">{STATE_WORD[state]}</span>}
+              </Button>
+            );
+          })}
         </div>
       ) : (
         <form
@@ -910,63 +1183,109 @@ function Choose({
   );
 }
 
+/**
+ * «Соедини» (ENG-006): нажал слово — оно подсвечено; нажал перевод (или наоборот) — пара
+ * соединена, у неё свой номер и цвет с обеих сторон. Нажал на соединённое — пара разъединена.
+ * Все соединены — «Проверить»; после проверки у каждой пары видно, верна ли она.
+ */
 function Match({
   task,
   locked,
+  result,
+  keep,
   onReply,
 }: {
   task: Task;
   locked: boolean;
+  result: Answered | null;
+  keep: Pair[];
   onReply: (r: Reply) => void;
 }) {
   const pairs = useMemo(() => task.pairs ?? [], [task.pairs]);
   const left = pairs.map((p) => p.en);
-  const right = useMemo(() => [...pairs.map((p) => p.ru)].sort(), [pairs]);
-  const [pick, setPick] = useState<string | null>(null);
-  const [made, setMade] = useState<[string, string][]>([]);
-  const used = (side: 0 | 1, w: string) => made.some((m) => m[side] === w);
-  const choose = (ru: string) => {
-    if (!pick) return;
-    const next: [string, string][] = [...made, [pick, ru]];
-    setMade(next);
+  const right = useMemo(() => matchRight(task), [task]);
+  const [pick, setPick] = useState<{ side: 0 | 1; w: string } | null>(null);
+  const [made, setMade] = useState<Pair[]>(keep);
+  const ok = result ? pairsOk(task, made) : null;
+  const tap = (side: 0 | 1, w: string) => {
+    if (locked) return;
+    const at = made.findIndex((m) => m[side] === w);
+    if (at >= 0) {
+      // соединённое — разъединить, и слово снова выбрано
+      setMade(made.filter((_, i) => i !== at));
+      setPick({ side, w });
+      return;
+    }
+    if (!pick || pick.side === side) {
+      setPick(pick?.w === w && pick.side === side ? null : { side, w });
+      return;
+    }
+    const pair: Pair = side === 1 ? [pick.w, w] : [w, pick.w];
+    setMade([...made, pair]);
     setPick(null);
-    if (next.length === pairs.length) onReply({ value: next });
   };
+  const tile = (side: 0 | 1, w: string) => {
+    const at = made.findIndex((m) => m[side] === w);
+    const picked = pick?.side === side && pick.w === w;
+    const state = at >= 0 && ok ? (ok[at] ? 'ok' : 'bad') : picked ? 'picked' : undefined;
+    const name = at >= 0 ? `пара ${at + 1}${state ? STATE_WORD[state] : ''}` : undefined;
+    return (
+      <Button
+        key={w}
+        dot={false}
+        className="eng-opt eng-pair"
+        data-pair={at >= 0 ? (at % PAIR_TONES) + 1 : undefined}
+        data-state={state}
+        aria-pressed={picked}
+        aria-disabled={locked || undefined}
+        aria-label={name ? `${w}, ${name}` : w}
+        onClick={() => tap(side, w)}
+      >
+        <span className="eng-pair-n" aria-hidden="true">
+          {at >= 0 ? at + 1 : ''}
+        </span>
+        <span lang={side === 0 ? 'en' : 'ru'}>{w}</span>
+      </Button>
+    );
+  };
+  const full = made.length === pairs.length && pairs.length > 0;
   return (
-    <div className="eng-match">
-      <div role="group" aria-label="Английские слова">
-        {left.map((w) => (
-          <Button
-            key={w}
-            dot={false}
-            size="sm"
-            disabled={locked || used(0, w)}
-            aria-pressed={pick === w}
-            onClick={() => setPick(w)}
-          >
-            <span lang="en">{w}</span>
-          </Button>
-        ))}
+    <>
+      <p className="eng-hint" aria-live="polite">
+        {result
+          ? `Верных пар: ${ok?.filter(Boolean).length ?? 0} из ${pairs.length}`
+          : pick
+            ? `Выбрано «${pick.w}» — теперь нажми ${pick.side === 0 ? 'перевод' : 'английское слово'}`
+            : `Соединено ${made.length} из ${pairs.length}. Нажми на пару, чтобы разъединить.`}
+      </p>
+      <div className="eng-match">
+        <div role="group" aria-label="Английские слова">
+          {left.map((w) => tile(0, w))}
+        </div>
+        <div role="group" aria-label="Перевод">
+          {right.map((w) => tile(1, w))}
+        </div>
       </div>
-      <div role="group" aria-label="Перевод">
-        {right.map((w) => (
-          <Button
-            key={w}
-            dot={false}
-            size="sm"
-            disabled={locked || used(1, w) || !pick}
-            onClick={() => choose(w)}
-          >
-            {w}
+      {!locked && (
+        <div className="eng-row">
+          {made.length > 0 && (
+            <Button
+              size="sm"
+              dot={false}
+              onClick={() => {
+                setMade([]);
+                setPick(null);
+              }}
+            >
+              Сначала
+            </Button>
+          )}
+          <Button variant="fill" disabled={!full} onClick={() => onReply({ value: made })}>
+            Проверить
           </Button>
-        ))}
-      </div>
-      {made.length > 0 && !locked && (
-        <Button size="sm" dot={false} onClick={() => setMade([])}>
-          Сначала
-        </Button>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -991,8 +1310,8 @@ function Build({
         {all.map((w, i) => (
           <Button
             key={`${w}-${i}`}
-            size="sm"
             dot={false}
+            className="eng-opt eng-tile"
             disabled={locked || used.includes(i)}
             onClick={() => setUsed([...used, i])}
           >
@@ -1024,10 +1343,12 @@ function Build({
 function Fill({
   task,
   locked,
+  result,
   onReply,
 }: {
   task: Task;
   locked: boolean;
+  result: Answered | null;
   onReply: (r: Reply) => void;
 }) {
   const parts = gaps(task.text ?? '');
@@ -1040,7 +1361,14 @@ function Fill({
         {parts.map((p, i) => (
           <span key={i}>
             {p}
-            {i < n && <span className="eng-gap">{vals[i] || '___'}</span>}
+            {i < n && (
+              <span
+                className="eng-gap"
+                data-state={result ? (result.correct ? 'ok' : 'bad') : undefined}
+              >
+                {vals[i] || '___'}
+              </span>
+            )}
           </span>
         ))}
       </p>
@@ -1050,8 +1378,9 @@ function Fill({
           {task.options.map((o) => (
             <Button
               key={o}
-              size="sm"
               dot={false}
+              className="eng-opt eng-tile"
+              data-state={vals.includes(o) ? 'picked' : undefined}
               disabled={locked}
               onClick={() => {
                 const next = [...vals];
@@ -1210,7 +1539,7 @@ function GameView() {
   if (!home) return <p className="later">Загружаю…</p>;
   const g = home.game;
   return (
-    <>
+    <div className="eng-stack">
       <Today home={home} />
       <section className="eng-card" aria-label="Частицы">
         <h3 className="eng-h">Частицы — помощники Нейта</h3>
@@ -1247,7 +1576,7 @@ function GameView() {
           ))}
         </ul>
       </section>
-    </>
+    </div>
   );
 }
 
@@ -1319,16 +1648,20 @@ function SettingsView() {
       <h3 className="eng-h">Цель в день</h3>
       <Segmented
         label="Цель минут в день"
+        wrap
         value={String(s.goal_minutes) as (typeof GOALS)[number]}
         onChange={(v) => set({ goal_minutes: Number(v) })}
         options={GOALS.map((g) => ({ value: g, label: `${g} мин` }))}
       />
       <h3 className="eng-h">Напоминания</h3>
-      <Switch
-        checked={s.remind}
-        onChange={(v) => set({ remind: v })}
-        label="Нейт напоминает раз в день (колокольчик и Telegram, не ночью и не на уроке)"
-      />
+      <div className="eng-switch">
+        <span>Нейт напоминает раз в день (колокольчик и Telegram, не ночью и не на уроке)</span>
+        <Switch
+          checked={s.remind}
+          onChange={(v) => set({ remind: v })}
+          label="Нейт напоминает раз в день"
+        />
+      </div>
       <label className="eng-inline">
         Во сколько
         <input

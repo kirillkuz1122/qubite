@@ -366,6 +366,15 @@ test('урок: теория → задания → голос → огонёк 
   await task.getByRole('button', { name: 'I Kirill.' }).click();
   await expect(task.getByRole('status')).toContainText('Неверно');
   await expect(task).toContainText("Правильно: I'm Kirill.");
+  // видно, что выбрал и что было верно (ENG-006)
+  await expect(task.getByRole('button', { name: 'I Kirill.' })).toHaveAttribute(
+    'data-state',
+    'bad',
+  );
+  await expect(task.getByRole('button', { name: "I'm Kirill." })).toHaveAttribute(
+    'data-state',
+    'ok',
+  );
   await shot(page, 'mistake');
   await task.getByRole('button', { name: 'Ещё раз' }).click();
   await task.getByRole('button', { name: "I'm Kirill." }).click();
@@ -462,4 +471,152 @@ test('новичок: входной тест → уровень; игра и н
   await expect.poll(() => calls.phrase).toBe(1);
   await noSideScroll(page);
   await shot(page, 'settings');
+});
+
+test.describe('телефон, пальцем (ENG-006)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('«Соедини»: выбранное и пары видны, пару можно разъединить, после проверки — что верно', async ({
+    page,
+  }) => {
+    await mockSync(page);
+    const calls = await mockLessons(page);
+    const match = {
+      id: 't1',
+      type: 'match',
+      ask_ru: 'Соедини слово и перевод.',
+      pairs: [
+        { en: 'hello', ru: 'привет' },
+        { en: 'bye', ru: 'пока' },
+        { en: 'name', ru: 'имя' },
+      ],
+    };
+    await page.route('**/api/v1/english/lessons/a0-m1-l1', (route) =>
+      route.fulfill({
+        json: {
+          lesson: { ...lesson, tasks: [match, tasks[0]] },
+          level,
+          passed: false,
+          run: null,
+          homework_task: null,
+          strictness: 2,
+        },
+      }),
+    );
+    const answers: unknown[] = [];
+    await page.route('**/api/v1/english/runs/run-1/answer', async (route) => {
+      const body = route.request().postDataJSON() as { answer: unknown };
+      answers.push(body.answer);
+      const ok = answers.length > 1;
+      await route.fulfill({
+        json: {
+          task_id: 't1',
+          correct: ok,
+          attempts: answers.length,
+          right: ok ? null : 'hello — привет, bye — пока, name — имя',
+          explain_ru: null,
+          say: null,
+          mistakes: [],
+          heard: null,
+          offline: false,
+          game: delta({ xp: ok ? 1 : 0 }),
+        },
+      });
+    });
+    const marks: Record<string, unknown>[] = [];
+    await page.route('**/api/v1/english/runs/run-1/feedback', async (route) => {
+      marks.push(route.request().postDataJSON() as Record<string, unknown>);
+      await route.fulfill({
+        json: { action: 'a1', summary_ru: 'Понял. Задание вернётся завтра в повторении.' },
+      });
+    });
+    await page.route('**/api/v1/english/lessons/a0-m1-l1/ask', (route) =>
+      route.fulfill({ json: { say: 'Hello — это «привет». Now, back to work!' } }),
+    );
+
+    await page.goto('/agent?tab=english');
+    await page.getByRole('button', { name: 'Начать урок' }).tap();
+    await page.getByRole('button', { name: 'К заданиям' }).tap();
+    const task = page.getByRole('region', { name: 'Задание' });
+    const en = (w: string) =>
+      task.getByRole('group', { name: 'Английские слова' }).getByRole('button', { name: w });
+    const ru = (w: string) =>
+      task.getByRole('group', { name: 'Перевод' }).getByRole('button', { name: w });
+
+    // Нажал слово — оно заметно выбрано, подсказка — что дальше.
+    await en('hello').tap();
+    await expect(en('hello')).toHaveAttribute('aria-pressed', 'true');
+    await expect(en('hello')).toHaveAttribute('data-state', 'picked');
+    await expect(task).toContainText('Выбрано «hello»');
+    // Пара — номер и цвет с обеих сторон.
+    await ru('пока').tap();
+    await expect(en('hello')).toHaveAttribute('data-pair', '1');
+    await expect(ru('пока')).toHaveAttribute('data-pair', '1');
+    await expect(en('hello')).toHaveAccessibleName('hello, пара 1');
+    // Можно начать и с перевода.
+    await ru('имя').tap();
+    await en('name').tap();
+    await expect(en('name')).toHaveAttribute('data-pair', '2');
+    await expect(ru('имя')).toHaveAttribute('data-pair', '2');
+    await expect(task.getByRole('button', { name: 'Проверить' })).toBeDisabled();
+    await expect(task).toContainText('Соединено 2 из 3');
+    // Нажал на пару — разъединил.
+    await ru('пока').tap();
+    await expect(en('hello')).not.toHaveAttribute('data-pair');
+    await expect(ru('пока')).toHaveAttribute('aria-pressed', 'true');
+    await en('hello').tap();
+    await en('bye').tap();
+    await ru('привет').tap();
+    await noSideScroll(page);
+    // Кнопки — под палец.
+    for (const b of [en('hello'), ru('привет')]) {
+      const box = await b.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await task.getByRole('button', { name: 'Проверить' }).tap();
+    expect(answers[0]).toEqual([
+      ['name', 'имя'],
+      ['hello', 'пока'],
+      ['bye', 'привет'],
+    ]);
+    // После проверки у каждой пары видно, верна ли она.
+    await expect(task).toContainText('Верных пар: 1 из 3');
+    await expect(en('name')).toHaveAttribute('data-state', 'ok');
+    await expect(ru('имя')).toHaveAttribute('data-state', 'ok');
+    await expect(en('hello')).toHaveAttribute('data-state', 'bad');
+    await expect(ru('привет')).toHaveAttribute('data-state', 'bad');
+
+    // «Что-то не так?» → «Слишком трудно», «Объясни».
+    await task.getByRole('button', { name: 'Что-то не так?' }).tap();
+    const sheet = page.getByRole('dialog', { name: 'Что с заданием?' });
+    await sheet.getByRole('button', { name: /Слишком трудно/ }).tap();
+    await expect(sheet).toContainText('вернётся завтра в повторении');
+    expect(marks[0]).toMatchObject({ task_id: 't1', kind: 'hard' });
+    await sheet.getByRole('button', { name: /Объясни/ }).tap();
+    await expect(sheet).toContainText('Нейт: Hello — это «привет»');
+    await page.keyboard.press('Escape');
+    await expect(task.getByRole('button', { name: 'Отмечено: слишком трудно' })).toBeVisible();
+
+    // «Ещё раз»: верная пара осталась, остальные — заново.
+    await task.getByRole('button', { name: 'Ещё раз' }).tap();
+    await expect(en('name')).toHaveAttribute('data-pair', '1');
+    await expect(en('hello')).not.toHaveAttribute('data-pair');
+    await en('hello').tap();
+    await ru('привет').tap();
+    await en('bye').tap();
+    await ru('пока').tap();
+    await task.getByRole('button', { name: 'Проверить' }).tap();
+    await expect(task.getByRole('status')).toContainText('Верно');
+    await expect(en('bye')).toHaveAttribute('data-state', 'ok');
+    expect(answers[1]).toEqual([
+      ['name', 'имя'],
+      ['hello', 'привет'],
+      ['bye', 'пока'],
+    ]);
+    // Enter — дальше: фокус уже на «Дальше».
+    await page.keyboard.press('Enter');
+    await expect(task).toContainText('Выбери');
+    expect(calls.answers).toHaveLength(0);
+    await shot(page, 'match');
+  });
 });

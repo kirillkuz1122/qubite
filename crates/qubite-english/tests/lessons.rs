@@ -14,7 +14,7 @@ use qubite_ai::{
 use qubite_auth::{Passwords, accounts::NewAccount};
 use qubite_english::{
     Error, Settings,
-    lessons::{self, Given, LearnerChange},
+    lessons::{self, FeedbackKind, Given, LearnerChange},
 };
 use qubite_testkit::TestDb;
 use serde_json::{Value, json};
@@ -341,6 +341,163 @@ async fn first_lesson_from_placement_to_streak_homework_and_program() {
             .await
             .unwrap();
     assert_eq!(status, "done");
+}
+
+/// Отметки у задания (ENG-006): «трудно» — задание в повторение завтра,
+/// «ошибка в задании» — из повторения прочь, «легко» — запись; все — строки
+/// ленты с откатом, и после урока их видит модель, что правит программу.
+#[tokio::test]
+async fn task_feedback_goes_to_review_and_program() {
+    let (_test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let ai = ai(
+        pool,
+        me,
+        vec![reply(json!({
+            "summary_ru": "Слишком легко? Ладно, ускоримся.",
+            "ops": [{"op": "skip", "lesson": "a0-m1-l2", "reason_ru": "сам сказал, что легко"}]
+        }))],
+        vec![],
+    )
+    .await;
+    lessons::place(pool, me, &json!({}), 0).await.unwrap();
+    let run = lessons::start(pool, me, "a0-m1-l1", "lesson")
+        .await
+        .unwrap();
+    let review = |task: &'static str| async move {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM english_review WHERE account_id = $1 AND task_id = $2",
+        )
+        .bind(me)
+        .bind(task)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    };
+
+    // «Трудно» — задание вернётся в повторении.
+    let hard = lessons::feedback(pool, me, run.id, None, "t3", FeedbackKind::Hard, None)
+        .await
+        .unwrap();
+    assert!(
+        hard.summary_ru.contains("повторении"),
+        "{}",
+        hard.summary_ru
+    );
+    assert_eq!(review("t3").await, 1);
+
+    // Ошибся, но задание сломано — из повторения прочь.
+    let wrong = lessons::answer(
+        pool,
+        &ai.gateway,
+        me,
+        run.id,
+        None,
+        "t5",
+        Uuid::now_v7(),
+        Given::Value(json!(["am"])),
+    )
+    .await
+    .unwrap();
+    assert!(!wrong.correct);
+    assert_eq!(review("t5").await, 1);
+    lessons::feedback(
+        pool,
+        me,
+        run.id,
+        None,
+        "t5",
+        FeedbackKind::Broken,
+        Some("перевод не тот"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(review("t5").await, 0);
+
+    // «Легко» — запись в ленте; программу сама не меняет.
+    lessons::feedback(pool, me, run.id, None, "t1", FeedbackKind::Easy, None)
+        .await
+        .unwrap();
+    let home = lessons::home(pool, me).await.unwrap();
+    let marks: Vec<_> = home.ops.iter().filter(|o| o.op == "feedback").collect();
+    assert_eq!(marks.len(), 3);
+    assert!(marks.iter().all(|o| o.state == "applied"));
+    assert!(
+        marks
+            .iter()
+            .any(|o| o.summary.starts_with("слишком легко: задание 1")),
+        "{marks:?}"
+    );
+    assert!(home.steps.iter().all(|s| !s.step.skipped));
+
+    // Чужое и лишнее — нельзя.
+    assert!(matches!(
+        lessons::feedback(pool, me, run.id, None, "t999", FeedbackKind::Easy, None).await,
+        Err(Error::NotFound)
+    ));
+    assert!(matches!(
+        lessons::feedback(
+            pool,
+            me,
+            Uuid::now_v7(),
+            None,
+            "t1",
+            FeedbackKind::Easy,
+            None
+        )
+        .await,
+        Err(Error::NotFound)
+    ));
+    let long = "о".repeat(501);
+    assert!(matches!(
+        lessons::feedback(
+            pool,
+            me,
+            run.id,
+            None,
+            "t1",
+            FeedbackKind::Broken,
+            Some(&long)
+        )
+        .await,
+        Err(Error::Invalid(_))
+    ));
+
+    // Итог урока: модель получила отметки и ускорила программу.
+    let done = lessons::finish(pool, &ai.gateway, me, run.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        done.review_ru.as_deref(),
+        Some("Слишком легко? Ладно, ускоримся.")
+    );
+    let call = ai.model.last_call().unwrap();
+    let data: String = call.messages[1..]
+        .iter()
+        .map(|m| m.content.clone())
+        .collect();
+    assert!(data.contains("source=\"feedback\""), "{data}");
+    assert!(data.contains("easy") && data.contains("broken"), "{data}");
+    assert_eq!(done.program_actions.len(), 1);
+    let home = lessons::home(pool, me).await.unwrap();
+    assert!(
+        home.steps
+            .iter()
+            .any(|s| s.step.entry.id == "a0-m1-l2" && s.step.skipped)
+    );
+
+    // Отметку откатили в ленте — её больше нет.
+    qubite_agent::revert_action(
+        pool,
+        &qubite_agent::Who::owner(me, None),
+        hard.action,
+        false,
+    )
+    .await
+    .unwrap();
+    let home = lessons::home(pool, me).await.unwrap();
+    assert_eq!(home.ops.iter().filter(|o| o.op == "feedback").count(), 2);
 }
 
 #[tokio::test]

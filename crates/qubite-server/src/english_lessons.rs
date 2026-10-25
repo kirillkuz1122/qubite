@@ -8,6 +8,7 @@
 //! - `POST /api/v1/english/lessons/{id}/start` — начать урок, домашку, повторение;
 //! - `POST /api/v1/english/runs/{id}/answer` — ответ (текстом или голосом);
 //! - `POST /api/v1/english/runs/{id}/finish` — итог, опыт, домашка, разбор;
+//! - `POST /api/v1/english/runs/{id}/feedback` — отметка у задания (ENG-006);
 //! - `POST /api/v1/english/lessons/{id}/ask` — спросить Нейта (можно по-русски);
 //! - `POST /api/v1/english/program/adapt` — агент подстраивает программу;
 //! - `GET|PATCH /api/v1/english/settings` — настройки модуля;
@@ -22,7 +23,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::Engine;
-use qubite_english::lessons::{self, Given, LearnerChange};
+use qubite_english::lessons::{self, FeedbackKind, Given, LearnerChange};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use utoipa::ToSchema;
@@ -211,6 +212,46 @@ pub async fn english_run_finish(
             .await
             .map_err(english_error)?,
     )
+}
+
+/// Отметка у задания: слишком легко, слишком трудно, ошибка в задании.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishFeedback {
+    task_id: String,
+    /// Урок задания — только у повторения (там задания из разных уроков).
+    lesson_id: Option<String>,
+    /// `easy`, `hard` или `broken`.
+    #[schema(value_type = String)]
+    kind: FeedbackKind,
+    /// Что не так — своими словами (до 500 знаков).
+    note: Option<String>,
+}
+
+#[utoipa::path(post, path = "/api/v1/english/runs/{id}/feedback", tag = "english",
+    params(("id" = Uuid, Path, description = "Прохождение")),
+    request_body = EnglishFeedback,
+    responses(
+        (status = 200, description = "{\"action\", \"summary_ru\"} — строка ленты агента", body = Object),
+        (status = 404, description = "Нет такого прохождения или задания", body = ApiErrorBody),
+    ))]
+pub async fn english_feedback(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(run): Path<Uuid>,
+    Json(body): Json<EnglishFeedback>,
+) -> Result<Json<Value>, ApiError> {
+    ok(lessons::feedback(
+        state.db.pool(),
+        session.0.account_id,
+        run,
+        body.lesson_id.as_deref(),
+        &body.task_id,
+        body.kind,
+        body.note.as_deref(),
+    )
+    .await
+    .map_err(english_error)?)
 }
 
 /// Вопрос Нейту.
