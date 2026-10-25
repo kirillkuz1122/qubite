@@ -1,0 +1,33 @@
+# Отдельный VPN только для ElevenLabs (голос): xray с VLESS-подключением владельца,
+# вход — HTTP-прокси на 127.0.0.1:10890. Qubite ходит через него только к ElevenLabs
+# (QUBITE_ELEVENLABS_PROXY), остальное — как раньше. Системный VPN Pi не трогает:
+# ни маршрутов, ни TUN. Конфиг /etc/qubite/elevenlabs-xray.json — секрет, не в git.
+[Unit]
+Description=Qubite: VPN только для ElevenLabs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qubite
+Group=qubite
+ExecStart=/usr/bin/xray run -c /etc/qubite/elevenlabs-xray.json
+Restart=on-failure
+RestartSec=10
+
+Slice=qubite.slice
+Nice=10
+CPUWeight=20
+IOWeight=20
+MemoryHigh=80M
+MemoryMax=120M
+OOMScoreAdjust=600
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
