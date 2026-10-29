@@ -55,7 +55,7 @@
   color: var(--q-mute);
   font-size: 14px;
 }
-.ld-nav a:hover {
+.ld-nav a:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .ld-auth {
@@ -70,8 +70,8 @@
 }
 /* переключатель темы: точка наполовину залита */
 .ld-theme {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -305,7 +305,7 @@
   margin-top: 14px;
 }
 .ld-chips button {
-  height: 32px;
+  min-height: 44px;
   padding: 0 12px;
   border-radius: calc(var(--q-round) * 16px);
   border: 1px solid var(--q-line);
@@ -314,7 +314,7 @@
   font-size: 13px;
   cursor: pointer;
 }
-.ld-chips button:hover {
+.ld-chips button:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
   border-color: var(--q-line-2);
 }
@@ -478,7 +478,7 @@
   flex-wrap: wrap;
   gap: 22px;
 }
-.ld-foot nav a:hover {
+.ld-foot nav a:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .ld-foot .c {
@@ -498,12 +498,12 @@
     gap: 12px;
   }
   .ld-auth .q-btn {
-    height: 38px;
+    min-height: 44px;
     padding: 0 14px;
   }
   .ld-theme {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    min-height: 44px;
   }
   .ld-lead {
     font-size: 14.5px;

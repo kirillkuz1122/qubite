@@ -32,7 +32,7 @@ export function Segmented<T extends string>({
   const chips = variant === 'chips';
   const over = useOverflow(chips || wrapAsked, options.length);
   const wrap = wrapAsked || over.mode === 'wrap';
-  const { node, to, hold } = useFlow(36, chips ? 0 : 4, chips ? { className: 'q-chip-flow' } : {});
+  const { node, to, hold } = useFlow(44, chips ? 0 : 4, chips ? { className: 'q-chip-flow' } : {});
   const box = over.box;
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const first = useRef(true);
