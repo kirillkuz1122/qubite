@@ -8,7 +8,11 @@ function change(values: Record<string, string | null>): AgentChange {
     object_type: 'planner.task',
     title: 'Сделать упражнение',
     created: false,
-    diff: Object.entries(values).map(([field, after]) => ({ field, before: null, after })),
+    diff: Object.entries(values).map(([field, after]) => ({
+      field,
+      before: null,
+      after,
+    })) as unknown as AgentChange['diff'],
   };
 }
 
@@ -21,7 +25,7 @@ describe('поля поправки к делу агента', () => {
 
   it('не подставляет before вместо отсутствующего проекта в after', () => {
     const c = change({ project_id: null, priority: 'important' });
-    c.diff[0]!.before = 'старый-проект';
+    (c.diff[0] as { before: unknown }).before = 'старый-проект';
     expect(taskFixValues(c)).toMatchObject({ project: '', priority: 'important' });
   });
 

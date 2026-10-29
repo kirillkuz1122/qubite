@@ -11,7 +11,7 @@ export interface TaskFixValues {
 
 /** Показанные значения — результат действия агента, а не старое значение before. */
 export function taskFixValues(change: AgentChange | undefined): TaskFixValues {
-  const after = (field: string) => change?.diff.find((d) => d.field === field)?.after;
+  const after = (field: string) => change?.diff.find((d) => d.field === field)?.after as unknown;
   const text = (field: string) => {
     const value = after(field);
     return typeof value === 'string' ? value : '';

@@ -382,8 +382,18 @@ function FixForm({
       {isTask && (
         <>
           <div className="act-fix-when">
-            <Field label="Срок" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <Field label="Время" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <Field
+              label="Срок"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            <Field
+              label="Время"
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
           </div>
           <div className="act-fix-choice">
             <span className="q-field-label">Проект</span>

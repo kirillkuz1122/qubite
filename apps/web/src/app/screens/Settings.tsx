@@ -64,8 +64,7 @@ const PAGES = ['list', 'account', 'ai'] as const;
 export function SettingsScreen() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const page =
-    path === '/account' ? 'account' : path.startsWith('/settings/ai') ? 'ai' : 'list';
+  const page = path === '/account' ? 'account' : path.startsWith('/settings/ai') ? 'ai' : 'list';
   return (
     <>
       <Segmented
