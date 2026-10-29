@@ -411,8 +411,8 @@
   text-decoration: none;
   transition: color 0.15s;
 }
-.cs-link:hover,
-.cs-task:hover {
+.cs-link:hover:not(:disabled, [aria-disabled='true']),
+.cs-task:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-orange);
 }
 .cs-pre {

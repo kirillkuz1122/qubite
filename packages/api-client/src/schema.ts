@@ -1903,6 +1903,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/runs/{id}/replace-voice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_replace_voice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/session': {
     parameters: {
       query?: never;
@@ -2004,6 +2020,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/home/coins': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Выбранные монеты (CoinGecko, кэш 5 минут). */
+    get: operations['coins'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/home/coins/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Поиск монет: до 10 результатов, кэш на час. */
+    get: operations['search_coins'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/home/locate': {
     parameters: {
       query?: never;
@@ -2086,7 +2136,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** Настройки виджетов и каталог тем. */
+    get: operations['get_settings'];
     put?: never;
     post?: never;
     delete?: never;
@@ -3528,7 +3579,10 @@ export interface components {
       /** @description Голос для прослушивания (иначе — свой). */
       voice?: string | null;
     };
-    /** @description Ответы входного теста. */
+    /**
+     * @description Ответы входного теста. В `answers` значение `null` означает «Не знаю»;
+     *     передаём его в оценку без замены, обычные ответы принимаются как раньше.
+     */
     EnglishPlace: {
       /** @description `{"p1": "…", "p3": ["am"]}`. */
       answers: Record<string, never>;
@@ -3613,6 +3667,11 @@ export interface components {
       messages: components['schemas']['EnglishMessage'][];
       realtime: components['schemas']['EnglishRealtimeSession'];
       session: components['schemas']['EnglishSession'];
+    };
+    /** @description Заменить задание, требующее микрофона. */
+    EnglishReplaceVoice: {
+      lesson_id?: string | null;
+      task_id: string;
     };
     /** @description Реплика ученика: текст **или** запись голоса. */
     EnglishSay: {
@@ -3773,6 +3832,28 @@ export interface components {
       /** @description Версия Qubite. */
       version: string;
     };
+    HomeCoin: {
+      /** Format: double */
+      change_24h?: number | null;
+      id: string;
+      name: string;
+      /** Format: double */
+      rub: number;
+      symbol: string;
+      /** Format: double */
+      usd: number;
+    };
+    HomeCoinMatch: {
+      id: string;
+      name: string;
+      symbol: string;
+    };
+    HomeCoinSearch: components['schemas']['HomeFreshness'] & {
+      items: components['schemas']['HomeCoinMatch'][];
+    };
+    HomeCoins: components['schemas']['HomeFreshness'] & {
+      items: components['schemas']['HomeCoin'][];
+    };
     HomeCurrency: {
       code: string;
       name: string;
@@ -3843,10 +3924,10 @@ export interface components {
     HomeNewsItem: {
       /** Format: date-time */
       published?: string | null;
-      /** @description «Хабр». */
+      /** @description «Хабр» или «Codeforces». */
       source: string;
       title: string;
-      /** @description `ai`, `code`, `study`. */
+      /** @description `ai`, `code`, `study`, `contests`. */
       topic: string;
       /** @description «ИИ и технологии». */
       topic_title: string;
@@ -3894,15 +3975,17 @@ export interface components {
        * @description За сколько единиц курс (у иены — 100).
        */
       nominal: number;
+      /** @description `cbr` или `er-api`. */
+      source: string;
       /**
        * Format: double
        * @description Рублей за `nominal` единиц.
        */
       value: number;
     };
-    /** @description Курсы ЦБ РФ на день. */
+    /** @description Курсы ЦБ РФ и запасного источника на день. */
     HomeRates: components['schemas']['HomeFreshness'] & {
-      /** @description Все валюты ЦБ (для настройки). */
+      /** @description Валюты ЦБ и запасного источника (для настройки). */
       available: components['schemas']['HomeCurrency'][];
       /** @description День курса, `ГГГГ-ММ-ДД`. */
       date: string;
@@ -3911,21 +3994,31 @@ export interface components {
     };
     /** @description Настройки виджетов Главной. */
     HomeSettings: {
-      /** @description Коды валют ЦБ в порядке показа: `USD`, `EUR`, `CNY`. */
+      /** @description Каталог доступных тем. */
+      available_topics: components['schemas']['HomeTopic'][];
+      /** @description Идентификаторы выбранных монет CoinGecko. */
+      coins: string[];
+      /** @description До 8 кодов валют в порядке показа: `USD`, `EUR`, `CNY`, `PHP`. */
       currencies: string[];
       place: components['schemas']['HomePlace'];
       /**
        * @description Темы новостей: `ai` — ИИ и технологии, `code` — программирование,
-       *     `study` — олимпиады и учёба. Пусто — без новостей.
+       *     `study` — олимпиады и учёба, `contests` — соревнования. Пусто — без новостей.
        */
       topics: string[];
     };
     /** @description Изменение настроек: только то, что меняется. */
     HomeSettingsChange: {
-      /** @description До 6 кодов валют ЦБ. */
+      /** @description До 6 идентификаторов CoinGecko. */
+      coins?: string[] | null;
+      /** @description До 8 кодов валют. */
       currencies?: string[] | null;
       place?: components['schemas']['HomePlace'] | null;
       topics?: string[] | null;
+    };
+    HomeTopic: {
+      id: string;
+      title: string;
     };
     /** @description Погода в городе из настройки (Open-Meteo). */
     HomeWeather: components['schemas']['HomeFreshness'] & {
@@ -9735,6 +9828,42 @@ export interface operations {
       };
     };
   };
+  english_replace_voice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Прохождение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishReplaceVoice'];
+      };
+    };
+    responses: {
+      /** @description Прохождение с заменой (lessons::RunView) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого прохождения или задания */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   english_start: {
     parameters: {
       query?: never;
@@ -9968,6 +10097,94 @@ export interface operations {
       };
     };
   };
+  coins: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Монеты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeCoins'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Источник монет не отвечает */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  search_coins: {
+    parameters: {
+      query: {
+        /** @description Название или тикер монеты: от 2 до 50 знаков. */
+        q: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Найденные монеты */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeCoinSearch'];
+        };
+      };
+      /** @description Нужно от 2 до 50 знаков */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Поиск монет не отвечает */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   locate: {
     parameters: {
       query?: never;
@@ -10145,6 +10362,35 @@ export interface operations {
       };
       /** @description ЦБ не отвечает */
       502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Настройки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HomeSettings'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
         headers: {
           [name: string]: unknown;
         };

@@ -543,48 +543,50 @@ test.describe('телефон, пальцем (ENG-006)', () => {
     const ru = (w: string) =>
       task.getByRole('group', { name: 'Перевод' }).getByRole('button', { name: w });
 
+    // Чат с Нейтом: после Escape фокус возвращается на кнопку, с которой его открыли.
+    const askButton = page.getByRole('button', { name: 'Спросить Нейта' });
+    await askButton.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Спросить Нейта' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(askButton).toBeFocused();
+
     // Нажал слово — оно заметно выбрано, подсказка — что дальше.
     await en('hello').tap();
     await expect(en('hello')).toHaveAttribute('aria-pressed', 'true');
     await expect(en('hello')).toHaveAttribute('data-state', 'picked');
     await expect(task).toContainText('Выбрано «hello»');
-    // Пара — номер и цвет с обеих сторон.
+    // Неверная пара проверяется сразу: краснеет и через мгновение снова свободна.
     await ru('пока').tap();
-    await expect(en('hello')).toHaveAttribute('data-pair', '1');
-    await expect(ru('пока')).toHaveAttribute('data-pair', '1');
-    await expect(en('hello')).toHaveAccessibleName('hello, пара 1');
-    // Можно начать и с перевода.
+    await expect(en('hello')).toHaveAttribute('data-state', 'bad');
+    await expect(ru('пока')).toHaveAttribute('data-state', 'bad');
+    await expect(task).toContainText('Неверная пара');
+    await expect(en('hello')).not.toHaveAttribute('data-state', 'bad');
+    await expect(en('hello')).not.toHaveAttribute('data-pair');
+    // Верная пара — номер и цвет с обеих сторон; можно начать и с перевода.
     await ru('имя').tap();
     await en('name').tap();
-    await expect(en('name')).toHaveAttribute('data-pair', '2');
-    await expect(ru('имя')).toHaveAttribute('data-pair', '2');
-    await expect(task.getByRole('button', { name: 'Проверить' })).toBeDisabled();
-    await expect(task).toContainText('Соединено 2 из 3');
-    // Нажал на пару — разъединил.
-    await ru('пока').tap();
-    await expect(en('hello')).not.toHaveAttribute('data-pair');
-    await expect(ru('пока')).toHaveAttribute('aria-pressed', 'true');
-    await en('hello').tap();
-    await en('bye').tap();
-    await ru('привет').tap();
+    await expect(en('name')).toHaveAttribute('data-pair', '1');
+    await expect(ru('имя')).toHaveAttribute('data-pair', '1');
+    await expect(en('name')).toHaveAccessibleName('name, пара 1 — верно');
+    await expect(task).toContainText('Верных пар: 1 из 3');
     await noSideScroll(page);
     // Кнопки — под палец.
     for (const b of [en('hello'), ru('привет')]) {
       const box = await b.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
-    await task.getByRole('button', { name: 'Проверить' }).tap();
+    await en('bye').tap();
+    await ru('пока').tap();
+    // Последняя верная пара уходит сама; ошибка при подборе сохраняется в ответе.
+    await en('hello').tap();
+    await ru('привет').tap();
+    await expect.poll(() => answers.length).toBe(1);
     expect(answers[0]).toEqual([
       ['name', 'имя'],
+      ['bye', 'пока'],
       ['hello', 'пока'],
-      ['bye', 'привет'],
     ]);
-    // После проверки у каждой пары видно, верна ли она.
-    await expect(task).toContainText('Верных пар: 1 из 3');
-    await expect(en('name')).toHaveAttribute('data-state', 'ok');
-    await expect(ru('имя')).toHaveAttribute('data-state', 'ok');
-    await expect(en('hello')).toHaveAttribute('data-state', 'bad');
-    await expect(ru('привет')).toHaveAttribute('data-state', 'bad');
 
     // «Что-то не так?» → «Слишком трудно», «Объясни».
     await task.getByRole('button', { name: 'Что-то не так?' }).tap();
@@ -597,21 +599,17 @@ test.describe('телефон, пальцем (ENG-006)', () => {
     await page.keyboard.press('Escape');
     await expect(task.getByRole('button', { name: 'Отмечено: слишком трудно' })).toBeVisible();
 
-    // «Ещё раз»: верная пара осталась, остальные — заново.
+    // «Ещё раз»: верные пары остались, остальное — заново.
     await task.getByRole('button', { name: 'Ещё раз' }).tap();
     await expect(en('name')).toHaveAttribute('data-pair', '1');
     await expect(en('hello')).not.toHaveAttribute('data-pair');
     await en('hello').tap();
     await ru('привет').tap();
-    await en('bye').tap();
-    await ru('пока').tap();
-    await task.getByRole('button', { name: 'Проверить' }).tap();
-    await expect(task.getByRole('status')).toContainText('Верно');
-    await expect(en('bye')).toHaveAttribute('data-state', 'ok');
+    await expect(task.locator('.eng-verdict')).toContainText('Верно');
     expect(answers[1]).toEqual([
       ['name', 'имя'],
-      ['hello', 'привет'],
       ['bye', 'пока'],
+      ['hello', 'привет'],
     ]);
     // Enter — дальше: фокус уже на «Дальше».
     await page.keyboard.press('Enter');

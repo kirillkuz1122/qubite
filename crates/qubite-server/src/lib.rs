@@ -288,11 +288,14 @@ impl AppState {
         notices::push_unsubscribe,
         notices::send_test_notice,
         home::overview,
+        home::get_settings,
         home::change_settings,
         home::places,
         home::locate,
         home::weather,
         home::rates,
+        home::coins,
+        home::search_coins,
         home::news,
         english::english_overview,
         english::english_start,
@@ -311,6 +314,7 @@ impl AppState {
         english_lessons::english_lesson,
         english_lessons::english_lesson_start,
         english_lessons::english_answer,
+        english_lessons::english_replace_voice,
         english_lessons::english_run_finish,
         english_lessons::english_ask,
         english_lessons::english_adapt,
@@ -475,6 +479,7 @@ impl AppState {
         notices::PushSubscribe,
         notices::PushUnsubscribe,
         home::HomePlace,
+        home::HomeTopic,
         home::HomeSettings,
         home::HomeSettingsChange,
         home::HomePlaces,
@@ -491,6 +496,10 @@ impl AppState {
         home::HomeRate,
         home::HomeCurrency,
         home::HomeRates,
+        home::HomeCoin,
+        home::HomeCoins,
+        home::HomeCoinMatch,
+        home::HomeCoinSearch,
         home::HomeNewsItem,
         home::HomeNews,
         english::EnglishSession,
@@ -522,6 +531,7 @@ impl AppState {
         english_lessons::EnglishAnswer,
         english_lessons::EnglishAsk,
         english_lessons::EnglishFeedback,
+        english_lessons::EnglishReplaceVoice,
         english_lessons::EnglishSettingsChange,
         english_lessons::EnglishPhrase,
         projects::ProjectHead,
@@ -813,11 +823,16 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(notices::send_test_notice),
         )
         .route("/api/v1/home", get(home::overview))
-        .route("/api/v1/home/settings", patch(home::change_settings))
+        .route(
+            "/api/v1/home/settings",
+            get(home::get_settings).patch(home::change_settings),
+        )
         .route("/api/v1/home/places", get(home::places))
         .route("/api/v1/home/locate", post(home::locate))
         .route("/api/v1/home/weather", get(home::weather))
         .route("/api/v1/home/rates", get(home::rates))
+        .route("/api/v1/home/coins", get(home::coins))
+        .route("/api/v1/home/coins/search", get(home::search_coins))
         .route("/api/v1/home/news", get(home::news))
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/live", get(english::english_live))
@@ -873,6 +888,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/runs/{id}/answer",
             post(english_lessons::english_answer).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/english/runs/{id}/replace-voice",
+            post(english_lessons::english_replace_voice),
         )
         .route(
             "/api/v1/english/runs/{id}/finish",

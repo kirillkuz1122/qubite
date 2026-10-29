@@ -17,6 +17,42 @@ async function owner(page: Page, { confirmed = true } = {}) {
 const tab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Разделы Console' }).getByRole('radio', { name });
 
+for (const theme of ['dark', 'light']) {
+  for (const width of [360, 1440]) {
+    test(`DS-011: вкладки Console помещаются, ${theme}, ${width} px`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.addInitScript((theme) => {
+        localStorage.setItem('qubite.look.v1', JSON.stringify({ theme, motion: 'less' }));
+      }, theme);
+      await owner(page);
+      await page.goto('/console/platform');
+      const nav = page.getByRole('navigation', { name: 'Разделы Console' });
+      await expect(nav).toBeVisible();
+      for (const item of await nav.getByRole('radio').all()) {
+        const box = await item.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      }
+      expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+      // Без scrollIntoView: последняя вкладка видна сразу и доступна для касания.
+      await expect(tab(page, 'Сервер')).toBeInViewport({ ratio: 1 });
+      await tab(page, 'Сервер').click();
+      await expect(page).toHaveURL(/\/console\/server$/);
+      await expect(page.getByRole('region', { name: 'Версия', exact: true })).toBeVisible();
+      await testInfo.attach(`console-${theme}-${width}`, {
+        body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+        contentType: 'image/png',
+      });
+    });
+  }
+}
+
 test.describe('Выкладка сервера', () => {
   test.use({ timezoneId: 'Asia/Yekaterinburg' });
 

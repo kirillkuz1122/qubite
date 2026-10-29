@@ -33,7 +33,18 @@ const EKB = {
 
 async function mockHome(page: Page, sync: SyncMock, agent = true): Promise<HomeMock> {
   const m: HomeMock = {
-    settings: { place: CHELYABINSK, currencies: ['USD', 'EUR', 'CNY'], topics: ['ai', 'code'] },
+    settings: {
+      place: CHELYABINSK,
+      currencies: ['USD', 'EUR', 'CNY'],
+      coins: ['bitcoin', 'the-open-network'],
+      topics: ['ai', 'code'],
+      available_topics: [
+        { id: 'ai', title: 'ИИ и технологии' },
+        { id: 'code', title: 'Программирование' },
+        { id: 'study', title: 'Олимпиады и учёба' },
+        { id: 'contests', title: 'Соревнования по программированию' },
+      ],
+    },
     overview: {},
     patches: [],
     located: [],
@@ -131,6 +142,29 @@ async function mockHome(page: Page, sync: SyncMock, agent = true): Promise<HomeM
           stale: false,
         });
       }
+      case 'GET /api/v1/home/coins':
+        return json(route, {
+          items: [
+            {
+              id: 'bitcoin',
+              symbol: 'btc',
+              name: 'Bitcoin',
+              usd: 100000,
+              rub: 8150000,
+              change_24h: 2.5,
+            },
+            {
+              id: 'the-open-network',
+              symbol: 'ton',
+              name: 'TON',
+              usd: 5,
+              rub: 407.5,
+              change_24h: -1,
+            },
+          ],
+          fetched_at: new Date().toISOString(),
+          stale: false,
+        });
       case 'GET /api/v1/home/rates': {
         const all = [
           { code: 'USD', name: 'Доллар США', nominal: 1, value: 81.5, change: 0.5 },
@@ -141,7 +175,10 @@ async function mockHome(page: Page, sync: SyncMock, agent = true): Promise<HomeM
         const codes = m.settings.currencies as string[];
         return json(route, {
           date: day(),
-          items: codes.map((c) => all.find((x) => x.code === c)).filter(Boolean),
+          items: codes
+            .map((c) => all.find((x) => x.code === c))
+            .filter(Boolean)
+            .map((rate) => ({ ...rate, source: 'cbr' })),
           available: all.map(({ code, name }) => ({ code, name })),
           fetched_at: new Date().toISOString(),
           stale: false,
@@ -269,6 +306,9 @@ test('настройки у виджетов: город поиском и ге�
     .getByRole('button', { name: 'Закрыть' })
     .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  // Курсор остаётся там, где была кнопка «Закрыть», — у правого края, и раскрывает линии
+  // заголовков (EdgeScroll): они перекрывают кнопки. Человек уводит курсор; уводим и мы.
+  await page.mouse.move(180, 300);
 
   // Валюты.
   await page.getByRole('button', { name: 'Настроить: Валюты' }).click();

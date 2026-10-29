@@ -551,11 +551,13 @@ pub struct RunView {
     pub answers: Vec<Value>,
     /// Задания повторения (у `review`): `{lesson_id, task}`.
     pub tasks: Vec<Value>,
+    /// Замены при недоступном микрофоне: `{lesson_id, task}`, только для этого прохождения.
+    pub replacements: Vec<Value>,
 }
 
 async fn run_view(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Result<RunView> {
-    let (lesson_id, kind): (String, String) = sqlx::query_as(
-        "SELECT lesson_id, kind FROM english_runs WHERE id = $1 AND account_id = $2",
+    let (lesson_id, kind, replacements): (String, String, Value) = sqlx::query_as(
+        "SELECT lesson_id, kind, replacements FROM english_runs WHERE id = $1 AND account_id = $2",
     )
     .bind(id)
     .bind(account)
@@ -584,6 +586,7 @@ async fn run_view(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Result<Ru
             })
             .collect(),
         tasks,
+        replacements: replacements.as_array().cloned().unwrap_or_default(),
     })
 }
 
@@ -674,6 +677,81 @@ pub async fn start(pool: &PgPool, account: Uuid, lesson_id: &str, kind: &str) ->
     .fetch_one(&mut *tx)
     .await?;
     let view = run_view(&mut tx, account, id).await?;
+    tx.commit().await?;
+    Ok(view)
+}
+
+/// Заменить недоступное голосовое задание, не записывая попытку, ошибку или опыт.
+/// Повтор запроса возвращает прежнюю замену; блокировка строки защищает от дублей.
+pub async fn replace_voice(
+    pool: &PgPool,
+    account: Uuid,
+    run: Uuid,
+    lesson_id: Option<&str>,
+    task_id: &str,
+) -> Result<RunView> {
+    may_write(pool, account).await?;
+    let mut tx = pool.begin().await?;
+    let (run_lesson, kind, finished, mut replacements): (
+        String,
+        String,
+        Option<OffsetDateTime>,
+        Value,
+    ) = sqlx::query_as(
+        "SELECT lesson_id, kind, finished_at, replacements FROM english_runs \
+         WHERE id = $1 AND account_id = $2 FOR UPDATE",
+    )
+    .bind(run)
+    .bind(account)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(Error::NotFound)?;
+    if finished.is_some() {
+        return Err(Error::Invalid("это прохождение уже закончено".into()));
+    }
+    let lesson_id = if kind == "review" {
+        lesson_id.ok_or_else(|| Error::Invalid("у повторения нужен урок задания".into()))?
+    } else {
+        run_lesson.as_str()
+    };
+    let saved = replacements
+        .as_array_mut()
+        .ok_or_else(|| Error::Invalid("не прочитаны замены заданий".into()))?;
+    if !saved
+        .iter()
+        .any(|r| r["lesson_id"] == lesson_id && r["task"]["id"] == task_id)
+    {
+        let ops = ops(&mut tx, account).await?;
+        let lesson = course::lesson(course::course(), lesson_id, &ops).ok_or(Error::NotFound)?;
+        let tasks = if kind == "review" {
+            review_tasks(&mut tx, account).await?
+        } else {
+            let tasks = if kind == "homework" {
+                &lesson["homework"]["tasks"]
+            } else {
+                &lesson["tasks"]
+            };
+            tasks.as_array().cloned().unwrap_or_default()
+        };
+        let task = if kind == "review" {
+            tasks
+                .iter()
+                .find(|t| t["lesson_id"] == lesson_id && t["task"]["id"] == task_id)
+                .map(|t| &t["task"])
+        } else {
+            tasks.iter().find(|t| t["id"] == task_id)
+        }
+        .ok_or(Error::NotFound)?;
+        let replacement = course::without_microphone(task)
+            .ok_or_else(|| Error::Invalid("это задание не требует только голоса".into()))?;
+        saved.push(json!({"lesson_id": lesson_id, "task": replacement}));
+        sqlx::query("UPDATE english_runs SET replacements = $2 WHERE id = $1")
+            .bind(run)
+            .bind(replacements)
+            .execute(&mut *tx)
+            .await?;
+    }
+    let view = run_view(&mut tx, account, run).await?;
     tx.commit().await?;
     Ok(view)
 }
@@ -774,8 +852,13 @@ pub async fn answer(
     may_write(pool, account).await?;
     let course = course::course();
     let mut conn = pool.acquire().await?;
-    let (run_lesson, kind, finished): (String, String, Option<OffsetDateTime>) = sqlx::query_as(
-        "SELECT lesson_id, kind, finished_at FROM english_runs WHERE id = $1 AND account_id = $2",
+    let (run_lesson, kind, finished, replacements): (
+        String,
+        String,
+        Option<OffsetDateTime>,
+        Value,
+    ) = sqlx::query_as(
+        "SELECT lesson_id, kind, finished_at, replacements FROM english_runs WHERE id = $1 AND account_id = $2",
     )
     .bind(run)
     .bind(account)
@@ -792,8 +875,14 @@ pub async fn answer(
     };
     let ops = ops(&mut conn, account).await?;
     let lesson = course::lesson(course, lesson_id, &ops).ok_or(Error::NotFound)?;
-    let task = course::task(&lesson, task_id)
-        .ok_or(Error::NotFound)?
+    let original = course::task(&lesson, task_id).ok_or(Error::NotFound)?;
+    let task = replacements
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|r| r["lesson_id"] == lesson_id && r["task"]["id"] == task_id)
+        .map(|r| &r["task"])
+        .unwrap_or(original)
         .clone();
     let level = course
         .level(lesson["level"].as_str().unwrap_or_default())

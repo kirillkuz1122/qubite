@@ -12,7 +12,6 @@ import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
 import { PlannerProvider } from './app/planner';
 import { StoreProvider } from './app/store';
-import { AccountPage } from './auth/Account';
 import { AuthLayout } from './auth/AuthLayout';
 import { DevicePage } from './auth/Device';
 import { LegalPage } from './auth/Legal';
@@ -47,6 +46,14 @@ const homeRoute = createRoute({
   path: '/',
   component: Landing,
 });
+
+/** Параметры адреса — необязательные строки (письма, редиректы провайдеров). */
+const optional =
+  <K extends string>(...keys: K[]) =>
+  (s: Record<string, unknown>) =>
+    Object.fromEntries(keys.filter((k) => s[k] != null).map((k) => [k, String(s[k])])) as Partial<
+      Record<K, string>
+    >;
 
 /**
  * Приложение: одна оболочка на все разделы (она не пересоздаётся при переходе,
@@ -85,6 +92,13 @@ const sectionRoutes = [
     getParentRoute: () => appRoute,
     path: '/settings/ai',
     component: () => null,
+  }),
+  // Старый адрес аккаунта открывает вкладку Настроек в общей оболочке.
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/account',
+    component: () => null,
+    validateSearch: optional('linked'),
   }),
 ];
 
@@ -126,7 +140,7 @@ const labEditorRoute = createRoute({
 });
 
 /**
- * Qubite Auth (AUTH-005, D-034): одна рамка на вход, регистрацию, письма, аккаунт,
+ * Qubite Auth (AUTH-005, D-034): одна рамка на вход, регистрацию, письма,
  * «разрешить вход приложению» и юридические страницы. В production это поддомен
  * `auth.` — тот же сайт, те же адреса; адреса совпадают с теми, что сервер пишет
  * в письмах и редиректах (`/auth?error=`, `/register?invite=`, `/verify-email?token=` …).
@@ -136,13 +150,6 @@ const authRoute = createRoute({
   id: 'auth',
   component: AuthLayout,
 });
-/** Параметры адреса — необязательные строки (письма, редиректы провайдеров). */
-const optional =
-  <K extends string>(...keys: K[]) =>
-  (s: Record<string, unknown>) =>
-    Object.fromEntries(keys.filter((k) => s[k] != null).map((k) => [k, String(s[k])])) as Partial<
-      Record<K, string>
-    >;
 const authRoutes = [
   createRoute({
     getParentRoute: () => authRoute,
@@ -173,12 +180,6 @@ const authRoutes = [
     path: '/reset-password',
     component: ResetPasswordPage,
     validateSearch: optional('email', 'token', 'sent'),
-  }),
-  createRoute({
-    getParentRoute: () => authRoute,
-    path: '/account',
-    component: AccountPage,
-    validateSearch: optional('linked'),
   }),
   createRoute({ getParentRoute: () => authRoute, path: '/auth/device', component: DevicePage }),
   createRoute({ getParentRoute: () => authRoute, path: '/legal/$doc', component: LegalPage }),

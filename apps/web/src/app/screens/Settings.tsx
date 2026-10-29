@@ -10,7 +10,7 @@ import {
   type MotionChoice,
   type ThemeChoice,
 } from '@qubite/ui';
-import { Link, useRouterState } from '@tanstack/react-router';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api';
 import { builtLine, rollbackLine, updatedLine, versionLine } from '../../deploy-view';
@@ -22,6 +22,7 @@ import { must, useMe } from '../../auth/client';
 import { AiSettings } from './AiSettings';
 import { useMyAi } from '../ai-me';
 import { usd } from '../ai-view';
+import { AccountContent } from '../../auth/Account';
 
 /** Кто вошёл (AUTH-005): ссылка на «Аккаунт» или на вход. */
 function AccountRow() {
@@ -30,10 +31,10 @@ function AccountRow() {
   return (
     <Link className="set" data-obj="set-account" to={who ? '/account' : '/auth'}>
       <span className="lbl">
-        {who ? who.display_name || who.email : 'Войти'}
+        {who ? 'Аккаунт' : 'Войти'}
         <small>
           {who
-            ? `${who.is_owner ? 'владелец · ' : ''}сессии, привязка входов, выход`
+            ? `${who.display_name || who.email} · ${who.is_owner ? 'владелец · ' : ''}сессии, привязка входов, выход`
             : 'чтобы записи сохранялись на сервере и были на всех устройствах'}
         </small>
       </span>
@@ -57,16 +58,35 @@ function ConsoleRow() {
   );
 }
 
-const PAGES = ['list', 'ai'] as const;
+const PAGES = ['list', 'account', 'ai'] as const;
 
 /** Настройки; по адресу `/settings/ai` — «AI и бюджет» (AI-003). */
 export function SettingsScreen() {
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const page = path.startsWith('/settings/ai') ? 'ai' : 'list';
+  const navigate = useNavigate();
+  const page =
+    path === '/account' ? 'account' : path.startsWith('/settings/ai') ? 'ai' : 'list';
   return (
-    <Swap view={page} order={PAGES}>
-      {page === 'ai' ? <AiSettings /> : <SettingsHome />}
-    </Swap>
+    <>
+      <Segmented
+        label="Раздел настроек"
+        value={page === 'account' ? 'account' : 'list'}
+        onChange={(tab) => void navigate({ to: tab === 'account' ? '/account' : '/settings' })}
+        options={[
+          { value: 'list', label: 'Настройки' },
+          { value: 'account', label: 'Аккаунт' },
+        ]}
+      />
+      <Swap view={page} order={PAGES} className="settings-content">
+        {page === 'account' ? (
+          <AccountContent />
+        ) : page === 'ai' ? (
+          <AiSettings />
+        ) : (
+          <SettingsHome />
+        )}
+      </Swap>
+    </>
   );
 }
 

@@ -5816,6 +5816,56 @@
         }
       }
     },
+    "/api/v1/english/runs/{id}/replace-voice": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_replace_voice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Прохождение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishReplaceVoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Прохождение с заменой (lessons::RunView)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого прохождения или задания",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/session": {
       "post": {
         "tags": ["english"],
@@ -6065,6 +6115,105 @@
         }
       }
     },
+    "/api/v1/home/coins": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Выбранные монеты (CoinGecko, кэш 5 минут).",
+        "operationId": "coins",
+        "responses": {
+          "200": {
+            "description": "Монеты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeCoins"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Источник монет не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/home/coins/search": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Поиск монет: до 10 результатов, кэш на час.",
+        "operationId": "search_coins",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Название или тикер монеты: от 2 до 50 знаков.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Найденные монеты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeCoinSearch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нужно от 2 до 50 знаков",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Поиск монет не отвечает",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/home/locate": {
       "post": {
         "tags": ["home"],
@@ -6273,6 +6422,33 @@
       }
     },
     "/api/v1/home/settings": {
+      "get": {
+        "tags": ["home"],
+        "summary": "Настройки виджетов и каталог тем.",
+        "operationId": "get_settings",
+        "responses": {
+          "200": {
+            "description": "Настройки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": ["home"],
         "summary": "Изменить город, валюты или темы новостей.",
@@ -9956,7 +10132,7 @@
       },
       "EnglishPlace": {
         "type": "object",
-        "description": "Ответы входного теста.",
+        "description": "Ответы входного теста. В `answers` значение `null` означает «Не знаю»;\nпередаём его в оценку без замены, обычные ответы принимаются как раньше.",
         "required": ["answers"],
         "properties": {
           "answers": {
@@ -10145,6 +10321,20 @@
             "$ref": "#/components/schemas/EnglishSession"
           }
         }
+      },
+      "EnglishReplaceVoice": {
+        "type": "object",
+        "description": "Заменить задание, требующее микрофона.",
+        "required": ["task_id"],
+        "properties": {
+          "lesson_id": {
+            "type": ["string", "null"]
+          },
+          "task_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "EnglishSay": {
         "type": "object",
@@ -10470,6 +10660,86 @@
           }
         }
       },
+      "HomeCoin": {
+        "type": "object",
+        "required": ["id", "symbol", "name", "usd", "rub"],
+        "properties": {
+          "change_24h": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rub": {
+            "type": "number",
+            "format": "double"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "usd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "HomeCoinMatch": {
+        "type": "object",
+        "required": ["id", "symbol", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeCoinSearch": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeCoinMatch"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "HomeCoins": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeCoin"
+                }
+              }
+            }
+          }
+        ]
+      },
       "HomeCurrency": {
         "type": "object",
         "required": ["code", "name"],
@@ -10621,14 +10891,14 @@
           },
           "source": {
             "type": "string",
-            "description": "«Хабр»."
+            "description": "«Хабр» или «Codeforces»."
           },
           "title": {
             "type": "string"
           },
           "topic": {
             "type": "string",
-            "description": "`ai`, `code`, `study`."
+            "description": "`ai`, `code`, `study`, `contests`."
           },
           "topic_title": {
             "type": "string",
@@ -10717,7 +10987,7 @@
       },
       "HomeRate": {
         "type": "object",
-        "required": ["code", "name", "nominal", "value"],
+        "required": ["code", "name", "nominal", "value", "source"],
         "properties": {
           "change": {
             "type": ["number", "null"],
@@ -10737,6 +11007,10 @@
             "format": "int32",
             "description": "За сколько единиц курс (у иены — 100).",
             "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "description": "`cbr` или `er-api`."
           },
           "value": {
             "type": "number",
@@ -10759,7 +11033,7 @@
                 "items": {
                   "$ref": "#/components/schemas/HomeCurrency"
                 },
-                "description": "Все валюты ЦБ (для настройки)."
+                "description": "Валюты ЦБ и запасного источника (для настройки)."
               },
               "date": {
                 "type": "string",
@@ -10775,19 +11049,33 @@
             }
           }
         ],
-        "description": "Курсы ЦБ РФ на день."
+        "description": "Курсы ЦБ РФ и запасного источника на день."
       },
       "HomeSettings": {
         "type": "object",
         "description": "Настройки виджетов Главной.",
-        "required": ["place", "currencies", "topics"],
+        "required": ["place", "currencies", "coins", "available_topics", "topics"],
         "properties": {
+          "available_topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeTopic"
+            },
+            "description": "Каталог доступных тем."
+          },
+          "coins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Идентификаторы выбранных монет CoinGecko."
+          },
           "currencies": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Коды валют ЦБ в порядке показа: `USD`, `EUR`, `CNY`."
+            "description": "До 8 кодов валют в порядке показа: `USD`, `EUR`, `CNY`, `PHP`."
           },
           "place": {
             "$ref": "#/components/schemas/HomePlace"
@@ -10797,7 +11085,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Темы новостей: `ai` — ИИ и технологии, `code` — программирование,\n`study` — олимпиады и учёба. Пусто — без новостей."
+            "description": "Темы новостей: `ai` — ИИ и технологии, `code` — программирование,\n`study` — олимпиады и учёба, `contests` — соревнования. Пусто — без новостей."
           }
         }
       },
@@ -10805,12 +11093,19 @@
         "type": "object",
         "description": "Изменение настроек: только то, что меняется.",
         "properties": {
+          "coins": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "До 6 идентификаторов CoinGecko."
+          },
           "currencies": {
             "type": ["array", "null"],
             "items": {
               "type": "string"
             },
-            "description": "До 6 кодов валют ЦБ."
+            "description": "До 8 кодов валют."
           },
           "place": {
             "oneOf": [
@@ -10831,6 +11126,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "HomeTopic": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
       },
       "HomeWeather": {
         "allOf": [
