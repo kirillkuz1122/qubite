@@ -130,6 +130,66 @@ fn text(s: &str) -> Given {
     Given::Value(json!(s))
 }
 
+#[test]
+fn placement_distinguishes_skips_from_wrong_and_missing_answers() {
+    let course = qubite_english::course::course();
+    let legacy = json!({
+        "p1": "Hello, my name is Kirill.", "p2": "14", "p3": ["am"], "p4": "wrong"
+    });
+    let before = qubite_english::course::place(course, &legacy, 0);
+    assert_eq!(before.level, "a1");
+    assert_eq!(before.stages[0]["right"], 3);
+    assert_eq!(before.stages[0]["skipped"], 0);
+    assert_eq!(before.stages[0]["passed"], true);
+    assert_eq!(
+        before.stages[1]["skipped"], 0,
+        "нет ответа — не явный пропуск"
+    );
+
+    let mut skipped = legacy;
+    skipped["p4"] = Value::Null;
+    skipped["unknown"] = Value::Null;
+    let one = qubite_english::course::place(course, &skipped, 0);
+    assert_eq!(one.level, "a1", "25% пропусков допустимы");
+    assert_eq!(one.stages[0]["right"], 3);
+    assert_eq!(one.stages[0]["skipped"], 1, "чужой ID не считается");
+    assert_eq!(one.stages[0]["passed"], true);
+
+    skipped["p3"] = Value::Null;
+    let two = qubite_english::course::place(course, &skipped, 0);
+    assert_eq!(two.level, "a0");
+    assert_eq!(two.stages[0]["right"], 2, "«Не знаю» не даёт верный ответ");
+    assert_eq!(two.stages[0]["skipped"], 2);
+    assert_eq!(two.stages[0]["passed"], false);
+}
+
+#[tokio::test]
+async fn placement_saves_skip_counts_with_the_level() {
+    let (_test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let result = lessons::place(
+        pool,
+        me,
+        &json!({"p1": null, "p2": null, "p3": ["am"], "p4": "вторник"}),
+        0,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.level, "a0");
+    assert_eq!(result.stages[0]["right"], 2);
+    assert_eq!(result.stages[0]["skipped"], 2);
+    assert_eq!(result.stages[0]["passed"], false);
+    let (level, saved): (String, Value) =
+        sqlx::query_as("SELECT level, placement FROM english_learners WHERE account_id = $1")
+            .bind(me)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+    assert_eq!(level, result.level);
+    assert_eq!(saved["stages"], json!(result.stages));
+}
+
 #[tokio::test]
 async fn first_lesson_from_placement_to_streak_homework_and_program() {
     let (_test_db, db) = TestDb::migrated().await;

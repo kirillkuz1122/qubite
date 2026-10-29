@@ -7,6 +7,7 @@
 //! - `GET /api/v1/english/lessons/{id}` — урок (теория и задания);
 //! - `POST /api/v1/english/lessons/{id}/start` — начать урок, домашку, повторение;
 //! - `POST /api/v1/english/runs/{id}/answer` — ответ (текстом или голосом);
+//! - `POST /api/v1/english/runs/{id}/replace-voice` — замена без микрофона;
 //! - `POST /api/v1/english/runs/{id}/finish` — итог, опыт, домашка, разбор;
 //! - `POST /api/v1/english/runs/{id}/feedback` — отметка у задания (ENG-006);
 //! - `POST /api/v1/english/lessons/{id}/ask` — спросить Нейта (можно по-русски);
@@ -61,7 +62,8 @@ pub async fn english_placement(_session: Authenticated) -> Json<Value> {
     Json(lessons::placement_test())
 }
 
-/// Ответы входного теста.
+/// Ответы входного теста. В `answers` значение `null` означает «Не знаю»;
+/// передаём его в оценку без замены, обычные ответы принимаются как раньше.
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EnglishPlace {
@@ -197,6 +199,38 @@ pub async fn english_answer(
         &body.task_id,
         body.key,
         given,
+    )
+    .await
+    .map_err(english_error)?)
+}
+
+/// Заменить задание, требующее микрофона.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EnglishReplaceVoice {
+    task_id: String,
+    lesson_id: Option<String>,
+}
+
+#[utoipa::path(post, path = "/api/v1/english/runs/{id}/replace-voice", tag = "english",
+    params(("id" = Uuid, Path, description = "Прохождение")),
+    request_body = EnglishReplaceVoice,
+    responses(
+        (status = 200, description = "Прохождение с заменой (lessons::RunView)", body = Object),
+        (status = 404, description = "Нет такого прохождения или задания", body = ApiErrorBody),
+    ))]
+pub async fn english_replace_voice(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(run): Path<Uuid>,
+    Json(body): Json<EnglishReplaceVoice>,
+) -> Result<Json<Value>, ApiError> {
+    ok(lessons::replace_voice(
+        state.db.pool(),
+        session.0.account_id,
+        run,
+        body.lesson_id.as_deref(),
+        &body.task_id,
     )
     .await
     .map_err(english_error)?)

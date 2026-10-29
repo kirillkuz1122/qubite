@@ -19,6 +19,7 @@ export const PALETTES = {
     sky: '#71cfff',
     yellow: '#ffe163',
     green: '#90dea5',
+    red: '#f08b85',
     peach: '#ffb98a',
     'on-accent': '#100f0d',
   },
@@ -37,6 +38,7 @@ export const PALETTES = {
     sky: '#3ea9e8',
     yellow: '#edb500',
     green: '#3fae69',
+    red: '#c33f38',
     peach: '#f39a6b',
     'on-accent': '#1f1a17',
   },
@@ -62,6 +64,7 @@ export const COLOR_USAGE: Record<ColorName, string> = {
   sky: 'учёба, Нейт',
   yellow: 'мысль, Элик',
   green: 'сделано',
+  red: 'неверный ответ',
   peach: 'личное',
   'on-accent': 'текст на цветной заливке',
 };

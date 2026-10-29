@@ -406,6 +406,43 @@ async fn english_live_over_websocket() {
     test_db.drop_db().await;
 }
 
+#[tokio::test]
+async fn english_placement_accepts_null_and_legacy_answers() {
+    let (_test_db, _db, address) = common::setup(AuthSettings::default()).await;
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    let legacy = me
+        .post_json(
+            address,
+            "/api/v1/english/placement",
+            json!({"answers": {
+                "p1": "Hello, my name is Kirill.", "p2": "14", "p3": ["am"], "p4": "wrong"
+            }, "shift": 0}),
+        )
+        .await;
+    assert_eq!(legacy.status, 200, "{:?}", legacy.body);
+    assert_eq!(legacy.body["level"], "a1");
+    assert_eq!(legacy.body["stages"][0]["right"], 3);
+    assert_eq!(legacy.body["stages"][0]["skipped"], 0);
+
+    let skipped = me
+        .post_json(
+            address,
+            "/api/v1/english/placement",
+            json!({"answers": {
+                "p1": null, "p2": null, "p3": ["am"], "p4": "вторник"
+            }, "shift": 0}),
+        )
+        .await;
+    assert_eq!(skipped.status, 200, "{:?}", skipped.body);
+    assert_eq!(skipped.body["level"], "a0");
+    assert_eq!(skipped.body["start_lesson"], "a0-m1-l1");
+    assert_eq!(skipped.body["stages"][0]["right"], 2);
+    assert_eq!(skipped.body["stages"][0]["skipped"], 2);
+    assert_eq!(skipped.body["stages"][0]["passed"], false);
+}
+
 /// Уроки (ENG-002) по HTTP: тест уровня → урок → ответ голосом → итог с
 /// огоньком; настройки; без входа — 401.
 #[tokio::test]
