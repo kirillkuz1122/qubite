@@ -667,7 +667,9 @@ function LessonPlayer({
     setDraft(null);
     setErr(null);
     try {
-      setRun(await replaceVoiceTask(run.id, item.task.id, item.lesson));
+      const fresh = await replaceVoiceTask(run.id, item.task.id, item.lesson);
+      // список повторения сервер собирает заново без уже решённых заданий — позиция сбилась бы
+      setRun({ ...run, replacements: fresh.replacements ?? run.replacements ?? [] });
       setAttempt((n) => n + 1);
     } catch (e) {
       setReplaceFailed(true);
