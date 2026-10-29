@@ -29,6 +29,7 @@
 - Установить заново: `sudo deploy/pi/codex-queue/install.sh` (нужны `codex login --device-auth` и `gh auth login` от kirill).
 
 ## Ограничения
-- Песочницы Codex нет (владелец, 29.10): есть интернет и браузер Playwright. Границы держит systemd: писать только в `~/codex-queue`, `~/.codex`, `~/.config/gh`, `~/.cache`, `~/.npm`, без `sudo` — сервисы владельца Codex не остановит.
+- Видно в приложении Codex: задание идёт через демон Remote Control (`codex remote-control start`), сессия называется «Qubite #N: …». Демон выключен — задание идёт через `codex exec`, в приложении его не видно.
+- Песочницы нет (владелец, 29.10): интернет и браузер Playwright есть. Через демон Codex работает с правами `kirill` (sudo есть) — от сервисов владельца держит только правило в промпте.
 - На Pi только лёгкие проверки (`git diff --check`, `scripts/check.sh --quick` для не-кода); сборки и тесты — CI.
 - Pi занята (load > 6 или памяти < 600M) — задание ждёт.

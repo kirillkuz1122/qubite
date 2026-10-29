@@ -25,5 +25,6 @@ OOMScoreAdjust=800
 # Вне песочницы Codex писать можно только сюда.
 ProtectSystem=strict
 ReadWritePaths=/home/kirill/codex-queue /home/kirill/.codex /home/kirill/.config/gh /home/kirill/.cache /home/kirill/.npm
-PrivateTmp=yes
+# Без PrivateTmp: сокет демона Remote Control лежит в /tmp/codex-daemon-1000.
+PrivateTmp=no
 NoNewPrivileges=yes
