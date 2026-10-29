@@ -3,13 +3,13 @@
 //! Разбор RSS 2.0 и Atom — свой, маленький: нужны только заголовок, ссылка и
 //! дата.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use time::{
     OffsetDateTime,
     format_description::well_known::{Rfc2822, Rfc3339},
 };
 
-use crate::{Error, Result, Sources, cache::Got, fetch_bytes};
+use crate::{Error, Result, Sources, cache::Got, fetch_bytes, fetch_json};
 
 /// Сколько новостей на тему.
 pub const PER_TOPIC: usize = 3;
@@ -25,16 +25,19 @@ pub enum Topic {
     Code,
     /// Олимпиады и учёба.
     Study,
+    /// Ближайшие соревнования Codeforces.
+    Contests,
 }
 
 impl Topic {
-    pub const ALL: [Self; 3] = [Self::Ai, Self::Code, Self::Study];
+    pub const ALL: [Self; 4] = [Self::Ai, Self::Code, Self::Study, Self::Contests];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ai => "ai",
             Self::Code => "code",
             Self::Study => "study",
+            Self::Contests => "contests",
         }
     }
 
@@ -43,6 +46,7 @@ impl Topic {
             Self::Ai => "ИИ и технологии",
             Self::Code => "Программирование",
             Self::Study => "Олимпиады и учёба",
+            Self::Contests => "Соревнования по программированию",
         }
     }
 
@@ -237,7 +241,62 @@ fn source_of(url: &str) -> &'static str {
     }
 }
 
+#[derive(Deserialize)]
+struct ContestList {
+    status: String,
+    result: Vec<Contest>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Contest {
+    id: u64,
+    name: String,
+    phase: String,
+    start_time_seconds: Option<i64>,
+}
+
+fn upcoming(list: ContestList) -> Result<Vec<NewsItem>> {
+    if list.status != "OK" {
+        return Err(Error::Upstream("Codeforces: не удалось получить соревнования".into()));
+    }
+    let mut out = Vec::new();
+    for contest in list.result.into_iter().filter(|c| c.phase == "BEFORE") {
+        let published = contest
+            .start_time_seconds
+            .and_then(|seconds| OffsetDateTime::from_unix_timestamp(seconds).ok())
+            .ok_or_else(|| Error::Upstream("Codeforces: нет времени старта".into()))?;
+        if contest.id == 0 || contest.name.trim().is_empty() {
+            return Err(Error::Upstream("Codeforces: неверные данные соревнования".into()));
+        }
+        out.push(NewsItem {
+            topic: Topic::Contests,
+            title: contest.name.chars().take(MAX_TITLE_CHARS).collect(),
+            url: format!("https://codeforces.com/contests/{}", contest.id),
+            published: Some(published),
+            source: "Codeforces".into(),
+        });
+    }
+    out.sort_by_key(|item| item.published);
+    out.truncate(5);
+    Ok(out)
+}
+
 impl Sources {
+    async fn contests(&self) -> Result<Got<Vec<NewsItem>>> {
+        self.contests
+            .get("codeforces", || async {
+                let list = fetch_json(
+                    self.http
+                        .get(format!("{}/api/contest.list", self.urls.contests))
+                        .query(&[("gym", "false")]),
+                )
+                .await?;
+                upcoming(list)
+            })
+            .await
+    }
+
     async fn feed(&self, topic: Topic, url: &str) -> Result<Got<Vec<NewsItem>>> {
         let request = self.http.get(url);
         let source = source_of(url);
@@ -257,6 +316,18 @@ impl Sources {
         let mut failed = None;
         let mut any = false;
         for topic in topics {
+            if *topic == Topic::Contests {
+                match self.contests().await {
+                    Ok(got) => {
+                        any = true;
+                        stale |= got.stale;
+                        fetched_at = fetched_at.min(got.fetched_at);
+                        out.extend(got.value);
+                    }
+                    Err(error) => failed = Some(error),
+                }
+                continue;
+            }
             let mut items = Vec::new();
             for (feed_topic, url) in &self.urls.feeds {
                 if feed_topic != topic {
