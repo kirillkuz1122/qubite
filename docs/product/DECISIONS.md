@@ -633,3 +633,4 @@
 - D-624 · Документы разрезаны: DECISIONS — индекс + decisions/NN.md, STATUS ≤ 80 строк, задачи — GitHub Issues… · агент, можно откатить
 - D-625 · Раздел «Сервер» в AGENTS.md обновлён: на Pi Qubite 2.0, push в main = деплой. · агент
 - D-626 · Единая проверка scripts/check.sh: только задетое, вывод коротко; хук Stop, Codex, CI harness.yml. · агент, можно откатить
+- D-627 · Агенты .claude/agents (reviewer, designer xhigh, weekly-audit xhigh, scout) и журнал поправок docs/harness/corrections.md. · агент, можно откатить
