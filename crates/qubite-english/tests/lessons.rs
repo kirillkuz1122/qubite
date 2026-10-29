@@ -141,7 +141,10 @@ fn placement_distinguishes_skips_from_wrong_and_missing_answers() {
     assert_eq!(before.stages[0]["right"], 3);
     assert_eq!(before.stages[0]["skipped"], 0);
     assert_eq!(before.stages[0]["passed"], true);
-    assert_eq!(before.stages[1]["skipped"], 0, "нет ответа — не явный пропуск");
+    assert_eq!(
+        before.stages[1]["skipped"], 0,
+        "нет ответа — не явный пропуск"
+    );
 
     let mut skipped = legacy;
     skipped["p4"] = Value::Null;
