@@ -85,10 +85,14 @@ impl From<Place> for HomePlace {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct HomeSettings {
     place: HomePlace,
-    /// Коды валют ЦБ в порядке показа: `USD`, `EUR`, `CNY`.
+    /// До 8 кодов валют в порядке показа: `USD`, `EUR`, `CNY`, `PHP`.
     currencies: Vec<String>,
+    /// Идентификаторы выбранных монет CoinGecko.
+    coins: Vec<String>,
+    /// Каталог доступных тем.
+    available_topics: Vec<HomeTopic>,
     /// Темы новостей: `ai` — ИИ и технологии, `code` — программирование,
-    /// `study` — олимпиады и учёба. Пусто — без новостей.
+    /// `study` — олимпиады и учёба, `contests` — соревнования. Пусто — без новостей.
     topics: Vec<String>,
 }
 
@@ -102,8 +106,37 @@ impl From<qubite_home::Settings> for HomeSettings {
                 .map(|topic| topic.as_str().to_owned())
                 .collect(),
             currencies: settings.currencies,
+            coins: settings.coins,
+            available_topics: Topic::ALL
+                .into_iter()
+                .map(|topic| HomeTopic {
+                    id: topic.as_str().into(),
+                    title: topic.title().into(),
+                })
+                .collect(),
         }
     }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HomeTopic {
+    id: String,
+    title: String,
+}
+
+/// Настройки виджетов и каталог тем.
+#[utoipa::path(get, path = "/api/v1/home/settings", tag = "home",
+    responses(
+        (status = 200, description = "Настройки", body = HomeSettings),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+    ))]
+pub async fn get_settings(
+    State(state): State<AppState>,
+    session: Authenticated,
+) -> Result<Json<HomeSettings>, ApiError> {
+    Ok(Json(
+        load_settings(&state, session.0.account_id).await?.into(),
+    ))
 }
 
 /// Изменение настроек: только то, что меняется.
@@ -112,8 +145,10 @@ impl From<qubite_home::Settings> for HomeSettings {
 pub struct HomeSettingsChange {
     /// Город из поиска (`/api/v1/home/places`).
     place: Option<HomePlace>,
-    /// До 6 кодов валют ЦБ.
+    /// До 8 кодов валют.
     currencies: Option<Vec<String>>,
+    /// До 6 идентификаторов CoinGecko.
+    coins: Option<Vec<String>>,
     topics: Option<Vec<String>>,
 }
 
@@ -138,6 +173,7 @@ pub async fn change_settings(
             longitude: place.longitude,
         }),
         currencies: body.currencies,
+        coins: body.coins,
         topics: body.topics,
     };
     let mut conn = state.db.pool().acquire().await.map_err(internal)?;
@@ -500,6 +536,8 @@ pub struct HomeRate {
     value: f64,
     /// Изменение к прошлому дню ЦБ.
     change: Option<f64>,
+    /// `cbr` или `er-api`.
+    source: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -508,14 +546,14 @@ pub struct HomeCurrency {
     name: String,
 }
 
-/// Курсы ЦБ РФ на день.
+/// Курсы ЦБ РФ и запасного источника на день.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct HomeRates {
     /// День курса, `ГГГГ-ММ-ДД`.
     date: String,
     /// Валюты из настройки, в её порядке.
     items: Vec<HomeRate>,
-    /// Все валюты ЦБ (для настройки).
+    /// Валюты ЦБ и запасного источника (для настройки).
     available: Vec<HomeCurrency>,
     #[serde(flatten)]
     freshness: HomeFreshness,
@@ -551,6 +589,7 @@ pub async fn rates(
                 nominal: rate.nominal,
                 value: rate.value,
                 change: rate.change,
+                source: rate.source,
             })
             .collect(),
         available: rates
@@ -563,8 +602,106 @@ pub async fn rates(
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub struct HomeCoin {
+    id: String,
+    symbol: String,
+    name: String,
+    usd: f64,
+    rub: f64,
+    change_24h: Option<f64>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HomeCoins {
+    items: Vec<HomeCoin>,
+    #[serde(flatten)]
+    freshness: HomeFreshness,
+}
+
+/// Выбранные монеты (CoinGecko, кэш 5 минут).
+#[utoipa::path(get, path = "/api/v1/home/coins", tag = "home",
+    responses(
+        (status = 200, description = "Монеты", body = HomeCoins),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 502, description = "Источник монет не отвечает", body = ApiErrorBody),
+    ))]
+pub async fn coins(
+    State(state): State<AppState>,
+    session: Authenticated,
+) -> Result<Json<HomeCoins>, ApiError> {
+    let settings = load_settings(&state, session.0.account_id).await?;
+    let got = state.home.coins(&settings.coins).await.map_err(home_error)?;
+    let freshness = freshness(&got);
+    Ok(Json(HomeCoins {
+        items: got
+            .value
+            .into_iter()
+            .map(|coin| HomeCoin {
+                id: coin.id,
+                symbol: coin.symbol,
+                name: coin.name,
+                usd: coin.usd,
+                rub: coin.rub,
+                change_24h: coin.change_24h,
+            })
+            .collect(),
+        freshness,
+    }))
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct CoinsQuery {
+    /// Название или тикер монеты: от 2 до 50 знаков.
+    q: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HomeCoinMatch {
+    id: String,
+    symbol: String,
+    name: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HomeCoinSearch {
+    items: Vec<HomeCoinMatch>,
+    #[serde(flatten)]
+    freshness: HomeFreshness,
+}
+
+/// Поиск монет: до 10 результатов, кэш на час.
+#[utoipa::path(get, path = "/api/v1/home/coins/search", tag = "home",
+    params(CoinsQuery),
+    responses(
+        (status = 200, description = "Найденные монеты", body = HomeCoinSearch),
+        (status = 400, description = "Нужно от 2 до 50 знаков", body = ApiErrorBody),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 502, description = "Поиск монет не отвечает", body = ApiErrorBody),
+    ))]
+pub async fn search_coins(
+    State(state): State<AppState>,
+    _session: Authenticated,
+    Query(query): Query<CoinsQuery>,
+) -> Result<Json<HomeCoinSearch>, ApiError> {
+    let got = state.home.search_coins(&query.q).await.map_err(home_error)?;
+    let freshness = freshness(&got);
+    Ok(Json(HomeCoinSearch {
+        items: got
+            .value
+            .into_iter()
+            .map(|coin| HomeCoinMatch {
+                id: coin.id,
+                symbol: coin.symbol,
+                name: coin.name,
+            })
+            .collect(),
+        freshness,
+    }))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct HomeNewsItem {
-    /// `ai`, `code`, `study`.
+    /// `ai`, `code`, `study`, `contests`.
     topic: String,
     /// «ИИ и технологии».
     topic_title: String,
@@ -573,7 +710,7 @@ pub struct HomeNewsItem {
     url: String,
     #[serde(with = "time::serde::rfc3339::option")]
     published: Option<OffsetDateTime>,
-    /// «Хабр».
+    /// «Хабр» или «Codeforces».
     source: String,
 }
 

@@ -6,16 +6,19 @@
 //! - погода — Open-Meteo ([`weather`]), город ищется там же ([`places`]);
 //!   «определить по геолокации» — обратный поиск OpenStreetMap (Nominatim),
 //!   координаты человека не хранятся: только найденный город (D-328);
-//! - курсы — ЦБ РФ ([`rates`]);
-//! - новости по темам D-309 — RSS Хабра ([`news`]).
+//! - курсы — ЦБ РФ и запасной источник ER-API ([`rates`]);
+//! - выбранные монеты и поиск — CoinGecko ([`coins`]);
+//! - новости по темам — RSS Хабра и соревнования Codeforces ([`news`]).
 //!
 //! Ответы держатся в памяти сервера ([`cache`]): погода — 30 минут, курсы и
-//! новости — час. Источник не ответил — отдаём последнее известное с
-//! пометкой «устарело». Настройки виджетов (город, валюты, темы) —
+//! RSS — час, монеты — 5 минут, Codeforces — 15 минут.
+//! Источник не ответил — отдаём последнее известное с
+//! пометкой «устарело». Настройки виджетов (город, валюты, монеты, темы) —
 //! [`settings`]. Сводку от AI пишет агент (`qubite-agent`, `home.digest.write`).
-//! Решения — D-340…D-349.
+//! Решения — D-340…D-349, D-700…D-705.
 
 pub mod cache;
+pub mod coins;
 pub mod news;
 pub mod places;
 pub mod rates;
@@ -24,6 +27,7 @@ pub mod weather;
 
 use std::time::Duration;
 
+pub use coins::{Coin, CoinMatch};
 pub use news::{NewsItem, Topic};
 pub use places::Place;
 pub use rates::{Rate, Rates};
@@ -57,6 +61,12 @@ pub struct Urls {
     pub reverse: String,
     /// Курсы ЦБ: `…/scripts/XML_daily.asp`.
     pub rates: String,
+    /// Запасной источник валют: `…/v6/latest/USD`.
+    pub fx: String,
+    /// CoinGecko: `…/api/v3/…`.
+    pub coins: String,
+    /// Codeforces: `…/api/contest.list`.
+    pub contests: String,
     /// Ленты новостей по темам.
     pub feeds: Vec<(Topic, String)>,
 }
@@ -68,6 +78,9 @@ impl Default for Urls {
             geocoding: "https://geocoding-api.open-meteo.com".into(),
             reverse: "https://nominatim.openstreetmap.org".into(),
             rates: "https://www.cbr.ru".into(),
+            fx: "https://open.er-api.com".into(),
+            coins: "https://api.coingecko.com".into(),
+            contests: "https://codeforces.com".into(),
             feeds: news::default_feeds(),
         }
     }
@@ -83,8 +96,12 @@ impl Urls {
             geocoding: root.into(),
             reverse: root.into(),
             rates: root.into(),
+            fx: root.into(),
+            coins: root.into(),
+            contests: root.into(),
             feeds: Topic::ALL
                 .iter()
+                .filter(|topic| **topic != Topic::Contests)
                 .map(|topic| (*topic, format!("{root}/rss/{}", topic.as_str())))
                 .collect(),
         }
@@ -97,6 +114,10 @@ pub struct Sources {
     urls: Urls,
     weather: cache::Cache<Weather>,
     rates: cache::Cache<rates::Table>,
+    fx: cache::Cache<rates::FxTable>,
+    coins: cache::Cache<Vec<Coin>>,
+    coin_search: cache::Cache<Vec<CoinMatch>>,
+    contests: cache::Cache<Vec<NewsItem>>,
     news: cache::Cache<Vec<NewsItem>>,
     places: cache::Cache<Vec<Place>>,
 }
@@ -125,6 +146,10 @@ impl Sources {
             urls,
             weather: cache::Cache::new(Duration::from_secs(30 * 60)),
             rates: cache::Cache::new(Duration::from_secs(60 * 60)),
+            fx: cache::Cache::new(Duration::from_secs(60 * 60)),
+            coins: cache::Cache::new(Duration::from_secs(5 * 60)),
+            coin_search: cache::Cache::new(Duration::from_secs(60 * 60)),
+            contests: cache::Cache::new(Duration::from_secs(15 * 60)),
             news: cache::Cache::new(Duration::from_secs(60 * 60)),
             places: cache::Cache::new(Duration::from_secs(24 * 60 * 60)),
         }
@@ -139,6 +164,10 @@ impl Sources {
     pub fn expire_cache(&self) {
         self.weather.expire();
         self.rates.expire();
+        self.fx.expire();
+        self.coins.expire();
+        self.coin_search.expire();
+        self.contests.expire();
         self.news.expire();
         self.places.expire();
     }
