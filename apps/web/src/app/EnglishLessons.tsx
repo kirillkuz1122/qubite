@@ -47,6 +47,7 @@ import {
   type AnswerBy,
   type Home,
   type Mark,
+  type PlacementAnswers,
   type Reply,
   type Run,
   type SettingsBody,
@@ -260,14 +261,21 @@ function Quests({ game }: { game: Game }) {
   );
 }
 
-function Placement({ onDone }: { onDone: () => void }) {
+export function Placement({ onDone }: { onDone: () => void }) {
   const [going, setGoing] = useState(false);
   const test = usePlacementTest(going);
   const place = usePlace();
   const [at, setAt] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [answers, setAnswers] = useState<PlacementAnswers>({});
   const [err, setErr] = useState<string | null>(null);
   const items = useMemo(() => test.data?.stages.flatMap((s) => s.items) ?? [], [test.data]);
+
+  const answer = (value: unknown) => {
+    const item = items[at];
+    if (!item) return;
+    setAnswers((a) => ({ ...a, [item.id]: value }));
+    setAt((i) => i + 1);
+  };
 
   const submit = (shift: number, all = answers) => {
     setErr(null);
@@ -302,18 +310,19 @@ function Placement({ onDone }: { onDone: () => void }) {
         Вопрос {Math.min(at + 1, items.length)} из {items.length || 20}
       </p>
       {item ? (
-        <TaskBody
-          key={item.id}
-          task={item}
-          busy={false}
-          result={null}
-          canMic={false}
-          onReply={(r) => {
-            const value = 'value' in r ? r.value : '';
-            setAnswers((a) => ({ ...a, [item.id]: value }));
-            setAt((i) => i + 1);
-          }}
-        />
+        <>
+          <TaskBody
+            key={item.id}
+            task={item}
+            busy={false}
+            result={null}
+            canMic={false}
+            onReply={(r) => answer('value' in r ? r.value : '')}
+          />
+          <div className="eng-row">
+            <Button onClick={() => answer(null)}>Не знаю</Button>
+          </div>
+        </>
       ) : (
         test.data && (
           <div className="eng-start">

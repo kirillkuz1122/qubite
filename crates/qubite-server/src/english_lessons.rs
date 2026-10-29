@@ -61,7 +61,8 @@ pub async fn english_placement(_session: Authenticated) -> Json<Value> {
     Json(lessons::placement_test())
 }
 
-/// Ответы входного теста.
+/// Ответы входного теста. В `answers` значение `null` означает «Не знаю»;
+/// передаём его в оценку без замены, обычные ответы принимаются как раньше.
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EnglishPlace {
