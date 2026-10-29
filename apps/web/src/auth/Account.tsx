@@ -1,13 +1,14 @@
 import { Button, Field, Note } from '@qubite/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter, useSearch } from '@tanstack/react-router';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { saveHistory } from '../app/command';
 import { clearAccountStore, forgetSyncAccount } from '../app/sync-context';
+import { useShell } from '../app/context';
 import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
-import { useHelpers, usePage, useShyPassword } from './page';
 import { RemindersSection } from './Reminders';
+import './auth.css';
 
 const WHEN = new Intl.DateTimeFormat('ru-RU', {
   day: 'numeric',
@@ -30,19 +31,14 @@ function signedOut() {
   saveHistory([]);
 }
 
-export function AccountPage() {
+/** Содержимое вкладки Настроек; вход проверяет общая оболочка приложения. */
+export function AccountContent() {
   const me = useMe();
   const router = useRouter();
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const qc = useQueryClient();
-  const helpers = useHelpers();
+  const shell = useShell();
   const linked = param(search.linked);
-
-  usePage({ dots: 'АККАУНТ', title: 'Аккаунт', wide: true });
-
-  useEffect(() => {
-    if (me.data === null) router.history.replace('/auth?return_to=%2Faccount');
-  }, [me.data, router]);
 
   const sessions = useQuery({
     queryKey: ['sessions'],
@@ -69,11 +65,10 @@ export function AccountPage() {
 
   const done = (text: string) => {
     setNote({ ok: true, text });
-    helpers.cheer();
+    shell.cheer('foti');
   };
   const failed = (e: unknown) => {
     setNote({ ok: false, text: say(e) });
-    helpers.sad();
   };
 
   const revoke = async (id: string) => {
@@ -117,7 +112,7 @@ export function AccountPage() {
   const linkable = (providers.data ?? []).filter((p) => !linkedIds.has(p.id));
 
   return (
-    <div className="acc">
+    <div className="acc panel">
       {note && <Note tone={note.ok ? 'ok' : 'bad'}>{note.text}</Note>}
       <section className="acc-sec" aria-labelledby="acc-me">
         <h2 id="acc-me">Это вы</h2>
@@ -267,7 +262,6 @@ function Confirm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bot, setBot] = useState<string | null>(null);
-  const shy = useShyPassword();
   const title =
     ask.kind === 'telegram-bot'
       ? 'Ссылка на бота'
@@ -337,7 +331,6 @@ function Confirm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={error}
-            {...shy}
           />
           <div className="acc-actions">
             <Button type="submit" variant="fill" disabled={busy || !password}>
