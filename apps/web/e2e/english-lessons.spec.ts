@@ -543,6 +543,14 @@ test.describe('телефон, пальцем (ENG-006)', () => {
     const ru = (w: string) =>
       task.getByRole('group', { name: 'Перевод' }).getByRole('button', { name: w });
 
+    // Чат с Нейтом: после Escape фокус возвращается на кнопку, с которой его открыли.
+    const askButton = page.getByRole('button', { name: 'Спросить Нейта' });
+    await askButton.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Спросить Нейта' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(askButton).toBeFocused();
+
     // Нажал слово — оно заметно выбрано, подсказка — что дальше.
     await en('hello').tap();
     await expect(en('hello')).toHaveAttribute('aria-pressed', 'true');

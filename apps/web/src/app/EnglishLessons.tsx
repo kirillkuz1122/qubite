@@ -1037,6 +1037,7 @@ function Theory({
 
 /** Спросить Нейта по уроку — можно по-русски (D-491). */
 function Ask({ lesson }: { lesson: string }) {
+  const box = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
@@ -1057,11 +1058,19 @@ function Ask({ lesson }: { lesson: string }) {
     }
   };
   return (
-    <div className="eng-ask">
+    <div className="eng-ask" ref={box}>
       <Button size="sm" dot={false} aria-expanded={open} onClick={() => setOpen(true)}>
         <DotIcon name="agent" /> Спросить Нейта
       </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Спросить Нейта">
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          // фокус возвращается на кнопку, с которой открыли чат
+          requestAnimationFrame(() => box.current?.querySelector('button')?.focus());
+        }}
+        title="Спросить Нейта"
+      >
         <form className="talk-form" onSubmit={(e) => void submit(e)}>
           <Field
             label="Спросить Нейта (можно по-русски)"
