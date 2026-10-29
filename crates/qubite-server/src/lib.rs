@@ -288,11 +288,14 @@ impl AppState {
         notices::push_unsubscribe,
         notices::send_test_notice,
         home::overview,
+        home::get_settings,
         home::change_settings,
         home::places,
         home::locate,
         home::weather,
         home::rates,
+        home::coins,
+        home::search_coins,
         home::news,
         english::english_overview,
         english::english_start,
@@ -476,6 +479,7 @@ impl AppState {
         notices::PushSubscribe,
         notices::PushUnsubscribe,
         home::HomePlace,
+        home::HomeTopic,
         home::HomeSettings,
         home::HomeSettingsChange,
         home::HomePlaces,
@@ -492,6 +496,10 @@ impl AppState {
         home::HomeRate,
         home::HomeCurrency,
         home::HomeRates,
+        home::HomeCoin,
+        home::HomeCoins,
+        home::HomeCoinMatch,
+        home::HomeCoinSearch,
         home::HomeNewsItem,
         home::HomeNews,
         english::EnglishSession,
@@ -815,11 +823,16 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(notices::send_test_notice),
         )
         .route("/api/v1/home", get(home::overview))
-        .route("/api/v1/home/settings", patch(home::change_settings))
+        .route(
+            "/api/v1/home/settings",
+            get(home::get_settings).patch(home::change_settings),
+        )
         .route("/api/v1/home/places", get(home::places))
         .route("/api/v1/home/locate", post(home::locate))
         .route("/api/v1/home/weather", get(home::weather))
         .route("/api/v1/home/rates", get(home::rates))
+        .route("/api/v1/home/coins", get(home::coins))
+        .route("/api/v1/home/coins/search", get(home::search_coins))
         .route("/api/v1/home/news", get(home::news))
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/live", get(english::english_live))

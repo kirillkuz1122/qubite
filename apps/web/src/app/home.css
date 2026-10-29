@@ -1,6 +1,13 @@
 /* Главная (HOME-001) — в стиле «Сегодня» и ленты агента. Цвета и формы — только токены @qubite/ui;
    двигаются только transform и opacity. */
 
+/* Рост и падение: токены темы, подтёмнённые чернилами, чтобы мелкий текст держал контраст ≥ 4,5:1
+   в светлой теме (зелёный ~6,8:1, оранжевый ~6,2:1); в тёмной чернила светлые — контраст выше. */
+:root {
+  --home-up: color-mix(in srgb, var(--q-green) 50%, var(--q-ink));
+  --home-down: color-mix(in srgb, var(--q-orange) 50%, var(--q-ink));
+}
+
 /* ---------- сводка от AI: отделена от фактов (HOME-03) ---------- */
 .home-digest {
   padding: 16px 18px 12px;
@@ -147,7 +154,7 @@
 /* ---------- погода и курсы ---------- */
 .home-widgets {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .home-card {
@@ -239,10 +246,10 @@
   flex: 1;
 }
 .home-rates small[data-dir='1'] {
-  color: var(--q-green);
+  color: var(--home-up);
 }
 .home-rates small[data-dir='-1'] {
-  color: var(--q-orange);
+  color: var(--home-down);
 }
 .home-stale {
   display: block;
@@ -290,7 +297,7 @@
 }
 .home-checks {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
   gap: 6px 14px;
 }
 
@@ -324,4 +331,106 @@
   margin-top: 2px;
   font-size: 12px;
   color: var(--q-dim);
+}
+
+/* Валюты и монеты рядом на ПК, одной колонкой на телефоне. */
+.home-markets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-rates li {
+  flex-wrap: wrap;
+}
+.home-rates span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.home-rate-source {
+  display: block;
+}
+.home-coins {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.home-coins li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--q-line);
+  overflow-wrap: anywhere;
+}
+.home-coins li:last-child {
+  border-bottom: 0;
+}
+.home-coin-name,
+.home-coin-price {
+  flex: 1;
+  min-width: 0;
+}
+.home-coins small {
+  display: block;
+  color: var(--q-dim);
+}
+.home-coin-price {
+  text-align: right;
+}
+.home-coin-change {
+  flex-basis: 100%;
+}
+.home-options {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.home-options:disabled {
+  opacity: 0.45;
+}
+.home-options .q-field {
+  margin: 12px 0;
+}
+.home-chosen {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 12px;
+}
+.home-checks .q-check {
+  min-width: 0;
+  min-height: 44px;
+}
+.home-checks .q-check label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+.home-set-btns .q-btn {
+  min-height: 44px;
+}
+.home-calendars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 12px;
+}
+.home-calendars a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  color: var(--q-mute);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.home-calendars a:hover {
+  color: var(--q-ink);
+}
+@media (max-width: 600px) {
+  .home-markets {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

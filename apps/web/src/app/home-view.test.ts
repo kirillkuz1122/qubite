@@ -2,6 +2,9 @@ import type { PlannerProject, PlannerTask } from '@qubite/sync-client';
 import { describe, expect, it } from 'vitest';
 import {
   ago,
+  coinChange,
+  coinPrice,
+  contestStart,
   dayName,
   digestTarget,
   heldLine,
@@ -126,5 +129,49 @@ describe('подписи', () => {
     expect(heldLine(1)).toBe('Пока было тихо, пришло 1 сообщение');
     expect(heldLine(3)).toBe('Пока было тихо, пришло 3 сообщения');
     expect(heldLine(5)).toBe('Пока было тихо, пришло 5 сообщений');
+  });
+});
+
+describe('криптовалюта', () => {
+  it.each([
+    [0.0001, '0,0001 $'],
+    [0.012345, '0,012345 $'],
+    [0.99, '0,99 $'],
+    [1, '1,00 $'],
+    [1234.56, '1\u00a0234,56 $'],
+    [100000, '100\u00a0000,00 $'],
+  ] as const)('цена %s USD сохраняет значимые доли и разделяет тысячи', (value, expected) => {
+    expect(coinPrice(value, 'USD')).toBe(expected);
+  });
+
+  it('цена в рублях и нулевая цена', () => {
+    expect(coinPrice(0.0001, 'RUB')).toBe('0,0001 ₽');
+    expect(coinPrice(100000, 'RUB')).toBe('100\u00a0000,00 ₽');
+    expect(coinPrice(0, 'USD')).toBe('0,00 $');
+    expect(coinPrice(0.00000001, 'USD')).toBe('0,00000001 $');
+  });
+
+  it('изменение за сутки: знак, проценты и токен цвета', () => {
+    expect(coinChange(2.5)).toEqual({ text: '▲ 2,50%', dir: 1, color: 'var(--home-up)' });
+    expect(coinChange(-1.25)).toEqual({ text: '▼ 1,25%', dir: -1, color: 'var(--home-down)' });
+    expect(coinChange(0)).toEqual({ text: '= 0,00%', dir: 0, color: 'var(--q-dim)' });
+    expect(coinChange(null)).toEqual({
+      text: 'нет данных за 24 ч',
+      dir: 0,
+      color: 'var(--q-dim)',
+    });
+    expect(coinChange(undefined)).toEqual(coinChange(null));
+  });
+});
+
+describe('дата старта соревнования', () => {
+  it('показывает дату и время старта вместо возраста новости', () => {
+    const date = new Date(2026, 10, 5, 18, 35);
+    const label = contestStart(date.toISOString());
+    expect(label).toContain('Старт:');
+    expect(label).toContain('5 ноября 2026');
+    expect(label).toContain('18:35');
+    expect(contestStart(null)).toBe('');
+    expect(contestStart('не дата')).toBe('');
   });
 });

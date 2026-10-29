@@ -3,10 +3,14 @@
 //! номиналы, числа) — латиница и цифры, поэтому кириллица не нужна:
 //! названия валют — свои.
 
-use serde::Serialize;
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
 use time::{Date, Duration, Month};
 
-use crate::{Error, Result, Sources, cache::Got, fetch_bytes};
+use crate::{
+    Error, Result, Sources, cache::Got, fetch_bytes, fetch_json, settings::check_currencies,
+};
 
 /// Валюты, которые знает Qubite по-русски (остальные — по коду).
 const NAMES: &[(&str, &str)] = &[
@@ -30,6 +34,40 @@ const NAMES: &[(&str, &str)] = &[
     ("CAD", "Канадский доллар"),
     ("AUD", "Австралийский доллар"),
     ("SGD", "Сингапурский доллар"),
+    ("PHP", "Филиппинское песо"),
+    ("IDR", "Индонезийская рупия"),
+    ("MXN", "Мексиканское песо"),
+    ("ARS", "Аргентинское песо"),
+    ("CLP", "Чилийское песо"),
+    ("COP", "Колумбийское песо"),
+    ("BRL", "Бразильский реал"),
+    ("KRW", "Южнокорейская вона"),
+    ("VND", "Вьетнамский донг"),
+    ("MYR", "Малайзийский ринггит"),
+    ("PLN", "Польский злотый"),
+    ("CZK", "Чешская крона"),
+    ("SEK", "Шведская крона"),
+    ("NOK", "Норвежская крона"),
+    ("DKK", "Датская крона"),
+    ("HUF", "Венгерский форинт"),
+    ("ILS", "Израильский шекель"),
+    ("ZAR", "Южноафриканский рэнд"),
+    ("EGP", "Египетский фунт"),
+    ("NZD", "Новозеландский доллар"),
+    ("PKR", "Пакистанская рупия"),
+    ("BDT", "Бангладешская така"),
+    ("NGN", "Нигерийская найра"),
+    ("AZN", "Азербайджанский манат"),
+    ("TJS", "Таджикский сомони"),
+    ("MDL", "Молдавский лей"),
+    ("RON", "Румынский лей"),
+    ("RSD", "Сербский динар"),
+    ("BGN", "Болгарский лев"),
+    ("UAH", "Украинская гривна"),
+    ("SAR", "Саудовский риял"),
+    ("QAR", "Катарский риал"),
+    ("IRR", "Иранский риал"),
+    ("MNT", "Монгольский тугрик"),
 ];
 
 pub fn name_of(code: &str) -> String {
@@ -50,6 +88,8 @@ pub struct Rate {
     pub value: f64,
     /// Изменение к прошлому дню ЦБ, рублей за `nominal`.
     pub change: Option<f64>,
+    /// `cbr` или `er-api`.
+    pub source: String,
 }
 
 /// Курсы на день.
@@ -57,9 +97,9 @@ pub struct Rate {
 pub struct Rates {
     /// День, на который установлен курс (`ГГГГ-ММ-ДД`).
     pub date: String,
-    /// Валюты из настройки, в её порядке (неизвестные ЦБ — пропущены).
+    /// Валюты из настройки, в её порядке (неизвестные источникам — пропущены).
     pub items: Vec<Rate>,
-    /// Все валюты ЦБ на этот день (для настройки): код и название.
+    /// Валюты ЦБ и запасного источника (для настройки): код и название.
     pub available: Vec<(String, String)>,
 }
 
@@ -127,6 +167,9 @@ pub fn parse(bytes: &[u8]) -> Result<(Date, Values)> {
     Ok((date, values))
 }
 
+/// Сколько ждать запасной каталог, когда все курсы уже есть у ЦБ.
+const FX_CATALOG_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
+
 fn round4(value: f64) -> f64 {
     (value * 10_000.0).round() / 10_000.0
 }
@@ -155,6 +198,7 @@ impl Table {
                     nominal,
                     value: round4(value),
                     change,
+                    source: "cbr".into(),
                 })
             })
             .collect();
@@ -181,6 +225,193 @@ impl Table {
     }
 }
 
+/// Таблица запасного источника: единиц валюты за один USD.
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct FxTable {
+    rates: BTreeMap<String, f64>,
+}
+
+// Названия ISO-валют для каталога запасного источника. Источник отдаёт только коды.
+/// Название валюты запасного источника: по-русски, если мы его знаем, иначе по-английски.
+fn fx_name(code: &str) -> String {
+    NAMES
+        .iter()
+        .find(|(known, _)| *known == code)
+        .map_or_else(|| english_name(code), |(_, name)| (*name).to_owned())
+}
+
+fn english_name(code: &str) -> String {
+    const NAMES: &str = "AED=United Arab Emirates Dirham
+AFN=Afghan Afghani
+ALL=Albanian Lek
+AMD=Armenian Dram
+ANG=Netherlands Antillean Guilder
+AOA=Angolan Kwanza
+ARS=Argentine Peso
+AUD=Australian Dollar
+AWG=Aruban Florin
+AZN=Azerbaijani Manat
+BAM=Bosnia and Herzegovina Convertible Mark
+BBD=Barbados Dollar
+BDT=Bangladeshi Taka
+BGN=Bulgarian Lev
+BHD=Bahraini Dinar
+BIF=Burundian Franc
+BMD=Bermudian Dollar
+BND=Brunei Dollar
+BOB=Bolivian Boliviano
+BRL=Brazilian Real
+BSD=Bahamian Dollar
+BTN=Bhutanese Ngultrum
+BWP=Botswana Pula
+BYN=Belarusian Ruble
+BZD=Belize Dollar
+CAD=Canadian Dollar
+CDF=Congolese Franc
+CHF=Swiss Franc
+CLP=Chilean Peso
+CNY=Chinese Renminbi
+COP=Colombian Peso
+CRC=Costa Rican Colon
+CUP=Cuban Peso
+CVE=Cape Verdean Escudo
+CZK=Czech Koruna
+DJF=Djiboutian Franc
+DKK=Danish Krone
+DOP=Dominican Peso
+DZD=Algerian Dinar
+EGP=Egyptian Pound
+ERN=Eritrean Nakfa
+ETB=Ethiopian Birr
+EUR=Euro
+FJD=Fiji Dollar
+FKP=Falkland Islands Pound
+FOK=Faroese Krona
+GBP=Pound Sterling
+GEL=Georgian Lari
+GGP=Guernsey Pound
+GHS=Ghanaian Cedi
+GIP=Gibraltar Pound
+GMD=Gambian Dalasi
+GNF=Guinean Franc
+GTQ=Guatemalan Quetzal
+GYD=Guyanese Dollar
+HKD=Hong Kong Dollar
+HNL=Honduran Lempira
+HRK=Croatian Kuna
+HTG=Haitian Gourde
+HUF=Hungarian Forint
+IDR=Indonesian Rupiah
+ILS=Israeli New Shekel
+IMP=Manx Pound
+INR=Indian Rupee
+IQD=Iraqi Dinar
+IRR=Iranian Rial
+ISK=Icelandic Krona
+JEP=Jersey Pound
+JMD=Jamaican Dollar
+JOD=Jordanian Dinar
+JPY=Japanese Yen
+KES=Kenyan Shilling
+KGS=Kyrgyzstani Som
+KHR=Cambodian Riel
+KID=Kiribati Dollar
+KMF=Comorian Franc
+KRW=South Korean Won
+KWD=Kuwaiti Dinar
+KYD=Cayman Islands Dollar
+KZT=Kazakhstani Tenge
+LAK=Lao Kip
+LBP=Lebanese Pound
+LKR=Sri Lanka Rupee
+LRD=Liberian Dollar
+LSL=Lesotho Loti
+LYD=Libyan Dinar
+MAD=Moroccan Dirham
+MDL=Moldovan Leu
+MGA=Malagasy Ariary
+MKD=Macedonian Denar
+MMK=Burmese Kyat
+MNT=Mongolian Tugrik
+MOP=Macanese Pataca
+MRU=Mauritanian Ouguiya
+MUR=Mauritian Rupee
+MVR=Maldivian Rufiyaa
+MWK=Malawian Kwacha
+MXN=Mexican Peso
+MYR=Malaysian Ringgit
+MZN=Mozambican Metical
+NAD=Namibian Dollar
+NGN=Nigerian Naira
+NIO=Nicaraguan Cordoba
+NOK=Norwegian Krone
+NPR=Nepalese Rupee
+NZD=New Zealand Dollar
+OMR=Omani Rial
+PAB=Panamanian Balboa
+PEN=Peruvian Sol
+PGK=Papua New Guinean Kina
+PHP=Philippine Peso
+PKR=Pakistani Rupee
+PLN=Polish Zloty
+PYG=Paraguayan Guarani
+QAR=Qatari Riyal
+RON=Romanian Leu
+RSD=Serbian Dinar
+RUB=Russian Ruble
+RWF=Rwandan Franc
+SAR=Saudi Riyal
+SBD=Solomon Islands Dollar
+SCR=Seychellois Rupee
+SDG=Sudanese Pound
+SEK=Swedish Krona
+SGD=Singapore Dollar
+SHP=Saint Helena Pound
+SLE=Sierra Leonean Leone
+SLL=Sierra Leonean Leone
+SOS=Somali Shilling
+SRD=Surinamese Dollar
+SSP=South Sudanese Pound
+STN=Sao Tome and Principe Dobra
+SYP=Syrian Pound
+SZL=Eswatini Lilangeni
+THB=Thai Baht
+TJS=Tajikistani Somoni
+TMT=Turkmenistan Manat
+TND=Tunisian Dinar
+TOP=Tongan Paanga
+TRY=Turkish Lira
+TTD=Trinidad and Tobago Dollar
+TVD=Tuvaluan Dollar
+TWD=New Taiwan Dollar
+TZS=Tanzanian Shilling
+UAH=Ukrainian Hryvnia
+UGX=Ugandan Shilling
+USD=United States Dollar
+UYU=Uruguayan Peso
+UZS=Uzbekistani Som
+VES=Venezuelan Bolivar
+VND=Vietnamese Dong
+VUV=Vanuatu Vatu
+WST=Samoan Tala
+XAF=Central African CFA Franc
+XCD=East Caribbean Dollar
+XCG=Caribbean Guilder
+XDR=Special Drawing Rights
+XOF=West African CFA Franc
+XPF=CFP Franc
+YER=Yemeni Rial
+ZAR=South African Rand
+ZMW=Zambian Kwacha
+ZWL=Zimbabwean Dollar
+ZWG=Zimbabwe Gold";
+    NAMES
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .find(|(known, _)| *known == code)
+        .map_or_else(|| code.to_owned(), |(_, name)| name.to_owned())
+}
+
 impl Sources {
     async fn rates_on(&self, day: Option<Date>) -> Result<(Date, Values)> {
         let url = format!("{}/scripts/XML_daily.asp", self.urls.rates);
@@ -201,6 +432,7 @@ impl Sources {
 
     /// Курсы выбранных валют (кэш — час).
     pub async fn rates(&self, codes: &[String]) -> Result<Got<Rates>> {
+        let codes = check_currencies(codes)?;
         let got = self
             .rates
             .get("cbr", || async {
@@ -222,10 +454,95 @@ impl Sources {
                 })
             })
             .await?;
+        let mut rates = got.value.pick(&codes);
+        let mut fetched_at = got.fetched_at;
+        let mut stale = got.stale;
+        // Каталог запасного источника дополняет ЦБ даже при обычном выборе валют.
+        // Его недоступность не мешает вернуть уже полученные курсы ЦБ.
+        // Все выбранные валюты уже есть у ЦБ — запасной источник нужен только для
+        // каталога, поэтому ждём его недолго и зависший не задерживает выдачу.
+        let missing = codes
+            .iter()
+            .any(|code| !rates.items.iter().any(|rate| &rate.code == code));
+        let fx = self.fx.get("usd", || async {
+            let table: FxTable =
+                fetch_json(self.http.get(format!("{}/v6/latest/USD", self.urls.fx))).await?;
+            if table.rates.is_empty()
+                || table.rates.get("USD") != Some(&1.0)
+                || table.rates.iter().any(|(code, value)| {
+                    code.len() != 3
+                        || !code.bytes().all(|b| b.is_ascii_uppercase())
+                        || !value.is_finite()
+                        || *value <= 0.0
+                })
+            {
+                return Err(Error::Upstream(
+                    "запасной источник: неверные курсы валют".into(),
+                ));
+            }
+            Ok(table)
+        });
+        let fx = if missing {
+            fx.await
+        } else {
+            tokio::time::timeout(FX_CATALOG_WAIT, fx)
+                .await
+                .unwrap_or_else(|_| Err(Error::Upstream("запасной источник не ответил".into())))
+        };
+        match fx {
+            Ok(fx) => {
+                for code in fx.value.rates.keys() {
+                    if !rates.available.iter().any(|(known, _)| known == code) {
+                        rates.available.push((code.clone(), fx_name(code)));
+                    }
+                }
+                let usd = got
+                    .value
+                    .values
+                    .iter()
+                    .find(|(code, _, _)| code == "USD")
+                    .map(|(_, nominal, value)| value / f64::from(*nominal));
+                for code in &codes {
+                    if rates.items.iter().any(|rate| &rate.code == code) {
+                        continue;
+                    }
+                    if let (Some(usd), Some(units)) = (usd, fx.value.rates.get(code)) {
+                        let mut value = usd / units;
+                        if !value.is_finite() || value <= 0.0 {
+                            return Err(Error::Upstream(
+                                "запасной источник: неверный курс в рублях".into(),
+                            ));
+                        }
+                        // Мелкая валюта (риал, донг): курс за 1 ед. округлился бы в ноль,
+                        // поэтому, как у ЦБ для иены, берём номинал 10, 100, … единиц.
+                        let mut nominal = 1_u32;
+                        while value < 1.0 && nominal < 1_000_000_000 {
+                            value *= 10.0;
+                            nominal *= 10;
+                        }
+                        rates.items.push(Rate {
+                            code: code.clone(),
+                            name: fx_name(code),
+                            nominal,
+                            value: round4(value),
+                            change: None,
+                            source: "er-api".into(),
+                        });
+                        stale |= fx.stale;
+                        fetched_at = fetched_at.min(fx.fetched_at);
+                    }
+                }
+                rates
+                    .items
+                    .sort_by_key(|rate| codes.iter().position(|code| code == &rate.code));
+            }
+            Err(error) if !codes.is_empty() && rates.items.is_empty() => return Err(error),
+            Err(_) => {}
+        }
         Ok(Got {
-            value: got.value.pick(codes),
-            fetched_at: got.fetched_at,
-            stale: got.stale,
+            value: rates,
+            fetched_at,
+            stale,
         })
     }
 }

@@ -16,6 +16,7 @@ export type HomeFiled = components['schemas']['HomeFiled'];
 export type HomeWeather = components['schemas']['HomeWeather'];
 export type HomeRates = components['schemas']['HomeRates'];
 export type HomeNews = components['schemas']['HomeNews'];
+export type HomeCoinMatch = components['schemas']['HomeCoinMatch'];
 
 export const HOME = ['home'] as const;
 const minutes = (n: number) => n * 60_000;
@@ -49,6 +50,18 @@ export function useRates() {
   });
 }
 
+export function useCoins() {
+  return useQuery({
+    queryKey: [...HOME, 'coins'],
+    queryFn: () => must(api.GET('/api/v1/home/coins')),
+    ...widget,
+  });
+}
+
+export function searchCoins(q: string, signal: AbortSignal) {
+  return must(api.GET('/api/v1/home/coins/search', { params: { query: { q } }, signal }));
+}
+
 export function useNews() {
   return useQuery({
     queryKey: [...HOME, 'news'],
@@ -60,10 +73,11 @@ export function useNews() {
 export interface SettingsChange {
   place?: HomePlace;
   currencies?: string[];
+  coins?: string[];
   topics?: string[];
 }
 
-/** Сохранить город, валюты или темы — и перезапросить то, что от них зависит. */
+/** Сохранить город, валюты, монеты или темы — и перезапросить то, что от них зависит. */
 export function useSaveSettings() {
   const qc = useQueryClient();
   return useMutation({
@@ -76,6 +90,7 @@ export function useSaveSettings() {
       void qc.invalidateQueries({ queryKey: [...HOME, 'weather'] });
       void qc.invalidateQueries({ queryKey: [...HOME, 'rates'] });
       void qc.invalidateQueries({ queryKey: [...HOME, 'news'] });
+      void qc.invalidateQueries({ queryKey: [...HOME, 'coins'] });
     },
   });
 }
