@@ -728,8 +728,8 @@ kbd {
   color: var(--q-dim);
 }
 .q-mic {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   flex: none;
   display: grid;
   place-items: center;

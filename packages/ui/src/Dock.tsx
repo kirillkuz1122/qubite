@@ -79,8 +79,9 @@ export function Dock<T extends string>({
     const v = Math.min(1, Math.max(0, x));
     if (field.current) {
       field.current.style.opacity = v.toFixed(3);
-      // без обрезки: содержимое строки въезжает с перелётом и пружинит назад
-      field.current.style.transform = `translateX(${((1 - x) * 56).toFixed(1)}px) scale(${(0.92 + 0.08 * x).toFixed(4)})`;
+      // Без обрезки: строка въезжает с перелётом. Масштабировать её нельзя:
+      // scale(0.92) уменьшал зоны нажатия 44 px до 40.48 px (D-670).
+      field.current.style.transform = `translateX(${((1 - x) * 56).toFixed(1)}px)`;
     }
     if (cmdBtn.current) cmdBtn.current.style.opacity = Math.max(0, 1 - v * 1.6).toFixed(3);
     items.forEach((it, i) => {
