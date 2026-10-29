@@ -7,7 +7,7 @@
 | Документ | О чём |
 |---|---|
 | **[product/VISION.md](product/VISION.md)** | Что такое Qubite, принципы, модули, MVP |
-| **[product/DECISIONS.md](product/DECISIONS.md)** | Все решения владельца — главный источник истины |
+| **[product/DECISIONS.md](product/DECISIONS.md)** | Индекс решений владельца (главный источник истины); полный текст — `product/decisions/NN.md` |
 | [product/MODULES.md](product/MODULES.md) | Каталог модулей: статус, поддомены, что из legacy |
 | [product/REQUIREMENTS.md](product/REQUIREMENTS.md) | Реестр требований с ID и критериями готовности |
 | [product/OWNER_CONSOLE.md](product/OWNER_CONSOLE.md) | Панель владельца |
@@ -54,7 +54,7 @@
 | **[project/STATUS.md](project/STATUS.md)** | Где остановились, открытые вопросы |
 | [project/OPEN_SOURCE_AND_CHATGPT.md](project/OPEN_SOURCE_AND_CHATGPT.md) | Как открыть репозиторий и подключить «Sign in with ChatGPT» |
 | **[plan/ROADMAP.md](plan/ROADMAP.md)** | Этапы MVP и эпики после него |
-| [plan/TASKS.md](plan/TASKS.md) | Карточки задач |
+| [plan/TASKS.md](plan/TASKS.md) | Как устроены задачи (сами задачи — GitHub Issues) |
 
 ## Исходный контекст (не редактируется)
 

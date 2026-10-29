@@ -185,7 +185,7 @@
 ## 9. Связанные документы
 
 - Питомцы: [COMPANIONS.md](COMPANIONS.md)
-- Исходные решения по дизайну: [DECISIONS §6](../product/DECISIONS.md#6-дизайн)
+- Исходные решения по дизайну: [DECISIONS §6](../product/decisions/06.md)
 - Переписка с выбором вариантов: [context/codex-session-2026-10-12.md](../context/codex-session-2026-10-12.md), сообщения 1–59
 
 ## 10. Процесс (D-139)

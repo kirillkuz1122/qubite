@@ -1,0 +1,27 @@
+# Одноразовый перенос открытых задач из архива TASKS в GitHub Issues (HAR-001, D-624).
+# Запуск вручную; повторный запуск не создаёт дублей.
+name: tasks-to-issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Создать issues (иначе только показать список)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Перенос
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ inputs.apply }}
+        run: python3 scripts/tasks-to-issues.py $([ "$APPLY" = "true" ] && echo --apply)

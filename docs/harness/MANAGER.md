@@ -3,7 +3,7 @@
 Записано 27.10.2026, когда старая управляющая сессия передавала дела новой. Сначала прочитай `docs/harness/OWNER.md`.
 
 ## Не читай целиком
-`docs/project/STATUS.md` (170 КБ), `docs/product/DECISIONS.md` (390 КБ), `docs/plan/TASKS.md` (180 КБ) — это и сжигало лимиты. Ищи в них grep-ом по номеру (`D-585`, `HAR-001`) и читай только найденные строки. Разрезать их — часть HAR-001.
+С 29.10 (D-624): `docs/project/STATUS.md` — короткий (≤ 80 строк), его можно читать. `docs/product/DECISIONS.md` — индекс (86 КБ): только grep по номеру, полный текст — `docs/product/decisions/NN.md`. Задачи — GitHub Issues. Архивы (`docs/*/archive/`) — только grep.
 
 ## Где мы сейчас
 - Qubite 2.0 работает на Raspberry Pi: https://qubiteapp.online, автодеплой из main (OPS-005, D-564…D-572; сессия на самом Pi — `session_01BNKz5U9fG8dCEbuB89Qgxp`, её запускает владелец). Проверка: `https://qubiteapp.online/api/ready`.
