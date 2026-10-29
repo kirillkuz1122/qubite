@@ -192,17 +192,19 @@ pub async fn calendar(
     .fetch_all(&mut *conn)
     .await
     .map_err(database_error)?;
-    items.extend(tasks.into_iter().map(
-        |(source_id, title, starts_at, ends_at, all_day)| CalendarItem {
-            kind: CalendarKind::Task,
-            source_id,
-            starts_at,
-            ends_at,
-            all_day,
-            title,
-            place: String::new(),
-        },
-    ));
+    items.extend(
+        tasks.into_iter().map(
+            |(source_id, title, starts_at, ends_at, all_day)| CalendarItem {
+                kind: CalendarKind::Task,
+                source_id,
+                starts_at,
+                ends_at,
+                all_day,
+                title,
+                place: String::new(),
+            },
+        ),
+    );
 
     // Как в странице проекта, скрываем данные агента без права читать модуль.
     if authorize::<Read>(&state, &session, qubite_agent::MODULE)
@@ -266,7 +268,11 @@ pub async fn calendar(
     Ok(Json(items))
 }
 
-async fn local_millis(conn: &mut sqlx::PgConnection, date: Date, time: Time) -> Result<i64, ApiError> {
+async fn local_millis(
+    conn: &mut sqlx::PgConnection,
+    date: Date,
+    time: Time,
+) -> Result<i64, ApiError> {
     qubite_planner::reminder::to_instant(conn, PrimitiveDateTime::new(date, time))
         .await
         .map(millis)

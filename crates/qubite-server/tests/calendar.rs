@@ -180,10 +180,7 @@ async fn calendar_combines_tasks_and_schedule_in_platform_timezone() {
     assert_eq!(day["starts_at"], millis(datetime!(2026-10-18 19:00 UTC)));
     assert_eq!(day["ends_at"], millis(datetime!(2026-10-19 19:00 UTC)));
     assert_eq!(day["all_day"], true);
-    let lesson = items
-        .iter()
-        .find(|item| item["kind"] == "lesson")
-        .unwrap();
+    let lesson = items.iter().find(|item| item["kind"] == "lesson").unwrap();
     assert_eq!(lesson["title"], "Алгебра");
     assert_eq!(lesson["place"], "204");
     assert_eq!(lesson["starts_at"], millis(datetime!(2026-10-19 03:30 UTC)));
@@ -201,10 +198,7 @@ async fn events_are_private_and_invalid_windows_and_fields_are_rejected() {
         .post_json(address, "/api/calendar/events", event("Личное"))
         .await;
     assert_eq!(made.status, 201, "{:?}", made.body);
-    let path = format!(
-        "/api/calendar/events/{}",
-        made.body["id"].as_str().unwrap()
-    );
+    let path = format!("/api/calendar/events/{}", made.body["id"].as_str().unwrap());
     let user = qubite_auth::accounts::create(
         db.pool(),
         &Passwords::default(),
@@ -365,10 +359,7 @@ async fn repeats_keep_month_days_week_intervals_and_local_clock() {
             .map(|item| item["starts_at"].as_i64().unwrap())
             .collect();
         assert_eq!(starts, expected.into_iter().map(millis).collect::<Vec<_>>());
-        let path = format!(
-            "/api/calendar/events/{}",
-            made.body["id"].as_str().unwrap()
-        );
+        let path = format!("/api/calendar/events/{}", made.body["id"].as_str().unwrap());
         assert_eq!(owner.delete(address, &path).await.status, 204);
     }
 
