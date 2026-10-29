@@ -321,7 +321,6 @@ async fn codeforces_empty_and_broken_responses_are_distinct() {
         "not json",
         "{}",
         r#"{"status":"FAILED","result":[]}"#,
-        r#"{"status":"OK","result":[{"id":1,"name":"x","phase":"BEFORE"}]}"#,
         r#"{"status":"OK","result":[{"id":1,"name":"x","phase":"BEFORE","startTimeSeconds":9223372036854775807}]}"#,
     ] {
         let fake = FakeHttp::start([], Action::Respond(200, body.into())).await;
@@ -334,4 +333,36 @@ async fn codeforces_empty_and_broken_responses_are_distinct() {
             "{body}"
         );
     }
+}
+
+#[tokio::test]
+async fn codeforces_contest_without_start_time_is_skipped_not_fatal() {
+    let body = r#"{"status":"OK","result":[
+        {"id":1,"name":"No time","phase":"BEFORE"},
+        {"id":2,"name":"Has time","phase":"BEFORE","startTimeSeconds":1800000000}]}"#;
+    let fake = FakeHttp::start([], Action::Respond(200, body.into())).await;
+    let sources = Sources::new(Urls::local(&fake.root_url()));
+    let got = sources.news(&[Topic::Contests]).await.unwrap();
+    assert_eq!(got.value.len(), 1);
+    assert_eq!(got.value[0].title, "Has time");
+}
+
+#[tokio::test]
+async fn tiny_fallback_currency_gets_a_nominal_instead_of_zero() {
+    let fake = FakeHttp::start(
+        [],
+        Action::With(Arc::new(|req: &Received| {
+            if req.line.contains("/scripts/XML_daily.asp") {
+                (200, CBR.into())
+            } else {
+                (200, r#"{"rates":{"USD":1.0,"IRR":1791801.0}}"#.into())
+            }
+        })),
+    )
+    .await;
+    let sources = Sources::new(Urls::local(&fake.root_url()));
+    let got = sources.rates(&["IRR".into()]).await.unwrap();
+    let irr = &got.value.items[0];
+    assert!(irr.nominal > 1, "{irr:?}");
+    assert!(irr.value >= 1.0 && irr.value < 10.0, "{irr:?}");
 }

@@ -133,6 +133,9 @@ pub fn parse(bytes: &[u8]) -> Result<(Date, Values)> {
     Ok((date, values))
 }
 
+/// Сколько ждать запасной каталог, когда все курсы уже есть у ЦБ.
+const FX_CATALOG_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
+
 fn round4(value: f64) -> f64 {
     (value * 10_000.0).round() / 10_000.0
 }
@@ -414,27 +417,36 @@ impl Sources {
         let mut stale = got.stale;
         // Каталог запасного источника дополняет ЦБ даже при обычном выборе валют.
         // Его недоступность не мешает вернуть уже полученные курсы ЦБ.
-        let fx = self
-            .fx
-            .get("usd", || async {
-                let table: FxTable =
-                    fetch_json(self.http.get(format!("{}/v6/latest/USD", self.urls.fx))).await?;
-                if table.rates.is_empty()
-                    || table.rates.get("USD") != Some(&1.0)
-                    || table.rates.iter().any(|(code, value)| {
-                        code.len() != 3
-                            || !code.bytes().all(|b| b.is_ascii_uppercase())
-                            || !value.is_finite()
-                            || *value <= 0.0
-                    })
-                {
-                    return Err(Error::Upstream(
-                        "запасной источник: неверные курсы валют".into(),
-                    ));
-                }
-                Ok(table)
-            })
-            .await;
+        // Все выбранные валюты уже есть у ЦБ — запасной источник нужен только для
+        // каталога, поэтому ждём его недолго и зависший не задерживает выдачу.
+        let missing = codes
+            .iter()
+            .any(|code| !rates.items.iter().any(|rate| &rate.code == code));
+        let fx = self.fx.get("usd", || async {
+            let table: FxTable =
+                fetch_json(self.http.get(format!("{}/v6/latest/USD", self.urls.fx))).await?;
+            if table.rates.is_empty()
+                || table.rates.get("USD") != Some(&1.0)
+                || table.rates.iter().any(|(code, value)| {
+                    code.len() != 3
+                        || !code.bytes().all(|b| b.is_ascii_uppercase())
+                        || !value.is_finite()
+                        || *value <= 0.0
+                })
+            {
+                return Err(Error::Upstream(
+                    "запасной источник: неверные курсы валют".into(),
+                ));
+            }
+            Ok(table)
+        });
+        let fx = if missing {
+            fx.await
+        } else {
+            tokio::time::timeout(FX_CATALOG_WAIT, fx)
+                .await
+                .unwrap_or_else(|_| Err(Error::Upstream("запасной источник не ответил".into())))
+        };
         match fx {
             Ok(fx) => {
                 for code in fx.value.rates.keys() {
@@ -453,16 +465,23 @@ impl Sources {
                         continue;
                     }
                     if let (Some(usd), Some(units)) = (usd, fx.value.rates.get(code)) {
-                        let value = usd / units;
+                        let mut value = usd / units;
                         if !value.is_finite() || value <= 0.0 {
                             return Err(Error::Upstream(
                                 "запасной источник: неверный курс в рублях".into(),
                             ));
                         }
+                        // Мелкая валюта (риал, донг): курс за 1 ед. округлился бы в ноль,
+                        // поэтому, как у ЦБ для иены, берём номинал 10, 100, … единиц.
+                        let mut nominal = 1_u32;
+                        while value < 1.0 && nominal < 1_000_000_000 {
+                            value *= 10.0;
+                            nominal *= 10;
+                        }
                         rates.items.push(Rate {
                             code: code.clone(),
                             name: english_name(code),
-                            nominal: 1,
+                            nominal,
                             value: round4(value),
                             change: None,
                             source: "er-api".into(),

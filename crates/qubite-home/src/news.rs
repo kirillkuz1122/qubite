@@ -264,10 +264,12 @@ fn upcoming(list: ContestList) -> Result<Vec<NewsItem>> {
     }
     let mut out = Vec::new();
     for contest in list.result.into_iter().filter(|c| c.phase == "BEFORE") {
-        let published = contest
-            .start_time_seconds
-            .and_then(|seconds| OffsetDateTime::from_unix_timestamp(seconds).ok())
-            .ok_or_else(|| Error::Upstream("Codeforces: нет времени старта".into()))?;
+        // Время старта в схеме Codeforces может отсутствовать — такое пропускаем.
+        let Some(seconds) = contest.start_time_seconds else {
+            continue;
+        };
+        let published = OffsetDateTime::from_unix_timestamp(seconds)
+            .map_err(|_| Error::Upstream("Codeforces: неверное время старта".into()))?;
         if contest.id == 0 || contest.name.trim().is_empty() {
             return Err(Error::Upstream(
                 "Codeforces: неверные данные соревнования".into(),
