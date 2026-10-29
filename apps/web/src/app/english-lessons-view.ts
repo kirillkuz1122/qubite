@@ -1,5 +1,15 @@
 /** Уроки английского (ENG-002): чистые функции экрана — плитки, подписи, кольцо, порядок. */
-import type { AnswerBy, Answered, Game, Lesson, Level, Run, Step, Task } from './english-lessons';
+import type {
+  AnswerBy,
+  Answered,
+  Game,
+  Lesson,
+  Level,
+  Run,
+  Step,
+  Task,
+  Mark,
+} from './english-lessons';
 
 /** Перемешать стабильно (по id задания): плитки не прыгают при перерисовке. */
 export function shuffle<T>(list: readonly T[], seed: string): T[] {
@@ -72,10 +82,16 @@ export function runTasks(
   lesson: Lesson | null,
   run: Run,
 ): { lesson: string | null; task: Task; wrong?: string }[] {
+  const replacement = (task: Task, lessonId: string) =>
+    run.replacements?.find((r) => r.lesson_id === lessonId && r.task.id === task.id)?.task ?? task;
   if (run.kind === 'review')
-    return run.tasks.map((t) => ({ lesson: t.lesson_id, task: t.task, wrong: t.wrong }));
+    return run.tasks.map((t) => ({
+      lesson: t.lesson_id,
+      task: replacement(t.task, t.lesson_id),
+      wrong: t.wrong,
+    }));
   const list = run.kind === 'homework' ? (lesson?.homework?.tasks ?? []) : (lesson?.tasks ?? []);
-  return list.map((task) => ({ lesson: null, task }));
+  return list.map((task) => ({ lesson: null, task: replacement(task, run.lesson_id) }));
 }
 
 /** С какого задания продолжить: первое без верного ответа. */
@@ -204,4 +220,41 @@ export function fixHint(a: Pick<Answered, 'correct' | 'mistakes' | 'explain_ru'>
   const list = a.mistakes.map((m) => (m.why ? `«${m.wrong}» — ${m.why}` : `«${m.wrong}»`));
   if (list.length === 0 && a.explain_ru) list.push(a.explain_ru);
   return list;
+}
+
+/** Нижняя полоса: выбор и пары отправляются сразу, остальные ждут проверки. */
+export function answerBar(task: Task, answered: boolean, ready: boolean, busy: boolean) {
+  if (answered) return { action: 'next' as const, disabled: busy };
+  const immediate =
+    task.type === 'match' ||
+    ((task.type === 'choose' || task.type === 'listen' || task.type === 'fill') &&
+      !!task.options?.length);
+  return {
+    action: immediate ? ('wait' as const) : ('check' as const),
+    disabled: busy || !ready,
+  };
+}
+
+/** Считаем разные соседние задания; без отметки или «трудно» цепочка обрывается. */
+export function consecutiveEasy(marks: readonly (Mark | null)[]): number {
+  return marks.reduce((count, mark) => (mark === 'easy' ? count + 1 : 0), 0);
+}
+
+/** Без микрофона «только голос» заменяем, «голос или текст» оставляем текстом. */
+export function microphoneFallback(task: Task): 'replace' | 'text' {
+  return answerBy(task) === 'voice' ? 'replace' : 'text';
+}
+
+/** Сначала сложные из оставшихся, без пропуска: свой ответ труднее сборки и выбора. */
+export function harderFirst<T extends { task: Task }>(list: readonly T[], from: number): T[] {
+  const difficulty = (t: Task) =>
+    spoken(t) && t.mode !== 'repeat'
+      ? 3
+      : ['translate', 'build', 'fill'].includes(t.type)
+        ? 2
+        : 1;
+  return [
+    ...list.slice(0, from),
+    ...list.slice(from).sort((a, b) => difficulty(b.task) - difficulty(a.task)),
+  ];
 }

@@ -587,8 +587,8 @@ pub fn task_xp(task: &Value) -> i64 {
 
 /// Как отвечать на задание (ENG-006, слова владельца 25.10): `text` — только текстом
 /// (написание, грамматика, порядок слов), `voice_or_text` — голосом или текстом (понимание,
-/// быстрый перевод, разговорные фразы), `voice` — голосом (произношение; без микрофона —
-/// текстом). Ответ, который сверяется буква в букву (число, имя на слух), — текстом:
+/// быстрый перевод, разговорные фразы), `voice` — голосом (произношение; без микрофона задание заменяется).
+/// Ответ, который сверяется буква в букву (число, имя на слух), — текстом:
 /// распознавание напишет «fourteen» вместо «14». Своё `answer_by` у задания — главнее.
 pub fn answer_by(task: &Value) -> &str {
     if let Some(by) = task["answer_by"].as_str() {
@@ -679,6 +679,32 @@ pub fn place(course: &Course, answers: &Value, shift: i8) -> Placement {
         start_lesson,
         stages,
     }
+}
+
+/// Письменная замена «только голос» из материала того же урока (D-582).
+/// Повторение фразы становится сборкой этой фразы; свободный ответ остаётся свободным,
+/// но текстом. ID сохраняется: обязательное задание нужно решить, а не пропустить.
+pub fn without_microphone(task: &Value) -> Option<Value> {
+    if answer_by(task) != "voice" {
+        return None;
+    }
+    if task["type"] == "speak" && task["mode"] == "repeat" {
+        let phrase = task["say"].as_str().filter(|s| !s.trim().is_empty())?;
+        return Some(json!({
+            "id": task["id"],
+            "type": "build",
+            "answer_by": "text",
+            "ask_ru": "Собери фразу из слов.",
+            "answer": phrase,
+            "extra": [],
+            "explain_ru": task["explain_ru"],
+        }));
+    }
+    let mut replacement = task.clone();
+    replacement["answer_by"] = json!("text");
+    replacement["ask_ru"] = json!("Ответь письменно: выполни задание ниже.");
+    replacement["hint_ru"] = task.get("ask_ru").cloned().unwrap_or(Value::Null);
+    Some(replacement)
 }
 
 #[cfg(test)]

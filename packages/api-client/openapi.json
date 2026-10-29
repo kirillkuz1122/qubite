@@ -5816,6 +5816,56 @@
         }
       }
     },
+    "/api/v1/english/runs/{id}/replace-voice": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_replace_voice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Прохождение",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishReplaceVoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Прохождение с заменой (lessons::RunView)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого прохождения или задания",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/english/session": {
       "post": {
         "tags": ["english"],
@@ -10145,6 +10195,20 @@
             "$ref": "#/components/schemas/EnglishSession"
           }
         }
+      },
+      "EnglishReplaceVoice": {
+        "type": "object",
+        "description": "Заменить задание, требующее микрофона.",
+        "required": ["task_id"],
+        "properties": {
+          "lesson_id": {
+            "type": ["string", "null"]
+          },
+          "task_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "EnglishSay": {
         "type": "object",

@@ -103,6 +103,7 @@ export interface Run {
   kind: 'lesson' | 'homework' | 'review';
   answers: { task_id: string; lesson_id: string; correct: boolean; attempts: number }[];
   tasks: { lesson_id: string; task: Task; wrong: string }[];
+  replacements?: { lesson_id: string; task: Task }[];
 }
 
 export interface LessonView {
@@ -353,6 +354,20 @@ export async function sendAnswer(
       body: body as never,
     }),
   )) as unknown as Answered;
+}
+
+/** Микрофон недоступен: сервер сохраняет замену в этом прохождении, без попытки ответа. */
+export async function replaceVoiceTask(
+  run: string,
+  task: string,
+  lesson: string | null,
+): Promise<Run> {
+  return (await must(
+    api.POST('/api/v1/english/runs/{id}/replace-voice', {
+      params: { path: { id: run } },
+      body: { task_id: task, lesson_id: lesson },
+    }),
+  )) as unknown as Run;
 }
 
 export async function finishRun(run: string): Promise<Finished> {

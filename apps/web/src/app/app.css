@@ -2261,3 +2261,144 @@ h4.eng-h {
     padding: 16px 24px;
   }
 }
+
+/* ENG-007c: урок занимает весь экран, прокручивается только его содержимое. */
+.eng-lesson-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--q-bg);
+  color: var(--q-ink);
+}
+.eng-lesson-presence,
+.eng-lesson-screen .eng-lesson {
+  height: 100%;
+  min-height: 0;
+}
+.eng-lesson-screen .eng-lesson {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+}
+.eng-lesson-work {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+}
+.eng-lesson-screen .eng-stage {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--q-line);
+  border-radius: 0;
+  padding: calc(8px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 8px
+    max(18px, env(safe-area-inset-left));
+}
+.eng-lesson-screen .eng-who {
+  flex: 1;
+  padding-bottom: 0;
+  overflow-wrap: anywhere;
+}
+.eng-lesson-screen .eng-stage > canvas {
+  max-width: 44px;
+  height: auto;
+}
+.eng-lesson-screen .eng-who b {
+  font-size: 14px;
+}
+.eng-lesson-screen .eng-phase {
+  font-size: 12px;
+}
+.eng-lesson-screen .eng-close {
+  align-self: center;
+}
+.eng-lesson-screen .q-btn {
+  min-height: 44px;
+}
+.eng-lesson-content {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px max(18px, env(safe-area-inset-right)) 24px
+    max(18px, env(safe-area-inset-left));
+}
+.eng-lesson-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+  min-width: 0;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+}
+.eng-lesson-bottom {
+  border-top: 1px solid var(--q-line);
+  background: var(--q-panel);
+  padding: 8px max(18px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  max-height: 50dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.eng-lesson-screen .eng-ask {
+  justify-self: end;
+}
+.eng-answer-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.eng-answer-bar-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.eng-answer-bar-content > p {
+  margin: 0;
+  max-height: 24dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.eng-answer-bar[data-ok],
+.eng-answer-bar[data-wrong] {
+  padding: 12px;
+  border-radius: calc(var(--q-round) * 14px);
+  background: var(--q-panel-2);
+  border: 1px solid var(--q-bad);
+}
+.eng-answer-bar[data-ok] {
+  border-color: var(--q-green);
+}
+.eng-answer-bar[data-ok] .eng-answer-bar-content > p {
+  color: var(--q-green);
+}
+.eng-answer-bar[data-wrong] .eng-answer-bar-content > p {
+  color: var(--q-bad);
+}
+.eng-answer-bar .eng-row {
+  justify-content: flex-end;
+}
+@media (min-width: 900px) {
+  .eng-lesson-screen .eng-stage {
+    padding-inline: max(40px, env(safe-area-inset-left)) max(40px, env(safe-area-inset-right));
+  }
+  .eng-lesson-screen .eng-stage > canvas {
+    max-width: 64px;
+  }
+  .eng-lesson-content,
+  .eng-lesson-bottom {
+    padding-inline: max(40px, env(safe-area-inset-left)) max(40px, env(safe-area-inset-right));
+  }
+  .eng-answer-bar-content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .eng-answer-bar-content > .q-btn:only-child {
+    grid-column: 2;
+  }
+}
