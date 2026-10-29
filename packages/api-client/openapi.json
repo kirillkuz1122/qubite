@@ -9899,15 +9899,7 @@
       },
       "CalendarItem": {
         "type": "object",
-        "required": [
-          "kind",
-          "source_id",
-          "starts_at",
-          "ends_at",
-          "all_day",
-          "title",
-          "place"
-        ],
+        "required": ["kind", "source_id", "starts_at", "ends_at", "all_day", "title", "place"],
         "properties": {
           "all_day": {
             "type": "boolean"
