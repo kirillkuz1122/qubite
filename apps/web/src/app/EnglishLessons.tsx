@@ -1732,7 +1732,9 @@ function SettingsView() {
           label="Вибрация"
         />
       </div>
-      <p className="eng-hint">Тихие сигналы на верный и неверный ответ. Только на этом устройстве.</p>
+      <p className="eng-hint">
+        Тихие сигналы на верный и неверный ответ. Только на этом устройстве.
+      </p>
       <VoiceEngine body={body} set={set} />
       <h3 className="eng-h">
         Голос Нейта — ElevenLabs{body.engine?.engine === 'chatgpt' && ' (запасной)'}

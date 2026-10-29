@@ -3528,7 +3528,10 @@ export interface components {
       /** @description Голос для прослушивания (иначе — свой). */
       voice?: string | null;
     };
-    /** @description Ответы входного теста. */
+    /**
+     * @description Ответы входного теста. В `answers` значение `null` означает «Не знаю»;
+     *     передаём его в оценку без замены, обычные ответы принимаются как раньше.
+     */
     EnglishPlace: {
       /** @description `{"p1": "…", "p3": ["am"]}`. */
       answers: Record<string, never>;

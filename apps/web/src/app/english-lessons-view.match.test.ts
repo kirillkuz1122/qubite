@@ -24,7 +24,7 @@ describe('мгновенная проверка пары', () => {
     expect(pairOk(task, ['hello', 'пока'])).toBe(false);
     expect(pairOk(task, ['unknown', 'привет'])).toBe(false);
     expect(pairOk(task, ['привет', 'hello'])).toBe(false);
-    expect(pairOk({ ...task, pairs: undefined }, ['hello', 'привет'])).toBe(false);
+    expect(pairOk({ ...task, pairs: [] }, ['hello', 'привет'])).toBe(false);
   });
 
   it('без ошибок отправляет все правильные пары', () => {

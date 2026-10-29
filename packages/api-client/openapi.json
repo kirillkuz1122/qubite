@@ -9956,7 +9956,7 @@
       },
       "EnglishPlace": {
         "type": "object",
-        "description": "Ответы входного теста.",
+        "description": "Ответы входного теста. В `answers` значение `null` означает «Не знаю»;\nпередаём его в оценку без замены, обычные ответы принимаются как раньше.",
         "required": ["answers"],
         "properties": {
           "answers": {
