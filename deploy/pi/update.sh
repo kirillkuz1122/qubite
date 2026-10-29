@@ -172,6 +172,9 @@ deploy() {
     [[ $commit =~ ^[0-9a-f]{40}$ ]] || die "в edge.json нет коммита"
 
     if [[ $commit == "$(current_commit)" ]]; then
+        # Первый запуск этого скрипта после обновления со старого: выкладку делал он, файла для сайта
+        # ещё нет. Заводим его для стоящей версии (время выкладки — сейчас, точнее не знаем).
+        [[ -f $ROOT/deploy.json ]] || write_info "$commit" "$(readlink -f "$ROOT/current")"
         exit 0
     fi
     if [[ $force != 1 && $commit == "$(cat "$STATE/failed" 2>/dev/null || true)" ]]; then
