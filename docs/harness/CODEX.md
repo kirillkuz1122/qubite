@@ -33,3 +33,4 @@
 - Песочницы нет (владелец, 29.10): интернет и браузер Playwright есть. Через демон Codex работает с правами `kirill` (sudo есть) — от сервисов владельца держит только правило в промпте.
 - На Pi только лёгкие проверки (`git diff --check`, `scripts/check.sh --quick` для не-кода); сборки и тесты — CI.
 - Pi занята (load > 6 или памяти < 600M) — задание ждёт.
+- Будильник менеджера (D-649): `deploy/pi/manager-wake/`, юниты `qubite-manager-wake.{service,timer}`; раз в 40 мин (кроме 01:00–01:50 UTC) комментарий в PR #89. Выключить: `systemctl disable --now qubite-manager-wake.timer`.
