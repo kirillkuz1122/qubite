@@ -634,3 +634,5 @@
 - D-625 · Раздел «Сервер» в AGENTS.md обновлён: на Pi Qubite 2.0, push в main = деплой. · агент
 - D-626 · Единая проверка scripts/check.sh: только задетое, вывод коротко; хук Stop, Codex, CI harness.yml. · агент, можно откатить
 - D-627 · Агенты .claude/agents (reviewer, designer xhigh, weekly-audit xhigh, scout) и журнал поправок docs/harness/corrections.md. · агент, можно откатить
+- D-628 · Сессии задач — Sonnet 5.5 high по умолчанию, Opus — сложное, Pi и дизайн; уровень create_session не задаёт.
+- D-629 · Сессии на Pi управляющая запускает в окружении Remote Control Pi; первая — очередь Codex (D-630…D-639).
