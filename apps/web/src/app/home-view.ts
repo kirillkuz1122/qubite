@@ -143,11 +143,14 @@ export function rateChange(change: number | null | undefined): { text: string; d
   };
 }
 
-/** Сохраняем доли дешёвых монет, у крупных цен — два знака после запятой. */
+/** Сохраняем значимые цифры дешёвых монет, у крупных цен — два знака после запятой. */
 export function coinPrice(value: number, currency: 'USD' | 'RUB'): string {
+  const abs = Math.abs(value);
+  const digits =
+    abs >= 1 || abs === 0 ? 2 : Math.min(18, Math.max(6, Math.ceil(-Math.log10(abs)) + 2));
   const amount = new Intl.NumberFormat('ru-RU', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: Math.abs(value) < 1 ? 6 : 2,
+    maximumFractionDigits: digits,
   }).format(value);
   return `${amount} ${currency === 'USD' ? '$' : '₽'}`;
 }
@@ -158,7 +161,7 @@ export function coinChange(change: number | null | undefined) {
   return {
     text: text ? `${text}%` : 'нет данных за 24 ч',
     dir,
-    color: dir > 0 ? 'var(--q-green)' : dir < 0 ? 'var(--q-orange)' : 'var(--q-dim)',
+    color: dir > 0 ? 'var(--home-up)' : dir < 0 ? 'var(--home-down)' : 'var(--q-dim)',
   };
 }
 

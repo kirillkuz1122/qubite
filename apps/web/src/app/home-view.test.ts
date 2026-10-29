@@ -148,11 +148,12 @@ describe('криптовалюта', () => {
     expect(coinPrice(0.0001, 'RUB')).toBe('0,0001 ₽');
     expect(coinPrice(100000, 'RUB')).toBe('100\u00a0000,00 ₽');
     expect(coinPrice(0, 'USD')).toBe('0,00 $');
+    expect(coinPrice(0.00000001, 'USD')).toBe('0,00000001 $');
   });
 
   it('изменение за сутки: знак, проценты и токен цвета', () => {
-    expect(coinChange(2.5)).toEqual({ text: '▲ 2,50%', dir: 1, color: 'var(--q-green)' });
-    expect(coinChange(-1.25)).toEqual({ text: '▼ 1,25%', dir: -1, color: 'var(--q-orange)' });
+    expect(coinChange(2.5)).toEqual({ text: '▲ 2,50%', dir: 1, color: 'var(--home-up)' });
+    expect(coinChange(-1.25)).toEqual({ text: '▼ 1,25%', dir: -1, color: 'var(--home-down)' });
     expect(coinChange(0)).toEqual({ text: '= 0,00%', dir: 0, color: 'var(--q-dim)' });
     expect(coinChange(null)).toEqual({
       text: 'нет данных за 24 ч',

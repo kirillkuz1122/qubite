@@ -714,7 +714,7 @@ function CoinSettings({ settings }: { settings: HomeSettings }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Например, Ethereum"
-          hint="Введите хотя бы 2 знака названия"
+          {...(text.length < 2 ? { hint: 'Введите хотя бы 2 знака названия' } : {})}
           error={current?.error ?? null}
         />
         {text.length >= 2 && !current && (

@@ -49,7 +49,7 @@ async fn fallback_rates_preserve_cbr_priority_order_and_cache() {
     assert!(!got.stale);
     let php = &got.value.items[0];
     assert_eq!(php.code, "PHP");
-    assert_eq!(php.name, "Philippine Peso");
+    assert_eq!(php.name, "Филиппинское песо");
     assert_eq!(php.source, "er-api");
     assert_eq!(php.nominal, 1);
     assert_eq!(php.value, 1.63);
@@ -62,7 +62,7 @@ async fn fallback_rates_preserve_cbr_priority_order_and_cache() {
         got.value
             .available
             .iter()
-            .any(|(code, name)| code == "PHP" && name == "Philippine Peso")
+            .any(|(code, name)| code == "PHP" && name == "Филиппинское песо")
     );
     assert_eq!(
         got.value

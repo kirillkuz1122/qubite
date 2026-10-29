@@ -34,6 +34,40 @@ const NAMES: &[(&str, &str)] = &[
     ("CAD", "Канадский доллар"),
     ("AUD", "Австралийский доллар"),
     ("SGD", "Сингапурский доллар"),
+    ("PHP", "Филиппинское песо"),
+    ("IDR", "Индонезийская рупия"),
+    ("MXN", "Мексиканское песо"),
+    ("ARS", "Аргентинское песо"),
+    ("CLP", "Чилийское песо"),
+    ("COP", "Колумбийское песо"),
+    ("BRL", "Бразильский реал"),
+    ("KRW", "Южнокорейская вона"),
+    ("VND", "Вьетнамский донг"),
+    ("MYR", "Малайзийский ринггит"),
+    ("PLN", "Польский злотый"),
+    ("CZK", "Чешская крона"),
+    ("SEK", "Шведская крона"),
+    ("NOK", "Норвежская крона"),
+    ("DKK", "Датская крона"),
+    ("HUF", "Венгерский форинт"),
+    ("ILS", "Израильский шекель"),
+    ("ZAR", "Южноафриканский рэнд"),
+    ("EGP", "Египетский фунт"),
+    ("NZD", "Новозеландский доллар"),
+    ("PKR", "Пакистанская рупия"),
+    ("BDT", "Бангладешская така"),
+    ("NGN", "Нигерийская найра"),
+    ("AZN", "Азербайджанский манат"),
+    ("TJS", "Таджикский сомони"),
+    ("MDL", "Молдавский лей"),
+    ("RON", "Румынский лей"),
+    ("RSD", "Сербский динар"),
+    ("BGN", "Болгарский лев"),
+    ("UAH", "Украинская гривна"),
+    ("SAR", "Саудовский риял"),
+    ("QAR", "Катарский риал"),
+    ("IRR", "Иранский риал"),
+    ("MNT", "Монгольский тугрик"),
 ];
 
 pub fn name_of(code: &str) -> String {
@@ -198,6 +232,14 @@ pub(crate) struct FxTable {
 }
 
 // Названия ISO-валют для каталога запасного источника. Источник отдаёт только коды.
+/// Название валюты запасного источника: по-русски, если мы его знаем, иначе по-английски.
+fn fx_name(code: &str) -> String {
+    NAMES
+        .iter()
+        .find(|(known, _)| *known == code)
+        .map_or_else(|| english_name(code), |(_, name)| (*name).to_owned())
+}
+
 fn english_name(code: &str) -> String {
     const NAMES: &str = "AED=United Arab Emirates Dirham
 AFN=Afghan Afghani
@@ -451,7 +493,7 @@ impl Sources {
             Ok(fx) => {
                 for code in fx.value.rates.keys() {
                     if !rates.available.iter().any(|(known, _)| known == code) {
-                        rates.available.push((code.clone(), english_name(code)));
+                        rates.available.push((code.clone(), fx_name(code)));
                     }
                 }
                 let usd = got
@@ -480,7 +522,7 @@ impl Sources {
                         }
                         rates.items.push(Rate {
                             code: code.clone(),
-                            name: english_name(code),
+                            name: fx_name(code),
                             nominal,
                             value: round4(value),
                             change: None,

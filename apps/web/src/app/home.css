@@ -1,6 +1,13 @@
 /* Главная (HOME-001) — в стиле «Сегодня» и ленты агента. Цвета и формы — только токены @qubite/ui;
    двигаются только transform и opacity. */
 
+/* Рост и падение: токены темы, подтёмнённые чернилами, чтобы мелкий текст держал контраст ≥ 4,5:1
+   в светлой теме (зелёный ~6,8:1, оранжевый ~6,2:1); в тёмной чернила светлые — контраст выше. */
+:root {
+  --home-up: color-mix(in srgb, var(--q-green) 50%, var(--q-ink));
+  --home-down: color-mix(in srgb, var(--q-orange) 50%, var(--q-ink));
+}
+
 /* ---------- сводка от AI: отделена от фактов (HOME-03) ---------- */
 .home-digest {
   padding: 16px 18px 12px;
@@ -239,10 +246,10 @@
   flex: 1;
 }
 .home-rates small[data-dir='1'] {
-  color: var(--q-green);
+  color: var(--home-up);
 }
 .home-rates small[data-dir='-1'] {
-  color: var(--q-orange);
+  color: var(--home-down);
 }
 .home-stale {
   display: block;
