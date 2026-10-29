@@ -503,6 +503,8 @@ pub struct ServerInfo {
     sessions: i64,
     /// Записей в журнале.
     audit_entries: i64,
+    /// Коммит, время сборки и выкладки, откат (OPS-007, D-574).
+    deploy: crate::deploy::Deploy,
 }
 
 /// Сервер (базово): версия, время работы, база.
@@ -533,5 +535,6 @@ pub async fn server_info(
         accounts,
         sessions,
         audit_entries,
+        deploy: crate::deploy::load(&state.deploy_file).await,
     }))
 }

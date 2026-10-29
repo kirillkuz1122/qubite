@@ -13,6 +13,7 @@ pub mod ai_console;
 pub mod auth;
 pub mod changes;
 pub mod console;
+pub mod deploy;
 pub mod email;
 pub mod english;
 pub mod english_lessons;
@@ -69,6 +70,8 @@ pub struct AppState {
     pub ai_panel: Arc<ai_console::AiPanel>,
     /// «Работа агентов» (HAR-002): GitHub Issues токеном сервера.
     pub work: Arc<harness::Work>,
+    /// Файл, где автодеплой пишет, какая версия стоит (OPS-007).
+    pub deploy_file: Arc<std::path::PathBuf>,
 }
 
 impl AppState {
@@ -96,7 +99,14 @@ impl AppState {
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
             ai_panel: Arc::new(ai_console::AiPanel::default()),
             work: Arc::new(harness::Work::default()),
+            deploy_file: Arc::new(deploy::default_path()),
         }
+    }
+
+    /// Другой файл выкладки (`QUBITE_DEPLOY_FILE` читается и без этого; нужно тестам).
+    pub fn with_deploy_file(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.deploy_file = Arc::new(path.into());
+        self
     }
 
     /// Что знают экраны AI (AI-003): ключ шифрования, ChatGPT, адаптер OpenRouter.
@@ -376,6 +386,8 @@ impl AppState {
         console::SessionsClosed,
         console::AuditItem,
         console::ServerInfo,
+        deploy::Deploy,
+        deploy::Rollback,
         harness::WorkBoard,
         harness::WorkItem,
         harness::WorkLink,
@@ -962,15 +974,18 @@ pub struct Health {
     status: &'static str,
     /// Версия Qubite.
     version: &'static str,
+    /// Коммит, время выкладки, откат (OPS-007).
+    deploy: deploy::Deploy,
 }
 
 /// Жив ли процесс сервера. Не обращается к базе.
 #[utoipa::path(get, path = "/api/health", tag = "system",
     responses((status = 200, description = "Сервер отвечает", body = Health)))]
-async fn health() -> Json<Health> {
+async fn health(State(state): State<AppState>) -> Json<Health> {
     Json(Health {
         status: "ok",
         version: qubite_kernel::VERSION,
+        deploy: deploy::load(&state.deploy_file).await,
     })
 }
 
@@ -982,6 +997,10 @@ pub struct Readiness {
     database: &'static str,
     /// Номер последней применённой миграции.
     schema_version: Option<i64>,
+    /// Версия Qubite.
+    version: &'static str,
+    /// Коммит, время выкладки, откат (OPS-007).
+    deploy: deploy::Deploy,
 }
 
 /// Готов ли сервер обслуживать запросы: отвечает ли база и применены ли миграции.
@@ -991,13 +1010,17 @@ pub struct Readiness {
         (status = 503, description = "База недоступна или схема не создана", body = Readiness)
     ))]
 async fn ready(State(state): State<AppState>) -> impl IntoResponse {
+    let version = qubite_kernel::VERSION;
+    let deploy = deploy::load(&state.deploy_file).await;
     match state.db.schema_version().await {
-        Ok(Some(version)) => (
+        Ok(Some(schema)) => (
             StatusCode::OK,
             Json(Readiness {
                 status: "ready",
                 database: "ok",
-                schema_version: Some(version),
+                schema_version: Some(schema),
+                version,
+                deploy,
             }),
         ),
         Ok(None) => (
@@ -1006,6 +1029,8 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
                 status: "not_ready",
                 database: "ok",
                 schema_version: None,
+                version,
+                deploy,
             }),
         ),
         Err(error) => {
@@ -1016,6 +1041,8 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
                     status: "not_ready",
                     database: "unavailable",
                     schema_version: None,
+                    version,
+                    deploy,
                 }),
             )
         }

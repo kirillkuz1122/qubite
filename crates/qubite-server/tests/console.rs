@@ -248,6 +248,10 @@ async fn create_person_grant_docs_block_and_see_it_in_the_log() {
     assert_eq!(server.body["accounts"], 2);
     assert!(server.body["migration"].as_i64().unwrap() >= 22);
     assert!(server.body["version"].is_string());
+    assert!(
+        server.body["deploy"].is_object(),
+        "блок выкладки есть всегда"
+    );
 
     db.close().await;
     test_db.drop_db().await;
