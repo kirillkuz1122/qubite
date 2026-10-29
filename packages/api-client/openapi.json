@@ -11066,13 +11066,7 @@
       "HomeSettings": {
         "type": "object",
         "description": "Настройки виджетов Главной.",
-        "required": [
-          "place",
-          "currencies",
-          "coins",
-          "available_topics",
-          "topics"
-        ],
+        "required": ["place", "currencies", "coins", "available_topics", "topics"],
         "properties": {
           "available_topics": {
             "type": "array",
