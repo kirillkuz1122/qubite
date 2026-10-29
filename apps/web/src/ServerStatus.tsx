@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { QubiteClient } from '@qubite/api-client';
+import { versionLine } from './deploy-view';
 
 /**
  * Показывает, отвечает ли сервер Qubite. Живёт в подвале лендинга.
@@ -27,7 +28,7 @@ export function ServerStatus({ client }: { client: QubiteClient }) {
   }
   return (
     <span role="status" data-state="up">
-      Сервер работает · версия {health.data.version}
+      Сервер работает · версия {versionLine(health.data.version, health.data.deploy?.commit)}
     </span>
   );
 }

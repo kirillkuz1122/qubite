@@ -15,14 +15,22 @@ function renderWith(fetchImpl: typeof fetch) {
 }
 
 describe('ServerStatus', () => {
-  it('показывает версию, когда сервер отвечает', async () => {
+  it.each([
+    ['0123456789ab', 'Сервер работает · версия 9.9.9 · 0123456789ab'],
+    [null, 'Сервер работает · версия 9.9.9'],
+  ] as const)('показывает версию с коммитом %s, когда сервер отвечает', async (commit, line) => {
     renderWith(
       async () =>
-        new Response(JSON.stringify({ status: 'ok', version: '9.9.9' }), {
-          headers: { 'content-type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            status: 'ok',
+            version: '9.9.9',
+            deploy: { commit, built_at: null, deployed_at: null, rollback: null },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
     );
-    expect(await screen.findByText('Сервер работает · версия 9.9.9')).toBeInTheDocument();
+    expect(await screen.findByText(line)).toBeInTheDocument();
   });
 
   it('честно пишет, что сервер недоступен', async () => {

@@ -3,7 +3,18 @@ import { expect, test } from '@playwright/test';
 const health = (status: 'ok' | 'down') => async (page: import('@playwright/test').Page) =>
   page.route('**/api/health', (route) =>
     status === 'ok'
-      ? route.fulfill({ json: { status: 'ok', version: '0.1.0' } })
+      ? route.fulfill({
+          json: {
+            status: 'ok',
+            version: '0.1.0',
+            deploy: {
+              commit: '0123456789ab',
+              built_at: null,
+              deployed_at: null,
+              rollback: null,
+            },
+          },
+        })
       : route.fulfill({ status: 503, body: 'down' }),
   );
 const server = (page: import('@playwright/test').Page) =>
@@ -22,7 +33,7 @@ test('лендинг открывается: заголовок, строка Co
 test('в подвале лендинга видно, что сервер работает', async ({ page }) => {
   await health('ok')(page);
   await page.goto('/');
-  await expect(server(page)).toHaveText('Сервер работает · версия 0.1.0');
+  await expect(server(page)).toHaveText('Сервер работает · версия 0.1.0 · 0123456789ab');
 });
 
 test('лендинг честно пишет, если сервер недоступен', async ({ page }) => {

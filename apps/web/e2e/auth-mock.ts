@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import type { components } from '@qubite/api-client';
 import { LEGAL_VERSION } from '../src/auth/legal';
 
 /**
@@ -6,6 +7,8 @@ import { LEGAL_VERSION } from '../src/auth/legal';
  * настоящего (`/api/auth/*`, `/api/platform/status`), состояние — в памяти теста.
  */
 export interface AuthMock {
+  /** Публичная версия и сведения о выкладке. */
+  health: components['schemas']['Health'];
   /** кто вошёл; `null` — гость */
   me: Record<string, unknown> | null;
   /** настоящий пароль владельца */
@@ -103,6 +106,16 @@ const FAKE_TURNSTILE = `window.turnstile = {
 
 export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promise<AuthMock> {
   const m: AuthMock = {
+    health: {
+      status: 'ok',
+      version: '0.1.0',
+      deploy: {
+        commit: '0123456789ab',
+        built_at: '2026-10-29T05:00:00Z',
+        deployed_at: '2026-10-29T06:00:00Z',
+        rollback: null,
+      },
+    },
     me: null,
     password: 'правильный-пароль',
     notify: {
@@ -193,6 +206,8 @@ export async function mockAuth(page: Page, init: Partial<AuthMock> = {}): Promis
       m.me ? false : (fail(route, 401, 'unauthenticated', 'Нужно войти'), true);
 
     switch (at) {
+      case 'GET /api/health':
+        return json(route, 200, m.health);
       case 'GET /api/v1/notifications/settings':
         return needMe() || json(route, 200, m.notify);
       case 'PATCH /api/v1/notifications/settings': {

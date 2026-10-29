@@ -1,5 +1,7 @@
 import {
   COMPANION_COLOR,
+  Note,
+  Presence,
   Range,
   Segmented,
   Swap,
@@ -9,11 +11,14 @@ import {
   type ThemeChoice,
 } from '@qubite/ui';
 import { Link, useRouterState } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../api';
+import { builtLine, rollbackLine, updatedLine, versionLine } from '../../deploy-view';
 import { useShell } from '../context';
 import { HELPERS } from '../data';
 import { SecHead } from '../parts';
 import { useStore } from '../state';
-import { useMe } from '../../auth/client';
+import { must, useMe } from '../../auth/client';
 import { AiSettings } from './AiSettings';
 import { useMyAi } from '../ai-me';
 import { usd } from '../ai-view';
@@ -90,6 +95,41 @@ function AiRow() {
       </span>
       <span className="later">→</span>
     </Link>
+  );
+}
+
+/** Публичные сведения о выкладке доступны и без входа. */
+function ServerGroup() {
+  const health = useQuery({
+    queryKey: ['health'],
+    queryFn: () => must(api.GET('/api/health')),
+    retry: false,
+  });
+  const data = health.isSuccess ? health.data : undefined;
+  const deploy = data?.deploy;
+  const times = [updatedLine(deploy?.deployed_at), builtLine(deploy?.built_at)]
+    .filter(Boolean)
+    .join(' · ');
+  const rollback = rollbackLine(deploy?.rollback);
+  return (
+    <>
+      <SecHead text="СЕРВЕР" label="Сервер" />
+      <div className="group panel">
+        <div className="set" data-obj="set-version">
+          <span className="lbl">
+            {health.isPending
+              ? 'Проверяем версию…'
+              : data
+                ? `Версия ${versionLine(data.version, deploy?.commit)}`
+                : 'Версия недоступна'}
+            {times && <small>{times}</small>}
+          </span>
+        </div>
+      </div>
+      <Presence show={!!rollback} className="set-rollback" swap={rollback}>
+        <Note tone="bad">{rollback}</Note>
+      </Presence>
+    </>
   );
 }
 
@@ -220,6 +260,7 @@ function SettingsHome() {
           <span className="later">скоро</span>
         </div>
       </div>
+      <ServerGroup />
       <p className="foot">
         Тестовые данные · сбрасываются при перезагрузке · <Link to="/">лендинг →</Link> ·{' '}
         <Link to="/design">дизайн-система →</Link>

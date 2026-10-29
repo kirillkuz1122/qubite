@@ -17,6 +17,74 @@ async function owner(page: Page, { confirmed = true } = {}) {
 const tab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Разделы Console' }).getByRole('radio', { name });
 
+test.describe('Выкладка сервера', () => {
+  test.use({ timezoneId: 'Asia/Yekaterinburg' });
+
+  test('видны версия, время выкладки и причина отката', async ({ page }) => {
+    const { console } = await owner(page);
+    await page.goto('/console/server');
+    const version = page.getByRole('region', { name: 'Версия', exact: true });
+    await expect(version).toContainText('0.1.0 · 0123456789ab');
+    await expect(version).toContainText('29.10 в 10:00');
+    await expect(version).toContainText('29.10 в 11:00');
+    await expect(version.getByRole('alert')).toHaveCount(0);
+
+    console.deploy.rollback = {
+      from: 'fedcba987654',
+      to: '0123456789ab',
+      at: '2026-10-29T06:00:00Z',
+      reason: 'миграции упали',
+    };
+    await page.reload();
+    await expect(version.getByRole('alert')).toHaveText(
+      'Откат с fedcba987654 на 0123456789ab · 29.10 в 11:00 · миграции упали',
+    );
+  });
+});
+
+test('Настройки: публичная версия и откат помещаются на 360 px', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  const auth = await mockAuth(page, { me: USER });
+  const commit = '0123456789ab'.repeat(6);
+  auth.health.deploy.commit = commit;
+  auth.health.deploy.rollback = {
+    from: 'fedcba987654'.repeat(6),
+    to: commit,
+    at: '2026-10-29T06:00:00Z',
+    reason: 'миграции упали',
+  };
+  await page.goto('/settings');
+  const row = page.locator('[data-obj="set-version"]');
+  await row.scrollIntoViewIfNeeded();
+  await expect(row).toContainText(`Версия 0.1.0 · ${commit}`);
+  await expect(row).toContainText('обновлено');
+  await expect(row).toContainText('собрано');
+  const rollback = page.getByRole('alert').filter({ hasText: 'Откат с' });
+  await expect(rollback).toContainText('миграции упали');
+  for (const text of [row.locator('.lbl'), rollback.locator('div')]) {
+    expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const box = await text.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(360);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360);
+});
+
+test('Настройки: неизвестные данные и недоступный сервер', async ({ page }) => {
+  const auth = await mockAuth(page, { me: USER });
+  auth.health.deploy = { commit: null, built_at: null, deployed_at: null, rollback: null };
+  await page.goto('/settings');
+  const row = page.locator('[data-obj="set-version"]');
+  await expect(row).toHaveText('Версия 0.1.0');
+  await expect(row.locator('small')).toHaveCount(0);
+  await expect(page.getByRole('alert').filter({ hasText: 'Откат с' })).toHaveCount(0);
+
+  await page.route('**/api/health', (route) => route.fulfill({ status: 503, body: 'down' }));
+  await page.reload();
+  await expect(row).toHaveText('Версия недоступна');
+});
+
 test('Console есть только у owner: гостю — вход, остальным — «Такой страницы нет»', async ({
   page,
 }) => {

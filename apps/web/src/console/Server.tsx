@@ -1,5 +1,6 @@
-import { Note } from '@qubite/ui';
+import { Note, Presence } from '@qubite/ui';
 import { say } from '../auth/client';
+import { deployWhen, rollbackLine, versionLine } from '../deploy-view';
 import { useServer, when } from './api';
 
 const uptime = (secs: number) => {
@@ -18,13 +19,23 @@ export function ServerTab() {
   if (server.isPending) return <p className="cs-small">Спрашиваем сервер…</p>;
   if (server.isError) return <Note tone="bad">{say(server.error)}</Note>;
   const s = server.data;
+  const rollback = rollbackLine(s.deploy?.rollback);
   return (
     <div className="cs-stack">
-      <dl className="cs-panel cs-stats">
-        <div>
+      <section className="cs-panel cs-deploy" aria-label="Версия">
+        <dl className="cs-facts">
           <dt>Версия</dt>
-          <dd>{s.version}</dd>
-        </div>
+          <dd>{versionLine(s.version, s.deploy?.commit)}</dd>
+          <dt>Собрано</dt>
+          <dd>{deployWhen(s.deploy?.built_at) ?? '—'}</dd>
+          <dt>Обновлено</dt>
+          <dd>{deployWhen(s.deploy?.deployed_at) ?? '—'}</dd>
+        </dl>
+        <Presence show={!!rollback} swap={rollback}>
+          <Note tone="bad">{rollback}</Note>
+        </Presence>
+      </section>
+      <dl className="cs-panel cs-stats">
         <div>
           <dt>Работает</dt>
           <dd>{uptime(s.uptime_secs)}</dd>
