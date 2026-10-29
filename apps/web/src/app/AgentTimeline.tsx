@@ -5,7 +5,7 @@
  * После отката действия агента — необязательный вопрос «почему» (AGT-007, D-397).
  * Одна и та же лента — целиком (раздел «Агент») и короткая у проекта и дела.
  */
-import { Button, Field } from '@qubite/ui';
+import { Button, Field, Segmented } from '@qubite/ui';
 import { useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
 import {
@@ -32,6 +32,7 @@ import {
   type ProjectName,
 } from './agent-view';
 import { usePlanner } from './planner-context';
+import { taskFixFields, taskFixValues, type FixPriority } from './agent-fix';
 
 export function AgentTimeline({ trail, compact = false }: { trail: Trail; compact?: boolean }) {
   const planner = usePlanner();
@@ -349,23 +350,25 @@ function FixForm({
   onDone: () => void;
 }) {
   const fix = useFix();
+  const planner = usePlanner();
   const change = a.changes.find((c) => c.object_id === object);
-  const after = (field: string) =>
-    change?.diff.find((d) => d.field === field)?.after as unknown as string | null | undefined;
+  const [initial] = useState(() =>
+    taskFixValues(
+      change,
+      planner.data.tasks.find((t) => t.id === object),
+    ),
+  );
   const isTask = kind === 'planner.task';
   const [title, setTitle] = useState(change?.title ?? '');
-  const [date, setDate] = useState(after('due_date') ?? '');
-  const [time, setTime] = useState(after('due_time') ?? '');
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [project, setProject] = useState(initial.project);
+  const [priority, setPriority] = useState<FixPriority>(initial.priority);
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const fields: Record<string, unknown> = {};
-    if (isTask) {
-      if (date !== (after('due_date') ?? '')) fields.due_date = date || null;
-      if (time !== (after('due_time') ?? '') || (!date && time))
-        fields.due_time = date ? time || null : null;
-    }
+    const fields = isTask ? taskFixFields(initial, { date, time, project, priority }) : {};
     const newTitle = title.trim() && title.trim() !== change?.title ? title.trim() : undefined;
     if (!newTitle && Object.keys(fields).length === 0) {
       onDone();
@@ -382,10 +385,51 @@ function FixForm({
     <form className="act-fix panel" onSubmit={submit} aria-label="Исправить">
       <Field label="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
       {isTask && (
-        <div className="act-fix-when">
-          <Field label="Срок" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <Field label="Время" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-        </div>
+        <>
+          <div className="act-fix-when">
+            <Field
+              label="Срок"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            <Field
+              label="Время"
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+          </div>
+          <div className="act-fix-choice">
+            <span className="q-field-label">Проект</span>
+            <Segmented
+              label="Проект"
+              value={project}
+              onChange={setProject}
+              wrap
+              options={[
+                { value: '', label: 'Без проекта' },
+                ...(project && !planner.projects.some((p) => p.id === project)
+                  ? [{ value: project, label: 'Другой проект' }]
+                  : []),
+                ...planner.projects.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+            />
+          </div>
+          <div className="act-fix-choice">
+            <span className="q-field-label">Важность</span>
+            <Segmented<FixPriority>
+              label="Важность"
+              value={priority}
+              onChange={setPriority}
+              options={[
+                { value: 'normal', label: 'обычное' },
+                { value: 'important', label: 'важное' },
+                { value: 'urgent', label: 'срочное' },
+              ]}
+            />
+          </div>
+        </>
       )}
       {error && (
         <p className="act-error" role="alert">

@@ -67,6 +67,7 @@ const toPlanner = (p: ParsedCommand) =>
   p.kind === 'task' && p.review === null && p.text.trim() !== '';
 
 function sectionOf(path: string): SectionId {
+  if (path === '/account') return 'settings';
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'home';
 }
 
@@ -400,7 +401,7 @@ export function AppShell() {
           <header className="head" style={{ height: headH }}>
             <h1 className="q-sr">{sec.name}</h1>
             <div className="head-title">
-              <span aria-hidden="true">
+              <span className="head-dots" aria-hidden="true">
                 <DotText text={sec.title} pitch={pitch} label={sec.name} />
               </span>
               {!wide && <Bell wide={false} />}

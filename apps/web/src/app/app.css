@@ -110,8 +110,20 @@ a {
   align-items: center;
   gap: 2px;
 }
-.head-title .bell {
-  margin: -12px 0;
+@media (max-width: 899px) {
+  .head-title {
+    top: 16px;
+    min-height: 44px;
+    gap: 4px;
+  }
+  .head-title .head-dots {
+    display: flex;
+    align-items: center;
+  }
+  .head-title .bell {
+    margin: 0;
+    align-self: center;
+  }
 }
 .head-crew {
   position: absolute;
@@ -151,6 +163,31 @@ a {
 
 .screen {
   will-change: transform, opacity;
+}
+.settings-content {
+  margin-top: 14px;
+}
+.settings-content .acc {
+  padding: 16px;
+  gap: 24px;
+}
+.settings-content .acc-sec {
+  gap: 12px;
+}
+.settings-content .acc-row {
+  flex-wrap: wrap;
+}
+.settings-content .acc-main {
+  flex-basis: 160px;
+  overflow-wrap: anywhere;
+}
+.settings-content .acc-actions {
+  gap: 12px;
+}
+.act-fix-choice {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 .sec-h {
   display: flex;

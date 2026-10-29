@@ -107,14 +107,13 @@
 }
 .home-filed-row {
   width: 100%;
-  border: 0;
-  border-bottom: 1px dashed var(--q-line);
-  background: none;
-  text-align: left;
-  cursor: pointer;
 }
-.home-filed-row .q-dot {
+.home-filed-row > .q-dot {
   background: var(--q-orange);
+}
+.home-filed-row .home-link {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- ближайшие сроки ---------- */

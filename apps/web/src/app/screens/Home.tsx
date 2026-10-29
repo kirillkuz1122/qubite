@@ -1,9 +1,21 @@
-import { Button, Check, DotIcon, Field, Note, Presence, Sheet, useFlip } from '@qubite/ui';
+import {
+  Button,
+  Check,
+  DotIcon,
+  Field,
+  Note,
+  Presence,
+  Sheet,
+  useFlip,
+  useLeaving,
+} from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { plannerData, type PlannerProject, type PlannerTask } from '@qubite/sync-client';
 import { api } from '../../api';
 import { say } from '../../auth/client';
+import { useRevert } from '../agent';
 import { useShell } from '../context';
 import { plural } from '../data';
 import {
@@ -199,6 +211,9 @@ function TodayPart() {
 function InboxPart({ filed }: { filed: HomeOverview['filed'] }) {
   const inbox = useInbox();
   const shell = useShell();
+  const box = useRef<HTMLDivElement>(null);
+  const [rows, gone] = useLeaving(filed, (f) => f.action_id);
+  useFlip(box, rows.map((r) => r.item.action_id + (r.leaving ? '~' : '')).join());
   const n = inbox.items.length;
   return (
     <>
@@ -215,24 +230,72 @@ function InboxPart({ filed }: { filed: HomeOverview['filed'] }) {
           <small>{it.time}</small>
         </div>
       ))}
-      {filed.length > 0 && (
-        <div className="home-filed" aria-label="Агент разложил">
+      {rows.length > 0 && (
+        <div className="home-filed" ref={box} aria-label="Агент разложил">
           <small>Агент разложил</small>
-          {filed.map((f) => (
-            <button
-              className="spark home-filed-row"
-              key={f.action_id}
-              type="button"
-              onClick={() => shell.go('agent')}
-            >
-              <span className="q-dot" />
-              <span>{f.summary}</span>
-              <small>{ago(f.at, new Date())}</small>
-            </button>
+          {rows.map(({ item: f, leaving }) => (
+            <div key={f.action_id} data-flip={f.action_id}>
+              <HomeFiledRow f={f} leaving={leaving} onGone={gone} />
+            </div>
           ))}
         </div>
       )}
     </>
+  );
+}
+
+function HomeFiledRow({
+  f,
+  leaving,
+  onGone,
+}: {
+  f: HomeOverview['filed'][number];
+  leaving: boolean;
+  onGone: (id: string) => void;
+}) {
+  const revert = useRevert();
+  const qc = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const undo = () => {
+    setError(null);
+    revert.mutate(
+      { target: { action: f.action_id }, force: false },
+      {
+        onSuccess: (result) => {
+          if (result.status === 'conflict') {
+            setError('После агента запись уже меняли. Открой «Агент», чтобы решить, что вернуть.');
+            return;
+          }
+          void qc.invalidateQueries({ queryKey: HOME });
+        },
+        onError: (e) => setError(say(e)),
+      },
+    );
+  };
+  return (
+    <Presence
+      show={!leaving}
+      className="item filed-row home-filed-row"
+      onLayout={() => {
+        if (leaving) onGone(f.action_id);
+      }}
+    >
+      <span className="q-dot" />
+      <div className="t">
+        <Link className="txt home-link" to="/agent">
+          {f.summary}
+        </Link>
+        <div className="elik">
+          <time dateTime={f.at}>{ago(f.at, new Date())}</time>
+          <Button size="sm" dot={false} disabled={revert.isPending || leaving} onClick={undo}>
+            Откатить
+          </Button>
+        </div>
+        <Presence show={!!error} swap={error}>
+          <Note tone="bad">{error}</Note>
+        </Presence>
+      </div>
+    </Presence>
   );
 }
 
