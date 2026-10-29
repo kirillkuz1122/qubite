@@ -143,6 +143,39 @@ export function rateChange(change: number | null | undefined): { text: string; d
   };
 }
 
+/** Сохраняем доли дешёвых монет, у крупных цен — два знака после запятой. */
+export function coinPrice(value: number, currency: 'USD' | 'RUB'): string {
+  const amount = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: Math.abs(value) < 1 ? 6 : 2,
+  }).format(value);
+  return `${amount} ${currency === 'USD' ? '$' : '₽'}`;
+}
+
+/** Проценты за 24 часа: направление видно и по знаку, и по токену цвета. */
+export function coinChange(change: number | null | undefined) {
+  const { text, dir } = rateChange(change);
+  return {
+    text: text ? `${text}%` : 'нет данных за 24 ч',
+    dir,
+    color: dir > 0 ? 'var(--q-green)' : dir < 0 ? 'var(--q-orange)' : 'var(--q-dim)',
+  };
+}
+
+/** В contests published — время старта, а не время публикации. */
+export function contestStart(at: string | null | undefined): string {
+  if (!at) return '';
+  const date = new Date(at);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `Старт: ${new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)}`;
+}
+
 /** «5 мин назад», «3 ч назад», «вчера», «2 дня назад». */
 export function ago(at: string | null | undefined, now: Date): string {
   if (!at) return '';
