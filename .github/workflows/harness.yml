@@ -1,0 +1,20 @@
+# Короткие файлы харнеса остаются короткими (HAR-001, D-624, D-626).
+# Остальное проверяют server.yml, web.yml и english.yml.
+name: harness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      # В CI нет origin/main, поэтому check.sh проверяет только харнес
+      - run: scripts/check.sh
