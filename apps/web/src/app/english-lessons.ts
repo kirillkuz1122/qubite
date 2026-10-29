@@ -241,7 +241,12 @@ export interface Finished {
 export interface Placement {
   level: string;
   start_lesson: string;
-  stages: { level: string; right: number; passed: boolean }[];
+  stages: { level: string; right: number; skipped: number; passed: boolean }[];
+}
+
+/** Ответы входного теста: обычное значение задания или `null` — «Не знаю». */
+export interface PlacementAnswers {
+  [task: string]: unknown;
 }
 
 export interface PlacementTest {
@@ -290,7 +295,7 @@ export function usePlacementTest(enabled: boolean) {
 export function usePlace() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { answers: Record<string, unknown>; shift: number }) =>
+    mutationFn: async (body: { answers: PlacementAnswers; shift: number }) =>
       (await must(
         api.POST('/api/v1/english/placement', { body: body as never }),
       )) as unknown as Placement,
