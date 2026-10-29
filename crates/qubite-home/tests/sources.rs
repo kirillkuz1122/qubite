@@ -18,24 +18,31 @@ const PRICES: &str = r#"{"bitcoin":{"usd":70000,"rub":5705000,"usd_24h_change":-
 const MARKETS: &str = r#"[{"id":"the-open-network","symbol":"gram","name":"Toncoin"},{"id":"bitcoin","symbol":"btc","name":"Bitcoin"}]"#;
 
 fn count(fake: &FakeHttp, path: &str) -> usize {
-    fake.received().iter().filter(|r| r.line.contains(path)).count()
+    fake.received()
+        .iter()
+        .filter(|r| r.line.contains(path))
+        .count()
 }
 
 #[tokio::test]
 async fn fallback_rates_preserve_cbr_priority_order_and_cache() {
     let down = Arc::new(AtomicBool::new(false));
     let failing = down.clone();
-    let fake = FakeHttp::start([], Action::With(Arc::new(move |req: &Received| {
-        if req.line.contains("/scripts/XML_daily.asp") {
-            (200, CBR.into())
-        } else if failing.load(Ordering::SeqCst) {
-            (503, "источник лёг".into())
-        } else if req.line.contains("/v6/latest/USD") {
-            (200, FX.into())
-        } else {
-            (404, "{}".into())
-        }
-    }))).await;
+    let fake = FakeHttp::start(
+        [],
+        Action::With(Arc::new(move |req: &Received| {
+            if req.line.contains("/scripts/XML_daily.asp") {
+                (200, CBR.into())
+            } else if failing.load(Ordering::SeqCst) {
+                (503, "источник лёг".into())
+            } else if req.line.contains("/v6/latest/USD") {
+                (200, FX.into())
+            } else {
+                (404, "{}".into())
+            }
+        })),
+    )
+    .await;
     let sources = Sources::new(Urls::local(&fake.root_url()));
     let codes = ["PHP".into(), "EUR".into(), "USD".into()];
     let got = sources.rates(&codes).await.unwrap();
@@ -51,8 +58,20 @@ async fn fallback_rates_preserve_cbr_priority_order_and_cache() {
     assert_eq!(got.value.items[1].source, "cbr");
     assert_eq!(got.value.items[1].value, 94.25);
     assert_eq!(got.value.items[2].code, "USD");
-    assert!(got.value.available.iter().any(|(code, name)| code == "PHP" && name == "Philippine Peso"));
-    assert_eq!(got.value.available.iter().filter(|(code, _)| code == "EUR").count(), 1);
+    assert!(
+        got.value
+            .available
+            .iter()
+            .any(|(code, name)| code == "PHP" && name == "Philippine Peso")
+    );
+    assert_eq!(
+        got.value
+            .available
+            .iter()
+            .filter(|(code, _)| code == "EUR")
+            .count(),
+        1
+    );
     sources.rates(&codes).await.unwrap();
     assert_eq!(count(&fake, "/v6/latest/USD"), 1);
     down.store(true, Ordering::SeqCst);
@@ -72,19 +91,26 @@ async fn unavailable_or_broken_fallback_does_not_hide_cbr() {
         (200, r#"{"rates":{"USD":1,"PHP":0}}"#),
         (200, r#"{"rates":{"USD":1,"PHP":-50}}"#),
     ] {
-        let fake = FakeHttp::start([], Action::With(Arc::new(move |req: &Received| {
-            if req.line.contains("/scripts/XML_daily.asp") {
-                (200, CBR.into())
-            } else {
-                (status, body.into())
-            }
-        }))).await;
+        let fake = FakeHttp::start(
+            [],
+            Action::With(Arc::new(move |req: &Received| {
+                if req.line.contains("/scripts/XML_daily.asp") {
+                    (200, CBR.into())
+                } else {
+                    (status, body.into())
+                }
+            })),
+        )
+        .await;
         let sources = Sources::new(Urls::local(&fake.root_url()));
         let got = sources.rates(&["USD".into(), "PHP".into()]).await.unwrap();
         assert_eq!(got.value.items.len(), 1);
         assert_eq!(got.value.items[0].source, "cbr");
         assert!(!got.stale);
-        assert!(matches!(sources.rates(&["PHP".into()]).await, Err(Error::Upstream(_))));
+        assert!(matches!(
+            sources.rates(&["PHP".into()]).await,
+            Err(Error::Upstream(_))
+        ));
     }
 }
 
@@ -94,19 +120,27 @@ async fn coins_are_batched_ordered_cached_and_stale_if_either_request_fails() {
     for failing_path in ["/simple/price", "/coins/markets"] {
         let down = Arc::new(AtomicBool::new(false));
         let failing = down.clone();
-        let fake = FakeHttp::start([], Action::With(Arc::new(move |req: &Received| {
-            if failing.load(Ordering::SeqCst) && req.line.contains(failing_path) {
-                (503, "{}".into())
-            } else if req.line.contains("/api/v3/simple/price") {
-                (200, PRICES.into())
-            } else if req.line.contains("/api/v3/coins/markets") {
-                (200, MARKETS.into())
-            } else {
-                (404, "{}".into())
-            }
-        }))).await;
+        let fake = FakeHttp::start(
+            [],
+            Action::With(Arc::new(move |req: &Received| {
+                if failing.load(Ordering::SeqCst) && req.line.contains(failing_path) {
+                    (503, "{}".into())
+                } else if req.line.contains("/api/v3/simple/price") {
+                    (200, PRICES.into())
+                } else if req.line.contains("/api/v3/coins/markets") {
+                    (200, MARKETS.into())
+                } else {
+                    (404, "{}".into())
+                }
+            })),
+        )
+        .await;
         let sources = Sources::new(Urls::local(&fake.root_url()));
-        let ids = ["the-open-network".into(), "bitcoin".into(), "bitcoin".into()];
+        let ids = [
+            "the-open-network".into(),
+            "bitcoin".into(),
+            "bitcoin".into(),
+        ];
         let got = sources.coins(&ids).await.unwrap();
         assert!(!got.stale);
         assert_eq!(got.value.len(), 2);
@@ -131,7 +165,10 @@ async fn coins_are_batched_ordered_cached_and_stale_if_either_request_fails() {
         assert!(stale.stale);
         assert_eq!(stale.value[1].usd, got.value[1].usd);
         assert_eq!(stale.fetched_at, got.fetched_at);
-        assert!(matches!(sources.coins(&["unknown".into()]).await, Err(Error::Upstream(_))));
+        assert!(matches!(
+            sources.coins(&["unknown".into()]).await,
+            Err(Error::Upstream(_))
+        ));
     }
 }
 
@@ -141,7 +178,10 @@ async fn coin_search_limits_results_encodes_query_and_keeps_stale() {
     let fake = FakeHttp::start([], Action::Respond(200, body)).await;
     let sources = Sources::new(Urls::local(&fake.root_url()));
     for query in ["", "x", &"я".repeat(51)] {
-        assert!(matches!(sources.search_coins(query).await, Err(Error::Invalid(_))));
+        assert!(matches!(
+            sources.search_coins(query).await,
+            Err(Error::Invalid(_))
+        ));
     }
     assert!(fake.received().is_empty());
     let got = sources.search_coins("  bit & ton  ").await.unwrap();
@@ -160,7 +200,10 @@ async fn coin_search_limits_results_encodes_query_and_keeps_stale() {
     assert!(stale.stale);
     assert_eq!(stale.fetched_at, got.fetched_at);
     assert_eq!(stale.value.len(), 10);
-    assert!(matches!(sources.search_coins("never cached").await, Err(Error::Upstream(_))));
+    assert!(matches!(
+        sources.search_coins("never cached").await,
+        Err(Error::Upstream(_))
+    ));
 }
 
 #[tokio::test]
@@ -169,7 +212,10 @@ async fn empty_selection_and_invalid_coins_never_call_source() {
     let sources = Sources::new(Urls::local(&fake.root_url()));
     assert!(sources.coins(&[]).await.unwrap().value.is_empty());
     for id in ["", "Bitcoin", "a_b", "a/b", "монета", " x", &"x".repeat(65)] {
-        assert!(matches!(sources.coins(&[id.into()]).await, Err(Error::Invalid(_))));
+        assert!(matches!(
+            sources.coins(&[id.into()]).await,
+            Err(Error::Invalid(_))
+        ));
     }
     let ids: Vec<_> = (0..7).map(|i| format!("coin-{i}")).collect();
     assert!(matches!(sources.coins(&ids).await, Err(Error::Invalid(_))));
@@ -184,16 +230,34 @@ async fn malformed_coin_payloads_are_upstream_errors() {
         (PRICES, "[]"),
         (PRICES, "{}"),
     ] {
-        let fake = FakeHttp::start([], Action::With(Arc::new(move |req: &Received| {
-            (200, if req.line.contains("/simple/price") { prices } else { markets }.into())
-        }))).await;
+        let fake = FakeHttp::start(
+            [],
+            Action::With(Arc::new(move |req: &Received| {
+                (
+                    200,
+                    if req.line.contains("/simple/price") {
+                        prices
+                    } else {
+                        markets
+                    }
+                    .into(),
+                )
+            })),
+        )
+        .await;
         let sources = Sources::new(Urls::local(&fake.root_url()));
-        assert!(matches!(sources.coins(&["bitcoin".into()]).await, Err(Error::Upstream(_))));
+        assert!(matches!(
+            sources.coins(&["bitcoin".into()]).await,
+            Err(Error::Upstream(_))
+        ));
     }
     for body in ["broken", "{}", r#"{"coins":null}"#] {
         let fake = FakeHttp::start([], Action::Respond(200, body.into())).await;
         let sources = Sources::new(Urls::local(&fake.root_url()));
-        assert!(matches!(sources.search_coins("bitcoin").await, Err(Error::Upstream(_))));
+        assert!(matches!(
+            sources.search_coins("bitcoin").await,
+            Err(Error::Upstream(_))
+        ));
     }
 }
 
@@ -202,7 +266,8 @@ async fn codeforces_is_sorted_by_start_filtered_capped_and_cached() {
     let mut contests: Vec<_> = (1..=8).rev().map(|id| json!({
         "id": id, "name": format!("Round {id}"), "phase": "BEFORE", "startTimeSeconds": 1800000000 + id
     })).collect();
-    contests.push(json!({"id": 99, "name": "Finished", "phase": "FINISHED", "startTimeSeconds": 1}));
+    contests
+        .push(json!({"id": 99, "name": "Finished", "phase": "FINISHED", "startTimeSeconds": 1}));
     contests.push(json!({"id": 98, "name": "Running", "phase": "CODING", "startTimeSeconds": 2}));
     let body = json!({"status":"OK", "result": contests}).to_string();
     let fake = FakeHttp::start([], Action::Respond(200, body)).await;
@@ -217,7 +282,11 @@ async fn codeforces_is_sorted_by_start_filtered_capped_and_cached() {
     assert!(!got.stale);
     sources.news(&[Topic::Contests]).await.unwrap();
     assert_eq!(fake.received().len(), 1);
-    assert!(fake.received()[0].line.contains("/api/contest.list?gym=false"));
+    assert!(
+        fake.received()[0]
+            .line
+            .contains("/api/contest.list?gym=false")
+    );
     drop(fake);
     sources.expire_cache();
     let stale = sources.news(&[Topic::Contests]).await.unwrap();
@@ -228,21 +297,40 @@ async fn codeforces_is_sorted_by_start_filtered_capped_and_cached() {
 
 #[tokio::test]
 async fn codeforces_empty_and_broken_responses_are_distinct() {
-    let fake = FakeHttp::start([], Action::Respond(200, r#"{"status":"OK","result":[]}"#.into())).await;
+    let fake = FakeHttp::start(
+        [],
+        Action::Respond(200, r#"{"status":"OK","result":[]}"#.into()),
+    )
+    .await;
     let sources = Sources::new(Urls::local(&fake.root_url()));
-    assert!(sources.news(&[Topic::Contests]).await.unwrap().value.is_empty());
+    assert!(
+        sources
+            .news(&[Topic::Contests])
+            .await
+            .unwrap()
+            .value
+            .is_empty()
+    );
     drop(fake);
     sources.expire_cache();
     let stale = sources.news(&[Topic::Contests]).await.unwrap();
     assert!(stale.stale);
     assert!(stale.value.is_empty());
     for body in [
-        "not json", "{}", r#"{"status":"FAILED","result":[]}"#,
+        "not json",
+        "{}",
+        r#"{"status":"FAILED","result":[]}"#,
         r#"{"status":"OK","result":[{"id":1,"name":"x","phase":"BEFORE"}]}"#,
         r#"{"status":"OK","result":[{"id":1,"name":"x","phase":"BEFORE","startTimeSeconds":9223372036854775807}]}"#,
     ] {
         let fake = FakeHttp::start([], Action::Respond(200, body.into())).await;
         let sources = Sources::new(Urls::local(&fake.root_url()));
-        assert!(matches!(sources.news(&[Topic::Contests]).await, Err(Error::Upstream(_))), "{body}");
+        assert!(
+            matches!(
+                sources.news(&[Topic::Contests]).await,
+                Err(Error::Upstream(_))
+            ),
+            "{body}"
+        );
     }
 }

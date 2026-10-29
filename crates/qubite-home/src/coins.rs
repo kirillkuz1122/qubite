@@ -107,7 +107,9 @@ impl Sources {
     pub async fn search_coins(&self, query: &str) -> Result<Got<Vec<CoinMatch>>> {
         let query = query.trim();
         if !(2..=50).contains(&query.chars().count()) {
-            return Err(Error::Invalid("для поиска монеты нужно от 2 до 50 знаков".into()));
+            return Err(Error::Invalid(
+                "для поиска монеты нужно от 2 до 50 знаков".into(),
+            ));
         }
         self.coin_search
             .get(query, || async {

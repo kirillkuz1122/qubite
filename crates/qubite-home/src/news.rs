@@ -258,7 +258,9 @@ struct Contest {
 
 fn upcoming(list: ContestList) -> Result<Vec<NewsItem>> {
     if list.status != "OK" {
-        return Err(Error::Upstream("Codeforces: не удалось получить соревнования".into()));
+        return Err(Error::Upstream(
+            "Codeforces: не удалось получить соревнования".into(),
+        ));
     }
     let mut out = Vec::new();
     for contest in list.result.into_iter().filter(|c| c.phase == "BEFORE") {
@@ -267,7 +269,9 @@ fn upcoming(list: ContestList) -> Result<Vec<NewsItem>> {
             .and_then(|seconds| OffsetDateTime::from_unix_timestamp(seconds).ok())
             .ok_or_else(|| Error::Upstream("Codeforces: нет времени старта".into()))?;
         if contest.id == 0 || contest.name.trim().is_empty() {
-            return Err(Error::Upstream("Codeforces: неверные данные соревнования".into()));
+            return Err(Error::Upstream(
+                "Codeforces: неверные данные соревнования".into(),
+            ));
         }
         out.push(NewsItem {
             topic: Topic::Contests,

@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use time::{Date, Duration, Month};
 
-use crate::{Error, Result, Sources, cache::Got, fetch_bytes, fetch_json, settings::check_currencies};
+use crate::{
+    Error, Result, Sources, cache::Got, fetch_bytes, fetch_json, settings::check_currencies,
+};
 
 /// Валюты, которые знает Qubite по-русски (остальные — по коду).
 const NAMES: &[(&str, &str)] = &[
@@ -159,7 +161,8 @@ impl Table {
                     nominal,
                     value: round4(value),
                     change,
-                    source: "cbr".into(),                })
+                    source: "cbr".into(),
+                })
             })
             .collect();
         let mut available: Vec<(String, String)> = self
@@ -425,7 +428,9 @@ impl Sources {
                             || *value <= 0.0
                     })
                 {
-                    return Err(Error::Upstream("запасной источник: неверные курсы валют".into()));
+                    return Err(Error::Upstream(
+                        "запасной источник: неверные курсы валют".into(),
+                    ));
                 }
                 Ok(table)
             })

@@ -84,7 +84,10 @@ async fn sources() -> FakeHttp {
         } else if line.contains("/api/v3/coins/markets") {
             (200, r#"[{"id":"bitcoin","symbol":"btc","name":"Bitcoin"},{"id":"the-open-network","symbol":"gram","name":"Toncoin"}]"#.into())
         } else if line.contains("/api/v3/search") {
-            (200, r#"{"coins":[{"id":"the-open-network","symbol":"GRAM","name":"Toncoin"}]}"#.into())
+            (
+                200,
+                r#"{"coins":[{"id":"the-open-network","symbol":"GRAM","name":"Toncoin"}]}"#.into(),
+            )
         } else if line.contains("/api/contest.list") {
             (200, r#"{"status":"OK","result":[{"id":1234,"name":"Round","phase":"BEFORE","startTimeSeconds":1800000000}]}"#.into())
         } else if line.contains("/rss/ai") {
@@ -147,7 +150,10 @@ async fn widgets_settings_cache_and_geolocation() {
     let settings = &reply.body["settings"];
     assert_eq!(settings["place"]["name"], "Челябинск");
     assert_eq!(settings["currencies"], json!(["USD", "EUR", "CNY"]));
-    assert_eq!(settings["topics"], json!(["ai", "code", "study", "contests"]));
+    assert_eq!(
+        settings["topics"],
+        json!(["ai", "code", "study", "contests"])
+    );
     assert_eq!(settings["coins"], json!(["bitcoin", "the-open-network"]));
     assert_eq!(reply.body["agent"], true, "у owner агент есть");
     assert!(reply.body["digest"].is_null());
@@ -406,24 +412,37 @@ async fn digest_filed_and_held_without_ai() {
 async fn selectable_currencies_coins_catalog_and_settings() {
     let (test_db, db, fake, address, sources) = setup().await;
     let mut guest = Browser::default();
-    for path in ["/api/v1/home/settings", "/api/v1/home/coins", "/api/v1/home/coins/search?q=ton"] {
+    for path in [
+        "/api/v1/home/settings",
+        "/api/v1/home/coins",
+        "/api/v1/home/coins/search?q=ton",
+    ] {
         assert_eq!(guest.get(address, path).await.status, 401, "{path}");
     }
     let mut me = common::logged_in(address).await;
     let reply = me.get(address, "/api/v1/home/settings").await;
     assert_eq!(reply.status, 200);
     assert_eq!(reply.body["coins"], json!(["bitcoin", "the-open-network"]));
-    assert_eq!(reply.body["available_topics"], json!([
-        {"id":"ai","title":"ИИ и технологии"},
-        {"id":"code","title":"Программирование"},
-        {"id":"study","title":"Олимпиады и учёба"},
-        {"id":"contests","title":"Соревнования по программированию"},
-    ]));
-    let reply = me.patch_json(address, "/api/v1/home/settings", json!({
-        "currencies": ["php", "USD"],
-        "coins": ["the-open-network", "bitcoin", "bitcoin"],
-        "topics": ["contests"],
-    })).await;
+    assert_eq!(
+        reply.body["available_topics"],
+        json!([
+            {"id":"ai","title":"ИИ и технологии"},
+            {"id":"code","title":"Программирование"},
+            {"id":"study","title":"Олимпиады и учёба"},
+            {"id":"contests","title":"Соревнования по программированию"},
+        ])
+    );
+    let reply = me
+        .patch_json(
+            address,
+            "/api/v1/home/settings",
+            json!({
+                "currencies": ["php", "USD"],
+                "coins": ["the-open-network", "bitcoin", "bitcoin"],
+                "topics": ["contests"],
+            }),
+        )
+        .await;
     assert_eq!(reply.status, 200, "{:?}", reply.body);
     assert_eq!(reply.body["coins"], json!(["the-open-network", "bitcoin"]));
     let reply = me.get(address, "/api/v1/home/settings").await;
@@ -431,7 +450,9 @@ async fn selectable_currencies_coins_catalog_and_settings() {
     assert_eq!(reply.body["coins"], json!(["the-open-network", "bitcoin"]));
     assert_eq!(reply.body["topics"], json!(["contests"]));
     let stored: Vec<String> = sqlx::query_scalar("SELECT coins FROM home_settings LIMIT 1")
-        .fetch_one(db.pool()).await.unwrap();
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
     assert_eq!(stored, ["the-open-network", "bitcoin"]);
     let reply = me.get(address, "/api/v1/home/rates").await;
     assert_eq!(reply.status, 200);
@@ -455,54 +476,100 @@ async fn selectable_currencies_coins_catalog_and_settings() {
     let reply = me.get(address, "/api/v1/home/news").await;
     assert_eq!(reply.status, 200);
     assert_eq!(reply.body["items"][0]["source"], "Codeforces");
-    assert_eq!(reply.body["items"][0]["url"], "https://codeforces.com/contests/1234");
-    assert_eq!(reply.body["items"][0]["topic_title"], "Соревнования по программированию");
+    assert_eq!(
+        reply.body["items"][0]["url"],
+        "https://codeforces.com/contests/1234"
+    );
+    assert_eq!(
+        reply.body["items"][0]["topic_title"],
+        "Соревнования по программированию"
+    );
 
     for bad in [
-        json!({"coins":["Bitcoin"]}), json!({"coins":["../bitcoin"]}),
-        json!({"coins":["coin_id"]}), json!({"coins":[""]}),
+        json!({"coins":["Bitcoin"]}),
+        json!({"coins":["../bitcoin"]}),
+        json!({"coins":["coin_id"]}),
+        json!({"coins":[""]}),
         json!({"coins":["x".repeat(65)]}),
         json!({"coins":["a","b","c","d","e","f","g"]}),
         json!({"currencies":["USD","EUR","CNY","PHP","JPY","GBP","KZT","AED","THB"]}),
     ] {
-        let reply = me.patch_json(address, "/api/v1/home/settings", bad.clone()).await;
+        let reply = me
+            .patch_json(address, "/api/v1/home/settings", bad.clone())
+            .await;
         assert_eq!(reply.status, 400, "{bad}: {:?}", reply.body);
         assert_eq!(reply.body["error"], "invalid");
     }
-    for path in ["/api/v1/home/coins/search?q=x", "/api/v1/home/coins/search?q="] {
+    for path in [
+        "/api/v1/home/coins/search?q=x",
+        "/api/v1/home/coins/search?q=",
+    ] {
         assert_eq!(me.get(address, path).await.status, 400);
     }
     // Новая граница допустима; пустой PATCH не теряет монеты.
-    let reply = me.patch_json(address, "/api/v1/home/settings", json!({
-        "currencies":["USD","EUR","CNY","PHP","JPY","GBP","KZT","AED"],
-        "coins":["a","b","c","d","e","f"],
-    })).await;
+    let reply = me
+        .patch_json(
+            address,
+            "/api/v1/home/settings",
+            json!({
+                "currencies":["USD","EUR","CNY","PHP","JPY","GBP","KZT","AED"],
+                "coins":["a","b","c","d","e","f"],
+            }),
+        )
+        .await;
     assert_eq!(reply.status, 200);
-    let reply = me.patch_json(address, "/api/v1/home/settings", json!({})).await;
-    assert_eq!(reply.body["coins"], json!(["a","b","c","d","e","f"]));
-    assert!(sqlx::query("UPDATE home_settings SET coins = ARRAY['a','b','c','d','e','f','g']")
-        .execute(db.pool()).await.is_err());
+    let reply = me
+        .patch_json(address, "/api/v1/home/settings", json!({}))
+        .await;
+    assert_eq!(reply.body["coins"], json!(["a", "b", "c", "d", "e", "f"]));
+    assert!(
+        sqlx::query("UPDATE home_settings SET coins = ARRAY['a','b','c','d','e','f','g']")
+            .execute(db.pool())
+            .await
+            .is_err()
+    );
     assert!(sqlx::query("UPDATE home_settings SET currencies = ARRAY['USD','EUR','CNY','PHP','JPY','GBP','KZT','AED','THB']")
         .execute(db.pool()).await.is_err());
     // Тема из будущей версии базы спокойно пропускается при чтении.
     sqlx::query("UPDATE home_settings SET topics = ARRAY['future','contests']")
-        .execute(db.pool()).await.unwrap();
+        .execute(db.pool())
+        .await
+        .unwrap();
     let reply = me.get(address, "/api/v1/home/settings").await;
     assert_eq!(reply.body["topics"], json!(["contests"]));
-    me.patch_json(address, "/api/v1/home/settings", json!({"coins":["the-open-network","bitcoin"], "currencies":["PHP","USD"]})).await;
+    me.patch_json(
+        address,
+        "/api/v1/home/settings",
+        json!({"coins":["the-open-network","bitcoin"], "currencies":["PHP","USD"]}),
+    )
+    .await;
     drop(fake);
     sources.expire_cache();
-    for path in ["/api/v1/home/coins", "/api/v1/home/coins/search?q=ton", "/api/v1/home/news", "/api/v1/home/rates"] {
+    for path in [
+        "/api/v1/home/coins",
+        "/api/v1/home/coins/search?q=ton",
+        "/api/v1/home/news",
+        "/api/v1/home/rates",
+    ] {
         let reply = me.get(address, path).await;
         assert_eq!(reply.status, 200, "{path}: {:?}", reply.body);
         assert_eq!(reply.body["stale"], true, "{path}");
     }
-    let reply = me.get(address, "/api/v1/home/coins/search?q=uncached").await;
+    let reply = me
+        .get(address, "/api/v1/home/coins/search?q=uncached")
+        .await;
     assert_eq!(reply.status, 502);
     assert_eq!(reply.body["error"], "upstream");
-    me.patch_json(address, "/api/v1/home/settings", json!({"coins":["uncached"]})).await;
+    me.patch_json(
+        address,
+        "/api/v1/home/settings",
+        json!({"coins":["uncached"]}),
+    )
+    .await;
     assert_eq!(me.get(address, "/api/v1/home/coins").await.status, 502);
-    let reply = me.patch_json(address, "/api/v1/home/settings", json!({"coins":[]})).await;
+    let reply = me
+        .patch_json(address, "/api/v1/home/settings", json!({"coins":[]}))
+        .await;
     assert_eq!(reply.status, 200);
     let reply = me.get(address, "/api/v1/home/coins").await;
     assert_eq!(reply.status, 200);

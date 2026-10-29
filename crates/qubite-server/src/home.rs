@@ -630,7 +630,11 @@ pub async fn coins(
     session: Authenticated,
 ) -> Result<Json<HomeCoins>, ApiError> {
     let settings = load_settings(&state, session.0.account_id).await?;
-    let got = state.home.coins(&settings.coins).await.map_err(home_error)?;
+    let got = state
+        .home
+        .coins(&settings.coins)
+        .await
+        .map_err(home_error)?;
     let freshness = freshness(&got);
     Ok(Json(HomeCoins {
         items: got
@@ -683,7 +687,11 @@ pub async fn search_coins(
     _session: Authenticated,
     Query(query): Query<CoinsQuery>,
 ) -> Result<Json<HomeCoinSearch>, ApiError> {
-    let got = state.home.search_coins(&query.q).await.map_err(home_error)?;
+    let got = state
+        .home
+        .search_coins(&query.q)
+        .await
+        .map_err(home_error)?;
     let freshness = freshness(&got);
     Ok(Json(HomeCoinSearch {
         items: got

@@ -53,7 +53,15 @@ impl Settings {
     }
 }
 
-type Row = (String, String, f64, f64, Vec<String>, Vec<String>, Vec<String>);
+type Row = (
+    String,
+    String,
+    f64,
+    f64,
+    Vec<String>,
+    Vec<String>,
+    Vec<String>,
+);
 
 pub async fn load(conn: &mut PgConnection, account: Uuid) -> Result<Settings> {
     let row: Option<Row> = sqlx::query_as(
@@ -208,9 +216,11 @@ mod tests {
         );
         assert!(check_currencies(&["US".into()]).is_err());
         assert!(check_currencies(&["Д".into()]).is_err());
-        let many: Vec<String> = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III"]
-            .map(String::from)
-            .to_vec();
+        let many: Vec<String> = [
+            "AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III",
+        ]
+        .map(String::from)
+        .to_vec();
         assert!(check_currencies(&many).is_err());
         assert_eq!(check_currencies(&many[..8]).unwrap().len(), 8);
     }
@@ -218,7 +228,12 @@ mod tests {
     #[test]
     fn coins_are_checked_deduplicated_and_limited() {
         assert_eq!(
-            check_coins(&["bitcoin".into(), "bitcoin".into(), "the-open-network".into()]).unwrap(),
+            check_coins(&[
+                "bitcoin".into(),
+                "bitcoin".into(),
+                "the-open-network".into()
+            ])
+            .unwrap(),
             ["bitcoin", "the-open-network"]
         );
         for id in [
