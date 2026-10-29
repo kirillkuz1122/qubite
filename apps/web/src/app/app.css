@@ -2323,8 +2323,7 @@ h4.eng-h {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px max(18px, env(safe-area-inset-right)) 24px
-    max(18px, env(safe-area-inset-left));
+  padding: 16px max(18px, env(safe-area-inset-right)) 24px max(18px, env(safe-area-inset-left));
 }
 .eng-lesson-column {
   display: grid;

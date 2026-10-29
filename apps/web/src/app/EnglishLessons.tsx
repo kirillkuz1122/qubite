@@ -764,21 +764,14 @@ function LessonPlayer({
             {phase === 'result' && 'Итог'}
           </span>
           {phase === 'tasks' && list.length > 0 && (
-            <Progress
-              total={list.length}
-              done={at + (result ? 1 : 0)}
-              now={result ? null : at}
-            />
+            <Progress total={list.length} done={at + (result ? 1 : 0)} now={result ? null : at} />
           )}
         </div>
         <Button size="sm" dot={false} onClick={onClose} className="eng-close">
           Закрыть
         </Button>
       </header>
-      <section
-        className="eng-lesson-work"
-        aria-label={phase === 'tasks' ? 'Задание' : undefined}
-      >
+      <section className="eng-lesson-work" aria-label={phase === 'tasks' ? 'Задание' : undefined}>
         <div className="eng-lesson-content" ref={content}>
           <div className="eng-lesson-column">
             {view.isError ? (
@@ -894,7 +887,9 @@ function LessonPlayer({
         <footer className="eng-lesson-bottom">
           <div className="eng-lesson-column">
             {kind !== 'review' && phase !== 'result' && <Ask lesson={id} />}
-            {kind === 'review' && item && phase === 'tasks' && <Ask key={item.lesson ?? id} lesson={item.lesson ?? id} />}
+            {kind === 'review' && item && phase === 'tasks' && (
+              <Ask key={item.lesson ?? id} lesson={item.lesson ?? id} />
+            )}
             <Presence show={harderAccepted && phase !== 'result'}>
               <Note>Нейт учтёт пожелание после урока.</Note>
             </Presence>
@@ -1371,8 +1366,8 @@ function TaskBody({
   /** «Исправь свою фразу»: что было не так в прошлый раз (без готового ответа). */
   fix?: string[];
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
-  onMicUnavailable?: () => Promise<void>;
+  onDraft?: ((r: Reply | null) => void) | undefined;
+  onMicUnavailable?: (() => Promise<void>) | undefined;
 }) {
   const locked = busy || !!result;
   let body: ReactNode;
@@ -1410,13 +1405,7 @@ function TaskBody({
         break;
       case 'fill':
         body = (
-          <Fill
-            task={task}
-            locked={locked}
-            result={result}
-            onReply={onReply}
-            onDraft={onDraft}
-          />
+          <Fill task={task} locked={locked} result={result} onReply={onReply} onDraft={onDraft} />
         );
         break;
       case 'translate':
@@ -1479,7 +1468,7 @@ function Choose({
   result: Answered | null;
   voice: boolean;
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const listen = task.type === 'listen';
@@ -1667,7 +1656,7 @@ function Build({
   task: Task;
   locked: boolean;
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const all = useMemo(() => tiles(task), [task]);
   const [used, setUsed] = useState<number[]>([]);
@@ -1732,7 +1721,7 @@ function Fill({
   locked: boolean;
   result: Answered | null;
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const parts = gaps(task.text ?? '');
   const n = parts.length - 1;
@@ -1816,7 +1805,7 @@ function TextAnswer({
   /** Показывать «здесь — текстом». */
   why?: boolean;
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const [text, setText] = useState('');
   const [dictated, setDictated] = useState(false);
@@ -1904,8 +1893,8 @@ function SpeakTask({
   locked: boolean;
   canMic: boolean;
   onReply: (r: Reply) => void;
-  onDraft?: (r: Reply | null) => void;
-  onMicUnavailable?: () => Promise<void>;
+  onDraft?: ((r: Reply | null) => void) | undefined;
+  onMicUnavailable?: (() => Promise<void>) | undefined;
 }) {
   const rec = useRef<Recording | null>(null);
   const [on, setOn] = useState(false);

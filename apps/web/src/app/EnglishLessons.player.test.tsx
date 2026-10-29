@@ -31,7 +31,8 @@ vi.mock('@qubite/ui', () => ({
     </label>
   ),
   Note: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  Presence: ({ children, show }: { children: ReactNode; show: boolean }) => (show ? children : null),
+  Presence: ({ children, show }: { children: ReactNode; show: boolean }) =>
+    show ? children : null,
   Swap: ({ children }: { children: ReactNode }) => children,
   Sheet: ({ children, open }: { children: ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,

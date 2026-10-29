@@ -72,11 +72,12 @@ async fn replacement_is_saved_idempotent_and_has_no_attempt_or_penalty() {
         .await
         .unwrap();
     assert_eq!(resumed.replacements, replacement.replacements);
-    let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM english_answers WHERE run_id = $1")
-        .bind(run.id)
-        .fetch_one(pool)
-        .await
-        .unwrap();
+    let attempts: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM english_answers WHERE run_id = $1")
+            .bind(run.id)
+            .fetch_one(pool)
+            .await
+            .unwrap();
     assert_eq!(attempts, 0);
     let review: i64 =
         sqlx::query_scalar("SELECT count(*) FROM english_review WHERE account_id = $1")

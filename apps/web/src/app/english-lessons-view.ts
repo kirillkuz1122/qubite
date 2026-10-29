@@ -248,11 +248,7 @@ export function microphoneFallback(task: Task): 'replace' | 'text' {
 /** Сначала сложные из оставшихся, без пропуска: свой ответ труднее сборки и выбора. */
 export function harderFirst<T extends { task: Task }>(list: readonly T[], from: number): T[] {
   const difficulty = (t: Task) =>
-    spoken(t) && t.mode !== 'repeat'
-      ? 3
-      : ['translate', 'build', 'fill'].includes(t.type)
-        ? 2
-        : 1;
+    spoken(t) && t.mode !== 'repeat' ? 3 : ['translate', 'build', 'fill'].includes(t.type) ? 2 : 1;
   return [
     ...list.slice(0, from),
     ...list.slice(from).sort((a, b) => difficulty(b.task) - difficulty(a.task)),
