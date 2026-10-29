@@ -1,4 +1,4 @@
-import { Button, Check, DotIcon, Field, Presence, Sheet, useFlip } from '@qubite/ui';
+import { Button, Check, DotIcon, Field, Note, Presence, Sheet, useFlip } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { plannerData, type PlannerProject, type PlannerTask } from '@qubite/sync-client';
@@ -8,13 +8,16 @@ import { useShell } from '../context';
 import { plural } from '../data';
 import {
   HOME,
+  searchCoins,
   searchPlaces,
+  useCoins,
   useHome,
   useLocate,
   useNews,
   useRates,
   useSaveSettings,
   useWeather,
+  type HomeCoinMatch,
   type HomeDigestItem,
   type HomeOverview,
   type HomePlace,
@@ -23,6 +26,9 @@ import {
 import {
   DIGEST_KIND,
   ago,
+  coinChange,
+  coinPrice,
+  contestStart,
   digestTarget,
   heldLine,
   rateChange,
@@ -291,11 +297,12 @@ function Deadlines() {
 
 /* ---------- погода и курсы ---------- */
 
-type Part = 'weather' | 'rates' | 'news';
+type Part = 'weather' | 'rates' | 'coins' | 'news';
 
 const PART_NAME: Record<Part, string> = {
   weather: 'Город погоды',
   rates: 'Валюты',
+  coins: 'Монеты',
   news: 'Темы новостей',
 };
 
@@ -328,7 +335,10 @@ function Widgets({ settings }: { settings: HomeSettings | null }) {
       <SecHead text="ПОГОДА И КУРСЫ" label="Погода и курсы" />
       <div className="home-widgets">
         <Weather open={open === 'weather'} onGear={() => toggle('weather')} />
-        <Rates open={open === 'rates'} onGear={() => toggle('rates')} />
+        <div className="home-markets">
+          <Rates open={open === 'rates'} onGear={() => toggle('rates')} />
+          <Coins open={open === 'coins'} onGear={() => toggle('coins')} />
+        </div>
       </div>
       <Sheet
         open={open !== null && !!settings}
@@ -337,6 +347,7 @@ function Widgets({ settings }: { settings: HomeSettings | null }) {
       >
         {settings && shown === 'weather' && <PlaceSettings settings={settings} />}
         {settings && shown === 'rates' && <CurrencySettings settings={settings} />}
+        {settings && shown === 'coins' && <CoinSettings settings={settings} />}
       </Sheet>
     </>
   );
@@ -364,7 +375,7 @@ function Card({
 
 function Stale({ stale }: { stale: boolean }) {
   return stale ? (
-    <small className="home-stale">источник не ответил — последнее известное</small>
+    <small className="home-stale">устарело · источник не ответил — последнее известное</small>
   ) : null;
 }
 
@@ -413,9 +424,9 @@ function Weather({ open, onGear }: { open: boolean; onGear: () => void }) {
 function Rates({ open, onGear }: { open: boolean; onGear: () => void }) {
   const r = useRates();
   return (
-    <Card title="Курсы ЦБ" gear={<Gear part="rates" open={open} onClick={onGear} />}>
+    <Card title="Курсы валют" gear={<Gear part="rates" open={open} onClick={onGear} />}>
       {r.isPending && <p className="later">Узнаю курсы…</p>}
-      {r.isError && <p className="later">Курсы сейчас недоступны.</p>}
+      {r.isError && !r.data && <p className="later">Курсы сейчас недоступны.</p>}
       {r.data && r.data.items.length === 0 && <p className="later">Валюты не выбраны.</p>}
       {r.data && (
         <>
@@ -425,13 +436,60 @@ function Rates({ open, onGear }: { open: boolean; onGear: () => void }) {
               return (
                 <li key={x.code}>
                   <b>{x.code}</b>
-                  <span>{rateValue(x.value, x.nominal)}</span>
+                  <span>
+                    {rateValue(x.value, x.nominal)}
+                    <small className="home-rate-source">
+                      {x.name} · {x.source === 'er-api' ? 'не ЦБ' : 'ЦБ РФ'}
+                    </small>
+                  </span>
                   <small data-dir={c.dir}>{c.text}</small>
                 </li>
               );
             })}
           </ul>
-          <Stale stale={r.data.stale} />
+          <Stale stale={r.data.stale || r.isError} />
+        </>
+      )}
+    </Card>
+  );
+}
+
+function Coins({ open, onGear }: { open: boolean; onGear: () => void }) {
+  const coins = useCoins();
+  return (
+    <Card title="Криптовалюта" gear={<Gear part="coins" open={open} onClick={onGear} />}>
+      {coins.isPending && <p className="later">Узнаю цены монет…</p>}
+      {coins.isError && !coins.data && (
+        <p className="later">Цены монет сейчас недоступны. Попробуйте позже.</p>
+      )}
+      {coins.data?.items.length === 0 && <p className="later">Добавьте монеты шестерёнкой</p>}
+      {coins.data && (
+        <>
+          <ul className="home-coins">
+            {coins.data.items.map((coin) => {
+              const change = coinChange(coin.change_24h);
+              return (
+                <li key={coin.id}>
+                  <div className="home-coin-name">
+                    <b>{coin.symbol.toUpperCase()}</b>
+                    <small>{coin.name}</small>
+                  </div>
+                  <div className="home-coin-price">
+                    <span>{coinPrice(coin.usd, 'USD')}</span>
+                    <small>{coinPrice(coin.rub, 'RUB')}</small>
+                  </div>
+                  <small
+                    className="home-coin-change"
+                    data-dir={change.dir}
+                    style={{ color: change.color }}
+                  >
+                    {change.text}{coin.change_24h != null && ' · 24 ч'}
+                  </small>
+                </li>
+              );
+            })}
+          </ul>
+          <Stale stale={coins.data.stale || coins.isError} />
         </>
       )}
     </Card>
@@ -527,55 +585,170 @@ const DEFAULT_CURRENCIES = [
   { code: 'EUR', name: 'Евро' },
   { code: 'CNY', name: 'Китайский юань' },
 ];
-const MAX_CURRENCIES = 6;
+const MAX_CURRENCIES = 8;
+const MAX_COINS = 6;
+const DEFAULT_COINS: HomeCoinMatch[] = [
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' },
+  { id: 'the-open-network', symbol: 'TON', name: 'TON' },
+];
 
 function CurrencySettings({ settings }: { settings: HomeSettings }) {
   const save = useSaveSettings();
-  const r = useRates();
-  const [all, setAll] = useState(false);
-  const available = r.data?.available.length ? r.data.available : DEFAULT_CURRENCIES;
+  const rates = useRates();
+  const [q, setQ] = useState('');
+  const [limit, setLimit] = useState(false);
+  const available = rates.data?.available ?? DEFAULT_CURRENCIES;
   const chosen = settings.currencies;
-  const shown = all ? available : available.filter((c, i) => i < 8 || chosen.includes(c.code));
-  const flip = (code: string, on: boolean) =>
-    save.mutate({
-      currencies: on ? [...chosen, code] : chosen.filter((c) => c !== code),
-    });
+  const text = q.trim().toLocaleLowerCase('ru');
+  const found = available.filter(
+    (c) => !chosen.includes(c.code) && `${c.code} ${c.name}`.toLocaleLowerCase('ru').includes(text),
+  );
+  const flip = (code: string, on: boolean) => {
+    if (save.isPending) return;
+    if (on && chosen.length >= MAX_CURRENCIES) {
+      setLimit(true);
+      return;
+    }
+    setLimit(false);
+    save.mutate({ currencies: on ? [...chosen, code] : chosen.filter((c) => c !== code) });
+  };
   return (
     <div role="group" aria-label="Валюты">
-      <p className="home-set-now">
-        Валюты на Главной — до {MAX_CURRENCIES}, курс ЦБ РФ на сегодня.
-      </p>
-      <div className="home-checks">
-        {shown.map((c) => {
-          const on = chosen.includes(c.code);
-          return (
-            <Check
-              key={c.code}
-              checked={on}
-              onChange={(v) => (!v || chosen.length < MAX_CURRENCIES) && flip(c.code, v)}
-            >
+      <p className="home-set-now">До {MAX_CURRENCIES} валют. Показываем в порядке добавления.</p>
+      <fieldset className="home-options" disabled={save.isPending}>
+        <div className="home-checks home-chosen" aria-label="Выбранные валюты">
+          {chosen.map((code) => (
+            <Check key={code} checked onChange={() => flip(code, false)}>
+              {code} · {available.find((c) => c.code === code)?.name ?? code}
+            </Check>
+          ))}
+        </div>
+        <Field
+          label="Поиск валюты"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Код или название, например песо"
+        />
+        <div className="home-checks" aria-label="Доступные валюты">
+          {found.map((c) => (
+            <Check key={c.code} checked={false} onChange={() => flip(c.code, true)}>
               {c.code} · {c.name}
             </Check>
-          );
-        })}
-      </div>
-      {!all && available.length > shown.length && (
-        <button className="more" type="button" onClick={() => setAll(true)}>
-          все валюты ЦБ →
-        </button>
+          ))}
+        </div>
+      </fieldset>
+      {found.length === 0 && <p className="home-set-hint">Других валют по этому запросу нет.</p>}
+      {rates.isError && <Note>Каталог валют сейчас недоступен. Попробуйте позже.</Note>}
+      {limit && (
+        <Note tone="bad">Можно выбрать до 8 валют. Сначала уберите одну из выбранных.</Note>
       )}
-      {save.isError && <p className="act-error">{say(save.error)}</p>}
+      {save.isError && <Note tone="bad">{say(save.error)}</Note>}
+    </div>
+  );
+}
+
+function CoinSettings({ settings }: { settings: HomeSettings }) {
+  const save = useSaveSettings();
+  const coins = useCoins();
+  const [q, setQ] = useState('');
+  const [limit, setLimit] = useState(false);
+  const [result, setResult] = useState<{
+    q: string;
+    items: HomeCoinMatch[];
+    stale: boolean;
+    error: string | null;
+  }>({ q: '', items: [], stale: false, error: null });
+  const text = q.trim();
+  const current = text.length >= 2 && result.q === text ? result : null;
+  const chosen = settings.coins ?? [];
+  useEffect(() => {
+    if (text.length < 2) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      searchCoins(text, controller.signal)
+        .then((data) => {
+          if (!controller.signal.aborted) {
+            setResult({ q: text, items: data.items, stale: data.stale, error: null });
+          }
+        })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setResult({ q: text, items: [], stale: false, error: say(error) });
+          }
+        });
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [text]);
+  const change = (ids: string[]) => {
+    if (save.isPending) return;
+    if (ids.length > MAX_COINS) {
+      setLimit(true);
+      return;
+    }
+    setLimit(false);
+    save.mutate({ coins: ids });
+  };
+  const names = new Map(
+    [...DEFAULT_COINS, ...result.items, ...(coins.data?.items ?? [])].map((c) => [c.id, c]),
+  );
+  return (
+    <div role="group" aria-label="Монеты">
+      <p className="home-set-now">До {MAX_COINS} монет. Цена в долларах и рублях.</p>
+      <fieldset className="home-options" disabled={save.isPending}>
+        <div className="home-checks home-chosen" aria-label="Выбранные монеты">
+          {chosen.map((id) => {
+            const coin = names.get(id);
+            return (
+              <Check key={id} checked onChange={() => change(chosen.filter((c) => c !== id))}>
+                {coin ? `${coin.symbol.toUpperCase()} · ${coin.name}` : id}
+              </Check>
+            );
+          })}
+        </div>
+        <Field
+          label="Поиск монеты"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Например, Ethereum"
+          hint="Введите хотя бы 2 знака названия"
+          error={current?.error}
+        />
+        {text.length >= 2 && !current && (
+          <p className="home-set-hint" role="status">
+            Ищу монеты…
+          </p>
+        )}
+        {current && !current.error && current.items.length === 0 && (
+          <p className="home-set-hint">Монеты не найдены. Попробуйте другое название.</p>
+        )}
+        <div className="home-checks" aria-label="Найденные монеты">
+          {current?.items
+            .filter((c) => !chosen.includes(c.id))
+            .map((coin) => (
+              <Check key={coin.id} checked={false} onChange={() => change([...chosen, coin.id])}>
+                {coin.symbol.toUpperCase()} · {coin.name}
+              </Check>
+            ))}
+        </div>
+        {current && <Stale stale={current.stale} />}
+        <div className="home-set-btns">
+          <Button size="sm" onClick={() => change(DEFAULT_COINS.map((c) => c.id))}>
+            По умолчанию
+          </Button>
+        </div>
+      </fieldset>
+      {limit && (
+        <Note tone="bad">Можно выбрать до 6 монет. Сначала уберите одну из выбранных.</Note>
+      )}
+      {save.isError && <Note tone="bad">{say(save.error)}</Note>}
     </div>
   );
 }
 
 /* ---------- новости ---------- */
-
-const TOPICS = [
-  { id: 'ai', name: 'ИИ и технологии' },
-  { id: 'code', name: 'Программирование' },
-  { id: 'study', name: 'Олимпиады и учёба' },
-];
 
 function News({ settings }: { settings: HomeSettings | null }) {
   const news = useNews();
@@ -588,21 +761,26 @@ function News({ settings }: { settings: HomeSettings | null }) {
         <Gear part="news" open={open} onClick={() => setOpen((o) => !o)} />
       </SecHead>
       <Sheet open={open && !!settings} onClose={() => setOpen(false)} title="Темы новостей">
-        <div className="home-checks" role="group" aria-label="Темы новостей">
-          {TOPICS.map((t) => (
-            <Check
-              key={t.id}
-              checked={topics.includes(t.id)}
-              onChange={(v) =>
-                save.mutate({
-                  topics: v ? [...topics, t.id] : topics.filter((x) => x !== t.id),
-                })
-              }
-            >
-              {t.name}
-            </Check>
-          ))}
-        </div>
+        <fieldset className="home-options" disabled={save.isPending}>
+          <div className="home-checks" role="group" aria-label="Темы новостей">
+            {(settings?.available_topics ?? []).map((t) => (
+              <Check
+                key={t.id}
+                checked={topics.includes(t.id)}
+                onChange={(v) => {
+                  if (!save.isPending) {
+                    save.mutate({
+                      topics: v ? [...topics, t.id] : topics.filter((x) => x !== t.id),
+                    });
+                  }
+                }}
+              >
+                {t.title}
+              </Check>
+            ))}
+          </div>
+        </fieldset>
+        {save.isError && <Note tone="bad">{say(save.error)}</Note>}
       </Sheet>
       {settings && topics.length === 0 && <p className="later">Темы новостей выключены.</p>}
       {topics.length > 0 && news.isError && <p className="later">Новости сейчас недоступны.</p>}
@@ -618,12 +796,21 @@ function News({ settings }: { settings: HomeSettings | null }) {
               </a>
               <small>
                 {n.topic_title} · {n.source}
-                {n.published && ` · ${ago(n.published, new Date())}`}
+                {n.published &&
+                  ` · ${n.topic === 'contests' ? contestStart(n.published) : ago(n.published, new Date())}`}
               </small>
             </li>
           ))}
       </ul>
       {news.data && <Stale stale={news.data.stale} />}
+      <nav className="home-calendars" aria-label="Календари олимпиад">
+        <a href="https://codolymp.ru/olympiads" target="_blank" rel="noopener noreferrer">
+          Календарь олимпиад: Кодолимп
+        </a>
+        <a href="https://olimpiada.ru" target="_blank" rel="noopener noreferrer">
+          Олимпиады школьников
+        </a>
+      </nav>
     </>
   );
 }
