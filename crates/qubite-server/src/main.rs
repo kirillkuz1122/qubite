@@ -267,6 +267,49 @@ struct ServeArgs {
 
     #[command(flatten)]
     push: PushArgs,
+
+    #[command(flatten)]
+    github: GithubArgs,
+}
+
+/// «Работа агентов» в Owner Console (HAR-002): GitHub Issues токеном сервера.
+#[derive(Args)]
+struct GithubArgs {
+    /// Fine-grained токен GitHub: только репозиторий Qubite, Issues — read/write.
+    /// Пусто — раздел честно пишет «не настроено». Только в окружении сервера.
+    #[arg(
+        long,
+        env = "QUBITE_GITHUB_TOKEN",
+        default_value = "",
+        hide_env_values = true
+    )]
+    github_token: String,
+    /// Репозиторий задач: `владелец/имя`.
+    #[arg(
+        long,
+        env = "QUBITE_GITHUB_REPO",
+        default_value = "kirillkuz1122/qubite"
+    )]
+    github_repo: String,
+    /// Адрес API GitHub.
+    #[arg(
+        long,
+        env = "QUBITE_GITHUB_API",
+        default_value = "https://api.github.com"
+    )]
+    github_api: String,
+}
+
+impl GithubArgs {
+    fn settings(&self) -> qubite_server::harness::WorkSettings {
+        let token = self.github_token.trim();
+        qubite_server::harness::WorkSettings {
+            token: (!token.is_empty()).then(|| Secret::new(token)),
+            repo: self.github_repo.trim().to_owned(),
+            api: self.github_api.trim().to_owned(),
+            proxy: qubite_net::configured(Some("github")),
+        }
+    }
 }
 
 /// Напоминания (PLAN-004): push в браузере. Telegram берёт токен бота из
@@ -840,6 +883,7 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .with_oauth(args.oauth.settings())
         .with_notify(channels.clone())
         .with_english(args.ai.english())
+        .with_work(args.github.settings())
         .with_blobs(qubite_objects::BlobStore::new(args.data_dir.join("blobs")));
     let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {

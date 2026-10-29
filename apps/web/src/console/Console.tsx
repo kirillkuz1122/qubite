@@ -23,6 +23,7 @@ import { ModulesTab } from './Modules';
 import { PeopleTab } from './People';
 import { PlatformTab } from './Platform';
 import { ServerTab } from './Server';
+import { WorkTab } from './Work';
 import './console.css';
 
 /**
@@ -92,6 +93,7 @@ export function ConsolePage() {
               {current === 'people' && <PeopleTab ownerId={me.data.id} />}
               {current === 'modules' && <ModulesTab />}
               {current === 'ai' && <AiTab />}
+              {current === 'work' && <WorkTab />}
               {current === 'log' && <LogTab />}
               {current === 'server' && <ServerTab />}
             </section>

@@ -16,6 +16,7 @@ pub mod console;
 pub mod email;
 pub mod english;
 pub mod english_lessons;
+pub mod harness;
 pub mod home;
 pub mod inbox;
 pub mod maintenance;
@@ -66,6 +67,8 @@ pub struct AppState {
     pub blobs: qubite_objects::BlobStore,
     /// AI кнопками (AI-003): ключ шифрования, ChatGPT, ключ OpenRouter.
     pub ai_panel: Arc<ai_console::AiPanel>,
+    /// «Работа агентов» (HAR-002): GitHub Issues токеном сервера.
+    pub work: Arc<harness::Work>,
 }
 
 impl AppState {
@@ -92,12 +95,19 @@ impl AppState {
             // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
             ai_panel: Arc::new(ai_console::AiPanel::default()),
+            work: Arc::new(harness::Work::default()),
         }
     }
 
     /// Что знают экраны AI (AI-003): ключ шифрования, ChatGPT, адаптер OpenRouter.
     pub fn with_ai_panel(mut self, panel: ai_console::AiPanel) -> Self {
         self.ai_panel = Arc::new(panel);
+        self
+    }
+
+    /// GitHub для «Работы агентов» (`QUBITE_GITHUB_TOKEN`; в тестах — подставной сервер).
+    pub fn with_work(mut self, settings: harness::WorkSettings) -> Self {
+        self.work = Arc::new(harness::Work::new(settings));
         self
     }
 
@@ -196,6 +206,8 @@ impl AppState {
         console::revoke_sessions,
         console::audit_log,
         console::server_info,
+        harness::work_board,
+        harness::work_answer,
         ai::owner_ai_models,
         ai::owner_ai_catalog,
         ai::owner_ai_update_model,
@@ -364,6 +376,13 @@ impl AppState {
         console::SessionsClosed,
         console::AuditItem,
         console::ServerInfo,
+        harness::WorkBoard,
+        harness::WorkItem,
+        harness::WorkLink,
+        harness::WorkQuestion,
+        harness::WorkUsage,
+        harness::AnswerRequest,
+        harness::AnswerPosted,
         ai::AiModelItem,
         ai::AiCatalogItem,
         ai::AiModelChange,
@@ -606,6 +625,11 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/owner/confirm", post(console::confirm))
         .route("/api/owner/audit", get(console::audit_log))
         .route("/api/owner/server", get(console::server_info))
+        .route("/api/owner/work", get(harness::work_board))
+        .route(
+            "/api/owner/work/questions/{number}/answer",
+            post(harness::work_answer),
+        )
         .route(
             "/api/owner/accounts/{account_id}/grants",
             get(modules::owner_grants),

@@ -362,3 +362,87 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+/* Работа агентов (HAR-002) */
+.cs-work {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cs-work li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--q-line);
+  min-width: 0;
+}
+.cs-work li:last-child {
+  border-bottom: 0;
+}
+.cs-task {
+  color: var(--q-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.cs-place {
+  margin-right: 4px;
+  color: var(--q-mute);
+  font-variant-numeric: tabular-nums;
+}
+.cs-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.cs-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--q-mute);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.cs-link:hover,
+.cs-task:hover {
+  color: var(--q-orange);
+}
+.cs-pre {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.cs-question {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--q-line);
+}
+.cs-usage {
+  display: grid;
+  gap: 14px;
+}
+.cs-options {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+/* варианты бывают длинными: кнопка переносит текст, а не обрезает его */
+.cs-options .q-btn {
+  max-width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  white-space: normal;
+  text-align: left;
+}

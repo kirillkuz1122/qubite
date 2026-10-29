@@ -441,6 +441,8 @@ async fn there_is_no_http_route_to_become_owner() {
         "/api/owner/maintenance",
         "/api/owner/notifications",
         "/api/owner/ai/",
+        // работа агентов (HAR-002): GitHub Issues, ответы на вопросы
+        "/api/owner/work",
     ];
     assert!(
         owner_paths

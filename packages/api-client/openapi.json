@@ -3336,6 +3336,138 @@
         }
       }
     },
+    "/api/owner/work": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Что делают агенты: идёт, готово — проверь, ждёт владельца, очередь, лимит.",
+        "operationId": "work_board",
+        "parameters": [
+          {
+            "name": "fresh",
+            "in": "query",
+            "description": "Прочитать GitHub заново, если снимку больше 20 секунд.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Раздел «Агенты»",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkBoard"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "GitHub не ответил",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/work/questions/{number}/answer": {
+      "post": {
+        "tags": ["owner"],
+        "summary": "Ответить на вопрос: комментарий «Ответ владельца: …» в issue и снять метку `вопрос`.",
+        "operationId": "work_answer",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Номер issue",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ записан в issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerPosted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой или слишком длинный ответ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Это уже не вопрос или GitHub не настроен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "GitHub не ответил",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platform/status": {
       "get": {
         "tags": ["system"],
@@ -9109,6 +9241,26 @@
           }
         }
       },
+      "AnswerPosted": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Ссылка на комментарий в issue."
+          }
+        }
+      },
+      "AnswerRequest": {
+        "type": "object",
+        "required": ["answer"],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "description": "Вариант кнопкой или свой текст."
+          }
+        }
+      },
       "ApiErrorBody": {
         "type": "object",
         "description": "Ответ с ошибкой: машиночитаемый код и понятный человеку текст.",
@@ -12680,6 +12832,168 @@
           "token": {
             "type": ["string", "null"],
             "description": "Токен из ссылки в письме (`?token=…`)."
+          }
+        }
+      },
+      "WorkBoard": {
+        "type": "object",
+        "description": "Раздел «Агенты» целиком.",
+        "required": ["configured", "repo", "running", "review", "questions", "queue"],
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "Есть ли на сервере токен GitHub. Нет — остальное пусто."
+          },
+          "fetched_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда прочитано из GitHub (кэш — 3 минуты)."
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkQuestion"
+            }
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            },
+            "description": "Очередь (`ready`) по номеру — по порядку постановки."
+          },
+          "repo": {
+            "type": "string"
+          },
+          "review": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            }
+          },
+          "running": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkItem"
+            }
+          },
+          "usage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WorkUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "WorkItem": {
+        "type": "object",
+        "description": "Задача (issue) в разделе.",
+        "required": ["number", "title", "url", "labels", "updated_at", "links"],
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkLink"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkLink": {
+        "type": "object",
+        "description": "Ссылка в карточке: PR или скриншот.",
+        "required": ["label", "url"],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkQuestion": {
+        "type": "object",
+        "description": "Вопрос владельцу: текст и варианты (первый — рекомендация).",
+        "required": ["number", "title", "url", "text", "options", "updated_at"],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkUsage": {
+        "type": "object",
+        "description": "Расход лимита агентов (заполняет управляющая сессия).",
+        "required": ["text", "url", "at"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string",
+            "description": "Последняя запись как есть (до 300 знаков)."
+          },
+          "url": {
+            "type": "string"
+          },
+          "week_percent": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Сколько процентов недели ушло, если указано.",
+            "minimum": 0
+          },
+          "window_percent": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "Сколько процентов окна (5 часов) ушло, если указано.",
+            "minimum": 0
           }
         }
       }

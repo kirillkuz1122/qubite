@@ -1785,6 +1785,7 @@ dependencies = [
  "qubite-testkit",
  "reqwest",
  "rpassword",
+ "rustls",
  "serde",
  "serde_json",
  "sha2 0.11.1",

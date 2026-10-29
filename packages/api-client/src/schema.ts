@@ -1099,6 +1099,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/owner/work': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Что делают агенты: идёт, готово — проверь, ждёт владельца, очередь, лимит. */
+    get: operations['work_board'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/work/questions/{number}/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ответить на вопрос: комментарий «Ответ владельца: …» в issue и снять метку `вопрос`. */
+    post: operations['work_answer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/platform/status': {
     parameters: {
       query?: never;
@@ -3173,6 +3207,14 @@ export interface components {
       days: number;
       total: components['schemas']['UsageRow'];
     };
+    AnswerPosted: {
+      /** @description Ссылка на комментарий в issue. */
+      url: string;
+    };
+    AnswerRequest: {
+      /** @description Вариант кнопкой или свой текст. */
+      answer: string;
+    };
     /** @description Ответ с ошибкой: машиночитаемый код и понятный человеку текст. */
     ApiErrorBody: {
       /** @description Код ошибки, например `invalid_credentials`. */
@@ -4780,6 +4822,68 @@ export interface components {
       email?: string | null;
       /** @description Токен из ссылки в письме (`?token=…`). */
       token?: string | null;
+    };
+    /** @description Раздел «Агенты» целиком. */
+    WorkBoard: {
+      /** @description Есть ли на сервере токен GitHub. Нет — остальное пусто. */
+      configured: boolean;
+      /**
+       * Format: date-time
+       * @description Когда прочитано из GitHub (кэш — 3 минуты).
+       */
+      fetched_at?: string | null;
+      questions: components['schemas']['WorkQuestion'][];
+      /** @description Очередь (`ready`) по номеру — по порядку постановки. */
+      queue: components['schemas']['WorkItem'][];
+      repo: string;
+      review: components['schemas']['WorkItem'][];
+      running: components['schemas']['WorkItem'][];
+      usage?: components['schemas']['WorkUsage'] | null;
+    };
+    /** @description Задача (issue) в разделе. */
+    WorkItem: {
+      labels: string[];
+      links: components['schemas']['WorkLink'][];
+      /** Format: int64 */
+      number: number;
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      url: string;
+    };
+    /** @description Ссылка в карточке: PR или скриншот. */
+    WorkLink: {
+      label: string;
+      url: string;
+    };
+    /** @description Вопрос владельцу: текст и варианты (первый — рекомендация). */
+    WorkQuestion: {
+      /** Format: int64 */
+      number: number;
+      options: string[];
+      text: string;
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      url: string;
+    };
+    /** @description Расход лимита агентов (заполняет управляющая сессия). */
+    WorkUsage: {
+      /** Format: date-time */
+      at: string;
+      /** @description Последняя запись как есть (до 300 знаков). */
+      text: string;
+      url: string;
+      /**
+       * Format: int32
+       * @description Сколько процентов недели ушло, если указано.
+       */
+      week_percent?: number | null;
+      /**
+       * Format: int32
+       * @description Сколько процентов окна (5 часов) ушло, если указано.
+       */
+      window_percent?: number | null;
     };
   };
   responses: never;
@@ -7574,6 +7678,110 @@ export interface operations {
       };
       /** @description Не owner */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  work_board: {
+    parameters: {
+      query?: {
+        /** @description Прочитать GitHub заново, если снимку больше 20 секунд. */
+        fresh?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Раздел «Агенты» */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkBoard'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description GitHub не ответил */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  work_answer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Номер issue */
+        number: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AnswerRequest'];
+      };
+    };
+    responses: {
+      /** @description Ответ записан в issue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AnswerPosted'];
+        };
+      };
+      /** @description Пустой или слишком длинный ответ */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Это уже не вопрос или GitHub не настроен */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description GitHub не ответил */
+      502: {
         headers: {
           [name: string]: unknown;
         };

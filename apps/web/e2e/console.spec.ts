@@ -204,7 +204,16 @@ test('модули, AI и сервер; на телефоне нет гориз�
   await expect(page.getByText('миграция 22')).toBeVisible();
   await expect(page.getByText('2 ч 5 мин')).toBeVisible();
 
-  for (const t of ['platform', 'people', 'modules', 'ai', 'log', 'server']) {
+  await tab(page, 'Агенты').click();
+  const question = page.getByRole('form', { name: 'Куда класть бэкапы?' });
+  await expect(question.getByText('На Pi мало места.')).toBeVisible();
+  await question.getByRole('button', { name: 'Облако' }).click();
+  await expect(page.getByText('Вопросов нет — агенты справляются сами.')).toBeVisible();
+  const answer = auth.calls.find((c) => c.path === '/api/owner/work/questions/81/answer');
+  expect(answer?.body).toEqual({ answer: 'Облако' });
+  await expect(page.getByRole('link', { name: 'PR #99 →' })).toBeVisible();
+
+  for (const t of ['platform', 'people', 'modules', 'ai', 'log', 'server', 'work']) {
     await page.goto(`/console/${t}`);
     await page.waitForTimeout(200);
     const wide = await page.evaluate(

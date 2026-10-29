@@ -17,6 +17,8 @@ export type AiLimitItem = S['AiLimitItem'];
 export type AiOverview = S['AiOverview'];
 export type AiUsage = S['AiUsage'];
 export type AiCallItem = S['AiCallItem'];
+export type WorkItem = S['WorkItem'];
+export type WorkQuestion = S['WorkQuestion'];
 
 export const ACCOUNTS = ['owner-accounts'] as const;
 export const MODULES = ['owner-modules'] as const;
@@ -25,6 +27,7 @@ export const AI_MODELS = ['owner-ai-models'] as const;
 export const AI_TASKS = ['owner-ai-tasks'] as const;
 export const AI_OVERVIEW = ['owner-ai-overview'] as const;
 export const AI_LIMITS = ['owner-ai-limits'] as const;
+export const WORK = ['owner-work'] as const;
 
 export function useAccounts(q: string, status: string) {
   return useQuery({
@@ -74,6 +77,16 @@ export function useServer() {
     queryFn: () => must(api.GET('/api/owner/server')),
     retry: false,
     refetchInterval: 30_000,
+  });
+}
+
+/** Работа агентов: сервер держит снимок GitHub 3 минуты; `fresh` — перечитать раньше. */
+export function useWork(fresh: boolean) {
+  return useQuery({
+    queryKey: WORK,
+    queryFn: () => must(api.GET('/api/owner/work', { params: { query: { fresh } } })),
+    retry: false,
+    refetchInterval: 60_000,
   });
 }
 
@@ -128,6 +141,7 @@ export const TABS = [
   { id: 'people', label: 'Люди', dots: 'ЛЮДИ' },
   { id: 'modules', label: 'Модули', dots: 'МОДУЛИ' },
   { id: 'ai', label: 'AI', dots: 'AI' },
+  { id: 'work', label: 'Агенты', dots: 'АГЕНТЫ' },
   { id: 'log', label: 'Журнал', dots: 'ЖУРНАЛ' },
   { id: 'server', label: 'Сервер', dots: 'СЕРВЕР' },
 ] as const;

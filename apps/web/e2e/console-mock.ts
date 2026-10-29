@@ -120,6 +120,7 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
       p.login_methods[key.slice('login.methods.'.length)] = value === true;
   };
   const account = (id: string) => c.accounts.find((a) => a.id === id);
+  let workAnswered = false;
 
   await page.route('**/api/owner/**', async (route) => {
     const req = route.request();
@@ -308,6 +309,41 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
         sessions: 3,
         audit_entries: c.audit.length,
       });
+    if (at === 'GET /api/owner/work')
+      return json(route, 200, {
+        configured: true,
+        repo: 'kirillkuz1122/qubite',
+        fetched_at: AT,
+        running: [
+          {
+            number: 78,
+            title: 'HAR-002 — Раздел «Работа агентов»',
+            url: 'https://github.com/kirillkuz1122/qubite/issues/78',
+            labels: ['in_progress', 'area:har'],
+            updated_at: AT,
+            links: [{ label: 'PR #99', url: 'https://github.com/kirillkuz1122/qubite/pull/99' }],
+          },
+        ],
+        review: [],
+        questions: workAnswered
+          ? []
+          : [
+              {
+                number: 81,
+                title: 'Куда класть бэкапы?',
+                url: 'https://github.com/kirillkuz1122/qubite/issues/81',
+                text: 'На Pi мало места.',
+                options: ['Внешний диск (рекомендую)', 'Облако'],
+                updated_at: AT,
+              },
+            ],
+        queue: [],
+        usage: null,
+      });
+    if (at === 'POST /api/owner/work/questions/81/answer') {
+      workAnswered = true;
+      return json(route, 200, { url: 'https://github.com/kirillkuz1122/qubite/issues/81#c1' });
+    }
     if (at === 'GET /api/owner/ai/models')
       return json(route, 200, [
         {

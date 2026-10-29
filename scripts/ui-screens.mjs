@@ -45,6 +45,7 @@ const SHOTS = [
   ['settings', '/settings'],
   ['account', '/account'],
   ['console', '/console'],
+  ['console-work', '/console/work'],
   ['lab-editor', '/lab/editor'],
   ['design', '/design'],
   [
