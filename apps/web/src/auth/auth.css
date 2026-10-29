@@ -13,7 +13,7 @@
   color: inherit;
   text-decoration: none;
 }
-.auth a:hover {
+.auth a:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .auth-top {
@@ -43,8 +43,8 @@
   color: var(--q-mute);
 }
 .auth-theme {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -120,11 +120,6 @@
   width: 100%;
   height: 50px;
 }
-.auth-submit:disabled,
-.auth .q-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
 .auth-code input {
   letter-spacing: 0.4em;
   font-size: 20px;
@@ -165,12 +160,8 @@
   color: var(--q-mute);
   cursor: pointer;
 }
-.auth-linkbtn:hover:not(:disabled) {
+.auth-linkbtn:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
-}
-.auth-linkbtn:disabled {
-  cursor: default;
-  color: var(--q-dim);
 }
 
 /* вход через провайдеров */
@@ -201,9 +192,6 @@
   width: 100%;
   height: 46px;
   text-decoration: none;
-}
-.auth-provider[aria-disabled='true'] {
-  opacity: 0.6;
 }
 .auth-p-yandex {
   background: var(--q-peach);

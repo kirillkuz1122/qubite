@@ -71,7 +71,7 @@ a {
   text-decoration: none;
   min-width: 0;
 }
-.side-me:hover {
+.side-me:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--q-panel);
 }
 .side-me-who {
@@ -172,7 +172,7 @@ a {
   padding: 0;
   cursor: pointer;
 }
-.more:hover {
+.more:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .later {
@@ -527,7 +527,7 @@ a {
   font-size: 13.5px;
   cursor: grab;
 }
-.card:active,
+.card:active:not(:disabled, [aria-disabled='true']),
 .card.dragging {
   cursor: grabbing;
 }
@@ -558,8 +558,8 @@ a {
 }
 .card-more {
   flex: none;
-  width: 26px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
   margin: -3px -6px 0 0;
   border: 0;
   border-radius: calc(var(--q-round) * 11px);
@@ -569,7 +569,7 @@ a {
   line-height: 1;
   cursor: pointer;
 }
-.card-more:hover,
+.card-more:hover:not(:disabled, [aria-disabled='true']),
 .card-more[aria-expanded='true'] {
   background: var(--q-panel-2);
   color: var(--q-ink);
@@ -595,8 +595,8 @@ a {
   text-align: left;
   cursor: pointer;
 }
-.card-menu button:hover,
-.card-menu button:focus-visible {
+.card-menu button:hover:not(:disabled, [aria-disabled='true']),
+.card-menu button:focus-visible:not(:disabled, [aria-disabled='true']) {
   background: var(--q-panel-2);
 }
 .card .meta {
@@ -656,7 +656,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
+  min-height: 44px;
   margin-left: -8px;
   padding: 0 12px 0 8px;
   border: 0;
@@ -1088,14 +1088,14 @@ button.proj {
   cursor: pointer;
   transition: transform 0.18s ease;
 }
-.bell-btn:hover,
+.bell-btn:hover:not(:disabled, [aria-disabled='true']),
 .bell-btn.on {
   color: var(--q-ink);
 }
 .bell-btn.on {
   background: var(--q-panel);
 }
-.bell-btn:active {
+.bell-btn:active:not(:disabled, [aria-disabled='true']) {
   transform: scale(0.94);
 }
 .bell-n {
@@ -1146,7 +1146,7 @@ button.proj {
   padding: 0 0 4px;
 }
 .bell-all {
-  min-height: 32px;
+  min-height: 44px;
   border: 0;
   background: none;
   color: var(--q-orange);
@@ -1181,8 +1181,8 @@ button.proj {
   text-align: left;
   cursor: pointer;
 }
-.bell-panel li > button:hover,
-.bell-sheet li > button:hover {
+.bell-panel li > button:hover:not(:disabled, [aria-disabled='true']),
+.bell-sheet li > button:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--q-panel-2);
 }
 /* Кнопки ответа агенту («Да · 15 минут · Позже · Не сегодня», AGT-004). */
@@ -1193,7 +1193,7 @@ button.proj {
   padding: 0 10px 10px 30px;
 }
 .bell-options button {
-  min-height: 32px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--q-line-2);
   border-radius: calc(var(--q-round) * 16px);
@@ -1205,10 +1205,6 @@ button.proj {
 .bell-options button.on {
   border-color: var(--q-orange);
   color: var(--q-orange);
-}
-.bell-options button:disabled:not(.on) {
-  opacity: 0.45;
-  cursor: default;
 }
 .bell-dot {
   width: 8px;
@@ -1301,7 +1297,7 @@ button.proj {
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 36px;
+  min-height: 44px;
   padding: 6px 10px;
   border: 0;
   border-radius: calc(var(--q-round) * 12px);
@@ -1371,7 +1367,7 @@ button.proj {
   color: var(--q-mute);
   text-decoration: none;
 }
-.rec-download:hover {
+.rec-download:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .rec-core {
@@ -1444,7 +1440,7 @@ button.proj {
   gap: 6px;
 }
 .rec-hint-chip {
-  min-height: 32px;
+  min-height: 44px;
   padding: 4px 12px;
   border: 1px solid var(--q-line);
   border-radius: 999px;
@@ -1455,7 +1451,7 @@ button.proj {
   cursor: pointer;
   transition: opacity 0.2s;
 }
-.rec-hint-chip:hover {
+.rec-hint-chip:hover:not(:disabled, [aria-disabled='true']) {
   opacity: 0.75;
 }
 .rec-new {
@@ -1910,7 +1906,7 @@ h4.eng-h {
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 4px;
   border: 0;
   background: none;
@@ -1918,10 +1914,6 @@ h4.eng-h {
   font: inherit;
   text-align: left;
   cursor: pointer;
-}
-.eng-path button:disabled {
-  color: var(--q-dim);
-  cursor: default;
 }
 .eng-path em {
   color: var(--q-mute);
@@ -2000,7 +1992,7 @@ h4.eng-h {
   border-color: transparent;
   color: var(--q-mute);
 }
-.q-btn.eng-mark:hover {
+.q-btn.eng-mark:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .eng-marks {
@@ -2055,9 +2047,6 @@ h4.eng-h {
 .eng-choices {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-}
-.q-btn.eng-opt[aria-disabled='true'] {
-  cursor: default;
 }
 .q-btn.eng-opt[data-state='picked'] {
   border-color: var(--q-ink);
@@ -2132,12 +2121,6 @@ h4.eng-h {
 }
 .q-btn.eng-pair[data-state='picked'] {
   border-color: var(--q-ink);
-}
-/* недоступная кнопка видна как недоступная (у Button своего вида нет) */
-.eng .q-btn:disabled,
-.eng-marks .q-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 .q-btn.eng-pair[data-state='ok'] .eng-pair-n {
   background: var(--q-green);
@@ -2251,7 +2234,7 @@ h4.eng-h {
 }
 .eng-inline input,
 .eng-inline select {
-  min-height: 36px;
+  min-height: 44px;
   padding: 4px 8px;
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 10px);

@@ -269,6 +269,9 @@ test('настройки у виджетов: город поиском и ге�
     .getByRole('button', { name: 'Закрыть' })
     .click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  // Курсор остаётся там, где была кнопка «Закрыть», — у правого края, и раскрывает линии
+  // заголовков (EdgeScroll): они перекрывают кнопки. Человек уводит курсор; уводим и мы.
+  await page.mouse.move(180, 300);
 
   // Валюты.
   await page.getByRole('button', { name: 'Настроить: Валюты' }).click();

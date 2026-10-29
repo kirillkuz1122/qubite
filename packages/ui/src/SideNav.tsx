@@ -11,7 +11,7 @@ export interface SideNavProps<T extends string> {
 
 /** Разделы на ПК: подсветка едет к пункту и тянется по пути. */
 export function SideNav<T extends string>({ items, current, onGo }: SideNavProps<T>) {
-  const { node, to } = useSlide(42, 'q-side-sel');
+  const { node, to } = useSlide(44, 'q-side-sel');
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const first = useRef(true);
   useLayoutEffect(() => {
