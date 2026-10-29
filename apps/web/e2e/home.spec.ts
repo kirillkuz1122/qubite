@@ -160,9 +160,7 @@ async function mockWidgets(page: Page) {
       return route.fulfill({ json: { agent: false, filed: [], held: [], settings } });
     }
     if (path === '/api/v1/home/settings') {
-      const change = route
-        .request()
-        .postDataJSON() as components['schemas']['HomeSettingsChange'];
+      const change = route.request().postDataJSON() as components['schemas']['HomeSettingsChange'];
       mock.patches.push(change);
       if (mock.saveDown) {
         return route.fulfill({
@@ -348,9 +346,7 @@ test('нет монет, нет источника без кэша, устаре
   await expect(page.getByText('Добавьте монеты шестерёнкой')).toBeVisible();
   mock.coinsDown = true;
   await page.reload();
-  await expect(
-    page.getByText('Цены монет сейчас недоступны. Попробуйте позже.'),
-  ).toBeVisible();
+  await expect(page.getByText('Цены монет сейчас недоступны. Попробуйте позже.')).toBeVisible();
   mock.coinsDown = false;
   mock.settings.coins = ['bitcoin'];
   mock.stale = true;
@@ -370,13 +366,10 @@ for (const theme of ['light', 'dark']) {
       theme,
     );
     await expect(page.locator('.home-coins')).toContainText('Bitcoin');
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(360);
-    const rates = await page
-      .locator('.home-card')
-      .filter({ hasText: 'Курсы валют' })
-      .boundingBox();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+    const rates = await page.locator('.home-card').filter({ hasText: 'Курсы валют' }).boundingBox();
     const coins = await page
       .locator('.home-card')
       .filter({ hasText: 'Криптовалюта' })

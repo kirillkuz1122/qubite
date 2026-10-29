@@ -483,7 +483,8 @@ function Coins({ open, onGear }: { open: boolean; onGear: () => void }) {
                     data-dir={change.dir}
                     style={{ color: change.color }}
                   >
-                    {change.text}{coin.change_24h != null && ' · 24 ч'}
+                    {change.text}
+                    {coin.change_24h != null && ' · 24 ч'}
                   </small>
                 </li>
               );
@@ -714,7 +715,7 @@ function CoinSettings({ settings }: { settings: HomeSettings }) {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Например, Ethereum"
           hint="Введите хотя бы 2 знака названия"
-          error={current?.error}
+          error={current?.error ?? null}
         />
         {text.length >= 2 && !current && (
           <p className="home-set-hint" role="status">
