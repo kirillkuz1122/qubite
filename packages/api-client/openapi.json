@@ -11,98 +11,6 @@
   },
   "paths": {
     "/api/ai/me": {
-      "HomeCoin": {
-        "type": "object",
-        "required": ["id", "symbol", "name", "usd", "rub"],
-        "properties": {
-          "change_24h": {
-            "type": ["number", "null"],
-            "format": "double"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "rub": {
-            "type": "number",
-            "format": "double"
-          },
-          "symbol": {
-            "type": "string"
-          },
-          "usd": {
-            "type": "number",
-            "format": "double"
-          }
-        }
-      },
-      "HomeCoinMatch": {
-        "type": "object",
-        "required": ["id", "symbol", "name"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "symbol": {
-            "type": "string"
-          }
-        }
-      },
-      "HomeCoinSearch": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/HomeFreshness"
-          },
-          {
-            "type": "object",
-            "required": ["items"],
-            "properties": {
-              "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/HomeCoinMatch"
-                }
-              }
-            }
-          }
-        ]
-      },
-      "HomeCoins": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/HomeFreshness"
-          },
-          {
-            "type": "object",
-            "required": ["items"],
-            "properties": {
-              "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/HomeCoin"
-                }
-              }
-            }
-          }
-        ]
-      },
-      "HomeTopic": {
-        "type": "object",
-        "required": ["id", "title"],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          }
-        }
-      },
       "get": {
         "tags": ["ai"],
         "summary": "«AI и бюджет»: свой расход, лимиты и чем подключён AI.",
@@ -10752,6 +10660,86 @@
           }
         }
       },
+      "HomeCoin": {
+        "type": "object",
+        "required": ["id", "symbol", "name", "usd", "rub"],
+        "properties": {
+          "change_24h": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rub": {
+            "type": "number",
+            "format": "double"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "usd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "HomeCoinMatch": {
+        "type": "object",
+        "required": ["id", "symbol", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        }
+      },
+      "HomeCoinSearch": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeCoinMatch"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "HomeCoins": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HomeFreshness"
+          },
+          {
+            "type": "object",
+            "required": ["items"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/HomeCoin"
+                }
+              }
+            }
+          }
+        ]
+      },
       "HomeCurrency": {
         "type": "object",
         "required": ["code", "name"],
@@ -11138,6 +11126,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "HomeTopic": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
       },
       "HomeWeather": {
         "allOf": [
