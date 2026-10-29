@@ -1,0 +1,29 @@
+# Очередь Codex (D-623): взять одно задание из GitHub Issues с меткой `codex` и выполнить.
+# От kirill: там вход в ChatGPT (~/.codex) и gh. Низкий приоритет, в qubite.slice.
+[Unit]
+Description=Qubite: задание Codex из GitHub Issues
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=kirill
+Environment=HOME=/home/kirill
+Environment=PATH=/home/kirill/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/qubite/bin/qubite-codex
+TimeoutStartSec=90min
+
+Slice=qubite.slice
+Nice=15
+CPUWeight=10
+IOWeight=10
+IOSchedulingClass=idle
+MemoryHigh=450M
+MemoryMax=600M
+OOMScoreAdjust=800
+
+# Вне песочницы Codex писать можно только сюда.
+ProtectSystem=strict
+ReadWritePaths=/home/kirill/codex-queue /home/kirill/.codex /home/kirill/.config/gh /home/kirill/.cache
+PrivateTmp=yes
+NoNewPrivileges=yes

@@ -1,0 +1,11 @@
+# Опрос очереди Codex раз в 5 минут; новое задание — только после конца прошлого.
+[Unit]
+Description=Qubite: очередь Codex каждые 5 минут
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
