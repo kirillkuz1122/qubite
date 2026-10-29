@@ -20,6 +20,8 @@ IOWeight=10
 IOSchedulingClass=idle
 MemoryHigh=450M
 MemoryMax=600M
+CPUQuota=200%
+TasksMax=256
 OOMScoreAdjust=800
 
 # Вне песочницы Codex писать можно только сюда.
