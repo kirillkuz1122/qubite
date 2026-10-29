@@ -70,7 +70,7 @@
   background: var(--q-orange);
   transform-origin: 50% 100%;
 }
-.ai-bar:hover i,
+.ai-bar:hover:not(:disabled, [aria-disabled='true']) i,
 .ai-bar.on i {
   background: var(--q-ink);
   transition: background-color 0.15s;
@@ -287,7 +287,7 @@
   color: var(--q-mute);
   text-decoration: none;
 }
-.ai-pad a:hover {
+.ai-pad a:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 .ai-sel {
@@ -314,6 +314,6 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.limit-link:hover {
+.limit-link:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }

@@ -172,7 +172,7 @@
   color: var(--q-ink);
   text-decoration: none;
 }
-.pp-file-name:hover {
+.pp-file-name:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--q-mute);
 }
 .pp-file-meta {
@@ -194,7 +194,7 @@
   cursor: pointer;
   transition: opacity 0.2s;
 }
-.pp-doc:hover {
+.pp-doc:hover:not(:disabled, [aria-disabled='true']) {
   opacity: 0.75;
 }
 .pp-doc-t {

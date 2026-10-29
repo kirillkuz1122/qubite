@@ -26,12 +26,19 @@ export function Button({
   className,
   children,
   onClickCapture,
+  disabled = false,
+  'aria-disabled': ariaDisabled,
   ...rest
 }: ButtonProps) {
+  const unavailable = disabled || ariaDisabled === true || ariaDisabled === 'true';
   const ref = useRef<HTMLButtonElement>(null);
   const draw = () => {
     const el = ref.current;
     if (!el) return;
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') {
+      el.style.transform = '';
+      return;
+    }
     const stretch = Math.min(0.06, Math.abs(tx.x) * 0.006);
     el.style.transform =
       sc.x === 1 && tx.x === 0 && ty.x === 0
@@ -47,6 +54,14 @@ export function Button({
     const el = ref.current;
     if (!el) return;
     const L = loop();
+    if (unavailable) {
+      muted.current = false;
+      L.set(sc, 1);
+      L.set(tx, 0);
+      L.set(ty, 0);
+      el.style.transform = '';
+      return;
+    }
     const home = (bounce: boolean) => {
       const f = feelOf('button');
       L.to(sc, 1, f);
@@ -84,16 +99,23 @@ export function Button({
       onCancel: away,
     });
     return () => h.destroy();
-  }, [sc, tx, ty]);
+  }, [sc, tx, ty, unavailable]);
 
   return (
     <button
       ref={ref}
       type="button"
+      disabled={disabled}
+      aria-disabled={ariaDisabled}
       className={['q-btn', variant === 'fill' && 'q-fill', size === 'sm' && 'q-sm', className]
         .filter(Boolean)
         .join(' ')}
       onClickCapture={(e) => {
+        if (unavailable) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         // нажатие отменили (увели палец, Escape) — щелчка нет
         if (muted.current && e.detail > 0) {
           muted.current = false;

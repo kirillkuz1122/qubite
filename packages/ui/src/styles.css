@@ -21,6 +21,16 @@ body {
   outline: 2px solid var(--q-orange);
   outline-offset: 3px;
 }
+/* DS-011: общий минимум, в том числе для кнопок-ссылок и размера sm. */
+:where(button, [role='button'], [role='tab'], .q-btn) {
+  min-width: 44px;
+  min-height: 44px;
+}
+/* Заливка и цвет остаются прежними; недоступность показывает только прозрачность. */
+:is(button, .q-btn, [role='button'], [role='tab'], a):is(:disabled, [aria-disabled='true']) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .q-sr {
   position: absolute;
   width: 1px;
@@ -50,7 +60,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  height: 42px;
+  min-height: 44px;
   padding: 0 18px;
   border-radius: calc(var(--q-round) * 21px);
   border: 1px solid var(--q-line-2);
@@ -79,7 +89,7 @@ body {
   background: var(--q-on-accent);
 }
 .q-btn.q-sm {
-  height: 34px;
+  min-height: 44px;
   padding: 0 13px;
   border-radius: calc(var(--q-round) * 17px);
   font-size: 13px;
@@ -121,7 +131,7 @@ body {
 .q-seg button {
   position: relative;
   z-index: 1;
-  height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border: 0;
   background: none;
@@ -144,18 +154,25 @@ body {
   position: relative;
   touch-action: pan-y;
   width: 52px;
-  height: 30px;
+  height: 44px;
   flex: none;
   padding: 0;
   border: 0;
   border-radius: calc(var(--q-round) * 15px);
-  background: var(--q-panel-2);
+  background: none;
   cursor: pointer;
+}
+.q-switch::before {
+  content: '';
+  position: absolute;
+  inset: 7px 0;
+  border-radius: inherit;
+  background: var(--q-panel-2);
 }
 .q-switch i {
   position: absolute;
   left: 4px;
-  top: 4px;
+  top: 11px;
   width: 22px;
   height: 22px;
   border-radius: calc(var(--q-round) * 11px);
@@ -163,7 +180,7 @@ body {
   transform-origin: 0 50%;
   will-change: transform;
 }
-.q-switch.q-on {
+.q-switch.q-on::before {
   background: color-mix(in srgb, var(--q-orange) 35%, var(--q-panel-2));
 }
 .q-switch.q-on i {
@@ -173,8 +190,8 @@ body {
 /* кольцо дела: 12 точек → одна */
 .q-ring {
   position: relative;
-  width: 26px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   flex: none;
   padding: 0;
   border: 0;
@@ -183,8 +200,8 @@ body {
 }
 .q-ring i {
   position: absolute;
-  left: 11px;
-  top: 11px;
+  left: 20px;
+  top: 20px;
   width: 4px;
   height: 4px;
   border-radius: calc(var(--q-round) * 50%);
@@ -330,8 +347,8 @@ body {
   flex: none;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   margin-right: 7px;
   padding: 0;
   border: 0;
@@ -341,8 +358,8 @@ body {
   cursor: pointer;
   transition: color 0.15s ease;
 }
-.q-field-eye:hover,
-.q-field-eye:focus-visible,
+.q-field-eye:hover:not(:disabled, [aria-disabled='true']),
+.q-field-eye:focus-visible:not(:disabled, [aria-disabled='true']),
 .q-field-eye[aria-pressed='true'] {
   color: var(--q-orange);
 }
@@ -367,7 +384,7 @@ body {
 .q-check {
   position: relative;
   display: grid;
-  grid-template-columns: 22px 1fr;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 4px 12px;
   align-items: start;
   font-size: 13px;
@@ -377,13 +394,14 @@ body {
 .q-check input {
   position: absolute;
   inset: 0 auto auto 0;
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
   margin: 0;
   opacity: 0;
   cursor: pointer;
 }
 .q-check-box {
+  margin: 11px;
   display: grid;
   place-items: center;
   width: 22px;
@@ -403,6 +421,8 @@ body {
   outline-offset: 3px;
 }
 .q-check label {
+  min-height: 44px;
+  align-content: center;
   cursor: pointer;
 }
 .q-check label a {
@@ -482,11 +502,15 @@ kbd {
 .q-chips::-webkit-scrollbar {
   display: none;
 }
+.q-chips.q-wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
 .q-chips button {
   position: relative;
   z-index: 1;
   flex: none;
-  height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border: 0;
   background: none;
@@ -529,7 +553,7 @@ kbd {
 .q-range-track {
   position: relative;
   display: block;
-  height: 26px;
+  height: 44px;
   margin: 0 9px;
   touch-action: pan-y;
 }
@@ -537,7 +561,7 @@ kbd {
   position: absolute;
   left: 0;
   right: 0;
-  top: 12px;
+  top: 21px;
   height: 3px;
   border-radius: calc(var(--q-round) * 1.5px);
   background: var(--q-panel-2);
@@ -554,7 +578,7 @@ kbd {
 .q-range-thumb {
   position: absolute;
   left: -9px;
-  top: 4px;
+  top: 13px;
   width: 18px;
   height: 18px;
   border-radius: calc(var(--q-round) * 9px);
@@ -601,7 +625,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 42px;
+  min-height: 44px;
   padding: 0 12px;
   border: 0;
   background: none;
@@ -728,8 +752,8 @@ kbd {
   color: var(--q-dim);
 }
 .q-mic {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   flex: none;
   display: grid;
   place-items: center;
@@ -1142,8 +1166,8 @@ html.q-own-scroll::-webkit-scrollbar {
   cursor: pointer;
   transition: color 0.15s ease;
 }
-.q-sheet-x:hover,
-.q-sheet-x:focus-visible {
+.q-sheet-x:hover:not(:disabled, [aria-disabled='true']),
+.q-sheet-x:focus-visible:not(:disabled, [aria-disabled='true']) {
   color: var(--q-ink);
 }
 

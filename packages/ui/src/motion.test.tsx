@@ -11,12 +11,71 @@ import { Range } from './Range';
 const ptr = (el: Element, type: string, x: number, y = 0) =>
   fireEvent(el, new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y }));
 
+let frameTime = 0;
+const frame = () => act(() => loop().frame((frameTime += 16)));
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
 });
 
 describe('кнопка: нажатие и его отмена', () => {
+  it.each([
+    { disabled: true },
+    { 'aria-disabled': true } as const,
+    { 'aria-disabled': 'true' } as const,
+  ])('недоступная кнопка не нажимается и не двигается: %j', (props) => {
+    const onClick = vi.fn();
+    const onClickCapture = vi.fn();
+    render(
+      <Button {...props} onClick={onClick} onClickCapture={onClickCapture}>
+        Начать
+      </Button>,
+    );
+    const b = screen.getByRole('button', { name: 'Начать' });
+    ptr(b, 'pointerdown', 10);
+    ptr(b, 'pointermove', 30);
+    frame();
+    expect(b.style.transform).toBe('');
+    ptr(b, 'pointerup', 30);
+    fireEvent.click(b, { detail: 1 });
+    fireEvent.click(b, { detail: 0 });
+    frame();
+    expect(onClick).not.toHaveBeenCalled();
+    expect(onClickCapture).not.toHaveBeenCalled();
+    expect(b.style.transform).toBe('');
+  });
+
+  it.each(['disabled', 'aria-disabled'] as const)(
+    '%s посреди жеста сбрасывает движение; после включения кнопка снова работает',
+    (kind) => {
+      const onClick = vi.fn();
+      const { rerender } = render(<Button onClick={onClick}>Начать</Button>);
+      const b = screen.getByRole('button', { name: 'Начать' });
+      ptr(b, 'pointerdown', 10);
+      ptr(b, 'pointermove', 30);
+      frame();
+      expect(b.style.transform).not.toBe('');
+      const props = kind === 'disabled' ? { disabled: true } : { 'aria-disabled': true as const };
+      rerender(
+        <Button {...props} onClick={onClick}>
+          Начать
+        </Button>,
+      );
+      expect(b.style.transform).toBe('');
+      ptr(b, 'pointerup', 30);
+      fireEvent.click(b);
+      frame();
+      expect(b.style.transform).toBe('');
+      expect(onClick).not.toHaveBeenCalled();
+      rerender(<Button onClick={onClick}>Начать</Button>);
+      ptr(b, 'pointerdown', 10);
+      ptr(b, 'pointerup', 10);
+      fireEvent.click(b, { detail: 1 });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('обычное нажатие доходит до onClick', () => {
     const onClick = vi.fn();
     render(<Button onClick={onClick}>Начать</Button>);
