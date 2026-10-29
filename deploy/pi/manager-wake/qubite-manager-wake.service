@@ -1,0 +1,26 @@
+# Будильник управляющей сессии (D-649): комментарий в PR #89. От kirill (у него gh).
+[Unit]
+Description=Qubite: будильник управляющей сессии (комментарий в PR #89)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=kirill
+Environment=HOME=/home/kirill
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/qubite/bin/qubite-manager-wake
+TimeoutStartSec=5min
+
+Slice=qubite.slice
+Nice=15
+CPUWeight=10
+IOWeight=10
+IOSchedulingClass=idle
+MemoryHigh=100M
+MemoryMax=150M
+
+ProtectSystem=strict
+ReadWritePaths=/home/kirill/.config/gh /home/kirill/.cache
+PrivateTmp=yes
+NoNewPrivileges=yes

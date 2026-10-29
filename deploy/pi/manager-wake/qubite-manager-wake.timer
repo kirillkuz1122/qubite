@@ -1,0 +1,12 @@
+# Каждые 40 минут круглосуточно (UTC), кроме 01:00–01:50 — там утренняя сводка владельца.
+[Unit]
+Description=Qubite: будильник управляющей сессии каждые 40 минут
+
+[Timer]
+OnCalendar=*-*-* 00/2:00,40:00
+OnCalendar=*-*-* 03/2:20:00
+Persistent=false
+RandomizedDelaySec=20s
+
+[Install]
+WantedBy=timers.target

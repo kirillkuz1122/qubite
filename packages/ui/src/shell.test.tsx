@@ -1,3 +1,4 @@
+import { loop } from '@qubite/motion';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -66,6 +67,43 @@ describe('оболочка: навигация', () => {
 });
 
 describe('оболочка: Command', () => {
+  it('капля не уменьшает зоны нажатия Command при раскрытии и закрытии', () => {
+    vi.useFakeTimers();
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(336);
+    const L = loop();
+    const demo = (open: boolean) => (
+      <LookProvider>
+        <Dock items={ITEMS} current="today" onGo={() => {}} open={open} onOpenChange={() => {}}>
+          <PlusMenu onPick={() => {}} items={[{ value: '/д ', label: 'Дело', color: 'ink' }]} />
+          <input className="q-cmd-input" aria-label="Строка Command" />
+          <button className="q-mic" type="button" aria-label="Голосом — скоро" />
+        </Dock>
+      </LookProvider>
+    );
+    try {
+      const { container, rerender } = render(demo(false));
+      const field = container.querySelector<HTMLElement>('.q-dock-field')!;
+      // jsdom не считает геометрию. Проверяем слой, который раньше сжимал обе кнопки;
+      // реальные 44×44 px по getBoundingClientRect проверяются в браузере в облаке.
+      let now = 0;
+      const frame = () => {
+        act(() => L.frame((now += 16)));
+        expect(field.style.transform).toMatch(/^translateX\(-?[\d.]+px\)$/);
+      };
+      frame();
+      expect(field.style.transform).toBe('translateX(56.0px)');
+      expect(field).toHaveAttribute('aria-hidden', 'true');
+      for (const open of [true, false]) {
+        rerender(demo(open));
+        expect(field).toHaveAttribute('aria-hidden', String(!open));
+        for (let i = 0; i < 120; i++) frame();
+        expect(field.style.transform).toBe(open ? 'translateX(0.0px)' : 'translateX(56.0px)');
+      }
+    } finally {
+      width.mockRestore();
+    }
+  });
+
   it('«+» открывает меню и отдаёт выбранный пункт', () => {
     const pick = vi.fn();
     wrap(
