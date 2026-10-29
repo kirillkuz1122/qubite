@@ -44,7 +44,7 @@ test.describe('Выкладка сервера', () => {
 
 test('Настройки: публичная версия и откат помещаются на 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
-  const auth = await mockAuth(page);
+  const auth = await mockAuth(page, { me: USER });
   const commit = '0123456789ab'.repeat(6);
   auth.health.deploy.commit = commit;
   auth.health.deploy.rollback = {
@@ -72,7 +72,7 @@ test('Настройки: публичная версия и откат поме
 });
 
 test('Настройки: неизвестные данные и недоступный сервер', async ({ page }) => {
-  const auth = await mockAuth(page);
+  const auth = await mockAuth(page, { me: USER });
   auth.health.deploy = { commit: null, built_at: null, deployed_at: null, rollback: null };
   await page.goto('/settings');
   const row = page.locator('[data-obj="set-version"]');
