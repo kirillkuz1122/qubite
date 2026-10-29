@@ -5,9 +5,11 @@
  * описать картинку, роль) → итог: огонёк, опыт, домашка делом в Planner, разбор ошибок. Спросить
  * Нейта можно в любой момент — и по-русски (D-491). Сверку, опыт и огонёк считает сервер.
  */
+import { loop } from '@qubite/motion';
 import {
   Button,
   Companion,
+  DotIcon,
   Field,
   Note,
   Presence,
@@ -16,12 +18,23 @@ import {
   Swap,
   Switch,
   useMedia,
+  useSpring,
   WIDE,
   type CompanionHandle,
 } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { Fail, say } from '../auth/client';
 import { AgentEnglish } from './AgentEnglish';
 import { canRecord, record, type Recording } from './english';
@@ -30,6 +43,7 @@ import {
   ENGLISH_HOME,
   fetchPhrase,
   finishRun,
+  replaceVoiceTask,
   sendAnswer,
   startRun,
   useAdapt,
@@ -47,6 +61,7 @@ import {
   type AnswerBy,
   type Home,
   type Mark,
+  type PlacementAnswers,
   type Reply,
   type Run,
   type SettingsBody,
@@ -54,14 +69,20 @@ import {
 } from './english-lessons';
 import {
   answerBy,
+  answerBar,
+  consecutiveEasy,
+  harderFirst,
+  microphoneFallback,
   byModule,
   days,
   explainAsk,
   gaps,
   kindLabel,
   matchRight,
+  matchReply,
   optionState,
   PAIR_TONES,
+  pairOk,
   pairsOk,
   resumeAt,
   fixHint,
@@ -75,6 +96,7 @@ import {
   WHY_TEXT,
 } from './english-lessons-view';
 import { useDictation } from './english-dictation';
+import { playCue, readFeedback, writeFeedback, type FeedbackSettings } from './english-feedback';
 import { LimitLink } from './LimitLink';
 
 type Tab = 'lessons' | 'talk' | 'game' | 'settings';
@@ -146,7 +168,9 @@ export function EnglishModule() {
       <Swap view={tab} order={TABS}>
         {tab === 'lessons' &&
           (open ? (
-            <LessonPlayer key={open.lesson + open.kind} {...open} onClose={() => setOpen(null)} />
+            <LessonScreen onClose={() => setOpen(null)}>
+              <LessonPlayer key={open.lesson + open.kind} {...open} onClose={() => setOpen(null)} />
+            </LessonScreen>
           ) : (
             <LessonsHome onOpen={(lesson, kind) => setOpen({ lesson, kind })} />
           ))}
@@ -260,14 +284,21 @@ function Quests({ game }: { game: Game }) {
   );
 }
 
-function Placement({ onDone }: { onDone: () => void }) {
+export function Placement({ onDone }: { onDone: () => void }) {
   const [going, setGoing] = useState(false);
   const test = usePlacementTest(going);
   const place = usePlace();
   const [at, setAt] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [answers, setAnswers] = useState<PlacementAnswers>({});
   const [err, setErr] = useState<string | null>(null);
   const items = useMemo(() => test.data?.stages.flatMap((s) => s.items) ?? [], [test.data]);
+
+  const answer = (value: unknown) => {
+    const item = items[at];
+    if (!item) return;
+    setAnswers((a) => ({ ...a, [item.id]: value }));
+    setAt((i) => i + 1);
+  };
 
   const submit = (shift: number, all = answers) => {
     setErr(null);
@@ -302,18 +333,19 @@ function Placement({ onDone }: { onDone: () => void }) {
         Вопрос {Math.min(at + 1, items.length)} из {items.length || 20}
       </p>
       {item ? (
-        <TaskBody
-          key={item.id}
-          task={item}
-          busy={false}
-          result={null}
-          canMic={false}
-          onReply={(r) => {
-            const value = 'value' in r ? r.value : '';
-            setAnswers((a) => ({ ...a, [item.id]: value }));
-            setAt((i) => i + 1);
-          }}
-        />
+        <>
+          <TaskBody
+            key={item.id}
+            task={item}
+            busy={false}
+            result={null}
+            canMic={false}
+            onReply={(r) => answer('value' in r ? r.value : '')}
+          />
+          <div className="eng-row">
+            <Button onClick={() => answer(null)}>Не знаю</Button>
+          </div>
+        </>
       ) : (
         test.data && (
           <div className="eng-start">
@@ -471,6 +503,68 @@ function Path({ home, onOpen }: { home: Home; onOpen: (l: string, k: Run['kind']
 
 type Phase = 'intro' | 'theory' | 'tasks' | 'result';
 
+/** Отдельный слой в body: transform оболочки не ограничивает полный экран. */
+function LessonScreen({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  const screen = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  });
+  useLayoutEffect(() => {
+    const root = document.getElementById('root');
+    const wasInert = root?.inert ?? false;
+    const overflow = document.body.style.overflow;
+    const back = document.activeElement as HTMLElement | null;
+    if (root) root.inert = true;
+    document.body.style.overflow = 'hidden';
+    screen.current?.focus({ preventScroll: true });
+    const key = (e: KeyboardEvent) => {
+      // Sheet перехватывает Escape раньше, в фазе capture.
+      if (e.key === 'Escape') close.current();
+      if (e.key !== 'Tab' || !screen.current?.contains(document.activeElement)) return;
+      const controls = [
+        ...screen.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]',
+        ),
+      ].filter((el) => el.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (
+        e.shiftKey &&
+        (document.activeElement === first || document.activeElement === screen.current)
+      ) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('keydown', key);
+      if (root) root.inert = wasInert;
+      document.body.style.overflow = overflow;
+      back?.focus({ preventScroll: true });
+    };
+  }, []);
+  return createPortal(
+    <div
+      ref={screen}
+      className="eng-lesson-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Урок английского"
+      tabIndex={-1}
+    >
+      <Presence show className="eng-lesson-presence">
+        {children}
+      </Presence>
+    </div>,
+    document.body,
+  );
+}
+
 function LessonPlayer({
   lesson: id,
   kind,
@@ -488,51 +582,64 @@ function LessonPlayer({
   const [run, setRun] = useState<Run | null>(null);
   const [at, setAt] = useState(0);
   const [result, setResult] = useState<Answered | null>(null);
-  // «Ещё раз» — задание заново (новый ключ), у «Соедини» верные пары остаются
+  const [draft, setDraft] = useState<Reply | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [keep, setKeep] = useState<Pair[]>([]);
   const [fix, setFix] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const working = useRef(false);
   const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
   const [done, setDone] = useState<Finished | null>(null);
   const [toast, setToast] = useState<Delta | null>(null);
+  const [micNotice, setMicNotice] = useState(false);
+  const [replaceFailed, setReplaceFailed] = useState(false);
+  const [marks, setMarks] = useState<Record<string, Mark>>({});
+  const [offer, setOffer] = useState(false);
+  const [offered, setOffered] = useState(false);
+  const [harderAccepted, setHarderAccepted] = useState(false);
+  const [taskOrder, setTaskOrder] = useState<string[] | null>(null);
   const lesson = view.data?.lesson ?? null;
-  const list = useMemo(() => (run ? runTasks(lesson, run) : []), [lesson, run]);
-  const stage = useRef<HTMLDivElement>(null);
-  const card = useRef<HTMLElement>(null);
-  // Задание — сразу перед глазами (на телефоне шапка «Агента» занимает полэкрана)…
+  const list = useMemo(() => {
+    const tasks = run ? runTasks(lesson, run) : [];
+    if (!taskOrder) return tasks;
+    const position = (item: (typeof tasks)[number]) =>
+      taskOrder.indexOf(`${item.lesson ?? id}:${item.task.id}`);
+    return tasks.sort((a, b) => position(a) - position(b));
+  }, [lesson, run, taskOrder, id]);
+  const item = list[at];
+  const content = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (phase === 'theory') return;
-    const el = stage.current;
-    if (!el) return;
-    const top = el.getBoundingClientRect().top;
-    if (top < 0 || top > globalThis.innerHeight * 0.25) el.scrollIntoView({ block: 'start' });
+    if (content.current) content.current.scrollTop = 0;
   }, [phase, at]);
-  // …и после ответа видно, верно ли, и кнопку «Дальше».
-  useEffect(() => {
-    if (result) card.current?.querySelector('.eng-next-row')?.scrollIntoView({ block: 'nearest' });
-  }, [result]);
 
+  const fail = (e: unknown) => setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
   const begin = async () => {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
     setErr(null);
     try {
       const r = await startRun(kind === 'review' ? 'review' : id, kind);
       setRun(r);
-      setAt(resumeAt(r, kind === 'review' ? runTasks(null, r) : runTasks(lesson, r)));
+      setAt(resumeAt(r, runTasks(lesson, r)));
       setPhase('tasks');
     } catch (e) {
-      setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
+      fail(e);
+    } finally {
+      working.current = false;
+      setBusy(false);
     }
   };
 
   const reply = async (r: Reply) => {
-    const item = list[at];
-    if (!run || !item) return;
+    if (!run || !item || working.current || result) return;
+    working.current = true;
     setBusy(true);
     setErr(null);
     nate.current?.setMood('think');
     try {
       const a = await sendAnswer(run.id, item.task.id, r, item.lesson);
+      if (item.task.type !== 'match') playCue(a.correct ? 'ok' : 'bad');
       if (item.task.type === 'match' && 'value' in r) {
         const made = r.value as Pair[];
         const ok = pairsOk(item.task, made);
@@ -544,48 +651,113 @@ function LessonPlayer({
       if (a.correct) nate.current?.jump();
     } catch (e) {
       nate.current?.setMood('idle');
-      setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
+      fail(e);
     } finally {
+      working.current = false;
       setBusy(false);
     }
   };
 
+  const replace = useCallback(async () => {
+    if (!run || !item || working.current) return;
+    working.current = true;
+    setMicNotice(true);
+    setReplaceFailed(false);
+    setBusy(true);
+    setDraft(null);
+    setErr(null);
+    try {
+      const fresh = await replaceVoiceTask(run.id, item.task.id, item.lesson);
+      // список повторения сервер собирает заново без уже решённых заданий — позиция сбилась бы
+      setRun({ ...run, replacements: fresh.replacements ?? run.replacements ?? [] });
+      setAttempt((n) => n + 1);
+    } catch (e) {
+      setReplaceFailed(true);
+      setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
+  }, [run, item]);
+
   const next = async () => {
-    setResult(null);
-    setKeep([]);
-    setFix([]);
-    nate.current?.setMood('idle');
+    if (working.current) return;
     if (at + 1 < list.length) {
+      setResult(null);
+      setDraft(null);
+      setKeep([]);
+      setFix([]);
+      setMicNotice(false);
+      setReplaceFailed(false);
+      setErr(null);
+      nate.current?.setMood('idle');
       setAt(at + 1);
       return;
     }
     if (!run) return;
+    working.current = true;
     setBusy(true);
+    setErr(null);
     try {
       const f = await finishRun(run.id);
       setDone(f);
+      setOffer(false);
       setPhase('result');
       if (f.passed) nate.current?.jump();
       void qc.invalidateQueries({ queryKey: ENGLISH_HOME });
     } catch (e) {
-      setErr({ text: say(e), code: e instanceof Fail ? e.code : null });
+      fail(e);
     } finally {
+      working.current = false;
       setBusy(false);
     }
   };
-
-  if (view.isError) return <Denied error={view.error} />;
-  if (kind !== 'review' && !view.data) return <p className="later">Загружаю урок…</p>;
-  const item = list[at];
+  const marked = (mark: Mark) => {
+    if (!item) return;
+    const key = (i: (typeof list)[number]) => `${i.lesson ?? id}:${i.task.id}`;
+    const updated = { ...marks, [key(item)]: mark };
+    setMarks(updated);
+    if (
+      !offered &&
+      consecutiveEasy(list.slice(0, at + 1).map((i) => updated[key(i)] ?? null)) >= 2
+    ) {
+      setOffered(true);
+      setOffer(true);
+    }
+  };
+  const acceptHarder = async () => {
+    if (!run || !item || working.current) return;
+    working.current = true;
+    setBusy(true);
+    setErr(null);
+    try {
+      await markTask(
+        run.id,
+        item.task.id,
+        'easy',
+        item.lesson,
+        'После двух «легко» подряд ученик согласился перейти к трудным заданиям.',
+      );
+      setTaskOrder(harderFirst(list, at + 1).map((i) => `${i.lesson ?? id}:${i.task.id}`));
+      setHarderAccepted(true);
+      setOffer(false);
+    } catch (e) {
+      fail(e);
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
+  };
   const title =
     kind === 'review'
       ? 'Повторение ошибок'
-      : `${kind === 'homework' ? 'Домашка: ' : ''}${lesson?.title.ru ?? ''}`;
+      : `${kind === 'homework' ? 'Домашка: ' : ''}${lesson?.title.ru ?? 'Урок'}`;
+  const bar = item ? answerBar(item.task, !!result, !!draft, busy) : null;
 
   return (
     <div className="eng-lesson">
-      <div className="eng-stage" ref={stage}>
-        <Companion ref={nate} kind="neit" pitch={wide ? 6 : 5} label="Нейт — репетитор" />
+      <header className="eng-stage">
+        <Companion ref={nate} kind="neit" pitch={wide ? 6 : 4} label="Нейт — репетитор" />
         <div className="eng-who">
           <b>{title}</b>
           <span className="eng-phase">
@@ -594,109 +766,214 @@ function LessonPlayer({
             {phase === 'result' && 'Итог'}
           </span>
           {phase === 'tasks' && list.length > 0 && (
-            <Progress
-              total={list.length}
-              done={at + (result?.correct ? 1 : 0)}
-              now={result ? null : at}
-            />
+            <Progress total={list.length} done={at + (result ? 1 : 0)} now={result ? null : at} />
           )}
         </div>
         <Button size="sm" dot={false} onClick={onClose} className="eng-close">
-          Выйти
+          Закрыть
         </Button>
-      </div>
-
-      {phase === 'intro' && (
-        <section className="eng-card eng-start" aria-label="Начать">
-          <p>
-            {kind === 'review'
-              ? 'Нейт собрал задания, на которых ты ошибся. Исправишь — уйдут дальше в повторение.'
-              : (lesson?.homework?.about_ru ?? 'Домашка от Нейта.')}
-          </p>
-          <Button variant="fill" onClick={() => void begin()}>
-            Начать
-          </Button>
-        </section>
-      )}
-      {phase === 'theory' && view.data && <Theory view={view.data} onGo={() => void begin()} />}
-
-      {phase === 'tasks' && item && (
-        <section className="eng-card eng-task" aria-label="Задание" ref={card}>
-          <div className="eng-task-head">
-            <p className="eng-kind">{kindLabel(item.task)}</p>
-            {run && (
-              <TaskFeedback
-                key={`${item.lesson ?? ''}:${item.task.id}`}
-                run={run.id}
-                lesson={item.lesson ?? id}
-                taskLesson={item.lesson}
-                task={item.task}
-                result={result}
-              />
+      </header>
+      <section className="eng-lesson-work" aria-label={phase === 'tasks' ? 'Задание' : undefined}>
+        <div className="eng-lesson-content" ref={content}>
+          <div className="eng-lesson-column">
+            {view.isError ? (
+              <Denied error={view.error} />
+            ) : kind !== 'review' && !view.data ? (
+              <p className="later">Загружаю урок…</p>
+            ) : (
+              <>
+                {phase === 'intro' && (
+                  <section className="eng-card eng-start" aria-label="Начать">
+                    <p>
+                      {kind === 'review'
+                        ? 'Нейт собрал задания, на которых ты ошибся. Исправишь — уйдут дальше в повторение.'
+                        : (lesson?.homework?.about_ru ?? 'Домашка от Нейта.')}
+                    </p>
+                    <Button variant="fill" disabled={busy} onClick={() => void begin()}>
+                      Начать
+                    </Button>
+                  </section>
+                )}
+                {phase === 'theory' && view.data && (
+                  <Theory view={view.data} onGo={() => void begin()} />
+                )}
+                {phase === 'tasks' && item && (
+                  <section className="eng-card eng-task">
+                    <div className="eng-task-head">
+                      <p className="eng-kind">{kindLabel(item.task)}</p>
+                      {run && (
+                        <TaskFeedback
+                          key={`${item.lesson ?? ''}:${item.task.id}`}
+                          run={run.id}
+                          lesson={item.lesson ?? id}
+                          taskLesson={item.lesson}
+                          task={item.task}
+                          result={result}
+                          onMarked={marked}
+                        />
+                      )}
+                    </div>
+                    <Presence show={micNotice}>
+                      <Note>
+                        Микрофон недоступен. Вместо голосового задания — письменное из этого урока,
+                        без штрафа.
+                      </Note>
+                    </Presence>
+                    {replaceFailed && (
+                      <Button disabled={busy} onClick={() => void replace()}>
+                        Повторить замену
+                      </Button>
+                    )}
+                    <TaskBody
+                      key={`${item.lesson ?? ''}:${item.task.id}:${attempt}`}
+                      task={item.task}
+                      busy={busy}
+                      result={result}
+                      canMic={canRecord()}
+                      keep={keep}
+                      fix={fix}
+                      onReply={(r) => void reply(r)}
+                      onDraft={setDraft}
+                      onMicUnavailable={replace}
+                    />
+                    {result && <Verdict a={result} />}
+                  </section>
+                )}
+                {phase === 'tasks' && run && !item && (
+                  <div className="eng-start">
+                    <p className="later">
+                      {list.length ? 'Все задания уже сделаны.' : 'Повторять пока нечего.'}
+                    </p>
+                    {list.length > 0 && (
+                      <Button variant="fill" disabled={busy} onClick={() => void next()}>
+                        Закончить
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {phase === 'result' && done && (
+                  <Result
+                    f={done}
+                    kind={kind}
+                    onClose={onClose}
+                    onAgain={() => {
+                      setDone(null);
+                      setRun(null);
+                      setResult(null);
+                      setDraft(null);
+                      setKeep([]);
+                      setFix([]);
+                      setMarks({});
+                      setOffered(false);
+                      setHarderAccepted(false);
+                      setOffer(false);
+                      setTaskOrder(null);
+                      setMicNotice(false);
+                      setReplaceFailed(false);
+                      void begin();
+                    }}
+                  />
+                )}
+              </>
+            )}
+            <Presence show={!!toast && (toast.xp > 0 || toast.unlocked.length > 0)}>
+              {toast && <Gain d={toast} announce={false} />}
+            </Presence>
+            {err && (
+              <Note tone="bad">
+                {err.text} <LimitLink code={err.code} />
+              </Note>
             )}
           </div>
-          <TaskBody
-            key={`${item.lesson ?? ''}:${item.task.id}:${attempt}`}
-            task={item.task}
-            busy={busy}
-            result={result}
-            canMic={canRecord()}
-            keep={keep}
-            fix={fix}
-            onReply={(r) => void reply(r)}
-          />
-          {result && <Verdict a={result} />}
-          {result && (
-            <div className="eng-row eng-next-row">
-              {!result.correct && (
-                <Button
-                  onClick={() => {
-                    setFix(fixHint(result));
-                    setResult(null);
-                    setAttempt(attempt + 1);
-                    nate.current?.setMood('idle');
-                  }}
+        </div>
+        <footer className="eng-lesson-bottom">
+          <div className="eng-lesson-column">
+            {kind !== 'review' && phase !== 'result' && <Ask lesson={id} />}
+            {kind === 'review' && item && phase === 'tasks' && (
+              <Ask key={item.lesson ?? id} lesson={item.lesson ?? id} />
+            )}
+            <Presence show={harderAccepted && phase !== 'result'}>
+              <Note>Нейт учтёт пожелание после урока.</Note>
+            </Presence>
+            <Presence show={offer}>
+              <div className="eng-start">
+                <Note>Два задания подряд — легко. Перейти к трудным заданиям?</Note>
+                <div className="eng-row">
+                  <Button disabled={busy} onClick={() => void acceptHarder()}>
+                    Давай
+                  </Button>
+                  <Button disabled={busy} onClick={() => setOffer(false)}>
+                    Не сейчас
+                  </Button>
+                </div>
+              </div>
+            </Presence>
+            {phase === 'tasks' && item && bar && (
+              <div
+                className="eng-answer-bar"
+                data-ok={result?.correct ? '' : undefined}
+                data-wrong={result && !result.correct ? '' : undefined}
+              >
+                <Swap
+                  className="eng-answer-bar-content"
+                  view={result ? 'answered' : bar.action}
+                  order={['check', 'wait', 'answered']}
                 >
-                  Ещё раз
-                </Button>
-              )}
-              {/* фокус сразу на «Дальше»: Enter — следующее задание */}
-              <Button variant="fill" autoFocus onClick={() => void next()} disabled={busy}>
-                {at + 1 < list.length ? 'Дальше' : 'Закончить'}
-              </Button>
-            </div>
-          )}
-        </section>
-      )}
-      {phase === 'tasks' && run && list.length === 0 && (
-        <p className="later">Повторять пока нечего — ошибок на сегодня нет.</p>
-      )}
-
-      {phase === 'result' && done && (
-        <Result
-          f={done}
-          kind={kind}
-          onClose={onClose}
-          onAgain={() => {
-            setDone(null);
-            setRun(null);
-            setAt(0);
-            void begin();
-          }}
-        />
-      )}
-
-      <Presence show={!!toast && (toast.xp > 0 || toast.unlocked.length > 0)}>
-        {toast && <Gain d={toast} />}
-      </Presence>
-
-      {kind !== 'review' && phase !== 'result' && <Ask lesson={id} />}
-
-      {err && (
-        <p className="act-error" role="alert">
-          {err.text} <LimitLink code={err.code} />
-        </p>
-      )}
+                  {result ? (
+                    <>
+                      <p>
+                        {result.correct
+                          ? 'Верно!'
+                          : `Правильный ответ: ${result.right || 'смотри разбор Нейта'}`}
+                      </p>
+                      <div className="eng-row">
+                        {!result.correct && (
+                          <Button
+                            disabled={busy}
+                            onClick={() => {
+                              setFix(fixHint(result));
+                              setResult(null);
+                              setDraft(null);
+                              setAttempt(attempt + 1);
+                              nate.current?.setMood('idle');
+                            }}
+                          >
+                            Ещё раз
+                          </Button>
+                        )}
+                        <Button
+                          variant="fill"
+                          autoFocus
+                          onClick={() => void next()}
+                          disabled={bar.disabled}
+                        >
+                          {at + 1 < list.length ? 'Дальше' : 'Закончить'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : bar.action === 'check' ? (
+                    <Button
+                      variant="fill"
+                      disabled={bar.disabled}
+                      onClick={() => draft && void reply(draft)}
+                    >
+                      {busy ? 'Проверяю…' : 'Проверить'}
+                    </Button>
+                  ) : (
+                    <p className="eng-hint">
+                      {busy
+                        ? 'Проверяю…'
+                        : item.task.type === 'match'
+                          ? 'Соедини все пары'
+                          : 'Выбери ответ'}
+                    </p>
+                  )}
+                </Swap>
+              </div>
+            )}
+          </div>
+        </footer>
+      </section>
     </div>
   );
 }
@@ -760,6 +1037,7 @@ function Theory({
 
 /** Спросить Нейта по уроку — можно по-русски (D-491). */
 function Ask({ lesson }: { lesson: string }) {
+  const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -779,30 +1057,35 @@ function Ask({ lesson }: { lesson: string }) {
     }
   };
   return (
-    <section className="eng-card eng-ask" aria-label="Спросить Нейта">
-      <form className="talk-form" onSubmit={(e) => void submit(e)}>
-        <Field
-          label="Спросить Нейта (можно по-русски)"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="А почему тут is, а не am?"
-          maxLength={1000}
-        />
-        <Button size="sm" type="submit" disabled={busy || !text.trim()}>
-          Спросить
-        </Button>
-      </form>
-      {answer && (
-        <p className="eng-answer" role="status">
-          <b>Нейт:</b> {answer}
-        </p>
-      )}
-      {err && (
-        <p className="act-error">
-          {err.text} <LimitLink code={err.code} />
-        </p>
-      )}
-    </section>
+    <div className="eng-ask">
+      <Button size="sm" dot={false} aria-expanded={open} onClick={() => setOpen(true)}>
+        <DotIcon name="agent" /> Спросить Нейта
+      </Button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Спросить Нейта">
+        <form className="talk-form" onSubmit={(e) => void submit(e)}>
+          <Field
+            label="Спросить Нейта (можно по-русски)"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="А почему тут is, а не am?"
+            maxLength={1000}
+          />
+          <Button size="sm" type="submit" disabled={busy || !text.trim()}>
+            Спросить
+          </Button>
+        </form>
+        {answer && (
+          <p className="eng-answer" role="status">
+            <b>Нейт:</b> {answer}
+          </p>
+        )}
+        {err && (
+          <p className="act-error">
+            {err.text} <LimitLink code={err.code} />
+          </p>
+        )}
+      </Sheet>
+    </div>
   );
 }
 
@@ -825,7 +1108,7 @@ function Progress({ total, done, now }: { total: number; done: number; now: numb
 }
 
 const MARKS: { kind: Mark; label: string; about: string }[] = [
-  { kind: 'easy', label: 'Слишком легко', about: 'Нейт ускорит: пропустит знакомое' },
+  { kind: 'easy', label: 'Слишком легко', about: 'после урока Нейт решит, как ускорить темп' },
   { kind: 'hard', label: 'Слишком трудно', about: 'вернётся завтра, Нейт сбавит темп' },
   { kind: 'broken', label: 'Ошибка в задании', about: 'запишем, чтобы исправить' },
 ];
@@ -842,12 +1125,14 @@ function TaskFeedback({
   taskLesson,
   task,
   result,
+  onMarked,
 }: {
   run: string;
   lesson: string;
   taskLesson: string | null;
   task: Task;
   result: Answered | null;
+  onMarked: (mark: Mark) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
@@ -866,6 +1151,8 @@ function TaskFeedback({
       setDone({ kind, text: r.summary_ru });
       setMarked(MARKS.find((m) => m.kind === kind) ?? null);
       setBroken(false);
+      onMarked(kind);
+      if (kind === 'easy') setOpen(false);
     } catch (e) {
       fail(e);
     } finally {
@@ -959,7 +1246,7 @@ function TaskFeedback({
 function Verdict({ a }: { a: Answered }) {
   return (
     <div className="eng-verdict" data-ok={a.correct ? '' : undefined} role="status">
-      <b>{a.correct ? 'Верно' : 'Неверно'}</b>
+      <b>{a.correct ? 'Верно!' : 'Неверно'}</b>
       {a.heard && (
         <p className="eng-hint">
           Нейт услышал: <span lang="en">«{a.heard}»</span>
@@ -989,9 +1276,9 @@ function Verdict({ a }: { a: Answered }) {
   );
 }
 
-function Gain({ d }: { d: Delta }) {
+function Gain({ d, announce = true }: { d: Delta; announce?: boolean }) {
   return (
-    <p className="eng-gain" role="status">
+    <p className="eng-gain" role={announce ? 'status' : undefined}>
       {d.xp > 0 && <b>+{d.xp} XP</b>}
       {d.streak_up && <> · огонёк {days(d.streak)}</>}
       {d.ring_closed && <> · цель дня закрыта</>}
@@ -1069,6 +1356,8 @@ function TaskBody({
   keep = [],
   fix = [],
   onReply,
+  onDraft,
+  onMicUnavailable,
 }: {
   task: Task;
   busy: boolean;
@@ -1079,44 +1368,78 @@ function TaskBody({
   /** «Исправь свою фразу»: что было не так в прошлый раз (без готового ответа). */
   fix?: string[];
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
+  onMicUnavailable?: (() => Promise<void>) | undefined;
 }) {
   const locked = busy || !!result;
   let body: ReactNode;
-  switch (task.type) {
-    case 'choose':
-    case 'listen':
-      body = (
-        <Choose task={task} locked={locked} result={result} voice={canMic} onReply={onReply} />
-      );
-      break;
-    case 'match':
-      body = <Match task={task} locked={locked} result={result} keep={keep} onReply={onReply} />;
-      break;
-    case 'build':
-      body = <Build task={task} locked={locked} onReply={onReply} />;
-      break;
-    case 'fill':
-      body = <Fill task={task} locked={locked} result={result} onReply={onReply} />;
-      break;
-    case 'translate':
-      body = (
-        <>
-          <p className="eng-say" lang={task.from === 'en' ? 'en' : 'ru'}>
-            {task.text}
-          </p>
-          <TextAnswer
-            label="Перевод"
+  if (answerBy(task) === 'voice') {
+    body = (
+      <SpeakTask
+        task={task}
+        locked={locked}
+        canMic={canMic}
+        onReply={onReply}
+        onDraft={onDraft}
+        onMicUnavailable={onMicUnavailable}
+      />
+    );
+  } else {
+    switch (task.type) {
+      case 'choose':
+      case 'listen':
+        body = (
+          <Choose
+            task={task}
             locked={locked}
-            by={answerBy(task)}
+            result={result}
             voice={canMic}
-            lang={task.from === 'en' ? 'ru' : 'en'}
             onReply={onReply}
+            onDraft={onDraft}
           />
-        </>
-      );
-      break;
-    default:
-      body = <SpeakTask task={task} locked={locked} canMic={canMic} onReply={onReply} />;
+        );
+        break;
+      case 'match':
+        body = <Match task={task} locked={locked} keep={keep} onReply={onReply} />;
+        break;
+      case 'build':
+        body = <Build task={task} locked={locked} onReply={onReply} onDraft={onDraft} />;
+        break;
+      case 'fill':
+        body = (
+          <Fill task={task} locked={locked} result={result} onReply={onReply} onDraft={onDraft} />
+        );
+        break;
+      case 'translate':
+        body = (
+          <>
+            <p className="eng-say" lang={task.from === 'en' ? 'en' : 'ru'}>
+              {task.text}
+            </p>
+            <TextAnswer
+              label="Перевод"
+              locked={locked}
+              by={answerBy(task)}
+              voice={canMic}
+              lang={task.from === 'en' ? 'ru' : 'en'}
+              onReply={onReply}
+              onDraft={onDraft}
+            />
+          </>
+        );
+        break;
+      default:
+        body = (
+          <SpeakTask
+            task={task}
+            locked={locked}
+            canMic={canMic}
+            onReply={onReply}
+            onDraft={onDraft}
+            onMicUnavailable={onMicUnavailable}
+          />
+        );
+    }
   }
   return (
     <div className="eng-body">
@@ -1140,12 +1463,14 @@ function Choose({
   result,
   voice,
   onReply,
+  onDraft,
 }: {
   task: Task;
   locked: boolean;
   result: Answered | null;
   voice: boolean;
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const listen = task.type === 'listen';
@@ -1199,27 +1524,38 @@ function Choose({
           by={answerBy(task)}
           voice={voice}
           onReply={onReply}
+          onDraft={onDraft}
         />
       )}
     </>
   );
 }
 
-/**
- * «Соедини» (ENG-006): нажал слово — оно подсвечено; нажал перевод (или наоборот) — пара
- * соединена, у неё свой номер и цвет с обеих сторон. Нажал на соединённое — пара разъединена.
- * Все соединены — «Проверить»; после проверки у каждой пары видно, верна ли она.
- */
+/** Тряска на общей пружине, отдельно от transform самой Button. */
+function MatchWord({ bad, children }: { bad: boolean; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const shake = useSpring(0, 0.35, (x) => {
+    if (box.current) box.current.style.transform = x === 0 ? '' : `translateX(${x.toFixed(2)}px)`;
+  });
+  useEffect(() => {
+    if (bad) loop().kick(shake, 260);
+  }, [bad, shake]);
+  return (
+    <div className="eng-match-word" ref={box}>
+      {children}
+    </div>
+  );
+}
+
+/** «Соедини»: пара проверяется сразу; ответ уходит после последней верной пары. */
 function Match({
   task,
   locked,
-  result,
   keep,
   onReply,
 }: {
   task: Task;
   locked: boolean;
-  result: Answered | null;
   keep: Pair[];
   onReply: (r: Reply) => void;
 }) {
@@ -1228,59 +1564,75 @@ function Match({
   const right = useMemo(() => matchRight(task), [task]);
   const [pick, setPick] = useState<{ side: 0 | 1; w: string } | null>(null);
   const [made, setMade] = useState<Pair[]>(keep);
-  const ok = result ? pairsOk(task, made) : null;
+  const [bad, setBad] = useState<Pair | null>(null);
+  const [errors, setErrors] = useState(0);
+  const mistake = useRef<Pair | null>(null);
+  const full = made.length === pairs.length && pairs.length > 0;
+
+  useEffect(() => {
+    if (!bad) return;
+    const timer = setTimeout(() => setBad(null), 600);
+    return () => clearTimeout(timer);
+  }, [bad]);
+
   const tap = (side: 0 | 1, w: string) => {
-    if (locked) return;
-    const at = made.findIndex((m) => m[side] === w);
-    if (at >= 0) {
-      // соединённое — разъединить, и слово снова выбрано
-      setMade(made.filter((_, i) => i !== at));
-      setPick({ side, w });
-      return;
-    }
+    if (locked || bad || full || made.some((pair) => pair[side] === w)) return;
     if (!pick || pick.side === side) {
       setPick(pick?.w === w && pick.side === side ? null : { side, w });
       return;
     }
     const pair: Pair = side === 1 ? [pick.w, w] : [w, pick.w];
-    setMade([...made, pair]);
     setPick(null);
+    const correct = pairOk(task, pair);
+    playCue(correct ? 'ok' : 'bad');
+    if (!correct) {
+      mistake.current ??= pair;
+      setErrors((n) => n + 1);
+      setBad(pair);
+      return;
+    }
+    const next = [...made, pair];
+    setMade(next);
+    if (next.length === pairs.length) onReply({ value: matchReply(next, mistake.current) });
   };
   const tile = (side: 0 | 1, w: string) => {
     const at = made.findIndex((m) => m[side] === w);
     const picked = pick?.side === side && pick.w === w;
-    const state = at >= 0 && ok ? (ok[at] ? 'ok' : 'bad') : picked ? 'picked' : undefined;
-    const name = at >= 0 ? `пара ${at + 1}${state ? STATE_WORD[state] : ''}` : undefined;
+    const wrong = bad?.[side] === w;
+    const state = at >= 0 ? 'ok' : wrong ? 'bad' : picked ? 'picked' : undefined;
+    const name = at >= 0 ? `пара ${at + 1}${STATE_WORD.ok}` : wrong ? 'неверная пара' : null;
     return (
-      <Button
-        key={w}
-        dot={false}
-        className="eng-opt eng-pair"
-        data-pair={at >= 0 ? (at % PAIR_TONES) + 1 : undefined}
-        data-state={state}
-        aria-pressed={picked}
-        aria-disabled={locked || undefined}
-        aria-label={name ? `${w}, ${name}` : w}
-        onClick={() => tap(side, w)}
-      >
-        <span className="eng-pair-n" aria-hidden="true">
-          {at >= 0 ? at + 1 : ''}
-        </span>
-        <span lang={side === 0 ? 'en' : 'ru'}>{w}</span>
-      </Button>
+      <MatchWord key={w} bad={wrong}>
+        <Button
+          dot={false}
+          className="eng-opt eng-pair"
+          data-pair={at >= 0 ? (at % PAIR_TONES) + 1 : undefined}
+          data-state={state}
+          aria-pressed={picked}
+          disabled={locked || at >= 0 || wrong || full}
+          aria-label={name ? `${w}, ${name}` : w}
+          onClick={() => tap(side, w)}
+        >
+          <span className="eng-pair-n" aria-hidden="true">
+            {at >= 0 ? at + 1 : ''}
+          </span>
+          <span lang={side === 0 ? 'en' : 'ru'}>{w}</span>
+        </Button>
+      </MatchWord>
     );
   };
-  const full = made.length === pairs.length && pairs.length > 0;
   return (
     <>
-      <p className="eng-hint" aria-live="polite">
-        {result
-          ? `Верных пар: ${ok?.filter(Boolean).length ?? 0} из ${pairs.length}`
-          : pick
-            ? `Выбрано «${pick.w}» — теперь нажми ${pick.side === 0 ? 'перевод' : 'английское слово'}`
-            : `Соединено ${made.length} из ${pairs.length}. Нажми на пару, чтобы разъединить.`}
+      <p className="eng-hint" role="status">
+        {bad
+          ? `Неверная пара: «${bad[0]}» и «${bad[1]}». Попробуй ещё раз.`
+          : full
+            ? `Все пары соединены.${errors ? ' Были ошибки при подборе.' : ''}`
+            : pick
+              ? `Выбрано «${pick.w}» — теперь нажми ${pick.side === 0 ? 'перевод' : 'английское слово'}`
+              : `Верных пар: ${made.length} из ${pairs.length}. Выбери слово и перевод.`}
       </p>
-      <div className="eng-match">
+      <div className="eng-match" aria-busy={!!bad}>
         <div role="group" aria-label="Английские слова">
           {left.map((w) => tile(0, w))}
         </div>
@@ -1288,24 +1640,10 @@ function Match({
           {right.map((w) => tile(1, w))}
         </div>
       </div>
-      {!locked && (
-        <div className="eng-row">
-          {made.length > 0 && (
-            <Button
-              size="sm"
-              dot={false}
-              onClick={() => {
-                setMade([]);
-                setPick(null);
-              }}
-            >
-              Сначала
-            </Button>
-          )}
-          <Button variant="fill" disabled={!full} onClick={() => onReply({ value: made })}>
-            Проверить
-          </Button>
-        </div>
+      {full && !locked && (
+        <Button onClick={() => onReply({ value: matchReply(made, mistake.current) })}>
+          Отправить ответ ещё раз
+        </Button>
       )}
     </>
   );
@@ -1315,10 +1653,12 @@ function Build({
   task,
   locked,
   onReply,
+  onDraft,
 }: {
   task: Task;
   locked: boolean;
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const all = useMemo(() => tiles(task), [task]);
   const [used, setUsed] = useState<number[]>([]);
@@ -1335,7 +1675,11 @@ function Build({
             dot={false}
             className="eng-opt eng-tile"
             disabled={locked || used.includes(i)}
-            onClick={() => setUsed([...used, i])}
+            onClick={() => {
+              const next = [...used, i];
+              setUsed(next);
+              onDraft?.({ value: next.map((n) => all[n]).join(' ') });
+            }}
           >
             <span lang="en">{w}</span>
           </Button>
@@ -1346,17 +1690,23 @@ function Build({
           size="sm"
           dot={false}
           disabled={locked || !used.length}
-          onClick={() => setUsed(used.slice(0, -1))}
+          onClick={() => {
+            const next = used.slice(0, -1);
+            setUsed(next);
+            onDraft?.(next.length ? { value: next.map((n) => all[n]).join(' ') } : null);
+          }}
         >
           Убрать
         </Button>
-        <Button
-          variant="fill"
-          disabled={locked || !used.length}
-          onClick={() => onReply({ value: used.map((i) => all[i]).join(' ') })}
-        >
-          Проверить
-        </Button>
+        {!onDraft && (
+          <Button
+            variant="fill"
+            disabled={locked || !used.length}
+            onClick={() => onReply({ value: used.map((i) => all[i]).join(' ') })}
+          >
+            Проверить
+          </Button>
+        )}
       </div>
     </>
   );
@@ -1367,16 +1717,19 @@ function Fill({
   locked,
   result,
   onReply,
+  onDraft,
 }: {
   task: Task;
   locked: boolean;
   result: Answered | null;
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const parts = gaps(task.text ?? '');
   const n = parts.length - 1;
   const [vals, setVals] = useState<string[]>(() => Array.from({ length: n }, () => ''));
   const [at, setAt] = useState(0);
+  const draft = (r: Reply | null) => onDraft?.(r && 'value' in r ? { value: [r.value] } : r);
   return (
     <>
       <p className="eng-say" lang="en">
@@ -1422,6 +1775,7 @@ function Fill({
           locked={locked}
           by={answerBy(task)}
           onReply={(r) => onReply('value' in r ? { value: [r.value] } : r)}
+          onDraft={onDraft ? draft : undefined}
         />
       )}
     </>
@@ -1441,6 +1795,7 @@ function TextAnswer({
   lang = 'en',
   why = true,
   onReply,
+  onDraft,
 }: {
   label: string;
   locked: boolean;
@@ -1452,19 +1807,24 @@ function TextAnswer({
   /** Показывать «здесь — текстом». */
   why?: boolean;
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
 }) {
   const [text, setText] = useState('');
+  const [dictated, setDictated] = useState(false);
   const dict = useDictation(lang);
   const mic = voice && by !== 'text';
   const listening = dict.state === 'listening';
   const talk = async () => {
     if (!listening) {
+      onDraft?.(null);
       await dict.start();
       return;
     }
     const said = (await dict.stop()).trim();
     if (!said) return;
     setText(said);
+    setDictated(true);
+    onDraft?.({ dictated: said });
     onReply({ dictated: said });
   };
   return (
@@ -1472,21 +1832,30 @@ function TextAnswer({
       className="talk-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (text.trim()) onReply({ value: text.trim() });
+        if (!locked && !listening && text.trim())
+          onReply(dictated ? { dictated: text.trim() } : { value: text.trim() });
       }}
     >
       <Field
         label={label}
         value={listening ? dict.partial : text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setText(value);
+          setDictated(false);
+          onDraft?.(value.trim() ? { value: value.trim() } : null);
+        }}
+        disabled={locked}
         readOnly={listening}
         placeholder={listening ? 'Говори — Нейт слушает…' : undefined}
         maxLength={1000}
       />
       <div className="eng-row">
-        <Button size="sm" type="submit" disabled={locked || listening || !text.trim()}>
-          Проверить
-        </Button>
+        {!onDraft && (
+          <Button size="sm" type="submit" disabled={locked || listening || !text.trim()}>
+            Проверить
+          </Button>
+        )}
         {mic && (
           <Button
             size="sm"
@@ -1513,24 +1882,45 @@ function TextAnswer({
   );
 }
 
-/** Сказать вслух, описать картинку, роль: микрофон; нет его — текстом. */
+/** Голосовое задание: voice_or_text — текстовый запасной путь; voice — замена с сервера. */
 function SpeakTask({
   task,
   locked,
   canMic,
   onReply,
+  onDraft,
+  onMicUnavailable,
 }: {
   task: Task;
   locked: boolean;
   canMic: boolean;
   onReply: (r: Reply) => void;
+  onDraft?: ((r: Reply | null) => void) | undefined;
+  onMicUnavailable?: (() => Promise<void>) | undefined;
 }) {
   const rec = useRef<Recording | null>(null);
   const [on, setOn] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [typing, setTyping] = useState(!canMic);
-  useEffect(() => () => rec.current?.cancel(), []);
+  const by = answerBy(task);
+  const [typing, setTyping] = useState(!canMic || by === 'text');
+  const [starting, setStarting] = useState(false);
+  const alive = useRef(false);
+  const notified = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      rec.current?.cancel();
+    };
+  }, []);
+  useEffect(() => {
+    if (!canMic && microphoneFallback(task) === 'replace' && !notified.current) {
+      notified.current = true;
+      void onMicUnavailable?.();
+    }
+  }, [canMic, task, onMicUnavailable]);
   const toggle = async () => {
+    if (starting) return;
     setErr(null);
     if (rec.current) {
       const r = rec.current;
@@ -1541,15 +1931,33 @@ function SpeakTask({
         setErr('Слишком коротко — нажми «Говорить», скажи и нажми «Готово».');
         return;
       }
+      if (!alive.current) return;
+      onDraft?.({ audio, ms });
       onReply({ audio, ms });
       return;
     }
+    setStarting(true);
+    onDraft?.(null);
     try {
-      rec.current = await record(() => void toggle());
+      const recording = await record(() => void toggle());
+      if (!alive.current) {
+        recording.cancel();
+        return;
+      }
+      rec.current = recording;
       setOn(true);
     } catch {
-      setErr('Микрофон недоступен — разреши его браузеру или ответь текстом.');
-      setTyping(true);
+      if (!alive.current) return;
+      if (microphoneFallback(task) === 'replace') {
+        setErr('Микрофон недоступен. Заменяем задание — без штрафа.');
+        notified.current = true;
+        await onMicUnavailable?.();
+      } else {
+        setErr('Микрофон недоступен — отвечай текстом.');
+        setTyping(true);
+      }
+    } finally {
+      if (alive.current) setStarting(false);
     }
   };
   const say = task.say ?? task.opening;
@@ -1587,28 +1995,39 @@ function SpeakTask({
           Используй: <span lang="en">{task.must_use.join(', ')}</span>
         </p>
       )}
-      {canMic && (
+      {canMic && by !== 'text' && (
         <div className="eng-row">
           <Button
-            variant="fill"
-            disabled={locked && !on}
+            disabled={(locked && !on) || starting}
             aria-pressed={on}
             onClick={() => void toggle()}
           >
-            {on ? 'Готово' : 'Говорить'}
+            {starting ? 'Подключаю микрофон…' : on ? 'Готово' : 'Говорить'}
           </Button>
-          {!typing && (
+          {!typing && by === 'voice_or_text' && (
             <Button size="sm" dot={false} onClick={() => setTyping(true)}>
               Ответить текстом
             </Button>
           )}
         </div>
       )}
-      {typing && (
-        <TextAnswer label="Ответ по-английски" locked={locked} why={false} onReply={onReply} />
+      {typing && by !== 'voice' && (
+        <TextAnswer
+          label="Ответ по-английски"
+          locked={locked || on || starting}
+          why={false}
+          onReply={onReply}
+          onDraft={onDraft}
+        />
       )}
       {err && <p className="eng-hint">{err}</p>}
-      {spoken(task) && !canMic && <p className="eng-hint">Микрофона нет — отвечай текстом.</p>}
+      {spoken(task) && !canMic && (
+        <p className="eng-hint" role="status">
+          {by === 'voice'
+            ? 'Микрофон недоступен. Заменяем задание — без штрафа.'
+            : 'Микрофон недоступен — отвечай текстом.'}
+        </p>
+      )}
     </>
   );
 }
@@ -1675,6 +2094,12 @@ function SettingsView() {
   const adapt = useAdapt();
   const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
   const [adapted, setAdapted] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState(readFeedback);
+  const setCue = (key: keyof FeedbackSettings, value: boolean) => {
+    const next = { ...feedback, [key]: value };
+    setFeedback(next);
+    writeFeedback(next);
+  };
   if (q.isError) return <Denied error={q.error} />;
   const body = q.data;
   if (!body) return <p className="later">Загружаю…</p>;
@@ -1686,6 +2111,22 @@ function SettingsView() {
   const current = s.voice ?? body.voices[0]?.id;
   return (
     <section className="eng-card eng-settings" aria-label="Настройки английского">
+      <h3 className="eng-h">Сигналы ответа</h3>
+      <div className="eng-switch">
+        <span>Звук</span>
+        <Switch checked={feedback.sound} onChange={(v) => setCue('sound', v)} label="Звук" />
+      </div>
+      <div className="eng-switch">
+        <span>Вибрация</span>
+        <Switch
+          checked={feedback.haptics}
+          onChange={(v) => setCue('haptics', v)}
+          label="Вибрация"
+        />
+      </div>
+      <p className="eng-hint">
+        Тихие сигналы на верный и неверный ответ. Только на этом устройстве.
+      </p>
       <VoiceEngine body={body} set={set} />
       <h3 className="eng-h">
         Голос Нейта — ElevenLabs{body.engine?.engine === 'chatgpt' && ' (запасной)'}

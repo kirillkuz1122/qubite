@@ -1903,6 +1903,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/runs/{id}/replace-voice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_replace_voice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/english/session': {
     parameters: {
       query?: never;
@@ -3528,7 +3544,10 @@ export interface components {
       /** @description Голос для прослушивания (иначе — свой). */
       voice?: string | null;
     };
-    /** @description Ответы входного теста. */
+    /**
+     * @description Ответы входного теста. В `answers` значение `null` означает «Не знаю»;
+     *     передаём его в оценку без замены, обычные ответы принимаются как раньше.
+     */
     EnglishPlace: {
       /** @description `{"p1": "…", "p3": ["am"]}`. */
       answers: Record<string, never>;
@@ -3613,6 +3632,11 @@ export interface components {
       messages: components['schemas']['EnglishMessage'][];
       realtime: components['schemas']['EnglishRealtimeSession'];
       session: components['schemas']['EnglishSession'];
+    };
+    /** @description Заменить задание, требующее микрофона. */
+    EnglishReplaceVoice: {
+      lesson_id?: string | null;
+      task_id: string;
     };
     /** @description Реплика ученика: текст **или** запись голоса. */
     EnglishSay: {
@@ -9731,6 +9755,42 @@ export interface operations {
         };
         content: {
           'application/json': Record<string, never>;
+        };
+      };
+    };
+  };
+  english_replace_voice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Прохождение */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishReplaceVoice'];
+      };
+    };
+    responses: {
+      /** @description Прохождение с заменой (lessons::RunView) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого прохождения или задания */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };

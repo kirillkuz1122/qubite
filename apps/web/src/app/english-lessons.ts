@@ -103,6 +103,7 @@ export interface Run {
   kind: 'lesson' | 'homework' | 'review';
   answers: { task_id: string; lesson_id: string; correct: boolean; attempts: number }[];
   tasks: { lesson_id: string; task: Task; wrong: string }[];
+  replacements?: { lesson_id: string; task: Task }[];
 }
 
 export interface LessonView {
@@ -241,7 +242,12 @@ export interface Finished {
 export interface Placement {
   level: string;
   start_lesson: string;
-  stages: { level: string; right: number; passed: boolean }[];
+  stages: { level: string; right: number; skipped: number; passed: boolean }[];
+}
+
+/** Ответы входного теста: обычное значение задания или `null` — «Не знаю». */
+export interface PlacementAnswers {
+  [task: string]: unknown;
 }
 
 export interface PlacementTest {
@@ -290,7 +296,7 @@ export function usePlacementTest(enabled: boolean) {
 export function usePlace() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { answers: Record<string, unknown>; shift: number }) =>
+    mutationFn: async (body: { answers: PlacementAnswers; shift: number }) =>
       (await must(
         api.POST('/api/v1/english/placement', { body: body as never }),
       )) as unknown as Placement,
@@ -348,6 +354,20 @@ export async function sendAnswer(
       body: body as never,
     }),
   )) as unknown as Answered;
+}
+
+/** Микрофон недоступен: сервер сохраняет замену в этом прохождении, без попытки ответа. */
+export async function replaceVoiceTask(
+  run: string,
+  task: string,
+  lesson: string | null,
+): Promise<Run> {
+  return (await must(
+    api.POST('/api/v1/english/runs/{id}/replace-voice', {
+      params: { path: { id: run } },
+      body: { task_id: task, lesson_id: lesson },
+    }),
+  )) as unknown as Run;
 }
 
 export async function finishRun(run: string): Promise<Finished> {

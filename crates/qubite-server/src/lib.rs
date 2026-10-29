@@ -311,6 +311,7 @@ impl AppState {
         english_lessons::english_lesson,
         english_lessons::english_lesson_start,
         english_lessons::english_answer,
+        english_lessons::english_replace_voice,
         english_lessons::english_run_finish,
         english_lessons::english_ask,
         english_lessons::english_adapt,
@@ -522,6 +523,7 @@ impl AppState {
         english_lessons::EnglishAnswer,
         english_lessons::EnglishAsk,
         english_lessons::EnglishFeedback,
+        english_lessons::EnglishReplaceVoice,
         english_lessons::EnglishSettingsChange,
         english_lessons::EnglishPhrase,
         projects::ProjectHead,
@@ -873,6 +875,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/runs/{id}/answer",
             post(english_lessons::english_answer).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/english/runs/{id}/replace-voice",
+            post(english_lessons::english_replace_voice),
         )
         .route(
             "/api/v1/english/runs/{id}/finish",

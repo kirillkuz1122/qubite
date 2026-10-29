@@ -587,8 +587,8 @@ pub fn task_xp(task: &Value) -> i64 {
 
 /// Как отвечать на задание (ENG-006, слова владельца 25.10): `text` — только текстом
 /// (написание, грамматика, порядок слов), `voice_or_text` — голосом или текстом (понимание,
-/// быстрый перевод, разговорные фразы), `voice` — голосом (произношение; без микрофона —
-/// текстом). Ответ, который сверяется буква в букву (число, имя на слух), — текстом:
+/// быстрый перевод, разговорные фразы), `voice` — голосом (произношение; без микрофона задание заменяется).
+/// Ответ, который сверяется буква в букву (число, имя на слух), — текстом:
 /// распознавание напишет «fourteen» вместо «14». Своё `answer_by` у задания — главнее.
 pub fn answer_by(task: &Value) -> &str {
     if let Some(by) = task["answer_by"].as_str() {
@@ -612,12 +612,15 @@ pub fn is_spoken(task: &Value) -> bool {
 
 // ---------------------------------------------------------------- входной тест
 
+/// ENG-007b, D-579: при такой доле «Не знаю» ступень не пройдена.
+pub const PLACEMENT_SKIP_LIMIT_PERCENT: usize = 30;
+
 /// Итог входного теста.
 #[derive(Debug, Clone, Serialize)]
 pub struct Placement {
     pub level: String,
     pub start_lesson: String,
-    /// По ступеням: уровень, верно, пройдена.
+    /// По ступеням: уровень, верно, пропущено («Не знаю»), пройдена.
     pub stages: Vec<Value>,
 }
 
@@ -630,19 +633,32 @@ pub fn place(course: &Course, answers: &Value, shift: i8) -> Placement {
     for stage in course.placement["stages"].as_array().into_iter().flatten() {
         let id = stage["level"].as_str().unwrap_or_default().to_owned();
         let need = stage["pass_min"].as_u64().unwrap_or(3) as usize;
-        let right = stage["items"]
+        let items = stage["items"]
             .as_array()
-            .into_iter()
-            .flatten()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let skipped = items
+            .iter()
+            .filter(|item| {
+                let key = item["id"].as_str().unwrap_or_default();
+                answers.get(key).is_some_and(Value::is_null)
+            })
+            .count();
+        let right = items
+            .iter()
             .filter(|item| {
                 let key = item["id"].as_str().unwrap_or_default();
                 answers
                     .get(key)
-                    .is_some_and(|a| check(item, a, 2) == Check::Right)
+                    .is_some_and(|a| !a.is_null() && check(item, a, 2) == Check::Right)
             })
             .count();
-        let passed = right >= need;
-        stages.push(json!({ "level": id, "right": right, "passed": passed }));
+        let too_many_skips =
+            skipped > 0 && skipped * 100 >= items.len() * PLACEMENT_SKIP_LIMIT_PERCENT;
+        let passed = right >= need && !too_many_skips;
+        stages.push(json!({
+            "level": id, "right": right, "skipped": skipped, "passed": passed
+        }));
         if !passed && level.is_none() {
             level = Some(id);
         }
@@ -663,6 +679,32 @@ pub fn place(course: &Course, answers: &Value, shift: i8) -> Placement {
         start_lesson,
         stages,
     }
+}
+
+/// Письменная замена «только голос» из материала того же урока (D-582).
+/// Повторение фразы становится сборкой этой фразы; свободный ответ остаётся свободным,
+/// но текстом. ID сохраняется: обязательное задание нужно решить, а не пропустить.
+pub fn without_microphone(task: &Value) -> Option<Value> {
+    if answer_by(task) != "voice" {
+        return None;
+    }
+    if task["type"] == "speak" && task["mode"] == "repeat" {
+        let phrase = task["say"].as_str().filter(|s| !s.trim().is_empty())?;
+        return Some(json!({
+            "id": task["id"],
+            "type": "build",
+            "answer_by": "text",
+            "ask_ru": "Собери фразу из слов.",
+            "answer": phrase,
+            "extra": [],
+            "explain_ru": task["explain_ru"],
+        }));
+    }
+    let mut replacement = task.clone();
+    replacement["answer_by"] = json!("text");
+    replacement["ask_ru"] = json!("Ответь письменно: выполни задание ниже.");
+    replacement["hint_ru"] = task.get("ask_ru").cloned().unwrap_or(Value::Null);
+    Some(replacement)
 }
 
 #[cfg(test)]
@@ -805,6 +847,45 @@ mod tests {
             "обязательное задание не убирается"
         );
         assert_eq!(l["agent_notes_ru"][0], "теряет am");
+    }
+
+    #[test]
+    fn placement_skip_limit_includes_thirty_percent() {
+        // Десять вопросов позволяют проверить ровно 30%, оставляя pass_min
+        // настоящей ступени прежним. В программе сейчас по четыре вопроса.
+        let mut c = Course::load();
+        let mut stage = c.placement["stages"][0].clone();
+        let items: Vec<Value> = (0..10)
+            .map(|i| {
+                let mut item = stage["items"][0].clone();
+                item["id"] = json!(format!("limit-{i}"));
+                item
+            })
+            .collect();
+        stage["items"] = json!(items);
+        c.placement["stages"][0] = stage;
+        let need = c.placement["stages"][0]["pass_min"].as_u64().unwrap() as usize;
+
+        for (skips, passed) in [(2, true), (3, false), (4, false)] {
+            let answers: serde_json::Map<String, Value> = items
+                .iter()
+                .enumerate()
+                .map(|(i, item)| {
+                    let answer = if i < skips {
+                        Value::Null
+                    } else {
+                        item["answer"].clone()
+                    };
+                    (item["id"].as_str().unwrap().to_owned(), answer)
+                })
+                .collect();
+            let result = place(&c, &Value::Object(answers), 0);
+            assert_eq!(result.stages[0]["right"], json!(10 - skips));
+            assert_eq!(result.stages[0]["skipped"], json!(skips));
+            assert_eq!(result.stages[0]["passed"], passed);
+            assert_eq!(result.level, if passed { "a1" } else { "a0" });
+            assert!(10 - skips >= need);
+        }
     }
 
     #[test]
