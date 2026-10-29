@@ -9470,6 +9470,37 @@
         },
         "additionalProperties": false
       },
+      "Deploy": {
+        "type": "object",
+        "description": "Что известно о выкладке. Пустое, если файла нет.",
+        "properties": {
+          "built_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда собрана в CI."
+          },
+          "commit": {
+            "type": ["string", "null"],
+            "description": "Коммит стоящей версии (12 знаков)."
+          },
+          "deployed_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда эта версия стала рабочей на сервере."
+          },
+          "rollback": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Rollback",
+                "description": "Есть, пока после отката не выложена следующая версия."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "DeviceAuthorizeRequest": {
         "type": "object",
         "required": [
@@ -10423,8 +10454,12 @@
       },
       "Health": {
         "type": "object",
-        "required": ["status", "version"],
+        "required": ["status", "version", "deploy"],
         "properties": {
+          "deploy": {
+            "$ref": "#/components/schemas/Deploy",
+            "description": "Коммит, время выкладки, откат (OPS-007)."
+          },
           "status": {
             "type": "string",
             "description": "Всегда `ok`, если процесс отвечает."
@@ -12414,11 +12449,15 @@
       },
       "Readiness": {
         "type": "object",
-        "required": ["status", "database"],
+        "required": ["status", "database", "version", "deploy"],
         "properties": {
           "database": {
             "type": "string",
             "description": "`ok` или `unavailable`."
+          },
+          "deploy": {
+            "$ref": "#/components/schemas/Deploy",
+            "description": "Коммит, время выкладки, откат (OPS-007)."
           },
           "schema_version": {
             "type": ["integer", "null"],
@@ -12428,6 +12467,10 @@
           "status": {
             "type": "string",
             "description": "`ready` или `not_ready`."
+          },
+          "version": {
+            "type": "string",
+            "description": "Версия Qubite."
           }
         }
       },
@@ -12540,6 +12583,29 @@
           }
         }
       },
+      "Rollback": {
+        "type": "object",
+        "description": "Откат: автодеплой вернул прошлую версию (или это сделал человек).",
+        "required": ["from", "to", "at", "reason"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "from": {
+            "type": "string",
+            "description": "Коммит, с которого откатились (12 знаков)."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Почему: «миграции упали», «сервер не ответил /api/ready», «откат вручную»."
+          },
+          "to": {
+            "type": "string",
+            "description": "Коммит, на который вернулись (12 знаков)."
+          }
+        }
+      },
       "ServerInfo": {
         "type": "object",
         "required": [
@@ -12549,7 +12615,8 @@
           "migration",
           "accounts",
           "sessions",
-          "audit_entries"
+          "audit_entries",
+          "deploy"
         ],
         "properties": {
           "accounts": {
@@ -12560,6 +12627,10 @@
             "type": "integer",
             "format": "int64",
             "description": "Записей в журнале."
+          },
+          "deploy": {
+            "$ref": "#/components/schemas/Deploy",
+            "description": "Коммит, время сборки и выкладки, откат (OPS-007, D-574)."
           },
           "migration": {
             "type": "integer",

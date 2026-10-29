@@ -11,6 +11,9 @@
 # бэкап базы → новая версия → миграции → перезапуск → /api/ready → сообщение в Telegram.
 # Не дождались /api/ready — откат: прошлая версия и база из бэкапа.
 #
+# После выкладки и отката пишет /opt/qubite/deploy.json — его читает `qubite serve` и показывает
+# на сайте номер версии, коммит, время выкладки и «откат с X на Y» (OPS-007, D-574).
+#
 # Ничего не собирает на Pi. Если Pi нагружена (load average или мало памяти) — откладывает.
 set -euo pipefail
 
@@ -50,6 +53,19 @@ q() {
     local bin="$1"
     shift
     runuser -u qubite -- env QUBITE_DOTENV=0 DATABASE_URL="$DATABASE_URL" QUBITE_LOG=warn "$bin" "$@"
+}
+
+# Файл для сайта (OPS-007): что стоит, когда собрано и выложено, был ли откат.
+# $1 — коммит, $2 — папка релиза, $3 — откат одной строкой JSON (или пусто). Сбой не мешает обновлению.
+write_info() {
+    local commit="$1" dir="$2" rollback="${3:-null}" built tmp="$ROOT/deploy.json.new"
+    built="$(sed -n 's/^Собрано: //p' "$dir/RELEASE.txt" 2>/dev/null | head -1 || true)"
+    {
+        jq -n --arg commit "$commit" --arg built "$built" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson rollback "$rollback" \
+            '{commit: $commit, built_at: (if $built == "" then null else $built end), deployed_at: $now, rollback: $rollback}' \
+            >"$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$ROOT/deploy.json"
+    } || log "не записал $ROOT/deploy.json — сайт не покажет версию"
 }
 
 notify() {
@@ -106,6 +122,8 @@ rollback() {
     echo "$bad" >"$STATE/failed"
     local good
     good="$(current_commit)"
+    write_info "$good" "$prev" "$(jq -nc --arg from "$bad" --arg to "$good" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg reason "$reason" '{from: $from, to: $to, at: $at, reason: $reason}')"
     if wait_ready; then
         log "откат на ${good:0:12} готов"
         notify deploy "Обновление до ${bad:0:12} не прошло (${reason}). Вернул прошлую версию ${good:0:12}, база из бэкапа." "deploy-fail-${bad}"
@@ -208,6 +226,7 @@ deploy() {
     fi
 
     rm -f "$STATE/failed"
+    write_info "$commit" "$dir"
     # Свежий скрипт обновления из сборки (службы systemd меняет только install.sh).
     if [[ -f $dir/deploy/pi/update.sh ]]; then
         install -m 755 "$dir/deploy/pi/update.sh" "$ROOT/bin/qubite-update.new"
@@ -241,6 +260,7 @@ case "${1:-}" in
         echo "прошлая: $(cat "$STATE/previous" 2>/dev/null || echo нет)"
         echo "бэкап:  $(cat "$STATE/last-backup" 2>/dev/null || echo нет)"
         echo "не прошла: $(cat "$STATE/failed" 2>/dev/null || echo нет)"
+        echo "для сайта: $(jq -c . "$ROOT/deploy.json" 2>/dev/null || echo нет)"
         ;;
     *) die "непонятный ключ: $1 (есть --force, --rollback, --status)" ;;
 esac

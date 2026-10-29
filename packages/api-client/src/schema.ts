@@ -3322,6 +3322,22 @@ export interface components {
       /** Format: int64 */
       revision: number;
     };
+    /** @description Что известно о выкладке. Пустое, если файла нет. */
+    Deploy: {
+      /**
+       * Format: date-time
+       * @description Когда собрана в CI.
+       */
+      built_at?: string | null;
+      /** @description Коммит стоящей версии (12 знаков). */
+      commit?: string | null;
+      /**
+       * Format: date-time
+       * @description Когда эта версия стала рабочей на сервере.
+       */
+      deployed_at?: string | null;
+      rollback?: components['schemas']['Rollback'] | null;
+    };
     DeviceAuthorizeRequest: {
       /** @description `qubite-desktop` или `qubite-android`. */
       client_id: string;
@@ -3750,6 +3766,8 @@ export interface components {
       version: number;
     };
     Health: {
+      /** @description Коммит, время выкладки, откат (OPS-007). */
+      deploy: components['schemas']['Deploy'];
       /** @description Всегда `ok`, если процесс отвечает. */
       status: string;
       /** @description Версия Qubite. */
@@ -4625,6 +4643,8 @@ export interface components {
     Readiness: {
       /** @description `ok` или `unavailable`. */
       database: string;
+      /** @description Коммит, время выкладки, откат (OPS-007). */
+      deploy: components['schemas']['Deploy'];
       /**
        * Format: int64
        * @description Номер последней применённой миграции.
@@ -4632,6 +4652,8 @@ export interface components {
       schema_version?: number | null;
       /** @description `ready` или `not_ready`. */
       status: string;
+      /** @description Версия Qubite. */
+      version: string;
     };
     RegisterRequest: {
       /** @description Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения). */
@@ -4684,6 +4706,17 @@ export interface components {
        */
       revoked: number;
     };
+    /** @description Откат: автодеплой вернул прошлую версию (или это сделал человек). */
+    Rollback: {
+      /** Format: date-time */
+      at: string;
+      /** @description Коммит, с которого откатились (12 знаков). */
+      from: string;
+      /** @description Почему: «миграции упали», «сервер не ответил /api/ready», «откат вручную». */
+      reason: string;
+      /** @description Коммит, на который вернулись (12 знаков). */
+      to: string;
+    };
     ServerInfo: {
       /** Format: int64 */
       accounts: number;
@@ -4692,6 +4725,8 @@ export interface components {
        * @description Записей в журнале.
        */
       audit_entries: number;
+      /** @description Коммит, время сборки и выкладки, откат (OPS-007, D-574). */
+      deploy: components['schemas']['Deploy'];
       /**
        * Format: int64
        * @description Последняя применённая миграция базы.
