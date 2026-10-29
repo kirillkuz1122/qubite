@@ -79,7 +79,8 @@ async fn fallback_rates_preserve_cbr_priority_order_and_cache() {
     let stale = sources.rates(&codes).await.unwrap();
     assert!(stale.stale);
     assert_eq!(stale.value.items[0].value, php.value);
-    assert_eq!(stale.fetched_at, got.fetched_at);
+    // ЦБ при этом ответил заново, поэтому время получения не раньше прежнего.
+    assert!(stale.fetched_at >= got.fetched_at);
 }
 
 #[tokio::test]

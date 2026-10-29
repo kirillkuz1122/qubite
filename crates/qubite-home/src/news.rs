@@ -316,7 +316,7 @@ impl Sources {
     pub async fn news(&self, topics: &[Topic]) -> Result<Got<Vec<NewsItem>>> {
         let mut out = Vec::new();
         let mut stale = false;
-        let mut fetched_at = OffsetDateTime::now_utc();
+        let mut fetched_at: Option<OffsetDateTime> = None;
         let mut failed = None;
         let mut any = false;
         for topic in topics {
@@ -325,7 +325,8 @@ impl Sources {
                     Ok(got) => {
                         any = true;
                         stale |= got.stale;
-                        fetched_at = fetched_at.min(got.fetched_at);
+                        fetched_at =
+                            Some(fetched_at.map_or(got.fetched_at, |at| at.min(got.fetched_at)));
                         out.extend(got.value);
                     }
                     Err(error) => failed = Some(error),
@@ -341,7 +342,8 @@ impl Sources {
                     Ok(got) => {
                         any = true;
                         stale |= got.stale;
-                        fetched_at = fetched_at.min(got.fetched_at);
+                        fetched_at =
+                            Some(fetched_at.map_or(got.fetched_at, |at| at.min(got.fetched_at)));
                         items.extend(got.value);
                     }
                     // Лента не ответила и в кэше её нет — тема просто без неё.
@@ -358,7 +360,7 @@ impl Sources {
         }
         Ok(Got {
             value: out,
-            fetched_at,
+            fetched_at: fetched_at.unwrap_or_else(OffsetDateTime::now_utc),
             stale,
         })
     }
