@@ -87,4 +87,14 @@ describe('поля поправки к делу агента', () => {
       due_time: '19:00',
     });
   });
+
+  it('поля, которых нет в diff, берёт из дела на устройстве', () => {
+    const task = { project_id: 'p1', priority: 'urgent' as const };
+    const initial = taskFixValues(change({ due_date: '2026-10-30' }), task);
+    expect(initial).toMatchObject({ project: 'p1', priority: 'urgent' });
+    expect(taskFixFields(initial, { ...initial, project: '' })).toEqual({ project_id: null });
+    expect(taskFixFields(initial, { ...initial, priority: 'normal' })).toEqual({
+      priority: 'normal',
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import type { PlannerTask } from '@qubite/sync-client';
 import type { AgentChange } from './agent-view';
 
 export type FixPriority = 'normal' | 'important' | 'urgent';
@@ -9,18 +10,25 @@ export interface TaskFixValues {
   priority: FixPriority;
 }
 
-/** Показанные значения — результат действия агента, а не старое значение before. */
-export function taskFixValues(change: AgentChange | undefined): TaskFixValues {
+/**
+ * Показанные значения — результат действия агента, а не старое значение before. Поля, которых
+ * нет в diff (агент их не менял), берутся из самого дела на устройстве.
+ */
+export function taskFixValues(
+  change: AgentChange | undefined,
+  task?: Pick<PlannerTask, 'project_id' | 'priority'>,
+): TaskFixValues {
   const after = (field: string) => change?.diff.find((d) => d.field === field)?.after as unknown;
   const text = (field: string) => {
     const value = after(field);
     return typeof value === 'string' ? value : '';
   };
-  const priority = after('priority');
+  const known = (field: string) => change?.diff.some((d) => d.field === field) ?? false;
+  const priority = known('priority') ? after('priority') : task?.priority;
   return {
     date: text('due_date'),
     time: text('due_time'),
-    project: text('project_id'),
+    project: known('project_id') ? text('project_id') : (task?.project_id ?? ''),
     priority: priority === 'important' || priority === 'urgent' ? priority : 'normal',
   };
 }

@@ -81,12 +81,12 @@ export function AccountContent() {
     }
   };
   // Пока сессия жива: дослать очередь и стереть хранилище, если всё на сервере (D-284).
-  const flush = async () => {
-    if (me.data) await clearAccountStore(me.data.id).catch(() => false);
-  };
+  const flush = async () =>
+    me.data ? await clearAccountStore(me.data.id).catch(() => false) : false;
   const everywhere = async () => {
+    let cleared = false;
     try {
-      await flush();
+      cleared = await flush();
       const r = await must(api.POST('/api/auth/logout-everywhere'));
       signedOut();
       qc.setQueryData(ME, null);
@@ -94,6 +94,8 @@ export function AccountContent() {
       router.history.push('/auth');
     } catch (e) {
       failed(e);
+      // Хранилище уже удалено, а выйти не вышло: рабочий клиент синхронизации потерял базу — обновляем страницу.
+      if (cleared) setTimeout(() => window.location.reload(), 2500);
     }
   };
   const logout = async () => {

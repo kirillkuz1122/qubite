@@ -352,7 +352,12 @@ function FixForm({
   const fix = useFix();
   const planner = usePlanner();
   const change = a.changes.find((c) => c.object_id === object);
-  const [initial] = useState(() => taskFixValues(change));
+  const [initial] = useState(() =>
+    taskFixValues(
+      change,
+      planner.data.tasks.find((t) => t.id === object),
+    ),
+  );
   const isTask = kind === 'planner.task';
   const [title, setTitle] = useState(change?.title ?? '');
   const [date, setDate] = useState(initial.date);
