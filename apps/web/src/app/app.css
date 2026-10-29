@@ -2133,6 +2133,20 @@ h4.eng-h {
   gap: 8px;
   align-content: start;
 }
+.eng-match-word {
+  min-width: 0;
+}
+.eng-match .q-btn.eng-pair[data-state='ok'] {
+  color: var(--q-green);
+  transition: opacity 0.15s;
+}
+.eng-match .q-btn.eng-pair[data-state='bad'] {
+  border-color: var(--q-red);
+  color: var(--q-red);
+}
+.eng-match .q-btn.eng-pair[data-state='bad'] .eng-pair-n {
+  background: var(--q-red);
+}
 .eng-built {
   min-height: 28px;
   padding: 6px 0;

@@ -129,8 +129,20 @@ export function matchRight(task: Task): string[] {
 
 /** Верна ли каждая соединённая пара (по парам задания). */
 export function pairsOk(task: Task, made: readonly Pair[]): boolean[] {
-  const right = task.pairs ?? [];
-  return made.map(([en, ru]) => right.some((p) => p.en === en && p.ru === ru));
+  return made.map((pair) => pairOk(task, pair));
+}
+
+/** Проверяем пару сразу, независимо от порядка выбора колонок. */
+export function pairOk(task: Task, [en, ru]: Pair): boolean {
+  return (task.pairs ?? []).some((p) => p.en === en && p.ru === ru);
+}
+
+/**
+ * Сервер сверяет полный набор пар. Сохраняем первую реальную ошибку вместо исправленной
+ * пары с тем же английским словом: задание не станет безошибочным после подбора.
+ */
+export function matchReply(made: readonly Pair[], mistake: Pair | null): Pair[] {
+  return made.map((pair) => (mistake && pair[0] === mistake[0] ? mistake : pair));
 }
 
 /**

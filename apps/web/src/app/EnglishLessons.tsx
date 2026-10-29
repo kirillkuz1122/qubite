@@ -5,6 +5,7 @@
  * описать картинку, роль) → итог: огонёк, опыт, домашка делом в Planner, разбор ошибок. Спросить
  * Нейта можно в любой момент — и по-русски (D-491). Сверку, опыт и огонёк считает сервер.
  */
+import { loop } from '@qubite/motion';
 import {
   Button,
   Companion,
@@ -16,6 +17,7 @@ import {
   Swap,
   Switch,
   useMedia,
+  useSpring,
   WIDE,
   type CompanionHandle,
 } from '@qubite/ui';
@@ -60,8 +62,10 @@ import {
   gaps,
   kindLabel,
   matchRight,
+  matchReply,
   optionState,
   PAIR_TONES,
+  pairOk,
   pairsOk,
   resumeAt,
   fixHint,
@@ -75,6 +79,7 @@ import {
   WHY_TEXT,
 } from './english-lessons-view';
 import { useDictation } from './english-dictation';
+import { playCue, readFeedback, writeFeedback, type FeedbackSettings } from './english-feedback';
 import { LimitLink } from './LimitLink';
 
 type Tab = 'lessons' | 'talk' | 'game' | 'settings';
@@ -533,6 +538,7 @@ function LessonPlayer({
     nate.current?.setMood('think');
     try {
       const a = await sendAnswer(run.id, item.task.id, r, item.lesson);
+      if (item.task.type !== 'match') playCue(a.correct ? 'ok' : 'bad');
       if (item.task.type === 'match' && 'value' in r) {
         const made = r.value as Pair[];
         const ok = pairsOk(item.task, made);
@@ -1090,7 +1096,7 @@ function TaskBody({
       );
       break;
     case 'match':
-      body = <Match task={task} locked={locked} result={result} keep={keep} onReply={onReply} />;
+      body = <Match task={task} locked={locked} keep={keep} onReply={onReply} />;
       break;
     case 'build':
       body = <Build task={task} locked={locked} onReply={onReply} />;
@@ -1205,21 +1211,31 @@ function Choose({
   );
 }
 
-/**
- * «Соедини» (ENG-006): нажал слово — оно подсвечено; нажал перевод (или наоборот) — пара
- * соединена, у неё свой номер и цвет с обеих сторон. Нажал на соединённое — пара разъединена.
- * Все соединены — «Проверить»; после проверки у каждой пары видно, верна ли она.
- */
+/** Тряска на общей пружине, отдельно от transform самой Button. */
+function MatchWord({ bad, children }: { bad: boolean; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const shake = useSpring(0, 0.35, (x) => {
+    if (box.current) box.current.style.transform = x === 0 ? '' : `translateX(${x.toFixed(2)}px)`;
+  });
+  useEffect(() => {
+    if (bad) loop().kick(shake, 260);
+  }, [bad, shake]);
+  return (
+    <div className="eng-match-word" ref={box}>
+      {children}
+    </div>
+  );
+}
+
+/** «Соедини»: пара проверяется сразу; ответ уходит после последней верной пары. */
 function Match({
   task,
   locked,
-  result,
   keep,
   onReply,
 }: {
   task: Task;
   locked: boolean;
-  result: Answered | null;
   keep: Pair[];
   onReply: (r: Reply) => void;
 }) {
@@ -1228,59 +1244,75 @@ function Match({
   const right = useMemo(() => matchRight(task), [task]);
   const [pick, setPick] = useState<{ side: 0 | 1; w: string } | null>(null);
   const [made, setMade] = useState<Pair[]>(keep);
-  const ok = result ? pairsOk(task, made) : null;
+  const [bad, setBad] = useState<Pair | null>(null);
+  const [errors, setErrors] = useState(0);
+  const mistake = useRef<Pair | null>(null);
+  const full = made.length === pairs.length && pairs.length > 0;
+
+  useEffect(() => {
+    if (!bad) return;
+    const timer = setTimeout(() => setBad(null), 600);
+    return () => clearTimeout(timer);
+  }, [bad]);
+
   const tap = (side: 0 | 1, w: string) => {
-    if (locked) return;
-    const at = made.findIndex((m) => m[side] === w);
-    if (at >= 0) {
-      // соединённое — разъединить, и слово снова выбрано
-      setMade(made.filter((_, i) => i !== at));
-      setPick({ side, w });
-      return;
-    }
+    if (locked || bad || full || made.some((pair) => pair[side] === w)) return;
     if (!pick || pick.side === side) {
       setPick(pick?.w === w && pick.side === side ? null : { side, w });
       return;
     }
     const pair: Pair = side === 1 ? [pick.w, w] : [w, pick.w];
-    setMade([...made, pair]);
     setPick(null);
+    const correct = pairOk(task, pair);
+    playCue(correct ? 'ok' : 'bad');
+    if (!correct) {
+      mistake.current ??= pair;
+      setErrors((n) => n + 1);
+      setBad(pair);
+      return;
+    }
+    const next = [...made, pair];
+    setMade(next);
+    if (next.length === pairs.length) onReply({ value: matchReply(next, mistake.current) });
   };
   const tile = (side: 0 | 1, w: string) => {
     const at = made.findIndex((m) => m[side] === w);
     const picked = pick?.side === side && pick.w === w;
-    const state = at >= 0 && ok ? (ok[at] ? 'ok' : 'bad') : picked ? 'picked' : undefined;
-    const name = at >= 0 ? `пара ${at + 1}${state ? STATE_WORD[state] : ''}` : undefined;
+    const wrong = bad?.[side] === w;
+    const state = at >= 0 ? 'ok' : wrong ? 'bad' : picked ? 'picked' : undefined;
+    const name = at >= 0 ? `пара ${at + 1}${STATE_WORD.ok}` : wrong ? 'неверная пара' : null;
     return (
-      <Button
-        key={w}
-        dot={false}
-        className="eng-opt eng-pair"
-        data-pair={at >= 0 ? (at % PAIR_TONES) + 1 : undefined}
-        data-state={state}
-        aria-pressed={picked}
-        aria-disabled={locked || undefined}
-        aria-label={name ? `${w}, ${name}` : w}
-        onClick={() => tap(side, w)}
-      >
-        <span className="eng-pair-n" aria-hidden="true">
-          {at >= 0 ? at + 1 : ''}
-        </span>
-        <span lang={side === 0 ? 'en' : 'ru'}>{w}</span>
-      </Button>
+      <MatchWord key={w} bad={wrong}>
+        <Button
+          dot={false}
+          className="eng-opt eng-pair"
+          data-pair={at >= 0 ? (at % PAIR_TONES) + 1 : undefined}
+          data-state={state}
+          aria-pressed={picked}
+          disabled={locked || at >= 0 || wrong || full}
+          aria-label={name ? `${w}, ${name}` : w}
+          onClick={() => tap(side, w)}
+        >
+          <span className="eng-pair-n" aria-hidden="true">
+            {at >= 0 ? at + 1 : ''}
+          </span>
+          <span lang={side === 0 ? 'en' : 'ru'}>{w}</span>
+        </Button>
+      </MatchWord>
     );
   };
-  const full = made.length === pairs.length && pairs.length > 0;
   return (
     <>
-      <p className="eng-hint" aria-live="polite">
-        {result
-          ? `Верных пар: ${ok?.filter(Boolean).length ?? 0} из ${pairs.length}`
-          : pick
-            ? `Выбрано «${pick.w}» — теперь нажми ${pick.side === 0 ? 'перевод' : 'английское слово'}`
-            : `Соединено ${made.length} из ${pairs.length}. Нажми на пару, чтобы разъединить.`}
+      <p className="eng-hint" role="status">
+        {bad
+          ? `Неверная пара: «${bad[0]}» и «${bad[1]}». Попробуй ещё раз.`
+          : full
+            ? `Все пары соединены.${errors ? ' Были ошибки при подборе.' : ''}`
+            : pick
+              ? `Выбрано «${pick.w}» — теперь нажми ${pick.side === 0 ? 'перевод' : 'английское слово'}`
+              : `Верных пар: ${made.length} из ${pairs.length}. Выбери слово и перевод.`}
       </p>
-      <div className="eng-match">
+      <div className="eng-match" aria-busy={!!bad}>
         <div role="group" aria-label="Английские слова">
           {left.map((w) => tile(0, w))}
         </div>
@@ -1288,24 +1320,10 @@ function Match({
           {right.map((w) => tile(1, w))}
         </div>
       </div>
-      {!locked && (
-        <div className="eng-row">
-          {made.length > 0 && (
-            <Button
-              size="sm"
-              dot={false}
-              onClick={() => {
-                setMade([]);
-                setPick(null);
-              }}
-            >
-              Сначала
-            </Button>
-          )}
-          <Button variant="fill" disabled={!full} onClick={() => onReply({ value: made })}>
-            Проверить
-          </Button>
-        </div>
+      {full && !locked && (
+        <Button onClick={() => onReply({ value: matchReply(made, mistake.current) })}>
+          Отправить ответ ещё раз
+        </Button>
       )}
     </>
   );
@@ -1675,6 +1693,12 @@ function SettingsView() {
   const adapt = useAdapt();
   const [err, setErr] = useState<{ text: string; code: string | null } | null>(null);
   const [adapted, setAdapted] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState(readFeedback);
+  const setCue = (key: keyof FeedbackSettings, value: boolean) => {
+    const next = { ...feedback, [key]: value };
+    setFeedback(next);
+    writeFeedback(next);
+  };
   if (q.isError) return <Denied error={q.error} />;
   const body = q.data;
   if (!body) return <p className="later">Загружаю…</p>;
@@ -1686,6 +1710,20 @@ function SettingsView() {
   const current = s.voice ?? body.voices[0]?.id;
   return (
     <section className="eng-card eng-settings" aria-label="Настройки английского">
+      <h3 className="eng-h">Сигналы ответа</h3>
+      <div className="eng-switch">
+        <span>Звук</span>
+        <Switch checked={feedback.sound} onChange={(v) => setCue('sound', v)} label="Звук" />
+      </div>
+      <div className="eng-switch">
+        <span>Вибрация</span>
+        <Switch
+          checked={feedback.haptics}
+          onChange={(v) => setCue('haptics', v)}
+          label="Вибрация"
+        />
+      </div>
+      <p className="eng-hint">Тихие сигналы на верный и неверный ответ. Только на этом устройстве.</p>
       <VoiceEngine body={body} set={set} />
       <h3 className="eng-h">
         Голос Нейта — ElevenLabs{body.engine?.engine === 'chatgpt' && ' (запасной)'}
