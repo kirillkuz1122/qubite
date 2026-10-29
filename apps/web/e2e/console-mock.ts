@@ -8,6 +8,7 @@ import { OWNER, USER, type AuthMock } from './auth-mock';
  * но пароль для них (как и для тумблеров, доступа, модулей и AI) спрашивает эта подделка.
  */
 export interface ConsoleMock {
+  deploy: AuthMock['health']['deploy'];
   items: Map<string, { key: string; value: unknown; version: number }>;
   accounts: Record<string, unknown>[];
   modules: Record<string, unknown>[];
@@ -65,6 +66,7 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
     providers: owner ? ['telegram'] : [],
   });
   const c: ConsoleMock = {
+    deploy: { ...auth.health.deploy },
     items: new Map(start.map(([key, value]) => [key, { key, value, version: 1 }])),
     accounts: [person(OWNER, true), person(USER, false)],
     modules: [
@@ -302,6 +304,7 @@ export async function mockConsole(page: Page, auth: AuthMock): Promise<ConsoleMo
     if (at === 'GET /api/owner/server')
       return json(route, 200, {
         version: '0.1.0',
+        deploy: c.deploy,
         started_at: AT,
         uptime_secs: 7500,
         migration: 22,

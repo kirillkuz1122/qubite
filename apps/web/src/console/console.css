@@ -257,6 +257,10 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.cs-deploy .q-note > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .cs-grants {
   display: grid;
   gap: 10px;

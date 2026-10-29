@@ -782,6 +782,11 @@ a.set {
 .set .lbl {
   flex: 1;
 }
+.set[data-obj='set-version'] .lbl,
+.set-rollback .q-note > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .set small {
   display: block;
   font-size: 12px;
