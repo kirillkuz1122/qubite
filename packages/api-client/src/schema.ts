@@ -2485,22 +2485,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/v1/opportunities/{id}/interested': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations['interested_opportunity'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   '/api/v1/opportunities/{id}/dismiss': {
     parameters: {
       query?: never;
@@ -2510,7 +2494,25 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /** Скрыть мероприятие из предложений с возможностью отката. */
     post: operations['dismiss_opportunity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/opportunities/{id}/interested': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Создать дела для участия одним откатываемым пакетом. */
+    post: operations['interested_opportunity'];
     delete?: never;
     options?: never;
     head?: never;
@@ -11722,60 +11724,6 @@ export interface operations {
       };
     };
   };
-  interested_opportunity: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description ID мероприятия */
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OpportunityDecision'];
-        };
-      };
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-    };
-  };
   dismiss_opportunity: {
     parameters: {
       query?: never;
@@ -11788,6 +11736,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
+      /** @description Мероприятие отклонено */
       200: {
         headers: {
           [name: string]: unknown;
@@ -11796,6 +11745,7 @@ export interface operations {
           'application/json': components['schemas']['OpportunityDecision'];
         };
       };
+      /** @description Нужно войти */
       401: {
         headers: {
           [name: string]: unknown;
@@ -11804,6 +11754,7 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description Нет доступа к агенту */
       403: {
         headers: {
           [name: string]: unknown;
@@ -11812,6 +11763,66 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description Не найдено */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  interested_opportunity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID мероприятия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Участие запланировано */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OpportunityDecision'];
+        };
+      };
+      /** @description Мероприятие уже началось */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту или планеру */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не найдено */
       404: {
         headers: {
           [name: string]: unknown;
