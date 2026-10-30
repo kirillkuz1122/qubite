@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { must } from '../auth/client';
-import { TIMELINE } from './agent';
+import { OPPORTUNITIES_ROOT, TIMELINE } from './agent';
 import type {
   AgentChat,
   AgentFile,
@@ -38,7 +38,7 @@ export function useFile(id: string | null) {
   });
 }
 
-/** Всё, что мог поменять агент или ты: файлы, вопросы, ленту. */
+/** Всё, что мог поменять агент или ты: файлы, вопросы, ленту, «Возможности» (`opportunity.add`). */
 function useRefresh() {
   const qc = useQueryClient();
   return () => {
@@ -46,6 +46,7 @@ function useRefresh() {
     void qc.invalidateQueries({ queryKey: QUESTIONS });
     void qc.invalidateQueries({ queryKey: SKILLS });
     void qc.invalidateQueries({ queryKey: TIMELINE });
+    void qc.invalidateQueries({ queryKey: OPPORTUNITIES_ROOT });
   };
 }
 
