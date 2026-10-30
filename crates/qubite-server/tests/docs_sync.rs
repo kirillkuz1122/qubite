@@ -62,9 +62,7 @@ async fn post(browser: &mut Browser, address: SocketAddr, id: Uuid, packet: Valu
 }
 
 async fn exchange(browser: &mut Browser, address: SocketAddr, id: Uuid) -> Value {
-    let reply = browser
-        .get(address, &format!("/api/v1/docs/{id}/y"))
-        .await;
+    let reply = browser.get(address, &format!("/api/v1/docs/{id}/y")).await;
     assert_eq!(reply.status, 200, "{}", reply.body);
     reply.body
 }
@@ -132,16 +130,19 @@ async fn offline_create_exchange_retry_search_and_legacy_edit() {
     let invalid = push(
         &mut owner,
         address,
-        vec![json!({"op_id": Uuid::now_v7(), "object_id": invalid_id, "kind": "create",
-            "object_type": "docs.page", "title": "Не создать", "fields": {"body": "нельзя"}})],
+        vec![
+            json!({"op_id": Uuid::now_v7(), "object_id": invalid_id, "kind": "create",
+            "object_type": "docs.page", "title": "Не создать", "fields": {"body": "нельзя"}}),
+        ],
     )
     .await;
     assert_eq!(invalid["results"][0]["reason"], "invalid");
-    let absent: bool = sqlx::query_scalar("SELECT NOT EXISTS (SELECT 1 FROM objects WHERE id = $1)")
-        .bind(invalid_id)
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
+    let absent: bool =
+        sqlx::query_scalar("SELECT NOT EXISTS (SELECT 1 FROM objects WHERE id = $1)")
+            .bind(invalid_id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
     assert!(absent, "отклонённый create не оставляет объект без полей");
     let id = create(&mut owner, address, None).await;
     let first = exchange(&mut owner, address, id).await;
@@ -158,7 +159,8 @@ async fn offline_create_exchange_retry_search_and_legacy_edit() {
     assert_eq!(legacy.status, 200, "{}", legacy.body);
     let before_seed = exchange(&mut owner, address, id).await;
     assert_eq!(before_seed["seed_markdown"], "# Старый документ");
-    let packet = json!({"update": update("Старый документ", 1), "text": "Старый документ", "seed": true});
+    let packet =
+        json!({"update": update("Старый документ", 1), "text": "Старый документ", "seed": true});
     let seeded = post(&mut owner, address, id, packet.clone()).await;
     assert_eq!(seeded.status, 200, "{}", seeded.body);
     let seeded_again = post(&mut owner, address, id, packet.clone()).await;
@@ -331,7 +333,10 @@ async fn seed_race_and_invalid_updates_leave_state_unchanged() {
     // Длина plain text измеряется в символах, а не байтах UTF-8.
     let boundary = create(&mut owner, address, None).await;
     let packet = json!({"update": update("я", 6), "text": "я".repeat(200_000)});
-    assert_eq!(post(&mut owner, address, boundary, packet).await.status, 200);
+    assert_eq!(
+        post(&mut owner, address, boundary, packet).await.status,
+        200
+    );
     db.close().await;
     test_db.drop_db().await;
 }
@@ -427,7 +432,10 @@ async fn docs_only_websocket_is_notified_for_new_state_but_not_retry() {
         tokio::time::timeout(Duration::from_millis(300), socket.next()).await
     {}
     let packet = json!({"update": update("Новый текст", 10), "text": "Новый текст"});
-    assert_eq!(post(&mut user, address, id, packet.clone()).await.status, 200);
+    assert_eq!(
+        post(&mut user, address, id, packet.clone()).await.status,
+        200
+    );
     let changed = tokio::time::timeout(Duration::from_secs(5), socket.next())
         .await
         .unwrap()

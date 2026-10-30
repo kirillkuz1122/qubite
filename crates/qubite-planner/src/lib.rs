@@ -18,9 +18,9 @@
 
 pub mod event;
 pub mod folder;
-pub mod ydoc;
 pub mod recurrence;
 pub mod reminder;
+pub mod ydoc;
 
 pub use qubite_objects::{Error, Result};
 use qubite_objects::{NewObject, NewRelation, Object, objects, relations};

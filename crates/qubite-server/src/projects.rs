@@ -659,7 +659,7 @@ pub async fn list_my_docs(
         query.q.as_deref().unwrap_or_default(),
     )
     .await
-        .map_err(planner_error)?;
+    .map_err(planner_error)?;
     Ok(Json(ProjectDocList {
         docs: docs.iter().map(ProjectDocItem::from).collect(),
     }))

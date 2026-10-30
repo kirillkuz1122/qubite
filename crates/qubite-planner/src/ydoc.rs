@@ -291,7 +291,16 @@ pub fn preview(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{GetString, Text};
+    use yrs::{GetString, OffsetKind, Options, Text};
+
+    /// Позиции в UTF-16, как у yjs в браузере (по умолчанию yrs считает байты).
+    fn utf16(client: u64) -> Doc {
+        Doc::with_options(Options {
+            client_id: yrs::block::ClientID::new(client),
+            offset_kind: OffsetKind::Utf16,
+            ..Options::default()
+        })
+    }
 
     fn full(doc: &Doc) -> Vec<u8> {
         doc.transact()
@@ -299,7 +308,7 @@ mod tests {
     }
 
     fn copy(state: &[u8], client: u64) -> Doc {
-        let doc = Doc::with_client_id(client);
+        let doc = utf16(client);
         doc.transact_mut()
             .apply_update(Update::decode_v1(state).unwrap())
             .unwrap();
@@ -308,7 +317,7 @@ mod tests {
 
     #[test]
     fn independent_copies_converge_and_diff_only_sends_missing_changes() {
-        let base = Doc::with_client_id(1);
+        let base = utf16(1);
         let text = base.get_or_insert_text("text");
         text.insert(&mut base.transact_mut(), 0, "Начало");
         let initial = full(&base);
@@ -342,7 +351,7 @@ mod tests {
 
     #[test]
     fn pending_updates_survive_storage_and_deletions_are_changes() {
-        let doc = Doc::with_client_id(1);
+        let doc = utf16(1);
         let text = doc.get_or_insert_text("text");
         text.insert(&mut doc.transact_mut(), 0, "А");
         let first = full(&doc);
@@ -372,7 +381,7 @@ mod tests {
             merge(None, &vec![0; MAX_UPDATE_BYTES + 1]),
             Err(Error::UpdateTooLarge)
         ));
-        let doc = Doc::with_client_id(1);
+        let doc = utf16(1);
         let text = doc.get_or_insert_text("text");
         let mut state = None;
         for _ in 0..10 {

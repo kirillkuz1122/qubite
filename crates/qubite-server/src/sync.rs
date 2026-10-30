@@ -185,24 +185,25 @@ pub async fn socket(
         ));
     }
     // Подсказка без данных: хватает права чтения в любом модуле с синхронизацией.
-    let authorized =
-        match crate::modules::authorize::<Read>(&state, &session, qubite_inbox::MODULE).await {
-            Ok(proof) => proof,
-            Err(_) => {
-                match crate::modules::authorize::<Read>(&state, &session, qubite_planner::MODULE).await
-                {
-                    Ok(proof) => proof,
-                    Err(_) => {
-                        crate::modules::authorize::<Read>(
-                            &state,
-                            &session,
-                            qubite_planner::folder::DOCS_MODULE,
-                        )
-                        .await?
-                    }
+    let authorized = match crate::modules::authorize::<Read>(&state, &session, qubite_inbox::MODULE)
+        .await
+    {
+        Ok(proof) => proof,
+        Err(_) => {
+            match crate::modules::authorize::<Read>(&state, &session, qubite_planner::MODULE).await
+            {
+                Ok(proof) => proof,
+                Err(_) => {
+                    crate::modules::authorize::<Read>(
+                        &state,
+                        &session,
+                        qubite_planner::folder::DOCS_MODULE,
+                    )
+                    .await?
                 }
             }
-        };
+        }
+    };
     let changes = state.changes.subscribe(state.db.pool());
     Ok(upgrade.on_upgrade(move |socket| run_socket(socket, state, authorized, changes)))
 }
