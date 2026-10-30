@@ -31,7 +31,26 @@ fn window() -> String {
 async fn create_patch_repeat_and_soft_delete() {
     let (test_db, db, address) = common::setup(AuthSettings::default()).await;
     let mut owner = logged_in(address).await;
+    let project = Uuid::now_v7();
+    let pushed = owner
+        .post_json(
+            address,
+            "/api/v1/sync/push",
+            json!({
+                "device_id": Uuid::now_v7(),
+                "ops": [{
+                    "op_id": Uuid::now_v7(), "object_id": project,
+                    "kind": "create", "object_type": "planner.project",
+                    "title": "Спорт", "fields": {},
+                }],
+            }),
+        )
+        .await;
+    assert_eq!(pushed.status, 200, "{:?}", pushed.body);
+    assert_eq!(pushed.body["results"][0]["status"], "applied");
     let mut input = event("Тренировка");
+    input["notes"] = json!("Взять кроссовки");
+    input["project_id"] = json!(project);
     input["recurrence"] = json!({"freq": "daily"});
     let made = owner
         .post_json(address, "/api/calendar/events", input)
@@ -42,6 +61,11 @@ async fn create_patch_repeat_and_soft_delete() {
     assert!(made.body["created_at"].is_i64());
     let id = made.body["id"].as_str().unwrap();
     let path = format!("/api/calendar/events/{id}");
+    let fetched = owner.get(address, &path).await;
+    assert_eq!(fetched.status, 200, "{:?}", fetched.body);
+    assert_eq!(fetched.body, made.body);
+    assert_eq!(fetched.body["notes"], "Взять кроссовки");
+    assert_eq!(fetched.body["project_id"], project.to_string());
 
     let listed = owner.get(address, &window()).await;
     assert_eq!(listed.status, 200, "{:?}", listed.body);
@@ -63,6 +87,9 @@ async fn create_patch_repeat_and_soft_delete() {
         .await;
     assert_eq!(edited.status, 200, "{:?}", edited.body);
     assert_eq!(edited.body["revision"], 2);
+    let fetched = owner.get(address, &path).await;
+    assert_eq!(fetched.status, 200, "{:?}", fetched.body);
+    assert_eq!(fetched.body, edited.body);
     let stale = owner
         .patch_json(address, &path, json!({"title": "старое", "revision": 1}))
         .await;
@@ -79,6 +106,9 @@ async fn create_patch_repeat_and_soft_delete() {
         .await;
     assert_eq!(cleared.status, 200, "{:?}", cleared.body);
     assert!(cleared.body["recurrence"].is_null());
+    let fetched = owner.get(address, &path).await;
+    assert_eq!(fetched.status, 200, "{:?}", fetched.body);
+    assert_eq!(fetched.body, cleared.body);
     assert_eq!(
         owner
             .get(address, &window())
@@ -90,6 +120,7 @@ async fn create_patch_repeat_and_soft_delete() {
         1
     );
     assert_eq!(owner.delete(address, &path).await.status, 204);
+    assert_eq!(owner.get(address, &path).await.status, 404);
     assert_eq!(owner.delete(address, &path).await.status, 404);
     assert_eq!(
         owner
@@ -106,6 +137,20 @@ async fn create_patch_repeat_and_soft_delete() {
             .await
             .unwrap();
     assert_eq!(deleted, (true, 4));
+    assert_eq!(
+        owner
+            .get(address, &format!("/api/calendar/events/{}", Uuid::now_v7()))
+            .await
+            .status,
+        404
+    );
+    assert_eq!(
+        owner
+            .get(address, "/api/calendar/events/not-a-uuid")
+            .await
+            .status,
+        400
+    );
     db.close().await;
     test_db.drop_db().await;
 }
@@ -221,6 +266,7 @@ async fn events_are_private_and_invalid_windows_and_fields_are_rejected() {
         200
     );
     assert_eq!(other.get(address, &window()).await.status, 403);
+    assert_eq!(other.get(address, &path).await.status, 403);
     assert_eq!(
         other
             .post_json(address, "/api/calendar/events", event("x"))
@@ -237,6 +283,7 @@ async fn events_are_private_and_invalid_windows_and_fields_are_rejected() {
         .await;
     assert_eq!(grant.status, 200, "{:?}", grant.body);
     assert_eq!(other.get(address, &window()).await.body, json!([]));
+    assert_eq!(other.get(address, &path).await.status, 404);
     assert_eq!(
         other
             .patch_json(address, &path, json!({"title": "Чужое"}))
@@ -252,6 +299,27 @@ async fn events_are_private_and_invalid_windows_and_fields_are_rejected() {
     let listed = other.get(address, &window()).await;
     assert_eq!(listed.body.as_array().unwrap().len(), 1);
     assert_eq!(listed.body[0]["title"], "Моё");
+
+    let grant = owner
+        .put_json(
+            address,
+            &format!("/api/owner/accounts/{}/grants/planner", user.id),
+            json!({"read": true, "write": false, "manage": false, "ai": false}),
+        )
+        .await;
+    assert_eq!(grant.status, 200, "{:?}", grant.body);
+    let mine_path = format!("/api/calendar/events/{}", mine.body["id"].as_str().unwrap());
+    let fetched = other.get(address, &mine_path).await;
+    assert_eq!(fetched.status, 200, "{:?}", fetched.body);
+    assert_eq!(fetched.body, mine.body);
+    assert_eq!(other.get(address, &path).await.status, 404);
+    assert_eq!(
+        other
+            .patch_json(address, &mine_path, json!({"title": "Нельзя"}))
+            .await
+            .status,
+        403
+    );
 
     for query in ["from=1&to=1", "from=2&to=1", "from=0&to=5356800001"] {
         assert_eq!(

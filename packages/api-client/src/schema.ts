@@ -531,7 +531,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations['get_event'];
     put?: never;
     post?: never;
     delete: operations['delete_event'];
@@ -6371,6 +6371,47 @@ export interface operations {
         };
       };
       /** @description Проект не найден */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_event: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID события */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Событие */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarEvent'];
+        };
+      };
+      /** @description Нет права читать Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Событие не найдено */
       404: {
         headers: {
           [name: string]: unknown;

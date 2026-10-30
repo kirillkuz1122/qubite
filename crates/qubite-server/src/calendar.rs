@@ -302,6 +302,26 @@ pub async fn create_event(
     Ok((StatusCode::CREATED, Json(value)))
 }
 
+#[utoipa::path(get, path = "/api/calendar/events/{id}", tag = "calendar",
+    params(("id" = Uuid, Path, description = "ID события")),
+    responses(
+        (status = 200, description = "Событие", body = CalendarEvent),
+        (status = 403, description = "Нет права читать Planner", body = ApiErrorBody),
+        (status = 404, description = "Событие не найдено", body = ApiErrorBody),
+    ))]
+pub async fn get_event(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+) -> Result<Json<event::Event>, ApiError> {
+    authorize::<Read>(&state, &session, qubite_planner::MODULE).await?;
+    let mut conn = state.db.pool().acquire().await.map_err(database_error)?;
+    event::get(&mut conn, session.0.account_id, id)
+        .await
+        .map(Json)
+        .map_err(planner_error)
+}
+
 #[utoipa::path(patch, path = "/api/calendar/events/{id}", tag = "calendar",
     params(("id" = Uuid, Path, description = "ID события")),
     request_body = CalendarEventPatch,
