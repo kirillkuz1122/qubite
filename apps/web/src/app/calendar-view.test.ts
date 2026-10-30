@@ -177,7 +177,7 @@ describe('можно ли переносить серию', () => {
   const anotherDay = moveCalendarItem(occurrence, DAY, '2026-10-31', 0, ZONE);
   const anotherTime = moveCalendarItem(occurrence, DAY, DAY, 15, ZONE);
 
-  it.each<[string, CalendarEvent['recurrence']]>([
+  it.each<[string, Exclude<CalendarEvent['recurrence'], undefined>]>([
     ['без повтора', null],
     ['каждые два дня', { freq: 'daily', interval: 2 }],
     ['каждую неделю по двум дням', { freq: 'weekly', interval: 1, weekdays: [1, 5] }],

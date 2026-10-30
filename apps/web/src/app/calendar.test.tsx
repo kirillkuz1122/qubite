@@ -95,7 +95,9 @@ describe('календарь и аккаунт', () => {
 
     await act(async () => me.resolve(json({ id: 'first' })));
     await waitFor(() => expect(result.current.data).toEqual([item]));
-    expect(context.client.getQueryData(['calendar', 'first', window.from, window.to])).toEqual([item]);
+    expect(context.client.getQueryData(['calendar', 'first', window.from, window.to])).toEqual([
+      item,
+    ]);
   });
 
   it('не запрашивает записи для гостя', async () => {
@@ -124,7 +126,9 @@ describe('календарь и аккаунт', () => {
     await act(async () => denied.resolve(json({ error: 'forbidden' }, 403)));
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();
-    expect(context.client.getQueryData(['calendar', 'first', window.from, window.to])).toEqual([item]);
+    expect(context.client.getQueryData(['calendar', 'first', window.from, window.to])).toEqual([
+      item,
+    ]);
     expect(
       context.client.getQueryState(['calendar', 'second', window.from, window.to])?.status,
     ).toBe('error');
@@ -139,7 +143,7 @@ describe('календарь и аккаунт', () => {
     await act(async () => {
       await result.current.refetch();
     });
-    expect(result.current.isError).toBe(true);
+    await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();
   });
 });
