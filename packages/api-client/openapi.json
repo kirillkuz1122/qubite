@@ -7674,6 +7674,25 @@
             "schema": {
               "type": ["string", "null"]
             }
+          },
+          {
+            "name": "upcoming",
+            "in": "query",
+            "description": "Только ещё не закончившиеся.",
+            "required": false,
+            "schema": {
+              "type": ["boolean", "null"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Сколько строк вернуть (1–200); по умолчанию все.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
           }
         ],
         "responses": {

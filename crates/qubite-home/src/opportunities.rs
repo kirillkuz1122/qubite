@@ -568,21 +568,44 @@ pub async fn list(
     status: Option<&str>,
     kind: Option<&str>,
 ) -> Result<Vec<Opportunity>> {
+    list_upcoming(pool, account, status, kind, false, None).await
+}
+
+/// Верхняя граница `limit`: Главной хватает десятков, а не сотен строк.
+pub const MAX_LIMIT: i64 = 200;
+
+/// Как [`list`], плюс `upcoming` — только ещё не закончившиеся — и `limit`.
+/// Прошедшие без `upcoming` не мешают счёту, только когда он включён: иначе
+/// они занимали бы место в первых строках ответа.
+pub async fn list_upcoming(
+    pool: &PgPool,
+    account: Uuid,
+    status: Option<&str>,
+    kind: Option<&str>,
+    upcoming: bool,
+    limit: Option<i64>,
+) -> Result<Vec<Opportunity>> {
     if status.is_some_and(|s| !STATUSES.contains(&s)) || kind.is_some_and(|s| !KINDS.contains(&s)) {
         return Err(Error::Invalid(
             "неизвестный статус или вид возможности".into(),
         ));
     }
+    if limit.is_some_and(|n| !(1..=MAX_LIMIT).contains(&n)) {
+        return Err(Error::Invalid(format!("limit — от 1 до {MAX_LIMIT}")));
+    }
     Ok(sqlx::query_as(
         "SELECT id, account_id, source, external_id, kind, title, subject, stage, grades, \
          registration_until, starts_at, ends_at, place, url, tags, status, why, created_at, updated_at \
          FROM opportunities WHERE account_id = $1 AND ($2::text IS NULL OR status = $2) \
-         AND ($3::text IS NULL OR kind = $3) \
-         ORDER BY COALESCE(registration_until, starts_at), starts_at, id",
+         AND ($3::text IS NULL OR kind = $3) AND (NOT $4 OR ends_at > now()) \
+         ORDER BY COALESCE(registration_until, starts_at), starts_at, id \
+         LIMIT $5",
     )
     .bind(account)
     .bind(status)
     .bind(kind)
+    .bind(upcoming)
+    .bind(limit)
     .fetch_all(pool)
     .await?)
 }

@@ -298,3 +298,46 @@ async fn source_failure_preserves_previous_records() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn upcoming_skips_finished_and_limit_is_checked() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = account(db.pool()).await;
+    let (_fake, sources, _) = fake_sources().await;
+    sources
+        .refresh_opportunities(db.pool(), owner)
+        .await
+        .unwrap();
+    let all = opportunities::list(db.pool(), owner, None, None)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE opportunities SET starts_at = now() - interval '2 days', \
+         ends_at = now() - interval '1 day' WHERE id = $1",
+    )
+    .bind(all[0].id)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let ahead = opportunities::list_upcoming(db.pool(), owner, None, None, true, None)
+        .await
+        .unwrap();
+    assert!(ahead.iter().all(|item| item.id != all[0].id));
+    assert!(
+        ahead
+            .iter()
+            .all(|item| item.ends_at > time::OffsetDateTime::now_utc())
+    );
+    let few = opportunities::list_upcoming(db.pool(), owner, None, None, true, Some(3))
+        .await
+        .unwrap();
+    assert_eq!(few.len(), 3);
+    assert_eq!(few[0].id, ahead[0].id, "порядок тот же, обрезан хвост");
+    for bad in [0, -1, opportunities::MAX_LIMIT + 1] {
+        assert!(matches!(
+            opportunities::list_upcoming(db.pool(), owner, None, None, false, Some(bad)).await,
+            Err(qubite_home::Error::Invalid(_))
+        ));
+    }
+    test_db.drop_db().await;
+}

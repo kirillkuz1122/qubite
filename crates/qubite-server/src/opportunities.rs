@@ -46,6 +46,10 @@ pub struct OpportunitiesQuery {
     status: Option<String>,
     /// olympiad, hackathon или contest.
     kind: Option<String>,
+    /// Только ещё не закончившиеся.
+    upcoming: Option<bool>,
+    /// Сколько строк вернуть (1–200); по умолчанию все.
+    limit: Option<i64>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -125,11 +129,13 @@ pub async fn list_opportunities(
     session: Authenticated,
     Query(query): Query<OpportunitiesQuery>,
 ) -> Result<Json<OpportunitiesList>, ApiError> {
-    let items = opportunities::list(
+    let items = opportunities::list_upcoming(
         state.db.pool(),
         session.0.account_id,
         query.status.as_deref(),
         query.kind.as_deref(),
+        query.upcoming.unwrap_or(false),
+        query.limit,
     )
     .await
     .map_err(api_error)?;

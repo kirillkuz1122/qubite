@@ -28,7 +28,11 @@ const KEEP = 10;
 const minutes = (n: number) => n * 60_000;
 
 async function list(status: 'suggested' | 'new', now: Date) {
-  const data = await must(api.GET('/api/v1/opportunities', { params: { query: { status } } }));
+  const data = await must(
+    api.GET('/api/v1/opportunities', {
+      params: { query: { status, upcoming: true, limit: KEEP } },
+    }),
+  );
   return ahead(data.items, now).slice(0, KEEP);
 }
 
@@ -57,32 +61,15 @@ export function useRefreshOpportunities() {
   });
 }
 
-/*
- * «Интересно» и «Не надо» сервер получает в #133 (AGT-005b). Пока этих путей нет в
- * `schema.ts`, зовём их без проверки типа пути; после `pnpm gen:api` — обычный `api.POST`
- * и одна форма ответа в `interestedResult`.
- */
-type Untyped = (
-  path: string,
-  init: { params: { path: { id: string } } },
-) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
-const post = (path: string, id: string) =>
-  must((api.POST as unknown as Untyped)(path, { params: { path: { id } } }));
-
 export interface Interested {
-  /** обновлённая возможность (статус `interested`), если сервер её прислал */
-  item: OpportunityItem | null;
   /** сколько дел поставлено одним пакетом ленты; 0 — уже стояли (повторное нажатие) */
   tasks: number;
 }
 
-/** Ответ «Интересно»: обновлённая возможность и созданные дела (контракт #133). */
-export function interestedResult(body: unknown): Interested {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const tasks = Array.isArray(b.tasks) ? b.tasks.length : 0;
-  const nested = (b.item ?? b.opportunity) as OpportunityItem | undefined;
-  const item = nested ?? (typeof b.id === 'string' && 'title' in b ? (b as OpportunityItem) : null);
-  return { item: item ?? null, tasks };
+/** Ответ «Интересно»: запись ленты со всеми шагами; дела — созданные `planner.task`. */
+export function interestedResult(body: components['schemas']['OpportunityDecision']): Interested {
+  const changes = body.action?.changes ?? [];
+  return { tasks: changes.filter((c) => c.created && c.object_type === 'planner.task').length };
 }
 
 /** «Интересно»: агент ставит дела (регистрация, подготовка, участие) одним пакетом с откатом. */
@@ -90,16 +77,16 @@ export function useInterested() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) =>
-      interestedResult(await post('/api/v1/opportunities/{id}/interested', id)),
+      interestedResult(
+        await must(api.POST('/api/v1/opportunities/{id}/interested', { params: { path: { id } } })),
+      ),
     onSuccess: (result, id) => {
       qc.setQueryData<OpportunityPick>(OPPORTUNITIES, (old) =>
         old
           ? {
               ...old,
               items: old.items.map((i) =>
-                i.id === id
-                  ? { ...i, ...(result.item ?? {}), status: 'interested', tasks: result.tasks }
-                  : i,
+                i.id === id ? { ...i, status: 'interested', tasks: result.tasks } : i,
               ),
             }
           : old,
@@ -123,7 +110,7 @@ export function forget(qc: QueryClient, id: string) {
 
 /** «Не надо»: статус `dismissed`, больше не предлагается. */
 export function dismiss(id: string) {
-  return post('/api/v1/opportunities/{id}/dismiss', id);
+  return must(api.POST('/api/v1/opportunities/{id}/dismiss', { params: { path: { id } } }));
 }
 
 export function useDismiss() {

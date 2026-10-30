@@ -187,15 +187,20 @@ export async function mockOpportunities(page: Page, items: Item[] = suggested())
         });
       }
       it.status = 'interested';
-      const tasks = [`Зарегистрироваться на ${it.title}`, `Подготовиться к ${it.title}`];
-      tasks.push(`${it.title} — участие`);
-      return route.fulfill({
-        json: { item: it, tasks: tasks.map((title, i) => ({ id: `${it.id}-${i}`, title })) },
-      });
+      const titles = [`Зарегистрироваться на ${it.title}`, `Подготовиться к ${it.title}`];
+      titles.push(`${it.title} — участие`);
+      const changes = titles.map((title, i) => ({
+        created: true,
+        diff: [],
+        object_id: `${it.id}-${i}`,
+        object_type: 'planner.task',
+        title,
+      }));
+      return route.fulfill({ json: { action: { id: `act-${it.id}`, changes } } });
     }
     if (action === 'dismiss') {
       it.status = 'dismissed';
-      return route.fulfill({ json: it });
+      return route.fulfill({ json: { action: { id: `act-${it.id}`, changes: [] } } });
     }
     return route.fulfill({ status: 404, json: { error: 'not_found', message: 'Нет' } });
   });

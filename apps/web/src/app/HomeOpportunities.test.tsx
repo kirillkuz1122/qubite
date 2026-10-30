@@ -54,6 +54,22 @@ function item(over: Partial<Item> = {}): Item {
   };
 }
 
+/** Запись ленты «Интересно»: смена статуса мероприятия и три созданных дела. */
+const decision = () => ({
+  action: {
+    changes: [
+      { created: false, diff: [], object_id: 'o', object_type: 'agent.opportunity', title: 'М' },
+      ...[1, 2, 3].map((i) => ({
+        created: true,
+        diff: [],
+        object_id: `t${i}`,
+        object_type: 'planner.task',
+        title: `дело ${i}`,
+      })),
+    ],
+  },
+});
+
 const ok = (data: unknown) => Promise.resolve({ data, response: new Response(null) });
 const fail = (status: number, message: string) =>
   Promise.resolve({
@@ -82,11 +98,11 @@ beforeEach(() => {
       const it = server.items.find((i) => i.id === id);
       if (path.endsWith('/interested')) {
         it!.status = 'interested';
-        return ok({ item: it, tasks: [{ id: 't1' }, { id: 't2' }, { id: 't3' }] });
+        return ok(decision());
       }
       if (path.endsWith('/dismiss')) {
         it!.status = 'dismissed';
-        return ok(it);
+        return ok({ action: { changes: [] } });
       }
       return ok({ inserted: 0, failed_sources: [] });
     });
@@ -202,11 +218,7 @@ describe('Возможности на Главной', () => {
     post.mockImplementationOnce((path: string, init: { params: { path: { id: string } } }) => {
       server.posts.push(path.replace('{id}', init.params.path.id));
       return new Promise((resolve) => {
-        answer = () =>
-          resolve({
-            data: { item: { ...server.items[0], status: 'interested' }, tasks: [1, 2, 3] },
-            response: new Response(null),
-          });
+        answer = () => resolve({ data: decision(), response: new Response(null) });
       });
     });
     show();
@@ -293,15 +305,27 @@ describe('Возможности на Главной', () => {
   });
 });
 
-describe('ответ «Интересно» (до #133 форма не закреплена)', () => {
-  it('возможность и дела — вложенно или одной записью', () => {
-    const it = item();
-    expect(interestedResult({ item: it, tasks: [1, 2, 3] })).toEqual({ item: it, tasks: 3 });
-    expect(interestedResult({ opportunity: it, tasks: [1, 2] })).toEqual({ item: it, tasks: 2 });
-    expect(interestedResult({ ...it, tasks: [] })).toEqual({
-      item: { ...it, tasks: [] },
-      tasks: 0,
-    });
-    expect(interestedResult(null)).toEqual({ item: null, tasks: 0 });
+describe('ответ «Интересно»', () => {
+  const change = (object_type: string, created: boolean) => ({
+    created,
+    diff: [],
+    object_id: 'x',
+    object_type,
+    title: 'дело',
+  });
+  it('считает созданные дела пакета, а не смену статуса мероприятия', () => {
+    const action = {
+      changes: [
+        change('agent.opportunity', false),
+        change('planner.task', true),
+        change('planner.task', true),
+        change('planner.task', true),
+      ],
+    } as unknown as components['schemas']['AgentAction'];
+    expect(interestedResult({ action })).toEqual({ tasks: 3 });
+  });
+  it('повторное нажатие — записи нет, дел 0', () => {
+    expect(interestedResult({ action: null })).toEqual({ tasks: 0 });
+    expect(interestedResult({})).toEqual({ tasks: 0 });
   });
 });
