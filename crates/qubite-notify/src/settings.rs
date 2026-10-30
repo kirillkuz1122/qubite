@@ -52,6 +52,7 @@ pub struct Settings {
     pub quiet_from: Time,
     pub quiet_to: Time,
     pub before_minutes: u16,
+    /// Запас для выхода, пока время дороги не рассчитано у самого дела.
     pub travel_minutes: u16,
     /// Вкладка Qubite была видна в этот момент.
     pub seen_at: Option<OffsetDateTime>,

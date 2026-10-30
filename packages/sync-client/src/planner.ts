@@ -44,6 +44,10 @@ export interface NewTask {
   due_date?: string | null;
   /** `ЧЧ:ММ`, только вместе с днём */
   due_time?: string | null;
+  place_text?: string | null;
+  place_lat?: number | null;
+  place_lon?: number | null;
+  travel_minutes?: number | null;
   subtasks?: Subtask[];
   recurrence?: Recurrence | null;
   project_id?: string | null;
@@ -63,6 +67,11 @@ export interface PlannerTask {
   priority: Priority;
   due_date: string | null;
   due_time: string | null;
+  /** Место и дорога; поля могут отсутствовать у старых локальных записей. */
+  place_text?: string | null;
+  place_lat?: number | null;
+  place_lon?: number | null;
+  travel_minutes?: number | null;
   subtasks: Subtask[];
   recurrence: Recurrence | null;
   project_id: string | null;
@@ -147,6 +156,10 @@ export function toTask(o: LocalObject): PlannerTask {
     priority: priority === 'important' || priority === 'urgent' ? priority : 'normal',
     due_date: str(f.due_date),
     due_time: str(f.due_time),
+    place_text: str(f.place_text),
+    place_lat: typeof f.place_lat === 'number' ? f.place_lat : null,
+    place_lon: typeof f.place_lon === 'number' ? f.place_lon : null,
+    travel_minutes: typeof f.travel_minutes === 'number' ? f.travel_minutes : null,
     subtasks: Array.isArray(f.subtasks) ? (f.subtasks as Subtask[]) : [],
     recurrence:
       f.recurrence && typeof f.recurrence === 'object' ? (f.recurrence as Recurrence) : null,

@@ -1556,6 +1556,7 @@ version = "0.1.0"
 dependencies = [
  "qubite-auth",
  "qubite-db",
+ "qubite-net",
  "qubite-testkit",
  "reqwest",
  "rustls",
@@ -1751,6 +1752,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "qubite-route"
+version = "0.1.0"
+dependencies = [
+ "qubite-net",
+ "qubite-testkit",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "qubite-server"
 version = "0.1.0"
 dependencies = [
@@ -1780,6 +1795,7 @@ dependencies = [
  "qubite-objects",
  "qubite-planner",
  "qubite-policy",
+ "qubite-route",
  "qubite-sync",
  "qubite-sync-server",
  "qubite-testkit",

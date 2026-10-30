@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Главная Qubite: погода, курсы и новости из открытых источников без ключей, с кэшем; настройки виджетов"
 
 [dependencies]
+qubite-net = { version = "0.1.0", path = "../qubite-net" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "query", "rustls-no-provider"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }

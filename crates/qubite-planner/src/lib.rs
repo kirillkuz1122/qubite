@@ -46,6 +46,7 @@ pub const MAX_SUBTASKS: usize = 100;
 pub const MAX_SUBTASK_CHARS: usize = 500;
 pub const MAX_TAG_CHARS: usize = 64;
 pub const MAX_REMIND_WHY_CHARS: usize = 300;
+pub const MAX_TRAVEL_MINUTES: i32 = 525_600;
 /// Пояс, если владелец платформы его не задал (как `platform.timezone`).
 pub const DEFAULT_TIMEZONE: &str = "Asia/Yekaterinburg";
 
@@ -338,6 +339,10 @@ pub struct Task {
     pub priority: Priority,
     pub due_date: Option<Date>,
     pub due_time: Option<Time>,
+    pub place_text: Option<String>,
+    pub place_lat: Option<f64>,
+    pub place_lon: Option<f64>,
+    pub travel_minutes: Option<i32>,
     pub subtasks: Vec<Subtask>,
     pub recurrence: Option<Recurrence>,
     /// Своё время напоминания; нет — «само» по смыслу дела ([`reminder`]).
@@ -370,6 +375,10 @@ struct TaskRow {
     priority: String,
     due_date: Option<Date>,
     due_time: Option<Time>,
+    place_text: Option<String>,
+    place_lat: Option<f64>,
+    place_lon: Option<f64>,
+    travel_minutes: Option<i32>,
     subtasks: Value,
     recurrence: Option<Value>,
     remind: Option<Value>,
@@ -384,7 +393,7 @@ struct TaskRow {
 const TASK_SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, \
      o.created_at, o.updated_at, t.notes, t.status, t.priority, t.due_date, t.due_time, \
      t.subtasks, t.recurrence, t.remind, t.remind_why, t.remind_by, t.completed_at, \
-     t.series_id, t.next_id, \
+     t.series_id, t.next_id, t.place_text, t.place_lat, t.place_lon, t.travel_minutes, \
      (SELECT r.to_id FROM relations r JOIN objects p ON p.id = r.to_id \
        WHERE r.from_id = o.id AND r.type = 'part_of' AND r.deleted_at IS NULL \
          AND p.type = 'planner.project' ORDER BY r.created_at DESC LIMIT 1) AS project_id \
@@ -405,6 +414,10 @@ impl TryFrom<TaskRow> for Task {
             priority: parse(&row.priority)?,
             due_date: row.due_date,
             due_time: row.due_time,
+            place_text: row.place_text,
+            place_lat: row.place_lat,
+            place_lon: row.place_lon,
+            travel_minutes: row.travel_minutes,
             subtasks: serde_json::from_value(row.subtasks).map_err(invalid)?,
             recurrence: row
                 .recurrence
@@ -444,6 +457,10 @@ impl Task {
             "priority": self.priority,
             "due_date": self.due_date.map(format_date),
             "due_time": self.due_time.map(format_time),
+            "place_text": self.place_text,
+            "place_lat": self.place_lat,
+            "place_lon": self.place_lon,
+            "travel_minutes": self.travel_minutes,
             "subtasks": self.subtasks,
             "recurrence": self.recurrence,
             "remind": self.remind,
@@ -516,7 +533,7 @@ pub struct ProjectFields {
 
 /// Поля дела при создании (`create.fields`) и изменении (`patch.fields`).
 /// При изменении — только меняющиеся; `null` очищает срок, время,
-/// повторение и проект.
+/// повторение, проект, место и время дороги.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TaskFields {
@@ -529,6 +546,15 @@ pub struct TaskFields {
     /// `ЧЧ:ММ`; без даты нельзя.
     #[serde(default, deserialize_with = "some")]
     pub due_time: Option<Option<String>>,
+    /// Адрес или название места назначения (до 1000 символов).
+    #[serde(default, deserialize_with = "some")]
+    pub place_text: Option<Option<String>>,
+    #[serde(default, deserialize_with = "some")]
+    pub place_lat: Option<Option<f64>>,
+    #[serde(default, deserialize_with = "some")]
+    pub place_lon: Option<Option<f64>>,
+    #[serde(default, deserialize_with = "some")]
+    pub travel_minutes: Option<Option<i32>>,
     /// Весь список шагов целиком.
     pub subtasks: Option<Vec<Subtask>>,
     /// Повторение; без срока нельзя.
@@ -606,6 +632,10 @@ struct TaskState {
     priority: Priority,
     due_date: Option<Date>,
     due_time: Option<Time>,
+    place_text: Option<String>,
+    place_lat: Option<f64>,
+    place_lon: Option<f64>,
+    travel_minutes: Option<i32>,
     subtasks: Vec<Subtask>,
     recurrence: Option<Recurrence>,
     remind: Option<Remind>,
@@ -621,6 +651,10 @@ impl TaskState {
             priority: task.priority,
             due_date: task.due_date,
             due_time: task.due_time,
+            place_text: task.place_text.clone(),
+            place_lat: task.place_lat,
+            place_lon: task.place_lon,
+            travel_minutes: task.travel_minutes,
             subtasks: task.subtasks.clone(),
             recurrence: task.recurrence.clone(),
             remind: task.remind.clone(),
@@ -636,6 +670,10 @@ impl TaskState {
             priority: Priority::Normal,
             due_date: None,
             due_time: None,
+            place_text: None,
+            place_lat: None,
+            place_lon: None,
+            travel_minutes: None,
             subtasks: Vec::new(),
             recurrence: None,
             remind: None,
@@ -667,6 +705,59 @@ impl TaskState {
         if let Some(time) = &fields.due_time {
             self.due_time = time.as_deref().map(parse_time).transpose().map_err(bad)?;
             changed.push("due_time");
+        }
+        let text_changed = fields
+            .place_text
+            .as_ref()
+            .is_some_and(|text| text != &self.place_text);
+        let point_changed = fields.place_lat.is_some_and(|lat| lat != self.place_lat)
+            || fields.place_lon.is_some_and(|lon| lon != self.place_lon);
+        if text_changed || point_changed {
+            self.travel_minutes = None;
+            changed.push("travel_minutes");
+        }
+        // Новый адрес без явной точки больше не использует прежние координаты.
+        if text_changed && fields.place_lat.is_none() && fields.place_lon.is_none() {
+            self.place_lat = None;
+            self.place_lon = None;
+            changed.extend(["place_lat", "place_lon"]);
+        }
+        if let Some(text) = &fields.place_text {
+            if text
+                .as_ref()
+                .is_some_and(|text| text.chars().count() > 1000)
+            {
+                return Err(bad("место длиннее 1000 символов"));
+            }
+            self.place_text = text
+                .as_ref()
+                .map(|text| text.trim().to_owned())
+                .filter(|text| !text.is_empty());
+            changed.push("place_text");
+        }
+        if let Some(lat) = fields.place_lat {
+            self.place_lat = lat;
+            changed.push("place_lat");
+        }
+        if let Some(lon) = fields.place_lon {
+            self.place_lon = lon;
+            changed.push("place_lon");
+        }
+        match (self.place_lat, self.place_lon) {
+            (None, None) => {}
+            (Some(lat), Some(lon))
+                if lat.is_finite()
+                    && lon.is_finite()
+                    && (-90.0..=90.0).contains(&lat)
+                    && (-180.0..=180.0).contains(&lon) => {}
+            _ => return Err(bad("у места нужна пара верных координат")),
+        }
+        if let Some(minutes) = fields.travel_minutes {
+            if minutes.is_some_and(|minutes| !(0..=MAX_TRAVEL_MINUTES).contains(&minutes)) {
+                return Err(bad("неверное время в пути"));
+            }
+            self.travel_minutes = minutes;
+            changed.push("travel_minutes");
         }
         if let Some(subtasks) = &fields.subtasks {
             check_subtasks(subtasks)?;
@@ -754,13 +845,15 @@ async fn write_task(
         .map_err(invalid_json("напоминания"))?;
     let sql = if insert {
         "INSERT INTO planner_tasks (object_id, notes, status, priority, due_date, due_time, \
-         subtasks, recurrence, remind, remind_why, remind_by, completed_at) \
+         subtasks, recurrence, remind, remind_why, remind_by, completed_at, \
+         place_text, place_lat, place_lon, travel_minutes) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, \
-                 CASE WHEN $3 = 'done' THEN now() END)"
+                 CASE WHEN $3 = 'done' THEN now() END, $12, $13, $14, $15)"
     } else {
         "UPDATE planner_tasks SET notes = $2, status = $3, priority = $4, due_date = $5, \
          due_time = $6, subtasks = $7, recurrence = $8, remind = $9, remind_why = $10, \
-         remind_by = $11, completed_at = CASE WHEN $3 = 'done' THEN coalesce(completed_at, now()) END \
+         remind_by = $11, completed_at = CASE WHEN $3 = 'done' THEN coalesce(completed_at, now()) END, \
+         place_text = $12, place_lat = $13, place_lon = $14, travel_minutes = $15 \
          WHERE object_id = $1"
     };
     sqlx::query(sql)
@@ -775,6 +868,10 @@ async fn write_task(
         .bind(remind)
         .bind(&state.remind_why)
         .bind(state.remind_by.as_str())
+        .bind(&state.place_text)
+        .bind(state.place_lat)
+        .bind(state.place_lon)
+        .bind(state.travel_minutes)
         .execute(conn)
         .await?;
     Ok(())
