@@ -1626,7 +1626,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Мои документы (свежие сверху) — чтобы привязать к проекту. */
+    /** Мои документы (свежие сверху); q — поиск по названию и тексту. */
     get: operations['list_my_docs'];
     put?: never;
     post?: never;
@@ -1648,6 +1648,24 @@ export interface paths {
     /** Поправить документ: название и текст. */
     put: operations['edit_my_doc'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}/y': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Забрать недостающее состояние документа Yjs v1. */
+    get: operations['get_y'];
+    put?: never;
+    /** Слить обновление Yjs v1 и сохранить простой текст для поиска. */
+    post: operations['post_y'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2693,7 +2711,7 @@ export interface paths {
      * WebSocket «есть новое». Сервер шлёт `{"type":"ready"}` после подключения
      *     и `{"type":"changed"}`, когда у аккаунта что-то изменилось (данных в
      *     сообщении нет — их забирают через `pull`). Нужно право `read` во
-     *     Входящих или в Planner. Браузер подключается только со своего сайта
+     *     Входящих, Planner или Docs. Браузер подключается только со своего сайта
      *     (проверка `Origin`).
      */
     get: operations['socket'];
@@ -4801,7 +4819,7 @@ export interface components {
     };
     /** @description Документ целиком. */
     ProjectDoc: components['schemas']['ProjectDocItem'] & {
-      /** @description Текст Markdown. */
+      /** @description Markdown до перехода в редактор; затем простой текст для поиска. */
       body: string;
     };
     /** @description Правка документа. */
@@ -5300,6 +5318,26 @@ export interface components {
        * @description Сколько процентов окна (5 часов) ушло, если указано.
        */
       window_percent?: number | null;
+    };
+    YExchange: {
+      /** @description Старый Markdown только до первого сохранённого Yjs-состояния. */
+      seed_markdown?: string | null;
+      /** @description Вектор состояния сервера v1, standard base64. */
+      sv: string;
+      /** @description Недостающее обновление Yjs v1, standard base64. */
+      update: string;
+    };
+    YStateVector: {
+      /** @description Вектор состояния сервера v1, standard base64. */
+      sv: string;
+    };
+    YUpdate: {
+      /** @description Первое преобразование Markdown; если состояние уже есть — seed_taken. */
+      seed?: boolean;
+      /** @description Простой текст для поиска; не больше 200 000 знаков. */
+      text: string;
+      /** @description Обновление v1, standard base64; после декодирования не больше 512 КиБ. */
+      update: string;
     };
   };
   responses: never;
@@ -9615,7 +9653,10 @@ export interface operations {
   };
   list_my_docs: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Поиск по названию и тексту (русская морфология). */
+        q?: string | null;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -9717,7 +9758,123 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
-      /** @description Уже изменили — перечитать */
+      /** @description conflict: перечитать; use_editor: текст меняется в редакторе */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_y: {
+    parameters: {
+      query?: {
+        /** @description Вектор состояния Yjs v1, standard base64 (URL-encoded); пустой — всё. */
+        sv?: string | null;
+      };
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обновление и вектор состояния */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['YExchange'];
+        };
+      };
+      /** @description invalid_update: неверный sv или base64 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  post_y: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['YUpdate'];
+      };
+    };
+    responses: {
+      /** @description Вектор состояния после слияния */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['YStateVector'];
+        };
+      };
+      /** @description invalid_update, update_too_large, doc_too_large, text_too_large */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description seed_taken: Markdown уже перенесён */
       409: {
         headers: {
           [name: string]: unknown;
@@ -12395,7 +12552,7 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
-      /** @description Чужой сайт или нет доступа ни к Входящим, ни к Planner */
+      /** @description Чужой сайт или нет доступа к Входящим, Planner и Docs */
       403: {
         headers: {
           [name: string]: unknown;

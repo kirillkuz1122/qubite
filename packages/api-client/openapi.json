@@ -5211,8 +5211,19 @@
     "/api/v1/docs": {
       "get": {
         "tags": ["planner"],
-        "summary": "Мои документы (свежие сверху) — чтобы привязать к проекту.",
+        "summary": "Мои документы (свежие сверху); q — поиск по названию и тексту.",
         "operationId": "list_my_docs",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Поиск по названию и тексту (русская морфология).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Документы",
@@ -5335,7 +5346,156 @@
             }
           },
           "409": {
-            "description": "Уже изменили — перечитать",
+            "description": "conflict: перечитать; use_editor: текст меняется в редакторе",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/{id}/y": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Забрать недостающее состояние документа Yjs v1.",
+        "operationId": "get_y",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sv",
+            "in": "query",
+            "description": "Вектор состояния Yjs v1, standard base64 (URL-encoded); пустой — всё.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Обновление и вектор состояния",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YExchange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_update: неверный sv или base64",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["docs"],
+        "summary": "Слить обновление Yjs v1 и сохранить простой текст для поиска.",
+        "operationId": "post_y",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вектор состояния после слияния",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YStateVector"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_update, update_too_large, doc_too_large, text_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "seed_taken: Markdown уже перенесён",
             "content": {
               "application/json": {
                 "schema": {
@@ -8563,7 +8723,7 @@
     "/api/v1/sync/ws": {
       "get": {
         "tags": ["sync"],
-        "summary": "WebSocket «есть новое». Сервер шлёт `{\"type\":\"ready\"}` после подключения\nи `{\"type\":\"changed\"}`, когда у аккаунта что-то изменилось (данных в\nсообщении нет — их забирают через `pull`). Нужно право `read` во\nВходящих или в Planner. Браузер подключается только со своего сайта\n(проверка `Origin`).",
+        "summary": "WebSocket «есть новое». Сервер шлёт `{\"type\":\"ready\"}` после подключения\nи `{\"type\":\"changed\"}`, когда у аккаунта что-то изменилось (данных в\nсообщении нет — их забирают через `pull`). Нужно право `read` во\nВходящих, Planner или Docs. Браузер подключается только со своего сайта\n(проверка `Origin`).",
         "operationId": "socket",
         "responses": {
           "101": {
@@ -8580,7 +8740,7 @@
             }
           },
           "403": {
-            "description": "Чужой сайт или нет доступа ни к Входящим, ни к Planner",
+            "description": "Чужой сайт или нет доступа к Входящим, Planner и Docs",
             "content": {
               "application/json": {
                 "schema": {
@@ -13331,7 +13491,7 @@
             "properties": {
               "body": {
                 "type": "string",
-                "description": "Текст Markdown."
+                "description": "Markdown до перехода в редактор; затем простой текст для поиска."
               }
             }
           }
@@ -14458,6 +14618,53 @@
             "minimum": 0
           }
         }
+      },
+      "YExchange": {
+        "type": "object",
+        "required": ["update", "sv"],
+        "properties": {
+          "seed_markdown": {
+            "type": ["string", "null"],
+            "description": "Старый Markdown только до первого сохранённого Yjs-состояния."
+          },
+          "sv": {
+            "type": "string",
+            "description": "Вектор состояния сервера v1, standard base64."
+          },
+          "update": {
+            "type": "string",
+            "description": "Недостающее обновление Yjs v1, standard base64."
+          }
+        }
+      },
+      "YStateVector": {
+        "type": "object",
+        "required": ["sv"],
+        "properties": {
+          "sv": {
+            "type": "string",
+            "description": "Вектор состояния сервера v1, standard base64."
+          }
+        }
+      },
+      "YUpdate": {
+        "type": "object",
+        "required": ["update", "text"],
+        "properties": {
+          "seed": {
+            "type": "boolean",
+            "description": "Первое преобразование Markdown; если состояние уже есть — seed_taken."
+          },
+          "text": {
+            "type": "string",
+            "description": "Простой текст для поиска; не больше 200 000 знаков."
+          },
+          "update": {
+            "type": "string",
+            "description": "Обновление v1, standard base64; после декодирования не больше 512 КиБ."
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
