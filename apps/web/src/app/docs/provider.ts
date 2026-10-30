@@ -1,5 +1,6 @@
 import type { Provider, ProviderAwareness, UserState } from '@lexical/yjs';
 import * as Y from 'yjs';
+import { watchLostEdits, type LostBlock } from '@qubite/sync-client';
 import type { DocHandle } from '@qubite/sync-client';
 
 /** Императивный API хранилища, которое живёт вне React. */
@@ -91,6 +92,17 @@ export class DocsProvider {
     this.generation++;
     this.ready = false;
     this.unbridge?.();
+  }
+
+  /** Дописанное в удалённый на другом устройстве блок (Q-87, D-757). */
+  /** Свои правки, которые сервер уже принял: снимок при статусе «Сохранено». */
+  private confirmed = new Map<number, number>();
+  confirm() {
+    this.confirmed = Y.decodeStateVector(Y.encodeStateVector(this.doc));
+  }
+
+  watchLost(callback: (lost: LostBlock[]) => void): () => void {
+    return watchLostEdits(this.doc, FROM_SOURCE, callback, () => this.confirmed);
   }
 
   subscribeReady(callback: () => void): () => void {

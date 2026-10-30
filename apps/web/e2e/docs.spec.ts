@@ -103,6 +103,34 @@ test('WebSocket «есть новое» забирает Yjs открытого 
   ).toBeVisible();
 });
 
+test('в удалённый на другом устройстве блок дописали — можно вернуть', async ({ page }) => {
+  const server = await mockDocs(page);
+  const id = server.add('Общий', 'Первый\n\nВторой');
+  await page.goto(`/docs/${id}`);
+  await expect(text(page)).toContainText('Второй');
+  await expect.poll(() => server.pushes.some((push) => push.id === id)).toBe(true);
+  server.sync.offline = true;
+  await text(page).getByText('Второй').click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' дописка');
+  // Другое устройство тем временем удалило второй блок.
+  const root = server.documents.get(id)!.get('root', Y.XmlText);
+  const blocks = root.toDelta() as { insert: unknown }[];
+  const second = blocks.findIndex(
+    (delta) => delta.insert instanceof Y.XmlText && delta.insert.toString().includes('Второй'),
+  );
+  root.delete(second, 1);
+  server.sync.offline = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  server.sync.patch(id, {});
+  server.sync.ping();
+  const note = page.getByRole('status').filter({ hasText: 'Вернуть?' });
+  await expect(note).toContainText('дописка');
+  await note.getByRole('button', { name: 'Вернуть' }).click();
+  await expect(text(page)).toContainText('дописка');
+  await expect(note).toBeHidden();
+});
+
 for (const theme of ['light', 'dark']) {
   for (const width of [1440, 360]) {
     test(`раскладка ${width}px, тема ${theme}`, async ({ page }, info) => {

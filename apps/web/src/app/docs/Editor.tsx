@@ -32,6 +32,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { LostEdits } from './LostEdits';
 import type { Doc } from 'yjs';
 import { caretPoint } from '../../lab/caret';
 import { $isBlockNode, $orderedNumber, type BlockKind } from './BlockNode';
@@ -132,6 +133,7 @@ export function DocEditor({ handle }: { handle: DocHandle }) {
       }}
     >
       <LexicalCollaboration>
+        <LostEdits handle={handle} provider={provider} />
         <RichTextPlugin
           contentEditable={<ContentEditable className="docs-text" aria-label="Текст документа" />}
           ErrorBoundary={LexicalErrorBoundary}

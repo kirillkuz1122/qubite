@@ -23,7 +23,7 @@ function addBlock(doc: Y.Doc, text: string, kind = 'text'): Y.XmlText {
   const block = new Y.XmlText();
   doc.transact(() => {
     root(doc).insertEmbed(root(doc).length, block);
-    block.setAttribute('__type', 'block');
+    block.setAttribute('__type', 'qubite-block');
     block.setAttribute('kind', kind);
     block.setAttribute('checked', false);
     block.setAttribute('indent', 0);

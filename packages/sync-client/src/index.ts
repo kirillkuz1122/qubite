@@ -1,5 +1,5 @@
 export * from './protocol';
-export { watchLostEdits, type LostBlock } from './docs-lost';
+export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock } from './docs-lost';
 export {
   SyncClient,
   type SyncClientOptions,

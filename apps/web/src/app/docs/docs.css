@@ -336,3 +336,13 @@
     flex: none;
   }
 }
+
+.docs-lost {
+  margin-bottom: 16px;
+}
+
+.docs-lost-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

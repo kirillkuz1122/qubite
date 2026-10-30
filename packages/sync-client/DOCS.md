@@ -108,7 +108,7 @@ await handle.close();
 
 `watchLostEdits(doc, origin, cb)` ищет текст, который исчез при слиянии из-за
 удаления блока на другом устройстве (D-375, D-399, DOC-002d). Формат Lexical 0.52:
-корень `root` — `Y.XmlText`, блоки — вложенные `Y.XmlText` с `__type: "block"`,
+корень `root` — `Y.XmlText`, блоки — вложенные `Y.XmlText` с `__type: "qubite-block"`,
 вид — атрибут `kind`. Маркеры текстовых узлов `Y.Map` и форматирование не входят
 в найденный текст.
 

@@ -14,6 +14,9 @@ type GcGuard = {
   filter: Y.Doc['gcFilter'];
 };
 
+/** Тип узла блока в Yjs — getType() у BlockNode экрана. */
+export const DOC_BLOCK_TYPE = 'qubite-block';
+
 const gcGuards = new WeakMap<Y.Doc, GcGuard>();
 
 /** Атрибут удалённого типа уже не виден через getAttribute, но его Item ещё нужен. */
@@ -24,7 +27,7 @@ function attribute(type: Y.XmlText, name: string): unknown {
 function blockType(item: Y.Item): Y.XmlText | null {
   const content = item.content;
   if (!(content instanceof Y.ContentType) || !(content.type instanceof Y.XmlText)) return null;
-  return attribute(content.type, '__type') === 'block' ? content.type : null;
+  return attribute(content.type, '__type') === DOC_BLOCK_TYPE ? content.type : null;
 }
 
 function inDeletedRoot(item: Y.Item, root: Y.XmlText): boolean {
@@ -89,6 +92,11 @@ export function watchLostEdits(
   doc: Y.Doc,
   origin: unknown,
   cb: (lost: LostBlock[]) => void,
+  /**
+   * Что из своих правок уже подтвердил сервер (вектор состояния). Без него
+   * подтверждённым считается всё, что было на момент прошлой транзакции обмена.
+   */
+  confirmed?: () => Map<number, number>,
 ): () => void {
   const root = doc.get('root', Y.XmlText);
   const release = retainRoot(doc, root);
@@ -100,11 +108,11 @@ export function watchLostEdits(
   const beforeTransaction = (transaction: Y.Transaction) => {
     if (transaction.origin !== origin) return;
     const before = new Map<Y.XmlText, BeforeBlock>();
-    const clock = exchanged.get(doc.clientID) ?? 0;
+    const clock = (confirmed?.() ?? exchanged).get(doc.clientID) ?? 0;
     for (let item = root._start; item; item = item.right) {
       const block = blockType(item);
       if (!block) continue;
-      const kind = attribute(block, 'kind');
+      const kind = attribute(block, '__kind') ?? attribute(block, 'kind');
       before.set(block, {
         deleted: item.deleted,
         kind: typeof kind === 'string' ? kind : 'text',
