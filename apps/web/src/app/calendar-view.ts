@@ -38,11 +38,7 @@ function parts(instant: number, timeZone: string) {
     });
     PART_FORMATS.set(timeZone, format);
   }
-  return Object.fromEntries(
-    format
-      .formatToParts(instant)
-      .map((p) => [p.type, p.value]),
-  );
+  return Object.fromEntries(format.formatToParts(instant).map((p) => [p.type, p.value]));
 }
 
 /** YYYY-MM-DD именно в часовом поясе платформы. */
