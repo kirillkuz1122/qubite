@@ -223,7 +223,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
       if (item.kind === 'event') {
         const cached = events.known[item.source_id];
         const event = cached ?? (await events.read(item.source_id));
-        if (!cached && !blockMatchesEvent(event, item, timeZone)) {
+        if (!blockMatchesEvent(event, item, timeZone)) {
           await events.refresh();
           setNotice({
             text: 'Событие уже изменили на другом устройстве — календарь обновлён, перенесите снова',
