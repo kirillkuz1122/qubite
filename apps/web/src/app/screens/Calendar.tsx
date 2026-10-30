@@ -101,9 +101,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
         title: task.title,
         place: '',
         starts_at: start,
-        ends_at: task.due_time
-          ? start
-          : localInstant(task.due_date, '23:59', timeZone) + 60_000,
+        ends_at: task.due_time ? start : localInstant(task.due_date, '23:59', timeZone) + 60_000,
         all_day: !task.due_time,
       };
       return intersects(item, window.from, window.to) ? [item] : [];
@@ -632,12 +630,19 @@ function EventBlock({
   useEffect(() => {
     latest.current = { block, onMove, disabled };
   });
+  const pos = useRef({ x: 0, y: 0 });
   const draw = () => {
     if (ref.current)
-      ref.current.style.transform = `translate(${x.x}px, ${latest.current.block.top + y.x}px)`;
+      ref.current.style.transform = `translate(${pos.current.x}px, ${latest.current.block.top + pos.current.y}px)`;
   };
-  const x = useSpring(0, MASS.row, draw);
-  const y = useSpring(0, MASS.row, draw);
+  const x = useSpring(0, MASS.row, (v) => {
+    pos.current.x = v;
+    draw();
+  });
+  const y = useSpring(0, MASS.row, (v) => {
+    pos.current.y = v;
+    draw();
+  });
 
   useEffect(() => {
     const el = ref.current;
@@ -715,8 +720,9 @@ function EventBlock({
       if (e.cancelable) e.preventDefault();
       el.classList.add('is-dragging');
       const tracks = [
-        ...(el.closest('.calendar-timeline')?.querySelectorAll<HTMLElement>('.calendar-day-track') ??
-          []),
+        ...(el
+          .closest('.calendar-timeline')
+          ?.querySelectorAll<HTMLElement>('.calendar-day-track') ?? []),
       ];
       const target = tracks.find((track) => {
         const r = track.getBoundingClientRect();
@@ -755,8 +761,7 @@ function EventBlock({
       });
     };
     const pointerMove = (e: PointerEvent) => {
-      if (gesture && !gesture.touch && e.pointerId === gesture.id)
-        update(e.clientX, e.clientY, e);
+      if (gesture && !gesture.touch && e.pointerId === gesture.id) update(e.clientX, e.clientY, e);
     };
     const pointerUp = (e: PointerEvent) => {
       if (gesture && !gesture.touch && e.pointerId === gesture.id) end();
@@ -858,9 +863,7 @@ function EventBlock({
         disabled={disabled}
         aria-label={description(block.item, timeZone)}
         title={
-          block.item.kind === 'lesson'
-            ? 'Правится в расписании'
-            : description(block.item, timeZone)
+          block.item.kind === 'lesson' ? 'Правится в расписании' : description(block.item, timeZone)
         }
         onClickCapture={(e) => {
           if (muted.current && e.detail > 0) {

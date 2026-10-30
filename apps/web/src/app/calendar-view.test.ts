@@ -219,7 +219,9 @@ describe('форма события → запрос', () => {
       project_id: null,
       recurrence: { freq: 'weekly', interval: 1, weekdays: [1, 5] },
     });
-    expect(eventRequest({ ...form, repeat: 'monthly', monthDay: 31 }, ZONE).body?.recurrence).toEqual({
+    expect(
+      eventRequest({ ...form, repeat: 'monthly', monthDay: 31 }, ZONE).body?.recurrence,
+    ).toEqual({
       freq: 'monthly',
       interval: 1,
       month_day: 31,
@@ -247,7 +249,8 @@ describe('форма события → запрос', () => {
       repeat: expect.any(String),
     });
     expect(
-      eventRequest({ ...newEventForm(DAY), title: 'Встреча', endTime: '08:00' }, ZONE).errors?.endDay,
+      eventRequest({ ...newEventForm(DAY), title: 'Встреча', endTime: '08:00' }, ZONE).errors
+        ?.endDay,
     ).toBeTruthy();
     expect(
       eventRequest(

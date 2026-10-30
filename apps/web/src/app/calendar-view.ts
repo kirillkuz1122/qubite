@@ -275,8 +275,7 @@ export function timeFromMinute(minute: number): string {
 
 /** Гражданское время платформы → UTC, независимо от пояса устройства. */
 export function localInstant(day: string, time: string, timeZone: string): number {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))
-    return NaN;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return NaN;
   const target = Date.parse(`${day}T${time}:00Z`);
   if (!Number.isFinite(target) || new Date(target).toISOString().slice(0, 10) !== day) return NaN;
   let instant = target;
@@ -305,7 +304,7 @@ export function newEventForm(day: string, minute = 9 * 60, allDay = false): Even
     project: '',
     repeat: '',
     interval: 1,
-    weekdays: [(new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7 + 1],
+    weekdays: [((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7) + 1],
     monthDay: Number(day.slice(8)),
     notes: '',
   };
@@ -390,14 +389,10 @@ export function moveCalendarItem(
   minuteDelta: number,
   timeZone: string,
 ): Pick<CalendarItem, 'starts_at' | 'ends_at'> {
-  const dayDelta =
-    (Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY_MS;
+  const dayDelta = (Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY_MS;
   const originalMinute = minuteAt(item.starts_at, timeZone);
   const minute = Math.round((originalMinute + minuteDelta) / 15) * 15;
-  const day = addDays(
-    calendarDay(item.starts_at, timeZone),
-    dayDelta + Math.floor(minute / 1440),
-  );
+  const day = addDays(calendarDay(item.starts_at, timeZone), dayDelta + Math.floor(minute / 1440));
   const starts_at = localInstant(day, timeFromMinute(((minute % 1440) + 1440) % 1440), timeZone);
   return { starts_at, ends_at: starts_at + item.ends_at - item.starts_at };
 }
