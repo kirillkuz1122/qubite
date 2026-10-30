@@ -51,6 +51,7 @@ pub fn revertable_fields(object_type: &str) -> &'static [&'static str] {
             "project_id",
         ],
         qubite_planner::PROJECT_TYPE => &["color", "tag", "status", "notes"],
+        crate::opportunities::TYPE => crate::opportunities::FIELDS,
         qubite_inbox::ITEM_TYPE => &["status", "body"],
         crate::files::FILE_TYPE => &["body", "pinned", "archived"],
         crate::questions::QUESTION_TYPE => &["status", "answer"],
@@ -245,7 +246,11 @@ pub(crate) async fn check_agent(conn: &mut PgConnection, who: &Who) -> Result<()
 /// Модуль шага: у нового объекта — по типу, у существующего — его модуль.
 async fn module_of_step(conn: &mut PgConnection, account: Uuid, step: &Step) -> Result<String> {
     if let OpKind::Create { object_type, .. } = &step.kind {
-        return Ok(module_of(object_type).to_owned());
+        return Ok(if object_type == crate::opportunities::TYPE {
+            MODULE.to_owned()
+        } else {
+            module_of(object_type).to_owned()
+        });
     }
     match objects::get_any(conn, step.object_id).await? {
         Some(object) if object.owner_id == account => Ok(object.module_id),
@@ -297,6 +302,55 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
     let mut before: HashMap<Uuid, Option<ObjectSnapshot>> = HashMap::new();
     let mut after: HashMap<Uuid, ObjectSnapshot> = HashMap::new();
     for step in plan.steps {
+        if let OpKind::Create {
+            object_type,
+            fields,
+            ..
+        } = &step.kind
+            && object_type == crate::opportunities::TYPE
+        {
+            let target: ObjectSnapshot = serde_json::from_value(
+                fields
+                    .clone()
+                    .ok_or_else(|| Error::Invalid("нет снимка мероприятия".into()))?,
+            )?;
+            let mut current = crate::opportunities::snapshot(conn, account, step.object_id).await?;
+            if current.is_none() {
+                // Удалённая ручная запись имеет снимок с deleted=true в
+                // ленте. Он нужен для отката отката, когда строки уже нет.
+                let previous: Option<Value> = sqlx::query_scalar(
+                    "SELECT ch.after FROM agent_action_changes ch \
+                     JOIN agent_actions a ON a.id = ch.action_id \
+                     WHERE a.account_id = $1 AND ch.object_id = $2 AND ch.object_type = $3 \
+                     ORDER BY ch.id DESC LIMIT 1",
+                )
+                .bind(account)
+                .bind(step.object_id)
+                .bind(crate::opportunities::TYPE)
+                .fetch_optional(&mut *conn)
+                .await?;
+                current = previous
+                    .map(stored)
+                    .transpose()?
+                    .filter(|snapshot| snapshot.deleted);
+            }
+            if let std::collections::hash_map::Entry::Vacant(first) = before.entry(step.object_id) {
+                order.push(step.object_id);
+                first.insert(current.clone());
+            }
+            crate::opportunities::apply(
+                conn,
+                account,
+                &target,
+                current.as_ref().is_some_and(|value| !value.deleted),
+            )
+            .await?;
+            let now = crate::opportunities::snapshot(conn, account, step.object_id)
+                .await?
+                .unwrap_or(target);
+            after.insert(step.object_id, now);
+            continue;
+        }
         let current = snapshot(conn, account, step.object_id).await?;
         if let std::collections::hash_map::Entry::Vacant(first) = before.entry(step.object_id) {
             order.push(step.object_id);

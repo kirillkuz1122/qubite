@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use qubite_home::{Sources, opportunities};
@@ -157,6 +157,67 @@ pub async fn refresh_opportunities(
     Ok(Json(OpportunitiesRefresh {
         inserted: result.inserted,
         failed_sources: result.failed_sources,
+    }))
+}
+
+/// Результат решения человека. При повторном нажатии новой записи нет.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OpportunityDecision {
+    action: Option<crate::agent::AgentAction>,
+}
+
+/// Создать дела для участия одним откатываемым пакетом.
+#[utoipa::path(post, path = "/api/v1/opportunities/{id}/interested", tag = "opportunities",
+    params(("id" = Uuid, Path, description = "ID мероприятия")),
+    responses(
+        (status = 200, description = "Участие запланировано", body = OpportunityDecision),
+        (status = 400, description = "Мероприятие уже началось", body = ApiErrorBody),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет доступа к агенту или планеру", body = ApiErrorBody),
+        (status = 404, description = "Не найдено", body = ApiErrorBody),
+    ))]
+pub async fn interested_opportunity(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+) -> Result<Json<OpportunityDecision>, ApiError> {
+    let action = qubite_agent::opportunities::decide(
+        state.db.pool(),
+        &crate::agent::who(&session),
+        id,
+        true,
+    )
+    .await
+    .map_err(crate::agent::agent_error)?;
+    Ok(Json(OpportunityDecision {
+        action: action.map(Into::into),
+    }))
+}
+
+/// Скрыть мероприятие из предложений с возможностью отката.
+#[utoipa::path(post, path = "/api/v1/opportunities/{id}/dismiss", tag = "opportunities",
+    params(("id" = Uuid, Path, description = "ID мероприятия")),
+    responses(
+        (status = 200, description = "Мероприятие отклонено", body = OpportunityDecision),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет доступа к агенту", body = ApiErrorBody),
+        (status = 404, description = "Не найдено", body = ApiErrorBody),
+    ))]
+pub async fn dismiss_opportunity(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+) -> Result<Json<OpportunityDecision>, ApiError> {
+    let action = qubite_agent::opportunities::decide(
+        state.db.pool(),
+        &crate::agent::who(&session),
+        id,
+        false,
+    )
+    .await
+    .map_err(crate::agent::agent_error)?;
+    Ok(Json(OpportunityDecision {
+        action: action.map(Into::into),
     }))
 }
 

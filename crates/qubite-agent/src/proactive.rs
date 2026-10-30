@@ -776,12 +776,15 @@ const WAKE_TOOLS_TEXT: &str = r#"Ещё инструменты этого про
 - time.free_windows {"days"?} — свободные окна по дням (без ночи, уроков и дел со временем).
 - presence.now {} — на связи ли владелец: Qubite открыт, Telegram, тишина, сколько осталось окна.
 - notify.send {"title", "body"?, "ask_minutes"?, "task_id"?} (обязательно "why") — написать владельцу первым. С ask_minutes будут кнопки «Да · 15 минут · Позже · Не сегодня». Лимит дня, тишину и «не чаще раза в час» проверяет сервер — отказ придёт ошибкой.
+- opportunity.suggest {"items": [{"id", "why"}]} — предложить 1–3 подходящих новых мероприятия из блока opportunities, why до 300 символов.
 - home.digest.write {"items": [{"kind": "important|noticed|question|news|tip", "text", "task_id"|"project_id"|"inbox_id"|"action_id"|"url"}]} — сводка на Главную (только утром)."#;
 
 const MORNING_TEXT: &str = "Утро. Напиши сводку на Главную (home.digest.write): важное на \
 сегодня (дела со сроком, урок, к которому нужно ДЗ), что заметил, 1–3 вопроса из «Агент хочет \
 знать». Каждый пункт ведёт к своему делу. Первым сейчас не пиши — для этого будут свободные окна. \
-Дел нет — можно один совет или вопрос.";
+Дел нет — можно один совет или вопрос. По «О тебе», «Памяти» и интересам выбери 1–3 \
+подходящих мероприятия из opportunities и вызови opportunity.suggest. Подходящих нет — ничего \
+не предлагай. Мероприятия не выдумывай; дела по ним появятся только после «Интересно».";
 
 const WINDOW_TEXT: &str = "Похоже, у владельца свободное окно (блок situation). Реши, стоит ли \
 написать первым. Если да — ОДИН notify.send: спроси «Есть N минут?» (ask_minutes — сколько \
@@ -802,6 +805,7 @@ title — что сделать, body — с чего начать за это �
 это дело. Можно разбить длинное дело на шаги (task.update, поле subtasks), если шагов ещё нет.";
 
 const MORNING_TOOLS: &[&str] = &[
+    crate::opportunities::SUGGEST_TOOL,
     "home.digest.write",
     "question.list",
     "question.ask",
@@ -1065,6 +1069,14 @@ async fn think(
     let mut data = brain::context(&mut conn, account, &about, None)
         .await
         .map_err(fail)?;
+    if wake.trigger == Trigger::Morning {
+        data.push(Untrusted::new(
+            "opportunities",
+            crate::opportunities::context(&mut conn, account)
+                .await
+                .map_err(fail)?,
+        ));
+    }
     drop(conn);
     data.push(Untrusted::new(
         "situation",
