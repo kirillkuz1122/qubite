@@ -1,0 +1,32 @@
+{
+  "status": "OK",
+  "result": [
+    {
+      "id": 1,
+      "name": "Подделка Codeforces: ближайший раунд",
+      "phase": "BEFORE",
+      "startTimeSeconds": 1800000000,
+      "durationSeconds": 7200
+    },
+    {
+      "id": 2,
+      "name": "Подделка Codeforces: следующий раунд",
+      "phase": "BEFORE",
+      "startTimeSeconds": 1800100000,
+      "durationSeconds": 3600
+    },
+    {
+      "id": 3,
+      "name": "Подделка Codeforces: завершённый раунд",
+      "phase": "FINISHED",
+      "startTimeSeconds": 1700000000,
+      "durationSeconds": 7200
+    },
+    {
+      "id": 4,
+      "name": "Подделка Codeforces: время не объявлено",
+      "phase": "BEFORE",
+      "durationSeconds": 7200
+    }
+  ]
+}

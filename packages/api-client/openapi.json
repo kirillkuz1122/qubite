@@ -7651,6 +7651,104 @@
         }
       }
     },
+    "/api/v1/opportunities": {
+      "get": {
+        "tags": ["opportunities"],
+        "summary": "Свои возможности по ближайшему сроку регистрации или начала.",
+        "operationId": "list_opportunities",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "new, suggested, interested или dismissed.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "olympiad, hackathon или contest.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Возможности",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunitiesList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неизвестный фильтр",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities/refresh": {
+      "post": {
+        "tags": ["opportunities"],
+        "summary": "Собрать новые возможности из открытых источников для своего аккаунта.",
+        "operationId": "refresh_opportunities",
+        "responses": {
+          "200": {
+            "description": "Сбор завершён; failed_sources перечисляет сбои",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunitiesRefresh"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Все источники недоступны",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{id}": {
       "get": {
         "tags": ["planner"],
@@ -12737,6 +12835,127 @@
           }
         }
       },
+      "OpportunitiesList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpportunityItem"
+            }
+          }
+        }
+      },
+      "OpportunitiesRefresh": {
+        "type": "object",
+        "required": ["inserted", "failed_sources"],
+        "properties": {
+          "failed_sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inserted": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "OpportunityItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "source",
+          "external_id",
+          "kind",
+          "title",
+          "subject",
+          "stage",
+          "grades",
+          "starts_at",
+          "ends_at",
+          "place",
+          "url",
+          "tags",
+          "status",
+          "why",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "grades": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "place": {
+            "type": "string"
+          },
+          "registration_until": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      },
       "PassIssued": {
         "type": "object",
         "required": ["link", "expires_at"],
@@ -13932,6 +14151,10 @@
     {
       "name": "home",
       "description": "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"
+    },
+    {
+      "name": "opportunities",
+      "description": "Олимпиады, хакатоны и соревнования из открытых источников"
     },
     {
       "name": "calendar",

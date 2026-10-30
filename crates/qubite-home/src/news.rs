@@ -115,7 +115,7 @@ fn tag_text(block: &str, name: &str) -> Option<String> {
     Some(unescape(raw.trim()))
 }
 
-fn unescape(text: &str) -> String {
+pub(crate) fn unescape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find('&') {

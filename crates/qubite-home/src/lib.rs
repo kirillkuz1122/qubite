@@ -20,6 +20,7 @@
 pub mod cache;
 pub mod coins;
 pub mod news;
+pub mod opportunities;
 pub mod places;
 pub mod rates;
 pub mod settings;
@@ -67,6 +68,10 @@ pub struct Urls {
     pub coins: String,
     /// Codeforces: `…/api/contest.list`.
     pub contests: String,
+    /// Кодолимп: календарь олимпиад.
+    pub codolymp: String,
+    /// Devpost: открытые онлайн-хакатоны.
+    pub devpost: String,
     /// Ленты новостей по темам.
     pub feeds: Vec<(Topic, String)>,
 }
@@ -81,6 +86,8 @@ impl Default for Urls {
             fx: "https://open.er-api.com".into(),
             coins: "https://api.coingecko.com".into(),
             contests: "https://codeforces.com".into(),
+            codolymp: "https://codolymp.ru".into(),
+            devpost: "https://devpost.com".into(),
             feeds: news::default_feeds(),
         }
     }
@@ -99,6 +106,8 @@ impl Urls {
             fx: root.into(),
             coins: root.into(),
             contests: root.into(),
+            codolymp: root.into(),
+            devpost: root.into(),
             feeds: Topic::ALL
                 .iter()
                 .filter(|topic| **topic != Topic::Contests)
