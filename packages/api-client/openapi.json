@@ -7751,9 +7751,7 @@
     },
     "/api/v1/opportunities/{id}/interested": {
       "post": {
-        "tags": [
-          "opportunities"
-        ],
+        "tags": ["opportunities"],
         "summary": "Создать дела для участия одним откатываемым пакетом.",
         "operationId": "interested_opportunity",
         "parameters": [
@@ -7824,9 +7822,7 @@
     },
     "/api/v1/opportunities/{id}/dismiss": {
       "post": {
-        "tags": [
-          "opportunities"
-        ],
+        "tags": ["opportunities"],
         "summary": "Скрыть мероприятие из предложений с возможностью отката.",
         "operationId": "dismiss_opportunity",
         "parameters": [

@@ -249,9 +249,7 @@ async fn plan_revert(
                         }
                     }
                     _ => {
-                        return Err(Error::Invalid(
-                            "неожиданный шаг отката мероприятия".into(),
-                        ));
+                        return Err(Error::Invalid("неожиданный шаг отката мероприятия".into()));
                     }
                 }
             }

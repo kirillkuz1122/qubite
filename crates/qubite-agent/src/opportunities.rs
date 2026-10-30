@@ -208,7 +208,9 @@ fn manual(args: Value) -> Result<ObjectSnapshot> {
     if !["olympiad", "hackathon", "contest"].contains(&args.kind.as_str())
         || args.starts_at <= OffsetDateTime::now_utc()
         || args.ends_at < args.starts_at
-        || args.registration_until.is_some_and(|date| date > args.ends_at)
+        || args
+            .registration_until
+            .is_some_and(|date| date > args.ends_at)
     {
         return Err(Error::Invalid("проверь вид и даты мероприятия".into()));
     }
@@ -316,10 +318,13 @@ async fn tasks(conn: &mut PgConnection, account: Uuid, id: Uuid, title: &str) ->
             local(conn, registration).await?,
         ));
     }
-    tasks.push((
-        format!("Подготовиться к {title}"),
-        PrimitiveDateTime::new(prepare, start.time()),
-    ));
+    // Подготовка — не позже начала: если до него меньше дня, отдельного дела нет.
+    if prepare < start.date() {
+        tasks.push((
+            format!("Подготовиться к {title}"),
+            PrimitiveDateTime::new(prepare, start.time()),
+        ));
+    }
     tasks.push((format!("{title} — участие"), start));
     Ok(tasks
         .into_iter()
@@ -356,7 +361,12 @@ async fn planned(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Result<boo
 
 /// Кнопка человека: статус и все дела — одна запись и одна транзакция.
 /// Повторное нажатие возвращает None и ничего не создаёт.
-pub async fn decide(pool: &PgPool, who: &Who, id: Uuid, interested: bool) -> Result<Option<Action>> {
+pub async fn decide(
+    pool: &PgPool,
+    who: &Who,
+    id: Uuid,
+    interested: bool,
+) -> Result<Option<Action>> {
     if who.actor() != Actor::Owner {
         return Err(Error::NeedsOwner(
             "решение о мероприятии принимает человек".into(),
@@ -368,7 +378,11 @@ pub async fn decide(pool: &PgPool, who: &Who, id: Uuid, interested: bool) -> Res
         .await?
         .ok_or(Error::NotFound)?;
     check_agent(&mut tx, who).await?;
-    let wanted = if interested { "interested" } else { "dismissed" };
+    let wanted = if interested {
+        "interested"
+    } else {
+        "dismissed"
+    };
     if status(&target) == Some(wanted) {
         return Ok(None);
     }
@@ -387,7 +401,10 @@ pub async fn decide(pool: &PgPool, who: &Who, id: Uuid, interested: bool) -> Res
             format!("Запланировал участие: {title}"),
         )
     } else {
-        ("opportunity.dismiss", format!("Отклонил мероприятие: {title}"))
+        (
+            "opportunity.dismiss",
+            format!("Отклонил мероприятие: {title}"),
+        )
     };
     let action = execute_in(
         &mut tx,

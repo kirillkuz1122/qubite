@@ -69,7 +69,11 @@ async fn state(pool: &PgPool, id: Uuid) -> (String, String) {
         .unwrap()
 }
 
-async fn suggest(pool: &PgPool, who: &Who, items: Value) -> qubite_agent::Result<qubite_agent::Action> {
+async fn suggest(
+    pool: &PgPool,
+    who: &Who,
+    items: Value,
+) -> qubite_agent::Result<qubite_agent::Action> {
     Ok(call(
         pool,
         who,
@@ -244,9 +248,7 @@ async fn interested_is_one_package_with_three_deadlines_and_no_duplicates() {
     opportunities::decide(pool, &owner, id, false)
         .await
         .unwrap();
-    opportunities::decide(pool, &owner, id, true)
-        .await
-        .unwrap();
+    opportunities::decide(pool, &owner, id, true).await.unwrap();
     assert_eq!(task_count(pool, me).await, 3);
     test_db.drop_db().await;
 }
@@ -267,9 +269,7 @@ async fn missing_or_expired_registration_is_skipped_and_preparation_is_not_befor
     .await
     .unwrap();
     for id in [no_date, expired] {
-        opportunities::decide(pool, &owner, id, true)
-            .await
-            .unwrap();
+        opportunities::decide(pool, &owner, id, true).await.unwrap();
     }
     let mut conn = pool.acquire().await.unwrap();
     let tomorrow = qubite_planner::today(&mut conn)
@@ -287,6 +287,28 @@ async fn missing_or_expired_registration_is_skipped_and_preparation_is_not_befor
     {
         assert_eq!(task.due_date, Some(tomorrow));
     }
+    drop(conn);
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn event_tomorrow_gets_no_preparation_after_its_start() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = person(pool, "me@example.org", &["agent", "planner"]).await;
+    let owner = Who::owner(me, None);
+    let id = seed(pool, me, 1, false).await;
+    opportunities::decide(pool, &owner, id, true).await.unwrap();
+    let mut conn = pool.acquire().await.unwrap();
+    let tasks = qubite_planner::list_tasks(&mut conn, me, None, 100)
+        .await
+        .unwrap();
+    assert_eq!(
+        tasks.len(),
+        1,
+        "только участие, без подготовки позже начала"
+    );
+    assert!(tasks[0].title.ends_with("— участие"));
     drop(conn);
     test_db.drop_db().await;
 }
@@ -338,9 +360,8 @@ async fn manual_add_dismiss_and_revert_of_revert() {
         .await
         .unwrap();
     assert_eq!(state(pool, id).await.0, "suggested");
-    let RevertOutcome::Reverted { actions } = revert_action(pool, &owner, action.id, false)
-        .await
-        .unwrap()
+    let RevertOutcome::Reverted { actions } =
+        revert_action(pool, &owner, action.id, false).await.unwrap()
     else {
         panic!("нужен откат");
     };
