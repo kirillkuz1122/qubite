@@ -202,7 +202,12 @@ pub async fn task_route(
                     &session,
                     id,
                     revision,
-                    json!({"place_lat": point.lat, "place_lon": point.lon}),
+                    // Найденная точка не должна стирать прежнюю оценку дороги, пока нет новой.
+                    json!({
+                        "place_lat": point.lat,
+                        "place_lon": point.lon,
+                        "travel_minutes": task.travel_minutes,
+                    }),
                 )
                 .await?;
                 point
