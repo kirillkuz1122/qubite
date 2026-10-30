@@ -57,12 +57,10 @@ fn codolymp_fixture_has_dates_stages_grades_and_organizer() {
 
 #[test]
 fn codolymp_uses_month_context_and_skips_broken_rows() {
-    let html = CODOLYMP
-        .replace("1–27 октября 2026", "1–27")
-        .replace(
-            "Региональный этап: 7–11 классы — 3 октября 2026",
-            "неизвестный формат",
-        );
+    let html = CODOLYMP.replace("1–27 октября 2026", "1–27").replace(
+        "Региональный этап: 7–11 классы — 3 октября 2026",
+        "неизвестный формат",
+    );
     let items = opportunities::parse_codolymp(html.as_bytes()).unwrap();
     assert_eq!(items.len(), 13);
     let registration = items.iter().find(|i| i.stage == "Регистрация").unwrap();
@@ -71,7 +69,9 @@ fn codolymp_uses_month_context_and_skips_broken_rows() {
     assert!(opportunities::parse_codolymp(&[0xff]).is_err());
     let html = CODOLYMP.replace("1–27 октября 2026", "31–32 октября 2026");
     assert_eq!(
-        opportunities::parse_codolymp(html.as_bytes()).unwrap().len(),
+        opportunities::parse_codolymp(html.as_bytes())
+            .unwrap()
+            .len(),
         13
     );
 }

@@ -854,8 +854,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/home/coins", get(home::coins))
         .route("/api/v1/home/coins/search", get(home::search_coins))
         .route("/api/v1/home/news", get(home::news))
-        .route("/api/v1/opportunities", get(opportunities::list_opportunities))
-        .route("/api/v1/opportunities/refresh", post(opportunities::refresh_opportunities))
+        .route(
+            "/api/v1/opportunities",
+            get(opportunities::list_opportunities),
+        )
+        .route(
+            "/api/v1/opportunities/refresh",
+            post(opportunities::refresh_opportunities),
+        )
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/live", get(english::english_live))
         .route("/api/v1/english/session", post(english::english_start))

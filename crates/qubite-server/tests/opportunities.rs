@@ -71,7 +71,10 @@ async fn api_requires_login_csrf_and_never_reads_another_account() {
         axum::serve(listener, app).await.unwrap();
     });
     let mut guest = Browser::default();
-    assert_eq!(guest.get(address, "/api/v1/opportunities").await.status, 401);
+    assert_eq!(
+        guest.get(address, "/api/v1/opportunities").await.status,
+        401
+    );
     let mut me = common::logged_in_unconfirmed(address).await;
     assert_eq!(
         me.send(

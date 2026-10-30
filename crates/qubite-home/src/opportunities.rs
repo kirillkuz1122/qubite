@@ -128,8 +128,18 @@ fn month(text: &str, english: bool) -> Option<Month> {
         ]
     } else {
         [
-            "январ", "феврал", "март", "апрел", "ма", "июн", "июл", "август", "сентябр", "октябр",
-            "ноябр", "декабр",
+            "январ",
+            "феврал",
+            "март",
+            "апрел",
+            "ма",
+            "июн",
+            "июл",
+            "август",
+            "сентябр",
+            "октябр",
+            "ноябр",
+            "декабр",
         ]
     };
     let lower = text.to_lowercase();
@@ -228,8 +238,7 @@ fn devpost_items(root: &Value) -> Result<Vec<Candidate>> {
 }
 
 fn devpost_row(row: &Value) -> Option<Candidate> {
-    if row["invite_only"].as_bool()?
-        || !matches!(row["open_state"].as_str()?, "open" | "upcoming")
+    if row["invite_only"].as_bool()? || !matches!(row["open_state"].as_str()?, "open" | "upcoming")
     {
         return None;
     }
@@ -498,7 +507,8 @@ impl Sources {
             self.contest_opportunities(),
             hackathons
         );
-        let hackathons = hackathons.unwrap_or_else(|_| Err(upstream("Devpost: истекло время сбора")));
+        let hackathons =
+            hackathons.unwrap_or_else(|_| Err(upstream("Devpost: истекло время сбора")));
         let mut report = Refresh {
             inserted: 0,
             failed_sources: Vec::new(),
@@ -559,7 +569,9 @@ pub async fn list(
     kind: Option<&str>,
 ) -> Result<Vec<Opportunity>> {
     if status.is_some_and(|s| !STATUSES.contains(&s)) || kind.is_some_and(|s| !KINDS.contains(&s)) {
-        return Err(Error::Invalid("неизвестный статус или вид возможности".into()));
+        return Err(Error::Invalid(
+            "неизвестный статус или вид возможности".into(),
+        ));
     }
     Ok(sqlx::query_as(
         "SELECT id, account_id, source, external_id, kind, title, subject, stage, grades, \
