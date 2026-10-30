@@ -9,6 +9,7 @@ import {
   blockText,
   calendarDay,
   calendarTime,
+  canMoveSeries,
   dateWindow,
   dayStart,
   eventForm,
@@ -170,6 +171,48 @@ const fullEvent: CalendarEvent = {
   created_at: 0,
   updated_at: 0,
 };
+
+describe('можно ли переносить серию', () => {
+  const occurrence = item('event', '10:00', '11:30');
+  const anotherDay = moveCalendarItem(occurrence, DAY, '2026-10-31', 0, ZONE);
+  const anotherTime = moveCalendarItem(occurrence, DAY, DAY, 15, ZONE);
+
+  it.each<[string, CalendarEvent['recurrence']]>([
+    ['без повтора', null],
+    ['каждые два дня', { freq: 'daily', interval: 2 }],
+    ['каждую неделю по двум дням', { freq: 'weekly', interval: 1, weekdays: [1, 5] }],
+    ['раз в две недели по одному дню', { freq: 'weekly', interval: 2, weekdays: [5] }],
+    ['раз в две недели без списка дней', { freq: 'weekly', interval: 2 }],
+    ['каждый месяц', { freq: 'monthly', interval: 1, month_day: 30 }],
+  ])('разрешает перенос на другой день: %s', (_, recurrence) => {
+    expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherDay, ZONE)).toBe(true);
+  });
+
+  it('для двух дней раз в две недели разрешает только смену времени внутри дня', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [1, 5] },
+    };
+    expect(canMoveSeries(event, occurrence, anotherDay, ZONE)).toBe(false);
+    expect(canMoveSeries(event, occurrence, anotherTime, ZONE)).toBe(true);
+  });
+
+  it('считает переход через полночь сменой дня даже без смены колонки', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [1, 5] },
+    };
+    const late = item('event', '23:45', '23:59');
+    const afterMidnight = moveCalendarItem(late, DAY, DAY, 15, ZONE);
+    expect(canMoveSeries(event, late, afterMidnight, ZONE)).toBe(false);
+  });
+
+  it('не сдвигает день неизвестного вида повтора', () => {
+    const event = { ...fullEvent, recurrence: { freq: 'yearly', interval: 1 } };
+    expect(canMoveSeries(event, occurrence, anotherDay, ZONE)).toBe(false);
+    expect(canMoveSeries(event, occurrence, anotherTime, ZONE)).toBe(true);
+  });
+});
 
 describe('форма события → запрос', () => {
   it('сохраняет поля полного события, версию передаёт слой PATCH', () => {

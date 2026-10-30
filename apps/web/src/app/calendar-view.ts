@@ -516,6 +516,29 @@ export function moveCalendarItem(
   return { starts_at, ends_at: starts_at + item.ends_at - item.starts_at };
 }
 
+/** Решил так, можно откатить: сложную фазу серии меняют только в форме. */
+export function canMoveSeries(
+  event: CalendarEvent,
+  occurrence: CalendarItem,
+  moved: Pick<CalendarItem, 'starts_at' | 'ends_at'>,
+  timeZone: string,
+): boolean {
+  if (calendarDay(occurrence.starts_at, timeZone) === calendarDay(moved.starts_at, timeZone))
+    return true;
+  const rule = event.recurrence;
+  if (!rule) return true;
+  switch (rule.freq) {
+    case 'daily':
+    case 'monthly':
+      return true;
+    case 'weekly':
+      // Сдвиг нескольких дней через границу недели смешивает активные и пропущенные недели.
+      return rule.interval === 1 || (rule.weekdays?.length ?? 0) <= 1;
+    default:
+      return false;
+  }
+}
+
 /** Сдвигается исходная серия, а не превращается в выбранный поздний повтор. */
 export function eventMovePatch(
   event: CalendarEvent,
