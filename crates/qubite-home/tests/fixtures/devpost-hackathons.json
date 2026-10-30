@@ -1,0 +1,370 @@
+{
+ "hackathons": [
+  {
+   "id": 31667,
+   "title": "Kiroween 2026",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "Kiroween 2026 (31667)",
+   "url": "https://kiroween.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Oct 30 - Dec 04, 2026",
+   "themes": [
+    {
+     "id": 23,
+     "name": "Beginner Friendly"
+    },
+    {
+     "id": 6,
+     "name": "Machine Learning/AI"
+    },
+    {
+     "id": 22,
+     "name": "Open Ended"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>100,000</span>",
+   "prizes_counts": {
+    "cash": 1,
+    "other": 0
+   },
+   "registrations_count": 2313,
+   "featured": true,
+   "organization_name": "Kiro",
+   "winners_announced": false,
+   "submission_gallery_url": "https://kiroween.devpost.com/project-gallery",
+   "start_a_submission_url": "https://kiroween.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": true
+  },
+  {
+   "id": 30455,
+   "title": "Cosmo Hacks 2026",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "Cosmo Hacks 2026 (30455)",
+   "url": "https://cosmohacks.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Dec 19, 2026 - Jan 18, 2027",
+   "themes": [
+    {
+     "id": 23,
+     "name": "Beginner Friendly"
+    },
+    {
+     "id": 22,
+     "name": "Open Ended"
+    },
+    {
+     "id": 19,
+     "name": "Education"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>146,700</span>",
+   "prizes_counts": {
+    "cash": 11,
+    "other": 23
+   },
+   "registrations_count": 594,
+   "featured": false,
+   "organization_name": "Cosmo Hacks",
+   "winners_announced": false,
+   "submission_gallery_url": "https://cosmohacks.devpost.com/project-gallery",
+   "start_a_submission_url": "https://cosmohacks.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 31808,
+   "title": "#BuildHybridAI 2026",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "#BuildHybridAI 2026 (31808)",
+   "url": "https://firebasehybridaihackathon.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Nov 09 - 30, 2026",
+   "themes": [
+    {
+     "id": 6,
+     "name": "Machine Learning/AI"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>10,000</span>",
+   "prizes_counts": {
+    "cash": 1,
+    "other": 0
+   },
+   "registrations_count": 165,
+   "featured": false,
+   "organization_name": "Google",
+   "winners_announced": false,
+   "submission_gallery_url": "https://firebasehybridaihackathon.devpost.com/project-gallery",
+   "start_a_submission_url": "https://firebasehybridaihackathon.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": true
+  },
+  {
+   "id": 30819,
+   "title": "United Hacks V8",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "United Hacks V8 (30819)",
+   "url": "https://unitedhacksv8.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Jan 08 - 10, 2027",
+   "themes": [
+    {
+     "id": 23,
+     "name": "Beginner Friendly"
+    },
+    {
+     "id": 18,
+     "name": "Design"
+    },
+    {
+     "id": 19,
+     "name": "Education"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>13,700</span>",
+   "prizes_counts": {
+    "cash": 5,
+    "other": 2
+   },
+   "registrations_count": 325,
+   "featured": false,
+   "organization_name": "Hack United",
+   "winners_announced": false,
+   "submission_gallery_url": "https://unitedhacksv8.devpost.com/project-gallery",
+   "start_a_submission_url": "https://unitedhacksv8.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 31580,
+   "title": "Ostad Presents YUNet AIgnite Buildathon 2026",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "Ostad Presents YUNet AIgnite Buildathon 2026 (31580)",
+   "url": "https://yunet-aignite26.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Nov 01 - 05, 2026",
+   "themes": [
+    {
+     "id": 19,
+     "name": "Education"
+    },
+    {
+     "id": 17,
+     "name": "Low/No Code"
+    },
+    {
+     "id": 6,
+     "name": "Machine Learning/AI"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>0</span>",
+   "prizes_counts": {
+    "cash": 0,
+    "other": 1
+   },
+   "registrations_count": 318,
+   "featured": false,
+   "organization_name": "Youth Upskill Network - YUNet",
+   "winners_announced": false,
+   "submission_gallery_url": "https://yunet-aignite26.devpost.com/project-gallery",
+   "start_a_submission_url": "https://yunet-aignite26.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 30463,
+   "title": "DeveloperWeek 2027 Hackathon",
+   "displayed_location": {
+    "icon": "map-marker-alt",
+    "location": "Santa Clara Convention Center + Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "DeveloperWeek 2027 Hackathon (30463)",
+   "url": "https://developerweek-2027-hackathon.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Jan 25 - Feb 11, 2027",
+   "themes": [
+    {
+     "id": 21,
+     "name": "Enterprise"
+    },
+    {
+     "id": 7,
+     "name": "IoT"
+    },
+    {
+     "id": 6,
+     "name": "Machine Learning/AI"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>6,000</span>",
+   "prizes_counts": {
+    "cash": 4,
+    "other": 1
+   },
+   "registrations_count": 265,
+   "featured": false,
+   "organization_name": "DevNetwork",
+   "winners_announced": false,
+   "submission_gallery_url": "https://developerweek-2027-hackathon.devpost.com/project-gallery",
+   "start_a_submission_url": "https://developerweek-2027-hackathon.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 31811,
+   "title": "BDBI x SpaceXSI Grokathon",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "BDBI x SpaceXSI Grokathon (31811)",
+   "url": "https://bdbi-x-spacexsi.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Nov 02, 2026",
+   "themes": [
+    {
+     "id": 6,
+     "name": "Machine Learning/AI"
+    },
+    {
+     "id": 22,
+     "name": "Open Ended"
+    },
+    {
+     "id": 13,
+     "name": "Social Good"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>0</span>",
+   "prizes_counts": {
+    "cash": 0,
+    "other": 1
+   },
+   "registrations_count": 238,
+   "featured": false,
+   "organization_name": "SpaceXSI",
+   "winners_announced": false,
+   "submission_gallery_url": "https://bdbi-x-spacexsi.devpost.com/project-gallery",
+   "start_a_submission_url": "https://bdbi-x-spacexsi.devpost.com/challenges/start_a_submission",
+   "invite_only": true,
+   "eligibility_requirement_invite_only_description": "Georgia Tech Students",
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 30340,
+   "title": "HackTitan",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "HackTitan (30340)",
+   "url": "https://hacktitan.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Feb 02 - 04, 2027",
+   "themes": [
+    {
+     "id": 23,
+     "name": "Beginner Friendly"
+    },
+    {
+     "id": 28,
+     "name": "Databases"
+    },
+    {
+     "id": 2,
+     "name": "DevOps"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>10,000</span>",
+   "prizes_counts": {
+    "cash": 1,
+    "other": 0
+   },
+   "registrations_count": 203,
+   "featured": false,
+   "organization_name": "IWU",
+   "winners_announced": false,
+   "submission_gallery_url": "https://hacktitan.devpost.com/project-gallery",
+   "start_a_submission_url": "https://hacktitan.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  },
+  {
+   "id": 31495,
+   "title": "IceHacks",
+   "displayed_location": {
+    "icon": "globe",
+    "location": "Online"
+   },
+   "open_state": "upcoming",
+   "analytics_identifier": "IceHacks (31495)",
+   "url": "https://icehacks.devpost.com/",
+   "time_left_to_submission": "Upcoming",
+   "submission_period_dates": "Nov 08 - 15, 2026",
+   "themes": [
+    {
+     "id": 23,
+     "name": "Beginner Friendly"
+    },
+    {
+     "id": 17,
+     "name": "Low/No Code"
+    },
+    {
+     "id": 22,
+     "name": "Open Ended"
+    }
+   ],
+   "prize_amount": "$<span data-currency-value>17,150</span>",
+   "prizes_counts": {
+    "cash": 8,
+    "other": 1
+   },
+   "registrations_count": 192,
+   "featured": false,
+   "organization_name": "CodeStarters",
+   "winners_announced": false,
+   "submission_gallery_url": "https://icehacks.devpost.com/project-gallery",
+   "start_a_submission_url": "https://icehacks.devpost.com/challenges/start_a_submission",
+   "invite_only": false,
+   "eligibility_requirement_invite_only_description": null,
+   "managed_by_devpost_badge": false
+  }
+ ],
+ "meta": {
+  "total_count": 130,
+  "per_page": 9,
+  "fuzzy": false
+ }
+}

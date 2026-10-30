@@ -26,6 +26,7 @@ pub mod modules;
 pub mod notices;
 pub mod notifications;
 pub mod oauth;
+pub mod opportunities;
 pub mod platform;
 pub mod projects;
 pub mod registration;
@@ -298,6 +299,8 @@ impl AppState {
         home::coins,
         home::search_coins,
         home::news,
+        opportunities::list_opportunities,
+        opportunities::refresh_opportunities,
         english::english_overview,
         english::english_start,
         english::english_finish,
@@ -508,6 +511,9 @@ impl AppState {
         home::HomeCoinSearch,
         home::HomeNewsItem,
         home::HomeNews,
+        opportunities::OpportunityItem,
+        opportunities::OpportunitiesList,
+        opportunities::OpportunitiesRefresh,
         english::EnglishSession,
         english::EnglishMistake,
         english::EnglishMessage,
@@ -570,6 +576,7 @@ impl AppState {
         (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"),
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
         (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"),
+        (name = "opportunities", description = "Олимпиады, хакатоны и соревнования из открытых источников"),
         (name = "calendar", description = "Календарь: события, дела и уроки"),
         (name = "planner", description = "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"),
         (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"),
@@ -847,6 +854,8 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/home/coins", get(home::coins))
         .route("/api/v1/home/coins/search", get(home::search_coins))
         .route("/api/v1/home/news", get(home::news))
+        .route("/api/v1/opportunities", get(opportunities::list_opportunities))
+        .route("/api/v1/opportunities/refresh", post(opportunities::refresh_opportunities))
         .route("/api/v1/english", get(english::english_overview))
         .route("/api/v1/english/live", get(english::english_live))
         .route("/api/v1/english/session", post(english::english_start))
