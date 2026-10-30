@@ -369,16 +369,29 @@ for (const theme of ['light', 'dark']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       360,
     );
-    const rates = await page.locator('.home-card').filter({ hasText: 'Курсы валют' }).boundingBox();
-    const coins = await page
-      .locator('.home-card')
-      .filter({ hasText: 'Криптовалюта' })
-      .boundingBox();
-    expect(coins!.y).toBeGreaterThanOrEqual(rates!.y + rates!.height);
+    // блок «Возможности» выше двигает остальное пружиной (useFlip): ждём, пока карточки осядут
+    await expect
+      .poll(
+        async () => {
+          const rates = await page
+            .locator('.home-card')
+            .filter({ hasText: 'Курсы валют' })
+            .boundingBox();
+          const coins = await page
+            .locator('.home-card')
+            .filter({ hasText: 'Криптовалюта' })
+            .boundingBox();
+          return coins!.y - (rates!.y + rates!.height);
+        },
+        { timeout: 5000 },
+      )
+      .toBeGreaterThanOrEqual(0);
     const gear = page.getByRole('button', { name: 'Настроить: Монеты' });
+    await expect
+      .poll(async () => (await gear.boundingBox())!.height, { timeout: 5000 })
+      .toBeGreaterThanOrEqual(44);
     const bounds = await gear.boundingBox();
     expect(bounds!.width).toBeGreaterThanOrEqual(44);
-    expect(bounds!.height).toBeGreaterThanOrEqual(44);
     await gear.click();
     const dialog = page.getByRole('dialog', { name: 'Монеты' });
     await expect(dialog).toBeVisible();

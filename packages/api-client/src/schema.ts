@@ -11650,6 +11650,10 @@ export interface operations {
         status?: string | null;
         /** @description olympiad, hackathon или contest. */
         kind?: string | null;
+        /** @description Только ещё не закончившиеся. */
+        upcoming?: boolean | null;
+        /** @description Сколько строк вернуть (1–200); по умолчанию все. */
+        limit?: number | null;
       };
       header?: never;
       path?: never;

@@ -10,6 +10,8 @@ import type { AgentPage, AgentRevertResult, AgentRevertWhy } from './agent-view'
 /** Какая часть ленты: вся, у дела (мысли) или у проекта. */
 export type Trail = { object: string } | { project: string } | null;
 
+/** Корень ключей «Возможностей»: откат в ленте может вернуть мероприятие на Главную. */
+export const OPPORTUNITIES_ROOT = ['opportunities'] as const;
 export const TIMELINE = ['agent-timeline'] as const;
 
 export function useTimeline(trail: Trail, enabled = true) {
@@ -46,7 +48,10 @@ export function useRevert() {
               body: { force },
             }),
       ),
-    onSettled: () => qc.invalidateQueries({ queryKey: TIMELINE }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: OPPORTUNITIES_ROOT });
+      return qc.invalidateQueries({ queryKey: TIMELINE });
+    },
   });
 }
 
