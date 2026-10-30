@@ -25,6 +25,7 @@ pub mod english;
 pub mod files;
 pub mod free;
 pub mod memory;
+pub mod opportunities;
 pub mod proactive;
 pub mod questions;
 pub mod revert;

@@ -2485,6 +2485,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/opportunities/{id}/dismiss': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Скрыть мероприятие из предложений с возможностью отката. */
+    post: operations['dismiss_opportunity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/opportunities/{id}/interested': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Создать дела для участия одним откатываемым пакетом. */
+    post: operations['interested_opportunity'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/projects/{id}': {
     parameters: {
       query?: never;
@@ -4680,6 +4714,10 @@ export interface components {
       failed_sources: string[];
       /** Format: int64 */
       inserted: number;
+    };
+    /** @description Результат решения человека. При повторном нажатии новой записи нет. */
+    OpportunityDecision: {
+      action?: components['schemas']['AgentAction'] | null;
     };
     OpportunityItem: {
       /** Format: uuid */
@@ -11677,6 +11715,115 @@ export interface operations {
       };
       /** @description Все источники недоступны */
       502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  dismiss_opportunity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID мероприятия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Мероприятие отклонено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OpportunityDecision'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не найдено */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  interested_opportunity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID мероприятия */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Участие запланировано */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OpportunityDecision'];
+        };
+      };
+      /** @description Мероприятие уже началось */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту или планеру */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не найдено */
+      404: {
         headers: {
           [name: string]: unknown;
         };

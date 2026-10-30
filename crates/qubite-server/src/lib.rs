@@ -301,6 +301,8 @@ impl AppState {
         home::news,
         opportunities::list_opportunities,
         opportunities::refresh_opportunities,
+        opportunities::interested_opportunity,
+        opportunities::dismiss_opportunity,
         english::english_overview,
         english::english_start,
         english::english_finish,
@@ -514,6 +516,7 @@ impl AppState {
         opportunities::OpportunityItem,
         opportunities::OpportunitiesList,
         opportunities::OpportunitiesRefresh,
+        opportunities::OpportunityDecision,
         english::EnglishSession,
         english::EnglishMistake,
         english::EnglishMessage,
@@ -857,6 +860,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/opportunities",
             get(opportunities::list_opportunities),
+        )
+        .route(
+            "/api/v1/opportunities/{id}/interested",
+            post(opportunities::interested_opportunity),
+        )
+        .route(
+            "/api/v1/opportunities/{id}/dismiss",
+            post(opportunities::dismiss_opportunity),
         )
         .route(
             "/api/v1/opportunities/refresh",

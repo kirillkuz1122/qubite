@@ -14,6 +14,7 @@ use qubite_testkit::{
 };
 use serde_json::json;
 use time::macros::datetime;
+use uuid::Uuid;
 
 const CODOLYMP: &str = include_str!("../../qubite-home/tests/fixtures/codolymp-schedule.html");
 const DEVPOST: &str = include_str!("../../qubite-home/tests/fixtures/devpost-hackathons.json");
@@ -214,6 +215,128 @@ async fn daily_jobs_are_idempotent_and_refresh_the_payload_account() {
         .await
         .unwrap();
     assert_eq!(count, 3);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn decisions_require_login_csrf_grants_and_ownership_and_return_one_action() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let owner: Uuid = sqlx::query_scalar("SELECT id FROM accounts WHERE email = $1")
+        .bind(EMAIL)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    let other = qubite_auth::accounts::create(
+        db.pool(),
+        &Passwords::default(),
+        NewAccount {
+            email: "other@example.org",
+            display_name: "Другой",
+            password: PASSWORD,
+            email_verified: true,
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    let id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO opportunities (id, account_id, source, external_id, kind, title, \
+         registration_until, starts_at, ends_at, url) VALUES ($1, $2, 'manual', $3, 'contest', \
+         'Тестовый конкурс', now() + interval '10 days', now() + interval '20 days', \
+         now() + interval '21 days', '')",
+    )
+    .bind(id)
+    .bind(owner)
+    .bind(id.to_string())
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let interested = format!("/api/v1/opportunities/{id}/interested");
+    let dismiss = format!("/api/v1/opportunities/{id}/dismiss");
+    let mut guest = Browser::default();
+    for path in [&interested, &dismiss] {
+        assert_eq!(guest.post(address, path).await.status, 401);
+    }
+    let mut me = common::logged_in_unconfirmed(address).await;
+    let mut theirs = Browser::default();
+    theirs.login(address, "other@example.org", PASSWORD).await;
+    for path in [&interested, &dismiss] {
+        assert_eq!(
+            me.send(address, reqwest::Method::POST, path, None, false)
+                .await
+                .status,
+            403
+        );
+        assert_eq!(
+            theirs.post(address, path).await.status,
+            404,
+            "чужое мероприятие скрыто даже без гранта"
+        );
+    }
+    // Собственное мероприятие без agent — отказ.
+    let own = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO opportunities (id, account_id, source, external_id, kind, title, starts_at, ends_at, url) \
+         VALUES ($1, $2, 'manual', $3, 'contest', 'Своё', now() + interval '1 day', now() + interval '2 days', '')",
+    )
+    .bind(own)
+    .bind(other.id)
+    .bind(own.to_string())
+    .execute(db.pool())
+    .await
+    .unwrap();
+    for suffix in ["interested", "dismiss"] {
+        let path = format!("/api/v1/opportunities/{own}/{suffix}");
+        assert_eq!(theirs.post(address, &path).await.status, 403);
+        let unknown = format!("/api/v1/opportunities/{}/{suffix}", Uuid::now_v7());
+        assert_eq!(me.post(address, &unknown).await.status, 404);
+    }
+    let result = me.post(address, &interested).await;
+    assert_eq!(result.status, 200, "{:?}", result.body);
+    assert_eq!(
+        result.body["action"]["changes"].as_array().unwrap().len(),
+        4
+    );
+    assert_eq!(result.body["action"]["state"]["batch_size"], 1);
+    let again = me.post(address, &interested).await;
+    assert_eq!(again.status, 200);
+    assert!(again.body["action"].is_null());
+    let batch = result.body["action"]["batch_id"].as_str().unwrap();
+    let undone = me
+        .post_json(
+            address,
+            &format!("/api/v1/agent/batches/{batch}/revert"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(undone.status, 200, "{:?}", undone.body);
+    assert_eq!(undone.body["status"], "reverted");
+    let result = me.post(address, &dismiss).await;
+    assert_eq!(result.status, 200);
+    let status: String = sqlx::query_scalar("SELECT status FROM opportunities WHERE id = $1")
+        .bind(id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(status, "dismissed");
+    let action = result.body["action"]["id"].as_str().unwrap();
+    let undone = me
+        .post_json(
+            address,
+            &format!("/api/v1/agent/actions/{action}/revert"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(undone.status, 200, "{:?}", undone.body);
+    assert_eq!(undone.body["status"], "reverted");
+    let status: String = sqlx::query_scalar("SELECT status FROM opportunities WHERE id = $1")
+        .bind(id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(status, "new");
     db.close().await;
     test_db.drop_db().await;
 }

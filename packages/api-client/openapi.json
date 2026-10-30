@@ -7749,6 +7749,138 @@
         }
       }
     },
+    "/api/v1/opportunities/{id}/dismiss": {
+      "post": {
+        "tags": ["opportunities"],
+        "summary": "Скрыть мероприятие из предложений с возможностью отката.",
+        "operationId": "dismiss_opportunity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Мероприятие отклонено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityDecision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities/{id}/interested": {
+      "post": {
+        "tags": ["opportunities"],
+        "summary": "Создать дела для участия одним откатываемым пакетом.",
+        "operationId": "interested_opportunity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID мероприятия",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Участие запланировано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Мероприятие уже началось",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту или планеру",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{id}": {
       "get": {
         "tags": ["planner"],
@@ -12861,6 +12993,22 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "OpportunityDecision": {
+        "type": "object",
+        "description": "Результат решения человека. При повторном нажатии новой записи нет.",
+        "properties": {
+          "action": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgentAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
