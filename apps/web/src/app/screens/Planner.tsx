@@ -274,7 +274,7 @@ const ORDER: TaskStatus[] = ['todo', 'doing', 'done'];
  * под курсором подсвечивается. Пальцем на телефоне — меню «⋯» (прокрутку не перехватываем).
  */
 function Board() {
-  const { board, move } = usePlanner();
+  const { board, move, openTask } = usePlanner();
   const shell = useShell();
   const [over, setOver] = useState<TaskStatus | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -392,8 +392,21 @@ function Board() {
                 <span className="q-dot" style={{ background: `var(--q-${card.color})` }} />
                 {card.tag}
               </div>
+              <Presence show={card.travelMinutes != null} className="task-travel">
+                в пути {card.travelMinutes} мин
+              </Presence>
               {menu === card.id && (
                 <div className="card-menu" role="menu" aria-label="Переместить в">
+                  <Button
+                    role="menuitem"
+                    dot={false}
+                    onClick={() => {
+                      setMenu(null);
+                      openTask(card.id);
+                    }}
+                  >
+                    Место и дорога
+                  </Button>
                   {board
                     .filter((to) => to.status !== c.status)
                     .map((to) => (
