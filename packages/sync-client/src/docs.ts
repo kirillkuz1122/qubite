@@ -570,10 +570,16 @@ class StoredDocHandle implements DocHandle {
       if (this.closed) return;
       if (this.storageError || this.textError) {
         this.setStatus('error');
-      } else if (error instanceof HttpError && error.status === 409 && error.code === 'seed_taken') {
+      } else if (
+        error instanceof HttpError &&
+        error.status === 409 &&
+        error.code === 'seed_taken'
+      ) {
         await this.reset();
       } else if (error instanceof HttpError) {
-        this.setStatus(error.status === 404 ? 'pending' : error.status >= 500 ? 'offline' : 'error');
+        this.setStatus(
+          error.status === 404 ? 'pending' : error.status >= 500 ? 'offline' : 'error',
+        );
       } else {
         this.setStatus(requesting ? 'offline' : 'error');
       }

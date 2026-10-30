@@ -592,7 +592,11 @@ describe('HTTP-адаптер документов', () => {
       calls.push({ url: String(input), init });
       return Response.json({ update: base64(update), sv: base64(sv), seed_markdown: 'текст' });
     };
-    const transport = httpDocsTransport({ baseUrl: 'https://q.example', fetch, csrf: () => 'csrf' });
+    const transport = httpDocsTransport({
+      baseUrl: 'https://q.example',
+      fetch,
+      csrf: () => 'csrf',
+    });
     expect(await transport.pull('id/1', sv)).toEqual({ update, sv, seedMarkdown: 'текст' });
     expect(calls[0]?.url).toBe(
       `https://q.example/api/v1/docs/id%2F1/y?sv=${encodeURIComponent(base64(sv))}`,
