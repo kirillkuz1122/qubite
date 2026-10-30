@@ -6,12 +6,20 @@ import {
   calendarTime,
   dateWindow,
   dayStart,
+  eventForm,
+  eventMovePatch,
+  eventRequest,
   intersects,
   itemKey,
   itemsOnDay,
   layoutBlocks,
+  localInstant,
+  moveCalendarItem,
+  newEventForm,
   nowPosition,
   shiftPeriod,
+  snapMinute,
+  type CalendarEvent,
   type CalendarItem,
 } from './calendar-view';
 
@@ -97,6 +105,175 @@ describe('окна календаря в часовом поясе платфо�
     expect(shiftPeriod('month', '2026-01-31', -1)).toBe('2025-12-01');
     expect(shiftPeriod('day', '2026-12-31', 1)).toBe('2027-01-01');
     expect(shiftPeriod('week', DAY, 1)).toBe('2026-11-06');
+  });
+});
+
+describe('перенос по шкале', () => {
+  it('привязывает к 15 минутам и не выводит начало за границы дня', () => {
+    expect([0, 7, 8, 22, 23, 1439, -50].map(snapMinute)).toEqual([0, 0, 15, 15, 30, 1425, 0]);
+  });
+
+  it('переносит в другой день недели и сохраняет длительность', () => {
+    const event = item('встреча', '10:00', '11:30');
+    expect(moveCalendarItem(event, DAY, '2026-11-01', 38, ZONE)).toEqual({
+      starts_at: at('2026-11-01', '10:45'),
+      ends_at: at('2026-11-01', '12:15'),
+    });
+  });
+
+  it('переносит дело без придуманной длительности', () => {
+    const task = item('дело', '10:07', '10:07', { kind: 'task' });
+    expect(moveCalendarItem(task, DAY, '2026-10-29', 15, ZONE)).toEqual({
+      starts_at: at('2026-10-29', '10:15'),
+      ends_at: at('2026-10-29', '10:15'),
+    });
+  });
+
+  it('сдвигает многодневное событие за любой его отрезок без потери ночной части', () => {
+    const event = item('ночь', '23:00', '23:00', { ends_at: at('2026-10-31', '02:00') });
+    expect(moveCalendarItem(event, '2026-10-31', '2026-11-01', 30, ZONE)).toEqual({
+      starts_at: at('2026-10-31', '23:30'),
+      ends_at: at('2026-11-01', '02:30'),
+    });
+  });
+
+  it('сохраняет длительность через границу суток', () => {
+    const event = item('вечер', '23:30', '23:45');
+    expect(moveCalendarItem(event, DAY, DAY, 45, ZONE)).toEqual({
+      starts_at: at('2026-10-31', '00:15'),
+      ends_at: at('2026-10-31', '00:30'),
+    });
+  });
+});
+
+const fullEvent: CalendarEvent = {
+  id: 'event',
+  owner_id: 'owner',
+  title: 'Встреча',
+  notes: 'Заметки',
+  place: 'Библиотека',
+  starts_at: at(DAY, '10:00'),
+  ends_at: at(DAY, '11:30'),
+  all_day: false,
+  project_id: 'project',
+  recurrence: null,
+  revision: 4,
+  deleted: false,
+  created_at: 0,
+  updated_at: 0,
+};
+
+describe('форма события → запрос', () => {
+  it('сохраняет поля полного события, версию передаёт слой PATCH', () => {
+    expect(eventRequest(eventForm(fullEvent, ZONE), ZONE)).toEqual({
+      body: {
+        title: 'Встреча',
+        notes: 'Заметки',
+        place: 'Библиотека',
+        starts_at: fullEvent.starts_at,
+        ends_at: fullEvent.ends_at,
+        all_day: false,
+        project_id: 'project',
+        recurrence: null,
+      },
+    });
+  });
+
+  it('переводит время в UTC по поясу платформы, включая другой пояс', () => {
+    expect(localInstant(DAY, '10:00', ZONE)).toBe(at(DAY, '10:00'));
+    expect(localInstant(DAY, '10:00', 'UTC')).toBe(Date.parse(`${DAY}T10:00:00Z`));
+  });
+
+  it('считает последний день включительно и восстанавливает его при правке', () => {
+    const form = { ...newEventForm(DAY, 0, true), title: 'Поездка', endDay: '2026-11-01' };
+    const result = eventRequest(form, ZONE);
+    expect(result.body).toMatchObject({
+      starts_at: at(DAY, '00:00'),
+      ends_at: at('2026-11-02', '00:00'),
+      all_day: true,
+    });
+    expect(eventForm({ ...fullEvent, ...result.body }, ZONE)).toMatchObject({
+      startDay: DAY,
+      endDay: '2026-11-01',
+      allDay: true,
+    });
+  });
+
+  it('позднее новое событие заканчивается на следующий день', () => {
+    expect(newEventForm(DAY, 23 * 60 + 45)).toMatchObject({
+      startTime: '23:45',
+      endDay: '2026-10-31',
+      endTime: '00:45',
+    });
+  });
+
+  it('передаёт общий формат повторов и явное очищение проекта и повтора', () => {
+    const form = {
+      ...newEventForm(DAY),
+      title: ' Зарядка ',
+      repeat: 'weekly' as const,
+      weekdays: [5, 1],
+    };
+    expect(eventRequest(form, ZONE).body).toMatchObject({
+      title: 'Зарядка',
+      project_id: null,
+      recurrence: { freq: 'weekly', interval: 1, weekdays: [1, 5] },
+    });
+    expect(eventRequest({ ...form, repeat: 'monthly', monthDay: 31 }, ZONE).body?.recurrence).toEqual({
+      freq: 'monthly',
+      interval: 1,
+      month_day: 31,
+    });
+    expect(eventRequest({ ...form, repeat: '' }, ZONE).body?.recurrence).toBeNull();
+  });
+
+  it('не теряет интервал существующей серии', () => {
+    const event = { ...fullEvent, recurrence: { freq: 'weekly', interval: 2, weekdays: [5] } };
+    expect(eventRequest(eventForm(event, ZONE), ZONE).body?.recurrence).toEqual(event.recurrence);
+  });
+
+  it('не отправляет пустое название, неверные даты, конец до начала и пустые дни повтора', () => {
+    const form = {
+      ...newEventForm(DAY),
+      startDay: '',
+      endDay: '2026-02-30',
+      repeat: 'weekly' as const,
+      weekdays: [],
+    };
+    expect(eventRequest(form, ZONE).errors).toMatchObject({
+      title: expect.any(String),
+      startDay: expect.any(String),
+      endDay: expect.any(String),
+      repeat: expect.any(String),
+    });
+    expect(
+      eventRequest({ ...newEventForm(DAY), title: 'Встреча', endTime: '08:00' }, ZONE).errors?.endDay,
+    ).toBeTruthy();
+    expect(
+      eventRequest(
+        { ...newEventForm(DAY), title: 'Встреча', repeat: 'monthly', interval: 0, monthDay: 32 },
+        ZONE,
+      ).errors,
+    ).toMatchObject({
+      interval: expect.any(String),
+      monthDay: expect.any(String),
+    });
+  });
+
+  it('не заменяет несуществующий час при переводе часов другим временем', () => {
+    expect(localInstant('2026-03-29', '02:30', 'Europe/Berlin')).toBeNaN();
+  });
+
+  it('перенос позднего повтора сдвигает базовую серию на тот же интервал', () => {
+    const occurrence = item('event', '10:00', '11:30', {
+      starts_at: at('2026-11-06', '10:00'),
+      ends_at: at('2026-11-06', '11:30'),
+    });
+    const moved = moveCalendarItem(occurrence, '2026-11-06', '2026-11-07', 15, ZONE);
+    expect(eventMovePatch(fullEvent, occurrence, moved)).toEqual({
+      starts_at: at('2026-10-31', '10:15'),
+      ends_at: at('2026-10-31', '11:45'),
+    });
   });
 });
 
