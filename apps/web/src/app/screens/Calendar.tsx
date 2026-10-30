@@ -9,14 +9,17 @@ import { usePlanner } from '../planner-context';
 import { useSync } from '../sync-context';
 import {
   CALENDAR_MODES,
+  BLOCK_MIN_SIZE,
   HOUR_HEIGHT,
   KIND_COLOR,
   KIND_LABEL,
+  addDays,
   calendarDay,
   calendarTime,
   dateWindow,
   eventForm,
   eventMovePatch,
+  fitDayBlocks,
   intersects,
   itemKey,
   itemsOnDay,
@@ -181,10 +184,14 @@ function Calendar({ timeZone }: { timeZone: string }) {
       if (item.kind === 'event') {
         const event = events.known[item.source_id];
         if (!event) throw new Fail('unavailable', EVENT_READ_UNAVAILABLE, 0);
-        const saved = await events.patch(event, eventMovePatch(event, item, moved));
+        const saved = await events.patch(event, eventMovePatch(event, item, moved, timeZone));
         setUndo(() => async () => {
           try {
-            await events.patch(saved, { starts_at: event.starts_at, ends_at: event.ends_at });
+            await events.patch(saved, {
+              starts_at: event.starts_at,
+              ends_at: event.ends_at,
+              recurrence: event.recurrence ?? null,
+            });
           } catch (error) {
             throw new Fail('calendar', await failed(error, event.id), 0);
           }
@@ -398,6 +405,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
             onCreate={createAt}
             onOpen={openItem}
             onMove={moveItem}
+            onDay={openDay}
             moving={moving}
           />
         )}
@@ -450,6 +458,7 @@ function Timeline({
   onCreate,
   onOpen,
   onMove,
+  onDay,
   moving,
 }: {
   days: string[];
@@ -465,18 +474,88 @@ function Timeline({
     minuteDelta: number,
   ) => Promise<boolean>;
   moving: boolean;
+  onDay: (day: string) => void;
 }) {
   const scroll = useRef<HTMLDivElement>(null);
   const initialNow = useRef(now);
+  const [dayWidth, setDayWidth] = useState(BLOCK_MIN_SIZE);
+  const [focusTarget, setFocusTarget] = useState<{
+    item: CalendarItem;
+    day: string;
+  } | null>(null);
+  const focusPending = useRef(false);
   const columns = useMemo(
     () =>
       days.map((day) => ({
         day,
         allDay: itemsOnDay(items, day, timeZone).filter((item) => item.all_day),
-        blocks: layoutBlocks(items, day, timeZone),
+        ...fitDayBlocks(layoutBlocks(items, day, timeZone), dayWidth, focusTarget?.item),
       })),
-    [days, items, timeZone],
+    [days, items, timeZone, dayWidth, focusTarget],
   );
+
+  useLayoutEffect(() => {
+    const tracks = [
+      ...(scroll.current?.querySelectorAll<HTMLElement>('.calendar-day-track') ?? []),
+    ];
+    if (!tracks.length) return;
+    // clientWidth исключает границу дня. Запас в 1 px учитывает округление дробных
+    // колонок сетки; берём самую узкую, включая место вертикальной прокрутки.
+    const measure = () =>
+      setDayWidth(Math.max(0, Math.min(...tracks.map((track) => track.clientWidth - 1))));
+    measure();
+    const observer = new ResizeObserver(measure);
+    for (const track of tracks) observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
+
+  async function keyboardMove(
+    item: CalendarItem,
+    fromDay: string,
+    toDay: string,
+    minuteDelta: number,
+  ) {
+    const moved = moveCalendarItem(item, fromDay, toDay, minuteDelta, timeZone);
+    const saved = await onMove(item, fromDay, toDay, minuteDelta);
+    const targetDay = saved
+      ? addDays(
+          fromDay,
+          (Date.parse(calendarDay(moved.starts_at, timeZone)) -
+            Date.parse(calendarDay(item.starts_at, timeZone))) /
+            86_400_000,
+        )
+      : fromDay;
+    focusPending.current = true;
+    setFocusTarget({
+      item: saved ? { ...item, ...moved } : item,
+      day: targetDay,
+    });
+    return saved;
+  }
+
+  useLayoutEffect(() => {
+    if (!focusPending.current || !focusTarget || moving) return;
+    const block = columns
+      .find(({ day }) => day === focusTarget.day)
+      ?.blocks.find(
+        ({ item }) =>
+          item.kind === focusTarget.item.kind &&
+          item.source_id === focusTarget.item.source_id &&
+          item.starts_at === focusTarget.item.starts_at,
+      );
+    if (!block) return;
+    const element = [
+      ...(scroll.current?.querySelectorAll<HTMLElement>('[data-calendar-key]') ?? []),
+    ].find(
+      (el) =>
+        el.dataset.calendarKey === block.key && el.parentElement?.dataset.day === focusTarget.day,
+    );
+    const button = element?.querySelector<HTMLButtonElement>('.calendar-block-hit');
+    if (button) {
+      button.focus({ preventScroll: true });
+      focusPending.current = false;
+    }
+  }, [columns, focusTarget, moving]);
 
   useLayoutEffect(() => {
     const el = scroll.current;
@@ -487,7 +566,15 @@ function Timeline({
   }, [timeZone]);
 
   return (
-    <div className="calendar-timeline" style={{ '--calendar-days': days.length } as CSSProperties}>
+    <div
+      className="calendar-timeline"
+      style={
+        {
+          '--calendar-days': days.length,
+          '--calendar-block-min': `${BLOCK_MIN_SIZE}px`,
+        } as CSSProperties
+      }
+    >
       <div className="calendar-day-heads">
         <span aria-hidden="true" />
         {days.map((day) => (
@@ -540,7 +627,7 @@ function Timeline({
               </span>
             ))}
           </div>
-          {columns.map(({ day, blocks }) => {
+          {columns.map(({ day, blocks, overflow }) => {
             const position = nowPosition(day, now, timeZone);
             return (
               <div
@@ -570,15 +657,37 @@ function Timeline({
                 ))}
                 {blocks.map((block) => (
                   <EventBlock
-                    key={itemKey(block.item)}
+                    key={block.key}
                     block={block}
                     day={day}
                     days={days}
                     timeZone={timeZone}
                     onOpen={onOpen}
                     onMove={onMove}
+                    onKeyboardMove={keyboardMove}
                     disabled={moving}
                   />
+                ))}
+                {overflow.map((more) => (
+                  <div
+                    key={`more:${more.key}`}
+                    className="calendar-block calendar-overflow"
+                    style={{
+                      transform: `translateY(${more.top}px)`,
+                      height: more.height,
+                      left: `${(more.column / more.columns) * 100}%`,
+                      width: `${100 / more.columns}%`,
+                    }}
+                  >
+                    <Button
+                      className="calendar-block-hit"
+                      dot={false}
+                      aria-label={`Ещё ${more.count} записей, ${shortDayLabel(day)}. Открыть день`}
+                      onClick={() => onDay(day)}
+                    >
+                      ещё {more.count}
+                    </Button>
+                  </div>
                 ))}
                 {position !== null && (
                   <div
@@ -609,6 +718,7 @@ function EventBlock({
   timeZone,
   onOpen,
   onMove,
+  onKeyboardMove,
   disabled,
 }: {
   block: CalendarBlock;
@@ -623,6 +733,12 @@ function EventBlock({
     minuteDelta: number,
   ) => Promise<boolean>;
   disabled: boolean;
+  onKeyboardMove: (
+    item: CalendarItem,
+    fromDay: string,
+    toDay: string,
+    minuteDelta: number,
+  ) => Promise<boolean>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const muted = useRef(false);
@@ -847,11 +963,12 @@ function EventBlock({
     <div
       ref={ref}
       className="calendar-block"
+      data-calendar-key={block.key}
       style={
         {
           '--calendar-color': `var(--q-${KIND_COLOR[block.item.kind]})`,
           transform: `translateY(${block.top}px)`,
-          height: Math.max(44, block.height),
+          height: block.height,
           left: `${(block.column / block.columns) * 100}%`,
           width: `${100 / block.columns}%`,
         } as CSSProperties
@@ -884,7 +1001,7 @@ function EventBlock({
           const delta = e.key === 'ArrowUp' ? -15 : e.key === 'ArrowDown' ? 15 : 0;
           if (!toDay || (!delta && toDay === day)) return;
           e.preventDefault();
-          void onMove(block.item, day, toDay, delta);
+          void onKeyboardMove(block.item, day, toDay, delta);
         }}
       >
         <time>{calendarTime(block.item.starts_at, timeZone)}</time>

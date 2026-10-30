@@ -7,6 +7,8 @@ export type CalendarMode = 'day' | 'week' | 'month';
 
 export const CALENDAR_MODES: readonly CalendarMode[] = ['day', 'week', 'month'];
 export const HOUR_HEIGHT = 64;
+/** Та же минимальная зона нажатия, что у .calendar-block-hit. */
+export const BLOCK_MIN_SIZE = 44;
 const DAY_MS = 86_400_000;
 const MINUTE_MS = 60_000;
 const PART_FORMATS = new Map<string, Intl.DateTimeFormat>();
@@ -148,6 +150,11 @@ export function itemKey(item: CalendarItem): string {
   return `${item.kind}:${item.source_id}:${item.starts_at}:${item.ends_at}:${item.title}`;
 }
 
+/** Ключ React не зависит от времени и текста; индекс различает повторы одной серии. */
+export function occurrenceKey(item: CalendarItem, index: number): string {
+  return `${item.kind}:${item.source_id}:${index}`;
+}
+
 export function intersects(item: CalendarItem, from: number, to: number): boolean {
   // У дела с due_time нет длительности: сервер отдаёт starts_at === ends_at.
   return item.starts_at < to && (item.ends_at > from || item.starts_at >= from);
@@ -176,6 +183,7 @@ export function nowPosition(day: string, now: number, timeZone: string): number 
 }
 
 export interface CalendarBlock {
+  key: string;
   item: CalendarItem;
   start: number;
   end: number;
@@ -196,6 +204,15 @@ export function layoutBlocks(
 ): CalendarBlock[] {
   const from = dayStart(day, timeZone);
   const to = dayStart(addDays(day, 1), timeZone);
+  // Индекс во всём окне, а не внутри дня: после переноса между днями ключ сохраняется.
+  const counts = new Map<string, number>();
+  const keys = new Map<CalendarItem, string>();
+  for (const item of [...items].sort((a, b) => a.starts_at - b.starts_at)) {
+    const source = `${item.kind}:${item.source_id}`;
+    const index = counts.get(source) ?? 0;
+    keys.set(item, occurrenceKey(item, index));
+    counts.set(source, index + 1);
+  }
   const blocks = itemsOnDay(items, day, timeZone)
     .filter((item) => !item.all_day)
     .map((item): CalendarBlock => {
@@ -205,11 +222,12 @@ export function layoutBlocks(
         item.ends_at === item.starts_at ? item.starts_at + 30 * MINUTE_MS : item.ends_at;
       const end = finish >= to ? 1440 : Math.max(start + 1, minuteAt(finish, timeZone));
       return {
+        key: keys.get(item)!,
         item,
         start,
         end,
         top: (start / 60) * HOUR_HEIGHT,
-        height: ((end - start) / 60) * HOUR_HEIGHT,
+        height: Math.max(BLOCK_MIN_SIZE, ((end - start) / 60) * HOUR_HEIGHT),
         column: 0,
         columns: 1,
       };
@@ -223,21 +241,88 @@ export function layoutBlocks(
     for (const block of group) block.columns = ends.length;
   }
   for (const block of blocks) {
-    if (block.start >= groupEnd) {
+    if (block.top >= groupEnd) {
       finishGroup();
       group = [];
       ends = [];
       groupEnd = -1;
     }
-    let column = ends.findIndex((end) => end <= block.start);
+    let column = ends.findIndex((end) => end <= block.top);
     if (column === -1) column = ends.length;
-    ends[column] = block.end;
+    ends[column] = block.top + block.height;
     block.column = column;
     group.push(block);
-    groupEnd = Math.max(groupEnd, block.end);
+    groupEnd = Math.max(groupEnd, block.top + block.height);
   }
   finishGroup();
   return blocks;
+}
+
+export interface CalendarOverflow {
+  key: string;
+  top: number;
+  height: number;
+  column: number;
+  columns: number;
+  count: number;
+}
+
+/** В тесной группе последняя колонка — одна общая полоса скрытых записей. */
+export function fitDayBlocks(
+  blocks: readonly CalendarBlock[],
+  width: number,
+  preferred?: CalendarItem,
+): { blocks: CalendarBlock[]; overflow: CalendarOverflow[] } {
+  const limit = Math.max(1, Math.floor(width / BLOCK_MIN_SIZE));
+  const visible: CalendarBlock[] = [];
+  const overflow: CalendarOverflow[] = [];
+  let group: CalendarBlock[] = [];
+  let groupEnd = -1;
+  function finishGroup() {
+    if (!group.length) return;
+    const columns = group[0]!.columns;
+    if (columns <= limit) {
+      visible.push(...group);
+      return;
+    }
+    const available = limit - 1;
+    const selected = group.find(
+      ({ item }) =>
+        preferred &&
+        item.kind === preferred.kind &&
+        item.source_id === preferred.source_id &&
+        item.starts_at === preferred.starts_at,
+    );
+    // Перенос с клавиатуры может попасть в тесную группу: оставляем запись доступной.
+    const swap = available > 0 && selected && selected.column >= available ? selected.column : 0;
+    const hidden: CalendarBlock[] = [];
+    for (const block of group) {
+      const column = block.column === swap ? 0 : block.column === 0 ? swap : block.column;
+      if (column < available) visible.push({ ...block, column, columns: limit });
+      else hidden.push(block);
+    }
+    const top = Math.min(...hidden.map((block) => block.top));
+    const bottom = Math.max(...hidden.map((block) => block.top + block.height));
+    overflow.push({
+      key: group[0]!.key,
+      top,
+      height: bottom - top,
+      column: available,
+      columns: limit,
+      count: hidden.length,
+    });
+  }
+  for (const block of blocks) {
+    if (block.top >= groupEnd) {
+      finishGroup();
+      group = [];
+      groupEnd = -1;
+    }
+    group.push(block);
+    groupEnd = Math.max(groupEnd, block.top + block.height);
+  }
+  finishGroup();
+  return { blocks: visible, overflow };
 }
 
 /** Ограничение API; сутки здесь — длительность UTC. */
@@ -402,7 +487,27 @@ export function eventMovePatch(
   event: CalendarEvent,
   occurrence: CalendarItem,
   moved: Pick<CalendarItem, 'starts_at' | 'ends_at'>,
+  timeZone: string,
 ): EventPatch {
   const delta = moved.starts_at - occurrence.starts_at;
-  return { starts_at: event.starts_at + delta, ends_at: event.ends_at + delta };
+  const patch: EventPatch = {
+    starts_at: event.starts_at + delta,
+    ends_at: event.ends_at + delta,
+  };
+  const from = calendarDay(occurrence.starts_at, timeZone);
+  const to = calendarDay(moved.starts_at, timeZone);
+  const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS;
+  const rule = event.recurrence;
+  if (days && rule?.freq === 'weekly') {
+    const weekdays = rule.weekdays?.length
+      ? rule.weekdays
+      : [((new Date(`${from}T00:00:00Z`).getUTCDay() + 6) % 7) + 1];
+    patch.recurrence = {
+      ...rule,
+      weekdays: weekdays.map((day) => ((((day - 1 + days) % 7) + 7) % 7) + 1).sort((a, b) => a - b),
+    };
+  } else if (days && rule?.freq === 'monthly') {
+    patch.recurrence = { ...rule, month_day: Number(to.slice(8)) };
+  }
+  return patch;
 }
