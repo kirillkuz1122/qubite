@@ -325,6 +325,7 @@ impl AppState {
         english_lessons::english_phrase,
         calendar::calendar,
         calendar::create_event,
+        calendar::get_event,
         calendar::patch_event,
         calendar::delete_event,
         projects::project_page,
@@ -929,7 +930,9 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/calendar/events", post(calendar::create_event))
         .route(
             "/api/calendar/events/{id}",
-            axum::routing::patch(calendar::patch_event).delete(calendar::delete_event),
+            get(calendar::get_event)
+                .patch(calendar::patch_event)
+                .delete(calendar::delete_event),
         )
         .route("/api/v1/projects/{id}", get(projects::project_page))
         .route("/api/v1/projects/{id}/feed", get(projects::project_feed))
