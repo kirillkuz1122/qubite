@@ -491,6 +491,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/calendar': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** События (включая повторы), дела и уроки, пересекающие окно. */
+    get: operations['calendar'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/calendar/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['create_event'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/calendar/events/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['get_event'];
+    put?: never;
+    post?: never;
+    delete: operations['delete_event'];
+    options?: never;
+    head?: never;
+    patch: operations['patch_event'];
+    trace?: never;
+  };
   '/api/health': {
     parameters: {
       query?: never;
@@ -3289,6 +3338,90 @@ export interface components {
       seq: number;
       target_id?: string | null;
       target_kind: string;
+    };
+    CalendarEvent: {
+      all_day: boolean;
+      /** Format: int64 */
+      created_at: number;
+      deleted: boolean;
+      /** Format: int64 */
+      ends_at: number;
+      /** Format: uuid */
+      id: string;
+      notes: string;
+      /** Format: uuid */
+      owner_id: string;
+      place: string;
+      /** Format: uuid */
+      project_id?: string | null;
+      recurrence?: components['schemas']['CalendarRecurrence'] | null;
+      /** Format: int64 */
+      revision: number;
+      /** Format: int64 */
+      starts_at: number;
+      title: string;
+      /** Format: int64 */
+      updated_at: number;
+    };
+    /** @description Схема нового события; начало и конец — UTC-миллисекунды. */
+    CalendarEventCreate: {
+      all_day?: boolean;
+      /** Format: int64 */
+      ends_at: number;
+      notes?: string;
+      place?: string;
+      /** Format: uuid */
+      project_id?: string | null;
+      recurrence?: components['schemas']['CalendarRecurrence'] | null;
+      /** Format: int64 */
+      starts_at: number;
+      title: string;
+    };
+    /** @description Меняет всю серию. null очищает project_id и recurrence. */
+    CalendarEventPatch: {
+      all_day?: boolean | null;
+      /** Format: int64 */
+      ends_at?: number | null;
+      notes?: string | null;
+      place?: string | null;
+      /** Format: uuid */
+      project_id?: string | null;
+      recurrence?: components['schemas']['CalendarRecurrence'] | null;
+      /** Format: int64 */
+      revision?: number | null;
+      /** Format: int64 */
+      starts_at?: number | null;
+      title?: string | null;
+    };
+    CalendarItem: {
+      all_day: boolean;
+      /** Format: int64 */
+      ends_at: number;
+      kind: components['schemas']['CalendarKind'];
+      place: string;
+      /**
+       * Format: uuid
+       * @description ID события, дела или файла «Расписание.md». Повтор узнаётся по starts_at.
+       */
+      source_id: string;
+      /** Format: int64 */
+      starts_at: number;
+      title: string;
+    };
+    /** @enum {string} */
+    CalendarKind: 'event' | 'task' | 'lesson';
+    /** @description Тот же Recurrence, что у дел. Weekly: дни 1…7; monthly: число 1…31. */
+    CalendarRecurrence: {
+      /** @description daily, weekly или monthly. */
+      freq: string;
+      /**
+       * Format: int32
+       * @default 1
+       */
+      interval: number;
+      /** Format: int32 */
+      month_day?: number | null;
+      weekdays?: number[];
     };
     CaptchaWidget: {
       /** @description `turnstile` или `smartcaptcha`. */
@@ -6147,6 +6280,241 @@ export interface operations {
       };
       /** @description Нет такой открытой сессии у этого аккаунта */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  calendar: {
+    parameters: {
+      query: {
+        from: number;
+        to: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Элементы календаря */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarItem'][];
+        };
+      };
+      /** @description Неверное окно */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права читать Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_event: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CalendarEventCreate'];
+      };
+    };
+    responses: {
+      /** @description Событие создано */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarEvent'];
+        };
+      };
+      /** @description Неверные поля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Проект не найден */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_event: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID события */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Событие */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarEvent'];
+        };
+      };
+      /** @description Нет права читать Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Событие не найдено */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_event: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID события */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Событие удалено */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Событие не найдено */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  patch_event: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID события */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CalendarEventPatch'];
+      };
+    };
+    responses: {
+      /** @description Событие изменено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalendarEvent'];
+        };
+      };
+      /** @description Неверные поля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Событие или проект не найдены */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Конфликт версии */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -1145,6 +1145,10 @@ html.q-own-scroll::-webkit-scrollbar {
   padding: 10px 4px 8px;
   background: var(--q-panel);
 }
+/* своё наложение внутри тела окна (подложка Segmented и т. п.) не выходит поверх липкой шапки */
+.q-sheet-body {
+  isolation: isolate;
+}
 .q-sheet-head h2 {
   margin: 0;
   font-size: 16px;
