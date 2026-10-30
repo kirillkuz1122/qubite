@@ -232,6 +232,8 @@ REPORT_FILE="$LOGS/issue-$N-$STAMP.report.md"
 SESSION_NAME="Qubite #$N: ${TITLE:0:60}"
 [[ $MODE == review ]] && SESSION_NAME="Qubite ревью PR #$PR (#$N)"
 log "#$N: Codex ($MODE, модель $MODEL, рассуждение $EFFORT, ветка $BRANCH от $BASE_BRANCH)"
+# Ловушка ERR срабатывает и при set +e — снимаем её, пока сами разбираем код возврата.
+trap - ERR
 set +e
 timeout --kill-after=1m "$CODEX_TIMEOUT" /opt/qubite/bin/qubite-codex-daemon-run --cwd "$JOB" \
     --name "$SESSION_NAME" --model "$MODEL" --effort "$EFFORT" --out "$REPORT_FILE" \
@@ -245,6 +247,7 @@ if [[ $rc -eq 3 ]]; then
     rc=${PIPESTATUS[0]}
 fi
 set -e
+trap 'fail "скрипт упал на строке $LINENO"' ERR
 [[ $rc -eq 0 ]] || fail "Codex завершился с кодом $rc (124 — вышло время $CODEX_TIMEOUT)"
 REPORT=$(scrub <"$REPORT_FILE" 2>/dev/null || true)
 [[ -n $REPORT ]] || REPORT="Codex не оставил отчёта."
