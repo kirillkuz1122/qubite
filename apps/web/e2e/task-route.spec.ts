@@ -76,7 +76,7 @@ async function setup(page: Page, denied = false) {
 
 async function openTask(page: Page) {
   await page.getByRole('button', { name: `Открыть дело: ${title}` }).click();
-  return page.getByRole('dialog', { name: 'Дело', exact: true });
+  return page.getByRole('dialog', { name: 'Место и дорога', exact: true });
 }
 
 test('место и маршрут: пояснение до геолокации, схема, ссылка и метка после перезагрузки', async ({

@@ -38,7 +38,7 @@ export function TaskPlaceSheet({
   }
 
   return (
-    <Sheet open={!!task} onClose={close} title="Дело" className="task-place-sheet">
+    <Sheet open={!!task} onClose={close} title="Место и дорога" className="task-place-sheet">
       {task && (
         <TaskPlaceForm
           key={`${session}:${task.id}:${task.place_text ?? ''}`}
