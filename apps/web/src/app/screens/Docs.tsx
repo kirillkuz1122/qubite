@@ -11,7 +11,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DocEditor } from '../docs/Editor';
 import { acquireDocument } from '../docs/handles';
-import { SecHead } from '../parts';
+import { plainPreview } from '../docs/preview';
 import { rememberedAccount, useSync } from '../sync-context';
 import '../docs/docs.css';
 
@@ -139,7 +139,8 @@ export function DocsScreen() {
 
   const onText = useCallback(
     (docId: string, text: string) => {
-      const update = { preview: text.replace(/\s+/g, ' ').slice(0, 160), updated: Date.now() };
+      // Чистим до склейки строк: знаки Markdown видны только в начале строки.
+      const update = { preview: plainPreview(text).slice(0, 160), updated: Date.now() };
       setPreviews((current) => {
         const next = { ...current, [docId]: update };
         try {
@@ -153,10 +154,12 @@ export function DocsScreen() {
     [previewKey],
   );
 
+  // Превью приходит Markdown-ом (сервер и редактор): в списке и поиске — чистый текст.
   const all = local
     .map((doc) => {
       const preview = previews[doc.id];
-      return preview && preview.updated > doc.updated ? { ...doc, ...preview } : doc;
+      const fresh = preview && preview.updated > doc.updated ? { ...doc, ...preview } : doc;
+      return { ...fresh, preview: plainPreview(fresh.preview) };
     })
     .sort((a, b) => b.updated - a.updated);
   const q = query.trim().toLocaleLowerCase('ru');
@@ -165,7 +168,14 @@ export function DocsScreen() {
   );
   // В сетевой результат добавляем ещё не отправленные документы и локальные правки.
   const rows = remote
-    ? [...new Map([...remote, ...matches].map((doc) => [doc.id, doc])).values()]
+    ? [
+        ...new Map(
+          [
+            ...remote.map((doc) => ({ ...doc, preview: plainPreview(doc.preview) })),
+            ...matches,
+          ].map((doc) => [doc.id, doc]),
+        ).values(),
+      ]
     : matches;
 
   useEffect(() => {
@@ -192,17 +202,20 @@ export function DocsScreen() {
   return (
     <div className={`docs-workspace${id ? ' docs-open' : ''}`}>
       <aside className="docs-index" aria-label="Список документов">
-        <SecHead text="ДОКУМЕНТЫ" label="Мои документы">
+        {/* Как во «Входящих» и Planner: под заголовком раздела сразу управление, без второго заголовка. */}
+        <div className="docs-bar">
+          <Field
+            className="docs-search"
+            label="Поиск документов"
+            placeholder="Поиск"
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
           <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
             + Документ
           </Button>
-        </SecHead>
-        <Field
-          label="Поиск документов"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        </div>
         {error && <Note tone="bad">{error}</Note>}
         {searchError && (
           <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>

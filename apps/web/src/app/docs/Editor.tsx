@@ -7,20 +7,30 @@ import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import type { DocHandle } from '@qubite/sync-client';
-import { Button, Check, Presence, useSlide } from '@qubite/ui';
+import { Button, Check, Presence, useMedia, useSlide, WIDE } from '@qubite/ui';
 import {
   $getNodeByKey,
   $getRoot,
   $getSelection,
   $isRangeSelection,
+  BLUR_COMMAND,
   COMMAND_PRIORITY_HIGH,
+  COMMAND_PRIORITY_LOW,
+  FOCUS_COMMAND,
   FORMAT_TEXT_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_TAB_COMMAND,
   type LexicalEditor,
   type TextFormatType,
 } from 'lexical';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type { Doc } from 'yjs';
 import { caretPoint } from '../../lab/caret';
@@ -39,6 +49,32 @@ interface Todo {
   checked: boolean;
   label: string;
   target: HTMLElement;
+}
+
+/** Нижняя граница для `/`-меню: панель блоков, иначе капля (телефон) или строка Command (ПК). */
+function menuFloor(tools: Element | null | undefined): number {
+  const viewport = window.visualViewport;
+  const visible = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+  if (tools) return Math.min(visible, tools.getBoundingClientRect().top) - 8;
+  // капля телефона: 12 + 60 px; строка Command на ПК: 22 + 60 px; плюс 14 px воздуха
+  return visible - (window.matchMedia(WIDE).matches ? 96 : 86);
+}
+
+/** Где открыть `/`-меню: под строкой, а если внизу не помещается — над ней. */
+function slashPoint(root: HTMLElement | null, height: number, floor: number) {
+  const below = caretPoint(root);
+  const selection = window.getSelection();
+  if (!root || !selection?.rangeCount) return below;
+  let line = selection.getRangeAt(0).getBoundingClientRect();
+  if (line.height === 0) {
+    const node = selection.anchorNode;
+    const element = node instanceof Element ? node : node?.parentElement;
+    if (element) line = element.getBoundingClientRect();
+  }
+  const box = root.getBoundingClientRect();
+  const roomBelow = floor - line.bottom - 6;
+  if (roomBelow >= height || line.top - 6 < roomBelow) return below;
+  return { x: below.x, y: line.top - box.top - 6 - height };
 }
 
 function $selectedBlocks() {
@@ -65,6 +101,9 @@ function apply(editor: LexicalEditor, kind: BlockKind, slash: boolean) {
 
 export function DocEditor({ handle }: { handle: DocHandle }) {
   const provider = useMemo(() => new DocsProvider(handle.doc), [handle]);
+  // Чужих курсоров нет (присутствие локальное), а свой Lexical иначе рисует как чужой —
+  // со случайным именем («Tiger») и цветом не из темы. Курсоры уходят в скрытый контейнер.
+  const cursors = useRef<HTMLDivElement>(null);
   const providerFactory = useCallback(
     (id: string, map: Map<string, Doc>) => {
       map.set(id, provider.doc);
@@ -98,9 +137,11 @@ export function DocEditor({ handle }: { handle: DocHandle }) {
           ErrorBoundary={LexicalErrorBoundary}
         />
         <MarkdownShortcutPlugin transformers={DOC_SHORTCUTS} />
+        <div ref={cursors} hidden />
         <CollaborationPlugin
           id="document"
           providerFactory={providerFactory}
+          cursorsContainerRef={cursors}
           shouldBootstrap={true}
           initialEditorState={() => $importMarkdown('')}
           syncCursorPositionsFn={() => {}}
@@ -117,6 +158,9 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
   const [active, setActive] = useState(0);
   const [selection, setSelection] = useState(false);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const wide = useMedia(WIDE);
+  // Клавиатуру проверить нельзя, поэтому панель блоков на телефоне — только пока пишут (Q-86).
+  const [focused, setFocused] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [formatY, setFormatY] = useState(0);
@@ -177,7 +221,20 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
             block.getKind() === 'p'
               ? slashQuery(block.getTextContent())
               : null;
-          setSlash(query === null ? null : { query, ...caretPoint(editor.getRootElement()) });
+          // Высота меню: строки по 44 px, поля 8 px и рамка; не выше 320 px (как в CSS).
+          const height = Math.min(320, slashItems(query ?? '').length * 44 + 18);
+          setSlash(
+            query === null
+              ? null
+              : {
+                  query,
+                  ...slashPoint(
+                    editor.getRootElement(),
+                    height,
+                    menuFloor(bar.current?.firstElementChild),
+                  ),
+                },
+          );
           setSelection($isRangeSelection(selected) && !selected.isCollapsed());
           if ($isRangeSelection(selected) && !selected.isCollapsed()) {
             setFormatY(caretPoint(editor.getRootElement()).y);
@@ -204,6 +261,29 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
       }),
     [editor],
   );
+
+  useEffect(() => {
+    const stopFocus = editor.registerCommand(
+      FOCUS_COMMAND,
+      () => {
+        setFocused(true);
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    );
+    const stopBlur = editor.registerCommand(
+      BLUR_COMMAND,
+      () => {
+        setFocused(false);
+        return false;
+      },
+      COMMAND_PRIORITY_LOW,
+    );
+    return () => {
+      stopFocus();
+      stopBlur();
+    };
+  }, [editor]);
 
   useEffect(() => {
     const stopTab = editor.registerCommand(
@@ -299,12 +379,61 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
       viewport?.removeEventListener('resize', place);
       viewport?.removeEventListener('scroll', place);
     };
-  }, []);
+  }, [wide]);
 
   const format = (value: TextFormatType) => {
     editor.dispatchCommand(FORMAT_TEXT_COMMAND, value);
     editor.focus();
   };
+  // Нажатие на панель не уводит фокус из текста.
+  const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
+  const indent = (step: number) =>
+    editor.update(() =>
+      $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() + step)),
+    );
+  const blockTools = (
+    <div className="docs-block-tools" role="toolbar" aria-label="Блоки">
+      {BLOCKS.map((block) => (
+        <Button
+          key={block.kind}
+          size="sm"
+          dot={false}
+          onClick={() => apply(editor, block.kind, false)}
+        >
+          {block.label}
+        </Button>
+      ))}
+      <Button size="sm" dot={false} aria-label="Уменьшить отступ" onClick={() => indent(-1)}>
+        Отступ −
+      </Button>
+      <Button size="sm" dot={false} aria-label="Увеличить отступ" onClick={() => indent(1)}>
+        Отступ +
+      </Button>
+    </div>
+  );
+  const formatTools = (
+    <Presence show={selection && focused} className="docs-format-wrap">
+      <div
+        className="docs-format-tools"
+        role="toolbar"
+        aria-label="Формат текста"
+        style={{ transform: `translateY(${formatY}px)` }}
+      >
+        <Button size="sm" dot={false} onClick={() => format('bold')}>
+          Жирный
+        </Button>
+        <Button size="sm" dot={false} onClick={() => format('italic')}>
+          Курсив
+        </Button>
+        <Button size="sm" dot={false} onClick={() => format('strikethrough')}>
+          Зачёркнутый
+        </Button>
+        <Button size="sm" dot={false} onClick={() => format('code')}>
+          Код
+        </Button>
+      </div>
+    </Presence>
+  );
   return (
     <>
       {todos.map((todo) =>
@@ -354,66 +483,24 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
           ))}
         </div>
       </Presence>
-      <div ref={bar} className="docs-tools" onMouseDown={(event) => event.preventDefault()}>
-        <div className="docs-block-tools" role="toolbar" aria-label="Блоки">
-          {BLOCKS.map((block) => (
-            <Button
-              key={block.kind}
-              size="sm"
-              dot={false}
-              title={block.label}
-              onClick={() => apply(editor, block.kind, false)}
-            >
-              {block.hint || block.label}
-            </Button>
-          ))}
-          <Button
-            size="sm"
-            dot={false}
-            aria-label="Уменьшить отступ"
-            onClick={() =>
-              editor.update(() =>
-                $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() - 1)),
-              )
-            }
-          >
-            Отступ −
-          </Button>
-          <Button
-            size="sm"
-            dot={false}
-            aria-label="Увеличить отступ"
-            onClick={() =>
-              editor.update(() =>
-                $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() + 1)),
-              )
-            }
-          >
-            Отступ +
-          </Button>
+      {wide ? (
+        <div className="docs-tools" onMouseDown={keepFocus}>
+          {formatTools}
         </div>
-        <Presence show={selection} className="docs-format-wrap">
-          <div
-            className="docs-format-tools"
-            role="toolbar"
-            aria-label="Формат текста"
-            style={{ transform: `translateY(${formatY}px)` }}
-          >
-            <Button size="sm" dot={false} onClick={() => format('bold')}>
-              Жирный
-            </Button>
-            <Button size="sm" dot={false} onClick={() => format('italic')}>
-              Курсив
-            </Button>
-            <Button size="sm" dot={false} onClick={() => format('strikethrough')}>
-              Зачёркнутый
-            </Button>
-            <Button size="sm" dot={false} onClick={() => format('code')}>
-              Код
-            </Button>
-          </div>
-        </Presence>
-      </div>
+      ) : (
+        // Портал: у .screen есть transform, и fixed внутри него считался бы от экрана раздела.
+        createPortal(
+          <div ref={bar} className="docs-tools-layer">
+            <Presence show={focused} className="docs-tools">
+              <div className="docs-tools-in" onMouseDown={keepFocus}>
+                {blockTools}
+                {formatTools}
+              </div>
+            </Presence>
+          </div>,
+          document.body,
+        )
+      )}
     </>
   );
 }

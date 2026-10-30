@@ -11,16 +11,22 @@
 .docs-editor {
   min-width: 0;
 }
-.docs-index .sec-h {
-  flex-wrap: wrap;
+/* Под заголовком раздела — сразу поиск и действие справа, как во «Входящих» и Planner. */
+.docs-bar {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
-.docs-index .sec-h .q-btn {
-  margin-left: auto;
+.docs-search {
+  flex: 1;
+  min-width: 0;
+}
+.docs-bar .q-btn {
+  flex: none;
 }
 .docs-rows {
   position: relative;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 .docs-row.q-btn {
   display: flex;
@@ -32,7 +38,7 @@
   border: 0;
   border-bottom: 1px solid var(--q-line);
   border-radius: 0;
-  padding: 16px 8px;
+  padding: 16px 14px;
   background: transparent;
   text-align: left;
 }
@@ -45,11 +51,13 @@
   text-overflow: ellipsis;
 }
 .docs-row-title {
+  font-size: 15px;
   font-weight: 600;
   color: var(--q-ink);
 }
 .docs-row-preview {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--q-mute);
 }
 .docs-row time {
@@ -70,24 +78,34 @@
   align-items: center;
   gap: 8px;
 }
+/* Статус занимает остаток строки и переносится в ней, а не уезжает под кнопку. */
 .docs-save {
-  margin-left: auto;
+  flex: 1 1 120px;
+  min-width: 0;
+  text-align: right;
   font-size: 12px;
   color: var(--q-mute);
 }
 .docs-title {
   margin: 24px 0;
 }
-.docs-title .q-field-label {
+.docs-title .q-field-label,
+.docs-search .q-field-label {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
 }
+/* Название читается как заголовок; фокус — тихая линия снизу (у поля нет своей обводки). */
 .docs-title .q-field-box {
   border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
   background: transparent;
+}
+.docs-title .q-field-box:focus-within {
+  border-bottom-color: var(--q-line-2);
 }
 .docs-title input {
   padding: 8px 0;
@@ -107,10 +125,6 @@
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
-.docs-text:focus-visible {
-  outline: 1px solid var(--q-line-2);
-  outline-offset: 4px;
-}
 .docs-block {
   position: relative;
   margin: 8px 0;
@@ -128,15 +142,16 @@
 .docs-block[data-indent='4'] {
   margin-inline-start: 64px;
 }
+/* Название документа (26 px) крупнее заголовков внутри текста. */
 .docs-block[data-kind='h1'] {
   margin-top: 26px;
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1.4;
   font-weight: 600;
 }
 .docs-block[data-kind='h2'] {
   margin-top: 24px;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.4;
   font-weight: 600;
 }
@@ -149,7 +164,7 @@
   padding: 14px;
   border-radius: calc(var(--q-round) * 12px);
   background: var(--q-panel-2);
-  font-family: ui-monospace, monospace;
+  font-family: var(--q-text);
   font-size: 14px;
   tab-size: 2;
 }
@@ -157,7 +172,10 @@
 .docs-block[data-kind='ol'] {
   padding-inline-start: 26px;
 }
+/* Пункт чек-листа — строка 44 px: первая строка текста по центру, галочка (центр 22 px) — на ней. */
 .docs-block[data-kind='todo'] {
+  margin-block: 0;
+  padding-block: max(0px, calc(22px - 0.9em));
   padding-inline-start: 44px;
   min-height: 44px;
 }
@@ -168,7 +186,7 @@
   display: block;
   position: absolute;
   inset-inline-start: 0;
-  top: 0;
+  top: max(0px, calc(0.9em - 22px));
   width: 44px;
   height: 44px;
 }
@@ -177,11 +195,16 @@
   min-height: 44px;
   margin: 0;
 }
+/* Маркер списка — точка той же формы, что во всём интерфейсе (--q-round), на середине первой строки. */
 .docs-block[data-kind='ul']::before {
-  content: '•';
+  content: '';
   position: absolute;
   inset-inline-start: 8px;
-  color: var(--q-mute);
+  top: calc(0.9em - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: calc(var(--q-round) * 50%);
+  background: var(--q-mute);
 }
 .docs-block[data-kind='ol']::before {
   content: attr(data-number) '.';
@@ -203,7 +226,8 @@
   text-decoration: line-through;
 }
 .docs-inline-code {
-  font-family: ui-monospace, monospace;
+  padding: 0 4px;
+  font-family: var(--q-text);
   background: var(--q-panel-2);
   border-radius: calc(var(--q-round) * 4px);
 }
@@ -230,19 +254,11 @@
   background: transparent;
   justify-content: flex-start;
 }
-.docs-tools .q-btn {
-  min-width: 44px;
-  min-height: 44px;
-}
 .docs-block-tools,
 .docs-format-tools {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-.docs-tools .q-check {
-  min-height: 44px;
-  align-items: center;
 }
 .docs-format-wrap {
   position: absolute;
@@ -251,14 +267,14 @@
   width: 100%;
   z-index: 5;
 }
+/* На ПК панель формата по ширине кнопок, а не во всю колонку. */
 .docs-format-tools {
+  width: fit-content;
+  max-width: 100%;
   padding: 8px;
   background: var(--q-panel);
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 16px);
-}
-.docs-block-tools {
-  display: none;
 }
 @media (min-width: 900px) {
   .main:has(.docs-workspace) .main-in {
@@ -284,6 +300,7 @@
     padding-top: 16px;
     min-height: calc(100dvh - 160px);
   }
+  /* Над клавиатурой; без неё — над каплей (её верх — 72 px от низа). Видна, пока пишут. */
   .docs-tools {
     position: fixed;
     z-index: 36;
@@ -309,8 +326,9 @@
   }
   .docs-format-tools {
     transform: none !important;
+    width: auto;
     border: 0;
-    padding: 4px 0;
+    padding: 4px 0 0;
     flex-wrap: nowrap;
     overflow-x: auto;
   }

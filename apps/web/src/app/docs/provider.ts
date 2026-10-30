@@ -51,7 +51,7 @@ export class DocsProvider {
   private unbridge: (() => void) | null = null;
 
   constructor(private readonly source: Y.Doc) {
-    this.awareness = new LocalAwareness(source.clientID);
+    this.awareness = new LocalAwareness(this.doc.clientID);
   }
 
   private bridge() {

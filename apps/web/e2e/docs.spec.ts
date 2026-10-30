@@ -107,39 +107,69 @@ for (const theme of ['light', 'dark']) {
   for (const width of [1440, 360]) {
     test(`раскладка ${width}px, тема ${theme}`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+      // Тема — как её выбирает человек: холсты с точками берут цвета темы при появлении.
+      await page.addInitScript((value) => {
+        localStorage.setItem('qubite.look.v1', JSON.stringify({ theme: value }));
+      }, theme);
       const server = await mockDocs(page);
       server.add('Заметки', '# Заголовок\nТекст документа\n- [ ] Пункт');
       await page.goto('/docs');
-      await page.evaluate(
-        (value) => document.documentElement.setAttribute('data-theme', value),
-        theme,
-      );
-      await expect(page.getByRole('button', { name: /Заметки/ })).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const row = page.getByRole('button', { name: /Заметки/ });
+      await expect(row).toBeVisible();
+      // Превью — чистый текст, без знаков Markdown.
+      await expect(row.locator('.docs-row-preview')).toHaveText('Заголовок Текст документа Пункт');
       const directory = resolve(import.meta.dirname, '../../../docs/design/screens/doc-002');
       await mkdir(directory, { recursive: true });
-      await info.attach(`doc-002-list-${width}-${theme}`, {
-        body: await page.screenshot({
-          path: join(directory, `${info.project.name}-list-${width}-${theme}.png`),
-        }),
-        contentType: 'image/png',
-      });
-      await page.getByRole('button', { name: /Заметки/ }).click();
+      const shot = async (name: string) => {
+        // Заголовок из точек собирается около секунды.
+        await page.waitForTimeout(1200);
+        await info.attach(`doc-002-${name}-${width}-${theme}`, {
+          body: await page.screenshot({
+            path: join(directory, `${info.project.name}-${name}-${width}-${theme}.png`),
+          }),
+          contentType: 'image/png',
+        });
+      };
+      await shot('list');
+      await row.click();
       await expect(text(page)).toContainText('Текст документа');
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         .toBe(true);
-      await info.attach(`doc-002-editor-${width}-${theme}`, {
-        body: await page.screenshot({
-          path: join(directory, `${info.project.name}-editor-${width}-${theme}.png`),
-        }),
-        contentType: 'image/png',
+      // Галочка стоит на первой строке пункта: центры совпадают.
+      const gap = await page.evaluate(() => {
+        const todo = document.querySelector('[data-kind="todo"]')!;
+        const box = todo.querySelector('.q-check-box')!.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(todo.querySelector('.docs-block-content')!);
+        const line = range.getClientRects()[0]!;
+        return Math.abs(box.top + box.height / 2 - (line.top + line.height / 2));
       });
+      expect(gap).toBeLessThanOrEqual(2);
+      const tools = page.getByRole('toolbar', { name: 'Блоки', exact: true });
+      // Без фокуса панели блоков нет: она не висит посреди экрана.
+      await expect(tools).toBeHidden();
+      await shot('editor');
       if (width === 360) {
-        await expect(page.getByRole('toolbar', { name: 'Блоки', exact: true })).toBeVisible();
         await expect(page.getByRole('complementary', { name: 'Список документов' })).toBeHidden();
+        await text(page).click();
+        await expect(tools).toBeVisible();
+        // Над каплей у нижнего края, а не посреди экрана.
+        await expect
+          .poll(async () => {
+            const box = await page.locator('.docs-tools').boundingBox();
+            return box ? Math.round(780 - box.y - box.height) : -1;
+          })
+          .toBe(88);
+        await shot('editor-focus');
+        await page.getByRole('button', { name: 'К документам' }).click();
+        await expect(tools).toBeHidden();
+      } else {
+        await page.getByRole('button', { name: 'К документам' }).click();
       }
-      await page.getByRole('button', { name: 'К документам' }).click();
-      await expect(page.getByRole('button', { name: /Заметки/ })).toBeVisible();
+      // После открытия превью пересобрано из текста редактора — тоже без разметки.
+      await expect(row.locator('.docs-row-preview')).toHaveText('Заголовок Текст документа Пункт');
     });
   }
 }
