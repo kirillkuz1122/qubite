@@ -124,6 +124,9 @@ impl Sources {
     pub async fn locate(&self, latitude: f64, longitude: f64) -> Result<Place> {
         check_point(latitude, longitude)?;
         let url = format!("{}/reverse", self.urls.reverse);
+        let parsed = reqwest::Url::parse(&url)
+            .map_err(|_| Error::Upstream("неверный адрес Nominatim".into()))?;
+        qubite_net::one_per_second(&parsed).await;
         let request = self.http.get(url).query(&[
             ("lat", format!("{latitude:.4}")),
             ("lon", format!("{longitude:.4}")),

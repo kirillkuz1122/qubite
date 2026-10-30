@@ -880,6 +880,9 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         ..qubite_server::auth::AuthSettings::default()
     };
     let mut state = qubite_server::AppState::with_auth(db.clone(), auth)
+        .with_route(qubite_route::OsrmNominatim::new(
+            qubite_route::Settings::from_env(),
+        ))
         .with_oauth(args.oauth.settings())
         .with_notify(channels.clone())
         .with_english(args.ai.english())

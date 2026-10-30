@@ -86,6 +86,7 @@ export function toRow(t: PlannerTask, projects: Map<string, PlannerProject>, tod
     ...(tag ? { tag } : {}),
     time: timeLabel(t, today),
     done: t.status === 'done',
+    ...(t.travel_minutes !== null ? { travelMinutes: t.travel_minutes } : {}),
   };
 }
 
@@ -132,6 +133,7 @@ export interface BoardCard {
   title: string;
   color: ColorName;
   tag: string;
+  travelMinutes?: number;
 }
 
 export interface BoardColumn {
@@ -159,6 +161,7 @@ export function buildBoard(
       title: t.title,
       color: p?.color ?? NO_PROJECT,
       tag: p?.title ?? 'Без проекта',
+      ...(t.travel_minutes !== null ? { travelMinutes: t.travel_minutes } : {}),
     };
   };
   const open = (s: PlannerTask['status']) =>

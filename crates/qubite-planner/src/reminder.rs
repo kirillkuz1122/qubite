@@ -92,8 +92,8 @@ pub struct Plan {
     pub why: String,
 }
 
-/// «Сходить куда-то»: выйти из дома, а не сделать за столом. Пока — по
-/// словам названия; позже место и дорогу знает агент (память «Обо мне»).
+/// Запасной признак выхода из дома по словам названия, когда рассчитанной
+/// дороги у дела ещё нет. Известный маршрут имеет приоритет над этим признаком.
 pub fn is_outing(title: &str) -> bool {
     const STEMS: &[&str] = &[
         "сход",
@@ -145,7 +145,8 @@ pub fn is_outing(title: &str) -> bool {
 }
 
 /// «за 15 минут», «за час», «за 2 ч 30 мин».
-pub fn minutes_text(minutes: u16) -> String {
+pub fn minutes_text(minutes: impl Into<i64>) -> String {
+    let minutes = minutes.into();
     let (hours, rest) = (minutes / 60, minutes % 60);
     match (hours, rest) {
         (0, _) => format!("за {minutes} мин"),
@@ -182,8 +183,17 @@ pub fn plan(task: &Task, defaults: Defaults) -> Option<Plan> {
             why: own(format!("{} до срока", minutes_text(*minutes))),
         }),
         None => due.map(|due| {
-            let (minutes, why) = if is_outing(&task.title) {
-                let minutes = defaults.travel_minutes;
+            let (minutes, why) = if let Some(travel) = task.travel_minutes {
+                let minutes = i64::from(defaults.before_minutes).max(i64::from(travel) + 10);
+                (
+                    minutes,
+                    format!(
+                        "{} до срока, дорога и 10 мин на сборы",
+                        minutes_text(minutes)
+                    ),
+                )
+            } else if is_outing(&task.title) {
+                let minutes = i64::from(defaults.travel_minutes);
                 (
                     minutes,
                     format!(
@@ -192,11 +202,11 @@ pub fn plan(task: &Task, defaults: Defaults) -> Option<Plan> {
                     ),
                 )
             } else {
-                let minutes = defaults.before_minutes;
+                let minutes = i64::from(defaults.before_minutes);
                 (minutes, format!("{} до срока", minutes_text(minutes)))
             };
             Plan {
-                at: due - Duration::minutes(i64::from(minutes)),
+                at: due - Duration::minutes(minutes),
                 why: own(why),
             }
         }),
@@ -322,6 +332,10 @@ mod tests {
             revision: 1,
             deleted: false,
             notes: String::new(),
+            place_text: None,
+            place_lat: None,
+            place_lon: None,
+            travel_minutes: None,
             status: Status::Todo,
             priority: Priority::Normal,
             due_date: Some(date!(2026 - 10 - 20)),
@@ -363,6 +377,27 @@ mod tests {
             doctor.why,
             "сходить куда-то — за 1 ч 30 мин, с запасом на дорогу"
         );
+    }
+
+    #[test]
+    fn route_minutes_include_packing_and_respect_manual_reminders() {
+        let mut visit = task("Важное дело");
+        visit.travel_minutes = Some(91);
+        let planned = plan(&visit, Defaults::default()).unwrap();
+        assert_eq!(planned.at, datetime!(2026-10-20 14:19));
+        visit.travel_minutes = Some(0);
+        assert_eq!(
+            plan(&visit, Defaults::default()).unwrap().at,
+            datetime!(2026-10-20 15:45)
+        );
+        visit.travel_minutes = Some(91);
+        visit.remind = Some(Remind::Before(5));
+        assert_eq!(
+            plan(&visit, Defaults::default()).unwrap().at,
+            datetime!(2026-10-20 15:55)
+        );
+        visit.remind = Some(Remind::Off(true));
+        assert!(plan(&visit, Defaults::default()).is_none());
     }
 
     #[test]

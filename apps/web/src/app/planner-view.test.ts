@@ -36,6 +36,8 @@ function task(id: string, fields: Partial<PlannerTask>): PlannerTask {
     recurrence: null,
     project_id: null,
     notes: '',
+    place_text: null,
+    travel_minutes: null,
     completed_at_ms: null,
     remind_at: null,
     remind_why: '',
@@ -46,6 +48,20 @@ function task(id: string, fields: Partial<PlannerTask>): PlannerTask {
 }
 
 describe('настоящие дела в виде DS-007', () => {
+  it('дорога видна в списке, проекте и на доске, включая ноль минут', () => {
+    const tasks = [
+      task('Музей', { due_date: '2026-10-20', place_text: 'Музей', travel_minutes: 12 }),
+      task('Рядом', { due_date: '2026-10-20', place_text: 'Дом', travel_minutes: 0 }),
+      task('Без места', { due_date: '2026-10-20' }),
+    ];
+    const today = buildWeek(tasks, [], NOW)[1]!;
+    expect(today.tasks.find((t) => t.title === 'Музей')?.travelMinutes).toBe(12);
+    expect(today.tasks.find((t) => t.title === 'Рядом')?.travelMinutes).toBe(0);
+    expect(today.tasks.find((t) => t.title === 'Без места')).not.toHaveProperty('travelMinutes');
+    const cards = buildBoard(tasks, [], NOW.getTime())[0]!.cards;
+    expect(cards.find((t) => t.title === 'Музей')?.travelMinutes).toBe(12);
+  });
+
   it('неделя: дела по дням, в «сегодня» сверху просроченные', () => {
     const tasks = [
       task('№ 214', {

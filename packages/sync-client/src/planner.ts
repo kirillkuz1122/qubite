@@ -44,6 +44,10 @@ export interface NewTask {
   due_date?: string | null;
   /** `ЧЧ:ММ`, только вместе с днём */
   due_time?: string | null;
+  place_text?: string | null;
+  place_lat?: number | null;
+  place_lon?: number | null;
+  travel_minutes?: number | null;
   subtasks?: Subtask[];
   recurrence?: Recurrence | null;
   project_id?: string | null;
@@ -63,6 +67,11 @@ export interface PlannerTask {
   priority: Priority;
   due_date: string | null;
   due_time: string | null;
+  /** Место и дорога; поля могут отсутствовать у старых локальных записей. */
+  place_text?: string | null;
+  place_lat?: number | null;
+  place_lon?: number | null;
+  travel_minutes?: number | null;
   subtasks: Subtask[];
   recurrence: Recurrence | null;
   project_id: string | null;
@@ -147,11 +156,21 @@ export function toTask(o: LocalObject): PlannerTask {
     priority: priority === 'important' || priority === 'urgent' ? priority : 'normal',
     due_date: str(f.due_date),
     due_time: str(f.due_time),
+    place_lat: typeof f.place_lat === 'number' ? f.place_lat : null,
+    place_lon: typeof f.place_lon === 'number' ? f.place_lon : null,
     subtasks: Array.isArray(f.subtasks) ? (f.subtasks as Subtask[]) : [],
     recurrence:
       f.recurrence && typeof f.recurrence === 'object' ? (f.recurrence as Recurrence) : null,
     project_id: str(f.project_id),
     notes: str(f.notes) ?? '',
+    place_text: str(f.place_text),
+    travel_minutes:
+      typeof f.travel_minutes === 'number' &&
+      Number.isInteger(f.travel_minutes) &&
+      f.travel_minutes >= 0 &&
+      f.travel_minutes <= 525600
+        ? f.travel_minutes
+        : null,
     completed_at_ms: typeof f.completed_at_ms === 'number' ? f.completed_at_ms : null,
     remind_at: str(f.remind_at),
     remind_why: str(f.remind_why) ?? '',
@@ -247,10 +266,24 @@ export async function createTask(
 }
 
 /** Изменить дело (без сети — тоже). */
-export function patchTask(client: SyncClient, id: string, patch: TaskPatch): Promise<LocalObject> {
+export async function patchTask(
+  client: SyncClient,
+  id: string,
+  patch: TaskPatch,
+): Promise<LocalObject> {
   const fields: Fields = Object.fromEntries(
     Object.entries(patch).filter(([, v]) => v !== undefined),
   );
+  // Старую дорогу не показываем уже офлайн. На сервер отправляем только адрес:
+  // AGT-006a сам сбрасывает точку назначения и минуты при смене места.
+  if ('place_text' in fields) {
+    fields.place_text =
+      typeof fields.place_text === 'string' ? fields.place_text.trim() || null : null;
+    const object = await client.get(id);
+    if (fields.place_text !== (object?.fields?.place_text ?? null)) {
+      return client.patch(id, fields, { place_lat: null, place_lon: null, travel_minutes: null });
+    }
+  }
   return client.patch(id, fields);
 }
 
