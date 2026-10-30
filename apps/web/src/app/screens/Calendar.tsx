@@ -190,7 +190,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
             await events.patch(saved, {
               starts_at: event.starts_at,
               ends_at: event.ends_at,
-              recurrence: event.recurrence,
+              recurrence: event.recurrence ?? null,
             });
           } catch (error) {
             throw new Fail('calendar', await failed(error, event.id), 0);
@@ -495,7 +495,9 @@ function Timeline({
   );
 
   useLayoutEffect(() => {
-    const tracks = [...(scroll.current?.querySelectorAll<HTMLElement>('.calendar-day-track') ?? [])];
+    const tracks = [
+      ...(scroll.current?.querySelectorAll<HTMLElement>('.calendar-day-track') ?? []),
+    ];
     if (!tracks.length) return;
     // clientWidth исключает границу дня. Запас в 1 px учитывает округление дробных
     // колонок сетки; берём самую узкую, включая место вертикальной прокрутки.
@@ -519,7 +521,8 @@ function Timeline({
       ? addDays(
           fromDay,
           (Date.parse(calendarDay(moved.starts_at, timeZone)) -
-            Date.parse(calendarDay(item.starts_at, timeZone))) / 86_400_000,
+            Date.parse(calendarDay(item.starts_at, timeZone))) /
+            86_400_000,
         )
       : fromDay;
     focusPending.current = true;

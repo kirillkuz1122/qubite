@@ -380,11 +380,7 @@ describe('раскладка записей по шкале', () => {
 
   it('три коротких записи подряд раскладывает по фактической высоте 44 px', () => {
     const blocks = layoutBlocks(
-      [
-        item('а', '10:00', '10:15'),
-        item('б', '10:15', '10:30'),
-        item('в', '10:30', '10:45'),
-      ],
+      [item('а', '10:00', '10:15'), item('б', '10:15', '10:30'), item('в', '10:30', '10:45')],
       DAY,
       ZONE,
     );
@@ -396,9 +392,9 @@ describe('раскладка записей по шкале', () => {
     for (const block of blocks) {
       for (const other of blocks) {
         if (block === other || block.column !== other.column) continue;
-        expect(
-          block.top + block.height <= other.top || other.top + other.height <= block.top,
-        ).toBe(true);
+        expect(block.top + block.height <= other.top || other.top + other.height <= block.top).toBe(
+          true,
+        );
       }
     }
   });
