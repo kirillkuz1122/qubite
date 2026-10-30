@@ -33,8 +33,17 @@ import { commandView, loadHistory, remember, saveHistory, type CommandEntry } fr
 import { Bell } from './Bell';
 import { CommandField } from './CommandField';
 import { ShellCtx, type ShellApi } from './context';
-import { SECTIONS, plural, dayLabel, isoWeek, weekLabel, type SectionId } from './data';
+import {
+  SECTIONS as BASE_SECTIONS,
+  plural,
+  dayLabel,
+  isoWeek,
+  weekLabel,
+  type Section,
+  type SectionId,
+} from './data';
 import { AgentScreen } from './screens/Agent';
+import { CalendarScreen } from './screens/Calendar';
 import { DocsScreen } from './screens/Docs';
 import { HomeScreen } from './screens/Home';
 import { InboxScreen } from './screens/Inbox';
@@ -48,11 +57,31 @@ import { usePlanner, type PlannerApi } from './planner-context';
 import { useMe } from '../auth/client';
 import './app.css';
 
-const SCREENS: Record<SectionId, () => ReactNode> = {
+// CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
+type ShellSectionId = SectionId | 'calendar';
+type ShellSection = Omit<Section, 'id' | 'path'> & { id: ShellSectionId; path: string };
+const SECTIONS = BASE_SECTIONS.flatMap<ShellSection>((section) =>
+  section.id === 'planner'
+    ? [
+        section,
+        {
+          id: 'calendar',
+          path: '/calendar',
+          name: 'Календарь',
+          title: 'КАЛЕНДАРЬ',
+          icon: 'calendar',
+          who: 'proto',
+        },
+      ]
+    : [section],
+);
+
+const SCREENS: Record<ShellSectionId, () => ReactNode> = {
   home: () => <HomeScreen />,
   today: () => <TodayScreen />,
   inbox: () => <InboxScreen />,
   planner: () => <PlannerScreen />,
+  calendar: () => <CalendarScreen />,
   agent: () => <AgentScreen />,
   docs: () => <DocsScreen />,
   settings: () => <SettingsScreen />,
@@ -66,7 +95,7 @@ const SCREENS: Record<SectionId, () => ReactNode> = {
 const toPlanner = (p: ParsedCommand) =>
   p.kind === 'task' && p.review === null && p.text.trim() !== '';
 
-function sectionOf(path: string): SectionId {
+function sectionOf(path: string): ShellSectionId {
   if (path === '/account') return 'settings';
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'home';
 }
@@ -75,7 +104,13 @@ function left(p: PlannerApi) {
   return p.week[p.today]?.tasks.filter((t) => !t.done).length ?? 0;
 }
 
-function subtitle(id: SectionId, s: State, p: PlannerApi, wide: boolean, inbox: number): ReactNode {
+function subtitle(
+  id: ShellSectionId,
+  s: State,
+  p: PlannerApi,
+  wide: boolean,
+  inbox: number,
+): ReactNode {
   const today = p.week[p.today]!;
   switch (id) {
     case 'home': {
@@ -117,6 +152,8 @@ function subtitle(id: SectionId, s: State, p: PlannerApi, wide: boolean, inbox: 
           неделя {isoWeek(today.date)} · <b>{weekLabel(p.week)}</b>
         </>
       );
+    case 'calendar':
+      return 'события, дела и уроки';
     case 'agent':
       return 'что сделал и почему · любое — откатить';
     case 'docs':
@@ -188,7 +225,7 @@ export function AppShell() {
 
   /* ---------- что оболочка даёт разделам ---------- */
   const go = useCallback(
-    (to: SectionId) => void navigate({ to: SECTIONS.find((s) => s.id === to)!.path }),
+    (to: ShellSectionId) => void navigate({ to: SECTIONS.find((s) => s.id === to)!.path }),
     [navigate],
   );
   const helperOn = state.helpers[sec.who];
@@ -359,7 +396,7 @@ export function AppShell() {
   );
 
   /* ---------- навигация ---------- */
-  const items: NavItem<SectionId>[] = SECTIONS.map((s) => ({
+  const items: NavItem<ShellSectionId>[] = SECTIONS.map((s) => ({
     id: s.id,
     label: s.name,
     icon: s.icon,
