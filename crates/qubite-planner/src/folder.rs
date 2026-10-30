@@ -5,7 +5,7 @@
 //!   [`qubite_objects::BlobStore`]): одинаковый файл лежит на диске один раз.
 //! - **Документы** — объекты `docs.page` с текстом Markdown (таблица
 //!   `docs_pages`); в проект входят связью `part_of`, как дела. Один документ
-//!   может быть в нескольких проектах. Настоящий редактор — DOC-002.
+//!   может быть в нескольких проектах. Обмен Yjs — в [`crate::ydoc`].
 //! - **Лента** — журнал событий ядра по проекту, его делам и документам:
 //!   кто что создал, поменял, отметил, удалил (лента агента — отдельно,
 //!   с откатом, в `qubite-agent::timeline`).
@@ -271,6 +271,24 @@ pub async fn list_docs(conn: &mut PgConnection, owner: Uuid) -> Result<Vec<Doc>>
     Ok(rows.into_iter().map(Doc::from).collect())
 }
 
+/// Полнотекстовый поиск только по своим живым документам.
+pub async fn search_docs(conn: &mut PgConnection, owner: Uuid, q: &str) -> Result<Vec<Doc>> {
+    if q.trim().is_empty() {
+        return list_docs(conn, owner).await;
+    }
+    let rows: Vec<DocRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{DOC_SELECT} WHERE o.owner_id = $1 AND o.deleted_at IS NULL \
+         AND d.search @@ websearch_to_tsquery('russian', $2) \
+         ORDER BY ts_rank(d.search, websearch_to_tsquery('russian', $2)) DESC, \
+         o.updated_at DESC, o.id LIMIT 500"
+    )))
+    .bind(owner)
+    .bind(q)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows.into_iter().map(Doc::from).collect())
+}
+
 /// Документы проекта (свежие сверху) — все, сколько бы документов ни было у
 /// владельца.
 pub async fn project_docs(conn: &mut PgConnection, owner: Uuid, project: Uuid) -> Result<Vec<Doc>> {
@@ -354,9 +372,29 @@ pub async fn edit_doc(
     body: &str,
     revision: i64,
 ) -> Result<Doc> {
-    let current = get_doc(conn, owner, id).await?;
+    let mut tx = conn.begin().await?;
+    // Тот же порядок, что у Yjs: сначала объект, затем строка документа.
+    let locked: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM objects WHERE id = $1 AND owner_id = $2 \
+         AND type = 'docs.page' AND deleted_at IS NULL FOR UPDATE",
+    )
+    .bind(id)
+    .bind(owner)
+    .fetch_optional(&mut *tx)
+    .await?;
+    locked.ok_or(Error::NotFound)?;
+    let has_ystate: bool = sqlx::query_scalar(
+        "SELECT ystate IS NOT NULL FROM docs_pages WHERE object_id = $1 FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await?;
+    let current = get_doc(&mut tx, owner, id).await?;
     let title = check_title(title)?;
     check_body(body)?;
+    if has_ystate && current.body != body {
+        return Err(Error::Invalid("use_editor".into()));
+    }
     if current.revision != revision {
         return Err(Error::Conflict {
             expected: revision,
@@ -364,9 +402,9 @@ pub async fn edit_doc(
         });
     }
     if current.title == title && current.body == body {
+        tx.commit().await?;
         return Ok(current);
     }
-    let mut tx = conn.begin().await?;
     let mut expected = revision;
     if current.title != title {
         expected = objects::rename(&mut tx, id, expected, &title, owner)

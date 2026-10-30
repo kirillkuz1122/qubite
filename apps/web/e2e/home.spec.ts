@@ -387,11 +387,12 @@ for (const theme of ['light', 'dark']) {
       )
       .toBeGreaterThanOrEqual(0);
     const gear = page.getByRole('button', { name: 'Настроить: Монеты' });
+    // Firefox на телефоне округляет до 43.9999 px — допуск полпикселя.
     await expect
       .poll(async () => (await gear.boundingBox())!.height, { timeout: 5000 })
-      .toBeGreaterThanOrEqual(44);
+      .toBeGreaterThanOrEqual(43.5);
     const bounds = await gear.boundingBox();
-    expect(bounds!.width).toBeGreaterThanOrEqual(44);
+    expect(bounds!.width).toBeGreaterThanOrEqual(43.5);
     await gear.click();
     const dialog = page.getByRole('dialog', { name: 'Монеты' });
     await expect(dialog).toBeVisible();

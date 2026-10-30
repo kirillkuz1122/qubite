@@ -15,6 +15,7 @@ pub mod calendar;
 pub mod changes;
 pub mod console;
 pub mod deploy;
+pub mod docs;
 pub mod email;
 pub mod english;
 pub mod english_lessons;
@@ -353,7 +354,9 @@ impl AppState {
         projects::unlink_project_doc,
         projects::list_my_docs,
         projects::get_my_doc,
-        projects::edit_my_doc
+        projects::edit_my_doc,
+        docs::get_y,
+        docs::post_y
     ),
     components(schemas(
         routes::RoutePoint,
@@ -581,7 +584,10 @@ impl AppState {
         projects::ProjectFeed,
         projects::NewProjectDoc,
         projects::ProjectDocEdit,
-        projects::ProjectDocList
+        projects::ProjectDocList,
+        docs::YExchange,
+        docs::YUpdate,
+        docs::YStateVector
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -997,6 +1003,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(projects::link_project_doc).delete(projects::unlink_project_doc),
         )
         .route("/api/v1/docs", get(projects::list_my_docs))
+        .route("/api/v1/docs/{id}/y", get(docs::get_y).post(docs::post_y))
         .route(
             "/api/v1/docs/{id}",
             get(projects::get_my_doc).put(projects::edit_my_doc),

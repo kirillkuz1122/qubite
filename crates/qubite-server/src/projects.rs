@@ -3,7 +3,8 @@
 //! Страница проекта одним запросом: заголовок, дела, файлы, документы, память
 //! агента о проекте и лента изменений. Сам проект и дела меняются, как и
 //! раньше, синхронизацией (без сети — тоже); здесь — то, чего в
-//! синхронизации нет: файлы (загрузка и скачивание), документы проекта.
+//! синхронизации нет: файлы (загрузка и скачивание), привязка документов проекта.
+//! Текст редактора передаётся отдельным обменом Yjs (`crate::docs`).
 //!
 //! Права: смотреть — `read` в `planner`; файлы и привязка документов —
 //! `write` в `planner`; документы ещё и в `docs` (`read` / `write`). Нет
@@ -122,7 +123,7 @@ impl From<&Doc> for ProjectDocItem {
 pub struct ProjectDoc {
     #[serde(flatten)]
     item: ProjectDocItem,
-    /// Текст Markdown.
+    /// Markdown до перехода в редактор; затем простой текст для поиска.
     body: String,
 }
 
@@ -269,6 +270,11 @@ fn planner_error(error: qubite_planner::Error) -> ApiError {
     use qubite_planner::Error as E;
     match error {
         E::NotFound | E::Deleted => ApiError::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
+        E::Invalid(message) if message == "use_editor" => ApiError::new(
+            StatusCode::CONFLICT,
+            "use_editor",
+            "Открой документ в редакторе",
+        ),
         E::Invalid(message) => ApiError::new(StatusCode::BAD_REQUEST, "invalid", message),
         E::Conflict { .. } => ApiError::new(
             StatusCode::CONFLICT,
@@ -627,8 +633,15 @@ pub async fn unlink_project_doc(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Мои документы (свежие сверху) — чтобы привязать к проекту.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct DocsQuery {
+    /// Поиск по названию и тексту (русская морфология).
+    q: Option<String>,
+}
+
+/// Мои документы (свежие сверху); q — поиск по названию и тексту.
 #[utoipa::path(get, path = "/api/v1/docs", tag = "planner",
+    params(DocsQuery),
     responses(
         (status = 200, description = "Документы", body = ProjectDocList),
         (status = 403, description = "Нет доступа к Docs", body = ApiErrorBody),
@@ -636,12 +649,17 @@ pub async fn unlink_project_doc(
 pub async fn list_my_docs(
     State(state): State<AppState>,
     session: Authenticated,
+    Query(query): Query<DocsQuery>,
 ) -> Result<Json<ProjectDocList>, ApiError> {
     authorize::<Read>(&state, &session, DOCS_MODULE).await?;
     let mut conn = conn(&state).await?;
-    let docs = folder::list_docs(&mut conn, session.0.account_id)
-        .await
-        .map_err(planner_error)?;
+    let docs = folder::search_docs(
+        &mut conn,
+        session.0.account_id,
+        query.q.as_deref().unwrap_or_default(),
+    )
+    .await
+    .map_err(planner_error)?;
     Ok(Json(ProjectDocList {
         docs: docs.iter().map(ProjectDocItem::from).collect(),
     }))
@@ -675,7 +693,7 @@ pub async fn get_my_doc(
         (status = 200, description = "Документ", body = ProjectDoc),
         (status = 400, description = "Нет названия или слишком длинный", body = ApiErrorBody),
         (status = 404, description = "Нет такого документа", body = ApiErrorBody),
-        (status = 409, description = "Уже изменили — перечитать", body = ApiErrorBody),
+        (status = 409, description = "conflict: перечитать; use_editor: текст меняется в редакторе", body = ApiErrorBody),
     ))]
 pub async fn edit_my_doc(
     State(state): State<AppState>,

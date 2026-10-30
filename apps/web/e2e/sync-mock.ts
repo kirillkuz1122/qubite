@@ -19,6 +19,8 @@ export interface SyncMock {
   addProject(title: string, fields?: Record<string, unknown>): string;
   /** дело Planner «с другого устройства»; вернёт ID */
   addTask(title: string, fields?: Record<string, unknown>): string;
+  /** Документ, пришедший с другого устройства. */
+  addDoc(title: string, fields?: Record<string, unknown>): string;
   /** сказать браузеру «есть новое» */
   ping(): void;
   /** колокольчик (PLAN-004): сообщения как в `GET /api/v1/notifications` */
@@ -78,6 +80,9 @@ export async function mockSync(page: Page): Promise<SyncMock> {
         subtasks: [],
         ...fields,
       });
+    },
+    addDoc(title, fields = {}) {
+      return put('docs.page', title, { preview: '', has_ystate: false, ...fields });
     },
     ping() {
       for (const ws of sockets) ws.send(JSON.stringify({ type: 'changed' }));

@@ -336,7 +336,12 @@ async fn apply(
         }
         (_, None) => return Ok(rejected(op, RejectReason::NotFound, "объект не найден")),
         (OpKind::SetTitle { title }, Some(object)) => {
-            objects::rename(&mut change, object.id, base(op), title, owner).await
+            let revision = if object.object_type == "docs.page" {
+                docs_title_revision(&mut change, object.id, owner, base(op)).await?
+            } else {
+                base(op)
+            };
+            objects::rename(&mut change, object.id, revision, title, owner).await
         }
         (OpKind::Delete, Some(object)) => {
             objects::delete(&mut change, object.id, base(op), owner).await
@@ -394,6 +399,44 @@ async fn apply(
         }
         Err(other) => Err(other.into()),
     }
+}
+
+/// Текст Yjs и название независимы. Разрешаем старую базу только при полном
+/// журнале промежуточных ревизий, каждая из которых меняла лишь body/ystate.
+/// Блокировка objects удерживается до rename: параллельное название не затрём.
+async fn docs_title_revision(
+    conn: &mut PgConnection,
+    id: Uuid,
+    owner: Uuid,
+    base: i64,
+) -> Result<i64> {
+    let current: i64 = sqlx::query_scalar(
+        "SELECT revision FROM objects WHERE id = $1 AND owner_id = $2 FOR UPDATE",
+    )
+    .bind(id)
+    .bind(owner)
+    .fetch_one(&mut *conn)
+    .await?;
+    if base < 1 || base >= current {
+        return Ok(base);
+    }
+    let text_revisions: i64 = sqlx::query_scalar(
+        "SELECT count(DISTINCT (payload->>'revision')::bigint) FROM events \
+         WHERE object_id = $1 AND kind = 'object.updated' \
+         AND (payload->>'revision')::bigint > $2 \
+         AND (payload->>'revision')::bigint <= $3 \
+         AND payload->'fields' = '[\"body\",\"ystate\"]'::jsonb",
+    )
+    .bind(id)
+    .bind(base)
+    .bind(current)
+    .fetch_one(conn)
+    .await?;
+    Ok(if text_revisions == current - base {
+        current
+    } else {
+        base
+    })
 }
 
 fn fields_error(error: FieldsError) -> ObjError {

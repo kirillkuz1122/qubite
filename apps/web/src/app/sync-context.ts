@@ -1,5 +1,5 @@
 /** Общий клиент синхронизации для экранов (сам клиент открывает `sync.tsx`). */
-import { httpTransport, SyncClient, type SyncState } from '@qubite/sync-client';
+import { httpTransport, SyncClient, type DocStore, type SyncState } from '@qubite/sync-client';
 import { createContext, useContext } from 'react';
 
 export interface SyncApi {
@@ -10,6 +10,8 @@ export interface SyncApi {
   /** растёт при каждом изменении на устройстве или с сервера — повод перечитать */
   version: number;
   state: SyncState;
+  /** Содержимое документов хранится отдельно, в базе того же аккаунта. */
+  docs?: DocStore | null;
 }
 
 export const SyncCtx = createContext<SyncApi | null>(null);
