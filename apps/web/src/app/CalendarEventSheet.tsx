@@ -1,7 +1,6 @@
 import { Button, Check, Field, Note, Presence, Segmented, Sheet, Switch } from '@qubite/ui';
 import { useRef, useState, type FormEvent } from 'react';
 import { say } from '../auth/client';
-import { EVENT_READ_UNAVAILABLE } from './calendar';
 import {
   eventRequest,
   type EventBody,
@@ -85,7 +84,7 @@ export function CalendarEventSheet({
     >
       <form className="calendar-event-form" onSubmit={submit} noValidate>
         <Presence show={!readable}>
-          <Note>{EVENT_READ_UNAVAILABLE}</Note>
+          <Note>Закройте форму и откройте событие снова, чтобы загрузить его изменения.</Note>
         </Presence>
         <Presence show={!!error}>
           <Note tone="bad">{error}</Note>

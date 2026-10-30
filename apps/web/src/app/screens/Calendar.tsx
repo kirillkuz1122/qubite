@@ -2,8 +2,8 @@ import { loop, MASS } from '@qubite/motion';
 import { patchTask, toTask } from '@qubite/sync-client';
 import { Button, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Fail, say, usePlatform } from '../../auth/client';
-import { EVENT_READ_UNAVAILABLE, useCalendar, useCalendarEvents } from '../calendar';
+import { Fail, say, useMe, usePlatform } from '../../auth/client';
+import { useCalendar, useCalendarEvents } from '../calendar';
 import { CalendarEventSheet } from '../CalendarEventSheet';
 import { usePlanner } from '../planner-context';
 import { useSync } from '../sync-context';
@@ -17,6 +17,8 @@ import {
   blockText,
   calendarDay,
   calendarTime,
+  blockMatchesEvent,
+  canMoveSeries,
   dateWindow,
   eventForm,
   eventMovePatch,
@@ -48,6 +50,20 @@ const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 /** Часовой пояс приходит из того же состояния платформы, что у остальных экранов. */
 export function CalendarScreen() {
   const platform = usePlatform();
+  const me = useMe();
+  // Фоновая ошибка проверки входа не закрывает открытую форму: аккаунт уже известен.
+  if (!me.data) {
+    return me.isError ? (
+      <Note tone="bad">
+        {say(me.error)}{' '}
+        <Button size="sm" onClick={() => void me.refetch()}>
+          Повторить
+        </Button>
+      </Note>
+    ) : (
+      <Note>{me.isPending ? 'Загружаем календарь…' : 'Войдите в аккаунт'}</Note>
+    );
+  }
   if (!platform.data) {
     return platform.isError ? (
       <Note tone="bad">
@@ -60,7 +76,9 @@ export function CalendarScreen() {
       <Note>Загружаем календарь…</Note>
     );
   }
-  return <Calendar key={platform.data.timezone} timeZone={platform.data.timezone} />;
+  return (
+    <Calendar key={`${me.data.id}:${platform.data.timezone}`} timeZone={platform.data.timezone} />
+  );
 }
 
 function Calendar({ timeZone }: { timeZone: string }) {
@@ -85,7 +103,11 @@ function Calendar({ timeZone }: { timeZone: string }) {
     event?: CalendarEvent;
   } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [notice, setNotice] = useState<{
+    text: string;
+    bad?: boolean;
+    retry?: () => void;
+  } | null>(null);
   const [undo, setUndo] = useState<(() => Promise<void>) | null>(null);
   const [moving, setMoving] = useState(false);
   const [activeTask, setActiveTask] = useState<string | null>(null);
@@ -126,34 +148,48 @@ function Calendar({ timeZone }: { timeZone: string }) {
     setSheetOpen(true);
   }
 
-  function openItem(item: CalendarItem) {
-    if (locked.current) return;
+  async function openItem(item: CalendarItem) {
+    if (locked.current || sheetOpen) return;
     if (item.kind === 'lesson') {
       setNotice({ text: 'Правится в расписании' });
       return;
     }
     if (item.kind !== 'event') return;
-    const event = events.known[item.source_id];
-    setSheet({
-      key: Date.now(),
-      item,
-      ...(event ? { event } : {}),
-      initial: event
-        ? eventForm(event, timeZone)
-        : {
-            ...newEventForm(calendarDay(item.starts_at, timeZone)),
-            title: item.title,
-            place: item.place,
-            allDay: item.all_day,
-            startTime: calendarTime(item.starts_at, timeZone),
-            endDay: calendarDay(item.all_day ? item.ends_at - 1 : item.ends_at, timeZone),
-            endTime: calendarTime(item.ends_at, timeZone),
-          },
-    });
-    setSheetOpen(true);
+    locked.current = true;
+    setMoving(true);
+    setNotice(null);
+    try {
+      const event = events.known[item.source_id] ?? (await events.read(item.source_id));
+      setSheet({ key: Date.now(), item, event, initial: eventForm(event, timeZone) });
+      setSheetOpen(true);
+    } catch (error) {
+      setNotice({
+        text: await failed(error, item.source_id),
+        bad: !(error instanceof Fail && error.status === 404),
+        ...(error instanceof Fail && error.code === 'network'
+          ? { retry: () => void openItem(item) }
+          : {}),
+      });
+    } finally {
+      locked.current = false;
+      setMoving(false);
+    }
   }
 
   async function failed(error: unknown, id?: string) {
+    if (error instanceof Fail && error.status === 404 && id) {
+      // 404 бывает и у удалённого проекта события: сначала проверяем само событие.
+      try {
+        await events.read(id);
+        return 'Не нашли связанный проект: выберите «Без проекта» или другой и сохраните снова';
+      } catch (check) {
+        if (!(check instanceof Fail && check.status === 404)) return say(check);
+      }
+      events.forget(id);
+      setSheetOpen(false);
+      await events.refresh();
+      return 'Событие уже удалено';
+    }
     if (error instanceof Fail && error.status === 409) {
       if (id) events.forget(id);
       setSheet((current) => {
@@ -163,7 +199,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
         return next;
       });
       await events.refresh();
-      return 'Событие уже изменили — календарь перечитан. Для правки нужен запрос чтения полного события.';
+      return 'Событие уже изменили — календарь перечитан. Закройте форму и откройте событие снова.';
     }
     return say(error);
   }
@@ -174,9 +210,10 @@ function Calendar({ timeZone }: { timeZone: string }) {
     toDay: string,
     minuteDelta: number,
   ): Promise<boolean> {
-    if (locked.current) return false;
+    if (locked.current || sheetOpen) return false;
     locked.current = true;
     setMoving(true);
+    setNotice(null);
     try {
       const moved = moveCalendarItem(item, fromDay, toDay, minuteDelta, timeZone);
       if (!Number.isFinite(moved.starts_at))
@@ -184,8 +221,21 @@ function Calendar({ timeZone }: { timeZone: string }) {
       if (moved.starts_at === item.starts_at) return false;
       setUndo(null);
       if (item.kind === 'event') {
-        const event = events.known[item.source_id];
-        if (!event) throw new Fail('unavailable', EVENT_READ_UNAVAILABLE, 0);
+        const cached = events.known[item.source_id];
+        const event = cached ?? (await events.read(item.source_id));
+        if (!cached && !blockMatchesEvent(event, item, timeZone)) {
+          await events.refresh();
+          setNotice({
+            text: 'Событие уже изменили на другом устройстве — календарь обновлён, перенесите снова',
+          });
+          return false;
+        }
+        if (!canMoveSeries(event, item, moved, timeZone)) {
+          setNotice({
+            text: 'Эту серию нельзя перенести перетаскиванием — измените повтор в форме',
+          });
+          return false;
+        }
         const saved = await events.patch(event, eventMovePatch(event, item, moved, timeZone));
         setUndo(() => async () => {
           try {
@@ -270,7 +320,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
     } catch (error) {
       setNotice({
         text: await failed(error, item.kind === 'event' ? item.source_id : undefined),
-        bad: true,
+        bad: !(item.kind === 'event' && error instanceof Fail && error.status === 404),
       });
       return false;
     } finally {
@@ -370,6 +420,11 @@ function Calendar({ timeZone }: { timeZone: string }) {
       <Presence show={!!notice}>
         <Note tone={notice?.bad ? 'bad' : 'info'}>
           {notice?.text}{' '}
+          {notice?.retry && (
+            <Button size="sm" disabled={moving} onClick={notice.retry}>
+              Повторить
+            </Button>
+          )}
           {undo && (
             <Button size="sm" disabled={moving} onClick={() => void revertMove()}>
               Отменить
@@ -427,7 +482,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
             try {
               if (sheet.event) await events.patch(sheet.event, body);
               else if (!sheet.item) await events.create(body);
-              else throw new Fail('unavailable', EVENT_READ_UNAVAILABLE, 0);
+              else await events.patch(await events.read(sheet.item.source_id), body);
             } catch (error) {
               throw new Fail('calendar', await failed(error, sheet.item?.source_id), 0);
             }
@@ -640,6 +695,7 @@ function Timeline({
                 aria-label={description(item, timeZone)}
                 title={description(item, timeZone)}
                 dot={false}
+                disabled={moving}
                 onClick={() => onOpen(item)}
               >
                 <span className="calendar-clip">{item.title}</span>
@@ -906,6 +962,8 @@ function EventBlock({
         home();
         return;
       }
+      // Пока читаем полное событие и сохраняем перенос, блок остаётся на исходном месте.
+      home();
       saving = true;
       el.classList.add('is-saving');
       void latest.current.onMove(item, day, g.toDay, g.delta).finally(() => {

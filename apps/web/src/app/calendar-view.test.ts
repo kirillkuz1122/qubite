@@ -9,6 +9,8 @@ import {
   blockText,
   calendarDay,
   calendarTime,
+  blockMatchesEvent,
+  canMoveSeries,
   dateWindow,
   dayStart,
   eventForm,
@@ -170,6 +172,48 @@ const fullEvent: CalendarEvent = {
   created_at: 0,
   updated_at: 0,
 };
+
+describe('можно ли переносить серию', () => {
+  const occurrence = item('event', '10:00', '11:30');
+  const anotherDay = moveCalendarItem(occurrence, DAY, '2026-10-31', 0, ZONE);
+  const anotherTime = moveCalendarItem(occurrence, DAY, DAY, 15, ZONE);
+
+  it.each<[string, Exclude<CalendarEvent['recurrence'], undefined>]>([
+    ['без повтора', null],
+    ['каждые два дня', { freq: 'daily', interval: 2 }],
+    ['каждую неделю по двум дням', { freq: 'weekly', interval: 1, weekdays: [1, 5] }],
+    ['раз в две недели по одному дню', { freq: 'weekly', interval: 2, weekdays: [5] }],
+    ['раз в две недели без списка дней', { freq: 'weekly', interval: 2 }],
+    ['каждый месяц', { freq: 'monthly', interval: 1, month_day: 30 }],
+  ])('разрешает перенос на другой день: %s', (_, recurrence) => {
+    expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherDay, ZONE)).toBe(true);
+  });
+
+  it('для двух дней раз в две недели разрешает только смену времени внутри дня', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [1, 5] },
+    };
+    expect(canMoveSeries(event, occurrence, anotherDay, ZONE)).toBe(false);
+    expect(canMoveSeries(event, occurrence, anotherTime, ZONE)).toBe(true);
+  });
+
+  it('считает переход через полночь сменой дня даже без смены колонки', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [1, 5] },
+    };
+    const late = item('event', '23:45', '23:59');
+    const afterMidnight = moveCalendarItem(late, DAY, DAY, 15, ZONE);
+    expect(canMoveSeries(event, late, afterMidnight, ZONE)).toBe(false);
+  });
+
+  it('не сдвигает день неизвестного вида повтора', () => {
+    const event = { ...fullEvent, recurrence: { freq: 'yearly', interval: 1 } };
+    expect(canMoveSeries(event, occurrence, anotherDay, ZONE)).toBe(false);
+    expect(canMoveSeries(event, occurrence, anotherTime, ZONE)).toBe(true);
+  });
+});
 
 describe('форма события → запрос', () => {
   it('сохраняет поля полного события, версию передаёт слой PATCH', () => {
@@ -616,5 +660,35 @@ describe('вёрстка без обрезанного текста', () => {
       expect(used(height, true)).toBeLessThanOrEqual(height);
       expect(used(height, false)).toBeLessThanOrEqual(height);
     }
+  });
+});
+
+describe('blockMatchesEvent', () => {
+  const occurrence = item('event', '10:00', '11:30');
+
+  it('одно событие: совпадает только то же время и длина', () => {
+    expect(blockMatchesEvent(fullEvent, occurrence, ZONE)).toBe(true);
+    const moved = { ...fullEvent, starts_at: at(DAY, '12:00'), ends_at: at(DAY, '13:30') };
+    expect(blockMatchesEvent(moved, occurrence, ZONE)).toBe(false);
+    const longer = { ...fullEvent, ends_at: at(DAY, '12:00') };
+    expect(blockMatchesEvent(longer, occurrence, ZONE)).toBe(false);
+  });
+
+  it('серия: повтор в другой день того же времени суток подходит, другое время — нет', () => {
+    const rule = { freq: 'daily', interval: 1 };
+    const earlier = {
+      ...fullEvent,
+      recurrence: rule,
+      starts_at: at('2026-10-20', '10:00'),
+      ends_at: at('2026-10-20', '11:30'),
+    };
+    expect(blockMatchesEvent(earlier, occurrence, ZONE)).toBe(true);
+    const changed = {
+      ...fullEvent,
+      recurrence: rule,
+      starts_at: at('2026-10-20', '12:00'),
+      ends_at: at('2026-10-20', '13:30'),
+    };
+    expect(blockMatchesEvent(changed, occurrence, ZONE)).toBe(false);
   });
 });
