@@ -150,14 +150,12 @@ pub async fn create(conn: &mut PgConnection, owner: Uuid, input: NewEvent) -> Re
 
 /// Живое событие владельца; чужое и удалённое не найдены.
 pub async fn get(conn: &mut PgConnection, owner: Uuid, id: Uuid) -> Result<Event> {
-    sqlx::query_as(
-        "SELECT * FROM calendar_events WHERE id = $1 AND owner_id = $2 AND NOT deleted",
-    )
-    .bind(id)
-    .bind(owner)
-    .fetch_optional(conn)
-    .await?
-    .ok_or(Error::NotFound)
+    sqlx::query_as("SELECT * FROM calendar_events WHERE id = $1 AND owner_id = $2 AND NOT deleted")
+        .bind(id)
+        .bind(owner)
+        .fetch_optional(conn)
+        .await?
+        .ok_or(Error::NotFound)
 }
 
 pub async fn patch(
