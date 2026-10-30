@@ -14,6 +14,7 @@ import {
   KIND_COLOR,
   KIND_LABEL,
   addDays,
+  blockText,
   calendarDay,
   calendarTime,
   dateWindow,
@@ -27,6 +28,7 @@ import {
   localInstant,
   moveCalendarItem,
   newEventForm,
+  nowDots,
   nowPosition,
   periodLabel,
   shiftPeriod,
@@ -329,10 +331,11 @@ function Calendar({ timeZone }: { timeZone: string }) {
         <p className="calendar-period" aria-live="polite" aria-atomic="true">
           {periodLabel(mode, anchor, window.days)}
         </p>
-        <div className="calendar-actions" role="group" aria-label="Выбрать период">
-          <Button variant="fill" disabled={moving} onClick={() => createAt(anchor)}>
-            Новое событие
-          </Button>
+        <Button variant="fill" disabled={moving} onClick={() => createAt(anchor)}>
+          Новое событие
+        </Button>
+        {/* Назад · Сегодня · Вперёд переносятся на новую строку только вместе. */}
+        <div className="calendar-nav" role="group" aria-label="Выбрать период">
           <Button
             size="sm"
             dot={false}
@@ -557,6 +560,39 @@ function Timeline({
     }
   }, [columns, focusTarget, moving]);
 
+  // Шкала кончается над плавающей строкой Command (ПК) и нижней каплей (телефон):
+  // высоту даёт CSS из места шкалы на странице. Сдвиг вида (transform) не мешает: offsetTop.
+  useLayoutEffect(() => {
+    const el = scroll.current;
+    const timeline = el?.parentElement;
+    const section = el?.closest('.calendar');
+    if (!el || !timeline || !section) return;
+    let last = '';
+    let frame = 0;
+    const fit = () => {
+      let top = 0;
+      for (let node: HTMLElement | null = el; node; node = node.offsetParent as HTMLElement | null)
+        top += node.offsetTop;
+      if (`${top}px` === last) return;
+      last = `${top}px`;
+      timeline.style.setProperty('--calendar-top', last);
+    };
+    fit();
+    // Сообщение над шкалой или перенос кнопок меняет её место. Высота самой шкалы тоже
+    // меняет раздел, поэтому пересчёт — в следующем кадре, без цикла ResizeObserver.
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
+    observer.observe(section);
+    addEventListener('resize', fit);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      removeEventListener('resize', fit);
+    };
+  }, []);
+
   useLayoutEffect(() => {
     const el = scroll.current;
     if (!el) return;
@@ -606,7 +642,7 @@ function Timeline({
                 dot={false}
                 onClick={() => onOpen(item)}
               >
-                {item.title}
+                <span className="calendar-clip">{item.title}</span>
               </Button>
             ))}
           </div>
@@ -622,7 +658,10 @@ function Timeline({
         <div className="calendar-hours-grid">
           <div className="calendar-hours" aria-hidden="true">
             {Array.from({ length: 25 }, (_, hour) => (
-              <span key={hour} style={{ transform: `translateY(${hour * HOUR_HEIGHT}px)` }}>
+              <span
+                key={hour}
+                style={{ transform: `translateY(${hour * HOUR_HEIGHT}px) translateY(-50%)` }}
+              >
                 {String(hour).padStart(2, '0')}:00
               </span>
             ))}
@@ -696,7 +735,7 @@ function Timeline({
                     role="img"
                     aria-label={`Сейчас ${calendarTime(now, timeZone)}`}
                   >
-                    {Array.from({ length: 60 }, (_, i) => (
+                    {Array.from({ length: nowDots(dayWidth) }, (_, i) => (
                       <i key={i} />
                     ))}
                   </div>
@@ -742,6 +781,7 @@ function EventBlock({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const muted = useRef(false);
+  const text = blockText(block.height, !!block.item.place);
   const latest = useRef({ block, onMove, disabled });
   useEffect(() => {
     latest.current = { block, onMove, disabled };
@@ -1005,10 +1045,31 @@ function EventBlock({
         }}
       >
         <time>{calendarTime(block.item.starts_at, timeZone)}</time>
-        <span>{block.item.title}</span>
-        {block.item.place && <small>{block.item.place}</small>}
+        <span
+          className="calendar-block-title"
+          style={{ '--calendar-lines': text.lines } as CSSProperties}
+        >
+          <Words text={block.item.title} />
+        </span>
+        {text.place && <small>{block.item.place}</small>}
       </Button>
     </div>
+  );
+}
+
+/**
+ * Перенос только между словами: слово длиннее строки узкого блока сокращается многоточием,
+ * а не рвётся посередине. Полный текст — в подписи кнопки.
+ */
+function Words({ text }: { text: string }) {
+  return text.split(/(\s+)/).map((part, i) =>
+    i % 2 ? (
+      part
+    ) : part ? (
+      <span key={i} className="calendar-word">
+        {part}
+      </span>
+    ) : null,
   );
 }
 

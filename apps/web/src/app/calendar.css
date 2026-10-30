@@ -1,4 +1,5 @@
-/* CAL-001b. Геометрия часа: 64 px, как HOUR_HEIGHT в calendar-view.ts. */
+/* CAL-001b. Геометрия часа: 64 px, как HOUR_HEIGHT в calendar-view.ts;
+   строки блока (12 и 16 px) и поля (4 / 3 + граница) — как BLOCK_LINE и BLOCK_PAD там же. */
 .calendar {
   min-width: 0;
 }
@@ -6,7 +7,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin: 14px 0 12px;
 }
@@ -17,10 +18,15 @@
   font-size: 14px;
   color: var(--q-ink);
 }
-.calendar-actions {
+.calendar-actions,
+.calendar-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+/* «Назад · Сегодня · Вперёд» — одна группа: на телефоне не разрывается между строками */
+.calendar-nav {
+  flex-wrap: nowrap;
 }
 .calendar-actions .q-btn {
   min-height: 44px;
@@ -48,6 +54,8 @@
 }
 .calendar-timeline {
   --calendar-gutter: 44px;
+  /* под шкалой — место плавающей капли телефона и строки Command на ПК, с зазором 16–24 px */
+  --calendar-reserve: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
   min-width: 0;
   border-block: 1px solid var(--q-line);
 }
@@ -60,7 +68,10 @@
 .calendar-day-heads > div {
   min-width: 0;
   padding: 12px 4px;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
 }
 .calendar .is-today {
@@ -80,7 +91,8 @@
   border-left: 1px solid var(--q-line);
 }
 .calendar .calendar-all-item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   min-height: 44px;
   margin-bottom: 4px;
@@ -88,18 +100,25 @@
   border-left: 2px solid var(--calendar-color);
   background: var(--q-panel);
   color: var(--q-ink);
-  overflow-wrap: anywhere;
   text-align: left;
   font-size: 11px;
-  white-space: normal;
   border-radius: calc(var(--q-round) * 8px);
+}
+/* одна строка с многоточием; полное название — в подписи кнопки */
+.calendar-clip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .calendar-all-item:last-child {
   margin-bottom: 0;
 }
 .calendar-scroll {
-  height: min(520px, 60svh);
-  min-height: 240px;
+  /* --calendar-top ставит Calendar.tsx: шкала не уходит под плавающую панель */
+  height: max(160px, calc(100svh - var(--calendar-top, 0px) - var(--calendar-reserve)));
+  max-height: calc(24 * 64px + 32px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -118,6 +137,8 @@
   position: absolute;
   top: 0;
   left: 0;
+  /* середина подписи — на часовой линии */
+  line-height: 12px;
 }
 .calendar-day-track {
   position: relative;
@@ -159,9 +180,8 @@
   background: var(--q-panel);
   color: var(--q-ink);
   font-size: 12px;
-  line-height: 1.3;
+  line-height: 16px;
   overflow: hidden;
-  overflow-wrap: anywhere;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -169,15 +189,17 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: flex-start;
   gap: 0;
   width: 100%;
   height: 100%;
   min-width: var(--calendar-block-min);
   min-height: var(--calendar-block-min);
-  padding: 4px;
+  padding: 4px 4px 3px;
   border: 0;
+  /* как у самого блока: иначе угол цветной черты срезается другим радиусом */
+  border-radius: inherit;
   border-left: 2px solid var(--calendar-color);
   border-right: 1px solid var(--q-line);
   border-bottom: 1px solid var(--q-line);
@@ -185,8 +207,7 @@
   color: var(--q-ink);
   text-align: left;
   font-size: 12px;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
+  line-height: 16px;
   white-space: normal;
   touch-action: auto;
 }
@@ -199,8 +220,30 @@
 .calendar-block-hit > time,
 .calendar-block-hit > small {
   display: block;
+  flex: none;
+  overflow: hidden;
   color: var(--q-mute);
   font-size: 10px;
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* название: столько целых строк, сколько дал blockText(); перенос только между словами */
+.calendar-block-title {
+  display: -webkit-box;
+  flex: none;
+  max-height: calc(var(--calendar-lines) * 16px);
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--calendar-lines);
+}
+.calendar-word {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
 }
 .calendar-block:focus-within,
 .calendar-all-item:focus-visible,
@@ -304,6 +347,7 @@
   color: var(--q-mute);
 }
 .calendar-month .calendar-month-day {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -312,9 +356,18 @@
   min-height: 64px;
   padding: 8px 4px;
   border: 0;
-  border-top: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 8px);
   font-size: 13px;
+}
+/* линия недели — прямая через все дни: у рамки со скруглением концы загибались и рвались */
+.calendar-month .calendar-month-day::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--q-line);
 }
 .calendar-month-day.other-month {
   color: var(--q-dim);
@@ -329,6 +382,11 @@
 .calendar-month-dots .q-dot {
   width: 4px;
   height: 4px;
+}
+@media (min-width: 900px) {
+  .calendar-timeline {
+    --calendar-reserve: 106px;
+  }
 }
 @media (min-width: 600px) {
   .calendar-period {

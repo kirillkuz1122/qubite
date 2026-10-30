@@ -129,7 +129,15 @@ export function periodLabel(mode: CalendarMode, anchor: string, days: string[]):
   if (mode === 'month') return dateLabel(anchor, { month: 'long', year: 'numeric' });
   const options = { day: 'numeric', month: 'long', year: 'numeric' } as const;
   if (mode === 'day') return dateLabel(anchor, { ...options, weekday: 'long' });
-  return `${dateLabel(days[0]!, options)} — ${dateLabel(days.at(-1)!, options)}`;
+  const first = days[0]!;
+  const last = days.at(-1)!;
+  const end = dateLabel(last, options);
+  // Общие месяц и год не повторяем: заголовок помещается в строку на 360 px.
+  if (first.slice(0, 7) === last.slice(0, 7))
+    return `${dateLabel(first, { day: 'numeric' })}–${end}`;
+  if (first.slice(0, 4) === last.slice(0, 4))
+    return `${dateLabel(first, { day: 'numeric', month: 'long' })} — ${end}`;
+  return `${dateLabel(first, options)} — ${end}`;
 }
 
 export function shortDayLabel(day: string): string {
@@ -175,6 +183,32 @@ export function itemsOnDay(
 export function minuteAt(instant: number, timeZone: string): number {
   const p = parts(instant, timeZone);
   return Number(p.hour) * 60 + Number(p.minute);
+}
+
+/** Точка линии «сейчас» и промежуток между точками, px. */
+export const NOW_DOT = 4;
+
+/** Сколько целых точек линии «сейчас» помещается в колонку: последняя не обрезается краем. */
+export function nowDots(width: number): number {
+  return Math.max(1, Math.floor((width + NOW_DOT) / (2 * NOW_DOT)));
+}
+
+/**
+ * Строки блока на шкале, px: время и место — по 12, строка названия — 16.
+ * Поля 4 сверху и 3 + граница 1 снизу (BLOCK_PAD) — ровно 4 px до края блока.
+ */
+export const BLOCK_LINE = { small: 12, title: 16 } as const;
+export const BLOCK_PAD = 8;
+
+/**
+ * Что помещается в блок высотой height без обрезанных наполовину строк: время всегда,
+ * хотя бы одна строка названия, место — если после неё осталось место, затем ещё строки названия.
+ */
+export function blockText(height: number, hasPlace: boolean): { lines: number; place: boolean } {
+  const room = height - BLOCK_PAD - BLOCK_LINE.small;
+  const place = hasPlace && room >= BLOCK_LINE.title + BLOCK_LINE.small;
+  const lines = Math.floor((room - (place ? BLOCK_LINE.small : 0)) / BLOCK_LINE.title);
+  return { lines: Math.max(1, lines), place };
 }
 
 /** Координата линии в px; вне сегодняшней колонки линии нет. */

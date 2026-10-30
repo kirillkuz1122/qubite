@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   HOUR_HEIGHT,
+  BLOCK_LINE,
   BLOCK_MIN_SIZE,
+  BLOCK_PAD,
   MAX_WINDOW_MS,
+  NOW_DOT,
+  blockText,
   calendarDay,
   calendarTime,
   dateWindow,
@@ -18,7 +22,9 @@ import {
   localInstant,
   moveCalendarItem,
   newEventForm,
+  nowDots,
   nowPosition,
+  periodLabel,
   shiftPeriod,
   snapMinute,
   type CalendarEvent,
@@ -565,5 +571,50 @@ describe('линия «сейчас»', () => {
   it('на дне смены смещения полдень остаётся у отметки 12:00', () => {
     const now = Date.parse('2026-03-29T12:00:00+02:00');
     expect(nowPosition('2026-03-29', now, 'Europe/Berlin')).toBe(12 * HOUR_HEIGHT);
+  });
+});
+
+describe('вёрстка без обрезанного текста', () => {
+  it('заголовок недели не повторяет общий месяц и год', () => {
+    const week = (day: string) => dateWindow('week', day, ZONE).days;
+    expect(periodLabel('week', '2026-10-30', week('2026-10-30'))).toBe(
+      '26 октября — 1 ноября 2026 г.',
+    );
+    expect(periodLabel('week', '2026-10-14', week('2026-10-14'))).toBe('12–18 октября 2026 г.');
+    expect(periodLabel('week', '2026-12-30', week('2026-12-30'))).toBe(
+      '28 декабря 2026 г. — 3 января 2027 г.',
+    );
+    expect(periodLabel('day', DAY, [DAY])).toBe('пятница, 30 октября 2026 г.');
+    expect(periodLabel('month', DAY, [])).toBe('октябрь 2026 г.');
+  });
+
+  it('линия «сейчас» состоит из целых точек и тянется на всю ширину колонки', () => {
+    for (const width of [44, 90, 93, 279, 680]) {
+      const n = nowDots(width);
+      // последняя точка не выходит за край, а ещё одна уже не поместилась бы
+      expect(n * 2 * NOW_DOT - NOW_DOT).toBeLessThanOrEqual(width);
+      expect((n + 1) * 2 * NOW_DOT - NOW_DOT).toBeGreaterThan(width);
+    }
+    expect(nowDots(0)).toBe(1);
+  });
+
+  it('в блок помещаются только целые строки: время, название, место', () => {
+    const used = (height: number, hasPlace: boolean) => {
+      const { lines, place } = blockText(height, hasPlace);
+      return (
+        BLOCK_PAD + BLOCK_LINE.small + lines * BLOCK_LINE.title + (place ? BLOCK_LINE.small : 0)
+      );
+    };
+    // 15 минут и короче: время и одна строка названия, место не влезает
+    expect(blockText(BLOCK_MIN_SIZE, true)).toEqual({ lines: 1, place: false });
+    // 45 минут: время, название и место
+    expect(blockText(0.75 * HOUR_HEIGHT, true)).toEqual({ lines: 1, place: true });
+    expect(blockText(HOUR_HEIGHT, true)).toEqual({ lines: 2, place: true });
+    expect(blockText(HOUR_HEIGHT, false)).toEqual({ lines: 2, place: false });
+    expect(blockText(3 * HOUR_HEIGHT, true).lines).toBe(10);
+    for (let height = BLOCK_MIN_SIZE; height <= 4 * HOUR_HEIGHT; height++) {
+      expect(used(height, true)).toBeLessThanOrEqual(height);
+      expect(used(height, false)).toBeLessThanOrEqual(height);
+    }
   });
 });
