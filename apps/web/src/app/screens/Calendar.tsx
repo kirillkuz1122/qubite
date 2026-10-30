@@ -17,6 +17,7 @@ import {
   blockText,
   calendarDay,
   calendarTime,
+  blockMatchesEvent,
   canMoveSeries,
   dateWindow,
   eventForm,
@@ -220,7 +221,15 @@ function Calendar({ timeZone }: { timeZone: string }) {
       if (moved.starts_at === item.starts_at) return false;
       setUndo(null);
       if (item.kind === 'event') {
-        const event = events.known[item.source_id] ?? (await events.read(item.source_id));
+        const cached = events.known[item.source_id];
+        const event = cached ?? (await events.read(item.source_id));
+        if (!cached && !blockMatchesEvent(event, item, timeZone)) {
+          await events.refresh();
+          setNotice({
+            text: 'Событие уже изменили на другом устройстве — календарь обновлён, перенесите снова',
+          });
+          return false;
+        }
         if (!canMoveSeries(event, item, moved, timeZone)) {
           setNotice({
             text: 'Эту серию нельзя перенести перетаскиванием — измените повтор в форме',

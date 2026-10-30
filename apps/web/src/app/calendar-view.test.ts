@@ -9,6 +9,7 @@ import {
   blockText,
   calendarDay,
   calendarTime,
+  blockMatchesEvent,
   canMoveSeries,
   dateWindow,
   dayStart,
@@ -659,5 +660,35 @@ describe('вёрстка без обрезанного текста', () => {
       expect(used(height, true)).toBeLessThanOrEqual(height);
       expect(used(height, false)).toBeLessThanOrEqual(height);
     }
+  });
+});
+
+describe('blockMatchesEvent', () => {
+  const occurrence = item('event', '10:00', '11:30');
+
+  it('одно событие: совпадает только то же время и длина', () => {
+    expect(blockMatchesEvent(fullEvent, occurrence, ZONE)).toBe(true);
+    const moved = { ...fullEvent, starts_at: at(DAY, '12:00'), ends_at: at(DAY, '13:30') };
+    expect(blockMatchesEvent(moved, occurrence, ZONE)).toBe(false);
+    const longer = { ...fullEvent, ends_at: at(DAY, '12:00') };
+    expect(blockMatchesEvent(longer, occurrence, ZONE)).toBe(false);
+  });
+
+  it('серия: повтор в другой день того же времени суток подходит, другое время — нет', () => {
+    const rule = { freq: 'daily', interval: 1 };
+    const earlier = {
+      ...fullEvent,
+      recurrence: rule,
+      starts_at: at('2026-10-20', '10:00'),
+      ends_at: at('2026-10-20', '11:30'),
+    };
+    expect(blockMatchesEvent(earlier, occurrence, ZONE)).toBe(true);
+    const changed = {
+      ...fullEvent,
+      recurrence: rule,
+      starts_at: at('2026-10-20', '12:00'),
+      ends_at: at('2026-10-20', '13:30'),
+    };
+    expect(blockMatchesEvent(changed, occurrence, ZONE)).toBe(false);
   });
 });

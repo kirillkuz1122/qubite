@@ -516,6 +516,20 @@ export function moveCalendarItem(
   return { starts_at, ends_at: starts_at + item.ends_at - item.starts_at };
 }
 
+/**
+ * Блок на экране показывает то же время, что хранит сервер: событие могли изменить на другом
+ * устройстве, и относительный сдвиг старого блока попал бы мимо. У серии сверяем время суток и длину.
+ */
+export function blockMatchesEvent(
+  event: CalendarEvent,
+  occurrence: CalendarItem,
+  timeZone: string,
+): boolean {
+  if (event.ends_at - event.starts_at !== occurrence.ends_at - occurrence.starts_at) return false;
+  if (!event.recurrence) return event.starts_at === occurrence.starts_at;
+  return calendarTime(event.starts_at, timeZone) === calendarTime(occurrence.starts_at, timeZone);
+}
+
 /** Решил так, можно откатить: сложную фазу серии меняют только в форме. */
 export function canMoveSeries(
   event: CalendarEvent,

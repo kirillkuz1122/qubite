@@ -13,7 +13,8 @@ import {
 
 export function useCalendar(window: CalendarWindow) {
   const me = useMe();
-  const accountId = me.isSuccess ? me.data?.id : undefined;
+  // Фоновая ошибка проверки входа не сбрасывает известный аккаунт; выход — это `null`.
+  const accountId = me.data?.id;
   const query = useQuery({
     queryKey: ['calendar', accountId, window.from, window.to],
     queryFn: ({ signal }) => {
@@ -41,7 +42,8 @@ export function useCalendar(window: CalendarWindow) {
 export function useCalendarEvents() {
   const qc = useQueryClient();
   const me = useMe();
-  const accountId = me.isSuccess ? me.data?.id : undefined;
+  // Фоновая ошибка проверки входа не сбрасывает известный аккаунт; выход — это `null`.
+  const accountId = me.data?.id;
   const [accounts, setAccounts] = useState<Record<string, Record<string, CalendarEvent>>>({});
   const known = accountId ? (accounts[accountId] ?? {}) : {};
   const refresh = () => qc.invalidateQueries({ queryKey: ['calendar'] });
