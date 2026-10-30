@@ -33,11 +33,14 @@
 .task-route-result {
   margin-top: 16px;
 }
+.task-route-result p {
+  margin: 0 0 12px;
+}
 .task-route-drawing {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 16px;
+  border-radius: calc(var(--q-round) * 16px);
   background: var(--q-panel-2);
 }
 .task-route-drawing polyline {
@@ -57,10 +60,15 @@
 .task-route-to {
   fill: var(--q-orange);
 }
+/* подпись поверх линии читается: под буквами — обводка цветом фона схемы */
 .task-route-drawing text {
   fill: var(--q-ink);
   font: inherit;
   font-size: 12px;
+  paint-order: stroke;
+  stroke: var(--q-panel-2);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 .task-route-link {
   display: flex;

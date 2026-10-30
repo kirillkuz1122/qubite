@@ -132,7 +132,7 @@ export function TaskPlaceForm({
           label="Место"
           value={place}
           maxLength={1000}
-          disabled={busy || saving}
+          readOnly={busy || saving}
           onChange={(e) => {
             setPlace(e.target.value);
             setResult(null);
@@ -141,7 +141,8 @@ export function TaskPlaceForm({
           }}
           hint="Необязательно. Укажи город, улицу и дом. Пустое поле уберёт место."
         />
-        <Button type="submit" variant="fill" disabled={!dirty || busy || saving}>
+        {/* aria-disabled, а не disabled: фокус клавиатуры не слетает с кнопки на время сохранения */}
+        <Button type="submit" variant="fill" aria-disabled={!dirty || busy || saving}>
           {saving ? 'Сохраняю…' : 'Сохранить'}
         </Button>
       </form>
@@ -154,7 +155,7 @@ export function TaskPlaceForm({
       <Presence show={hasPlace}>
         <section aria-label="Дорога" aria-busy={busy}>
           <SecHead text="ДОРОГА" label="Дорога">
-            <Button disabled={busy || saving || dirty} onClick={() => void build()}>
+            <Button size="sm" aria-disabled={busy || saving || dirty} onClick={() => void build()}>
               {busy ? 'Строю…' : 'Построить маршрут'}
             </Button>
           </SecHead>

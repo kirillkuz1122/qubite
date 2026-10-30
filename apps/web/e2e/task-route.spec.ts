@@ -214,7 +214,7 @@ for (const theme of ['light', 'dark']) {
       await testInfo.attach('Место', { path: editor, contentType: 'image/png' });
       await dialog.getByRole('button', { name: 'Построить маршрут' }).click();
       await expect(dialog.getByText('≈ 12 мин, 3,4 км')).toBeVisible();
-      await dialog.locator('.task-route-drawing').scrollIntoViewIfNeeded();
+      await dialog.locator('.task-route-credit').scrollIntoViewIfNeeded();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
