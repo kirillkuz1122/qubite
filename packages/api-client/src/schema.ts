@@ -2451,6 +2451,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/opportunities': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Свои возможности по ближайшему сроку регистрации или начала. */
+    get: operations['list_opportunities'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/opportunities/refresh': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Собрать новые возможности из открытых источников для своего аккаунта. */
+    post: operations['refresh_opportunities'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/projects/{id}': {
     parameters: {
       query?: never;
@@ -4638,6 +4672,42 @@ export interface components {
        *     `telegram_widget` — виджет Telegram с именем бота `bot_name`.
        */
       kind: string;
+    };
+    OpportunitiesList: {
+      items: components['schemas']['OpportunityItem'][];
+    };
+    OpportunitiesRefresh: {
+      failed_sources: string[];
+      /** Format: int64 */
+      inserted: number;
+    };
+    OpportunityItem: {
+      /** Format: uuid */
+      account_id: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      ends_at: string;
+      external_id: string;
+      grades: string;
+      /** Format: uuid */
+      id: string;
+      kind: string;
+      place: string;
+      /** Format: date-time */
+      registration_until?: string | null;
+      source: string;
+      stage: string;
+      /** Format: date-time */
+      starts_at: string;
+      status: string;
+      subject: string;
+      tags: string[];
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      url: string;
+      why: string;
     };
     PassIssued: {
       /** Format: date-time */
@@ -11526,6 +11596,87 @@ export interface operations {
       };
       /** @description Нет такого сообщения */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_opportunities: {
+    parameters: {
+      query?: {
+        /** @description new, suggested, interested или dismissed. */
+        status?: string | null;
+        /** @description olympiad, hackathon или contest. */
+        kind?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Возможности */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OpportunitiesList'];
+        };
+      };
+      /** @description Неизвестный фильтр */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  refresh_opportunities: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сбор завершён; failed_sources перечисляет сбои */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OpportunitiesRefresh'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Все источники недоступны */
+      502: {
         headers: {
           [name: string]: unknown;
         };
