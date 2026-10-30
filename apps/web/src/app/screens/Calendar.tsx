@@ -50,7 +50,8 @@ const WEEKDAYS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 export function CalendarScreen() {
   const platform = usePlatform();
   const me = useMe();
-  if (!me.isSuccess || !me.data) {
+  // Фоновая ошибка проверки входа не закрывает открытую форму: аккаунт уже известен.
+  if (!me.data) {
     return me.isError ? (
       <Note tone="bad">
         {say(me.error)}{' '}
@@ -176,6 +177,13 @@ function Calendar({ timeZone }: { timeZone: string }) {
 
   async function failed(error: unknown, id?: string) {
     if (error instanceof Fail && error.status === 404 && id) {
+      // 404 бывает и у удалённого проекта события: сначала проверяем само событие.
+      try {
+        await events.read(id);
+        return 'Не нашли связанный проект: выберите «Без проекта» или другой и сохраните снова';
+      } catch (check) {
+        if (!(check instanceof Fail && check.status === 404)) return say(check);
+      }
       events.forget(id);
       setSheetOpen(false);
       await events.refresh();
@@ -304,9 +312,6 @@ function Calendar({ timeZone }: { timeZone: string }) {
       setNotice({
         text: await failed(error, item.kind === 'event' ? item.source_id : undefined),
         bad: !(item.kind === 'event' && error instanceof Fail && error.status === 404),
-        ...(error instanceof Fail && error.code === 'network'
-          ? { retry: () => void moveItem(item, fromDay, toDay, minuteDelta) }
-          : {}),
       });
       return false;
     } finally {
