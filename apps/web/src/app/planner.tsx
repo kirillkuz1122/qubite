@@ -21,6 +21,7 @@ import { PlannerCtx, type PlannerApi } from './planner-context';
 import { localNow, parse } from '@qubite/ui';
 import { buildBoard, buildProjects, buildWeek, iso, nameFromTag, taskFrom } from './planner-view';
 import { useSync } from './sync-context';
+import { TaskPlaceSheet } from './TaskPlaceSheet';
 
 /** Новый день начинается сам: «сегодня» пересчитывается раз в минуту. */
 function useToday(): Date {
@@ -46,6 +47,12 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     tasks: [],
   });
   const [loaded, setLoaded] = useState(false);
+  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [taskOpening, setTaskOpening] = useState(0);
+  const openTask = useCallback((id: string) => {
+    setEditingTask(id);
+    setTaskOpening((n) => n + 1);
+  }, []);
   const now = useToday();
 
   useEffect(() => {
@@ -145,7 +152,17 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
       move,
       newProject,
       editProject,
+      openTask,
     };
-  }, [data, now, loaded, toggle, add, move, newProject, editProject]);
-  return <PlannerCtx.Provider value={value}>{children}</PlannerCtx.Provider>;
+  }, [data, now, loaded, toggle, add, move, newProject, editProject, openTask]);
+  return (
+    <PlannerCtx.Provider value={value}>
+      {children}
+      <TaskPlaceSheet
+        session={taskOpening}
+        task={data.tasks.find((t) => t.id === editingTask)}
+        onClose={() => setEditingTask(null)}
+      />
+    </PlannerCtx.Provider>
+  );
 }

@@ -25,6 +25,8 @@ const task = (over: Partial<PlannerTask>): PlannerTask => ({
   recurrence: null,
   project_id: null,
   notes: '',
+  place_text: null,
+  travel_minutes: null,
   completed_at_ms: null,
   remind_at: null,
   remind_why: '',

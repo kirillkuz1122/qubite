@@ -38,6 +38,8 @@ export interface Recurrence {
 }
 
 export interface NewTask {
+  /** Адрес места дела; null — убрать место. Координаты человека сюда не попадают. */
+  place_text?: string | null;
   status?: TaskStatus;
   priority?: Priority;
   /** `ГГГГ-ММ-ДД` */
@@ -67,6 +69,9 @@ export interface PlannerTask {
   recurrence: Recurrence | null;
   project_id: string | null;
   notes: string;
+  place_text: string | null;
+  /** Рассчитано сервером; исходная точка и геометрия не сохраняются на устройстве. */
+  travel_minutes: number | null;
   completed_at_ms: number | null;
   /**
    * Когда напомнит сервер (по часам владельца, `2026-10-20T15:45`) и почему; `null` — не напомнит
@@ -152,6 +157,14 @@ export function toTask(o: LocalObject): PlannerTask {
       f.recurrence && typeof f.recurrence === 'object' ? (f.recurrence as Recurrence) : null,
     project_id: str(f.project_id),
     notes: str(f.notes) ?? '',
+    place_text: str(f.place_text),
+    travel_minutes:
+      typeof f.travel_minutes === 'number' &&
+      Number.isInteger(f.travel_minutes) &&
+      f.travel_minutes >= 0 &&
+      f.travel_minutes <= 525600
+        ? f.travel_minutes
+        : null,
     completed_at_ms: typeof f.completed_at_ms === 'number' ? f.completed_at_ms : null,
     remind_at: str(f.remind_at),
     remind_why: str(f.remind_why) ?? '',
@@ -247,10 +260,24 @@ export async function createTask(
 }
 
 /** Изменить дело (без сети — тоже). */
-export function patchTask(client: SyncClient, id: string, patch: TaskPatch): Promise<LocalObject> {
+export async function patchTask(
+  client: SyncClient,
+  id: string,
+  patch: TaskPatch,
+): Promise<LocalObject> {
   const fields: Fields = Object.fromEntries(
     Object.entries(patch).filter(([, v]) => v !== undefined),
   );
+  // Старую дорогу не показываем уже офлайн. На сервер отправляем только адрес:
+  // AGT-006a сам сбрасывает точку назначения и минуты при смене места.
+  if ('place_text' in fields) {
+    fields.place_text =
+      typeof fields.place_text === 'string' ? fields.place_text.trim() || null : null;
+    const object = await client.get(id);
+    if (fields.place_text !== (object?.fields?.place_text ?? null)) {
+      return client.patch(id, fields, { place_lat: null, place_lon: null, travel_minutes: null });
+    }
+  }
   return client.patch(id, fields);
 }
 

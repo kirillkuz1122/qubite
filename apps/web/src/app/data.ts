@@ -58,6 +58,7 @@ export interface Task {
   /** «16:00», «вечер», «без срока» */
   time: string;
   done: boolean;
+  travelMinutes?: number;
 }
 
 export type InboxFrom = 'voice' | 'link' | 'tg' | 'text';

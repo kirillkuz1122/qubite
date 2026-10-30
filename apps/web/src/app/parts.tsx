@@ -1,8 +1,8 @@
 /** Общие части разделов: заголовок секции из точек и список дел с перетекающим выделением. */
-import { DotText, RingCheck, useSlide } from '@qubite/ui';
+import { Button, DotText, Presence, RingCheck, WIDE, useMedia, useSlide } from '@qubite/ui';
 import { Fragment, useRef, useState, type ReactNode } from 'react';
-import { useShell } from './context';
 import type { Task } from './data';
+import { usePlanner } from './planner-context';
 
 export function SecHead({
   text,
@@ -13,7 +13,7 @@ export function SecHead({
   label: string;
   children?: ReactNode;
 }) {
-  const { wide } = useShell();
+  const wide = useMedia(WIDE);
   return (
     <div className="sec-h">
       <h2 className="q-sr">{label}</h2>
@@ -36,6 +36,7 @@ export function TaskList({
   detail?: (t: Task) => ReactNode;
   onToggle: (t: Task, done: boolean) => void;
 }) {
+  const planner = usePlanner();
   const sel = useSlide(58);
   const at = useRef<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -68,12 +69,31 @@ export function TaskList({
               label={`Готово: ${t.title}`}
             />
             <div className="t">
-              <div className="title">{t.title}</div>
+              <div className="title">
+                <Button
+                  className="task-open"
+                  dot={false}
+                  aria-label={`Открыть дело: ${t.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    planner.openTask(t.id);
+                  }}
+                >
+                  {t.title}
+                </Button>
+              </div>
               {(meta ?? defaultMeta)(t)}
+              <Presence show={t.travelMinutes != null} className="task-travel">
+                в пути {t.travelMinutes} мин
+              </Presence>
             </div>
             <span className="time">{t.time}</span>
           </div>
-          {detail && open === t.id && <div className="trail">{detail(t)}</div>}
+          {detail && (
+            <Presence show={open === t.id} className="trail">
+              {detail(t)}
+            </Presence>
+          )}
         </Fragment>
       ))}
     </div>

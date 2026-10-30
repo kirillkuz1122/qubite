@@ -8,6 +8,8 @@ import {
   isoDate,
   newSubtask,
   plannerData,
+  patchTask,
+  toTask,
   setTaskDone,
   setTaskStatus,
   splitProjectTag,
@@ -75,6 +77,46 @@ const open = (transport: Transport, dbName = `planner-${++dbCounter}`) =>
   SyncClient.open({ dbName, transport });
 
 describe('Planner: проекты и дела', () => {
+  it('место создаётся и меняется без сети; старая дорога сбрасывается только при смене адреса', async () => {
+    const server = new PlannerServer();
+    const dbName = `planner-route-${++dbCounter}`;
+    let client = await open(server, dbName);
+    try {
+      const made = await createTask(client, 'Забрать книгу', { place_text: 'Библиотека' });
+      expect(toTask(made)).toMatchObject({ place_text: 'Библиотека', travel_minutes: null });
+      await client.sync();
+
+      const stored = server.objects.get(made.id)!;
+      server.objects.set(made.id, {
+        ...stored,
+        revision: stored.revision + 1,
+        fields: { ...stored.fields, travel_minutes: 12, place_lat: 55, place_lon: 61 },
+      });
+      server.log.push(made.id);
+      await client.sync();
+      expect(toTask((await client.get(made.id))!).travel_minutes).toBe(12);
+
+      server.offline = true;
+      const same = await patchTask(client, made.id, { place_text: 'Библиотека' });
+      expect(toTask(same).travel_minutes).toBe(12);
+      const changed = await patchTask(client, made.id, { place_text: '  Музей  ' });
+      expect(toTask(changed)).toMatchObject({ place_text: 'Музей', travel_minutes: null });
+      expect(changed.fields).toMatchObject({ place_lat: null, place_lon: null });
+      const cleared = await patchTask(client, made.id, { place_text: null });
+      expect(toTask(cleared)).toMatchObject({ place_text: null, travel_minutes: null });
+      client.close();
+      client = await open(server, dbName);
+      // Повторное открытие использует локальную копию без сети и координат отправителя.
+      expect((await plannerData(client)).tasks[0]).toMatchObject({
+        place_text: null,
+        travel_minutes: null,
+        pending: true,
+      });
+    } finally {
+      client.close();
+    }
+  });
+
   it('теги и #проект из строки Command', () => {
     expect(tagFrom('Олимпиада по информатике')).toBe('олимпиада_по_информатике');
     expect(tagFrom('#Алгебра')).toBe('алгебра');

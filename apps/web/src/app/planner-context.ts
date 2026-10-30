@@ -32,6 +32,8 @@ export interface PlannerApi {
   newProject(name: string): Promise<{ id: string; tag: string; created: boolean }>;
   /** Поменять название, цвет, описание или статус проекта (без сети — тоже). */
   editProject(id: string, patch: ProjectPatch): Promise<void>;
+  /** Открыть карточку дела с местом и дорогой. */
+  openTask(id: string): void;
 }
 
 export const PlannerCtx = createContext<PlannerApi | null>(null);

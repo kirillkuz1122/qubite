@@ -1,0 +1,94 @@
+.task-place {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.task-place form {
+  display: grid;
+  gap: 12px;
+}
+.task-place-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-place .sec-h {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.task-place .sec-h .q-btn {
+  margin-left: auto;
+}
+.task-place-hint {
+  color: var(--q-mute);
+  font-size: 12px;
+  margin: 12px 0;
+}
+.task-place .q-field {
+  min-width: 0;
+}
+.task-place .q-field input {
+  min-width: 0;
+  width: 100%;
+}
+.task-route-result {
+  margin-top: 16px;
+}
+.task-route-drawing {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  background: var(--q-panel-2);
+}
+.task-route-drawing polyline {
+  fill: none;
+  stroke: var(--q-orange);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.task-route-drawing circle {
+  stroke: var(--q-panel-2);
+  stroke-width: 2;
+}
+.task-route-from {
+  fill: var(--q-sky);
+}
+.task-route-to {
+  fill: var(--q-orange);
+}
+.task-route-drawing text {
+  fill: var(--q-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.task-route-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--q-mute);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.task-route-link:hover {
+  color: var(--q-ink);
+}
+.task-route-credit {
+  font-size: 12px;
+}
+.q-btn.task-open {
+  min-width: 44px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  white-space: normal;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.task-travel {
+  color: var(--q-mute);
+  font-size: 12px;
+}
