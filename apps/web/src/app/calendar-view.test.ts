@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HOUR_HEIGHT,
+  BLOCK_MIN_SIZE,
   MAX_WINDOW_MS,
   calendarDay,
   calendarTime,
@@ -9,6 +10,7 @@ import {
   eventForm,
   eventMovePatch,
   eventRequest,
+  fitDayBlocks,
   intersects,
   itemKey,
   itemsOnDay,
@@ -273,9 +275,80 @@ describe('форма события → запрос', () => {
       ends_at: at('2026-11-06', '11:30'),
     });
     const moved = moveCalendarItem(occurrence, '2026-11-06', '2026-11-07', 15, ZONE);
-    expect(eventMovePatch(fullEvent, occurrence, moved)).toEqual({
+    expect(eventMovePatch(fullEvent, occurrence, moved, ZONE)).toEqual({
       starts_at: at('2026-10-31', '10:15'),
       ends_at: at('2026-10-31', '11:45'),
+    });
+  });
+
+  it('сдвигает все дни недельного повтора и сохраняет интервал', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [1, 5, 7] },
+    };
+    const occurrence = item('event', '10:00', '11:30');
+    const moved = moveCalendarItem(occurrence, DAY, '2026-11-01', 15, ZONE);
+    expect(eventMovePatch(event, occurrence, moved, ZONE)).toEqual({
+      starts_at: at('2026-11-01', '10:15'),
+      ends_at: at('2026-11-01', '11:45'),
+      recurrence: { freq: 'weekly', interval: 2, weekdays: [2, 3, 7] },
+    });
+    expect(event.recurrence.weekdays).toEqual([1, 5, 7]);
+    const backwards = moveCalendarItem(occurrence, DAY, '2026-10-28', 0, ZONE);
+    expect(eventMovePatch(event, occurrence, backwards, ZONE).recurrence?.weekdays).toEqual([
+      3, 5, 6,
+    ]);
+  });
+
+  it('сдвигает число месячного повтора через границу месяца', () => {
+    const event = {
+      ...fullEvent,
+      recurrence: { freq: 'monthly', interval: 3, month_day: 30 },
+    };
+    const occurrence = item('event', '10:00', '11:30');
+    const moved = moveCalendarItem(occurrence, DAY, '2026-11-01', 0, ZONE);
+    expect(eventMovePatch(event, occurrence, moved, ZONE)).toEqual({
+      starts_at: at('2026-11-01', '10:00'),
+      ends_at: at('2026-11-01', '11:30'),
+      recurrence: { freq: 'monthly', interval: 3, month_day: 1 },
+    });
+    expect(event.recurrence.month_day).toBe(30);
+    const backwards = moveCalendarItem(occurrence, DAY, '2026-10-29', 0, ZONE);
+    expect(eventMovePatch(event, occurrence, backwards, ZONE).recurrence?.month_day).toBe(29);
+  });
+
+  it('при переходе через полночь меняет правило вместе со временем', () => {
+    const event = {
+      ...fullEvent,
+      starts_at: at(DAY, '23:45'),
+      ends_at: at('2026-10-31', '00:45'),
+      recurrence: { freq: 'weekly', interval: 1, weekdays: [5] },
+    };
+    const occurrence = item('event', '23:45', '23:45', { ends_at: event.ends_at });
+    const moved = moveCalendarItem(occurrence, DAY, DAY, 15, ZONE);
+    expect(eventMovePatch(event, occurrence, moved, ZONE)).toEqual({
+      starts_at: at('2026-10-31', '00:00'),
+      ends_at: at('2026-10-31', '01:00'),
+      recurrence: { freq: 'weekly', interval: 1, weekdays: [6] },
+    });
+  });
+
+  it('дневной повтор и перенос внутри дня не переписывает', () => {
+    const occurrence = item('event', '10:00', '11:30');
+    const daily = { ...fullEvent, recurrence: { freq: 'daily', interval: 2 } };
+    const moved = moveCalendarItem(occurrence, DAY, '2026-11-01', 0, ZONE);
+    expect(eventMovePatch(daily, occurrence, moved, ZONE)).toEqual({
+      starts_at: at('2026-11-01', '10:00'),
+      ends_at: at('2026-11-01', '11:30'),
+    });
+    const monthly = {
+      ...fullEvent,
+      recurrence: { freq: 'monthly', interval: 1, month_day: 31 },
+    };
+    const later = moveCalendarItem(occurrence, DAY, DAY, 15, ZONE);
+    expect(eventMovePatch(monthly, occurrence, later, ZONE)).toEqual({
+      starts_at: at(DAY, '10:15'),
+      ends_at: at(DAY, '11:45'),
     });
   });
 });
@@ -288,19 +361,125 @@ describe('раскладка записей по шкале', () => {
         item('событие', '09:30', '10:00'),
         item('урок', '09:45', '10:30', { kind: 'lesson' }),
         item('после', '10:00', '11:00'),
+        item('снова', '10:15', '11:00'),
         item('отдельное', '12:00', '13:00'),
       ],
       DAY,
       ZONE,
     );
     expect(blocks.map((block) => [block.item.title, block.column, block.columns])).toEqual([
-      ['длинное', 0, 3],
-      ['событие', 1, 3],
-      ['урок', 2, 3],
-      ['после', 1, 3],
+      ['длинное', 0, 4],
+      ['событие', 1, 4],
+      ['урок', 2, 4],
+      ['после', 3, 4],
+      ['снова', 1, 4],
       ['отдельное', 0, 1],
     ]);
     expect(blocks[0]).toMatchObject({ top: 9 * HOUR_HEIGHT, height: 3 * HOUR_HEIGHT });
+  });
+
+  it('три коротких записи подряд раскладывает по фактической высоте 44 px', () => {
+    const blocks = layoutBlocks(
+      [
+        item('а', '10:00', '10:15'),
+        item('б', '10:15', '10:30'),
+        item('в', '10:30', '10:45'),
+      ],
+      DAY,
+      ZONE,
+    );
+    expect(blocks.map(({ height, column, columns }) => [height, column, columns])).toEqual([
+      [44, 0, 3],
+      [44, 1, 3],
+      [44, 2, 3],
+    ]);
+    for (const block of blocks) {
+      for (const other of blocks) {
+        if (block === other || block.column !== other.column) continue;
+        expect(
+          block.top + block.height <= other.top || other.top + other.height <= block.top,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('на ширине 93 px оставляет место для полосы «ещё N»', () => {
+    const blocks = layoutBlocks(
+      ['а', 'б', 'в'].map((id) => item(id, '10:00', '11:00')),
+      DAY,
+      ZONE,
+    );
+    const fitted = fitDayBlocks(blocks, 93);
+    expect(fitted.blocks.map(({ column, columns }) => [column, columns])).toEqual([[0, 2]]);
+    expect(fitted.overflow).toEqual([
+      {
+        key: blocks[0]!.key,
+        top: 10 * HOUR_HEIGHT,
+        height: HOUR_HEIGHT,
+        column: 1,
+        columns: 2,
+        count: 2,
+      },
+    ]);
+    for (const block of [...fitted.blocks, ...fitted.overflow]) {
+      expect(93 / block.columns).toBeGreaterThanOrEqual(BLOCK_MIN_SIZE);
+      expect(((block.column + 1) / block.columns) * 93).toBeLessThanOrEqual(93);
+    }
+    expect(fitDayBlocks(blocks, 3 * BLOCK_MIN_SIZE)).toEqual({ blocks, overflow: [] });
+  });
+
+  it('при одной доступной колонке сворачивает группу целиком', () => {
+    const blocks = layoutBlocks(
+      ['а', 'б', 'в'].map((id) => item(id, '10:00', '11:00')),
+      DAY,
+      ZONE,
+    );
+    const fitted = fitDayBlocks(blocks, 87);
+    expect(fitted.blocks).toEqual([]);
+    expect(fitted.overflow).toMatchObject([{ column: 0, columns: 1, count: 3 }]);
+  });
+
+  it('не сворачивает соседние группы и сохраняет перенесённую запись видимой', () => {
+    const selected = item('в', '10:00', '11:00');
+    const blocks = layoutBlocks(
+      [
+        item('а', '10:00', '11:00'),
+        item('б', '10:00', '11:00'),
+        selected,
+        item('позже', '12:00', '13:00'),
+      ],
+      DAY,
+      ZONE,
+    );
+    const fitted = fitDayBlocks(blocks, 93, selected);
+    expect(
+      fitted.blocks.map(({ item, column, columns }) => [item.source_id, column, columns]),
+    ).toEqual([
+      ['в', 0, 2],
+      ['позже', 0, 1],
+    ]);
+    expect(fitted.overflow).toMatchObject([{ count: 2 }]);
+  });
+
+  it('ключ блока сохраняется при переносе и изменении текста, но различает повторы', () => {
+    const first = item('серия', '10:00', '11:00');
+    const second = {
+      ...first,
+      starts_at: at('2026-11-06', '10:00'),
+      ends_at: at('2026-11-06', '11:00'),
+    };
+    const before = layoutBlocks([first, second], DAY, ZONE)[0]!;
+    const moved = {
+      ...first,
+      ...moveCalendarItem(first, DAY, '2026-10-31', 15, ZONE),
+      title: 'Новое название',
+      place: 'Новое место',
+    };
+    const after = layoutBlocks([second, moved], '2026-10-31', ZONE)[0]!;
+    const repeat = layoutBlocks([first, second], '2026-11-06', ZONE)[0]!;
+    expect(after.key).toBe(before.key);
+    expect(repeat.key).not.toBe(before.key);
+    expect(layoutBlocks([{ ...first, kind: 'task' }], DAY, ZONE)[0]!.key).not.toBe(before.key);
   });
 
   it('касающиеся границами записи не пересекаются', () => {
@@ -328,7 +507,7 @@ describe('раскладка записей по шкале', () => {
   it('дело без длительности показывает и учитывает в пересечениях', () => {
     const task = item('срок', '10:00', '10:00', { kind: 'task' });
     const blocks = layoutBlocks([task, item('урок', '10:15', '11:00')], DAY, ZONE);
-    expect(blocks[0]).toMatchObject({ height: HOUR_HEIGHT / 2, columns: 2 });
+    expect(blocks[0]).toMatchObject({ height: BLOCK_MIN_SIZE, columns: 2 });
     const midnight = item('полночь', '00:00', '00:00', { kind: 'task' });
     expect(intersects(midnight, at(DAY, '00:00'), at('2026-10-31', '00:00'))).toBe(true);
     expect(itemsOnDay([midnight], '2026-10-29', ZONE)).toEqual([]);
