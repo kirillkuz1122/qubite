@@ -190,6 +190,7 @@ describe('можно ли переносить серию', () => {
   it.each<[string, Exclude<CalendarEvent['recurrence'], undefined>]>([
     ['раз в две недели по одному дню', { freq: 'weekly', interval: 2, weekdays: [5] }],
     ['раз в две недели без списка дней', { freq: 'weekly', interval: 2 }],
+    ['каждые два месяца', { freq: 'monthly', interval: 2, month_day: 30 }],
   ])('запрещает перенос на другой день, меняющий фазу: %s', (_, recurrence) => {
     expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherDay, ZONE)).toBe(false);
     expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherTime, ZONE)).toBe(true);

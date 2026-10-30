@@ -543,8 +543,11 @@ export function canMoveSeries(
   if (!rule) return true;
   switch (rule.freq) {
     case 'daily':
-    case 'monthly':
       return true;
+    case 'monthly':
+      // Месяцы тоже считаются от начала серии: при interval > 1 перенос через границу месяца
+      // сдвигает фазу.
+      return rule.interval === 1;
     case 'weekly':
       // Активные недели считаются от недели начала серии: сдвиг дня при interval > 1 (даже
       // одного) через границу недели может попасть на пропущенную неделю.
