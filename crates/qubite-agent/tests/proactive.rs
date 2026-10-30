@@ -686,3 +686,138 @@ async fn tools_show_free_windows_and_presence() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn morning_suggests_from_context_with_mock_and_skips_without_ai_or_budget() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let no_ai = plain(pool, "no-ai@example.org").await;
+    let event = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO opportunities (id, account_id, source, external_id, kind, title, subject, \
+         grades, starts_at, ends_at, url) VALUES ($1, $2, 'manual', $3, 'contest', \
+         'Тестовое соревнование', 'программирование', '10–11', now() + interval '20 days', \
+         now() + interval '21 days', '')",
+    )
+    .bind(event)
+    .bind(me)
+    .bind(event.to_string())
+    .execute(pool)
+    .await
+    .unwrap();
+    // Дальние, прошедшие, скрытые и чужие не должны вытеснить ближайшее.
+    for index in 0..21_i32 {
+        let id = Uuid::now_v7();
+        let (account, days, status) = match index {
+            18 => (me, -3, "new"),
+            19 => (me, 1, "dismissed"),
+            20 => (no_ai, 1, "new"),
+            _ => (me, 30 + index, "new"),
+        };
+        sqlx::query(
+            "INSERT INTO opportunities (id, account_id, source, external_id, kind, title, \
+             starts_at, ends_at, status, url) VALUES ($1, $2, 'manual', $3, 'contest', \
+             'Другой тестовый конкурс', now() + make_interval(days => $4), \
+             now() + make_interval(days => $4) + interval '1 hour', $5, '')",
+        )
+        .bind(id)
+        .bind(account)
+        .bind(id.to_string())
+        .bind(days)
+        .bind(status)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+    let ai = ai(
+        pool,
+        me,
+        vec![reply(json!({"tools": [{
+            "tool": "opportunity.suggest", "args": {"items": [{"id": event, "why": "Любишь программирование"}]},
+            "why": "По интересам из «О тебе»",
+        }]}))],
+    )
+    .await;
+    let now = local_now(pool).await;
+    let wake = |account_id| Wake {
+        account_id,
+        trigger: Trigger::Morning,
+        nudge_id: None,
+    };
+    assert!(matches!(
+        proactive::wake(pool, &ai.gateway, &wake(no_ai), None, Some(now))
+            .await
+            .unwrap(),
+        WakeOutcome::Skipped(_)
+    ));
+    assert_eq!(ai.mock.calls(), 0, "без AI модель не вызывается");
+    let console = qubite_policy::decide_owner(pool, &qubite_policy::Subject::account(me, None))
+        .await
+        .unwrap();
+    admin::set_limit(
+        pool,
+        &console,
+        &LimitScope::User(me),
+        Period::Day,
+        Metric::Usd,
+        0,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        proactive::wake(pool, &ai.gateway, &wake(me), None, Some(now))
+            .await
+            .unwrap(),
+        WakeOutcome::Skipped(_)
+    ));
+    assert_eq!(ai.mock.calls(), 0, "без бюджета модель не вызывается");
+    let status: String = sqlx::query_scalar("SELECT status FROM opportunities WHERE id = $1")
+        .bind(event)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(status, "new");
+    admin::set_limit(
+        pool,
+        &console,
+        &LimitScope::User(me),
+        Period::Day,
+        Metric::Usd,
+        10_000_000,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        proactive::wake(pool, &ai.gateway, &wake(me), None, Some(now))
+            .await
+            .unwrap(),
+        WakeOutcome::Done { actions: 1 }
+    );
+    let data = ai.mock.last_call().unwrap().messages[1].content.clone();
+    let block = data.split("source=\"opportunities\"").nth(1).unwrap();
+    let rows: Vec<Value> =
+        serde_json::from_str(block.lines().find(|line| line.starts_with('[')).unwrap()).unwrap();
+    assert_eq!(rows.len(), 15);
+    assert_eq!(rows[0]["id"], event.to_string());
+    assert_eq!(rows[0]["title"], "Тестовое соревнование");
+    assert_eq!(rows[0]["subject"], "программирование");
+    assert_eq!(rows[0]["grades"], "10–11");
+    assert!(
+        rows.iter()
+            .skip(1)
+            .all(|row| row["title"] == "Другой тестовый конкурс")
+    );
+    let state: (String, String) =
+        sqlx::query_as("SELECT status, why FROM opportunities WHERE id = $1")
+            .bind(event)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        state,
+        ("suggested".into(), "Любишь программирование".into())
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}

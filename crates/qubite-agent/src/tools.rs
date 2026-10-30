@@ -39,6 +39,8 @@ pub const WRITE_TOOLS: &[&str] = &[
     "project.update",
     "inbox.file",
     crate::digest::TOOL,
+    crate::opportunities::SUGGEST_TOOL,
+    crate::opportunities::ADD_TOOL,
     crate::proactive::SEND_TOOL,
 ];
 
@@ -477,6 +479,13 @@ pub async fn call(
     reason: Option<&str>,
     batch: Option<Uuid>,
 ) -> Result<Outcome> {
+    if matches!(
+        tool,
+        crate::opportunities::SUGGEST_TOOL | crate::opportunities::ADD_TOOL
+    ) {
+        let action = crate::opportunities::write(pool, who, tool, arguments, reason, batch).await?;
+        return Ok(Outcome::Done(Box::new(action)));
+    }
     if tool == crate::digest::TOOL {
         let action = crate::digest::write(pool, who, arguments, reason, batch).await?;
         return Ok(Outcome::Done(Box::new(action)));

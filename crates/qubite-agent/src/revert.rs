@@ -224,6 +224,41 @@ async fn plan_revert(
     for row in rows {
         let after = stored(row.after)?;
         let before = row.before.map(stored).transpose()?;
+        if row.object_type == crate::opportunities::TYPE {
+            let now = crate::opportunities::snapshot(conn, who.account(), row.object_id)
+                .await?
+                .unwrap_or_else(|| {
+                    let mut missing = after.clone();
+                    missing.deleted = true;
+                    missing
+                });
+            let (operations, found) = plan_object(action.id, before.as_ref(), &after, &now, force);
+            let mut target = now;
+            for operation in operations {
+                match operation.kind {
+                    OpKind::Delete => target.deleted = true,
+                    OpKind::Restore => target.deleted = false,
+                    OpKind::SetTitle { title } => target.title = title,
+                    OpKind::Patch { fields } => {
+                        if let (Some(target_fields), Some(fields)) =
+                            (target.fields.as_mut(), fields.as_object())
+                        {
+                            for (key, value) in fields {
+                                target_fields[key] = value.clone();
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(Error::Invalid(
+                            "неожиданный шаг отката мероприятия".into(),
+                        ));
+                    }
+                }
+            }
+            steps.push(crate::opportunities::step(target)?);
+            conflicts.extend(found);
+            continue;
+        }
         let Some(now) = snapshot(conn, who.account(), row.object_id).await? else {
             return Err(Error::NotRevertible(format!(
                 "«{}» больше нет — откатывать нечего",

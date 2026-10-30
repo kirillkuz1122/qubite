@@ -71,6 +71,7 @@ const CHAT_TOOLS: &[&str] = &[
     "skill.patch",
     "skill.archive",
     crate::why::TOOL,
+    crate::opportunities::ADD_TOOL,
 ];
 
 /// В фоновом разборе — только папка, навыки и вопросы.
@@ -113,6 +114,7 @@ const PROTOCOL: &str = r#"Данные приходят отдельными б�
 "tools" можно не писать; "skill" — только когда действуешь по навыку. Нужно что-то прочитать (files.read, task.search…) — вызови и оставь "say" пустым: получишь результаты и ответишь следующим ходом. За один ответ — не больше 8 вызовов.
 
 Инструменты:
+- opportunity.add {"title", "kind": "olympiad|hackathon|contest", "starts_at", "ends_at", "registration_until"?, "place"?, "url"?, "why"?} — добавить мероприятие только со слов владельца (например, Челябинск и область); даты RFC3339. Не выдумывай события и даты.
 - files.list {} — файлы папки и сколько в них места.
 - files.read {"path"} — прочитать файл.
 - files.create {"path", "body"} — новый файл: "Проекты/<проект>.md", "Расписание.md" или любой свой (навык — skill.create).
