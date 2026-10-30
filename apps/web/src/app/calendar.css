@@ -193,6 +193,9 @@
 .calendar-overflow {
   --calendar-color: var(--q-mute);
 }
+.calendar-overflow .calendar-block-hit {
+  white-space: nowrap;
+}
 .calendar-block-hit > time,
 .calendar-block-hit > small {
   display: block;
