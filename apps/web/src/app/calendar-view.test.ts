@@ -182,11 +182,17 @@ describe('можно ли переносить серию', () => {
     ['без повтора', null],
     ['каждые два дня', { freq: 'daily', interval: 2 }],
     ['каждую неделю по двум дням', { freq: 'weekly', interval: 1, weekdays: [1, 5] }],
-    ['раз в две недели по одному дню', { freq: 'weekly', interval: 2, weekdays: [5] }],
-    ['раз в две недели без списка дней', { freq: 'weekly', interval: 2 }],
     ['каждый месяц', { freq: 'monthly', interval: 1, month_day: 30 }],
   ])('разрешает перенос на другой день: %s', (_, recurrence) => {
     expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherDay, ZONE)).toBe(true);
+  });
+
+  it.each<[string, Exclude<CalendarEvent['recurrence'], undefined>]>([
+    ['раз в две недели по одному дню', { freq: 'weekly', interval: 2, weekdays: [5] }],
+    ['раз в две недели без списка дней', { freq: 'weekly', interval: 2 }],
+  ])('запрещает перенос на другой день, меняющий фазу: %s', (_, recurrence) => {
+    expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherDay, ZONE)).toBe(false);
+    expect(canMoveSeries({ ...fullEvent, recurrence }, occurrence, anotherTime, ZONE)).toBe(true);
   });
 
   it('для двух дней раз в две недели разрешает только смену времени внутри дня', () => {

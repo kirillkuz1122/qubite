@@ -224,6 +224,8 @@ function Calendar({ timeZone }: { timeZone: string }) {
         const cached = events.known[item.source_id];
         const event = cached ?? (await events.read(item.source_id));
         if (!blockMatchesEvent(event, item, timeZone)) {
+          // Старый снимок забываем: следующая попытка прочитает событие заново.
+          events.forget(item.source_id);
           await events.refresh();
           setNotice({
             text: 'Событие уже изменили на другом устройстве — календарь обновлён, перенесите снова',

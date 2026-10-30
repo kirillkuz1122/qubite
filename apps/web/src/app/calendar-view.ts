@@ -546,8 +546,9 @@ export function canMoveSeries(
     case 'monthly':
       return true;
     case 'weekly':
-      // Сдвиг нескольких дней через границу недели смешивает активные и пропущенные недели.
-      return rule.interval === 1 || (rule.weekdays?.length ?? 0) <= 1;
+      // Активные недели считаются от недели начала серии: сдвиг дня при interval > 1 (даже
+      // одного) через границу недели может попасть на пропущенную неделю.
+      return rule.interval === 1;
     default:
       return false;
   }
