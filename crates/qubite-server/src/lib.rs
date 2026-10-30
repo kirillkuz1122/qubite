@@ -30,6 +30,7 @@ pub mod opportunities;
 pub mod platform;
 pub mod projects;
 pub mod registration;
+pub mod routes;
 pub mod sync;
 
 use std::{sync::Arc, time::Duration};
@@ -64,6 +65,8 @@ pub struct AppState {
     pub notify: qubite_notify::deliver::Channels,
     /// Погода, курсы и новости для Главной (источники без ключей, кэш).
     pub home: Arc<qubite_home::Sources>,
+    /// Общий провайдер маршрутов; в тестах выключен до явного подключения заглушки.
+    pub route: Arc<dyn qubite_route::RouteProvider>,
     /// «Английский»: голос репетитора.
     pub english: Arc<qubite_english::Settings>,
     /// Файлы по хешу содержимого (файлы проектов, PROJ-001).
@@ -96,6 +99,7 @@ impl AppState {
             )),
             notify: qubite_notify::deliver::Channels::default(),
             home: Arc::new(qubite_home::Sources::default()),
+            route: Arc::new(qubite_route::OsrmNominatim::disabled()),
             english: Arc::new(qubite_english::Settings::default()),
             // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
@@ -132,6 +136,11 @@ impl AppState {
     /// Источники Главной (в тестах — поддельный сервер).
     pub fn with_home(mut self, sources: qubite_home::Sources) -> Self {
         self.home = Arc::new(sources);
+        self
+    }
+
+    pub fn with_route(mut self, provider: impl qubite_route::RouteProvider + 'static) -> Self {
+        self.route = Arc::new(provider);
         self
     }
 
@@ -328,6 +337,7 @@ impl AppState {
         english_lessons::english_settings,
         english_lessons::english_change_settings,
         english_lessons::english_phrase,
+        routes::task_route,
         calendar::calendar,
         calendar::create_event,
         calendar::get_event,
@@ -346,6 +356,10 @@ impl AppState {
         projects::edit_my_doc
     ),
     components(schemas(
+        routes::RoutePoint,
+        routes::TaskRouteRequest,
+        routes::TaskRouteResponse,
+        routes::TaskPlaceFields,
         Health,
         Readiness,
         auth::ApiErrorBody,
@@ -598,6 +612,10 @@ pub fn router(state: AppState) -> Router {
 pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
     console::mark_started();
     Router::new()
+        .route(
+            "/api/v1/planner/tasks/{id}/route",
+            post(routes::task_route),
+        )
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
         .route("/api/openapi.json", get(openapi))

@@ -165,3 +165,8 @@ cd apps/web && QUBITE_E2E_REAL=http://localhost:4180 QUBITE_E2E_EMAIL=owner@exam
 ## 4. Старый Qubite
 
 Запуск и тесты старой версии — в [`legacy/README.md`](../../legacy/README.md) и [CURRENT_STATE §4](../architecture/CURRENT_STATE.md).
+
+## Маршрут до дела
+
+Серверный API, настройки OSRM/Nominatim, кэш и правила приватности:
+[ROUTES.md](ROUTES.md) (AGT-006a, #136).

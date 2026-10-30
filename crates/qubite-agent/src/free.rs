@@ -112,7 +112,8 @@ pub fn night(quiet_from: Time, quiet_to: Time) -> Vec<Busy> {
 }
 
 /// Занятое в этот день: слоты расписания (все — и «не беспокоить», и нет:
-/// на тренировке тоже не до ДЗ) и несделанные дела со временем.
+/// на тренировке тоже не до ДЗ) и несделанные дела со временем. Перед делом
+/// резервируется его рассчитанная дорога; без неё — прежний запас для выходов.
 pub fn busy_on(date: Date, slots: &[Slot], tasks: &[Task], travel_minutes: i64) -> Vec<Busy> {
     let mut busy: Vec<Busy> = slots
         .iter()
@@ -131,9 +132,9 @@ pub fn busy_on(date: Date, slots: &[Slot], tasks: &[Task], travel_minutes: i64) 
             continue;
         }
         let at = minutes(time);
-        if reminder::is_outing(&task.title) {
+        if task.travel_minutes.is_some() || reminder::is_outing(&task.title) {
             busy.push(Busy {
-                from: at - travel_minutes,
+                from: at - task.travel_minutes.map(i64::from).unwrap_or(travel_minutes),
                 to: at + OUTING_MINUTES,
                 what: format!("{} (с дорогой)", task.title),
             });
@@ -593,6 +594,10 @@ mod tests {
             revision: 1,
             deleted: false,
             notes: String::new(),
+            place_text: None,
+            place_lat: None,
+            place_lon: None,
+            travel_minutes: None,
             status: Status::Todo,
             priority: Priority::Normal,
             due_date: None,
@@ -622,6 +627,10 @@ mod tests {
             tag: title.to_lowercase(),
             status: qubite_planner::ProjectStatus::Active,
             notes: String::new(),
+            place_text: None,
+            place_lat: None,
+            place_lon: None,
+            travel_minutes: None,
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
         }
@@ -680,6 +689,23 @@ mod tests {
         // Без ночи (тишина выключена) — весь день.
         assert!(night(time!(00:00), time!(00:00)).is_empty());
         assert_eq!(windows(day, 0, &[])[0].minutes, DAY_MINUTES);
+    }
+
+    #[test]
+    fn task_route_overrides_default_travel_even_without_outing_words() {
+        let day = date!(2026 - 10 - 20);
+        let mut visit = task("Важное дело");
+        visit.due_date = Some(day);
+        visit.due_time = Some(time!(18:00));
+        visit.travel_minutes = Some(95);
+        let busy = busy_on(day, &[], &[visit.clone()], 60);
+        assert_eq!(busy[0].from, 16 * 60 + 25);
+        assert_eq!(busy[0].to, 18 * 60 + OUTING_MINUTES);
+        visit.title = "Сходить в музей".into();
+        visit.travel_minutes = Some(0);
+        assert_eq!(busy_on(day, &[], &[visit.clone()], 60)[0].from, 18 * 60);
+        visit.travel_minutes = None;
+        assert_eq!(busy_on(day, &[], &[visit], 60)[0].from, 17 * 60);
     }
 
     #[test]

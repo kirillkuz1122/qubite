@@ -12,6 +12,7 @@ name = "qubite"
 path = "src/main.rs"
 
 [dependencies]
+qubite-route = { version = "0.1.0", path = "../qubite-route" }
 anyhow = "1.0.104"
 base64 = "0.22.1"
 axum = { version = "0.8.9", features = ["ws"] }

@@ -7900,6 +7900,107 @@
         }
       }
     },
+    "/api/v1/planner/tasks/{id}/route": {
+      "post": {
+        "tags": ["planner"],
+        "summary": "Рассчитать дорогу до дела. Исходные координаты не сохраняются.",
+        "operationId": "task_route",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID дела",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskRouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Маршрут до дела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskRouteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "place_missing или неверные координаты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Дело не найдено или place_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Дело изменили во время расчёта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "route_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{id}": {
       "get": {
         "tags": ["planner"],
@@ -13818,6 +13919,21 @@
           }
         }
       },
+      "RoutePoint": {
+        "type": "object",
+        "required": ["lat", "lon"],
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lon": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "ServerInfo": {
         "type": "object",
         "required": [
@@ -14027,6 +14143,69 @@
         "properties": {
           "model_id": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "TaskPlaceFields": {
+        "type": "object",
+        "description": "Место дела в create.fields и patch.fields; null очищает поле.",
+        "properties": {
+          "place_lat": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "place_lon": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "place_text": {
+            "type": ["string", "null"]
+          },
+          "travel_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          }
+        }
+      },
+      "TaskRouteRequest": {
+        "type": "object",
+        "required": ["from"],
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/RoutePoint"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskRouteResponse": {
+        "type": "object",
+        "required": ["minutes", "meters", "geometry", "to", "provider", "attribution"],
+        "properties": {
+          "attribution": {
+            "type": "string"
+          },
+          "geometry": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoutePoint"
+            }
+          },
+          "meters": {
+            "type": "number",
+            "format": "double"
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "place_text": {
+            "type": ["string", "null"]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "to": {
+            "$ref": "#/components/schemas/RoutePoint"
           }
         }
       },

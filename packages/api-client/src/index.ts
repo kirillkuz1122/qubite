@@ -11,6 +11,9 @@ export type { components, paths } from './schema';
 
 export type Health = components['schemas']['Health'];
 export type Readiness = components['schemas']['Readiness'];
+export type TaskRouteRequest = components['schemas']['TaskRouteRequest'];
+export type TaskRouteResponse = components['schemas']['TaskRouteResponse'];
+export type TaskPlaceFields = components['schemas']['TaskPlaceFields'];
 export type Me = components['schemas']['Me'];
 export type LoginResponse = components['schemas']['LoginResponse'];
 export type SessionItem = components['schemas']['SessionItem'];

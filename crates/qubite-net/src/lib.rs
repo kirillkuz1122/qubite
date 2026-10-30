@@ -17,6 +17,37 @@ use tokio::{
     net::TcpStream,
 };
 
+/// Общая очередь публичных картографических API: не чаще одного запроса
+/// в секунду на хост во всём процессе (включая разные экземпляры клиентов).
+/// Храним только имя хоста и время следующего запроса, без URL и координат.
+pub async fn one_per_second(url: &Url) {
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex, OnceLock},
+    };
+    use tokio::{
+        sync::Mutex as AsyncMutex,
+        time::{Instant, sleep_until},
+    };
+
+    type Hosts = Mutex<HashMap<String, Arc<AsyncMutex<Instant>>>>;
+    static HOSTS: OnceLock<Hosts> = OnceLock::new();
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    let queue = {
+        let mut hosts = HOSTS
+            .get_or_init(Hosts::default)
+            .lock()
+            .expect("очереди хостов");
+        hosts
+            .entry(host)
+            .or_insert_with(|| Arc::new(AsyncMutex::new(Instant::now())))
+            .clone()
+    };
+    let mut next = queue.lock().await;
+    sleep_until(*next).await;
+    *next = Instant::now() + Duration::from_secs(1);
+}
+
 /// Общий прокси для всех внешних запросов сервера.
 pub const PROXY_VAR: &str = "QUBITE_PROXY";
 
@@ -415,5 +446,32 @@ mod tests {
             "http://127.0.0.1:12334"
         );
         assert_eq!(decode("s%40cret"), "s@cret");
+    }
+}
+
+#[cfg(test)]
+mod rate_tests {
+    use super::*;
+    use tokio::time::Instant;
+
+    #[tokio::test]
+    async fn different_hosts_have_independent_queues() {
+        // URL — только ключи очереди: никаких сетевых запросов в этом тесте.
+        let first = Url::parse("https://rate-first.invalid").unwrap();
+        let second = Url::parse("https://rate-second.invalid").unwrap();
+        one_per_second(&first).await;
+        let began = Instant::now();
+        let (first_wait, second_wait) = tokio::join!(
+            async {
+                one_per_second(&first).await;
+                began.elapsed()
+            },
+            async {
+                one_per_second(&second).await;
+                began.elapsed()
+            }
+        );
+        assert!(first_wait >= Duration::from_secs(1));
+        assert!(second_wait < Duration::from_millis(500));
     }
 }
