@@ -376,9 +376,12 @@ for (const theme of ['light', 'dark']) {
       .boundingBox();
     expect(coins!.y).toBeGreaterThanOrEqual(rates!.y + rates!.height);
     const gear = page.getByRole('button', { name: 'Настроить: Монеты' });
+    // блок «Возможности» выше двигает остальное пружиной (useFlip): пока не доехала, размер дробный
+    await expect
+      .poll(async () => (await gear.boundingBox())!.height, { timeout: 5000 })
+      .toBeGreaterThanOrEqual(44);
     const bounds = await gear.boundingBox();
     expect(bounds!.width).toBeGreaterThanOrEqual(44);
-    expect(bounds!.height).toBeGreaterThanOrEqual(44);
     await gear.click();
     const dialog = page.getByRole('dialog', { name: 'Монеты' });
     await expect(dialog).toBeVisible();

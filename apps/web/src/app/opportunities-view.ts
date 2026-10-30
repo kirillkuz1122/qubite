@@ -87,12 +87,16 @@ function dayText(day: Day, year: number | null): string {
   return `${day.d}${NB}${month(day)}${day.y === year ? '' : ` ${day.y}`}`;
 }
 
-/** «1–20 декабря», «1 октября – 14 декабря», «5 ноября, 20:35–22:35». */
+/** «1–20 декабря», «1 октября – 14 декабря», «5 ноября, 20:35–22:35», «5 ноября, 23:35 – 6 ноября, 01:35». */
 function range(start: Day, end: Day, year: number, timed: boolean): string {
   if (sameDay(start, end)) {
     if (!timed) return dayText(start, year);
     const time = end.time === start.time ? start.time : `${start.time}–${end.time}`;
     return `${dayText(start, year)}, ${time}`;
+  }
+  // соревнование через полночь: «5 ноября, 23:35 – 6 ноября, 01:35» — время подключения важно
+  if (timed) {
+    return `${dayText(start, year)}, ${start.time} – ${dayText(end, year)}, ${end.time}`;
   }
   if (start.y === end.y && start.m === end.m) {
     return `${start.d}–${dayText(end, year)}`;

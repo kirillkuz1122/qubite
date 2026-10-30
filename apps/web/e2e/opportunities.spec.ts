@@ -127,9 +127,12 @@ for (const theme of ['light', 'dark']) {
     expect((await title.boundingBox())!.height).toBeGreaterThan(60);
     await inside(first, first.locator('.opp-kind, .opp-title, .opp-facts li, .opp-why, a, button'));
     for (const name of ['Интересно', 'Не надо']) {
-      const b = (await first.getByRole('button', { name }).boundingBox())!;
-      expect(b.height).toBeGreaterThanOrEqual(44);
-      expect(b.width).toBeGreaterThanOrEqual(44);
+      const button = first.getByRole('button', { name });
+      // пока пружина (useFlip) не доехала, размер дробный (43.99) — ждём, пока осядет
+      await expect
+        .poll(async () => (await button.boundingBox())!.height, { timeout: 5000 })
+        .toBeGreaterThanOrEqual(44);
+      expect((await button.boundingBox())!.width).toBeGreaterThanOrEqual(44);
     }
   });
 }

@@ -9,6 +9,7 @@ import {
   useDismiss,
   useInterested,
   useOpportunities,
+  useOpportunitiesKey,
   useRefreshOpportunities,
   type OpportunityCard,
 } from './opportunities';
@@ -146,6 +147,7 @@ function OpportunityRow({
   undoMs: number;
 }) {
   const qc = useQueryClient();
+  const key = useOpportunitiesKey();
   const interested = useInterested();
   const { mutate: send } = useDismiss();
   const [away, setAway] = useState<Away>('no');
@@ -178,7 +180,7 @@ function OpportunityRow({
     () => () => {
       if (waiting.current) {
         void dismiss(item.id).then(
-          () => forget(qc, item.id),
+          () => forget(qc, key, item.id),
           () => undefined,
         );
       }

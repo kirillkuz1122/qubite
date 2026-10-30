@@ -110,6 +110,16 @@ describe('даты возможности', () => {
     expect(opportunityWhen(round, now).dates).toBe(`5${NB}ноября, 19:35–21:35`);
   });
 
+  it('Codeforces через полночь — время начала и конца сохраняется', () => {
+    const round = item({
+      source: 'codeforces',
+      kind: 'contest',
+      starts_at: '2026-11-05T18:35:00Z',
+      ends_at: '2026-11-05T20:35:00Z',
+    });
+    expect(opportunityWhen(round, now).dates).toBe(`5${NB}ноября, 23:35 – 6${NB}ноября, 01:35`);
+  });
+
   it('регистрация отдельно от дат; прошедшая — так и написано', () => {
     const open = item({ registration_until: '2026-10-27T20:59:59Z' });
     expect(opportunityWhen(open, now)).toEqual({

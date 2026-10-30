@@ -85,10 +85,12 @@ beforeEach(() => {
   server = { items: [], down: false, posts: [] };
   get
     .mockReset()
-    .mockImplementation((_path: string, init: { params: { query: { status: string } } }) =>
-      server.down
-        ? fail(502, 'Сервер не ответил')
-        : ok({ items: server.items.filter((i) => i.status === init.params.query.status) }),
+    .mockImplementation((path: string, init: { params: { query: { status: string } } }) =>
+      path === '/api/auth/me'
+        ? ok({ id: 'acc-1', email: 'a@b.c', display_name: 'Я', is_owner: true })
+        : server.down
+          ? fail(502, 'Сервер не ответил')
+          : ok({ items: server.items.filter((i) => i.status === init.params.query.status) }),
     );
   post
     .mockReset()
@@ -170,7 +172,9 @@ describe('Возможности на Главной', () => {
     await screen.findByRole('article', { name: 'Ближайшая' });
     expect(screen.getByText('без отбора агента')).toBeInTheDocument();
     expect(screen.queryByText('Прошла')).toBeNull();
-    expect(get).toHaveBeenCalledTimes(2);
+    // `suggested`, потом `new`; запрос «кто я» — не в счёт
+    const asked = get.mock.calls.filter(([path]) => path === '/api/v1/opportunities');
+    expect(asked).toHaveLength(2);
   });
 
   it('пусто — «Агент пока ничего не нашёл» и «Обновить»', async () => {

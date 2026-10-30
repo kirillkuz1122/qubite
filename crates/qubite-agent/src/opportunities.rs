@@ -162,9 +162,10 @@ struct Add {
     why: Option<String>,
 }
 
-async fn future(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Result<bool> {
+/// Мероприятие ещё не закончилось: идущий хакатон и открытая регистрация подходят.
+async fn open(conn: &mut PgConnection, account: Uuid, id: Uuid) -> Result<bool> {
     Ok(sqlx::query_scalar(
-        "SELECT starts_at > now() FROM opportunities WHERE account_id = $1 AND id = $2",
+        "SELECT ends_at > now() FROM opportunities WHERE account_id = $1 AND id = $2",
     )
     .bind(account)
     .bind(id)
@@ -189,7 +190,7 @@ async fn suggestions(conn: &mut PgConnection, account: Uuid, args: Value) -> Res
         let mut target = snapshot(conn, account, item.id)
             .await?
             .ok_or(Error::NotFound)?;
-        if status(&target) != Some("new") || !future(conn, account, item.id).await? {
+        if status(&target) != Some("new") || !open(conn, account, item.id).await? {
             return Err(Error::Invalid(
                 "предлагать можно только новые будущие мероприятия".into(),
             ));
@@ -295,16 +296,21 @@ async fn local(conn: &mut PgConnection, instant: OffsetDateTime) -> Result<Primi
 
 /// Общий путь создания дел (поля и права проверяет лента, как у task.create).
 async fn tasks(conn: &mut PgConnection, account: Uuid, id: Uuid, title: &str) -> Result<Vec<Step>> {
-    if !future(conn, account, id).await? {
-        return Err(Error::Invalid("мероприятие уже началось".into()));
+    if !open(conn, account, id).await? {
+        return Err(Error::Invalid("мероприятие уже закончилось".into()));
     }
-    let (start, registration): (OffsetDateTime, Option<OffsetDateTime>) = sqlx::query_as(
-        "SELECT starts_at, registration_until FROM opportunities WHERE account_id = $1 AND id = $2",
-    )
-    .bind(account)
-    .bind(id)
-    .fetch_one(&mut *conn)
-    .await?;
+    let (start, end, registration): (OffsetDateTime, OffsetDateTime, Option<OffsetDateTime>) =
+        sqlx::query_as(
+            "SELECT starts_at, ends_at, registration_until FROM opportunities \
+             WHERE account_id = $1 AND id = $2",
+        )
+        .bind(account)
+        .bind(id)
+        .fetch_one(&mut *conn)
+        .await?;
+    // Уже идёт: подготовки нет, «участие» — к сроку окончания (подача работ, конец этапа).
+    let started = start <= OffsetDateTime::now_utc();
+    let end = local(conn, end).await?;
     let start = local(conn, start).await?;
     let tomorrow = qubite_planner::today(conn)
         .await?
@@ -312,20 +318,26 @@ async fn tasks(conn: &mut PgConnection, account: Uuid, id: Uuid, title: &str) ->
         .ok_or_else(|| Error::Invalid("дата вне диапазона".into()))?;
     let prepare = (start.date() - Duration::days(7)).max(tomorrow);
     let mut tasks = Vec::new();
+    let mut registered = None;
     if let Some(registration) = registration.filter(|date| *date > OffsetDateTime::now_utc()) {
-        tasks.push((
-            format!("Зарегистрироваться на {title}"),
-            local(conn, registration).await?,
-        ));
+        let due = local(conn, registration).await?;
+        registered = Some(due);
+        tasks.push((format!("Зарегистрироваться на {title}"), due));
     }
     // Подготовка — не позже начала: если до него меньше дня, отдельного дела нет.
-    if prepare < start.date() {
+    if !started && prepare < start.date() {
         tasks.push((
             format!("Подготовиться к {title}"),
             PrimitiveDateTime::new(prepare, start.time()),
         ));
     }
-    tasks.push((format!("{title} — участие"), start));
+    // У этапа «Регистрация» конец совпадает со сроком регистрации — второго дела не нужно.
+    if !(started && registered == Some(end)) {
+        tasks.push((
+            format!("{title} — участие"),
+            if started { end } else { start },
+        ));
+    }
     Ok(tasks
         .into_iter()
         .map(|(title, due)| Step {

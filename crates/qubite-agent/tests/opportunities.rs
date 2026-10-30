@@ -314,6 +314,43 @@ async fn event_tomorrow_gets_no_preparation_after_its_start() {
 }
 
 #[tokio::test]
+async fn running_event_gets_registration_and_participation_at_its_end_but_finished_is_refused() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = person(pool, "me@example.org", &["agent", "planner"]).await;
+    let owner = Who::owner(me, None);
+    let running = seed(pool, me, 0, true).await;
+    let finished = seed(pool, me, -2, false).await;
+    sqlx::query(
+        "UPDATE opportunities SET starts_at = now() - interval '1 day', \
+         registration_until = now() + interval '2 days', ends_at = now() + interval '5 days' \
+         WHERE id = $1",
+    )
+    .bind(running)
+    .execute(pool)
+    .await
+    .unwrap();
+    opportunities::decide(pool, &owner, running, true)
+        .await
+        .unwrap();
+    let mut conn = pool.acquire().await.unwrap();
+    let tasks = qubite_planner::list_tasks(&mut conn, me, None, 100)
+        .await
+        .unwrap();
+    let titles: Vec<_> = tasks.iter().map(|task| task.title.as_str()).collect();
+    assert_eq!(tasks.len(), 2, "{titles:?}");
+    assert!(titles.iter().any(|t| t.starts_with("Зарегистрироваться")));
+    assert!(titles.iter().any(|t| t.ends_with("— участие")));
+    assert!(!titles.iter().any(|t| t.starts_with("Подготовиться")));
+    drop(conn);
+    assert!(matches!(
+        opportunities::decide(pool, &owner, finished, true).await,
+        Err(Error::Invalid(_))
+    ));
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
 async fn manual_add_dismiss_and_revert_of_revert() {
     let (test_db, db) = TestDb::migrated().await;
     let pool = db.pool();
