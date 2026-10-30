@@ -148,6 +148,10 @@ pub async fn calendar(
     authorize::<Read>(&state, &session, qubite_planner::MODULE).await?;
     event::window(query.from, query.to).map_err(planner_error)?;
     let owner = session.0.account_id;
+    // Право на расписание проверяем до соединения: authorize берёт своё из пула.
+    let schedule_allowed = authorize::<Read>(&state, &session, qubite_agent::MODULE)
+        .await
+        .is_ok();
     let mut conn = state.db.pool().acquire().await.map_err(database_error)?;
     let mut items = Vec::new();
     let events = event::in_window(&mut conn, owner, query.from, query.to)
@@ -207,9 +211,7 @@ pub async fn calendar(
     );
 
     // Как в странице проекта, скрываем данные агента без права читать модуль.
-    if authorize::<Read>(&state, &session, qubite_agent::MODULE)
-        .await
-        .is_ok()
+    if schedule_allowed
         && let Some(file) = files::by_path(&mut conn, owner, SCHEDULE_PATH)
             .await
             .map_err(database_error)?
