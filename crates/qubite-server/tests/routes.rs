@@ -60,8 +60,7 @@ async fn create(owner: &mut Browser, address: SocketAddr, fields: Value) -> Uuid
     });
     let reply = owner.post_json(address, "/api/v1/sync/push", body).await;
     assert_eq!(
-        reply.body["results"][0]["status"],
-        "applied",
+        reply.body["results"][0]["status"], "applied",
         "{:?}",
         reply.body
     );
@@ -159,11 +158,10 @@ async fn route_saves_only_destination_and_minutes_reschedules_and_syncs() {
         .fetch_one(db.pool())
         .await
         .unwrap();
-    let task =
-        qubite_planner::get_task(&mut db.pool().acquire().await.unwrap(), owner_id, id)
-            .await
-            .unwrap()
-            .unwrap();
+    let task = qubite_planner::get_task(&mut db.pool().acquire().await.unwrap(), owner_id, id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(task.place_lat, Some(55.5));
     assert_eq!(task.place_lon, Some(61.5));
     assert_eq!(task.travel_minutes, Some(91));
@@ -316,7 +314,8 @@ async fn place_fields_roundtrip_clear_and_invalidate_old_travel() {
     let fake = FakeHttp::start([], Action::Respond(500, "{}".into())).await;
     let (test_db, db, address) = setup(&fake, false).await;
     let mut owner = logged_in(address).await;
-    let fields = json!({"place_text":"Музей","place_lat":55.5,"place_lon":61.5,"travel_minutes":91});
+    let fields =
+        json!({"place_text":"Музей","place_lat":55.5,"place_lon":61.5,"travel_minutes":91});
     let id = create(&mut owner, address, fields).await;
     error(
         calculate(&mut owner, address, id).await,
@@ -333,7 +332,8 @@ async fn place_fields_roundtrip_clear_and_invalidate_old_travel() {
     .await
     .unwrap();
     assert_eq!(stored, (Some("Парк".into()), None, None, None));
-    let cleared = json!({"place_text":null,"place_lat":null,"place_lon":null,"travel_minutes":null});
+    let cleared =
+        json!({"place_text":null,"place_lat":null,"place_lon":null,"travel_minutes":null});
     let patched = patch(&mut owner, address, id, 2, cleared).await;
     assert_eq!(patched["results"][0]["status"], "applied");
     for invalid in [
@@ -396,13 +396,12 @@ async fn concurrent_edit_does_not_save_a_stale_route() {
     assert_eq!(patched["results"][0]["status"], "applied");
     resume.notify_one();
     error(pending.await.unwrap(), 409, "conflict");
-    let minutes: Option<i32> = sqlx::query_scalar(
-        "SELECT travel_minutes FROM planner_tasks WHERE object_id=$1",
-    )
-    .bind(id)
-    .fetch_one(db.pool())
-    .await
-    .unwrap();
+    let minutes: Option<i32> =
+        sqlx::query_scalar("SELECT travel_minutes FROM planner_tasks WHERE object_id=$1")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
     assert_eq!(minutes, None);
     db.close().await;
     test_db.drop_db().await;

@@ -162,11 +162,7 @@ impl OsrmNominatim {
         let http = self.http.as_ref().ok_or(Error::Unavailable)?;
         // Не логируем ни URL, ни тело ответа, ни ошибку reqwest.
         qubite_net::one_per_second(&url).await;
-        let response = http
-            .get(url)
-            .send()
-            .await
-            .map_err(|_| Error::Unavailable)?;
+        let response = http.get(url).send().await.map_err(|_| Error::Unavailable)?;
         if !response.status().is_success() {
             return Err(Error::Unavailable);
         }

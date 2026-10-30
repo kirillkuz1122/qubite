@@ -2519,6 +2519,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/planner/tasks/{id}/route': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Рассчитать дорогу до дела. Исходные координаты не сохраняются. */
+    post: operations['task_route'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/projects/{id}': {
     parameters: {
       query?: never;
@@ -2621,23 +2638,6 @@ export interface paths {
     post?: never;
     /** Убрать файл из проекта. */
     delete: operations['remove_project_file'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/planner/tasks/{id}/route': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Рассчитать дорогу до дела. Исходные координаты не сохраняются. */
-    post: operations['task_route'];
-    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -11884,6 +11884,87 @@ export interface operations {
       };
     };
   };
+  task_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID дела */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TaskRouteRequest'];
+      };
+    };
+    responses: {
+      /** @description Маршрут до дела */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TaskRouteResponse'];
+        };
+      };
+      /** @description place_missing или неверные координаты */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Planner */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Дело не найдено или place_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Дело изменили во время расчёта */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description route_unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   project_page: {
     parameters: {
       query?: never;
@@ -12203,87 +12284,6 @@ export interface operations {
       };
       /** @description Нет такого файла или проекта */
       404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-    };
-  };
-  task_route: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description ID дела */
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TaskRouteRequest'];
-      };
-    };
-    responses: {
-      /** @description Маршрут до дела */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['TaskRouteResponse'];
-        };
-      };
-      /** @description place_missing или неверные координаты */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      /** @description Нужно войти */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      /** @description Нет права менять Planner */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      /** @description Дело не найдено или place_not_found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      /** @description Дело изменили во время расчёта */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ApiErrorBody'];
-        };
-      };
-      /** @description route_unavailable */
-      503: {
         headers: {
           [name: string]: unknown;
         };

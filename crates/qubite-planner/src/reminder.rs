@@ -187,7 +187,10 @@ pub fn plan(task: &Task, defaults: Defaults) -> Option<Plan> {
                 let minutes = i64::from(defaults.before_minutes).max(i64::from(travel) + 10);
                 (
                     minutes,
-                    format!("{} до срока, дорога и 10 мин на сборы", minutes_text(minutes)),
+                    format!(
+                        "{} до срока, дорога и 10 мин на сборы",
+                        minutes_text(minutes)
+                    ),
                 )
             } else if is_outing(&task.title) {
                 let minutes = i64::from(defaults.travel_minutes);

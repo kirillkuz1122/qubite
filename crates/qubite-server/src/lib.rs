@@ -612,10 +612,7 @@ pub fn router(state: AppState) -> Router {
 pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
     console::mark_started();
     Router::new()
-        .route(
-            "/api/v1/planner/tasks/{id}/route",
-            post(routes::task_route),
-        )
+        .route("/api/v1/planner/tasks/{id}/route", post(routes::task_route))
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
         .route("/api/openapi.json", get(openapi))

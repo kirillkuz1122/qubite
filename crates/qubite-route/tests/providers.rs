@@ -4,7 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use qubite_route::{Error, MAX_GEOMETRY, OsrmNominatim, Point, RouteProvider, Settings, USER_AGENT};
+use qubite_route::{
+    Error, MAX_GEOMETRY, OsrmNominatim, Point, RouteProvider, Settings, USER_AGENT,
+};
 use qubite_testkit::fake_http::{Action, FakeHttp};
 use serde_json::json;
 
@@ -167,7 +169,10 @@ async fn empty_results_are_cached_but_errors_are_not() {
     let api = provider(&fake);
     assert!(api.geocode("Нет места").await.unwrap().is_none());
     assert!(api.geocode("Нет места").await.unwrap().is_none());
-    assert!(matches!(api.geocode("Музей").await, Err(Error::Unavailable)));
+    assert!(matches!(
+        api.geocode("Музей").await,
+        Err(Error::Unavailable)
+    ));
     assert!(api.geocode("Музей").await.unwrap().is_some());
     assert_eq!(fake.received().len(), 3);
 }
@@ -203,7 +208,10 @@ async fn disabled_and_invalid_inputs_never_call_provider() {
         api.route(start(), end()).await,
         Err(Error::Unavailable)
     ));
-    assert!(matches!(api.geocode("Музей").await, Err(Error::Unavailable)));
+    assert!(matches!(
+        api.geocode("Музей").await,
+        Err(Error::Unavailable)
+    ));
     let api = provider(&fake);
     assert!(matches!(
         api.route(

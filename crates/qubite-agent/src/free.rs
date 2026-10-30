@@ -627,10 +627,6 @@ mod tests {
             tag: title.to_lowercase(),
             status: qubite_planner::ProjectStatus::Active,
             notes: String::new(),
-            place_text: None,
-            place_lat: None,
-            place_lon: None,
-            travel_minutes: None,
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
         }
