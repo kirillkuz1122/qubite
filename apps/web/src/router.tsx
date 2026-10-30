@@ -81,6 +81,11 @@ const sectionRoutes = [
   ...SECTIONS.map((s) =>
     createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
   ),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/docs/$id',
+    component: () => null,
+  }),
   // CAL-001b: экран и пункт навигации подключены в AppShell.
   createRoute({
     getParentRoute: () => appRoute,

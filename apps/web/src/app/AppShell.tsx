@@ -4,6 +4,7 @@
  * Шапка: заголовок из точек перестраивается при переходе, помощник раздела выпрыгивает.
  */
 import { loop, MASS } from '@qubite/motion';
+import { docList } from '@qubite/sync-client';
 import {
   COMMAND_COLOR,
   COMMAND_OWNER,
@@ -55,6 +56,7 @@ import { useStore, type State } from './state';
 import { useInbox } from './inbox-context';
 import { usePlanner, type PlannerApi } from './planner-context';
 import { useMe } from '../auth/client';
+import { useSync } from './sync-context';
 import './app.css';
 
 // CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
@@ -157,12 +159,7 @@ function subtitle(
     case 'agent':
       return 'что сделал и почему · любое — откатить';
     case 'docs':
-      return (
-        <>
-          <b>{s.docs.length}</b> {plural(s.docs.length, 'документ', 'документа', 'документов')} ·
-          Нейт помнит связи
-        </>
-      );
+      return 'заметки и документы · доступны без сети';
     case 'settings':
       return 'вид, помощники и аккаунт';
   }
@@ -175,6 +172,18 @@ export function AppShell() {
   const { state } = useStore();
   const inbox = useInbox();
   const planner = usePlanner();
+  const sync = useSync();
+  const [documents, setDocuments] = useState<State['docs']>([]);
+  useEffect(() => {
+    let alive = true;
+    if (!sync.client) return;
+    void sync.client.all().then((objects) => {
+      if (alive) setDocuments(docList(objects).map((doc) => ({
+        id: doc.id, name: doc.title, pre: doc.preview, tags: [], when: '',
+      })));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [sync.client, sync.version]);
   const id = sectionOf(path);
   const sec = SECTIONS.find((s) => s.id === id)!;
   const crew = useRef<CrewHandle>(null);
@@ -254,7 +263,7 @@ export function AppShell() {
   const cmd = commandView(
     value,
     parsed,
-    { ...state, week: planner.week, projects: planner.projects },
+    { docs: documents, week: planner.week, projects: planner.projects },
     inbox.items,
     history,
   );
@@ -350,6 +359,11 @@ export function AppShell() {
       const box = card.current?.getBoundingClientRect();
       look.set('theme', r.value, box && { x: box.left + box.width / 2, y: box.bottom });
     } else {
+      if (r.to === 'docs' && r.obj) {
+        void navigate({ to: '/docs/$id', params: { id: r.obj } });
+        finish();
+        return;
+      }
       go(r.to);
       if (r.obj) reveal(r.to, r.obj, r.open);
     }
@@ -406,8 +420,8 @@ export function AppShell() {
         : s.id === 'planner'
           ? left(planner)
           : s.id === 'docs'
-            ? state.docs.length
-            : 0,
+            ? documents.length
+          : 0,
     badge: s.id === 'inbox',
   }));
 

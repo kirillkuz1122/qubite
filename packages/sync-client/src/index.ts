@@ -23,6 +23,21 @@ export {
 export { HttpError, csrfFromCookie, httpTransport, type HttpTransportOptions } from './http';
 export { CLOSE_FORBIDDEN, watchChanges, type WatchOptions } from './watch';
 export {
+  DOCS_PAGE,
+  DocStore,
+  createDoc,
+  docList,
+  httpDocsTransport,
+  renameDoc,
+  type DocHandle,
+  type DocListItem,
+  type DocsPullResponse,
+  type DocsPushResponse,
+  type DocsTransport,
+  type DocStatus,
+  type DocStoreOptions,
+} from './docs';
+export {
   MAX_TAG_CHARS,
   PLANNER_PROJECT,
   PLANNER_TASK,
