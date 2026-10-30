@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync, type SyncMock } from './sync-mock';
+import { mockDocs } from './docs-mock';
 
 // Сервер синхронизации подделан: без него мысли просто ждали бы сети.
 let server: SyncMock;
@@ -90,12 +91,16 @@ test('дело отмечается кольцом — счётчик и Planner
   );
 });
 
-test('строка Docs раскрывается в страницу и закрывается обратно', async ({ page }) => {
+test('строка Docs открывает документ и возвращается в список', async ({ page }) => {
+  const docs = await mockDocs(page, server);
+  const id = docs.add('Дерево Фенвика', 'Частичные суммы');
   await page.goto('/docs');
   await page.getByRole('button', { name: /Дерево Фенвика/ }).click();
   const doc = page.getByRole('article', { name: 'Документ' });
-  await expect(doc.getByRole('heading', { name: 'Дерево Фенвика' })).toBeVisible();
-  await doc.getByRole('button', { name: 'Docs' }).click();
+  await expect(page).toHaveURL(new RegExp(`/docs/${id}$`));
+  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue('Дерево Фенвика');
+  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText('Частичные суммы');
+  await doc.getByRole('button', { name: 'К документам' }).click();
   await expect(doc).toBeHidden();
 });
 

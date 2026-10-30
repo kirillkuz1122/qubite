@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync, type SyncMock } from './sync-mock';
+import { mockDocs } from './docs-mock';
 
 /*
  * Проект как папка (PROJ-001): страница проекта из Planner и по прямой ссылке — дело, файл,
@@ -24,6 +25,7 @@ interface Doc {
 
 /** Сервер страницы проекта: файлы, документы, память и лента — в памяти. */
 async function mockProjects(page: Page, server: SyncMock) {
+  const docsApi = await mockDocs(page, server);
   const files = new Map<string, { name: string; size: number; mime: string; body: string }[]>();
   const docs: Doc[] = [];
   const memory = new Map<string, { file_id: string; path: string; body: string }>();
@@ -61,6 +63,7 @@ async function mockProjects(page: Page, server: SyncMock) {
   });
   await page.route('**/api/v1/docs**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/y')) return route.fallback();
     if (path === '/api/v1/docs') return route.fulfill({ json: { docs: docs.map(docItem) } });
     const doc = docs.find((d) => path.endsWith(d.id));
     if (!doc) return route.fulfill({ status: 404, json: { error: 'not_found', message: '' } });
@@ -91,7 +94,8 @@ async function mockProjects(page: Page, server: SyncMock) {
     }
     if (part === 'docs' && req.method() === 'POST' && !rest) {
       const { title, body } = req.postDataJSON() as { title: string; body: string };
-      const doc = { id: crypto.randomUUID(), title, body, revision: 1, projects: [id!] };
+      const doc = { id: docsApi.add(title, body), title, body, revision: 1, projects: [id!] };
+      server.ping();
       docs.push(doc);
       note(id!, 'created', 'doc', title, []);
       return route.fulfill({ status: 201, json: { ...docItem(doc), body } });
@@ -188,8 +192,15 @@ test('проект как папка: дело, файл, документ, па
   await page.getByRole('button', { name: '+ Документ' }).click();
   const form = page.getByRole('form', { name: 'Новый документ' });
   await form.getByLabel('Название').fill('Устройство Qubite');
-  await form.getByLabel('Текст (Markdown, можно пустой)').fill('# Стек\nRust и React');
   await form.getByRole('button', { name: 'Создать' }).click();
+  await expect(page).toHaveURL(/\/docs\/[\w-]+$/);
+  const editor = page.getByRole('textbox', { name: 'Текст документа' });
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.insertText('Rust и React');
+  await expect(editor).toContainText('Rust и React');
+  await page.goto(`/planner/project/${qubite}`);
+  await page.getByRole('radio', { name: 'Файлы' }).click();
   await expect(page.getByRole('list', { name: 'Документы проекта' })).toContainText(
     'Устройство Qubite',
   );
