@@ -177,12 +177,24 @@ export function AppShell() {
   useEffect(() => {
     let alive = true;
     if (!sync.client) return;
-    void sync.client.all().then((objects) => {
-      if (alive) setDocuments(docList(objects).map((doc) => ({
-        id: doc.id, name: doc.title, pre: doc.preview, tags: [], when: '',
-      })));
-    }).catch(() => {});
-    return () => { alive = false; };
+    void sync.client
+      .all()
+      .then((objects) => {
+        if (alive)
+          setDocuments(
+            docList(objects).map((doc) => ({
+              id: doc.id,
+              name: doc.title,
+              pre: doc.preview,
+              tags: [],
+              when: '',
+            })),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [sync.client, sync.version]);
   const id = sectionOf(path);
   const sec = SECTIONS.find((s) => s.id === id)!;
@@ -421,7 +433,7 @@ export function AppShell() {
           ? left(planner)
           : s.id === 'docs'
             ? documents.length
-          : 0,
+            : 0,
     badge: s.id === 'inbox',
   }));
 

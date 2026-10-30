@@ -4,9 +4,12 @@ import * as Y from 'yjs';
 import { join, resolve } from 'node:path';
 import { mockDocs } from './docs-mock';
 
-const text = (page: import('@playwright/test').Page) => page.getByRole('textbox', { name: 'Текст документа' });
+const text = (page: import('@playwright/test').Page) =>
+  page.getByRole('textbox', { name: 'Текст документа' });
 
-test('создать и написать без сети, пережить перезагрузку, отправить после восстановления', async ({ page }) => {
+test('создать и написать без сети, пережить перезагрузку, отправить после восстановления', async ({
+  page,
+}) => {
   const server = await mockDocs(page);
   await page.goto('/docs');
   await expect(page.getByRole('button', { name: 'Создать первый документ' })).toBeVisible();
@@ -23,7 +26,9 @@ test('создать и написать без сети, пережить пе�
   expect(server.pushes).toHaveLength(0);
   server.sync.offline = false;
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await expect.poll(() => server.pushes.some((push) => push.text.includes('Записано на устройстве'))).toBe(true);
+  await expect
+    .poll(() => server.pushes.some((push) => push.text.includes('Записано на устройстве')))
+    .toBe(true);
   await expect(page.getByRole('status').filter({ hasText: /^Сохранено$/ })).toBeVisible();
   await page.reload();
   await expect(text(page)).toContainText('Записано на устройстве');
@@ -86,14 +91,16 @@ test('WebSocket «есть новое» забирает Yjs открытого 
   await page.goto(`/docs/${id}`);
   await expect(text(page)).toContainText('Текст с другого устройства');
   await expect.poll(() => server.pushes.some((push) => push.id === id)).toBe(true);
-  const root = server.documents.get(id)!.getXmlText('root');
+  const root = server.documents.get(id)!.get('root', Y.XmlText);
   // Другая копия меняет свойство вида, сохраняя тот же совместный текст.
   for (const delta of root.toDelta()) {
     if (delta.insert instanceof Y.XmlText) delta.insert.setAttribute('__kind', 'h2');
   }
   server.sync.patch(id, {});
   server.sync.ping();
-  await expect(text(page).locator('[data-kind="h2"]').filter({ hasText: 'Текст с другого устройства' })).toBeVisible();
+  await expect(
+    text(page).locator('[data-kind="h2"]').filter({ hasText: 'Текст с другого устройства' }),
+  ).toBeVisible();
 });
 
 for (const theme of ['light', 'dark']) {
@@ -103,19 +110,28 @@ for (const theme of ['light', 'dark']) {
       const server = await mockDocs(page);
       server.add('Заметки', '# Заголовок\nТекст документа\n- [ ] Пункт');
       await page.goto('/docs');
-      await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
+      await page.evaluate(
+        (value) => document.documentElement.setAttribute('data-theme', value),
+        theme,
+      );
       await expect(page.getByRole('button', { name: /Заметки/ })).toBeVisible();
       const directory = resolve(import.meta.dirname, '../../../docs/design/screens/doc-002');
       await mkdir(directory, { recursive: true });
       await info.attach(`doc-002-list-${width}-${theme}`, {
-        body: await page.screenshot({ path: join(directory, `${info.project.name}-list-${width}-${theme}.png`) }),
+        body: await page.screenshot({
+          path: join(directory, `${info.project.name}-list-${width}-${theme}.png`),
+        }),
         contentType: 'image/png',
       });
       await page.getByRole('button', { name: /Заметки/ }).click();
       await expect(text(page)).toContainText('Текст документа');
-      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
       await info.attach(`doc-002-editor-${width}-${theme}`, {
-        body: await page.screenshot({ path: join(directory, `${info.project.name}-editor-${width}-${theme}.png`) }),
+        body: await page.screenshot({
+          path: join(directory, `${info.project.name}-editor-${width}-${theme}.png`),
+        }),
         contentType: 'image/png',
       });
       if (width === 360) {

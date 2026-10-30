@@ -468,11 +468,22 @@ function Docs({ id, page }: { id: string; page: Page }) {
         <ul className="pp-docs" aria-label="Документы проекта">
           {page.docs.map((d) => (
             <li key={d.id}>
-              <Button dot={false} className="pp-doc" onClick={() => void navigate({ to: '/docs/$id', params: { id: d.id } })}>
+              <Button
+                dot={false}
+                className="pp-doc"
+                onClick={() => void navigate({ to: '/docs/$id', params: { id: d.id } })}
+              >
                 <span className="pp-doc-t">{d.title}</span>
                 <span className="pp-doc-pre">{d.preview || 'пусто'}</span>
               </Button>
-              <Button size="sm" dot={false} disabled={unlink.isPending} onClick={() => unlink.mutate(d.id)}>Убрать из проекта</Button>
+              <Button
+                size="sm"
+                dot={false}
+                disabled={unlink.isPending}
+                onClick={() => unlink.mutate(d.id)}
+              >
+                Убрать из проекта
+              </Button>
             </li>
           ))}
         </ul>

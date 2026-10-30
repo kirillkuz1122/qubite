@@ -84,8 +84,12 @@ test('«найди фенвик» — открывает настоящий до
   await input.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/docs/${id}$`));
   const doc = page.getByRole('article', { name: 'Документ' });
-  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue('Дерево Фенвика');
-  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText('Частичные суммы');
+  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue(
+    'Дерево Фенвика',
+  );
+  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'Частичные суммы',
+  );
 });
 
 test('найденное можно выбрать пальцем или мышью: светлая тема', async ({ page }) => {

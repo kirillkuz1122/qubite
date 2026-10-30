@@ -98,8 +98,12 @@ test('строка Docs открывает документ и возвраща�
   await page.getByRole('button', { name: /Дерево Фенвика/ }).click();
   const doc = page.getByRole('article', { name: 'Документ' });
   await expect(page).toHaveURL(new RegExp(`/docs/${id}$`));
-  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue('Дерево Фенвика');
-  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText('Частичные суммы');
+  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue(
+    'Дерево Фенвика',
+  );
+  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'Частичные суммы',
+  );
   await doc.getByRole('button', { name: 'К документам' }).click();
   await expect(doc).toBeHidden();
 });

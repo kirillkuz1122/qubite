@@ -67,8 +67,11 @@ export function InboxScreen() {
             // В архив — только после записи документа на устройство.
             await inbox.done(it.id);
             void sync.sync();
-          } catch { setDocError(true); }
-          finally { moving.current.delete(it.id); }
+          } catch {
+            setDocError(true);
+          } finally {
+            moving.current.delete(it.id);
+          }
         })();
       });
       shell.cheer('elik');
@@ -84,7 +87,11 @@ export function InboxScreen() {
 
   return (
     <>
-      {docError && <Note tone="bad">Документ не записался. Мысль осталась во Входящих — попробуйте ещё раз.</Note>}
+      {docError && (
+        <Note tone="bad">
+          Документ не записался. Мысль осталась во Входящих — попробуйте ещё раз.
+        </Note>
+      )}
       <div className="chips-row">
         <Segmented<Filter>
           variant="chips"

@@ -1,5 +1,5 @@
 import type { Provider, ProviderAwareness, UserState } from '@lexical/yjs';
-import type { Doc } from 'yjs';
+import * as Y from 'yjs';
 import type { DocHandle } from '@qubite/sync-client';
 
 /** Императивный API хранилища, которое живёт вне React. */
@@ -33,22 +33,50 @@ class LocalAwareness implements ProviderAwareness {
   };
 }
 
-/** Сеть и запись принадлежат DocHandle; Lexical получает уже открытый Y.Doc. */
+const FROM_SOURCE = Symbol('из хранилища');
+const FROM_EDITOR = Symbol('из редактора');
+
+/**
+ * Сеть и запись принадлежат DocHandle. Lexical рисует только изменения, пришедшие
+ * после привязки, поэтому получает свою копию `doc`: при подключении в неё вливается
+ * всё, что уже лежит на устройстве, дальше обе копии зеркалят друг друга.
+ */
 export class DocsProvider {
   readonly awareness: ProviderAwareness;
+  readonly doc = new Y.Doc();
   ready = false;
   private readyListeners = new Set<() => void>();
   private generation = 0;
   private handlers = new Map<string, Set<(value: never) => void>>();
+  private unbridge: (() => void) | null = null;
 
-  constructor(doc: Doc) {
-    this.awareness = new LocalAwareness(doc.clientID);
+  constructor(private readonly source: Y.Doc) {
+    this.awareness = new LocalAwareness(source.clientID);
+  }
+
+  private bridge() {
+    if (this.unbridge) return;
+    const toEditor = (update: Uint8Array, origin: unknown) => {
+      if (origin !== FROM_EDITOR) Y.applyUpdate(this.doc, update, FROM_SOURCE);
+    };
+    const toSource = (update: Uint8Array, origin: unknown) => {
+      if (origin !== FROM_SOURCE) Y.applyUpdate(this.source, update, FROM_EDITOR);
+    };
+    Y.applyUpdate(this.doc, Y.encodeStateAsUpdate(this.source), FROM_SOURCE);
+    this.source.on('update', toEditor);
+    this.doc.on('update', toSource);
+    this.unbridge = () => {
+      this.source.off('update', toEditor);
+      this.doc.off('update', toSource);
+      this.unbridge = null;
+    };
   }
 
   connect() {
     const generation = ++this.generation;
     queueMicrotask(() => {
       if (this.generation !== generation) return;
+      this.bridge();
       this.emit('status', { status: 'connected' });
       this.emit('sync', true);
       queueMicrotask(() => {
@@ -62,6 +90,7 @@ export class DocsProvider {
   disconnect() {
     this.generation++;
     this.ready = false;
+    this.unbridge?.();
   }
 
   subscribeReady(callback: () => void): () => void {

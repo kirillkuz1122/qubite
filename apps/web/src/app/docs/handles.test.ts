@@ -2,11 +2,16 @@ import type { DocHandle, DocStore } from '@qubite/sync-client';
 import { describe, expect, it, vi } from 'vitest';
 import { acquireDocument } from './handles';
 
-const tick = async () => { await Promise.resolve(); await Promise.resolve(); };
+const tick = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
 
 it('эффект StrictMode не закрывает общий handle, пока новый редактор его ждёт', async () => {
   let resolve: (handle: DocHandle) => void = () => {};
-  const promise = new Promise<DocHandle>((done) => { resolve = done; });
+  const promise = new Promise<DocHandle>((done) => {
+    resolve = done;
+  });
   const close = vi.fn().mockResolvedValue(undefined);
   const handle = { close } as unknown as DocHandle;
   const open = vi.fn(() => promise);

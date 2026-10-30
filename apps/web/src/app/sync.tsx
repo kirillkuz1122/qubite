@@ -108,15 +108,12 @@ export function SyncProvider({
   useEffect(() => {
     if (dbName === null) {
       opening.current = null;
-      setClient(null);
-      setDocs(null);
       return;
     }
     const documents = new DocStore({
       dbName: `${dbName}-docs`,
       transport: httpDocsTransport(),
     });
-    setDocs(documents);
     let alive = true;
     let stop = () => {};
     let unsubscribe = () => {};
@@ -129,6 +126,7 @@ export function SyncProvider({
           return;
         }
         setClient(c);
+        setDocs(documents);
         opened.resolve(c);
         unsubscribe = c.subscribe((s) => {
           setState(s);
@@ -154,6 +152,9 @@ export function SyncProvider({
       unsubscribe();
       void documents.close().catch(() => {});
       void promise.then((c) => c.close()).catch(() => {});
+      // Закрытые хранилища экранам больше не отдаём (сменился человек или вышли).
+      setClient(null);
+      setDocs(null);
     };
   }, [dbName, open, live, opened]);
 

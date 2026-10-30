@@ -1,20 +1,20 @@
 import {
   $applyNodeReplacement,
-  ElementNode,
-  type EditorConfig,
+  ParagraphNode,
+  setDOMUnmanaged,
   type ElementDOMSlot,
   type LexicalNode,
   type NodeKey,
   type RangeSelection,
-  type SerializedElementNode,
+  type SerializedParagraphNode,
 } from 'lexical';
 
 export const BLOCK_KINDS = ['p', 'h1', 'h2', 'ul', 'ol', 'todo', 'quote', 'code'] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
-export type SerializedBlockNode = SerializedElementNode & { kind: BlockKind; checked: boolean };
+export type SerializedBlockNode = SerializedParagraphNode & { kind: BlockKind; checked: boolean };
 
 /** Плоский блок: Yjs меняет свойства, сохраняя общий текст и ключ узла. */
-export class BlockNode extends ElementNode {
+export class BlockNode extends ParagraphNode {
   __kind: BlockKind;
   __checked: boolean;
 
@@ -54,11 +54,13 @@ export class BlockNode extends ElementNode {
     return super.setIndent(Math.max(0, Math.min(4, Math.trunc(indent))));
   }
 
-  override createDOM(_config: EditorConfig): HTMLElement {
+  override createDOM(): HTMLElement {
     const dom = document.createElement('div');
     const accessory = document.createElement('div');
     accessory.className = 'docs-block-accessory';
     accessory.contentEditable = 'false';
+    // Галочку туда кладёт React: Lexical не должен её вычищать.
+    setDOMUnmanaged(accessory);
     const content = document.createElement('div');
     content.className = 'docs-block-content';
     dom.append(accessory, content);
@@ -70,7 +72,7 @@ export class BlockNode extends ElementNode {
     return super.getDOMSlot(element).withElement(element.lastElementChild as HTMLElement);
   }
 
-  override updateDOM(_previous: BlockNode, dom: HTMLElement): boolean {
+  override updateDOM(_previous: ParagraphNode, dom: HTMLElement): boolean {
     this.updateBlockDOM(dom);
     return false;
   }

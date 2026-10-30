@@ -29,8 +29,17 @@ import { BLOCKS, slashItems, slashQuery } from './blocks';
 import { DOC_NODES, DOC_SHORTCUTS, $exportMarkdown, $importMarkdown } from './markdown';
 import { attachMarkdownExport, DocsProvider } from './provider';
 
-interface Slash { query: string; x: number; y: number }
-interface Todo { key: string; checked: boolean; label: string; target: HTMLElement }
+interface Slash {
+  query: string;
+  x: number;
+  y: number;
+}
+interface Todo {
+  key: string;
+  checked: boolean;
+  label: string;
+  target: HTMLElement;
+}
 
 function $selectedBlocks() {
   const selection = $getSelection();
@@ -56,19 +65,33 @@ function apply(editor: LexicalEditor, kind: BlockKind, slash: boolean) {
 
 export function DocEditor({ handle }: { handle: DocHandle }) {
   const provider = useMemo(() => new DocsProvider(handle.doc), [handle]);
-  const providerFactory = useCallback((id: string, map: Map<string, Doc>) => {
-    map.set(id, handle.doc);
-    return provider.asProvider();
-  }, [handle, provider]);
+  const providerFactory = useCallback(
+    (id: string, map: Map<string, Doc>) => {
+      map.set(id, provider.doc);
+      return provider.asProvider();
+    },
+    [handle, provider],
+  );
 
   return (
-    <LexicalComposer initialConfig={{
-      namespace: 'qubite-docs',
-      nodes: DOC_NODES,
-      editorState: null,
-      theme: { text: { bold: 'docs-bold', italic: 'docs-italic', strikethrough: 'docs-strike', code: 'docs-inline-code' } },
-      onError: (error: Error) => { throw error; },
-    }}>
+    <LexicalComposer
+      initialConfig={{
+        namespace: 'qubite-docs',
+        nodes: DOC_NODES,
+        editorState: null,
+        theme: {
+          text: {
+            bold: 'docs-bold',
+            italic: 'docs-italic',
+            strikethrough: 'docs-strike',
+            code: 'docs-inline-code',
+          },
+        },
+        onError: (error: Error) => {
+          throw error;
+        },
+      }}
+    >
       <LexicalCollaboration>
         <RichTextPlugin
           contentEditable={<ContentEditable className="docs-text" aria-label="Текст документа" />}
@@ -99,10 +122,13 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
   const [formatY, setFormatY] = useState(0);
   const highlight = useSlide(44);
   const items = slash ? slashItems(slash.query) : [];
-  const pick = useCallback((kind: BlockKind) => {
-    apply(editor, kind, true);
-    setSlash(null);
-  }, [editor]);
+  const pick = useCallback(
+    (kind: BlockKind) => {
+      apply(editor, kind, true);
+      setSlash(null);
+    },
+    [editor],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -117,12 +143,16 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
         editor.update(() => $importMarkdown(seed, true), { discrete: true });
         handle.doc.getMap('qubite-local').set(seedKey, true);
       }
-      void handle.markSeeded().catch(() => { imported = false; });
+      void handle.markSeeded().catch(() => {
+        imported = false;
+      });
     };
     const exportText = () => editor.getEditorState().read($exportMarkdown);
     const detach = attachMarkdownExport(handle, exportText);
     const stopReady = provider.subscribeReady(importSeed);
-    const stop = handle.onStatus(() => { queueMicrotask(importSeed); });
+    const stop = handle.onStatus(() => {
+      queueMicrotask(importSeed);
+    });
     importSeed();
     return () => {
       alive = false;
@@ -132,62 +162,90 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
     };
   }, [editor, handle, provider]);
 
-  useEffect(() => editor.registerUpdateListener(({ editorState }) => {
-    editorState.read(() => {
-      const selected = $getSelection();
-      const block = $isRangeSelection(selected)
-        ? selected.anchor.getNode().getTopLevelElement() : null;
-      const query = $isRangeSelection(selected) && selected.isCollapsed() &&
-        $isBlockNode(block) && block.getKind() === 'p' ? slashQuery(block.getTextContent()) : null;
-      setSlash(query === null ? null : { query, ...caretPoint(editor.getRootElement()) });
-      setSelection($isRangeSelection(selected) && !selected.isCollapsed());
-      if ($isRangeSelection(selected) && !selected.isCollapsed()) {
-        setFormatY(caretPoint(editor.getRootElement()).y);
-      }
-      // Нумерация зависит также от соседей: обновляем только DOM, не Yjs.
-      const checkboxes: Todo[] = [];
-      $getRoot().getChildren().filter($isBlockNode).forEach((node) => {
-        const dom = editor.getElementByKey(node.getKey());
-        if (dom) dom.dataset.number = String($orderedNumber(node));
-        const target = dom?.querySelector<HTMLElement>('.docs-block-accessory');
-        if (target && node.getKind() === 'todo') checkboxes.push({
-          key: node.getKey(), checked: node.getChecked(), label: node.getTextContent(), target,
+  useEffect(
+    () =>
+      editor.registerUpdateListener(({ editorState }) => {
+        editorState.read(() => {
+          const selected = $getSelection();
+          const block = $isRangeSelection(selected)
+            ? selected.anchor.getNode().getTopLevelElement()
+            : null;
+          const query =
+            $isRangeSelection(selected) &&
+            selected.isCollapsed() &&
+            $isBlockNode(block) &&
+            block.getKind() === 'p'
+              ? slashQuery(block.getTextContent())
+              : null;
+          setSlash(query === null ? null : { query, ...caretPoint(editor.getRootElement()) });
+          setSelection($isRangeSelection(selected) && !selected.isCollapsed());
+          if ($isRangeSelection(selected) && !selected.isCollapsed()) {
+            setFormatY(caretPoint(editor.getRootElement()).y);
+          }
+          // Нумерация зависит также от соседей: обновляем только DOM, не Yjs.
+          const checkboxes: Todo[] = [];
+          $getRoot()
+            .getChildren()
+            .filter($isBlockNode)
+            .forEach((node) => {
+              const dom = editor.getElementByKey(node.getKey());
+              if (dom) dom.dataset.number = String($orderedNumber(node));
+              const target = dom?.querySelector<HTMLElement>('.docs-block-accessory');
+              if (target && node.getKind() === 'todo')
+                checkboxes.push({
+                  key: node.getKey(),
+                  checked: node.getChecked(),
+                  label: node.getTextContent(),
+                  target,
+                });
+            });
+          setTodos(checkboxes);
         });
-      });
-      setTodos(checkboxes);
-    });
-  }), [editor]);
+      }),
+    [editor],
+  );
 
   useEffect(() => {
-    const stopTab = editor.registerCommand(KEY_TAB_COMMAND, (event) => {
-      const blocks = $selectedBlocks();
-      if (!blocks.length) return false;
-      event.preventDefault();
-      blocks.forEach((block) => block.setIndent(block.getIndent() + (event.shiftKey ? -1 : 1)));
-      return true;
-    }, COMMAND_PRIORITY_HIGH);
-    const stopEnter = editor.registerCommand(KEY_ENTER_COMMAND, (event) => {
-      if (event?.shiftKey) return false;
-      const selected = $getSelection();
-      if (!$isRangeSelection(selected) || !selected.isCollapsed()) return false;
-      const block = selected.anchor.getNode().getTopLevelElement();
-      if (!$isBlockNode(block)) return false;
-      if (block.getKind() === 'p' && /^`{3}$/.test(block.getTextContent())) {
-        event?.preventDefault();
-        block.clear().setKind('code').selectStart();
+    const stopTab = editor.registerCommand(
+      KEY_TAB_COMMAND,
+      (event) => {
+        const blocks = $selectedBlocks();
+        if (!blocks.length) return false;
+        event.preventDefault();
+        blocks.forEach((block) => block.setIndent(block.getIndent() + (event.shiftKey ? -1 : 1)));
         return true;
-      }
-      if (block.getKind() === 'code' && block.getTextContent() !== '') {
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
+    const stopEnter = editor.registerCommand(
+      KEY_ENTER_COMMAND,
+      (event) => {
+        if (event?.shiftKey) return false;
+        const selected = $getSelection();
+        if (!$isRangeSelection(selected) || !selected.isCollapsed()) return false;
+        const block = selected.anchor.getNode().getTopLevelElement();
+        if (!$isBlockNode(block)) return false;
+        if (block.getKind() === 'p' && /^`{3}$/.test(block.getTextContent())) {
+          event?.preventDefault();
+          block.clear().setKind('code').selectStart();
+          return true;
+        }
+        if (block.getKind() === 'code' && block.getTextContent() !== '') {
+          event?.preventDefault();
+          selected.insertLineBreak();
+          return true;
+        }
+        if (block.getTextContent() !== '' || block.getKind() === 'p') return false;
         event?.preventDefault();
-        selected.insertLineBreak();
+        block.setKind('p').setIndent(0).setChecked(false);
         return true;
-      }
-      if (block.getTextContent() !== '' || block.getKind() === 'p') return false;
-      event?.preventDefault();
-      block.setKind('p').setIndent(0).setChecked(false);
-      return true;
-    }, COMMAND_PRIORITY_HIGH);
-    return () => { stopTab(); stopEnter(); };
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
+    return () => {
+      stopTab();
+      stopEnter();
+    };
   }, [editor]);
 
   useEffect(() => {
@@ -195,10 +253,17 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
     if (!root) return;
     const key = (event: KeyboardEvent) => {
       if (!slash) return;
-      if (event.key === 'Escape') { setSlash(null); event.preventDefault(); event.stopPropagation(); return; }
+      if (event.key === 'Escape') {
+        setSlash(null);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (!items.length) return;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        setActive((value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length);
+        setActive(
+          (value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length,
+        );
       } else if (event.key === 'Enter') pick(items[Math.min(active, items.length - 1)]!.kind);
       else return;
       event.preventDefault();
@@ -217,14 +282,23 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
     const viewport = window.visualViewport;
     const place = () => {
       // При открытой клавиатуре панель привязана к нижнему краю видимой области.
-      bar.current?.style.setProperty('--docs-keyboard', `${Math.max(0,
-        window.innerHeight - (viewport?.height ?? window.innerHeight) - (viewport?.offsetTop ?? 0),
-      )}px`);
+      bar.current?.style.setProperty(
+        '--docs-keyboard',
+        `${Math.max(
+          0,
+          window.innerHeight -
+            (viewport?.height ?? window.innerHeight) -
+            (viewport?.offsetTop ?? 0),
+        )}px`,
+      );
     };
     place();
     viewport?.addEventListener('resize', place);
     viewport?.addEventListener('scroll', place);
-    return () => { viewport?.removeEventListener('resize', place); viewport?.removeEventListener('scroll', place); };
+    return () => {
+      viewport?.removeEventListener('resize', place);
+      viewport?.removeEventListener('scroll', place);
+    };
   }, []);
 
   const format = (value: TextFormatType) => {
@@ -233,22 +307,49 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
   };
   return (
     <>
-      {todos.map((todo) => createPortal(
-        <Check checked={todo.checked} onChange={(checked) => editor.update(() => {
-          const block = $getNodeByKey(todo.key);
-          if ($isBlockNode(block)) block.setChecked(checked);
-        })}><span className="q-sr">Выполнено: {todo.label || 'Пустой пункт'}</span></Check>,
-        todo.target, todo.key,
-      ))}
+      {todos.map((todo) =>
+        createPortal(
+          <Check
+            checked={todo.checked}
+            onChange={(checked) =>
+              editor.update(() => {
+                const block = $getNodeByKey(todo.key);
+                if ($isBlockNode(block)) block.setChecked(checked);
+              })
+            }
+          >
+            <span className="q-sr">Выполнено: {todo.label || 'Пустой пункт'}</span>
+          </Check>,
+          todo.target,
+          todo.key,
+        ),
+      )}
       <Presence show={!!slash && items.length > 0} className="docs-slash-wrap">
-        <div ref={menu} className="docs-slash" role="listbox" aria-label="Вид блока"
-          style={{ transform: `translate(${slash?.x ?? 0}px, ${slash?.y ?? 0}px)` }}>
+        <div
+          ref={menu}
+          className="docs-slash"
+          role="listbox"
+          aria-label="Вид блока"
+          style={{ transform: `translate(${slash?.x ?? 0}px, ${slash?.y ?? 0}px)` }}
+        >
           {highlight.node}
           {items.map((block, index) => (
-            <div role="option" aria-selected={index === Math.min(active, items.length - 1)} key={block.kind}>
-              <Button dot={false} onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={(event) => { setActive(index); highlight.to(event.currentTarget.offsetTop, 44); }}
-                onClick={() => pick(block.kind)}>{block.label}</Button>
+            <div
+              role="option"
+              aria-selected={index === Math.min(active, items.length - 1)}
+              key={block.kind}
+            >
+              <Button
+                dot={false}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={(event) => {
+                  setActive(index);
+                  highlight.to(event.currentTarget.offsetTop, 44);
+                }}
+                onClick={() => pick(block.kind)}
+              >
+                {block.label}
+              </Button>
             </div>
           ))}
         </div>
@@ -256,25 +357,60 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
       <div ref={bar} className="docs-tools" onMouseDown={(event) => event.preventDefault()}>
         <div className="docs-block-tools" role="toolbar" aria-label="Блоки">
           {BLOCKS.map((block) => (
-            <Button key={block.kind} size="sm" dot={false} title={block.label}
-              onClick={() => apply(editor, block.kind, false)}>{block.hint || block.label}</Button>
+            <Button
+              key={block.kind}
+              size="sm"
+              dot={false}
+              title={block.label}
+              onClick={() => apply(editor, block.kind, false)}
+            >
+              {block.hint || block.label}
+            </Button>
           ))}
-          <Button size="sm" dot={false} aria-label="Уменьшить отступ" onClick={() =>
-            editor.update(() => $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() - 1)))}>
+          <Button
+            size="sm"
+            dot={false}
+            aria-label="Уменьшить отступ"
+            onClick={() =>
+              editor.update(() =>
+                $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() - 1)),
+              )
+            }
+          >
             Отступ −
           </Button>
-          <Button size="sm" dot={false} aria-label="Увеличить отступ" onClick={() =>
-            editor.update(() => $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() + 1)))}>
+          <Button
+            size="sm"
+            dot={false}
+            aria-label="Увеличить отступ"
+            onClick={() =>
+              editor.update(() =>
+                $selectedBlocks().forEach((block) => block.setIndent(block.getIndent() + 1)),
+              )
+            }
+          >
             Отступ +
           </Button>
         </div>
         <Presence show={selection} className="docs-format-wrap">
-          <div className="docs-format-tools" role="toolbar" aria-label="Формат текста"
-            style={{ transform: `translateY(${formatY}px)` }}>
-            <Button size="sm" dot={false} onClick={() => format('bold')}>Жирный</Button>
-            <Button size="sm" dot={false} onClick={() => format('italic')}>Курсив</Button>
-            <Button size="sm" dot={false} onClick={() => format('strikethrough')}>Зачёркнутый</Button>
-            <Button size="sm" dot={false} onClick={() => format('code')}>Код</Button>
+          <div
+            className="docs-format-tools"
+            role="toolbar"
+            aria-label="Формат текста"
+            style={{ transform: `translateY(${formatY}px)` }}
+          >
+            <Button size="sm" dot={false} onClick={() => format('bold')}>
+              Жирный
+            </Button>
+            <Button size="sm" dot={false} onClick={() => format('italic')}>
+              Курсив
+            </Button>
+            <Button size="sm" dot={false} onClick={() => format('strikethrough')}>
+              Зачёркнутый
+            </Button>
+            <Button size="sm" dot={false} onClick={() => format('code')}>
+              Код
+            </Button>
           </div>
         </Presence>
       </div>

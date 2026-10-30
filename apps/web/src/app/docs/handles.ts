@@ -1,6 +1,9 @@
 import type { DocHandle, DocStore } from '@qubite/sync-client';
 
-interface Entry { users: number; opening: Promise<DocHandle> }
+interface Entry {
+  users: number;
+  opening: Promise<DocHandle>;
+}
 const stores = new WeakMap<DocStore, Map<string, Entry>>();
 
 /**
@@ -9,7 +12,10 @@ const stores = new WeakMap<DocStore, Map<string, Entry>>();
  */
 export function acquireDocument(store: DocStore, id: string) {
   let entries = stores.get(store);
-  if (!entries) { entries = new Map(); stores.set(store, entries); }
+  if (!entries) {
+    entries = new Map();
+    stores.set(store, entries);
+  }
   const cache = entries;
   let entry = cache.get(id);
   if (!entry) {
@@ -33,13 +39,15 @@ export function acquireDocument(store: DocStore, id: string) {
       if (released) return;
       released = true;
       current.users--;
-      void current.opening.then((handle) => {
-        queueMicrotask(() => {
-          if (current.users || cache.get(id) !== current) return;
-          cache.delete(id);
-          void handle.close().catch(() => {});
-        });
-      }).catch(() => {});
+      void current.opening
+        .then((handle) => {
+          queueMicrotask(() => {
+            if (current.users || cache.get(id) !== current) return;
+            cache.delete(id);
+            void handle.close().catch(() => {});
+          });
+        })
+        .catch(() => {});
     },
   };
 }

@@ -7,7 +7,13 @@ import {
   type Transformer,
 } from '@lexical/markdown';
 import { $createTextNode, $getRoot, ParagraphNode } from 'lexical';
-import { $createBlockNode, $isBlockNode, $orderedNumber, BlockNode, type BlockKind } from './BlockNode';
+import {
+  $createBlockNode,
+  $isBlockNode,
+  $orderedNumber,
+  BlockNode,
+  type BlockKind,
+} from './BlockNode';
 
 /** Все создаваемые Lexical абзацы (Enter, вставка, Markdown) — наши плоские блоки. */
 export const DOC_NODES = [
@@ -62,9 +68,11 @@ const code: MultilineElementTransformer = {
       if (/^`+$/.test(closing) && closing.length >= fenceLength) break;
       end++;
     }
-    rootNode.append($createBlockNode('code')
-      .setIndent(Math.floor((startMatch[1]?.length ?? 0) / 2))
-      .append($createTextNode(lines.slice(startLineIndex + 1, end).join('\n'))));
+    rootNode.append(
+      $createBlockNode('code')
+        .setIndent(Math.floor((startMatch[1]?.length ?? 0) / 2))
+        .append($createTextNode(lines.slice(startLineIndex + 1, end).join('\n'))),
+    );
     return [true, Math.min(end, lines.length - 1)];
   },
   export(node) {
@@ -103,7 +111,12 @@ const paragraph: ElementTransformer = {
   },
 };
 
-export const DOC_TRANSFORMERS: Transformer[] = [code, ...blocks, paragraph, ...TEXT_FORMAT_TRANSFORMERS];
+export const DOC_TRANSFORMERS: Transformer[] = [
+  code,
+  ...blocks,
+  paragraph,
+  ...TEXT_FORMAT_TRANSFORMERS,
+];
 // Внутри code текст остаётся буквальным; inline-форматирование задаётся панелью.
 export const DOC_SHORTCUTS: Transformer[] = [code, ...blocks];
 
