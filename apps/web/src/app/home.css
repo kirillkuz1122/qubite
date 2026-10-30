@@ -433,3 +433,152 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- возможности (AGT-005): олимпиады, хакатоны, соревнования ---------- */
+/* Сдвиги для useFlip считаются от этих блоков: «Возможности» двигают то, что ниже, а строки
+   внутри (Агент разложил) не едут вместе с ними второй раз. */
+.home-rest,
+.home-below {
+  position: relative;
+}
+.opps-mark {
+  min-width: 0;
+  margin-left: 12px;
+  font-size: 12.5px;
+  color: var(--q-dim);
+  text-align: right;
+}
+.opps-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--q-dim);
+}
+.opps-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.opps-empty .opps-text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.opps-note {
+  margin-top: 12px;
+}
+.opps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.opp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.opp-kind {
+  font-size: 12px;
+  color: var(--q-dim);
+  overflow-wrap: break-word;
+}
+/* длинное название переносится только между словами (как в CAL-001); рвётся лишь слово,
+   которое само длиннее строки */
+.opp-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+.opp-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.opp-facts li {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.opp-facts .opp-reg {
+  color: var(--q-ink);
+  font-weight: 500;
+}
+.opp-why {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 13.5px;
+  overflow-wrap: break-word;
+}
+.opp-why > span:last-child {
+  min-width: 0;
+}
+.opp-why .q-dot {
+  background: var(--q-peach);
+  transform: translateY(-1px);
+}
+.opp-why small {
+  color: var(--q-dim);
+  font-size: 12px;
+}
+.opp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+.opp .home-link {
+  margin-left: 0;
+}
+.opp-site {
+  margin-right: auto;
+}
+.opp-act {
+  min-width: 0;
+  max-width: 100%;
+}
+.opp-btns,
+.opp-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.opp-done .q-note {
+  padding: 8px 14px;
+}
+.opp-away {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.opp-away-t {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+}
+.opp-away-t small {
+  display: block;
+  font-size: 12px;
+  color: var(--q-dim);
+  overflow-wrap: break-word;
+}
+.opp-away-note {
+  flex-basis: 100%;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .opp {
+    padding: 16px 24px;
+  }
+}

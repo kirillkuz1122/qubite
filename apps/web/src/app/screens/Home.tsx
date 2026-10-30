@@ -11,10 +11,11 @@ import {
 } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { plannerData, type PlannerProject, type PlannerTask } from '@qubite/sync-client';
 import { api } from '../../api';
 import { say } from '../../auth/client';
+import { Opportunities } from '../HomeOpportunities';
 import { useRevert } from '../agent';
 import { useShell } from '../context';
 import { plural } from '../data';
@@ -57,9 +58,9 @@ import '../home.css';
 
 /**
  * Главная (HOME-001, D-298, D-327): первый экран после входа. Сверху — сводка от AI (её пишет
- * агент; без агента её нет), ниже — факты: дела на сегодня, новое во Входящих и что агент
- * разложил, ближайшие сроки, погода, курсы и новости. Город, валюты и темы меняются тут же —
- * шестерёнкой у виджета.
+ * агент; без агента её нет), под ней — возможности (олимпиады и хакатоны, AGT-005), ниже —
+ * факты: дела на сегодня, новое во Входящих и что агент разложил, ближайшие сроки, погода,
+ * курсы и новости. Город, валюты и темы меняются тут же — шестерёнкой у виджета.
  */
 export function HomeScreen() {
   const home = useHome();
@@ -68,18 +69,28 @@ export function HomeScreen() {
   const [moved, setMoved] = useState(0);
   useFlip(box, moved);
   const relayout = () => setMoved((n) => n + 1);
+  // «Возможности» меняют высоту (карточка ушла, «Дела поставлены») — то, что ниже, доезжает
+  // пружиной. Сдвиги внутри .home-rest считаются от него самого (position: relative), поэтому
+  // свой useFlip не путается с общим и строки «Агент разложил» не едут дважды.
+  const rest = useRef<HTMLDivElement>(null);
+  const [restMoved, setRestMoved] = useState(0);
+  useFlip(rest, restMoved);
+  const relayoutRest = useCallback(() => setRestMoved((n) => n + 1), []);
   return (
     <div className="flow home" ref={box}>
       {data?.agent && <Digest digest={data.digest ?? null} />}
       <Presence className="home-held panel" show={!!data?.held.length} onLayout={relayout}>
         {data && data.held.length > 0 && <Held held={data.held} />}
       </Presence>
-      <div data-flip="home-rest">
-        <TodayPart />
-        <InboxPart filed={data?.filed ?? []} />
-        <Deadlines />
-        <Widgets settings={data?.settings ?? null} />
-        <News settings={data?.settings ?? null} />
+      <div className="home-rest" data-flip="home-rest" ref={rest}>
+        <Opportunities onLayout={relayoutRest} />
+        <div className="home-below" data-flip="home-below">
+          <TodayPart />
+          <InboxPart filed={data?.filed ?? []} />
+          <Deadlines />
+          <Widgets settings={data?.settings ?? null} />
+          <News settings={data?.settings ?? null} />
+        </div>
       </div>
     </div>
   );
