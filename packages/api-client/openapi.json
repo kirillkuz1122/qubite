@@ -1319,6 +1319,247 @@
         }
       }
     },
+    "/api/calendar": {
+      "get": {
+        "tags": ["calendar"],
+        "summary": "События (включая повторы), дела и уроки, пересекающие окно.",
+        "operationId": "calendar",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Элементы календаря",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверное окно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar/events": {
+      "post": {
+        "tags": ["calendar"],
+        "operationId": "create_event",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Событие создано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEvent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные поля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Проект не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar/events/{id}": {
+      "delete": {
+        "tags": ["calendar"],
+        "operationId": "delete_event",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Событие удалено"
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Событие не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["calendar"],
+        "operationId": "patch_event",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID события",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Событие изменено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEvent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверные поля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Planner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Событие или проект не найдены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт версии",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": ["system"],
@@ -9493,6 +9734,236 @@
           }
         }
       },
+      "CalendarEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_id",
+          "title",
+          "notes",
+          "starts_at",
+          "ends_at",
+          "all_day",
+          "place",
+          "revision",
+          "deleted",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "ends_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "place": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CalendarRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "starts_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CalendarEventCreate": {
+        "type": "object",
+        "description": "Схема нового события; начало и конец — UTC-миллисекунды.",
+        "required": ["title", "starts_at", "ends_at"],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "ends_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "place": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CalendarRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalendarEventPatch": {
+        "type": "object",
+        "description": "Меняет всю серию. null очищает project_id и recurrence.",
+        "properties": {
+          "all_day": {
+            "type": ["boolean", "null"]
+          },
+          "ends_at": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "notes": {
+            "type": ["string", "null"]
+          },
+          "place": {
+            "type": ["string", "null"]
+          },
+          "project_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CalendarRecurrence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "starts_at": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "title": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CalendarItem": {
+        "type": "object",
+        "required": ["kind", "source_id", "starts_at", "ends_at", "all_day", "title", "place"],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "ends_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarKind"
+          },
+          "place": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID события, дела или файла «Расписание.md». Повтор узнаётся по starts_at."
+          },
+          "starts_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "CalendarKind": {
+        "type": "string",
+        "enum": ["event", "task", "lesson"]
+      },
+      "CalendarRecurrence": {
+        "type": "object",
+        "description": "Тот же Recurrence, что у дел. Weekly: дни 1…7; monthly: число 1…31.",
+        "required": ["freq"],
+        "properties": {
+          "freq": {
+            "type": "string",
+            "description": "daily, weekly или monthly."
+          },
+          "interval": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1,
+            "maximum": 365,
+            "minimum": 1
+          },
+          "month_day": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "minimum": 0
+          },
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CaptchaWidget": {
         "type": "object",
         "required": ["provider", "site_key"],
@@ -13413,6 +13884,10 @@
     {
       "name": "home",
       "description": "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"
+    },
+    {
+      "name": "calendar",
+      "description": "Календарь: события, дела и уроки"
     },
     {
       "name": "planner",

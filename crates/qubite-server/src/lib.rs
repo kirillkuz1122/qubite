@@ -11,6 +11,7 @@ pub mod agent_triage;
 pub mod ai;
 pub mod ai_console;
 pub mod auth;
+pub mod calendar;
 pub mod changes;
 pub mod console;
 pub mod deploy;
@@ -322,6 +323,10 @@ impl AppState {
         english_lessons::english_settings,
         english_lessons::english_change_settings,
         english_lessons::english_phrase,
+        calendar::calendar,
+        calendar::create_event,
+        calendar::patch_event,
+        calendar::delete_event,
         projects::project_page,
         projects::project_feed,
         projects::upload_project_file,
@@ -534,6 +539,12 @@ impl AppState {
         english_lessons::EnglishReplaceVoice,
         english_lessons::EnglishSettingsChange,
         english_lessons::EnglishPhrase,
+        calendar::CalendarKind,
+        calendar::CalendarItem,
+        calendar::CalendarRecurrence,
+        calendar::CalendarEventCreate,
+        calendar::CalendarEventPatch,
+        calendar::CalendarEvent,
         projects::ProjectHead,
         projects::ProjectTaskItem,
         projects::ProjectFileItem,
@@ -558,6 +569,7 @@ impl AppState {
         (name = "agent", description = "Агент Qubite: лента «Что сделал агент», откат и исправление, папка записей, разговор, вопросы"),
         (name = "notifications", description = "Колокольчик и каналы напоминаний: push в браузере, Telegram, тишина"),
         (name = "home", description = "Главная: сводка от AI, погода, курсы и новости (источники без ключей через сервер), настройки виджетов"),
+        (name = "calendar", description = "Календарь: события, дела и уроки"),
         (name = "planner", description = "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"),
         (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"),
         (name = "ai", description = "AI и бюджет человека: свой расход и лимиты, «Подключить AI» (своя подписка ChatGPT, свой ключ)")
@@ -912,6 +924,12 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/phrase",
             post(english_lessons::english_phrase),
+        )
+        .route("/api/calendar", get(calendar::calendar))
+        .route("/api/calendar/events", post(calendar::create_event))
+        .route(
+            "/api/calendar/events/{id}",
+            axum::routing::patch(calendar::patch_event).delete(calendar::delete_event),
         )
         .route("/api/v1/projects/{id}", get(projects::project_page))
         .route("/api/v1/projects/{id}/feed", get(projects::project_feed))

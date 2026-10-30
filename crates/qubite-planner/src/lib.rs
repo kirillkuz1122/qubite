@@ -16,6 +16,7 @@
 //! проверка, одна история, права — модуль `planner` в Policy Gate.
 //! Решения — D-250…D-264.
 
+pub mod event;
 pub mod folder;
 pub mod recurrence;
 pub mod reminder;
