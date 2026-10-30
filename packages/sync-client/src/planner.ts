@@ -38,8 +38,6 @@ export interface Recurrence {
 }
 
 export interface NewTask {
-  /** Адрес места дела; null — убрать место. Координаты человека сюда не попадают. */
-  place_text?: string | null;
   status?: TaskStatus;
   priority?: Priority;
   /** `ГГГГ-ММ-ДД` */
@@ -78,9 +76,6 @@ export interface PlannerTask {
   recurrence: Recurrence | null;
   project_id: string | null;
   notes: string;
-  place_text: string | null;
-  /** Рассчитано сервером; исходная точка и геометрия не сохраняются на устройстве. */
-  travel_minutes: number | null;
   completed_at_ms: number | null;
   /**
    * Когда напомнит сервер (по часам владельца, `2026-10-20T15:45`) и почему; `null` — не напомнит
@@ -161,10 +156,8 @@ export function toTask(o: LocalObject): PlannerTask {
     priority: priority === 'important' || priority === 'urgent' ? priority : 'normal',
     due_date: str(f.due_date),
     due_time: str(f.due_time),
-    place_text: str(f.place_text),
     place_lat: typeof f.place_lat === 'number' ? f.place_lat : null,
     place_lon: typeof f.place_lon === 'number' ? f.place_lon : null,
-    travel_minutes: typeof f.travel_minutes === 'number' ? f.travel_minutes : null,
     subtasks: Array.isArray(f.subtasks) ? (f.subtasks as Subtask[]) : [],
     recurrence:
       f.recurrence && typeof f.recurrence === 'object' ? (f.recurrence as Recurrence) : null,

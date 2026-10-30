@@ -49,7 +49,13 @@ describe('ответ маршрута и схема без карт', () => {
     { ...response, geometry: [from] },
     { ...response, geometry: Array.from({ length: 201 }, () => from) },
     { ...response, geometry: [from, { lat: NaN, lon: 5 }] },
-    { ...response, geometry: [[61.4, 55.16], [61.42, 55.17]] },
+    {
+      ...response,
+      geometry: [
+        [61.4, 55.16],
+        [61.42, 55.17],
+      ],
+    },
   ])('не рисует неверный ответ %#', (body) => {
     expect(() => parseTaskRoute(body)).toThrow(Fail);
   });

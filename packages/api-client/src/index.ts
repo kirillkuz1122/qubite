@@ -6,15 +6,14 @@
  */
 import createClient from 'openapi-fetch';
 import type { components, paths } from './schema';
-import type { PlannerRoutePaths } from './planner-route';
 
 export type { components, paths } from './schema';
-export type { RoutePoint, TaskRouteResponse } from './planner-route';
 
 export type Health = components['schemas']['Health'];
 export type Readiness = components['schemas']['Readiness'];
 export type TaskRouteRequest = components['schemas']['TaskRouteRequest'];
 export type TaskRouteResponse = components['schemas']['TaskRouteResponse'];
+export type RoutePoint = components['schemas']['RoutePoint'];
 export type TaskPlaceFields = components['schemas']['TaskPlaceFields'];
 export type Me = components['schemas']['Me'];
 export type LoginResponse = components['schemas']['LoginResponse'];
@@ -55,7 +54,7 @@ export interface ClientOptions {
  * (POST, PUT, PATCH, DELETE): без него сервер их отклонит (403 `csrf_failed`).
  */
 export function createQubiteClient(options: ClientOptions = {}) {
-  const client = createClient<paths & PlannerRoutePaths>({
+  const client = createClient<paths>({
     baseUrl: options.baseUrl ?? '',
     credentials: 'include',
     ...(options.fetch ? { fetch: options.fetch } : {}),

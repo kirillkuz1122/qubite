@@ -26,12 +26,12 @@ async function setup(page: Page, denied = false) {
   });
   await page.addInitScript(
     ({ denied }) => {
-      (window as GeoWindow).routeGeoCalls = 0;
+      (window as unknown as GeoWindow).routeGeoCalls = 0;
       Object.defineProperty(navigator, 'geolocation', {
         configurable: true,
         value: {
           getCurrentPosition(success: PositionCallback, fail?: PositionErrorCallback | null) {
-            (window as GeoWindow).routeGeoCalls++;
+            (window as unknown as GeoWindow).routeGeoCalls++;
             if (denied) {
               fail?.({ code: 1 } as GeolocationPositionError);
             } else {
@@ -87,7 +87,7 @@ test('место и маршрут: пояснение до геолокации
   const dialog = await openTask(page);
   await expect(dialog.getByLabel('Место', { exact: true })).toHaveValue(place);
   await expect(dialog.getByText('Твои координаты не сохраняются.', { exact: false })).toBeVisible();
-  expect(await page.evaluate(() => (window as GeoWindow).routeGeoCalls)).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as GeoWindow).routeGeoCalls)).toBe(0);
   expect(mock.requests).toHaveLength(0);
   await dialog.getByRole('button', { name: 'Построить маршрут' }).click();
   await expect(dialog.getByText('≈ 12 мин, 3,4 км')).toBeVisible();
@@ -109,7 +109,7 @@ test('место и маршрут: пояснение до геолокации
   const reopened = await openTask(page);
   await expect(reopened.locator('polyline')).toHaveCount(0);
   await expect(reopened.getByText('предыдущий расчёт', { exact: false })).toBeVisible();
-  expect(await page.evaluate(() => (window as GeoWindow).routeGeoCalls)).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as GeoWindow).routeGeoCalls)).toBe(0);
   expect(mock.server.ops.every((op) => !JSON.stringify(op).includes('"from"'))).toBe(true);
 });
 
@@ -122,7 +122,7 @@ test('отказ геолокации объяснён, запрос к серв
   await expect(dialog.getByRole('alert')).toContainText('разреши геолокацию в браузере');
   await expect(dialog.getByRole('button', { name: 'Построить маршрут' })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Построить маршрут' }).click();
-  expect(await page.evaluate(() => (window as GeoWindow).routeGeoCalls)).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as GeoWindow).routeGeoCalls)).toBe(2);
   expect(mock.requests).toHaveLength(0);
   expect(mock.external).toHaveLength(0);
 });
@@ -178,7 +178,9 @@ test('изменение и очистка места сохраняются б�
   expect(mock.requests).toHaveLength(0);
 });
 
-test('на доске карточка открывается из меню, рассчитанная дорога видна у дела', async ({ page }) => {
+test('на доске карточка открывается из меню, рассчитанная дорога видна у дела', async ({
+  page,
+}) => {
   const mock = await setup(page);
   mock.server.patch(mock.id, { travel_minutes: 12 });
   await page.goto('/planner');
@@ -197,12 +199,9 @@ for (const theme of ['light', 'dark']) {
   ]) {
     test(`маршрут: снимки ${theme}, ${viewport.width} px`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
-      await page.addInitScript(
-        (theme) => {
-          localStorage.setItem('qubite.look.v1', JSON.stringify({ theme, motion: 'less' }));
-        },
-        theme,
-      );
+      await page.addInitScript((theme) => {
+        localStorage.setItem('qubite.look.v1', JSON.stringify({ theme, motion: 'less' }));
+      }, theme);
       await setup(page);
       await page.goto('/today');
       const dialog = await openTask(page);

@@ -159,8 +159,8 @@ export function TaskPlaceForm({
             </Button>
           </SecHead>
           <Note>
-            Геолокация нужна, чтобы посчитать дорогу от тебя до дела. Браузер спросит
-            разрешение. Твои координаты не сохраняются.
+            Геолокация нужна, чтобы посчитать дорогу от тебя до дела. Браузер спросит разрешение.
+            Твои координаты не сохраняются.
           </Note>
           <p className="task-place-hint">На машине, без учёта пробок.</p>
           <Presence show={dirty}>
@@ -179,8 +179,8 @@ export function TaskPlaceForm({
           </Presence>
           <Presence show={!result && task.travel_minutes !== null}>
             <p className="task-place-hint">
-              В пути {task.travel_minutes} мин — предыдущий расчёт. Построй маршрут заново
-              от текущего места.
+              В пути {task.travel_minutes} мин — предыдущий расчёт. Построй маршрут заново от
+              текущего места.
             </p>
           </Presence>
         </section>

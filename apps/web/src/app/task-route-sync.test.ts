@@ -31,7 +31,9 @@ function client() {
     fields: { place_text: place },
   };
   return {
-    sync: vi.fn<SyncClient['sync']>().mockResolvedValue({ status: 'synced', pending: 0, problems: 0 }),
+    sync: vi
+      .fn<SyncClient['sync']>()
+      .mockResolvedValue({ status: 'synced', pending: 0, problems: 0 }),
     get: vi.fn<SyncClient['get']>().mockResolvedValue(object),
     problems: vi.fn<SyncClient['problems']>().mockResolvedValue([]),
   };

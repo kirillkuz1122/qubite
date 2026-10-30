@@ -4,8 +4,7 @@ import { toTask, type SyncClient } from '@qubite/sync-client';
 import { api } from '../api';
 import { Fail, must, say } from '../auth/client';
 
-export const GEOLOCATION_HELP =
-  'Выбрать на карте не получилось — разреши геолокацию в браузере';
+export const GEOLOCATION_HELP = 'Выбрать на карте не получилось — разреши геолокацию в браузере';
 
 export class LocationError extends Error {
   constructor() {
