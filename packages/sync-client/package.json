@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "yjs": "13.6.33"
+  },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "fake-indexeddb": "^6.2.6",
