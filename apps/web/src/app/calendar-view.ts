@@ -165,7 +165,7 @@ export function itemsOnDay(
     .sort((a, b) => a.starts_at - b.starts_at || itemKey(a).localeCompare(itemKey(b)));
 }
 
-function minuteAt(instant: number, timeZone: string): number {
+export function minuteAt(instant: number, timeZone: string): number {
   const p = parts(instant, timeZone);
   return Number(p.hour) * 60 + Number(p.minute);
 }
@@ -242,3 +242,167 @@ export function layoutBlocks(
 
 /** Ограничение API; сутки здесь — длительность UTC. */
 export const MAX_WINDOW_MS = 62 * DAY_MS;
+
+export type CalendarEvent = components['schemas']['CalendarEvent'];
+export type EventBody = components['schemas']['CalendarEventCreate'];
+export type EventPatch = components['schemas']['CalendarEventPatch'];
+export type EventRepeat = '' | 'daily' | 'weekly' | 'monthly';
+
+export interface EventForm {
+  title: string;
+  startDay: string;
+  startTime: string;
+  endDay: string;
+  endTime: string;
+  allDay: boolean;
+  place: string;
+  project: string;
+  repeat: EventRepeat;
+  interval: number;
+  weekdays: number[];
+  monthDay: number;
+  notes: string;
+}
+
+/** Шаг шкалы; граница 24:00 остаётся в следующем дне только у конца события. */
+export function snapMinute(minute: number): number {
+  return Math.max(0, Math.min(1425, Math.round(minute / 15) * 15));
+}
+
+export function timeFromMinute(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+/** Гражданское время платформы → UTC, независимо от пояса устройства. */
+export function localInstant(day: string, time: string, timeZone: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return NaN;
+  const target = Date.parse(`${day}T${time}:00Z`);
+  if (!Number.isFinite(target) || new Date(target).toISOString().slice(0, 10) !== day) return NaN;
+  let instant = target;
+  for (let i = 0; i < 4; i++) {
+    const p = parts(instant, timeZone);
+    const local = Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`);
+    const next = instant + target - local;
+    if (next === instant) return instant;
+    instant = next;
+  }
+  // Несуществующее время в разрыве при переводе часов не подменяем другим временем.
+  return NaN;
+}
+
+export function newEventForm(day: string, minute = 9 * 60, allDay = false): EventForm {
+  const start = snapMinute(minute);
+  const end = start + 60;
+  return {
+    title: '',
+    startDay: day,
+    startTime: timeFromMinute(start),
+    endDay: allDay || end < 1440 ? day : addDays(day, 1),
+    endTime: timeFromMinute(end % 1440),
+    allDay,
+    place: '',
+    project: '',
+    repeat: '',
+    interval: 1,
+    weekdays: [((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7) + 1],
+    monthDay: Number(day.slice(8)),
+    notes: '',
+  };
+}
+
+/** У «весь день» форма показывает последний включённый день, API — исключённую границу. */
+export function eventForm(event: CalendarEvent, timeZone: string): EventForm {
+  const day = calendarDay(event.starts_at, timeZone);
+  return {
+    ...newEventForm(day),
+    title: event.title,
+    startTime: calendarTime(event.starts_at, timeZone),
+    endDay: calendarDay(event.all_day ? event.ends_at - 1 : event.ends_at, timeZone),
+    endTime: calendarTime(event.ends_at, timeZone),
+    allDay: event.all_day,
+    place: event.place,
+    project: event.project_id ?? '',
+    repeat: (event.recurrence?.freq ?? '') as EventRepeat,
+    interval: event.recurrence?.interval ?? 1,
+    weekdays: event.recurrence?.weekdays ?? [],
+    monthDay: event.recurrence?.month_day ?? Number(day.slice(8)),
+    notes: event.notes,
+  };
+}
+
+export type EventFormErrors = Partial<Record<keyof EventForm, string>>;
+
+export function eventRequest(
+  form: EventForm,
+  timeZone: string,
+): { body: EventBody; errors?: never } | { body?: never; errors: EventFormErrors } {
+  const errors: EventFormErrors = {};
+  if (!form.title.trim() || [...form.title.trim()].length > 500)
+    errors.title = 'Название — от 1 до 500 знаков';
+  if ([...form.place].length > 500) errors.place = 'Место — до 500 знаков';
+  const starts_at = localInstant(form.startDay, form.allDay ? '00:00' : form.startTime, timeZone);
+  // Проверяем дату до addDays: пустое поле не должно бросать RangeError.
+  const end = localInstant(form.endDay, form.allDay ? '00:00' : form.endTime, timeZone);
+  const ends_at =
+    form.allDay && Number.isFinite(end) ? dayStart(addDays(form.endDay, 1), timeZone) : end;
+  if (!Number.isFinite(starts_at)) errors.startDay = 'Укажите существующую дату и время начала';
+  if (!Number.isFinite(ends_at)) errors.endDay = 'Укажите существующую дату и время конца';
+  else if (ends_at <= starts_at) errors.endDay = 'Конец должен быть позже начала';
+  if (form.repeat === 'weekly' && !form.weekdays.length)
+    errors.repeat = 'Выберите хотя бы один день недели';
+  if (form.repeat && (!Number.isInteger(form.interval) || form.interval < 1 || form.interval > 365))
+    errors.interval = 'Интервал — от 1 до 365';
+  if (
+    form.repeat === 'monthly' &&
+    (!Number.isInteger(form.monthDay) || form.monthDay < 1 || form.monthDay > 31)
+  )
+    errors.monthDay = 'Число месяца — от 1 до 31';
+  if (Object.keys(errors).length) return { errors };
+  return {
+    body: {
+      title: form.title.trim(),
+      starts_at,
+      ends_at,
+      all_day: form.allDay,
+      place: form.place,
+      project_id: form.project || null,
+      notes: form.notes,
+      recurrence: form.repeat
+        ? {
+            freq: form.repeat,
+            interval: form.interval,
+            ...(form.repeat === 'weekly'
+              ? { weekdays: [...form.weekdays].sort((a, b) => a - b) }
+              : {}),
+            ...(form.repeat === 'monthly' ? { month_day: form.monthDay } : {}),
+          }
+        : null,
+    },
+  };
+}
+
+/** Перенос выбранного отрезка, включая отрезки многодневного события. Длительность неизменна. */
+export function moveCalendarItem(
+  item: CalendarItem,
+  fromDay: string,
+  toDay: string,
+  minuteDelta: number,
+  timeZone: string,
+): Pick<CalendarItem, 'starts_at' | 'ends_at'> {
+  const dayDelta = (Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY_MS;
+  const originalMinute = minuteAt(item.starts_at, timeZone);
+  const minute = Math.round((originalMinute + minuteDelta) / 15) * 15;
+  const day = addDays(calendarDay(item.starts_at, timeZone), dayDelta + Math.floor(minute / 1440));
+  const starts_at = localInstant(day, timeFromMinute(((minute % 1440) + 1440) % 1440), timeZone);
+  return { starts_at, ends_at: starts_at + item.ends_at - item.starts_at };
+}
+
+/** Сдвигается исходная серия, а не превращается в выбранный поздний повтор. */
+export function eventMovePatch(
+  event: CalendarEvent,
+  occurrence: CalendarItem,
+  moved: Pick<CalendarItem, 'starts_at' | 'ends_at'>,
+): EventPatch {
+  const delta = moved.starts_at - occurrence.starts_at;
+  return { starts_at: event.starts_at + delta, ends_at: event.ends_at + delta };
+}

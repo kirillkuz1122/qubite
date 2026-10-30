@@ -1,7 +1,12 @@
-import { Button, Note, Presence, Segmented, Swap, useMedia } from '@qubite/ui';
+import { loop, MASS } from '@qubite/motion';
+import { patchTask, toTask } from '@qubite/sync-client';
+import { Button, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { say, usePlatform } from '../../auth/client';
-import { useCalendar } from '../calendar';
+import { Fail, say, usePlatform } from '../../auth/client';
+import { EVENT_READ_UNAVAILABLE, useCalendar, useCalendarEvents } from '../calendar';
+import { CalendarEventSheet } from '../CalendarEventSheet';
+import { usePlanner } from '../planner-context';
+import { useSync } from '../sync-context';
 import {
   CALENDAR_MODES,
   HOUR_HEIGHT,
@@ -10,13 +15,23 @@ import {
   calendarDay,
   calendarTime,
   dateWindow,
+  eventForm,
+  eventMovePatch,
+  intersects,
   itemKey,
   itemsOnDay,
   layoutBlocks,
+  localInstant,
+  moveCalendarItem,
+  newEventForm,
   nowPosition,
   periodLabel,
   shiftPeriod,
   shortDayLabel,
+  snapMinute,
+  type CalendarBlock,
+  type EventForm,
+  type CalendarEvent,
   type CalendarItem,
   type CalendarMode,
 } from '../calendar-view';
@@ -55,7 +70,223 @@ function Calendar({ timeZone }: { timeZone: string }) {
     [mode, anchor, timeZone, weekDays],
   );
   const calendar = useCalendar(window);
-  const items = calendar.data ?? [];
+  const events = useCalendarEvents();
+  const planner = usePlanner();
+  const sync = useSync();
+  const [sheet, setSheet] = useState<{
+    key: number;
+    initial: EventForm;
+    item?: CalendarItem;
+    event?: CalendarEvent;
+  } | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [undo, setUndo] = useState<(() => Promise<void>) | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [activeTask, setActiveTask] = useState<string | null>(null);
+  const locked = useRef(false);
+  // Как в Planner: неподтверждённый срок виден сразу и не пропадает без сети.
+  const items = useMemo(() => {
+    const pending = planner.data.tasks.filter((task) => task.pending && task.id !== activeTask);
+    const ids = new Set(pending.map((task) => task.id));
+    const server = (calendar.data ?? []).filter(
+      (item) => item.kind !== 'task' || !ids.has(item.source_id),
+    );
+    const local = pending.flatMap((task): CalendarItem[] => {
+      if (!task.due_date || task.status === 'done') return [];
+      const start = localInstant(task.due_date, task.due_time ?? '00:00', timeZone);
+      const item: CalendarItem = {
+        kind: 'task',
+        source_id: task.id,
+        title: task.title,
+        place: '',
+        starts_at: start,
+        ends_at: task.due_time ? start : localInstant(task.due_date, '23:59', timeZone) + 60_000,
+        all_day: !task.due_time,
+      };
+      return intersects(item, window.from, window.to) ? [item] : [];
+    });
+    return [...server, ...local];
+  }, [calendar.data, planner.data.tasks, activeTask, timeZone, window.from, window.to]);
+
+  useEffect(() => {
+    void calendar.refetch();
+    // Новые подтверждённые сроки приходят через существующую синхронизацию Planner.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sync.version]);
+
+  function createAt(day: string, minute = 9 * 60, allDay = false) {
+    if (locked.current) return;
+    setSheet({ key: Date.now(), initial: newEventForm(day, minute, allDay) });
+    setSheetOpen(true);
+  }
+
+  function openItem(item: CalendarItem) {
+    if (locked.current) return;
+    if (item.kind === 'lesson') {
+      setNotice({ text: 'Правится в расписании' });
+      return;
+    }
+    if (item.kind !== 'event') return;
+    const event = events.known[item.source_id];
+    setSheet({
+      key: Date.now(),
+      item,
+      ...(event ? { event } : {}),
+      initial: event
+        ? eventForm(event, timeZone)
+        : {
+            ...newEventForm(calendarDay(item.starts_at, timeZone)),
+            title: item.title,
+            place: item.place,
+            allDay: item.all_day,
+            startTime: calendarTime(item.starts_at, timeZone),
+            endDay: calendarDay(item.all_day ? item.ends_at - 1 : item.ends_at, timeZone),
+            endTime: calendarTime(item.ends_at, timeZone),
+          },
+    });
+    setSheetOpen(true);
+  }
+
+  async function failed(error: unknown, id?: string) {
+    if (error instanceof Fail && error.status === 409) {
+      if (id) events.forget(id);
+      setSheet((current) => {
+        if (!current || current.event?.id !== id) return current;
+        const next = { ...current };
+        delete next.event;
+        return next;
+      });
+      await events.refresh();
+      return 'Событие уже изменили — календарь перечитан. Для правки нужен запрос чтения полного события.';
+    }
+    return say(error);
+  }
+
+  async function moveItem(
+    item: CalendarItem,
+    fromDay: string,
+    toDay: string,
+    minuteDelta: number,
+  ): Promise<boolean> {
+    if (locked.current) return false;
+    locked.current = true;
+    setMoving(true);
+    try {
+      const moved = moveCalendarItem(item, fromDay, toDay, minuteDelta, timeZone);
+      if (!Number.isFinite(moved.starts_at))
+        throw new Fail('invalid', 'Это время не существует в выбранном часовом поясе', 400);
+      if (moved.starts_at === item.starts_at) return false;
+      setUndo(null);
+      if (item.kind === 'event') {
+        const event = events.known[item.source_id];
+        if (!event) throw new Fail('unavailable', EVENT_READ_UNAVAILABLE, 0);
+        const saved = await events.patch(event, eventMovePatch(event, item, moved));
+        setUndo(() => async () => {
+          try {
+            await events.patch(saved, { starts_at: event.starts_at, ends_at: event.ends_at });
+          } catch (error) {
+            throw new Fail('calendar', await failed(error, event.id), 0);
+          }
+        });
+        setNotice({ text: event.recurrence ? 'Вся серия перенесена' : 'Событие перенесено' });
+      } else if (item.kind === 'task') {
+        setActiveTask(item.source_id);
+        const client = await sync.ready();
+        const object = await client.get(item.source_id);
+        if (!object || object.deleted)
+          throw new Fail('not_found', 'Дело не найдено на устройстве', 404);
+        const before = toTask(object);
+        const next = {
+          due_date: calendarDay(moved.starts_at, timeZone),
+          due_time: calendarTime(moved.starts_at, timeZone),
+        };
+        const oldProblems = new Set((await client.problems()).map((problem) => problem.op.op_id));
+        await patchTask(client, item.source_id, next);
+        const state = await client.sync();
+        const problem = (await client.problems()).find(
+          (entry) => entry.op.object_id === item.source_id && !oldProblems.has(entry.op.op_id),
+        );
+        if (problem) {
+          if (problem.result.status === 'rejected') {
+            // Компенсирующая операция тем же путём Planner: не оставляем на устройстве
+            // отклонённый сервером срок. Сама проблема остаётся видна в sync.
+            await patchTask(client, item.source_id, {
+              due_date: before.due_date,
+              due_time: before.due_time,
+            });
+            void client.sync();
+          }
+          await events.refresh();
+          throw new Fail(
+            'task_conflict',
+            'Срок не сохранён: сервер отклонил перенос или дело уже изменили',
+            400,
+          );
+        }
+        await events.refresh();
+        setUndo(() => async () => {
+          const current = await client.get(item.source_id);
+          if (
+            !current ||
+            current.deleted ||
+            current.fields?.due_date !== next.due_date ||
+            current.fields?.due_time !== next.due_time
+          )
+            throw new Fail('task_conflict', 'Срок уже изменили — откат отменён', 400);
+          const priorProblems = new Set((await client.problems()).map((p) => p.op.op_id));
+          await patchTask(client, item.source_id, {
+            due_date: before.due_date,
+            due_time: before.due_time,
+          });
+          await client.sync();
+          const rejected = (await client.problems()).find(
+            (p) => p.op.object_id === item.source_id && !priorProblems.has(p.op.op_id),
+          );
+          if (rejected?.result.status === 'rejected') {
+            await patchTask(client, item.source_id, next);
+            void client.sync();
+          }
+          await events.refresh();
+          if (rejected)
+            throw new Fail('task_conflict', 'Срок уже изменили или сервер отклонил отмену', 400);
+        });
+        setNotice({
+          text: state.pending
+            ? 'Срок сохранён на устройстве, отправим при появлении связи'
+            : 'Дело перенесено',
+        });
+      }
+      return true;
+    } catch (error) {
+      setNotice({
+        text: await failed(error, item.kind === 'event' ? item.source_id : undefined),
+        bad: true,
+      });
+      return false;
+    } finally {
+      locked.current = false;
+      setMoving(false);
+      setActiveTask(null);
+    }
+  }
+
+  async function revertMove() {
+    if (!undo || locked.current) return;
+    locked.current = true;
+    setMoving(true);
+    try {
+      await undo();
+      setUndo(null);
+      setNotice({ text: 'Перенос отменён' });
+    } catch (error) {
+      setUndo(null);
+      setNotice({ text: await failed(error), bad: true });
+    } finally {
+      locked.current = false;
+      setMoving(false);
+    }
+  }
 
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -92,6 +323,9 @@ function Calendar({ timeZone }: { timeZone: string }) {
           {periodLabel(mode, anchor, window.days)}
         </p>
         <div className="calendar-actions" role="group" aria-label="Выбрать период">
+          <Button variant="fill" disabled={moving} onClick={() => createAt(anchor)}>
+            Новое событие
+          </Button>
           <Button
             size="sm"
             dot={false}
@@ -123,6 +357,16 @@ function Calendar({ timeZone }: { timeZone: string }) {
       <Presence show={calendar.isPending}>
         <Note>Загружаем записи…</Note>
       </Presence>
+      <Presence show={!!notice}>
+        <Note tone={notice?.bad ? 'bad' : 'info'}>
+          {notice?.text}{' '}
+          {undo && (
+            <Button size="sm" disabled={moving} onClick={() => void revertMove()}>
+              Отменить
+            </Button>
+          )}
+        </Note>
+      </Presence>
       <Presence show={calendar.isError}>
         <Note tone="bad">
           {say(calendar.error)}{' '}
@@ -151,9 +395,40 @@ function Calendar({ timeZone }: { timeZone: string }) {
             items={items}
             timeZone={timeZone}
             now={now}
+            onCreate={createAt}
+            onOpen={openItem}
+            onMove={moveItem}
+            moving={moving}
           />
         )}
       </Swap>
+      {sheet && (
+        <CalendarEventSheet
+          key={sheet.key}
+          open={sheetOpen}
+          initial={sheet.initial}
+          existing={!!sheet.item}
+          readable={!sheet.item || !!sheet.event}
+          timeZone={timeZone}
+          onClose={() => setSheetOpen(false)}
+          onSave={async (body) => {
+            setUndo(null);
+            try {
+              if (sheet.event) await events.patch(sheet.event, body);
+              else if (!sheet.item) await events.create(body);
+              else throw new Fail('unavailable', EVENT_READ_UNAVAILABLE, 0);
+            } catch (error) {
+              throw new Fail('calendar', await failed(error, sheet.item?.source_id), 0);
+            }
+          }}
+          onDelete={async () => {
+            if (sheet.item) {
+              setUndo(null);
+              await events.remove(sheet.item.source_id);
+            }
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -172,11 +447,24 @@ function Timeline({
   items,
   timeZone,
   now,
+  onCreate,
+  onOpen,
+  onMove,
+  moving,
 }: {
   days: string[];
   items: CalendarItem[];
   timeZone: string;
   now: number;
+  onCreate: (day: string, minute?: number, allDay?: boolean) => void;
+  onOpen: (item: CalendarItem) => void;
+  onMove: (
+    item: CalendarItem,
+    fromDay: string,
+    toDay: string,
+    minuteDelta: number,
+  ) => Promise<boolean>;
+  moving: boolean;
 }) {
   const scroll = useRef<HTMLDivElement>(null);
   const initialNow = useRef(now);
@@ -212,17 +500,27 @@ function Timeline({
         <span className="calendar-all-label">весь день</span>
         {columns.map(({ day, allDay }) => (
           <div className="calendar-all-items" key={day}>
+            <Button
+              className="calendar-all-create"
+              dot={false}
+              disabled={moving}
+              aria-label={`Новое событие на весь день, ${shortDayLabel(day)}`}
+              onClick={() => onCreate(day, 0, true)}
+            >
+              Создать
+            </Button>
             {allDay.map((item) => (
-              <article
+              <Button
                 key={itemKey(item)}
                 className="calendar-all-item"
                 style={{ '--calendar-color': `var(--q-${KIND_COLOR[item.kind]})` } as CSSProperties}
                 aria-label={description(item, timeZone)}
                 title={description(item, timeZone)}
-                tabIndex={0}
+                dot={false}
+                onClick={() => onOpen(item)}
               >
                 {item.title}
-              </article>
+              </Button>
             ))}
           </div>
         ))}
@@ -245,31 +543,42 @@ function Timeline({
           {columns.map(({ day, blocks }) => {
             const position = nowPosition(day, now, timeZone);
             return (
-              <div className="calendar-day-track" key={day} aria-label={shortDayLabel(day)}>
+              <div
+                className="calendar-day-track"
+                key={day}
+                data-day={day}
+                aria-label={shortDayLabel(day)}
+              >
                 {Array.from({ length: 24 }, (_, hour) => (
-                  <div className="calendar-hour-row" key={hour} aria-hidden="true" />
+                  <Button
+                    className="calendar-hour-row"
+                    key={hour}
+                    dot={false}
+                    disabled={moving}
+                    aria-label={`Новое событие, ${shortDayLabel(day)}, ${String(hour).padStart(2, '0')}:00`}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const minute =
+                        e.detail === 0
+                          ? hour * 60
+                          : hour * 60 + ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
+                      onCreate(day, snapMinute(minute));
+                    }}
+                  >
+                    <span className="calendar-create-label">Создать</span>
+                  </Button>
                 ))}
                 {blocks.map((block) => (
-                  <article
+                  <EventBlock
                     key={itemKey(block.item)}
-                    className="calendar-block"
-                    style={
-                      {
-                        '--calendar-color': `var(--q-${KIND_COLOR[block.item.kind]})`,
-                        transform: `translateY(${block.top}px)`,
-                        height: block.height,
-                        left: `${(block.column / block.columns) * 100}%`,
-                        width: `${100 / block.columns}%`,
-                      } as CSSProperties
-                    }
-                    aria-label={description(block.item, timeZone)}
-                    title={description(block.item, timeZone)}
-                    tabIndex={0}
-                  >
-                    <time>{calendarTime(block.item.starts_at, timeZone)}</time>
-                    <span>{block.item.title}</span>
-                    {block.item.place && <small>{block.item.place}</small>}
-                  </article>
+                    block={block}
+                    day={day}
+                    days={days}
+                    timeZone={timeZone}
+                    onOpen={onOpen}
+                    onMove={onMove}
+                    disabled={moving}
+                  />
                 ))}
                 {position !== null && (
                   <div
@@ -288,6 +597,300 @@ function Timeline({
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Двигается наружный блок; пружина Button остаётся внутри и не меняет геометрию шкалы. */
+function EventBlock({
+  block,
+  day,
+  days,
+  timeZone,
+  onOpen,
+  onMove,
+  disabled,
+}: {
+  block: CalendarBlock;
+  day: string;
+  days: string[];
+  timeZone: string;
+  onOpen: (item: CalendarItem) => void;
+  onMove: (
+    item: CalendarItem,
+    fromDay: string,
+    toDay: string,
+    minuteDelta: number,
+  ) => Promise<boolean>;
+  disabled: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const muted = useRef(false);
+  const latest = useRef({ block, onMove, disabled });
+  useEffect(() => {
+    latest.current = { block, onMove, disabled };
+  });
+  const pos = useRef({ x: 0, y: 0 });
+  const draw = () => {
+    if (ref.current)
+      ref.current.style.transform = `translate(${pos.current.x}px, ${latest.current.block.top + pos.current.y}px)`;
+  };
+  const x = useSpring(0, MASS.row, (v) => {
+    pos.current.x = v;
+    draw();
+  });
+  const y = useSpring(0, MASS.row, (v) => {
+    pos.current.y = v;
+    draw();
+  });
+
+  useEffect(() => {
+    const el = ref.current;
+    const { item, start } = latest.current.block;
+    if (!el || item.kind === 'lesson') return;
+    const L = loop();
+    let gesture: {
+      id: number;
+      touch: boolean;
+      sx: number;
+      sy: number;
+      active: boolean;
+      toDay: string | null;
+      delta: number;
+    } | null = null;
+    let hold: ReturnType<typeof setTimeout> | undefined;
+    let saving = false;
+    let alive = true;
+    const home = () => {
+      L.to(x, 0);
+      L.to(y, 0);
+    };
+    // Даже при размонтировании перенесённого блока поздний click не откроет час под ним.
+    const muteClick = () => {
+      muted.current = true;
+      const suppress = (event: MouseEvent) => {
+        if (!event.detail) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        removeEventListener('click', suppress, true);
+      };
+      addEventListener('click', suppress, true);
+      setTimeout(() => removeEventListener('click', suppress, true), 500);
+    };
+    const unlisten = () => {
+      clearTimeout(hold);
+      removeEventListener('pointermove', pointerMove);
+      removeEventListener('pointerup', pointerUp);
+      removeEventListener('pointercancel', pointerCancel);
+      removeEventListener('touchmove', touchMove);
+      removeEventListener('touchend', touchEnd);
+      removeEventListener('touchcancel', cancel);
+      removeEventListener('keydown', key, true);
+      removeEventListener('blur', cancel);
+      removeEventListener('scroll', cancel, true);
+      el.classList.remove('is-dragging');
+    };
+    const cancel = () => {
+      if (!gesture) return;
+      muteClick();
+      gesture = null;
+      unlisten();
+      home();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    };
+    const update = (cx: number, cy: number, e: Event) => {
+      const g = gesture;
+      if (!g) return;
+      const dx = cx - g.sx;
+      const dy = cy - g.sy;
+      if (!g.active) {
+        if (Math.hypot(dx, dy) < 6) return;
+        if (g.touch) {
+          cancel();
+          return;
+        }
+        g.active = true;
+        muted.current = true;
+      }
+      if (e.cancelable) e.preventDefault();
+      el.classList.add('is-dragging');
+      const tracks = [
+        ...(el
+          .closest('.calendar-timeline')
+          ?.querySelectorAll<HTMLElement>('.calendar-day-track') ?? []),
+      ];
+      const target = tracks.find((track) => {
+        const r = track.getBoundingClientRect();
+        return cx >= r.left && cx < r.right;
+      });
+      const viewport = el.closest('.calendar-scroll')?.getBoundingClientRect();
+      g.toDay =
+        viewport && cy >= viewport.top && cy <= viewport.bottom
+          ? (target?.dataset.day ?? null)
+          : null;
+      const own = el.parentElement!.getBoundingClientRect();
+      const targetRect = target?.getBoundingClientRect();
+      const minute = snapMinute(start + (dy / HOUR_HEIGHT) * 60);
+      g.delta = minute - start;
+      L.hold(x, targetRect ? targetRect.left - own.left : dx);
+      L.hold(y, (g.delta / 60) * HOUR_HEIGHT);
+    };
+    const end = () => {
+      const g = gesture;
+      gesture = null;
+      unlisten();
+      if (!g?.active) return;
+      muteClick();
+      if (!g.toDay || (g.toDay === day && g.delta === 0)) {
+        home();
+        return;
+      }
+      saving = true;
+      el.classList.add('is-saving');
+      void latest.current.onMove(item, day, g.toDay, g.delta).finally(() => {
+        saving = false;
+        if (alive) {
+          el.classList.remove('is-saving');
+          home();
+        }
+      });
+    };
+    const pointerMove = (e: PointerEvent) => {
+      if (gesture && !gesture.touch && e.pointerId === gesture.id) update(e.clientX, e.clientY, e);
+    };
+    const pointerUp = (e: PointerEvent) => {
+      if (gesture && !gesture.touch && e.pointerId === gesture.id) end();
+    };
+    const pointerCancel = (e: PointerEvent) => {
+      if (gesture && !gesture.touch && e.pointerId === gesture.id) cancel();
+    };
+    const touchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        cancel();
+        return;
+      }
+      const touch = [...e.touches].find((t) => t.identifier === gesture?.id);
+      if (touch) update(touch.clientX, touch.clientY, e);
+    };
+    const touchEnd = (e: TouchEvent) => {
+      if (![...e.changedTouches].some((t) => t.identifier === gesture?.id)) return;
+      if (gesture?.active && e.cancelable) e.preventDefault();
+      end();
+    };
+    const begin = (id: number, cx: number, cy: number, touch: boolean) => {
+      if (gesture || saving || latest.current.disabled) return;
+      muted.current = false;
+      gesture = { id, touch, sx: cx, sy: cy, active: false, toDay: day, delta: 0 };
+      if (touch)
+        hold = setTimeout(() => {
+          if (!gesture) return;
+          gesture.active = true;
+          muted.current = true;
+          el.classList.add('is-dragging');
+        }, 250);
+      addEventListener('pointermove', pointerMove, { passive: false });
+      addEventListener('pointerup', pointerUp);
+      addEventListener('pointercancel', pointerCancel);
+      addEventListener('touchmove', touchMove, { passive: false });
+      addEventListener('touchend', touchEnd, { passive: false });
+      addEventListener('touchcancel', cancel);
+      addEventListener('keydown', key, true);
+      addEventListener('blur', cancel);
+      addEventListener('scroll', cancel, true);
+    };
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' && e.button === 0)
+        begin(e.pointerId, e.clientX, e.clientY, false);
+    };
+    const touchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        cancel();
+        return;
+      }
+      const touch = e.touches[0]!;
+      begin(touch.identifier, touch.clientX, touch.clientY, true);
+    };
+    const context = (e: Event) => {
+      if (gesture) e.preventDefault();
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('touchstart', touchStart, { passive: true });
+    el.addEventListener('contextmenu', context);
+    return () => {
+      alive = false;
+      if (gesture?.active) muteClick();
+      gesture = null;
+      unlisten();
+      L.set(x, 0);
+      L.set(y, 0);
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('touchstart', touchStart);
+      el.removeEventListener('contextmenu', context);
+    };
+  }, [
+    block.item.kind,
+    block.item.source_id,
+    block.item.starts_at,
+    block.item.ends_at,
+    block.start,
+    day,
+    x,
+    y,
+  ]);
+
+  return (
+    <div
+      ref={ref}
+      className="calendar-block"
+      style={
+        {
+          '--calendar-color': `var(--q-${KIND_COLOR[block.item.kind]})`,
+          transform: `translateY(${block.top}px)`,
+          height: Math.max(44, block.height),
+          left: `${(block.column / block.columns) * 100}%`,
+          width: `${100 / block.columns}%`,
+        } as CSSProperties
+      }
+    >
+      <Button
+        className="calendar-block-hit"
+        dot={false}
+        disabled={disabled}
+        aria-label={description(block.item, timeZone)}
+        title={
+          block.item.kind === 'lesson' ? 'Правится в расписании' : description(block.item, timeZone)
+        }
+        onClickCapture={(e) => {
+          if (muted.current && e.detail > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        onClick={() => onOpen(block.item)}
+        onKeyDown={(e) => {
+          if (block.item.kind === 'lesson' || disabled || !e.altKey) return;
+          const index = days.indexOf(day);
+          const toDay =
+            e.key === 'ArrowLeft'
+              ? days[index - 1]
+              : e.key === 'ArrowRight'
+                ? days[index + 1]
+                : day;
+          const delta = e.key === 'ArrowUp' ? -15 : e.key === 'ArrowDown' ? 15 : 0;
+          if (!toDay || (!delta && toDay === day)) return;
+          e.preventDefault();
+          void onMove(block.item, day, toDay, delta);
+        }}
+      >
+        <time>{calendarTime(block.item.starts_at, timeZone)}</time>
+        <span>{block.item.title}</span>
+        {block.item.place && <small>{block.item.place}</small>}
+      </Button>
     </div>
   );
 }
