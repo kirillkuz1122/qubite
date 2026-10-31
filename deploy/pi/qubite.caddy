@@ -12,7 +12,7 @@ http://:9284 {
 	# apps/web/playwright.csp.config.ts, так что проверка в браузере идёт с этой строкой.
 	# Cloudflare сам закрывает TLS, поэтому HSTS ставим здесь: заголовок дойдёт до браузера.
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss://qubiteapp.online wss://auth.qubiteapp.online https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net; frame-src https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://oauth.telegram.org; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss://qubiteapp.online wss://auth.qubiteapp.online https://api.openai.com https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net; frame-src https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://oauth.telegram.org; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
 		Strict-Transport-Security "max-age=31536000"
 	}
 

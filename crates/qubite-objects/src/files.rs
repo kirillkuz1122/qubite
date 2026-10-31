@@ -85,24 +85,22 @@ impl BlobStore {
         let tmp_dir = self.root.join("tmp");
         tokio::fs::create_dir_all(&tmp_dir).await?;
         let tmp_path = tmp_dir.join(new_id().to_string());
+        // Если запрос отменили (таймаут, обрыв), future просто бросают: без охранника
+        // временный файл остался бы на диске. Охранник убирает его при любом выходе.
+        let mut tmp = TempFile(Some(tmp_path.clone()));
 
-        let written = write_hashing(&mut content, &tmp_path).await;
-        let (sha, size) = match written {
-            Ok(result) => result,
-            Err(error) => {
-                let _ = tokio::fs::remove_file(&tmp_path).await;
-                return Err(error);
-            }
-        };
+        let (sha, size) = write_hashing(&mut content, &tmp_path).await?;
 
         let final_path = self.path(sha);
         if tokio::fs::try_exists(&final_path).await? {
             tokio::fs::remove_file(&tmp_path).await?;
+            tmp.0 = None;
         } else {
             if let Some(parent) = final_path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
             }
             tokio::fs::rename(&tmp_path, &final_path).await?;
+            tmp.0 = None;
         }
 
         sqlx::query(
@@ -126,6 +124,17 @@ impl BlobStore {
     /// Открыть сохранённый файл для чтения.
     pub async fn open(&self, sha: Sha256) -> Result<tokio::fs::File> {
         Ok(tokio::fs::File::open(self.path(sha)).await?)
+    }
+}
+
+/// Временный файл, который удаляется, пока его не «забыли» (`None`) после переноса.
+struct TempFile(Option<PathBuf>);
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if let Some(path) = self.0.take() {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 
