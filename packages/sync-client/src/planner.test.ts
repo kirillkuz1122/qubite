@@ -257,7 +257,6 @@ describe('Planner: проекты и дела', () => {
   });
 });
 
-
 describe('Настройка доски проекта', () => {
   const board: ProjectBoard = {
     columns: [
