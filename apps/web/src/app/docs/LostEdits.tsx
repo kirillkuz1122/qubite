@@ -1,66 +1,87 @@
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import type { DocHandle, LostBlock } from '@qubite/sync-client';
-import { Button, Note } from '@qubite/ui';
-import { $createTextNode, $getRoot } from 'lexical';
+import { Button, Note, Presence } from '@qubite/ui';
 import { useEffect, useState } from 'react';
-import { $createBlockNode, $isBlockNode, BLOCK_KINDS, type BlockKind } from './BlockNode';
-import type { DocsProvider } from './provider';
+import { $appendRecovered, $restoreLost } from './restore';
 
-/** «В удалённый блок дописали — вернуть?» (Q-87): вставляет текст новым блоком на прежнее место. */
-export function LostEdits({ handle, provider }: { handle: DocHandle; provider: DocsProvider }) {
+/** Дописки и запасной Markdown принадлежат хранилищу и переживают закрытие экрана. */
+export function LostEdits({ handle }: { handle: DocHandle }) {
   const [editor] = useLexicalComposerContext();
-  const [lost, setLost] = useState<LostBlock[]>([]);
-  useEffect(() => provider.watchLost((found) => setLost((now) => [...now, ...found])), [provider]);
-  useEffect(
-    () =>
-      handle.onStatus((status) => {
-        if (status === 'saved') provider.confirm();
-      }),
-    [handle, provider],
-  );
-  if (lost.length === 0) return null;
+  const [lost, setLost] = useState<LostBlock[]>(handle.lost);
+  const [recovered, setRecovered] = useState(handle.recovered);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  useEffect(() => handle.onLost(setLost), [handle]);
+  useEffect(() => handle.onStatus(() => setRecovered(handle.recovered)), [handle]);
 
-  const restore = () => {
-    editor.update(() => {
-      const root = $getRoot();
-      for (const item of lost) {
-        const kind = (BLOCK_KINDS as readonly string[]).includes(item.kind)
-          ? (item.kind as BlockKind)
-          : 'p';
-        const block = $createBlockNode(kind).append($createTextNode(item.text));
-        const anchor =
-          item.after === null
-            ? null
-            : root
-                .getChildren()
-                .filter($isBlockNode)
-                .findLast((node) => node.getTextContent() === item.after);
-        const first = root.getFirstChild();
-        if (anchor) anchor.insertAfter(block);
-        else if (item.after === null && first) first.insertBefore(block);
-        else root.append(block);
+  const accept = async (kind: 'lost' | 'recovered', restore: boolean) => {
+    setBusy(true);
+    setError(false);
+    try {
+      if (restore) {
+        editor.update(
+          () => {
+            if (kind === 'lost') $restoreLost(handle.lost);
+            else if (recovered !== null) $appendRecovered(recovered);
+          },
+          { discrete: true },
+        );
       }
-    });
-    setLost([]);
+      // Сначала редактор записал Yjs на устройство, потом убираем предложение.
+      if (kind === 'lost') await handle.clearLost();
+      else await handle.clearRecovered();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const shown = lost.map((item) => item.text).join(' · ');
   return (
-    <div className="docs-lost">
-      <Note>
-        <p>
-          На другом устройстве блок удалили, а здесь в него дописали: «
-          {shown.length > 120 ? `${shown.slice(0, 120)}…` : shown}». Вернуть?
-        </p>
-        <div className="docs-lost-actions">
-          <Button size="sm" variant="fill" onClick={restore}>
-            Вернуть
-          </Button>
-          <Button size="sm" onClick={() => setLost([])}>
-            Не надо
-          </Button>
-        </div>
-      </Note>
-    </div>
+    <>
+      <Presence show={recovered !== null} className="docs-lost">
+        <Note>
+          <p>На этом устройстве был свой вариант — вставить в конец?</p>
+          <div className="docs-lost-actions">
+            <Button
+              size="sm"
+              variant="fill"
+              disabled={busy}
+              onClick={() => void accept('recovered', true)}
+            >
+              Вставить
+            </Button>
+            <Button size="sm" disabled={busy} onClick={() => void accept('recovered', false)}>
+              Не надо
+            </Button>
+          </div>
+        </Note>
+      </Presence>
+      <Presence show={lost.length > 0} className="docs-lost">
+        <Note>
+          <p>
+            На другом устройстве блок удалили, а здесь в него дописали: «
+            {shown.length > 120 ? `${shown.slice(0, 120)}…` : shown}». Вернуть?
+          </p>
+          <div className="docs-lost-actions">
+            <Button
+              size="sm"
+              variant="fill"
+              disabled={busy}
+              onClick={() => void accept('lost', true)}
+            >
+              Вернуть
+            </Button>
+            <Button size="sm" disabled={busy} onClick={() => void accept('lost', false)}>
+              Не надо
+            </Button>
+          </div>
+        </Note>
+      </Presence>
+      <Presence show={error}>
+        <Note tone="bad">Не удалось сохранить выбор на устройстве. Попробуйте ещё раз.</Note>
+      </Presence>
+    </>
   );
 }

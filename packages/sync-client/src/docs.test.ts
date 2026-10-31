@@ -13,6 +13,7 @@ import {
   type DocHandle,
   type DocsTransport,
   type DocStatus,
+  type DocStoreOptions,
 } from './docs';
 import { HttpError } from './http';
 import type { ObjectSnapshot, PushRequest } from './protocol';
@@ -74,13 +75,14 @@ function server(): DocsServer {
 
 function store(
   transport: DocsTransport,
-  options: { indexedDB?: IDBFactory; dbName?: string; debounceMs?: number } = {},
+  options: Omit<DocStoreOptions, 'transport'> = {},
 ): DocStore {
   const value = new DocStore({
     transport,
     indexedDB: options.indexedDB ?? new IDBFactory(),
     dbName: options.dbName ?? `docs-test-${++counter}`,
     debounceMs: options.debounceMs ?? 60_000,
+    ...(options.renderText ? { renderText: options.renderText } : {}),
   });
   stores.push(value);
   return value;
@@ -642,5 +644,180 @@ describe('HTTP-адаптер документов', () => {
       code: 'http_error',
       message: 'сервер ответил 502',
     });
+  });
+});
+
+describe('DOC-002e1: сохранность локального текста', () => {
+  it.each([false, true])('свой принятый seed сохраняет дописки, перезапуск=%s', async (restart) => {
+    const remote = server();
+    remote.seedMarkdown = 'Старый текст';
+    const options = { indexedDB: new IDBFactory(), dbName: 'accepted-seed' };
+    const device = store(remote, options);
+    let handle = await device.open('page');
+    const text = editor(handle);
+    text.insert(0, 'Старый текст');
+    await handle.markSeeded();
+    remote.loseResponse = true;
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      text.insert(text.length, ' · набрано после отправки');
+    };
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect(remote.text).toBe('Старый текст');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.seedSv).toBeInstanceOf(
+      Uint8Array,
+    );
+    const reset = vi.fn();
+    handle.onReset(reset);
+    if (restart) {
+      await device.close();
+      handle = await store(remote, options).open('page');
+    } else await handle.sync();
+    expect(reset).not.toHaveBeenCalled();
+    expect(handle.recovered).toBeNull();
+    expect(handle.doc.getText('body').toString()).toBe('Старый текст · набрано после отправки');
+    expect(remote.doc.getText('body').toString()).toBe(handle.doc.getText('body').toString());
+    expect(remote.pushes.at(-1)?.seed).toBeUndefined();
+    expect(handle.status).toBe('saved');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.seed).toBe(false);
+  });
+
+  it('open после чужого seed возвращает живую копию и сохраняет свой вариант между перезапусками', async () => {
+    const remote = server();
+    remote.seedMarkdown = 'Markdown';
+    const winner = await store(remote).open('page');
+    const options = { indexedDB: new IDBFactory(), dbName: 'foreign-seed' };
+    const device = store(remote, options);
+    const local = await device.open('page');
+    editor(winner).insert(0, 'Принятая версия');
+    editor(local).insert(0, 'Свой вариант');
+    await winner.markSeeded();
+    await local.markSeeded();
+    await device.close();
+    await winner.sync();
+    const reopenedStore = store(remote, options);
+    const reopened = await reopenedStore.open('page');
+    expect(reopened.doc.isDestroyed).toBe(false);
+    expect(reopened.doc.getText('body').toString()).toBe('Принятая версия');
+    expect(reopened.recovered).toBe('Свой вариант');
+    const text = editor(reopened);
+    remote.offline = true;
+    text.insert(text.length, ' · новая правка');
+    await reopenedStore.close();
+    const nextStore = store(remote, options);
+    const next = await nextStore.open('page');
+    expect(next.doc.getText('body').toString()).toBe('Принятая версия · новая правка');
+    expect(next.recovered).toBe('Свой вариант');
+    await next.clearRecovered();
+    await nextStore.close();
+    const final = await store(remote, options).open('page');
+    expect(final.recovered).toBeNull();
+    expect(final.doc.getText('body').toString()).toContain('новая правка');
+  });
+
+  it('без экрана отправляет Markdown слитого дерева через renderText', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Общее');
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'background-text',
+      renderText: (doc: Y.Doc) => doc.getText('body').toString(),
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    remote.offline = true;
+    editor(handle).insert(handle.doc.getText('body').length, ' · локальное');
+    await device.close();
+    remote.doc.getText('body').insert(0, 'Чужое · ');
+    remote.offline = false;
+    const background = store(remote, options);
+    await background.syncAll();
+    expect(remote.text).toBe(remote.doc.getText('body').toString());
+    expect(remote.text).toContain('Чужое');
+    expect(remote.text).toContain('локальное');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.text).toBe(remote.text);
+  });
+
+  function root(doc: Y.Doc) {
+    return doc.get('root', Y.XmlText);
+  }
+  function block(doc: Y.Doc, index: number) {
+    const value: unknown = root(doc).toDelta()[index]?.insert;
+    if (!(value instanceof Y.XmlText)) throw new Error('нет блока');
+    return value;
+  }
+  function add(doc: Y.Doc, text: string) {
+    const value = new Y.XmlText();
+    doc.transact(() => {
+      root(doc).insertEmbed(root(doc).length, value);
+      value.setAttribute('__type', 'qubite-block');
+      value.setAttribute('__kind', 'quote');
+      value.insert(0, text);
+    });
+  }
+
+  it.each(['open', 'syncAll'] as const)(
+    'находит дописки прежних клиентов до первого %s и хранит до выбора',
+    async (method) => {
+      const remote = server();
+      add(remote.doc, 'Перед');
+      add(remote.doc, 'Основа');
+      const options = { indexedDB: new IDBFactory(), dbName: `lost-${method}` };
+      const device = store(remote, options);
+      const handle = await device.open('page');
+      const previousClient = handle.doc.clientID;
+      block(handle.doc, 1).insert(block(handle.doc, 1).length, ' · первая');
+      await handle.close();
+      // Ещё одно открытие даёт новый clientID, но предыдущая дописка ещё не отправлена.
+      remote.offline = true;
+      const second = await device.open('page');
+      block(second.doc, 1).insert(block(second.doc, 1).length, ' · вторая');
+      expect(second.doc.clientID).not.toBe(previousClient);
+      await device.close();
+      root(remote.doc).delete(1, 1);
+      remote.offline = false;
+      const background = store(remote, options);
+      if (method === 'syncAll') await background.syncAll();
+      const reopened = await background.open('page');
+      const expected = [{ text: ' · первая · вторая', kind: 'quote', after: 'Перед' }];
+      expect(reopened.lost).toEqual(expected);
+      const changes = vi.fn();
+      const stop = reopened.onLost(changes);
+      expect(changes).toHaveBeenLastCalledWith(expected);
+      await reopened.sync();
+      expect(reopened.lost).toEqual(expected);
+      expect((await persisted(options.indexedDB, options.dbName)).metadata.lost).toEqual(expected);
+      await background.close();
+      const finalStore = store(remote, options);
+      const final = await finalStore.open('page');
+      expect(final.lost).toEqual(expected);
+      const cleared = vi.fn();
+      final.onLost(cleared);
+      await final.clearLost();
+      expect(cleared).toHaveBeenLastCalledWith([]);
+      stop();
+      await finalStore.close();
+      expect((await store(remote, options).open('page')).lost).toEqual([]);
+    },
+  );
+
+  it('не предлагает вернуть уже принятый текст и намеренно стёртое', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const options = { indexedDB: new IDBFactory(), dbName: 'known-lost' };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const value = block(handle.doc, 0);
+    value.insert(value.length, ' · уже отправлено');
+    await handle.sync();
+    remote.offline = true;
+    value.insert(value.length, ' · лишнее');
+    value.delete(value.length - ' · лишнее'.length, ' · лишнее'.length);
+    await device.close();
+    root(remote.doc).delete(0, 1);
+    remote.offline = false;
+    const next = await store(remote, options).open('page');
+    expect(next.lost).toEqual([]);
   });
 });

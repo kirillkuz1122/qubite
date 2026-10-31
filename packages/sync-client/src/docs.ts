@@ -1,6 +1,7 @@
 /** Документы: метаданные через SyncClient, содержимое Yjs — отдельным обменом. */
 import * as Y from 'yjs';
 import type { SyncClient } from './client';
+import { watchLostEdits, type LostBlock } from './docs-lost';
 import { csrfFromCookie, HttpError, type HttpTransportOptions } from './http';
 import type { ObjectSnapshot } from './protocol';
 import type { LocalObject } from './store';
@@ -132,7 +133,12 @@ export interface DocHandle {
   readonly doc: Y.Doc;
   readonly status: DocStatus;
   readonly seedMarkdown: string | null;
-  /** Экран задаёт сериализацию в Markdown. Без экрана используется последний сохранённый текст. */
+  readonly recovered: string | null;
+  readonly lost: LostBlock[];
+  clearRecovered(): Promise<void>;
+  onLost(callback: (lost: LostBlock[]) => void): () => void;
+  clearLost(): Promise<void>;
+  /** Без экрана — renderText, а без него последний сохранённый Markdown. */
   text: () => string;
   sync(): Promise<void>;
   markSeeded(): Promise<void>;
@@ -147,6 +153,7 @@ export interface DocStoreOptions {
   indexedDB?: IDBFactory;
   dbName?: string;
   debounceMs?: number;
+  renderText?: (doc: Y.Doc) => string;
 }
 
 interface StoredDocument {
@@ -156,6 +163,10 @@ interface StoredDocument {
   syncedVersion: number;
   text: string;
   seed: boolean;
+  /** Вектор первого seed-запроса: переживает потерю ответа и перезапуск. */
+  seedSv: Uint8Array | null;
+  recovered: string | null;
+  lost: LostBlock[];
   seedMarkdown: string | null;
   serverSv: Uint8Array | null;
 }
@@ -172,6 +183,9 @@ const emptyDocument = (id: string): StoredDocument => ({
   syncedVersion: 0,
   text: '',
   seed: false,
+  seedSv: null,
+  recovered: null,
+  lost: [],
   seedMarkdown: null,
   serverSv: null,
 });
@@ -218,7 +232,7 @@ class DocsDatabase {
       tx.objectStore('updates').index('document').getAll(id) as IDBRequest<StoredUpdate[]>,
     );
     const [stored, entries] = await Promise.all([record, updates]);
-    return { record: stored ?? emptyDocument(id), updates: entries };
+    return { record: { ...emptyDocument(id), ...stored }, updates: entries };
   }
 
   async ids(): Promise<string[]> {
@@ -234,7 +248,7 @@ class DocsDatabase {
     const updates = tx.objectStore('updates');
     const request = documents.get(id) as IDBRequest<StoredDocument | undefined>;
     request.onsuccess = () => {
-      const record = request.result ?? emptyDocument(id);
+      const record = { ...emptyDocument(id), ...request.result };
       if (local) {
         record.version++;
         record.text = text;
@@ -259,17 +273,29 @@ class DocsDatabase {
     const store = tx.objectStore('documents');
     const request = store.get(id) as IDBRequest<StoredDocument | undefined>;
     request.onsuccess = () => {
-      const record = request.result ?? emptyDocument(id);
+      const record = { ...emptyDocument(id), ...request.result };
       change(record);
       store.put(record);
     };
     return finished;
   }
 
-  async reset(id: string): Promise<void> {
+  async reset(id: string, recovered: string): Promise<void> {
     const tx = this.db.transaction(['documents', 'updates'], 'readwrite');
     const finished = transactionDone(tx);
-    tx.objectStore('documents').delete(id);
+    const documents = tx.objectStore('documents');
+    const request = documents.get(id) as IDBRequest<StoredDocument | undefined>;
+    request.onsuccess = () => {
+      const previous = request.result;
+      const record = emptyDocument(id);
+      // Сброс журнала и спасённый текст — одна транзакция, без окна потери.
+      record.recovered = previous?.recovered ?? null;
+      if (recovered && recovered !== record.recovered) {
+        record.recovered = record.recovered ? `${record.recovered}\n\n${recovered}` : recovered;
+      }
+      record.lost = previous?.lost ?? [];
+      documents.put(record);
+    };
     const updates = tx.objectStore('updates');
     const keys = updates.index('document').getAllKeys(id);
     keys.onsuccess = () => {
@@ -320,6 +346,7 @@ export class DocStore {
         this,
         this.options.transport,
         this.options.debounceMs ?? 500,
+        this.options.renderText,
         () => {
           if (this.handles.get(id) === opening) this.handles.delete(id);
         },
@@ -334,9 +361,11 @@ export class DocStore {
 
   /** Восстанавливает локальные правки, затем пробует pull; отсутствие сети не мешает открыть. */
   async open(id: string): Promise<DocHandle> {
-    const handle = await this.handle(id);
-    await handle.sync();
-    return handle;
+    for (;;) {
+      const handle = await this.handle(id);
+      await handle.sync();
+      if (!handle.isClosed) return handle;
+    }
   }
 
   /** Будит также закрытые документы с неотправленными правками и сохранённым Markdown. */
@@ -366,6 +395,11 @@ export class DocStore {
 class StoredDocHandle implements DocHandle {
   status: DocStatus;
   seedMarkdown: string | null;
+  recovered: string | null;
+  lost: LostBlock[];
+  private serverSv: Map<number, number>;
+  private readonly stopLost: () => void;
+  private readonly lostListeners = new Set<(lost: LostBlock[]) => void>();
   private lastText: string;
   private textGetter: () => string;
   private readonly statusListeners = new Set<(status: DocStatus) => void>();
@@ -387,14 +421,63 @@ class StoredDocHandle implements DocHandle {
     private readonly origin: DocStore,
     private readonly transport: DocsTransport,
     private readonly debounceMs: number,
+    renderText: DocStoreOptions['renderText'],
     private readonly release: () => void,
   ) {
     this.lastText = record.text;
-    this.textGetter = () => this.lastText;
+    this.textGetter = renderText ? () => renderText(this.doc) : () => this.lastText;
     this.seedMarkdown = record.seedMarkdown;
+    this.recovered = record.recovered;
+    this.lost = record.lost;
+    this.serverSv = record.serverSv ? Y.decodeStateVector(record.serverSv) : new Map();
+    this.stopLost = watchLostEdits(
+      doc,
+      origin,
+      (found) => {
+        this.lost = [...this.lost, ...found];
+        this.track(this.db.change(this.id, (current) => current.lost.push(...found)));
+        for (const callback of this.lostListeners) callback(this.lost);
+      },
+      () => this.serverSv,
+      'all',
+    );
     this.status =
       record.version > record.syncedVersion || record.seedMarkdown !== null ? 'pending' : 'saved';
     doc.on('update', this.updated);
+  }
+
+  get isClosed(): boolean {
+    return this.closed;
+  }
+
+  onLost(callback: (lost: LostBlock[]) => void): () => void {
+    this.lostListeners.add(callback);
+    callback(this.lost);
+    return () => this.lostListeners.delete(callback);
+  }
+
+  async clearLost(): Promise<void> {
+    const count = this.lost.length;
+    this.track(
+      this.db.change(this.id, (record) => {
+        record.lost.splice(0, count);
+      }),
+    );
+    await this.writes;
+    // Во время записи могло прийти ещё удаление: оно требует отдельного выбора.
+    this.lost = this.lost.slice(count);
+    for (const callback of this.lostListeners) callback(this.lost);
+  }
+
+  async clearRecovered(): Promise<void> {
+    this.track(
+      this.db.change(this.id, (record) => {
+        record.recovered = null;
+      }),
+    );
+    await this.writes;
+    this.recovered = null;
+    this.setStatus(this.status);
   }
 
   get text(): () => string {
@@ -462,6 +545,7 @@ class StoredDocHandle implements DocHandle {
     this.track(
       this.db.change(this.id, (record) => {
         record.seed = true;
+        record.seedSv = null;
         record.version++;
         record.text = text;
       }),
@@ -515,7 +599,15 @@ class StoredDocHandle implements DocHandle {
       const remote = await this.transport.pull(this.id, Y.encodeStateVector(this.doc));
       requesting = false;
       if (this.closed) return;
-      Y.applyUpdate(this.doc, remote.update, this.origin);
+      await this.writes;
+      const pendingSeed = (await this.db.load(this.id)).record.seed;
+      if (this.closed) return;
+      // Чужой seed пока не вливаем: запасной Markdown должен содержать свой
+      // вариант, а вектор seed-запроса — только отправленные локальные Item.
+      if (!pendingSeed || remote.seedMarkdown !== null) {
+        Y.applyUpdate(this.doc, remote.update, this.origin);
+      }
+      this.serverSv = Y.decodeStateVector(remote.sv);
       this.seedMarkdown = remote.seedMarkdown;
       this.track(
         this.db.change(this.id, (record) => {
@@ -538,22 +630,65 @@ class StoredDocHandle implements DocHandle {
         }
         const text = this.captureText();
         const update = Y.encodeStateAsUpdate(this.doc, remote.sv);
+        const seedSv = record.seedSv ?? Y.encodeStateVector(this.doc);
         this.track(
           this.db.change(this.id, (current) => {
             if (current.version === record.version) current.text = text;
+            if (record.seed && current.seedSv === null) current.seedSv = seedSv;
           }),
         );
         await this.writes;
         if (this.closed) return;
         requesting = true;
-        const response = await this.transport.push(this.id, update, text, record.seed || undefined);
+        let response: DocsPushResponse;
+        try {
+          response = await this.transport.push(this.id, update, text, record.seed || undefined);
+        } catch (error) {
+          if (!(
+            record.seed &&
+            error instanceof HttpError &&
+            error.status === 409 &&
+            error.code === 'seed_taken'
+          )) {
+            throw error;
+          }
+          // Ответ первого принятого seed мог потеряться. Сравниваем с первым
+          // отправленным вектором, а не с более поздними локальными дописками.
+          const latest = await this.transport.pull(this.id, Y.encodeStateVector(this.doc));
+          requesting = false;
+          if (this.closed) return;
+          const accepted = Y.decodeStateVector(latest.sv);
+          const ownSeed = [...Y.decodeStateVector(seedSv)].every(
+            ([client, clock]) => (accepted.get(client) ?? 0) >= clock,
+          );
+          if (!ownSeed) {
+            await this.reset();
+            return;
+          }
+          Y.applyUpdate(this.doc, latest.update, this.origin);
+          this.serverSv = accepted;
+          this.seedMarkdown = null;
+          this.track(
+            this.db.change(this.id, (current) => {
+              current.seed = false;
+              current.seedSv = null;
+              current.seedMarkdown = null;
+              current.serverSv = latest.sv;
+            }),
+          );
+          await this.writes;
+          this.again = true;
+          return;
+        }
         requesting = false;
         if (this.closed) return;
+        this.serverSv = Y.decodeStateVector(response.sv);
         this.track(
           this.db.change(this.id, (current) => {
             current.serverSv = response.sv;
             current.syncedVersion = Math.max(current.syncedVersion, record.version);
             current.seed = false;
+            current.seedSv = null;
             current.seedMarkdown = null;
           }),
         );
@@ -570,12 +705,6 @@ class StoredDocHandle implements DocHandle {
       if (this.closed) return;
       if (this.storageError || this.textError) {
         this.setStatus('error');
-      } else if (
-        error instanceof HttpError &&
-        error.status === 409 &&
-        error.code === 'seed_taken'
-      ) {
-        await this.reset();
       } else if (error instanceof HttpError) {
         this.setStatus(
           error.status === 404 ? 'pending' : error.status >= 500 ? 'offline' : 'error',
@@ -588,10 +717,11 @@ class StoredDocHandle implements DocHandle {
 
   private async reset(): Promise<void> {
     clearTimeout(this.timer);
+    const recovered = this.captureText();
     this.doc.off('update', this.updated);
     try {
       await this.writes;
-      await this.db.reset(this.id);
+      await this.db.reset(this.id, recovered);
     } catch {
       this.doc.on('update', this.updated);
       this.setStatus('error');
@@ -599,6 +729,8 @@ class StoredDocHandle implements DocHandle {
     }
     this.closed = true;
     this.release();
+    this.stopLost();
+    this.lostListeners.clear();
     this.doc.destroy();
     this.statusListeners.clear();
     for (const callback of this.resetListeners) callback();
@@ -611,6 +743,8 @@ class StoredDocHandle implements DocHandle {
     clearTimeout(this.timer);
     this.doc.off('update', this.updated);
     this.release();
+    this.stopLost();
+    this.lostListeners.clear();
     this.statusListeners.clear();
     this.resetListeners.clear();
     this.closing = this.writes.finally(() => {

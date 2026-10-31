@@ -411,3 +411,27 @@ describe('Документы: дописки в удалённые блоки Le
     expect(filtered.every((item) => item.parent === other)).toBe(true);
   });
 });
+
+describe('неотправленное после перезапуска', () => {
+  it('режим all находит Item прежних clientID по вектору сервера', () => {
+    const [server, old] = pair();
+    const known = Y.decodeStateVector(Y.encodeStateVector(server));
+    const original = blockAt(old, 1);
+    original.insert(original.length, ' с прошлого открытия');
+    const reopened = document();
+    receive(reopened, old);
+    const calls: LostBlock[][] = [];
+    watchLostEdits(
+      reopened,
+      serverOrigin,
+      (lost) => calls.push(lost),
+      () => known,
+      'all',
+    );
+    root(server).delete(1, 1);
+    receive(reopened, server);
+    expect(calls).toEqual([[{ text: ' с прошлого открытия', kind: 'text', after: 'Перед' }]]);
+    receive(reopened, server);
+    expect(calls).toHaveLength(1);
+  });
+});

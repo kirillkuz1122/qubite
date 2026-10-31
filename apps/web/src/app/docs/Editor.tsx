@@ -133,7 +133,7 @@ export function DocEditor({ handle }: { handle: DocHandle }) {
       }}
     >
       <LexicalCollaboration>
-        <LostEdits handle={handle} provider={provider} />
+        <LostEdits handle={handle} />
         <RichTextPlugin
           contentEditable={<ContentEditable className="docs-text" aria-label="Текст документа" />}
           ErrorBoundary={LexicalErrorBoundary}

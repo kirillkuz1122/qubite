@@ -97,6 +97,8 @@ export function watchLostEdits(
    * подтверждённым считается всё, что было на момент прошлой транзакции обмена.
    */
   confirmed?: () => Map<number, number>,
+  /** all: неотправленные Item всех клиентов, включая прошлые открытия и вкладки. */
+  pendingClients: 'current' | 'all' = 'current',
 ): () => void {
   const root = doc.get('root', Y.XmlText);
   const release = retainRoot(doc, root);
@@ -108,7 +110,7 @@ export function watchLostEdits(
   const beforeTransaction = (transaction: Y.Transaction) => {
     if (transaction.origin !== origin) return;
     const before = new Map<Y.XmlText, BeforeBlock>();
-    const clock = (confirmed?.() ?? exchanged).get(doc.clientID) ?? 0;
+    const known = confirmed?.() ?? exchanged;
     for (let item = root._start; item; item = item.right) {
       const block = blockType(item);
       if (!block) continue;
@@ -120,7 +122,9 @@ export function watchLostEdits(
         pending: item.deleted
           ? ''
           : textIn(block, (text) =>
-              text.id.client === doc.clientID ? stringSince(text, clock) : '',
+              pendingClients === 'all' || text.id.client === doc.clientID
+                ? stringSince(text, known.get(text.id.client) ?? 0)
+                : '',
             ),
       });
     }
@@ -132,6 +136,7 @@ export function watchLostEdits(
     const before = transaction.meta.get(snapshotKey) as Map<Y.XmlText, BeforeBlock> | undefined;
     transaction.meta.delete(snapshotKey);
     const lost: LostBlock[] = [];
+    const known = confirmed?.() ?? exchanged;
     let after: string | null = null;
     for (let item = root._start; item; item = item.right) {
       const block = blockType(item);
@@ -145,7 +150,14 @@ export function watchLostEdits(
       const text = previous.deleted
         ? textIn(
             block,
-            (text) => stringSince(text, transaction.beforeState.get(text.id.client) ?? 0),
+            (text) =>
+              stringSince(
+                text,
+                Math.max(
+                  transaction.beforeState.get(text.id.client) ?? 0,
+                  pendingClients === 'all' ? (known.get(text.id.client) ?? 0) : 0,
+                ),
+              ),
             true,
           )
         : previous.pending;
