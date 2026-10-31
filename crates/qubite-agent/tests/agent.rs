@@ -189,7 +189,10 @@ async fn every_tool_writes_to_the_timeline_and_reverts() {
         made.summary
             .starts_with("Создал дело «Упр. 145»: в «Русский», срок 22.10")
     );
-    assert!(made.summary.contains("question.ask"));
+    assert!(
+        made.summary
+            .contains("спросила: «Сколько займёт «Упр. 145»?»")
+    );
     assert_eq!(
         made.reason.as_deref(),
         Some("в памяти «Русский» урок по чт")
@@ -270,7 +273,11 @@ async fn every_tool_writes_to_the_timeline_and_reverts() {
     )
     .await;
     let notebook = created_id(&filed, "planner.task");
-    assert_eq!(filed.changes.len(), 2, "дело и мысль — одно действие");
+    assert_eq!(
+        filed.changes.len(),
+        3,
+        "дело, вопрос о длительности и мысль — одно действие"
+    );
     assert_eq!(inbox_status(pool, item).await, "archived");
     let derived: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM relations WHERE from_id = $1 AND to_id = $2 \
