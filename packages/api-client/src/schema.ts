@@ -5191,8 +5191,11 @@ export interface components {
     TaskModelChange: {
       model_id?: string | null;
     };
-    /** @description Место дела в create.fields и patch.fields; null очищает поле. */
+    /** @description Место и длительность дела в create.fields и patch.fields; null очищает поле. */
     TaskPlaceFields: {
+      duration_by?: string | null;
+      /** Format: int32 */
+      duration_minutes?: number | null;
       /** Format: double */
       place_lat?: number | null;
       /** Format: double */

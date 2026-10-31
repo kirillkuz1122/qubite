@@ -185,10 +185,11 @@ async fn every_tool_writes_to_the_timeline_and_reverts() {
     )
     .await;
     let homework = created_id(&made, "planner.task");
-    assert_eq!(
-        made.summary,
-        "Создал дело «Упр. 145»: в «Русский», срок 22.10"
+    assert!(
+        made.summary
+            .starts_with("Создал дело «Упр. 145»: в «Русский», срок 22.10")
     );
+    assert!(made.summary.contains("question.ask"));
     assert_eq!(
         made.reason.as_deref(),
         Some("в памяти «Русский» урок по чт")
@@ -757,5 +758,134 @@ async fn agent_never_marks_done_and_timeline_is_append_only() {
             .is_err()
     );
 
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn duration_estimation_owner_values_and_question_hint() {
+    use qubite_planner::DurationBy;
+
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = person(pool, "duration@example.com").await;
+    let run = start_run(pool, me, Trigger::Manual).await.unwrap();
+    let agent = Who::agent(&run);
+    let made = done(
+        pool,
+        &agent,
+        "task.create",
+        json!({"title": "Позвонить маме"}),
+        None,
+    )
+    .await;
+    let id = created_id(&made, "planner.task");
+    let saved = task(pool, me, id).await;
+    assert_eq!(saved.duration_minutes, Some(10));
+    assert_eq!(saved.duration_by, Some(DurationBy::Agent));
+    assert!(made.summary.contains("по смыслу дела: ~10 мин"));
+    assert_eq!(saved.fields()["duration_minutes"], 10);
+
+    let made = done(
+        pool,
+        &agent,
+        "task.create",
+        json!({"title": "Позвонить папе", "fields": {"duration_minutes": 25}}),
+        None,
+    )
+    .await;
+    let id = created_id(&made, "planner.task");
+    assert_eq!(task(pool, me, id).await.duration_by, Some(DurationBy::Owner));
+    assert_eq!(task(pool, me, id).await.duration_minutes, Some(25));
+    let error = call(
+        pool,
+        &agent,
+        "task.update",
+        json!({"task_id": id, "fields": {"duration_minutes": 10, "duration_by": "agent"}}),
+        None,
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(error, Error::NeedsOwner(_)));
+    done(
+        pool,
+        &agent,
+        "task.update",
+        json!({"task_id": id, "fields": {"notes": "не менять длительность"}}),
+        None,
+    )
+    .await;
+    assert_eq!(task(pool, me, id).await.duration_minutes, Some(25));
+
+    let made = done(
+        pool,
+        &agent,
+        "task.create",
+        json!({"title": "Позвонить другу", "fields": {"duration_minutes": null}}),
+        None,
+    )
+    .await;
+    let saved = task(pool, me, created_id(&made, "planner.task")).await;
+    assert_eq!(saved.duration_minutes, None);
+    assert_eq!(saved.duration_by, None);
+    assert!(!made.summary.contains("question.ask"));
+
+    let unknown = json!({"title": "Новая идея"});
+    let made = done(pool, &agent, "task.create", unknown.clone(), None).await;
+    assert!(made.summary.contains("question.ask"));
+    assert!(made.summary.contains("Сколько займёт «Новая идея»?"));
+    let saved = task(pool, me, created_id(&made, "planner.task")).await;
+    assert_eq!(saved.duration_minutes, None);
+    let asked = done(
+        pool,
+        &agent,
+        "question.ask",
+        json!({"text": "Сколько займёт «Новая идея»?", "why": "уточнить длительность"}),
+        None,
+    )
+    .await;
+    let repeated = done(pool, &agent, "task.create", unknown.clone(), None).await;
+    assert!(!repeated.summary.contains("question.ask"));
+    done(
+        pool,
+        &agent,
+        "question.close",
+        json!({"question_id": created_id(&asked, "agent.question"), "answer": "40 минут"}),
+        None,
+    )
+    .await;
+    let repeated = done(pool, &agent, "task.create", unknown, None).await;
+    assert!(
+        !repeated.summary.contains("question.ask"),
+        "недельный лимит после ответа"
+    );
+
+    for minutes in [40, 44] {
+        let past = Uuid::now_v7();
+        let result = device(
+            pool,
+            me,
+            past,
+            OpKind::Create {
+                object_type: "planner.task".into(),
+                title: "ДЗ по русскому".into(),
+                fields: Some(json!({"status": "done", "duration_minutes": minutes})),
+            },
+        )
+        .await;
+        assert!(matches!(result, OpResult::Applied { .. }));
+    }
+    let made = done(
+        pool,
+        &agent,
+        "task.create",
+        json!({"title": "ДЗ по русскому № 20"}),
+        None,
+    )
+    .await;
+    let saved = task(pool, me, created_id(&made, "planner.task")).await;
+    assert_eq!(saved.duration_minutes, Some(42));
+    assert_eq!(saved.duration_by, Some(DurationBy::Agent));
+    assert!(made.summary.contains("как прошлые"));
     test_db.drop_db().await;
 }

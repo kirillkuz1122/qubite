@@ -575,12 +575,40 @@ pub async fn call(
         }
 
         "task.create" => {
-            let Create { title, fields } = args(tool, arguments)?;
+            let Create { title, mut fields } = args(tool, arguments)?;
             let title = check_title(&title)?;
             guard_status(who, &fields)?;
+            let mut duration_note = String::new();
+            if who.actor() == Actor::Agent && !fields.contains_key("duration_minutes") {
+                can_read(conn, who, qubite_planner::MODULE).await?;
+                let history = qubite_planner::list_tasks(conn, account, None, 1000).await?;
+                let notes = fields.get("notes").and_then(Value::as_str).unwrap_or("");
+                let estimate = crate::duration::estimate(&title, notes, &history);
+                if estimate.sure {
+                    fields.insert("duration_minutes".into(), json!(estimate.minutes));
+                    fields.insert("duration_by".into(), json!("agent"));
+                    duration_note = estimate.why;
+                } else {
+                    let short: String = title.chars().take(260).collect();
+                    let question = crate::files::redact(&format!("Сколько займёт «{short}»?")).0;
+                    if crate::questions::may_ask(conn, account, &question)
+                        .await?
+                        .is_ok()
+                    {
+                        duration_note = format!(
+                            "Длительность неизвестна; спроси через question.ask с text={}: {}",
+                            json!(question),
+                            estimate.why
+                        );
+                    }
+                }
+            }
             let details = task_details(conn, account, &fields).await?;
             (
-                with_details(format!("Создал дело «{title}»"), &details),
+                with_details(
+                    with_details(format!("Создал дело «{title}»"), &details),
+                    &duration_note,
+                ),
                 vec![Step {
                     object_id: Uuid::now_v7(),
                     kind: OpKind::Create {
@@ -599,6 +627,12 @@ pub async fn call(
             } = args(tool, arguments)?;
             guard_status(who, &fields)?;
             let task = own_task(conn, account, task_id).await?;
+            if who.actor() == Actor::Agent
+                && task.duration_by == Some(qubite_planner::DurationBy::Owner)
+                && (fields.contains_key("duration_minutes") || fields.contains_key("duration_by"))
+            {
+                return Err(Error::NeedsOwner("длительность человека агент не меняет".into()));
+            }
             let mut details = task_details(conn, account, &fields).await?;
             if let Some(title) = &title {
                 let renamed = format!("название «{}»", title.trim());

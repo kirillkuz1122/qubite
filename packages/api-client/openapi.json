@@ -14308,8 +14308,17 @@
       },
       "TaskPlaceFields": {
         "type": "object",
-        "description": "Место дела в create.fields и patch.fields; null очищает поле.",
+        "description": "Место и длительность дела в create.fields и patch.fields; null очищает поле.",
         "properties": {
+          "duration_by": {
+            "type": ["string", "null"]
+          },
+          "duration_minutes": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "maximum": 1440,
+            "minimum": 1
+          },
           "place_lat": {
             "type": ["number", "null"],
             "format": "double"

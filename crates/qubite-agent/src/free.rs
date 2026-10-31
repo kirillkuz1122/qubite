@@ -135,13 +135,13 @@ pub fn busy_on(date: Date, slots: &[Slot], tasks: &[Task], travel_minutes: i64) 
         if task.travel_minutes.is_some() || reminder::is_outing(&task.title) {
             busy.push(Busy {
                 from: at - task.travel_minutes.map(i64::from).unwrap_or(travel_minutes),
-                to: at + OUTING_MINUTES,
+                to: at + task.duration_minutes.map(i64::from).unwrap_or(OUTING_MINUTES),
                 what: format!("{} (с дорогой)", task.title),
             });
         } else {
             busy.push(Busy {
                 from: at,
-                to: at + TASK_MINUTES,
+                to: at + task.duration_minutes.map(i64::from).unwrap_or(TASK_MINUTES),
                 what: task.title.clone(),
             });
         }
@@ -567,7 +567,7 @@ pub fn patterns(answers: &[Answered]) -> Vec<String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use qubite_planner::Subtask;
     use time::{
@@ -586,7 +586,7 @@ mod tests {
         }
     }
 
-    fn task(title: &str) -> Task {
+    pub(crate) fn task(title: &str) -> Task {
         Task {
             id: Uuid::now_v7(),
             owner_id: Uuid::nil(),
@@ -598,6 +598,8 @@ mod tests {
             place_lat: None,
             place_lon: None,
             travel_minutes: None,
+            duration_minutes: None,
+            duration_by: None,
             status: Status::Todo,
             priority: Priority::Normal,
             due_date: None,
@@ -702,6 +704,24 @@ mod tests {
         assert_eq!(busy_on(day, &[], &[visit.clone()], 60)[0].from, 18 * 60);
         visit.travel_minutes = None;
         assert_eq!(busy_on(day, &[], &[visit], 60)[0].from, 17 * 60);
+    }
+
+    #[test]
+    fn duration_replaces_defaults_and_keeps_travel_separate() {
+        let day = date!(2026 - 10 - 20);
+        let mut call = task("Позвонить");
+        call.due_date = Some(day);
+        call.due_time = Some(time!(18:00));
+        call.duration_minutes = Some(10);
+        let busy = busy_on(day, &[], &[call.clone()], 60);
+        assert_eq!((busy[0].from, busy[0].to), (1080, 1090));
+        call.travel_minutes = Some(40);
+        call.duration_minutes = Some(75);
+        let busy = busy_on(day, &[], &[call.clone()], 60);
+        assert_eq!((busy[0].from, busy[0].to), (1040, 1155));
+        call.duration_minutes = None;
+        let busy = busy_on(day, &[], &[call], 60);
+        assert_eq!(busy[0].to, 1080 + OUTING_MINUTES);
     }
 
     #[test]
