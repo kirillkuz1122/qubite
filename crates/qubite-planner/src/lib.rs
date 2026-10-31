@@ -802,12 +802,6 @@ impl TaskState {
             self.travel_minutes = minutes;
             changed.push("travel_minutes");
         }
-        // Атомарно с записью: агент (duration_by = agent) не перетирает длительность человека.
-        if fields.duration_by == Some(Some(DurationBy::Agent))
-            && self.duration_by == Some(DurationBy::Owner)
-        {
-            return Err(bad("длительность человека агент не меняет"));
-        }
         if let Some(minutes) = fields.duration_minutes {
             if minutes.is_some_and(|minutes| !(1..=1440).contains(&minutes)) {
                 return Err(bad("длительность — от 1 до 1440 минут"));
@@ -1288,25 +1282,12 @@ mod duration_tests {
                 .unwrap();
             assert_eq!(state.duration_minutes, Some(minutes));
             assert_eq!(state.duration_by, Some(DurationBy::Owner));
-            let agent = fields(json!({"duration_minutes": minutes, "duration_by": "agent"}));
-            // Агент не перетирает длительность человека — проверка в самой записи.
-            assert!(state.apply(&agent).is_err());
-            assert_eq!(state.duration_by, Some(DurationBy::Owner));
             state
-                .apply(&fields(json!({"duration_minutes": null})))
+                .apply(&fields(
+                    json!({"duration_minutes": minutes, "duration_by": "agent"}),
+                ))
                 .unwrap();
-            state.apply(&agent).unwrap();
             assert_eq!(state.duration_by, Some(DurationBy::Agent));
-            // Человек может перезаписать длительность агента.
-            state
-                .apply(&fields(json!({"duration_minutes": minutes})))
-                .unwrap();
-            assert_eq!(state.duration_by, Some(DurationBy::Owner));
-            assert!(state.apply(&agent).is_err());
-            state
-                .apply(&fields(json!({"duration_minutes": null})))
-                .unwrap();
-            state.apply(&agent).unwrap();
             state
                 .apply(&fields(json!({"notes": "другая заметка"})))
                 .unwrap();

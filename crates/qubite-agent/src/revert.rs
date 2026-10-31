@@ -185,9 +185,15 @@ fn plan_object(
     }
     // Длительность и её источник возвращаются парой, даже если источник не менялся
     // (иначе планировщик подставит «owner» и оценка агента станет человеческой).
-    if want.fields.contains_key("duration_minutes") && !want.fields.contains_key("duration_by") {
-        want.fields
-            .insert("duration_by".into(), aspect(before, "duration_by"));
+    if ["duration_minutes", "duration_by"]
+        .iter()
+        .any(|key| want.fields.contains_key(*key))
+    {
+        for key in ["duration_minutes", "duration_by"] {
+            want.fields
+                .entry(key.to_owned())
+                .or_insert_with(|| aspect(before, key));
+        }
     }
     // Объект после действия убрали в корзину, а вернуть нужно поля: поля в
     // корзине не меняются, значит, это тоже решение человека.
@@ -410,6 +416,30 @@ mod tests {
             "Позвонить",
             false,
             json!({"duration_minutes": 20, "duration_by": "agent"}),
+        );
+        let (steps, conflicts) = plan_object(id, Some(&before), &after, &after, false);
+        assert!(conflicts.is_empty());
+        let OpKind::Patch { fields } = &steps[0].kind else {
+            panic!("нужен Patch");
+        };
+        assert_eq!(fields["duration_minutes"], 10);
+        assert_eq!(fields["duration_by"], "agent");
+    }
+
+    #[test]
+    fn source_only_change_restores_the_pair() {
+        let id = Uuid::now_v7();
+        let before = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "agent"}),
+        );
+        let after = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "owner"}),
         );
         let (steps, conflicts) = plan_object(id, Some(&before), &after, &after, false);
         assert!(conflicts.is_empty());

@@ -354,6 +354,18 @@ pub(crate) async fn execute_in(conn: &mut PgConnection, who: &Who, plan: Plan) -
             continue;
         }
         let current = snapshot(conn, account, step.object_id).await?;
+        // Длительность человека агент не меняет. Проверка здесь, в транзакции
+        // под замком аккаунта, поэтому не гоняется с правкой человека.
+        if who.actor() == Actor::Agent
+            && let (Some(snap), OpKind::Patch { fields }) = (&current, &step.kind)
+            && snap.object_type == qubite_planner::TASK_TYPE
+            && (fields.get("duration_minutes").is_some() || fields.get("duration_by").is_some())
+            && aspect(snap, "duration_by") == "owner"
+        {
+            return Err(Error::NeedsOwner(
+                "длительность человека агент не меняет".into(),
+            ));
+        }
         if let std::collections::hash_map::Entry::Vacant(first) = before.entry(step.object_id) {
             order.push(step.object_id);
             first.insert(current.clone());
