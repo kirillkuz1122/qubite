@@ -13,16 +13,18 @@
 
 use axum::{
     Json,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use futures_util::TryStreamExt;
 use qubite_agent::files as agent_files;
 use qubite_planner::folder::{self, DOCS_MODULE, Doc, FeedItem};
 use qubite_policy::{Read, Write};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tokio_util::io::StreamReader;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
@@ -441,6 +443,7 @@ pub async fn project_feed(
         (status = 400, description = "Нет имени, слишком большой, слишком много файлов", body = ApiErrorBody),
         (status = 403, description = "Нет права менять Planner", body = ApiErrorBody),
         (status = 404, description = "Нет такого проекта", body = ApiErrorBody),
+        (status = 429, description = "Все слоты загрузки заняты", body = ApiErrorBody),
     ))]
 pub async fn upload_project_file(
     State(state): State<AppState>,
@@ -448,14 +451,36 @@ pub async fn upload_project_file(
     Path(id): Path<Uuid>,
     Query(query): Query<UploadQuery>,
     headers: HeaderMap,
-    body: Bytes,
+    body: Body,
 ) -> Result<(StatusCode, Json<ProjectFileItem>), ApiError> {
     authorize::<Write>(&state, &session, qubite_planner::MODULE).await?;
+    if headers
+        .get(header::CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .is_some_and(|size| size > folder::MAX_FILE_BYTES as u64)
+    {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid",
+            format!("файл больше {} МБ", folder::MAX_FILE_BYTES / 1024 / 1024),
+        ));
+    }
+    // Разрешение живёт до конца обработчика и освобождается также при ошибке
+    // или отмене запроса. Не ждём слот и не читаем тело в очереди.
+    let _permit = state.project_uploads.try_acquire().map_err(|_| {
+        ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "too_many_uploads",
+            "Уже загружаются четыре файла. Попробуйте позже",
+        )
+    })?;
     let mime = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
     let mut conn = conn(&state).await?;
+    let content = StreamReader::new(body.into_data_stream().map_err(std::io::Error::other));
     let file = folder::add_file(
         &mut conn,
         &state.blobs,
@@ -463,7 +488,7 @@ pub async fn upload_project_file(
         id,
         &query.name,
         mime,
-        &body,
+        content,
     )
     .await
     .map_err(planner_error)?;

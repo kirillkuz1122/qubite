@@ -12376,6 +12376,15 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description Все слоты загрузки заняты */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
     };
   };
   download_project_file: {
