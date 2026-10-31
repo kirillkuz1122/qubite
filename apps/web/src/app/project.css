@@ -252,19 +252,16 @@
   background: var(--q-panel-2);
   outline: 1px dashed var(--q-line-2);
 }
-.pp-task-column .sec-h {
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 0;
+/* .card (app.css) подключается позже и перебивал отступы; карточка — по §0.2 */
+.card.pp-task-card {
   min-width: 0;
-}
-.pp-task-column .sec-h > canvas {
-  max-width: 100%;
-  height: auto;
-}
-.pp-task-card {
-  min-width: 0;
+  margin-bottom: 12px;
   padding: 14px;
+}
+@media (min-width: 900px) {
+  .card.pp-task-card {
+    padding: 16px;
+  }
 }
 .pp-task-card-top {
   display: flex;
@@ -307,4 +304,36 @@
   .pp-task-board:has(> .pp-task-column:nth-of-type(2):last-child) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  /* три узкие колонки: галочка и «⋯» сверху, название — во всю ширину карточки
+     (иначе между ними оставалось ~70 px и название шло по слову, с разрывом слов) */
+  .pp-task-board:has(> .pp-task-column:nth-of-type(3)) .pp-task-card-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+  }
+  .pp-task-board:has(> .pp-task-column:nth-of-type(3)) .pp-task-card-top > .q-ring {
+    justify-self: start;
+  }
+  .pp-task-board:has(> .pp-task-column:nth-of-type(3)) .pp-task-title {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+}
+
+/* Название колонки — обычным текстом: своё название до 24 символов не должно обрезаться. */
+.pp-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.pp-col-head h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }

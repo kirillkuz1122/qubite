@@ -126,7 +126,7 @@ export function ProjectPage({ id }: { id: string }) {
           )}
         </div>
         <Presence show={projectMenu}>
-          <div className="pp-project-actions" aria-label="Действия проекта">
+          <div className="pp-project-actions" role="group" aria-label="Действия проекта">
             <Button
               size="sm"
               dot={false}
@@ -154,7 +154,7 @@ export function ProjectPage({ id }: { id: string }) {
         {head.notes ? (
           <p className="pp-notes">{head.notes}</p>
         ) : (
-          <p className="pp-notes pp-empty">Описания нет — «Править», чтобы добавить.</p>
+          <p className="pp-notes pp-empty">Описания нет — добавь через меню проекта.</p>
         )}
         <p className="pp-counts">
           {countsLabel(shownTasks, data.files.length, data.docs ? data.docs.length : null)}

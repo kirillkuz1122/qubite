@@ -24,7 +24,6 @@ import {
 import { say } from '../auth/client';
 import { AgentTimeline } from './AgentTimeline';
 import { useShell } from './context';
-import { SecHead } from './parts';
 import { usePlanner } from './planner-context';
 import { iso, toRow } from './planner-view';
 import { buildProjectColumns, dueLabel, projectBoard } from './project-view';
@@ -250,7 +249,8 @@ function ProjectTaskGroups({
           data-flip={column.status}
           aria-label={`${column.title}: ${column.tasks.length}`}
         >
-          <SecHead text={column.title.toLocaleUpperCase('ru-RU')} label={column.title}>
+          <div className="pp-col-head">
+            <h3>{column.title}</h3>
             <span className="sec-h-end">
               <span className="n">{column.tasks.length}</span>
               {view === 'list' && (
@@ -269,7 +269,7 @@ function ProjectTaskGroups({
                 </Button>
               )}
             </span>
-          </SecHead>
+          </div>
           <Presence
             show={view === 'board' || !collapsed[column.status]}
             onLayout={() => setLayout((value) => value + 1)}
@@ -326,7 +326,7 @@ function ProjectTaskGroups({
                     в пути {task.travel_minutes} мин
                   </Presence>
                   <Presence show={menu === task.id}>
-                    <div className="pp-task-actions" aria-label="Переместить в…">
+                    <div className="pp-task-actions" role="group" aria-label="Переместить в…">
                       <p>Переместить в…</p>
                       {columns.map((target) => (
                         <Button
