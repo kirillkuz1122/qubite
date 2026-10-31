@@ -653,6 +653,27 @@ async fn duration_migration_sync_and_constraints() {
     )
     .await;
     let mut revision = applied(&result[0]);
+    // Длительность человека агент не перезаписывает — отказ в самой записи.
+    let result = push(
+        &db,
+        owner,
+        vec![patch(
+            id,
+            revision,
+            json!({"duration_minutes": 5, "duration_by": "agent"}),
+        )],
+        &rules(),
+    )
+    .await;
+    assert!(rejected(&result[0]).contains("человека"));
+    let result = push(
+        &db,
+        owner,
+        vec![patch(id, revision, json!({"duration_minutes": null}))],
+        &rules(),
+    )
+    .await;
+    revision = applied(&result[0]);
     for minutes in [1440, 1] {
         let result = push(
             &db,
