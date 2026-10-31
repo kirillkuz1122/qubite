@@ -653,6 +653,14 @@ pub async fn login(
     headers: HeaderMap,
     Json(body): Json<LoginRequest>,
 ) -> Result<Response, ApiError> {
+    // Login CSRF (SEC-002): вход, начатый с чужого сайта, не принимаем.
+    if !login_origin_ok(&headers) {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "origin_mismatch",
+            "Запрос отклонён: вход можно начать только со страницы Qubite.",
+        ));
+    }
     let settings = &state.auth;
     let client = client_info(settings, &headers, peer.map(|peer| peer.0.0));
     let platform = crate::platform::effective(&state).await?;
@@ -692,6 +700,13 @@ pub async fn login(
     })
     .into_response();
     Ok(with_cookies(response, cookies))
+}
+
+/// `Origin` у входа: если браузер его прислал, он должен совпасть с `Host`.
+/// Без `Origin` (curl, нативные клиенты) вход разрешён — это не браузерная
+/// подделка с чужого сайта.
+fn login_origin_ok(headers: &HeaderMap) -> bool {
+    !headers.contains_key(header::ORIGIN) || crate::sync::same_origin(headers)
 }
 
 /// CAPTCHA на входе (D-189): после нескольких неудач по почте или с IP вход

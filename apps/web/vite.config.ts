@@ -14,6 +14,10 @@ export default defineConfig({
     // ws — WebSocket «есть новое» для Входящих (/api/v1/sync/ws)
     proxy: { '/api': { target: apiTarget, changeOrigin: false, ws: true } },
   },
+  // проверка CSP (playwright.csp.config.ts): предпросмотр отдаёт сайт с заголовком из Caddy
+  preview: {
+    headers: process.env.QUBITE_CSP ? { 'Content-Security-Policy': process.env.QUBITE_CSP } : {},
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
