@@ -222,3 +222,89 @@
 .pp-memory {
   padding: 16px;
 }
+
+/* PLAN-002b: обе раскладки используют одни колонки и действия. */
+.pp-project-actions,
+.pp-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pp-task-actions p {
+  width: 100%;
+  margin: 0;
+  color: var(--q-mute);
+}
+.pp-task-groups {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 14px;
+}
+.pp-task-column {
+  min-width: 0;
+  padding: 8px;
+  border-radius: calc(var(--q-round) * 14px);
+}
+.pp-task-column.over {
+  background: var(--q-panel-2);
+  outline: 1px dashed var(--q-line-2);
+}
+.pp-task-column .sec-h {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0;
+  min-width: 0;
+}
+.pp-task-column .sec-h > canvas {
+  max-width: 100%;
+  height: auto;
+}
+.pp-task-card {
+  min-width: 0;
+  padding: 14px;
+}
+.pp-task-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.pp-task-card-top > button:last-child {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+}
+.pp-task-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+}
+.pp-task-card.done .pp-task-title {
+  color: var(--q-dim);
+  text-decoration: line-through;
+}
+.pp-task-meta {
+  overflow-wrap: anywhere;
+}
+.pp-board-switch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.pp-task-groups > .q-note {
+  grid-column: 1 / -1;
+}
+@media (min-width: 768px) {
+  .pp-task-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .pp-task-board:has(> .pp-task-column:nth-of-type(2):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
