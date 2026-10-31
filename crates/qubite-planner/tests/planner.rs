@@ -637,3 +637,78 @@ async fn planner_follows_module_rights() {
     assert!(rejected(&results[0]).contains("не синхронизируется"));
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn duration_migration_sync_and_constraints() {
+    use qubite_planner::DurationBy;
+
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    let id = Uuid::now_v7();
+    let result = push(
+        &db,
+        owner,
+        vec![task(id, "Дело", json!({"duration_minutes": 1}))],
+        &rules(),
+    )
+    .await;
+    let mut revision = applied(&result[0]);
+    for minutes in [1440, 1] {
+        let result = push(
+            &db,
+            owner,
+            vec![patch(
+                id,
+                revision,
+                json!({"duration_minutes": minutes, "duration_by": "agent"}),
+            )],
+            &rules(),
+        )
+        .await;
+        revision = applied(&result[0]);
+        let mut conn = db.pool().acquire().await.unwrap();
+        let saved = qubite_planner::get_task(&mut conn, owner, id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.duration_minutes, Some(minutes));
+        assert_eq!(saved.duration_by, Some(DurationBy::Agent));
+    }
+    for fields in [
+        json!({"duration_minutes": 0}),
+        json!({"duration_minutes": 1441}),
+        json!({"duration_minutes": 10, "duration_by": "auto"}),
+    ] {
+        let result = push(&db, owner, vec![patch(id, revision, fields)], &rules()).await;
+        rejected(&result[0]);
+    }
+    // Ограничение есть и в БД: запись в обход синхронизации не обходит диапазон.
+    for minutes in [0, 1441] {
+        assert!(
+            sqlx::query("UPDATE planner_tasks SET duration_minutes = $2 WHERE object_id = $1")
+                .bind(id)
+                .bind(minutes)
+                .execute(db.pool())
+                .await
+                .is_err()
+        );
+    }
+    let result = push(
+        &db,
+        owner,
+        vec![patch(id, revision, json!({"duration_minutes": null}))],
+        &rules(),
+    )
+    .await;
+    applied(&result[0]);
+    let mut conn = db.pool().acquire().await.unwrap();
+    let saved = qubite_planner::get_task(&mut conn, owner, id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.duration_minutes, None);
+    assert_eq!(saved.duration_by, None);
+    assert_eq!(saved.fields()["duration_by"], Value::Null);
+    drop(conn);
+    test_db.drop_db().await;
+}

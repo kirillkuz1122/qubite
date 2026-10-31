@@ -348,6 +348,53 @@ fn edit_steps(
     Ok(steps)
 }
 
+/// Длительность нового дела от агента: уверенная оценка ставится сразу (с
+/// источником `agent`), неуверенная — подсказка спросить человека. Заданную
+/// человеком длительность не трогает. Возвращает пояснение для текста шага.
+async fn auto_duration(
+    conn: &mut PgConnection,
+    who: &Who,
+    title: &str,
+    fields: &mut Map<String, Value>,
+) -> Result<(String, Vec<Step>)> {
+    if who.actor() != Actor::Agent || fields.contains_key("duration_minutes") {
+        return Ok((String::new(), Vec::new()));
+    }
+    let account = who.account();
+    can_read(conn, who, qubite_planner::MODULE).await?;
+    let history = qubite_planner::done_with_duration(conn, account, 1000).await?;
+    let notes = fields.get("notes").and_then(Value::as_str).unwrap_or("");
+    let estimate = crate::duration::estimate(title, notes, &history);
+    if estimate.sure {
+        fields.insert("duration_minutes".into(), json!(estimate.minutes));
+        fields.insert("duration_by".into(), json!("agent"));
+        return Ok((estimate.why, Vec::new()));
+    }
+    let short: String = title.chars().take(260).collect();
+    let question = crate::files::redact(&format!("Сколько займёт «{short}»?")).0;
+    if crate::questions::may_ask(conn, account, &question)
+        .await?
+        .is_ok()
+    {
+        // Вопрос задаётся сразу, в том же действии: откат уберёт дело и вопрос вместе.
+        let (_, steps) = crate::memory::plan(
+            conn,
+            account,
+            "question.ask",
+            json!({"text": question, "why": "уточнить длительность дела"}),
+        )
+        .await?;
+        return Ok((
+            format!(
+                "Не уверена в длительности ({}) — спросила: «{question}»",
+                estimate.why
+            ),
+            steps,
+        ));
+    }
+    Ok((String::new(), Vec::new()))
+}
+
 // ---------------------------------------------------------------- разложить мысль
 
 /// Шаги «разложить мысль»: что создать и мысль — в архив, одним действием
@@ -406,6 +453,11 @@ pub(crate) async fn plan_file(
                 fields.remove("recurrence");
             }
             fields.insert("from_inbox".into(), json!(item_id));
+            let (duration_note, ask_steps) = if to == FileTo::Task {
+                auto_duration(conn, who, &title, &mut fields).await?
+            } else {
+                (String::new(), Vec::new())
+            };
             let details = match &new_project_title {
                 Some(name) => {
                     let mut rest = fields.clone();
@@ -428,9 +480,13 @@ pub(crate) async fn plan_file(
                     fields: Some(Value::Object(fields)),
                 },
             });
+            steps.extend(ask_steps);
             with_details(
-                format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
-                &details,
+                with_details(
+                    format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
+                    &details,
+                ),
+                &duration_note,
             )
         }
         FileTo::Project => {
@@ -575,20 +631,26 @@ pub async fn call(
         }
 
         "task.create" => {
-            let Create { title, fields } = args(tool, arguments)?;
+            let Create { title, mut fields } = args(tool, arguments)?;
             let title = check_title(&title)?;
             guard_status(who, &fields)?;
+            let (duration_note, ask_steps) = auto_duration(conn, who, &title, &mut fields).await?;
             let details = task_details(conn, account, &fields).await?;
+            let mut steps = vec![Step {
+                object_id: Uuid::now_v7(),
+                kind: OpKind::Create {
+                    object_type: TASK_TYPE.into(),
+                    title: title.clone(),
+                    fields: Some(Value::Object(fields)),
+                },
+            }];
+            steps.extend(ask_steps);
             (
-                with_details(format!("Создал дело «{title}»"), &details),
-                vec![Step {
-                    object_id: Uuid::now_v7(),
-                    kind: OpKind::Create {
-                        object_type: TASK_TYPE.into(),
-                        title,
-                        fields: Some(Value::Object(fields)),
-                    },
-                }],
+                with_details(
+                    with_details(format!("Создал дело «{title}»"), &details),
+                    &duration_note,
+                ),
+                steps,
             )
         }
         "task.update" => {
@@ -599,6 +661,22 @@ pub async fn call(
             } = args(tool, arguments)?;
             guard_status(who, &fields)?;
             let task = own_task(conn, account, task_id).await?;
+            if who.actor() == Actor::Agent
+                && task.duration_by == Some(qubite_planner::DurationBy::Owner)
+                && (fields.contains_key("duration_minutes") || fields.contains_key("duration_by"))
+            {
+                return Err(Error::NeedsOwner(
+                    "длительность человека агент не меняет".into(),
+                ));
+            }
+            let mut fields = fields;
+            if who.actor() == Actor::Agent
+                && fields.contains_key("duration_minutes")
+                && !fields.contains_key("duration_by")
+            {
+                // Собственная оценка агента; явный источник (ответ человека в чате) не трогаем.
+                fields.insert("duration_by".into(), json!("agent"));
+            }
             let mut details = task_details(conn, account, &fields).await?;
             if let Some(title) = &title {
                 let renamed = format!("название «{}»", title.trim());

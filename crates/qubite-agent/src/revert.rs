@@ -164,21 +164,46 @@ fn plan_object(
 
     let mut touched = false;
     for field in aspects(object_type) {
-        let (was, made, current) = (
-            aspect(before, field),
-            aspect(after, field),
-            aspect(now, field),
-        );
+        // Длительность и её источник — одна пара: сравниваем и возвращаем вместе.
+        if field == "duration_by" {
+            continue;
+        }
+        let pair = field == "duration_minutes";
+        let value = |snapshot: &ObjectSnapshot| {
+            if pair {
+                serde_json::json!([
+                    aspect(snapshot, "duration_minutes"),
+                    aspect(snapshot, "duration_by")
+                ])
+            } else {
+                aspect(snapshot, field)
+            }
+        };
+        let shown = |value: Value| if pair { value[0].clone() } else { value };
+        let (was, made, current) = (value(before), value(after), value(now));
         if made == was || current == was {
             continue;
         }
+        let restore = |want: &mut Want, was: Value| {
+            if pair {
+                want.set("duration_minutes", was[0].clone());
+                want.set("duration_by", was[1].clone());
+            } else {
+                want.set(field, was);
+            }
+        };
         if current == made {
-            want.set(field, was);
+            restore(&mut want, was);
             touched = true;
         } else {
-            conflicts.push(conflict(field, was.clone(), made, current));
+            conflicts.push(conflict(
+                field,
+                shown(was.clone()),
+                shown(made),
+                shown(current),
+            ));
             if force {
-                want.set(field, was);
+                restore(&mut want, was);
                 touched = true;
             }
         }
@@ -388,6 +413,72 @@ mod tests {
             updated_at_ms: 0,
             fields: Some(fields),
         }
+    }
+
+    #[test]
+    fn duration_is_restored_with_its_source() {
+        let id = Uuid::now_v7();
+        let before = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "agent"}),
+        );
+        let after = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 20, "duration_by": "agent"}),
+        );
+        let (steps, conflicts) = plan_object(id, Some(&before), &after, &after, false);
+        assert!(conflicts.is_empty());
+        let OpKind::Patch { fields } = &steps[0].kind else {
+            panic!("нужен Patch");
+        };
+        assert_eq!(fields["duration_minutes"], 10);
+        assert_eq!(fields["duration_by"], "agent");
+    }
+
+    #[test]
+    fn later_owner_confirmation_is_a_conflict() {
+        let id = Uuid::now_v7();
+        let mk = |minutes: i64, by: &str| {
+            snap(
+                id,
+                "Позвонить",
+                false,
+                json!({"duration_minutes": minutes, "duration_by": by}),
+            )
+        };
+        let (before, after, now) = (mk(10, "agent"), mk(20, "agent"), mk(20, "owner"));
+        let (steps, conflicts) = plan_object(id, Some(&before), &after, &now, false);
+        assert!(steps.is_empty());
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].field, "duration_minutes");
+    }
+
+    #[test]
+    fn source_only_change_restores_the_pair() {
+        let id = Uuid::now_v7();
+        let before = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "agent"}),
+        );
+        let after = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "owner"}),
+        );
+        let (steps, conflicts) = plan_object(id, Some(&before), &after, &after, false);
+        assert!(conflicts.is_empty());
+        let OpKind::Patch { fields } = &steps[0].kind else {
+            panic!("нужен Patch");
+        };
+        assert_eq!(fields["duration_minutes"], 10);
+        assert_eq!(fields["duration_by"], "agent");
     }
 
     #[test]
