@@ -46,6 +46,8 @@ pub fn revertable_fields(object_type: &str) -> &'static [&'static str] {
             "priority",
             "due_date",
             "due_time",
+            "duration_minutes",
+            "duration_by",
             "subtasks",
             "recurrence",
             "project_id",

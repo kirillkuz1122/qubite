@@ -348,6 +348,43 @@ fn edit_steps(
     Ok(steps)
 }
 
+/// Длительность нового дела от агента: уверенная оценка ставится сразу (с
+/// источником `agent`), неуверенная — подсказка спросить человека. Заданную
+/// человеком длительность не трогает. Возвращает пояснение для текста шага.
+async fn auto_duration(
+    conn: &mut PgConnection,
+    who: &Who,
+    title: &str,
+    fields: &mut Map<String, Value>,
+) -> Result<String> {
+    if who.actor() != Actor::Agent || fields.contains_key("duration_minutes") {
+        return Ok(String::new());
+    }
+    let account = who.account();
+    can_read(conn, who, qubite_planner::MODULE).await?;
+    let history = qubite_planner::done_with_duration(conn, account, 1000).await?;
+    let notes = fields.get("notes").and_then(Value::as_str).unwrap_or("");
+    let estimate = crate::duration::estimate(title, notes, &history);
+    if estimate.sure {
+        fields.insert("duration_minutes".into(), json!(estimate.minutes));
+        fields.insert("duration_by".into(), json!("agent"));
+        return Ok(estimate.why);
+    }
+    let short: String = title.chars().take(260).collect();
+    let question = crate::files::redact(&format!("Сколько займёт «{short}»?")).0;
+    if crate::questions::may_ask(conn, account, &question)
+        .await?
+        .is_ok()
+    {
+        return Ok(format!(
+            "Длительность неизвестна; спроси через question.ask с text={}: {}",
+            json!(question),
+            estimate.why
+        ));
+    }
+    Ok(String::new())
+}
+
 // ---------------------------------------------------------------- разложить мысль
 
 /// Шаги «разложить мысль»: что создать и мысль — в архив, одним действием
@@ -406,6 +443,11 @@ pub(crate) async fn plan_file(
                 fields.remove("recurrence");
             }
             fields.insert("from_inbox".into(), json!(item_id));
+            let duration_note = if to == FileTo::Task {
+                auto_duration(conn, who, &title, &mut fields).await?
+            } else {
+                String::new()
+            };
             let details = match &new_project_title {
                 Some(name) => {
                     let mut rest = fields.clone();
@@ -429,8 +471,11 @@ pub(crate) async fn plan_file(
                 },
             });
             with_details(
-                format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
-                &details,
+                with_details(
+                    format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
+                    &details,
+                ),
+                &duration_note,
             )
         }
         FileTo::Project => {
@@ -578,31 +623,7 @@ pub async fn call(
             let Create { title, mut fields } = args(tool, arguments)?;
             let title = check_title(&title)?;
             guard_status(who, &fields)?;
-            let mut duration_note = String::new();
-            if who.actor() == Actor::Agent && !fields.contains_key("duration_minutes") {
-                can_read(conn, who, qubite_planner::MODULE).await?;
-                let history = qubite_planner::list_tasks(conn, account, None, 1000).await?;
-                let notes = fields.get("notes").and_then(Value::as_str).unwrap_or("");
-                let estimate = crate::duration::estimate(&title, notes, &history);
-                if estimate.sure {
-                    fields.insert("duration_minutes".into(), json!(estimate.minutes));
-                    fields.insert("duration_by".into(), json!("agent"));
-                    duration_note = estimate.why;
-                } else {
-                    let short: String = title.chars().take(260).collect();
-                    let question = crate::files::redact(&format!("Сколько займёт «{short}»?")).0;
-                    if crate::questions::may_ask(conn, account, &question)
-                        .await?
-                        .is_ok()
-                    {
-                        duration_note = format!(
-                            "Длительность неизвестна; спроси через question.ask с text={}: {}",
-                            json!(question),
-                            estimate.why
-                        );
-                    }
-                }
-            }
+            let duration_note = auto_duration(conn, who, &title, &mut fields).await?;
             let details = task_details(conn, account, &fields).await?;
             (
                 with_details(
@@ -634,6 +655,11 @@ pub async fn call(
                 return Err(Error::NeedsOwner(
                     "длительность человека агент не меняет".into(),
                 ));
+            }
+            let mut fields = fields;
+            if who.actor() == Actor::Agent && fields.contains_key("duration_minutes") {
+                // Источник «agent» планировщик сверяет атомарно с записью.
+                fields.insert("duration_by".into(), json!("agent"));
             }
             let mut details = task_details(conn, account, &fields).await?;
             if let Some(title) = &title {

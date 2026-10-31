@@ -526,6 +526,25 @@ pub async fn list_tasks(
     rows.into_iter().map(Task::try_from).collect()
 }
 
+/// Выполненные дела с длительностью, свежие первыми, — история для оценки
+/// длительности (отбор до лимита, чтобы старые дела без неё не вытесняли её).
+pub async fn done_with_duration(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    limit: i64,
+) -> Result<Vec<Task>> {
+    let rows: Vec<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT * FROM ({TASK_SELECT} WHERE o.owner_id = $1 AND o.deleted_at IS NULL) t \
+         WHERE t.duration_minutes IS NOT NULL AND t.status = 'done' \
+         ORDER BY t.updated_at DESC, t.id LIMIT $2"
+    )))
+    .bind(owner)
+    .bind(limit.clamp(1, 1000))
+    .fetch_all(conn)
+    .await?;
+    rows.into_iter().map(Task::try_from).collect()
+}
+
 // ---------------------------------------------------------------- поля для синхронизации
 
 /// Поле, которое можно явно очистить: нет ключа — не трогать, `null` — очистить.
@@ -782,6 +801,12 @@ impl TaskState {
             }
             self.travel_minutes = minutes;
             changed.push("travel_minutes");
+        }
+        // Атомарно с записью: агент (duration_by = agent) не перетирает длительность человека.
+        if fields.duration_by == Some(Some(DurationBy::Agent))
+            && self.duration_by == Some(DurationBy::Owner)
+        {
+            return Err(bad("длительность человека агент не меняет"));
         }
         if let Some(minutes) = fields.duration_minutes {
             if minutes.is_some_and(|minutes| !(1..=1440).contains(&minutes)) {
@@ -1263,12 +1288,25 @@ mod duration_tests {
                 .unwrap();
             assert_eq!(state.duration_minutes, Some(minutes));
             assert_eq!(state.duration_by, Some(DurationBy::Owner));
+            let agent = fields(json!({"duration_minutes": minutes, "duration_by": "agent"}));
+            // Агент не перетирает длительность человека — проверка в самой записи.
+            assert!(state.apply(&agent).is_err());
+            assert_eq!(state.duration_by, Some(DurationBy::Owner));
             state
-                .apply(&fields(
-                    json!({"duration_minutes": minutes, "duration_by": "agent"}),
-                ))
+                .apply(&fields(json!({"duration_minutes": null})))
                 .unwrap();
+            state.apply(&agent).unwrap();
             assert_eq!(state.duration_by, Some(DurationBy::Agent));
+            // Человек может перезаписать длительность агента.
+            state
+                .apply(&fields(json!({"duration_minutes": minutes})))
+                .unwrap();
+            assert_eq!(state.duration_by, Some(DurationBy::Owner));
+            assert!(state.apply(&agent).is_err());
+            state
+                .apply(&fields(json!({"duration_minutes": null})))
+                .unwrap();
+            state.apply(&agent).unwrap();
             state
                 .apply(&fields(json!({"notes": "другая заметка"})))
                 .unwrap();
