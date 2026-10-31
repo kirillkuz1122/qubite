@@ -671,7 +671,10 @@ async fn project_upload_streams_and_rejects_oversize_without_tmp_files() {
                 writer.write_all(b"\r\n").await?;
                 remaining -= len;
             }
-            writer.write_all(b"0\r\n\r\n").await
+            writer.write_all(b"0\r\n\r\n").await?;
+            // Писатель остаётся жить в результате задачи: hyper не поддерживает
+            // половинное закрытие и бросил бы запрос, увидев конец чтения до ответа.
+            Ok::<_, std::io::Error>(writer)
         });
         let (status, body) = upload_response(reader).await;
         sending.abort();
@@ -774,8 +777,13 @@ async fn project_upload_checks_project_and_file_count_before_reading_body() {
     )
     .await;
 
-    let (_writer, reader) =
-        start_upload(&owner, address, Uuid::now_v7(), "Transfer-Encoding: chunked").await;
+    let (_writer, reader) = start_upload(
+        &owner,
+        address,
+        Uuid::now_v7(),
+        "Transfer-Encoding: chunked",
+    )
+    .await;
     let (status, error) = upload_response(reader).await;
     assert_eq!(status, 404, "{error}");
 
