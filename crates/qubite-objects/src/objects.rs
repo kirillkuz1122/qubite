@@ -202,7 +202,8 @@ pub async fn bump(
     Ok(object)
 }
 
-/// Изменить заголовок с проверкой версии.
+/// Изменить заголовок с проверкой версии. У docs.page промежуточные правки
+/// только body/ystate не конфликтуют с офлайн-переименованием.
 pub async fn rename(
     conn: &mut PgConnection,
     id: Uuid,
@@ -211,15 +212,43 @@ pub async fn rename(
     actor: Uuid,
 ) -> Result<Object> {
     let mut tx = conn.begin().await?;
-    let object = update_checked(
-        &mut tx,
-        id,
-        expected_revision,
-        actor,
-        ", title = $4",
-        Some(title),
-    )
-    .await?;
+    // Держим блокировку до записи заголовка и события: между чтением истории
+    // и UPDATE не должны вклиниться ни Yjs-обмен, ни другое переименование.
+    let current: Object = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLUMNS} FROM objects WHERE id = $1 FOR UPDATE"
+    )))
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(Error::NotFound)?;
+    let mut revision = expected_revision;
+    if current.object_type == "docs.page"
+        && !current.is_deleted()
+        && expected_revision >= 1
+        && expected_revision < current.revision
+    {
+        // Проверяем ВСЕ пропущенные ревизии, а не только последнее событие.
+        // Пробел в истории, удаление/восстановление и неизвестные поля оставляют
+        // обычный конфликт. bump по-прежнему пишет события и будит устройства.
+        let content_revisions: i64 = sqlx::query_scalar(
+            "SELECT count(DISTINCT payload->'revision') FROM events \
+             WHERE object_id = $1 AND kind = 'object.updated' \
+               AND payload->'revision' > to_jsonb($2::bigint) \
+               AND payload->'revision' <= to_jsonb($3::bigint) \
+               AND jsonb_typeof(payload->'fields') = 'array' \
+               AND payload->'fields' <> '[]'::jsonb \
+               AND payload->'fields' <@ '[\"body\",\"ystate\"]'::jsonb",
+        )
+        .bind(id)
+        .bind(expected_revision)
+        .bind(current.revision)
+        .fetch_one(&mut *tx)
+        .await?;
+        if content_revisions == current.revision - expected_revision {
+            revision = current.revision;
+        }
+    }
+    let object = update_checked(&mut tx, id, revision, actor, ", title = $4", Some(title)).await?;
     events::append(
         &mut tx,
         NewEvent::for_object("object.updated", id, actor)

@@ -1,8 +1,10 @@
 import { loop } from '@qubite/motion';
+import { createDoc, titleFrom } from '@qubite/sync-client';
 import {
   Button,
   Companion,
   ElikDots,
+  Note,
   Segmented,
   useFlip,
   useLeaving,
@@ -16,7 +18,6 @@ import type { InboxAct, InboxFrom, InboxItem } from '../data';
 import { useInbox } from '../inbox-context';
 import { withThinking } from '../inbox-view';
 import { usePlanner } from '../planner-context';
-import { useStore } from '../state';
 import { useSync } from '../sync-context';
 import { useAnswer, useTriage, useUndoFiled, type Filed } from '../triage';
 import { useRevertWhy } from '../agent';
@@ -25,11 +26,12 @@ import { SecHead } from '../parts';
 type Filter = 'all' | Exclude<InboxFrom, 'text'>;
 
 export function InboxScreen() {
-  const { dispatch } = useStore();
   const inbox = useInbox();
   const planner = usePlanner();
   const shell = useShell();
-  const { client, version } = useSync();
+  const { client, version, ready } = useSync();
+  const [docError, setDocError] = useState(false);
+  const moving = useRef(new Set<string>());
   /* агент раскладывает сам (CMD-004): что он обдумывает и что уже разложил */
   const triage = useTriage(version);
   const answer = useAnswer();
@@ -53,9 +55,31 @@ export function InboxScreen() {
       inbox.later(it.id);
       return;
     }
+    if (to === 'docs') {
+      if (moving.current.has(it.id)) return;
+      moving.current.add(it.id);
+      setDocError(false);
+      shell.fly({ x: (dot?.left ?? 0) + 5, y: (dot?.top ?? 0) + 5 }, to, 'yellow', () => {
+        void (async () => {
+          try {
+            const sync = await ready();
+            // Название — первая строка до TITLE_CHARS: сервер не примет длиннее 1000 знаков.
+            await createDoc(sync, titleFrom(it.text));
+            // В архив — только после записи документа на устройство.
+            await inbox.done(it.id);
+            void sync.sync();
+          } catch {
+            setDocError(true);
+          } finally {
+            moving.current.delete(it.id);
+          }
+        })();
+      });
+      shell.cheer('elik');
+      return;
+    }
     shell.fly({ x: (dot?.left ?? 0) + 5, y: (dot?.top ?? 0) + 5 }, to, 'yellow', () => {
       if (to === 'planner') void planner.add(it.text, { fromInbox: it.id });
-      if (to === 'docs') dispatch({ type: 'doc.add', name: it.text });
     });
     shell.cheer('elik');
     /* разобрано — в архив (не удаляется); на других устройствах тоже пропадёт */
@@ -64,6 +88,11 @@ export function InboxScreen() {
 
   return (
     <>
+      {docError && (
+        <Note tone="bad">
+          Документ не записался. Мысль осталась во Входящих — попробуйте ещё раз.
+        </Note>
+      )}
       <div className="chips-row">
         <Segmented<Filter>
           variant="chips"

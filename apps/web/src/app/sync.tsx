@@ -7,7 +7,14 @@
  * в том же браузере он увидел бы чужие дела, а неотправленные мысли прежнего ушли бы
  * на сервер в его аккаунт.
  */
-import { SyncClient, httpTransport, watchChanges, type SyncState } from '@qubite/sync-client';
+import {
+  DocStore,
+  SyncClient,
+  httpDocsTransport,
+  httpTransport,
+  watchChanges,
+  type SyncState,
+} from '@qubite/sync-client';
 import {
   LAST_ACCOUNT,
   rememberedAccount,
@@ -17,6 +24,7 @@ import {
   type SyncApi,
 } from './sync-context';
 import { useMe } from '../auth/client';
+import { renderDocText } from './docs/render';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 function socketUrl(): string {
@@ -87,6 +95,7 @@ export function SyncProvider({
   live?: boolean;
 }) {
   const [client, setClient] = useState<SyncClient | null>(null);
+  const [docs, setDocs] = useState<DocStore | null>(null);
   const [state, setState] = useState<SyncState>({ status: 'synced', pending: 0, problems: 0 });
   const [version, setVersion] = useState(0);
   const opening = useRef<Promise<SyncClient> | null>(null);
@@ -102,6 +111,11 @@ export function SyncProvider({
       opening.current = null;
       return;
     }
+    const documents = new DocStore({
+      dbName: `${dbName}-docs`,
+      transport: httpDocsTransport(),
+      renderText: renderDocText,
+    });
     let alive = true;
     let stop = () => {};
     let unsubscribe = () => {};
@@ -114,10 +128,16 @@ export function SyncProvider({
           return;
         }
         setClient(c);
+        setDocs(documents);
         opened.resolve(c);
         unsubscribe = c.subscribe((s) => {
           setState(s);
           setVersion((n) => n + 1);
+          // Включая WebSocket «есть новое»: сначала метаданные, затем Yjs.
+          // Это также дошлёт текст документа, созданного без сети.
+          if (s.status === 'synced' || s.status === 'conflict' || s.status === 'error') {
+            void documents.syncAll().catch(() => {});
+          }
         });
         if (live) stop = watchChanges(c, { url: socketUrl() });
         // Ошибки сети клиент сам кладёт в состояние; а если хранилище закрыли, пока
@@ -132,7 +152,11 @@ export function SyncProvider({
       alive = false;
       stop();
       unsubscribe();
+      void documents.close().catch(() => {});
       void promise.then((c) => c.close()).catch(() => {});
+      // Закрытые хранилища экранам больше не отдаём (сменился человек или вышли).
+      setClient(null);
+      setDocs(null);
     };
   }, [dbName, open, live, opened]);
 
@@ -142,8 +166,9 @@ export function SyncProvider({
       ready: () => opening.current ?? opened.promise,
       version,
       state,
+      docs,
     }),
-    [client, version, state, opened],
+    [client, version, state, docs, opened],
   );
   return <SyncCtx.Provider value={value}>{children}</SyncCtx.Provider>;
 }

@@ -58,6 +58,7 @@ qubite-captcha = { version = "0.1.0", path = "../qubite-captcha" }
 workspace = true
 
 [dev-dependencies]
+yrs = "=0.28.0"
 qubite-db = { path = "../qubite-db" }
 qubite-policy = { path = "../qubite-policy" }
 qubite-testkit = { path = "../qubite-testkit" }

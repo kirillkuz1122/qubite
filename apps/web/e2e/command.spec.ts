@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync, type SyncMock } from './sync-mock';
+import { mockDocs } from './docs-mock';
 
 // Qubite Command (CMD-002): поиск и навигация из строки — на ПК по Ctrl+K, на телефоне из капли.
 let server: SyncMock;
@@ -73,15 +74,22 @@ test('дело: стрелкой вниз к найденному — откры
   await expect(page.locator(`[data-obj="${id}"][data-found]`)).toBeAttached();
 });
 
-test('«найди фенвик» — документ сразу раскрывается', async ({ page }) => {
+test('«найди фенвик» — открывает настоящий документ', async ({ page }) => {
+  const docs = await mockDocs(page, server);
+  const id = docs.add('Дерево Фенвика', 'Частичные суммы');
   await page.goto('/today');
   const input = await openCommand(page);
   await input.fill('найди фенвик');
   await expect(list(page).getByRole('option', { selected: true })).toContainText('Дерево Фенвика');
   await input.press('Enter');
-  await expect(page).toHaveURL(/\/docs$/);
+  await expect(page).toHaveURL(new RegExp(`/docs/${id}$`));
   const doc = page.getByRole('article', { name: 'Документ' });
-  await expect(doc.getByRole('heading', { name: 'Дерево Фенвика' })).toBeVisible();
+  await expect(doc.getByRole('textbox', { name: 'Название документа' })).toHaveValue(
+    'Дерево Фенвика',
+  );
+  await expect(doc.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'Частичные суммы',
+  );
 });
 
 test('найденное можно выбрать пальцем или мышью: светлая тема', async ({ page }) => {

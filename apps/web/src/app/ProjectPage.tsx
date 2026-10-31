@@ -16,12 +16,9 @@ import { SecHead, TaskList } from './parts';
 import { usePlanner } from './planner-context';
 import { iso, toRow } from './planner-view';
 import {
-  DOCS,
   PROJECT,
   useCreateDoc,
-  useDoc,
   useDocs,
-  useEditDoc,
   useLinkDoc,
   useMemoryWrite,
   useProjectPage,
@@ -39,7 +36,6 @@ import {
   feedWhen,
   fileUrl,
   sizeLabel,
-  type ProjectDoc,
   type ProjectFeedItem,
   type ProjectPage as Page,
   type ProjectTab,
@@ -446,7 +442,8 @@ function FilesTab({ id, page }: { id: string; page: Page }) {
 function Docs({ id, page }: { id: string; page: Page }) {
   const [creating, setCreating] = useState(false);
   const [linking, setLinking] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const unlink = useUnlinkDoc(id);
   if (page.docs === null || page.docs === undefined) {
     return (
       <>
@@ -471,10 +468,22 @@ function Docs({ id, page }: { id: string; page: Page }) {
         <ul className="pp-docs" aria-label="Документы проекта">
           {page.docs.map((d) => (
             <li key={d.id}>
-              <button type="button" className="pp-doc" onClick={() => setOpen(d.id)}>
+              <Button
+                dot={false}
+                className="pp-doc"
+                onClick={() => void navigate({ to: '/docs/$id', params: { id: d.id } })}
+              >
                 <span className="pp-doc-t">{d.title}</span>
                 <span className="pp-doc-pre">{d.preview || 'пусто'}</span>
-              </button>
+              </Button>
+              <Button
+                size="sm"
+                dot={false}
+                disabled={unlink.isPending}
+                onClick={() => unlink.mutate(d.id)}
+              >
+                Убрать из проекта
+              </Button>
             </li>
           ))}
         </ul>
@@ -486,23 +495,23 @@ function Docs({ id, page }: { id: string; page: Page }) {
       </div>
       <NewDoc id={id} open={creating} onClose={() => setCreating(false)} />
       <LinkDoc id={id} page={page} open={linking} onClose={() => setLinking(false)} />
-      <DocSheet project={id} doc={open} onClose={() => setOpen(null)} />
+      {unlink.isError && <Note tone="bad">{say(unlink.error)}</Note>}
     </>
   );
 }
 
 function NewDoc({ id, open, onClose }: { id: string; open: boolean; onClose: () => void }) {
   const create = useCreateDoc(id);
+  const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
     try {
-      await create.mutateAsync({ title: title.trim(), body });
+      const doc = await create.mutateAsync({ title: title.trim(), body: '' });
       setTitle('');
-      setBody('');
       onClose();
+      await navigate({ to: '/docs/$id', params: { id: doc.id } });
     } catch {
       // ошибка видна ниже
     }
@@ -511,16 +520,6 @@ function NewDoc({ id, open, onClose }: { id: string; open: boolean; onClose: () 
     <Sheet open={open} onClose={onClose} title="Новый документ">
       <form className="pp-form" onSubmit={save} aria-label="Новый документ">
         <Field label="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <label className="rec-label" htmlFor="pp-new-doc">
-          Текст (Markdown, можно пустой)
-        </label>
-        <textarea
-          id="pp-new-doc"
-          className="pp-area"
-          rows={8}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
         {create.isError && <Note tone="bad">{say(create.error)}</Note>}
         <div className="act-btns">
           <Button
@@ -582,99 +581,6 @@ function LinkDoc({
         </ul>
       )}
     </Sheet>
-  );
-}
-
-function DocSheet({
-  project,
-  doc,
-  onClose,
-}: {
-  project: string;
-  doc: string | null;
-  onClose: () => void;
-}) {
-  const loaded = useDoc(doc);
-  const shown = loaded.data;
-  return (
-    <Sheet open={doc !== null} onClose={onClose} title={shown?.title ?? 'Документ'}>
-      {!shown ? (
-        loaded.isError ? (
-          <Note tone="bad">{say(loaded.error)}</Note>
-        ) : (
-          <p className="later">Открываю…</p>
-        )
-      ) : (
-        <DocForm key={shown.id} project={project} doc={shown} onClose={onClose} />
-      )}
-    </Sheet>
-  );
-}
-
-/** Документ: название и текст Markdown (настоящий редактор — DOC-002). */
-function DocForm({
-  project,
-  doc,
-  onClose,
-}: {
-  project: string;
-  doc: ProjectDoc;
-  onClose: () => void;
-}) {
-  const edit = useEditDoc(project);
-  const unlink = useUnlinkDoc(project);
-  const qc = useQueryClient();
-  const [title, setTitle] = useState(doc.title);
-  const [body, setBody] = useState(doc.body);
-
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    try {
-      await edit.mutateAsync({ id: doc.id, title, body, revision: doc.revision });
-      void qc.invalidateQueries({ queryKey: [...DOCS, doc.id] });
-      onClose();
-    } catch {
-      // ошибка видна ниже; при 409 — подсказка перечитать
-    }
-  }
-
-  const stale = edit.error instanceof Fail && edit.error.status === 409;
-  return (
-    <form className="pp-form" onSubmit={save} aria-label="Документ">
-      <Field label="Название" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <label className="rec-label" htmlFor="pp-doc-body">
-        Текст (Markdown)
-      </label>
-      <textarea
-        id="pp-doc-body"
-        className="pp-area"
-        rows={Math.min(20, Math.max(8, body.split('\n').length + 2))}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-      />
-      {edit.isError && (
-        <Note tone="bad">
-          {stale
-            ? 'Документ уже поменяли в другом месте. Скопируй свой текст, закрой и открой заново.'
-            : say(edit.error)}
-        </Note>
-      )}
-      <div className="act-btns">
-        <Button size="sm" variant="fill" type="submit" disabled={edit.isPending}>
-          Сохранить
-        </Button>
-        <Button
-          size="sm"
-          dot={false}
-          type="button"
-          disabled={unlink.isPending}
-          onClick={() => unlink.mutate(doc.id, { onSuccess: onClose })}
-        >
-          Убрать из проекта
-        </Button>
-      </div>
-    </form>
   );
 }
 
