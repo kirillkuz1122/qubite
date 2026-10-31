@@ -15,10 +15,17 @@
 //! участник» сейчас — только владелец. Права модуля (`planner`, `docs`)
 //! проверяет HTTP-слой до вызова этих функций.
 
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll, ready},
+};
+
 use qubite_objects::{Attachment, BlobStore, NewObject, NewRelation, files, objects, relations};
 use serde::Serialize;
 use sqlx::{Connection, PgConnection};
 use time::OffsetDateTime;
+use tokio::io::{AsyncRead, ReadBuf};
 use uuid::Uuid;
 
 use crate::{Error, PART_OF, PROJECT_TYPE, Project, Result, TASK_TYPE, get_project};
@@ -44,6 +51,30 @@ pub async fn own_project(conn: &mut PgConnection, owner: Uuid, id: Uuid) -> Resu
 }
 
 // ---------------------------------------------------------------- файлы
+
+/// Превышение лимита — ошибка чтения: BlobStore удалит временный файл,
+/// прежде чем содержимое или запись о нём попадут в постоянное хранилище.
+struct LimitedFile<R> {
+    content: R,
+    size: usize,
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for LimitedFile<R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        let before = buf.filled().len();
+        ready!(Pin::new(&mut this.content).poll_read(cx, buf))?;
+        this.size = this.size.saturating_add(buf.filled().len() - before);
+        if this.size > MAX_FILE_BYTES {
+            return Poll::Ready(Err(io::ErrorKind::FileTooLarge.into()));
+        }
+        Poll::Ready(Ok(()))
+    }
+}
 
 /// Имя файла как его покажем: без папок, лишних пробелов и служебных символов.
 pub fn clean_file_name(raw: &str) -> Result<String> {
@@ -93,7 +124,8 @@ pub async fn project_files(
     files::attachments(conn, project).await
 }
 
-/// Положить файл в проект. Имя занято — допишется «(2)». Возвращает файл.
+/// Положить поток файла в проект. Имя занято — допишется «(2)». Возвращает файл.
+/// Проект, имя и число файлов проверяются до первого чтения потока.
 pub async fn add_file(
     conn: &mut PgConnection,
     store: &BlobStore,
@@ -101,16 +133,10 @@ pub async fn add_file(
     project: Uuid,
     name: &str,
     mime: &str,
-    content: &[u8],
+    content: impl AsyncRead + Unpin,
 ) -> Result<Attachment> {
     own_project(conn, owner, project).await?;
     let name = clean_file_name(name)?;
-    if content.len() > MAX_FILE_BYTES {
-        return Err(Error::Invalid(format!(
-            "файл больше {} МБ",
-            MAX_FILE_BYTES / 1024 / 1024
-        )));
-    }
     let taken = files::attachments(conn, project).await?;
     if taken.len() >= MAX_FILES {
         return Err(Error::Invalid(format!(
@@ -123,7 +149,14 @@ pub async fn add_file(
     } else {
         mime.trim()
     };
-    let blob = store.put(conn, content, mime).await?;
+    let content = LimitedFile { content, size: 0 };
+    let blob = store.put(conn, content, mime).await.map_err(|error| {
+        if matches!(&error, Error::Io(error) if error.kind() == io::ErrorKind::FileTooLarge) {
+            Error::Invalid(format!("файл больше {} МБ", MAX_FILE_BYTES / 1024 / 1024))
+        } else {
+            error
+        }
+    })?;
     files::attach(conn, project, &blob, &name, owner).await?;
     files::attachments(conn, project)
         .await?

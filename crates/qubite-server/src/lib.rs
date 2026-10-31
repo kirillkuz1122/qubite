@@ -46,6 +46,7 @@ use axum::{
 };
 use qubite_db::Database;
 use serde::Serialize;
+use tokio::sync::Semaphore;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 use utoipa::{OpenApi, ToSchema};
 
@@ -72,6 +73,8 @@ pub struct AppState {
     pub english: Arc<qubite_english::Settings>,
     /// Файлы по хешу содержимого (файлы проектов, PROJ-001).
     pub blobs: qubite_objects::BlobStore,
+    /// Общие для всех проектов слоты потоковой загрузки (SEC-002a).
+    pub project_uploads: Arc<Semaphore>,
     /// AI кнопками (AI-003): ключ шифрования, ChatGPT, ключ OpenRouter.
     pub ai_panel: Arc<ai_console::AiPanel>,
     /// «Работа агентов» (HAR-002): GitHub Issues токеном сервера.
@@ -104,6 +107,7 @@ impl AppState {
             english: Arc::new(qubite_english::Settings::default()),
             // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
+            project_uploads: Arc::new(Semaphore::new(4)),
             ai_panel: Arc::new(ai_console::AiPanel::default()),
             work: Arc::new(harness::Work::default()),
             deploy_file: Arc::new(deploy::default_path()),
@@ -983,7 +987,8 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/projects/{id}", get(projects::project_page))
         .route("/api/v1/projects/{id}/feed", get(projects::project_feed))
-        // Файл проекта — до 25 МБ (D-473): тело больше обычного лимита.
+        // Файл проекта — до 25 МБ (D-473). Для Body лимит дополнительно
+        // проверяется при чтении в folder::add_file (DefaultBodyLimit — для экстракторов).
         .route(
             "/api/v1/projects/{id}/files",
             post(projects::upload_project_file).layer(DefaultBodyLimit::max(
