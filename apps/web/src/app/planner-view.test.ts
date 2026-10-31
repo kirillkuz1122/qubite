@@ -21,6 +21,7 @@ const algebra: PlannerProject = {
   tag: 'алгебра',
   status: 'active',
   notes: '',
+  board: null,
   pending: false,
 };
 

@@ -100,6 +100,49 @@ text_enum!(
     Color { Orange = "orange", Sky = "sky", Yellow = "yellow", Green = "green", Peach = "peach" }
 );
 
+text_enum!(
+    /// Вид проекта: доска или список.
+    BoardView { Board = "board", List = "list" }
+);
+
+/// Колонка доски использует существующий статус дела (D-252).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BoardColumn {
+    pub status: Status,
+    pub title: String,
+}
+
+/// Настройка проекта; `null` означает «Надо / В работе / Готово», вид «доска».
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectBoard {
+    pub columns: Vec<BoardColumn>,
+    pub view: BoardView,
+}
+
+impl ProjectBoard {
+    fn normalize(mut self) -> Result<Self, FieldsError> {
+        if !(2..=3).contains(&self.columns.len()) {
+            return Err(bad("у доски должно быть 2–3 колонки"));
+        }
+        let mut seen = std::collections::HashSet::new();
+        for column in &mut self.columns {
+            if !seen.insert(column.status.as_str()) {
+                return Err(bad("у колонок доски повторяется статус"));
+            }
+            column.title = column.title.trim().to_owned();
+            if column.title.is_empty() || column.title.chars().count() > 24 {
+                return Err(bad("название колонки — от 1 до 24 символов"));
+            }
+        }
+        if !seen.contains("done") {
+            return Err(bad("у доски нужна колонка done"));
+        }
+        Ok(self)
+    }
+}
+
 fn parse<T: std::str::FromStr<Err = String>>(value: &str) -> Result<T> {
     value.parse().map_err(Error::Invalid)
 }
@@ -194,6 +237,7 @@ pub struct Project {
     pub tag: String,
     pub status: ProjectStatus,
     pub notes: String,
+    pub board: Option<ProjectBoard>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -211,10 +255,11 @@ struct ProjectRow {
     tag: String,
     status: String,
     notes: String,
+    board: Option<sqlx::types::Json<ProjectBoard>>,
 }
 
 const PROJECT_SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, \
-     o.created_at, o.updated_at, p.color, p.tag, p.status, p.notes \
+     o.created_at, o.updated_at, p.color, p.tag, p.status, p.notes, p.board \
      FROM objects o JOIN planner_projects p ON p.object_id = o.id";
 
 impl TryFrom<ProjectRow> for Project {
@@ -230,6 +275,7 @@ impl TryFrom<ProjectRow> for Project {
             tag: row.tag,
             status: parse(&row.status)?,
             notes: row.notes,
+            board: row.board.map(|board| board.0),
             created_at: row.created_at,
             updated_at: row.updated_at,
         })
@@ -244,6 +290,7 @@ impl Project {
             "tag": self.tag,
             "status": self.status,
             "notes": self.notes,
+            "board": self.board,
         })
     }
 }
@@ -562,6 +609,9 @@ pub struct ProjectFields {
     pub tag: Option<String>,
     pub status: Option<ProjectStatus>,
     pub notes: Option<String>,
+    /// Нет ключа — оставить; `null` — вернуть стандартную доску.
+    #[serde(default, deserialize_with = "some")]
+    pub board: Option<Option<ProjectBoard>>,
 }
 
 /// Поля дела при создании (`create.fields`) и изменении (`patch.fields`).
@@ -1076,15 +1126,21 @@ impl TypeFields for ProjectFieldsHandler {
             let notes = fields.notes.unwrap_or_default();
             check_notes(&notes)?;
             let tag = check_tag(fields.tag.as_deref().unwrap_or(&object.title))?;
+            let board = fields
+                .board
+                .flatten()
+                .map(ProjectBoard::normalize)
+                .transpose()?;
             sqlx::query(
-                "INSERT INTO planner_projects (object_id, color, tag, status, notes) \
-                 VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO planner_projects (object_id, color, tag, status, notes, board) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(object.id)
             .bind(fields.color.unwrap_or(Color::Orange).as_str())
             .bind(tag)
             .bind(fields.status.unwrap_or(ProjectStatus::Active).as_str())
             .bind(notes)
+            .bind(board.map(sqlx::types::Json))
             .execute(conn)
             .await?;
             Ok(())
@@ -1133,6 +1189,15 @@ impl TypeFields for ProjectFieldsHandler {
                     .execute(&mut *conn)
                     .await?;
                 changed.push("notes".to_owned());
+            }
+            if let Some(board) = fields.board {
+                let board = board.map(ProjectBoard::normalize).transpose()?;
+                sqlx::query("UPDATE planner_projects SET board = $2 WHERE object_id = $1")
+                    .bind(object.id)
+                    .bind(board.map(sqlx::types::Json))
+                    .execute(&mut *conn)
+                    .await?;
+                changed.push("board".to_owned());
             }
             if changed.is_empty() {
                 return Err(bad("нечего менять"));
