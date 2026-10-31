@@ -248,15 +248,7 @@ pub async fn rename(
             revision = current.revision;
         }
     }
-    let object = update_checked(
-        &mut tx,
-        id,
-        revision,
-        actor,
-        ", title = $4",
-        Some(title),
-    )
-    .await?;
+    let object = update_checked(&mut tx, id, revision, actor, ", title = $4", Some(title)).await?;
     events::append(
         &mut tx,
         NewEvent::for_object("object.updated", id, actor)

@@ -173,16 +173,12 @@ async fn doc_rename_only_skips_a_complete_history_of_content_revisions() {
         Err(Error::Conflict { .. })
     ));
 
-    objects::delete(&mut conn, doc.id, 4, owner)
-        .await
-        .unwrap();
+    objects::delete(&mut conn, doc.id, 4, owner).await.unwrap();
     assert!(matches!(
         objects::rename(&mut conn, doc.id, 4, "Удалённый", owner).await,
         Err(Error::Deleted)
     ));
-    objects::restore(&mut conn, doc.id, 5, owner)
-        .await
-        .unwrap();
+    objects::restore(&mut conn, doc.id, 5, owner).await.unwrap();
     objects::bump(&mut conn, doc.id, 6, owner, &["body", "ystate"])
         .await
         .unwrap();
