@@ -183,6 +183,12 @@ fn plan_object(
             }
         }
     }
+    // Длительность и её источник возвращаются парой, даже если источник не менялся
+    // (иначе планировщик подставит «owner» и оценка агента станет человеческой).
+    if want.fields.contains_key("duration_minutes") && !want.fields.contains_key("duration_by") {
+        want.fields
+            .insert("duration_by".into(), aspect(before, "duration_by"));
+    }
     // Объект после действия убрали в корзину, а вернуть нужно поля: поля в
     // корзине не меняются, значит, это тоже решение человека.
     if touched && now.deleted && !before.deleted && !want.restore && !want.delete {
@@ -388,6 +394,30 @@ mod tests {
             updated_at_ms: 0,
             fields: Some(fields),
         }
+    }
+
+    #[test]
+    fn duration_is_restored_with_its_source() {
+        let id = Uuid::now_v7();
+        let before = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 10, "duration_by": "agent"}),
+        );
+        let after = snap(
+            id,
+            "Позвонить",
+            false,
+            json!({"duration_minutes": 20, "duration_by": "agent"}),
+        );
+        let (steps, conflicts) = plan_object(id, Some(&before), &after, &after, false);
+        assert!(conflicts.is_empty());
+        let OpKind::Patch { fields } = &steps[0].kind else {
+            panic!("нужен Patch");
+        };
+        assert_eq!(fields["duration_minutes"], 10);
+        assert_eq!(fields["duration_by"], "agent");
     }
 
     #[test]
