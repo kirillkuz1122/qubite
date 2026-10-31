@@ -249,3 +249,31 @@ async fn every_response_has_security_headers() {
         assert_eq!(headers["referrer-policy"], "same-origin", "{path}");
     }
 }
+
+/// SEC-002 (D-771): вход с чужим `Origin` — 403 ещё до базы; свой `Origin` до базы доходит.
+#[tokio::test]
+async fn login_rejects_foreign_origin() {
+    let mut config = DbConfig::new(Secret::new("postgres://nobody:nothing@127.0.0.1:1/none"));
+    config.acquire_timeout = Duration::from_millis(300);
+    let address = spawn_server(Database::connect_lazy(&config).unwrap()).await;
+    let body = serde_json::json!({"email": "a@example.org", "password": "x"});
+    let post = |origin: Option<String>| {
+        let mut request = qubite_testkit::http_client()
+            .post(format!("http://{address}/api/auth/login"))
+            .json(&body);
+        if let Some(origin) = origin {
+            request = request.header("origin", origin);
+        }
+        async move { request.send().await.unwrap() }
+    };
+    let foreign = post(Some("https://evil.example".into())).await;
+    assert_eq!(foreign.status(), 403);
+    let json: serde_json::Value = foreign.json().await.unwrap();
+    assert_eq!(json["error"], "origin_mismatch");
+    // Свой Origin и отсутствие Origin — не 403 origin_mismatch (дальше база недоступна).
+    for origin in [Some(format!("http://{address}")), None] {
+        let response = post(origin).await;
+        let json: serde_json::Value = response.json().await.unwrap_or_default();
+        assert_ne!(json["error"], "origin_mismatch");
+    }
+}

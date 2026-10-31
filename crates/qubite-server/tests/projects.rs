@@ -3,13 +3,20 @@
 
 mod common;
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use common::{Browser, logged_in};
 use qubite_agent::{Trigger, Who, call, finish_run, start_run};
 use qubite_auth::{Passwords, accounts::NewAccount};
-use qubite_server::auth::AuthSettings;
+use qubite_planner::folder::{MAX_FILE_BYTES, MAX_FILES};
+use qubite_server::{AppState, auth::AuthSettings};
 use serde_json::{Value, json};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    net::{TcpStream, tcp::OwnedReadHalf, tcp::OwnedWriteHalf},
+    sync::Semaphore,
+    time::timeout,
+};
 use uuid::Uuid;
 
 const USER_PASSWORD: &str = "пароль пользователя";
@@ -521,6 +528,299 @@ fn patch(id: Uuid, base_revision: i64, fields: Value) -> Value {
         "base_revision": base_revision,
         "fields": fields,
     })
+}
+
+/// Свой каталог и доступ к общему семафору; остальные тесты не затрагиваются.
+async fn upload_setup() -> (
+    qubite_testkit::TestDb,
+    qubite_db::Database,
+    SocketAddr,
+    PathBuf,
+    Arc<Semaphore>,
+) {
+    let (test_db, db) = qubite_testkit::TestDb::migrated().await;
+    qubite_auth::owner::create(
+        db.pool(),
+        &Passwords::default(),
+        common::EMAIL,
+        "Кирилл",
+        common::PASSWORD,
+    )
+    .await
+    .unwrap();
+    let root = std::env::temp_dir().join(format!("qubite-project-upload-{}", Uuid::now_v7()));
+    let state = AppState::new(db.clone()).with_blobs(qubite_objects::BlobStore::new(&root));
+    let slots = state.project_uploads.clone();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    (test_db, db, address, root, slots)
+}
+
+/// HTTP/1 позволяет отправить заголовки отдельно от тела и не задавать его размер.
+async fn start_upload(
+    browser: &Browser,
+    address: SocketAddr,
+    project: Uuid,
+    framing: &str,
+) -> (OwnedWriteHalf, BufReader<OwnedReadHalf>) {
+    let mut stream = TcpStream::connect(address).await.unwrap();
+    let headers = format!(
+        "POST /api/v1/projects/{project}/files?name=stream.bin HTTP/1.1\r\n\
+         Host: {address}\r\nCookie: {}\r\nX-CSRF-Token: {}\r\n\
+         Content-Type: application/octet-stream\r\nConnection: close\r\n{framing}\r\n\r\n",
+        cookies(browser),
+        browser.csrf.as_deref().unwrap(),
+    );
+    stream.write_all(headers.as_bytes()).await.unwrap();
+    let (reader, writer) = stream.into_split();
+    (writer, BufReader::new(reader))
+}
+
+/// Ответы JSON имеют Content-Length: читаем их, не ожидая конца тела запроса.
+async fn upload_response(mut reader: BufReader<OwnedReadHalf>) -> (u16, Value) {
+    timeout(Duration::from_secs(10), async {
+        let mut line = String::new();
+        reader.read_line(&mut line).await.unwrap();
+        let status = line.split_whitespace().nth(1).unwrap().parse().unwrap();
+        let mut length = None;
+        loop {
+            line.clear();
+            assert_ne!(reader.read_line(&mut line).await.unwrap(), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':')
+                && name.eq_ignore_ascii_case("content-length")
+            {
+                length = Some(value.trim().parse::<usize>().unwrap());
+            }
+        }
+        let mut body = vec![0; length.expect("размер ответа JSON")];
+        reader.read_exact(&mut body).await.unwrap();
+        (status, serde_json::from_slice(&body).unwrap())
+    })
+    .await
+    .expect("сервер должен ответить, не дожидаясь оставшегося тела")
+}
+
+async fn assert_no_upload_tmp(root: &std::path::Path) {
+    match tokio::fs::read_dir(root.join("tmp")).await {
+        Ok(mut entries) => assert!(entries.next_entry().await.unwrap().is_none()),
+        Err(error) => assert_eq!(error.kind(), std::io::ErrorKind::NotFound),
+    }
+}
+
+#[tokio::test]
+async fn project_upload_streams_and_rejects_oversize_without_tmp_files() {
+    let (test_db, db, address, root, slots) = upload_setup().await;
+    let mut owner = logged_in(address).await;
+    let project = Uuid::now_v7();
+    push(
+        &mut owner,
+        address,
+        vec![create(project, "planner.project", "Поток", json!({}))],
+    )
+    .await;
+
+    // Поток без Content-Length сохраняется полностью, включая двоичные байты.
+    let (mut writer, reader) =
+        start_upload(&owner, address, project, "Transfer-Encoding: chunked").await;
+    writer
+        .write_all(b"3\r\na\x00b\r\n2\r\ncd\r\n0\r\n\r\n")
+        .await
+        .unwrap();
+    let (status, file) = upload_response(reader).await;
+    assert_eq!(status, 201, "{file}");
+    assert_eq!(file["size"], 5);
+    let (status, _, bytes) = download(&owner, address, project, "stream.bin").await;
+    assert_eq!(status, 200);
+    assert_eq!(bytes, b"a\x00bcd");
+    assert_eq!(slots.available_permits(), 4);
+    assert_no_upload_tmp(&root).await;
+
+    // Заголовка достаточно для 400: тело вообще не отправляется.
+    let (_writer, reader) = start_upload(
+        &owner,
+        address,
+        project,
+        &format!("Content-Length: {}", MAX_FILE_BYTES + 1),
+    )
+    .await;
+    let (status, error) = upload_response(reader).await;
+    assert_eq!(status, 400, "{error}");
+    assert_eq!(error["error"], "invalid");
+    assert_eq!(error["message"], "файл больше 25 МБ");
+    assert_no_upload_tmp(&root).await;
+
+    // Ровно лимит допустим; следующий байт в потоке — 400 и очистка tmp.
+    for size in [MAX_FILE_BYTES, MAX_FILE_BYTES + 1] {
+        let (mut writer, reader) =
+            start_upload(&owner, address, project, "Transfer-Encoding: chunked").await;
+        let sending = tokio::spawn(async move {
+            let chunk = [b'x'; 64 * 1024];
+            let mut remaining = size;
+            while remaining > 0 {
+                let len = remaining.min(chunk.len());
+                let chunk_header = format!("{len:x}\r\n");
+                writer.write_all(chunk_header.as_bytes()).await?;
+                writer.write_all(&chunk[..len]).await?;
+                writer.write_all(b"\r\n").await?;
+                remaining -= len;
+            }
+            writer.write_all(b"0\r\n\r\n").await?;
+            // Писатель остаётся жить в результате задачи: hyper не поддерживает
+            // половинное закрытие и бросил бы запрос, увидев конец чтения до ответа.
+            Ok::<_, std::io::Error>(writer)
+        });
+        let (status, body) = upload_response(reader).await;
+        sending.abort();
+        if size == MAX_FILE_BYTES {
+            assert_eq!(status, 201, "{body}");
+            assert_eq!(body["size"], MAX_FILE_BYTES);
+        } else {
+            assert_eq!(status, 400, "{body}");
+            assert_eq!(body["error"], "invalid");
+            assert_eq!(body["message"], "файл больше 25 МБ");
+        }
+        assert_eq!(slots.available_permits(), 4);
+        assert_no_upload_tmp(&root).await;
+    }
+    let page = owner
+        .get(address, &format!("/api/v1/projects/{project}"))
+        .await;
+    assert_eq!(page.body["files"].as_array().unwrap().len(), 2);
+    let blobs: i64 = sqlx::query_scalar("SELECT count(*) FROM file_blobs")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(blobs, 2, "превышение размера не создаёт blob");
+
+    db.close().await;
+    test_db.drop_db().await;
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn project_upload_slots_are_shared_and_released() {
+    let (test_db, db, address, root, slots) = upload_setup().await;
+    let mut owner = logged_in(address).await;
+    let first = Uuid::now_v7();
+    let second = Uuid::now_v7();
+    push(
+        &mut owner,
+        address,
+        vec![
+            create(first, "planner.project", "Первый", json!({})),
+            create(second, "planner.project", "Второй", json!({})),
+        ],
+    )
+    .await;
+
+    // Четыре настоящих запроса ждут продолжения тела и удерживают слоты.
+    let mut pending = Vec::new();
+    for _ in 0..4 {
+        pending.push(start_upload(&owner, address, first, "Transfer-Encoding: chunked").await);
+    }
+    timeout(Duration::from_secs(10), async {
+        while slots.available_permits() != 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("все четыре загрузки должны занять слоты");
+
+    // Другой проект использует те же слоты; ответ не требует чтения тела.
+    let (_writer, reader) =
+        start_upload(&owner, address, second, "Transfer-Encoding: chunked").await;
+    let (status, error) = upload_response(reader).await;
+    assert_eq!(status, 429, "{error}");
+    assert_eq!(error["error"], "too_many_uploads");
+    assert_eq!(
+        error["message"],
+        "Уже загружаются четыре файла. Попробуйте позже"
+    );
+
+    // Один слот освобождается по успеху, другие — по ошибке чтения тела.
+    let (mut writer, reader) = pending.pop().unwrap();
+    writer.write_all(b"1\r\nx\r\n0\r\n\r\n").await.unwrap();
+    let (status, file) = upload_response(reader).await;
+    assert_eq!(status, 201, "{file}");
+    assert_eq!(slots.available_permits(), 1);
+    let (status, file) = upload(&owner, address, second, "ok.txt", "text/plain", b"ok").await;
+    assert_eq!(status, 201, "{file}");
+    for (mut writer, reader) in pending {
+        writer.write_all(b"invalid-chunk\r\n").await.unwrap();
+        let (status, _) = upload_response(reader).await;
+        assert_eq!(status, 500);
+    }
+    assert_eq!(slots.available_permits(), 4);
+    assert_no_upload_tmp(&root).await;
+
+    db.close().await;
+    test_db.drop_db().await;
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn project_upload_checks_project_and_file_count_before_reading_body() {
+    let (test_db, db, address, root, slots) = upload_setup().await;
+    let mut owner = logged_in(address).await;
+    let project = Uuid::now_v7();
+    push(
+        &mut owner,
+        address,
+        vec![create(project, "planner.project", "Полный", json!({}))],
+    )
+    .await;
+
+    let (_writer, reader) = start_upload(
+        &owner,
+        address,
+        Uuid::now_v7(),
+        "Transfer-Encoding: chunked",
+    )
+    .await;
+    let (status, error) = upload_response(reader).await;
+    assert_eq!(status, 404, "{error}");
+
+    let mut conn = db.pool().acquire().await.unwrap();
+    let owner_account = owner_id(&db).await;
+    let blob = qubite_objects::BlobStore::new(&root)
+        .put(&mut conn, b"x".as_slice(), "text/plain")
+        .await
+        .unwrap();
+    for index in 0..MAX_FILES {
+        sqlx::query(
+            "INSERT INTO attachments (object_id, sha256, name, created_by) VALUES ($1, $2, $3, $4)",
+        )
+        .bind(project)
+        .bind(blob.sha256.0.as_slice())
+        .bind(format!("{index}.txt"))
+        .bind(owner_account)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+    }
+    drop(conn);
+    let (_writer, reader) =
+        start_upload(&owner, address, project, "Transfer-Encoding: chunked").await;
+    let (status, error) = upload_response(reader).await;
+    assert_eq!(status, 400, "{error}");
+    assert_eq!(error["error"], "invalid");
+    assert_eq!(
+        error["message"],
+        format!("в проекте уже {MAX_FILES} файлов — убери ненужные")
+    );
+    assert_eq!(slots.available_permits(), 4);
+    assert_no_upload_tmp(&root).await;
+
+    db.close().await;
+    test_db.drop_db().await;
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 /// Лента проекта — только пока дело в нём: перенесённое из другого проекта

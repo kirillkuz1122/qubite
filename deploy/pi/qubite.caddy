@@ -8,6 +8,14 @@ http://:9284 {
 	@wrongHost not host qubiteapp.online auth.qubiteapp.online
 	respond @wrongHost "Unknown host" 404
 
+	# SEC-002 (D-770, D-771). Единственный источник CSP: его же читает
+	# apps/web/playwright.csp.config.ts, так что проверка в браузере идёт с этой строкой.
+	# Cloudflare сам закрывает TLS, поэтому HSTS ставим здесь: заголовок дойдёт до браузера.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' wss://qubiteapp.online wss://auth.qubiteapp.online https://api.openai.com https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net; frame-src https://challenges.cloudflare.com https://smartcaptcha.yandexcloud.net https://oauth.telegram.org; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+		Strict-Transport-Security "max-age=31536000"
+	}
+
 	handle /api/* {
 		reverse_proxy 127.0.0.1:9300 {
 			header_up X-Forwarded-Proto https

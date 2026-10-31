@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:csp": "playwright test -c playwright.csp.config.ts"
   },
   "dependencies": {
     "@lexical/code": "0.52.0",

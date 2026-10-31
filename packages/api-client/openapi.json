@@ -8508,6 +8508,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Все слоты загрузки заняты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
           }
         }
       }
