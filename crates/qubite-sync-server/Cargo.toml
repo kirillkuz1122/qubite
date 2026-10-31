@@ -21,4 +21,4 @@ workspace = true
 [dev-dependencies]
 qubite-testkit = { path = "../qubite-testkit" }
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "postgres"] }
-tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "time"] }

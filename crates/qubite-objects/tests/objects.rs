@@ -123,6 +123,95 @@ async fn rename_checks_revision_and_reports_conflict() {
 }
 
 #[tokio::test]
+async fn doc_rename_only_skips_a_complete_history_of_content_revisions() {
+    let (test_db, pool) = setup().await;
+    let mut conn = pool.acquire().await.unwrap();
+    let owner = new_id();
+    for (object_type, fields, allowed) in [
+        ("docs.page", vec!["body"], true),
+        ("docs.page", vec!["ystate"], true),
+        ("docs.page", vec!["ystate", "body"], true),
+        ("docs.page", vec!["body", "title"], false),
+        ("docs.page", vec!["unknown"], false),
+        ("docs.page", vec![], false),
+        ("inbox.item", vec!["body", "ystate"], false),
+    ] {
+        let doc = objects::create(&mut conn, NewObject::new(object_type, owner, "Черновик"))
+            .await
+            .unwrap();
+        objects::bump(&mut conn, doc.id, 1, owner, &fields)
+            .await
+            .unwrap();
+        let result = objects::rename(&mut conn, doc.id, 1, "Итог", owner).await;
+        if allowed {
+            assert_eq!(result.unwrap().revision, 3);
+        } else {
+            assert!(matches!(result, Err(Error::Conflict { .. })));
+        }
+    }
+
+    let doc = objects::create(&mut conn, NewObject::new("docs.page", owner, "Черновик"))
+        .await
+        .unwrap();
+    objects::bump(&mut conn, doc.id, 1, owner, &["body", "ystate"])
+        .await
+        .unwrap();
+    for base in [0, 3] {
+        assert!(matches!(
+            objects::rename(&mut conn, doc.id, base, "Неверная база", owner).await,
+            Err(Error::Conflict { .. })
+        ));
+    }
+    objects::rename(&mut conn, doc.id, 2, "Другое название", owner)
+        .await
+        .unwrap();
+    objects::bump(&mut conn, doc.id, 3, owner, &["body", "ystate"])
+        .await
+        .unwrap();
+    assert!(matches!(
+        objects::rename(&mut conn, doc.id, 1, "Потереть чужое", owner).await,
+        Err(Error::Conflict { .. })
+    ));
+
+    objects::delete(&mut conn, doc.id, 4, owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        objects::rename(&mut conn, doc.id, 4, "Удалённый", owner).await,
+        Err(Error::Deleted)
+    ));
+    objects::restore(&mut conn, doc.id, 5, owner)
+        .await
+        .unwrap();
+    objects::bump(&mut conn, doc.id, 6, owner, &["body", "ystate"])
+        .await
+        .unwrap();
+    assert!(matches!(
+        objects::rename(&mut conn, doc.id, 4, "После восстановления", owner).await,
+        Err(Error::Conflict { .. })
+    ));
+
+    // Если писатель не оставил событие, считать его правку текстовой нельзя.
+    let doc = objects::create(&mut conn, NewObject::new("docs.page", owner, "Черновик"))
+        .await
+        .unwrap();
+    sqlx::query("UPDATE objects SET revision = revision + 1 WHERE id = $1")
+        .bind(doc.id)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+    objects::bump(&mut conn, doc.id, 2, owner, &["body", "ystate"])
+        .await
+        .unwrap();
+    assert!(matches!(
+        objects::rename(&mut conn, doc.id, 1, "Пропуск истории", owner).await,
+        Err(Error::Conflict { .. })
+    ));
+    drop(conn);
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
 async fn concurrent_edits_of_same_revision_have_exactly_one_winner() {
     let (test_db, pool) = setup().await;
     let owner = new_id();
