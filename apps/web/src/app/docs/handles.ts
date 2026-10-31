@@ -44,7 +44,12 @@ export function acquireDocument(store: DocStore, id: string) {
           queueMicrotask(() => {
             if (current.users || cache.get(id) !== current) return;
             cache.delete(id);
-            void handle.close().catch(() => {});
+            // close отменяет отложенную отправку: неотправленное дошлёт фоновый обмен.
+            const unsent = handle.status === 'pending';
+            void handle
+              .close()
+              .then(() => (unsent ? store.syncAll() : undefined))
+              .catch(() => {});
           });
         })
         .catch(() => {});

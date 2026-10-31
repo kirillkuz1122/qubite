@@ -1,5 +1,5 @@
 import { loop } from '@qubite/motion';
-import { createDoc } from '@qubite/sync-client';
+import { createDoc, titleFrom } from '@qubite/sync-client';
 import {
   Button,
   Companion,
@@ -63,7 +63,8 @@ export function InboxScreen() {
         void (async () => {
           try {
             const sync = await ready();
-            await createDoc(sync, it.text);
+            // Название — первая строка до TITLE_CHARS: сервер не примет длиннее 1000 знаков.
+            await createDoc(sync, titleFrom(it.text));
             // В архив — только после записи документа на устройство.
             await inbox.done(it.id);
             void sync.sync();
