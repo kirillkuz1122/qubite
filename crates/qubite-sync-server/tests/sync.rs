@@ -1,9 +1,12 @@
 //! Тесты серверной синхронизации на настоящей PostgreSQL (нужна `TEST_DATABASE_URL`).
 
+use std::time::Duration;
+
+use qubite_objects::{NewObject, objects};
 use qubite_sync::{OpKind, OpResult, Operation, PushRequest, RejectReason};
 use qubite_sync_server::{pull, push};
 use qubite_testkit::TestDb;
-use sqlx::PgPool;
+use sqlx::{PgPool, postgres::PgListener};
 use uuid::Uuid;
 
 fn create(object_id: Uuid, title: &str) -> Operation {
@@ -50,6 +53,108 @@ async fn count(pool: &PgPool, sql: &str) -> i64 {
         .fetch_one(pool)
         .await
         .unwrap()
+}
+
+#[tokio::test]
+async fn offline_doc_rename_survives_content_exchange_and_keeps_change_notifications() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = Uuid::now_v7();
+    let mut conn = pool.acquire().await.unwrap();
+    let doc = objects::create(&mut conn, NewObject::new("docs.page", owner, "Черновик"))
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO docs_pages (object_id) VALUES ($1)")
+        .bind(doc.id)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+    drop(conn);
+    let initial = pull(pool, owner, 0, 100).await.unwrap();
+    let offline = batch(vec![set_title(doc.id, doc.revision, "Новое название")]);
+    let mut listener = PgListener::connect_with(pool).await.unwrap();
+    listener
+        .listen(qubite_sync_server::CHANGES_CHANNEL)
+        .await
+        .unwrap();
+
+    // Контракт ydoc::apply: снимок текста и bump(body, ystate) в одной
+    // транзакции. Сам /y ещё отсутствует в main, поэтому проверяем его запись
+    // через ядро, без зависимости sync-server от planner и HTTP-слоя.
+    for revision in 1..=2 {
+        let mut tx = pool.begin().await.unwrap();
+        sqlx::query("UPDATE docs_pages SET body = $2 WHERE object_id = $1")
+            .bind(doc.id)
+            .bind(format!("Текст после обмена {revision}"))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        objects::bump(&mut tx, doc.id, revision, owner, &["body", "ystate"])
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        let notification = tokio::time::timeout(Duration::from_secs(5), listener.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(notification.payload(), owner.to_string());
+    }
+    let content = pull(pool, owner, initial.cursor, 100).await.unwrap();
+    assert_eq!(content.changes.len(), 1);
+    assert_eq!(content.changes[0].revision, 3);
+
+    let response = push(pool, owner, &offline).await.unwrap();
+    assert!(matches!(
+        response.results[0],
+        OpResult::Applied { revision: 4, .. }
+    ));
+    assert_eq!(push(pool, owner, &offline).await.unwrap(), response);
+    let renamed = pull(pool, owner, content.cursor, 100).await.unwrap();
+    assert_eq!(renamed.changes.len(), 1);
+    assert_eq!(renamed.changes[0].title, "Новое название");
+    assert_eq!(renamed.changes[0].revision, 4);
+    let body: String = sqlx::query_scalar("SELECT body FROM docs_pages WHERE object_id = $1")
+        .bind(doc.id)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(body, "Текст после обмена 2", "снимок для превью сохранён");
+    drop(listener);
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn concurrent_offline_doc_renames_after_content_exchange_have_one_winner() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let owner = Uuid::now_v7();
+    let mut conn = pool.acquire().await.unwrap();
+    let doc = objects::create(&mut conn, NewObject::new("docs.page", owner, "Черновик"))
+        .await
+        .unwrap();
+    objects::bump(&mut conn, doc.id, 1, owner, &["body", "ystate"])
+        .await
+        .unwrap();
+    drop(conn);
+    let left = batch(vec![set_title(doc.id, 1, "С телефона")]);
+    let right = batch(vec![set_title(doc.id, 1, "С ноутбука")]);
+    let (left, right) = tokio::join!(push(pool, owner, &left), push(pool, owner, &right));
+    let results = [left.unwrap(), right.unwrap()];
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r.results[0], OpResult::Applied { revision: 3, .. }))
+            .count(),
+        1
+    );
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r.results[0], OpResult::Conflict { .. }))
+            .count(),
+        1
+    );
+    test_db.drop_db().await;
 }
 
 #[tokio::test]
