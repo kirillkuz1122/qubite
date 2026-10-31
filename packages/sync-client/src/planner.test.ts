@@ -8,6 +8,9 @@ import {
   isoDate,
   newSubtask,
   plannerData,
+  parseProjectBoard,
+  toProject,
+  type ProjectBoard,
   patchTask,
   toTask,
   setTaskDone,
@@ -251,5 +254,77 @@ describe('Planner: проекты и дела', () => {
     await expect(createTask(client, '   ')).rejects.toThrow('название');
     await expect(createProject(client, '')).rejects.toThrow('название');
     client.close();
+  });
+});
+
+
+describe('Настройка доски проекта', () => {
+  const board: ProjectBoard = {
+    columns: [
+      { status: 'todo', title: 'Планы' },
+      { status: 'done', title: 'Готово' },
+    ],
+    view: 'list',
+  };
+
+  it('разбирает настройку, старые записи и неверные значения', () => {
+    expect(parseProjectBoard(board)).toEqual(board);
+    expect(parseProjectBoard(undefined)).toBeNull();
+    expect(parseProjectBoard(null)).toBeNull();
+    expect(parseProjectBoard({ ...board, view: 'calendar' })).toBeNull();
+    expect(parseProjectBoard({ ...board, columns: [board.columns[0]] })).toBeNull();
+    expect(parseProjectBoard({ ...board, columns: Array(4).fill(board.columns[1]) })).toBeNull();
+    expect(parseProjectBoard({ ...board, columns: Array(2).fill(board.columns[1]) })).toBeNull();
+    expect(
+      parseProjectBoard({
+        ...board,
+        columns: [board.columns[0], { status: 'doing', title: 'В работе' }],
+      }),
+    ).toBeNull();
+    for (const title of ['  ', 'я'.repeat(25)]) {
+      expect(
+        parseProjectBoard({
+          ...board,
+          columns: [{ status: 'todo', title }, board.columns[1]],
+        }),
+      ).toBeNull();
+    }
+    expect(
+      parseProjectBoard({
+        ...board,
+        columns: [{ status: 'todo', title: `  ${'я'.repeat(24)}  ` }, board.columns[1]],
+      })?.columns[0]?.title,
+    ).toBe('я'.repeat(24));
+  });
+
+  it('сохраняет доску без сети, передаёт её при синхронизации и сбрасывает через null', async () => {
+    const server = new PlannerServer();
+    const dbName = `planner-board-${++dbCounter}`;
+    let client = await open(server, dbName);
+    try {
+      const old = await createProject(client, 'Без настройки');
+      expect(toProject(old).board).toBeNull();
+      const made = await createProject(client, 'С доской', { board });
+      expect(toProject(made).board).toEqual(board);
+      await client.sync();
+      expect(server.objects.get(made.id)!.fields!.board).toEqual(board);
+      server.offline = true;
+      const changed: ProjectBoard = { ...board, view: 'board' };
+      await updateProject(client, made.id, { board: changed });
+      client.close();
+      client = await open(server, dbName);
+      expect(toProject((await client.get(made.id))!).board).toEqual(changed);
+      server.offline = false;
+      await client.sync();
+      expect(server.objects.get(made.id)!.fields!.board).toEqual(changed);
+      await updateProject(client, made.id, { notes: 'Описание' });
+      expect(toProject((await client.get(made.id))!).board).toEqual(changed);
+      await updateProject(client, made.id, { board: null });
+      expect(toProject((await client.get(made.id))!).board).toBeNull();
+      await client.sync();
+      expect(server.objects.get(made.id)!.fields!.board).toBeNull();
+    } finally {
+      client.close();
+    }
   });
 });
