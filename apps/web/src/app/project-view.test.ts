@@ -1,7 +1,9 @@
-import type { PlannerTask } from '@qubite/sync-client';
+import type { PlannerTask, ProjectBoard } from '@qubite/sync-client';
 import { describe, expect, it } from 'vitest';
 import {
   buildAgenda,
+  buildProjectColumns,
+  projectBoard,
   countsLabel,
   dueLabel,
   feedLine,
@@ -127,5 +129,63 @@ describe('страница проекта (PROJ-001)', () => {
     expect(fileUrl('p', 'отчёт (2).pdf')).toBe(
       '/api/v1/projects/p/files/%D0%BE%D1%82%D1%87%D1%91%D1%82%20(2).pdf',
     );
+  });
+});
+
+describe('колонки проекта (PLAN-002b)', () => {
+  it('null даёт три стандартные колонки и не скрывает старые сделанные дела', () => {
+    const tasks = [
+      task('a', {}),
+      task('b', { status: 'doing' }),
+      task('c', { status: 'done', completed_at_ms: 1 }),
+    ];
+    const columns = buildProjectColumns(tasks, null);
+    const summary = columns.map(({ status, title, tasks }) => [
+      status,
+      title,
+      tasks.map((task) => task.id),
+    ]);
+    expect(summary).toEqual([
+      ['todo', 'Надо', ['a']],
+      ['doing', 'В работе', ['b']],
+      ['done', 'Готово', ['c']],
+    ]);
+    expect(projectBoard(null).view).toBe('board');
+  });
+
+  it('скрытая «В работе» попадает в первую колонку без изменения статуса', () => {
+    const board: ProjectBoard = {
+      view: 'list',
+      columns: [
+        { status: 'todo', title: 'Темы' },
+        { status: 'done', title: 'Разобрал' },
+      ],
+    };
+    const doing = Object.freeze(task('b', { status: 'doing' }));
+    const tasks = Object.freeze([task('a', {}), doing, task('c', { status: 'done' })]);
+    const columns = buildProjectColumns(tasks, board);
+    expect(columns.map((column) => column.tasks.map((task) => task.id))).toEqual([
+      ['a', 'b'],
+      ['c'],
+    ]);
+    expect(columns[0]!.tasks[1]).toBe(doing);
+    expect(doing.status).toBe('doing');
+    expect(board.columns).toHaveLength(2);
+  });
+
+  it('первая колонка определяется порядком настройки, а не статусом todo', () => {
+    const board: ProjectBoard = {
+      view: 'board',
+      columns: [
+        { status: 'done', title: 'Готово' },
+        { status: 'todo', title: 'Надо' },
+      ],
+    };
+    const columns = buildProjectColumns([task('b', { status: 'doing' })], board);
+    expect(columns[0]!.tasks[0]!.id).toBe('b');
+    expect(buildProjectColumns([], board).map((column) => column.title)).toEqual([
+      'Готово',
+      'Надо',
+    ]);
   });
 });

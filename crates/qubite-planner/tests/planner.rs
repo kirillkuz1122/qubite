@@ -712,3 +712,226 @@ async fn duration_migration_sync_and_constraints() {
     drop(conn);
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn project_board_create_patch_reset_and_snapshots() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    let id = Uuid::now_v7();
+    let board = json!({
+        "columns": [
+            { "status": "todo", "title": "Надо" },
+            { "status": "doing", "title": "В работе" },
+            { "status": "done", "title": "Готово" },
+        ],
+        "view": "board",
+    });
+    let mut revision = applied(
+        &push(
+            &db,
+            owner,
+            vec![create(
+                id,
+                "planner.project",
+                "Доска проекта",
+                Some(json!({ "board": board })),
+            )],
+            &rules(),
+        )
+        .await[0],
+    );
+    let pulled = qubite_sync_server::pull_with(db.pool(), owner, 0, 100, &rules())
+        .await
+        .unwrap();
+    assert_eq!(pulled.changes[0].fields.as_ref().unwrap()["board"], board);
+    let next = json!({
+        "columns": [
+            { "status": "done", "title": "Завершено" },
+            { "status": "todo", "title": "Планы" },
+        ],
+        "view": "list",
+    });
+    let mut padded = next.clone();
+    padded["columns"][1]["title"] = json!("  Планы  ");
+    revision = applied(
+        &push(
+            &db,
+            owner,
+            vec![patch(id, revision, json!({ "board": padded }))],
+            &rules(),
+        )
+        .await[0],
+    );
+    // Отсутствующее поле не сбрасывает настройку.
+    revision = applied(
+        &push(
+            &db,
+            owner,
+            vec![patch(id, revision, json!({ "notes": "Описание" }))],
+            &rules(),
+        )
+        .await[0],
+    );
+    let pulled = qubite_sync_server::pull_with(db.pool(), owner, pulled.cursor, 100, &rules())
+        .await
+        .unwrap();
+    assert_eq!(pulled.changes[0].fields.as_ref().unwrap()["board"], next);
+    // Конфликт тоже отдаёт текущую настройку.
+    let conflict = push(
+        &db,
+        owner,
+        vec![patch(id, revision - 1, json!({ "board": null }))],
+        &rules(),
+    )
+    .await;
+    match &conflict[0] {
+        OpResult::Conflict { current, .. } => {
+            assert_eq!(current.fields.as_ref().unwrap()["board"], next);
+        }
+        other => panic!("ожидали конфликт: {other:?}"),
+    }
+    applied(
+        &push(
+            &db,
+            owner,
+            vec![patch(id, revision, json!({ "board": null }))],
+            &rules(),
+        )
+        .await[0],
+    );
+    let pulled = qubite_sync_server::pull_with(db.pool(), owner, pulled.cursor, 100, &rules())
+        .await
+        .unwrap();
+    assert!(pulled.changes[0].fields.as_ref().unwrap()["board"].is_null());
+    let is_null: bool =
+        sqlx::query_scalar("SELECT board IS NULL FROM planner_projects WHERE object_id = $1")
+            .bind(id)
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert!(is_null, "сброс хранится как SQL NULL");
+    let mut conn = db.pool().acquire().await.unwrap();
+    let saved = qubite_planner::get_project(&mut conn, owner, id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(saved.board.is_none());
+    let events = qubite_objects::events::for_object(&mut conn, id)
+        .await
+        .unwrap();
+    let board_updates = events
+        .iter()
+        .filter(|event| {
+            event.kind == "object.updated" && event.payload["fields"] == json!(["board"])
+        })
+        .count();
+    assert_eq!(board_updates, 2, "правка и сброс попадают в события");
+    drop(conn);
+    // Старый клиент не передаёт board; явный null при создании тоже допустим.
+    for fields in [None, Some(json!({ "board": null }))] {
+        let id = Uuid::now_v7();
+        applied(
+            &push(
+                &db,
+                owner,
+                vec![create(id, "planner.project", "Стандартная доска", fields)],
+                &rules(),
+            )
+            .await[0],
+        );
+        let board: Option<Value> =
+            sqlx::query_scalar("SELECT board FROM planner_projects WHERE object_id = $1")
+                .bind(id)
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+        assert!(board.is_none());
+    }
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn invalid_project_boards_are_rejected_without_partial_changes() {
+    let (test_db, db) = TestDb::migrated().await;
+    let owner = Uuid::now_v7();
+    let id = Uuid::now_v7();
+    let revision = applied(
+        &push(
+            &db,
+            owner,
+            vec![create(id, "planner.project", "Проект", None)],
+            &rules(),
+        )
+        .await[0],
+    );
+    let valid = json!({
+        "columns": [
+            { "status": "todo", "title": "Планы" },
+            { "status": "done", "title": "Готово" },
+        ],
+        "view": "board",
+    });
+    let mut cases = Vec::new();
+    for count in [1, 4] {
+        let mut board = valid.clone();
+        board["columns"] = json!(vec![valid["columns"][1].clone(); count]);
+        cases.push(board);
+    }
+    let mut duplicate = valid.clone();
+    duplicate["columns"][0]["status"] = json!("done");
+    cases.push(duplicate);
+    let mut no_done = valid.clone();
+    no_done["columns"][1]["status"] = json!("doing");
+    cases.push(no_done);
+    for title in ["я".repeat(25), "   ".to_owned()] {
+        let mut board = valid.clone();
+        board["columns"][0]["title"] = json!(title);
+        cases.push(board);
+    }
+    let mut unknown_status = valid.clone();
+    unknown_status["columns"][0]["status"] = json!("cancelled");
+    cases.push(unknown_status);
+    let mut unknown_view = valid.clone();
+    unknown_view["view"] = json!("calendar");
+    cases.push(unknown_view);
+    cases.push(json!({ "columns": valid["columns"] }));
+    for board in cases {
+        let new_id = Uuid::now_v7();
+        let results = push(
+            &db,
+            owner,
+            vec![
+                create(
+                    new_id,
+                    "planner.project",
+                    "Неверная доска",
+                    Some(json!({ "board": board })),
+                ),
+                patch(
+                    id,
+                    revision,
+                    json!({ "notes": "Не сохранять", "board": board }),
+                ),
+            ],
+            &rules(),
+        )
+        .await;
+        assert!(!rejected(&results[0]).is_empty());
+        assert!(!rejected(&results[1]).is_empty());
+        let mut conn = db.pool().acquire().await.unwrap();
+        assert!(
+            qubite_planner::get_project(&mut conn, owner, new_id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let saved = qubite_planner::get_project(&mut conn, owner, id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.revision, revision);
+        assert_eq!(saved.notes, "");
+        assert!(saved.board.is_none());
+    }
+    test_db.drop_db().await;
+}

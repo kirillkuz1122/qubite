@@ -52,7 +52,7 @@ pub fn revertable_fields(object_type: &str) -> &'static [&'static str] {
             "recurrence",
             "project_id",
         ],
-        qubite_planner::PROJECT_TYPE => &["color", "tag", "status", "notes"],
+        qubite_planner::PROJECT_TYPE => &["color", "tag", "status", "notes", "board"],
         crate::opportunities::TYPE => crate::opportunities::FIELDS,
         qubite_inbox::ITEM_TYPE => &["status", "body"],
         crate::files::FILE_TYPE => &["body", "pinned", "archived"],

@@ -632,6 +632,7 @@ pub(crate) mod tests {
             color: qubite_planner::Color::Sky,
             tag: title.to_lowercase(),
             status: qubite_planner::ProjectStatus::Active,
+            board: None,
             notes: String::new(),
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,

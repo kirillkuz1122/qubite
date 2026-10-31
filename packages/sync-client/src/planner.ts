@@ -22,6 +22,42 @@ export type Priority = 'normal' | 'important' | 'urgent';
 export type ProjectColor = 'orange' | 'sky' | 'yellow' | 'green' | 'peach';
 export const PROJECT_COLORS: ProjectColor[] = ['orange', 'sky', 'yellow', 'green', 'peach'];
 
+export type BoardView = 'board' | 'list';
+
+export interface BoardColumn {
+  status: TaskStatus;
+  title: string;
+}
+
+/** null — стандартные «Надо / В работе / Готово», вид «доска». */
+export interface ProjectBoard {
+  columns: BoardColumn[];
+  view: BoardView;
+}
+
+/** Старые локальные записи без board и некорректные данные используют стандартную доску. */
+export function parseProjectBoard(value: unknown): ProjectBoard | null {
+  if (!value || typeof value !== 'object') return null;
+  const board = value as Record<string, unknown>;
+  if (board.view !== 'board' && board.view !== 'list') return null;
+  if (!Array.isArray(board.columns) || board.columns.length < 2 || board.columns.length > 3)
+    return null;
+  const columns: BoardColumn[] = [];
+  const seen = new Set<TaskStatus>();
+  for (const value of board.columns) {
+    if (!value || typeof value !== 'object') return null;
+    const column = value as Record<string, unknown>;
+    const status = column.status;
+    if (status !== 'todo' && status !== 'doing' && status !== 'done') return null;
+    if (seen.has(status) || typeof column.title !== 'string') return null;
+    const title = column.title.trim();
+    if (!title || Array.from(title).length > 24) return null;
+    seen.add(status);
+    columns.push({ status, title });
+  }
+  return seen.has('done') ? { columns, view: board.view } : null;
+}
+
 export interface Subtask {
   id: string;
   title: string;
@@ -97,6 +133,7 @@ export interface PlannerProject {
   status: 'active' | 'archived';
   /** описание проекта (PROJ-001) */
   notes: string;
+  board: ProjectBoard | null;
   pending: boolean;
 }
 
@@ -188,6 +225,7 @@ export function toProject(o: LocalObject): PlannerProject {
     color: color && PROJECT_COLORS.includes(color) ? color : 'orange',
     tag: str(f.tag) ?? tagFrom(o.title),
     status: f.status === 'archived' ? 'archived' : 'active',
+    board: parseProjectBoard(f.board),
     notes: str(f.notes) ?? '',
     pending: o.pending,
   };
@@ -207,12 +245,13 @@ export async function plannerData(
 export async function createProject(
   client: SyncClient,
   name: string,
-  options: { color?: ProjectColor; tag?: string } = {},
+  options: { color?: ProjectColor; tag?: string; board?: ProjectBoard | null } = {},
 ): Promise<LocalObject> {
   const title = name.trim();
   if (!title) throw new Error('у проекта нужно название');
   const fields: Fields = { tag: tagFrom(options.tag ?? title) };
   if (options.color) fields.color = options.color;
+  if (options.board !== undefined) fields.board = options.board;
   return client.create(PLANNER_PROJECT, title, fields, { color: 'orange', status: 'active' });
 }
 
@@ -222,6 +261,8 @@ export interface ProjectPatch {
   color?: ProjectColor;
   notes?: string;
   status?: 'active' | 'archived';
+  /** null сбрасывает настройку доски. */
+  board?: ProjectBoard | null;
 }
 
 /** Изменить проект (без сети — тоже): название — отдельной операцией, поля — одной. */
