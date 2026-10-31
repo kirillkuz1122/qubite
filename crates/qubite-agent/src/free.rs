@@ -135,7 +135,11 @@ pub fn busy_on(date: Date, slots: &[Slot], tasks: &[Task], travel_minutes: i64) 
         if task.travel_minutes.is_some() || reminder::is_outing(&task.title) {
             busy.push(Busy {
                 from: at - task.travel_minutes.map(i64::from).unwrap_or(travel_minutes),
-                to: at + task.duration_minutes.map(i64::from).unwrap_or(OUTING_MINUTES),
+                to: at
+                    + task
+                        .duration_minutes
+                        .map(i64::from)
+                        .unwrap_or(OUTING_MINUTES),
                 what: format!("{} (с дорогой)", task.title),
             });
         } else {

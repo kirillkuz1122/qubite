@@ -794,7 +794,10 @@ async fn duration_estimation_owner_values_and_question_hint() {
     )
     .await;
     let id = created_id(&made, "planner.task");
-    assert_eq!(task(pool, me, id).await.duration_by, Some(DurationBy::Owner));
+    assert_eq!(
+        task(pool, me, id).await.duration_by,
+        Some(DurationBy::Owner)
+    );
     assert_eq!(task(pool, me, id).await.duration_minutes, Some(25));
     let error = call(
         pool,

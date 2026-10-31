@@ -1264,7 +1264,9 @@ mod duration_tests {
             assert_eq!(state.duration_minutes, Some(minutes));
             assert_eq!(state.duration_by, Some(DurationBy::Owner));
             state
-                .apply(&fields(json!({"duration_minutes": minutes, "duration_by": "agent"})))
+                .apply(&fields(
+                    json!({"duration_minutes": minutes, "duration_by": "agent"}),
+                ))
                 .unwrap();
             assert_eq!(state.duration_by, Some(DurationBy::Agent));
             state

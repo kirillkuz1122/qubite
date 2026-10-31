@@ -16,11 +16,16 @@ fn roots(text: &str) -> BTreeSet<String> {
     text.to_lowercase()
         .replace('ё', "е")
         .split(|c: char| !c.is_alphabetic())
-        .filter(|word| !matches!(*word, "" | "по" | "на" | "в" | "и" | "с" | "для" | "из" | "к"))
+        .filter(|word| {
+            !matches!(
+                *word,
+                "" | "по" | "на" | "в" | "и" | "с" | "для" | "из" | "к"
+            )
+        })
         .map(|word| {
             let suffixes = [
-                "иями", "ами", "ого", "ему", "ому", "ить", "ать", "ять", "ов", "ам", "ям", "ий", "ый",
-                "ой", "ая", "ое", "ую", "ом", "ем", "а", "я", "ы", "и", "у", "е",
+                "иями", "ами", "ого", "ему", "ому", "ить", "ать", "ять", "ов", "ам", "ям", "ий",
+                "ый", "ой", "ая", "ое", "ую", "ом", "ем", "а", "я", "ы", "и", "у", "е",
             ];
             for suffix in suffixes {
                 if let Some(root) = word.strip_suffix(suffix)
@@ -59,8 +64,8 @@ pub fn estimate(title: &str, notes: &str, history: &[Task]) -> Estimate {
         let minutes = (past[(n - 1) / 2].duration_minutes.unwrap_or(30)
             + past[n / 2].duration_minutes.unwrap_or(30))
             / 2;
-        let spread = past[n - 1].duration_minutes.unwrap_or(30)
-            - past[0].duration_minutes.unwrap_or(30);
+        let spread =
+            past[n - 1].duration_minutes.unwrap_or(30) - past[0].duration_minutes.unwrap_or(30);
         let sure = spread * 4 <= minutes;
         return Estimate {
             minutes,
@@ -79,7 +84,10 @@ pub fn estimate(title: &str, notes: &str, history: &[Task]) -> Estimate {
         (has("позвон") || has("звонок"), 10),
         (has("напис") || has("ответ"), 15),
         ((has("прочит") || has("чита")) && has("глав"), 45),
-        (has("дз") || has("домашк") || (has("домашн") && has("задан")), 60),
+        (
+            has("дз") || has("домашк") || (has("домашн") && has("задан")),
+            60,
+        ),
         (has("трениров"), 90),
         (has("врач") || has("встреч"), 60),
     ];
@@ -126,11 +134,7 @@ mod tests {
         let mut second = first.clone();
         second.title = "ДЗ по русскому № 20".into();
         second.duration_minutes = Some(44);
-        let got = estimate(
-            "ДЗ по русскому № 30",
-            "",
-            &[first.clone(), second.clone()],
-        );
+        let got = estimate("ДЗ по русскому № 30", "", &[first.clone(), second.clone()]);
         assert_eq!(got.minutes, 42);
         assert!(got.sure);
         assert!(got.why.contains("как прошлые"));
@@ -176,9 +180,6 @@ mod tests {
             &roots("Встреча с врачом"),
             &roots("Встреча с врачами")
         ));
-        assert!(!similar(
-            &roots("ДЗ по русскому"),
-            &roots("ДЗ по физике")
-        ));
+        assert!(!similar(&roots("ДЗ по русскому"), &roots("ДЗ по физике")));
     }
 }

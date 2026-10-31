@@ -631,7 +631,9 @@ pub async fn call(
                 && task.duration_by == Some(qubite_planner::DurationBy::Owner)
                 && (fields.contains_key("duration_minutes") || fields.contains_key("duration_by"))
             {
-                return Err(Error::NeedsOwner("длительность человека агент не меняет".into()));
+                return Err(Error::NeedsOwner(
+                    "длительность человека агент не меняет".into(),
+                ));
             }
             let mut details = task_details(conn, account, &fields).await?;
             if let Some(title) = &title {
