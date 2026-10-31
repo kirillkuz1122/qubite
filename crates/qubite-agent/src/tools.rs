@@ -657,8 +657,11 @@ pub async fn call(
                 ));
             }
             let mut fields = fields;
-            if who.actor() == Actor::Agent && fields.contains_key("duration_minutes") {
-                // Источник «agent» планировщик сверяет атомарно с записью.
+            if who.actor() == Actor::Agent
+                && fields.contains_key("duration_minutes")
+                && !fields.contains_key("duration_by")
+            {
+                // Собственная оценка агента; явный источник (ответ человека в чате) не трогаем.
                 fields.insert("duration_by".into(), json!("agent"));
             }
             let mut details = task_details(conn, account, &fields).await?;
