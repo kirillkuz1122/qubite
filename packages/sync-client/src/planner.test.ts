@@ -9,6 +9,7 @@ import {
   newSubtask,
   plannerData,
   patchTask,
+  parseProjectBoard,
   toTask,
   setTaskDone,
   setTaskStatus,
@@ -251,5 +252,55 @@ describe('Planner: проекты и дела', () => {
     await expect(createTask(client, '   ')).rejects.toThrow('название');
     await expect(createProject(client, '')).rejects.toThrow('название');
     client.close();
+  });
+});
+
+describe('настройка доски проекта (PLAN-002)', () => {
+  it('сохраняет вид и колонки без сети, переживает открытие и отправляет сброс', async () => {
+    const server = new PlannerServer();
+    const dbName = `planner-board-${++dbCounter}`;
+    let client = await open(server, dbName);
+    try {
+      const project = await createProject(client, 'Учёба');
+      await client.sync();
+      expect((await plannerData(client)).projects[0]!.board).toBeNull();
+      server.offline = true;
+      const board = {
+        view: 'list' as const,
+        columns: [
+          { status: 'todo' as const, title: 'Темы' },
+          { status: 'done' as const, title: 'Разобрал' },
+        ],
+      };
+      await updateProject(client, project.id, { board });
+      client.close();
+      client = await open(server, dbName);
+      expect((await plannerData(client)).projects[0]!.board).toEqual(board);
+      server.offline = false;
+      expect((await client.sync()).status).toBe('synced');
+      expect(server.objects.get(project.id)!.fields!.board).toEqual(board);
+      await updateProject(client, project.id, { board: null });
+      expect((await plannerData(client)).projects[0]!.board).toBeNull();
+      expect((await client.sync()).status).toBe('synced');
+      expect(server.objects.get(project.id)!.fields!.board).toBeNull();
+    } finally {
+      client.close();
+    }
+  });
+
+  it('старые и повреждённые настройки используют стандартную доску', () => {
+    expect(parseProjectBoard(undefined)).toBeNull();
+    expect(parseProjectBoard(null)).toBeNull();
+    expect(parseProjectBoard({ view: 'grid', columns: [] })).toBeNull();
+    const todo = { status: 'todo', title: 'Надо' };
+    const done = { status: 'done', title: 'Готово' };
+    const parse = (columns: unknown[]) => parseProjectBoard({ view: 'board', columns });
+    expect(parse([todo])).toBeNull();
+    expect(parse([todo, done, done])).toBeNull();
+    expect(parse([todo, { status: 'doing', title: 'В работе' }])).toBeNull();
+    expect(parse([todo, { status: 'other', title: 'Иное' }, done])).toBeNull();
+    expect(parse([todo, { ...done, title: ' ' }])).toBeNull();
+    expect(parse([todo, { ...done, title: 'а'.repeat(25) }])).toBeNull();
+    expect(parse([todo, { ...done, title: 'а'.repeat(24) }])).not.toBeNull();
   });
 });

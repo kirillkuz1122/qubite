@@ -11,10 +11,10 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } 
 import { api } from '../api';
 import { Fail, must, say } from '../auth/client';
 import { AgentTimeline } from './AgentTimeline';
-import { useShell } from './context';
-import { SecHead, TaskList } from './parts';
+import { SecHead } from './parts';
 import { usePlanner } from './planner-context';
-import { iso, toRow } from './planner-view';
+import { iso } from './planner-view';
+import { ProjectBoardSettings, ProjectTasks } from './ProjectTasks';
 import {
   PROJECT,
   useCreateDoc,
@@ -30,7 +30,6 @@ import {
   MAX_FILE_BYTES,
   PROJECT_TABS,
   buildAgenda,
-  dueLabel,
   countsLabel,
   feedLine,
   feedWhen,
@@ -56,6 +55,8 @@ export function ProjectPage({ id }: { id: string }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<ProjectTab>('tasks');
   const [editing, setEditing] = useState(false);
+  const [projectMenu, setProjectMenu] = useState(false);
+  const [boardSettings, setBoardSettings] = useState(false);
   /** каждое открытие окна — форма заново со свежими значениями проекта */
   const [opened, setOpened] = useState(0);
 
@@ -116,15 +117,40 @@ export function ProjectPage({ id }: { id: string }) {
             <Button
               size="sm"
               dot={false}
+              aria-label="Меню проекта"
+              aria-expanded={projectMenu}
+              onClick={() => setProjectMenu(!projectMenu)}
+            >
+              ⋯
+            </Button>
+          )}
+        </div>
+        <Presence show={projectMenu}>
+          <div className="pp-project-actions" aria-label="Действия проекта">
+            <Button
+              size="sm"
+              dot={false}
               onClick={() => {
-                setOpened((n) => n + 1);
+                setOpened((value) => value + 1);
+                setProjectMenu(false);
                 setEditing(true);
               }}
             >
               Править
             </Button>
-          )}
-        </div>
+            <Button
+              size="sm"
+              dot={false}
+              onClick={() => {
+                setOpened((value) => value + 1);
+                setProjectMenu(false);
+                setBoardSettings(true);
+              }}
+            >
+              Настроить колонки
+            </Button>
+          </div>
+        </Presence>
         {head.notes ? (
           <p className="pp-notes">{head.notes}</p>
         ) : (
@@ -149,7 +175,7 @@ export function ProjectPage({ id }: { id: string }) {
       />
       <Swap view={tab} order={PROJECT_TABS}>
         {tab === 'tasks' ? (
-          <TasksTab id={id} />
+          <ProjectTasks id={id} />
         ) : tab === 'events' ? (
           <EventsTab id={id} page={data} />
         ) : tab === 'files' ? (
@@ -162,9 +188,22 @@ export function ProjectPage({ id }: { id: string }) {
       </Swap>
 
       {local && (
-        <Sheet open={editing} onClose={() => setEditing(false)} title="Проект">
-          <EditProject key={opened} project={local} onClose={() => setEditing(false)} />
-        </Sheet>
+        <>
+          <Sheet open={editing} onClose={() => setEditing(false)} title="Проект">
+            <EditProject key={opened} project={local} onClose={() => setEditing(false)} />
+          </Sheet>
+          <Sheet
+            open={boardSettings}
+            onClose={() => setBoardSettings(false)}
+            title="Колонки проекта"
+          >
+            <ProjectBoardSettings
+              key={opened}
+              project={local}
+              onClose={() => setBoardSettings(false)}
+            />
+          </Sheet>
+        </>
       )}
     </div>
   );
@@ -234,74 +273,6 @@ function EditProject({ project, onClose }: { project: PlannerProject; onClose: (
         </Button>
       </div>
     </form>
-  );
-}
-
-// ---------------------------------------------------------------- задачи
-
-const NO_PROJECTS = new Map<string, PlannerProject>();
-
-function TasksTab({ id }: { id: string }) {
-  const planner = usePlanner();
-  const shell = useShell();
-  const [text, setText] = useState('');
-  const today = iso(new Date());
-  const color = planner.data.projects.find((p) => p.id === id)?.color ?? 'orange';
-  const own = useMemo(
-    () => planner.data.tasks.filter((t) => t.project_id === id),
-    [planner.data.tasks, id],
-  );
-  const rows = useMemo(
-    () =>
-      [...own]
-        .sort(
-          (a, b) =>
-            Number(a.status === 'done') - Number(b.status === 'done') ||
-            (a.due_date ?? '9').localeCompare(b.due_date ?? '9') ||
-            (a.due_time ?? '').localeCompare(b.due_time ?? ''),
-        )
-        // проект и так понятен — в подписи только важность, шаги, повторение
-        .map((t) => ({ ...toRow(t, NO_PROJECTS, today), color })),
-    [own, color, today],
-  );
-  const due = useMemo(() => new Map(own.map((t) => [t.id, t.due_date])), [own]);
-
-  function add(e: FormEvent) {
-    e.preventDefault();
-    const value = text.trim();
-    if (!value) return;
-    void planner.add(value, { projectId: id });
-    setText('');
-    shell.cheer('proto');
-  }
-
-  return (
-    <div className="pp-tab">
-      <form className="pp-add" onSubmit={add} aria-label="Новое дело в проекте">
-        <Field label="Новое дело" value={text} onChange={(e) => setText(e.target.value)} />
-        <Button type="submit" variant="fill" size="sm" disabled={!text.trim()}>
-          Добавить
-        </Button>
-      </form>
-      <p className="pp-add-hint">Можно со сроком: «сделать календарь в пятницу в 16:00».</p>
-      {planner.loaded && rows.length === 0 && (
-        <p className="later">Дел пока нет — добавь первое выше или через Command.</p>
-      )}
-      <TaskList
-        tasks={rows}
-        meta={(t) => (
-          <div className="meta">
-            <span className="q-dot" style={{ background: `var(--q-${t.color})` }} />
-            {[dueLabel(due.get(t.id) ?? null, today), t.tag].filter(Boolean).join(' · ')}
-          </div>
-        )}
-        detail={(t) => <AgentTimeline trail={{ object: t.id }} compact />}
-        onToggle={(t, d) => {
-          void planner.toggle(t.id, d);
-          if (d) shell.cheer('proto');
-        }}
-      />
-    </div>
   );
 }
 
