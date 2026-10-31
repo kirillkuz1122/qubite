@@ -468,10 +468,6 @@ pub(crate) async fn run_rounds(
                 }
                 Ok(Outcome::Done(action)) => {
                     turn.actions += 1;
-                    // Подсказка спросить длительность должна дойти до модели.
-                    if action.summary.contains("question.ask") {
-                        need_more = true;
-                    }
                     results.push(json!({ "tool": call.tool, "ok": true, "done": action.summary }));
                 }
                 Err(error) => {

@@ -356,9 +356,9 @@ async fn auto_duration(
     who: &Who,
     title: &str,
     fields: &mut Map<String, Value>,
-) -> Result<String> {
+) -> Result<(String, Vec<Step>)> {
     if who.actor() != Actor::Agent || fields.contains_key("duration_minutes") {
-        return Ok(String::new());
+        return Ok((String::new(), Vec::new()));
     }
     let account = who.account();
     can_read(conn, who, qubite_planner::MODULE).await?;
@@ -368,7 +368,7 @@ async fn auto_duration(
     if estimate.sure {
         fields.insert("duration_minutes".into(), json!(estimate.minutes));
         fields.insert("duration_by".into(), json!("agent"));
-        return Ok(estimate.why);
+        return Ok((estimate.why, Vec::new()));
     }
     let short: String = title.chars().take(260).collect();
     let question = crate::files::redact(&format!("Сколько займёт «{short}»?")).0;
@@ -376,13 +376,23 @@ async fn auto_duration(
         .await?
         .is_ok()
     {
-        return Ok(format!(
-            "Длительность неизвестна; спроси через question.ask с text={}: {}",
-            json!(question),
-            estimate.why
+        // Вопрос задаётся сразу, в том же действии: откат уберёт дело и вопрос вместе.
+        let (_, steps) = crate::memory::plan(
+            conn,
+            account,
+            "question.ask",
+            json!({"text": question, "why": "уточнить длительность дела"}),
+        )
+        .await?;
+        return Ok((
+            format!(
+                "Не уверена в длительности ({}) — спросила: «{question}»",
+                estimate.why
+            ),
+            steps,
         ));
     }
-    Ok(String::new())
+    Ok((String::new(), Vec::new()))
 }
 
 // ---------------------------------------------------------------- разложить мысль
@@ -443,10 +453,10 @@ pub(crate) async fn plan_file(
                 fields.remove("recurrence");
             }
             fields.insert("from_inbox".into(), json!(item_id));
-            let duration_note = if to == FileTo::Task {
+            let (duration_note, ask_steps) = if to == FileTo::Task {
                 auto_duration(conn, who, &title, &mut fields).await?
             } else {
-                String::new()
+                (String::new(), Vec::new())
             };
             let details = match &new_project_title {
                 Some(name) => {
@@ -470,6 +480,7 @@ pub(crate) async fn plan_file(
                     fields: Some(Value::Object(fields)),
                 },
             });
+            steps.extend(ask_steps);
             with_details(
                 with_details(
                     format!("Разложил мысль «{thought}» → {} «{title}»", to.word()),
@@ -623,21 +634,23 @@ pub async fn call(
             let Create { title, mut fields } = args(tool, arguments)?;
             let title = check_title(&title)?;
             guard_status(who, &fields)?;
-            let duration_note = auto_duration(conn, who, &title, &mut fields).await?;
+            let (duration_note, ask_steps) = auto_duration(conn, who, &title, &mut fields).await?;
             let details = task_details(conn, account, &fields).await?;
+            let mut steps = vec![Step {
+                object_id: Uuid::now_v7(),
+                kind: OpKind::Create {
+                    object_type: TASK_TYPE.into(),
+                    title: title.clone(),
+                    fields: Some(Value::Object(fields)),
+                },
+            }];
+            steps.extend(ask_steps);
             (
                 with_details(
                     with_details(format!("Создал дело «{title}»"), &details),
                     &duration_note,
                 ),
-                vec![Step {
-                    object_id: Uuid::now_v7(),
-                    kind: OpKind::Create {
-                        object_type: TASK_TYPE.into(),
-                        title,
-                        fields: Some(Value::Object(fields)),
-                    },
-                }],
+                steps,
             )
         }
         "task.update" => {

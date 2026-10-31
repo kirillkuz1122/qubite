@@ -831,24 +831,19 @@ async fn duration_estimation_owner_values_and_question_hint() {
     let saved = task(pool, me, created_id(&made, "planner.task")).await;
     assert_eq!(saved.duration_minutes, None);
     assert_eq!(saved.duration_by, None);
-    assert!(!made.summary.contains("question.ask"));
+    assert!(!made.summary.contains("спросила"));
 
     let unknown = json!({"title": "Новая идея"});
     let made = done(pool, &agent, "task.create", unknown.clone(), None).await;
-    assert!(made.summary.contains("question.ask"));
-    assert!(made.summary.contains("Сколько займёт «Новая идея»?"));
+    assert!(
+        made.summary
+            .contains("спросила: «Сколько займёт «Новая идея»?»")
+    );
+    let asked = made.clone();
     let saved = task(pool, me, created_id(&made, "planner.task")).await;
     assert_eq!(saved.duration_minutes, None);
-    let asked = done(
-        pool,
-        &agent,
-        "question.ask",
-        json!({"text": "Сколько займёт «Новая идея»?", "why": "уточнить длительность"}),
-        None,
-    )
-    .await;
     let repeated = done(pool, &agent, "task.create", unknown.clone(), None).await;
-    assert!(!repeated.summary.contains("question.ask"));
+    assert!(!repeated.summary.contains("спросила"));
     done(
         pool,
         &agent,
@@ -859,7 +854,7 @@ async fn duration_estimation_owner_values_and_question_hint() {
     .await;
     let repeated = done(pool, &agent, "task.create", unknown, None).await;
     assert!(
-        !repeated.summary.contains("question.ask"),
+        !repeated.summary.contains("спросила"),
         "недельный лимит после ответа"
     );
 
