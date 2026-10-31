@@ -115,7 +115,7 @@ fail() {
 trap 'fail "скрипт упал на строке $LINENO"' ERR
 
 # Модель и уровень рассуждения — из меток; только безопасные значения.
-labels=$(gh issue view "$N" -R "$REPO" --json labels -q '.labels[].name')
+labels=$(retry gh issue view "$N" -R "$REPO" --json labels -q '.labels[].name')
 m=$(sed -n 's/^codex-model://p' <<<"$labels" | head -1)
 case $m in
     sol) MODEL=gpt-6.1-sol ;;
@@ -124,8 +124,8 @@ case $m in
 esac
 EFFORT=$(sed -n 's/^codex-effort://p' <<<"$labels" | grep -E '^(low|medium|high|xhigh)$' | head -1 || true)
 EFFORT=${EFFORT:-$DEFAULT_EFFORT}
-TITLE=$(gh issue view "$N" -R "$REPO" --json title -q .title)
-BODY=$(gh issue view "$N" -R "$REPO" --json body -q .body)
+TITLE=$(retry gh issue view "$N" -R "$REPO" --json title -q .title)
+BODY=$(retry gh issue view "$N" -R "$REPO" --json body -q .body)
 MODE=work
 if grep -qx codex-review <<<"$labels"; then
     MODE=review
@@ -154,7 +154,7 @@ if [[ $MODE == review ]]; then
     git -C "$JOB" switch -q "pr-$PR"
     BRANCH="pr-$PR"
     # Дифф кладём в .git: Codex его читает, в рабочую папку он не попадает.
-    gh pr diff "$PR" -R "$REPO" | head -n 4000 >"$JOB/.git/codex-review.diff"
+    retry gh pr diff "$PR" -R "$REPO" | head -n 4000 >"$JOB/.git/codex-review.diff"
 else
     BRANCH="codex-issue-$N"   # не codex/…: ветка `codex` уже есть, git не даст
     git -C "$JOB" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 && BRANCH="$BRANCH-$STAMP"
@@ -173,7 +173,7 @@ else
 fi
 
 if [[ $MODE == review ]]; then
-    PR_TITLE=$(gh pr view "$PR" -R "$REPO" --json title -q .title)
+    PR_TITLE=$(retry gh pr view "$PR" -R "$REPO" --json title -q .title)
     PROMPT=$(cat <<EOF
 Ты — Codex на Raspberry Pi владельца, ревьюер PR #$PR «$PR_TITLE» репозитория $REPO
 (задание — issue #$N). Папка — код ветки PR, дифф против main — .git/codex-review.diff.
@@ -260,8 +260,8 @@ cleanup() {
 }
 
 if [[ $MODE == review ]]; then
-    REVIEW_URL=$(gh pr comment "$PR" -R "$REPO" --body "$(printf '**Ревью Codex на Pi** (задание #%s)\n\n%s\n\n%s' "$N" "$REPORT" "$META")")
-    gh issue comment "$N" -R "$REPO" --body "**Codex на Pi: ревью готово** — $REVIEW_URL" >/dev/null
+    REVIEW_URL=$(retry gh pr comment "$PR" -R "$REPO" --body "$(printf '**Ревью Codex на Pi** (задание #%s)\n\n%s\n\n%s' "$N" "$REPORT" "$META")")
+    retry gh issue comment "$N" -R "$REPO" --body "**Codex на Pi: ревью готово** — $REVIEW_URL" >/dev/null
     label "$N" "-$L_RUN" "+$L_DONE"
     log "#$N: ревью готово, $REVIEW_URL"
     cleanup
@@ -280,7 +280,7 @@ fi
 CHECKS+="- полные тесты и сборка — в CI этого PR"
 
 if git -C "$JOB" diff --cached --quiet "$BASE_SHA"; then
-    gh issue comment "$N" -R "$REPO" --body "$(printf '**Codex на Pi: изменений в коде нет.**\n\n%s\n\n#### Проверки на Pi\n%s' "$REPORT" "$CHECKS")" >/dev/null
+    retry gh issue comment "$N" -R "$REPO" --body "$(printf '**Codex на Pi: изменений в коде нет.**\n\n%s\n\n#### Проверки на Pi\n%s' "$REPORT" "$CHECKS")" >/dev/null
     label "$N" "-$L_RUN" "+$L_DONE"
     log "#$N: готово, без изменений"
     cleanup
@@ -298,8 +298,13 @@ retry git -C "$JOB" -c credential.helper= -c credential.helper='!gh auth git-cre
 
 PR_BODY=$(printf 'Closes #%s\n\nЗадание выполнил Codex на Pi (D-623). Код Codex проверяет Claude (D-621).\n\n%s\n\n#### Проверки на Pi\n%s\n\n%s' \
     "$N" "$REPORT" "$CHECKS" "$META")
-PR_URL=$(gh pr create -R "$REPO" --base "$BASE_BRANCH" --head "$BRANCH" --title "Codex: $TITLE (#$N)" --body "$PR_BODY")
-gh issue comment "$N" -R "$REPO" --body "$(printf '**Codex на Pi: готово** — %s\n\n%s\n\n#### Проверки на Pi\n%s' "$PR_URL" "$REPORT" "$CHECKS")" >/dev/null
+# Ответ мог потеряться при живом PR — перед повтором ищем уже открытый.
+pr_open() {
+    gh pr list -R "$REPO" --head "$BRANCH" --state open --json url -q '.[0].url' | grep . ||
+        gh pr create -R "$REPO" --base "$BASE_BRANCH" --head "$BRANCH" --title "Codex: $TITLE (#$N)" --body "$PR_BODY"
+}
+PR_URL=$(retry pr_open)
+retry gh issue comment "$N" -R "$REPO" --body "$(printf '**Codex на Pi: готово** — %s\n\n%s\n\n#### Проверки на Pi\n%s' "$PR_URL" "$REPORT" "$CHECKS")" >/dev/null
 label "$N" "-$L_RUN" "+$L_DONE"
 log "#$N: готово, $PR_URL"
 cleanup
