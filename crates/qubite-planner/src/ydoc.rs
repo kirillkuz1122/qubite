@@ -12,6 +12,7 @@ use yrs::updates::{
 use yrs::{Doc, ReadTxn, Snapshot, StateVector, Transact, Update};
 
 use crate::folder::{DOC_TYPE, MAX_DOC_CHARS};
+use crate::mentions;
 
 pub const MAX_UPDATE_BYTES: usize = 512 * 1024;
 pub const MAX_STATE_BYTES: usize = 4 * 1024 * 1024;
@@ -172,15 +173,32 @@ pub struct Applied {
     pub text_stale: bool,
 }
 
+pub struct ApplyUpdate<'a> {
+    pub update: &'a [u8],
+    pub text: &'a str,
+    pub seed: bool,
+    pub client_snapshot: Option<&'a [u8]>,
+    pub links: Option<&'a [Uuid]>,
+    pub readable_modules: &'a [String],
+}
+
 pub async fn apply(
     conn: &mut PgConnection,
     owner: Uuid,
     id: Uuid,
-    update: &[u8],
-    text: &str,
-    seed: bool,
-    client_snapshot: Option<&[u8]>,
+    input: ApplyUpdate<'_>,
 ) -> Result<Applied, Error> {
+    let ApplyUpdate {
+        update,
+        text,
+        seed,
+        client_snapshot,
+        links,
+        readable_modules,
+    } = input;
+    if links.is_some_and(|links| !mentions::valid_links(links)) {
+        return Err(Error::InvalidUpdate);
+    }
     let mut tx = conn.begin().await?;
     // Общий порядок блокировок с rename/старой правкой: objects, затем docs_pages.
     let revision: i64 = sqlx::query_scalar(
@@ -223,6 +241,13 @@ pub async fn apply(
             .execute(&mut *tx)
             .await?;
         objects::bump(&mut tx, id, revision, owner, &["body"]).await?;
+    }
+    // links и text описывают одну копию клиента. Устаревший снимок не должен
+    // откатывать производные связи, даже когда само слияние ничего не меняет.
+    if !merged.text_stale
+        && let Some(links) = links
+    {
+        mentions::replace(&mut tx, owner, id, links, readable_modules).await?;
     }
     tx.commit().await?;
     Ok(Applied {

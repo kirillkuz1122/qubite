@@ -1636,6 +1636,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs/link-targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Цели упоминаний: до восьми своих объектов, документы первыми. */
+    get: operations['link_targets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/docs/{id}': {
     parameters: {
       query?: never;
@@ -1654,6 +1671,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs/{id}/backlinks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Объекты, упоминающие документ и доступные читателю. */
+    get: operations['doc_backlinks'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}/links': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Исходящие упоминания документа, включая цели в корзине. */
+    get: operations['doc_links'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/docs/{id}/y': {
     parameters: {
       query?: never;
@@ -1664,7 +1715,7 @@ export interface paths {
     /** Забрать недостающее состояние документа Yjs v1. */
     get: operations['get_y'];
     put?: never;
-    /** Слить обновление Yjs v1 и сохранить простой текст для поиска. */
+    /** Слить обновление Yjs v1, сохранить простой текст и упоминания. */
     post: operations['post_y'];
     delete?: never;
     options?: never;
@@ -2463,6 +2514,23 @@ export interface paths {
     put?: never;
     /** Прочитано: гаснет и в Telegram. */
     post: operations['read_notice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/objects/{id}/backlinks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Объекты, упоминающие объект и доступные читателю. */
+    get: operations['object_backlinks'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3442,6 +3510,9 @@ export interface components {
       target_id?: string | null;
       target_kind: string;
     };
+    Backlinks: {
+      backlinks: components['schemas']['LinkTarget'][];
+    };
     CalendarEvent: {
       all_day: boolean;
       /** Format: int64 */
@@ -3671,6 +3742,16 @@ export interface components {
       token_type: string;
     };
     /** @description Ответ на задание: значение с экрана или запись голоса. */
+    DocLink: {
+      deleted: boolean;
+      /** Format: uuid */
+      id: string;
+      title: string;
+      type: string;
+    };
+    DocLinks: {
+      links: components['schemas']['DocLink'][];
+    };
     EnglishAnswer: {
       /** @description Строка, список (пропуски) или пары (соединить). */
       answer: Record<string, never>;
@@ -4420,6 +4501,15 @@ export interface components {
       authorize_url: string;
     };
     /** @description Координаты из браузера (геолокация). */
+    LinkTarget: {
+      /** Format: uuid */
+      id: string;
+      title: string;
+      type: string;
+    };
+    LinkTargets: {
+      targets: components['schemas']['LinkTarget'][];
+    };
     LocateRequest: {
       /** Format: double */
       latitude: number;
@@ -5337,6 +5427,8 @@ export interface components {
       text_stale: boolean;
     };
     YUpdate: {
+      /** @description UUID упоминаний без повторов, до 200; отсутствие поля сохраняет прежние связи. */
+      links?: string[];
       /** @description Первое преобразование Markdown; если состояние уже есть — seed_taken. */
       seed?: boolean;
       /** @description Снимок копии клиента (вектор и удаления), из которой построен text, v1, standard base64. */
@@ -9690,6 +9782,38 @@ export interface operations {
       };
     };
   };
+  link_targets: {
+    parameters: {
+      query?: {
+        /** @description Подстрока названия без учёта регистра; пустая — недавние объекты. */
+        q?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Цели упоминаний */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LinkTargets'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   get_my_doc: {
     parameters: {
       query?: never;
@@ -9767,6 +9891,88 @@ export interface operations {
       };
       /** @description conflict: перечитать; use_editor: текст меняется в редакторе */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  doc_backlinks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обратные ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Backlinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  doc_links: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Исходящие ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocLinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -12120,6 +12326,47 @@ export interface operations {
       };
       /** @description route_unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  object_backlinks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID объекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обратные ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Backlinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Объект не найден или чужой */
+      404: {
         headers: {
           [name: string]: unknown;
         };
