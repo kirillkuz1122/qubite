@@ -4,10 +4,17 @@ import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle } from '@qubite/sync-client';
 import { DocEditor } from './Editor';
+import type { LinkSource } from './links';
+
+const linkSource: LinkSource = { search: async () => [], links: async () => [] };
 
 function handle(seedMarkdown: string | null): DocHandle {
   return {
     doc: new Y.Doc(),
+    id: 'page',
+    links: [],
+    cacheLinks: async () => {},
+    onLinks: () => () => {},
     status: 'pending',
     seedMarkdown,
     recovered: null,
@@ -37,7 +44,7 @@ describe('перенос Markdown в связке Lexical + Yjs', () => {
       const doc = handle(markdown);
       const view = render(
         <StrictMode>
-          <DocEditor handle={doc} />
+          <DocEditor handle={doc} linkSource={linkSource} />
         </StrictMode>,
       );
       await waitFor(() => expect(doc.markSeeded).toHaveBeenCalledTimes(1));
@@ -50,7 +57,7 @@ describe('перенос Markdown в связке Lexical + Yjs', () => {
 
   it('null означает отсутствие переноса', async () => {
     const doc = handle(null);
-    const view = render(<DocEditor handle={doc} />);
+    const view = render(<DocEditor handle={doc} linkSource={linkSource} />);
     await waitFor(() =>
       expect(view.getByRole('textbox', { name: 'Текст документа' })).toBeInTheDocument(),
     );
@@ -67,7 +74,7 @@ describe('предложения восстановления из хранил�
       recovered: '# Свой вариант\nСохранённая дописка',
       clearRecovered: vi.fn(async () => {}),
     };
-    const view = render(<DocEditor handle={doc} />);
+    const view = render(<DocEditor handle={doc} linkSource={linkSource} />);
     await waitFor(() =>
       expect(view.getByRole('textbox', { name: 'Текст документа' })).toBeInTheDocument(),
     );
@@ -96,7 +103,7 @@ describe('предложения восстановления из хранил�
       },
       clearLost: vi.fn(async () => {}),
     };
-    const view = render(<DocEditor handle={doc} />);
+    const view = render(<DocEditor handle={doc} linkSource={linkSource} />);
     await waitFor(() =>
       expect(view.getByRole('textbox', { name: 'Текст документа' })).toBeInTheDocument(),
     );

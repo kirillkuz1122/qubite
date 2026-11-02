@@ -47,7 +47,9 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     tasks: [],
   });
   const [loaded, setLoaded] = useState(false);
-  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<string | null>(() =>
+    new URLSearchParams(globalThis.location?.search ?? '').get('task'),
+  );
   const [taskOpening, setTaskOpening] = useState(0);
   const openTask = useCallback((id: string) => {
     setEditingTask(id);

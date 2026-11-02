@@ -38,6 +38,7 @@ class DocsServer implements DocsTransport {
     text: string;
     seed?: boolean;
     snapshot?: Uint8Array;
+    links?: string[];
   }[] = [];
 
   async pull(id: string, sv: Uint8Array) {
@@ -53,13 +54,21 @@ class DocsServer implements DocsTransport {
     };
   }
 
-  async push(id: string, update: Uint8Array, text: string, seed?: boolean, snapshot?: Uint8Array) {
+  async push(
+    id: string,
+    update: Uint8Array,
+    text: string,
+    seed?: boolean,
+    snapshot?: Uint8Array,
+    links?: string[],
+  ) {
     this.pushes.push({
       id,
       update,
       text,
       ...(seed ? { seed } : {}),
       ...(snapshot ? { snapshot } : {}),
+      ...(links !== undefined ? { links } : {}),
     });
     if (this.beforePush) await this.beforePush();
     if (this.offline) throw new TypeError('нет сети');
@@ -100,6 +109,7 @@ function store(
     dbName: options.dbName ?? `docs-test-${++counter}`,
     debounceMs: options.debounceMs ?? 60_000,
     ...(options.renderText ? { renderText: options.renderText } : {}),
+    ...(options.extractLinks ? { extractLinks: options.extractLinks } : {}),
   });
   stores.push(value);
   return value;
@@ -965,5 +975,92 @@ describe('DOC-002f: догон текста после параллельног�
     expect(remote.text).toContain('Чужой');
     expect(remote.text).toBe(renderText(reopened.doc));
     expect(reopened.status).toBe('saved');
+  });
+});
+
+
+describe('DOC-003: связи документа', () => {
+  const target = '11111111-1111-4111-8111-111111111111';
+
+  it('каждый push содержит уникальные UUID из дерева, после удаления — пустой список', async () => {
+    const remote = server();
+    const extractLinks = vi.fn((doc: Y.Doc) => doc.getArray<string>('mentions').toArray());
+    const device = store(remote, { extractLinks });
+    const handle = await device.open('page');
+    const mentions = handle.doc.getArray<string>('mentions');
+    mentions.push([target, target]);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.links).toEqual([target]);
+    mentions.delete(0, 2);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.links).toEqual([]);
+    expect(extractLinks).toHaveBeenCalled();
+  });
+
+  it('не обрезает набор связей при превышении лимита после слияния', async () => {
+    const remote = server();
+    const handle = await store(remote, {
+      extractLinks: () => Array.from({ length: 201 }, (_, index) => String(index)),
+    }).open('page');
+    editor(handle).insert(0, 'Текст остаётся на устройстве');
+    await handle.sync();
+    expect(handle.status).toBe('error');
+    expect(remote.pushes).toHaveLength(0);
+    expect(handle.doc.getText('body').toString()).toBe('Текст остаётся на устройстве');
+  });
+
+  it('закрытый документ извлекает ссылки после перезапуска без экрана и сети', async () => {
+    const remote = server();
+    const indexedDB = new IDBFactory();
+    const options = {
+      indexedDB,
+      dbName: 'mention-restart',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+    };
+    const first = store(remote, options);
+    const handle = await first.open('page');
+    remote.offline = true;
+    handle.doc.getArray<string>('mentions').push([target]);
+    await first.close();
+    const second = store(remote, options);
+    remote.offline = false;
+    await second.syncAll();
+    expect(remote.pushes.at(-1)?.links).toEqual([target]);
+  });
+
+  it('без сети возвращает последнее название из IDB; оно не записывается в Yjs', async () => {
+    const remote = server();
+    const indexedDB = new IDBFactory();
+    const options = { indexedDB, dbName: 'mention-titles' };
+    const first = store(remote, options);
+    const handle = await first.open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await handle.cacheLinks([cached]);
+    const before = Y.encodeStateAsUpdate(handle.doc);
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    expect(Y.encodeStateAsUpdate(handle.doc)).toEqual(before);
+    await first.close();
+    remote.offline = true;
+    const reopened = await store(remote, options).open('page');
+    expect(reopened.links).toEqual([{ ...cached, title: 'Обход графа' }]);
+    await reopened.cacheLinks([{ ...cached, deleted: true }]);
+    expect(reopened.links[0]?.deleted).toBe(true);
+    await reopened.cacheLinks([cached]);
+    expect(reopened.links[0]?.deleted).toBe(false);
+  });
+
+  it('старый ответ без новых полей принимается; links добавляется только при заданном экспорте', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+      bodies.push(JSON.parse(init!.body as string) as Record<string, unknown>);
+      return new Response(JSON.stringify({ sv: 'AA==' }));
+    });
+    const transport = httpDocsTransport({ fetch, csrf: () => '' });
+    await transport.push('page', new Uint8Array([0, 0]), '@', undefined, undefined, [target]);
+    expect(bodies[0]?.links).toEqual([target]);
+    await transport.push('page', new Uint8Array([0, 0]), 'старый клиент');
+    expect(bodies[1]).not.toHaveProperty('links');
+    await transport.push('page', new Uint8Array([0, 0]), '', undefined, undefined, []);
+    expect(bodies[2]?.links).toEqual([]);
   });
 });

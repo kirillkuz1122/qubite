@@ -8,6 +8,16 @@ import type { LocalObject } from './store';
 
 export const DOCS_PAGE = 'docs.page';
 
+export type DocLinkKind = 'docs.page' | 'planner.task' | 'projects.project' | 'calendar.event';
+export interface DocLinkTarget {
+  id: string;
+  type: DocLinkKind;
+  title: string;
+}
+export interface DocLink extends DocLinkTarget {
+  deleted: boolean;
+}
+
 export interface DocListItem {
   id: string;
   title: string;
@@ -63,6 +73,7 @@ export interface DocsTransport {
     text: string,
     seed?: boolean,
     snapshot?: Uint8Array,
+    links?: string[],
   ): Promise<DocsPushResponse>;
 }
 
@@ -123,13 +134,14 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
         seedMarkdown: response.seed_markdown,
       };
     },
-    async push(id, update, text, seed, snapshot) {
+    async push(id, update, text, seed, snapshot, links) {
       const response = await call<{ sv: string; text_stale?: boolean }>(path(id), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           update: toBase64(update),
           text,
+          ...(links !== undefined ? { links } : {}),
           ...(seed ? { seed: true } : {}),
           ...(snapshot ? { snapshot: toBase64(snapshot) } : {}),
         }),
@@ -143,6 +155,10 @@ export type DocStatus = 'saved' | 'pending' | 'offline' | 'error';
 
 export interface DocHandle {
   readonly doc: Y.Doc;
+  readonly id: string;
+  readonly links: readonly DocLink[];
+  cacheLinks(links: readonly DocLink[]): Promise<void>;
+  onLinks(callback: () => void): () => void;
   readonly status: DocStatus;
   readonly seedMarkdown: string | null;
   readonly recovered: string | null;
@@ -165,10 +181,13 @@ export interface DocStoreOptions {
   indexedDB?: IDBFactory;
   dbName?: string;
   debounceMs?: number;
-  renderText?: (doc: Y.Doc) => string;
+  renderText?: (doc: Y.Doc, links: readonly DocLink[]) => string;
+  /** Читает UUID из дерева редактора, без разбора Markdown. */
+  extractLinks?: (doc: Y.Doc) => string[];
 }
 
 interface StoredDocument {
+  links: DocLink[];
   id: string;
   /** Счётчики меняются внутри IDB-транзакции, включая правки из другой вкладки. */
   version: number;
@@ -194,6 +213,7 @@ interface StoredUpdate {
 
 const emptyDocument = (id: string): StoredDocument => ({
   id,
+  links: [],
   version: 0,
   syncedVersion: 0,
   textPending: false,
@@ -311,6 +331,7 @@ class DocsDatabase {
         record.recovered = record.recovered ? `${record.recovered}\n\n${recovered}` : recovered;
       }
       record.lost = previous?.lost ?? [];
+      record.links = previous?.links ?? [];
       documents.put(record);
     };
     const updates = tx.objectStore('updates');
@@ -364,6 +385,7 @@ export class DocStore {
         this.options.transport,
         this.options.debounceMs ?? 500,
         this.options.renderText,
+        this.options.extractLinks,
         () => {
           if (this.handles.get(id) === opening) this.handles.delete(id);
         },
@@ -410,6 +432,8 @@ export class DocStore {
 }
 
 class StoredDocHandle implements DocHandle {
+  links: readonly DocLink[];
+  private readonly linkListeners = new Set<() => void>();
   status: DocStatus;
   seedMarkdown: string | null;
   recovered: string | null;
@@ -432,7 +456,7 @@ class StoredDocHandle implements DocHandle {
   private closing: Promise<void> | undefined;
 
   constructor(
-    private readonly id: string,
+    readonly id: string,
     readonly doc: Y.Doc,
     record: StoredDocument,
     private readonly db: DocsDatabase,
@@ -440,11 +464,13 @@ class StoredDocHandle implements DocHandle {
     private readonly transport: DocsTransport,
     private readonly debounceMs: number,
     private readonly renderText: DocStoreOptions['renderText'],
+    private readonly extractLinks: DocStoreOptions['extractLinks'],
     private readonly release: () => void,
   ) {
+    this.links = record.links;
     this.hasTextRenderer = Boolean(renderText);
     this.lastText = record.text;
-    this.textGetter = renderText ? () => renderText(this.doc) : () => this.lastText;
+    this.textGetter = renderText ? () => renderText(this.doc, this.links) : () => this.lastText;
     this.seedMarkdown = record.seedMarkdown;
     this.recovered = record.recovered;
     this.lost = record.lost;
@@ -465,6 +491,28 @@ class StoredDocHandle implements DocHandle {
         ? 'pending'
         : 'saved';
     doc.on('update', this.updated);
+  }
+
+  async cacheLinks(links: readonly DocLink[]): Promise<void> {
+    if (this.closed) return;
+    // Отсутствие цели в ответе не стирает офлайн-название недавно вставленного чипа.
+    const merged = new Map(this.links.map((link) => [link.id, link]));
+    for (const link of links) merged.set(link.id, link);
+    this.links = [...merged.values()];
+    this.track(
+      this.db.change(this.id, (record) => {
+        const saved = new Map(record.links.map((link) => [link.id, link]));
+        for (const link of links) saved.set(link.id, link);
+        record.links = [...saved.values()];
+      }),
+    );
+    for (const callback of this.linkListeners) callback();
+    await this.writes;
+  }
+
+  onLinks(callback: () => void): () => void {
+    this.linkListeners.add(callback);
+    return () => this.linkListeners.delete(callback);
   }
 
   get isClosed(): boolean {
@@ -644,6 +692,8 @@ class StoredDocHandle implements DocHandle {
       // Подтверждать record.version можно только вместе со всеми его обновлениями.
       for (const entry of updates) Y.applyUpdate(this.doc, entry.update, this.origin);
       this.lastText = record.text;
+      this.links = record.links;
+      for (const callback of this.linkListeners) callback();
       if (record.version > record.syncedVersion || record.textPending) {
         // Экран должен закончить перенос Markdown до первого push.
         if (remote.seedMarkdown !== null && !record.seed) {
@@ -656,9 +706,15 @@ class StoredDocHandle implements DocHandle {
           return;
         }
         const text =
-          record.textStale && this.renderText ? this.renderText(this.doc) : this.captureText();
+          record.textStale && this.renderText ? this.renderText(this.doc, this.links) : this.captureText();
         // Снимок относится к тому же дереву, из которого только что получен text.
         // Одного state vector недостаточно: удаления его не меняют.
+        const links = this.extractLinks
+          ? [...new Set(this.extractLinks(this.doc))]
+          : undefined;
+        if (links && links.length > 200) {
+          throw new Error('В документе больше 200 разных ссылок');
+        }
         const clientSnapshot = Y.encodeSnapshot(Y.snapshot(this.doc));
         const update = Y.encodeStateAsUpdate(this.doc, remote.sv);
         const seedSv = record.seedSv ?? Y.encodeStateVector(this.doc);
@@ -681,6 +737,7 @@ class StoredDocHandle implements DocHandle {
             text,
             record.seed || undefined,
             clientSnapshot,
+            links,
           );
         } catch (error) {
           if (!(
@@ -779,6 +836,7 @@ class StoredDocHandle implements DocHandle {
     this.release();
     this.stopLost();
     this.lostListeners.clear();
+    this.linkListeners.clear();
     this.doc.destroy();
     this.statusListeners.clear();
     for (const callback of this.resetListeners) callback();
@@ -793,6 +851,7 @@ class StoredDocHandle implements DocHandle {
     this.release();
     this.stopLost();
     this.lostListeners.clear();
+    this.linkListeners.clear();
     this.statusListeners.clear();
     this.resetListeners.clear();
     this.closing = this.writes.finally(() => {
