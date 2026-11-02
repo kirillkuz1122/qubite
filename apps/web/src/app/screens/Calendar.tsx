@@ -1,6 +1,6 @@
 import { loop, MASS } from '@qubite/motion';
 import { patchTask, toTask } from '@qubite/sync-client';
-import { Button, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
+import { Button, DotIcon, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Fail, say, useMe, usePlatform } from '../../auth/client';
 import { useCalendar, useCalendarEvents } from '../calendar';
@@ -369,43 +369,68 @@ function Calendar({ timeZone }: { timeZone: string }) {
 
   return (
     <section className="calendar" aria-label="Календарь">
-      <Segmented<CalendarMode>
-        label="Вид календаря"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: 'day', label: 'День' },
-          { value: 'week', label: 'Неделя' },
-          { value: 'month', label: 'Месяц' },
-        ]}
-      />
       <div className="calendar-toolbar">
-        <p className="calendar-period" aria-live="polite" aria-atomic="true">
-          {periodLabel(mode, anchor, window.days)}
-        </p>
-        <Button variant="fill" disabled={moving} onClick={() => createAt(anchor)}>
-          Новое событие
-        </Button>
-        {/* Назад · Сегодня · Вперёд переносятся на новую строку только вместе. */}
         <div className="calendar-nav" role="group" aria-label="Выбрать период">
           <Button
             size="sm"
             dot={false}
-            onClick={() => setAnchor(shiftPeriod(mode, anchor, -1, weekDays))}
+            onClick={() => setAnchor(calendarDay(Date.now(), timeZone))}
           >
-            Назад
-          </Button>
-          <Button size="sm" onClick={() => setAnchor(calendarDay(Date.now(), timeZone))}>
             Сегодня
           </Button>
           <Button
-            size="sm"
+            className="calendar-nav-arrow"
             dot={false}
+            aria-label="Назад"
+            onClick={() => setAnchor(shiftPeriod(mode, anchor, -1, weekDays))}
+          >
+            <DotIcon name="back" />
+          </Button>
+          <Button
+            className="calendar-nav-arrow"
+            dot={false}
+            aria-label="Вперёд"
             onClick={() => setAnchor(shiftPeriod(mode, anchor, 1, weekDays))}
           >
-            Вперёд
+            <span className="calendar-forward-icon">
+              <DotIcon name="back" />
+            </span>
           </Button>
         </div>
+        <p
+          className="calendar-period"
+          aria-live="polite"
+          aria-atomic="true"
+          title={periodLabel(mode, anchor, window.days)}
+        >
+          {periodLabel(mode, anchor, window.days)}
+        </p>
+        <div className="calendar-mode">
+          <Segmented<CalendarMode>
+            label="Вид календаря"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'day', label: 'День' },
+              { value: 'week', label: 'Неделя' },
+              { value: 'month', label: 'Месяц' },
+            ]}
+          />
+        </div>
+        <Button
+          className="calendar-new-event"
+          variant="fill"
+          dot={false}
+          aria-label="Новое событие"
+          title="Новое событие"
+          disabled={moving}
+          onClick={() => createAt(anchor)}
+        >
+          <span className="calendar-new-icon">
+            <DotIcon name="plus" />
+          </span>
+          <span className="calendar-new-label">Новое событие</span>
+        </Button>
       </div>
       <div className="calendar-legend" aria-label="Виды записей">
         {KINDS.map((kind) => (
@@ -414,7 +439,9 @@ function Calendar({ timeZone }: { timeZone: string }) {
             {KIND_LABEL[kind]}
           </span>
         ))}
-        <span className="calendar-zone">{timeZone}</span>
+        <span className="calendar-zone" title={timeZone}>
+          {timeZone}
+        </span>
       </div>
       <Presence show={calendar.isPending}>
         <Note>Загружаем записи…</Note>
@@ -445,7 +472,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
       <Presence show={calendar.isSuccess && items.length === 0}>
         <p className="calendar-empty">В этом периоде записей нет.</p>
       </Presence>
-      <Swap view={mode} order={CALENDAR_MODES}>
+      <Swap view={mode} order={CALENDAR_MODES} className="calendar-view">
         {mode === 'month' ? (
           <Month
             days={window.days}

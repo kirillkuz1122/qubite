@@ -4,19 +4,49 @@
   min-width: 0;
 }
 .calendar-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  margin: 14px 0 12px;
+  gap: 4px 8px;
+  margin: 0 0 4px;
 }
 .calendar-period {
-  flex: 1 1 100%;
+  grid-column: 2 / -1;
   min-width: 0;
   margin: 0;
-  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
   color: var(--q-ink);
+}
+.calendar-mode {
+  grid-column: 1 / 3;
+  min-width: 0;
+}
+.calendar-mode .q-seg button {
+  padding-inline: 8px;
+  font-size: 12px;
+}
+.calendar .calendar-new-event,
+.calendar .calendar-nav-arrow {
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.calendar-new-event {
+  justify-self: end;
+}
+.calendar-new-label {
+  display: none;
+}
+.calendar-new-icon,
+.calendar-forward-icon {
+  display: inline-flex;
+}
+.calendar-forward-icon {
+  transform: rotate(180deg);
 }
 .calendar-actions,
 .calendar-nav {
@@ -24,28 +54,37 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-/* «Назад · Сегодня · Вперёд» — одна группа: на телефоне не разрывается между строками */
+/* «Сегодня» и две стрелки остаются в одной строке с периодом, в том числе на 360 px. */
 .calendar-nav {
   flex-wrap: nowrap;
+  gap: 4px;
 }
 .calendar-actions .q-btn {
   min-height: 44px;
 }
 .calendar-legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-bottom: 14px;
-  font-size: 12px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+  font-size: 10px;
+  line-height: 16px;
   color: var(--q-mute);
 }
 .calendar-legend > span {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 .calendar-legend .calendar-zone {
-  overflow-wrap: anywhere;
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .calendar-empty {
   margin: 14px 0;
@@ -307,13 +346,13 @@
 .calendar-repeat-days .q-check {
   min-height: 44px;
 }
-.calendar-event-form .calendar-actions {
-  display: flex;
-  flex-wrap: wrap;
+.calendar-event-footer {
+  display: grid;
   gap: 8px;
 }
 .calendar-event-form .q-btn,
-.calendar-event-form .q-switch {
+.calendar-event-form .q-switch,
+.calendar-event-footer .q-btn {
   min-height: 44px;
 }
 .calendar-now {
@@ -389,10 +428,53 @@
   }
 }
 @media (min-width: 600px) {
-  .calendar-period {
-    font-size: 16px;
-  }
   .calendar-month .calendar-month-day {
     min-height: 80px;
+  }
+}
+@media (min-width: 840px) {
+  /* Решил расширять только календарь; остальные разделы сохраняют колонку 760 px. */
+  .main-in:has(.calendar) {
+    max-width: none;
+  }
+  .calendar-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .calendar-period {
+    flex: 1;
+    font-size: 14px;
+  }
+  .calendar-mode {
+    flex: none;
+  }
+  .calendar .calendar-new-event {
+    flex: none;
+    width: auto;
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  .calendar-new-label {
+    display: inline;
+  }
+  .calendar-new-icon {
+    display: none;
+  }
+  .calendar-legend {
+    font-size: 11px;
+  }
+  /* Если места мало, прокручивается сама неделя вместе с заголовками, а не страница.
+     Запас 24 px оставляет место полосе вертикальной прокрутки шкалы. */
+  .calendar-view {
+    overflow-x: auto;
+  }
+  .calendar-timeline {
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * 120px + 24px);
+  }
+  .calendar-day-heads,
+  .calendar-all-day,
+  .calendar-hours-grid {
+    grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(120px, 1fr));
   }
 }
