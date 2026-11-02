@@ -202,7 +202,6 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-
 for (const width of [1440, 360]) {
   test(`упоминание: меню, переход, кэш без сети и удаление чипа — ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
@@ -245,7 +244,9 @@ for (const width of [1440, 360]) {
     });
     await chip.click({ modifiers: ['Control'] });
     expect(await page.evaluate(() => Reflect.get(window, 'mentionOpened'))).toEqual([
-      `/docs/${target}`, '_blank', 'noopener,noreferrer',
+      `/docs/${target}`,
+      '_blank',
+      'noopener,noreferrer',
     ]);
     await chip.click();
     await expect(page).toHaveURL(new RegExp(`/docs/${target}$`));

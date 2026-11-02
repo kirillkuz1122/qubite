@@ -706,12 +706,12 @@ class StoredDocHandle implements DocHandle {
           return;
         }
         const text =
-          record.textStale && this.renderText ? this.renderText(this.doc, this.links) : this.captureText();
+          record.textStale && this.renderText
+            ? this.renderText(this.doc, this.links)
+            : this.captureText();
         // Снимок относится к тому же дереву, из которого только что получен text.
         // Одного state vector недостаточно: удаления его не меняют.
-        const links = this.extractLinks
-          ? [...new Set(this.extractLinks(this.doc))]
-          : undefined;
+        const links = this.extractLinks ? [...new Set(this.extractLinks(this.doc))] : undefined;
         if (links && links.length > 200) {
           throw new Error('В документе больше 200 разных ссылок');
         }
