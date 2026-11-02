@@ -151,6 +151,8 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
   });
   useEffect(() => {
     let alive = true;
+    // Событие читается по сети, состояние ставится после ответа, не в теле эффекта.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (linkedEvent) void openLinkedEvent(linkedEvent, () => alive);
     return () => {
       alive = false;
