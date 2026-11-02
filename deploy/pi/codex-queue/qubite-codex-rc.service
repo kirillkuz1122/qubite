@@ -1,0 +1,32 @@
+# Демон Codex с Remote Control (D-634): сессии очереди видны владельцу в приложении Codex.
+# `codex remote-control start` запускает демон в фоне и выходит — поэтому oneshot + RemainAfterExit,
+# демон остаётся в группе этого юнита. От kirill (там вход в ChatGPT). Сокет — в /tmp/codex-daemon-1000.
+[Unit]
+Description=Qubite: демон Codex с Remote Control
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=kirill
+Environment=HOME=/home/kirill
+Environment=PATH=/home/kirill/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/kirill/.npm-global/bin/codex remote-control start
+ExecStop=/home/kirill/.npm-global/bin/codex remote-control stop
+Restart=on-failure
+RestartSec=30s
+TimeoutStartSec=2min
+
+Slice=qubite.slice
+Nice=15
+CPUWeight=10
+IOWeight=10
+MemoryHigh=800M
+MemoryMax=1G
+OOMScoreAdjust=800
+PrivateTmp=no
+
+[Install]
+WantedBy=multi-user.target

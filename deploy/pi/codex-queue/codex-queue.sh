@@ -46,6 +46,11 @@ if [[ ${1:-} == --status ]]; then
     echo "в очереди: $(queue | tr '\n' ' ')"
     echo "в работе:  $(running | tr '\n' ' ')"
     /opt/qubite/bin/qubite-codex-limits --line 2>/dev/null || echo "Codex: лимиты неизвестны"
+    if [[ -S $(readlink -f "$HOME/.codex/app-server-control/app-server-control.sock") ]]; then
+        echo "демон Remote Control: работает (сессии видны в приложении)"
+    else
+        echo "демон Remote Control: нет — задания пойдут через codex exec"
+    fi
     exit 0
 fi
 
