@@ -457,7 +457,6 @@ async fn docs_only_websocket_is_notified_for_new_state_but_not_retry() {
     test_db.drop_db().await;
 }
 
-
 #[tokio::test]
 async fn concurrent_pushes_repair_search_text_without_changing_ystate() {
     let (test_db, db, address) = common::setup(AuthSettings::default()).await;
@@ -521,10 +520,13 @@ async fn concurrent_pushes_repair_search_text_without_changing_ystate() {
     right
         .transact_mut()
         .apply_update(
-            Update::decode_v1(&STANDARD.decode(before["update"].as_str().unwrap()).unwrap()).unwrap(),
+            Update::decode_v1(&STANDARD.decode(before["update"].as_str().unwrap()).unwrap())
+                .unwrap(),
         )
         .unwrap();
-    let text = right.get_or_insert_text("text").get_string(&right.transact());
+    let text = right
+        .get_or_insert_text("text")
+        .get_string(&right.transact());
     assert!(text.contains("Алгебра"));
     assert!(text.contains("Геометрия"));
     let catchup = json!({
