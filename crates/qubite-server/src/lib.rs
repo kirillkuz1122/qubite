@@ -1019,7 +1019,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/docs", get(projects::list_my_docs))
         .route("/api/v1/docs/link-targets", get(docs::link_targets))
         .route("/api/v1/docs/{id}/backlinks", get(docs::doc_backlinks))
-        .route("/api/v1/objects/{id}/backlinks", get(docs::object_backlinks))
+        .route(
+            "/api/v1/objects/{id}/backlinks",
+            get(docs::object_backlinks),
+        )
         .route("/api/v1/docs/{id}/links", get(docs::doc_links))
         .route("/api/v1/docs/{id}/y", get(docs::get_y).post(docs::post_y))
         .route(

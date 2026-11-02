@@ -105,7 +105,13 @@ async fn get(browser: &mut Browser, address: SocketAddr, path: &str, field: &str
 }
 
 async fn links(browser: &mut Browser, address: SocketAddr, id: Uuid) -> Vec<Value> {
-    get(browser, address, &format!("/api/v1/docs/{id}/links"), "links").await
+    get(
+        browser,
+        address,
+        &format!("/api/v1/docs/{id}/links"),
+        "links",
+    )
+    .await
 }
 
 async fn events(db: &Database, id: Uuid) -> i64 {
@@ -218,7 +224,10 @@ async fn inaccessible_targets_are_ignored_and_invalid_lists_do_not_save() {
         &mut browser,
         address,
         source,
-        packet(&doc, Some(&[valid, foreign, Uuid::now_v7(), deleted, source])),
+        packet(
+            &doc,
+            Some(&[valid, foreign, Uuid::now_v7(), deleted, source]),
+        ),
     )
     .await;
     assert_eq!(reply.status, 200, "{}", reply.body);
@@ -259,7 +268,9 @@ async fn inaccessible_targets_are_ignored_and_invalid_lists_do_not_save() {
     );
     assert_eq!(events(&db, source).await, count);
     assert_eq!(live_relations(&db, source).await, before_relations);
-    let saved = browser.get(address, &format!("/api/v1/docs/{source}")).await;
+    let saved = browser
+        .get(address, &format!("/api/v1/docs/{source}"))
+        .await;
     assert_eq!(saved.body["body"], "Сохранено");
 
     // Ровно 200 уникальных UUID допустимы, даже если целей ещё нет.
@@ -299,13 +310,21 @@ async fn stale_snapshots_keep_links_until_the_merged_projection_arrives() {
         0,
         "С другого устройства",
     );
-    let reply = post(&mut browser, address, source, packet(&concurrent, Some(&[]))).await;
+    let reply = post(
+        &mut browser,
+        address,
+        source,
+        packet(&concurrent, Some(&[])),
+    )
+    .await;
     assert_eq!(reply.status, 200);
     assert_eq!(reply.body["text_stale"], true);
     assert_eq!(links(&mut browser, address, source).await.len(), 1);
 
     // Клиент забирает слитое состояние и досылает актуальные text + links.
-    let reply = browser.get(address, &format!("/api/v1/docs/{source}/y")).await;
+    let reply = browser
+        .get(address, &format!("/api/v1/docs/{source}/y"))
+        .await;
     let update = STANDARD
         .decode(reply.body["update"].as_str().unwrap())
         .unwrap();
@@ -338,11 +357,11 @@ async fn target_search_orders_documents_first_then_recency_and_caps_at_eight() {
         sqlx::query(
             "UPDATE objects SET updated_at = now() - $2::int * interval '1 minute' WHERE id = $1",
         )
-            .bind(id)
-            .bind(minutes)
-            .execute(db.pool())
-            .await
-            .unwrap();
+        .bind(id)
+        .bind(minutes)
+        .execute(db.pool())
+        .await
+        .unwrap();
     }
     let expected = vec![new_doc, old_doc, task, project];
     for query in ["", "?q=", "?q=%D0%BC%D0%95%D1%82%D0%9A%D0%B0"] {
@@ -381,7 +400,13 @@ async fn target_search_orders_documents_first_then_recency_and_caps_at_eight() {
     for index in 0..10 {
         object(&db, owner, TASK_TYPE, &format!("Ещё {index}")).await;
     }
-    let targets = get(&mut browser, address, "/api/v1/docs/link-targets", "targets").await;
+    let targets = get(
+        &mut browser,
+        address,
+        "/api/v1/docs/link-targets",
+        "targets",
+    )
+    .await;
     assert_eq!(targets.len(), 8);
     assert_eq!(targets[0]["id"], new_doc.to_string());
     assert_eq!(targets[1]["id"], old_doc.to_string());
@@ -414,11 +439,26 @@ async fn links_resolve_current_titles_and_trash_state_then_restore() {
             "id": target, "type": TASK_TYPE, "title": "После переименования", "deleted": true,
         })]
     );
-    let targets = get(&mut browser, address, "/api/v1/docs/link-targets", "targets").await;
+    let targets = get(
+        &mut browser,
+        address,
+        "/api/v1/docs/link-targets",
+        "targets",
+    )
+    .await;
     assert!(!targets.iter().any(|item| item["id"] == target.to_string()));
     trash(&db, owner, target, true).await;
-    assert_eq!(links(&mut browser, address, source).await[0]["deleted"], false);
-    let targets = get(&mut browser, address, "/api/v1/docs/link-targets", "targets").await;
+    assert_eq!(
+        links(&mut browser, address, source).await[0]["deleted"],
+        false
+    );
+    let targets = get(
+        &mut browser,
+        address,
+        "/api/v1/docs/link-targets",
+        "targets",
+    )
+    .await;
     assert!(targets.iter().any(|item| item["id"] == target.to_string()));
     db.close().await;
     test_db.drop_db().await;
@@ -479,7 +519,10 @@ async fn backlinks_filter_foreign_deleted_and_unreadable_objects_and_require_gra
         "id": source, "type": DOC_TYPE, "title": "Мой документ",
     })];
     for path in &paths[1..3] {
-        assert_eq!(get(&mut browser, address, path, "backlinks").await, expected);
+        assert_eq!(
+            get(&mut browser, address, path, "backlinks").await,
+            expected
+        );
     }
     let outgoing = links(&mut browser, address, source).await;
     assert_eq!(outgoing.len(), 1);
@@ -529,7 +572,13 @@ async fn backlinks_filter_foreign_deleted_and_unreadable_objects_and_require_gra
     )
     .await;
     assert_eq!(live_relations(&db, source).await.len(), 1);
-    let forbidden = post(&mut browser, address, foreign, packet(&doc, Some(&[target]))).await;
+    let forbidden = post(
+        &mut browser,
+        address,
+        foreign,
+        packet(&doc, Some(&[target])),
+    )
+    .await;
     assert_eq!(forbidden.status, 404);
     db.close().await;
     test_db.drop_db().await;

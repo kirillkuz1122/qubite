@@ -52,7 +52,9 @@ pub struct YUpdate {
     seed: bool,
 }
 
-fn present_links<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Vec<String>>, D::Error> {
+fn present_links<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error> {
     Vec::deserialize(deserializer).map(Some)
 }
 
