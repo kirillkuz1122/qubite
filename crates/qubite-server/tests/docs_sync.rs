@@ -11,7 +11,9 @@ use qubite_server::auth::AuthSettings;
 use serde_json::{Value, json};
 use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest, http::HeaderValue};
 use uuid::Uuid;
-use yrs::{Doc, ReadTxn, StateVector, Text, Transact};
+use yrs::updates::decoder::Decode;
+use yrs::updates::encoder::Encode;
+use yrs::{Doc, GetString, ReadTxn, StateVector, Text, Transact, Update};
 
 fn update(text: &str, client: u64) -> String {
     let doc = Doc::with_client_id(client);
@@ -21,6 +23,17 @@ fn update(text: &str, client: u64) -> String {
         doc.transact()
             .encode_state_as_update_v1(&StateVector::default()),
     )
+}
+
+fn snapshot_packet(doc: &Doc) -> Value {
+    // Получаем тип до открытия read-транзакции.
+    let text = doc.get_or_insert_text("text");
+    let txn = doc.transact();
+    json!({
+        "update": STANDARD.encode(txn.encode_state_as_update_v1(&StateVector::default())),
+        "snapshot": STANDARD.encode(txn.snapshot().encode_v1()),
+        "text": text.get_string(&txn),
+    })
 }
 
 async fn push(browser: &mut Browser, address: SocketAddr, ops: Vec<Value>) -> Value {
@@ -451,6 +464,162 @@ async fn docs_only_websocket_is_notified_for_new_state_but_not_retry() {
             .is_err()
     );
     drop(socket);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn concurrent_pushes_repair_search_text_without_changing_ystate() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let id = create(&mut owner, address, None).await;
+    let base = update("Основа", 1);
+    let seeded = post(
+        &mut owner,
+        address,
+        id,
+        json!({"update": base, "text": "Основа", "seed": true}),
+    )
+    .await;
+    assert_eq!(seeded.status, 200);
+    let left = Doc::with_client_id(2);
+    let right = Doc::with_client_id(3);
+    for doc in [&left, &right] {
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(&STANDARD.decode(&base).unwrap()).unwrap())
+            .unwrap();
+    }
+    left.get_or_insert_text("text")
+        .insert(&mut left.transact_mut(), 0, "Алгебра ");
+    right
+        .get_or_insert_text("text")
+        .insert(&mut right.transact_mut(), 0, "Геометрия ");
+    let first = post(&mut owner, address, id, snapshot_packet(&left)).await;
+    assert_eq!(first.status, 200);
+    assert_eq!(first.body["text_stale"], false);
+    let stale_packet = snapshot_packet(&right);
+    let second = post(&mut owner, address, id, stale_packet.clone()).await;
+    assert_eq!(second.status, 200);
+    assert_eq!(second.body["text_stale"], true);
+    let before = exchange(&mut owner, address, id).await;
+    // Повтор устаревшего пакета не затирает body и не создаёт события.
+    let events = count_events(&db, id).await;
+    let retry = post(&mut owner, address, id, stale_packet).await;
+    assert_eq!(retry.body["text_stale"], true);
+    assert_eq!(count_events(&db, id).await, events);
+    for snapshot in ["", "%%%", "/w==", "AAAB"] {
+        let invalid = post(
+            &mut owner,
+            address,
+            id,
+            json!({"update": STANDARD.encode([0, 0]), "snapshot": snapshot, "text": "Битый"}),
+        )
+        .await;
+        assert_eq!(invalid.status, 400);
+        assert_eq!(invalid.body["error"], "invalid_update");
+    }
+    right
+        .transact_mut()
+        .apply_update(
+            Update::decode_v1(&STANDARD.decode(before["update"].as_str().unwrap()).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    let text = right
+        .get_or_insert_text("text")
+        .get_string(&right.transact());
+    assert!(text.contains("Алгебра"));
+    assert!(text.contains("Геометрия"));
+    let mut catchup = snapshot_packet(&right);
+    catchup["update"] = json!(STANDARD.encode([0, 0]));
+    let repaired = post(&mut owner, address, id, catchup.clone()).await;
+    assert_eq!(repaired.status, 200);
+    assert_eq!(repaired.body["text_stale"], false);
+    assert_eq!(exchange(&mut owner, address, id).await, before);
+    let body = owner.get(address, &format!("/api/v1/docs/{id}")).await;
+    assert_eq!(body.body["body"], text);
+    for term in ["алгебра", "геометрия"] {
+        let search = query(&owner, address, "/api/v1/docs", "q", term).await;
+        assert_eq!(search["docs"][0]["id"], id.to_string());
+    }
+    assert_eq!(count_events(&db, id).await, events + 1);
+    assert_eq!(post(&mut owner, address, id, catchup).await.status, 200);
+    assert_eq!(count_events(&db, id).await, events + 1);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn retry_after_foreign_deletion_keeps_body_and_requests_text_catchup() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let id = create(&mut owner, address, None).await;
+    let left = Doc::with_client_id(10);
+    left.get_or_insert_text("text")
+        .insert(&mut left.transact_mut(), 0, "keep removed");
+    let original = snapshot_packet(&left);
+    let accepted = post(&mut owner, address, id, original.clone()).await;
+    assert_eq!(accepted.status, 200, "{}", accepted.body);
+    assert_eq!(accepted.body["text_stale"], false);
+
+    let right = Doc::with_client_id(11);
+    right
+        .transact_mut()
+        .apply_update(
+            Update::decode_v1(&STANDARD.decode(original["update"].as_str().unwrap()).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    right
+        .get_or_insert_text("text")
+        .remove_range(&mut right.transact_mut(), 4, 8);
+    let deletion = post(&mut owner, address, id, snapshot_packet(&right)).await;
+    assert_eq!(deletion.status, 200, "{}", deletion.body);
+    assert_eq!(deletion.body["text_stale"], false);
+    assert_eq!(deletion.body["sv"], accepted.body["sv"]);
+    let before = exchange(&mut owner, address, id).await;
+    let events = count_events(&db, id).await;
+    let body = owner.get(address, &format!("/api/v1/docs/{id}")).await;
+    assert_eq!(body.body["body"], "keep");
+
+    // Те же update, snapshot и text после успешного ответа A. Вектор не изменился,
+    // но сервер уже знает удаление B, которого нет в снимке A.
+    let retry = post(&mut owner, address, id, original.clone()).await;
+    assert_eq!(retry.status, 200, "{}", retry.body);
+    assert_eq!(retry.body["text_stale"], true);
+    assert_eq!(retry.body["sv"], accepted.body["sv"]);
+    let after_retry = owner.get(address, &format!("/api/v1/docs/{id}")).await;
+    assert_eq!(after_retry.body, body.body);
+    assert_eq!(exchange(&mut owner, address, id).await, before);
+    assert_eq!(count_events(&db, id).await, events);
+
+    // Клиент без снимка сохраняет прежнюю идемпотентность: текст-только догон запрещён.
+    let mut legacy = original;
+    legacy.as_object_mut().unwrap().remove("snapshot");
+    let retry = post(&mut owner, address, id, legacy).await;
+    assert_eq!(retry.status, 200, "{}", retry.body);
+    assert_eq!(retry.body["text_stale"], false);
+    let after_legacy = owner.get(address, &format!("/api/v1/docs/{id}")).await;
+    assert_eq!(after_legacy.body, body.body);
+    assert_eq!(count_events(&db, id).await, events);
+
+    // Догон знает удаление: обновляет только body, не создавая новых Yjs-вставок.
+    left.transact_mut()
+        .apply_update(
+            Update::decode_v1(&STANDARD.decode(before["update"].as_str().unwrap()).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    let mut catchup = snapshot_packet(&left);
+    catchup["update"] = json!(STANDARD.encode([0, 0]));
+    assert_eq!(catchup["text"], "keep");
+    let repaired = post(&mut owner, address, id, catchup).await;
+    assert_eq!(repaired.status, 200, "{}", repaired.body);
+    assert_eq!(repaired.body["text_stale"], false);
+    assert_eq!(exchange(&mut owner, address, id).await, before);
+    assert_eq!(count_events(&db, id).await, events);
+    let search = query(&owner, address, "/api/v1/docs", "q", "removed").await;
+    assert!(search["docs"].as_array().unwrap().is_empty());
     db.close().await;
     test_db.drop_db().await;
 }

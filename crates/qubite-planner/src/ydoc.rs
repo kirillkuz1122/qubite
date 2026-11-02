@@ -9,7 +9,7 @@ use yrs::updates::{
     decoder::{Decode, Decoder, DecoderV1},
     encoder::Encode,
 };
-use yrs::{Doc, ReadTxn, StateVector, Transact, Update};
+use yrs::{Doc, ReadTxn, Snapshot, StateVector, Transact, Update};
 
 use crate::folder::{DOC_TYPE, MAX_DOC_CHARS};
 
@@ -69,15 +69,38 @@ pub struct Merged {
     pub state: Vec<u8>,
     pub sv: Vec<u8>,
     pub changed: bool,
+    pub text_stale: bool,
 }
 
 pub fn merge(state: Option<&[u8]>, update: &[u8]) -> Result<Merged, Error> {
+    merge_with_snapshot(state, update, None)
+}
+
+/// Снимок описывает вставки и удаления копии, из которой клиент построил text.
+pub fn merge_with_snapshot(
+    state: Option<&[u8]>,
+    update: &[u8],
+    client_snapshot: Option<&[u8]>,
+) -> Result<Merged, Error> {
     if update.len() > MAX_UPDATE_BYTES {
         return Err(Error::UpdateTooLarge);
     }
     guarded(|| {
         let update = decode::<Update>(update)?;
         let doc = load(state)?;
+        let text_stale = if let Some(bytes) = client_snapshot {
+            let client = decode::<Snapshot>(bytes)?;
+            // Проверяем состояние до слияния: сервер мог получить чужое
+            // удаление, которое не меняет state vector клиента.
+            let server = doc.transact().snapshot();
+            server
+                .state_map
+                .iter()
+                .any(|(id, clock)| client.state_map.get(id) < *clock)
+                || !server.delete_set.diff(&client.delete_set).is_empty()
+        } else {
+            false // Совместимость со старыми клиентами без снимка.
+        };
         let before = doc
             .transact()
             .encode_state_as_update_v1(&StateVector::default());
@@ -96,6 +119,7 @@ pub fn merge(state: Option<&[u8]>, update: &[u8]) -> Result<Merged, Error> {
             state: after,
             sv: txn.state_vector().encode_v1(),
             changed,
+            text_stale,
         })
     })
 }
@@ -143,6 +167,11 @@ pub async fn get(
     Ok(result)
 }
 
+pub struct Applied {
+    pub sv: Vec<u8>,
+    pub text_stale: bool,
+}
+
 pub async fn apply(
     conn: &mut PgConnection,
     owner: Uuid,
@@ -150,7 +179,8 @@ pub async fn apply(
     update: &[u8],
     text: &str,
     seed: bool,
-) -> Result<Vec<u8>, Error> {
+    client_snapshot: Option<&[u8]>,
+) -> Result<Applied, Error> {
     let mut tx = conn.begin().await?;
     // Общий порядок блокировок с rename/старой правкой: objects, затем docs_pages.
     let revision: i64 = sqlx::query_scalar(
@@ -162,8 +192,8 @@ pub async fn apply(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(qubite_objects::Error::NotFound)?;
-    let state: Option<Vec<u8>> =
-        sqlx::query_scalar("SELECT ystate FROM docs_pages WHERE object_id = $1 FOR UPDATE")
+    let (state, body): (Option<Vec<u8>>, String) =
+        sqlx::query_as("SELECT ystate, body FROM docs_pages WHERE object_id = $1 FOR UPDATE")
             .bind(id)
             .fetch_one(&mut *tx)
             .await?;
@@ -173,18 +203,32 @@ pub async fn apply(
     if text.chars().count() > MAX_DOC_CHARS {
         return Err(Error::TextTooLarge);
     }
-    let merged = merge(state.as_deref(), update)?;
+    let merged = merge_with_snapshot(state.as_deref(), update, client_snapshot)?;
+    // Старый text не затирает превью. Без снимка повтор, как прежде, ничего
+    // не меняет; догон текста разрешён, только если известны и вставки, и удаления.
+    let text_changed =
+        !merged.text_stale && (merged.changed || client_snapshot.is_some()) && body != text;
     if merged.changed {
         sqlx::query("UPDATE docs_pages SET ystate = $2, body = $3 WHERE object_id = $1")
             .bind(id)
             .bind(&merged.state)
-            .bind(text)
+            .bind(if merged.text_stale { &body } else { text })
             .execute(&mut *tx)
             .await?;
         objects::bump(&mut tx, id, revision, owner, &["body", "ystate"]).await?;
+    } else if text_changed {
+        sqlx::query("UPDATE docs_pages SET body = $2 WHERE object_id = $1")
+            .bind(id)
+            .bind(text)
+            .execute(&mut *tx)
+            .await?;
+        objects::bump(&mut tx, id, revision, owner, &["body"]).await?;
     }
     tx.commit().await?;
-    Ok(merged.sv)
+    Ok(Applied {
+        sv: merged.sv,
+        text_stale: merged.text_stale,
+    })
 }
 
 /// Поля docs.page в обычном sync: текст передаётся только через /y.
@@ -372,9 +416,45 @@ mod tests {
     }
 
     #[test]
+    fn snapshots_detect_deletions_without_rejecting_additional_local_deletions() {
+        let left = utf16(1);
+        left.get_or_insert_text("text")
+            .insert(&mut left.transact_mut(), 0, "abcdefghij");
+        let original = full(&left);
+        let snapshot = left.transact().snapshot().encode_v1();
+        let right = copy(&original, 2);
+        right
+            .get_or_insert_text("text")
+            .remove_range(&mut right.transact_mut(), 3, 3);
+        assert_eq!(left.transact().state_vector(), right.transact().state_vector());
+        let deleted = merge(Some(&original), &full(&right)).unwrap();
+        let retry = merge_with_snapshot(Some(&deleted.state), &original, Some(&snapshot)).unwrap();
+        assert!(!retry.changed);
+        assert!(retry.text_stale);
+        assert!(!merge(Some(&deleted.state), &original).unwrap().text_stale);
+
+        // Снимок с собственными дополнительными удалениями покрывает сервер.
+        right
+            .get_or_insert_text("text")
+            .remove_range(&mut right.transact_mut(), 2, 2);
+        let snapshot = right.transact().snapshot().encode_v1();
+        let fresh =
+            merge_with_snapshot(Some(&deleted.state), &full(&right), Some(&snapshot)).unwrap();
+        assert!(fresh.changed);
+        assert!(!fresh.text_stale);
+        let catchup = merge_with_snapshot(Some(&fresh.state), &[0, 0], Some(&snapshot)).unwrap();
+        assert!(!catchup.changed);
+        assert!(!catchup.text_stale);
+    }
+
+    #[test]
     fn malformed_messages_and_limits() {
         for bytes in [&[][..], &[255][..], &[0, 0, 1][..]] {
             assert!(matches!(merge(None, bytes), Err(Error::InvalidUpdate)));
+            assert!(matches!(
+                merge_with_snapshot(None, &[0, 0], Some(bytes)),
+                Err(Error::InvalidUpdate)
+            ));
         }
         assert!(matches!(diff(None, &[255]), Err(Error::InvalidUpdate)));
         assert!(matches!(
