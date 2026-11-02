@@ -566,8 +566,12 @@ async fn retry_after_foreign_deletion_keeps_body_and_requests_text_catchup() {
     right
         .transact_mut()
         .apply_update(
-            Update::decode_v1(&STANDARD.decode(original["update"].as_str().unwrap()).unwrap())
-                .unwrap(),
+            Update::decode_v1(
+                &STANDARD
+                    .decode(original["update"].as_str().unwrap())
+                    .unwrap(),
+            )
+            .unwrap(),
         )
         .unwrap();
     right

@@ -890,7 +890,9 @@ describe('DOC-002f: догон текста после параллельног�
     expect(catchup.text).toBe('Свой · Основа');
     expect(Y.decodeUpdate(catchup.update).structs).toHaveLength(0);
     expect(Y.decodeSnapshot(catchup.snapshot!).sv).toEqual(Y.decodeSnapshot(original.snapshot!).sv);
-    expect(Y.equalSnapshots(Y.decodeSnapshot(catchup.snapshot!), Y.snapshot(remote.doc))).toBe(true);
+    expect(Y.equalSnapshots(Y.decodeSnapshot(catchup.snapshot!), Y.snapshot(remote.doc))).toBe(
+      true,
+    );
     expect(renderText(a.doc)).toBe('Свой · Основа');
     expect(remote.text).toBe('Свой · Основа');
     expect(a.status).toBe('saved');

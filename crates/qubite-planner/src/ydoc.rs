@@ -426,7 +426,10 @@ mod tests {
         right
             .get_or_insert_text("text")
             .remove_range(&mut right.transact_mut(), 3, 3);
-        assert_eq!(left.transact().state_vector(), right.transact().state_vector());
+        assert_eq!(
+            left.transact().state_vector(),
+            right.transact().state_vector()
+        );
         let deleted = merge(Some(&original), &full(&right)).unwrap();
         let retry = merge_with_snapshot(Some(&deleted.state), &original, Some(&snapshot)).unwrap();
         assert!(!retry.changed);
