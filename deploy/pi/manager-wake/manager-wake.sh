@@ -5,6 +5,9 @@ set -euo pipefail
 repo=kirillkuz1122/qubite
 pr=89
 text="⏰ Будильник с Pi: проверь сессии задач (D-646)"
+# Лимиты Codex — из кэша очереди (обновляет qubite-codex, не реже раза в 30 мин); сам Codex не спрашиваем.
+limits=$(timeout 10 /opt/qubite/bin/qubite-codex-limits --line 2>/dev/null) || limits="Codex: лимиты неизвестны"
+text+=$'\n'"${limits:-Codex: лимиты неизвестны}"
 
 # Окно 01:00–01:50 UTC занято утренней сводкой владельца — не будим.
 hm=$(date -u +%H%M)
