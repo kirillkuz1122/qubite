@@ -11,7 +11,9 @@ use qubite_server::auth::AuthSettings;
 use serde_json::{Value, json};
 use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest, http::HeaderValue};
 use uuid::Uuid;
-use yrs::{Doc, ReadTxn, StateVector, Text, Transact};
+use yrs::updates::decoder::Decode;
+use yrs::updates::encoder::Encode;
+use yrs::{Doc, GetString, ReadTxn, StateVector, Text, Transact, Update};
 
 fn update(text: &str, client: u64) -> String {
     let doc = Doc::with_client_id(client);
@@ -451,6 +453,96 @@ async fn docs_only_websocket_is_notified_for_new_state_but_not_retry() {
             .is_err()
     );
     drop(socket);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+
+#[tokio::test]
+async fn concurrent_pushes_repair_search_text_without_changing_ystate() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let id = create(&mut owner, address, None).await;
+    let base = update("Основа", 1);
+    let seeded = post(
+        &mut owner,
+        address,
+        id,
+        json!({"update": base, "text": "Основа", "seed": true}),
+    )
+    .await;
+    assert_eq!(seeded.status, 200);
+    let left = Doc::with_client_id(2);
+    let right = Doc::with_client_id(3);
+    for doc in [&left, &right] {
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(&STANDARD.decode(&base).unwrap()).unwrap())
+            .unwrap();
+    }
+    left.get_or_insert_text("text")
+        .insert(&mut left.transact_mut(), 0, "Алгебра ");
+    right
+        .get_or_insert_text("text")
+        .insert(&mut right.transact_mut(), 0, "Геометрия ");
+    let packet = |doc: &Doc| {
+        // Получаем тип до открытия read-транзакции.
+        let text = doc.get_or_insert_text("text");
+        let txn = doc.transact();
+        json!({
+            "update": STANDARD.encode(txn.encode_state_as_update_v1(&StateVector::default())),
+            "sv": STANDARD.encode(txn.state_vector().encode_v1()),
+            "text": text.get_string(&txn),
+        })
+    };
+    let first = post(&mut owner, address, id, packet(&left)).await;
+    assert_eq!(first.status, 200);
+    assert_eq!(first.body["text_stale"], false);
+    let stale_packet = packet(&right);
+    let second = post(&mut owner, address, id, stale_packet.clone()).await;
+    assert_eq!(second.status, 200);
+    assert_eq!(second.body["text_stale"], true);
+    let before = exchange(&mut owner, address, id).await;
+    // Повтор устаревшего пакета не затирает body и не создаёт события.
+    let events = count_events(&db, id).await;
+    let retry = post(&mut owner, address, id, stale_packet).await;
+    assert_eq!(retry.body["text_stale"], true);
+    assert_eq!(count_events(&db, id).await, events);
+    for sv in ["%%%", "/w==", "AAAB"] {
+        let invalid = post(
+            &mut owner,
+            address,
+            id,
+            json!({"update": STANDARD.encode([0, 0]), "sv": sv, "text": "Битый"}),
+        )
+        .await;
+        assert_eq!(invalid.status, 400);
+        assert_eq!(invalid.body["error"], "invalid_update");
+    }
+    right
+        .transact_mut()
+        .apply_update(
+            Update::decode_v1(&STANDARD.decode(before["update"].as_str().unwrap()).unwrap()).unwrap(),
+        )
+        .unwrap();
+    let text = right.get_or_insert_text("text").get_string(&right.transact());
+    assert!(text.contains("Алгебра"));
+    assert!(text.contains("Геометрия"));
+    let catchup = json!({
+        "update": STANDARD.encode([0, 0]), "sv": before["sv"], "text": text,
+    });
+    let repaired = post(&mut owner, address, id, catchup.clone()).await;
+    assert_eq!(repaired.status, 200);
+    assert_eq!(repaired.body["text_stale"], false);
+    assert_eq!(exchange(&mut owner, address, id).await, before);
+    let body = owner.get(address, &format!("/api/v1/docs/{id}")).await;
+    assert_eq!(body.body["body"], text);
+    for term in ["алгебра", "геометрия"] {
+        let search = query(&owner, address, "/api/v1/docs", "q", term).await;
+        assert_eq!(search["docs"][0]["id"], id.to_string());
+    }
+    assert_eq!(count_events(&db, id).await, events + 1);
+    assert_eq!(post(&mut owner, address, id, catchup).await.status, 200);
+    assert_eq!(count_events(&db, id).await, events + 1);
     db.close().await;
     test_db.drop_db().await;
 }

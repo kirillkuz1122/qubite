@@ -52,11 +52,18 @@ export interface DocsPullResponse {
 
 export interface DocsPushResponse {
   sv: Uint8Array;
+  textStale?: boolean;
 }
 
 export interface DocsTransport {
   pull(id: string, sv: Uint8Array): Promise<DocsPullResponse>;
-  push(id: string, update: Uint8Array, text: string, seed?: boolean): Promise<DocsPushResponse>;
+  push(
+    id: string,
+    update: Uint8Array,
+    text: string,
+    seed?: boolean,
+    sv?: Uint8Array,
+  ): Promise<DocsPushResponse>;
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -116,13 +123,18 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
         seedMarkdown: response.seed_markdown,
       };
     },
-    async push(id, update, text, seed) {
-      const response = await call<{ sv: string }>(path(id), {
+    async push(id, update, text, seed, sv) {
+      const response = await call<{ sv: string; text_stale?: boolean }>(path(id), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ update: toBase64(update), text, ...(seed ? { seed: true } : {}) }),
+        body: JSON.stringify({
+          update: toBase64(update),
+          text,
+          ...(seed ? { seed: true } : {}),
+          ...(sv ? { sv: toBase64(sv) } : {}),
+        }),
       });
-      return { sv: fromBase64(response.sv) };
+      return { sv: fromBase64(response.sv), textStale: response.text_stale ?? false };
     },
   };
 }
@@ -161,6 +173,9 @@ interface StoredDocument {
   /** Счётчики меняются внутри IDB-транзакции, включая правки из другой вкладки. */
   version: number;
   syncedVersion: number;
+  /** Текст требует подтверждения, даже если новых Yjs-правок уже нет. */
+  textPending: boolean;
+  textStale: boolean;
   text: string;
   seed: boolean;
   /** Вектор первого seed-запроса: переживает потерю ответа и перезапуск. */
@@ -181,6 +196,8 @@ const emptyDocument = (id: string): StoredDocument => ({
   id,
   version: 0,
   syncedVersion: 0,
+  textPending: false,
+  textStale: false,
   text: '',
   seed: false,
   seedSv: null,
@@ -402,6 +419,7 @@ class StoredDocHandle implements DocHandle {
   private readonly lostListeners = new Set<(lost: LostBlock[]) => void>();
   private lastText: string;
   private textGetter: () => string;
+  private hasTextRenderer: boolean;
   private readonly statusListeners = new Set<(status: DocStatus) => void>();
   private readonly resetListeners = new Set<() => void>();
   private writes: Promise<void> = Promise.resolve();
@@ -421,9 +439,10 @@ class StoredDocHandle implements DocHandle {
     private readonly origin: DocStore,
     private readonly transport: DocsTransport,
     private readonly debounceMs: number,
-    renderText: DocStoreOptions['renderText'],
+    private readonly renderText: DocStoreOptions['renderText'],
     private readonly release: () => void,
   ) {
+    this.hasTextRenderer = Boolean(renderText);
     this.lastText = record.text;
     this.textGetter = renderText ? () => renderText(this.doc) : () => this.lastText;
     this.seedMarkdown = record.seedMarkdown;
@@ -442,7 +461,9 @@ class StoredDocHandle implements DocHandle {
       'all',
     );
     this.status =
-      record.version > record.syncedVersion || record.seedMarkdown !== null ? 'pending' : 'saved';
+      record.version > record.syncedVersion || record.textPending || record.seedMarkdown !== null
+        ? 'pending'
+        : 'saved';
     doc.on('update', this.updated);
   }
 
@@ -486,6 +507,7 @@ class StoredDocHandle implements DocHandle {
 
   set text(getter: () => string) {
     if (this.closed) return;
+    this.hasTextRenderer = true;
     this.textGetter = getter;
     const text = this.captureText();
     this.track(
@@ -590,7 +612,7 @@ class StoredDocHandle implements DocHandle {
     return this.running;
   }
 
-  private async exchange(): Promise<void> {
+  private async exchange(allowTextCatchup = true): Promise<void> {
     let requesting = false;
     try {
       await this.writes;
@@ -622,18 +644,27 @@ class StoredDocHandle implements DocHandle {
       // Подтверждать record.version можно только вместе со всеми его обновлениями.
       for (const entry of updates) Y.applyUpdate(this.doc, entry.update, this.origin);
       this.lastText = record.text;
-      if (record.version > record.syncedVersion) {
+      if (record.version > record.syncedVersion || record.textPending) {
         // Экран должен закончить перенос Markdown до первого push.
         if (remote.seedMarkdown !== null && !record.seed) {
           this.setStatus('pending');
           return;
         }
-        const text = this.captureText();
+        // После слияния нужен текст дерева, а не сохранённый до pull Markdown.
+        if (record.textStale && !this.hasTextRenderer) {
+          this.setStatus('pending');
+          return;
+        }
+        const text =
+          record.textStale && this.renderText ? this.renderText(this.doc) : this.captureText();
+        const clientSv = Y.encodeStateVector(this.doc);
         const update = Y.encodeStateAsUpdate(this.doc, remote.sv);
         const seedSv = record.seedSv ?? Y.encodeStateVector(this.doc);
         this.track(
           this.db.change(this.id, (current) => {
             if (current.version === record.version) current.text = text;
+            // Потерянный ответ тоже требует повтора текста после перезапуска.
+            current.textPending = true;
             if (record.seed && current.seedSv === null) current.seedSv = seedSv;
           }),
         );
@@ -642,7 +673,13 @@ class StoredDocHandle implements DocHandle {
         requesting = true;
         let response: DocsPushResponse;
         try {
-          response = await this.transport.push(this.id, update, text, record.seed || undefined);
+          response = await this.transport.push(
+            this.id,
+            update,
+            text,
+            record.seed || undefined,
+            clientSv,
+          );
         } catch (error) {
           if (!(
             record.seed &&
@@ -687,17 +724,26 @@ class StoredDocHandle implements DocHandle {
           this.db.change(this.id, (current) => {
             current.serverSv = response.sv;
             current.syncedVersion = Math.max(current.syncedVersion, record.version);
+            current.textPending = response.textStale ?? false;
+            current.textStale = response.textStale ?? false;
             current.seed = false;
             current.seedSv = null;
             current.seedMarkdown = null;
           }),
         );
         this.seedMarkdown = null;
+        if (response.textStale && allowTextCatchup) {
+          await this.writes;
+          await this.exchange(false);
+          return;
+        }
       }
       await this.writes;
       const { record: current } = await this.db.load(this.id);
       this.setStatus(
-        current.version > current.syncedVersion || current.seedMarkdown !== null
+        current.version > current.syncedVersion ||
+          current.textPending ||
+          current.seedMarkdown !== null
           ? 'pending'
           : 'saved',
       );

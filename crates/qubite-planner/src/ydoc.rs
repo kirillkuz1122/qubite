@@ -69,15 +69,34 @@ pub struct Merged {
     pub state: Vec<u8>,
     pub sv: Vec<u8>,
     pub changed: bool,
+    pub text_stale: bool,
 }
 
 pub fn merge(state: Option<&[u8]>, update: &[u8]) -> Result<Merged, Error> {
+    merge_with_vector(state, update, None)
+}
+
+/// Вектор описывает копию, из которой клиент построил text перед отправкой.
+pub fn merge_with_vector(
+    state: Option<&[u8]>,
+    update: &[u8],
+    client_sv: Option<&[u8]>,
+) -> Result<Merged, Error> {
     if update.len() > MAX_UPDATE_BYTES {
         return Err(Error::UpdateTooLarge);
     }
     guarded(|| {
         let update = decode::<Update>(update)?;
         let doc = load(state)?;
+        let text_stale = if let Some(bytes) = client_sv {
+            let client_sv = decode::<StateVector>(bytes)?;
+            doc.transact()
+                .state_vector()
+                .iter()
+                .any(|(client, clock)| client_sv.get(client) < *clock)
+        } else {
+            false // Совместимость со старыми клиентами без вектора.
+        };
         let before = doc
             .transact()
             .encode_state_as_update_v1(&StateVector::default());
@@ -96,6 +115,7 @@ pub fn merge(state: Option<&[u8]>, update: &[u8]) -> Result<Merged, Error> {
             state: after,
             sv: txn.state_vector().encode_v1(),
             changed,
+            text_stale,
         })
     })
 }
@@ -143,6 +163,11 @@ pub async fn get(
     Ok(result)
 }
 
+pub struct Applied {
+    pub sv: Vec<u8>,
+    pub text_stale: bool,
+}
+
 pub async fn apply(
     conn: &mut PgConnection,
     owner: Uuid,
@@ -150,7 +175,8 @@ pub async fn apply(
     update: &[u8],
     text: &str,
     seed: bool,
-) -> Result<Vec<u8>, Error> {
+    client_sv: Option<&[u8]>,
+) -> Result<Applied, Error> {
     let mut tx = conn.begin().await?;
     // Общий порядок блокировок с rename/старой правкой: objects, затем docs_pages.
     let revision: i64 = sqlx::query_scalar(
@@ -162,8 +188,8 @@ pub async fn apply(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(qubite_objects::Error::NotFound)?;
-    let state: Option<Vec<u8>> =
-        sqlx::query_scalar("SELECT ystate FROM docs_pages WHERE object_id = $1 FOR UPDATE")
+    let (state, body): (Option<Vec<u8>>, String) =
+        sqlx::query_as("SELECT ystate, body FROM docs_pages WHERE object_id = $1 FOR UPDATE")
             .bind(id)
             .fetch_one(&mut *tx)
             .await?;
@@ -173,18 +199,32 @@ pub async fn apply(
     if text.chars().count() > MAX_DOC_CHARS {
         return Err(Error::TextTooLarge);
     }
-    let merged = merge(state.as_deref(), update)?;
+    let merged = merge_with_vector(state.as_deref(), update, client_sv)?;
+    // Старый text не затирает превью. Точный повтор без sv, как прежде, ничего
+    // не меняет; с покрывающим sv разрешён догон текста без новых Yjs-правок.
+    let text_changed =
+        !merged.text_stale && (merged.changed || client_sv.is_some()) && body != text;
     if merged.changed {
         sqlx::query("UPDATE docs_pages SET ystate = $2, body = $3 WHERE object_id = $1")
             .bind(id)
             .bind(&merged.state)
-            .bind(text)
+            .bind(if merged.text_stale { &body } else { text })
             .execute(&mut *tx)
             .await?;
         objects::bump(&mut tx, id, revision, owner, &["body", "ystate"]).await?;
+    } else if text_changed {
+        sqlx::query("UPDATE docs_pages SET body = $2 WHERE object_id = $1")
+            .bind(id)
+            .bind(text)
+            .execute(&mut *tx)
+            .await?;
+        objects::bump(&mut tx, id, revision, owner, &["body"]).await?;
     }
     tx.commit().await?;
-    Ok(merged.sv)
+    Ok(Applied {
+        sv: merged.sv,
+        text_stale: merged.text_stale,
+    })
 }
 
 /// Поля docs.page в обычном sync: текст передаётся только через /y.

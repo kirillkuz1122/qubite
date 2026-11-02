@@ -14658,11 +14658,15 @@
       },
       "YStateVector": {
         "type": "object",
-        "required": ["sv"],
+        "required": ["sv", "text_stale"],
         "properties": {
           "sv": {
             "type": "string",
             "description": "Вектор состояния сервера v1, standard base64."
+          },
+          "text_stale": {
+            "type": "boolean",
+            "description": "Нужен pull и повторная отправка текста слитого документа."
           }
         }
       },
@@ -14673,6 +14677,10 @@
           "seed": {
             "type": "boolean",
             "description": "Первое преобразование Markdown; если состояние уже есть — seed_taken."
+          },
+          "sv": {
+            "type": ["string", "null"],
+            "description": "Вектор копии клиента, из которой построен text, standard base64."
           },
           "text": {
             "type": "string",

@@ -41,6 +41,8 @@ pub struct YUpdate {
     update: String,
     /// Простой текст для поиска; не больше 200 000 знаков.
     text: String,
+    /// Вектор копии клиента, из которой построен text, standard base64.
+    sv: Option<String>,
     /// Первое преобразование Markdown; если состояние уже есть — seed_taken.
     #[serde(default)]
     seed: bool,
@@ -50,6 +52,8 @@ pub struct YUpdate {
 pub struct YStateVector {
     /// Вектор состояния сервера v1, standard base64.
     sv: String,
+    /// Нужен pull и повторная отправка текста слитого документа.
+    text_stale: bool,
 }
 
 fn error(error: ydoc::Error) -> ApiError {
@@ -151,23 +155,26 @@ pub async fn post_y(
         return Err(error(ydoc::Error::UpdateTooLarge));
     }
     let update = decode_base64(&input.update)?;
+    let client_sv = input.sv.as_deref().map(decode_base64).transpose()?;
     let mut conn = state
         .db
         .pool()
         .acquire()
         .await
         .map_err(|_| ApiError::internal())?;
-    let sv = ydoc::apply(
+    let applied = ydoc::apply(
         &mut conn,
         session.0.account_id,
         id,
         &update,
         &input.text,
         input.seed,
+        client_sv.as_deref(),
     )
     .await
     .map_err(error)?;
     Ok(Json(YStateVector {
-        sv: STANDARD.encode(sv),
+        sv: STANDARD.encode(applied.sv),
+        text_stale: applied.text_stale,
     }))
 }

@@ -5333,10 +5333,14 @@ export interface components {
     YStateVector: {
       /** @description Вектор состояния сервера v1, standard base64. */
       sv: string;
+      /** @description Нужен pull и повторная отправка текста слитого документа. */
+      text_stale: boolean;
     };
     YUpdate: {
       /** @description Первое преобразование Markdown; если состояние уже есть — seed_taken. */
       seed?: boolean;
+      /** @description Вектор копии клиента, из которой построен text, standard base64. */
+      sv?: string | null;
       /** @description Простой текст для поиска; не больше 200 000 знаков. */
       text: string;
       /** @description Обновление v1, standard base64; после декодирования не больше 512 КиБ. */

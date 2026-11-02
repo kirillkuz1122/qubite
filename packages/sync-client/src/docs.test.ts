@@ -30,6 +30,7 @@ class DocsServer implements DocsTransport {
   beforePull: (() => Promise<void>) | undefined;
   beforePush: (() => Promise<void>) | undefined;
   loseResponse = false;
+  alwaysStale = false;
   readonly pulls: { id: string; sv: Uint8Array }[] = [];
   readonly pushes: { id: string; update: Uint8Array; text: string; seed?: boolean }[] = [];
 
@@ -46,20 +47,27 @@ class DocsServer implements DocsTransport {
     };
   }
 
-  async push(id: string, update: Uint8Array, text: string, seed?: boolean) {
+  async push(id: string, update: Uint8Array, text: string, seed?: boolean, sv?: Uint8Array) {
     this.pushes.push({ id, update, text, ...(seed ? { seed } : {}) });
     if (this.beforePush) await this.beforePush();
     if (this.offline) throw new TypeError('нет сети');
     if (this.pushError) throw this.pushError;
     if (seed && this.seedMarkdown === null) throw new HttpError(409, 'seed_taken', 'уже перенесён');
+    const clientSv = sv ? Y.decodeStateVector(sv) : undefined;
+    const textStale =
+      this.alwaysStale ||
+      (clientSv !== undefined &&
+        [...Y.decodeStateVector(Y.encodeStateVector(this.doc))].some(
+          ([client, clock]) => (clientSv.get(client) ?? 0) < clock,
+        ));
     Y.applyUpdate(this.doc, update);
     this.seedMarkdown = null;
-    this.text = text;
+    if (!textStale) this.text = text;
     if (this.loseResponse) {
       this.loseResponse = false;
       throw new TypeError('ответ потерялся после записи');
     }
-    return { sv: Y.encodeStateVector(this.doc) };
+    return { sv: Y.encodeStateVector(this.doc), textStale };
   }
 }
 
@@ -605,12 +613,16 @@ describe('HTTP-адаптер документов', () => {
     );
     expect(new Headers(calls[0]?.init.headers).has('x-csrf-token')).toBe(false);
     expect(calls[0]?.init.credentials).toBe('include');
-    expect(await transport.push('id/1', update, '# Текст', true)).toEqual({ sv });
+    expect(await transport.push('id/1', update, '# Текст', true, sv)).toEqual({
+      sv,
+      textStale: false,
+    });
     expect(new Headers(calls[1]?.init.headers).get('x-csrf-token')).toBe('csrf');
     expect(JSON.parse(calls[1]!.init.body as string)).toEqual({
       update: base64(update),
       text: '# Текст',
       seed: true,
+      sv: base64(sv),
     });
     const app = httpDocsTransport({ fetch, token: () => 'access', csrf: () => 'ignored' });
     await app.pull('page', sv);
@@ -622,6 +634,16 @@ describe('HTTP-адаптер документов', () => {
       expect(call.init.credentials).toBe('omit');
     }
     expect(JSON.parse(calls[3]!.init.body as string)).not.toHaveProperty('seed');
+  });
+
+  it('читает text_stale из ответа сервера', async () => {
+    const transport = httpDocsTransport({
+      fetch: async () => Response.json({ sv: 'AA==', text_stale: true }),
+    });
+    expect(await transport.push('page', new Uint8Array([0, 0]), '')).toEqual({
+      sv: new Uint8Array([0]),
+      textStale: true,
+    });
   });
 
   it('читает CSRF из cookie и сохраняет HttpError', async () => {
@@ -819,5 +841,76 @@ describe('DOC-002e1: сохранность локального текста', 
     remote.offline = false;
     const next = await store(remote, options).open('page');
     expect(next.lost).toEqual([]);
+  });
+});
+
+describe('DOC-002f: догон текста после параллельного слияния', () => {
+  const renderText = (doc: Y.Doc) => doc.getText('body').toString();
+
+  it('после общего pull отправляет текст обеих копий без новых Yjs-правок', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Основа');
+    const a = await store(remote, { renderText }).open('page');
+    const b = await store(remote, { renderText }).open('page');
+    a.doc.getText('body').insert(0, 'Слева · ');
+    b.doc.getText('body').insert(b.doc.getText('body').length, ' · справа');
+    // a уже сделал pull; пока его push ждёт, b отправляет свою правку.
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      await b.sync();
+    };
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Слева · Основа · справа');
+    expect(remote.pushes.at(-1)?.text).toBe(remote.text);
+    expect(remote.pushes.at(-1)?.update).toEqual(new Uint8Array([0, 0]));
+    expect(a.status).toBe('saved');
+    const state = Y.encodeStateAsUpdate(remote.doc);
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(Y.encodeStateAsUpdate(remote.doc)).toEqual(state);
+  });
+
+  it('делает только один немедленный догон, затем оставляет pending', async () => {
+    const remote = server();
+    const handle = await store(remote, { renderText }).open('page');
+    handle.doc.getText('body').insert(0, 'Текст');
+    remote.alwaysStale = true;
+    const pulls = remote.pulls.length;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(2);
+    expect(remote.pulls).toHaveLength(pulls + 2);
+    expect(handle.status).toBe('pending');
+    remote.alwaysStale = false;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Текст');
+    expect(handle.status).toBe('saved');
+  });
+
+  it('сохраняет необходимость догона при обрыве сети и перезапуске', async () => {
+    const remote = server();
+    const options = { indexedDB: new IDBFactory(), dbName: 'stale-restart', renderText };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    handle.doc.getText('body').insert(0, 'Свой');
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      remote.doc.getText('body').insert(0, 'Чужой · ');
+      remote.beforePull = async () => {
+        remote.offline = true;
+      };
+    };
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.textPending).toBe(true);
+    await device.close();
+    remote.beforePull = undefined;
+    remote.offline = false;
+    const reopened = await store(remote, options).open('page');
+    expect(remote.text).toContain('Свой');
+    expect(remote.text).toContain('Чужой');
+    expect(remote.text).toBe(renderText(reopened.doc));
+    expect(reopened.status).toBe('saved');
   });
 });
