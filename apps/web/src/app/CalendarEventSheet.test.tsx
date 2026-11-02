@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { LookProvider } from '@qubite/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { newEventForm } from './calendar-view';
 import { CalendarEventSheet } from './CalendarEventSheet';
@@ -12,16 +13,18 @@ function setup(existing = false, readable = true) {
   const onDelete = vi.fn(async () => {});
   const onClose = vi.fn();
   render(
-    <CalendarEventSheet
-      open
-      initial={{ ...newEventForm('2026-11-03', 9 * 60), title: 'Встреча' }}
-      existing={existing}
-      readable={readable}
-      timeZone="Asia/Yekaterinburg"
-      onSave={onSave}
-      onDelete={onDelete}
-      onClose={onClose}
-    />,
+    <LookProvider>
+      <CalendarEventSheet
+        open
+        initial={{ ...newEventForm('2026-11-03', 9 * 60), title: 'Встреча' }}
+        existing={existing}
+        readable={readable}
+        timeZone="Asia/Yekaterinburg"
+        onSave={onSave}
+        onDelete={onDelete}
+        onClose={onClose}
+      />
+    </LookProvider>,
   );
   return { onSave, onDelete, onClose };
 }
@@ -29,7 +32,9 @@ function setup(existing = false, readable = true) {
 describe('закреплённые действия формы события', () => {
   it.each([false, true])('нижняя панель сохраняет поля формы (правка: %s)', async (existing) => {
     const { onSave, onClose } = setup(existing);
-    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Обновлённая встреча' } });
+    fireEvent.change(screen.getByLabelText('Название'), {
+      target: { value: 'Обновлённая встреча' },
+    });
     const save = screen.getByRole('button', { name: existing ? 'Сохранить' : 'Создать' });
     expect(save.closest('.q-sheet-footer')).not.toBeNull();
     expect(save.closest('form')).toBeNull();

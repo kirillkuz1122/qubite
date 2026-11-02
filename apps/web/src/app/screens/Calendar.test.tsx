@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { LookProvider } from '@qubite/ui';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalendarScreen } from './Calendar';
 
@@ -40,7 +41,11 @@ describe('шапка календаря', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }));
-    const { container } = render(<CalendarScreen />);
+    const { container } = render(
+      <LookProvider>
+        <CalendarScreen />
+      </LookProvider>,
+    );
     const toolbar = container.querySelector<HTMLElement>('.calendar-toolbar')!;
     const period = toolbar.querySelector('.calendar-period')!;
     const initial = period.textContent;
@@ -69,7 +74,11 @@ describe('шапка календаря', () => {
   });
 
   it('кнопка создания в шапке открывает форму с закреплёнными действиями', () => {
-    render(<CalendarScreen />);
+    render(
+      <LookProvider>
+        <CalendarScreen />
+      </LookProvider>,
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Новое событие' }));
     const dialog = screen.getByRole('dialog', { name: 'Новое событие' });
     const create = within(dialog).getByRole('button', { name: 'Создать' });
