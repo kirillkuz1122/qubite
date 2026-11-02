@@ -30,8 +30,15 @@ class DocsServer implements DocsTransport {
   beforePull: (() => Promise<void>) | undefined;
   beforePush: (() => Promise<void>) | undefined;
   loseResponse = false;
+  alwaysStale = false;
   readonly pulls: { id: string; sv: Uint8Array }[] = [];
-  readonly pushes: { id: string; update: Uint8Array; text: string; seed?: boolean }[] = [];
+  readonly pushes: {
+    id: string;
+    update: Uint8Array;
+    text: string;
+    seed?: boolean;
+    snapshot?: Uint8Array;
+  }[] = [];
 
   async pull(id: string, sv: Uint8Array) {
     this.pulls.push({ id, sv });
@@ -46,20 +53,30 @@ class DocsServer implements DocsTransport {
     };
   }
 
-  async push(id: string, update: Uint8Array, text: string, seed?: boolean) {
-    this.pushes.push({ id, update, text, ...(seed ? { seed } : {}) });
+  async push(id: string, update: Uint8Array, text: string, seed?: boolean, snapshot?: Uint8Array) {
+    this.pushes.push({
+      id,
+      update,
+      text,
+      ...(seed ? { seed } : {}),
+      ...(snapshot ? { snapshot } : {}),
+    });
     if (this.beforePush) await this.beforePush();
     if (this.offline) throw new TypeError('нет сети');
     if (this.pushError) throw this.pushError;
     if (seed && this.seedMarkdown === null) throw new HttpError(409, 'seed_taken', 'уже перенесён');
+    const textStale =
+      this.alwaysStale ||
+      (snapshot !== undefined &&
+        !Y.snapshotContainsUpdate(Y.decodeSnapshot(snapshot), Y.encodeStateAsUpdate(this.doc)));
     Y.applyUpdate(this.doc, update);
     this.seedMarkdown = null;
-    this.text = text;
+    if (!textStale) this.text = text;
     if (this.loseResponse) {
       this.loseResponse = false;
       throw new TypeError('ответ потерялся после записи');
     }
-    return { sv: Y.encodeStateVector(this.doc) };
+    return { sv: Y.encodeStateVector(this.doc), textStale };
   }
 }
 
@@ -590,6 +607,7 @@ describe('HTTP-адаптер документов', () => {
     const calls: { url: string; init: RequestInit }[] = [];
     const update = Uint8Array.from({ length: 70_000 }, (_, i) => i % 256);
     const sv = new Uint8Array([251, 255]);
+    const snapshot = Y.encodeSnapshot(Y.emptySnapshot);
     const fetch: typeof globalThis.fetch = async (input, init = {}) => {
       calls.push({ url: String(input), init });
       return Response.json({ update: base64(update), sv: base64(sv), seed_markdown: 'текст' });
@@ -605,12 +623,16 @@ describe('HTTP-адаптер документов', () => {
     );
     expect(new Headers(calls[0]?.init.headers).has('x-csrf-token')).toBe(false);
     expect(calls[0]?.init.credentials).toBe('include');
-    expect(await transport.push('id/1', update, '# Текст', true)).toEqual({ sv });
+    expect(await transport.push('id/1', update, '# Текст', true, snapshot)).toEqual({
+      sv,
+      textStale: false,
+    });
     expect(new Headers(calls[1]?.init.headers).get('x-csrf-token')).toBe('csrf');
     expect(JSON.parse(calls[1]!.init.body as string)).toEqual({
       update: base64(update),
       text: '# Текст',
       seed: true,
+      snapshot: base64(snapshot),
     });
     const app = httpDocsTransport({ fetch, token: () => 'access', csrf: () => 'ignored' });
     await app.pull('page', sv);
@@ -622,6 +644,17 @@ describe('HTTP-адаптер документов', () => {
       expect(call.init.credentials).toBe('omit');
     }
     expect(JSON.parse(calls[3]!.init.body as string)).not.toHaveProperty('seed');
+    expect(JSON.parse(calls[3]!.init.body as string)).not.toHaveProperty('snapshot');
+  });
+
+  it('читает text_stale из ответа сервера', async () => {
+    const transport = httpDocsTransport({
+      fetch: async () => Response.json({ sv: 'AA==', text_stale: true }),
+    });
+    expect(await transport.push('page', new Uint8Array([0, 0]), '')).toEqual({
+      sv: new Uint8Array([0]),
+      textStale: true,
+    });
   });
 
   it('читает CSRF из cookie и сохраняет HttpError', async () => {
@@ -819,5 +852,118 @@ describe('DOC-002e1: сохранность локального текста', 
     remote.offline = false;
     const next = await store(remote, options).open('page');
     expect(next.lost).toEqual([]);
+  });
+});
+
+describe('DOC-002f: догон текста после параллельного слияния', () => {
+  const renderText = (doc: Y.Doc) => doc.getText('body').toString();
+
+  it('при повторе после чужого удаления догоняет текст один раз при прежнем векторе', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Основа · удалить');
+    const a = await store(remote, { renderText }).open('page');
+    a.doc.getText('body').insert(0, 'Свой · ');
+    // Сервер принял пакет A, но ответ потерялся: текст останется в очереди повтора.
+    remote.loseResponse = true;
+    await a.sync();
+    expect(a.status).toBe('offline');
+    const original = remote.pushes[0]!;
+    const b = await store(remote, { renderText }).open('page');
+    const vector = Y.encodeStateVector(remote.doc);
+    const text = b.doc.getText('body');
+    text.delete(text.length - ' · удалить'.length, ' · удалить'.length);
+    // A уже сделал pull для повтора; B отправляет только удаление перед его push.
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      await b.sync();
+      expect(Y.encodeStateVector(remote.doc)).toEqual(vector);
+      expect(remote.text).toBe('Свой · Основа');
+    };
+    const pulls = remote.pulls.length;
+    await a.sync();
+    expect(remote.pushes).toHaveLength(4); // первый A, повтор A, удаление B, догон A
+    expect(remote.pulls).toHaveLength(pulls + 3); // повтор A, B, догон A
+    const retry = remote.pushes[1]!;
+    expect(retry.snapshot).toEqual(original.snapshot);
+    expect(retry.text).toBe('Свой · Основа · удалить');
+    const catchup = remote.pushes.at(-1)!;
+    expect(catchup.text).toBe('Свой · Основа');
+    expect(Y.decodeUpdate(catchup.update).structs).toHaveLength(0);
+    expect(Y.decodeSnapshot(catchup.snapshot!).sv).toEqual(Y.decodeSnapshot(original.snapshot!).sv);
+    expect(Y.equalSnapshots(Y.decodeSnapshot(catchup.snapshot!), Y.snapshot(remote.doc))).toBe(
+      true,
+    );
+    expect(renderText(a.doc)).toBe('Свой · Основа');
+    expect(remote.text).toBe('Свой · Основа');
+    expect(a.status).toBe('saved');
+    await a.sync();
+    expect(remote.pushes).toHaveLength(4);
+  });
+
+  it('после общего pull отправляет текст обеих копий без новых Yjs-правок', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Основа');
+    const a = await store(remote, { renderText }).open('page');
+    const b = await store(remote, { renderText }).open('page');
+    a.doc.getText('body').insert(0, 'Слева · ');
+    b.doc.getText('body').insert(b.doc.getText('body').length, ' · справа');
+    // a уже сделал pull; пока его push ждёт, b отправляет свою правку.
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      await b.sync();
+    };
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Слева · Основа · справа');
+    expect(remote.pushes.at(-1)?.text).toBe(remote.text);
+    expect(remote.pushes.at(-1)?.update).toEqual(new Uint8Array([0, 0]));
+    expect(a.status).toBe('saved');
+    const state = Y.encodeStateAsUpdate(remote.doc);
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(Y.encodeStateAsUpdate(remote.doc)).toEqual(state);
+  });
+
+  it('делает только один немедленный догон, затем оставляет pending', async () => {
+    const remote = server();
+    const handle = await store(remote, { renderText }).open('page');
+    handle.doc.getText('body').insert(0, 'Текст');
+    remote.alwaysStale = true;
+    const pulls = remote.pulls.length;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(2);
+    expect(remote.pulls).toHaveLength(pulls + 2);
+    expect(handle.status).toBe('pending');
+    remote.alwaysStale = false;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Текст');
+    expect(handle.status).toBe('saved');
+  });
+
+  it('сохраняет необходимость догона при обрыве сети и перезапуске', async () => {
+    const remote = server();
+    const options = { indexedDB: new IDBFactory(), dbName: 'stale-restart', renderText };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    handle.doc.getText('body').insert(0, 'Свой');
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      remote.doc.getText('body').insert(0, 'Чужой · ');
+      remote.beforePull = async () => {
+        remote.offline = true;
+      };
+    };
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.textPending).toBe(true);
+    await device.close();
+    remote.beforePull = undefined;
+    remote.offline = false;
+    const reopened = await store(remote, options).open('page');
+    expect(remote.text).toContain('Свой');
+    expect(remote.text).toContain('Чужой');
+    expect(remote.text).toBe(renderText(reopened.doc));
+    expect(reopened.status).toBe('saved');
   });
 });
