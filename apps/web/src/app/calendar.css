@@ -576,6 +576,9 @@
   .calendar-day-heads,
   .calendar-all-day,
   .calendar-hours-grid {
-    grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(var(--calendar-day-min), 1fr));
+    grid-template-columns: var(--calendar-gutter) repeat(
+        var(--calendar-days),
+        minmax(var(--calendar-day-min), 1fr)
+      );
   }
 }
