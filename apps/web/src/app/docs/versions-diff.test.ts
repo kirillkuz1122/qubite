@@ -273,3 +273,19 @@ describe('версии настоящего документа Lexical без DO
     }
   });
 });
+
+describe('diffBlocks на длинных блоках', () => {
+  it('правка одного слова в блоке из 20 000 слов считается быстро', () => {
+    const words = Array.from({ length: 20000 }, (_, i) => `w${i}`);
+    const changed = [...words];
+    changed[100] = 'other';
+    const started = Date.now();
+    const result = diffBlocks(
+      [{ kind: 'p', text: words.join(' ') }],
+      [{ kind: 'p', text: changed.join(' ') }],
+    );
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.op).toBe('changed');
+  });
+});

@@ -1332,15 +1332,24 @@ describe('DOC-004b: восстановление версий', () => {
     const remote = server();
     const device = store(remote, { renderText });
     const snapshot = version();
+    // Документ уже открыт на устройстве: дальше восстановление идёт без сети.
+    const handle = await device.open('page');
+    handle.doc.get('root', Y.XmlText).insert(0, 'своя правка');
     remote.offline = true;
     await device.restoreVersion('page', snapshot);
-    expect(remote.pulls).toHaveLength(0);
     await expect(device.createVersion('page', 'Имя')).rejects.toThrow('Нужна связь');
     expect(remote.createVersion).not.toHaveBeenCalled();
     remote.offline = false;
     remote.createVersion.mockResolvedValue(snapshot);
     expect(await device.createVersion('page', 'Имя')).toEqual(snapshot);
-    expect(remote.pushes[0]?.restore?.restore_of).toBe(snapshot.id);
+    expect(remote.pushes.find((push) => push.restore)?.restore?.restore_of).toBe(snapshot.id);
     expect(remote.createVersion).toHaveBeenCalledWith('page', 'Имя');
+  });
+
+  it('DocStore не восстанавливает документ, которого нет на устройстве', async () => {
+    const remote = server();
+    const device = store(remote, { renderText });
+    remote.offline = true;
+    await expect(device.restoreVersion('page', version())).rejects.toThrow('не загружен');
   });
 });

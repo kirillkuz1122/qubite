@@ -16,10 +16,13 @@ export type BlockDiff =
   | { op: 'changed'; oldBlock: VersionBlock; newBlock: VersionBlock; words: WordDiff[] };
 
 /** LCS Хиршберга: память линейная, в том числе для длинных документов. */
+const MAX_LCS_CELLS = 4_000_000;
+
 function lcsPairs<T>(
   a: readonly T[],
   b: readonly T[],
   same: (a: T, b: T) => boolean,
+  trimEdges = false,
 ): [number, number][] {
   const pairs: [number, number][] = [];
   function lengths(a0: number, a1: number, b0: number, b1: number, reverse: boolean) {
@@ -66,12 +69,30 @@ function lcsPairs<T>(
     visit(a0, middle, b0, split);
     visit(middle, a1, split, b1);
   }
-  visit(0, a.length, 0, b.length);
+  // Общие края отсекаем сразу: правка одного слова в длинном блоке не должна стоить N·M.
+  let start = 0;
+  while (trimEdges && start < a.length && start < b.length && same(a[start]!, b[start]!)) {
+    pairs.push([start, start]);
+    start++;
+  }
+  let endA = a.length;
+  let endB = b.length;
+  const tail: [number, number][] = [];
+  while (trimEdges && endA > start && endB > start && same(a[endA - 1]!, b[endB - 1]!)) {
+    endA--;
+    endB--;
+    tail.push([endA, endB]);
+  }
+  // Предел работы: для огромной середины общих мест не ищем, она покажется заменой.
+  if ((endA - start) * (endB - start) <= MAX_LCS_CELLS) visit(start, endA, start, endB);
+  pairs.push(...tail.reverse());
   return pairs;
 }
 
 const tokens = (text: string): string[] =>
-  text.match(/\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu) ?? [];
+  text.match(
+    /\s+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/giu,
+  ) ?? [];
 
 function diffWords(oldText: string, newText: string): WordDiff[] {
   const oldWords = tokens(oldText);
@@ -85,7 +106,7 @@ function diffWords(oldText: string, newText: string): WordDiff[] {
   };
   let oldIndex = 0;
   let newIndex = 0;
-  for (const [oldMatch, newMatch] of lcsPairs(oldWords, newWords, (a, b) => a === b)) {
+  for (const [oldMatch, newMatch] of lcsPairs(oldWords, newWords, (a, b) => a === b, true)) {
     append('del', oldWords.slice(oldIndex, oldMatch).join(''));
     append('add', newWords.slice(newIndex, newMatch).join(''));
     append('equal', oldWords[oldMatch]!);
@@ -102,13 +123,13 @@ function closeText(a: VersionBlock, b: VersionBlock): boolean {
   if (a.text === b.text) return true;
   const oldWords = tokens(a.text).filter((word) => /[\p{L}\p{N}]/u.test(word));
   const newWords = tokens(b.text).filter((word) => /[\p{L}\p{N}]/u.test(word));
-  const shared = lcsPairs(oldWords, newWords, (x, y) => x === y).length;
+  const shared = lcsPairs(oldWords, newWords, (x, y) => x === y, true).length;
   if (shared > 0 && 2 * shared >= (oldWords.length + newWords.length) / 2) return true;
   // Для опечатки в единственном слове сравнение по словам не найдёт общего.
   if (oldWords.length === 1 && newWords.length === 1) {
     const x = Array.from(a.text);
     const y = Array.from(b.text);
-    const common = lcsPairs(x, y, (left, right) => left === right).length;
+    const common = lcsPairs(x, y, (left, right) => left === right, true).length;
     return 2 * common >= (x.length + y.length) / 2;
   }
   return false;

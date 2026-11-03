@@ -181,6 +181,8 @@ export interface DocHandle {
   text: () => string;
   sync(): Promise<void>;
   /** Возвращает скачанный снимок локальной правкой, не требует сети. */
+  /** Есть серверное состояние или свои правки; восстановление пустого дерева запрещено. */
+  readonly loaded: boolean;
   restoreVersion(version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void>;
   markSeeded(): Promise<void>;
   onStatus(callback: (status: DocStatus) => void): () => void;
@@ -432,7 +434,14 @@ export class DocStore {
 
   /** В отличие от open, не ждёт попытки сетевого обмена перед локальной правкой. */
   async restoreVersion(id: string, version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void> {
-    await (await this.handle(id)).restoreVersion(version);
+    // Нужна загруженная копия: иначе пустое дерево не заменит серверные блоки (замечание ревью #198).
+    const handle = await this.open(id);
+    if (!handle.loaded) {
+      throw new Error(
+        'Документ ещё не загружен на это устройство: подключитесь к сети и откройте его',
+      );
+    }
+    await handle.restoreVersion(version);
   }
 
   /** D-813: именованный снимок создаётся только после подтверждения локальных правок. */
@@ -465,6 +474,9 @@ export class DocStore {
     if (failed?.status === 'rejected') throw failed.reason;
   }
 }
+
+/** Чуть меньше лимита сервера (512 КБ, D-751): запас на служебные поля запроса. */
+const MAX_RESTORE_UPDATE_BYTES = 480 * 1024;
 
 class RestoreOrigin {
   constructor(readonly id: string) {}
@@ -660,8 +672,25 @@ class StoredDocHandle implements DocHandle {
     }, this.debounceMs);
   }
 
+  /** Есть серверное состояние или свои правки: пустое дерево без них не заменит чужие блоки. */
+  get loaded(): boolean {
+    return this.serverSv.size > 0 || this.doc.get('root', Y.XmlText).length > 0;
+  }
+
   async restoreVersion(version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void> {
     if (this.closed) throw new Error('документ закрыт');
+    // Сервер принимает обновление до 512 КБ: проверяем на копии, пока документ не изменён.
+    const probe = new Y.Doc();
+    Y.applyUpdate(probe, Y.encodeStateAsUpdate(this.doc));
+    let probeSize = 0;
+    probe.on('update', (update: Uint8Array) => {
+      probeSize += update.length;
+    });
+    restoreDocVersion(probe, version, null);
+    probe.destroy();
+    if (probeSize > MAX_RESTORE_UPDATE_BYTES) {
+      throw new Error('Документ слишком большой, чтобы восстановить версию целиком');
+    }
     let changed = false;
     const observe = () => {
       changed = true;
