@@ -150,8 +150,8 @@ function BacklinkRow({
       onFocus={(event) => highlight(event.currentTarget)}
       onMouseEnter={(event) => highlight(event.currentTarget)}
     >
-      <span>{title}</span>
-      <span className="backlinks-type"> · {LINK_LABELS[link.type]}</span>
+      <span>{title}</span>{' '}
+      <span className="backlinks-type">· {LINK_LABELS[link.type]}</span>
     </a>
   );
 

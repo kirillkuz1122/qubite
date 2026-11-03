@@ -149,7 +149,9 @@ for (const width of [1440, 360]) {
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true);
     await page.goto(`/planner/project/${project}`);
-    await expect(backlinks(page).getByRole('link', { name: 'План работы · Документ' })).toBeVisible();
+    await expect(
+      backlinks(page).getByRole('link', { name: 'План работы · Документ' }),
+    ).toBeVisible();
     await expect.poll(() => server.backlinkQueries.includes(project)).toBe(true);
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))

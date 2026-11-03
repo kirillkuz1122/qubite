@@ -97,9 +97,7 @@ export async function mockSync(page: Page): Promise<SyncMock> {
   await page.route('**/api/auth/me', (route) => route.fulfill({ json: USER }));
   // В сценариях без Docs упоминаний нет; запрос новой панели тоже остаётся поддельным.
   await page.route('**/api/v1/objects/*/backlinks', (route) =>
-    mock.offline
-      ? route.abort('internetdisconnected')
-      : route.fulfill({ json: { backlinks: [] } }),
+    mock.offline ? route.abort('internetdisconnected') : route.fulfill({ json: { backlinks: [] } }),
   );
   await page.route('**/api/v1/sync/push', async (route) => {
     if (mock.offline) return route.abort('internetdisconnected');
