@@ -182,6 +182,6 @@ it('LinkSource использует тонкий HTTP-контракт и пер
   expect((await client.links('page', abort.signal))[0]?.deleted).toBe(true);
   expect(mentionLabel(undefined)).toBe('…');
   expect(linkHref(first.id, 'planner.task')).toBe(`/planner?task=${first.id}`);
-  expect(linkHref(first.id, 'projects.project')).toBe(`/planner/project/${first.id}`);
+  expect(linkHref(first.id, 'planner.project')).toBe(`/planner/project/${first.id}`);
   expect(linkHref(first.id, 'calendar.event')).toBe(`/calendar?event=${first.id}`);
 });

@@ -9,7 +9,7 @@ export interface LinkSource {
 export const LINK_LABELS: Record<DocLinkKind, string> = {
   'docs.page': 'Документ',
   'planner.task': 'Дело',
-  'projects.project': 'Проект',
+  'planner.project': 'Проект',
   'calendar.event': 'Событие',
 };
 
@@ -46,7 +46,7 @@ export function linkHref(target: string, kind: DocLinkKind): string {
   switch (kind) {
     case 'docs.page':
       return `/docs/${id}`;
-    case 'projects.project':
+    case 'planner.project':
       return `/planner/project/${id}`;
     case 'planner.task':
       return `/planner?task=${id}`;

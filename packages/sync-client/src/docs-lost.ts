@@ -81,7 +81,7 @@ function isLinkKind(value: unknown): value is DocLinkKind {
   return (
     value === 'docs.page' ||
     value === 'planner.task' ||
-    value === 'projects.project' ||
+    value === 'planner.project' ||
     value === 'calendar.event'
   );
 }

@@ -8,7 +8,7 @@ import type { LocalObject } from './store';
 
 export const DOCS_PAGE = 'docs.page';
 
-export type DocLinkKind = 'docs.page' | 'planner.task' | 'projects.project' | 'calendar.event';
+export type DocLinkKind = 'docs.page' | 'planner.task' | 'planner.project' | 'calendar.event';
 export interface DocLinkTarget {
   id: string;
   type: DocLinkKind;

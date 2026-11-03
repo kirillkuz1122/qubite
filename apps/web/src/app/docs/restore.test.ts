@@ -10,7 +10,7 @@ import { DocsProvider } from './provider';
 import { $restoreLost } from './restore';
 
 const target = '11111111-1111-4111-8111-111111111111';
-const kinds: DocLinkKind[] = ['docs.page', 'planner.task', 'projects.project', 'calendar.event'];
+const kinds: DocLinkKind[] = ['docs.page', 'planner.task', 'planner.project', 'calendar.event'];
 
 function editor() {
   return createEditor({
