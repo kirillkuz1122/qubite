@@ -409,9 +409,14 @@ export function localInstant(day: string, time: string, timeZone: string): numbe
   return NaN;
 }
 
-export function newEventForm(day: string, minute = 9 * 60, allDay = false): EventForm {
+export function newEventForm(
+  day: string,
+  minute = 9 * 60,
+  allDay = false,
+  duration = 60,
+): EventForm {
   const start = snapMinute(minute);
-  const end = start + 60;
+  const end = start + Math.max(15, Math.round(duration / 15) * 15);
   return {
     title: '',
     startDay: day,
