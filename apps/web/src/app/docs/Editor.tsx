@@ -33,6 +33,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { LostEdits } from './LostEdits';
+import { Mentions } from './Mentions';
+import type { LinkSource } from './links';
 import type { Doc } from 'yjs';
 import { caretPoint } from '../../lab/caret';
 import { $isBlockNode, $orderedNumber, type BlockKind } from './BlockNode';
@@ -100,7 +102,7 @@ function apply(editor: LexicalEditor, kind: BlockKind, slash: boolean) {
   editor.focus();
 }
 
-export function DocEditor({ handle }: { handle: DocHandle }) {
+export function DocEditor({ handle, linkSource }: { handle: DocHandle; linkSource?: LinkSource }) {
   const provider = useMemo(() => new DocsProvider(handle.doc), [handle]);
   // Чужих курсоров нет (присутствие локальное), а свой Lexical иначе рисует как чужой —
   // со случайным именем («Tiger») и цветом не из темы. Курсоры уходят в скрытый контейнер.
@@ -149,6 +151,7 @@ export function DocEditor({ handle }: { handle: DocHandle }) {
           syncCursorPositionsFn={() => {}}
         />
         <Controls handle={handle} provider={provider} />
+        <Mentions handle={handle} {...(linkSource ? { source: linkSource } : {})} />
       </LexicalCollaboration>
     </LexicalComposer>
   );
@@ -186,14 +189,14 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
       imported = true;
       const seed = handle.seedMarkdown;
       if (!handle.doc.getMap('qubite-local').get(seedKey)) {
-        editor.update(() => $importMarkdown(seed, true), { discrete: true });
+        editor.update(() => $importMarkdown(seed, true, handle.links), { discrete: true });
         handle.doc.getMap('qubite-local').set(seedKey, true);
       }
       void handle.markSeeded().catch(() => {
         imported = false;
       });
     };
-    const exportText = () => editor.getEditorState().read($exportMarkdown);
+    const exportText = () => editor.getEditorState().read(() => $exportMarkdown(handle.links));
     const detach = attachMarkdownExport(handle, exportText);
     const stopReady = provider.subscribeReady(importSeed);
     const stop = handle.onStatus(() => {

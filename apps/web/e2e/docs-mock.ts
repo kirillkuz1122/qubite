@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { DocLinkTarget } from '@qubite/sync-client';
 import * as Y from 'yjs';
 import { mockSync, type SyncMock } from './sync-mock';
 
@@ -10,17 +11,45 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
   const sync = existing ?? (await mockSync(page));
   const documents = new Map<string, Y.Doc>();
   const markdown = new Map<string, string>();
-  const pushes: { id: string; text: string; seed: boolean }[] = [];
+  const pushes: { id: string; text: string; seed: boolean; links?: string[] }[] = [];
+  const mentions = new Map<string, string[]>();
+  const targets = new Map<string, DocLinkTarget>();
+  const deletedTargets = new Set<string>();
+  const targetQueries: string[] = [];
   const queries: string[] = [];
   const add = (title: string, text = '') => {
     const id = sync.addDoc(title, { preview: text.slice(0, 160) });
     markdown.set(id, text);
+    targets.set(id, { id, type: 'docs.page', title });
     return id;
   };
   await page.route('**/api/v1/docs**', async (route) => {
     if (sync.offline) return route.abort('internetdisconnected');
     const request = route.request();
     const url = new URL(request.url());
+    if (url.pathname === '/api/v1/docs/link-targets') {
+      const query = url.searchParams.get('q') ?? '';
+      targetQueries.push(query);
+      return route.fulfill({
+        json: {
+          targets: [...targets.values()]
+            .filter(
+              (target) =>
+                !deletedTargets.has(target.id) &&
+                target.title.toLowerCase().includes(query.toLowerCase()),
+            )
+            .slice(0, 8),
+        },
+      });
+    }
+    const linksMatch = url.pathname.match(/^\/api\/v1\/docs\/([^/]+)\/links$/);
+    if (linksMatch) {
+      const links = (mentions.get(decodeURIComponent(linksMatch[1]!)) ?? []).flatMap((id) => {
+        const target = targets.get(id);
+        return target ? [{ ...target, deleted: deletedTargets.has(id) }] : [];
+      });
+      return route.fulfill({ json: { links } });
+    }
     const match = url.pathname.match(/^\/api\/v1\/docs\/([^/]+)\/y$/);
     if (match) {
       const id = decodeURIComponent(match[1]!);
@@ -42,7 +71,12 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
           },
         });
       }
-      const body = request.postDataJSON() as { update: string; text: string; seed?: boolean };
+      const body = request.postDataJSON() as {
+        update: string;
+        text: string;
+        seed?: boolean;
+        links?: string[];
+      };
       if (body.seed && doc.get('root', Y.XmlText).length > 0)
         return route.fulfill({
           status: 409,
@@ -50,7 +84,13 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
         });
       Y.applyUpdate(doc, bytes(body.update));
       markdown.set(id, body.text);
-      pushes.push({ id, text: body.text, seed: !!body.seed });
+      pushes.push({
+        id,
+        text: body.text,
+        seed: !!body.seed,
+        ...(body.links ? { links: body.links } : {}),
+      });
+      if (body.links) mentions.set(id, body.links);
       sync.patch(id, { preview: body.text.slice(0, 160), has_ystate: true });
       return route.fulfill({ json: { sv: base64(Y.encodeStateVector(doc)) } });
     }
@@ -81,5 +121,15 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
       ? route.fulfill({ json: { ...doc, body: markdown.get(id) ?? '' } })
       : route.fulfill({ status: 404, json: { error: 'not_found' } });
   });
-  return { sync, add, pushes, queries, markdown, documents };
+  return {
+    sync,
+    add,
+    pushes,
+    queries,
+    markdown,
+    documents,
+    targets,
+    deletedTargets,
+    targetQueries,
+  };
 }

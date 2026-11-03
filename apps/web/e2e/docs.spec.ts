@@ -201,3 +201,79 @@ for (const theme of ['light', 'dark']) {
     });
   }
 }
+
+for (const width of [1440, 360]) {
+  test(`упоминание: меню, переход, кэш без сети и удаление чипа — ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const id = server.add('С упоминанием');
+    const target = server.add('Графы');
+    await page.goto(`/docs/${id}`);
+    await text(page).click();
+    await page.keyboard.insertText('почта a@b');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeHidden();
+    await page.keyboard.insertText(' @');
+    const menu = page.getByRole('listbox', { name: 'Ссылка на объект' });
+    await expect(menu.getByRole('option', { name: /Графы/ })).toBeVisible();
+    expect(server.targetQueries).toContain('');
+    if (width === 360) {
+      const box = await menu.boundingBox();
+      expect(box!.width).toBeLessThanOrEqual(325);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(780 - 88);
+      const row = await menu.getByRole('option', { name: /Графы/ }).boundingBox();
+      expect(row!.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(text(page)).toContainText('a@b @');
+    // Выход из прежнего триггера, затем новый поиск.
+    await page.keyboard.insertText(' @Гра');
+    await expect(menu.getByRole('option', { name: /Графы/ })).toBeVisible();
+    await page.keyboard.press('Tab');
+    const chip = text(page).getByRole('link', { name: 'Документ: Графы' });
+    await expect(chip).toBeVisible();
+    await expect.poll(() => server.pushes.at(-1)?.links).toEqual([target]);
+    expect(server.pushes.at(-1)?.text).toContain(`[@Графы](qubite://${target})`);
+
+    // Проверяем запрос новой вкладки, не выводя её из поддельного API этой страницы.
+    await page.evaluate(() => {
+      window.open = (url, target, features) => {
+        Object.assign(window, { mentionOpened: [String(url), target, features] });
+        return null;
+      };
+    });
+    await chip.click({ modifiers: ['Control'] });
+    expect(await page.evaluate(() => Reflect.get(window, 'mentionOpened'))).toEqual([
+      `/docs/${target}`,
+      '_blank',
+      'noopener,noreferrer',
+    ]);
+    await chip.click();
+    await expect(page).toHaveURL(new RegExp(`/docs/${target}$`));
+    await page.goto(`/docs/${id}`);
+    await expect(text(page).getByRole('link', { name: 'Документ: Графы' })).toBeVisible();
+
+    server.sync.offline = true;
+    await page.reload();
+    await expect(text(page).getByRole('link', { name: 'Документ: Графы' })).toBeVisible();
+    server.sync.offline = false;
+    server.deletedTargets.add(target);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const deleted = text(page).getByRole('link', { name: 'Документ: Удалено' });
+    await expect(deleted).toHaveAttribute('aria-disabled', 'true');
+    server.deletedTargets.delete(target);
+    server.targets.set(target, { id: target, type: 'docs.page', title: 'Теория графов' });
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const restored = text(page).getByRole('link', { name: 'Документ: Теория графов' });
+    await expect(restored).toBeVisible();
+
+    await text(page).click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.press('Backspace');
+    await expect(restored).toHaveAttribute('data-selected', 'true');
+    await page.keyboard.press('Backspace');
+    await expect(restored).toBeHidden();
+    await expect.poll(() => server.pushes.at(-1)?.links).toEqual([]);
+    expect(server.pushes.at(-1)?.text).not.toContain('qubite://');
+  });
+}
