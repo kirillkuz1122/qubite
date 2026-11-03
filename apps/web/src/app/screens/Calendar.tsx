@@ -4,6 +4,7 @@ import { Button, DotIcon, Note, Presence, Segmented, Swap, useMedia, useSpring }
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -86,11 +87,15 @@ export function CalendarScreen() {
     );
   }
   return (
-    <Calendar key={`${me.data.id}:${platform.data.timezone}`} timeZone={platform.data.timezone} />
+    <Calendar
+      key={`${me.data.id}:${platform.data.timezone}`}
+      timeZone={platform.data.timezone}
+      linkedEvent={new URLSearchParams(globalThis.location?.search ?? '').get('event')}
+    />
   );
 }
 
-function Calendar({ timeZone }: { timeZone: string }) {
+function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: string | null }) {
   const [now, setNow] = useState(Date.now);
   const today = calendarDay(now, timeZone);
   const [anchor, setAnchor] = useState(today);
@@ -121,6 +126,40 @@ function Calendar({ timeZone }: { timeZone: string }) {
   const [moving, setMoving] = useState(false);
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const locked = useRef(false);
+  const openLinkedEvent = useEffectEvent(async (id: string, alive: () => boolean) => {
+    try {
+      const event = await events.read(id);
+      if (!alive()) return;
+      setAnchor(calendarDay(event.starts_at, timeZone));
+      setSheet({
+        key: Date.now(),
+        event,
+        initial: eventForm(event, timeZone),
+        item: {
+          kind: 'event',
+          source_id: event.id,
+          title: event.title,
+          place: event.place,
+          starts_at: event.starts_at,
+          ends_at: event.ends_at,
+          all_day: event.all_day,
+        },
+      });
+      setSheetOpen(true);
+    } catch (error) {
+      const text = await failed(error, id);
+      if (alive()) setNotice({ text, bad: true });
+    }
+  });
+  useEffect(() => {
+    let alive = true;
+    // Событие читается по сети, состояние ставится после ответа, не в теле эффекта.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (linkedEvent) void openLinkedEvent(linkedEvent, () => alive);
+    return () => {
+      alive = false;
+    };
+  }, [linkedEvent, timeZone]);
   // Как в Planner: неподтверждённый срок виден сразу и не пропадает без сети.
   const items = useMemo(() => {
     const pending = planner.data.tasks.filter((task) => task.pending && task.id !== activeTask);

@@ -13,7 +13,7 @@ export function plainPreview(markdown: string): string {
       .map((line) => (/^\s*`{3,}/.test(line) ? '' : line.replace(LINE_MARK, '')))
       .join(' ')
       // [текст](адрес) и картинки — только текст
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/!?\[((?:\\.|[^\]\\])*)\]\([^)]*\)/g, '$1')
       .replace(/\*\*|__|~~|`/g, '')
       // одиночные * и _ у краёв слова — курсив; внутри слова (snake_case) остаются
       .replace(/(^|[\s(«"])[*_]+(?=\S)/g, '$1')

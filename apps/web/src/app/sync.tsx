@@ -24,7 +24,7 @@ import {
   type SyncApi,
 } from './sync-context';
 import { useMe } from '../auth/client';
-import { renderDocText } from './docs/render';
+import { extractDocLinks, renderDocText } from './docs/render';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 function socketUrl(): string {
@@ -115,6 +115,7 @@ export function SyncProvider({
       dbName: `${dbName}-docs`,
       transport: httpDocsTransport(),
       renderText: renderDocText,
+      extractLinks: extractDocLinks,
     });
     let alive = true;
     let stop = () => {};
