@@ -32,7 +32,7 @@ function setup(linkSource = source(), cached: DocLink[] = []) {
   let editor!: LexicalEditor;
   const listeners = new Set<() => void>();
   const handle: DocHandle = {
-    id: 'page', doc: new Y.Doc(), status: 'saved', seedMarkdown: null,
+    id: 'page', loaded: true, doc: new Y.Doc(), status: 'saved', seedMarkdown: null,
     recovered: null, lost: [], links: cached,
     async cacheLinks(links) {
       Object.assign(handle, { links: [...new Map([...handle.links, ...links].map((link) => [link.id, link])).values()] });

@@ -12,6 +12,7 @@ const linkSource: LinkSource = { search: async () => [], links: async () => [] }
 function handle(seedMarkdown: string | null): DocHandle {
   return {
     doc: new Y.Doc(),
+    loaded: true,
     id: 'page',
     links: [],
     cacheLinks: async () => {},
