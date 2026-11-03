@@ -10,6 +10,7 @@ import { Button, DotIcon, Field, Note, Swap, useSlide } from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DocEditor } from '../docs/Editor';
+import { DocumentBacklinks } from '../docs/Backlinks';
 import { acquireDocument } from '../docs/handles';
 import { plainPreview } from '../docs/preview';
 import { rememberedAccount, useSync } from '../sync-context';
@@ -293,6 +294,8 @@ function Document({
   const [fallback, setFallback] = useState<DocListItem | null>(null);
   const [generation, setGeneration] = useState(0);
   const [titleError, setTitleError] = useState(false);
+  const [backlinksHidden, setBacklinksHidden] = useState(false);
+  const touchY = useRef(0);
   const titleQueue = useRef(Promise.resolve());
   const title = item?.title ?? fallback?.title;
   const hasTitle = !!title;
@@ -383,7 +386,21 @@ function Document({
   }
 
   return (
-    <article className="docs-page" aria-label="Документ">
+    <article
+      className="docs-page"
+      aria-label="Документ"
+      onWheelCapture={(event) => {
+        if (event.deltaY > 0) setBacklinksHidden(false);
+      }}
+      onTouchStartCapture={(event) => {
+        touchY.current = event.touches[0]?.clientY ?? 0;
+      }}
+      onTouchMoveCapture={(event) => {
+        const y = event.touches[0]?.clientY ?? touchY.current;
+        if (y < touchY.current) setBacklinksHidden(false);
+        touchY.current = y;
+      }}
+    >
       <div className="docs-page-head">
         <Button size="sm" dot={false} onClick={() => void navigate({ to: '/docs' })}>
           <DotIcon name="back" /> К документам
@@ -407,9 +424,21 @@ function Document({
         />
       )}
       {handle ? (
-        <div className="docs-editor">
-          <DocEditor handle={handle} />
-        </div>
+        <>
+          <div
+            className="docs-editor"
+            onFocusCapture={(event) => {
+              if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(true);
+            }}
+            onInputCapture={() => setBacklinksHidden(true)}
+            onBlurCapture={(event) => {
+              if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(false);
+            }}
+          >
+            <DocEditor handle={handle} />
+          </div>
+          <DocumentBacklinks id={id} hidden={backlinksHidden} />
+        </>
       ) : (
         !failure && <p className="later">Открываю документ…</p>
       )}

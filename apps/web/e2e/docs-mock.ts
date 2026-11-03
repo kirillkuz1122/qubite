@@ -17,6 +17,16 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
   const deletedTargets = new Set<string>();
   const targetQueries: string[] = [];
   const queries: string[] = [];
+  const backlinkQueries: string[] = [];
+  const backlinks = (id: string): DocLinkTarget[] => {
+    const target = sync.objects.get(id);
+    if (!target || target.deleted || deletedTargets.has(id)) return [];
+    return [...mentions.entries()].flatMap(([sourceId, ids]) => {
+      const source = sync.objects.get(sourceId);
+      if (!ids.includes(id) || !source || source.deleted || deletedTargets.has(sourceId)) return [];
+      return [{ id: sourceId, type: 'docs.page' as const, title: source.title as string }];
+    });
+  };
   const add = (title: string, text = '') => {
     const id = sync.addDoc(title, { preview: text.slice(0, 160) });
     markdown.set(id, text);
@@ -27,6 +37,12 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
     if (sync.offline) return route.abort('internetdisconnected');
     const request = route.request();
     const url = new URL(request.url());
+    const backlinksMatch = url.pathname.match(/^\/api\/v1\/docs\/([^/]+)\/backlinks$/);
+    if (backlinksMatch) {
+      const id = decodeURIComponent(backlinksMatch[1]!);
+      backlinkQueries.push(id);
+      return route.fulfill({ json: { backlinks: backlinks(id) } });
+    }
     if (url.pathname === '/api/v1/docs/link-targets') {
       const query = url.searchParams.get('q') ?? '';
       targetQueries.push(query);
@@ -121,6 +137,12 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
       ? route.fulfill({ json: { ...doc, body: markdown.get(id) ?? '' } })
       : route.fulfill({ status: 404, json: { error: 'not_found' } });
   });
+  await page.route('**/api/v1/objects/*/backlinks', (route) => {
+    if (sync.offline) return route.abort('internetdisconnected');
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[4]!);
+    backlinkQueries.push(id);
+    return route.fulfill({ json: { backlinks: backlinks(id) } });
+  });
   return {
     sync,
     add,
@@ -131,5 +153,7 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
     targets,
     deletedTargets,
     targetQueries,
+    mentions,
+    backlinkQueries,
   };
 }
