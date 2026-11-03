@@ -104,7 +104,12 @@ fn check_name(name: &str) -> Result<&str> {
     Ok(name)
 }
 
-pub async fn create(conn: &mut PgConnection, owner: Uuid, doc: Uuid, name: &str) -> Result<Version> {
+pub async fn create(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    doc: Uuid,
+    name: &str,
+) -> Result<Version> {
     let mut tx = conn.begin().await?;
     require_doc(&mut tx, owner, doc, true).await?;
     let name = check_name(name)?;

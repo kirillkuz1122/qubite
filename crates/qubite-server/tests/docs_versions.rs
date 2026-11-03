@@ -28,7 +28,11 @@ async fn create(browser: &mut Browser, address: SocketAddr) -> Uuid {
         )
         .await;
     assert_eq!(reply.status, 200, "{}", reply.body);
-    assert_eq!(reply.body["results"][0]["status"], "applied", "{}", reply.body);
+    assert_eq!(
+        reply.body["results"][0]["status"], "applied",
+        "{}",
+        reply.body
+    );
     id
 }
 
@@ -170,7 +174,10 @@ async fn named_versions_validate_names_and_force_before_restore_even_on_retry() 
     let version = named(&mut browser, address, id, &"я".repeat(80)).await;
     assert_eq!(version.status, 201, "{}", version.body);
     assert_eq!(version.body["ystate"], packet(&doc)["update"]);
-    assert_eq!(version.body["preview"].as_str().unwrap().chars().count(), 120);
+    assert_eq!(
+        version.body["preview"].as_str().unwrap().chars().count(),
+        120
+    );
     let vid = version.body["id"].as_str().unwrap();
     let path = format!("/api/v1/docs/{id}/versions/{vid}");
     for name in ["".into(), "я".repeat(81)] {
@@ -361,7 +368,10 @@ async fn version_routes_require_grants_and_hide_foreign_or_mismatched_versions()
         200
     );
     assert_eq!(
-        browser.get(address, "/api/v1/docs?deleted=true").await.status,
+        browser
+            .get(address, "/api/v1/docs?deleted=true")
+            .await
+            .status,
         403
     );
     let path = format!("/api/v1/docs/{foreign_doc}/versions");
@@ -465,7 +475,11 @@ async fn sync_delete_lists_trash_preserves_versions_and_restore_returns_document
             )
             .await;
         assert_eq!(reply.status, 200);
-        assert_eq!(reply.body["results"][0]["status"], "applied", "{}", reply.body);
+        assert_eq!(
+            reply.body["results"][0]["status"], "applied",
+            "{}",
+            reply.body
+        );
         revision = reply.body["results"][0]["revision"].clone();
         let active = browser.get(address, "/api/v1/docs").await;
         let trash = browser.get(address, "/api/v1/docs?deleted=true").await;
