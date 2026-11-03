@@ -34,6 +34,7 @@ export function CalendarEventSheet({
 }) {
   const planner = usePlanner();
   const [form, setForm] = useState(initial);
+  const [full, setFull] = useState(existing);
   const [errors, setErrors] = useState<EventFormErrors>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -140,111 +141,121 @@ export function CalendarEventSheet({
               />
             </div>
           </Presence>
-          <Field
-            label="Место"
-            value={form.place}
-            error={errors.place ?? null}
-            maxLength={500}
-            onChange={(e) => set('place', e.target.value)}
-          />
-          <div>
-            <p className="q-field-label">Проект</p>
-            <Segmented
-              label="Проект события"
-              value={form.project}
-              onChange={(value) => set('project', value)}
-              wrap
-              options={[
-                { value: '', label: 'Без проекта' },
-                ...(form.project && !planner.data.projects.some((p) => p.id === form.project)
-                  ? [{ value: form.project, label: 'Другой проект' }]
-                  : []),
-                ...planner.data.projects.map((p) => ({ value: p.id, label: p.title })),
-              ]}
-            />
-          </div>
-          <div>
-            <p className="q-field-label">Повтор</p>
-            <Segmented<EventRepeat>
-              label="Повтор события"
-              value={form.repeat}
-              onChange={(value) => set('repeat', value)}
-              wrap
-              options={[
-                { value: '', label: 'Нет' },
-                { value: 'daily', label: 'Каждый день' },
-                { value: 'weekly', label: 'По дням недели' },
-                { value: 'monthly', label: 'Раз в месяц' },
-              ]}
-            />
-          </div>
-          <Presence show={!!form.repeat}>
-            <Field
-              label="Интервал повтора"
-              type="number"
-              min={1}
-              max={365}
-              value={form.interval}
-              error={errors.interval ?? null}
-              hint="1 — каждый день, неделю или месяц"
-              onChange={(e) => set('interval', Number(e.target.value))}
-            />
-          </Presence>
-          <Presence show={form.repeat === 'weekly'}>
-            <div className="calendar-repeat-days" role="group" aria-label="Дни недели">
-              {WEEKDAYS.map((day, index) => (
-                <Check
-                  key={day}
-                  checked={form.weekdays.includes(index + 1)}
-                  onChange={(checked) =>
-                    set(
-                      'weekdays',
-                      checked
-                        ? [...form.weekdays, index + 1]
-                        : form.weekdays.filter((n) => n !== index + 1),
-                    )
-                  }
-                >
-                  {day}
-                </Check>
-              ))}
+          <Presence show={full}>
+            <div className="calendar-event-details">
+              <Field
+                label="Место"
+                value={form.place}
+                error={errors.place ?? null}
+                maxLength={500}
+                onChange={(e) => set('place', e.target.value)}
+              />
+              <div>
+                <p className="q-field-label">Проект</p>
+                <Segmented
+                  label="Проект события"
+                  value={form.project}
+                  onChange={(value) => set('project', value)}
+                  wrap
+                  options={[
+                    { value: '', label: 'Без проекта' },
+                    ...(form.project && !planner.data.projects.some((p) => p.id === form.project)
+                      ? [{ value: form.project, label: 'Другой проект' }]
+                      : []),
+                    ...planner.data.projects.map((p) => ({ value: p.id, label: p.title })),
+                  ]}
+                />
+              </div>
+              <div>
+                <p className="q-field-label">Повтор</p>
+                <Segmented<EventRepeat>
+                  label="Повтор события"
+                  value={form.repeat}
+                  onChange={(value) => set('repeat', value)}
+                  wrap
+                  options={[
+                    { value: '', label: 'Нет' },
+                    { value: 'daily', label: 'Каждый день' },
+                    { value: 'weekly', label: 'По дням недели' },
+                    { value: 'monthly', label: 'Раз в месяц' },
+                  ]}
+                />
+              </div>
+              <Presence show={!!form.repeat}>
+                <Field
+                  label="Интервал повтора"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={form.interval}
+                  error={errors.interval ?? null}
+                  hint="1 — каждый день, неделю или месяц"
+                  onChange={(e) => set('interval', Number(e.target.value))}
+                />
+              </Presence>
+              <Presence show={form.repeat === 'weekly'}>
+                <div className="calendar-repeat-days" role="group" aria-label="Дни недели">
+                  {WEEKDAYS.map((day, index) => (
+                    <Check
+                      key={day}
+                      checked={form.weekdays.includes(index + 1)}
+                      onChange={(checked) =>
+                        set(
+                          'weekdays',
+                          checked
+                            ? [...form.weekdays, index + 1]
+                            : form.weekdays.filter((n) => n !== index + 1),
+                        )
+                      }
+                    >
+                      {day}
+                    </Check>
+                  ))}
+                </div>
+              </Presence>
+              <Presence show={!!errors.repeat}>
+                <Note tone="bad">{errors.repeat}</Note>
+              </Presence>
+              <Presence show={form.repeat === 'monthly'}>
+                <Field
+                  label="Число месяца"
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={form.monthDay}
+                  error={errors.monthDay ?? null}
+                  onChange={(e) => set('monthDay', Number(e.target.value))}
+                />
+              </Presence>
+              <Field
+                label="Заметки"
+                value={form.notes}
+                onChange={(e) => set('notes', e.target.value)}
+              />
             </div>
           </Presence>
-          <Presence show={!!errors.repeat}>
-            <Note tone="bad">{errors.repeat}</Note>
-          </Presence>
-          <Presence show={form.repeat === 'monthly'}>
-            <Field
-              label="Число месяца"
-              type="number"
-              min={1}
-              max={31}
-              value={form.monthDay}
-              error={errors.monthDay ?? null}
-              onChange={(e) => set('monthDay', Number(e.target.value))}
-            />
-          </Presence>
-          <Field
-            label="Заметки"
-            value={form.notes}
-            onChange={(e) => set('notes', e.target.value)}
-          />
         </fieldset>
-        <div className="calendar-actions">
+        <footer className="calendar-actions calendar-event-footer">
           {readable && (
             <Button type="submit" variant="fill" disabled={busy}>
-              {existing ? 'Сохранить' : 'Создать'}
+              Сохранить
             </Button>
           )}
-          <Button disabled={busy} onClick={onClose}>
-            Закрыть
-          </Button>
+          {!full ? (
+            <Button disabled={busy} onClick={() => setFull(true)}>
+              Другие параметры
+            </Button>
+          ) : (
+            <Button disabled={busy} onClick={onClose}>
+              Закрыть
+            </Button>
+          )}
           {existing && (
             <Button disabled={busy} onClick={() => setConfirmDelete(true)}>
               Удалить
             </Button>
           )}
-        </div>
+        </footer>
         <Presence show={confirmDelete}>
           <Note>
             Удалить событие и все его повторы?

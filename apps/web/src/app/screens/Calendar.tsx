@@ -1,10 +1,19 @@
 import { loop, MASS } from '@qubite/motion';
 import { patchTask, toTask } from '@qubite/sync-client';
 import { Button, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { Fail, say, useMe, usePlatform } from '../../auth/client';
 import { useCalendar, useCalendarEvents } from '../calendar';
 import { CalendarEventSheet } from '../CalendarEventSheet';
+import { CalendarCreateSurface } from '../CalendarCreateSurface';
 import { usePlanner } from '../planner-context';
 import { useSync } from '../sync-context';
 import {
@@ -142,11 +151,64 @@ function Calendar({ timeZone }: { timeZone: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sync.version]);
 
-  function createAt(day: string, minute = 9 * 60, allDay = false) {
-    if (locked.current) return;
-    setSheet({ key: Date.now(), initial: newEventForm(day, minute, allDay) });
-    setSheetOpen(true);
-  }
+  const createAt = useCallback(
+    (day: string, minute = 9 * 60, allDay = false, duration = 60) => {
+      if (locked.current || sheetOpen) return;
+      setSheet({ key: Date.now(), initial: newEventForm(day, minute, allDay, duration) });
+      setSheetOpen(true);
+    },
+    [sheetOpen],
+  );
+
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        sheetOpen ||
+        locked.current ||
+        document.querySelector('[role="dialog"]') ||
+        (event.target instanceof Element &&
+          event.target.closest(
+            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
+          ))
+      )
+        return;
+      switch (event.key.toLowerCase()) {
+        case 'c':
+          createAt(anchor);
+          break;
+        case 't':
+          setAnchor(calendarDay(Date.now(), timeZone));
+          break;
+        case 'd':
+          setMode('day');
+          break;
+        case 'w':
+          setMode('week');
+          break;
+        case 'm':
+          setMode('month');
+          break;
+        case 'arrowleft':
+          setAnchor(shiftPeriod(mode, anchor, -1, weekDays));
+          break;
+        case 'arrowright':
+          setAnchor(shiftPeriod(mode, anchor, 1, weekDays));
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [anchor, mode, weekDays, timeZone, sheetOpen, createAt]);
 
   async function openItem(item: CalendarItem) {
     if (locked.current || sheetOpen) return;
@@ -525,7 +587,7 @@ function Timeline({
   items: CalendarItem[];
   timeZone: string;
   now: number;
-  onCreate: (day: string, minute?: number, allDay?: boolean) => void;
+  onCreate: (day: string, minute?: number, allDay?: boolean, duration?: number) => void;
   onOpen: (item: CalendarItem) => void;
   onMove: (
     item: CalendarItem,
@@ -680,15 +742,7 @@ function Timeline({
         <span className="calendar-all-label">весь день</span>
         {columns.map(({ day, allDay }) => (
           <div className="calendar-all-items" key={day}>
-            <Button
-              className="calendar-all-create"
-              dot={false}
-              disabled={moving}
-              aria-label={`Новое событие на весь день, ${shortDayLabel(day)}`}
-              onClick={() => onCreate(day, 0, true)}
-            >
-              Создать
-            </Button>
+            <CalendarCreateSurface day={day} allDay disabled={moving} onCreate={onCreate} />
             {allDay.map((item) => (
               <Button
                 key={itemKey(item)}
@@ -733,25 +787,7 @@ function Timeline({
                 data-day={day}
                 aria-label={shortDayLabel(day)}
               >
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <Button
-                    className="calendar-hour-row"
-                    key={hour}
-                    dot={false}
-                    disabled={moving}
-                    aria-label={`Новое событие, ${shortDayLabel(day)}, ${String(hour).padStart(2, '0')}:00`}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const minute =
-                        e.detail === 0
-                          ? hour * 60
-                          : hour * 60 + ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
-                      onCreate(day, snapMinute(minute));
-                    }}
-                  >
-                    <span className="calendar-create-label">Создать</span>
-                  </Button>
-                ))}
+                <CalendarCreateSurface day={day} disabled={moving} onCreate={onCreate} />
                 {blocks.map((block) => (
                   <EventBlock
                     key={block.key}
