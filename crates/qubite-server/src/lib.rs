@@ -364,7 +364,12 @@ impl AppState {
         docs::link_targets,
         docs::doc_backlinks,
         docs::object_backlinks,
-        docs::doc_links
+        docs::doc_links,
+        docs::list_versions,
+        docs::get_version,
+        docs::create_version,
+        docs::rename_version,
+        docs::delete_version
     ),
     components(schemas(
         routes::RoutePoint,
@@ -600,7 +605,12 @@ impl AppState {
         docs::DocLink,
         docs::LinkTargets,
         docs::Backlinks,
-        docs::DocLinks
+        docs::DocLinks,
+        docs::UpdateReason,
+        docs::VersionName,
+        docs::DocVersionItem,
+        docs::DocVersion,
+        docs::DocVersions
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -1024,6 +1034,16 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             get(docs::object_backlinks),
         )
         .route("/api/v1/docs/{id}/links", get(docs::doc_links))
+        .route(
+            "/api/v1/docs/{id}/versions",
+            get(docs::list_versions).post(docs::create_version),
+        )
+        .route(
+            "/api/v1/docs/{id}/versions/{vid}",
+            get(docs::get_version)
+                .patch(docs::rename_version)
+                .delete(docs::delete_version),
+        )
         .route("/api/v1/docs/{id}/y", get(docs::get_y).post(docs::post_y))
         .route(
             "/api/v1/docs/{id}",

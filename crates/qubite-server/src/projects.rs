@@ -105,6 +105,13 @@ pub struct ProjectDocItem {
     project_ids: Vec<Uuid>,
     #[serde(with = "time::serde::rfc3339")]
     updated_at: OffsetDateTime,
+    /// Время удаления; присутствует только в корзине.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    deleted_at: Option<OffsetDateTime>,
 }
 
 impl From<&Doc> for ProjectDocItem {
@@ -116,6 +123,7 @@ impl From<&Doc> for ProjectDocItem {
             revision: doc.revision,
             project_ids: doc.project_ids.clone(),
             updated_at: doc.updated_at,
+            deleted_at: None,
         }
     }
 }
@@ -660,6 +668,8 @@ pub async fn unlink_project_doc(
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct DocsQuery {
+    /// true — корзина владельца; по умолчанию только живые документы.
+    deleted: Option<bool>,
     /// Поиск по названию и тексту (русская морфология).
     q: Option<String>,
 }
@@ -678,6 +688,21 @@ pub async fn list_my_docs(
 ) -> Result<Json<ProjectDocList>, ApiError> {
     authorize::<Read>(&state, &session, DOCS_MODULE).await?;
     let mut conn = conn(&state).await?;
+    if query.deleted.unwrap_or(false) {
+        let docs = folder::deleted_docs(&mut conn, session.0.account_id)
+            .await
+            .map_err(planner_error)?;
+        return Ok(Json(ProjectDocList {
+            docs: docs
+                .iter()
+                .map(|(doc, deleted_at)| {
+                    let mut item = ProjectDocItem::from(doc);
+                    item.deleted_at = Some(*deleted_at);
+                    item
+                })
+                .collect(),
+        }));
+    }
     let docs = folder::search_docs(
         &mut conn,
         session.0.account_id,

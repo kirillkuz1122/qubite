@@ -21,6 +21,7 @@ pub mod folder;
 pub mod mentions;
 pub mod recurrence;
 pub mod reminder;
+pub mod versions;
 pub mod ydoc;
 
 pub use qubite_objects::{Error, Result};
