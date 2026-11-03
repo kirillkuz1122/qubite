@@ -16,6 +16,8 @@ export function CalendarCreateSurface({
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const cursor = useRef<HTMLDivElement>(null);
+  const followCursor = useRef(false);
   const [minute, setMinute] = useState(9 * 60);
 
   useEffect(() => {
@@ -186,6 +188,13 @@ export function CalendarCreateSurface({
     };
   }, [day, allDay, disabled, onCreate, minute]);
 
+  // Выбранный с клавиатуры час должен оставаться в видимой части шкалы.
+  useEffect(() => {
+    if (!followCursor.current) return;
+    followCursor.current = false;
+    cursor.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [minute]);
+
   return (
     <>
       <div
@@ -201,6 +210,7 @@ export function CalendarCreateSurface({
             event.preventDefault();
             event.stopPropagation();
             const direction = event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1;
+            followCursor.current = true;
             setMinute((current) => snapMinute(current + direction * 60));
           } else if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -211,6 +221,7 @@ export function CalendarCreateSurface({
       >
         {!allDay && (
           <div
+            ref={cursor}
             className="calendar-create-cursor"
             style={{ transform: `translateY(${(minute / 60) * HOUR_HEIGHT}px)` }}
             aria-hidden="true"
