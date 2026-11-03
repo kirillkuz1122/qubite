@@ -3,6 +3,7 @@ import { patchTask, type PlannerTask } from '@qubite/sync-client';
 import { Button, Field, Note, Presence, Sheet } from '@qubite/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { SecHead } from './parts';
+import { Backlinks } from './docs/Backlinks';
 import { useSync } from './sync-context';
 import {
   calculateTaskRoute,
@@ -186,6 +187,7 @@ export function TaskPlaceForm({
           </Presence>
         </section>
       </Presence>
+      <Backlinks id={task.id} kind="planner.task" />
     </div>
   );
 }

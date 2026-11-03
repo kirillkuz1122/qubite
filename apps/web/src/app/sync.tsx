@@ -24,7 +24,8 @@ import {
   type SyncApi,
 } from './sync-context';
 import { useMe } from '../auth/client';
-import { renderDocText } from './docs/render';
+import { extractDocLinks, renderDocText } from './docs/render';
+import { BacklinksContext, createBacklinksSession } from './docs/useBacklinks';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 function socketUrl(): string {
@@ -98,6 +99,7 @@ export function SyncProvider({
   const [docs, setDocs] = useState<DocStore | null>(null);
   const [state, setState] = useState<SyncState>({ status: 'synced', pending: 0, problems: 0 });
   const [version, setVersion] = useState(0);
+  const backlinks = useMemo(() => createBacklinksSession(dbName), [dbName]);
   const opening = useRef<Promise<SyncClient> | null>(null);
   // `ready()` до открытия (ещё неизвестно, чьё хранилище) ждёт, а не падает.
   const [opened] = useState(() => {
@@ -113,8 +115,9 @@ export function SyncProvider({
     }
     const documents = new DocStore({
       dbName: `${dbName}-docs`,
-      transport: httpDocsTransport(),
+      transport: backlinks.transport(httpDocsTransport()),
       renderText: renderDocText,
+      extractLinks: extractDocLinks,
     });
     let alive = true;
     let stop = () => {};
@@ -136,7 +139,10 @@ export function SyncProvider({
           // Включая WebSocket «есть новое»: сначала метаданные, затем Yjs.
           // Это также дошлёт текст документа, созданного без сети.
           if (s.status === 'synced' || s.status === 'conflict' || s.status === 'error') {
-            void documents.syncAll().catch(() => {});
+            void documents
+              .syncAll()
+              .then(backlinks.refresh)
+              .catch(() => {});
           }
         });
         if (live) stop = watchChanges(c, { url: socketUrl() });
@@ -158,7 +164,7 @@ export function SyncProvider({
       setClient(null);
       setDocs(null);
     };
-  }, [dbName, open, live, opened]);
+  }, [dbName, open, live, opened, backlinks]);
 
   const value = useMemo<SyncApi>(
     () => ({
@@ -170,5 +176,9 @@ export function SyncProvider({
     }),
     [client, version, state, docs, opened],
   );
-  return <SyncCtx.Provider value={value}>{children}</SyncCtx.Provider>;
+  return (
+    <SyncCtx.Provider value={value}>
+      <BacklinksContext.Provider value={backlinks}>{children}</BacklinksContext.Provider>
+    </SyncCtx.Provider>
+  );
 }

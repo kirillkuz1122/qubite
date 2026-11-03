@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } 
 import { api } from '../api';
 import { Fail, must, say } from '../auth/client';
 import { AgentTimeline } from './AgentTimeline';
+import { Backlinks } from './docs/Backlinks';
 import { SecHead } from './parts';
 import { usePlanner } from './planner-context';
 import { iso } from './planner-view';
@@ -186,6 +187,7 @@ export function ProjectPage({ id }: { id: string }) {
           <FeedTab id={id} page={data} />
         )}
       </Swap>
+      <Backlinks key={id} id={id} kind="planner.project" />
 
       {local && (
         <>

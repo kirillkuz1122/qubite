@@ -7,6 +7,201 @@ import { mockDocs } from './docs-mock';
 const text = (page: import('@playwright/test').Page) =>
   page.getByRole('textbox', { name: 'Текст документа' });
 
+const backlinks = (page: import('@playwright/test').Page) =>
+  page.getByRole('region', { name: 'Ссылаются сюда', exact: true });
+
+for (const width of [1440, 360]) {
+  for (const theme of ['light', 'dark']) {
+    test(`обратные ссылки ${width}px, ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+      // React предупреждал о `key`, разложенном в пропсы списка.
+      const keyWarnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.text().includes('"key" prop')) keyWarnings.push(message.text());
+      });
+      await page.addInitScript((value) => {
+        localStorage.setItem('qubite.look.v1', JSON.stringify({ theme: value }));
+      }, theme);
+      const server = await mockDocs(page);
+      const target = server.add('Целевой документ', 'Текст цели');
+      const sources = Array.from({ length: 6 }, (_, index) => {
+        const title = index === 5 ? '' : `Источник ${index + 1} ${'длинноеназвание'.repeat(12)}`;
+        const id = server.add(title, `Упоминание [@Целевой документ](qubite://${target})`);
+        server.mentions.set(id, [target]);
+        return id;
+      });
+      await page.goto(`/docs/${target}`);
+      await expect(text(page)).toContainText('Текст цели');
+      const panel = backlinks(page);
+      await expect(panel.getByRole('link')).toHaveCount(5);
+      await panel.scrollIntoViewIfNeeded();
+      await expect(panel).toContainText('6');
+      const more = panel.getByRole('button', { name: 'Ещё 1' });
+      for (const row of [...(await panel.getByRole('link').all()), more]) {
+        await expect
+          .poll(async () => (await row.boundingBox())?.height ?? 0)
+          .toBeGreaterThanOrEqual(44);
+        await expect
+          .poll(async () => (await row.boundingBox())?.width ?? 0)
+          .toBeGreaterThanOrEqual(44);
+      }
+      await more.click();
+      await expect(panel.getByRole('link')).toHaveCount(6);
+      await expect(panel.getByRole('link', { name: 'Без названия · Документ' })).toBeVisible();
+      // Кнопка ушла — фокус на первой открытой строке, не в начале страницы.
+      await expect(panel.getByRole('link', { name: 'Без названия · Документ' })).toBeFocused();
+      await expect(more).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+
+      const rows = panel.getByRole('link');
+      await rows.first().focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(rows.nth(1)).toBeFocused();
+      await page.keyboard.press('ArrowUp');
+      await expect(rows.first()).toBeFocused();
+      await page.keyboard.press('ArrowUp');
+      await expect(rows.last()).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await expect(rows.first()).toBeFocused();
+      await expect(rows.first()).toHaveAttribute('href', `/docs/${sources[0]}`);
+      await page.keyboard.press(width === 360 ? 'Space' : 'Enter');
+      await expect(page).toHaveURL(new RegExp(`/docs/${sources[0]}$`));
+      await expect(text(page)).toContainText('Упоминание');
+      expect(keyWarnings).toEqual([]);
+    });
+  }
+
+  test(`обратные ссылки: набор и офлайн ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const target = server.add('Целевой документ', 'Текст цели\n\n'.repeat(24));
+    const source = server.add('Источник', `[@Целевой документ](qubite://${target})`);
+    server.mentions.set(source, [target]);
+    await page.goto(`/docs/${target}`);
+    await expect(text(page)).toContainText('Текст цели');
+    await expect(backlinks(page).getByRole('link')).toHaveCount(1);
+    await text(page).click();
+    if (width === 360) {
+      await expect(page.locator('.docs-backlinks')).toHaveAttribute('inert', '');
+      await expect(backlinks(page)).toHaveCount(0);
+      // Обычная прокрутка пальцем/колесом раскрывает ссылки, не уводя фокус из текста.
+      await page.mouse.wheel(0, 2000);
+      await expect(page.locator('.docs-backlinks')).not.toHaveAttribute('inert', '');
+      await expect(backlinks(page).getByRole('link')).toBeVisible();
+      await expect(text(page)).toBeFocused();
+      await page.keyboard.insertText('Дополнение');
+      await expect(page.locator('.docs-backlinks')).toHaveAttribute('inert', '');
+    } else {
+      await expect(backlinks(page)).toBeVisible();
+    }
+    await page.getByRole('button', { name: 'К документам' }).click();
+    const row = page.getByRole('button', { name: /^Целевой документ/ });
+    await expect(row).toBeVisible();
+    server.sync.offline = true;
+    await row.click();
+    await expect(backlinks(page).getByRole('link', { name: 'Источник · Документ' })).toBeVisible();
+    await expect(backlinks(page)).toContainText('Без сети');
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+  });
+
+  test(`обратные ссылки: синк и нулевой список ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const target = server.add('Цель', 'Текст цели');
+    const source = server.add('Источник');
+    await page.goto(`/docs/${target}`);
+    await expect(text(page)).toContainText('Текст цели');
+    await expect.poll(() => server.backlinkQueries.includes(target)).toBe(true);
+    await expect(backlinks(page)).toHaveCount(0);
+
+    // Упоминание пришло с другого устройства; WebSocket запускает синк документов.
+    server.mentions.set(source, [target]);
+    server.sync.patch(source, {});
+    server.sync.ping();
+    await expect(backlinks(page).getByRole('link', { name: 'Источник · Документ' })).toBeVisible();
+    server.sync.objects.set(source, { ...server.sync.objects.get(source)!, deleted: true });
+    server.sync.patch(source, {});
+    server.sync.ping();
+    await expect(backlinks(page)).toHaveCount(0);
+  });
+
+  test(`Esc, затем Tab — из текста к «Ссылаются сюда» ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const target = server.add('Цель', 'Текст цели');
+    const source = server.add('Источник', `[@Цель](qubite://${target})`);
+    server.mentions.set(source, [target]);
+    await page.goto(`/docs/${target}`);
+    const row = backlinks(page).getByRole('link', { name: 'Источник · Документ' });
+    await expect(row).toBeVisible();
+    await text(page).getByText('Текст цели').click();
+    // Tab в тексте — отступ, фокус остаётся в тексте.
+    await page.keyboard.press('Tab');
+    await expect(text(page)).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(1);
+    await page.keyboard.press('Shift+Tab');
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(0);
+    // Esc, которым закрыли меню @, ещё не выход.
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' @');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeHidden();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Tab');
+    await expect(row).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(0);
+    await page.keyboard.press('Shift+Tab');
+    await expect(text(page)).toBeFocused();
+    // Вернулись в текст — Tab снова отступ.
+    await page.keyboard.press('Tab');
+    await expect(text(page)).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(1);
+  });
+
+  test(`обратные ссылки: дело и проект ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const project = server.sync.addProject('Проект', { tag: 'проект', notes: '' });
+    const task = server.sync.addTask('Дело', { project_id: project });
+    const source = server.add('План работы');
+    server.mentions.set(source, [task, project]);
+    await page.route(`**/api/v1/projects/${project}`, (route) =>
+      route.fulfill({
+        json: {
+          project: { id: project, title: 'Проект', color: 'orange', tag: 'проект', notes: '' },
+          tasks: [],
+          files: [],
+          docs: [],
+          events: [],
+          feed: [],
+          memory: null,
+        },
+      }),
+    );
+    await page.goto(`/planner?task=${task}`);
+    const sheet = page.getByRole('dialog', { name: 'Место и дорога' });
+    const taskPanel = sheet.getByRole('region', { name: 'Ссылаются сюда' });
+    await expect(taskPanel.getByRole('link', { name: 'План работы · Документ' })).toBeVisible();
+    await expect.poll(() => server.backlinkQueries.includes(task)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    await page.goto(`/planner/project/${project}`);
+    await expect(
+      backlinks(page).getByRole('link', { name: 'План работы · Документ' }),
+    ).toBeVisible();
+    await expect.poll(() => server.backlinkQueries.includes(project)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+  });
+}
+
 test('создать и написать без сети, пережить перезагрузку, отправить после восстановления', async ({
   page,
 }) => {
@@ -200,4 +395,83 @@ for (const theme of ['light', 'dark']) {
       await expect(row.locator('.docs-row-preview')).toHaveText('Заголовок Текст документа Пункт');
     });
   }
+}
+
+for (const width of [1440, 360]) {
+  test(`упоминание: меню, переход, кэш без сети и удаление чипа — ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const id = server.add('С упоминанием');
+    const target = server.add('Графы');
+    await page.goto(`/docs/${id}`);
+    await text(page).click();
+    await page.keyboard.insertText('почта a@b');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeHidden();
+    await page.keyboard.insertText(' @');
+    const menu = page.getByRole('listbox', { name: 'Ссылка на объект' });
+    await expect(menu.getByRole('option', { name: /Графы/ })).toBeVisible();
+    expect(server.targetQueries).toContain('');
+    if (width === 360) {
+      const box = await menu.boundingBox();
+      expect(box!.width).toBeLessThanOrEqual(325);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(780 - 88);
+      const row = await menu.getByRole('option', { name: /Графы/ }).boundingBox();
+      expect(row!.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(text(page)).toContainText('a@b @');
+    // Выход из прежнего триггера, затем новый поиск.
+    await page.keyboard.insertText(' @Гра');
+    await expect(menu.getByRole('option', { name: /Графы/ })).toBeVisible();
+    await page.keyboard.press('Tab');
+    const chip = text(page).getByRole('link', { name: 'Документ: Графы' });
+    await expect(chip).toBeVisible();
+    await expect.poll(() => server.pushes.at(-1)?.links).toEqual([target]);
+    expect(server.pushes.at(-1)?.text).toContain(`[@Графы](qubite://${target})`);
+
+    // Проверяем запрос новой вкладки, не выводя её из поддельного API этой страницы.
+    await page.evaluate(() => {
+      window.open = (url, target, features) => {
+        Object.assign(window, { mentionOpened: [String(url), target, features] });
+        return null;
+      };
+    });
+    await chip.click({ modifiers: ['Control'] });
+    expect(await page.evaluate(() => Reflect.get(window, 'mentionOpened'))).toEqual([
+      `/docs/${target}`,
+      '_blank',
+      'noopener,noreferrer',
+    ]);
+    // Переход внутри приложения, без перезагрузки: без сети перезагрузка не откроет цель.
+    await page.evaluate(() => Object.assign(window, { samePage: true }));
+    await chip.click();
+    await expect(page).toHaveURL(new RegExp(`/docs/${target}$`));
+    expect(await page.evaluate(() => Reflect.get(window, 'samePage'))).toBe(true);
+    await page.goto(`/docs/${id}`);
+    await expect(text(page).getByRole('link', { name: 'Документ: Графы' })).toBeVisible();
+
+    server.sync.offline = true;
+    await page.reload();
+    await expect(text(page).getByRole('link', { name: 'Документ: Графы' })).toBeVisible();
+    server.sync.offline = false;
+    server.deletedTargets.add(target);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const deleted = text(page).getByRole('link', { name: 'Документ: Удалено' });
+    await expect(deleted).toHaveAttribute('aria-disabled', 'true');
+    server.deletedTargets.delete(target);
+    server.targets.set(target, { id: target, type: 'docs.page', title: 'Теория графов' });
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const restored = text(page).getByRole('link', { name: 'Документ: Теория графов' });
+    await expect(restored).toBeVisible();
+
+    await text(page).click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.press('Backspace');
+    await expect(restored).toHaveAttribute('data-selected', 'true');
+    await page.keyboard.press('Backspace');
+    await expect(restored).toBeHidden();
+    await expect.poll(() => server.pushes.at(-1)?.links).toEqual([]);
+    expect(server.pushes.at(-1)?.text).not.toContain('qubite://');
+  });
 }

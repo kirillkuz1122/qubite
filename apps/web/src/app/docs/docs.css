@@ -346,3 +346,70 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+.docs-mention {
+  display: inline-block;
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 8px;
+  border-radius: calc(var(--q-round) * 8px);
+  background: var(--q-panel-2);
+  color: var(--q-ink);
+  line-height: 44px;
+  vertical-align: baseline;
+  cursor: pointer;
+  user-select: none;
+}
+.docs-mention[data-selected='true'],
+.docs-mention:focus-visible {
+  outline: 2px solid var(--q-sky);
+}
+/* --q-mute, не --q-dim: на --q-panel-2 у --q-dim 4,46:1 (светлая) и 4,18:1 (тёмная) — ниже AA. */
+.docs-mention[data-deleted='true'] {
+  color: var(--q-mute);
+  cursor: default;
+}
+.docs-mention-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 37;
+  pointer-events: none;
+}
+.docs-mention-wrap {
+  position: absolute;
+  inset: 0;
+}
+.docs-mention-menu {
+  pointer-events: auto;
+  width: min(320px, calc(100vw - 36px));
+  max-height: min(320px, var(--docs-mention-room, 50dvh));
+}
+.docs-mention-menu .q-btn {
+  gap: 8px;
+  text-align: left;
+}
+.docs-mention-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.docs-mention-kind {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.docs-mention-empty {
+  padding: 12px 8px;
+  color: var(--q-mute);
+}
+@media (max-width: 899px) {
+  .docs-mention-menu {
+    position: fixed;
+    left: 18px;
+    right: 18px;
+    bottom: var(--docs-mention-bottom, 88px);
+    width: auto;
+    transform: none;
+  }
+}
