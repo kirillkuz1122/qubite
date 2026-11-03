@@ -108,6 +108,7 @@
 }
 .calendar-timeline {
   --calendar-gutter: 44px;
+  --calendar-day-min: 0px;
   /* под шкалой — место плавающей капли телефона и строки Command на ПК, с зазором 16–24 px */
   --calendar-reserve: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
   min-width: 0;
@@ -117,7 +118,9 @@
 .calendar-all-day,
 .calendar-hours-grid {
   display: grid;
-  grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(0, 1fr));
+  grid-template-columns:
+    var(--calendar-gutter)
+    repeat(var(--calendar-days), minmax(var(--calendar-day-min), 1fr));
 }
 .calendar-day-heads > div {
   min-width: 0;
@@ -479,6 +482,33 @@
   width: 4px;
   height: 4px;
 }
+@media (min-width: 840px) {
+  /* Календарь использует доступную ширину, а не общую колонку текста 760 px. */
+  .main:has(.calendar) .main-in {
+    max-width: none;
+  }
+  .calendar-timeline {
+    --calendar-day-min: 96px;
+    overflow-x: auto;
+  }
+  .calendar-day-heads,
+  .calendar-all-day,
+  .calendar-scroll {
+    /* + 24 px: место под вертикальную полосу прокрутки шкалы */
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
+  }
+}
+@media (min-width: 840px) and (max-width: 1279px) {
+  /* На ноутбуке сохраняем поля 18 px: семь дней помещаются при ширине 1024 px. */
+  .main:has(.calendar) .main-in {
+    padding-inline: 18px;
+  }
+}
+@media (min-width: 1280px) {
+  .calendar-timeline {
+    --calendar-day-min: 120px;
+  }
+}
 @media (min-width: 900px) {
   .calendar-timeline {
     --calendar-reserve: 106px;
@@ -541,11 +571,14 @@
     overflow-x: auto;
   }
   .calendar-timeline {
-    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * 120px + 24px);
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
   }
   .calendar-day-heads,
   .calendar-all-day,
   .calendar-hours-grid {
-    grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(120px, 1fr));
+    grid-template-columns: var(--calendar-gutter) repeat(
+        var(--calendar-days),
+        minmax(var(--calendar-day-min), 1fr)
+      );
   }
 }
