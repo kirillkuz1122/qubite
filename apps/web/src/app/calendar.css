@@ -494,7 +494,8 @@
   .calendar-day-heads,
   .calendar-all-day,
   .calendar-scroll {
-    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min));
+    /* + 24 px: место под вертикальную полосу прокрутки шкалы */
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
   }
 }
 @media (min-width: 840px) and (max-width: 1279px) {
@@ -570,11 +571,11 @@
     overflow-x: auto;
   }
   .calendar-timeline {
-    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * 120px + 24px);
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
   }
   .calendar-day-heads,
   .calendar-all-day,
   .calendar-hours-grid {
-    grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(120px, 1fr));
+    grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(var(--calendar-day-min), 1fr));
   }
 }
