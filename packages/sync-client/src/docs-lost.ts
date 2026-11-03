@@ -2,8 +2,7 @@ import * as Y from 'yjs';
 import type { DocLinkKind } from './docs';
 
 export type LostInline =
-  | { type: 'text'; text: string }
-  | { type: 'mention'; target: string; kind: DocLinkKind };
+  { type: 'text'; text: string } | { type: 'mention'; target: string; kind: DocLinkKind };
 
 export type LostBlock = {
   text: string;
