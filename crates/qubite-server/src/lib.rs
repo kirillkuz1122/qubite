@@ -360,7 +360,11 @@ impl AppState {
         projects::get_my_doc,
         projects::edit_my_doc,
         docs::get_y,
-        docs::post_y
+        docs::post_y,
+        docs::link_targets,
+        docs::doc_backlinks,
+        docs::object_backlinks,
+        docs::doc_links
     ),
     components(schemas(
         routes::RoutePoint,
@@ -591,7 +595,12 @@ impl AppState {
         projects::ProjectDocList,
         docs::YExchange,
         docs::YUpdate,
-        docs::YStateVector
+        docs::YStateVector,
+        docs::LinkTarget,
+        docs::DocLink,
+        docs::LinkTargets,
+        docs::Backlinks,
+        docs::DocLinks
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -1008,6 +1017,13 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(projects::link_project_doc).delete(projects::unlink_project_doc),
         )
         .route("/api/v1/docs", get(projects::list_my_docs))
+        .route("/api/v1/docs/link-targets", get(docs::link_targets))
+        .route("/api/v1/docs/{id}/backlinks", get(docs::doc_backlinks))
+        .route(
+            "/api/v1/objects/{id}/backlinks",
+            get(docs::object_backlinks),
+        )
+        .route("/api/v1/docs/{id}/links", get(docs::doc_links))
         .route("/api/v1/docs/{id}/y", get(docs::get_y).post(docs::post_y))
         .route(
             "/api/v1/docs/{id}",
