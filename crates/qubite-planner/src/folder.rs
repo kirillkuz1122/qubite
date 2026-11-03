@@ -251,7 +251,7 @@ impl From<DocRow> for Doc {
     }
 }
 
-const DOC_SELECT: &str = "SELECT o.id, o.title, d.body, o.revision, o.created_at, o.updated_at, \
+const DOC_SELECT: &str = "SELECT o.id, o.title, d.body, o.revision, o.created_at, o.updated_at, o.deleted_at, \
      coalesce((SELECT array_agg(r.to_id ORDER BY r.created_at) FROM relations r \
        JOIN objects p ON p.id = r.to_id \
        WHERE r.from_id = o.id AND r.type = 'part_of' AND r.deleted_at IS NULL \
@@ -302,6 +302,31 @@ pub async fn list_docs(conn: &mut PgConnection, owner: Uuid) -> Result<Vec<Doc>>
     .fetch_all(conn)
     .await?;
     Ok(rows.into_iter().map(Doc::from).collect())
+}
+
+/// Корзина владельца; содержимое и история остаются до отдельного удаления навсегда.
+pub async fn deleted_docs(
+    conn: &mut PgConnection,
+    owner: Uuid,
+) -> Result<Vec<(Doc, OffsetDateTime)>> {
+    #[derive(sqlx::FromRow)]
+    struct DeletedRow {
+        #[sqlx(flatten)]
+        doc: DocRow,
+        deleted_at: OffsetDateTime,
+    }
+    let rows: Vec<DeletedRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{DOC_SELECT} \
+         WHERE o.owner_id = $1 AND o.type = 'docs.page' AND o.deleted_at IS NOT NULL \
+         ORDER BY o.deleted_at DESC, o.id DESC LIMIT 500"
+    )))
+    .bind(owner)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| (Doc::from(row.doc), row.deleted_at))
+        .collect())
 }
 
 /// Полнотекстовый поиск только по своим живым документам.

@@ -5215,6 +5215,15 @@
         "operationId": "list_my_docs",
         "parameters": [
           {
+            "name": "deleted",
+            "in": "query",
+            "description": "true — корзина владельца; по умолчанию только живые документы.",
+            "required": false,
+            "schema": {
+              "type": ["boolean", "null"]
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "description": "Поиск по названию и тексту (русская морфология).",
@@ -5489,6 +5498,358 @@
           },
           "404": {
             "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/{id}/versions": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "История своего документа, включая корзину; без полных состояний.",
+        "operationId": "list_versions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Версии строго старше этого времени (RFC 3339).",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Размер страницы, 1…50, по умолчанию 50.",
+            "required": false,
+            "schema": {
+              "type": ["integer", "null"],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список версий",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocVersions"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["docs"],
+        "summary": "Именованный снимок текущего состояния сервера.",
+        "operationId": "create_version",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionName"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Версия сохранена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_name или empty_state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/{id}/versions/{vid}": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Полный снимок своей версии; доступен и в корзине.",
+        "operationId": "get_version",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vid",
+            "in": "path",
+            "description": "ID версии",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Полная версия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocVersion"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ или версия не найдены или чужие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["docs"],
+        "summary": "Удалить только именованную версию.",
+        "operationId": "delete_version",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vid",
+            "in": "path",
+            "description": "ID версии",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Версия удалена"
+          },
+          "403": {
+            "description": "Нет права менять Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ или версия не найдены или чужие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "not_named",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["docs"],
+        "summary": "Переименовать только именованную версию.",
+        "operationId": "rename_version",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vid",
+            "in": "path",
+            "description": "ID версии",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionName"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Версия переименована",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права менять Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ или версия не найдены или чужие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "not_named",
             "content": {
               "application/json": {
                 "schema": {
@@ -11051,6 +11412,70 @@
           }
         }
       },
+      "DocVersion": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DocVersionItem"
+          },
+          {
+            "type": "object",
+            "required": ["ystate", "text"],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "ystate": {
+                "type": "string",
+                "description": "Полное состояние Yjs v1, standard base64."
+              }
+            }
+          }
+        ]
+      },
+      "DocVersionItem": {
+        "type": "object",
+        "required": ["id", "kind", "title", "created_at", "preview", "size"],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "preview": {
+            "type": "string",
+            "description": "Первые 120 знаков сохранённого текста."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Размер ystate в байтах."
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DocVersions": {
+        "type": "object",
+        "required": ["versions"],
+        "properties": {
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocVersionItem"
+            }
+          }
+        }
+      },
       "EnglishAnswer": {
         "type": "object",
         "description": "Ответ на задание: значение с экрана или запись голоса.",
@@ -13796,6 +14221,11 @@
         "description": "Документ в списке.",
         "required": ["id", "title", "preview", "revision", "project_ids", "updated_at"],
         "properties": {
+          "deleted_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Время удаления; присутствует только в корзине."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -14699,6 +15129,10 @@
           }
         }
       },
+      "UpdateReason": {
+        "type": "string",
+        "enum": ["restore"]
+      },
       "UsageRow": {
         "type": "object",
         "description": "Расход за группу: $, вызовы, токены.",
@@ -14739,6 +15173,19 @@
             "description": "Токен из ссылки в письме (`?token=…`)."
           }
         }
+      },
+      "VersionName": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Непустое имя до 80 знаков; пробелы по краям убираются.",
+            "maxLength": 80,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
       },
       "WorkBoard": {
         "type": "object",
@@ -14946,6 +15393,22 @@
             },
             "description": "UUID упоминаний без повторов, до 200; отсутствие поля сохраняет прежние связи.",
             "maxItems": 200
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UpdateReason",
+                "description": "Восстановление поверх текущего документа; сохраняет before_restore."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restore_of": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Исходная версия (информационное поле; могла быть удалена после скачивания)."
           },
           "seed": {
             "type": "boolean",

@@ -6,9 +6,11 @@ use axum::{
     http::StatusCode,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use qubite_planner::{folder::DOCS_MODULE, mentions, ydoc};
+use qubite_planner::{folder::DOCS_MODULE, mentions, versions, ydoc};
 use qubite_policy::{Read, Write};
 use serde::{Deserialize, Deserializer, Serialize};
+use sqlx::{Postgres, pool::PoolConnection};
+use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
@@ -50,6 +52,16 @@ pub struct YUpdate {
     /// Первое преобразование Markdown; если состояние уже есть — seed_taken.
     #[serde(default)]
     seed: bool,
+    /// Восстановление поверх текущего документа; сохраняет before_restore.
+    reason: Option<UpdateReason>,
+    /// Исходная версия (информационное поле; могла быть удалена после скачивания).
+    pub restore_of: Option<Uuid>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateReason {
+    Restore,
 }
 
 fn present_links<'de, D: Deserializer<'de>>(
@@ -199,6 +211,7 @@ pub async fn post_y(
             update: &update,
             text: &input.text,
             seed: input.seed,
+            restore: matches!(input.reason, Some(UpdateReason::Restore)),
             client_snapshot: client_snapshot.as_deref(),
             links: links.as_deref(),
             readable_modules: &readable_modules,
@@ -408,4 +421,234 @@ pub async fn doc_links(
             })
             .collect(),
     }))
+}
+
+#[derive(Deserialize, IntoParams)]
+pub struct VersionsQuery {
+    /// Версии строго старше этого времени (RFC 3339).
+    #[param(value_type = Option<String>, format = DateTime)]
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    before: Option<OffsetDateTime>,
+    /// Размер страницы, 1…50, по умолчанию 50.
+    limit: Option<i64>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct VersionName {
+    /// Непустое имя до 80 знаков; пробелы по краям убираются.
+    #[schema(min_length = 1, max_length = 80)]
+    name: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct DocVersionItem {
+    id: Uuid,
+    kind: String,
+    name: Option<String>,
+    title: String,
+    #[serde(with = "time::serde::rfc3339")]
+    created_at: OffsetDateTime,
+    /// Первые 120 знаков сохранённого текста.
+    preview: String,
+    /// Размер ystate в байтах.
+    size: i32,
+}
+
+impl From<versions::Summary> for DocVersionItem {
+    fn from(value: versions::Summary) -> Self {
+        Self {
+            id: value.id,
+            kind: value.kind,
+            name: value.name,
+            title: value.title,
+            created_at: value.created_at,
+            preview: value.preview,
+            size: value.size,
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct DocVersions {
+    versions: Vec<DocVersionItem>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct DocVersion {
+    #[serde(flatten)]
+    item: DocVersionItem,
+    /// Полное состояние Yjs v1, standard base64.
+    ystate: String,
+    text: String,
+}
+
+impl From<versions::Version> for DocVersion {
+    fn from(value: versions::Version) -> Self {
+        Self {
+            item: value.summary.into(),
+            ystate: STANDARD.encode(value.ystate),
+            text: value.text,
+        }
+    }
+}
+
+fn version_error(error: versions::Error) -> ApiError {
+    match error {
+        versions::Error::NotFound => ApiError::new(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "Документ или версия не найдены",
+        ),
+        versions::Error::InvalidName => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_name",
+            "Имя должно содержать от 1 до 80 знаков",
+        ),
+        versions::Error::EmptyState => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_state",
+            "Сначала сохрани документ в редакторе",
+        ),
+        versions::Error::NotNamed => ApiError::new(
+            StatusCode::CONFLICT,
+            "not_named",
+            "Менять и удалять можно только именованные версии",
+        ),
+        versions::Error::Db(error) => {
+            tracing::error!(%error, "Ошибка истории документа");
+            ApiError::internal()
+        }
+    }
+}
+
+async fn versions_conn(state: &AppState) -> Result<PoolConnection<Postgres>, ApiError> {
+    state
+        .db
+        .pool()
+        .acquire()
+        .await
+        .map_err(|_| ApiError::internal())
+}
+
+/// История своего документа, включая корзину; без полных состояний.
+#[utoipa::path(get, path = "/api/v1/docs/{id}/versions", tag = "docs",
+    params(("id" = Uuid, Path, description = "ID документа"), VersionsQuery),
+    responses(
+        (status = 200, description = "Список версий", body = DocVersions),
+        (status = 403, description = "Нет права читать Docs", body = ApiErrorBody),
+        (status = 404, description = "Документ не найден или чужой", body = ApiErrorBody),
+    ))]
+pub async fn list_versions(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    Query(query): Query<VersionsQuery>,
+) -> Result<Json<DocVersions>, ApiError> {
+    authorize::<Read>(&state, &session, DOCS_MODULE).await?;
+    let mut conn = versions_conn(&state).await?;
+    let items = versions::list(
+        &mut conn,
+        session.0.account_id,
+        id,
+        query.before,
+        query.limit.unwrap_or(50),
+    )
+    .await
+    .map_err(version_error)?;
+    Ok(Json(DocVersions {
+        versions: items.into_iter().map(DocVersionItem::from).collect(),
+    }))
+}
+
+/// Полный снимок своей версии; доступен и в корзине.
+#[utoipa::path(get, path = "/api/v1/docs/{id}/versions/{vid}", tag = "docs",
+    params(("id" = Uuid, Path, description = "ID документа"), ("vid" = Uuid, Path, description = "ID версии")),
+    responses(
+        (status = 200, description = "Полная версия", body = DocVersion),
+        (status = 403, description = "Нет права читать Docs", body = ApiErrorBody),
+        (status = 404, description = "Документ или версия не найдены или чужие", body = ApiErrorBody),
+    ))]
+pub async fn get_version(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path((id, vid)): Path<(Uuid, Uuid)>,
+) -> Result<Json<DocVersion>, ApiError> {
+    authorize::<Read>(&state, &session, DOCS_MODULE).await?;
+    let mut conn = versions_conn(&state).await?;
+    let version = versions::get(&mut conn, session.0.account_id, id, vid)
+        .await
+        .map_err(version_error)?;
+    Ok(Json(version.into()))
+}
+
+/// Именованный снимок текущего состояния сервера.
+#[utoipa::path(post, path = "/api/v1/docs/{id}/versions", tag = "docs",
+    params(("id" = Uuid, Path, description = "ID документа")), request_body = VersionName,
+    responses(
+        (status = 201, description = "Версия сохранена", body = DocVersion),
+        (status = 400, description = "invalid_name или empty_state", body = ApiErrorBody),
+        (status = 403, description = "Нет права менять Docs", body = ApiErrorBody),
+        (status = 404, description = "Документ не найден или чужой", body = ApiErrorBody),
+    ))]
+pub async fn create_version(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+    input: Result<Json<VersionName>, JsonRejection>,
+) -> Result<(StatusCode, Json<DocVersion>), ApiError> {
+    authorize::<Write>(&state, &session, DOCS_MODULE).await?;
+    let Json(input) = input.map_err(|_| version_error(versions::Error::InvalidName))?;
+    let mut conn = versions_conn(&state).await?;
+    let version = versions::create(&mut conn, session.0.account_id, id, &input.name)
+        .await
+        .map_err(version_error)?;
+    Ok((StatusCode::CREATED, Json(version.into())))
+}
+
+/// Переименовать только именованную версию.
+#[utoipa::path(patch, path = "/api/v1/docs/{id}/versions/{vid}", tag = "docs",
+    params(("id" = Uuid, Path, description = "ID документа"), ("vid" = Uuid, Path, description = "ID версии")), request_body = VersionName,
+    responses(
+        (status = 200, description = "Версия переименована", body = DocVersion),
+        (status = 400, description = "invalid_name", body = ApiErrorBody),
+        (status = 403, description = "Нет права менять Docs", body = ApiErrorBody),
+        (status = 404, description = "Документ или версия не найдены или чужие", body = ApiErrorBody),
+        (status = 409, description = "not_named", body = ApiErrorBody),
+    ))]
+pub async fn rename_version(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path((id, vid)): Path<(Uuid, Uuid)>,
+    input: Result<Json<VersionName>, JsonRejection>,
+) -> Result<Json<DocVersion>, ApiError> {
+    authorize::<Write>(&state, &session, DOCS_MODULE).await?;
+    let Json(input) = input.map_err(|_| version_error(versions::Error::InvalidName))?;
+    let mut conn = versions_conn(&state).await?;
+    let version = versions::rename(&mut conn, session.0.account_id, id, vid, &input.name)
+        .await
+        .map_err(version_error)?;
+    Ok(Json(version.into()))
+}
+
+/// Удалить только именованную версию.
+#[utoipa::path(delete, path = "/api/v1/docs/{id}/versions/{vid}", tag = "docs",
+    params(("id" = Uuid, Path, description = "ID документа"), ("vid" = Uuid, Path, description = "ID версии")),
+    responses(
+        (status = 204, description = "Версия удалена"),
+        (status = 403, description = "Нет права менять Docs", body = ApiErrorBody),
+        (status = 404, description = "Документ или версия не найдены или чужие", body = ApiErrorBody),
+        (status = 409, description = "not_named", body = ApiErrorBody),
+    ))]
+pub async fn delete_version(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path((id, vid)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    authorize::<Write>(&state, &session, DOCS_MODULE).await?;
+    let mut conn = versions_conn(&state).await?;
+    versions::delete(&mut conn, session.0.account_id, id, vid)
+        .await
+        .map_err(version_error)?;
+    Ok(StatusCode::NO_CONTENT)
 }
