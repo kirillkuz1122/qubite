@@ -27,6 +27,13 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
   const id = useId();
   const veil = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  const focus = useRef<{ back: Element | null; inside: HTMLElement | null } | null>(null);
+  // До commit: autoFocus у дочернего поля сработает раньше нашего layout-эффекта.
+  if (open && !focus.current && typeof document !== 'undefined') {
+    focus.current = { back: document.activeElement, inside: null };
+  } else if (!open) {
+    focus.current = null;
+  }
   const [alive, setAlive] = useState(open);
   const live = useRef(open);
   const kept = useRef<ReactNode>(children);
@@ -65,11 +72,20 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
 
   /* фокус внутрь окна и обратно; Escape и Tab по кругу */
   useLayoutEffect(() => {
-    if (!open) return;
-    const back = document.activeElement as HTMLElement | null;
+    const session = focus.current;
+    if (!open || !session) return;
     const b = box.current;
-    const first = b?.querySelector<HTMLElement>('[autofocus]') ?? b;
-    first?.focus({ preventScroll: true });
+    if (b && !b.contains(document.activeElement)) {
+      // Сохраняем выбранное поле и при повторном запуске эффекта в StrictMode.
+      const first =
+        session.inside && b.contains(session.inside)
+          ? session.inside
+          : (b.querySelector<HTMLElement>('[autofocus]') ?? b);
+      first.focus({ preventScroll: true });
+    }
+    session.inside = b?.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement)
+      : null;
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -91,7 +107,7 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
     document.addEventListener('keydown', key, true);
     return () => {
       document.removeEventListener('keydown', key, true);
-      back?.focus?.({ preventScroll: true });
+      if (session.back instanceof HTMLElement) session.back.focus({ preventScroll: true });
     };
   }, [open]);
 
