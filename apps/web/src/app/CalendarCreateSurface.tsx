@@ -16,6 +16,7 @@ export function CalendarCreateSurface({
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const previewTime = useRef<HTMLDivElement>(null);
   const cursor = useRef<HTMLDivElement>(null);
   const followCursor = useRef(false);
   const [minute, setMinute] = useState(9 * 60);
@@ -23,7 +24,8 @@ export function CalendarCreateSurface({
   useEffect(() => {
     const el = surface.current;
     const block = preview.current;
-    if (!el || !block || disabled) return;
+    const time = previewTime.current;
+    if (!el || !block || !time || disabled) return;
     let gesture: {
       id: number;
       touch: boolean;
@@ -41,6 +43,10 @@ export function CalendarCreateSurface({
       if (!gesture || allDay) return;
       block.style.transform = `translateY(${(gesture.start / 60) * HOUR_HEIGHT}px) scaleY(${((gesture.end - gesture.start) / 60) * HOUR_HEIGHT})`;
       block.style.opacity = '0.3';
+      // Время протяжки — в верху заготовки, как в Google: видно, до скольки тянешь.
+      time.textContent = `${timeFromMinute(gesture.start)}–${timeFromMinute(gesture.end)}`;
+      time.style.transform = `translateY(${(gesture.start / 60) * HOUR_HEIGHT}px)`;
+      time.style.opacity = '1';
     };
     const unlisten = () => {
       clearTimeout(hold);
@@ -55,6 +61,7 @@ export function CalendarCreateSurface({
       globalThis.removeEventListener('blur', cancel);
       globalThis.removeEventListener('keydown', key, true);
       block.style.opacity = '0';
+      time.style.opacity = '0';
     };
     const cancel = () => {
       if (!gesture) return;
@@ -229,6 +236,7 @@ export function CalendarCreateSurface({
         )}
       </div>
       <div ref={preview} className="calendar-create-preview" aria-hidden="true" />
+      <div ref={previewTime} className="calendar-create-time" aria-hidden="true" />
     </>
   );
 }

@@ -432,6 +432,21 @@ function Calendar({ timeZone }: { timeZone: string }) {
   return (
     <section className="calendar" aria-label="Календарь">
       <div className="calendar-toolbar">
+        {/* D-802: на ПК слева, как «Создать» в Google; на телефоне — «+» в конце 2-й строки */}
+        <Button
+          className="calendar-new-event"
+          variant="fill"
+          dot={false}
+          aria-label="Новое событие"
+          title="Новое событие"
+          disabled={moving}
+          onClick={() => createAt(anchor)}
+        >
+          <span className="calendar-new-icon">
+            <DotIcon name="plus" />
+          </span>
+          <span className="calendar-new-label">Новое событие</span>
+        </Button>
         <div className="calendar-nav" role="group" aria-label="Выбрать период">
           <Button
             size="sm"
@@ -479,31 +494,18 @@ function Calendar({ timeZone }: { timeZone: string }) {
             ]}
           />
         </div>
-        <Button
-          className="calendar-new-event"
-          variant="fill"
-          dot={false}
-          aria-label="Новое событие"
-          title="Новое событие"
-          disabled={moving}
-          onClick={() => createAt(anchor)}
-        >
-          <span className="calendar-new-icon">
-            <DotIcon name="plus" />
+        {/* Легенда в шапке: на телефоне — между видом и «+», а не отдельной строкой */}
+        <div className="calendar-legend" aria-label="Виды записей">
+          {KINDS.map((kind) => (
+            <span key={kind}>
+              <i className="q-dot" style={{ background: `var(--q-${KIND_COLOR[kind]})` }} />
+              {KIND_LABEL[kind]}
+            </span>
+          ))}
+          <span className="calendar-zone" title={timeZone}>
+            {timeZone}
           </span>
-          <span className="calendar-new-label">Новое событие</span>
-        </Button>
-      </div>
-      <div className="calendar-legend" aria-label="Виды записей">
-        {KINDS.map((kind) => (
-          <span key={kind}>
-            <i className="q-dot" style={{ background: `var(--q-${KIND_COLOR[kind]})` }} />
-            {KIND_LABEL[kind]}
-          </span>
-        ))}
-        <span className="calendar-zone" title={timeZone}>
-          {timeZone}
-        </span>
+        </div>
       </div>
       <Presence show={calendar.isPending}>
         <Note>Загружаем записи…</Note>
@@ -744,7 +746,11 @@ function Timeline({
     if (!el) return;
     const day = calendarDay(initialNow.current, timeZone);
     const position = nowPosition(day, initialNow.current, timeZone)!;
-    el.scrollTop = Math.max(0, position - el.clientHeight / 3);
+    // С целого часа: подпись часа наверху шкалы видна целиком, а не срезана краем.
+    el.scrollTop = Math.max(
+      0,
+      Math.floor((position - el.clientHeight / 3) / HOUR_HEIGHT) * HOUR_HEIGHT,
+    );
   }, [timeZone]);
 
   return (
