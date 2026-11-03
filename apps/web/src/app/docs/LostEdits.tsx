@@ -39,9 +39,10 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
     }
   };
 
+  // Без пробелов по краям: « дописка» в кавычках выглядит как опечатка.
   const shown = lost
     .map((item) =>
-      item.content
+      (item.content
         ? item.content
             .map((part) =>
               part.type === 'text'
@@ -49,7 +50,8 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
                 : `@${links.find((link) => link.id === part.target)?.title || 'ссылка'}`,
             )
             .join('')
-        : item.text,
+        : item.text
+      ).trim(),
     )
     .join(' · ');
   return (
