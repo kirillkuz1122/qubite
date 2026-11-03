@@ -1,4 +1,12 @@
 export * from './protocol';
+export {
+  restoreDocVersion,
+  type DocRestore,
+  type DocsVersionsTransport,
+  type DocTrashItem,
+  type DocVersion,
+  type DocVersionItem,
+} from './docs-versions';
 export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock, type LostInline } from './docs-lost';
 export {
   SyncClient,

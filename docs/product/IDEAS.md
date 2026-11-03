@@ -20,6 +20,7 @@
 | IDEA-093 | «Скачай видео по ссылке»: отправил ссылку боту или в Qubite — файл сохраняется в медиатеку | new |
 | IDEA-094 | Локальная LLM владельца (API формата OpenAI) как помощник Qubite и субагент менеджера | new |
 | IDEA-095 | Медиа, фото и Git в Qubite вместо отдельных Jellyfin/Immich/Forgejo — или как модули-обёртки над ними | new |
+| IDEA-096 | **Своя сеть устройств вместо Tailscale и Cloudflare**: все устройства владельца в одной частной сети (как NetBird/Tailscale), свой DNS, свои туннели наружу (как Cloudflare Tunnel, через свой VPS с белым IP), доступ к любому устройству с любого. Основа для IDEA-001, IDEA-020, IDEA-032 (удалённый рабочий стол как AnyDesk — пример RustDesk). Лицензии: NetBird-сервер и RustDesk — AGPL-3.0 (код брать можно, но тогда Qubite тоже AGPL), клиент NetBird и Headscale — BSD-3, boringtun (WireGuard на Rust) — BSD-3, rathole/frp (туннели) — Apache-2.0 | new |
 
 ## 2. Новые продуктовые направления (заметка «Кубит 2.0» + подборки)
 

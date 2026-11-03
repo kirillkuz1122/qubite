@@ -16,10 +16,17 @@ import {
   type DocStoreOptions,
 } from './docs';
 import { HttpError } from './http';
+import type { DocRestore, DocVersion } from './docs-versions';
 import type { ObjectSnapshot, PushRequest } from './protocol';
 
 /** Сервер только в памяти: никаких HTTP-запросов и зависимостей от Rust-сервера. */
 class DocsServer implements DocsTransport {
+  listVersions = vi.fn<DocsTransport['listVersions']>().mockResolvedValue([]);
+  getVersion = vi.fn<DocsTransport['getVersion']>();
+  createVersion = vi.fn<DocsTransport['createVersion']>();
+  renameVersion = vi.fn<DocsTransport['renameVersion']>();
+  deleteVersion = vi.fn<DocsTransport['deleteVersion']>().mockResolvedValue(undefined);
+  listTrash = vi.fn<DocsTransport['listTrash']>().mockResolvedValue([]);
   readonly doc = new Y.Doc();
   offline = false;
   missing = false;
@@ -39,6 +46,7 @@ class DocsServer implements DocsTransport {
     seed?: boolean;
     snapshot?: Uint8Array;
     links?: string[];
+    restore?: DocRestore;
   }[] = [];
 
   async pull(id: string, sv: Uint8Array) {
@@ -61,6 +69,7 @@ class DocsServer implements DocsTransport {
     seed?: boolean,
     snapshot?: Uint8Array,
     links?: string[],
+    restore?: DocRestore,
   ) {
     this.pushes.push({
       id,
@@ -69,6 +78,7 @@ class DocsServer implements DocsTransport {
       ...(seed ? { seed } : {}),
       ...(snapshot ? { snapshot } : {}),
       ...(links !== undefined ? { links } : {}),
+      ...(restore ? { restore } : {}),
     });
     if (this.beforePush) await this.beforePush();
     if (this.offline) throw new TypeError('нет сети');
@@ -1106,5 +1116,240 @@ describe('DOC-003: связи документа', () => {
     expect(bodies[1]).not.toHaveProperty('links');
     await transport.push('page', new Uint8Array([0, 0]), '', undefined, undefined, []);
     expect(bodies[2]?.links).toEqual([]);
+  });
+});
+
+describe('DOC-004b: восстановление версий', () => {
+  const target = '11111111-1111-4111-8111-111111111111';
+  const root = (doc: Y.Doc) => doc.get('root', Y.XmlText);
+  const blocks = (doc: Y.Doc): Y.XmlText[] =>
+    root(doc)
+      .toDelta()
+      .flatMap((part: { insert?: unknown }) =>
+        part.insert instanceof Y.XmlText ? [part.insert] : [],
+      );
+  const renderText = (doc: Y.Doc) =>
+    blocks(doc)
+      .map((block) => block.toString())
+      .join('\n');
+  const extractLinks = (doc: Y.Doc): string[] =>
+    blocks(doc).flatMap((block) =>
+      block.toDelta().flatMap((part: { insert?: unknown }) => {
+        const node: unknown = part.insert;
+        return node instanceof Y.XmlElement && node.getAttribute('__type') === 'qubite-mention'
+          ? [String(node.getAttribute('__target'))]
+          : [];
+      }),
+    );
+  function add(doc: Y.Doc, text: string) {
+    const block = new Y.XmlText();
+    root(doc).insertEmbed(root(doc).length, block);
+    block.setAttribute('__type', 'qubite-block');
+    block.setAttribute('__kind', 'p');
+    block.insert(0, text);
+    return block;
+  }
+  function version(id = 'version'): DocVersion {
+    const doc = new Y.Doc();
+    try {
+      const block = add(doc, 'Из снимка');
+      block.setAttribute('__kind', 'todo');
+      block.setAttribute('__checked', true);
+      block.setAttribute('__indent', 2);
+      const mention = new Y.XmlElement('decorator');
+      block.insertEmbed(block.length, mention);
+      mention.setAttribute('__type', 'qubite-mention');
+      mention.setAttribute('__target', target);
+      mention.setAttribute('__kind', 'planner.task');
+      const ystate = Y.encodeStateAsUpdate(doc);
+      return {
+        id,
+        ystate,
+        text: 'Старый текст с устаревшими названиями',
+        kind: 'named',
+        name: 'Снимок',
+        title: 'Документ',
+        preview: '',
+        size: ystate.length,
+        created_at: '2026-11-03T20:00:00Z',
+      };
+    } finally {
+      doc.destroy();
+    }
+  }
+
+  it('восстанавливает офлайн, после перезапуска отправляет первым POST и снимает флаг', async () => {
+    const remote = server();
+    add(remote.doc, 'Текущий');
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-restart',
+      renderText,
+      extractLinks,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const snapshot = version();
+    remote.offline = true;
+    await handle.restoreVersion(snapshot);
+    expect(blocks(handle.doc).map((block) => block.getAttribute('__kind'))).toEqual(['todo']);
+    expect(blocks(handle.doc)[0]?.getAttribute('__checked')).toBe(true);
+    expect(blocks(handle.doc)[0]?.getAttribute('__indent')).toBe(2);
+    expect(extractLinks(handle.doc)).toEqual([target]);
+    expect(handle.status).toBe('pending');
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect(remote.pushes).toHaveLength(0);
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toMatchObject({
+      id: snapshot.id,
+    });
+    await device.close();
+    const nextStore = store(remote, options);
+    const next = await nextStore.open('page');
+    expect(renderText(next.doc)).toContain('Из снимка');
+    remote.offline = false;
+    await next.sync();
+    expect(remote.pushes[0]?.restore).toEqual({ reason: 'restore', restore_of: snapshot.id });
+    expect(remote.pushes[0]?.links).toEqual([target]);
+    expect(remote.pushes[0]?.text).toBe(renderText(next.doc));
+    expect(remote.pushes[0]?.text).not.toBe(snapshot.text);
+    expect(
+      Y.equalSnapshots(Y.decodeSnapshot(remote.pushes[0]!.snapshot!), Y.snapshot(next.doc)),
+    ).toBe(true);
+    expect(renderText(remote.doc)).toBe(renderText(next.doc));
+    expect(next.status).toBe('saved');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toBeNull();
+    blocks(next.doc)[0]!.insert(0, 'Правка после восстановления · ');
+    await next.sync();
+    expect(remote.pushes.at(-1)?.restore).toBeUndefined();
+  });
+
+  it('сливает восстановление с новым блоком второго устройства, не теряя оба текста', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const first = await store(remote, { renderText }).open('page');
+    const second = await store(remote, { renderText }).open('page');
+    await first.restoreVersion(version());
+    add(second.doc, 'Параллельная правка');
+    await second.sync();
+    await first.sync();
+    await second.sync();
+    expect(renderText(first.doc)).toContain('Из снимка');
+    expect(renderText(first.doc)).toContain('Параллельная правка');
+    expect(renderText(second.doc)).toBe(renderText(first.doc));
+    expect(renderText(remote.doc)).toBe(renderText(first.doc));
+    expect(first.lost).toEqual([]);
+  });
+
+  it('второе устройство сохраняет дописку в удалённый восстановлением блок как lost', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const first = await store(remote, { renderText }).open('page');
+    const second = await store(remote, { renderText }).open('page');
+    await first.restoreVersion(version());
+    blocks(second.doc)[0]!.insert('Основа'.length, ' · не потерять');
+    await first.sync();
+    await second.sync();
+    expect(second.lost.map((block) => block.text).join('')).toContain('не потерять');
+    expect(renderText(second.doc)).toContain('Из снимка');
+  });
+
+  it('потеря ответа и text_stale сохраняют restore до подтверждения', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-response',
+      renderText,
+      extractLinks,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    await handle.restoreVersion(version());
+    remote.loseResponse = true;
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    await device.close();
+    remote.alwaysStale = true;
+    const next = await store(remote, options).open('page');
+    expect(next.status).toBe('pending');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).not.toBeNull();
+    remote.alwaysStale = false;
+    await next.sync();
+    expect(remote.pushes.every((push) => push.restore?.restore_of === 'version')).toBe(true);
+    expect(next.status).toBe('saved');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toBeNull();
+  });
+
+  it('ответ предыдущего POST не снимает более новое восстановление той же версии', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-inflight',
+      renderText,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const snapshot = version();
+    await handle.restoreVersion(snapshot);
+    const waiting = deferred();
+    const release = deferred();
+    remote.beforePush = async () => {
+      waiting.resolve();
+      await release.promise;
+    };
+    const pending = handle.sync();
+    await waiting.promise;
+    await handle.restoreVersion(snapshot);
+    remote.beforePush = undefined;
+    release.resolve();
+    await pending;
+    expect(handle.status).toBe('pending');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).not.toBeNull();
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.restore).toEqual({ reason: 'restore', restore_of: snapshot.id });
+    expect(handle.status).toBe('saved');
+  });
+
+  it('пустой снимок восстанавливается и поверх пустого, и поверх заполненного дерева', async () => {
+    const remote = server();
+    const handle = await store(remote, { renderText, extractLinks }).open('page');
+    const empty = new Y.Doc();
+    const snapshot = { id: 'empty', ystate: Y.encodeStateAsUpdate(empty) };
+    empty.destroy();
+    await handle.restoreVersion(snapshot);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.restore?.restore_of).toBe('empty');
+    add(handle.doc, 'Убрать');
+    await handle.restoreVersion(snapshot);
+    expect(blocks(handle.doc)).toEqual([]);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.text).toBe('');
+    expect(remote.pushes.at(-1)?.links).toEqual([]);
+    expect(handle.status).toBe('saved');
+  });
+
+  it('DocStore восстанавливает без сетевого открытия; создание версии требует saved', async () => {
+    const remote = server();
+    const device = store(remote, { renderText });
+    const snapshot = version();
+    // Документ уже открыт на устройстве: дальше восстановление идёт без сети.
+    const handle = await device.open('page');
+    handle.doc.get('root', Y.XmlText).insert(0, 'своя правка');
+    remote.offline = true;
+    await device.restoreVersion('page', snapshot);
+    await expect(device.createVersion('page', 'Имя')).rejects.toThrow('Нужна связь');
+    expect(remote.createVersion).not.toHaveBeenCalled();
+    remote.offline = false;
+    remote.createVersion.mockResolvedValue(snapshot);
+    expect(await device.createVersion('page', 'Имя')).toEqual(snapshot);
+    expect(remote.pushes.find((push) => push.restore)?.restore?.restore_of).toBe(snapshot.id);
+    expect(remote.createVersion).toHaveBeenCalledWith('page', 'Имя');
+  });
+
+  it('DocStore не восстанавливает документ, которого нет на устройстве', async () => {
+    const remote = server();
+    const device = store(remote, { renderText });
+    remote.offline = true;
+    await expect(device.restoreVersion('page', version())).rejects.toThrow('не загружен');
   });
 });

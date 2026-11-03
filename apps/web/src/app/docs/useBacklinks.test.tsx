@@ -156,6 +156,12 @@ describe('обратные ссылки: сеть и память сессии',
     const changed = vi.fn();
     session.subscribe(changed);
     const source: DocsTransport = {
+      listVersions: vi.fn(),
+      getVersion: vi.fn(),
+      createVersion: vi.fn(),
+      renameVersion: vi.fn(),
+      deleteVersion: vi.fn(),
+      listTrash: vi.fn(),
       pull: vi.fn(async () => ({
         update: new Uint8Array(),
         sv: new Uint8Array(),
@@ -168,6 +174,18 @@ describe('обратные ссылки: сеть и память сессии',
     expect(changed).toHaveBeenCalledTimes(1);
     await transport.push('doc', new Uint8Array(), 'text');
     expect(changed).toHaveBeenCalledTimes(2);
+    await transport.listVersions('doc', '2026-11-03T20:00:00Z');
+    await transport.getVersion('doc', 'version');
+    await transport.createVersion('doc', 'Снимок');
+    await transport.renameVersion('doc', 'version', 'Новое имя');
+    await transport.deleteVersion('doc', 'version');
+    await transport.listTrash();
+    expect(source.listVersions).toHaveBeenCalledWith('doc', '2026-11-03T20:00:00Z');
+    expect(source.getVersion).toHaveBeenCalledWith('doc', 'version');
+    expect(source.createVersion).toHaveBeenCalledWith('doc', 'Снимок');
+    expect(source.renameVersion).toHaveBeenCalledWith('doc', 'version', 'Новое имя');
+    expect(source.deleteVersion).toHaveBeenCalledWith('doc', 'version');
+    expect(source.listTrash).toHaveBeenCalledOnce();
     vi.mocked(source.push).mockRejectedValueOnce(new Error('offline'));
     await expect(transport.push('doc', new Uint8Array(), 'text')).rejects.toThrow('offline');
     expect(changed).toHaveBeenCalledTimes(2);
