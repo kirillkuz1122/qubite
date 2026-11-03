@@ -42,6 +42,7 @@ function setup(linkSource = source(), cached: DocLink[] = []) {
     onStatus: () => () => {}, onReset: () => () => {}, onLost: () => () => {},
     clearLost: async () => {}, clearRecovered: async () => {}, markSeeded: async () => {},
     sync: async () => {}, close: async () => {}, text: () => '',
+    restoreVersion: async () => {},
   };
   const view = render(
     <LexicalComposer initialConfig={{

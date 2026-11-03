@@ -21,6 +21,12 @@ export function createBacklinksSession(scope: string | null) {
     /** Сигнал после ответа сервера: упоминания уже записаны, не только поставлены в очередь. */
     transport(source: DocsTransport): DocsTransport {
       return {
+        listVersions: (...args) => source.listVersions(...args),
+        getVersion: (...args) => source.getVersion(...args),
+        createVersion: (...args) => source.createVersion(...args),
+        renameVersion: (...args) => source.renameVersion(...args),
+        deleteVersion: (...args) => source.deleteVersion(...args),
+        listTrash: () => source.listTrash(),
         async pull(...args) {
           const response = await source.pull(...args);
           refresh();

@@ -28,6 +28,7 @@ function handle(seedMarkdown: string | null): DocHandle {
     clearLost: async () => {},
     text: () => '',
     sync: async () => {},
+    restoreVersion: async () => {},
     markSeeded: vi.fn(async () => {}),
     onStatus: (callback) => {
       callback('pending');
