@@ -1,13 +1,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Button } from './Button';
 import { Field } from './Field';
 import { DotIcon } from './icons';
 import { LookProvider } from './look';
 import { Sheet } from './Sheet';
 import { Swap } from './Swap';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const wrap = (ui: ReactNode) => render(ui, { wrapper: LookProvider });
 
@@ -95,6 +99,77 @@ describe('модальное окно (DS-008)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     fireEvent.pointerDown(document.querySelector('.q-sheet-veil')!);
     expect(close).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([false, true])('нижняя панель отправляет форму и замыкает фокус (ПК: %s)', (wide) => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: wide,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const submit = vi.fn();
+    render(
+      <Sheet
+        open
+        onClose={() => {}}
+        title="Событие"
+        footer={
+          <Button type="submit" form="event-form">
+            Сохранить
+          </Button>
+        }
+      >
+        <form
+          id="event-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <input aria-label="Название" />
+        </form>
+      </Sheet>,
+    );
+    const save = screen.getByRole('button', { name: 'Сохранить' });
+    const close = screen.getByRole('button', { name: 'Закрыть' });
+    expect(save.closest('.q-sheet-footer')).not.toBeNull();
+    expect(save.closest('.q-sheet-body')).toBeNull();
+    expect(screen.getByRole('dialog')).toHaveClass('q-sheet-with-footer');
+    expect(screen.getByRole('dialog').closest('.q-sheet-wrap')?.classList.contains('q-wide')).toBe(
+      wide,
+    );
+    fireEvent.click(save);
+    expect(submit).toHaveBeenCalledTimes(1);
+    save.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(save).toHaveFocus();
+  });
+
+  it('сохраняет нижнюю панель на время закрытия вместе с телом окна', () => {
+    const { rerender } = render(
+      <Sheet open onClose={() => {}} title="Событие" footer={<Button>Сохранить</Button>}>
+        <p>Поля события</p>
+      </Sheet>,
+    );
+    rerender(
+      <Sheet open={false} onClose={() => {}} title="Событие" footer={null}>
+        {null}
+      </Sheet>,
+    );
+    expect(screen.getByText('Поля события')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeInTheDocument();
+  });
+
+  it('без footer оставляет только тело окна', () => {
+    render(
+      <Sheet open onClose={() => {}} title="Событие">
+        <p>Поля события</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole('dialog')).not.toHaveClass('q-sheet-with-footer');
+    expect(document.querySelector('.q-sheet-footer')).toBeNull();
   });
 });
 
