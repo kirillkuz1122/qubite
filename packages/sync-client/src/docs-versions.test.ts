@@ -36,7 +36,11 @@ describe('HTTP версий и корзины', () => {
       if (url.includes('limit=50')) return Response.json({ versions: [item] });
       return Response.json(wire, { status: init.method === 'POST' ? 201 : 200 });
     };
-    const transport = httpDocsTransport({ baseUrl: 'https://q.example', fetch, csrf: () => 'csrf' });
+    const transport = httpDocsTransport({
+      baseUrl: 'https://q.example',
+      fetch,
+      csrf: () => 'csrf',
+    });
     expect(await transport.listVersions('doc/1')).toEqual([item]);
     const before = '2026-11-03T22:00:00+02:00';
     expect(await transport.listVersions('doc/1', before)).toEqual([item]);

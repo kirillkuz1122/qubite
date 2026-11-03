@@ -88,13 +88,20 @@ export function docsVersionsTransport(
 }
 
 /** XmlText.clone() не переносит атрибуты элемента Lexical. Копируем их явно. */
+interface DeltaPart {
+  insert?: unknown;
+  attributes?: Record<string, unknown>;
+}
+
 function cloneValue(value: unknown): unknown {
   if (value instanceof Y.XmlText) {
     const copy = new Y.XmlText();
     for (const [key, attribute] of Object.entries(value.getAttributes())) {
       copy.setAttribute(key, cloneValue(attribute));
     }
-    const delta = value.toDelta().map((part) => ({ ...part, insert: cloneValue(part.insert) }));
+    const delta = value
+      .toDelta()
+      .map((part: DeltaPart) => ({ ...part, insert: cloneValue(part.insert) }));
     copy.applyDelta(delta);
     return copy;
   }
@@ -128,7 +135,7 @@ export function restoreDocVersion(
   try {
     Y.applyUpdate(source, version.ystate);
     const previous = source.get('root', Y.XmlText);
-    const content = previous.toDelta().map((part) => ({
+    const content = previous.toDelta().map((part: DeltaPart) => ({
       ...part,
       insert: cloneValue(part.insert),
     }));

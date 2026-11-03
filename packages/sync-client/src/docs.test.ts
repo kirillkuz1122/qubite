@@ -1125,14 +1125,16 @@ describe('DOC-004b: восстановление версий', () => {
   const blocks = (doc: Y.Doc): Y.XmlText[] =>
     root(doc)
       .toDelta()
-      .flatMap((part) => (part.insert instanceof Y.XmlText ? [part.insert] : []));
+      .flatMap((part: { insert?: unknown }) =>
+        part.insert instanceof Y.XmlText ? [part.insert] : [],
+      );
   const renderText = (doc: Y.Doc) =>
     blocks(doc)
       .map((block) => block.toString())
       .join('\n');
   const extractLinks = (doc: Y.Doc): string[] =>
     blocks(doc).flatMap((block) =>
-      block.toDelta().flatMap((part) => {
+      block.toDelta().flatMap((part: { insert?: unknown }) => {
         const node: unknown = part.insert;
         return node instanceof Y.XmlElement && node.getAttribute('__type') === 'qubite-mention'
           ? [String(node.getAttribute('__target'))]
