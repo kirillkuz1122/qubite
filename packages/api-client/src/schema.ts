@@ -5501,7 +5501,6 @@ export interface components {
     YUpdate: {
       /** @description UUID упоминаний без повторов, до 200; отсутствие поля сохраняет прежние связи. */
       links?: string[];
-      /** @description Восстановление поверх текущего документа; сохраняет before_restore. */
       reason?: components['schemas']['UpdateReason'] | null;
       /**
        * Format: uuid
