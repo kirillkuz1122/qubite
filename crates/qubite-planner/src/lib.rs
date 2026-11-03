@@ -18,6 +18,7 @@
 
 pub mod event;
 pub mod folder;
+pub mod mentions;
 pub mod recurrence;
 pub mod reminder;
 pub mod ydoc;
