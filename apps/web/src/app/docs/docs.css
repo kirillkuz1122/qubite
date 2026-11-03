@@ -364,8 +364,9 @@
 .docs-mention:focus-visible {
   outline: 2px solid var(--q-sky);
 }
+/* --q-mute, не --q-dim: на --q-panel-2 у --q-dim 4,46:1 (светлая) и 4,18:1 (тёмная) — ниже AA. */
 .docs-mention[data-deleted='true'] {
-  color: var(--q-dim);
+  color: var(--q-mute);
   cursor: default;
 }
 .docs-mention-layer {

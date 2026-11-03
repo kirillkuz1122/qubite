@@ -14,6 +14,11 @@ for (const width of [1440, 360]) {
   for (const theme of ['light', 'dark']) {
     test(`обратные ссылки ${width}px, ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+      // React предупреждал о `key`, разложенном в пропсы списка.
+      const keyWarnings: string[] = [];
+      page.on('console', (message) => {
+        if (message.text().includes('"key" prop')) keyWarnings.push(message.text());
+      });
       await page.addInitScript((value) => {
         localStorage.setItem('qubite.look.v1', JSON.stringify({ theme: value }));
       }, theme);
@@ -43,6 +48,9 @@ for (const width of [1440, 360]) {
       await more.click();
       await expect(panel.getByRole('link')).toHaveCount(6);
       await expect(panel.getByRole('link', { name: 'Без названия · Документ' })).toBeVisible();
+      // Кнопка ушла — фокус на первой открытой строке, не в начале страницы.
+      await expect(panel.getByRole('link', { name: 'Без названия · Документ' })).toBeFocused();
+      await expect(more).toHaveCount(0);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         .toBe(true);
@@ -61,6 +69,7 @@ for (const width of [1440, 360]) {
       await page.keyboard.press(width === 360 ? 'Space' : 'Enter');
       await expect(page).toHaveURL(new RegExp(`/docs/${sources[0]}$`));
       await expect(text(page)).toContainText('Упоминание');
+      expect(keyWarnings).toEqual([]);
     });
   }
 
@@ -118,6 +127,40 @@ for (const width of [1440, 360]) {
     server.sync.patch(source, {});
     server.sync.ping();
     await expect(backlinks(page)).toHaveCount(0);
+  });
+
+  test(`Esc, затем Tab — из текста к «Ссылаются сюда» ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    const target = server.add('Цель', 'Текст цели');
+    const source = server.add('Источник', `[@Цель](qubite://${target})`);
+    server.mentions.set(source, [target]);
+    await page.goto(`/docs/${target}`);
+    const row = backlinks(page).getByRole('link', { name: 'Источник · Документ' });
+    await expect(row).toBeVisible();
+    await text(page).getByText('Текст цели').click();
+    // Tab в тексте — отступ, фокус остаётся в тексте.
+    await page.keyboard.press('Tab');
+    await expect(text(page)).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(1);
+    await page.keyboard.press('Shift+Tab');
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(0);
+    // Esc, которым закрыли меню @, ещё не выход.
+    await page.keyboard.press('End');
+    await page.keyboard.insertText(' @');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('listbox', { name: 'Ссылка на объект' })).toBeHidden();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Tab');
+    await expect(row).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(0);
+    await page.keyboard.press('Shift+Tab');
+    await expect(text(page)).toBeFocused();
+    // Вернулись в текст — Tab снова отступ.
+    await page.keyboard.press('Tab');
+    await expect(text(page)).toBeFocused();
+    await expect(text(page).locator('[data-indent="1"]')).toHaveCount(1);
   });
 
   test(`обратные ссылки: дело и проект ${width}px`, async ({ page }) => {
@@ -400,8 +443,11 @@ for (const width of [1440, 360]) {
       '_blank',
       'noopener,noreferrer',
     ]);
+    // Переход внутри приложения, без перезагрузки: без сети перезагрузка не откроет цель.
+    await page.evaluate(() => Object.assign(window, { samePage: true }));
     await chip.click();
     await expect(page).toHaveURL(new RegExp(`/docs/${target}$`));
+    expect(await page.evaluate(() => Reflect.get(window, 'samePage'))).toBe(true);
     await page.goto(`/docs/${id}`);
     await expect(text(page).getByRole('link', { name: 'Документ: Графы' })).toBeVisible();
 

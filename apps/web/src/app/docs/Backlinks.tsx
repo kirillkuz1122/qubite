@@ -9,11 +9,13 @@ import { useBacklinks } from './useBacklinks';
 import './backlinks.css';
 
 export function Backlinks({ id, kind }: { id: string; kind: DocLinkKind }) {
-  const result = useBacklinks(id, kind);
+  const { backlinks, message } = useBacklinks(id, kind);
   // Без перезагрузки страницы: иначе офлайн-приложение не откроет сохранённый документ.
   const router = useRouter({ warn: false });
   const open = router ? (href: string) => router.history.push(href) : undefined;
-  return <BacklinksList key={`${kind}:${id}`} {...result} open={open} />;
+  return (
+    <BacklinksList key={`${kind}:${id}`} backlinks={backlinks} message={message} open={open} />
+  );
 }
 
 /** На телефоне сохраняем место блока: появление клавиатуры не сдвигает текст. */
@@ -53,7 +55,16 @@ export function BacklinksList({
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
   const slide = useSlide(44);
+  const list = useRef<HTMLDivElement>(null);
+  const reveal = useRef(false);
   const rows = expanded ? backlinks : backlinks.slice(0, 5);
+
+  useEffect(() => {
+    if (!expanded || !reveal.current) return;
+    reveal.current = false;
+    // Кнопка «Ещё» уходит — фокус на первую открытую строку, а не в начало страницы.
+    list.current?.querySelectorAll<HTMLAnchorElement>('a')[5]?.focus();
+  }, [expanded]);
 
   // При пустом успешном ответе нет ни заголовка, ни места под блок.
   if (!backlinks.length && !message) return null;
@@ -84,6 +95,7 @@ export function BacklinksList({
               <span className="backlinks-count">{backlinks.length}</span>
             </SecHead>
             <div
+              ref={list}
               id={listId}
               className="backlinks-rows"
               onMouseLeave={() => slide.hide()}
@@ -115,18 +127,21 @@ export function BacklinksList({
                 ))}
               </Presence>
             </div>
-            {backlinks.length > 5 && !expanded && (
+            <Presence show={backlinks.length > 5 && !expanded}>
               <Button
                 size="sm"
                 className="backlinks-expand"
                 dot={false}
                 aria-expanded={expanded}
                 aria-controls={listId}
-                onClick={() => setExpanded(true)}
+                onClick={() => {
+                  reveal.current = true;
+                  setExpanded(true);
+                }}
               >
                 Ещё {backlinks.length - 5}
               </Button>
-            )}
+            </Presence>
           </>
         )}
         <Presence show={!!message}>

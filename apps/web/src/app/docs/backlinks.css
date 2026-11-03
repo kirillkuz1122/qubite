@@ -27,9 +27,10 @@
 .backlinks-row:focus-visible {
   color: var(--q-ink);
 }
+/* Толщина — как у общей обводки фокуса (2 px); внутрь, чтобы лист дела её не обрезал. */
 .backlinks-row:focus-visible {
-  outline: 1px solid var(--q-orange);
-  outline-offset: -1px;
+  outline: 2px solid var(--q-orange);
+  outline-offset: -2px;
 }
 .backlinks-expand.q-btn {
   min-width: 44px;

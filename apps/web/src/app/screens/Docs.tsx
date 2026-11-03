@@ -296,10 +296,20 @@ function Document({
   const [titleError, setTitleError] = useState(false);
   const [backlinksHidden, setBacklinksHidden] = useState(false);
   const touchY = useRef(0);
+  const editorBox = useRef<HTMLDivElement>(null);
   const titleQueue = useRef(Promise.resolve());
   const title = item?.title ?? fallback?.title;
   const hasTitle = !!title;
   const titleValue = useRef('');
+
+  useEffect(() => {
+    const box = editorBox.current;
+    if (!box) return;
+    // Не onInput: в Chromium Lexical сам вставляет текст (beforeinput отменён), и input нет.
+    const typing = () => setBacklinksHidden(true);
+    box.addEventListener('beforeinput', typing, true);
+    return () => box.removeEventListener('beforeinput', typing, true);
+  }, [handle]);
 
   useEffect(() => {
     if (item || !sync.client) return;
@@ -426,11 +436,15 @@ function Document({
       {handle ? (
         <>
           <div
+            ref={editorBox}
             className="docs-editor"
             onFocusCapture={(event) => {
               if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(true);
             }}
-            onInputCapture={() => setBacklinksHidden(true)}
+            // Esc, не закрывший меню (оно останавливает событие), — «закончил писать».
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setBacklinksHidden(false);
+            }}
             onBlurCapture={(event) => {
               if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(false);
             }}

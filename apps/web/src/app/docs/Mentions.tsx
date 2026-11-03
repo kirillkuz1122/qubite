@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import type { DocHandle, DocLinkTarget } from '@qubite/sync-client';
 import { Button, Presence, useMedia, useSlide, WIDE } from '@qubite/ui';
+import { useRouter } from '@tanstack/react-router';
 import {
   $getNodeByKey,
   $getRoot,
@@ -41,6 +42,7 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
   const menu = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const wide = useMedia(WIDE);
+  const router = useRouter({ warn: false });
   const highlight = useSlide(44);
   const triggerId = query?.id;
   const queryText = query?.query ?? '';
@@ -64,7 +66,9 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
           dom.dataset.selected = String($isNodeSelection(selected) && selected.has(node.getKey()));
           dom.setAttribute('role', 'link');
           dom.setAttribute('aria-disabled', String(!!link?.deleted));
-          dom.tabIndex = link?.deleted ? -1 : 0;
+          // Не отдельная остановка Tab: до чипа доходят курсором (Backspace выделяет, Enter
+          // открывает), а Esc, затем Tab сразу уводит из текста дальше по странице.
+          dom.tabIndex = -1;
           dom.setAttribute(
             'aria-label',
             `${LINK_LABELS[link?.type ?? node.getKind()]}: ${mentionLabel(link)}`,
@@ -137,16 +141,18 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
         })
         .catch(() => {
           if (abort.signal.aborted) return;
-          const cached = handle.links
-            .filter(
-              (link) =>
-                !link.deleted &&
-                link.id !== handle.id &&
-                link.title.toLocaleLowerCase('ru').includes(queryText.toLocaleLowerCase('ru')),
+          const saved = handle.links.filter((link) => !link.deleted && link.id !== handle.id);
+          const cached = saved
+            .filter((link) =>
+              link.title.toLocaleLowerCase('ru').includes(queryText.toLocaleLowerCase('ru')),
             )
             .slice(-8)
             .reverse();
-          setSearch({ key, targets: cached, message: 'Без сети — нет сохранённых целей' });
+          // Сохранённые есть, но не подошли к запросу — не говорим, что их нет совсем.
+          const message = saved.length
+            ? 'Без сети — среди сохранённых не нашлось'
+            : 'Без сети — нет сохранённых целей';
+          setSearch({ key, targets: cached, message });
           setActive(0);
         });
     }, 150);
@@ -195,6 +201,8 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
       if (link?.deleted) return true;
       const href = linkHref(node.getTarget(), link?.type ?? node.getKind());
       if (newTab) window.open(href, '_blank', 'noopener,noreferrer');
+      // Переход внутри приложения, как у «Ссылаются сюда»: без сети перезагрузка не откроет цель.
+      else if (router) router.history.push(href);
       else window.location.assign(href);
       return true;
     };
@@ -274,7 +282,7 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
       root?.removeEventListener('blur', blur, true);
       root?.removeEventListener('keydown', keydown, true);
     };
-  }, [editor, handle, query, results, active, pick]);
+  }, [editor, handle, query, results, active, pick, router]);
 
   useEffect(() => {
     const box = menu.current;

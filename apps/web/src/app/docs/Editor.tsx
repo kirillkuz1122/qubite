@@ -291,9 +291,29 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
   }, [editor]);
 
   useEffect(() => {
+    // Esc, затем Tab/Shift+Tab — выход из текста к соседним элементам (как в редакторах кода):
+    // иначе Tab только меняет отступ и с клавиатуры не дойти до «Ссылаются сюда».
+    // Esc, которым закрыли меню, не считается (меню отменяют событие раньше нас).
+    let leave = false;
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') leave = !event.defaultPrevented;
+      else if (event.key !== 'Tab' && event.key !== 'Shift') leave = false;
+    };
+    const stay = () => {
+      leave = false;
+    };
+    const stopRoot = editor.registerRootListener((root, previous) => {
+      previous?.removeEventListener('keydown', key);
+      previous?.removeEventListener('pointerdown', stay);
+      previous?.removeEventListener('focus', stay);
+      root?.addEventListener('keydown', key);
+      root?.addEventListener('pointerdown', stay);
+      root?.addEventListener('focus', stay);
+    });
     const stopTab = editor.registerCommand(
       KEY_TAB_COMMAND,
       (event) => {
+        if (leave) return false;
         const blocks = $selectedBlocks();
         if (!blocks.length) return false;
         event.preventDefault();
@@ -328,6 +348,7 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
       COMMAND_PRIORITY_HIGH,
     );
     return () => {
+      stopRoot();
       stopTab();
       stopEnter();
     };

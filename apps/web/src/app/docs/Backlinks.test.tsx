@@ -1,5 +1,5 @@
 import type { DocLinkKind, DocLinkTarget } from '@qubite/sync-client';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { BacklinksList } from './Backlinks';
@@ -27,14 +27,18 @@ describe('Ссылаются сюда', () => {
     expect(view.container).toBeEmptyDOMElement();
   });
 
-  it('шесть ссылок — пять строк и «Ещё 1»', () => {
+  it('шесть ссылок — пять строк и «Ещё 1»; после раскрытия фокус на шестой строке', async () => {
     const view = render(<BacklinksList backlinks={links(6)} />);
     expect(view.getAllByRole('link')).toHaveLength(5);
     expect(view.getByText('6')).toBeInTheDocument();
     expect(view.queryByText('Документ 6')).toBeNull();
-    fireEvent.click(view.getByRole('button', { name: 'Ещё 1' }));
+    const more = view.getByRole('button', { name: 'Ещё 1' });
+    act(() => more.focus());
+    fireEvent.click(more);
     expect(view.getAllByRole('link')).toHaveLength(6);
-    expect(view.queryByRole('button', { name: /Ещё/ })).toBeNull();
+    // Кнопка уходит анимацией, фокус не падает в начало страницы.
+    expect(view.getByRole('link', { name: /Документ 6/ })).toHaveFocus();
+    await waitFor(() => expect(view.queryByRole('button', { name: /Ещё/ })).toBeNull());
   });
 
   it('стрелки переводят фокус, включая раскрытые строки и границы списка', () => {

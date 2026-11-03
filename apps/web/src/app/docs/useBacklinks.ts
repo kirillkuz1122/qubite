@@ -125,7 +125,8 @@ export function useBacklinks(id: string, kind: DocLinkKind): Result {
     };
   }, [session, id, kind, key]);
 
+  // Только данные, без служебных полей состояния: их нельзя разложить в пропсы (`key`).
   return state.session === session && state.key === key
-    ? state
+    ? { backlinks: state.backlinks, message: state.message }
     : { backlinks: session?.cache.get(key) ?? EMPTY, message: '' };
 }
