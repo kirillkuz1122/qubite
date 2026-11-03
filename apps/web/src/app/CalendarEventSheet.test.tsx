@@ -35,7 +35,7 @@ describe('закреплённые действия формы события', 
     fireEvent.change(screen.getByLabelText('Название'), {
       target: { value: 'Обновлённая встреча' },
     });
-    const save = screen.getByRole('button', { name: existing ? 'Сохранить' : 'Создать' });
+    const save = screen.getByRole('button', { name: 'Сохранить' });
     expect(save.closest('.q-sheet-footer')).not.toBeNull();
     expect(save.closest('form')).toBeNull();
     fireEvent.click(save);
@@ -47,7 +47,7 @@ describe('закреплённые действия формы события', 
   it('пустое название не отправляется из нижней панели', () => {
     const { onSave, onClose } = setup();
     fireEvent.change(screen.getByLabelText('Название'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Создать' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Название')).toHaveAttribute('aria-invalid', 'true');

@@ -81,7 +81,7 @@ describe('шапка календаря', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Новое событие' }));
     const dialog = screen.getByRole('dialog', { name: 'Новое событие' });
-    const create = within(dialog).getByRole('button', { name: 'Создать' });
+    const create = within(dialog).getByRole('button', { name: 'Сохранить' });
     expect(create.closest('.q-sheet-footer')).not.toBeNull();
     expect(within(dialog).getByRole('button', { name: 'Отмена' })).toBeInTheDocument();
   });
