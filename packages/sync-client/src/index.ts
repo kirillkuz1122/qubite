@@ -1,5 +1,5 @@
 export * from './protocol';
-export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock } from './docs-lost';
+export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock, type LostInline } from './docs-lost';
 export {
   SyncClient,
   type SyncClientOptions,
@@ -31,6 +31,9 @@ export {
   httpDocsTransport,
   renameDoc,
   type DocHandle,
+  type DocLink,
+  type DocLinkKind,
+  type DocLinkTarget,
   type DocListItem,
   type DocsPullResponse,
   type DocsPushResponse,

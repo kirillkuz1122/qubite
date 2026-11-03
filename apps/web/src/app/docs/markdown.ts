@@ -5,8 +5,11 @@ import {
   type ElementTransformer,
   type MultilineElementTransformer,
   type Transformer,
+  type TextMatchTransformer,
 } from '@lexical/markdown';
-import { $createTextNode, $getRoot, ParagraphNode } from 'lexical';
+import { $createTextNode, $getRoot, $isElementNode, ParagraphNode, type LexicalNode } from 'lexical';
+import type { DocLink } from '@qubite/sync-client';
+import { $createMentionNode, $isMentionNode, MentionNode } from './MentionNode';
 import {
   $createBlockNode,
   $isBlockNode,
@@ -18,6 +21,7 @@ import {
 /** Все создаваемые Lexical абзацы (Enter, вставка, Markdown) — наши плоские блоки. */
 export const DOC_NODES = [
   BlockNode,
+  MentionNode,
   {
     replace: ParagraphNode,
     with: () => $createBlockNode(),
@@ -111,22 +115,52 @@ const paragraph: ElementTransformer = {
   },
 };
 
+const MENTION_PATTERN = /\[@((?:\\.|[^\]\\])*)\]\(qubite:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/i;
+
+function mention(links: readonly DocLink[]): TextMatchTransformer {
+  return {
+    type: 'text-match',
+    dependencies: [MentionNode],
+    regExp: MENTION_PATTERN,
+    importRegExp: MENTION_PATTERN,
+    export(node) {
+      if (!$isMentionNode(node)) return null;
+      const link = links.find((value) => value.id === node.getTarget());
+      const title = (link?.deleted ? 'Удалено' : (link?.title ?? ''))
+        .replace(/\\/g, '\\\\')
+        .replace(/[[\]]/g, '\\$&')
+        .replace(/[\r\n]/g, ' ');
+      return `[@${title}](qubite://${node.getTarget()})`;
+    },
+    replace(node, match) {
+      const target = match[2]!.toLowerCase();
+      const kind = links.find((value) => value.id === target)?.type ?? 'docs.page';
+      node.replace($createMentionNode(target, kind));
+    },
+  };
+}
+
 export const DOC_TRANSFORMERS: Transformer[] = [
   code,
   ...blocks,
   paragraph,
+  mention([]),
   ...TEXT_FORMAT_TRANSFORMERS,
 ];
 // Внутри code текст остаётся буквальным; inline-форматирование задаётся панелью.
 export const DOC_SHORTCUTS: Transformer[] = [code, ...blocks];
 
 /** append=true сохраняет уже набранное без сети при позднем получении старого Markdown. */
-export function $importMarkdown(markdown: string, append = false): void {
+export function $importMarkdown(
+  markdown: string,
+  append = false,
+  links: readonly DocLink[] = [],
+): void {
   const root = $getRoot();
   const existing = append ? root.getChildren() : [];
   // Отсоединяем, а потом возвращаем те же узлы: ключи и текст не меняются.
   existing.forEach((node) => node.remove());
-  $convertFromMarkdownString(markdown, DOC_TRANSFORMERS, root, true);
+  $convertFromMarkdownString(markdown, transformers(links), root, true);
   if (existing.length) {
     // Пустой seed тоже обработан; лишний пустой абзац к офлайн-тексту не нужен.
     if (!markdown) root.clear();
@@ -135,6 +169,21 @@ export function $importMarkdown(markdown: string, append = false): void {
   if (root.isEmpty()) root.append($createBlockNode());
 }
 
-export function $exportMarkdown(): string {
-  return $convertToMarkdownString(DOC_TRANSFORMERS, $getRoot(), true);
+function transformers(links: readonly DocLink[]): Transformer[] {
+  return [mention(links), ...DOC_TRANSFORMERS.filter((value) => value.type !== 'text-match')];
+}
+
+export function $exportMarkdown(links: readonly DocLink[] = []): string {
+  return $convertToMarkdownString(transformers(links), $getRoot(), true);
+}
+
+/** Источник связей — узлы дерева; подписи и Markdown здесь не участвуют. */
+export function $extractLinks(): string[] {
+  const targets = new Set<string>();
+  function visit(node: LexicalNode) {
+    if ($isMentionNode(node)) targets.add(node.getTarget());
+    if ($isElementNode(node)) node.getChildren().forEach(visit);
+  }
+  visit($getRoot());
+  return [...targets];
 }

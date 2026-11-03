@@ -1,13 +1,20 @@
 import * as Y from 'yjs';
+import type { DocLinkKind } from './docs';
+
+export type LostInline =
+  | { type: 'text'; text: string }
+  | { type: 'mention'; target: string; kind: DocLinkKind };
 
 export type LostBlock = {
   text: string;
+  /** Порядок текста и чипов; у старых записей и чистого текста поля нет. Без названий. */
+  content?: LostInline[];
   kind: string;
   /** Текст предыдущего живого блока; null — вставить в начало. */
   after: string | null;
 };
 
-type BeforeBlock = { deleted: boolean; kind: string; pending: string };
+type BeforeBlock = { deleted: boolean; kind: string; pending: LostInline[] };
 type GcGuard = {
   users: number;
   previous: Y.Doc['gcFilter'];
@@ -20,7 +27,7 @@ export const DOC_BLOCK_TYPE = 'qubite-block';
 const gcGuards = new WeakMap<Y.Doc, GcGuard>();
 
 /** Атрибут удалённого типа уже не виден через getAttribute, но его Item ещё нужен. */
-function attribute(type: Y.XmlText, name: string): unknown {
+function attribute(type: Y.XmlText | Y.XmlElement, name: string): unknown {
   return type._map.get(name)?.content.getContent()[0];
 }
 
@@ -62,18 +69,50 @@ function retainRoot(doc: Y.Doc, root: Y.XmlText): () => void {
   };
 }
 
-/** Только символы, без Lexical Y.Map-маркеров, атрибутов блока и форматирования. */
-function textIn(type: Y.XmlText, read: (item: Y.Item) => string, deleted = false): string {
-  let text = '';
+function isLinkKind(value: unknown): value is DocLinkKind {
+  return (
+    value === 'docs.page' ||
+    value === 'planner.task' ||
+    value === 'projects.project' ||
+    value === 'calendar.event'
+  );
+}
+
+/** Символы и атомарные чипы, без текстовых маркеров Lexical и форматирования. */
+function contentIn(
+  type: Y.XmlText,
+  since: (item: Y.Item) => number,
+  deleted = false,
+): LostInline[] {
+  const content: LostInline[] = [];
+  const append = (part: LostInline) => {
+    const last = content.at(-1);
+    if (part.type === 'text' && last?.type === 'text') last.text += part.text;
+    else content.push(part);
+  };
   for (let item = type._start; item; item = item.right) {
     if (!deleted && item.deleted) continue;
     if (item.content instanceof Y.ContentString) {
-      text += read(item);
-    } else if (item.content instanceof Y.ContentType && item.content.type instanceof Y.XmlText) {
-      text += textIn(item.content.type, read, deleted);
+      const text = stringSince(item, since(item));
+      if (text) append({ type: 'text', text });
+    } else if (item.content instanceof Y.ContentType) {
+      const child = item.content.type;
+      if (child instanceof Y.XmlText) {
+        contentIn(child, since, deleted).forEach(append);
+      } else if (
+        child instanceof Y.XmlElement &&
+        attribute(child, '__type') === 'qubite-mention' &&
+        item.id.clock >= since(item)
+      ) {
+        const target = attribute(child, '__target');
+        const kind = attribute(child, '__kind');
+        if (typeof target === 'string' && target.length > 0 && isLinkKind(kind)) {
+          append({ type: 'mention', target, kind });
+        }
+      }
     }
   }
-  return text;
+  return content;
 }
 
 function stringSince(item: Y.Item, clock: number): string {
@@ -85,8 +124,8 @@ function stringSince(item: Y.Item, clock: number): string {
  * Найти дописки, потерянные при удалении блока с другого устройства (D-399).
  * Установить после начальной загрузки Y.Doc, до редактирования и первого обмена.
  * origin должен совпадать с origin транзакций обмена по идентичности.
- * Нужны Item/ContentString из закреплённого Yjs 13.6.33: observeDeep не видит
- * вставки в уже удалённого родителя, а после GC их текст восстановить нельзя.
+ * Нужны Item/ContentString/ContentType из закреплённого Yjs 13.6.33: observeDeep
+ * не видит вставки в удалённого родителя, а после GC их восстановить нельзя.
  */
 export function watchLostEdits(
   doc: Y.Doc,
@@ -118,13 +157,13 @@ export function watchLostEdits(
       before.set(block, {
         deleted: item.deleted,
         kind: typeof kind === 'string' ? kind : 'text',
-        // До удаления видим только ещё живые символы; намеренно стёртое не возвращаем.
+        // До удаления видим только живое содержимое; намеренно стёртое не возвращаем.
         pending: item.deleted
-          ? ''
-          : textIn(block, (text) =>
-              pendingClients === 'all' || text.id.client === doc.clientID
-                ? stringSince(text, known.get(text.id.client) ?? 0)
-                : '',
+          ? []
+          : contentIn(block, (entry) =>
+              pendingClients === 'all' || entry.id.client === doc.clientID
+                ? (known.get(entry.id.client) ?? 0)
+                : Infinity,
             ),
       });
     }
@@ -142,26 +181,34 @@ export function watchLostEdits(
       const block = blockType(item);
       if (!block) continue;
       if (!item.deleted) {
-        after = textIn(block, (text) => stringSince(text, 0));
+        // Якорь совпадает с getTextContent() Lexical: чип даёт ровно «@».
+        after = contentIn(block, () => 0)
+          .map((part) => (part.type === 'text' ? part.text : '@'))
+          .join('');
         continue;
       }
       const previous = before?.get(block);
       if (!previous) continue;
-      const text = previous.deleted
-        ? textIn(
+      const content = previous.deleted
+        ? contentIn(
             block,
-            (text) =>
-              stringSince(
-                text,
-                Math.max(
-                  transaction.beforeState.get(text.id.client) ?? 0,
-                  pendingClients === 'all' ? (known.get(text.id.client) ?? 0) : 0,
-                ),
+            (entry) =>
+              Math.max(
+                transaction.beforeState.get(entry.id.client) ?? 0,
+                pendingClients === 'all' ? (known.get(entry.id.client) ?? 0) : 0,
               ),
             true,
           )
         : previous.pending;
-      if (text.length > 0) lost.push({ text, kind: previous.kind, after });
+      if (content.length > 0) {
+        const text = content.map((part) => (part.type === 'text' ? part.text : '')).join('');
+        lost.push({
+          text,
+          kind: previous.kind,
+          after,
+          ...(content.some((part) => part.type === 'mention') ? { content } : {}),
+        });
+      }
     }
     // Даже пустой обмен подтверждает текущий вектор. Обновить до cb: он может
     // создать локальную транзакцию Lexical для возврата найденного текста.
