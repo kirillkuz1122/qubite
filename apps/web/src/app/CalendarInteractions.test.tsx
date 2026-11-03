@@ -213,7 +213,10 @@ describe('короткая карточка', () => {
     expect(screen.getByLabelText('Название')).toHaveValue('Встреча');
     expect(screen.getByLabelText('Дата начала')).toHaveValue('2026-11-02');
     expect(screen.getByLabelText('Дата конца')).toHaveValue('2026-11-03');
-    expect(screen.getByRole('switch', { name: 'Весь день' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch', { name: 'Весь день' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     // Возвращаем время и убеждаемся, что переключение не потеряло его.
     fireEvent.click(screen.getByRole('switch', { name: 'Весь день' }));
     expect(screen.getByLabelText('Время начала')).toHaveValue('10:15');

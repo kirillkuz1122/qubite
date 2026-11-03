@@ -13,6 +13,8 @@ export interface SheetProps {
   title: string;
   className?: string;
   children: ReactNode;
+  /** Закреплённая нижняя панель; содержимое окна прокручивается над ней. */
+  footer?: ReactNode;
 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -22,15 +24,16 @@ const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabi
  * нижний лист. Фон затемняется, Escape и нажатие мимо закрывают, фокус возвращается туда,
  * откуда открыли. Двигаются только opacity и transform.
  */
-export function Sheet({ open, onClose, title, className, children }: SheetProps) {
+export function Sheet({ open, onClose, title, className, children, footer }: SheetProps) {
   const wide = useMedia(WIDE);
   const id = useId();
   const veil = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [alive, setAlive] = useState(open);
   const live = useRef(open);
-  const kept = useRef<ReactNode>(children);
-  if (open) kept.current = children;
+  const kept = useRef({ children, footer });
+  if (open) kept.current = { children, footer };
+  const hasFooter = kept.current.footer != null;
   const close = useRef(onClose);
   useEffect(() => {
     close.current = onClose;
@@ -106,7 +109,9 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
       />
       <div
         ref={box}
-        className={['q-sheet', className].filter(Boolean).join(' ')}
+        className={['q-sheet', hasFooter && 'q-sheet-with-footer', className]
+          .filter(Boolean)
+          .join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
@@ -132,7 +137,8 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
             </svg>
           </button>
         </div>
-        <div className="q-sheet-body">{kept.current}</div>
+        <div className="q-sheet-body">{kept.current.children}</div>
+        {hasFooter && <div className="q-sheet-footer">{kept.current.footer}</div>}
       </div>
     </div>,
     document.body,

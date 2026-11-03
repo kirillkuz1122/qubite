@@ -1,5 +1,5 @@
 import { Button, Check, Field, Note, Presence, Segmented, Sheet, Switch } from '@qubite/ui';
-import { useRef, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import { say } from '../auth/client';
 import {
   eventRequest,
@@ -33,6 +33,7 @@ export function CalendarEventSheet({
   onDelete: () => Promise<void>;
 }) {
   const planner = usePlanner();
+  const formId = useId();
   const [form, setForm] = useState(initial);
   const [full, setFull] = useState(existing);
   const [errors, setErrors] = useState<EventFormErrors>({});
@@ -82,8 +83,45 @@ export function CalendarEventSheet({
       }}
       title={existing ? 'Событие' : 'Новое событие'}
       className="calendar-event-sheet"
+      footer={
+        <div className="calendar-event-footer">
+          <div className="calendar-actions">
+            {readable && (
+              <Button type="submit" form={formId} variant="fill" disabled={busy}>
+                Сохранить
+              </Button>
+            )}
+            {!full && (
+              <Button disabled={busy} onClick={() => setFull(true)}>
+                Другие параметры
+              </Button>
+            )}
+            <Button disabled={busy} onClick={onClose}>
+              Отмена
+            </Button>
+            {existing && (
+              <Button disabled={busy} onClick={() => setConfirmDelete(true)}>
+                Удалить
+              </Button>
+            )}
+          </div>
+          <Presence show={confirmDelete}>
+            <Note>
+              Удалить событие и все его повторы?
+              <div className="calendar-actions">
+                <Button disabled={busy} onClick={() => void run(onDelete)}>
+                  Удалить событие
+                </Button>
+                <Button disabled={busy} onClick={() => setConfirmDelete(false)}>
+                  Оставить
+                </Button>
+              </div>
+            </Note>
+          </Presence>
+        </div>
+      }
     >
-      <form className="calendar-event-form" onSubmit={submit} noValidate>
+      <form id={formId} className="calendar-event-form" onSubmit={submit} noValidate>
         <Presence show={!readable}>
           <Note>Закройте форму и откройте событие снова, чтобы загрузить его изменения.</Note>
         </Presence>
@@ -235,40 +273,6 @@ export function CalendarEventSheet({
             </div>
           </Presence>
         </fieldset>
-        <footer className="calendar-actions calendar-event-footer">
-          {readable && (
-            <Button type="submit" variant="fill" disabled={busy}>
-              Сохранить
-            </Button>
-          )}
-          {!full ? (
-            <Button disabled={busy} onClick={() => setFull(true)}>
-              Другие параметры
-            </Button>
-          ) : (
-            <Button disabled={busy} onClick={onClose}>
-              Закрыть
-            </Button>
-          )}
-          {existing && (
-            <Button disabled={busy} onClick={() => setConfirmDelete(true)}>
-              Удалить
-            </Button>
-          )}
-        </footer>
-        <Presence show={confirmDelete}>
-          <Note>
-            Удалить событие и все его повторы?
-            <div className="calendar-actions">
-              <Button disabled={busy} onClick={() => void run(onDelete)}>
-                Удалить событие
-              </Button>
-              <Button disabled={busy} onClick={() => setConfirmDelete(false)}>
-                Оставить
-              </Button>
-            </div>
-          </Note>
-        </Presence>
       </form>
     </Sheet>
   );
