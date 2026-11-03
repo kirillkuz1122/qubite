@@ -140,6 +140,18 @@ describe('меню упоминаний', () => {
     expect(view.queryByRole('option', { name: /Графы/ })).not.toBeInTheDocument();
   });
 
+  it('сам документ в меню не предлагается', async () => {
+    const own = { id: 'page', type: 'docs.page' as const, title: 'Этот документ' };
+    const fake: LinkSource = {
+      search: vi.fn(async () => [own, first]),
+      links: vi.fn(async () => []),
+    };
+    const view = setup(fake);
+    await view.type('@');
+    expect(await view.findByRole('option', { name: /Графы/ })).toBeVisible();
+    expect(view.queryByRole('option', { name: /Этот документ/ })).not.toBeInTheDocument();
+  });
+
   it('без сети ищет сохранённые названия', async () => {
     const fake: LinkSource = { search: async () => { throw new Error('offline'); }, links: async () => [] };
     const view = setup(fake, [{ ...first, deleted: false }]);

@@ -127,7 +127,12 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
         .search(queryText, abort.signal)
         .then((targets) => {
           if (abort.signal.aborted) return;
-          setSearch({ key, targets, message: 'Ничего не найдено' });
+          // Сам документ в меню не предлагаем: сервер такую связь отбросит (D-792).
+          setSearch({
+            key,
+            targets: targets.filter((target) => target.id !== handle.id),
+            message: 'Ничего не найдено',
+          });
           setActive(0);
         })
         .catch(() => {
@@ -136,6 +141,7 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
             .filter(
               (link) =>
                 !link.deleted &&
+                link.id !== handle.id &&
                 link.title.toLocaleLowerCase('ru').includes(queryText.toLocaleLowerCase('ru')),
             )
             .slice(-8)
