@@ -80,6 +80,18 @@ describe('Ссылаются сюда', () => {
     },
   );
 
+  it('обычный клик открывает через переход приложения, Ctrl-клик — как ссылка', () => {
+    const open = vi.fn();
+    const view = render(
+      <BacklinksList backlinks={[{ id: 'doc', type: 'docs.page', title: 'Источник' }]} open={open} />,
+    );
+    const link = view.getByRole('link');
+    fireEvent.click(link, { ctrlKey: true });
+    expect(open).not.toHaveBeenCalled();
+    fireEvent.click(link);
+    expect(open).toHaveBeenCalledWith(linkHref('doc', 'docs.page'));
+  });
+
   it('документ без названия подписан «Без названия»', () => {
     const view = render(
       <BacklinksList backlinks={[{ id: 'doc', type: 'docs.page', title: '   ' }]} />,

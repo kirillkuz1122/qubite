@@ -88,7 +88,7 @@ for (const width of [1440, 360]) {
       await expect(backlinks(page)).toBeVisible();
     }
     await page.getByRole('button', { name: 'К документам' }).click();
-    const row = page.getByRole('button', { name: /Целевой документ/ });
+    const row = page.getByRole('button', { name: /^Целевой документ/ });
     await expect(row).toBeVisible();
     server.sync.offline = true;
     await row.click();

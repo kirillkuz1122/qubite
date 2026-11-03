@@ -1,7 +1,8 @@
 import type { DocLinkKind, DocLinkTarget } from '@qubite/sync-client';
 import { loop, MASS } from '@qubite/motion';
 import { Button, Note, Presence, useMedia, usePress, useSlide, useSpring, WIDE } from '@qubite/ui';
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useRouter } from '@tanstack/react-router';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { SecHead } from '../parts';
 import { LINK_LABELS, linkHref } from './links';
 import { useBacklinks } from './useBacklinks';
@@ -9,7 +10,10 @@ import './backlinks.css';
 
 export function Backlinks({ id, kind }: { id: string; kind: DocLinkKind }) {
   const result = useBacklinks(id, kind);
-  return <BacklinksList key={`${kind}:${id}`} {...result} />;
+  // Без перезагрузки страницы: иначе офлайн-приложение не откроет сохранённый документ.
+  const router = useRouter({ warn: false });
+  const open = router ? (href: string) => router.history.push(href) : undefined;
+  return <BacklinksList key={`${kind}:${id}`} {...result} open={open} />;
 }
 
 /** На телефоне сохраняем место блока: появление клавиатуры не сдвигает текст. */
@@ -39,9 +43,12 @@ export function DocumentBacklinks({ id, hidden }: { id: string; hidden: boolean 
 export function BacklinksList({
   backlinks,
   message = '',
+  open,
 }: {
   backlinks: DocLinkTarget[];
   message?: string;
+  /** Переход внутри приложения; без него работает обычная ссылка. */
+  open?: ((href: string) => void) | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -92,6 +99,7 @@ export function BacklinksList({
                   index={index}
                   keydown={keydown}
                   slide={slide}
+                  open={open}
                 />
               ))}
               <Presence show={expanded} className="backlinks-more">
@@ -102,6 +110,7 @@ export function BacklinksList({
                     index={index + 5}
                     keydown={keydown}
                     slide={slide}
+                    open={open}
                   />
                 ))}
               </Presence>
@@ -133,19 +142,30 @@ function BacklinkRow({
   index,
   keydown,
   slide,
+  open,
 }: {
   link: DocLinkTarget;
   index: number;
   keydown: (event: KeyboardEvent<HTMLAnchorElement>, index: number) => void;
   slide: ReturnType<typeof useSlide>;
+  open?: ((href: string) => void) | undefined;
 }) {
   const press = usePress<HTMLAnchorElement>();
   const title = link.title.trim() || 'Без названия';
+  const href = linkHref(link.id, link.type);
+  function click(event: MouseEvent<HTMLAnchorElement>) {
+    // Ctrl/⌘/Shift-клик и средняя кнопка остаются обычной ссылкой браузера.
+    if (!open || event.defaultPrevented || event.button !== 0) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    open(href);
+  }
   return (
     <a
       {...press}
       className="backlinks-row"
-      href={linkHref(link.id, link.type)}
+      href={href}
+      onClick={click}
       onKeyDown={(event) => keydown(event, index)}
       onFocus={(event) => highlight(event.currentTarget)}
       onMouseEnter={(event) => highlight(event.currentTarget)}
