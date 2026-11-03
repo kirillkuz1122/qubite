@@ -1,0 +1,41 @@
+.backlinks,
+.backlinks-rows,
+.backlinks-more {
+  min-width: 0;
+}
+.backlinks .sec-h {
+  flex-wrap: wrap;
+}
+.backlinks-count,
+.backlinks-type {
+  color: var(--q-mute);
+}
+.backlinks-rows {
+  position: relative;
+}
+.backlinks-row {
+  position: relative;
+  display: block;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 12px 8px;
+  color: var(--q-mute);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.backlinks-row:hover,
+.backlinks-row:focus-visible {
+  color: var(--q-ink);
+}
+.backlinks-row:focus-visible {
+  outline: 1px solid var(--q-orange);
+  outline-offset: -1px;
+}
+.backlinks-expand.q-btn {
+  min-width: 44px;
+  min-height: 44px;
+  margin-top: 8px;
+}
+.docs-backlinks[inert] {
+  pointer-events: none;
+}
