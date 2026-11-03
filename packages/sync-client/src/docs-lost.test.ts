@@ -182,6 +182,34 @@ describe('Документы: дописки в удалённые блоки Le
     expect(there.calls).toEqual([]);
   });
 
+  it('возвращает повторно вставленный чип, но не его удалённую копию', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    const block = blockAt(a, 1);
+    addMention(a, block);
+    block.delete(block.length - 1, 1);
+    // Та же цель, но другой Item: удаление первого чипа не отменяет второй.
+    addMention(a, block);
+    root(b).delete(1, 1);
+    exchange(a, b);
+    const expected = [
+      [
+        {
+          text: '',
+          kind: 'text',
+          after: 'Перед',
+          content: [{ type: 'mention', target: mentionTarget, kind: 'planner.task' }],
+        },
+      ],
+    ];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+    exchange(a, b);
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
   it('не предлагает чип, если автор сам удалил весь блок', () => {
     const [a, b] = pair();
     const here = watch(a);
@@ -559,6 +587,28 @@ describe('Документы: дописки в удалённые блоки Le
 });
 
 describe('неотправленное после перезапуска', () => {
+  it('режим all не возвращает чип, подтверждённый сервером до разрыва', () => {
+    const [server, old] = pair();
+    addMention(old, blockAt(old, 1));
+    receive(server, old);
+    receive(old, server);
+    const known = Y.decodeStateVector(Y.encodeStateVector(server));
+    const reopened = document();
+    receive(reopened, old);
+    const calls: LostBlock[][] = [];
+    watchLostEdits(
+      reopened,
+      serverOrigin,
+      (lost) => calls.push(lost),
+      () => known,
+      'all',
+    );
+    root(server).delete(1, 1);
+    receive(reopened, server);
+    receive(reopened, server);
+    expect(calls).toEqual([]);
+  });
+
   it('режим all сохраняет чип прежнего clientID по вектору сервера', () => {
     const [server, old] = pair();
     const known = Y.decodeStateVector(Y.encodeStateVector(server));

@@ -2,7 +2,8 @@ import * as Y from 'yjs';
 import type { DocLinkKind } from './docs';
 
 export type LostInline =
-  { type: 'text'; text: string } | { type: 'mention'; target: string; kind: DocLinkKind };
+  | { type: 'text'; text: string }
+  | { type: 'mention'; target: string; kind: DocLinkKind };
 
 export type LostBlock = {
   text: string;
@@ -38,7 +39,16 @@ function blockType(item: Y.Item): Y.XmlText | null {
 
 function inDeletedRoot(item: Y.Item, root: Y.XmlText): boolean {
   let parent = item.parent;
-  let deletedType = item.deleted && item.content instanceof Y.ContentType;
+  // Чип, стёртый в живом блоке, должен стать ContentDeleted, как стёртый текст:
+  // иначе получатель примет сохранённый ContentType за вставку в удалённый блок.
+  // Чипы внутри удалённого родителя по-прежнему удерживает обход родителей ниже.
+  let deletedType =
+    item.deleted &&
+    item.content instanceof Y.ContentType &&
+    !(
+      item.content.type instanceof Y.XmlElement &&
+      attribute(item.content.type, '__type') === 'qubite-mention'
+    );
   while (parent instanceof Y.AbstractType) {
     if (parent === root) return deletedType;
     deletedType ||= parent._item?.deleted === true;
@@ -78,11 +88,7 @@ function isLinkKind(value: unknown): value is DocLinkKind {
 }
 
 /** Символы и атомарные чипы, без текстовых маркеров Lexical и форматирования. */
-function contentIn(
-  type: Y.XmlText,
-  since: (item: Y.Item) => number,
-  deleted = false,
-): LostInline[] {
+function contentIn(type: Y.XmlText, since: (item: Y.Item) => number, deleted = false): LostInline[] {
   const content: LostInline[] = [];
   const append = (part: LostInline) => {
     const last = content.at(-1);
