@@ -2,8 +2,7 @@ import * as Y from 'yjs';
 import type { DocLinkKind } from './docs';
 
 export type LostInline =
-  | { type: 'text'; text: string }
-  | { type: 'mention'; target: string; kind: DocLinkKind };
+  { type: 'text'; text: string } | { type: 'mention'; target: string; kind: DocLinkKind };
 
 export type LostBlock = {
   text: string;
@@ -88,7 +87,11 @@ function isLinkKind(value: unknown): value is DocLinkKind {
 }
 
 /** Символы и атомарные чипы, без текстовых маркеров Lexical и форматирования. */
-function contentIn(type: Y.XmlText, since: (item: Y.Item) => number, deleted = false): LostInline[] {
+function contentIn(
+  type: Y.XmlText,
+  since: (item: Y.Item) => number,
+  deleted = false,
+): LostInline[] {
   const content: LostInline[] = [];
   const append = (part: LostInline) => {
     const last = content.at(-1);
