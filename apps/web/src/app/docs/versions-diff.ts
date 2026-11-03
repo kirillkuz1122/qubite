@@ -168,7 +168,7 @@ function inlineText(node: Y.XmlText | Y.XmlElement): string {
   }
   return node
     .toDelta()
-    .map((part) => {
+    .map((part: { insert?: unknown }) => {
       const value: unknown = part.insert;
       if (typeof value === 'string') return value;
       if (value instanceof Y.XmlText || value instanceof Y.XmlElement) return inlineText(value);
