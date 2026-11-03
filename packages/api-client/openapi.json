@@ -5248,6 +5248,46 @@
         }
       }
     },
+    "/api/v1/docs/link-targets": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Цели упоминаний: до восьми своих объектов, документы первыми.",
+        "operationId": "link_targets",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Подстрока названия без учёта регистра; пустая — недавние объекты.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Цели упоминаний",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkTargets"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/docs/{id}": {
       "get": {
         "tags": ["planner"],
@@ -5358,6 +5398,108 @@
         }
       }
     },
+    "/api/v1/docs/{id}/backlinks": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Объекты, упоминающие документ и доступные читателю.",
+        "operationId": "doc_backlinks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Обратные ссылки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backlinks"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/docs/{id}/links": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Исходящие упоминания документа, включая цели в корзине.",
+        "operationId": "doc_links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Исходящие ссылки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocLinks"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден или чужой",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/docs/{id}/y": {
       "get": {
         "tags": ["docs"],
@@ -5429,7 +5571,7 @@
       },
       "post": {
         "tags": ["docs"],
-        "summary": "Слить обновление Yjs v1 и сохранить простой текст для поиска.",
+        "summary": "Слить обновление Yjs v1, сохранить простой текст и упоминания.",
         "operationId": "post_y",
         "parameters": [
           {
@@ -7800,6 +7942,57 @@
           },
           "404": {
             "description": "Нет такого сообщения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/objects/{id}/backlinks": {
+      "get": {
+        "tags": ["docs"],
+        "summary": "Объекты, упоминающие объект и доступные читателю.",
+        "operationId": "object_backlinks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID объекта",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Обратные ссылки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backlinks"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права читать Docs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или чужой",
             "content": {
               "application/json": {
                 "schema": {
@@ -10302,6 +10495,18 @@
           }
         }
       },
+      "Backlinks": {
+        "type": "object",
+        "required": ["backlinks"],
+        "properties": {
+          "backlinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkTarget"
+            }
+          }
+        }
+      },
       "CalendarEvent": {
         "type": "object",
         "required": [
@@ -10812,6 +11017,37 @@
           "token_type": {
             "type": "string",
             "description": "Всегда `Bearer`."
+          }
+        }
+      },
+      "DocLink": {
+        "type": "object",
+        "required": ["id", "type", "title", "deleted"],
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "DocLinks": {
+        "type": "object",
+        "required": ["links"],
+        "properties": {
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocLink"
+            }
           }
         }
       },
@@ -12534,6 +12770,34 @@
         "properties": {
           "authorize_url": {
             "type": "string"
+          }
+        }
+      },
+      "LinkTarget": {
+        "type": "object",
+        "required": ["id", "type", "title"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "LinkTargets": {
+        "type": "object",
+        "required": ["targets"],
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkTarget"
+            }
           }
         }
       },
@@ -14674,6 +14938,15 @@
         "type": "object",
         "required": ["update", "text"],
         "properties": {
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID упоминаний без повторов, до 200; отсутствие поля сохраняет прежние связи.",
+            "maxItems": 200
+          },
           "seed": {
             "type": "boolean",
             "description": "Первое преобразование Markdown; если состояние уже есть — seed_taken."

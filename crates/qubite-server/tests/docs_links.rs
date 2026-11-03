@@ -260,7 +260,11 @@ async fn trashed_targets_keep_existing_links_across_edits_until_explicitly_remov
         assert!(links(&mut browser, address, source).await.is_empty());
         trash(&db, owner, target, true).await;
         for path in &paths {
-            assert!(get(&mut browser, address, path, "backlinks").await.is_empty());
+            assert!(
+                get(&mut browser, address, path, "backlinks")
+                    .await
+                    .is_empty()
+            );
         }
     }
     db.close().await;
