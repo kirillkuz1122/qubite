@@ -3,7 +3,9 @@ import { mockDocs } from './docs-mock';
 
 for (const width of [1440, 360]) {
   for (const theme of ['dark', 'light']) {
-    test(`история: просмотр, сравнение, восстановление — ${width}px ${theme}`, async ({ page }, info) => {
+    test(`история: просмотр, сравнение, восстановление — ${width}px ${theme}`, async ({
+      page,
+    }, info) => {
       await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
       await page.addInitScript((value) => {
         localStorage.setItem('qubite.look.v1', JSON.stringify({ theme: value }));
@@ -60,9 +62,7 @@ for (const width of [1440, 360]) {
       await shot('подтверждение');
       expect(server.pushes.some((push) => push.reason === 'restore')).toBe(false);
       await page.getByRole('button', { name: 'Восстановить', exact: true }).last().click();
-      await expect(
-        page.getByText('Версия восстановлена. Прежний текст — в истории'),
-      ).toBeVisible();
+      await expect(page.getByText('Версия восстановлена. Прежний текст — в истории')).toBeVisible();
       await expect(editor).toContainText('Привет, старый мир!');
       await expect(editor).not.toContainText('новый');
       await expect(history).toBeFocused();
@@ -86,7 +86,9 @@ test('история объясняет ошибку сети и даёт пов
   const server = await mockDocs(page);
   const id = server.add('Заметка', 'На устройстве');
   await page.goto(`/docs/${id}`);
-  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText('На устройстве');
+  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'На устройстве',
+  );
   server.sync.offline = true;
   await page.getByRole('button', { name: 'История', exact: true }).click();
   await expect(

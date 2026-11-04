@@ -66,9 +66,7 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
     if (sync.offline) return route.abort('internetdisconnected');
     const request = route.request();
     const url = new URL(request.url());
-    const versionsMatch = url.pathname.match(
-      /^\/api\/v1\/docs\/([^/]+)\/versions(?:\/([^/]+))?$/,
-    );
+    const versionsMatch = url.pathname.match(/^\/api\/v1\/docs\/([^/]+)\/versions(?:\/([^/]+))?$/);
     if (versionsMatch) {
       const id = decodeURIComponent(versionsMatch[1]!);
       const vid = versionsMatch[2] ? decodeURIComponent(versionsMatch[2]) : null;
@@ -98,15 +96,17 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
         });
       }
       const version = versions.get(id)?.find((item) => item.id === vid);
-      if (!version)
-        return route.fulfill({ status: 404, json: { error: 'not_found' } });
+      if (!version) return route.fulfill({ status: 404, json: { error: 'not_found' } });
       if (request.method() === 'PATCH' || request.method() === 'DELETE') {
         if (version.kind !== 'named')
           return route.fulfill({ status: 400, json: { error: 'not_named' } });
         if (request.method() === 'PATCH')
           version.name = (request.postDataJSON() as { name: string }).name;
         else {
-          versions.set(id, (versions.get(id) ?? []).filter((item) => item.id !== vid));
+          versions.set(
+            id,
+            (versions.get(id) ?? []).filter((item) => item.id !== vid),
+          );
           return route.fulfill({ status: 204 });
         }
       }

@@ -195,16 +195,16 @@ describe('история документа', () => {
     const view = setup();
     fireEvent.click(await view.findByRole('button', { name: /Черновик · Версия/ }));
     await view.findByLabelText('Текст версии');
-    fireEvent.click(view.getByRole('button', { name: 'Восстановить', exact: true }));
+    fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
     const dialog = view.getByRole('dialog', { name: 'Восстановить версию' });
     expect(within(dialog).getByText('Текущий текст сохранится в истории')).toBeInTheDocument();
     expect(view.store.restoreVersion).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     expect(view.store.restoreVersion).not.toHaveBeenCalled();
     await waitFor(() => expect(view.queryByRole('dialog')).toBeNull());
-    fireEvent.click(view.getByRole('button', { name: 'Восстановить', exact: true }));
+    fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
     fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить', exact: true }),
+      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }),
     );
     await waitFor(() =>
       expect(view.store.restoreVersion).toHaveBeenCalledWith(
@@ -244,7 +244,7 @@ describe('история документа', () => {
     fireEvent.click(view.getByRole('button', { name: /Удалить версию/ }));
     expect(view.transport.deleteVersion).not.toHaveBeenCalled();
     fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить', exact: true }),
+      within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить' }),
     );
     await waitFor(() =>
       expect(view.transport.deleteVersion).toHaveBeenCalledWith('page', 'v1'),
@@ -267,9 +267,9 @@ describe('история документа', () => {
       vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
       window.dispatchEvent(new Event('offline'));
     });
-    fireEvent.click(view.getByRole('button', { name: 'Восстановить', exact: true }));
+    fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
     fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить', exact: true }),
+      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }),
     );
     await waitFor(() => expect(view.store.restoreVersion).toHaveBeenCalledOnce());
   });
@@ -281,9 +281,9 @@ describe('история документа', () => {
       view.store.restoreVersion.mockRejectedValueOnce(new Error(message));
       fireEvent.click(await view.findByRole('button', { name: /Черновик · Версия/ }));
       await view.findByLabelText('Текст версии');
-      fireEvent.click(view.getByRole('button', { name: 'Восстановить', exact: true }));
+      fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
       fireEvent.click(
-        within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить', exact: true }),
+        within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }),
       );
       await waitFor(() =>
         expect(
@@ -310,7 +310,7 @@ describe('история документа', () => {
     expect(
       await view.findByText('Не удалось открыть версию. Проверьте связь и повторите.'),
     ).toBeInTheDocument();
-    fireEvent.click(view.getByRole('button', { name: 'Повторить', exact: true }));
+    fireEvent.click(view.getByRole('button', { name: 'Повторить' }));
     expect(await view.findByLabelText('Текст версии')).toHaveTextContent('Старый текст');
     expect(view.transport.getVersion).toHaveBeenCalledTimes(2);
   });
@@ -324,7 +324,7 @@ describe('история документа', () => {
     const view = setup();
     fireEvent.click(await view.findByRole('button', { name: /Черновик · Версия/ }));
     await view.findByLabelText('Текст версии');
-    fireEvent.click(view.getByRole('button', { name: 'Восстановить', exact: true }));
+    fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
     expect(view.getAllByRole('dialog')).toHaveLength(1);
     expect(view.getByText('Текущий текст сохранится в истории')).toBeInTheDocument();
     fireEvent.click(view.getByRole('button', { name: 'Отмена' }));
