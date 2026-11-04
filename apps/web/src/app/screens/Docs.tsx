@@ -10,6 +10,7 @@ import { Button, DotIcon, Field, Note, Swap, useSlide } from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DocEditor } from '../docs/Editor';
+import { History } from '../docs/History';
 import { DocumentBacklinks } from '../docs/Backlinks';
 import { acquireDocument } from '../docs/handles';
 import { plainPreview } from '../docs/preview';
@@ -295,6 +296,8 @@ function Document({
   const [generation, setGeneration] = useState(0);
   const [titleError, setTitleError] = useState(false);
   const [backlinksHidden, setBacklinksHidden] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [restored, setRestored] = useState(false);
   const touchY = useRef(0);
   const editorBox = useRef<HTMLDivElement>(null);
   const titleQueue = useRef(Promise.resolve());
@@ -415,47 +418,71 @@ function Document({
         <Button size="sm" dot={false} onClick={() => void navigate({ to: '/docs' })}>
           <DotIcon name="back" /> К документам
         </Button>
+        <Button
+          size="sm"
+          dot={false}
+          aria-expanded={historyOpen}
+          onClick={() => {
+            setRestored(false);
+            setHistoryOpen(true);
+          }}
+        >
+          <DotIcon name="history" /> История
+        </Button>
         <span role="status" className="docs-save">
           {STATUS[displayed]}
         </span>
       </div>
       {failure && <Note tone="bad">{failure}</Note>}
-      {title && (
-        <Field
-          key={id}
-          className="docs-title"
-          label="Название документа"
-          defaultValue={title}
-          maxLength={500}
-          onChange={(event) => rename(event.target.value)}
-          onBlur={(event) => {
-            if (!event.target.value.trim()) event.target.value = title;
-          }}
-        />
-      )}
-      {handle ? (
-        <>
-          <div
-            ref={editorBox}
-            className="docs-editor"
-            onFocusCapture={(event) => {
-              if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(true);
+      {restored && <Note>Версия восстановлена. Прежний текст — в истории</Note>}
+      <History
+        id={id}
+        open={historyOpen}
+        handle={handle}
+        store={sync.docs ?? null}
+        onClose={() => setHistoryOpen(false)}
+        onRestored={() => {
+          setHistoryOpen(false);
+          setRestored(true);
+        }}
+      >
+        {title && (
+          <Field
+            key={id}
+            className="docs-title"
+            label="Название документа"
+            defaultValue={title}
+            maxLength={500}
+            onChange={(event) => rename(event.target.value)}
+            onBlur={(event) => {
+              if (!event.target.value.trim()) event.target.value = title;
             }}
-            // Esc, не закрывший меню (оно останавливает событие), — «закончил писать».
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setBacklinksHidden(false);
-            }}
-            onBlurCapture={(event) => {
-              if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(false);
-            }}
-          >
-            <DocEditor handle={handle} />
-          </div>
-          <DocumentBacklinks id={id} hidden={backlinksHidden} />
-        </>
-      ) : (
-        !failure && <p className="later">Открываю документ…</p>
-      )}
+          />
+        )}
+        {handle ? (
+          <>
+            <div
+              ref={editorBox}
+              className="docs-editor"
+              onFocusCapture={(event) => {
+                if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(true);
+              }}
+              // Esc, не закрывший меню (оно останавливает событие), — «закончил писать».
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setBacklinksHidden(false);
+              }}
+              onBlurCapture={(event) => {
+                if (event.target.closest('[contenteditable="true"]')) setBacklinksHidden(false);
+              }}
+            >
+              <DocEditor handle={handle} />
+            </div>
+            <DocumentBacklinks id={id} hidden={backlinksHidden} />
+          </>
+        ) : (
+          !failure && <p className="later">Открываю документ…</p>
+        )}
+      </History>
       {(failure || displayed === 'error' || displayed === 'offline') && (
         <Button
           size="sm"
