@@ -1,16 +1,29 @@
 import {
   createDoc,
+  DOCS_PAGE,
   docList,
   renameDoc,
   type DocHandle,
   type DocListItem,
   type DocStatus,
+  type LocalObject,
 } from '@qubite/sync-client';
-import { Button, DotIcon, Field, Note, Swap, useSlide } from '@qubite/ui';
+import {
+  Button,
+  DotIcon,
+  Field,
+  Note,
+  Presence,
+  Segmented,
+  Sheet,
+  Swap,
+  useSlide,
+} from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DocEditor } from '../docs/Editor';
 import { History } from '../docs/History';
+import { Trash } from '../docs/Trash';
 import { DocumentBacklinks } from '../docs/Backlinks';
 import { acquireDocument } from '../docs/handles';
 import { plainPreview } from '../docs/preview';
@@ -64,7 +77,13 @@ export function DocsScreen() {
   const path = useRouterState({ select: (state) => state.location.pathname });
   const id = path.startsWith('/docs/') ? decodeURIComponent(path.slice('/docs/'.length)) : null;
   const [query, setQuery] = useState('');
-  const [local, setLocal] = useState<DocListItem[]>([]);
+  const [objects, setObjects] = useState<LocalObject[]>([]);
+  const [section, setSection] = useState<'docs' | 'trash'>('docs');
+  const [deleted, setDeleted] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const restoringNow = useRef(false);
+  const focusTarget = useRef<string | null>(null);
+  const index = useRef<HTMLElement>(null);
   // Ответ поиска помнит, к какому запросу относится: старый просто не показывается.
   const [search, setSearch] = useState<{
     key: string;
@@ -97,12 +116,15 @@ export function DocsScreen() {
       .all()
       .then((objects) => {
         if (alive) {
-          setLocal(docList(objects));
+          setObjects(objects);
           setLoaded(true);
         }
       })
       .catch(() => {
-        if (alive) setError('Не удалось открыть список на устройстве.');
+        if (alive) {
+          setError('Не удалось открыть список на устройстве.');
+          setLoaded(true);
+        }
       });
     return () => {
       alive = false;
@@ -115,7 +137,7 @@ export function DocsScreen() {
   const searchError = found?.error ?? false;
 
   useEffect(() => {
-    if (!query.trim() || !online) return;
+    if (section !== 'docs' || !query.trim() || !online) return;
     const key = `${query.trim()}|${online}|${sync.version}`;
     const abort = new AbortController();
     const timer = setTimeout(() => {
@@ -137,7 +159,7 @@ export function DocsScreen() {
       clearTimeout(timer);
       abort.abort();
     };
-  }, [query, online, sync.version]);
+  }, [query, online, sync.version, section]);
 
   const onText = useCallback(
     (docId: string, text: string) => {
@@ -157,10 +179,17 @@ export function DocsScreen() {
   );
 
   // Превью приходит Markdown-ом (сервер и редактор): в списке и поиске — чистый текст.
+  const local = docList(objects);
+  const deletedIds = new Set(objects.filter((object) => object.deleted).map((object) => object.id));
   const all = local
     .map((doc) => {
       const preview = previews[doc.id];
-      const fresh = preview && preview.updated > doc.updated ? { ...doc, ...preview } : doc;
+      const fresh =
+        preview &&
+        (preview.updated > doc.updated ||
+          objects.some((object) => object.id === doc.id && object.pending))
+          ? { ...doc, preview: preview.preview }
+          : doc;
       return { ...fresh, preview: plainPreview(fresh.preview) };
     })
     .sort((a, b) => b.updated - a.updated);
@@ -173,7 +202,9 @@ export function DocsScreen() {
     ? [
         ...new Map(
           [
-            ...remote.map((doc) => ({ ...doc, preview: plainPreview(doc.preview) })),
+            ...remote
+              .filter((doc) => !deletedIds.has(doc.id))
+              .map((doc) => ({ ...doc, preview: plainPreview(doc.preview) })),
             ...matches,
           ].map((doc) => [doc.id, doc]),
         ).values(),
@@ -184,7 +215,70 @@ export function DocsScreen() {
     const row = list.current?.querySelector<HTMLElement>('[aria-current="page"]');
     if (row) slide.to(row.offsetTop, row.offsetHeight);
     else slide.hide();
-  }, [id, rows.length, query, slide.to, slide.hide]);
+  }, [id, rows.length, query, section, slide.to, slide.hide]);
+
+  useEffect(() => {
+    if (id || section !== 'docs' || !focusTarget.current) return;
+    const target =
+      focusTarget.current === 'undo'
+        ? index.current?.querySelector<HTMLElement>('[data-docs-undo]')
+        : [...(index.current?.querySelectorAll<HTMLElement>('[data-doc-id]') ?? [])].find(
+            (row) => row.dataset.docId === focusTarget.current,
+          );
+    if (target) {
+      target.focus({ preventScroll: true });
+      focusTarget.current = null;
+    }
+  });
+
+  async function remove(docId: string) {
+    const client = await sync.ready();
+    if (!(await client.get(docId))) await client.sync();
+    await client.remove(docId);
+    setObjects(await client.all());
+    setQuery('');
+    setSection('docs');
+    setDeleted(docId);
+    focusTarget.current = 'undo';
+    await navigate({ to: '/docs' });
+    void client.sync();
+  }
+
+  async function restore(docId: string) {
+    const client = await sync.ready();
+    // Сетевой список может опередить обычный pull. Только движок пишет в очередь.
+    let object = await client.get(docId);
+    if (!object || !object.deleted) {
+      const state = await client.sync();
+      object = await client.get(docId);
+      if (state.status === 'error' && !object?.deleted) throw new Error('Нужна связь');
+    }
+    if (!object || object.object_type !== DOCS_PAGE) throw new Error('Документ ещё не загружен');
+    if (object.deleted) await client.restore(docId);
+    setObjects(await client.all());
+    setQuery('');
+    setSection('docs');
+    if (deleted === docId) setDeleted(null);
+    setError(null);
+    focusTarget.current = docId;
+    await navigate({ to: '/docs' });
+    void client.sync();
+  }
+
+  async function undo() {
+    if (!deleted || restoringNow.current) return;
+    restoringNow.current = true;
+    setRestoring(true);
+    setError(null);
+    try {
+      await restore(deleted);
+    } catch {
+      setError('Не удалось вернуть документ на устройстве. Попробуйте ещё раз.');
+    } finally {
+      restoringNow.current = false;
+      setRestoring(false);
+    }
+  }
 
   async function create() {
     setCreating(true);
@@ -203,65 +297,119 @@ export function DocsScreen() {
 
   return (
     <div className={`docs-workspace${id ? ' docs-open' : ''}`}>
-      <aside className="docs-index" aria-label="Список документов">
-        {/* Как во «Входящих» и Planner: под заголовком раздела сразу управление, без второго заголовка. */}
-        <div className="docs-bar">
-          <Field
-            className="docs-search"
-            label="Поиск документов"
-            placeholder="Поиск"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
-            + Документ
-          </Button>
-        </div>
+      <aside ref={index} className="docs-index" aria-label="Список документов">
+        <Segmented<'docs' | 'trash'>
+          label="Раздел документов"
+          value={section}
+          options={[
+            { value: 'docs', label: 'Документы' },
+            { value: 'trash', label: 'Корзина' },
+          ]}
+          onChange={setSection}
+        />
+        <Presence show={deleted !== null}>
+          <Note>
+            <span>Документ в корзине · </span>
+            <Button data-docs-undo size="sm" disabled={restoring} onClick={() => void undo()}>
+              Вернуть
+            </Button>
+          </Note>
+        </Presence>
         {error && <Note tone="bad">{error}</Note>}
-        {searchError && (
-          <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
-        )}
-        <div ref={list} className="docs-rows">
-          {slide.node}
-          {rows.map((doc) => (
-            <Button
-              key={doc.id}
-              className="docs-row"
-              dot={false}
-              aria-current={id === doc.id ? 'page' : undefined}
-              onClick={() => void navigate({ to: '/docs/$id', params: { id: doc.id } })}
-            >
-              <span className="docs-row-title">{doc.title}</span>
-              <span className="docs-row-preview">{doc.preview || 'Пустой документ'}</span>
-              <time dateTime={new Date(doc.updated).toISOString()}>
-                {new Date(doc.updated).toLocaleDateString('ru', { day: 'numeric', month: 'short' })}
-              </time>
-            </Button>
-          ))}
-        </div>
-        {loaded && !all.length && !q && (
-          <div className="docs-empty">
-            <p>Здесь будут ваши заметки и документы.</p>
-            <Button variant="fill" disabled={creating} onClick={() => void create()}>
-              Создать первый документ
-            </Button>
-          </div>
-        )}
-        {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
-        {!loaded && <p className="later">Открываю документы…</p>}
+        <Swap view={section} order={['docs', 'trash']}>
+          {section === 'trash' ? (
+            <Trash
+              objects={objects.map((object) => {
+                const preview = previews[object.id];
+                return preview &&
+                  (preview.updated > object.updated_at_ms || (object.deleted && object.pending))
+                  ? { ...object, fields: { ...object.fields, preview: preview.preview } }
+                  : object;
+              })}
+              loaded={loaded}
+              online={online}
+              version={sync.version}
+              onRestore={restore}
+            />
+          ) : (
+            <>
+              {/* Как во «Входящих» и Planner: под заголовком раздела сразу управление, без второго заголовка. */}
+              <div className="docs-bar">
+                <Field
+                  className="docs-search"
+                  label="Поиск документов"
+                  placeholder="Поиск"
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
+                  + Документ
+                </Button>
+              </div>
+              {searchError && (
+                <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
+              )}
+              <div ref={list} className="docs-rows">
+                {slide.node}
+                {rows.map((doc) => (
+                  <Button
+                    key={doc.id}
+                    data-doc-id={doc.id}
+                    className="docs-row"
+                    dot={false}
+                    aria-current={id === doc.id ? 'page' : undefined}
+                    onClick={() => void navigate({ to: '/docs/$id', params: { id: doc.id } })}
+                  >
+                    <span className="docs-row-title">{doc.title}</span>
+                    <span className="docs-row-preview">{doc.preview || 'Пустой документ'}</span>
+                    <time dateTime={new Date(doc.updated).toISOString()}>
+                      {new Date(doc.updated).toLocaleDateString('ru', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </time>
+                  </Button>
+                ))}
+              </div>
+              {loaded && !all.length && !q && (
+                <div className="docs-empty">
+                  <p>Здесь будут ваши заметки и документы.</p>
+                  <Button variant="fill" disabled={creating} onClick={() => void create()}>
+                    Создать первый документ
+                  </Button>
+                </div>
+              )}
+              {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
+              {!loaded && <p className="later">Открываю документы…</p>}
+            </>
+          )}
+        </Swap>
       </aside>
       <Swap
         view={id ?? 'list'}
         order={['list', ...all.map((doc) => doc.id)]}
         className="docs-reading"
       >
-        {id ? (
+        {id && deletedIds.has(id) ? (
+          <div className="docs-page">
+            <Note>Документ в корзине. Верните его, чтобы продолжить редактирование.</Note>
+            <Button
+              onClick={() => {
+                setSection('trash');
+                void navigate({ to: '/docs' });
+              }}
+            >
+              К корзине
+            </Button>
+          </div>
+        ) : id ? (
           <Document
             key={id}
             id={id}
             item={all.find((doc) => doc.id === id) ?? null}
             onText={onText}
+            onDelete={remove}
           />
         ) : (
           <p className="docs-empty">Выберите документ или создайте новый.</p>
@@ -282,10 +430,12 @@ function Document({
   id,
   item,
   onText,
+  onDelete,
 }: {
   id: string;
   item: DocListItem | null;
   onText: (id: string, text: string) => void;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const sync = useSync();
   const navigate = useNavigate();
@@ -298,6 +448,10 @@ function Document({
   const [backlinksHidden, setBacklinksHidden] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletingNow = useRef(false);
   const touchY = useRef(0);
   const editorBox = useRef<HTMLDivElement>(null);
   const titleQueue = useRef(Promise.resolve());
@@ -398,6 +552,23 @@ function Document({
       .catch(() => setTitleError(true));
   }
 
+  async function remove() {
+    if (deletingNow.current) return;
+    deletingNow.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      // Не даём последнему переименованию обогнать удаление в очереди.
+      await titleQueue.current;
+      await onDelete(id);
+    } catch {
+      setDeleteError('Не удалось удалить документ на устройстве. Попробуйте ещё раз.');
+    } finally {
+      deletingNow.current = false;
+      setDeleting(false);
+    }
+  }
+
   return (
     <article
       className="docs-page"
@@ -429,10 +600,43 @@ function Document({
         >
           <DotIcon name="history" /> История
         </Button>
+        <Button
+          size="sm"
+          dot={false}
+          disabled={!title || deleting}
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmDelete(true);
+          }}
+        >
+          <DotIcon name="trash" /> Удалить
+        </Button>
         <span role="status" className="docs-save">
           {STATUS[displayed]}
         </span>
       </div>
+      <Sheet
+        open={confirmDelete}
+        title="Удалить документ"
+        onClose={() => {
+          if (!deleting) setConfirmDelete(false);
+        }}
+        footer={
+          <div className="docs-trash-actions">
+            <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>
+              Отмена
+            </Button>
+            <Button variant="fill" disabled={deleting} onClick={() => void remove()}>
+              {deleting ? 'Удаляю…' : 'Удалить'}
+            </Button>
+          </div>
+        }
+      >
+        <p>Документ уйдёт в корзину. Его можно вернуть</p>
+        <Presence show={!!deleteError}>
+          <Note tone="bad">{deleteError}</Note>
+        </Presence>
+      </Sheet>
       {failure && <Note tone="bad">{failure}</Note>}
       {restored && <Note>Версия восстановлена. Прежний текст — в истории</Note>}
       <History

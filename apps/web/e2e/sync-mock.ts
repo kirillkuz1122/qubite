@@ -127,6 +127,14 @@ export async function mockSync(page: Page): Promise<SyncMock> {
           title: op.title,
           revision: (current.revision as number) + 1,
         });
+      } else if (current && (op.kind === 'delete' || op.kind === 'restore')) {
+        mock.objects.set(id, {
+          ...current,
+          deleted: op.kind === 'delete',
+          revision: (current.revision as number) + 1,
+          updated_at_ms: Date.now(),
+          deleted_at: op.kind === 'delete' ? new Date().toISOString() : null,
+        });
       } else if (current && op.kind === 'patch') {
         mock.objects.set(id, {
           ...current,
