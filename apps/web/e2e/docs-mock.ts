@@ -190,13 +190,19 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
       return route.fulfill({ json: { sv: base64(Y.encodeStateVector(doc)) } });
     }
     const list = [...sync.objects.values()]
-      .filter((doc) => doc.object_type === 'docs.page' && !!doc.deleted === (url.searchParams.get('deleted') === 'true'))
+      .filter(
+        (doc) =>
+          doc.object_type === 'docs.page' &&
+          !!doc.deleted === (url.searchParams.get('deleted') === 'true'),
+      )
       .map((doc) => ({
         id: doc.id as string,
         title: doc.title as string,
         preview: (doc.fields as { preview?: string }).preview ?? '',
         updated_at: new Date(doc.updated_at_ms as number).toISOString(),
-        ...(doc.deleted ? { deleted_at: doc.deleted_at ?? new Date(doc.updated_at_ms as number).toISOString() } : {}),
+        ...(doc.deleted
+          ? { deleted_at: doc.deleted_at ?? new Date(doc.updated_at_ms as number).toISOString() }
+          : {}),
         revision: doc.revision,
         project_ids: [],
       }));

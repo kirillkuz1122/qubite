@@ -8,7 +8,17 @@ import {
   type DocStatus,
   type LocalObject,
 } from '@qubite/sync-client';
-import { Button, DotIcon, Field, Note, Presence, Segmented, Sheet, Swap, useSlide } from '@qubite/ui';
+import {
+  Button,
+  DotIcon,
+  Field,
+  Note,
+  Presence,
+  Segmented,
+  Sheet,
+  Swap,
+  useSlide,
+} from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DocEditor } from '../docs/Editor';
@@ -111,7 +121,10 @@ export function DocsScreen() {
         }
       })
       .catch(() => {
-        if (alive) { setError('Не удалось открыть список на устройстве.'); setLoaded(true); }
+        if (alive) {
+          setError('Не удалось открыть список на устройстве.');
+          setLoaded(true);
+        }
       });
     return () => {
       alive = false;
@@ -171,7 +184,12 @@ export function DocsScreen() {
   const all = local
     .map((doc) => {
       const preview = previews[doc.id];
-      const fresh = preview && (preview.updated > doc.updated || objects.some((object) => object.id === doc.id && object.pending)) ? { ...doc, preview: preview.preview } : doc;
+      const fresh =
+        preview &&
+        (preview.updated > doc.updated ||
+          objects.some((object) => object.id === doc.id && object.pending))
+          ? { ...doc, preview: preview.preview }
+          : doc;
       return { ...fresh, preview: plainPreview(fresh.preview) };
     })
     .sort((a, b) => b.updated - a.updated);
@@ -184,7 +202,9 @@ export function DocsScreen() {
     ? [
         ...new Map(
           [
-            ...remote.filter((doc) => !deletedIds.has(doc.id)).map((doc) => ({ ...doc, preview: plainPreview(doc.preview) })),
+            ...remote
+              .filter((doc) => !deletedIds.has(doc.id))
+              .map((doc) => ({ ...doc, preview: plainPreview(doc.preview) })),
             ...matches,
           ].map((doc) => [doc.id, doc]),
         ).values(),
@@ -199,9 +219,12 @@ export function DocsScreen() {
 
   useEffect(() => {
     if (id || section !== 'docs' || !focusTarget.current) return;
-    const target = focusTarget.current === 'undo'
-      ? index.current?.querySelector<HTMLElement>('[data-docs-undo]')
-      : [...(index.current?.querySelectorAll<HTMLElement>('[data-doc-id]') ?? [])].find((row) => row.dataset.docId === focusTarget.current);
+    const target =
+      focusTarget.current === 'undo'
+        ? index.current?.querySelector<HTMLElement>('[data-docs-undo]')
+        : [...(index.current?.querySelectorAll<HTMLElement>('[data-doc-id]') ?? [])].find(
+            (row) => row.dataset.docId === focusTarget.current,
+          );
     if (target) {
       target.focus({ preventScroll: true });
       focusTarget.current = null;
@@ -247,9 +270,14 @@ export function DocsScreen() {
     restoringNow.current = true;
     setRestoring(true);
     setError(null);
-    try { await restore(deleted); }
-    catch { setError('Не удалось вернуть документ на устройстве. Попробуйте ещё раз.'); }
-    finally { restoringNow.current = false; setRestoring(false); }
+    try {
+      await restore(deleted);
+    } catch {
+      setError('Не удалось вернуть документ на устройстве. Попробуйте ещё раз.');
+    } finally {
+      restoringNow.current = false;
+      setRestoring(false);
+    }
   }
 
   async function create() {
@@ -273,72 +301,89 @@ export function DocsScreen() {
         <Segmented<'docs' | 'trash'>
           label="Раздел документов"
           value={section}
-          options={[{ value: 'docs', label: 'Документы' }, { value: 'trash', label: 'Корзина' }]}
+          options={[
+            { value: 'docs', label: 'Документы' },
+            { value: 'trash', label: 'Корзина' },
+          ]}
           onChange={setSection}
         />
         <Presence show={deleted !== null}>
-          <Note><span>Документ в корзине · </span><Button data-docs-undo size="sm" disabled={restoring} onClick={() => void undo()}>Вернуть</Button></Note>
+          <Note>
+            <span>Документ в корзине · </span>
+            <Button data-docs-undo size="sm" disabled={restoring} onClick={() => void undo()}>
+              Вернуть
+            </Button>
+          </Note>
         </Presence>
         {error && <Note tone="bad">{error}</Note>}
         <Swap view={section} order={['docs', 'trash']}>
-        {section === 'trash' ? <Trash
-          objects={objects.map((object) => {
-            const preview = previews[object.id];
-            return preview && (preview.updated > object.updated_at_ms || (object.deleted && object.pending))
-              ? { ...object, fields: { ...object.fields, preview: preview.preview } } : object;
-          })}
-          loaded={loaded}
-          online={online}
-          version={sync.version}
-          onRestore={restore}
-        /> : <>
-        {/* Как во «Входящих» и Planner: под заголовком раздела сразу управление, без второго заголовка. */}
-        <div className="docs-bar">
-          <Field
-            className="docs-search"
-            label="Поиск документов"
-            placeholder="Поиск"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
-            + Документ
-          </Button>
-        </div>
-        {searchError && (
-          <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
-        )}
-        <div ref={list} className="docs-rows">
-          {slide.node}
-          {rows.map((doc) => (
-            <Button
-              key={doc.id}
-              data-doc-id={doc.id}
-              className="docs-row"
-              dot={false}
-              aria-current={id === doc.id ? 'page' : undefined}
-              onClick={() => void navigate({ to: '/docs/$id', params: { id: doc.id } })}
-            >
-              <span className="docs-row-title">{doc.title}</span>
-              <span className="docs-row-preview">{doc.preview || 'Пустой документ'}</span>
-              <time dateTime={new Date(doc.updated).toISOString()}>
-                {new Date(doc.updated).toLocaleDateString('ru', { day: 'numeric', month: 'short' })}
-              </time>
-            </Button>
-          ))}
-        </div>
-        {loaded && !all.length && !q && (
-          <div className="docs-empty">
-            <p>Здесь будут ваши заметки и документы.</p>
-            <Button variant="fill" disabled={creating} onClick={() => void create()}>
-              Создать первый документ
-            </Button>
-          </div>
-        )}
-        {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
-        {!loaded && <p className="later">Открываю документы…</p>}
-        </>}
+          {section === 'trash' ? (
+            <Trash
+              objects={objects.map((object) => {
+                const preview = previews[object.id];
+                return preview &&
+                  (preview.updated > object.updated_at_ms || (object.deleted && object.pending))
+                  ? { ...object, fields: { ...object.fields, preview: preview.preview } }
+                  : object;
+              })}
+              loaded={loaded}
+              online={online}
+              version={sync.version}
+              onRestore={restore}
+            />
+          ) : (
+            <>
+              {/* Как во «Входящих» и Planner: под заголовком раздела сразу управление, без второго заголовка. */}
+              <div className="docs-bar">
+                <Field
+                  className="docs-search"
+                  label="Поиск документов"
+                  placeholder="Поиск"
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
+                  + Документ
+                </Button>
+              </div>
+              {searchError && (
+                <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
+              )}
+              <div ref={list} className="docs-rows">
+                {slide.node}
+                {rows.map((doc) => (
+                  <Button
+                    key={doc.id}
+                    data-doc-id={doc.id}
+                    className="docs-row"
+                    dot={false}
+                    aria-current={id === doc.id ? 'page' : undefined}
+                    onClick={() => void navigate({ to: '/docs/$id', params: { id: doc.id } })}
+                  >
+                    <span className="docs-row-title">{doc.title}</span>
+                    <span className="docs-row-preview">{doc.preview || 'Пустой документ'}</span>
+                    <time dateTime={new Date(doc.updated).toISOString()}>
+                      {new Date(doc.updated).toLocaleDateString('ru', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </time>
+                  </Button>
+                ))}
+              </div>
+              {loaded && !all.length && !q && (
+                <div className="docs-empty">
+                  <p>Здесь будут ваши заметки и документы.</p>
+                  <Button variant="fill" disabled={creating} onClick={() => void create()}>
+                    Создать первый документ
+                  </Button>
+                </div>
+              )}
+              {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
+              {!loaded && <p className="later">Открываю документы…</p>}
+            </>
+          )}
         </Swap>
       </aside>
       <Swap
@@ -349,7 +394,14 @@ export function DocsScreen() {
         {id && deletedIds.has(id) ? (
           <div className="docs-page">
             <Note>Документ в корзине. Верните его, чтобы продолжить редактирование.</Note>
-            <Button onClick={() => { setSection('trash'); void navigate({ to: '/docs' }); }}>К корзине</Button>
+            <Button
+              onClick={() => {
+                setSection('trash');
+                void navigate({ to: '/docs' });
+              }}
+            >
+              К корзине
+            </Button>
           </div>
         ) : id ? (
           <Document
@@ -548,21 +600,42 @@ function Document({
         >
           <DotIcon name="history" /> История
         </Button>
-        <Button size="sm" dot={false} disabled={!title || deleting} onClick={() => { setDeleteError(null); setConfirmDelete(true); }}>
+        <Button
+          size="sm"
+          dot={false}
+          disabled={!title || deleting}
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmDelete(true);
+          }}
+        >
           <DotIcon name="trash" /> Удалить
         </Button>
         <span role="status" className="docs-save">
           {STATUS[displayed]}
         </span>
       </div>
-      <Sheet open={confirmDelete} title="Удалить документ" onClose={() => { if (!deleting) setConfirmDelete(false); }} footer={
-        <div className="docs-trash-actions">
-          <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>Отмена</Button>
-          <Button variant="fill" disabled={deleting} onClick={() => void remove()}>{deleting ? 'Удаляю…' : 'Удалить'}</Button>
-        </div>
-      }>
+      <Sheet
+        open={confirmDelete}
+        title="Удалить документ"
+        onClose={() => {
+          if (!deleting) setConfirmDelete(false);
+        }}
+        footer={
+          <div className="docs-trash-actions">
+            <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>
+              Отмена
+            </Button>
+            <Button variant="fill" disabled={deleting} onClick={() => void remove()}>
+              {deleting ? 'Удаляю…' : 'Удалить'}
+            </Button>
+          </div>
+        }
+      >
         <p>Документ уйдёт в корзину. Его можно вернуть</p>
-        <Presence show={!!deleteError}><Note tone="bad">{deleteError}</Note></Presence>
+        <Presence show={!!deleteError}>
+          <Note tone="bad">{deleteError}</Note>
+        </Presence>
       </Sheet>
       {failure && <Note tone="bad">{failure}</Note>}
       {restored && <Note>Версия восстановлена. Прежний текст — в истории</Note>}

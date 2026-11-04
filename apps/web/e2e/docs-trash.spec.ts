@@ -19,12 +19,19 @@ for (const width of [1440, 360]) {
       await expect.poll(() => server.sync.objects.get(id)?.title).toBe('Заметка из корзины');
       await expect.poll(() => server.markdown.get(id)).toContain('Текст останется');
       const shot = async (state: string) => {
-        await info.attach(`корзина-${state}-${width}-${theme}`, { body: await page.screenshot(), contentType: 'image/png' });
+        await info.attach(`корзина-${state}-${width}-${theme}`, {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        });
       };
       const noOverflow = async () => {
-        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+          .toBe(true);
       };
-      const remove = page.getByRole('article', { name: 'Документ' }).getByRole('button', { name: 'Удалить', exact: true });
+      const remove = page
+        .getByRole('article', { name: 'Документ' })
+        .getByRole('button', { name: 'Удалить', exact: true });
       await noOverflow();
       await shot('документ');
       await remove.click();
@@ -48,9 +55,13 @@ for (const width of [1440, 360]) {
       await expect(trash.getByRole('listitem')).toHaveCount(1);
       await expect(editor).toHaveCount(0);
       const restore = trash.getByRole('button', { name: 'Вернуть «Заметка из корзины»' });
-      const box = await restore.boundingBox();
-      expect(box!.width).toBeGreaterThanOrEqual(44);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
+      // Кнопка появляется с лёгким масштабом: ждём, пока анимация закончится.
+      await expect
+        .poll(async () => {
+          const box = await restore.boundingBox();
+          return Math.min(box?.width ?? 0, box?.height ?? 0);
+        })
+        .toBeGreaterThanOrEqual(44);
       await noOverflow();
       await shot('список');
       await restore.click();
@@ -71,15 +82,23 @@ for (const width of [1440, 360]) {
   }
 }
 
-test('корзина: удаление и возврат без сети отправляются при подключении', async ({ page, context }) => {
+test('корзина: удаление и возврат без сети отправляются при подключении', async ({
+  page,
+  context,
+}) => {
   const server = await mockDocs(page);
   const id = server.add('Офлайн-документ', 'Сохранённый текст');
   await page.goto(`/docs/${id}`);
-  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText('Сохранённый текст');
+  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'Сохранённый текст',
+  );
   await expect.poll(() => server.pushes.some((push) => push.id === id)).toBe(true);
   server.sync.offline = true;
   await context.setOffline(true);
-  await page.getByRole('article', { name: 'Документ' }).getByRole('button', { name: 'Удалить', exact: true }).click();
+  await page
+    .getByRole('article', { name: 'Документ' })
+    .getByRole('button', { name: 'Удалить', exact: true })
+    .click();
   await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Вернуть', exact: true })).toBeFocused();
   expect(server.sync.ops.some((op) => op.kind === 'delete')).toBe(false);
@@ -87,16 +106,26 @@ test('корзина: удаление и возврат без сети отп�
   const trash = page.getByRole('region', { name: 'Корзина документов' });
   await expect(trash.getByText(/Без сети/)).toBeVisible();
   await trash.getByRole('button', { name: 'Вернуть «Офлайн-документ»' }).click();
-  const row = page.getByRole('complementary', { name: 'Список документов' }).getByRole('button', { name: /Офлайн-документ/ });
+  const row = page
+    .getByRole('complementary', { name: 'Список документов' })
+    .getByRole('button', { name: /Офлайн-документ/ });
   await expect(row).toBeFocused();
   expect(server.sync.ops.some((op) => op.kind === 'restore')).toBe(false);
   server.sync.offline = false;
   await context.setOffline(false);
   server.sync.ping();
-  await expect.poll(() => server.sync.ops.filter((op) => op.object_id === id && (op.kind === 'delete' || op.kind === 'restore')).map((op) => op.kind)).toEqual(['delete', 'restore']);
+  await expect
+    .poll(() =>
+      server.sync.ops
+        .filter((op) => op.object_id === id && (op.kind === 'delete' || op.kind === 'restore'))
+        .map((op) => op.kind),
+    )
+    .toEqual(['delete', 'restore']);
   await expect.poll(() => server.sync.objects.get(id)?.deleted).toBe(false);
   await row.click();
-  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText('Сохранённый текст');
+  await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText(
+    'Сохранённый текст',
+  );
 });
 
 test('корзина: быстрый возврат из заметки', async ({ page }) => {
@@ -104,9 +133,16 @@ test('корзина: быстрый возврат из заметки', async 
   const id = server.add('Вернуть сразу', 'Текст');
   await page.goto(`/docs/${id}`);
   await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText('Текст');
-  await page.getByRole('article', { name: 'Документ' }).getByRole('button', { name: 'Удалить', exact: true }).click();
+  await page
+    .getByRole('article', { name: 'Документ' })
+    .getByRole('button', { name: 'Удалить', exact: true })
+    .click();
   await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
-  await expect(page.getByRole('complementary', { name: 'Список документов' }).getByRole('button', { name: /Вернуть сразу/ })).toBeFocused();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Список документов' })
+      .getByRole('button', { name: /Вернуть сразу/ }),
+  ).toBeFocused();
   await expect.poll(() => server.sync.objects.get(id)?.deleted).toBe(false);
 });
