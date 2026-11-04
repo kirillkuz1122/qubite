@@ -237,7 +237,10 @@ export function History({
         : handle
           ? blocksFromDoc(handle.doc)
           : [];
-    return diffBlocks(selection.blocks, blocks);
+    // Пустые абзацы, появившиеся или исчезнувшие целиком, не считаем правкой (D-815).
+    return diffBlocks(selection.blocks, blocks).filter(
+      (part) => !((part.op === 'added' || part.op === 'removed') && part.block.text.trim() === ''),
+    );
   }, [compare, selection, current, handle]);
   const changes = diffs.filter((part) => part.op !== 'equal').length;
   const compareControl = (
@@ -298,11 +301,7 @@ export function History({
               <DiffView parts={diffs} />
             ) : (
               selection.blocks.map((block, index, blocks) => (
-                <VersionBlockView
-                  key={index}
-                  block={block}
-                  number={orderedNumber(blocks, index)}
-                />
+                <VersionBlockView key={index} block={block} number={orderedNumber(blocks, index)} />
               ))
             )}
             {!selection.blocks.length && !compare && <p>Пустой документ</p>}
@@ -338,14 +337,9 @@ export function History({
           value={name}
           onChange={(event) => setName(event.target.value)}
           maxLength={80}
-          hint={
-            history.online ? 'От 1 до 80 знаков' : 'Нужна связь: версия снимается на сервере'
-          }
+          hint={history.online ? 'От 1 до 80 знаков' : 'Нужна связь: версия снимается на сервере'}
         />
-        <Button
-          type="submit"
-          disabled={busy || !history.online || !store || !validName(name)}
-        >
+        <Button type="submit" disabled={busy || !history.online || !store || !validName(name)}>
           Сохранить версию
         </Button>
       </form>
@@ -503,7 +497,11 @@ export function History({
     >
       <div className="docs-history-document">
         <div hidden={viewing && wide}>{children}</div>
-        {wide && <Presence show={viewing} swap={selection?.item.id}>{versionView}</Presence>}
+        {wide && (
+          <Presence show={viewing} swap={selection?.item.id}>
+            {versionView}
+          </Presence>
+        )}
       </div>
       {wide ? (
         <>
@@ -605,11 +603,7 @@ function DiffView({ parts }: { parts: BlockDiff[] }) {
     const block = part.op === 'changed' ? part.newBlock : part.block;
     number = block.kind === 'ol' ? number + 1 : 0;
     return (
-      <div
-        key={index}
-        className={`docs-history-diff docs-history-${part.op}`}
-        data-diff={part.op}
-      >
+      <div key={index} className={`docs-history-diff docs-history-${part.op}`} data-diff={part.op}>
         {part.op !== 'equal' && (
           <span className="docs-history-diff-label">
             {part.op === 'added'

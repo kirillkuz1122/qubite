@@ -22,7 +22,9 @@ for (const width of [1440, 360]) {
       const old = server.snapshot(id, 'До правок');
       await editor.fill('Привет, новый мир!');
       await expect.poll(() => server.markdown.get(id)).toContain('новый');
-      const history = page.getByRole('button', { name: 'История', exact: true });
+      const history = page
+        .getByRole('article', { name: 'Документ' })
+        .getByRole('button', { name: 'История', exact: true });
       await history.click();
       await expect(page.getByRole('button', { name: /До правок · Версия/ })).toBeVisible();
       await page.getByLabel('Имя версии', { exact: true }).fill('После правок');
@@ -90,7 +92,10 @@ test('история объясняет ошибку сети и даёт пов
     'На устройстве',
   );
   server.sync.offline = true;
-  await page.getByRole('button', { name: 'История', exact: true }).click();
+  await page
+    .getByRole('article', { name: 'Документ' })
+    .getByRole('button', { name: 'История', exact: true })
+    .click();
   await expect(
     page.getByText('Не удалось загрузить историю. Проверьте связь и повторите.'),
   ).toBeVisible();
