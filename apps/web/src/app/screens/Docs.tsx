@@ -196,7 +196,9 @@ export function DocsScreen() {
       const preview = previews[doc.id];
       const fresh =
         preview &&
+        // Пустое превью с сервера (снимок создан до текста) не затирает локальное.
         (preview.updated > doc.updated ||
+          !doc.preview ||
           objects.some((object) => object.id === doc.id && object.pending))
           ? { ...doc, preview: preview.preview }
           : doc;

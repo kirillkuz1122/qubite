@@ -53,6 +53,13 @@ describe('чтение Markdown', () => {
     expect(file.text).toBe('```md\n```js\n# в коде\n````\nтекст');
   });
 
+  it('слишком длинный заголовок остаётся в тексте, название — из имени файла', async () => {
+    const heading = `# ${'д'.repeat(501)}`;
+    const file = await readMarkdownFile(new File([`${heading}\nтекст`], 'длинный.md'));
+    expect(file.title).toBe('длинный');
+    expect(file.text).toBe(`${heading}\nтекст`);
+  });
+
   it('принимает пустой файл и ровно 200 000 знаков', async () => {
     await expect(readMarkdownFile(file(''))).resolves.toEqual({ title: 'заметка', text: '' });
     await expect(readMarkdownFile(file('я'.repeat(200_000)))).resolves.toHaveProperty(

@@ -66,7 +66,8 @@ export async function readMarkdownFile(file: File): Promise<{ title: string; tex
       continue;
     }
     const heading = /^#\s+(.+)$/.exec(line);
-    if (heading && heading[1]!.trim()) {
+    // Название длиннее поля ввода (500) сервер отвергнет (1000): оставляем строку в тексте.
+    if (heading && heading[1]!.trim() && Array.from(heading[1]!.trim()).length <= 500) {
       lines.splice(i, 1);
       return { title: heading[1]!.trim(), text: lines.join('\n') };
     }

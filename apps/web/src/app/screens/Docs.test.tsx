@@ -205,6 +205,9 @@ describe('Markdown-файлы без сети', () => {
       },
     });
     await view.findByText('Загружено 2 из 2');
+    // Превью видно в списке сразу, не только после открытия документа.
+    expect(view.getByText('готово')).toBeInTheDocument();
+    expect(view.getByText('цитата')).toBeInTheDocument();
     expect(route.path).toBe('/docs');
     const objects = await view.client.all();
     expect(objects.map((object) => object.title).sort()).toEqual(['Первый', 'второй']);
