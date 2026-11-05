@@ -39,6 +39,12 @@ if [[ "$state" != OPEN ]]; then
   echo "PR #$pr: $state — ничего не делаю"; exit 0
 fi
 
+# Выключатель (D-848): метка «будильник:выкл» на PR #89 — не будим. Ставит и снимает
+# сама управляющая сессия через GitHub, без захода на Pi.
+if retry gh pr view "$pr" -R "$repo" --json labels --jq '.labels[].name' | grep -qx 'будильник:выкл'; then
+  echo "метка будильник:выкл — пропуск"; exit 0
+fi
+
 me=$(retry gh api user --jq .login)
 cutoff=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ)
 # Уборка старых — не главное: если сеть не дала, пропускаем.
