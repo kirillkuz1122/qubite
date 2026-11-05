@@ -45,3 +45,6 @@ data/
 
 # Дизайн-лаборатория Codex (132 МБ, решение о ней — отдельно)
 assets/
+
+# Списки лицензий генерируются scripts/gen-licenses.sh (OPS-008)
+THIRD_PARTY_LICENSES.*.txt
