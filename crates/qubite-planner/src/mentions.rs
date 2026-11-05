@@ -93,7 +93,7 @@ pub async fn targets(
     Ok(sqlx::query_as(
         "SELECT id, type, title FROM objects \
          WHERE owner_id = $1 AND deleted_at IS NULL AND module_id = ANY($3) \
-         AND type IN ('docs.page', 'planner.task', 'planner.project') \
+         AND type IN ('docs.page', 'planner.task', 'planner.project', 'calendar.event') \
          AND strpos(lower(title), lower($2)) > 0 \
          ORDER BY (type = 'docs.page') DESC, updated_at DESC, id DESC LIMIT 8",
     )
