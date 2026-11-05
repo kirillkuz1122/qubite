@@ -170,6 +170,23 @@ describe('очередь голосовых записей', () => {
     expect(await queue.list()).toEqual([]);
   });
 
+  it('удалённая во время прохода запись не отправляется из устаревшего снимка', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    await queue.add(capture('a'));
+    await queue.add(capture('b'));
+    const send = server.send.bind(server);
+    server.send = async (c) => {
+      const reply = await send(c);
+      await queue.remove('b');
+      return reply;
+    };
+    const flush = await queue.flush();
+    expect(server.calls).toEqual(['a']);
+    expect(flush.sent.map((s) => s.id)).toEqual(['a']);
+    expect(flush.left).toBe(0);
+  });
+
   it('повторный вызов во время отправки не стучится второй раз в ту же неудачу', async () => {
     const server = new VoiceServer();
     server.fail = 'offline';

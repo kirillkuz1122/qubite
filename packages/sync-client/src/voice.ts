@@ -193,6 +193,10 @@ export class VoiceQueue {
         continue;
       }
       tried.add(item.id);
+      // снимок очереди мог устареть: пока шла прошлая отправка, запись могли удалить
+      const tx0 = this.db.transaction('queue', 'readonly');
+      const alive = await promisify(tx0.objectStore('queue').count(item.id));
+      if (alive === 0) continue;
       try {
         const { id, audio_base64, mime, duration_ms, text, source } = item;
         const reply = await this.transport.send({
