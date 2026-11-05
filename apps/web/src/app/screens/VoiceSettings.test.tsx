@@ -8,6 +8,12 @@ import { voiceKeyKey, voicePrefsKey, type VoiceKey } from '../voice-api';
 import type { VoiceMethod } from '../voice-view';
 import { VoiceSettings } from './VoiceSettings';
 
+// форма ключа проверяется так, будто сервер уже есть (по умолчанию вариант выключен)
+vi.mock('../voice-view', async (orig) => ({
+  ...(await orig<typeof import('../voice-view')>()),
+  OWN_KEY_READY: true,
+}));
+
 const { put } = vi.hoisted(() => ({ put: vi.fn() }));
 vi.mock('../../api', () => ({ api: { PUT: put, GET: vi.fn() } }));
 // заголовок из точек рисует холст — здесь он не нужен

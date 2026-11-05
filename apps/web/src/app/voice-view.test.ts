@@ -11,6 +11,7 @@ import {
   recClock,
   takeProblem,
   voiceAudioUrl,
+  OWN_KEY_READY,
   voiceOptions,
   voiceReason,
   voiceServiceOf,
@@ -126,7 +127,7 @@ describe('запись во «Входящих»', () => {
 
 describe('способы распознавания', () => {
   it('все четыре работают; встроенное на телефоне — браузер или Android', () => {
-    const all = voiceOptions(true);
+    const all = voiceOptions(true, true);
     expect(all.map((o) => o.value)).toEqual(['cloud', 'device', 'own_key', 'local']);
     expect(all[0]!.label).toBe('Облако (ElevenLabs) — по умолчанию');
     expect(all.filter((o) => o.disabled)).toEqual([]);
@@ -139,10 +140,18 @@ describe('способы распознавания', () => {
   });
 
   it('браузер не умеет распознавать — встроенное недоступно и сказано почему', () => {
-    const device = voiceOptions(false).find((o) => o.value === 'device')!;
+    const device = voiceOptions(false, true).find((o) => o.value === 'device')!;
     expect(device.disabled).toBe(true);
     expect(device.note).toMatch(/не умеет/);
-    expect(voiceOptions(false).filter((o) => o.disabled)).toHaveLength(1);
+    expect(voiceOptions(false, true).filter((o) => o.disabled)).toHaveLength(1);
+  });
+
+  it('пока нет серверной части, «Свой ключ» нельзя выбрать', () => {
+    expect(OWN_KEY_READY).toBe(false);
+    const own = voiceOptions(true).find((o) => o.value === 'own_key')!;
+    expect(own.disabled).toBe(true);
+    expect(own.note).toBe('Появится в следующем обновлении');
+    expect(voiceOptions(true).filter((o) => o.disabled)).toHaveLength(1);
   });
 });
 

@@ -176,8 +176,18 @@ export function takeProblem(take: { ms: number; size: number; mime: string }): s
   return null;
 }
 
+/**
+ * Серверная часть «своего ключа» (`/api/v1/voice/key`, CMD-005c-1, #226) ещё не в `main`:
+ * пока её нет, вариант показан, но выбрать его нельзя — иначе записи остались бы без текста.
+ * Когда сервер появится, достаточно поставить `true`.
+ */
+export const OWN_KEY_READY = false;
+
 /** Четыре способа простыми словами; `canSpeak` — умеет ли этот браузер распознавать сам. */
-export function voiceOptions(canSpeak: boolean): ChoiceOption<VoiceMethod>[] {
+export function voiceOptions(
+  canSpeak: boolean,
+  ownKeyReady: boolean = OWN_KEY_READY,
+): ChoiceOption<VoiceMethod>[] {
   return [
     {
       value: 'cloud',
@@ -199,6 +209,7 @@ export function voiceOptions(canSpeak: boolean): ChoiceOption<VoiceMethod>[] {
       value: 'own_key',
       label: 'Свой ключ API',
       hint: 'Распознаёт OpenAI, Groq или другой сервис по вашему ключу. Платите вы сами — прямо сервису, бюджет Qubite не тратится. Ключ хранится на сервере Qubite зашифрованным.',
+      ...(ownKeyReady ? {} : { disabled: true, note: 'Появится в следующем обновлении' }),
     },
     {
       value: 'local',

@@ -9,7 +9,7 @@ import { say, useMe } from '../../auth/client';
 import { SecHead } from '../parts';
 import { useSetVoiceMethod, useVoicePrefs } from '../voice-api';
 import { speechRecognition } from '../voice-record';
-import { voiceOptions, type VoiceMethod } from '../voice-view';
+import { OWN_KEY_READY, voiceOptions, type VoiceMethod } from '../voice-view';
 import { VoiceKeyForm } from './VoiceKeyForm';
 import { VoiceLocalForm } from './VoiceLocalForm';
 
@@ -20,7 +20,7 @@ export function VoiceSettings() {
   const canSpeak = speechRecognition() !== null;
   // пока сохраняется — уже показываем выбранное
   const value = set.isPending ? set.variables : (prefs.data?.method ?? null);
-  const options = voiceOptions(canSpeak).map((o) =>
+  const options = voiceOptions(canSpeak, OWN_KEY_READY).map((o) =>
     o.value === 'own_key'
       ? { ...o, detail: <VoiceKeyForm accountId={me.data?.id} /> }
       : o.value === 'local'
