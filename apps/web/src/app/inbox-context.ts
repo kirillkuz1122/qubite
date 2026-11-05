@@ -12,6 +12,29 @@ export interface InboxApi {
   done(id: string): Promise<void>;
   /** «Позже» — в конец списка (только на этом устройстве). */
   later(id: string): void;
+  /**
+   * Голосовая запись (CMD-005b): сначала на устройство, потом на сервер. Без сети — остаётся
+   * в очереди и уходит сама, когда сеть появится (повтор с тем же ID).
+   */
+  voice(take: NewVoice): Promise<VoiceSaved>;
+  /** Не отправлять запись с устройства (сервер её не принял или человек передумал). */
+  dropVoice(id: string): Promise<void>;
+}
+
+/** Запись с микрофона, готовая к отправке. */
+export interface NewVoice {
+  audio_base64: string;
+  mime: string;
+  duration_ms: number;
+  /** текст, распознанный браузером (способ «встроенное») */
+  text?: string;
+}
+
+export interface VoiceSaved {
+  id: string;
+  /** дошла до сервера сразу; нет — лежит на устройстве и уйдёт сама */
+  sent: boolean;
+  transcribed: boolean;
 }
 
 export const InboxCtx = createContext<InboxApi | null>(null);

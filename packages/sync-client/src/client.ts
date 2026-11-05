@@ -66,6 +66,8 @@ export class SyncClient {
     private readonly store: LocalStore,
     private readonly transport: Transport,
     private readonly deviceId: string,
+    /** Имя хранилища в IndexedDB: рядом с ним живут свои очереди (голос, CMD-005b). */
+    readonly dbName: string,
   ) {}
 
   static async open(options: SyncClientOptions): Promise<SyncClient> {
@@ -75,7 +77,7 @@ export class SyncClient {
       deviceId = uuidv7();
       await store.setMeta('device_id', deviceId);
     }
-    const client = new SyncClient(store, options.transport, deviceId);
+    const client = new SyncClient(store, options.transport, deviceId, options.dbName);
     await client.refreshState();
     return client;
   }

@@ -20,6 +20,7 @@ import { SecHead } from '../parts';
 import { useStore } from '../state';
 import { must, useMe } from '../../auth/client';
 import { AiSettings } from './AiSettings';
+import { VoiceSettings } from './VoiceSettings';
 import { useMyAi } from '../ai-me';
 import { usd } from '../ai-view';
 import { AccountContent } from '../../auth/Account';
@@ -262,6 +263,8 @@ function SettingsHome() {
           </div>
         ))}
       </div>
+
+      <VoiceSettings />
 
       <SecHead text="АККАУНТ" label="Аккаунт" />
       <div className="group panel">

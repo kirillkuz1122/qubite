@@ -12,6 +12,7 @@ import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
 import { PlannerProvider } from './app/planner';
 import { StoreProvider } from './app/store';
+import { VoiceProvider } from './app/voice';
 import { AuthLayout } from './auth/AuthLayout';
 import { DevicePage } from './auth/Device';
 import { LegalPage } from './auth/Legal';
@@ -68,9 +69,11 @@ const appRoute = createRoute({
       <StoreProvider>
         <AccountSyncProvider>
           <InboxProvider>
-            <PlannerProvider>
-              <AppShell />
-            </PlannerProvider>
+            <VoiceProvider>
+              <PlannerProvider>
+                <AppShell />
+              </PlannerProvider>
+            </VoiceProvider>
           </InboxProvider>
         </AccountSyncProvider>
       </StoreProvider>

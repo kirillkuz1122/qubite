@@ -24,14 +24,16 @@ export interface Problem {
 
 const VERSION = 1;
 
-function promisify<T>(request: IDBRequest<T>): Promise<T> {
+/** Запрос IndexedDB → обещание (общее для хранилищ пакета). */
+export function promisify<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-function done(tx: IDBTransaction): Promise<void> {
+/** Транзакция IndexedDB завершилась (или упала). */
+export function done(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

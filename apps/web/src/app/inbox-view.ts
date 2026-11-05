@@ -1,7 +1,8 @@
 /** Объект синхронизации → строка экрана «Входящие» в виде DS-007. */
 import { localNow, parse } from '@qubite/ui';
-import type { LocalObject } from '@qubite/sync-client';
+import type { LocalObject, QueuedVoice, VoiceResult } from '@qubite/sync-client';
 import type { InboxAct, InboxFrom, InboxItem } from './data';
+import { VOICE_PLACEHOLDER, isBareVoice, voiceAudioUrl, voiceReason } from './voice-view';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -22,11 +23,15 @@ export function when(ms: number, now: number): string {
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
-/** Объект синхронизации → строка экрана «Входящие» из DS-007. */
-export function toView(o: LocalObject, now: number): InboxItem {
+/**
+ * Объект синхронизации → строка экрана «Входящие» из DS-007. `heard` — что сервер ответил на
+ * голосовую запись с этого устройства (почему без текста, D-846).
+ */
+export function toView(o: LocalObject, now: number, heard?: VoiceResult): InboxItem {
   const f = o.fields ?? {};
   const kind = text(f.kind);
   const source = text(f.source);
+  const bare = isBareVoice(kind, text(f.body));
   const from: InboxFrom =
     source === 'telegram' ? 'tg' : kind === 'voice' ? 'voice' : kind === 'link' ? 'link' : 'text';
   const src =
@@ -49,7 +54,7 @@ export function toView(o: LocalObject, now: number): InboxItem {
   let summary = text(triage.details?.summary);
   let review = f.needs_review === true ? text(f.review_reason) || 'не уверен, куда положить' : '';
   // ещё не дошло до сервера — тот же разбор прямо на устройстве, по времени записи (CMD-003)
-  if (triage.status === 'pending' || triage.status === undefined) {
+  if (!bare && (triage.status === 'pending' || triage.status === undefined)) {
     const local = parse(o.title, localNow(new Date(captured)));
     if (local?.recognized || local?.review) {
       summary = local.summary;
@@ -62,12 +67,22 @@ export function toView(o: LocalObject, now: number): InboxItem {
     asked && Array.isArray(triage.details?.options)
       ? triage.details.options.filter((x): x is string => typeof x === 'string').slice(0, 4)
       : [];
-  const hint = review ? `посмотри сам: ${review}` : summary || 'разберём, когда будет минутка';
-  const acts: [string, InboxAct][] = [
-    ['В дела', 'planner'],
-    ['В Docs', 'docs'],
-    ['Позже', 'later'],
-  ];
+  const hint = bare
+    ? voiceReason(heard?.reason)
+    : review
+      ? `посмотри сам: ${review}`
+      : summary || 'разберём, когда будет минутка';
+  // без текста в дела и в Docs переносить нечего: послушал — в архив
+  const acts: [string, InboxAct][] = bare
+    ? [
+        ['В архив', 'archive'],
+        ['Позже', 'later'],
+      ]
+    : [
+        ['В дела', 'planner'],
+        ['В Docs', 'docs'],
+        ['Позже', 'later'],
+      ];
   return {
     id: o.id,
     text: text(f.body).split('\n')[0]?.trim() || o.title,
@@ -76,8 +91,41 @@ export function toView(o: LocalObject, now: number): InboxItem {
     time: when(captured, now),
     hint,
     acts,
-    mood: asked ? 'ask' : 'idle',
-    answers,
+    mood: bare ? 'oops' : asked ? 'ask' : 'idle',
+    answers: bare ? [] : answers,
+    ...(kind === 'voice' ? { voice: { audio: voiceAudioUrl(o.id), bare } } : {}),
+  };
+}
+
+/**
+ * Голосовая запись, которая ещё на устройстве (CMD-005b): «Голосовая запись — отправится, когда
+ * появится сеть». `sending` — очередь как раз отправляет. Не принятую сервером можно удалить.
+ */
+export function queuedView(q: QueuedVoice, now: number, sending: boolean): InboxItem {
+  const failed = q.rejected === true || q.error !== undefined;
+  const src = failed
+    ? `голосом · ${q.rejected ? 'сервер не принял' : 'не отправилась'}: ${q.error ?? 'ошибка'}`
+    : sending
+      ? 'голосом · отправляется…'
+      : 'голосом · отправится, когда появится сеть';
+  const hint = q.rejected
+    ? 'запись осталась на устройстве — её можно удалить'
+    : failed
+      ? 'повторю сам, когда получится; можно удалить'
+      : sending
+        ? 'отправляю…'
+        : 'запись на устройстве — отправлю, когда появится сеть';
+  return {
+    id: q.id,
+    text: VOICE_PLACEHOLDER,
+    src,
+    from: 'voice',
+    time: when(q.captured_at_ms, now),
+    hint,
+    acts: failed ? [['Удалить', 'drop']] : [],
+    mood: failed ? 'oops' : 'idle',
+    answers: [],
+    voice: { bare: true, queued: failed ? 'failed' : sending ? 'sending' : 'wait' },
   };
 }
 
