@@ -17,6 +17,8 @@
     "test": "pnpm -r test",
     "e2e": "pnpm --filter @qubite/web e2e",
     "gen:api": "pnpm --filter @qubite/api-client gen",
+    "check:licenses": "node scripts/check-licenses-npm.mjs",
+    "gen:licenses": "node scripts/gen-licenses-npm.mjs",
     "check:english": "node scripts/check-english.mjs"
   },
   "devDependencies": {
@@ -27,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "license-checker-rseidelsohn": "4.4.2",
     "prettier": "^3.9.10",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.2"
