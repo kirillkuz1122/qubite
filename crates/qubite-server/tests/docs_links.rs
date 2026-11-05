@@ -492,7 +492,14 @@ async fn target_search_orders_documents_first_then_recency_and_caps_at_eight() {
     let new_doc = object(&db, owner, DOC_TYPE, "Метка новый документ").await;
     let project = object(&db, owner, PROJECT_TYPE, "Метка проект").await;
     let task = object(&db, owner, TASK_TYPE, "Метка дело").await;
-    for (id, minutes) in [(old_doc, 40_i32), (new_doc, 30), (project, 20), (task, 10)] {
+    let event = object(&db, owner, "calendar.event", "Метка событие").await;
+    for (id, minutes) in [
+        (old_doc, 40_i32),
+        (new_doc, 30),
+        (project, 20),
+        (task, 10),
+        (event, 50),
+    ] {
         sqlx::query(
             "UPDATE objects SET updated_at = now() - $2::int * interval '1 minute' WHERE id = $1",
         )
@@ -502,7 +509,7 @@ async fn target_search_orders_documents_first_then_recency_and_caps_at_eight() {
         .await
         .unwrap();
     }
-    let expected = vec![new_doc, old_doc, task, project];
+    let expected = vec![new_doc, old_doc, task, project, event];
     for query in ["", "?q=", "?q=%D0%BC%D0%95%D1%82%D0%9A%D0%B0"] {
         let targets = get(
             &mut browser,
@@ -807,6 +814,240 @@ async fn restore_snapshots_old_state_but_replaces_links_from_the_new_update() {
     assert_eq!(saved.body["ystate"], before["update"]);
     assert_eq!(saved.body["text"], before["text"]);
     assert_eq!(links(&mut browser, address, source).await, outgoing);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+async fn calendar_event(browser: &mut Browser, address: SocketAddr, title: &str) -> Uuid {
+    let reply = browser
+        .post_json(
+            address,
+            "/api/calendar/events",
+            json!({"title": title, "starts_at": 1000, "ends_at": 2000}),
+        )
+        .await;
+    assert_eq!(reply.status, 201, "{}", reply.body);
+    reply.body["id"].as_str().unwrap().parse().unwrap()
+}
+
+#[tokio::test]
+async fn calendar_mentions_follow_event_creation_rename_and_deletion() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut browser = logged_in(address).await;
+    let owner = owner_id(&db).await;
+    let source = object(&db, owner, DOC_TYPE, "Источник").await;
+    let target = calendar_event(&mut browser, address, "Calendar original").await;
+    let path = format!("/api/calendar/events/{target}");
+    let targets = get(
+        &mut browser,
+        address,
+        "/api/v1/docs/link-targets?q=original",
+        "targets",
+    )
+    .await;
+    assert_eq!(
+        targets,
+        vec![json!({"id": target, "type": "calendar.event", "title": "Calendar original"})]
+    );
+    let doc = Doc::with_client_id(1);
+    save(&mut browser, address, source, packet(&doc, Some(&[target]))).await;
+    assert_eq!(
+        links(&mut browser, address, source).await,
+        vec![json!({
+            "id": target, "type": "calendar.event", "title": "Calendar original", "deleted": false,
+        })]
+    );
+    assert_eq!(
+        get(
+            &mut browser,
+            address,
+            &format!("/api/v1/objects/{target}/backlinks"),
+            "backlinks",
+        )
+        .await,
+        vec![json!({"id": source, "type": DOC_TYPE, "title": "Источник"})]
+    );
+    assert_eq!(
+        browser
+            .get(address, &format!("/api/v1/docs/{target}/backlinks"))
+            .await
+            .status,
+        404
+    );
+    let reply = browser
+        .patch_json(
+            address,
+            &path,
+            json!({"title": "Calendar renamed", "revision": 1}),
+        )
+        .await;
+    assert_eq!(reply.status, 200, "{}", reply.body);
+    assert_eq!(
+        browser
+            .patch_json(address, &path, json!({"title": "Stale", "revision": 1}))
+            .await
+            .status,
+        409
+    );
+    let targets = get(
+        &mut browser,
+        address,
+        "/api/v1/docs/link-targets?q=renamed",
+        "targets",
+    )
+    .await;
+    assert_eq!(targets[0]["title"], "Calendar renamed");
+    assert!(
+        get(
+            &mut browser,
+            address,
+            "/api/v1/docs/link-targets?q=original",
+            "targets",
+        )
+        .await
+        .is_empty()
+    );
+    let core: (String, i64) = sqlx::query_as("SELECT title, revision FROM objects WHERE id=$1")
+        .bind(target)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(core, ("Calendar renamed".to_owned(), 2));
+    assert_eq!(browser.delete(address, &path).await.status, 204);
+    assert_eq!(
+        links(&mut browser, address, source).await,
+        vec![json!({
+            "id": target, "type": "calendar.event", "title": "Calendar renamed", "deleted": true,
+        })]
+    );
+    // Правка документа сохраняет прежнюю ссылку на удалённое событие.
+    save(&mut browser, address, source, packet(&doc, Some(&[target]))).await;
+    assert_eq!(
+        links(&mut browser, address, source).await[0]["deleted"],
+        true
+    );
+    assert!(
+        get(
+            &mut browser,
+            address,
+            "/api/v1/docs/link-targets?q=Calendar",
+            "targets",
+        )
+        .await
+        .is_empty()
+    );
+    assert_eq!(browser.get(address, &path).await.status, 404);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn calendar_mentions_require_planner_read_and_hide_foreign_events() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner_browser = logged_in(address).await;
+    let foreign = calendar_event(&mut owner_browser, address, "Foreign calendar").await;
+    let (account, mut browser) = user(&db, address).await;
+    grant(&mut owner_browser, address, account, "docs", true).await;
+    grant(&mut owner_browser, address, account, "planner", true).await;
+    let target = calendar_event(&mut browser, address, "My calendar").await;
+    let source = object(&db, account, DOC_TYPE, "Источник").await;
+    let doc = Doc::with_client_id(1);
+    save(
+        &mut browser,
+        address,
+        source,
+        packet(&doc, Some(&[target, foreign])),
+    )
+    .await;
+    assert_eq!(links(&mut browser, address, source).await.len(), 1);
+    let targets_path = "/api/v1/docs/link-targets?q=calendar";
+    let targets = get(&mut browser, address, targets_path, "targets").await;
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets[0]["id"], target.to_string());
+    for path in [
+        format!("/api/calendar/events/{foreign}"),
+        format!("/api/v1/objects/{foreign}/backlinks"),
+    ] {
+        assert_eq!(browser.get(address, &path).await.status, 404);
+    }
+    let backlinks_path = format!("/api/v1/objects/{target}/backlinks");
+    // Для ссылок достаточно read, право write на Planner не требуется.
+    grant(&mut owner_browser, address, account, "planner", false).await;
+    assert_eq!(
+        get(&mut browser, address, &backlinks_path, "backlinks")
+            .await
+            .len(),
+        1
+    );
+    let reply = owner_browser
+        .delete(
+            address,
+            &format!("/api/owner/accounts/{account}/grants/planner"),
+        )
+        .await;
+    assert_eq!(reply.status, 204);
+    assert!(
+        get(&mut browser, address, targets_path, "targets")
+            .await
+            .is_empty()
+    );
+    assert!(links(&mut browser, address, source).await.is_empty());
+    assert_eq!(browser.get(address, &backlinks_path).await.status, 404);
+    save(&mut browser, address, source, packet(&doc, Some(&[target]))).await;
+    assert!(live_relations(&db, source).await.is_empty());
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn calendar_objects_migration_backfills_live_and_deleted_events_idempotently() {
+    let (test_db, db, _address) = common::setup(AuthSettings::default()).await;
+    let owner = owner_id(&db).await;
+    let live = Uuid::now_v7();
+    let deleted = Uuid::now_v7();
+    // Старые события создаются напрямую, без объекта ядра.
+    for (id, is_deleted) in [(live, false), (deleted, true)] {
+        sqlx::query(
+            "INSERT INTO calendar_events \
+             (id, owner_id, title, starts_at, ends_at, deleted, created_at, updated_at) \
+             VALUES ($1, $2, 'Existing event', 1000, 2000, $3, \
+                     now() - interval '2 days', now() - interval '1 day')",
+        )
+        .bind(id)
+        .bind(owner)
+        .bind(is_deleted)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM objects WHERE id=ANY($1)")
+        .bind(&[live, deleted][..])
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(before, 0);
+    for _ in 0..2 {
+        sqlx::query(include_str!(
+            "../../qubite-db/migrations/0047_calendar_event_objects.sql"
+        ))
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let matching: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM calendar_events e JOIN objects o ON o.id=e.id \
+             WHERE e.id=ANY($1) AND o.type='calendar.event' AND o.module_id='calendar' \
+             AND o.owner_id=e.owner_id AND o.created_by=e.owner_id AND o.updated_by=e.owner_id \
+             AND o.title=e.title AND o.created_at=e.created_at AND o.updated_at=e.updated_at \
+             AND o.deleted_at IS NOT DISTINCT FROM (CASE WHEN e.deleted THEN e.updated_at END) \
+             AND o.revision=1 AND o.visibility='private' AND o.workspace_id IS NULL \
+             AND o.source_refs='[]'::jsonb",
+        )
+        .bind(&[live, deleted][..])
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(matching, 2);
+    }
     db.close().await;
     test_db.drop_db().await;
 }

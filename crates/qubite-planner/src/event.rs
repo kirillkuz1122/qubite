@@ -1,4 +1,4 @@
-//! События календаря: собственная таблица, правка всей серии, права владельца.
+//! События календаря: своя таблица и объект ядра, правка серии, права владельца.
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Acquire, PgConnection, types::Json};
@@ -128,8 +128,9 @@ pub async fn create(conn: &mut PgConnection, owner: Uuid, input: NewEvent) -> Re
         created_at: now,
         updated_at: now,
     };
-    validate(conn, &mut value).await?;
-    Ok(sqlx::query_as(
+    let mut tx = conn.begin().await?;
+    validate(&mut tx, &mut value).await?;
+    let saved: Event = sqlx::query_as(
         "INSERT INTO calendar_events \
          (id, owner_id, title, notes, starts_at, ends_at, all_day, place, project_id, recurrence) \
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
@@ -144,8 +145,22 @@ pub async fn create(conn: &mut PgConnection, owner: Uuid, input: NewEvent) -> Re
     .bind(value.place)
     .bind(value.project_id)
     .bind(value.recurrence)
-    .fetch_one(conn)
-    .await?)
+    .fetch_one(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO objects \
+         (id, type, module_id, owner_id, title, created_by, updated_by, created_at, updated_at) \
+         VALUES ($1, 'calendar.event', 'calendar', $2, $3, $2, $2, $4, $5)",
+    )
+    .bind(saved.id)
+    .bind(owner)
+    .bind(&saved.title)
+    .bind(saved.created_at)
+    .bind(saved.updated_at)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(saved)
 }
 
 /// Живое событие владельца; чужое и удалённое не найдены.
@@ -206,7 +221,7 @@ pub async fn patch(
         value.recurrence = recurrence.map(Json);
     }
     validate(&mut tx, &mut value).await?;
-    let saved = sqlx::query_as(
+    let saved: Event = sqlx::query_as(
         "UPDATE calendar_events SET title=$3, notes=$4, starts_at=$5, ends_at=$6, \
          all_day=$7, place=$8, project_id=$9, recurrence=$10, revision=revision+1, updated_at=now() \
          WHERE id=$1 AND owner_id=$2 AND NOT deleted RETURNING *",
@@ -223,22 +238,43 @@ pub async fn patch(
     .bind(value.recurrence)
     .fetch_one(&mut *tx)
     .await?;
+    sqlx::query_scalar::<_, Uuid>(
+        "UPDATE objects SET title=$3, revision=revision+1, updated_at=$4, updated_by=$2 \
+         WHERE id=$1 AND owner_id=$2 AND type='calendar.event' RETURNING id",
+    )
+    .bind(id)
+    .bind(owner)
+    .bind(&saved.title)
+    .bind(saved.updated_at)
+    .fetch_one(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(saved)
 }
 
 pub async fn delete(conn: &mut PgConnection, owner: Uuid, id: Uuid) -> Result<()> {
+    let mut tx = conn.begin().await?;
     let result = sqlx::query(
         "UPDATE calendar_events SET deleted=true, revision=revision+1, updated_at=now() \
          WHERE id=$1 AND owner_id=$2 AND NOT deleted",
     )
     .bind(id)
     .bind(owner)
-    .execute(conn)
+    .execute(&mut *tx)
     .await?;
     if result.rows_affected() == 0 {
         return Err(Error::NotFound);
     }
+    sqlx::query_scalar::<_, Uuid>(
+        "UPDATE objects SET deleted_at=now(), revision=revision+1, \
+         updated_at=now(), updated_by=$2 \
+         WHERE id=$1 AND owner_id=$2 AND type='calendar.event' RETURNING id",
+    )
+    .bind(id)
+    .bind(owner)
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(())
 }
 

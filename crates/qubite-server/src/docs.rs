@@ -279,14 +279,21 @@ async fn readable_modules(
     state: &AppState,
     session: &Authenticated,
 ) -> Result<Vec<String>, ApiError> {
-    Ok(
+    let mut modules: Vec<String> =
         qubite_policy::catalog::catalog_for(state.db.pool(), &session.subject())
             .await?
             .into_iter()
             .filter(|entry| entry.flags.read)
             .map(|entry| entry.id)
-            .collect(),
-    )
+            .collect();
+    // Объект calendar.event хранится в calendar, но права общие с Planner.
+    if modules
+        .iter()
+        .any(|module| module == qubite_planner::MODULE)
+    {
+        modules.push("calendar".to_owned());
+    }
+    Ok(modules)
 }
 
 fn links_error(error: qubite_objects::Error) -> ApiError {
