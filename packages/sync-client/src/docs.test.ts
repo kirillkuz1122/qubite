@@ -1137,6 +1137,41 @@ describe('DOC-003: связи документа', () => {
     expect(handle.status).toBe('saved');
   });
 
+  it('переименование во время отправки не теряется в ответе предыдущего push', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'mention-rename-inflight',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+      renderText: (doc: Y.Doc, links: readonly DocLink[]) =>
+        doc
+          .getArray<string>('mentions')
+          .toArray()
+          .map((id) => `@${links.find((link) => link.id === id)?.title ?? id}`)
+          .join(' '),
+    };
+    const handle = await store(remote, options).open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await handle.cacheLinks([cached]);
+    handle.doc.getArray<string>('mentions').push([target]);
+    let release!: () => void;
+    let started!: () => void;
+    const inFlight = new Promise<void>((resolve) => (started = resolve));
+    remote.beforePush = () => {
+      remote.beforePush = undefined;
+      started();
+      return new Promise<void>((resolve) => (release = resolve));
+    };
+    const syncing = handle.sync();
+    await inFlight;
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    release();
+    await syncing;
+    await handle.sync();
+    expect(remote.pushes.map((push) => push.text)).toEqual(['@Графы', '@Обход графа']);
+    expect(handle.status).toBe('saved');
+  });
+
   it('старый ответ без новых полей принимается; links добавляется только при заданном экспорте', async () => {
     const bodies: Record<string, unknown>[] = [];
     const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
