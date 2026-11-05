@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME } from '../../auth/client';
-import { VOICE_PREFS } from '../voice-api';
+import { voicePrefsKey } from '../voice-api';
 import { VoiceSettings } from './VoiceSettings';
 
 const { put } = vi.hoisted(() => ({ put: vi.fn() }));
@@ -21,7 +21,7 @@ vi.mock('../parts', () => ({
 function setup(method: 'cloud' | 'device' = 'cloud') {
   const qc = new QueryClient();
   qc.setQueryData(ME, { id: 'u1', email: 'a@b.c', display_name: 'Я', is_owner: false });
-  qc.setQueryData(VOICE_PREFS, { method });
+  qc.setQueryData(voicePrefsKey('u1'), { method });
   render(
     <QueryClientProvider client={qc}>
       <VoiceSettings />
@@ -62,7 +62,7 @@ describe('«Как распознавать речь»', () => {
     await waitFor(() =>
       expect(put).toHaveBeenCalledWith('/api/v1/voice/prefs', { body: { method: 'device' } }),
     );
-    await waitFor(() => expect(qc.getQueryData(VOICE_PREFS)).toEqual({ method: 'device' }));
+    await waitFor(() => expect(qc.getQueryData(voicePrefsKey('u1'))).toEqual({ method: 'device' }));
     expect(screen.getByRole('radio', { name: /Встроенное/ })).toHaveAttribute(
       'aria-checked',
       'true',

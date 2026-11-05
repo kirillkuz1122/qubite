@@ -41,7 +41,7 @@ export function VoiceProvider({
 }) {
   const inbox = useInbox();
   const me = useMe();
-  const prefs = useVoicePrefs(!!me.data);
+  const prefs = useVoicePrefs(me.data?.id);
   const method = prefs.data?.method ?? null;
   const speech = method === 'device' && speechRecognition() !== null;
   const [state, dispatch] = useReducer(voiceStep, VOICE_IDLE);

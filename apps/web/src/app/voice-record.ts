@@ -82,21 +82,22 @@ export async function startVoice(options: VoiceOptions): Promise<VoiceSession> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const release = () => stream.getTracks().forEach((t) => t.stop());
   let rec: MediaRecorder;
+  const chunks: Blob[] = [];
   const asked = pickVoiceMime((t) => MediaRecorder.isTypeSupported?.(t) ?? false);
   try {
     rec = new MediaRecorder(stream, {
       ...(asked ? { mimeType: asked } : {}),
       audioBitsPerSecond: VOICE_BITRATE,
     });
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+    rec.start(1000);
   } catch (e) {
+    // не вышло создать или запустить запись — микрофон не должен остаться включённым
     release();
     throw e;
   }
-  const chunks: Blob[] = [];
-  rec.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-  rec.start(1000);
   const started = performance.now();
   const timer = setTimeout(options.onLimit, MAX_VOICE_MS);
   const speech = options.speech ? listen(options) : null;

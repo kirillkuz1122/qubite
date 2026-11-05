@@ -12,8 +12,8 @@ import { voiceOptions, type VoiceMethod } from '../voice-view';
 
 export function VoiceSettings() {
   const me = useMe();
-  const prefs = useVoicePrefs(!!me.data);
-  const set = useSetVoiceMethod();
+  const prefs = useVoicePrefs(me.data?.id);
+  const set = useSetVoiceMethod(me.data?.id);
   const canSpeak = speechRecognition() !== null;
   // пока сохраняется — уже показываем выбранное
   const value = set.isPending ? set.variables : (prefs.data?.method ?? null);

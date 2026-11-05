@@ -26,24 +26,25 @@ export function httpVoiceTransport(): VoiceTransport {
   };
 }
 
-export const VOICE_PREFS = ['voice-prefs'] as const;
+/** Ключ настройки — с ID человека: при смене аккаунта в одной вкладке чужая настройка не подхватится. */
+export const voicePrefsKey = (accountId: string | undefined) => ['voice-prefs', accountId] as const;
 
 /** Способ распознавания этого человека (без входа не спрашиваем). */
-export function useVoicePrefs(enabled: boolean) {
+export function useVoicePrefs(accountId: string | undefined) {
   return useQuery({
-    queryKey: VOICE_PREFS,
+    queryKey: voicePrefsKey(accountId),
     queryFn: () => must(api.GET('/api/v1/voice/prefs')),
-    enabled,
+    enabled: !!accountId,
     retry: false,
     staleTime: 60_000,
   });
 }
 
 /** Выбрать способ: сохраняется на сервере, общий для всех устройств. */
-export function useSetVoiceMethod() {
+export function useSetVoiceMethod(accountId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (method: VoiceMethod) => must(api.PUT('/api/v1/voice/prefs', { body: { method } })),
-    onSuccess: (prefs) => qc.setQueryData(VOICE_PREFS, prefs),
+    onSuccess: (prefs) => qc.setQueryData(voicePrefsKey(accountId), prefs),
   });
 }

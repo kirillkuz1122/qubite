@@ -157,6 +157,19 @@ describe('очередь голосовых записей', () => {
     expect(one).toBe(two);
   });
 
+  it('удалённая во время отправки запись не возвращается после сбоя сети', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    await queue.add(capture('a'));
+    server.send = async () => {
+      await queue.remove('a');
+      throw new TypeError('Failed to fetch');
+    };
+    const flush = await queue.flush();
+    expect(flush.left).toBe(0);
+    expect(await queue.list()).toEqual([]);
+  });
+
   it('повторный вызов во время отправки не стучится второй раз в ту же неудачу', async () => {
     const server = new VoiceServer();
     server.fail = 'offline';

@@ -5,7 +5,7 @@ import { ME } from '../auth/client';
 import { InboxCtx, type InboxApi, type NewVoice, type VoiceSaved } from './inbox-context';
 import { VoiceBar } from './VoiceCapture';
 import { VoiceProvider } from './voice';
-import { VOICE_PREFS } from './voice-api';
+import { voicePrefsKey } from './voice-api';
 import { startVoice } from './voice-record';
 import type { VoiceMethod } from './voice-view';
 
@@ -83,7 +83,7 @@ afterEach(() => {
 function setup(method: VoiceMethod = 'cloud') {
   const qc = new QueryClient();
   qc.setQueryData(ME, { id: 'u1', email: 'a@b.c', display_name: 'Я', is_owner: false });
-  qc.setQueryData(VOICE_PREFS, { method });
+  qc.setQueryData(voicePrefsKey('u1'), { method });
   const voice = vi.fn<(take: NewVoice) => Promise<VoiceSaved>>(async () => ({
     id: 'v1',
     kept: 'device',

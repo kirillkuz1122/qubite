@@ -222,10 +222,13 @@ export class VoiceQueue {
         delete next.error;
         if (failure.message) next.error = failure.message;
         if (!failure.retry) next.rejected = true;
+        // запись могли удалить, пока шла отправка, — не возвращаем её из устаревшего снимка
         const tx = this.db.transaction('queue', 'readwrite');
-        tx.objectStore('queue').put(next);
+        const store = tx.objectStore('queue');
+        const existing = await promisify(store.get(item.id) as IDBRequest<QueuedVoice | undefined>);
+        if (existing) store.put(next);
         await done(tx);
-        left += 1;
+        if (existing) left += 1;
         // нет сети или сервер не принимает никого — остальные попробуем в следующий раз
         if (failure.retry) stop = true;
       }
