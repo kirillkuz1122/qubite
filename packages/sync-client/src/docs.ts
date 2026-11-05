@@ -210,6 +210,8 @@ interface StoredDocument {
   /** Текст требует подтверждения, даже если новых Yjs-правок уже нет. */
   textPending: boolean;
   textStale: boolean;
+  /** Растёт при переименовании упомянутой цели; общий для вкладок через IDB. */
+  renameGen?: number;
   text: string;
   seed: boolean;
   /** Вектор первого seed-запроса: переживает потерю ответа и перезапуск. */
@@ -547,9 +549,6 @@ class StoredDocHandle implements DocHandle {
     doc.on('update', this.updated);
   }
 
-  /** Растёт при переименовании цели: ответ более раннего push не подтверждает новый текст. */
-  private renameGen = 0;
-
   async cacheLinks(links: readonly DocLink[]): Promise<void> {
     if (this.closed) return;
     // Отсутствие цели в ответе не стирает офлайн-название недавно вставленного чипа.
@@ -568,12 +567,14 @@ class StoredDocHandle implements DocHandle {
         const saved = new Map(record.links.map((link) => [link.id, link]));
         for (const link of links) saved.set(link.id, link);
         record.links = [...saved.values()];
-        if (renamed) record.textPending = true;
+        if (renamed) {
+          record.textPending = true;
+          record.renameGen = (record.renameGen ?? 0) + 1;
+        }
       }),
     );
     for (const callback of this.linkListeners) callback();
     if (renamed) {
-      this.renameGen += 1;
       this.setStatus('pending');
       this.schedule();
     }
@@ -816,7 +817,6 @@ class StoredDocHandle implements DocHandle {
       // Другая вкладка могла дописать в общий журнал после открытия этой копии.
       // Подтверждать record.version можно только вместе со всеми его обновлениями.
       for (const entry of updates) Y.applyUpdate(this.doc, entry.update, this.origin);
-      const renameGen = this.renameGen;
       this.lastText = record.text;
       this.links = record.links;
       for (const callback of this.linkListeners) callback();
@@ -910,7 +910,10 @@ class StoredDocHandle implements DocHandle {
           this.db.change(this.id, (current) => {
             current.serverSv = response.sv;
             current.syncedVersion = Math.max(current.syncedVersion, record.version);
-            current.textPending = (response.textStale ?? false) || this.renameGen !== renameGen;
+            // Переименование после начала этого push (в том числе из другой вкладки)
+            // не подтверждено: его текст ещё не отправлен.
+            current.textPending =
+              (response.textStale ?? false) || (current.renameGen ?? 0) !== (record.renameGen ?? 0);
             current.textStale = response.textStale ?? false;
             current.seed = false;
             current.seedSv = null;
@@ -925,7 +928,6 @@ class StoredDocHandle implements DocHandle {
           }),
         );
         this.seedMarkdown = null;
-        if (this.renameGen !== renameGen) this.again = true;
         if (response.textStale && allowTextCatchup) {
           await this.writes;
           await this.exchange(false);
