@@ -1,6 +1,11 @@
 /** Объект синхронизации → строка экрана «Входящие» в виде DS-007. */
 import { localNow, parse } from '@qubite/ui';
-import type { LocalObject, QueuedVoice, VoiceResult } from '@qubite/sync-client';
+import {
+  voiceHeld,
+  type LocalObject,
+  type QueuedVoice,
+  type VoiceResult,
+} from '@qubite/sync-client';
 import type { InboxAct, InboxFrom, InboxItem } from './data';
 import { VOICE_PLACEHOLDER, isBareVoice, voiceAudioUrl, voiceReason } from './voice-view';
 
@@ -103,18 +108,24 @@ export function toView(o: LocalObject, now: number, heard?: VoiceResult): InboxI
  */
 export function queuedView(q: QueuedVoice, now: number, sending: boolean): InboxItem {
   const failed = q.rejected === true || q.error !== undefined;
+  // способ «локально»: Whisper на компьютере ещё распознаёт (CMD-005c)
+  const held = !failed && voiceHeld(q, now);
   const src = failed
     ? `голосом · ${q.rejected ? 'сервер не принял' : 'не отправилась'}: ${q.error ?? 'ошибка'}`
-    : sending
-      ? 'голосом · отправляется…'
-      : 'голосом · отправится, когда появится сеть';
+    : held
+      ? 'голосом · распознаётся на компьютере…'
+      : sending
+        ? 'голосом · отправляется…'
+        : 'голосом · отправится, когда появится сеть';
   const hint = q.rejected
     ? 'запись осталась на устройстве — её можно удалить'
     : failed
       ? 'повторю сам, когда получится; можно удалить'
-      : sending
-        ? 'отправляю…'
-        : 'запись на устройстве — отправлю, когда появится сеть';
+      : held
+        ? 'Whisper на компьютере слушает запись…'
+        : sending
+          ? 'отправляю…'
+          : 'запись на устройстве — отправлю, когда появится сеть';
   return {
     id: q.id,
     text: VOICE_PLACEHOLDER,
@@ -125,7 +136,7 @@ export function queuedView(q: QueuedVoice, now: number, sending: boolean): Inbox
     acts: failed ? [['Удалить', 'drop']] : [],
     mood: failed ? 'oops' : 'idle',
     answers: [],
-    voice: { bare: true, queued: failed ? 'failed' : sending ? 'sending' : 'wait' },
+    voice: { bare: true, queued: failed ? 'failed' : sending || held ? 'sending' : 'wait' },
   };
 }
 

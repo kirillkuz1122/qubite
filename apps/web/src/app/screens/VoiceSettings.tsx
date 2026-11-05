@@ -1,7 +1,8 @@
 /**
- * «Настройки → Голос» (CMD-005b, D-686, D-845): как распознавать речь. Способ хранится на
- * сервере (`/api/v1/voice/prefs`) и общий для всех устройств. Работают облако и встроенное
- * в браузер; свой ключ и локальное распознавание видны, но выбрать их пока нельзя (CMD-005c).
+ * «Настройки → Голос» (CMD-005b/c, D-686, D-845): как распознавать речь. Способ хранится на
+ * сервере (`/api/v1/voice/prefs`) и общий для всех устройств. Под выбранным способом — его
+ * настройки: свой ключ API (хранится на сервере зашифрованным) или адрес Whisper на компьютере
+ * (только на этом устройстве).
  */
 import { Choice, Note, Presence } from '@qubite/ui';
 import { say, useMe } from '../../auth/client';
@@ -9,6 +10,8 @@ import { SecHead } from '../parts';
 import { useSetVoiceMethod, useVoicePrefs } from '../voice-api';
 import { speechRecognition } from '../voice-record';
 import { voiceOptions, type VoiceMethod } from '../voice-view';
+import { VoiceKeyForm } from './VoiceKeyForm';
+import { VoiceLocalForm } from './VoiceLocalForm';
 
 export function VoiceSettings() {
   const me = useMe();
@@ -17,6 +20,13 @@ export function VoiceSettings() {
   const canSpeak = speechRecognition() !== null;
   // пока сохраняется — уже показываем выбранное
   const value = set.isPending ? set.variables : (prefs.data?.method ?? null);
+  const options = voiceOptions(canSpeak).map((o) =>
+    o.value === 'own_key'
+      ? { ...o, detail: <VoiceKeyForm accountId={me.data?.id} /> }
+      : o.value === 'local'
+        ? { ...o, detail: <VoiceLocalForm /> }
+        : o,
+  );
   return (
     <>
       <SecHead text="ГОЛОС" label="Голосовой ввод" />
@@ -38,7 +48,7 @@ export function VoiceSettings() {
           <Choice<VoiceMethod>
             label="Как распознавать речь"
             value={value}
-            options={voiceOptions(canSpeak)}
+            options={options}
             busy={set.isPending}
             onChange={(method) => set.mutate(method)}
           />

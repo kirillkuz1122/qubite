@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME } from '../auth/client';
-import { InboxCtx, type InboxApi, type NewVoice, type VoiceSaved } from './inbox-context';
+import { InboxCtx, type InboxApi } from './inbox-context';
 import { VoiceBar } from './VoiceCapture';
 import { VoiceProvider } from './voice';
 import { voicePrefsKey } from './voice-api';
@@ -84,7 +84,7 @@ function setup(method: VoiceMethod = 'cloud') {
   const qc = new QueryClient();
   qc.setQueryData(ME, { id: 'u1', email: 'a@b.c', display_name: 'Я', is_owner: false });
   qc.setQueryData(voicePrefsKey('u1'), { method });
-  const voice = vi.fn<(take: NewVoice) => Promise<VoiceSaved>>(async () => ({
+  const voice = vi.fn<InboxApi['voice']>(async () => ({
     id: 'v1',
     kept: 'device',
   }));
@@ -201,6 +201,79 @@ describe('кнопка записи во «Входящих»', () => {
   it('«встроенное», а браузер не умеет — честно говорит, что сохранит только звук', () => {
     setup('device');
     expect(screen.getByText(/этот браузер не распознаёт речь сам/)).toBeInTheDocument();
+  });
+
+  it('облако: устройство после записи ничего не распознаёт', async () => {
+    const { voice } = setup('cloud');
+    fireEvent.click(mic());
+    const stop = await screen.findByRole('button', { name: 'Остановить и отправить' });
+    clock += 2000;
+    fireEvent.click(stop);
+    await waitFor(() => expect(voice).toHaveBeenCalled());
+    expect(voice.mock.calls[0]![1]).toBeUndefined();
+  });
+});
+
+describe('«локально»: свой Whisper на компьютере', () => {
+  const whisper = vi.fn<typeof fetch>();
+  beforeEach(() => {
+    whisper.mockReset();
+    vi.stubGlobal('fetch', whisper);
+    localStorage.clear();
+  });
+
+  it('кнопка свободна сразу, а запись уходит в Whisper на этом компьютере', async () => {
+    localStorage.setItem('qubite.voice.local-url', 'http://127.0.0.1:9000');
+    whisper.mockResolvedValueOnce(Response.json({ text: 'Позвонить маме' }));
+    const { voice } = setup('local');
+    expect(screen.getByText(/текст распознает Whisper на этом компьютере/)).toBeInTheDocument();
+    fireEvent.click(mic());
+    const stop = await screen.findByRole('button', { name: 'Остановить и отправить' });
+    clock += 2500;
+    fireEvent.click(stop);
+    await waitFor(() => expect(voice).toHaveBeenCalledTimes(1));
+    // сохранено на устройстве — можно записывать дальше, Whisper ещё не спрашивали
+    await waitFor(() => expect(mic()).toBeEnabled());
+    expect(whisper).not.toHaveBeenCalled();
+    const [take, recognize] = voice.mock.calls[0]!;
+    expect(take).toMatchObject({ mime: 'audio/webm;codecs=opus', duration_ms: 2500 });
+    expect(take).not.toHaveProperty('text');
+    // распознавание — шаг очереди «Входящих» (в фоне)
+    expect(await recognize!()).toEqual({ text: 'Позвонить маме' });
+    const [url, init] = whisper.mock.calls[0]!;
+    expect(url).toBe('http://127.0.0.1:9000/inference');
+    const form = init!.body as FormData;
+    expect(form.get('response_format')).toBe('json');
+    // весь звук записи («звук» × 500 в UTF-8)
+    expect((form.get('file') as File).size).toBe(4000);
+  });
+
+  it('Whisper не запущен — не ошибка записи, а причина у записи', async () => {
+    whisper.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const { voice } = setup('local');
+    fireEvent.click(mic());
+    const stop = await screen.findByRole('button', { name: 'Остановить и отправить' });
+    clock += 2000;
+    fireEvent.click(stop);
+    await waitFor(() => expect(voice).toHaveBeenCalledTimes(1));
+    expect(await voice.mock.calls[0]![1]!()).toEqual({ why: 'Локальный Whisper не ответил' });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(mic()).toBeEnabled();
+  });
+});
+
+describe('свой ключ API', () => {
+  it('ключ не задан — заранее говорит, что сохранит только звук', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ configured: false, base_url: null, model: null, last4: null }),
+      ),
+    );
+    setup('own_key');
+    expect(
+      await screen.findByText(/свой ключ не задан — сохраним только звук/),
+    ).toBeInTheDocument();
   });
 });
 

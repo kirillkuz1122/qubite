@@ -9,6 +9,8 @@ export interface PresenceProps {
   swap?: unknown;
   /** блок только что занял место на странице или освободил его — соседям пора подтянуться (useFlip) */
   onLayout?: () => void;
+  /** метка для useFlip: блок сам доезжает вместе с соседями, когда выше что-то появилось */
+  flip?: string;
   className?: string;
   children: ReactNode;
 }
@@ -17,7 +19,7 @@ export interface PresenceProps {
  * Появление и уход без рывков: блок проявляется и чуть съезжает на место пружиной, а уходит обратно —
  * и лишь потом удаляется. Пока уходит, показывает последнее содержимое. Двигаются только opacity и transform.
  */
-export function Presence({ show, swap, onLayout, className, children }: PresenceProps) {
+export function Presence({ show, swap, onLayout, flip, className, children }: PresenceProps) {
   const el = useRef<HTMLDivElement>(null);
   const [alive, setAlive] = useState(show);
   const live = useRef(show);
@@ -71,7 +73,7 @@ export function Presence({ show, swap, onLayout, className, children }: Presence
 
   if (!alive) return null;
   return (
-    <div ref={el} className={className} style={{ opacity: 0 }}>
+    <div ref={el} className={className} data-flip={flip} style={{ opacity: 0 }}>
       {kept.current}
     </div>
   );

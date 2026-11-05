@@ -6,6 +6,10 @@
  * Способ «встроенное» (`device`): пока идёт запись, речь распознаёт сам браузер, и готовый текст
  * уходит полем `text` вместе со звуком — так его ждёт сервер (`device`/`local`, D-845). Браузер
  * не умеет — звук уходит без текста, сервер сохранит «Голосовая запись» с причиной.
+ *
+ * Способ «локально» (`local`, CMD-005c): после остановки запись сразу ложится на устройство
+ * (кнопка свободна), а в фоне её распознаёт Whisper на компьютере (`voice-local.ts`); текст
+ * уходит полем `text` вместе со звуком. Whisper не ответил — уходит только звук с причиной.
  */
 import { HttpError } from '@qubite/sync-client';
 import {
@@ -20,7 +24,8 @@ import {
 import { Fail, useMe } from '../auth/client';
 import { toBase64 } from './english-view';
 import { useInbox, type VoiceSaved } from './inbox-context';
-import { useVoicePrefs } from './voice-api';
+import { useVoiceKey, useVoicePrefs } from './voice-api';
+import { localWhisperUrl, transcribeLocal } from './voice-local';
 import { VoiceCtx, type VoiceApi, type VoiceOrigin } from './voice-context';
 import {
   cannotRecord,
@@ -44,6 +49,11 @@ export function VoiceProvider({
   const prefs = useVoicePrefs(me.data?.id);
   const method = prefs.data?.method ?? null;
   const speech = method === 'device' && speechRecognition() !== null;
+  // свой ключ выбран, а ключа нет — запись сохранится только звуком (сказать заранее)
+  const key = useVoiceKey(me.data?.id, method === 'own_key');
+  const noKey = method === 'own_key' && key.data?.configured === false;
+  /** адрес Whisper этой записи (способ «локально»); `null` — распознаёт не устройство после записи */
+  const whisper = useRef<string | null>(null);
   const [state, dispatch] = useReducer(voiceStep, VOICE_IDLE);
   const [origin, setOrigin] = useState<VoiceOrigin>('inbox');
   const session = useRef<VoiceSession | null>(null);
@@ -69,12 +79,16 @@ export function VoiceProvider({
           return;
         }
         const audio_base64 = toBase64(new Uint8Array(await take.audio.arrayBuffer()));
-        const result = await latest.current.save({
-          audio_base64,
-          mime: take.mime,
-          duration_ms: take.ms,
-          ...(take.text ? { text: take.text } : {}),
-        });
+        const url = whisper.current;
+        const result = await latest.current.save(
+          {
+            audio_base64,
+            mime: take.mime,
+            duration_ms: take.ms,
+            ...(take.text ? { text: take.text } : {}),
+          },
+          url === null ? undefined : () => transcribeLocal(url, take.audio, take.mime),
+        );
         dispatch({ type: 'sent' });
         saved.current?.(result);
       } catch (e) {
@@ -112,6 +126,7 @@ export function VoiceProvider({
       }
       const token = ++attempt.current;
       saved.current = onSaved ?? null;
+      whisper.current = method === 'local' ? localWhisperUrl() : null;
       dispatch({ type: 'start' });
       record({
         speech,
@@ -135,7 +150,7 @@ export function VoiceProvider({
         },
       );
     },
-    [me.data, prefs.fetchStatus, prefs.data, speech, record, stop],
+    [me.data, prefs.fetchStatus, prefs.data, method, speech, record, stop],
   );
 
   const cancel = useCallback(() => {
@@ -161,12 +176,13 @@ export function VoiceProvider({
       origin,
       method,
       speech,
+      noKey,
       start,
       stop,
       cancel,
       dismiss: () => dispatch({ type: 'dismiss' }),
     }),
-    [state, origin, method, speech, start, stop, cancel],
+    [state, origin, method, speech, noKey, start, stop, cancel],
   );
   return <VoiceCtx.Provider value={value}>{children}</VoiceCtx.Provider>;
 }

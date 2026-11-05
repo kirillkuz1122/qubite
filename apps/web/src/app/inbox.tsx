@@ -7,7 +7,8 @@
  * Голосовые записи (CMD-005b) идут своей очередью (`VoiceQueue`, хранилище аккаунта
  * `…-voice`): `POST /api/v1/inbox/voice`, без сети — повтор с тем же ID, когда сеть вернётся.
  * Пока запись на устройстве, она видна в списке как «Голосовая запись — отправится, когда
- * появится сеть».
+ * появится сеть». Способ «локально» (CMD-005c): запись сразу ложится в очередь и ждёт текста
+ * от Whisper на компьютере (`voice-local.ts`), а уходит уже с ним.
  */
 import {
   VoiceQueue,
@@ -15,6 +16,7 @@ import {
   captureThought,
   inboxItems,
   uuidv7,
+  voiceHeld,
   type LocalObject,
   type QueuedVoice,
   type VoiceCapture,
@@ -23,13 +25,22 @@ import {
   type VoiceTransport,
 } from '@qubite/sync-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { InboxCtx, type InboxApi, type NewVoice, type VoiceSaved } from './inbox-context';
+import {
+  InboxCtx,
+  type InboxApi,
+  type NewVoice,
+  type Recognized,
+  type VoiceSaved,
+} from './inbox-context';
 import { queuedView, toView } from './inbox-view';
 import { useSync } from './sync-context';
 import { httpVoiceTransport } from './voice-api';
+import { LOCAL_TIMEOUT_MS } from './voice-local';
 
 /** Сколько держать отправленную запись в списке, пока её не принесла синхронизация. */
 const LANDING_MS = 5000;
+/** Дольше распознавания на устройстве запись не ждёт: вкладку закрыли — уйдёт звуком. */
+const RECOGNIZE_HOLD_MS = LOCAL_TIMEOUT_MS + 30_000;
 
 type Landing = QueuedVoice & { landed: number };
 
@@ -101,7 +112,7 @@ export function InboxProvider({
   const flushVoice = useCallback(async (): Promise<VoiceFlush | null> => {
     const q = await queue.current;
     if (!q) return null;
-    const before = (await q.list()).filter((x) => !x.rejected);
+    const before = (await q.list()).filter((x) => !x.rejected && !voiceHeld(x, Date.now()));
     if (before.length === 0) return { sent: [], left: 0 };
     setSending(true);
     try {
@@ -173,17 +184,28 @@ export function InboxProvider({
   }, [state.status, flushVoice]);
 
   const voice = useCallback(
-    async (take: NewVoice): Promise<VoiceSaved> => {
+    async (take: NewVoice, recognize?: () => Promise<Recognized>): Promise<VoiceSaved> => {
       const recording: VoiceCapture = { id: uuidv7(), source: 'web', ...take };
       const q = await queue.current;
       if (!q) {
         // хранилища на устройстве нет — только сразу на сервер (без сети — ошибка человеку)
-        await voiceTransport().send(recording);
+        const text = recognize ? (await recognize()).text : undefined;
+        await voiceTransport().send(text ? { ...recording, text } : recording);
         void syncClient.current?.sync().catch(() => {});
         return { id: recording.id, kept: 'server' };
       }
-      await q.add(recording);
-      void flushVoice().catch(() => {});
+      if (!recognize) {
+        await q.add(recording);
+        void flushVoice().catch(() => {});
+        return { id: recording.id, kept: 'device' };
+      }
+      // запись уже на устройстве — кнопка свободна; текст распознаётся в фоне и уйдёт с ней
+      await q.add(recording, Date.now(), RECOGNIZE_HOLD_MS);
+      void recognize()
+        .catch((): Recognized => ({}))
+        .then((heard) => q.settle(recording.id, heard))
+        .then(() => flushVoice())
+        .catch(() => {});
       return { id: recording.id, kept: 'device' };
     },
     [voiceTransport, flushVoice],
