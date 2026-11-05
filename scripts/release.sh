@@ -3,6 +3,7 @@
 #
 #   scripts/release.sh [цель]        # цель по умолчанию — эта машина, например aarch64-unknown-linux-gnu
 #   QUBITE_SKIP_WEB=1 scripts/release.sh …   # не собирать сайт (взять готовый apps/web/dist)
+#   QUBITE_SKIP_LICENSES=1 scripts/release.sh …   # не генерировать списки лицензий (нужен cargo-about)
 #
 # Результат в dist/release/:
 #   qubite-<версия>-<цель>.tar.gz          — архив
@@ -12,6 +13,7 @@
 #   bin/qubite            — сервер и все служебные команды (миграции встроены в бинарник)
 #   web/                  — собранный сайт для Caddy
 #   qubite.env.example    — пример настроек
+#   THIRD_PARTY_LICENSES.{rust,npm}.txt — лицензии зависимостей (OPS-008), копия и в web/licenses/
 #   RELEASE.txt           — версия, коммит, цель, что где лежит
 set -euo pipefail
 
@@ -31,11 +33,20 @@ if [[ "${QUBITE_SKIP_WEB:-0}" != "1" ]]; then
 fi
 [[ -f apps/web/dist/index.html ]] || { echo "нет apps/web/dist/index.html — сначала собери сайт" >&2; exit 1; }
 
+if [[ "${QUBITE_SKIP_LICENSES:-0}" != "1" ]]; then
+    scripts/gen-licenses.sh
+fi
+
 rm -rf "${stage}" "${out}/${name}.tar.gz" "${out}/${name}.tar.gz.sha256"
 mkdir -p "${stage}/bin" "${stage}/web"
 cp "target/${target}/release/qubite" "${stage}/bin/qubite"
 cp -R apps/web/dist/. "${stage}/web/"
 cp .env.example "${stage}/qubite.env.example"
+if [[ "${QUBITE_SKIP_LICENSES:-0}" != "1" ]]; then
+    cp THIRD_PARTY_LICENSES.rust.txt THIRD_PARTY_LICENSES.npm.txt "${stage}/"
+    mkdir -p "${stage}/web/licenses"
+    cp THIRD_PARTY_LICENSES.rust.txt THIRD_PARTY_LICENSES.npm.txt "${stage}/web/licenses/"
+fi
 mkdir -p "${stage}/deploy"
 cp -R deploy/pi "${stage}/deploy/pi"
 cat > "${stage}/RELEASE.txt" <<TXT

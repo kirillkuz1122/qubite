@@ -85,6 +85,10 @@ jobs:
           key: release-${{ matrix.target }}
       - name: Зависимости сайта
         run: pnpm install --frozen-lockfile
+      # Готовый бинарник cargo-about (OPS-008): списки лицензий кладутся в архив.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
       - name: Сборка архива
         run: scripts/release.sh ${{ matrix.target }}
 
