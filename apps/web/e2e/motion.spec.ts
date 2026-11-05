@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
+import { fakeMicrophone } from './voice-mock';
 
 /* DS-002: живые элементы — жесты, бросок, отмена жеста, настройки ощущений, плавность кадров */
 
@@ -198,14 +199,22 @@ test.describe('капля на дробном масштабе экрана (П�
 });
 
 test('микрофон не сворачивает строку Command', async ({ page }) => {
-  test.skip((page.viewportSize()?.width ?? 1280) >= 900, 'микрофон — только на телефоне');
+  test.skip((page.viewportSize()?.width ?? 1280) >= 900, 'капля Command — только на телефоне');
+  await fakeMicrophone(page);
   await page.goto('/today');
   await page.getByRole('button', { name: 'Открыть Command' }).click();
   const input = page.getByRole('combobox', { name: 'Строка Command' });
   await expect(input).toBeFocused();
-  await page.getByRole('button', { name: 'Голосом — скоро' }).click();
+  const dock = page.getByRole('navigation', { name: 'Разделы' });
+  // идёт запись (CMD-005b): вместо поля таймер, а строка остаётся раскрытой
+  await page.getByRole('button', { name: 'Записать голосом' }).click();
+  await expect(page.getByRole('button', { name: 'Остановить и отправить' })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(dock).toHaveClass(/q-open/);
+  // передумал — снова в поле, строка не свернулась
+  await page.getByRole('button', { name: 'Отменить' }).click();
   await expect(input).toBeFocused();
-  await expect(page.getByRole('navigation', { name: 'Разделы' })).toHaveClass(/q-open/);
+  await expect(dock).toHaveClass(/q-open/);
 });
 
 test('своя прокрутка: системной полосы нет, по точке у края — к заголовку', async ({ page }) => {

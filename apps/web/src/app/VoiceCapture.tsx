@@ -10,12 +10,13 @@ import { useElapsed, useVoice, type VoiceApi } from './voice-context';
 import { speechRecognition } from './voice-record';
 import { recClock } from './voice-view';
 
-/** Мигающая точка и «0:07 / 2:00». */
-function RecClock({ ms }: { ms: number }) {
+/** Мигающая точка и «0:07 / 2:00»; `short` — только «0:07» (узкая строка Command). */
+function RecClock({ ms, short = false }: { ms: number; short?: boolean }) {
+  const full = recClock(ms);
   return (
-    <span className="rec-clock">
+    <span className="rec-clock" title={full}>
       <span className="q-dot rec-dot" aria-hidden="true" />
-      <span className="rec-time">{recClock(ms)}</span>
+      <span className="rec-time">{short ? full.split(' / ')[0] : full}</span>
     </span>
   );
 }
@@ -52,11 +53,9 @@ export function VoiceBar({ onSaved }: { onSaved?: (saved: VoiceSaved) => void })
   const live = recording || v.phase === 'asking';
   const ms = useElapsed(v.started, recording);
   const hint = recording
-    ? v.heard || 'говорите; нажмите на квадрат — запись уйдёт во «Входящие»'
+    ? v.heard || 'говорите — квадрат отправит'
     : v.phase === 'sending'
-      ? v.speech
-        ? 'отправляем звук и текст браузера'
-        : 'отправляем — текст получится на сервере'
+      ? 'кладём во «Входящие»'
       : v.phase === 'asking'
         ? 'браузер спросит разрешение — нажмите «Разрешить»'
         : idleHint(v);
@@ -101,7 +100,7 @@ export function VoiceBar({ onSaved }: { onSaved?: (saved: VoiceSaved) => void })
 }
 
 /** В строке Command вместо поля, пока идёт запись: таймер и «Отменить». */
-export function CommandVoiceLive() {
+export function CommandVoiceLive({ wide }: { wide: boolean }) {
   const v = useVoice();
   const recording = v.phase === 'recording';
   const ms = useElapsed(v.started, recording);
@@ -109,7 +108,7 @@ export function CommandVoiceLive() {
     <>
       <div className="q-cmd-input voice-live">
         {recording ? (
-          <RecClock ms={ms} />
+          <RecClock ms={ms} short={!wide} />
         ) : (
           <span className="voice-live-t">
             {v.phase === 'asking' ? 'Включаем микрофон…' : 'Сохраняем…'}

@@ -13,6 +13,8 @@ export interface SyncMock {
   offline: boolean;
   /** мысль появилась «на другом устройстве»; `fields` — поверх обычных (разбор и т. п.); вернёт ID */
   addElsewhere(text: string, source?: string, fields?: Record<string, unknown>): string;
+  /** голосовая запись, которую сервер создал из `POST /api/v1/inbox/voice` (ID — от устройства) */
+  addVoice(id: string, body: string, source?: string): void;
   /** объект поменяли на сервере (агент разложил, откат): поля поверх, версия +1 */
   patch(id: string, fields: Record<string, unknown>): void;
   /** проект Planner «с другого устройства»; вернёт ID */
@@ -32,8 +34,12 @@ export interface SyncMock {
 export async function mockSync(page: Page): Promise<SyncMock> {
   const log: string[] = [];
   const sockets: WebSocketRoute[] = [];
-  const put = (object_type: string, title: string, fields: Record<string, unknown>) => {
-    const id = crypto.randomUUID();
+  const put = (
+    object_type: string,
+    title: string,
+    fields: Record<string, unknown>,
+    id: string = crypto.randomUUID(),
+  ) => {
     mock.objects.set(id, {
       id,
       object_type,
@@ -59,6 +65,15 @@ export async function mockSync(page: Page): Promise<SyncMock> {
         captured_at_ms: Date.now(),
         ...fields,
       });
+    },
+    addVoice(id, body, source = 'web') {
+      if (mock.objects.has(id)) return;
+      put(
+        'inbox.item',
+        body.split('\n')[0] ?? body,
+        { body, source, kind: 'voice', status: 'new', captured_at_ms: Date.now() },
+        id,
+      );
     },
     patch(id, fields) {
       const current = mock.objects.get(id)!;

@@ -118,7 +118,10 @@ export function voiceStep(state: VoiceState, event: VoiceEvent): VoiceState {
     case 'live':
       return state.phase === 'asking' ? { ...state, phase: 'recording', started: event.at } : state;
     case 'heard':
-      return state.phase === 'recording' ? { ...state, heard: event.text } : state;
+      // браузер может расслышать первые слова раньше, чем запись отчитается о старте
+      return state.phase === 'recording' || state.phase === 'asking'
+        ? { ...state, heard: event.text }
+        : state;
     case 'stop':
       return state.phase === 'recording' ? { ...state, phase: 'sending' } : state;
     case 'cancel':

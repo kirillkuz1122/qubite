@@ -157,6 +157,19 @@ describe('очередь голосовых записей', () => {
     expect(one).toBe(two);
   });
 
+  it('повторный вызов во время отправки не стучится второй раз в ту же неудачу', async () => {
+    const server = new VoiceServer();
+    server.fail = 'offline';
+    const queue = await open(server);
+    await queue.add(capture('a'));
+    const first = queue.flush();
+    await queue.add(capture('b'));
+    const second = queue.flush();
+    await Promise.all([first, second]);
+    // «a» — один раз; «b» добавилась во время отправки — её попробовали во втором проходе
+    expect(server.calls).toEqual(['a', 'b']);
+  });
+
   it('старые ответы сервера забываются через 30 дней', async () => {
     const server = new VoiceServer();
     const queue = await VoiceQueue.open('voice-prune', server, indexedDB, 0);

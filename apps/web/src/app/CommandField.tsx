@@ -12,7 +12,7 @@ const MENU: PlusItem[] = [
   { value: '/з ', label: 'Запись в дневник', color: 'orange', kbd: '/з' },
 ];
 
-/** Поле или запись голоса: запись въезжает справа, поле возвращается слева. */
+/** «+» и поле или запись голоса: запись въезжает справа, поле возвращается слева. */
 const VIEWS = ['text', 'voice'] as const;
 
 export interface CommandFieldProps {
@@ -34,7 +34,7 @@ export interface CommandFieldProps {
 
 /**
  * Содержимое строки Command: «+», поле, справа — микрофон (и Ctrl K на ПК). Пока идёт запись
- * голоса, вместо поля — таймер и «Отменить», а микрофон перетекает в «стоп».
+ * голоса, вместо «+» и поля — таймер и «Отменить», а микрофон перетекает в «стоп».
  */
 export function CommandField({
   inputRef,
@@ -63,37 +63,39 @@ export function CommandField({
   }, [live, voice.origin, inputRef]);
   return (
     <>
-      <PlusMenu
-        items={MENU}
-        onOpenChange={onMenu}
-        onPick={(it) => {
-          onChange(it.value);
-          requestAnimationFrame(() => inputRef.current?.focus());
-        }}
-      />
-      {wide && <span className="q-caret" aria-hidden="true" />}
       <Swap view={live ? 'voice' : 'text'} order={VIEWS} className="cmd-swap">
         {live ? (
-          <CommandVoiceLive />
+          <CommandVoiceLive wide={wide} />
         ) : (
-          <input
-            ref={inputRef}
-            className="q-cmd-input"
-            type="text"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-controls={listId}
-            aria-expanded={expanded}
-            aria-activedescendant={activeId}
-            value={value}
-            placeholder="Спроси или запиши…"
-            aria-label="Строка Command"
-            enterKeyHint="send"
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            onFocus={onFocus}
-            onBlur={onBlur}
-          />
+          <>
+            <PlusMenu
+              items={MENU}
+              onOpenChange={onMenu}
+              onPick={(it) => {
+                onChange(it.value);
+                requestAnimationFrame(() => inputRef.current?.focus());
+              }}
+            />
+            {wide && <span className="q-caret" aria-hidden="true" />}
+            <input
+              ref={inputRef}
+              className="q-cmd-input"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls={listId}
+              aria-expanded={expanded}
+              aria-activedescendant={activeId}
+              value={value}
+              placeholder="Спроси или запиши…"
+              aria-label="Строка Command"
+              enterKeyHint="send"
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              onFocus={onFocus}
+              onBlur={onBlur}
+            />
+          </>
         )}
       </Swap>
       {wide && <kbd>Ctrl K</kbd>}

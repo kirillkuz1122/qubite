@@ -158,7 +158,8 @@ export class VoiceQueue {
 
   /**
    * Отправить всё, что ждёт, по порядку записи. Одновременно идёт одна отправка; позвали
-   * ещё раз во время неё — после неё пройдёт ещё одна (запись могла добавиться).
+   * ещё раз во время неё — после неё пройдёт ещё одна, но только по новым записям: уже
+   * не отправленное в этот раз ждёт следующего повода (сеть, синхронизация).
    */
   flush(now: () => number = Date.now): Promise<VoiceFlush> {
     if (this.running) {
@@ -167,9 +168,10 @@ export class VoiceQueue {
     }
     this.running = (async () => {
       const total: VoiceFlush = { sent: [], left: 0 };
+      const tried = new Set<string>();
       do {
         this.again = false;
-        const pass = await this.pass(now);
+        const pass = await this.pass(now, tried);
         total.sent.push(...pass.sent);
         total.left = pass.left;
       } while (this.again && !this.closed);
@@ -180,16 +182,17 @@ export class VoiceQueue {
     return this.running;
   }
 
-  private async pass(now: () => number): Promise<VoiceFlush> {
+  private async pass(now: () => number, tried: Set<string>): Promise<VoiceFlush> {
     const waiting = (await this.list()).reverse(); // старые первыми
     const sent: VoiceResult[] = [];
     let left = 0;
     let stop = false;
     for (const item of waiting) {
-      if (stop || item.rejected || this.closed) {
+      if (stop || item.rejected || this.closed || tried.has(item.id)) {
         left += 1;
         continue;
       }
+      tried.add(item.id);
       try {
         const { id, audio_base64, mime, duration_ms, text, source } = item;
         const reply = await this.transport.send({

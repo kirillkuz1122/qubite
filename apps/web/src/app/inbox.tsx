@@ -164,25 +164,27 @@ export function InboxProvider({
     };
   }, [dbName, voiceTransport, flushVoice]);
 
-  /* сервер снова отвечает (синхронизация прошла) — дошлём ждущие записи */
-  const waiting = queued.filter((q) => !q.rejected).length;
+  /* синхронизация только что прошла — сервер отвечает: дошлём ждущие записи (если они есть) */
+  const lastStatus = useRef(state.status);
   useEffect(() => {
-    if (state.status === 'synced' && waiting > 0) void flushVoice().catch(() => {});
-  }, [state.status, waiting, flushVoice]);
+    const was = lastStatus.current;
+    lastStatus.current = state.status;
+    if (state.status === 'synced' && was !== 'synced') void flushVoice().catch(() => {});
+  }, [state.status, flushVoice]);
 
   const voice = useCallback(
     async (take: NewVoice): Promise<VoiceSaved> => {
       const recording: VoiceCapture = { id: uuidv7(), source: 'web', ...take };
       const q = await queue.current;
       if (!q) {
-        const reply = await voiceTransport().send(recording);
+        // хранилища на устройстве нет — только сразу на сервер (без сети — ошибка человеку)
+        await voiceTransport().send(recording);
         void syncClient.current?.sync().catch(() => {});
-        return { id: recording.id, sent: true, transcribed: reply.transcribed };
+        return { id: recording.id, kept: 'server' };
       }
       await q.add(recording);
-      const out = await flushVoice();
-      const hit = out?.sent.find((r) => r.id === recording.id);
-      return { id: recording.id, sent: !!hit, transcribed: hit?.transcribed ?? false };
+      void flushVoice().catch(() => {});
+      return { id: recording.id, kept: 'device' };
     },
     [voiceTransport, flushVoice],
   );

@@ -2478,6 +2478,7 @@ h4.eng-h {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .rec-dot {
@@ -2501,6 +2502,7 @@ html[data-motion='less'] .rec-dot {
   color: var(--q-dim);
 }
 .item .voice-play {
+  max-width: 480px;
   margin-top: 8px;
 }
 /* строка Command: поле и запись голоса меняются местами */
@@ -2510,14 +2512,19 @@ html[data-motion='less'] .rec-dot {
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* те же промежутки, что у самой строки (капля — 10 px, ПК — 12 px) */
+  gap: inherit;
 }
 .voice-live {
   display: flex;
   align-items: center;
+  padding-left: 12px;
 }
 .voice-live-t {
+  overflow: hidden;
   font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--q-mute);
 }
 .voice-live-cancel {
