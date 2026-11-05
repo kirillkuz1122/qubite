@@ -11,3 +11,6 @@ pnpm-lock.yaml
 test-results/
 playwright-report/
 .claude/
+
+# Шаблон cargo-about (OPS-008)
+about.hbs
