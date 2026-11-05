@@ -63,13 +63,16 @@ pub struct TaskRouteResponse {
     pub attribution: String,
 }
 
-/// Место дела в create.fields и patch.fields; null очищает поле.
+/// Место и длительность дела в create.fields и patch.fields; null очищает поле.
 #[derive(Serialize, ToSchema)]
 pub struct TaskPlaceFields {
     pub place_text: Option<String>,
     pub place_lat: Option<f64>,
     pub place_lon: Option<f64>,
     pub travel_minutes: Option<i32>,
+    #[schema(minimum = 1, maximum = 1440)]
+    pub duration_minutes: Option<i32>,
+    pub duration_by: Option<String>,
 }
 
 fn unavailable() -> ApiError {

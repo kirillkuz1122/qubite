@@ -14,15 +14,73 @@
 /* Под заголовком раздела — сразу поиск и действие справа, как во «Входящих» и Planner. */
 .docs-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
+.docs-index .q-note {
+  overflow-wrap: anywhere;
+}
+.docs-index > .q-seg {
+  margin-bottom: 14px;
+}
+.docs-trash,
+.docs-trash-copy {
+  min-width: 0;
+}
+.docs-trash-rows {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.docs-trash-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--q-line);
+}
+.docs-trash-copy {
+  flex: 1 1 160px;
+  display: grid;
+  gap: 4px;
+}
+.docs-trash-copy .docs-row-title {
+  overflow-wrap: anywhere;
+}
+.docs-trash-row time {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.docs-trash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Заметка «Документ в корзине · Вернуть» и ошибка не прилипают к поиску и пояснению. */
+.docs-undo,
+.docs-index > .q-note {
+  margin-bottom: 14px;
+}
+/* Под вкладками — 14 px до пояснения, как до строки поиска во «Документах» (§0.2). */
+.docs-trash > .lead:first-child {
+  margin-top: 0;
+}
+.docs-trash-row .q-btn,
+.docs-page-head .q-btn,
+.docs-index .q-note .q-btn,
+.docs-trash-actions .q-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
 .docs-search {
-  flex: 1;
+  flex: 1 1 160px;
   min-width: 0;
 }
 .docs-bar .q-btn {
   flex: none;
+  min-height: 44px;
 }
 .docs-rows {
   position: relative;
@@ -71,6 +129,7 @@
 }
 .docs-empty .q-btn {
   margin-top: 16px;
+  margin-right: 8px;
 }
 .docs-page-head {
   display: flex;
@@ -345,4 +404,71 @@
   display: flex;
   gap: 8px;
   margin-top: 8px;
+}
+
+.docs-mention {
+  display: inline-block;
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 8px;
+  border-radius: calc(var(--q-round) * 8px);
+  background: var(--q-panel-2);
+  color: var(--q-ink);
+  line-height: 44px;
+  vertical-align: baseline;
+  cursor: pointer;
+  user-select: none;
+}
+.docs-mention[data-selected='true'],
+.docs-mention:focus-visible {
+  outline: 2px solid var(--q-sky);
+}
+/* --q-mute, не --q-dim: на --q-panel-2 у --q-dim 4,46:1 (светлая) и 4,18:1 (тёмная) — ниже AA. */
+.docs-mention[data-deleted='true'] {
+  color: var(--q-mute);
+  cursor: default;
+}
+.docs-mention-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 37;
+  pointer-events: none;
+}
+.docs-mention-wrap {
+  position: absolute;
+  inset: 0;
+}
+.docs-mention-menu {
+  pointer-events: auto;
+  width: min(320px, calc(100vw - 36px));
+  max-height: min(320px, var(--docs-mention-room, 50dvh));
+}
+.docs-mention-menu .q-btn {
+  gap: 8px;
+  text-align: left;
+}
+.docs-mention-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.docs-mention-kind {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.docs-mention-empty {
+  padding: 12px 8px;
+  color: var(--q-mute);
+}
+@media (max-width: 899px) {
+  .docs-mention-menu {
+    position: fixed;
+    left: 18px;
+    right: 18px;
+    bottom: var(--docs-mention-bottom, 88px);
+    width: auto;
+    transform: none;
+  }
 }

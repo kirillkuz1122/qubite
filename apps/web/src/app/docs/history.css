@@ -1,0 +1,212 @@
+.docs-history-document,
+.docs-history-panel,
+.docs-history-list,
+.docs-history-preview {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.docs-history-layout:has(> .docs-history-panel) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+.docs-history-layout .docs-history-panel {
+  border-inline-start: 1px solid var(--q-line);
+  padding-inline-start: 16px;
+}
+.docs-history-list,
+.docs-history-preview {
+  outline: none;
+}
+.docs-history-list:focus-visible,
+.docs-history-preview:focus-visible {
+  outline: 2px solid var(--q-sky);
+  outline-offset: 4px;
+}
+.docs-history-list .sec-h {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.docs-history-save {
+  display: grid;
+  gap: 8px;
+  margin-block: 16px;
+}
+.docs-history-save .q-field {
+  min-width: 0;
+}
+.docs-history-rows {
+  position: relative;
+}
+.docs-history-item {
+  border-bottom: 1px solid var(--q-line);
+  padding-block: 8px;
+}
+.docs-history-row.q-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 88px;
+  gap: 4px;
+  padding: 12px 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+}
+.docs-history-row time,
+.docs-history-snippet {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.docs-history-row > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.docs-history-snippet {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.docs-history-row-actions,
+.docs-history-actions,
+.docs-history-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.docs-history-row-actions .q-btn,
+.docs-history-actions .q-btn,
+.docs-history-banner .q-btn,
+.docs-page-head .q-btn {
+  min-height: 44px;
+  white-space: normal;
+}
+.docs-history-banner {
+  margin-block: 24px;
+  padding-block: 12px;
+  border-block: 1px solid var(--q-line);
+}
+.docs-history-banner > span {
+  flex-basis: 100%;
+}
+.docs-history-compare {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+}
+.docs-history-compare .q-switch {
+  flex-shrink: 0;
+}
+.docs-history-title {
+  margin-block: 24px;
+  font-size: 26px;
+  line-height: 1.4;
+}
+.docs-history-diff {
+  margin-block: 8px;
+  padding-inline-start: 8px;
+  border-inline-start: 2px solid transparent;
+}
+.docs-history-diff-label {
+  font-size: 12px;
+}
+.docs-history-added {
+  border-color: var(--q-green);
+}
+.docs-history-removed {
+  border-color: var(--q-red);
+}
+.docs-history-changed {
+  border-color: var(--q-line-2);
+}
+/* Цвет на коротком маркере и подложке; сам текст — контрастный --q-ink в обеих темах. */
+.docs-history-added .docs-block-content,
+.docs-history-preview ins {
+  background: color-mix(in srgb, var(--q-green) 20%, var(--q-panel));
+  color: var(--q-ink);
+}
+.docs-history-removed .docs-block-content,
+.docs-history-preview del {
+  background: color-mix(in srgb, var(--q-red) 20%, var(--q-panel));
+  color: var(--q-ink);
+  text-decoration: line-through;
+}
+.docs-history-preview ins {
+  text-decoration: none;
+}
+/* Соседние «−было» и «+стало» в строке не слипаются в одно слово. */
+.docs-history-changed ins,
+.docs-history-changed del {
+  padding-inline: 4px;
+  border-radius: calc(var(--q-round) * 4px);
+}
+.docs-history-retry {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.docs-history-check-change {
+  display: block;
+  font-size: 12px;
+}
+.docs-history-todo {
+  position: absolute;
+  inset-inline-start: 8px;
+  top: 8px;
+}
+.docs-history-confirm {
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 840px) {
+  .docs-workspace:has(.docs-history-layout > .docs-history-panel) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .docs-workspace:has(.docs-history-layout > .docs-history-panel) .docs-index {
+    display: none;
+  }
+}
+@media (max-width: 839px) {
+  /* Поля как у Sheet с нижней панелью — и в списке, и в версии: шапка не прыгает,
+     текст не получает двойной отступ (окно 16 + тело 18). */
+  .q-sheet.docs-history-sheet {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .docs-history-sheet .q-sheet-head {
+    top: 0;
+    flex: none;
+    margin: 0 0 8px;
+    padding: 8px 16px;
+  }
+  .docs-history-sheet .q-sheet-body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding: 0 16px 24px;
+  }
+  .docs-history-sheet .docs-history-actions {
+    width: 100%;
+  }
+  .docs-history-sheet .docs-history-actions > .q-btn {
+    flex: 1;
+  }
+  .docs-history-sheet .docs-history-compare {
+    flex: 1 1 100%;
+  }
+}

@@ -10,7 +10,7 @@ User=kirill
 Environment=HOME=/home/kirill
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 ExecStart=/opt/qubite/bin/qubite-manager-wake
-TimeoutStartSec=5min
+TimeoutStartSec=38min
 
 Slice=qubite.slice
 Nice=15

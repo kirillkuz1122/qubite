@@ -160,12 +160,12 @@ test('проект как папка: дело, файл, документ, па
   await expect(head).toContainText('Личная цифровая среда');
 
   // Задачи: новое дело сразу в проекте
-  await expect(page.locator('.row').filter({ hasText: 'Проект как папка' })).toContainText(
+  await expect(page.locator('.pp-task-card').filter({ hasText: 'Проект как папка' })).toContainText(
     'завтра',
   );
   await page.getByRole('textbox', { name: 'Новое дело', exact: true }).fill('Календарь в пятницу');
   await page.getByRole('button', { name: 'Добавить' }).click();
-  await expect(page.locator('.row').filter({ hasText: 'Календарь' })).toBeVisible();
+  await expect(page.locator('.pp-task-card').filter({ hasText: 'Календарь' })).toBeVisible();
   await expect
     .poll(() => server.ops.find((op) => op.kind === 'create' && op.object_type === 'planner.task'))
     .toMatchObject({ title: 'Календарь', fields: { project_id: qubite } });
@@ -239,6 +239,7 @@ test('прямая ссылка на проект и правка заголов
 
   await page.goto(`/planner/project/${qubite}`);
   await expect(page.getByRole('region', { name: 'Проект Кубит' })).toBeVisible();
+  await page.getByRole('button', { name: 'Меню проекта' }).click();
   await page.getByRole('button', { name: 'Править' }).click();
   const form = page.getByRole('form', { name: 'Править проект' });
   await form.getByLabel('Название').fill('Qubite');

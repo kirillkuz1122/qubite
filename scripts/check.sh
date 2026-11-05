@@ -81,7 +81,7 @@ if touched "$web"; then
   fi
 fi
 
-# Лицензии зависимостей (OPS-008, D-760): cargo-deny и npm, если задеты манифесты
+# Лицензии зависимостей (OPS-008, D-840): cargo-deny и npm, если задеты манифесты
 if touched '^(Cargo\.(toml|lock)|deny\.toml|crates/.*/Cargo\.toml)'; then
   if command -v cargo-deny >/dev/null; then
     step "лицензии rust" cargo deny --log-level error check licenses bans sources

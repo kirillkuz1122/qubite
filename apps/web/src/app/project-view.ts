@@ -2,7 +2,7 @@
  * Страница проекта (PROJ-001): чистые функции — их проверяют юнит-тесты.
  * Лента «События» по дням, подписи строк «Ленты», размер файла.
  */
-import type { PlannerTask } from '@qubite/sync-client';
+import type { BoardColumn, PlannerTask, ProjectBoard } from '@qubite/sync-client';
 import type { components } from '@qubite/api-client';
 import { dayLabel, plural } from './data';
 
@@ -24,6 +24,42 @@ export const projectPath = (id: string) => `/planner/project/${id}`;
 export function projectFromPath(path: string): string | null {
   const m = path.match(/^\/planner\/project\/([^/?#]+)\/?$/);
   return m ? decodeURIComponent(m[1]!) : null;
+}
+
+// ---------------------------------------------------------------- доска проекта
+
+/** Новая копия: правка вида или колонок не меняет исходную настройку проекта. */
+export function projectBoard(board: ProjectBoard | null | undefined): ProjectBoard {
+  return {
+    view: board?.view ?? 'board',
+    columns: board
+      ? board.columns.map((column) => ({ ...column }))
+      : [
+          { status: 'todo', title: 'Надо' },
+          { status: 'doing', title: 'В работе' },
+          { status: 'done', title: 'Готово' },
+        ],
+  };
+}
+
+export interface ProjectTaskColumn extends BoardColumn {
+  tasks: PlannerTask[];
+}
+
+/** D-782: скрытый статус показываем в первой колонке, само дело не меняем. */
+export function buildProjectColumns(
+  tasks: readonly PlannerTask[],
+  board: ProjectBoard | null | undefined,
+): ProjectTaskColumn[] {
+  const columns = projectBoard(board).columns.map((column) => ({
+    ...column,
+    tasks: [] as PlannerTask[],
+  }));
+  for (const task of tasks) {
+    const column = columns.find((column) => column.status === task.status) ?? columns[0];
+    column?.tasks.push(task);
+  }
+  return columns;
 }
 
 // ---------------------------------------------------------------- события по дням
@@ -131,6 +167,7 @@ const FIELD: Record<string, string> = {
   remind_by: 'напоминание',
   project_id: 'проект',
   color: 'цвет',
+  board: 'доска',
   tag: 'тег',
   body: 'текст',
 };

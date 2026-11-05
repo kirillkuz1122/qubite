@@ -13,16 +13,18 @@
 
 use axum::{
     Json,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use futures_util::TryStreamExt;
 use qubite_agent::files as agent_files;
 use qubite_planner::folder::{self, DOCS_MODULE, Doc, FeedItem};
 use qubite_policy::{Read, Write};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tokio_util::io::StreamReader;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
@@ -103,6 +105,13 @@ pub struct ProjectDocItem {
     project_ids: Vec<Uuid>,
     #[serde(with = "time::serde::rfc3339")]
     updated_at: OffsetDateTime,
+    /// Время удаления; присутствует только в корзине.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    deleted_at: Option<OffsetDateTime>,
 }
 
 impl From<&Doc> for ProjectDocItem {
@@ -114,6 +123,7 @@ impl From<&Doc> for ProjectDocItem {
             revision: doc.revision,
             project_ids: doc.project_ids.clone(),
             updated_at: doc.updated_at,
+            deleted_at: None,
         }
     }
 }
@@ -441,6 +451,7 @@ pub async fn project_feed(
         (status = 400, description = "Нет имени, слишком большой, слишком много файлов", body = ApiErrorBody),
         (status = 403, description = "Нет права менять Planner", body = ApiErrorBody),
         (status = 404, description = "Нет такого проекта", body = ApiErrorBody),
+        (status = 429, description = "Все слоты загрузки заняты", body = ApiErrorBody),
     ))]
 pub async fn upload_project_file(
     State(state): State<AppState>,
@@ -448,14 +459,36 @@ pub async fn upload_project_file(
     Path(id): Path<Uuid>,
     Query(query): Query<UploadQuery>,
     headers: HeaderMap,
-    body: Bytes,
+    body: Body,
 ) -> Result<(StatusCode, Json<ProjectFileItem>), ApiError> {
     authorize::<Write>(&state, &session, qubite_planner::MODULE).await?;
+    if headers
+        .get(header::CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .is_some_and(|size| size > folder::MAX_FILE_BYTES as u64)
+    {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid",
+            format!("файл больше {} МБ", folder::MAX_FILE_BYTES / 1024 / 1024),
+        ));
+    }
+    // Разрешение живёт до конца обработчика и освобождается также при ошибке
+    // или отмене запроса. Не ждём слот и не читаем тело в очереди.
+    let _permit = state.project_uploads.try_acquire().map_err(|_| {
+        ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "too_many_uploads",
+            "Уже загружаются четыре файла. Попробуйте позже",
+        )
+    })?;
     let mime = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
     let mut conn = conn(&state).await?;
+    let content = StreamReader::new(body.into_data_stream().map_err(std::io::Error::other));
     let file = folder::add_file(
         &mut conn,
         &state.blobs,
@@ -463,7 +496,7 @@ pub async fn upload_project_file(
         id,
         &query.name,
         mime,
-        &body,
+        content,
     )
     .await
     .map_err(planner_error)?;
@@ -635,6 +668,8 @@ pub async fn unlink_project_doc(
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct DocsQuery {
+    /// true — корзина владельца; по умолчанию только живые документы.
+    deleted: Option<bool>,
     /// Поиск по названию и тексту (русская морфология).
     q: Option<String>,
 }
@@ -653,6 +688,21 @@ pub async fn list_my_docs(
 ) -> Result<Json<ProjectDocList>, ApiError> {
     authorize::<Read>(&state, &session, DOCS_MODULE).await?;
     let mut conn = conn(&state).await?;
+    if query.deleted.unwrap_or(false) {
+        let docs = folder::deleted_docs(&mut conn, session.0.account_id)
+            .await
+            .map_err(planner_error)?;
+        return Ok(Json(ProjectDocList {
+            docs: docs
+                .iter()
+                .map(|(doc, deleted_at)| {
+                    let mut item = ProjectDocItem::from(doc);
+                    item.deleted_at = Some(*deleted_at);
+                    item
+                })
+                .collect(),
+        }));
+    }
     let docs = folder::search_docs(
         &mut conn,
         session.0.account_id,

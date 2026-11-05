@@ -8,6 +8,7 @@ import {
   type BlockNode,
 } from './BlockNode';
 import { $importMarkdown } from './markdown';
+import { $createMentionNode } from './MentionNode';
 
 /** Следующий блок с тем же якорем идёт после предыдущего возвращённого. */
 export function $restoreLost(lost: readonly LostBlock[]): void {
@@ -18,7 +19,19 @@ export function $restoreLost(lost: readonly LostBlock[]): void {
     const kind = (BLOCK_KINDS as readonly string[]).includes(item.kind)
       ? (item.kind as BlockKind)
       : 'p';
-    const block = $createBlockNode(kind).append($createTextNode(item.text));
+    const block = $createBlockNode(kind);
+    if (item.content) {
+      for (const part of item.content) {
+        block.append(
+          part.type === 'mention'
+            ? $createMentionNode(part.target, part.kind)
+            : $createTextNode(part.text),
+        );
+      }
+    } else {
+      // Старые записи IndexedDB содержат только text.
+      block.append($createTextNode(item.text));
+    }
     const anchor =
       restored.get(item.after) ??
       (item.after === null

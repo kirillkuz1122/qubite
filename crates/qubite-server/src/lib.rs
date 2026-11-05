@@ -46,6 +46,7 @@ use axum::{
 };
 use qubite_db::Database;
 use serde::Serialize;
+use tokio::sync::Semaphore;
 use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
 use utoipa::{OpenApi, ToSchema};
 
@@ -72,6 +73,8 @@ pub struct AppState {
     pub english: Arc<qubite_english::Settings>,
     /// Файлы по хешу содержимого (файлы проектов, PROJ-001).
     pub blobs: qubite_objects::BlobStore,
+    /// Общие для всех проектов слоты потоковой загрузки (SEC-002a).
+    pub project_uploads: Arc<Semaphore>,
     /// AI кнопками (AI-003): ключ шифрования, ChatGPT, ключ OpenRouter.
     pub ai_panel: Arc<ai_console::AiPanel>,
     /// «Работа агентов» (HAR-002): GitHub Issues токеном сервера.
@@ -104,6 +107,7 @@ impl AppState {
             english: Arc::new(qubite_english::Settings::default()),
             // В тестах — временная папка; `qubite serve` задаёт `QUBITE_DATA_DIR`.
             blobs: qubite_objects::BlobStore::new(std::env::temp_dir().join("qubite-blobs")),
+            project_uploads: Arc::new(Semaphore::new(4)),
             ai_panel: Arc::new(ai_console::AiPanel::default()),
             work: Arc::new(harness::Work::default()),
             deploy_file: Arc::new(deploy::default_path()),
@@ -356,7 +360,16 @@ impl AppState {
         projects::get_my_doc,
         projects::edit_my_doc,
         docs::get_y,
-        docs::post_y
+        docs::post_y,
+        docs::link_targets,
+        docs::doc_backlinks,
+        docs::object_backlinks,
+        docs::doc_links,
+        docs::list_versions,
+        docs::get_version,
+        docs::create_version,
+        docs::rename_version,
+        docs::delete_version
     ),
     components(schemas(
         routes::RoutePoint,
@@ -587,7 +600,17 @@ impl AppState {
         projects::ProjectDocList,
         docs::YExchange,
         docs::YUpdate,
-        docs::YStateVector
+        docs::YStateVector,
+        docs::LinkTarget,
+        docs::DocLink,
+        docs::LinkTargets,
+        docs::Backlinks,
+        docs::DocLinks,
+        docs::UpdateReason,
+        docs::VersionName,
+        docs::DocVersionItem,
+        docs::DocVersion,
+        docs::DocVersions
     )),
     tags(
         (name = "system", description = "Состояние сервера"),
@@ -983,7 +1006,8 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/projects/{id}", get(projects::project_page))
         .route("/api/v1/projects/{id}/feed", get(projects::project_feed))
-        // Файл проекта — до 25 МБ (D-473): тело больше обычного лимита.
+        // Файл проекта — до 25 МБ (D-473). Для Body лимит дополнительно
+        // проверяется при чтении в folder::add_file (DefaultBodyLimit — для экстракторов).
         .route(
             "/api/v1/projects/{id}/files",
             post(projects::upload_project_file).layer(DefaultBodyLimit::max(
@@ -1003,6 +1027,23 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(projects::link_project_doc).delete(projects::unlink_project_doc),
         )
         .route("/api/v1/docs", get(projects::list_my_docs))
+        .route("/api/v1/docs/link-targets", get(docs::link_targets))
+        .route("/api/v1/docs/{id}/backlinks", get(docs::doc_backlinks))
+        .route(
+            "/api/v1/objects/{id}/backlinks",
+            get(docs::object_backlinks),
+        )
+        .route("/api/v1/docs/{id}/links", get(docs::doc_links))
+        .route(
+            "/api/v1/docs/{id}/versions",
+            get(docs::list_versions).post(docs::create_version),
+        )
+        .route(
+            "/api/v1/docs/{id}/versions/{vid}",
+            get(docs::get_version)
+                .patch(docs::rename_version)
+                .delete(docs::delete_version),
+        )
         .route("/api/v1/docs/{id}/y", get(docs::get_y).post(docs::post_y))
         .route(
             "/api/v1/docs/{id}",

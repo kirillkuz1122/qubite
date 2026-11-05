@@ -3,20 +3,62 @@
 .calendar {
   min-width: 0;
 }
+/* Телефон и планшет — две строки: «Сегодня», стрелки и период; вид, легенда и «+».
+   Шапка на 360 px — 102 px вместе с легендой (D-802: не больше 120). Период занимает
+   остаток первой строки, поэтому вид всегда начинает вторую. */
 .calendar-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  margin: 14px 0 12px;
+  gap: 4px 8px;
+  margin: 0 0 8px;
 }
+.calendar-nav {
+  flex: none;
+}
+/* до двух строк: «вторник, 3 ноября 2026 г.» на 360 px не сокращается многоточием */
 .calendar-period {
-  flex: 1 1 100%;
+  display: -webkit-box;
+  flex: 1 1 calc(100% - 240px);
   min-width: 0;
   margin: 0;
-  font-size: 14px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--q-ink);
+}
+.calendar-mode {
+  flex: none;
+  min-width: 0;
+}
+.calendar-mode .q-seg button {
+  padding-inline: 8px;
+  font-size: 12px;
+}
+.calendar .calendar-new-event,
+.calendar .calendar-nav-arrow {
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.calendar-new-event {
+  /* в разметке первая (на ПК — слева); на телефоне — в конце второй строки */
+  order: 1;
+  flex: none;
+  margin-left: auto;
+}
+.calendar-new-label {
+  display: none;
+}
+.calendar-new-icon,
+.calendar-forward-icon {
+  display: inline-flex;
+}
+.calendar-forward-icon {
+  transform: rotate(180deg);
 }
 .calendar-actions,
 .calendar-nav {
@@ -24,36 +66,49 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-/* «Назад · Сегодня · Вперёд» — одна группа: на телефоне не разрывается между строками */
+/* «Сегодня» и две стрелки остаются в одной строке с периодом, в том числе на 360 px. */
 .calendar-nav {
   flex-wrap: nowrap;
+  gap: 4px;
 }
 .calendar-actions .q-btn {
   min-height: 44px;
 }
+/* узкое место рядом с видом: записи переносятся по словам, пояс — на свою строку */
 .calendar-legend {
   display: flex;
+  flex: 1 1 0;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-bottom: 14px;
-  font-size: 12px;
+  align-items: center;
+  align-content: center;
+  gap: 0 8px;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 16px;
   color: var(--q-mute);
 }
 .calendar-legend > span {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 .calendar-legend .calendar-zone {
-  overflow-wrap: anywhere;
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .calendar-empty {
-  margin: 14px 0;
+  margin: 0 0 8px;
   font-size: 13px;
   color: var(--q-mute);
 }
 .calendar-timeline {
   --calendar-gutter: 44px;
+  --calendar-day-min: 0px;
   /* под шкалой — место плавающей капли телефона и строки Command на ПК, с зазором 16–24 px */
   --calendar-reserve: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
   min-width: 0;
@@ -63,7 +118,9 @@
 .calendar-all-day,
 .calendar-hours-grid {
   display: grid;
-  grid-template-columns: var(--calendar-gutter) repeat(var(--calendar-days), minmax(0, 1fr));
+  grid-template-columns:
+    var(--calendar-gutter)
+    repeat(var(--calendar-days), minmax(var(--calendar-day-min), 1fr));
 }
 .calendar-day-heads > div {
   min-width: 0;
@@ -86,11 +143,14 @@
   color: var(--q-mute);
 }
 .calendar-all-items {
+  position: relative;
+  min-height: 44px;
   min-width: 0;
   padding: 4px;
   border-left: 1px solid var(--q-line);
 }
 .calendar .calendar-all-item {
+  position: relative;
   display: flex;
   align-items: center;
   width: 100%;
@@ -146,30 +206,61 @@
   height: 1536px;
   border-left: 1px solid var(--q-line);
 }
-.calendar .calendar-hour-row {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  height: 64px;
-  padding: 4px;
-  border: 0;
-  border-top: 1px solid var(--q-line);
-  border-radius: 0;
-  background: transparent;
-  color: var(--q-mute);
-  font-size: 10px;
-}
-.calendar-create-label {
-  opacity: 0;
-}
-.calendar-hour-row:focus-visible .calendar-create-label {
-  opacity: 1;
-}
-.calendar .calendar-all-create {
-  width: 100%;
+.calendar-create-surface {
+  position: absolute;
+  inset: 0;
+  min-width: 44px;
   min-height: 44px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.calendar-day-track > .calendar-create-surface {
+  background: repeating-linear-gradient(to bottom, var(--q-line) 0 1px, transparent 1px 64px);
+}
+.calendar-create-surface:focus-visible {
+  outline: 2px solid var(--q-orange);
+  outline-offset: -2px;
+}
+.calendar-create-cursor {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 64px;
+  background: var(--q-sky);
+  opacity: 0;
+  pointer-events: none;
+}
+.calendar-create-surface:focus-visible .calendar-create-cursor {
+  opacity: 0.2;
+}
+.calendar-create-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  transform-origin: top;
+  background: var(--q-sky);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+/* подпись времени протяжки; не масштабируется вместе с заготовкой */
+.calendar-create-time {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
   padding: 4px;
+  overflow: hidden;
   font-size: 10px;
+  line-height: 12px;
+  color: var(--q-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
 }
 .calendar-block {
   position: absolute;
@@ -263,7 +354,15 @@
 .calendar-block.is-saving {
   opacity: 0.65;
 }
-.calendar-event-sheet {
+/* Прокручивает тело Sheet (с отступом снизу), действия — в закреплённом низу листа (D-804).
+   Своей прокрутки у формы нет: иначе последнее поле упиралось в нижнюю панель без отступа. */
+.q-wide .q-sheet.calendar-event-sheet {
+  /* «Сохранить · Другие параметры · Отмена» — в одну строку */
+  width: min(520px, 100%);
+}
+.calendar-event-details {
+  display: grid;
+  gap: 16px;
   min-width: 0;
 }
 .calendar-event-form,
@@ -307,13 +406,13 @@
 .calendar-repeat-days .q-check {
   min-height: 44px;
 }
-.calendar-event-form .calendar-actions {
-  display: flex;
-  flex-wrap: wrap;
+.calendar-event-footer {
+  display: grid;
   gap: 8px;
 }
 .calendar-event-form .q-btn,
-.calendar-event-form .q-switch {
+.calendar-event-form .q-switch,
+.calendar-event-footer .q-btn {
   min-height: 44px;
 }
 .calendar-now {
@@ -383,16 +482,103 @@
   width: 4px;
   height: 4px;
 }
+@media (min-width: 840px) {
+  /* Календарь использует доступную ширину, а не общую колонку текста 760 px. */
+  .main:has(.calendar) .main-in {
+    max-width: none;
+  }
+  .calendar-timeline {
+    --calendar-day-min: 96px;
+    overflow-x: auto;
+  }
+  .calendar-day-heads,
+  .calendar-all-day,
+  .calendar-scroll {
+    /* + 24 px: место под вертикальную полосу прокрутки шкалы */
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
+  }
+}
+@media (min-width: 840px) and (max-width: 1279px) {
+  /* На ноутбуке сохраняем поля 18 px: семь дней помещаются при ширине 1024 px. */
+  .main:has(.calendar) .main-in {
+    padding-inline: 18px;
+  }
+}
+@media (min-width: 1280px) {
+  .calendar-timeline {
+    --calendar-day-min: 120px;
+  }
+}
 @media (min-width: 900px) {
   .calendar-timeline {
     --calendar-reserve: 106px;
   }
 }
 @media (min-width: 600px) {
-  .calendar-period {
-    font-size: 16px;
-  }
   .calendar-month .calendar-month-day {
     min-height: 80px;
+  }
+}
+@media (min-width: 840px) {
+  /* Решил расширять только календарь; остальные разделы сохраняют колонку 760 px. */
+  .main-in:has(.calendar) {
+    max-width: none;
+  }
+  /* ПК — одна строка как в Google; легенда — мелким шрифтом своей строкой под ней */
+  .calendar-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+  .calendar-nav {
+    flex: none;
+  }
+  .calendar-period {
+    display: block;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .calendar-mode {
+    flex: none;
+  }
+  .calendar-legend {
+    order: 1;
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    font-size: 11px;
+  }
+  .calendar .calendar-new-event {
+    order: 0;
+    flex: none;
+    width: auto;
+    margin-left: 0;
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  .calendar-new-label {
+    display: inline;
+  }
+  .calendar-new-icon {
+    display: none;
+  }
+  /* Если места мало, прокручивается сама неделя вместе с заголовками, а не страница.
+     Запас 24 px оставляет место полосе вертикальной прокрутки шкалы. */
+  .calendar-view {
+    overflow-x: auto;
+  }
+  .calendar-timeline {
+    min-width: calc(var(--calendar-gutter) + var(--calendar-days) * var(--calendar-day-min) + 24px);
+  }
+  .calendar-day-heads,
+  .calendar-all-day,
+  .calendar-hours-grid {
+    grid-template-columns: var(--calendar-gutter) repeat(
+        var(--calendar-days),
+        minmax(var(--calendar-day-min), 1fr)
+      );
   }
 }

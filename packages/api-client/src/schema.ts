@@ -1636,6 +1636,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs/link-targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Цели упоминаний: до восьми своих объектов, документы первыми. */
+    get: operations['link_targets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/docs/{id}': {
     parameters: {
       query?: never;
@@ -1654,6 +1671,77 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs/{id}/backlinks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Объекты, упоминающие документ и доступные читателю. */
+    get: operations['doc_backlinks'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}/links': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Исходящие упоминания документа, включая цели в корзине. */
+    get: operations['doc_links'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}/versions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** История своего документа, включая корзину; без полных состояний. */
+    get: operations['list_versions'];
+    put?: never;
+    /** Именованный снимок текущего состояния сервера. */
+    post: operations['create_version'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs/{id}/versions/{vid}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Полный снимок своей версии; доступен и в корзине. */
+    get: operations['get_version'];
+    put?: never;
+    post?: never;
+    /** Удалить только именованную версию. */
+    delete: operations['delete_version'];
+    options?: never;
+    head?: never;
+    /** Переименовать только именованную версию. */
+    patch: operations['rename_version'];
+    trace?: never;
+  };
   '/api/v1/docs/{id}/y': {
     parameters: {
       query?: never;
@@ -1664,7 +1752,7 @@ export interface paths {
     /** Забрать недостающее состояние документа Yjs v1. */
     get: operations['get_y'];
     put?: never;
-    /** Слить обновление Yjs v1 и сохранить простой текст для поиска. */
+    /** Слить обновление Yjs v1, сохранить простой текст и упоминания. */
     post: operations['post_y'];
     delete?: never;
     options?: never;
@@ -2463,6 +2551,23 @@ export interface paths {
     put?: never;
     /** Прочитано: гаснет и в Telegram. */
     post: operations['read_notice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/objects/{id}/backlinks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Объекты, упоминающие объект и доступные читателю. */
+    get: operations['object_backlinks'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3442,6 +3547,9 @@ export interface components {
       target_id?: string | null;
       target_kind: string;
     };
+    Backlinks: {
+      backlinks: components['schemas']['LinkTarget'][];
+    };
     CalendarEvent: {
       all_day: boolean;
       /** Format: int64 */
@@ -3669,6 +3777,40 @@ export interface components {
       session_id: string;
       /** @description Всегда `Bearer`. */
       token_type: string;
+    };
+    DocLink: {
+      deleted: boolean;
+      /** Format: uuid */
+      id: string;
+      title: string;
+      type: string;
+    };
+    DocLinks: {
+      links: components['schemas']['DocLink'][];
+    };
+    DocVersion: components['schemas']['DocVersionItem'] & {
+      text: string;
+      /** @description Полное состояние Yjs v1, standard base64. */
+      ystate: string;
+    };
+    DocVersionItem: {
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      kind: string;
+      name?: string | null;
+      /** @description Первые 120 знаков сохранённого текста. */
+      preview: string;
+      /**
+       * Format: int32
+       * @description Размер ystate в байтах.
+       */
+      size: number;
+      title: string;
+    };
+    DocVersions: {
+      versions: components['schemas']['DocVersionItem'][];
     };
     /** @description Ответ на задание: значение с экрана или запись голоса. */
     EnglishAnswer: {
@@ -4419,6 +4561,15 @@ export interface components {
     LinkStarted: {
       authorize_url: string;
     };
+    LinkTarget: {
+      /** Format: uuid */
+      id: string;
+      title: string;
+      type: string;
+    };
+    LinkTargets: {
+      targets: components['schemas']['LinkTarget'][];
+    };
     /** @description Координаты из браузера (геолокация). */
     LocateRequest: {
       /** Format: double */
@@ -4834,6 +4985,11 @@ export interface components {
     };
     /** @description Документ в списке. */
     ProjectDocItem: {
+      /**
+       * Format: date-time
+       * @description Время удаления; присутствует только в корзине.
+       */
+      deleted_at?: string | null;
       /** Format: uuid */
       id: string;
       /** @description Первая строка текста. */
@@ -5191,8 +5347,11 @@ export interface components {
     TaskModelChange: {
       model_id?: string | null;
     };
-    /** @description Место дела в create.fields и patch.fields; null очищает поле. */
+    /** @description Место и длительность дела в create.fields и patch.fields; null очищает поле. */
     TaskPlaceFields: {
+      duration_by?: string | null;
+      /** Format: int32 */
+      duration_minutes?: number | null;
       /** Format: double */
       place_lat?: number | null;
       /** Format: double */
@@ -5235,6 +5394,8 @@ export interface components {
     Toggle: {
       enabled: boolean;
     };
+    /** @enum {string} */
+    UpdateReason: 'restore';
     /** @description Расход за группу: $, вызовы, токены. */
     UsageRow: {
       /** @description День (`2026-10-23`), модуль, модель или почта. */
@@ -5256,6 +5417,10 @@ export interface components {
       email?: string | null;
       /** @description Токен из ссылки в письме (`?token=…`). */
       token?: string | null;
+    };
+    VersionName: {
+      /** @description Непустое имя до 80 знаков; пробелы по краям убираются. */
+      name: string;
     };
     /** @description Раздел «Агенты» целиком. */
     WorkBoard: {
@@ -5330,10 +5495,22 @@ export interface components {
     YStateVector: {
       /** @description Вектор состояния сервера v1, standard base64. */
       sv: string;
+      /** @description Нужен pull и повторная отправка текста слитого документа. */
+      text_stale: boolean;
     };
     YUpdate: {
+      /** @description UUID упоминаний без повторов, до 200; отсутствие поля сохраняет прежние связи. */
+      links?: string[];
+      reason?: components['schemas']['UpdateReason'] | null;
+      /**
+       * Format: uuid
+       * @description Исходная версия (информационное поле; могла быть удалена после скачивания).
+       */
+      restore_of?: string | null;
       /** @description Первое преобразование Markdown; если состояние уже есть — seed_taken. */
       seed?: boolean;
+      /** @description Снимок копии клиента (вектор и удаления), из которой построен text, v1, standard base64. */
+      snapshot?: string | null;
       /** @description Простой текст для поиска; не больше 200 000 знаков. */
       text: string;
       /** @description Обновление v1, standard base64; после декодирования не больше 512 КиБ. */
@@ -9654,6 +9831,8 @@ export interface operations {
   list_my_docs: {
     parameters: {
       query?: {
+        /** @description true — корзина владельца; по умолчанию только живые документы. */
+        deleted?: boolean | null;
         /** @description Поиск по названию и тексту (русская морфология). */
         q?: string | null;
       };
@@ -9673,6 +9852,38 @@ export interface operations {
         };
       };
       /** @description Нет доступа к Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  link_targets: {
+    parameters: {
+      query?: {
+        /** @description Подстрока названия без учёта регистра; пустая — недавние объекты. */
+        q?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Цели упоминаний */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LinkTargets'];
+        };
+      };
+      /** @description Нет права читать Docs */
       403: {
         headers: {
           [name: string]: unknown;
@@ -9759,6 +9970,346 @@ export interface operations {
         };
       };
       /** @description conflict: перечитать; use_editor: текст меняется в редакторе */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  doc_backlinks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обратные ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Backlinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  doc_links: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Исходящие ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocLinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_versions: {
+    parameters: {
+      query?: {
+        /** @description Версии строго старше этого времени (RFC 3339). */
+        before?: string | null;
+        /** @description Размер страницы, 1…50, по умолчанию 50. */
+        limit?: number | null;
+      };
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Список версий */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocVersions'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_version: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VersionName'];
+      };
+    };
+    responses: {
+      /** @description Версия сохранена */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocVersion'];
+        };
+      };
+      /** @description invalid_name или empty_state */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_version: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+        /** @description ID версии */
+        vid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Полная версия */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocVersion'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ или версия не найдены или чужие */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_version: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+        /** @description ID версии */
+        vid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Версия удалена */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нет права менять Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ или версия не найдены или чужие */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description not_named */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  rename_version: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID документа */
+        id: string;
+        /** @description ID версии */
+        vid: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VersionName'];
+      };
+    };
+    responses: {
+      /** @description Версия переименована */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DocVersion'];
+        };
+      };
+      /** @description invalid_name */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права менять Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Документ или версия не найдены или чужие */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description not_named */
       409: {
         headers: {
           [name: string]: unknown;
@@ -11847,6 +12398,47 @@ export interface operations {
       };
     };
   };
+  object_backlinks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID объекта */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Обратные ссылки */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Backlinks'];
+        };
+      };
+      /** @description Нет права читать Docs */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Объект не найден или чужой */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   list_opportunities: {
     parameters: {
       query?: {
@@ -12366,6 +12958,15 @@ export interface operations {
       };
       /** @description Нет такого проекта */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Все слоты загрузки заняты */
+      429: {
         headers: {
           [name: string]: unknown;
         };

@@ -336,6 +336,8 @@ mod tests {
             place_lat: None,
             place_lon: None,
             travel_minutes: None,
+            duration_minutes: None,
+            duration_by: None,
             status: Status::Todo,
             priority: Priority::Normal,
             due_date: Some(date!(2026 - 10 - 20)),

@@ -45,6 +45,12 @@ running() {
 if [[ ${1:-} == --status ]]; then
     echo "в очереди: $(queue | tr '\n' ' ')"
     echo "в работе:  $(running | tr '\n' ' ')"
+    /opt/qubite/bin/qubite-codex-limits --line 2>/dev/null || echo "Codex: лимиты неизвестны"
+    if [[ -S $(readlink -f "$HOME/.codex/app-server-control/app-server-control.sock") ]]; then
+        echo "демон Remote Control: работает (сессии видны в приложении)"
+    else
+        echo "демон Remote Control: нет — задания пойдут через codex exec"
+    fi
     exit 0
 fi
 
@@ -83,6 +89,17 @@ if awk -v l="$load" -v m="$MAX_LOAD" 'BEGIN {exit !(l > m)}' || ((mem < MIN_MEM_
     [[ -n $(queue | head -1) ]] && log "Pi занята (load $load, свободно ${mem}M), отложено"
     exit 0
 fi
+
+# Лимиты Codex: есть задание — свежие (≤2 мин), нет — раз в 30 мин, чтобы будильник менеджера их видел.
+# Осталось ≤5% за 5 часов или ≤2% за неделю — не берём, ждём сброса (таймер повторит). Неизвестно — берём.
+has_job=$(queue | sed -n 1p) || true
+lim_rc=0
+lim=$(timeout 60 /opt/qubite/bin/qubite-codex-limits --check --max-age "$([[ -n $has_job ]] && echo 120 || echo 1800)" 2>/dev/null) || lim_rc=$?
+if [[ $lim_rc -eq 2 && -n $has_job ]]; then
+    log "лимит Codex почти исчерпан ($lim) — задание не беру, жду сброса"
+    exit 0
+fi
+[[ -n $has_job ]] || exit 0
 
 # Первое задание от владельца: автор issue или тот, кто поставил метку codex.
 N=""

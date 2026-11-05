@@ -18,8 +18,10 @@
 
 pub mod event;
 pub mod folder;
+pub mod mentions;
 pub mod recurrence;
 pub mod reminder;
+pub mod versions;
 pub mod ydoc;
 
 pub use qubite_objects::{Error, Result};
@@ -99,6 +101,49 @@ text_enum!(
     /// Цвет точки проекта из палитры «Частиц».
     Color { Orange = "orange", Sky = "sky", Yellow = "yellow", Green = "green", Peach = "peach" }
 );
+
+text_enum!(
+    /// Вид проекта: доска или список.
+    BoardView { Board = "board", List = "list" }
+);
+
+/// Колонка доски использует существующий статус дела (D-252).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BoardColumn {
+    pub status: Status,
+    pub title: String,
+}
+
+/// Настройка проекта; `null` означает «Надо / В работе / Готово», вид «доска».
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectBoard {
+    pub columns: Vec<BoardColumn>,
+    pub view: BoardView,
+}
+
+impl ProjectBoard {
+    fn normalize(mut self) -> Result<Self, FieldsError> {
+        if !(2..=3).contains(&self.columns.len()) {
+            return Err(bad("у доски должно быть 2–3 колонки"));
+        }
+        let mut seen = std::collections::HashSet::new();
+        for column in &mut self.columns {
+            if !seen.insert(column.status.as_str()) {
+                return Err(bad("у колонок доски повторяется статус"));
+            }
+            column.title = column.title.trim().to_owned();
+            if column.title.is_empty() || column.title.chars().count() > 24 {
+                return Err(bad("название колонки — от 1 до 24 символов"));
+            }
+        }
+        if !seen.contains("done") {
+            return Err(bad("у доски нужна колонка done"));
+        }
+        Ok(self)
+    }
+}
 
 fn parse<T: std::str::FromStr<Err = String>>(value: &str) -> Result<T> {
     value.parse().map_err(Error::Invalid)
@@ -194,6 +239,7 @@ pub struct Project {
     pub tag: String,
     pub status: ProjectStatus,
     pub notes: String,
+    pub board: Option<ProjectBoard>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -211,10 +257,11 @@ struct ProjectRow {
     tag: String,
     status: String,
     notes: String,
+    board: Option<sqlx::types::Json<ProjectBoard>>,
 }
 
 const PROJECT_SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, \
-     o.created_at, o.updated_at, p.color, p.tag, p.status, p.notes \
+     o.created_at, o.updated_at, p.color, p.tag, p.status, p.notes, p.board \
      FROM objects o JOIN planner_projects p ON p.object_id = o.id";
 
 impl TryFrom<ProjectRow> for Project {
@@ -230,6 +277,7 @@ impl TryFrom<ProjectRow> for Project {
             tag: row.tag,
             status: parse(&row.status)?,
             notes: row.notes,
+            board: row.board.map(|board| board.0),
             created_at: row.created_at,
             updated_at: row.updated_at,
         })
@@ -244,6 +292,7 @@ impl Project {
             "tag": self.tag,
             "status": self.status,
             "notes": self.notes,
+            "board": self.board,
         })
     }
 }
@@ -327,6 +376,11 @@ pub struct Subtask {
     pub done: bool,
 }
 
+text_enum! {
+    /// Кто указал длительность дела.
+    DurationBy { Owner = "owner", Agent = "agent" }
+}
+
 /// Дело целиком.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Task {
@@ -344,6 +398,8 @@ pub struct Task {
     pub place_lat: Option<f64>,
     pub place_lon: Option<f64>,
     pub travel_minutes: Option<i32>,
+    pub duration_minutes: Option<i32>,
+    pub duration_by: Option<DurationBy>,
     pub subtasks: Vec<Subtask>,
     pub recurrence: Option<Recurrence>,
     /// Своё время напоминания; нет — «само» по смыслу дела ([`reminder`]).
@@ -380,6 +436,8 @@ struct TaskRow {
     place_lat: Option<f64>,
     place_lon: Option<f64>,
     travel_minutes: Option<i32>,
+    duration_minutes: Option<i32>,
+    duration_by: Option<String>,
     subtasks: Value,
     recurrence: Option<Value>,
     remind: Option<Value>,
@@ -394,7 +452,7 @@ struct TaskRow {
 const TASK_SELECT: &str = "SELECT o.id, o.owner_id, o.title, o.revision, o.deleted_at, \
      o.created_at, o.updated_at, t.notes, t.status, t.priority, t.due_date, t.due_time, \
      t.subtasks, t.recurrence, t.remind, t.remind_why, t.remind_by, t.completed_at, \
-     t.series_id, t.next_id, t.place_text, t.place_lat, t.place_lon, t.travel_minutes, \
+     t.series_id, t.next_id, t.place_text, t.place_lat, t.place_lon, t.travel_minutes, t.duration_minutes, t.duration_by, \
      (SELECT r.to_id FROM relations r JOIN objects p ON p.id = r.to_id \
        WHERE r.from_id = o.id AND r.type = 'part_of' AND r.deleted_at IS NULL \
          AND p.type = 'planner.project' ORDER BY r.created_at DESC LIMIT 1) AS project_id \
@@ -419,6 +477,8 @@ impl TryFrom<TaskRow> for Task {
             place_lat: row.place_lat,
             place_lon: row.place_lon,
             travel_minutes: row.travel_minutes,
+            duration_minutes: row.duration_minutes,
+            duration_by: row.duration_by.as_deref().map(parse).transpose()?,
             subtasks: serde_json::from_value(row.subtasks).map_err(invalid)?,
             recurrence: row
                 .recurrence
@@ -462,6 +522,8 @@ impl Task {
             "place_lat": self.place_lat,
             "place_lon": self.place_lon,
             "travel_minutes": self.travel_minutes,
+            "duration_minutes": self.duration_minutes,
+            "duration_by": self.duration_by,
             "subtasks": self.subtasks,
             "recurrence": self.recurrence,
             "remind": self.remind,
@@ -513,6 +575,25 @@ pub async fn list_tasks(
     rows.into_iter().map(Task::try_from).collect()
 }
 
+/// Выполненные дела с длительностью, свежие первыми, — история для оценки
+/// длительности (отбор до лимита, чтобы старые дела без неё не вытесняли её).
+pub async fn done_with_duration(
+    conn: &mut PgConnection,
+    owner: Uuid,
+    limit: i64,
+) -> Result<Vec<Task>> {
+    let rows: Vec<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT * FROM ({TASK_SELECT} WHERE o.owner_id = $1 AND o.deleted_at IS NULL) t \
+         WHERE t.duration_minutes IS NOT NULL AND t.status = 'done' \
+         ORDER BY t.updated_at DESC, t.id LIMIT $2"
+    )))
+    .bind(owner)
+    .bind(limit.clamp(1, 1000))
+    .fetch_all(conn)
+    .await?;
+    rows.into_iter().map(Task::try_from).collect()
+}
+
 // ---------------------------------------------------------------- поля для синхронизации
 
 /// Поле, которое можно явно очистить: нет ключа — не трогать, `null` — очистить.
@@ -530,6 +611,9 @@ pub struct ProjectFields {
     pub tag: Option<String>,
     pub status: Option<ProjectStatus>,
     pub notes: Option<String>,
+    /// Нет ключа — оставить; `null` — вернуть стандартную доску.
+    #[serde(default, deserialize_with = "some")]
+    pub board: Option<Option<ProjectBoard>>,
 }
 
 /// Поля дела при создании (`create.fields`) и изменении (`patch.fields`).
@@ -556,6 +640,10 @@ pub struct TaskFields {
     pub place_lon: Option<Option<f64>>,
     #[serde(default, deserialize_with = "some")]
     pub travel_minutes: Option<Option<i32>>,
+    #[serde(default, deserialize_with = "some")]
+    pub duration_minutes: Option<Option<i32>>,
+    #[serde(default, deserialize_with = "some")]
+    pub duration_by: Option<Option<DurationBy>>,
     /// Весь список шагов целиком.
     pub subtasks: Option<Vec<Subtask>>,
     /// Повторение; без срока нельзя.
@@ -637,6 +725,8 @@ struct TaskState {
     place_lat: Option<f64>,
     place_lon: Option<f64>,
     travel_minutes: Option<i32>,
+    duration_minutes: Option<i32>,
+    duration_by: Option<DurationBy>,
     subtasks: Vec<Subtask>,
     recurrence: Option<Recurrence>,
     remind: Option<Remind>,
@@ -656,6 +746,8 @@ impl TaskState {
             place_lat: task.place_lat,
             place_lon: task.place_lon,
             travel_minutes: task.travel_minutes,
+            duration_minutes: task.duration_minutes,
+            duration_by: task.duration_by,
             subtasks: task.subtasks.clone(),
             recurrence: task.recurrence.clone(),
             remind: task.remind.clone(),
@@ -675,6 +767,8 @@ impl TaskState {
             place_lat: None,
             place_lon: None,
             travel_minutes: None,
+            duration_minutes: None,
+            duration_by: None,
             subtasks: Vec::new(),
             recurrence: None,
             remind: None,
@@ -759,6 +853,17 @@ impl TaskState {
             }
             self.travel_minutes = minutes;
             changed.push("travel_minutes");
+        }
+        if let Some(minutes) = fields.duration_minutes {
+            if minutes.is_some_and(|minutes| !(1..=1440).contains(&minutes)) {
+                return Err(bad("длительность — от 1 до 1440 минут"));
+            }
+            self.duration_minutes = minutes;
+            self.duration_by =
+                minutes.map(|_| fields.duration_by.flatten().unwrap_or(DurationBy::Owner));
+            changed.extend(["duration_minutes", "duration_by"]);
+        } else if fields.duration_by.is_some() {
+            return Err(bad("duration_by ставится вместе с duration_minutes"));
         }
         if let Some(subtasks) = &fields.subtasks {
             check_subtasks(subtasks)?;
@@ -847,14 +952,15 @@ async fn write_task(
     let sql = if insert {
         "INSERT INTO planner_tasks (object_id, notes, status, priority, due_date, due_time, \
          subtasks, recurrence, remind, remind_why, remind_by, completed_at, \
-         place_text, place_lat, place_lon, travel_minutes) \
+         place_text, place_lat, place_lon, travel_minutes, duration_minutes, duration_by) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, \
-                 CASE WHEN $3 = 'done' THEN now() END, $12, $13, $14, $15)"
+                 CASE WHEN $3 = 'done' THEN now() END, $12, $13, $14, $15, $16, $17)"
     } else {
         "UPDATE planner_tasks SET notes = $2, status = $3, priority = $4, due_date = $5, \
          due_time = $6, subtasks = $7, recurrence = $8, remind = $9, remind_why = $10, \
          remind_by = $11, completed_at = CASE WHEN $3 = 'done' THEN coalesce(completed_at, now()) END, \
-         place_text = $12, place_lat = $13, place_lon = $14, travel_minutes = $15 \
+         place_text = $12, place_lat = $13, place_lon = $14, travel_minutes = $15, \
+         duration_minutes = $16, duration_by = $17 \
          WHERE object_id = $1"
     };
     sqlx::query(sql)
@@ -873,6 +979,8 @@ async fn write_task(
         .bind(state.place_lat)
         .bind(state.place_lon)
         .bind(state.travel_minutes)
+        .bind(state.duration_minutes)
+        .bind(state.duration_by.map(DurationBy::as_str))
         .execute(conn)
         .await?;
     Ok(())
@@ -1020,15 +1128,21 @@ impl TypeFields for ProjectFieldsHandler {
             let notes = fields.notes.unwrap_or_default();
             check_notes(&notes)?;
             let tag = check_tag(fields.tag.as_deref().unwrap_or(&object.title))?;
+            let board = fields
+                .board
+                .flatten()
+                .map(ProjectBoard::normalize)
+                .transpose()?;
             sqlx::query(
-                "INSERT INTO planner_projects (object_id, color, tag, status, notes) \
-                 VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO planner_projects (object_id, color, tag, status, notes, board) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
             )
             .bind(object.id)
             .bind(fields.color.unwrap_or(Color::Orange).as_str())
             .bind(tag)
             .bind(fields.status.unwrap_or(ProjectStatus::Active).as_str())
             .bind(notes)
+            .bind(board.map(sqlx::types::Json))
             .execute(conn)
             .await?;
             Ok(())
@@ -1077,6 +1191,15 @@ impl TypeFields for ProjectFieldsHandler {
                     .execute(&mut *conn)
                     .await?;
                 changed.push("notes".to_owned());
+            }
+            if let Some(board) = fields.board {
+                let board = board.map(ProjectBoard::normalize).transpose()?;
+                sqlx::query("UPDATE planner_projects SET board = $2 WHERE object_id = $1")
+                    .bind(object.id)
+                    .bind(board.map(sqlx::types::Json))
+                    .execute(&mut *conn)
+                    .await?;
+                changed.push("board".to_owned());
             }
             if changed.is_empty() {
                 return Err(bad("нечего менять"));
@@ -1206,5 +1329,61 @@ impl TypeFields for TaskFieldsHandler {
             let defaults = reminder::defaults(conn, task.owner_id).await?;
             Ok(Some(task.fields_with(defaults)))
         })
+    }
+}
+
+#[cfg(test)]
+mod duration_tests {
+    use super::*;
+
+    fn fields(value: Value) -> TaskFields {
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn duration_bounds_source_and_clear() {
+        for minutes in [1, 1440] {
+            let mut state = TaskState::fresh();
+            state
+                .apply(&fields(json!({"duration_minutes": minutes})))
+                .unwrap();
+            assert_eq!(state.duration_minutes, Some(minutes));
+            assert_eq!(state.duration_by, Some(DurationBy::Owner));
+            state
+                .apply(&fields(
+                    json!({"duration_minutes": minutes, "duration_by": "agent"}),
+                ))
+                .unwrap();
+            assert_eq!(state.duration_by, Some(DurationBy::Agent));
+            state
+                .apply(&fields(json!({"notes": "другая заметка"})))
+                .unwrap();
+            assert_eq!(state.duration_minutes, Some(minutes));
+            let changed = state
+                .apply(&fields(json!({"duration_minutes": null})))
+                .unwrap();
+            assert_eq!(state.duration_minutes, None);
+            assert_eq!(state.duration_by, None);
+            assert!(changed.contains(&"duration_by".into()));
+        }
+        for minutes in [-1, 0, 1441, i32::MAX] {
+            assert!(
+                TaskState::fresh()
+                    .apply(&fields(json!({"duration_minutes": minutes})))
+                    .is_err()
+            );
+        }
+        assert!(
+            TaskState::fresh()
+                .apply(&fields(json!({"duration_by": "agent"})))
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<TaskFields>(json!({
+                "duration_minutes": 10,
+                "duration_by": "auto"
+            }))
+            .is_err()
+        );
     }
 }

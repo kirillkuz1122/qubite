@@ -3,6 +3,9 @@
  * «Входящие» (CMD-007), «Сегодня» и Planner (PLAN-001) — уже на настоящих данных.
  * «Главная» (HOME-001) — первый экран после входа (D-327).
  */
+// Общий формат доски проекта; разбор локальных записей — в toProject клиента синхронизации.
+export type { BoardColumn, BoardView, ProjectBoard } from '@qubite/sync-client';
+
 import type { ColorName, CompanionKind, ElikMood, IconName } from '@qubite/ui';
 
 export type SectionId = 'home' | 'today' | 'inbox' | 'planner' | 'agent' | 'docs' | 'settings';

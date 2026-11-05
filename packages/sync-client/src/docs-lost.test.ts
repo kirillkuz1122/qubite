@@ -43,6 +43,19 @@ function blockAt(doc: Y.Doc, index: number): Y.XmlText {
   return block;
 }
 
+const mentionTarget = '11111111-1111-4111-8111-111111111111';
+
+/** DecoratorNode Lexical хранится как XmlElement со свойствами узла. */
+function addMention(doc: Y.Doc, block: Y.XmlText, target = mentionTarget): void {
+  doc.transact(() => {
+    const mention = new Y.XmlElement('decorator');
+    block.insertEmbed(block.length, mention);
+    mention.setAttribute('__type', 'qubite-mention');
+    mention.setAttribute('__target', target);
+    mention.setAttribute('__kind', 'planner.task');
+  });
+}
+
 function receive(to: Y.Doc, from: Y.Doc, origin: unknown = serverOrigin): void {
   Y.applyUpdate(to, Y.encodeStateAsUpdate(from, Y.encodeStateVector(to)), origin);
 }
@@ -70,6 +83,167 @@ function watch(doc: Y.Doc): { calls: LostBlock[][]; stop: () => void } {
 }
 
 describe('Документы: дописки в удалённые блоки Lexical', () => {
+  it('на обеих копиях находит чип без текста и не повторяет предложение', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    addMention(a, blockAt(a, 1));
+    root(b).delete(1, 1);
+    exchange(a, b);
+    const expected = [
+      [
+        {
+          text: '',
+          kind: 'text',
+          after: 'Перед',
+          content: [{ type: 'mention', target: mentionTarget, kind: 'planner.task' }],
+        },
+      ],
+    ];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+    exchange(a, b);
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b), serverOrigin);
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a), serverOrigin);
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
+  it('сохраняет порядок дописок и нескольких чипов, даже с другого устройства', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    const block = blockAt(b, 1);
+    block.insert(block.length, 'до ');
+    addMention(b, block);
+    block.insert(block.length, ' между ');
+    addMention(b, block);
+    block.insert(block.length, ' после');
+    root(a).delete(1, 1);
+    exchange(a, b);
+    const expected = [
+      [
+        {
+          text: 'до  между  после',
+          kind: 'text',
+          after: 'Перед',
+          content: [
+            { type: 'text', text: 'до ' },
+            { type: 'mention', target: mentionTarget, kind: 'planner.task' },
+            { type: 'text', text: ' между ' },
+            { type: 'mention', target: mentionTarget, kind: 'planner.task' },
+            { type: 'text', text: ' после' },
+          ],
+        },
+      ],
+    ];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
+  it('учитывает чип в живом соседе как якорь Lexical «@»', () => {
+    const [a, b] = pair();
+    addMention(a, blockAt(a, 0));
+    receive(b, a);
+    const here = watch(a);
+    const there = watch(b);
+    blockAt(a, 1).insert(blockAt(a, 1).length, ' дописка');
+    root(b).delete(1, 1);
+    exchange(a, b);
+    const expected = [[{ text: ' дописка', kind: 'text', after: 'Перед@' }]];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
+  it('не возвращает подтверждённый чип, но сохраняет новую дописку рядом', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    addMention(a, blockAt(a, 1));
+    exchange(a, b);
+    blockAt(a, 1).insert(blockAt(a, 1).length, ' новое');
+    root(b).delete(1, 1);
+    exchange(a, b);
+    const expected = [[{ text: ' новое', kind: 'text', after: 'Перед' }]];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
+  it('не предлагает намеренно удалённый чип', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    const block = blockAt(a, 1);
+    addMention(a, block);
+    block.delete(block.length - 1, 1);
+    root(b).delete(1, 1);
+    exchange(a, b);
+    expect(here.calls).toEqual([]);
+    expect(there.calls).toEqual([]);
+  });
+
+  it('возвращает повторно вставленный чип, но не его удалённую копию', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    const block = blockAt(a, 1);
+    addMention(a, block);
+    block.delete(block.length - 1, 1);
+    // Та же цель, но другой Item: удаление первого чипа не отменяет второй.
+    addMention(a, block);
+    root(b).delete(1, 1);
+    exchange(a, b);
+    const expected = [
+      [
+        {
+          text: '',
+          kind: 'text',
+          after: 'Перед',
+          content: [{ type: 'mention', target: mentionTarget, kind: 'planner.task' }],
+        },
+      ],
+    ];
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+    exchange(a, b);
+    expect(here.calls).toEqual(expected);
+    expect(there.calls).toEqual(expected);
+  });
+
+  it('не предлагает чип, если автор сам удалил весь блок', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const there = watch(b);
+    addMention(a, blockAt(a, 1));
+    root(a).delete(1, 1);
+    exchange(a, b);
+    expect(here.calls).toEqual([]);
+    expect(there.calls).toEqual([]);
+  });
+
+  it('поздние посылки в удалённый блок сообщают только новые чипы', () => {
+    const [a, b] = pair();
+    const here = watch(a);
+    const block = blockAt(b, 1);
+    root(a).delete(1, 1);
+    addMention(b, block);
+    receive(a, b);
+    receive(a, b);
+    const next = '22222222-2222-4222-8222-222222222222';
+    addMention(b, block, next);
+    receive(a, b);
+    expect(here.calls).toEqual(
+      [mentionTarget, next].map((target) => [
+        {
+          text: '',
+          kind: 'text',
+          after: 'Перед',
+          content: [{ type: 'mention', target, kind: 'planner.task' }],
+        },
+      ]),
+    );
+  });
+
   it('на обоих устройствах находит ровно дописку, вид и предыдущий живой блок', () => {
     const [a, b] = pair();
     blockAt(a, 1).setAttribute('kind', 'quote');
@@ -413,6 +587,58 @@ describe('Документы: дописки в удалённые блоки Le
 });
 
 describe('неотправленное после перезапуска', () => {
+  it('режим all не возвращает чип, подтверждённый сервером до разрыва', () => {
+    const [server, old] = pair();
+    addMention(old, blockAt(old, 1));
+    receive(server, old);
+    receive(old, server);
+    const known = Y.decodeStateVector(Y.encodeStateVector(server));
+    const reopened = document();
+    receive(reopened, old);
+    const calls: LostBlock[][] = [];
+    watchLostEdits(
+      reopened,
+      serverOrigin,
+      (lost) => calls.push(lost),
+      () => known,
+      'all',
+    );
+    root(server).delete(1, 1);
+    receive(reopened, server);
+    receive(reopened, server);
+    expect(calls).toEqual([]);
+  });
+
+  it('режим all сохраняет чип прежнего clientID по вектору сервера', () => {
+    const [server, old] = pair();
+    const known = Y.decodeStateVector(Y.encodeStateVector(server));
+    addMention(old, blockAt(old, 1));
+    const reopened = document();
+    receive(reopened, old);
+    const calls: LostBlock[][] = [];
+    watchLostEdits(
+      reopened,
+      serverOrigin,
+      (lost) => calls.push(lost),
+      () => known,
+      'all',
+    );
+    root(server).delete(1, 1);
+    receive(reopened, server);
+    expect(calls).toEqual([
+      [
+        {
+          text: '',
+          kind: 'text',
+          after: 'Перед',
+          content: [{ type: 'mention', target: mentionTarget, kind: 'planner.task' }],
+        },
+      ],
+    ]);
+    receive(reopened, server);
+    expect(calls).toHaveLength(1);
+  });
+
   it('режим all находит Item прежних clientID по вектору сервера', () => {
     const [server, old] = pair();
     const known = Y.decodeStateVector(Y.encodeStateVector(server));

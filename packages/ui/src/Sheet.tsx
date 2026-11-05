@@ -13,6 +13,8 @@ export interface SheetProps {
   title: string;
   className?: string;
   children: ReactNode;
+  /** Закреплённая нижняя панель; содержимое окна прокручивается над ней. */
+  footer?: ReactNode;
 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -22,15 +24,24 @@ const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabi
  * нижний лист. Фон затемняется, Escape и нажатие мимо закрывают, фокус возвращается туда,
  * откуда открыли. Двигаются только opacity и transform.
  */
-export function Sheet({ open, onClose, title, className, children }: SheetProps) {
+export function Sheet({ open, onClose, title, className, children, footer }: SheetProps) {
   const wide = useMedia(WIDE);
   const id = useId();
   const veil = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  const focus = useRef<{ back: Element | null; inside: HTMLElement | null } | null>(null);
+  // До commit: autoFocus у дочернего поля сработает раньше нашего layout-эффекта.
+  if (open && !focus.current && typeof document !== 'undefined') {
+    focus.current = { back: document.activeElement, inside: null };
+  } else if (!open) {
+    focus.current = null;
+  }
+  const returnTo = useRef<Element | null>(null);
   const [alive, setAlive] = useState(open);
   const live = useRef(open);
-  const kept = useRef<ReactNode>(children);
-  if (open) kept.current = children;
+  const kept = useRef({ children, footer });
+  if (open) kept.current = { children, footer };
+  const hasFooter = kept.current.footer != null;
   const close = useRef(onClose);
   useEffect(() => {
     close.current = onClose;
@@ -65,11 +76,29 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
 
   /* фокус внутрь окна и обратно; Escape и Tab по кругу */
   useLayoutEffect(() => {
-    if (!open) return;
-    const back = document.activeElement as HTMLElement | null;
+    const session = focus.current;
+    if (!open || !session) {
+      // React возвращает фокус на поле, бывшее в фокусе до коммита, уже после
+      // очистки прошлого эффекта; поэтому возврат на кнопку делаем здесь, уже после него.
+      if (!open && returnTo.current instanceof HTMLElement) {
+        returnTo.current.focus({ preventScroll: true });
+      }
+      returnTo.current = null;
+      return;
+    }
+    returnTo.current = session.back;
     const b = box.current;
-    const first = b?.querySelector<HTMLElement>('[autofocus]') ?? b;
-    first?.focus({ preventScroll: true });
+    if (b && !b.contains(document.activeElement)) {
+      // Сохраняем выбранное поле и при повторном запуске эффекта в StrictMode.
+      const first =
+        session.inside && b.contains(session.inside)
+          ? session.inside
+          : (b.querySelector<HTMLElement>('[autofocus]') ?? b);
+      first.focus({ preventScroll: true });
+    }
+    session.inside = b?.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement)
+      : null;
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -91,7 +120,7 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
     document.addEventListener('keydown', key, true);
     return () => {
       document.removeEventListener('keydown', key, true);
-      back?.focus?.({ preventScroll: true });
+      if (session.back instanceof HTMLElement) session.back.focus({ preventScroll: true });
     };
   }, [open]);
 
@@ -106,7 +135,9 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
       />
       <div
         ref={box}
-        className={['q-sheet', className].filter(Boolean).join(' ')}
+        className={['q-sheet', hasFooter && 'q-sheet-with-footer', className]
+          .filter(Boolean)
+          .join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
@@ -132,7 +163,8 @@ export function Sheet({ open, onClose, title, className, children }: SheetProps)
             </svg>
           </button>
         </div>
-        <div className="q-sheet-body">{kept.current}</div>
+        <div className="q-sheet-body">{kept.current.children}</div>
+        {hasFooter && <div className="q-sheet-footer">{kept.current.footer}</div>}
       </div>
     </div>,
     document.body,

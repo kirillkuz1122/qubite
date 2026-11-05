@@ -51,10 +51,10 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://qubite:qubite@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Rust из rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - name: Форматирование
         run: cargo fmt --all --check
       - name: Линтер

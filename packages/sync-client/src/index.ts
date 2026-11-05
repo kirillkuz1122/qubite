@@ -1,5 +1,13 @@
 export * from './protocol';
-export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock } from './docs-lost';
+export {
+  restoreDocVersion,
+  type DocRestore,
+  type DocsVersionsTransport,
+  type DocTrashItem,
+  type DocVersion,
+  type DocVersionItem,
+} from './docs-versions';
+export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock, type LostInline } from './docs-lost';
 export {
   SyncClient,
   type SyncClientOptions,
@@ -31,6 +39,9 @@ export {
   httpDocsTransport,
   renameDoc,
   type DocHandle,
+  type DocLink,
+  type DocLinkKind,
+  type DocLinkTarget,
   type DocListItem,
   type DocsPullResponse,
   type DocsPushResponse,
@@ -62,6 +73,10 @@ export {
   type PlannerProject,
   type PlannerTask,
   type Priority,
+  parseProjectBoard,
+  type BoardColumn,
+  type BoardView,
+  type ProjectBoard,
   type ProjectColor,
   type ProjectPatch,
   type Recurrence,

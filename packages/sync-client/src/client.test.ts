@@ -259,14 +259,21 @@ describe('uuidv7', () => {
 
   it('закрыли посреди синхронизации — sync() тихо заканчивается, а не падает', async () => {
     let release: () => void = () => {};
+    let started: () => void = () => {};
+    const pushed = new Promise<void>((resolve) => (started = resolve));
     const slow: Transport = {
-      push: () => new Promise((_, reject) => (release = () => reject(new Error('нет сети')))),
+      push: () =>
+        new Promise((_, reject) => {
+          release = () => reject(new Error('нет сети'));
+          started();
+        }),
       pull: () => Promise.reject(new Error('нет сети')),
     };
     const client = await SyncClient.open({ dbName: `closed-${Date.now()}`, transport: slow });
     await client.create('inbox.item', 'мысль');
     const running = client.sync();
-    await new Promise((r) => setTimeout(r, 0));
+    // Ждём, пока sync() реально дойдёт до push: на медленном CI одного тика мало.
+    await pushed;
     client.close();
     release();
     await expect(running).resolves.toMatchObject({ status: expect.any(String) });

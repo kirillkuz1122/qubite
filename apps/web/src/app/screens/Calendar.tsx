@@ -1,10 +1,20 @@
 import { loop, MASS } from '@qubite/motion';
 import { patchTask, toTask } from '@qubite/sync-client';
-import { Button, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Button, DotIcon, Note, Presence, Segmented, Swap, useMedia, useSpring } from '@qubite/ui';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { Fail, say, useMe, usePlatform } from '../../auth/client';
 import { useCalendar, useCalendarEvents } from '../calendar';
 import { CalendarEventSheet } from '../CalendarEventSheet';
+import { CalendarCreateSurface } from '../CalendarCreateSurface';
 import { usePlanner } from '../planner-context';
 import { useSync } from '../sync-context';
 import {
@@ -77,11 +87,15 @@ export function CalendarScreen() {
     );
   }
   return (
-    <Calendar key={`${me.data.id}:${platform.data.timezone}`} timeZone={platform.data.timezone} />
+    <Calendar
+      key={`${me.data.id}:${platform.data.timezone}`}
+      timeZone={platform.data.timezone}
+      linkedEvent={new URLSearchParams(globalThis.location?.search ?? '').get('event')}
+    />
   );
 }
 
-function Calendar({ timeZone }: { timeZone: string }) {
+function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: string | null }) {
   const [now, setNow] = useState(Date.now);
   const today = calendarDay(now, timeZone);
   const [anchor, setAnchor] = useState(today);
@@ -112,6 +126,40 @@ function Calendar({ timeZone }: { timeZone: string }) {
   const [moving, setMoving] = useState(false);
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const locked = useRef(false);
+  const openLinkedEvent = useEffectEvent(async (id: string, alive: () => boolean) => {
+    try {
+      const event = await events.read(id);
+      if (!alive()) return;
+      setAnchor(calendarDay(event.starts_at, timeZone));
+      setSheet({
+        key: Date.now(),
+        event,
+        initial: eventForm(event, timeZone),
+        item: {
+          kind: 'event',
+          source_id: event.id,
+          title: event.title,
+          place: event.place,
+          starts_at: event.starts_at,
+          ends_at: event.ends_at,
+          all_day: event.all_day,
+        },
+      });
+      setSheetOpen(true);
+    } catch (error) {
+      const text = await failed(error, id);
+      if (alive()) setNotice({ text, bad: true });
+    }
+  });
+  useEffect(() => {
+    let alive = true;
+    // Событие читается по сети, состояние ставится после ответа, не в теле эффекта.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (linkedEvent) void openLinkedEvent(linkedEvent, () => alive);
+    return () => {
+      alive = false;
+    };
+  }, [linkedEvent, timeZone]);
   // Как в Planner: неподтверждённый срок виден сразу и не пропадает без сети.
   const items = useMemo(() => {
     const pending = planner.data.tasks.filter((task) => task.pending && task.id !== activeTask);
@@ -142,11 +190,64 @@ function Calendar({ timeZone }: { timeZone: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sync.version]);
 
-  function createAt(day: string, minute = 9 * 60, allDay = false) {
-    if (locked.current) return;
-    setSheet({ key: Date.now(), initial: newEventForm(day, minute, allDay) });
-    setSheetOpen(true);
-  }
+  const createAt = useCallback(
+    (day: string, minute = 9 * 60, allDay = false, duration = 60) => {
+      if (locked.current || sheetOpen) return;
+      setSheet({ key: Date.now(), initial: newEventForm(day, minute, allDay, duration) });
+      setSheetOpen(true);
+    },
+    [sheetOpen],
+  );
+
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        sheetOpen ||
+        locked.current ||
+        document.querySelector('[role="dialog"]') ||
+        (event.target instanceof Element &&
+          event.target.closest(
+            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
+          ))
+      )
+        return;
+      switch (event.key.toLowerCase()) {
+        case 'c':
+          createAt(anchor);
+          break;
+        case 't':
+          setAnchor(calendarDay(Date.now(), timeZone));
+          break;
+        case 'd':
+          setMode('day');
+          break;
+        case 'w':
+          setMode('week');
+          break;
+        case 'm':
+          setMode('month');
+          break;
+        case 'arrowleft':
+          setAnchor(shiftPeriod(mode, anchor, -1, weekDays));
+          break;
+        case 'arrowright':
+          setAnchor(shiftPeriod(mode, anchor, 1, weekDays));
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [anchor, mode, weekDays, timeZone, sheetOpen, createAt]);
 
   async function openItem(item: CalendarItem) {
     if (locked.current || sheetOpen) return;
@@ -369,52 +470,81 @@ function Calendar({ timeZone }: { timeZone: string }) {
 
   return (
     <section className="calendar" aria-label="Календарь">
-      <Segmented<CalendarMode>
-        label="Вид календаря"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: 'day', label: 'День' },
-          { value: 'week', label: 'Неделя' },
-          { value: 'month', label: 'Месяц' },
-        ]}
-      />
       <div className="calendar-toolbar">
-        <p className="calendar-period" aria-live="polite" aria-atomic="true">
-          {periodLabel(mode, anchor, window.days)}
-        </p>
-        <Button variant="fill" disabled={moving} onClick={() => createAt(anchor)}>
-          Новое событие
+        {/* D-802: на ПК слева, как «Создать» в Google; на телефоне — «+» в конце 2-й строки */}
+        <Button
+          className="calendar-new-event"
+          variant="fill"
+          dot={false}
+          aria-label="Новое событие"
+          title="Новое событие"
+          disabled={moving}
+          onClick={() => createAt(anchor)}
+        >
+          <span className="calendar-new-icon">
+            <DotIcon name="plus" />
+          </span>
+          <span className="calendar-new-label">Новое событие</span>
         </Button>
-        {/* Назад · Сегодня · Вперёд переносятся на новую строку только вместе. */}
         <div className="calendar-nav" role="group" aria-label="Выбрать период">
           <Button
             size="sm"
             dot={false}
-            onClick={() => setAnchor(shiftPeriod(mode, anchor, -1, weekDays))}
+            onClick={() => setAnchor(calendarDay(Date.now(), timeZone))}
           >
-            Назад
-          </Button>
-          <Button size="sm" onClick={() => setAnchor(calendarDay(Date.now(), timeZone))}>
             Сегодня
           </Button>
           <Button
-            size="sm"
+            className="calendar-nav-arrow"
             dot={false}
+            aria-label="Назад"
+            onClick={() => setAnchor(shiftPeriod(mode, anchor, -1, weekDays))}
+          >
+            <DotIcon name="back" />
+          </Button>
+          <Button
+            className="calendar-nav-arrow"
+            dot={false}
+            aria-label="Вперёд"
             onClick={() => setAnchor(shiftPeriod(mode, anchor, 1, weekDays))}
           >
-            Вперёд
+            <span className="calendar-forward-icon">
+              <DotIcon name="back" />
+            </span>
           </Button>
         </div>
-      </div>
-      <div className="calendar-legend" aria-label="Виды записей">
-        {KINDS.map((kind) => (
-          <span key={kind}>
-            <i className="q-dot" style={{ background: `var(--q-${KIND_COLOR[kind]})` }} />
-            {KIND_LABEL[kind]}
+        <p
+          className="calendar-period"
+          aria-live="polite"
+          aria-atomic="true"
+          title={periodLabel(mode, anchor, window.days)}
+        >
+          {periodLabel(mode, anchor, window.days)}
+        </p>
+        <div className="calendar-mode">
+          <Segmented<CalendarMode>
+            label="Вид календаря"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'day', label: 'День' },
+              { value: 'week', label: 'Неделя' },
+              { value: 'month', label: 'Месяц' },
+            ]}
+          />
+        </div>
+        {/* Легенда в шапке: на телефоне — между видом и «+», а не отдельной строкой */}
+        <div className="calendar-legend" aria-label="Виды записей">
+          {KINDS.map((kind) => (
+            <span key={kind}>
+              <i className="q-dot" style={{ background: `var(--q-${KIND_COLOR[kind]})` }} />
+              {KIND_LABEL[kind]}
+            </span>
+          ))}
+          <span className="calendar-zone" title={timeZone}>
+            {timeZone}
           </span>
-        ))}
-        <span className="calendar-zone">{timeZone}</span>
+        </div>
       </div>
       <Presence show={calendar.isPending}>
         <Note>Загружаем записи…</Note>
@@ -445,7 +575,7 @@ function Calendar({ timeZone }: { timeZone: string }) {
       <Presence show={calendar.isSuccess && items.length === 0}>
         <p className="calendar-empty">В этом периоде записей нет.</p>
       </Presence>
-      <Swap view={mode} order={CALENDAR_MODES}>
+      <Swap view={mode} order={CALENDAR_MODES} className="calendar-view">
         {mode === 'month' ? (
           <Month
             days={window.days}
@@ -525,7 +655,7 @@ function Timeline({
   items: CalendarItem[];
   timeZone: string;
   now: number;
-  onCreate: (day: string, minute?: number, allDay?: boolean) => void;
+  onCreate: (day: string, minute?: number, allDay?: boolean, duration?: number) => void;
   onOpen: (item: CalendarItem) => void;
   onMove: (
     item: CalendarItem,
@@ -655,7 +785,11 @@ function Timeline({
     if (!el) return;
     const day = calendarDay(initialNow.current, timeZone);
     const position = nowPosition(day, initialNow.current, timeZone)!;
-    el.scrollTop = Math.max(0, position - el.clientHeight / 3);
+    // С целого часа: подпись часа наверху шкалы видна целиком, а не срезана краем.
+    el.scrollTop = Math.max(
+      0,
+      Math.floor((position - el.clientHeight / 3) / HOUR_HEIGHT) * HOUR_HEIGHT,
+    );
   }, [timeZone]);
 
   return (
@@ -680,15 +814,7 @@ function Timeline({
         <span className="calendar-all-label">весь день</span>
         {columns.map(({ day, allDay }) => (
           <div className="calendar-all-items" key={day}>
-            <Button
-              className="calendar-all-create"
-              dot={false}
-              disabled={moving}
-              aria-label={`Новое событие на весь день, ${shortDayLabel(day)}`}
-              onClick={() => onCreate(day, 0, true)}
-            >
-              Создать
-            </Button>
+            <CalendarCreateSurface day={day} allDay disabled={moving} onCreate={onCreate} />
             {allDay.map((item) => (
               <Button
                 key={itemKey(item)}
@@ -733,25 +859,7 @@ function Timeline({
                 data-day={day}
                 aria-label={shortDayLabel(day)}
               >
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <Button
-                    className="calendar-hour-row"
-                    key={hour}
-                    dot={false}
-                    disabled={moving}
-                    aria-label={`Новое событие, ${shortDayLabel(day)}, ${String(hour).padStart(2, '0')}:00`}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const minute =
-                        e.detail === 0
-                          ? hour * 60
-                          : hour * 60 + ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
-                      onCreate(day, snapMinute(minute));
-                    }}
-                  >
-                    <span className="calendar-create-label">Создать</span>
-                  </Button>
-                ))}
+                <CalendarCreateSurface day={day} disabled={moving} onCreate={onCreate} />
                 {blocks.map((block) => (
                   <EventBlock
                     key={block.key}

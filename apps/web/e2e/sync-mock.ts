@@ -95,6 +95,10 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     .context()
     .addCookies([{ name: 'qubite_csrf', value: 'e2e-csrf', domain: '127.0.0.1', path: '/' }]);
   await page.route('**/api/auth/me', (route) => route.fulfill({ json: USER }));
+  // В сценариях без Docs упоминаний нет; запрос новой панели тоже остаётся поддельным.
+  await page.route('**/api/v1/objects/*/backlinks', (route) =>
+    mock.offline ? route.abort('internetdisconnected') : route.fulfill({ json: { backlinks: [] } }),
+  );
   await page.route('**/api/v1/sync/push', async (route) => {
     if (mock.offline) return route.abort('internetdisconnected');
     const body = route.request().postDataJSON() as { ops: Record<string, unknown>[] };
@@ -122,6 +126,14 @@ export async function mockSync(page: Page): Promise<SyncMock> {
           ...current,
           title: op.title,
           revision: (current.revision as number) + 1,
+        });
+      } else if (current && (op.kind === 'delete' || op.kind === 'restore')) {
+        mock.objects.set(id, {
+          ...current,
+          deleted: op.kind === 'delete',
+          revision: (current.revision as number) + 1,
+          updated_at_ms: Date.now(),
+          deleted_at: op.kind === 'delete' ? new Date().toISOString() : null,
         });
       } else if (current && op.kind === 'patch') {
         mock.objects.set(id, {

@@ -16,10 +16,17 @@ import {
   type DocStoreOptions,
 } from './docs';
 import { HttpError } from './http';
+import type { DocRestore, DocVersion } from './docs-versions';
 import type { ObjectSnapshot, PushRequest } from './protocol';
 
 /** Сервер только в памяти: никаких HTTP-запросов и зависимостей от Rust-сервера. */
 class DocsServer implements DocsTransport {
+  listVersions = vi.fn<DocsTransport['listVersions']>().mockResolvedValue([]);
+  getVersion = vi.fn<DocsTransport['getVersion']>();
+  createVersion = vi.fn<DocsTransport['createVersion']>();
+  renameVersion = vi.fn<DocsTransport['renameVersion']>();
+  deleteVersion = vi.fn<DocsTransport['deleteVersion']>().mockResolvedValue(undefined);
+  listTrash = vi.fn<DocsTransport['listTrash']>().mockResolvedValue([]);
   readonly doc = new Y.Doc();
   offline = false;
   missing = false;
@@ -30,8 +37,17 @@ class DocsServer implements DocsTransport {
   beforePull: (() => Promise<void>) | undefined;
   beforePush: (() => Promise<void>) | undefined;
   loseResponse = false;
+  alwaysStale = false;
   readonly pulls: { id: string; sv: Uint8Array }[] = [];
-  readonly pushes: { id: string; update: Uint8Array; text: string; seed?: boolean }[] = [];
+  readonly pushes: {
+    id: string;
+    update: Uint8Array;
+    text: string;
+    seed?: boolean;
+    snapshot?: Uint8Array;
+    links?: string[];
+    restore?: DocRestore;
+  }[] = [];
 
   async pull(id: string, sv: Uint8Array) {
     this.pulls.push({ id, sv });
@@ -46,20 +62,40 @@ class DocsServer implements DocsTransport {
     };
   }
 
-  async push(id: string, update: Uint8Array, text: string, seed?: boolean) {
-    this.pushes.push({ id, update, text, ...(seed ? { seed } : {}) });
+  async push(
+    id: string,
+    update: Uint8Array,
+    text: string,
+    seed?: boolean,
+    snapshot?: Uint8Array,
+    links?: string[],
+    restore?: DocRestore,
+  ) {
+    this.pushes.push({
+      id,
+      update,
+      text,
+      ...(seed ? { seed } : {}),
+      ...(snapshot ? { snapshot } : {}),
+      ...(links !== undefined ? { links } : {}),
+      ...(restore ? { restore } : {}),
+    });
     if (this.beforePush) await this.beforePush();
     if (this.offline) throw new TypeError('нет сети');
     if (this.pushError) throw this.pushError;
     if (seed && this.seedMarkdown === null) throw new HttpError(409, 'seed_taken', 'уже перенесён');
+    const textStale =
+      this.alwaysStale ||
+      (snapshot !== undefined &&
+        !Y.snapshotContainsUpdate(Y.decodeSnapshot(snapshot), Y.encodeStateAsUpdate(this.doc)));
     Y.applyUpdate(this.doc, update);
     this.seedMarkdown = null;
-    this.text = text;
+    if (!textStale) this.text = text;
     if (this.loseResponse) {
       this.loseResponse = false;
       throw new TypeError('ответ потерялся после записи');
     }
-    return { sv: Y.encodeStateVector(this.doc) };
+    return { sv: Y.encodeStateVector(this.doc), textStale };
   }
 }
 
@@ -83,6 +119,7 @@ function store(
     dbName: options.dbName ?? `docs-test-${++counter}`,
     debounceMs: options.debounceMs ?? 60_000,
     ...(options.renderText ? { renderText: options.renderText } : {}),
+    ...(options.extractLinks ? { extractLinks: options.extractLinks } : {}),
   });
   stores.push(value);
   return value;
@@ -590,6 +627,7 @@ describe('HTTP-адаптер документов', () => {
     const calls: { url: string; init: RequestInit }[] = [];
     const update = Uint8Array.from({ length: 70_000 }, (_, i) => i % 256);
     const sv = new Uint8Array([251, 255]);
+    const snapshot = Y.encodeSnapshot(Y.emptySnapshot);
     const fetch: typeof globalThis.fetch = async (input, init = {}) => {
       calls.push({ url: String(input), init });
       return Response.json({ update: base64(update), sv: base64(sv), seed_markdown: 'текст' });
@@ -605,12 +643,16 @@ describe('HTTP-адаптер документов', () => {
     );
     expect(new Headers(calls[0]?.init.headers).has('x-csrf-token')).toBe(false);
     expect(calls[0]?.init.credentials).toBe('include');
-    expect(await transport.push('id/1', update, '# Текст', true)).toEqual({ sv });
+    expect(await transport.push('id/1', update, '# Текст', true, snapshot)).toEqual({
+      sv,
+      textStale: false,
+    });
     expect(new Headers(calls[1]?.init.headers).get('x-csrf-token')).toBe('csrf');
     expect(JSON.parse(calls[1]!.init.body as string)).toEqual({
       update: base64(update),
       text: '# Текст',
       seed: true,
+      snapshot: base64(snapshot),
     });
     const app = httpDocsTransport({ fetch, token: () => 'access', csrf: () => 'ignored' });
     await app.pull('page', sv);
@@ -622,6 +664,17 @@ describe('HTTP-адаптер документов', () => {
       expect(call.init.credentials).toBe('omit');
     }
     expect(JSON.parse(calls[3]!.init.body as string)).not.toHaveProperty('seed');
+    expect(JSON.parse(calls[3]!.init.body as string)).not.toHaveProperty('snapshot');
+  });
+
+  it('читает text_stale из ответа сервера', async () => {
+    const transport = httpDocsTransport({
+      fetch: async () => Response.json({ sv: 'AA==', text_stale: true }),
+    });
+    expect(await transport.push('page', new Uint8Array([0, 0]), '')).toEqual({
+      sv: new Uint8Array([0]),
+      textStale: true,
+    });
   });
 
   it('читает CSRF из cookie и сохраняет HttpError', async () => {
@@ -757,6 +810,51 @@ describe('DOC-002e1: сохранность локального текста', 
     });
   }
 
+  it('хранит потерянный чип с текстом в IndexedDB до выбора после переоткрытия', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const options = { indexedDB: new IDBFactory(), dbName: 'lost-mention' };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const target = '11111111-1111-4111-8111-111111111111';
+    handle.doc.transact(() => {
+      const value = block(handle.doc, 0);
+      value.insert(value.length, 'до ');
+      const mention = new Y.XmlElement('decorator');
+      value.insertEmbed(value.length, mention);
+      mention.setAttribute('__type', 'qubite-mention');
+      mention.setAttribute('__target', target);
+      mention.setAttribute('__kind', 'planner.task');
+      value.insert(value.length, ' после');
+    });
+    await device.close();
+    root(remote.doc).delete(0, 1);
+    const background = store(remote, options);
+    await background.syncAll();
+    const expected = [
+      {
+        text: 'до  после',
+        kind: 'quote',
+        after: null,
+        content: [
+          { type: 'text', text: 'до ' },
+          { type: 'mention', target, kind: 'planner.task' },
+          { type: 'text', text: ' после' },
+        ],
+      },
+    ];
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.lost).toEqual(expected);
+    await background.close();
+    const reopenedStore = store(remote, options);
+    const reopened = await reopenedStore.open('page');
+    expect(reopened.lost).toEqual(expected);
+    await reopened.sync();
+    expect(reopened.lost).toEqual(expected);
+    await reopened.clearLost();
+    await reopenedStore.close();
+    expect((await store(remote, options).open('page')).lost).toEqual([]);
+  });
+
   it.each(['open', 'syncAll'] as const)(
     'находит дописки прежних клиентов до первого %s и хранит до выбора',
     async (method) => {
@@ -819,5 +917,439 @@ describe('DOC-002e1: сохранность локального текста', 
     remote.offline = false;
     const next = await store(remote, options).open('page');
     expect(next.lost).toEqual([]);
+  });
+});
+
+describe('DOC-002f: догон текста после параллельного слияния', () => {
+  const renderText = (doc: Y.Doc) => doc.getText('body').toString();
+
+  it('при повторе после чужого удаления догоняет текст один раз при прежнем векторе', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Основа · удалить');
+    const a = await store(remote, { renderText }).open('page');
+    a.doc.getText('body').insert(0, 'Свой · ');
+    // Сервер принял пакет A, но ответ потерялся: текст останется в очереди повтора.
+    remote.loseResponse = true;
+    await a.sync();
+    expect(a.status).toBe('offline');
+    const original = remote.pushes[0]!;
+    const b = await store(remote, { renderText }).open('page');
+    const vector = Y.encodeStateVector(remote.doc);
+    const text = b.doc.getText('body');
+    text.delete(text.length - ' · удалить'.length, ' · удалить'.length);
+    // A уже сделал pull для повтора; B отправляет только удаление перед его push.
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      await b.sync();
+      expect(Y.encodeStateVector(remote.doc)).toEqual(vector);
+      expect(remote.text).toBe('Свой · Основа');
+    };
+    const pulls = remote.pulls.length;
+    await a.sync();
+    expect(remote.pushes).toHaveLength(4); // первый A, повтор A, удаление B, догон A
+    expect(remote.pulls).toHaveLength(pulls + 3); // повтор A, B, догон A
+    const retry = remote.pushes[1]!;
+    expect(retry.snapshot).toEqual(original.snapshot);
+    expect(retry.text).toBe('Свой · Основа · удалить');
+    const catchup = remote.pushes.at(-1)!;
+    expect(catchup.text).toBe('Свой · Основа');
+    expect(Y.decodeUpdate(catchup.update).structs).toHaveLength(0);
+    expect(Y.decodeSnapshot(catchup.snapshot!).sv).toEqual(Y.decodeSnapshot(original.snapshot!).sv);
+    expect(Y.equalSnapshots(Y.decodeSnapshot(catchup.snapshot!), Y.snapshot(remote.doc))).toBe(
+      true,
+    );
+    expect(renderText(a.doc)).toBe('Свой · Основа');
+    expect(remote.text).toBe('Свой · Основа');
+    expect(a.status).toBe('saved');
+    await a.sync();
+    expect(remote.pushes).toHaveLength(4);
+  });
+
+  it('после общего pull отправляет текст обеих копий без новых Yjs-правок', async () => {
+    const remote = server();
+    remote.doc.getText('body').insert(0, 'Основа');
+    const a = await store(remote, { renderText }).open('page');
+    const b = await store(remote, { renderText }).open('page');
+    a.doc.getText('body').insert(0, 'Слева · ');
+    b.doc.getText('body').insert(b.doc.getText('body').length, ' · справа');
+    // a уже сделал pull; пока его push ждёт, b отправляет свою правку.
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      await b.sync();
+    };
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Слева · Основа · справа');
+    expect(remote.pushes.at(-1)?.text).toBe(remote.text);
+    expect(remote.pushes.at(-1)?.update).toEqual(new Uint8Array([0, 0]));
+    expect(a.status).toBe('saved');
+    const state = Y.encodeStateAsUpdate(remote.doc);
+    await a.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(Y.encodeStateAsUpdate(remote.doc)).toEqual(state);
+  });
+
+  it('делает только один немедленный догон, затем оставляет pending', async () => {
+    const remote = server();
+    const handle = await store(remote, { renderText }).open('page');
+    handle.doc.getText('body').insert(0, 'Текст');
+    remote.alwaysStale = true;
+    const pulls = remote.pulls.length;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(2);
+    expect(remote.pulls).toHaveLength(pulls + 2);
+    expect(handle.status).toBe('pending');
+    remote.alwaysStale = false;
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(3);
+    expect(remote.text).toBe('Текст');
+    expect(handle.status).toBe('saved');
+  });
+
+  it('сохраняет необходимость догона при обрыве сети и перезапуске', async () => {
+    const remote = server();
+    const options = { indexedDB: new IDBFactory(), dbName: 'stale-restart', renderText };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    handle.doc.getText('body').insert(0, 'Свой');
+    remote.beforePush = async () => {
+      remote.beforePush = undefined;
+      remote.doc.getText('body').insert(0, 'Чужой · ');
+      remote.beforePull = async () => {
+        remote.offline = true;
+      };
+    };
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.textPending).toBe(true);
+    await device.close();
+    remote.beforePull = undefined;
+    remote.offline = false;
+    const reopened = await store(remote, options).open('page');
+    expect(remote.text).toContain('Свой');
+    expect(remote.text).toContain('Чужой');
+    expect(remote.text).toBe(renderText(reopened.doc));
+    expect(reopened.status).toBe('saved');
+  });
+});
+
+describe('DOC-003: связи документа', () => {
+  const target = '11111111-1111-4111-8111-111111111111';
+
+  it('каждый push содержит уникальные UUID из дерева, после удаления — пустой список', async () => {
+    const remote = server();
+    const extractLinks = vi.fn((doc: Y.Doc) => doc.getArray<string>('mentions').toArray());
+    const device = store(remote, { extractLinks });
+    const handle = await device.open('page');
+    const mentions = handle.doc.getArray<string>('mentions');
+    mentions.push([target, target]);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.links).toEqual([target]);
+    mentions.delete(0, 2);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.links).toEqual([]);
+    expect(extractLinks).toHaveBeenCalled();
+  });
+
+  it('не обрезает набор связей при превышении лимита после слияния', async () => {
+    const remote = server();
+    const handle = await store(remote, {
+      extractLinks: () => Array.from({ length: 201 }, (_, index) => String(index)),
+    }).open('page');
+    editor(handle).insert(0, 'Текст остаётся на устройстве');
+    await handle.sync();
+    expect(handle.status).toBe('error');
+    expect(remote.pushes).toHaveLength(0);
+    expect(handle.doc.getText('body').toString()).toBe('Текст остаётся на устройстве');
+  });
+
+  it('закрытый документ извлекает ссылки после перезапуска без экрана и сети', async () => {
+    const remote = server();
+    const indexedDB = new IDBFactory();
+    const options = {
+      indexedDB,
+      dbName: 'mention-restart',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+    };
+    const first = store(remote, options);
+    const handle = await first.open('page');
+    remote.offline = true;
+    handle.doc.getArray<string>('mentions').push([target]);
+    await first.close();
+    const second = store(remote, options);
+    remote.offline = false;
+    await second.syncAll();
+    expect(remote.pushes.at(-1)?.links).toEqual([target]);
+  });
+
+  it('без сети возвращает последнее название из IDB; оно не записывается в Yjs', async () => {
+    const remote = server();
+    const indexedDB = new IDBFactory();
+    const options = { indexedDB, dbName: 'mention-titles' };
+    const first = store(remote, options);
+    const handle = await first.open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await handle.cacheLinks([cached]);
+    const before = Y.encodeStateAsUpdate(handle.doc);
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    expect(Y.encodeStateAsUpdate(handle.doc)).toEqual(before);
+    await first.close();
+    remote.offline = true;
+    const reopened = await store(remote, options).open('page');
+    expect(reopened.links).toEqual([{ ...cached, title: 'Обход графа' }]);
+    await reopened.cacheLinks([{ ...cached, deleted: true }]);
+    expect(reopened.links[0]?.deleted).toBe(true);
+    await reopened.cacheLinks([cached]);
+    expect(reopened.links[0]?.deleted).toBe(false);
+  });
+
+  it('старый ответ без новых полей принимается; links добавляется только при заданном экспорте', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+      bodies.push(JSON.parse(init!.body as string) as Record<string, unknown>);
+      return new Response(JSON.stringify({ sv: 'AA==' }));
+    });
+    const transport = httpDocsTransport({ fetch, csrf: () => '' });
+    await transport.push('page', new Uint8Array([0, 0]), '@', undefined, undefined, [target]);
+    expect(bodies[0]?.links).toEqual([target]);
+    await transport.push('page', new Uint8Array([0, 0]), 'старый клиент');
+    expect(bodies[1]).not.toHaveProperty('links');
+    await transport.push('page', new Uint8Array([0, 0]), '', undefined, undefined, []);
+    expect(bodies[2]?.links).toEqual([]);
+  });
+});
+
+describe('DOC-004b: восстановление версий', () => {
+  const target = '11111111-1111-4111-8111-111111111111';
+  const root = (doc: Y.Doc) => doc.get('root', Y.XmlText);
+  const blocks = (doc: Y.Doc): Y.XmlText[] =>
+    root(doc)
+      .toDelta()
+      .flatMap((part: { insert?: unknown }) =>
+        part.insert instanceof Y.XmlText ? [part.insert] : [],
+      );
+  const renderText = (doc: Y.Doc) =>
+    blocks(doc)
+      .map((block) => block.toString())
+      .join('\n');
+  const extractLinks = (doc: Y.Doc): string[] =>
+    blocks(doc).flatMap((block) =>
+      block.toDelta().flatMap((part: { insert?: unknown }) => {
+        const node: unknown = part.insert;
+        return node instanceof Y.XmlElement && node.getAttribute('__type') === 'qubite-mention'
+          ? [String(node.getAttribute('__target'))]
+          : [];
+      }),
+    );
+  function add(doc: Y.Doc, text: string) {
+    const block = new Y.XmlText();
+    root(doc).insertEmbed(root(doc).length, block);
+    block.setAttribute('__type', 'qubite-block');
+    block.setAttribute('__kind', 'p');
+    block.insert(0, text);
+    return block;
+  }
+  function version(id = 'version'): DocVersion {
+    const doc = new Y.Doc();
+    try {
+      const block = add(doc, 'Из снимка');
+      block.setAttribute('__kind', 'todo');
+      block.setAttribute('__checked', true);
+      block.setAttribute('__indent', 2);
+      const mention = new Y.XmlElement('decorator');
+      block.insertEmbed(block.length, mention);
+      mention.setAttribute('__type', 'qubite-mention');
+      mention.setAttribute('__target', target);
+      mention.setAttribute('__kind', 'planner.task');
+      const ystate = Y.encodeStateAsUpdate(doc);
+      return {
+        id,
+        ystate,
+        text: 'Старый текст с устаревшими названиями',
+        kind: 'named',
+        name: 'Снимок',
+        title: 'Документ',
+        preview: '',
+        size: ystate.length,
+        created_at: '2026-11-03T20:00:00Z',
+      };
+    } finally {
+      doc.destroy();
+    }
+  }
+
+  it('восстанавливает офлайн, после перезапуска отправляет первым POST и снимает флаг', async () => {
+    const remote = server();
+    add(remote.doc, 'Текущий');
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-restart',
+      renderText,
+      extractLinks,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const snapshot = version();
+    remote.offline = true;
+    await handle.restoreVersion(snapshot);
+    expect(blocks(handle.doc).map((block) => block.getAttribute('__kind'))).toEqual(['todo']);
+    expect(blocks(handle.doc)[0]?.getAttribute('__checked')).toBe(true);
+    expect(blocks(handle.doc)[0]?.getAttribute('__indent')).toBe(2);
+    expect(extractLinks(handle.doc)).toEqual([target]);
+    expect(handle.status).toBe('pending');
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    expect(remote.pushes).toHaveLength(0);
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toMatchObject({
+      id: snapshot.id,
+    });
+    await device.close();
+    const nextStore = store(remote, options);
+    const next = await nextStore.open('page');
+    expect(renderText(next.doc)).toContain('Из снимка');
+    remote.offline = false;
+    await next.sync();
+    expect(remote.pushes[0]?.restore).toEqual({ reason: 'restore', restore_of: snapshot.id });
+    expect(remote.pushes[0]?.links).toEqual([target]);
+    expect(remote.pushes[0]?.text).toBe(renderText(next.doc));
+    expect(remote.pushes[0]?.text).not.toBe(snapshot.text);
+    expect(
+      Y.equalSnapshots(Y.decodeSnapshot(remote.pushes[0]!.snapshot!), Y.snapshot(next.doc)),
+    ).toBe(true);
+    expect(renderText(remote.doc)).toBe(renderText(next.doc));
+    expect(next.status).toBe('saved');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toBeNull();
+    blocks(next.doc)[0]!.insert(0, 'Правка после восстановления · ');
+    await next.sync();
+    expect(remote.pushes.at(-1)?.restore).toBeUndefined();
+  });
+
+  it('сливает восстановление с новым блоком второго устройства, не теряя оба текста', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const first = await store(remote, { renderText }).open('page');
+    const second = await store(remote, { renderText }).open('page');
+    await first.restoreVersion(version());
+    add(second.doc, 'Параллельная правка');
+    await second.sync();
+    await first.sync();
+    await second.sync();
+    expect(renderText(first.doc)).toContain('Из снимка');
+    expect(renderText(first.doc)).toContain('Параллельная правка');
+    expect(renderText(second.doc)).toBe(renderText(first.doc));
+    expect(renderText(remote.doc)).toBe(renderText(first.doc));
+    expect(first.lost).toEqual([]);
+  });
+
+  it('второе устройство сохраняет дописку в удалённый восстановлением блок как lost', async () => {
+    const remote = server();
+    add(remote.doc, 'Основа');
+    const first = await store(remote, { renderText }).open('page');
+    const second = await store(remote, { renderText }).open('page');
+    await first.restoreVersion(version());
+    blocks(second.doc)[0]!.insert('Основа'.length, ' · не потерять');
+    await first.sync();
+    await second.sync();
+    expect(second.lost.map((block) => block.text).join('')).toContain('не потерять');
+    expect(renderText(second.doc)).toContain('Из снимка');
+  });
+
+  it('потеря ответа и text_stale сохраняют restore до подтверждения', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-response',
+      renderText,
+      extractLinks,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    await handle.restoreVersion(version());
+    remote.loseResponse = true;
+    await handle.sync();
+    expect(handle.status).toBe('offline');
+    await device.close();
+    remote.alwaysStale = true;
+    const next = await store(remote, options).open('page');
+    expect(next.status).toBe('pending');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).not.toBeNull();
+    remote.alwaysStale = false;
+    await next.sync();
+    expect(remote.pushes.every((push) => push.restore?.restore_of === 'version')).toBe(true);
+    expect(next.status).toBe('saved');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).toBeNull();
+  });
+
+  it('ответ предыдущего POST не снимает более новое восстановление той же версии', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'restore-inflight',
+      renderText,
+    };
+    const device = store(remote, options);
+    const handle = await device.open('page');
+    const snapshot = version();
+    await handle.restoreVersion(snapshot);
+    const waiting = deferred();
+    const release = deferred();
+    remote.beforePush = async () => {
+      waiting.resolve();
+      await release.promise;
+    };
+    const pending = handle.sync();
+    await waiting.promise;
+    await handle.restoreVersion(snapshot);
+    remote.beforePush = undefined;
+    release.resolve();
+    await pending;
+    expect(handle.status).toBe('pending');
+    expect((await persisted(options.indexedDB, options.dbName)).metadata.restore).not.toBeNull();
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.restore).toEqual({ reason: 'restore', restore_of: snapshot.id });
+    expect(handle.status).toBe('saved');
+  });
+
+  it('пустой снимок восстанавливается и поверх пустого, и поверх заполненного дерева', async () => {
+    const remote = server();
+    const handle = await store(remote, { renderText, extractLinks }).open('page');
+    const empty = new Y.Doc();
+    const snapshot = { id: 'empty', ystate: Y.encodeStateAsUpdate(empty) };
+    empty.destroy();
+    await handle.restoreVersion(snapshot);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.restore?.restore_of).toBe('empty');
+    add(handle.doc, 'Убрать');
+    await handle.restoreVersion(snapshot);
+    expect(blocks(handle.doc)).toEqual([]);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.text).toBe('');
+    expect(remote.pushes.at(-1)?.links).toEqual([]);
+    expect(handle.status).toBe('saved');
+  });
+
+  it('DocStore восстанавливает без сетевого открытия; создание версии требует saved', async () => {
+    const remote = server();
+    const device = store(remote, { renderText });
+    const snapshot = version();
+    // Документ уже открыт на устройстве: дальше восстановление идёт без сети.
+    const handle = await device.open('page');
+    handle.doc.get('root', Y.XmlText).insert(0, 'своя правка');
+    remote.offline = true;
+    await device.restoreVersion('page', snapshot);
+    await expect(device.createVersion('page', 'Имя')).rejects.toThrow('Нужна связь');
+    expect(remote.createVersion).not.toHaveBeenCalled();
+    remote.offline = false;
+    remote.createVersion.mockResolvedValue(snapshot);
+    expect(await device.createVersion('page', 'Имя')).toEqual(snapshot);
+    expect(remote.pushes.find((push) => push.restore)?.restore?.restore_of).toBe(snapshot.id);
+    expect(remote.createVersion).toHaveBeenCalledWith('page', 'Имя');
+  });
+
+  it('DocStore не восстанавливает документ, которого нет на устройстве', async () => {
+    const remote = server();
+    const device = store(remote, { renderText });
+    remote.offline = true;
+    await expect(device.restoreVersion('page', version())).rejects.toThrow('не загружен');
   });
 });

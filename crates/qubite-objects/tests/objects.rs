@@ -533,3 +533,32 @@ async fn same_file_is_stored_once_and_can_be_attached() {
     drop(conn);
     test_db.drop_db().await;
 }
+
+/// SEC-002: отменённая загрузка (таймаут, обрыв) не оставляет временный файл.
+#[tokio::test]
+async fn cancelled_put_leaves_no_temp_file() {
+    use tokio::io::AsyncWriteExt;
+    let (test_db, pool) = setup().await;
+    let dir = tempfile::tempdir().unwrap();
+    let store = BlobStore::new(dir.path());
+    let mut conn = pool.acquire().await.unwrap();
+
+    // Поток отдал часть байт и замолчал, но не закрылся.
+    let (mut writer, reader) = tokio::io::duplex(64);
+    writer.write_all(b"part of a file").await.unwrap();
+    let outcome = tokio::time::timeout(
+        std::time::Duration::from_millis(300),
+        store.put(&mut conn, reader, "application/octet-stream"),
+    )
+    .await;
+    assert!(
+        outcome.is_err(),
+        "загрузка должна зависнуть и быть отменена"
+    );
+
+    let mut left = tokio::fs::read_dir(dir.path().join("tmp")).await.unwrap();
+    assert!(left.next_entry().await.unwrap().is_none());
+    drop(writer);
+    drop(conn);
+    test_db.drop_db().await;
+}

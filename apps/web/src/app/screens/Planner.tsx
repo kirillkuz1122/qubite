@@ -1,6 +1,6 @@
 import { loop, MASS } from '@qubite/motion';
 import type { TaskStatus } from '@qubite/sync-client';
-import { Button, Field, Presence, Segmented, Swap, useFlow, useSpring } from '@qubite/ui';
+import { Button, DotIcon, Field, Presence, Segmented, Swap, useFlow, useSpring } from '@qubite/ui';
 import {
   useEffect,
   useLayoutEffect,
@@ -385,7 +385,7 @@ function Board() {
                   aria-expanded={menu === card.id}
                   onClick={() => setMenu(menu === card.id ? null : card.id)}
                 >
-                  ⋯
+                  <DotIcon name="more" size={16} />
                 </button>
               </div>
               <div className="meta">

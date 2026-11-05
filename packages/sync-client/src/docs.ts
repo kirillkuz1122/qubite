@@ -2,11 +2,28 @@
 import * as Y from 'yjs';
 import type { SyncClient } from './client';
 import { watchLostEdits, type LostBlock } from './docs-lost';
+import {
+  docsVersionsTransport,
+  restoreDocVersion,
+  type DocRestore,
+  type DocsVersionsTransport,
+  type DocVersion,
+} from './docs-versions';
 import { csrfFromCookie, HttpError, type HttpTransportOptions } from './http';
 import type { ObjectSnapshot } from './protocol';
 import type { LocalObject } from './store';
 
 export const DOCS_PAGE = 'docs.page';
+
+export type DocLinkKind = 'docs.page' | 'planner.task' | 'planner.project' | 'calendar.event';
+export interface DocLinkTarget {
+  id: string;
+  type: DocLinkKind;
+  title: string;
+}
+export interface DocLink extends DocLinkTarget {
+  deleted: boolean;
+}
 
 export interface DocListItem {
   id: string;
@@ -52,11 +69,20 @@ export interface DocsPullResponse {
 
 export interface DocsPushResponse {
   sv: Uint8Array;
+  textStale?: boolean;
 }
 
-export interface DocsTransport {
+export interface DocsTransport extends DocsVersionsTransport {
   pull(id: string, sv: Uint8Array): Promise<DocsPullResponse>;
-  push(id: string, update: Uint8Array, text: string, seed?: boolean): Promise<DocsPushResponse>;
+  push(
+    id: string,
+    update: Uint8Array,
+    text: string,
+    seed?: boolean,
+    snapshot?: Uint8Array,
+    links?: string[],
+    restore?: DocRestore,
+  ): Promise<DocsPushResponse>;
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -100,11 +126,13 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
       }
       throw new HttpError(response.status, code, message);
     }
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 
   const path = (id: string) => `/api/v1/docs/${encodeURIComponent(id)}/y`;
   return {
+    ...docsVersionsTransport(call),
     async pull(id, sv) {
       const response = await call<{ update: string; sv: string; seed_markdown: string | null }>(
         `${path(id)}?sv=${encodeURIComponent(toBase64(sv))}`,
@@ -116,13 +144,20 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
         seedMarkdown: response.seed_markdown,
       };
     },
-    async push(id, update, text, seed) {
-      const response = await call<{ sv: string }>(path(id), {
+    async push(id, update, text, seed, snapshot, links, restore) {
+      const response = await call<{ sv: string; text_stale?: boolean }>(path(id), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ update: toBase64(update), text, ...(seed ? { seed: true } : {}) }),
+        body: JSON.stringify({
+          update: toBase64(update),
+          text,
+          ...(links !== undefined ? { links } : {}),
+          ...(seed ? { seed: true } : {}),
+          ...(snapshot ? { snapshot: toBase64(snapshot) } : {}),
+          ...(restore ? { reason: restore.reason, restore_of: restore.restore_of } : {}),
+        }),
       });
-      return { sv: fromBase64(response.sv) };
+      return { sv: fromBase64(response.sv), textStale: response.text_stale ?? false };
     },
   };
 }
@@ -131,6 +166,10 @@ export type DocStatus = 'saved' | 'pending' | 'offline' | 'error';
 
 export interface DocHandle {
   readonly doc: Y.Doc;
+  readonly id: string;
+  readonly links: readonly DocLink[];
+  cacheLinks(links: readonly DocLink[]): Promise<void>;
+  onLinks(callback: () => void): () => void;
   readonly status: DocStatus;
   readonly seedMarkdown: string | null;
   readonly recovered: string | null;
@@ -141,6 +180,10 @@ export interface DocHandle {
   /** Без экрана — renderText, а без него последний сохранённый Markdown. */
   text: () => string;
   sync(): Promise<void>;
+  /** Возвращает скачанный снимок локальной правкой, не требует сети. */
+  /** Есть серверное состояние или свои правки; восстановление пустого дерева запрещено. */
+  readonly loaded: boolean;
+  restoreVersion(version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void>;
   markSeeded(): Promise<void>;
   onStatus(callback: (status: DocStatus) => void): () => void;
   onReset(callback: () => void): () => void;
@@ -153,14 +196,20 @@ export interface DocStoreOptions {
   indexedDB?: IDBFactory;
   dbName?: string;
   debounceMs?: number;
-  renderText?: (doc: Y.Doc) => string;
+  renderText?: (doc: Y.Doc, links: readonly DocLink[]) => string;
+  /** Читает UUID из дерева редактора, без разбора Markdown. */
+  extractLinks?: (doc: Y.Doc) => string[];
 }
 
 interface StoredDocument {
+  links: DocLink[];
   id: string;
   /** Счётчики меняются внутри IDB-транзакции, включая правки из другой вкладки. */
   version: number;
   syncedVersion: number;
+  /** Текст требует подтверждения, даже если новых Yjs-правок уже нет. */
+  textPending: boolean;
+  textStale: boolean;
   text: string;
   seed: boolean;
   /** Вектор первого seed-запроса: переживает потерю ответа и перезапуск. */
@@ -169,6 +218,8 @@ interface StoredDocument {
   lost: LostBlock[];
   seedMarkdown: string | null;
   serverSv: Uint8Array | null;
+  /** Поколение — счётчик IDB, чтобы ответ старого push не снял новое восстановление. */
+  restore: { id: string; version: number } | null;
 }
 
 interface StoredUpdate {
@@ -179,8 +230,11 @@ interface StoredUpdate {
 
 const emptyDocument = (id: string): StoredDocument => ({
   id,
+  links: [],
   version: 0,
   syncedVersion: 0,
+  textPending: false,
+  textStale: false,
   text: '',
   seed: false,
   seedSv: null,
@@ -188,6 +242,7 @@ const emptyDocument = (id: string): StoredDocument => ({
   lost: [],
   seedMarkdown: null,
   serverSv: null,
+  restore: null,
 });
 
 function requestValue<T>(request: IDBRequest<T>): Promise<T> {
@@ -241,7 +296,13 @@ class DocsDatabase {
   }
 
   /** Начинает транзакцию синхронно, в том же стеке, что и событие Y.Doc. */
-  append(id: string, update: Uint8Array, local: boolean, text: string): Promise<void> {
+  append(
+    id: string,
+    update: Uint8Array,
+    local: boolean,
+    text: string,
+    restoreOf?: string,
+  ): Promise<void> {
     const tx = this.db.transaction(['documents', 'updates'], 'readwrite');
     const finished = transactionDone(tx);
     const documents = tx.objectStore('documents');
@@ -252,6 +313,7 @@ class DocsDatabase {
       if (local) {
         record.version++;
         record.text = text;
+        if (restoreOf !== undefined) record.restore = { id: restoreOf, version: record.version };
       }
       documents.put(record);
     };
@@ -294,6 +356,7 @@ class DocsDatabase {
         record.recovered = record.recovered ? `${record.recovered}\n\n${recovered}` : recovered;
       }
       record.lost = previous?.lost ?? [];
+      record.links = previous?.links ?? [];
       documents.put(record);
     };
     const updates = tx.objectStore('updates');
@@ -347,6 +410,7 @@ export class DocStore {
         this.options.transport,
         this.options.debounceMs ?? 500,
         this.options.renderText,
+        this.options.extractLinks,
         () => {
           if (this.handles.get(id) === opening) this.handles.delete(id);
         },
@@ -366,6 +430,25 @@ export class DocStore {
       await handle.sync();
       if (!handle.isClosed) return handle;
     }
+  }
+
+  /** В отличие от open, не ждёт попытки сетевого обмена перед локальной правкой. */
+  async restoreVersion(id: string, version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void> {
+    // Нужна загруженная копия: иначе пустое дерево не заменит серверные блоки (замечание ревью #198).
+    const handle = await this.open(id);
+    if (!handle.loaded) {
+      throw new Error(
+        'Документ ещё не загружен на это устройство: подключитесь к сети и откройте его',
+      );
+    }
+    await handle.restoreVersion(version);
+  }
+
+  /** D-813: именованный снимок создаётся только после подтверждения локальных правок. */
+  async createVersion(id: string, name: string): Promise<DocVersion> {
+    const handle = await this.open(id);
+    if (handle.status !== 'saved') throw new Error('Нужна связь: документ ещё не сохранён');
+    return this.options.transport.createVersion(id, name);
   }
 
   /** Будит также закрытые документы с неотправленными правками и сохранённым Markdown. */
@@ -392,7 +475,16 @@ export class DocStore {
   }
 }
 
+/** Чуть меньше лимита сервера (512 КБ, D-751): запас на служебные поля запроса. */
+const MAX_RESTORE_UPDATE_BYTES = 480 * 1024;
+
+class RestoreOrigin {
+  constructor(readonly id: string) {}
+}
+
 class StoredDocHandle implements DocHandle {
+  links: readonly DocLink[];
+  private readonly linkListeners = new Set<() => void>();
   status: DocStatus;
   seedMarkdown: string | null;
   recovered: string | null;
@@ -402,6 +494,7 @@ class StoredDocHandle implements DocHandle {
   private readonly lostListeners = new Set<(lost: LostBlock[]) => void>();
   private lastText: string;
   private textGetter: () => string;
+  private hasTextRenderer: boolean;
   private readonly statusListeners = new Set<(status: DocStatus) => void>();
   private readonly resetListeners = new Set<() => void>();
   private writes: Promise<void> = Promise.resolve();
@@ -414,18 +507,21 @@ class StoredDocHandle implements DocHandle {
   private closing: Promise<void> | undefined;
 
   constructor(
-    private readonly id: string,
+    readonly id: string,
     readonly doc: Y.Doc,
     record: StoredDocument,
     private readonly db: DocsDatabase,
     private readonly origin: DocStore,
     private readonly transport: DocsTransport,
     private readonly debounceMs: number,
-    renderText: DocStoreOptions['renderText'],
+    private readonly renderText: DocStoreOptions['renderText'],
+    private readonly extractLinks: DocStoreOptions['extractLinks'],
     private readonly release: () => void,
   ) {
+    this.links = record.links;
+    this.hasTextRenderer = Boolean(renderText);
     this.lastText = record.text;
-    this.textGetter = renderText ? () => renderText(this.doc) : () => this.lastText;
+    this.textGetter = renderText ? () => renderText(this.doc, this.links) : () => this.lastText;
     this.seedMarkdown = record.seedMarkdown;
     this.recovered = record.recovered;
     this.lost = record.lost;
@@ -442,8 +538,35 @@ class StoredDocHandle implements DocHandle {
       'all',
     );
     this.status =
-      record.version > record.syncedVersion || record.seedMarkdown !== null ? 'pending' : 'saved';
+      record.version > record.syncedVersion ||
+      record.textPending ||
+      record.restore !== null ||
+      record.seedMarkdown !== null
+        ? 'pending'
+        : 'saved';
     doc.on('update', this.updated);
+  }
+
+  async cacheLinks(links: readonly DocLink[]): Promise<void> {
+    if (this.closed) return;
+    // Отсутствие цели в ответе не стирает офлайн-название недавно вставленного чипа.
+    const merged = new Map(this.links.map((link) => [link.id, link]));
+    for (const link of links) merged.set(link.id, link);
+    this.links = [...merged.values()];
+    this.track(
+      this.db.change(this.id, (record) => {
+        const saved = new Map(record.links.map((link) => [link.id, link]));
+        for (const link of links) saved.set(link.id, link);
+        record.links = [...saved.values()];
+      }),
+    );
+    for (const callback of this.linkListeners) callback();
+    await this.writes;
+  }
+
+  onLinks(callback: () => void): () => void {
+    this.linkListeners.add(callback);
+    return () => this.linkListeners.delete(callback);
   }
 
   get isClosed(): boolean {
@@ -486,6 +609,7 @@ class StoredDocHandle implements DocHandle {
 
   set text(getter: () => string) {
     if (this.closed) return;
+    this.hasTextRenderer = true;
     this.textGetter = getter;
     const text = this.captureText();
     this.track(
@@ -495,9 +619,10 @@ class StoredDocHandle implements DocHandle {
     );
   }
 
-  private captureText(): string {
+  private captureText(fromDoc = false): string {
     try {
-      this.lastText = this.textGetter();
+      this.lastText =
+        fromDoc && this.renderText ? this.renderText(this.doc, this.links) : this.textGetter();
       this.textError = false;
       return this.lastText;
     } catch (error) {
@@ -513,11 +638,19 @@ class StoredDocHandle implements DocHandle {
     // Даже ошибка сериализации экрана не должна помешать записи самих байтов Yjs.
     let text = this.lastText;
     try {
-      text = this.captureText();
+      text = this.captureText(origin instanceof RestoreOrigin);
     } catch {
       this.setStatus('error');
     }
-    this.track(this.db.append(this.id, update, local, text));
+    this.track(
+      this.db.append(
+        this.id,
+        update,
+        local,
+        text,
+        origin instanceof RestoreOrigin ? origin.id : undefined,
+      ),
+    );
     if (local) {
       this.setStatus(this.textError ? 'error' : 'pending');
       this.schedule();
@@ -537,6 +670,52 @@ class StoredDocHandle implements DocHandle {
     this.timer = setTimeout(() => {
       void this.sync();
     }, this.debounceMs);
+  }
+
+  /** Есть серверное состояние или свои правки: пустое дерево без них не заменит чужие блоки. */
+  get loaded(): boolean {
+    return this.serverSv.size > 0 || this.doc.get('root', Y.XmlText).length > 0;
+  }
+
+  async restoreVersion(version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void> {
+    if (this.closed) throw new Error('документ закрыт');
+    // Сервер принимает обновление до 512 КБ: проверяем на копии, пока документ не изменён.
+    const probe = new Y.Doc();
+    Y.applyUpdate(probe, Y.encodeStateAsUpdate(this.doc));
+    let probeSize = 0;
+    probe.on('update', (update: Uint8Array) => {
+      probeSize += update.length;
+    });
+    restoreDocVersion(probe, version, null);
+    probe.destroy();
+    if (probeSize > MAX_RESTORE_UPDATE_BYTES) {
+      throw new Error('Документ слишком большой, чтобы восстановить версию целиком');
+    }
+    let changed = false;
+    const observe = () => {
+      changed = true;
+    };
+    this.doc.on('update', observe);
+    try {
+      // updated записывает и байты, и restore в одной транзакции IndexedDB.
+      restoreDocVersion(this.doc, version, new RestoreOrigin(version.id));
+    } finally {
+      this.doc.off('update', observe);
+    }
+    if (!changed) {
+      // Даже восстановление пустого снимка поверх пустого дерева требует before_restore.
+      const text = this.captureText(true);
+      this.track(
+        this.db.change(this.id, (record) => {
+          record.version++;
+          record.text = text;
+          record.restore = { id: version.id, version: record.version };
+        }),
+      );
+      this.setStatus('pending');
+      this.schedule();
+    }
+    await this.writes;
   }
 
   async markSeeded(): Promise<void> {
@@ -590,7 +769,7 @@ class StoredDocHandle implements DocHandle {
     return this.running;
   }
 
-  private async exchange(): Promise<void> {
+  private async exchange(allowTextCatchup = true): Promise<void> {
     let requesting = false;
     try {
       await this.writes;
@@ -622,18 +801,37 @@ class StoredDocHandle implements DocHandle {
       // Подтверждать record.version можно только вместе со всеми его обновлениями.
       for (const entry of updates) Y.applyUpdate(this.doc, entry.update, this.origin);
       this.lastText = record.text;
-      if (record.version > record.syncedVersion) {
+      this.links = record.links;
+      for (const callback of this.linkListeners) callback();
+      if (record.version > record.syncedVersion || record.textPending || record.restore !== null) {
         // Экран должен закончить перенос Markdown до первого push.
         if (remote.seedMarkdown !== null && !record.seed) {
           this.setStatus('pending');
           return;
         }
-        const text = this.captureText();
+        // После слияния нужен текст дерева, а не сохранённый до pull Markdown.
+        if (record.textStale && !this.hasTextRenderer) {
+          this.setStatus('pending');
+          return;
+        }
+        const text =
+          (record.textStale || record.restore !== null) && this.renderText
+            ? this.renderText(this.doc, this.links)
+            : this.captureText();
+        // Снимок относится к тому же дереву, из которого только что получен text.
+        // Одного state vector недостаточно: удаления его не меняют.
+        const links = this.extractLinks ? [...new Set(this.extractLinks(this.doc))] : undefined;
+        if (links && links.length > 200) {
+          throw new Error('В документе больше 200 разных ссылок');
+        }
+        const clientSnapshot = Y.encodeSnapshot(Y.snapshot(this.doc));
         const update = Y.encodeStateAsUpdate(this.doc, remote.sv);
         const seedSv = record.seedSv ?? Y.encodeStateVector(this.doc);
         this.track(
           this.db.change(this.id, (current) => {
             if (current.version === record.version) current.text = text;
+            // Потерянный ответ тоже требует повтора текста после перезапуска.
+            current.textPending = true;
             if (record.seed && current.seedSv === null) current.seedSv = seedSv;
           }),
         );
@@ -642,7 +840,15 @@ class StoredDocHandle implements DocHandle {
         requesting = true;
         let response: DocsPushResponse;
         try {
-          response = await this.transport.push(this.id, update, text, record.seed || undefined);
+          response = await this.transport.push(
+            this.id,
+            update,
+            text,
+            record.seed || undefined,
+            clientSnapshot,
+            links,
+            record.restore ? { reason: 'restore', restore_of: record.restore.id } : undefined,
+          );
         } catch (error) {
           if (!(
             record.seed &&
@@ -687,17 +893,34 @@ class StoredDocHandle implements DocHandle {
           this.db.change(this.id, (current) => {
             current.serverSv = response.sv;
             current.syncedVersion = Math.max(current.syncedVersion, record.version);
+            current.textPending = response.textStale ?? false;
+            current.textStale = response.textStale ?? false;
             current.seed = false;
             current.seedSv = null;
             current.seedMarkdown = null;
+            if (
+              !response.textStale &&
+              record.restore !== null &&
+              current.restore?.version === record.restore.version
+            ) {
+              current.restore = null;
+            }
           }),
         );
         this.seedMarkdown = null;
+        if (response.textStale && allowTextCatchup) {
+          await this.writes;
+          await this.exchange(false);
+          return;
+        }
       }
       await this.writes;
       const { record: current } = await this.db.load(this.id);
       this.setStatus(
-        current.version > current.syncedVersion || current.seedMarkdown !== null
+        current.version > current.syncedVersion ||
+          current.textPending ||
+          current.restore !== null ||
+          current.seedMarkdown !== null
           ? 'pending'
           : 'saved',
       );
@@ -731,6 +954,7 @@ class StoredDocHandle implements DocHandle {
     this.release();
     this.stopLost();
     this.lostListeners.clear();
+    this.linkListeners.clear();
     this.doc.destroy();
     this.statusListeners.clear();
     for (const callback of this.resetListeners) callback();
@@ -745,6 +969,7 @@ class StoredDocHandle implements DocHandle {
     this.release();
     this.stopLost();
     this.lostListeners.clear();
+    this.linkListeners.clear();
     this.statusListeners.clear();
     this.resetListeners.clear();
     this.closing = this.writes.finally(() => {

@@ -9,10 +9,12 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
   const [editor] = useLexicalComposerContext();
   const [lost, setLost] = useState<LostBlock[]>(handle.lost);
   const [recovered, setRecovered] = useState(handle.recovered);
+  const [links, setLinks] = useState(handle.links);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => handle.onLost(setLost), [handle]);
   useEffect(() => handle.onStatus(() => setRecovered(handle.recovered)), [handle]);
+  useEffect(() => handle.onLinks(() => setLinks(handle.links)), [handle]);
 
   const accept = async (kind: 'lost' | 'recovered', restore: boolean) => {
     setBusy(true);
@@ -37,7 +39,21 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
     }
   };
 
-  const shown = lost.map((item) => item.text).join(' · ');
+  // Без пробелов по краям: « дописка» в кавычках выглядит как опечатка.
+  const shown = lost
+    .map((item) =>
+      (item.content
+        ? item.content
+            .map((part) =>
+              part.type === 'text'
+                ? part.text
+                : `@${links.find((link) => link.id === part.target)?.title || 'ссылка'}`,
+            )
+            .join('')
+        : item.text
+      ).trim(),
+    )
+    .join(' · ');
   return (
     <>
       <Presence show={recovered !== null} className="docs-lost">
