@@ -307,7 +307,7 @@ export function DocsScreen() {
           ]}
           onChange={setSection}
         />
-        <Presence show={deleted !== null}>
+        <Presence show={deleted !== null} className="docs-undo">
           <Note>
             <span>Документ в корзине · </span>
             <Button data-docs-undo size="sm" disabled={restoring} onClick={() => void undo()}>
@@ -623,11 +623,12 @@ function Document({
         }}
         footer={
           <div className="docs-trash-actions">
-            <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>
-              Отмена
-            </Button>
+            {/* Как в остальных окнах (история, календарь, проекты): главное действие первым. */}
             <Button variant="fill" disabled={deleting} onClick={() => void remove()}>
               {deleting ? 'Удаляю…' : 'Удалить'}
+            </Button>
+            <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>
+              Отмена
             </Button>
           </div>
         }

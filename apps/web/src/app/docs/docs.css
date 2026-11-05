@@ -53,7 +53,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
+}
+/* Заметка «Документ в корзине · Вернуть» и ошибка не прилипают к поиску и пояснению. */
+.docs-undo,
+.docs-index > .q-note {
+  margin-bottom: 14px;
+}
+/* Под вкладками — 14 px до пояснения, как до строки поиска во «Документах» (§0.2). */
+.docs-trash > .lead:first-child {
+  margin-top: 0;
 }
 .docs-trash-row .q-btn,
 .docs-page-head .q-btn,

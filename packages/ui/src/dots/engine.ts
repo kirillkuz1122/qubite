@@ -243,9 +243,17 @@ export class DotEngine {
     this.stopTick = loop().tick((t, dt) => this.frame(t, dt));
     // холст за экраном не рисуем (DS-010)
     if (typeof IntersectionObserver === 'function') {
-      this.io = new IntersectionObserver((es) => es.forEach((x) => (this.on = x.isIntersecting)), {
-        rootMargin: '80px',
-      });
+      this.io = new IntersectionObserver(
+        (es) =>
+          es.forEach((x) => {
+            this.on = x.isIntersecting;
+            // Холст создан под display: none (шапка Docs на телефоне при открытом документе):
+            // тогда размер был нулевым, а resize окна не придёт — меряем, когда холст показался.
+            const r = x.boundingClientRect;
+            if (x.isIntersecting && (r.width !== this.W || r.height !== this.H)) this.resize();
+          }),
+        { rootMargin: '80px' },
+      );
       this.io.observe(canvas);
     }
     if (loop().reduced) requestAnimationFrame(() => this.frame(performance.now() / 1000, 0));

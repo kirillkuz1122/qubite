@@ -139,6 +139,17 @@
 .docs-history-preview ins {
   text-decoration: none;
 }
+/* Соседние «−было» и «+стало» в строке не слипаются в одно слово. */
+.docs-history-changed ins,
+.docs-history-changed del {
+  padding-inline: 4px;
+  border-radius: calc(var(--q-round) * 4px);
+}
+.docs-history-retry {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
 .docs-history-check-change {
   display: block;
   font-size: 12px;
@@ -161,6 +172,8 @@
   }
 }
 @media (max-width: 839px) {
+  /* Поля как у Sheet с нижней панелью — и в списке, и в версии: шапка не прыгает,
+     текст не получает двойной отступ (окно 16 + тело 18). */
   .q-sheet.docs-history-sheet {
     display: flex;
     flex-direction: column;
@@ -170,6 +183,14 @@
     max-height: 100dvh;
     border-radius: 0;
     margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .docs-history-sheet .q-sheet-head {
+    top: 0;
+    flex: none;
+    margin: 0 0 8px;
+    padding: 8px 16px;
   }
   .docs-history-sheet .q-sheet-body {
     flex: 1;
@@ -177,7 +198,7 @@
     min-height: 0;
     max-height: none;
     overflow-y: auto;
-    padding-inline: 18px;
+    padding: 0 16px 24px;
   }
   .docs-history-sheet .docs-history-actions {
     width: 100%;

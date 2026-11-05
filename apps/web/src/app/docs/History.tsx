@@ -281,12 +281,12 @@ export function History({
         <Button onClick={backToList}>{wide ? 'Закрыть версию' : 'К списку версий'}</Button>
       </div>
       {selection?.error ? (
-        <>
+        <div className="docs-history-retry">
           <Note tone="bad">{selection.error}</Note>
           <Button disabled={!history.online} onClick={() => void select(selection.item)}>
             Повторить
           </Button>
-        </>
+        </div>
       ) : !selection?.blocks ? (
         <Note>Открываю версию…</Note>
       ) : (
@@ -315,7 +315,10 @@ export function History({
     <aside ref={panel} tabIndex={-1} className="docs-history-list" aria-label="Версии документа">
       {wide && (
         <SecHead text="ИСТОРИЯ" label="История">
-          <Button onClick={close}>Закрыть историю</Button>
+          {/* Короткая подпись: в колонке 320 px кнопка помещается справа от заголовка (§0.2). */}
+          <Button size="sm" aria-label="Закрыть историю" onClick={close}>
+            Закрыть
+          </Button>
         </SecHead>
       )}
       <form
@@ -352,12 +355,12 @@ export function History({
         <>
           {history.loading && <Note>Загружаю историю…</Note>}
           {history.error && (
-            <>
+            <div className="docs-history-retry">
               <Note tone="bad">{history.error}</Note>
               <Button disabled={history.loading} onClick={() => void history.refresh()}>
                 Повторить загрузку истории
               </Button>
-            </>
+            </div>
           )}
           {!history.loading && !history.error && !history.versions.length && (
             <Note>Версий пока нет — они появляются, когда вы правите документ</Note>
@@ -435,6 +438,13 @@ export function History({
     </aside>
   );
 
+  // Заголовок окна называет действие и на ПК, и на телефоне.
+  const actionTitle =
+    action?.kind === 'restore'
+      ? 'Восстановить версию'
+      : action?.kind === 'rename'
+        ? 'Переименовать версию'
+        : 'Удалить версию';
   // На телефоне подтверждение занимает тот же Sheet, без двух ловушек фокуса.
   const confirmation = (
     <div className="docs-history-confirm">
@@ -517,13 +527,7 @@ export function History({
                 setError(null);
               }
             }}
-            title={
-              action?.kind === 'restore'
-                ? 'Восстановить версию'
-                : action?.kind === 'rename'
-                  ? 'Переименовать версию'
-                  : 'Удалить версию'
-            }
+            title={actionTitle}
           >
             {confirmation}
           </Sheet>
@@ -532,7 +536,7 @@ export function History({
         <Sheet
           open={open}
           onClose={close}
-          title={action ? 'Подтверждение' : 'История'}
+          title={action ? actionTitle : 'История'}
           className="docs-history-sheet"
           footer={
             !action && selection?.version ? (
