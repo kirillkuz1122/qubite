@@ -23,7 +23,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { downloadMarkdown, readMarkdownFile } from '../docs/markdown-file';
-import { markdownToYUpdate } from '../docs/render';
+import { extractDocLinks, markdownToYUpdate } from '../docs/render';
 import { DocEditor } from '../docs/Editor';
 import { History } from '../docs/History';
 import { Trash } from '../docs/Trash';
@@ -75,6 +75,18 @@ function fromServer(doc: SearchDoc): DocListItem {
 }
 
 const MAX_IMPORT_BYTES = 480 * 1024;
+// Столько разных упоминаний принимает отправка документа (docs.ts).
+const MAX_IMPORT_LINKS = 200;
+
+function countLinks(update: Uint8Array): number {
+  const probe = new Y.Doc();
+  try {
+    Y.applyUpdate(probe, update);
+    return extractDocLinks(probe).length;
+  } finally {
+    probe.destroy();
+  }
+}
 
 export function DocsScreen() {
   const sync = useSync();
@@ -100,6 +112,7 @@ export function DocsScreen() {
   const [creating, setCreating] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const importingNow = useRef(false);
+  const freshImports = useRef(new Set<string>());
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -196,15 +209,19 @@ export function DocsScreen() {
       const preview = previews[doc.id];
       const fresh =
         preview &&
-        // Пустое превью с сервера (снимок создан до текста) не затирает локальное.
         (preview.updated > doc.updated ||
-          !doc.preview ||
+          // Только что импортированный: снимок с сервера создан до текста, превью ещё пустое.
+          (!doc.preview && freshImports.current.has(doc.id)) ||
           objects.some((object) => object.id === doc.id && object.pending))
           ? { ...doc, preview: preview.preview }
           : doc;
       return { ...fresh, preview: plainPreview(fresh.preview) };
     })
     .sort((a, b) => b.updated - a.updated);
+  useEffect(() => {
+    // Сервер прислал настоящее превью — запасной вариант больше не нужен.
+    for (const doc of local) if (doc.preview) freshImports.current.delete(doc.id);
+  }, [local]);
   const q = query.trim().toLocaleLowerCase('ru');
   const matches = all.filter((doc) =>
     `${doc.title} ${doc.preview}`.toLocaleLowerCase('ru').includes(q),
@@ -328,6 +345,8 @@ export function DocsScreen() {
           // Разбор до создания: ошибка формата не оставит пустой документ.
           const update = markdownToYUpdate(text);
           // Сервер не примет обновление Yjs больше 512 КиБ (D-751); лимит клиента — с запасом.
+          if (countLinks(update) > MAX_IMPORT_LINKS)
+            throw new Error('В документе больше 200 разных ссылок. Разделите файл.');
           if (update.byteLength > MAX_IMPORT_BYTES)
             throw new Error('Документ слишком большой для синхронизации. Разделите файл.');
           const doc = await createDoc(client, title);
@@ -340,6 +359,7 @@ export function DocsScreen() {
             await handle.close();
           }
           imported.push(doc.id);
+          freshImports.current.add(doc.id);
           onText(doc.id, text);
         } catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'Не удалось загрузить файл.';

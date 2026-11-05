@@ -261,6 +261,17 @@ describe('Markdown-файлы без сети', () => {
     expect(await view.client.all()).toEqual([]);
   });
 
+  it('отказывает файлу с 201 разным упоминанием', async () => {
+    const view = await markdownSetup();
+    const text = Array.from(
+      { length: 201 },
+      (_, i) => `[@Док](qubite://${i.toString(16).padStart(8, '0')}-0000-4000-8000-000000000000)`,
+    ).join('\n\n');
+    fireEvent.change(view.input, { target: { files: [new File([text], 'ссылки.md')] } });
+    await view.findByText(/ссылки.md:.*больше 200 разных ссылок/);
+    expect(await view.client.all()).toEqual([]);
+  });
+
   it('помечает импортированный документ как прошедший seed', async () => {
     const view = await markdownSetup();
     const open = view.docs.open.bind(view.docs);
