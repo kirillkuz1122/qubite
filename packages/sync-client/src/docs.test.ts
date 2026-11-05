@@ -11,6 +11,7 @@ import {
   httpDocsTransport,
   renameDoc,
   type DocHandle,
+  type DocLink,
   type DocsTransport,
   type DocStatus,
   type DocStoreOptions,
@@ -1101,6 +1102,111 @@ describe('DOC-003: связи документа', () => {
     expect(reopened.links[0]?.deleted).toBe(true);
     await reopened.cacheLinks([cached]);
     expect(reopened.links[0]?.deleted).toBe(false);
+  });
+
+  it('переименование используемой цели ведёт к новой отправке текста без Yjs-правок', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'mention-rename',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+      renderText: (doc: Y.Doc, links: readonly DocLink[]) =>
+        doc
+          .getArray<string>('mentions')
+          .toArray()
+          .map((id) => `@${links.find((link) => link.id === id)?.title ?? id}`)
+          .join(' '),
+    };
+    const docs = store(remote, options);
+    const handle = await docs.open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await handle.cacheLinks([cached]);
+    handle.doc.getArray<string>('mentions').push([target]);
+    await handle.sync();
+    expect(remote.pushes.at(-1)?.text).toBe('@Графы');
+    const count = remote.pushes.length;
+    const before = Y.encodeStateAsUpdate(handle.doc);
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    expect(Y.encodeStateAsUpdate(handle.doc)).toEqual(before);
+    expect(handle.status).toBe('pending');
+    await handle.sync();
+    expect(remote.pushes).toHaveLength(count + 1);
+    expect(remote.pushes.at(-1)?.text).toBe('@Обход графа');
+    // Тот же ответ /links без изменений ничего не отправляет.
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    expect(handle.status).toBe('saved');
+  });
+
+  it('переименование во время отправки не теряется в ответе предыдущего push', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'mention-rename-inflight',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+      renderText: (doc: Y.Doc, links: readonly DocLink[]) =>
+        doc
+          .getArray<string>('mentions')
+          .toArray()
+          .map((id) => `@${links.find((link) => link.id === id)?.title ?? id}`)
+          .join(' '),
+    };
+    const handle = await store(remote, options).open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await handle.cacheLinks([cached]);
+    handle.doc.getArray<string>('mentions').push([target]);
+    let release!: () => void;
+    let started!: () => void;
+    const inFlight = new Promise<void>((resolve) => (started = resolve));
+    remote.beforePush = () => {
+      remote.beforePush = undefined;
+      started();
+      return new Promise<void>((resolve) => (release = resolve));
+    };
+    const syncing = handle.sync();
+    await inFlight;
+    await handle.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    release();
+    await syncing;
+    await handle.sync();
+    expect(remote.pushes.map((push) => push.text)).toEqual(['@Графы', '@Обход графа']);
+    expect(handle.status).toBe('saved');
+  });
+
+  it('переименование из другой вкладки не гасится ответом push первой', async () => {
+    const remote = server();
+    const options = {
+      indexedDB: new IDBFactory(),
+      dbName: 'mention-rename-tabs',
+      extractLinks: (doc: Y.Doc) => doc.getArray<string>('mentions').toArray(),
+      renderText: (doc: Y.Doc, links: readonly DocLink[]) =>
+        doc
+          .getArray<string>('mentions')
+          .toArray()
+          .map((id) => `@${links.find((link) => link.id === id)?.title ?? id}`)
+          .join(' '),
+    };
+    const first = await store(remote, options).open('page');
+    const cached = { id: target, type: 'docs.page' as const, title: 'Графы', deleted: false };
+    await first.cacheLinks([cached]);
+    first.doc.getArray<string>('mentions').push([target]);
+    let release!: () => void;
+    let started!: () => void;
+    const inFlight = new Promise<void>((resolve) => (started = resolve));
+    remote.beforePush = () => {
+      remote.beforePush = undefined;
+      started();
+      return new Promise<void>((resolve) => (release = resolve));
+    };
+    const syncing = first.sync();
+    await inFlight;
+    const second = await store(remote, options).open('page');
+    await second.cacheLinks([{ ...cached, title: 'Обход графа' }]);
+    release();
+    await syncing;
+    expect(first.status).toBe('pending');
+    await second.sync();
+    expect(remote.pushes.at(-1)?.text).toBe('@Обход графа');
+    expect(second.status).toBe('saved');
   });
 
   it('старый ответ без новых полей принимается; links добавляется только при заданном экспорте', async () => {
