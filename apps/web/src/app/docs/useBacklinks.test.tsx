@@ -223,4 +223,27 @@ describe('обратные ссылки: сеть и память сессии',
     await transport.push('doc', new Uint8Array(), 'text');
     expect(changed).toHaveBeenCalledTimes(2);
   });
+
+  it('медленные ответы внутри массового обмена не запускают таймер до его конца', async () => {
+    vi.useFakeTimers();
+    const session = createBacklinksSession('account');
+    const changed = vi.fn();
+    session.subscribe(changed);
+    const transport = session.transport({
+      pull: vi.fn(async () => ({ update: new Uint8Array(), sv: new Uint8Array(), seedMarkdown: null })),
+    } as unknown as DocsTransport);
+    const work = session.batch(
+      (async () => {
+        await transport.pull('a', new Uint8Array());
+        await new Promise((done) => setTimeout(done, 200));
+        await transport.pull('b', new Uint8Array());
+        await new Promise((done) => setTimeout(done, 200));
+      })(),
+    );
+    await vi.advanceTimersByTimeAsync(400);
+    await work;
+    expect(changed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
 });

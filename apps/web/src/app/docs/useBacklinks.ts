@@ -10,6 +10,7 @@ export function createBacklinksSession(scope: string | null) {
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let bulk = 0;
+  let dirty = false;
   /** Сразу: самостоятельное сохранение открытого документа. */
   const refresh = () => {
     clearTimeout(timer);
@@ -18,6 +19,11 @@ export function createBacklinksSession(scope: string | null) {
   };
   /** Серия уведомлений массового обмена сливается в один запрос. */
   const schedule = () => {
+    // Внутри массового обмена только помечаем: таймер стартует после его конца.
+    if (bulk > 0) {
+      dirty = true;
+      return;
+    }
     clearTimeout(timer);
     timer = setTimeout(refresh, COALESCE_MS);
   };
@@ -33,7 +39,10 @@ export function createBacklinksSession(scope: string | null) {
         return await work;
       } finally {
         bulk -= 1;
-        schedule();
+        if (bulk === 0 && dirty) {
+          dirty = false;
+          schedule();
+        }
       }
     },
     subscribe(listener: () => void) {
