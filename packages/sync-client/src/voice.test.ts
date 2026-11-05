@@ -187,6 +187,26 @@ describe('очередь голосовых записей', () => {
     expect(flush.left).toBe(0);
   });
 
+  it('текст, дошедший пока шла прошлая отправка, уходит вместе со звуком', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    let clock = 1_000_000;
+    await queue.add(capture('a'), clock);
+    await queue.add(capture('b'), clock, 10_000); // ждёт текст до clock + 10 с
+    const send = server.send.bind(server);
+    server.send = async (c) => {
+      const reply = await send(c);
+      if (c.id === 'a') {
+        // пока уходила «a», Whisper дал текст для «b», а срок ожидания старой записи вышел
+        await queue.settle('b', { text: 'Купить хлеб' });
+        clock += 20_000;
+      }
+      return reply;
+    };
+    await queue.flush(() => clock);
+    expect(server.saved.get('b')?.text).toBe('Купить хлеб');
+  });
+
   it('повторный вызов во время отправки не стучится второй раз в ту же неудачу', async () => {
     const server = new VoiceServer();
     server.fail = 'offline';

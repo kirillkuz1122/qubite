@@ -174,6 +174,11 @@ export class VoiceQueue {
     return item !== undefined;
   }
 
+  private async read(id: string): Promise<QueuedVoice | undefined> {
+    const tx = this.db.transaction('queue');
+    return promisify(tx.objectStore('queue').get(id) as IDBRequest<QueuedVoice | undefined>);
+  }
+
   /** Записи на устройстве, свежие сверху. */
   async list(): Promise<QueuedVoice[]> {
     const tx = this.db.transaction('queue');
@@ -230,7 +235,11 @@ export class VoiceQueue {
     const sent: VoiceResult[] = [];
     let left = 0;
     let stop = false;
-    for (const item of waiting) {
+    for (const snap of waiting) {
+      // снимок очереди мог устареть: пока шла прошлая отправка, запись могли удалить или
+      // дополнить текстом (settle) — берём актуальную
+      const item = await this.read(snap.id);
+      if (!item) continue;
       // ещё распознаётся на устройстве — уйдёт, когда будет текст (settle позовёт flush)
       const held = voiceHeld(item, now());
       if (stop || held || item.rejected || this.closed || tried.has(item.id)) {
@@ -238,10 +247,6 @@ export class VoiceQueue {
         continue;
       }
       tried.add(item.id);
-      // снимок очереди мог устареть: пока шла прошлая отправка, запись могли удалить
-      const tx0 = this.db.transaction('queue', 'readonly');
-      const alive = await promisify(tx0.objectStore('queue').count(item.id));
-      if (alive === 0) continue;
       try {
         const { id, audio_base64, mime, duration_ms, text, source } = item;
         const reply = await this.transport.send({
