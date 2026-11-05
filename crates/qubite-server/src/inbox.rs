@@ -536,3 +536,299 @@ pub fn spawn_trash_cleanup(pool: sqlx::PgPool, days: u32) -> tokio::task::JoinHa
         }
     })
 }
+
+/// Где распознавать запись (D-686).
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum VoiceMethod {
+    Cloud,
+    Device,
+    Local,
+    OwnKey,
+}
+
+/// Настройка голосового ввода. Без сохранённой настройки используется cloud.
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct VoicePrefs {
+    method: VoiceMethod,
+}
+
+fn voice_db_error(error: sqlx::Error) -> ApiError {
+    tracing::error!(%error, "Голосовой ввод: ошибка базы");
+    ApiError::internal()
+}
+
+async fn voice_method(state: &AppState, owner: Uuid) -> Result<VoiceMethod, ApiError> {
+    let method: Option<String> =
+        sqlx::query_scalar("SELECT method FROM voice_prefs WHERE account_id = $1")
+            .bind(owner)
+            .fetch_optional(state.db.pool())
+            .await
+            .map_err(voice_db_error)?;
+    serde_json::from_value(json!(method.as_deref().unwrap_or("cloud")))
+        .map_err(|_| ApiError::internal())
+}
+
+/// Способ распознавания голосовых записей.
+#[utoipa::path(get, path = "/api/v1/voice/prefs", tag = "inbox",
+    responses(
+        (status = 200, description = "Настройка", body = VoicePrefs),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет права записи", body = ApiErrorBody),
+    ))]
+pub async fn voice_prefs(
+    State(state): State<AppState>,
+    session: Authenticated,
+) -> Result<Json<VoicePrefs>, ApiError> {
+    let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
+    Ok(Json(VoicePrefs {
+        method: voice_method(&state, proof.account_id()).await?,
+    }))
+}
+
+/// Выбрать способ распознавания голосовых записей.
+#[utoipa::path(put, path = "/api/v1/voice/prefs", tag = "inbox", request_body = VoicePrefs,
+    responses(
+        (status = 200, description = "Сохранено", body = VoicePrefs),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет права записи", body = ApiErrorBody),
+    ))]
+pub async fn set_voice_prefs(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Json(prefs): Json<VoicePrefs>,
+) -> Result<Json<VoicePrefs>, ApiError> {
+    let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
+    sqlx::query(
+        "INSERT INTO voice_prefs (account_id, method) VALUES ($1, $2) \
+         ON CONFLICT (account_id) DO UPDATE SET method = EXCLUDED.method, updated_at = now()",
+    )
+    .bind(proof.account_id())
+    .bind(as_text(prefs.method))
+    .execute(state.db.pool())
+    .await
+    .map_err(voice_db_error)?;
+    Ok(Json(prefs))
+}
+
+/// Аудио вместе с необязательным текстом, распознанным на устройстве.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct VoiceCaptureRequest {
+    id: Option<Uuid>,
+    audio_base64: String,
+    /// audio/webm, audio/ogg, audio/mp4, audio/wav, audio/mpeg (можно с codecs).
+    mime: String,
+    duration_ms: u64,
+    text: Option<String>,
+    /// web (по умолчанию), desktop или android.
+    source: Option<String>,
+}
+
+/// Аудио сохранено и при возможности распознано.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct VoiceCaptureResponse {
+    item: InboxItem,
+    transcribed: bool,
+    /// Почему осталась только запись; null, если текст получен.
+    reason: Option<String>,
+}
+
+fn invalid_voice(message: &str) -> ApiError {
+    ApiError::new(StatusCode::BAD_REQUEST, "invalid", message)
+}
+
+async fn transcribe_voice(
+    state: &AppState,
+    session: &Authenticated,
+    id: Uuid,
+    audio: Vec<u8>,
+    request: &VoiceCaptureRequest,
+) -> Result<String, String> {
+    let auth = authorize::<qubite_policy::UseAi>(state, session, qubite_inbox::MODULE)
+        .await
+        .map_err(|_| "Нет разрешения на AI-распознавание".to_owned())?;
+    let result = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        let model = state.ai.model_for(qubite_ai::voice::STT_TASK).await?;
+        state
+            .ai
+            .transcribe(
+                &auth,
+                qubite_ai::ListenRequest {
+                    request_id: format!("inbox:{id}:transcribe"),
+                    model,
+                    audio,
+                    mime: request.mime.clone(),
+                    language: None,
+                    duration_ms: request.duration_ms,
+                },
+            )
+            .await
+    })
+    .await;
+    match result {
+        Ok(Ok(heard))
+            if !heard.text.trim().is_empty()
+                && heard.text.chars().count() <= qubite_inbox::MAX_BODY_CHARS =>
+        {
+            Ok(heard.text)
+        }
+        _ => Err("Не удалось распознать речь. Аудиозапись сохранена".into()),
+    }
+}
+
+/// Сохранить голосовую запись во Входящие.
+#[utoipa::path(post, path = "/api/v1/inbox/voice", tag = "inbox", request_body = VoiceCaptureRequest,
+    responses(
+        (status = 201, description = "Запись сохранена", body = VoiceCaptureResponse),
+        (status = 200, description = "Этот ID уже сохранён", body = VoiceCaptureResponse),
+        (status = 400, description = "Неверная или слишком большая запись", body = ApiErrorBody),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет права записи", body = ApiErrorBody),
+        (status = 404, description = "ID недоступен", body = ApiErrorBody),
+    ))]
+pub async fn capture_voice(
+    State(state): State<AppState>,
+    session: Authenticated,
+    request: Result<Json<VoiceCaptureRequest>, axum::extract::rejection::JsonRejection>,
+) -> Result<(StatusCode, Json<VoiceCaptureResponse>), ApiError> {
+    use base64::Engine;
+
+    let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
+    let Json(request) = request.map_err(|_| invalid_voice("Неверная запись или тело больше 2 МБ"))?;
+    let owner = proof.account_id();
+    let source = request.source.as_deref().unwrap_or("web");
+    if !matches!(source, "web" | "desktop" | "android") {
+        return Err(invalid_voice("Источник: web, desktop или android"));
+    }
+    let extension = match request.mime.split(';').next().unwrap_or("").trim() {
+        "audio/webm" => "webm",
+        "audio/ogg" => "ogg",
+        "audio/mp4" | "audio/x-m4a" => "m4a",
+        "audio/wav" | "audio/x-wav" => "wav",
+        "audio/mpeg" => "mp3",
+        _ => return Err(invalid_voice("Неподдерживаемый формат аудио")),
+    };
+    if request.audio_base64.len() > qubite_ai::voice::MAX_AUDIO_BYTES.div_ceil(3) * 4 {
+        return Err(invalid_voice("Аудиозапись слишком большая"));
+    }
+    let audio = base64::engine::general_purpose::STANDARD
+        .decode(&request.audio_base64)
+        .map_err(|_| invalid_voice("Неверное кодирование аудио"))?;
+    if audio.is_empty() || audio.len() > qubite_ai::voice::MAX_AUDIO_BYTES {
+        return Err(invalid_voice("Аудиозапись пустая или слишком большая"));
+    }
+    if request.duration_ms == 0 || request.duration_ms > qubite_ai::voice::MAX_SECONDS * 1000 {
+        return Err(invalid_voice("Длительность записи: от 1 мс до 120 секунд"));
+    }
+    if request
+        .text
+        .as_ref()
+        .is_some_and(|text| text.chars().count() > qubite_inbox::MAX_BODY_CHARS)
+    {
+        return Err(invalid_voice("Текст записи слишком длинный"));
+    }
+    let id = request.id.unwrap_or_else(Uuid::now_v7);
+    let mut tx = state.db.pool().begin().await.map_err(voice_db_error)?;
+    // Один ID — одна запись и один вызов шлюза даже при параллельных повторах.
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+        .bind(id.to_string())
+        .execute(&mut *tx)
+        .await
+        .map_err(voice_db_error)?;
+    if let Some(object) = qubite_objects::objects::get_any(&mut tx, id)
+        .await
+        .map_err(objects_error)?
+    {
+        if object.owner_id != owner || object.object_type != qubite_inbox::ITEM_TYPE {
+            return Err(not_found());
+        }
+        let (transcribed, reason): (bool, Option<String>) = sqlx::query_as(
+            "SELECT transcribed, reason FROM inbox_voice_captures WHERE object_id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(voice_db_error)?
+        .ok_or_else(not_found)?;
+        let item = qubite_inbox::get(&mut tx, owner, id)
+            .await
+            .map_err(objects_error)?
+            .ok_or_else(not_found)?;
+        return Ok((
+            StatusCode::OK,
+            Json(VoiceCaptureResponse {
+                item: item.into(),
+                transcribed,
+                reason,
+            }),
+        ));
+    }
+    let blob = state
+        .blobs
+        .put(&mut tx, audio.as_slice(), &request.mime)
+        .await
+        .map_err(objects_error)?;
+    let text = match voice_method(&state, owner).await? {
+        VoiceMethod::Cloud => transcribe_voice(&state, &session, id, audio, &request).await,
+        VoiceMethod::Device | VoiceMethod::Local => request
+            .text
+            .clone()
+            .filter(|text| !text.trim().is_empty())
+            .ok_or_else(|| "Устройство не передало распознанный текст".to_owned()),
+        VoiceMethod::OwnKey => Err("Распознавание со своим ключом пока не поддерживается".to_owned()),
+    };
+    let (body, transcribed, reason) = match text {
+        Ok(text) => (text, true, None),
+        Err(reason) => ("Голосовая запись".to_owned(), false, Some(reason)),
+    };
+    let rules = Rules {
+        registry: state.sync.clone(),
+        strict: true,
+        writable: Some([qubite_inbox::MODULE.to_owned()].into()),
+        readable: None,
+    };
+    let op = Operation {
+        op_id: Uuid::now_v7(),
+        object_id: id,
+        base_revision: None,
+        kind: OpKind::Create {
+            object_type: qubite_inbox::ITEM_TYPE.into(),
+            title: qubite_inbox::title_from(&body),
+            fields: Some(json!({ "body": body, "kind": "voice", "source": source })),
+        },
+    };
+    match qubite_sync_server::apply_in(&mut tx, owner, session.0.id, &op, &rules)
+        .await
+        .map_err(sync_error)?
+    {
+        OpResult::Applied { .. } => {}
+        _ => return Err(invalid_voice("Не удалось создать голосовую запись")),
+    }
+    qubite_objects::files::attach(&mut tx, id, &blob, &format!("voice.{extension}"), owner)
+        .await
+        .map_err(objects_error)?;
+    sqlx::query(
+        "INSERT INTO inbox_voice_captures (object_id, transcribed, reason) VALUES ($1, $2, $3)",
+    )
+    .bind(id)
+    .bind(transcribed)
+    .bind(&reason)
+    .execute(&mut *tx)
+    .await
+    .map_err(voice_db_error)?;
+    let item = qubite_inbox::get(&mut tx, owner, id)
+        .await
+        .map_err(objects_error)?
+        .ok_or_else(not_found)?;
+    tx.commit().await.map_err(voice_db_error)?;
+    Ok((
+        StatusCode::CREATED,
+        Json(VoiceCaptureResponse {
+            item: item.into(),
+            transcribed,
+            reason,
+        }),
+    ))
+}

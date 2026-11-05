@@ -262,6 +262,9 @@ impl AppState {
         sync::socket,
         inbox::list,
         inbox::capture,
+        inbox::voice_prefs,
+        inbox::set_voice_prefs,
+        inbox::capture_voice,
         inbox::detail,
         inbox::change,
         inbox::remove,
@@ -468,6 +471,10 @@ impl AppState {
         inbox::InboxLink,
         inbox::InboxItemDetail,
         inbox::CaptureRequest,
+        inbox::VoicePrefs,
+        inbox::VoiceMethod,
+        inbox::VoiceCaptureRequest,
+        inbox::VoiceCaptureResponse,
         inbox::ChangeRequest,
         inbox::RevisionBody,
         inbox::DecideRequest,
@@ -793,6 +800,14 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route("/api/v1/sync/pull", get(sync::pull))
         .route("/api/v1/sync/ws", get(sync::socket))
         .route("/api/v1/inbox", get(inbox::list).post(inbox::capture))
+        .route(
+            "/api/v1/voice/prefs",
+            get(inbox::voice_prefs).put(inbox::set_voice_prefs),
+        )
+        .route(
+            "/api/v1/inbox/voice",
+            post(inbox::capture_voice).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
         .route(
             "/api/v1/inbox/{id}",
             get(inbox::detail)
