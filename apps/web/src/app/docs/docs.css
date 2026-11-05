@@ -14,8 +14,12 @@
 /* Под заголовком раздела — сразу поиск и действие справа, как во «Входящих» и Planner. */
 .docs-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+.docs-index .q-note {
+  overflow-wrap: anywhere;
 }
 .docs-index > .q-seg {
   margin-bottom: 14px;
@@ -71,11 +75,12 @@
   min-width: 44px;
 }
 .docs-search {
-  flex: 1;
+  flex: 1 1 160px;
   min-width: 0;
 }
 .docs-bar .q-btn {
   flex: none;
+  min-height: 44px;
 }
 .docs-rows {
   position: relative;
@@ -124,6 +129,7 @@
 }
 .docs-empty .q-btn {
   margin-top: 16px;
+  margin-right: 8px;
 }
 .docs-page-head {
   display: flex;

@@ -21,6 +21,9 @@ import {
 } from '@qubite/ui';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Y from 'yjs';
+import { downloadMarkdown, readMarkdownFile } from '../docs/markdown-file';
+import { extractDocLinks, markdownToYUpdate, renderDocText } from '../docs/render';
 import { DocEditor } from '../docs/Editor';
 import { History } from '../docs/History';
 import { Trash } from '../docs/Trash';
@@ -71,6 +74,26 @@ function fromServer(doc: SearchDoc): DocListItem {
   };
 }
 
+const MAX_IMPORT_BYTES = 480 * 1024;
+// Столько разных упоминаний принимает отправка документа (docs.ts).
+const MAX_IMPORT_LINKS = 200;
+// Предел текста документа на сервере (D-474).
+const MAX_IMPORT_CHARACTERS = 200_000;
+
+function inspectUpdate(update: Uint8Array): { links: number; characters: number } {
+  const probe = new Y.Doc();
+  try {
+    Y.applyUpdate(probe, update);
+    // Текст для сервера — Markdown из дерева, он может оказаться длиннее файла.
+    return {
+      links: extractDocLinks(probe).length,
+      characters: Array.from(renderDocText(probe)).length,
+    };
+  } finally {
+    probe.destroy();
+  }
+}
+
 export function DocsScreen() {
   const sync = useSync();
   const navigate = useNavigate();
@@ -93,6 +116,12 @@ export function DocsScreen() {
   const [online, setOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const importingNow = useRef(false);
+  const [freshImports, setFreshImports] = useState<ReadonlySet<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const previewKey = `qubite.docs.previews.${rememberedAccount() ?? 'unknown'}`;
   const [previews, setPreviews] = useState<Previews>(() => readPreviews(previewKey));
@@ -187,6 +216,9 @@ export function DocsScreen() {
       const fresh =
         preview &&
         (preview.updated > doc.updated ||
+          // Импортированный в этом сеансе: снимок с сервера создан до текста, превью ещё пустое.
+          // Непустое серверное превью побеждает; набор живёт до перезагрузки страницы.
+          (!doc.preview && freshImports.has(doc.id)) ||
           objects.some((object) => object.id === doc.id && object.pending))
           ? { ...doc, preview: preview.preview }
           : doc;
@@ -295,6 +327,84 @@ export function DocsScreen() {
     }
   }
 
+  async function importFiles(files: File[]) {
+    if (!files.length || importingNow.current) return;
+    setImportErrors([]);
+    setImportResult(null);
+    if (files.length > 20) {
+      setImportErrors(['Выберите не больше 20 файлов за раз.']);
+      return;
+    }
+    importingNow.current = true;
+    setImporting(true);
+    const imported: string[] = [];
+    try {
+      const client = await sync.ready();
+      const store = sync.docs;
+      if (!store) throw new Error('Хранилище документов ещё открывается. Попробуйте ещё раз.');
+      for (const file of files) {
+        try {
+          const { title, text } = await readMarkdownFile(file);
+          // Разбор до создания: ошибка формата не оставит пустой документ.
+          const update = markdownToYUpdate(text);
+          // Сервер не примет обновление Yjs больше 512 КиБ (D-751); лимит клиента — с запасом.
+          const { links, characters } = inspectUpdate(update);
+          if (links > MAX_IMPORT_LINKS)
+            throw new Error('В документе больше 200 разных ссылок. Разделите файл.');
+          if (characters > MAX_IMPORT_CHARACTERS)
+            throw new Error('После разбора в документе больше 200 000 знаков. Разделите файл.');
+          if (update.byteLength > MAX_IMPORT_BYTES)
+            throw new Error('Документ слишком большой для синхронизации. Разделите файл.');
+          const doc = await createDoc(client, title);
+          const handle = await store.open(doc.id);
+          try {
+            Y.applyUpdate(handle.doc, update);
+            // Без этого закрытый документ не отправит текст: сервер ждёт seed (D-753).
+            await handle.markSeeded();
+          } finally {
+            await handle.close();
+          }
+          imported.push(doc.id);
+          setFreshImports((current) => new Set(current).add(doc.id));
+          onText(doc.id, text);
+        } catch (cause) {
+          const reason = cause instanceof Error ? cause.message : 'Не удалось загрузить файл.';
+          setImportErrors((current) => [...current, `${file.name}: ${reason}`]);
+        }
+      }
+      setObjects(await client.all());
+      setQuery('');
+      if (files.length === 1 && imported[0]) {
+        await navigate({ to: '/docs/$id', params: { id: imported[0] } });
+      } else {
+        setImportResult(`Загружено ${imported.length} из ${files.length}`);
+        await navigate({ to: '/docs' });
+      }
+      // Текст закрытых документов отправится обычным фоновым обменом.
+      void client
+        .sync()
+        .then(() => store.syncAll())
+        .catch(() => {});
+    } catch (cause) {
+      setImportErrors([
+        cause instanceof Error ? cause.message : 'Не удалось открыть хранилище на устройстве.',
+      ]);
+    } finally {
+      importingNow.current = false;
+      setImporting(false);
+    }
+  }
+
+  const importButton = (
+    <Button
+      size="sm"
+      disabled={importing || creating || !sync.client || !sync.docs}
+      onClick={() => fileInput.current?.click()}
+    >
+      Импорт .md
+    </Button>
+  );
+
   return (
     <div className={`docs-workspace${id ? ' docs-open' : ''}`}>
       <aside ref={index} className="docs-index" aria-label="Список документов">
@@ -316,6 +426,25 @@ export function DocsScreen() {
           </Note>
         </Presence>
         {error && <Note tone="bad">{error}</Note>}
+        <input
+          ref={fileInput}
+          hidden
+          type="file"
+          aria-label="Импорт Markdown"
+          accept=".md,.markdown,.txt,text/markdown,text/plain"
+          multiple
+          onChange={(event) => {
+            const files = Array.from(event.currentTarget.files ?? []);
+            event.currentTarget.value = '';
+            void importFiles(files);
+          }}
+        />
+        {importResult && <Note>{importResult}</Note>}
+        {importErrors.map((message, index) => (
+          <Note key={index} tone="bad">
+            {message}
+          </Note>
+        ))}
         <Swap view={section} order={['docs', 'trash']}>
           {section === 'trash' ? (
             <Trash
@@ -343,9 +472,14 @@ export function DocsScreen() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
-                <Button size="sm" onClick={() => void create()} disabled={creating || !sync.client}>
+                <Button
+                  size="sm"
+                  onClick={() => void create()}
+                  disabled={creating || importing || !sync.client}
+                >
                   + Документ
                 </Button>
+                {importButton}
               </div>
               {searchError && (
                 <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
@@ -375,9 +509,14 @@ export function DocsScreen() {
               {loaded && !all.length && !q && (
                 <div className="docs-empty">
                   <p>Здесь будут ваши заметки и документы.</p>
-                  <Button variant="fill" disabled={creating} onClick={() => void create()}>
+                  <Button
+                    variant="fill"
+                    disabled={creating || importing}
+                    onClick={() => void create()}
+                  >
                     Создать первый документ
                   </Button>
+                  {importButton}
                 </div>
               )}
               {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
@@ -588,6 +727,16 @@ function Document({
       <div className="docs-page-head">
         <Button size="sm" dot={false} onClick={() => void navigate({ to: '/docs' })}>
           <DotIcon name="back" /> К документам
+        </Button>
+        <Button
+          size="sm"
+          dot={false}
+          disabled={!handle}
+          onClick={() => {
+            if (handle) downloadMarkdown(titleValue.current || title || 'Документ', handle.text());
+          }}
+        >
+          <DotIcon name="docs" /> Скачать .md
         </Button>
         <Button
           size="sm"
