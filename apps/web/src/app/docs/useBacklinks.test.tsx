@@ -246,4 +246,15 @@ describe('обратные ссылки: сеть и память сессии',
     await vi.advanceTimersByTimeAsync(150);
     expect(changed).toHaveBeenCalledTimes(1);
   });
+
+  it('успешный обмен без документов всё равно обновляет список один раз', async () => {
+    vi.useFakeTimers();
+    const session = createBacklinksSession('account');
+    const changed = vi.fn();
+    session.subscribe(changed);
+    await session.batch(Promise.resolve());
+    expect(changed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
 });

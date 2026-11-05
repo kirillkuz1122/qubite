@@ -35,11 +35,16 @@ export function createBacklinksSession(scope: string | null) {
     /** Пока идёт массовый обмен, ответы сервера только откладывают одно обновление. */
     async batch<T>(work: Promise<T>): Promise<T> {
       bulk += 1;
+      let done = false;
       try {
-        return await work;
+        const result = await work;
+        done = true;
+        return result;
       } finally {
         bulk -= 1;
-        if (bulk === 0 && dirty) {
+        // Успешный обмен обновляет список и без обмена содержимым (дело, проект:
+        // меняются только метаданные); неудачный — только если ответы уже были.
+        if (bulk === 0 && (done || dirty)) {
           dirty = false;
           schedule();
         }
