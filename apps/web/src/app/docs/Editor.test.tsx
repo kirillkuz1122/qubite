@@ -12,6 +12,7 @@ const linkSource: LinkSource = { search: async () => [], links: async () => [] }
 function handle(seedMarkdown: string | null): DocHandle {
   return {
     doc: new Y.Doc(),
+    loaded: true,
     id: 'page',
     links: [],
     cacheLinks: async () => {},
@@ -28,6 +29,7 @@ function handle(seedMarkdown: string | null): DocHandle {
     clearLost: async () => {},
     text: () => '',
     sync: async () => {},
+    restoreVersion: async () => {},
     markSeeded: vi.fn(async () => {}),
     onStatus: (callback) => {
       callback('pending');

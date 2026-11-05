@@ -32,7 +32,7 @@ function setup(linkSource = source(), cached: DocLink[] = []) {
   let editor!: LexicalEditor;
   const listeners = new Set<() => void>();
   const handle: DocHandle = {
-    id: 'page', doc: new Y.Doc(), status: 'saved', seedMarkdown: null,
+    id: 'page', loaded: true, doc: new Y.Doc(), status: 'saved', seedMarkdown: null,
     recovered: null, lost: [], links: cached,
     async cacheLinks(links) {
       Object.assign(handle, { links: [...new Map([...handle.links, ...links].map((link) => [link.id, link])).values()] });
@@ -42,6 +42,7 @@ function setup(linkSource = source(), cached: DocLink[] = []) {
     onStatus: () => () => {}, onReset: () => () => {}, onLost: () => () => {},
     clearLost: async () => {}, clearRecovered: async () => {}, markSeeded: async () => {},
     sync: async () => {}, close: async () => {}, text: () => '',
+    restoreVersion: async () => {},
   };
   const view = render(
     <LexicalComposer initialConfig={{

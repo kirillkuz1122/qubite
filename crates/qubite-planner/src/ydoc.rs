@@ -177,6 +177,7 @@ pub struct ApplyUpdate<'a> {
     pub update: &'a [u8],
     pub text: &'a str,
     pub seed: bool,
+    pub restore: bool,
     pub client_snapshot: Option<&'a [u8]>,
     pub links: Option<&'a [Uuid]>,
     pub readable_modules: &'a [String],
@@ -192,6 +193,7 @@ pub async fn apply(
         update,
         text,
         seed,
+        restore,
         client_snapshot,
         links,
         readable_modules,
@@ -225,6 +227,7 @@ pub async fn apply(
         return Err(Error::TextTooLarge);
     }
     let merged = merge_with_snapshot(state.as_deref(), update, client_snapshot)?;
+    crate::versions::before_update(&mut tx, owner, id, merged.changed, restore).await?;
     // Старый text не затирает превью. Без снимка повтор, как прежде, ничего
     // не меняет; догон текста разрешён, только если известны и вставки, и удаления.
     let text_changed =

@@ -722,3 +722,91 @@ async fn backlinks_filter_foreign_deleted_and_unreadable_objects_and_require_gra
     db.close().await;
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn restore_snapshots_old_state_but_replaces_links_from_the_new_update() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut browser = logged_in(address).await;
+    let owner = owner_id(&db).await;
+    let source = object(&db, owner, DOC_TYPE, "Источник").await;
+    let first = object(&db, owner, DOC_TYPE, "Первая цель").await;
+    let second = object(&db, owner, DOC_TYPE, "Вторая цель").await;
+    let doc = Doc::with_client_id(1);
+    let text = doc.get_or_insert_text("text");
+    text.insert(&mut doc.transact_mut(), 0, "Первая версия");
+    save(&mut browser, address, source, packet(&doc, Some(&[first]))).await;
+    let named = browser
+        .post_json(
+            address,
+            &format!("/api/v1/docs/{source}/versions"),
+            json!({"name": "Первая"}),
+        )
+        .await;
+    assert_eq!(named.status, 201);
+    sqlx::query(
+        "UPDATE docs_versions SET created_at = now() - interval '11 minutes' WHERE doc_id = $1",
+    )
+    .bind(source)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let len = text.len(&doc.transact());
+    text.remove_range(&mut doc.transact_mut(), 0, len);
+    text.insert(&mut doc.transact_mut(), 0, "Вторая версия");
+    save(&mut browser, address, source, packet(&doc, Some(&[second]))).await;
+    let before = packet(&doc, Some(&[second]));
+    // Чтение снимка само по себе не меняет текущие связи.
+    let detail = browser
+        .get(
+            address,
+            &format!(
+                "/api/v1/docs/{source}/versions/{}",
+                named.body["id"].as_str().unwrap()
+            ),
+        )
+        .await;
+    assert_eq!(detail.status, 200);
+    assert_eq!(
+        links(&mut browser, address, source).await[0]["id"],
+        second.to_string()
+    );
+    // Клиент восстанавливает содержимое новой правкой поверх текущего Y.Doc.
+    let len = text.len(&doc.transact());
+    text.remove_range(&mut doc.transact_mut(), 0, len);
+    text.insert(&mut doc.transact_mut(), 0, "Первая версия");
+    let mut restore = packet(&doc, Some(&[first]));
+    restore["reason"] = json!("restore");
+    restore["restore_of"] = named.body["id"].clone();
+    save(&mut browser, address, source, restore).await;
+    let outgoing = links(&mut browser, address, source).await;
+    assert_eq!(outgoing.len(), 1);
+    assert_eq!(outgoing[0]["id"], first.to_string());
+    let versions = get(
+        &mut browser,
+        address,
+        &format!("/api/v1/docs/{source}/versions"),
+        "versions",
+    )
+    .await;
+    assert_eq!(versions.len(), 3);
+    let auto = versions
+        .iter()
+        .find(|version| version["kind"] == "auto")
+        .unwrap();
+    assert_eq!(auto["preview"], "Первая версия");
+    let saved = browser
+        .get(
+            address,
+            &format!(
+                "/api/v1/docs/{source}/versions/{}",
+                versions[0]["id"].as_str().unwrap()
+            ),
+        )
+        .await;
+    assert_eq!(saved.body["kind"], "before_restore");
+    assert_eq!(saved.body["ystate"], before["update"]);
+    assert_eq!(saved.body["text"], before["text"]);
+    assert_eq!(links(&mut browser, address, source).await, outgoing);
+    db.close().await;
+    test_db.drop_db().await;
+}

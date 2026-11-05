@@ -17,6 +17,59 @@
   align-items: center;
   gap: 8px;
 }
+.docs-index > .q-seg {
+  margin-bottom: 14px;
+}
+.docs-trash,
+.docs-trash-copy {
+  min-width: 0;
+}
+.docs-trash-rows {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.docs-trash-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--q-line);
+}
+.docs-trash-copy {
+  flex: 1 1 160px;
+  display: grid;
+  gap: 4px;
+}
+.docs-trash-copy .docs-row-title {
+  overflow-wrap: anywhere;
+}
+.docs-trash-row time {
+  color: var(--q-mute);
+  font-size: 12px;
+}
+.docs-trash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Заметка «Документ в корзине · Вернуть» и ошибка не прилипают к поиску и пояснению. */
+.docs-undo,
+.docs-index > .q-note {
+  margin-bottom: 14px;
+}
+/* Под вкладками — 14 px до пояснения, как до строки поиска во «Документах» (§0.2). */
+.docs-trash > .lead:first-child {
+  margin-top: 0;
+}
+.docs-trash-row .q-btn,
+.docs-page-head .q-btn,
+.docs-index .q-note .q-btn,
+.docs-trash-actions .q-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
 .docs-search {
   flex: 1;
   min-width: 0;
