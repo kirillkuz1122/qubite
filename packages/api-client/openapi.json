@@ -7865,6 +7865,72 @@
         }
       }
     },
+    "/api/v1/inbox/{id}/audio": {
+      "get": {
+        "tags": ["inbox"],
+        "summary": "Прослушать аудиовложение элемента Входящих.",
+        "operationId": "download_audio",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID элемента",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Аудио целиком; Accept-Ranges: none",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права чтения Входящих",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет элемента или аудиовложения (или чужой)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inbox/{id}/decide": {
       "post": {
         "tags": ["inbox"],

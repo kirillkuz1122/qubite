@@ -2373,6 +2373,23 @@ export interface paths {
     patch: operations['change'];
     trace?: never;
   };
+  '/api/v1/inbox/{id}/audio': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Прослушать аудиовложение элемента Входящих. */
+    get: operations['download_audio'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/inbox/{id}/decide': {
     parameters: {
       query?: never;
@@ -11978,6 +11995,56 @@ export interface operations {
         };
       };
       /** @description Нет такого (или чужой) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  download_audio: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID элемента */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Аудио целиком; Accept-Ranges: none */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/octet-stream': number[];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права чтения Входящих */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет элемента или аудиовложения (или чужой) */
       404: {
         headers: {
           [name: string]: unknown;
