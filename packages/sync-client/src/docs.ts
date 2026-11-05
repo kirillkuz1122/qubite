@@ -551,6 +551,13 @@ class StoredDocHandle implements DocHandle {
     if (this.closed) return;
     // Отсутствие цели в ответе не стирает офлайн-название недавно вставленного чипа.
     const merged = new Map(this.links.map((link) => [link.id, link]));
+    // Текст для поиска хранит `@Название`: переименование используемой цели
+    // требует повторной отправки текста, но не новых Yjs-правок.
+    const used = this.extractLinks ? new Set(this.extractLinks(this.doc)) : null;
+    const renamed = links.some((link) => {
+      const before = merged.get(link.id);
+      return before !== undefined && before.title !== link.title && (!used || used.has(link.id));
+    });
     for (const link of links) merged.set(link.id, link);
     this.links = [...merged.values()];
     this.track(
@@ -558,9 +565,14 @@ class StoredDocHandle implements DocHandle {
         const saved = new Map(record.links.map((link) => [link.id, link]));
         for (const link of links) saved.set(link.id, link);
         record.links = [...saved.values()];
+        if (renamed) record.textPending = true;
       }),
     );
     for (const callback of this.linkListeners) callback();
+    if (renamed) {
+      this.setStatus('pending');
+      this.schedule();
+    }
     await this.writes;
   }
 
