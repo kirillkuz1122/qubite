@@ -437,7 +437,11 @@ export function DocsScreen() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
-                <Button size="sm" onClick={() => void create()} disabled={creating || importing || !sync.client}>
+                <Button
+                  size="sm"
+                  onClick={() => void create()}
+                  disabled={creating || importing || !sync.client}
+                >
                   + Документ
                 </Button>
                 {importButton}
@@ -470,7 +474,11 @@ export function DocsScreen() {
               {loaded && !all.length && !q && (
                 <div className="docs-empty">
                   <p>Здесь будут ваши заметки и документы.</p>
-                  <Button variant="fill" disabled={creating || importing} onClick={() => void create()}>
+                  <Button
+                    variant="fill"
+                    disabled={creating || importing}
+                    onClick={() => void create()}
+                  >
                     Создать первый документ
                   </Button>
                   {importButton}

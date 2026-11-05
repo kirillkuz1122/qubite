@@ -7,7 +7,7 @@ import {
   SyncClient,
   type Transport,
 } from '@qubite/sync-client';
-import { act, fireEvent, render, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncCtx } from '../sync-context';
@@ -51,7 +51,13 @@ function Harness({ client, docs }: { client: SyncClient; docs?: DocStore }) {
   }, [client]);
   return (
     <SyncCtx.Provider
-      value={{ client, docs, ready: async () => client, state: client.state(), version }}
+      value={{
+        client,
+        docs: docs ?? null,
+        ready: async () => client,
+        state: client.state(),
+        version,
+      }}
     >
       <LookProvider>
         <DocsScreen />
@@ -80,7 +86,10 @@ beforeEach(() => {
   }));
 });
 afterEach(async () => {
-  await Promise.all(stores.splice(0).map((store) => store.close()));
+  // Без globals Testing Library сам не размонтирует: экраны прошлых тестов держат закрытые хранилища.
+  cleanup();
+  // Фоновый обмен мог открывать документ в момент закрытия.
+  await Promise.all(stores.splice(0).map((store) => store.close().catch(() => {})));
   clients.splice(0).forEach((client) => client.close());
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
