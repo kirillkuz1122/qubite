@@ -272,6 +272,14 @@ describe('Markdown-файлы без сети', () => {
     expect(await view.client.all()).toEqual([]);
   });
 
+  it('отказывает, если Markdown после разбора длиннее предела', async () => {
+    const view = await markdownSetup();
+    const text = `${'a'.repeat(199_994)}\n[ ] x`;
+    fireEvent.change(view.input, { target: { files: [new File([text], 'предел.md')] } });
+    await view.findByText(/предел.md:.*больше 200 000 знаков/);
+    expect(await view.client.all()).toEqual([]);
+  });
+
   it('помечает импортированный документ как прошедший seed', async () => {
     const view = await markdownSetup();
     const open = view.docs.open.bind(view.docs);

@@ -23,7 +23,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { downloadMarkdown, readMarkdownFile } from '../docs/markdown-file';
-import { extractDocLinks, markdownToYUpdate } from '../docs/render';
+import { extractDocLinks, markdownToYUpdate, renderDocText } from '../docs/render';
 import { DocEditor } from '../docs/Editor';
 import { History } from '../docs/History';
 import { Trash } from '../docs/Trash';
@@ -77,12 +77,18 @@ function fromServer(doc: SearchDoc): DocListItem {
 const MAX_IMPORT_BYTES = 480 * 1024;
 // Столько разных упоминаний принимает отправка документа (docs.ts).
 const MAX_IMPORT_LINKS = 200;
+// Предел текста документа на сервере (D-474).
+const MAX_IMPORT_CHARACTERS = 200_000;
 
-function countLinks(update: Uint8Array): number {
+function inspectUpdate(update: Uint8Array): { links: number; characters: number } {
   const probe = new Y.Doc();
   try {
     Y.applyUpdate(probe, update);
-    return extractDocLinks(probe).length;
+    // Текст для сервера — Markdown из дерева, он может оказаться длиннее файла.
+    return {
+      links: extractDocLinks(probe).length,
+      characters: Array.from(renderDocText(probe)).length,
+    };
   } finally {
     probe.destroy();
   }
@@ -342,8 +348,11 @@ export function DocsScreen() {
           // Разбор до создания: ошибка формата не оставит пустой документ.
           const update = markdownToYUpdate(text);
           // Сервер не примет обновление Yjs больше 512 КиБ (D-751); лимит клиента — с запасом.
-          if (countLinks(update) > MAX_IMPORT_LINKS)
+          const { links, characters } = inspectUpdate(update);
+          if (links > MAX_IMPORT_LINKS)
             throw new Error('В документе больше 200 разных ссылок. Разделите файл.');
+          if (characters > MAX_IMPORT_CHARACTERS)
+            throw new Error('После разбора в документе больше 200 000 знаков. Разделите файл.');
           if (update.byteLength > MAX_IMPORT_BYTES)
             throw new Error('Документ слишком большой для синхронизации. Разделите файл.');
           const doc = await createDoc(client, title);
