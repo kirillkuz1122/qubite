@@ -7628,6 +7628,85 @@
         }
       }
     },
+    "/api/v1/inbox/voice": {
+      "post": {
+        "tags": ["inbox"],
+        "summary": "Сохранить голосовую запись во Входящие.",
+        "operationId": "capture_voice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Этот ID уже сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCaptureResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Запись сохранена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCaptureResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверная или слишком большая запись",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ID недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inbox/{id}": {
       "get": {
         "tags": ["inbox"],
@@ -9354,6 +9433,92 @@
           },
           "409": {
             "description": "Бот не настроен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/voice/prefs": {
+      "get": {
+        "tags": ["inbox"],
+        "summary": "Способ распознавания голосовых записей.",
+        "operationId": "voice_prefs",
+        "responses": {
+          "200": {
+            "description": "Настройка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePrefs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["inbox"],
+        "summary": "Выбрать способ распознавания голосовых записей.",
+        "operationId": "set_voice_prefs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoicePrefs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoicePrefs"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
             "content": {
               "application/json": {
                 "schema": {
@@ -15183,6 +15348,70 @@
             "description": "Непустое имя до 80 знаков; пробелы по краям убираются.",
             "maxLength": 80,
             "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoiceCaptureRequest": {
+        "type": "object",
+        "description": "Аудио вместе с необязательным текстом, распознанным на устройстве.",
+        "required": ["audio_base64", "mime", "duration_ms"],
+        "properties": {
+          "audio_base64": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "mime": {
+            "type": "string",
+            "description": "audio/webm, audio/ogg, audio/mp4, audio/wav, audio/mpeg (можно с codecs)."
+          },
+          "source": {
+            "type": ["string", "null"],
+            "description": "web (по умолчанию), desktop или android."
+          },
+          "text": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoiceCaptureResponse": {
+        "type": "object",
+        "description": "Аудио сохранено и при возможности распознано.",
+        "required": ["item", "transcribed"],
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/InboxItem"
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Почему осталась только запись; null, если текст получен."
+          },
+          "transcribed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VoiceMethod": {
+        "type": "string",
+        "description": "Где распознавать запись (D-686).",
+        "enum": ["cloud", "device", "local", "own_key"]
+      },
+      "VoicePrefs": {
+        "type": "object",
+        "description": "Настройка голосового ввода. Без сохранённой настройки используется cloud.",
+        "required": ["method"],
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/VoiceMethod"
           }
         },
         "additionalProperties": false

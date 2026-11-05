@@ -2337,6 +2337,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/inbox/voice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Сохранить голосовую запись во Входящие. */
+    post: operations['capture_voice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/inbox/{id}': {
     parameters: {
       query?: never;
@@ -2842,6 +2859,24 @@ export interface paths {
      *     привязки сообщения боту попадают во Входящие, owner получает уведомления.
      */
     post: operations['link_code'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/voice/prefs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Способ распознавания голосовых записей. */
+    get: operations['voice_prefs'];
+    /** Выбрать способ распознавания голосовых записей. */
+    put: operations['set_voice_prefs'];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -5421,6 +5456,35 @@ export interface components {
     VersionName: {
       /** @description Непустое имя до 80 знаков; пробелы по краям убираются. */
       name: string;
+    };
+    /** @description Аудио вместе с необязательным текстом, распознанным на устройстве. */
+    VoiceCaptureRequest: {
+      audio_base64: string;
+      /** Format: int64 */
+      duration_ms: number;
+      /** Format: uuid */
+      id?: string | null;
+      /** @description audio/webm, audio/ogg, audio/mp4, audio/wav, audio/mpeg (можно с codecs). */
+      mime: string;
+      /** @description web (по умолчанию), desktop или android. */
+      source?: string | null;
+      text?: string | null;
+    };
+    /** @description Аудио сохранено и при возможности распознано. */
+    VoiceCaptureResponse: {
+      item: components['schemas']['InboxItem'];
+      /** @description Почему осталась только запись; null, если текст получен. */
+      reason?: string | null;
+      transcribed: boolean;
+    };
+    /**
+     * @description Где распознавать запись (D-686).
+     * @enum {string}
+     */
+    VoiceMethod: 'cloud' | 'device' | 'local' | 'own_key';
+    /** @description Настройка голосового ввода. Без сохранённой настройки используется cloud. */
+    VoicePrefs: {
+      method: components['schemas']['VoiceMethod'];
     };
     /** @description Раздел «Агенты» целиком. */
     WorkBoard: {
@@ -11823,6 +11887,75 @@ export interface operations {
       };
     };
   };
+  capture_voice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoiceCaptureRequest'];
+      };
+    };
+    responses: {
+      /** @description Этот ID уже сохранён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceCaptureResponse'];
+        };
+      };
+      /** @description Запись сохранена */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceCaptureResponse'];
+        };
+      };
+      /** @description Неверная или слишком большая запись */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description ID недоступен */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   detail: {
     parameters: {
       query?: never;
@@ -13197,6 +13330,86 @@ export interface operations {
       };
       /** @description Бот не настроен */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  voice_prefs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Настройка */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoicePrefs'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  set_voice_prefs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoicePrefs'];
+      };
+    };
+    responses: {
+      /** @description Сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoicePrefs'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
         headers: {
           [name: string]: unknown;
         };
