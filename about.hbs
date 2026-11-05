@@ -1,0 +1,13 @@
+Лицензии сторонних Rust-зависимостей Qubite (сгенерировано cargo-about).
+
+{{#each licenses}}
+================================================================
+{{name}} ({{id}})
+Используют:
+{{#each used_by}}
+  - {{crate.name}} {{crate.version}}{{#if crate.repository}} — {{crate.repository}}{{/if}}
+{{/each}}
+
+{{text}}
+
+{{/each}}

@@ -1,0 +1,33 @@
+# Список лицензий Rust-зависимостей (OPS-008): `scripts/gen-licenses.sh` → THIRD_PARTY_LICENSES.
+accepted = [
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD",
+    "Zlib",
+    "Unlicense",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MPL-2.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+    "GPL-3.0",
+    "AGPL-3.0",
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
+    "CC0-1.0",
+    "CC-BY-4.0",
+    "OFL-1.1",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CDLA-Permissive-2.0", # webpki-roots: CA Mozilla, см. deny.toml
+]
+workarounds = []
+ignore-dev-dependencies = true
+ignore-build-dependencies = true

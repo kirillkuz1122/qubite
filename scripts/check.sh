@@ -81,6 +81,18 @@ if touched "$web"; then
   fi
 fi
 
+# Лицензии зависимостей (OPS-008, D-840): cargo-deny и npm, если задеты манифесты
+if touched '^(Cargo\.(toml|lock)|deny\.toml|crates/.*/Cargo\.toml)'; then
+  if command -v cargo-deny >/dev/null; then
+    step "лицензии rust" cargo deny --log-level error check licenses bans sources
+  else
+    echo "– лицензии rust: нет cargo-deny (cargo install --locked cargo-deny), проверит CI"
+  fi
+fi
+if touched '^(pnpm-lock\.yaml|package\.json|scripts/check-licenses)'; then
+  step "лицензии npm" pnpm -s check:licenses
+fi
+
 if touched '^(content/english/|scripts/check-english)'; then
   step "английский" node scripts/check-english.mjs
 fi

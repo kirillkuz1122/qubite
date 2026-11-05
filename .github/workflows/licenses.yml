@@ -1,0 +1,57 @@
+# Лицензии зависимостей Qubite (OPS-008, D-840): быстрая проверка, падает на запрещённой.
+name: licenses
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/*/Cargo.toml'
+      - 'deny.toml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'scripts/check-licenses-npm.mjs'
+      - '.github/workflows/licenses.yml'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/*/Cargo.toml'
+      - 'deny.toml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'scripts/check-licenses-npm.mjs'
+      - '.github/workflows/licenses.yml'
+
+concurrency:
+  group: licenses-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      # Готовый action: ставит собранный cargo-deny, без компиляции.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses bans sources
+          arguments: --workspace
+
+  npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:licenses
