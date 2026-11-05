@@ -65,7 +65,8 @@ export interface Task {
 }
 
 export type InboxFrom = 'voice' | 'link' | 'tg' | 'text';
-export type InboxAct = 'planner' | 'docs' | 'later';
+/** `archive` — разобрано без переноса (запись без текста); `drop` — не отправлять запись с устройства */
+export type InboxAct = 'planner' | 'docs' | 'later' | 'archive' | 'drop';
 export interface InboxItem {
   id: string;
   text: string;
@@ -79,6 +80,17 @@ export interface InboxItem {
   mood?: ElikMood;
   /** варианты ответа на вопрос агента «посмотри сам» */
   answers?: string[];
+  /** голосовая запись (CMD-005b) */
+  voice?: InboxVoice;
+}
+
+export interface InboxVoice {
+  /** откуда слушать; нет — запись ещё на устройстве */
+  audio?: string;
+  /** текста нет («Голосовая запись», D-846) — плеер виден сразу */
+  bare: boolean;
+  /** запись ещё на устройстве: ждёт сети, уходит сейчас или сервер её не принял */
+  queued?: 'wait' | 'sending' | 'failed';
 }
 
 export interface Doc {

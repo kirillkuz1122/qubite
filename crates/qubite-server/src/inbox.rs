@@ -6,8 +6,10 @@
 
 use axum::{
     Json,
+    body::Body,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use qubite_inbox::{Item, Link, View};
 use qubite_policy::{Read, Write};
@@ -355,6 +357,67 @@ pub async fn detail(
         item: item.into(),
         links: links.into_iter().map(InboxLink::from).collect(),
     }))
+}
+
+/// Прослушать аудиовложение элемента Входящих.
+#[utoipa::path(get, path = "/api/v1/inbox/{id}/audio", tag = "inbox",
+    params(("id" = Uuid, Path, description = "ID элемента")),
+    responses(
+        (status = 200, description = "Аудио целиком; Accept-Ranges: none", content_type = "application/octet-stream", body = Vec<u8>),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет права чтения Входящих", body = ApiErrorBody),
+        (status = 404, description = "Нет элемента или аудиовложения (или чужой)", body = ApiErrorBody),
+    ))]
+pub async fn download_audio(
+    State(state): State<AppState>,
+    session: Authenticated,
+    Path(id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    let proof = authorize::<Read>(&state, &session, qubite_inbox::MODULE).await?;
+    let item = load(&state, proof.account_id(), id).await?;
+    let attachment = {
+        let mut conn = state.db.pool().acquire().await.map_err(|error| {
+            tracing::error!(%error, "Входящие: база недоступна");
+            ApiError::internal()
+        })?;
+        qubite_objects::files::attachments(&mut conn, item.id)
+            .await
+            .map_err(objects_error)?
+            .into_iter()
+            .find(|file| file.name.starts_with("voice."))
+            .ok_or_else(not_found)?
+    };
+    // Соединение с БД освобождено до открытия файла и передачи потока.
+    let file = state.blobs.open(attachment.sha256).await.map_err(|error| {
+        tracing::error!(%error, "Входящие: аудио пропало с диска");
+        not_found()
+    })?;
+    // Параметры вроде codecs=opus не нужны для выбора безопасного типа.
+    let mime = attachment.mime.split(';').next().unwrap_or("").trim();
+    let mime = if matches!(
+        mime,
+        "audio/webm" | "audio/ogg" | "audio/mp4" | "audio/wav" | "audio/x-wav" | "audio/mpeg"
+    ) {
+        mime
+    } else {
+        "application/octet-stream"
+    };
+    Ok((
+        [
+            (header::CONTENT_TYPE, mime.to_owned()),
+            (header::CONTENT_DISPOSITION, "inline".to_owned()),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_owned()),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "sandbox; default-src 'none'".to_owned(),
+            ),
+            (header::CACHE_CONTROL, "private, max-age=0".to_owned()),
+            (header::CONTENT_LENGTH, attachment.size.to_string()),
+            (header::ACCEPT_RANGES, "none".to_owned()),
+        ],
+        Body::from_stream(tokio_util::io::ReaderStream::new(file)),
+    )
+        .into_response())
 }
 
 /// Изменение элемента.

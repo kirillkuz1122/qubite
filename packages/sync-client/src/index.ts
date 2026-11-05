@@ -30,6 +30,17 @@ export {
   type InboxView,
 } from './inbox';
 export { HttpError, csrfFromCookie, httpTransport, type HttpTransportOptions } from './http';
+export {
+  VoiceQueue,
+  voiceFailure,
+  type QueuedVoice,
+  type VoiceCapture,
+  type VoiceFailure,
+  type VoiceFlush,
+  type VoiceResult,
+  type VoiceSource,
+  type VoiceTransport,
+} from './voice';
 export { CLOSE_FORBIDDEN, watchChanges, type WatchOptions } from './watch';
 export {
   DOCS_PAGE,

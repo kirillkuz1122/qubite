@@ -5,6 +5,7 @@
 import { drag, loop, MASS, project, rubber } from '@qubite/motion';
 import {
   Button,
+  Choice,
   FEEL_LABEL,
   FEEL_NAMES,
   FEEL_PART_LABEL,
@@ -17,6 +18,7 @@ import {
   DotIcon,
   DotText,
   ICON_NAMES,
+  MicButton,
   RingCheck,
   Segmented,
   Switch,
@@ -424,6 +426,8 @@ function Morph() {
 function Components() {
   const [seg, setSeg] = useState<'week' | 'board'>('week');
   const [sw, setSw] = useState(true);
+  const [rec, setRec] = useState(false);
+  const [way, setWay] = useState<'cloud' | 'device' | 'local'>('cloud');
   const [tasks, setTasks] = useState([
     { t: 'Разобрать задачу на ДП с отбора', c: 'orange', time: '16:00', done: false },
     { t: 'Алгебра: № 214–220', c: 'sky', time: '18:00', done: false },
@@ -451,6 +455,36 @@ function Components() {
           Подсказки Элика
         </label>
       </div>
+      <div className="ds-row">
+        <MicButton
+          variant="fill"
+          recording={rec}
+          label={rec ? 'Остановить запись' : 'Записать голосом'}
+          onClick={() => setRec(!rec)}
+        />
+        <MicButton
+          recording={rec}
+          label={rec ? 'Остановить запись' : 'Записать голосом'}
+          onClick={() => setRec(!rec)}
+        />
+        <span className="ds-switch">микрофон перетекает в «стоп»</span>
+      </div>
+      <Choice
+        label="Пример выбора"
+        value={way}
+        onChange={setWay}
+        options={[
+          { value: 'cloud', label: 'Облако', hint: 'вариант с пояснением простыми словами' },
+          { value: 'device', label: 'На устройстве', hint: 'подложка перетекает к выбранному' },
+          {
+            value: 'local',
+            label: 'Локально',
+            hint: 'недоступный — виден, но не выбирается',
+            disabled: true,
+            note: 'Появится позже',
+          },
+        ]}
+      />
       <ul className="ds-tasks">
         {tasks.map((task, i) => (
           <li key={task.t} className={task.done ? 'ds-done' : undefined}>

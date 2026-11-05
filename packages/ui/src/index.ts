@@ -89,6 +89,9 @@ export { Gang, type GangHandle, type GangProps } from './Gang';
 export { Field, type FieldProps } from './Field';
 export { Check, type CheckProps } from './Check';
 export { Note, type NoteProps } from './Note';
+export { MicButton, type MicButtonProps } from './MicButton';
+export { VoicePlayer, clock, type VoicePlayerProps } from './VoicePlayer';
+export { Choice, type ChoiceOption, type ChoiceProps } from './Choice';
 export {
   DotEngine,
   companionSize,

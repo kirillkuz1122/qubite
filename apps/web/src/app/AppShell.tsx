@@ -33,6 +33,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
 import { CommandField } from './CommandField';
+import { CommandVoiceNote } from './VoiceCapture';
+import { useVoice } from './voice-context';
 import { ShellCtx, type ShellApi } from './context';
 import {
   SECTIONS as BASE_SECTIONS,
@@ -161,7 +163,7 @@ function subtitle(
     case 'docs':
       return 'заметки и документы · доступны без сети';
     case 'settings':
-      return 'вид, помощники и аккаунт';
+      return 'вид, помощники, голос и аккаунт';
   }
 }
 
@@ -270,6 +272,12 @@ export function AppShell() {
   const [history, setHistory] = useState(loadHistory);
   const menuOpen = useRef(false);
   const input = useRef<HTMLInputElement>(null);
+  /* голос (CMD-005b): пока идёт запись, строка на телефоне не сворачивается, Escape её отменяет */
+  const voice = useVoice();
+  const voiceNow = useRef({ phase: voice.phase, cancel: voice.cancel, value });
+  useEffect(() => {
+    voiceNow.current = { phase: voice.phase, cancel: voice.cancel, value };
+  });
   const card = useRef<HTMLDivElement>(null);
   const parsed = value.trim() ? parseCommand(value) : null;
   const cmd = commandView(
@@ -307,7 +315,11 @@ export function AppShell() {
       if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyK' || e.key.toLowerCase() === 'k')) {
         e.preventDefault();
         openCmd();
-      } else if (e.key === 'Escape' && !menuOpen.current) closeCmd();
+      } else if (e.key === 'Escape' && !menuOpen.current) {
+        const v = voiceNow.current;
+        if (v.phase === 'recording' || v.phase === 'asking') v.cancel();
+        else closeCmd();
+      }
     };
     addEventListener('keydown', key);
     return () => removeEventListener('keydown', key);
@@ -407,6 +419,17 @@ export function AppShell() {
       onChange={change}
       onKeyDown={onKey}
       onMenu={(o) => (menuOpen.current = o)}
+      onVoiceSaved={() => {
+        // как записанная мысль: точка летит во «Входящие», Элик радуется
+        const r = card.current?.getBoundingClientRect();
+        api.fly(
+          { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
+          'inbox',
+          'yellow',
+          () => api.cheer('elik'),
+        );
+        if (!wide && !voiceNow.current.value) setOpen(false);
+      }}
       onFocus={() => {
         setFocused(true);
         focusOn(() => (input.current ? caretPoint(input.current) : null));
@@ -415,6 +438,7 @@ export function AppShell() {
         setFocused(false);
         focusOn(null);
         setTimeout(() => {
+          if (voiceNow.current.phase !== 'idle') return;
           if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
         }, 150);
       }}
@@ -488,6 +512,7 @@ export function AppShell() {
         </div>
       </div>
 
+      <CommandVoiceNote wide={wide} />
       <CommandSuggest
         ref={card}
         parsed={shown ? cmd.parsed : null}

@@ -2438,3 +2438,130 @@ h4.eng-h {
     grid-column: 2;
   }
 }
+
+/* ---------- голосовой ввод (CMD-005b) ---------- */
+.voice-bar-box {
+  margin: 4px 0 14px;
+}
+.voice-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+.voice-bar-t {
+  flex: 1;
+  min-width: 0;
+}
+.voice-bar-title {
+  min-height: 24px;
+  font-size: 14.5px;
+}
+.voice-bar-t small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--q-dim);
+  overflow-wrap: anywhere;
+}
+.voice-bar-t small.voice-heard {
+  color: var(--q-mute);
+}
+.voice-bar-cancel {
+  flex: none;
+}
+.voice-note {
+  margin-top: 12px;
+}
+/* идёт запись: точка мигает (та же мигалка, что у каретки Command) */
+.rec-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--q-orange);
+  animation: q-blink 1.1s steps(2, jump-none) infinite;
+}
+html[data-motion='less'] .rec-dot {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .rec-dot {
+    animation: none;
+  }
+}
+.voice-tag {
+  display: inline-flex;
+  margin-right: 6px;
+  vertical-align: -2px;
+  color: var(--q-dim);
+}
+.item .voice-play {
+  max-width: 480px;
+  margin-top: 8px;
+}
+/* строка Command: поле и запись голоса меняются местами */
+.cmd-swap {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  /* те же промежутки, что у самой строки (капля — 10 px, ПК — 12 px) */
+  gap: inherit;
+}
+.voice-live {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+}
+.voice-live-t {
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--q-mute);
+}
+.voice-live-cancel {
+  flex: none;
+}
+/* ошибка записи из Command — над строкой, строку не закрывает */
+.voice-toast {
+  position: fixed;
+  z-index: 41;
+  left: 12px;
+  right: 12px;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 70px);
+}
+.voice-toast.wide {
+  left: calc(248px + (100vw - 248px) / 2 - min(330px, (100vw - 248px - 64px) / 2));
+  right: auto;
+  width: min(660px, calc(100vw - 248px - 64px));
+  bottom: 92px;
+}
+/* «Настройки → Голос» */
+.voice-set {
+  padding: 8px;
+}
+.voice-set-lead {
+  margin: 0;
+  padding: 10px 14px 6px;
+  font-size: 14px;
+}
+.voice-set-lead small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--q-dim);
+}
+.voice-set .q-note {
+  margin: 6px;
+}
+.voice-set-note {
+  padding-bottom: 2px;
+}

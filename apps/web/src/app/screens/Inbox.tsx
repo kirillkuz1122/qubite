@@ -3,16 +3,19 @@ import { createDoc, titleFrom } from '@qubite/sync-client';
 import {
   Button,
   Companion,
+  DotIcon,
   ElikDots,
   Note,
+  Presence,
   Segmented,
+  VoicePlayer,
   useFlip,
   useLeaving,
   useSpring,
   type CompanionHandle,
   type ElikMood,
 } from '@qubite/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { InboxAct, InboxFrom, InboxItem } from '../data';
 import { useInbox } from '../inbox-context';
@@ -22,6 +25,7 @@ import { useSync } from '../sync-context';
 import { useAnswer, useTriage, useUndoFiled, type Filed } from '../triage';
 import { useRevertWhy } from '../agent';
 import { SecHead } from '../parts';
+import { VoiceBar } from '../VoiceCapture';
 
 type Filter = 'all' | Exclude<InboxFrom, 'text'>;
 
@@ -41,7 +45,10 @@ export function InboxScreen() {
   const shown = items.filter((x) => filter === 'all' || x.from === filter);
   /* пропавшие из списка (фильтр, разобрали) сначала тают, новые выезжают по очереди, соседи доезжают */
   const [rows, gone] = useLeaving(shown, (x) => x.id);
-  useFlip(box, rows.map((r) => r.item.id + (r.leaving ? '~' : '')).join());
+  /* плеер у записи раскрылся или спрятался — строки ниже доезжают, а не прыгают */
+  const [shift, setShift] = useState(0);
+  const relayout = useCallback(() => setShift((n) => n + 1), []);
+  useFlip(box, rows.map((r) => r.item.id + (r.leaving ? '~' : '')).join() + shift);
   /* когда список впервые показан: строки, что появились позже (сменили фильтр), выезжают */
   const [born] = useState(() => performance.now());
   const n = (f: InboxFrom) => inbox.items.filter((x) => x.from === f).length;
@@ -53,6 +60,16 @@ export function InboxScreen() {
   function act(it: InboxItem, to: InboxAct, dot: DOMRect | undefined) {
     if (to === 'later') {
       inbox.later(it.id);
+      return;
+    }
+    if (to === 'drop') {
+      // запись так и не ушла с устройства — человек решил её не отправлять
+      void inbox.dropVoice(it.id);
+      return;
+    }
+    if (to === 'archive') {
+      // голосовая без текста: послушал — разобрано, в архив (не удаляется)
+      setTimeout(() => void inbox.done(it.id), 200);
       return;
     }
     if (to === 'docs') {
@@ -88,6 +105,7 @@ export function InboxScreen() {
 
   return (
     <>
+      <VoiceBar onSaved={() => shell.cheer('elik')} />
       {docError && (
         <Note tone="bad">
           Документ не записался. Мысль осталась во Входящих — попробуйте ещё раз.
@@ -119,6 +137,7 @@ export function InboxScreen() {
             onGone={gone}
             onAct={act}
             onAnswer={reply}
+            onLayout={relayout}
           />
         ))}
       </div>
@@ -144,6 +163,7 @@ function Item({
   onGone,
   onAct,
   onAnswer,
+  onLayout,
 }: {
   it: InboxItem;
   fresh: boolean;
@@ -156,8 +176,14 @@ function Item({
   onAct: (it: InboxItem, to: InboxAct, dot: DOMRect | undefined) => void;
   /** ответ на вопрос агента «посмотри сам» */
   onAnswer: (it: InboxItem, answer: string) => void;
+  /** высота строки поменялась (раскрыли плеер) */
+  onLayout: () => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
+  /* у распознанной голосовой записи плеер — по «Послушать» */
+  const [listen, setListen] = useState(false);
+  const voice = it.voice;
+  const audio = voice?.audio;
   const dot = useRef<HTMLSpanElement>(null);
   /* новая мысль вырастает один раз — при первом показе */
   const [enter] = useState(() => performance.now() - born > 300);
@@ -196,8 +222,23 @@ function Item({
       <div className="t">
         <div className="txt">{it.text}</div>
         <div className="src">
+          {voice && (
+            <span className="voice-tag" title="Голосовая запись">
+              <DotIcon name="mic" size={14} />
+            </span>
+          )}
           {it.src} · {it.time}
         </div>
+        {voice?.bare && audio && (
+          <div className="voice-play">
+            <VoicePlayer key={audio} src={audio} label={`Голосовая запись · ${it.time}`} />
+          </div>
+        )}
+        {voice && !voice.bare && audio && (
+          <Presence show={listen} className="voice-play" onLayout={onLayout}>
+            <VoicePlayer key={audio} src={audio} label={`Запись: ${it.text}`} />
+          </Presence>
+        )}
         <div className="elik">
           <ElikDots mood={it.mood ?? 'idle'} />
           <span>Элик: {it.hint}</span>
@@ -220,6 +261,11 @@ function Item({
               {label}
             </Button>
           ))}
+          {voice && !voice.bare && audio && (
+            <Button size="sm" dot={false} aria-expanded={listen} onClick={() => setListen(!listen)}>
+              {listen ? 'Скрыть запись' : 'Послушать'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

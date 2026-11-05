@@ -266,6 +266,7 @@ impl AppState {
         inbox::set_voice_prefs,
         inbox::capture_voice,
         inbox::detail,
+        inbox::download_audio,
         inbox::change,
         inbox::remove,
         inbox::restore,
@@ -814,6 +815,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
                 .patch(inbox::change)
                 .delete(inbox::remove),
         )
+        .route("/api/v1/inbox/{id}/audio", get(inbox::download_audio))
         .route("/api/v1/inbox/{id}/restore", post(inbox::restore))
         .route("/api/v1/inbox/{id}/decide", post(inbox::decide))
         .route("/api/v1/agent/timeline", get(agent::timeline))

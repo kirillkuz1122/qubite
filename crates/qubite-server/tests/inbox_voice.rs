@@ -58,6 +58,147 @@ fn recording(id: Uuid) -> Value {
     })
 }
 
+async fn audio_response(
+    browser: &Browser,
+    address: SocketAddr,
+    id: Uuid,
+    range: Option<&str>,
+) -> reqwest::Response {
+    let client = qubite_testkit::http_client();
+    let mut request = client.get(format!("http://{address}/api/v1/inbox/{id}/audio"));
+    if let Some(session) = &browser.session {
+        request = request.header("cookie", format!("qubite_session={session}"));
+    }
+    if let Some(range) = range {
+        request = request.header("range", range);
+    }
+    request.send().await.unwrap()
+}
+
+#[tokio::test]
+async fn audio_stream_returns_bytes_safe_headers_and_full_response_to_range() {
+    let (test_db, db, address, voice) = setup().await;
+    let mut owner = logged_in(address).await;
+    owner
+        .put_json(address, "/api/v1/voice/prefs", json!({"method": "device"}))
+        .await;
+    let id = Uuid::now_v7();
+    let reply = owner
+        .post_json(address, "/api/v1/inbox/voice", recording(id))
+        .await;
+    assert_eq!(reply.status, 201);
+    assert_eq!(reply.body["transcribed"], false);
+    let response = audio_response(&owner, address, id, None).await;
+    assert_eq!(response.status(), 200);
+    let headers = response.headers();
+    assert_eq!(headers["content-type"], "audio/webm");
+    assert_eq!(headers["content-disposition"], "inline");
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    assert_eq!(
+        headers["content-security-policy"],
+        "sandbox; default-src 'none'"
+    );
+    assert_eq!(headers["cache-control"], "private, max-age=0");
+    assert_eq!(headers["content-length"], "10");
+    assert_eq!(headers["accept-ranges"], "none");
+    assert_eq!(response.bytes().await.unwrap().as_ref(), b"mock audio");
+
+    let response = audio_response(&owner, address, id, Some("bytes=2-4")).await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["accept-ranges"], "none");
+    assert!(!response.headers().contains_key("content-range"));
+    assert_eq!(response.bytes().await.unwrap().as_ref(), b"mock audio");
+
+    // Проверяем белый список независимо от валидации загрузки.
+    for mime in [
+        "audio/webm",
+        "audio/ogg",
+        "audio/mp4",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/mpeg",
+        "text/html",
+        "image/svg+xml",
+    ] {
+        sqlx::query(
+            "UPDATE file_blobs SET mime = $1 WHERE sha256 IN \
+             (SELECT sha256 FROM attachments WHERE object_id = $2)",
+        )
+        .bind(mime)
+        .bind(id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        let response = audio_response(&owner, address, id, None).await;
+        assert_eq!(response.status(), 200);
+        let expected = if mime.starts_with("audio/") {
+            mime
+        } else {
+            "application/octet-stream"
+        };
+        assert_eq!(response.headers()["content-type"], expected);
+        assert_eq!(response.bytes().await.unwrap().as_ref(), b"mock audio");
+    }
+    assert_eq!(voice.stt_calls(), 0);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn audio_requires_login_and_a_voice_attachment() {
+    let (test_db, db, address, _) = setup().await;
+    let mut owner = logged_in(address).await;
+    let id = Uuid::now_v7();
+    assert_eq!(
+        owner
+            .post_json(address, "/api/v1/inbox/voice", recording(id))
+            .await
+            .status,
+        201
+    );
+    assert_eq!(
+        audio_response(&Browser::default(), address, id, None)
+            .await
+            .status(),
+        401
+    );
+    let text_id = Uuid::now_v7();
+    assert_eq!(
+        owner
+            .post_json(
+                address,
+                "/api/v1/inbox",
+                json!({"id": text_id, "text": "Без аудио"})
+            )
+            .await
+            .status,
+        201
+    );
+    for missing in [text_id, Uuid::now_v7()] {
+        assert_eq!(
+            audio_response(&owner, address, missing, None)
+                .await
+                .status(),
+            404
+        );
+    }
+    // Даже вложение с аудио MIME не подходит без имени voice.*.
+    sqlx::query("UPDATE attachments SET object_id = $1, name = 'other.webm' WHERE object_id = $2")
+        .bind(text_id)
+        .bind(id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(
+        audio_response(&owner, address, text_id, None)
+            .await
+            .status(),
+        404
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}
+
 #[tokio::test]
 async fn cloud_transcribes_attaches_and_replays_once() {
     let (test_db, db, address, voice) = setup().await;
@@ -142,6 +283,12 @@ async fn no_ai_grant_preserves_audio_and_hides_other_accounts() {
         403
     );
     assert_eq!(
+        audio_response(&student, address, Uuid::now_v7(), None)
+            .await
+            .status(),
+        403
+    );
+    assert_eq!(
         student
             .put_json(address, "/api/v1/voice/prefs", json!({"method": "device"}))
             .await
@@ -181,6 +328,13 @@ async fn no_ai_grant_preserves_audio_and_hides_other_accounts() {
             .contains("разрешения")
     );
     assert_eq!(voice.stt_calls(), 0);
+    let response = audio_response(&student, address, id, None).await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.bytes().await.unwrap().as_ref(), b"mock audio");
+    assert_eq!(
+        audio_response(&owner, address, id, None).await.status(),
+        404
+    );
     let mut conn = db.pool().acquire().await.unwrap();
     assert_eq!(
         qubite_objects::files::attachments(&mut conn, id)

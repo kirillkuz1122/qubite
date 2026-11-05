@@ -1,5 +1,8 @@
-import { DotIcon, PlusMenu, usePress, type PlusItem } from '@qubite/ui';
-import type { KeyboardEvent, RefObject } from 'react';
+import { PlusMenu, Swap, type PlusItem } from '@qubite/ui';
+import { useEffect, useRef, type KeyboardEvent, type RefObject } from 'react';
+import type { VoiceSaved } from './inbox-context';
+import { CommandMic, CommandVoiceLive } from './VoiceCapture';
+import { useVoice } from './voice-context';
 
 /** Что можно создать из «+»: вставляет команду в начало строки. */
 const MENU: PlusItem[] = [
@@ -8,6 +11,9 @@ const MENU: PlusItem[] = [
   { value: '/к ', label: 'Конспект', color: 'sky', kbd: '/к' },
   { value: '/з ', label: 'Запись в дневник', color: 'orange', kbd: '/з' },
 ];
+
+/** «+» и поле или запись голоса: запись въезжает справа, поле возвращается слева. */
+const VIEWS = ['text', 'voice'] as const;
 
 export interface CommandFieldProps {
   inputRef: RefObject<HTMLInputElement | null>;
@@ -22,9 +28,14 @@ export interface CommandFieldProps {
   onMenu: (open: boolean) => void;
   onFocus: () => void;
   onBlur: () => void;
+  /** голосовая запись из строки сохранена (CMD-005b) */
+  onVoiceSaved?: (saved: VoiceSaved) => void;
 }
 
-/** Содержимое строки Command: «+», поле, справа — Ctrl K на ПК или микрофон на телефоне. */
+/**
+ * Содержимое строки Command: «+», поле, справа — микрофон (и Ctrl K на ПК). Пока идёт запись
+ * голоса, вместо «+» и поля — таймер и «Отменить», а микрофон перетекает в «стоп».
+ */
 export function CommandField({
   inputRef,
   value,
@@ -37,60 +48,63 @@ export function CommandField({
   onMenu,
   onFocus,
   onBlur,
+  onVoiceSaved,
 }: CommandFieldProps) {
+  const voice = useVoice();
+  const live = voice.phase !== 'idle';
+  /* запись отменили или она не удалась — вернуть человека в поле; сохранили — строка закроется сама */
+  const saved = useRef(false);
+  const was = useRef(live);
+  useEffect(() => {
+    if (was.current && !live && voice.origin === 'command' && !saved.current)
+      requestAnimationFrame(() => inputRef.current?.focus());
+    was.current = live;
+    if (!live) saved.current = false;
+  }, [live, voice.origin, inputRef]);
   return (
     <>
-      <PlusMenu
-        items={MENU}
-        onOpenChange={onMenu}
-        onPick={(it) => {
-          onChange(it.value);
-          requestAnimationFrame(() => inputRef.current?.focus());
+      <Swap view={live ? 'voice' : 'text'} order={VIEWS} className="cmd-swap">
+        {live ? (
+          <CommandVoiceLive wide={wide} />
+        ) : (
+          <>
+            <PlusMenu
+              items={MENU}
+              onOpenChange={onMenu}
+              onPick={(it) => {
+                onChange(it.value);
+                requestAnimationFrame(() => inputRef.current?.focus());
+              }}
+            />
+            {wide && <span className="q-caret" aria-hidden="true" />}
+            <input
+              ref={inputRef}
+              className="q-cmd-input"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls={listId}
+              aria-expanded={expanded}
+              aria-activedescendant={activeId}
+              value={value}
+              placeholder="Спроси или запиши…"
+              aria-label="Строка Command"
+              enterKeyHint="send"
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              onFocus={onFocus}
+              onBlur={onBlur}
+            />
+          </>
+        )}
+      </Swap>
+      {wide && <kbd>Ctrl K</kbd>}
+      <CommandMic
+        onSaved={(s) => {
+          saved.current = true;
+          onVoiceSaved?.(s);
         }}
       />
-      {wide && <span className="q-caret" aria-hidden="true" />}
-      <input
-        ref={inputRef}
-        className="q-cmd-input"
-        type="text"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-controls={listId}
-        aria-expanded={expanded}
-        aria-activedescendant={activeId}
-        value={value}
-        placeholder="Спроси или запиши…"
-        aria-label="Строка Command"
-        enterKeyHint="send"
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={onFocus}
-        onBlur={onBlur}
-      />
-      {wide ? <kbd>Ctrl K</kbd> : <MicButton />}
     </>
-  );
-}
-
-/**
- * Микрофон: голосовой ввод появится позже (вопрос Q-11). Пока кнопка только пружинит —
- * и, главное, не уводит фокус из строки, поэтому строка Command не сворачивается.
- */
-function MicButton() {
-  const press = usePress(0.8);
-  return (
-    <button
-      {...press}
-      type="button"
-      className="q-mic"
-      aria-label="Голосом — скоро"
-      title="Голосом — скоро"
-      onPointerDown={(e) => {
-        e.preventDefault(); // фокус остаётся в строке
-        press.onPointerDown(e);
-      }}
-    >
-      <DotIcon name="mic" />
-    </button>
   );
 }
