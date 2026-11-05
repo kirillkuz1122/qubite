@@ -644,6 +644,7 @@ async fn transcribe_voice(
     session: &Authenticated,
     id: Uuid,
     audio: Vec<u8>,
+    mime: &str,
     request: &VoiceCaptureRequest,
 ) -> Result<String, String> {
     let auth = authorize::<qubite_policy::UseAi>(state, session, qubite_inbox::MODULE)
@@ -659,7 +660,7 @@ async fn transcribe_voice(
                     request_id: format!("inbox:{id}:transcribe"),
                     model,
                     audio,
-                    mime: request.mime.clone(),
+                    mime: mime.to_owned(),
                     language: None,
                     duration_ms: request.duration_ms,
                 },
@@ -677,6 +678,9 @@ async fn transcribe_voice(
         _ => Err("Не удалось распознать речь. Аудиозапись сохранена".into()),
     }
 }
+
+/// Сколько записей принимается одновременно (см. комментарий в `capture_voice`).
+static VOICE_SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
 
 /// Сохранить голосовую запись во Входящие.
 #[utoipa::path(post, path = "/api/v1/inbox/voice", tag = "inbox", request_body = VoiceCaptureRequest,
@@ -711,6 +715,12 @@ pub async fn capture_voice(
         "audio/mpeg" => "mp3",
         _ => return Err(invalid_voice("Неподдерживаемый формат аудио")),
     };
+    // Шлюз знает audio/mp4, а не его псевдоним x-m4a.
+    let mime = if extension == "m4a" {
+        "audio/mp4"
+    } else {
+        request.mime.as_str()
+    };
     if request.audio_base64.len() > qubite_ai::voice::MAX_AUDIO_BYTES.div_ceil(3) * 4 {
         return Err(invalid_voice("Аудиозапись слишком большая"));
     }
@@ -731,6 +741,13 @@ pub async fn capture_voice(
         return Err(invalid_voice("Текст записи слишком длинный"));
     }
     let id = request.id.unwrap_or_else(Uuid::now_v7);
+    // Настройку читаем до транзакции, а число одновременных приёмов ограничено:
+    // шлюзу и записи нужны соединения пула сверх того, что держит транзакция.
+    let method = voice_method(&state, owner).await?;
+    let _slot = VOICE_SLOTS
+        .acquire()
+        .await
+        .map_err(|_| ApiError::internal())?;
     let mut tx = state.db.pool().begin().await.map_err(voice_db_error)?;
     // Один ID — одна запись и один вызов шлюза даже при параллельных повторах.
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
@@ -768,11 +785,11 @@ pub async fn capture_voice(
     }
     let blob = state
         .blobs
-        .put(&mut tx, audio.as_slice(), &request.mime)
+        .put(&mut tx, audio.as_slice(), mime)
         .await
         .map_err(objects_error)?;
-    let text = match voice_method(&state, owner).await? {
-        VoiceMethod::Cloud => transcribe_voice(&state, &session, id, audio, &request).await,
+    let text = match method {
+        VoiceMethod::Cloud => transcribe_voice(&state, &session, id, audio, mime, &request).await,
         VoiceMethod::Device | VoiceMethod::Local => request
             .text
             .clone()
