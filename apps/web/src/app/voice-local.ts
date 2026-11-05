@@ -99,9 +99,9 @@ async function ask(url: string, audio: Blob, mime: string, timeoutMs: number): P
     late = true;
     stop.abort();
   }, timeoutMs);
-  let r: Response;
+  let text: unknown;
   try {
-    r = await fetch(`${url.trim().replace(/\/+$/, '')}/inference`, {
+    const r = await fetch(`${url.trim().replace(/\/+$/, '')}/inference`, {
       method: 'POST',
       body: form,
       signal: stop.signal,
@@ -109,14 +109,19 @@ async function ask(url: string, audio: Blob, mime: string, timeoutMs: number): P
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
     });
-  } catch {
+    if (!r.ok) throw new LocalFail('http', r.status);
+    // таймер живёт и пока читается тело: заголовки пришли, а тело может зависнуть
+    const body: unknown = await r.json().catch(() => {
+      if (late) throw new LocalFail('timeout');
+      return null;
+    });
+    text = body && typeof body === 'object' ? (body as { text?: unknown }).text : undefined;
+  } catch (e) {
+    if (e instanceof LocalFail) throw e;
     throw new LocalFail(late ? 'timeout' : 'offline');
   } finally {
     clearTimeout(timer);
   }
-  if (!r.ok) throw new LocalFail('http', r.status);
-  const body: unknown = await r.json().catch(() => null);
-  const text = body && typeof body === 'object' ? (body as { text?: unknown }).text : undefined;
   if (typeof text !== 'string') throw new LocalFail('format');
   return text.replace(/\s+/g, ' ').trim();
 }

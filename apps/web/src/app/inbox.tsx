@@ -175,6 +175,19 @@ export function InboxProvider({
     };
   }, [dbName, voiceTransport, flushVoice]);
 
+  /* запись ждала текст от устройства (hold_until_ms): когда срок выйдет, уйдёт одним звуком —
+     и после перезагрузки страницы, когда ни сети, ни синхронизации «событий» уже не будет */
+  useEffect(() => {
+    const next = queued
+      .filter((x) => !x.rejected && x.hold_until_ms !== undefined)
+      .map((x) => x.hold_until_ms!)
+      .filter((t) => t > Date.now())
+      .sort((a, b) => a - b)[0];
+    if (next === undefined) return;
+    const t = setTimeout(() => void flushVoice().catch(() => {}), next - Date.now() + 50);
+    return () => clearTimeout(t);
+  }, [queued, flushVoice]);
+
   /* синхронизация только что прошла — сервер отвечает: дошлём ждущие записи (если они есть) */
   const lastStatus = useRef(state.status);
   useEffect(() => {

@@ -103,6 +103,24 @@ describe('распознать своим Whisper', () => {
     expect(await heard).toEqual({ why: 'Локальный Whisper не успел за минуту' });
   });
 
+  it('таймер действует и пока читается тело ответа', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementationOnce(async (_url, init) => {
+      const signal = init!.signal!;
+      const body = new ReadableStream({
+        start(controller) {
+          signal.addEventListener('abort', () =>
+            controller.error(new DOMException('', 'AbortError')),
+          );
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+    const heard = transcribeLocal(LOCAL_DEFAULT_URL, audio(), 'audio/webm');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(await heard).toEqual({ why: 'Локальный Whisper не успел за минуту' });
+  });
+
   it('адреса нет — даже не пытается', async () => {
     expect(await transcribeLocal('', audio(), 'audio/webm')).toEqual({
       why: 'Не задан адрес локального Whisper',
