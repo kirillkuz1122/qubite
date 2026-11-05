@@ -166,13 +166,22 @@ function listen(options: VoiceOptions): { stop(): Promise<string>; cancel(): voi
     session = finals.filter(Boolean);
     options.onHeard?.(`${text()} ${interim}`.trim());
   };
-  r.onerror = () => {
-    /* нет сети, нет речи, запрет — звук всё равно сохранится */
+  /* запрет или нет службы — перезапуск бесполезен; звук всё равно сохранится */
+  const FATAL = ['not-allowed', 'service-not-allowed', 'language-not-supported', 'audio-capture'];
+  let fatal = false;
+  /* сеансы, что кончились почти сразу и без слов, — не даём крутиться без паузы */
+  let quick = 0;
+  let began = performance.now();
+  r.onerror = (e) => {
+    if (FATAL.includes(e.error)) fatal = true;
   };
   r.onend = () => {
+    const silent = session.length === 0;
     done.push(...session);
     session = [];
-    if (live) {
+    quick = silent && performance.now() - began < 1000 ? quick + 1 : 0;
+    if (live && !fatal && quick < 3) {
+      began = performance.now();
       try {
         r.start();
         return;

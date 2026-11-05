@@ -97,6 +97,14 @@ export function VoiceProvider({
         dispatch({ type: 'fail', error: 'Чтобы записывать голосом, войдите в аккаунт.' });
         return;
       }
+      if (me.data && prefs.fetchStatus === 'fetching' && !prefs.data) {
+        // способ ещё не известен: начав сейчас, можно потерять текст «встроенного» распознавания
+        dispatch({
+          type: 'fail',
+          error: 'Настройки голоса ещё загружаются — попробуйте через секунду.',
+        });
+        return;
+      }
       const blocked = cannotRecord();
       if (blocked) {
         dispatch({ type: 'fail', error: micError(blocked) });
@@ -127,7 +135,7 @@ export function VoiceProvider({
         },
       );
     },
-    [me.data, speech, record, stop],
+    [me.data, prefs.fetchStatus, prefs.data, speech, record, stop],
   );
 
   const cancel = useCallback(() => {
