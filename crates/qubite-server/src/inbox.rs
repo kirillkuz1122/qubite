@@ -696,7 +696,8 @@ pub async fn capture_voice(
     use base64::Engine;
 
     let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
-    let Json(request) = request.map_err(|_| invalid_voice("Неверная запись или тело больше 2 МБ"))?;
+    let Json(request) =
+        request.map_err(|_| invalid_voice("Неверная запись или тело больше 2 МБ"))?;
     let owner = proof.account_id();
     let source = request.source.as_deref().unwrap_or("web");
     if !matches!(source, "web" | "desktop" | "android") {
@@ -777,7 +778,9 @@ pub async fn capture_voice(
             .clone()
             .filter(|text| !text.trim().is_empty())
             .ok_or_else(|| "Устройство не передало распознанный текст".to_owned()),
-        VoiceMethod::OwnKey => Err("Распознавание со своим ключом пока не поддерживается".to_owned()),
+        VoiceMethod::OwnKey => {
+            Err("Распознавание со своим ключом пока не поддерживается".to_owned())
+        }
     };
     let (body, transcribed, reason) = match text {
         Ok(text) => (text, true, None),

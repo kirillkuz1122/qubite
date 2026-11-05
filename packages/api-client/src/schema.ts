@@ -5460,13 +5460,9 @@ export interface components {
     /** @description Аудио вместе с необязательным текстом, распознанным на устройстве. */
     VoiceCaptureRequest: {
       audio_base64: string;
-      /**
-       * Format: int64
-       */
+      /** Format: int64 */
       duration_ms: number;
-      /**
-       * Format: uuid
-       */
+      /** Format: uuid */
       id?: string | null;
       /** @description audio/webm, audio/ogg, audio/mp4, audio/wav, audio/mpeg (можно с codecs). */
       mime: string;
@@ -5481,8 +5477,10 @@ export interface components {
       reason?: string | null;
       transcribed: boolean;
     };
-    /** @description Где распознавать запись (D-686). */
-    /** @enum {string} */
+    /**
+     * @description Где распознавать запись (D-686).
+     * @enum {string}
+     */
     VoiceMethod: 'cloud' | 'device' | 'local' | 'own_key';
     /** @description Настройка голосового ввода. Без сохранённой настройки используется cloud. */
     VoicePrefs: {
