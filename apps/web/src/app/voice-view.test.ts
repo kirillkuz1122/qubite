@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_VOICE_BYTES,
   VOICE_IDLE,
+  VOICE_SERVICES,
   acceptedMime,
+  apiUrlProblem,
   isBareVoice,
   micError,
   pickVoiceMime,
   recClock,
   takeProblem,
   voiceAudioUrl,
+  OWN_KEY_READY,
   voiceOptions,
   voiceReason,
+  voiceServiceOf,
   voiceStep,
   type VoiceEvent,
   type VoiceState,
@@ -113,22 +117,61 @@ describe('запись во «Входящих»', () => {
     expect(voiceReason('Распознавание со своим ключом пока не поддерживается')).toMatch(
       /свой ключ/,
     );
+    expect(voiceReason('Ключ распознавания не задан')).toBe('свой ключ не задан — послушай запись');
+    expect(voiceReason('Локальный Whisper не ответил')).toBe(
+      'локальный Whisper не ответил — послушай запись',
+    );
     expect(voiceReason('Новая причина')).toBe('новая причина');
   });
 });
 
 describe('способы распознавания', () => {
-  it('облако и встроенное работают, свой ключ и локально — в следующем обновлении', () => {
-    const all = voiceOptions(true);
+  it('все четыре работают; встроенное на телефоне — браузер или Android', () => {
+    const all = voiceOptions(true, true);
     expect(all.map((o) => o.value)).toEqual(['cloud', 'device', 'own_key', 'local']);
     expect(all[0]!.label).toBe('Облако (ElevenLabs) — по умолчанию');
-    expect(all.filter((o) => o.disabled).map((o) => o.value)).toEqual(['own_key', 'local']);
-    expect(all.find((o) => o.value === 'local')!.note).toBe('Появится в следующем обновлении');
+    expect(all.filter((o) => o.disabled)).toEqual([]);
+    expect(all.some((o) => o.note === 'Появится в следующем обновлении')).toBe(false);
+    expect(all.find((o) => o.value === 'device')!.hint).toMatch(
+      /На телефоне это распознавание браузера или Android/,
+    );
+    expect(all.find((o) => o.value === 'own_key')!.hint).toMatch(/Платите вы сами/);
+    expect(all.find((o) => o.value === 'local')!.hint).toMatch(/Whisper на вашем компьютере/);
   });
 
   it('браузер не умеет распознавать — встроенное недоступно и сказано почему', () => {
-    const device = voiceOptions(false).find((o) => o.value === 'device')!;
+    const device = voiceOptions(false, true).find((o) => o.value === 'device')!;
     expect(device.disabled).toBe(true);
     expect(device.note).toMatch(/не умеет/);
+    expect(voiceOptions(false, true).filter((o) => o.disabled)).toHaveLength(1);
+  });
+
+  it('пока нет серверной части, «Свой ключ» нельзя выбрать', () => {
+    expect(OWN_KEY_READY).toBe(false);
+    const own = voiceOptions(true).find((o) => o.value === 'own_key')!;
+    expect(own.disabled).toBe(true);
+    expect(own.note).toBe('Появится в следующем обновлении');
+    expect(voiceOptions(true).filter((o) => o.disabled)).toHaveLength(1);
+  });
+});
+
+describe('сервис для своего ключа', () => {
+  it('узнаёт OpenAI и Groq по адресу и модели, остальное — «Другой»', () => {
+    expect(voiceServiceOf(null, null)).toBe('openai');
+    expect(voiceServiceOf('https://api.openai.com/v1/', 'whisper-1')).toBe('openai');
+    expect(voiceServiceOf('https://api.groq.com/openai/v1', 'whisper-large-v3-turbo')).toBe('groq');
+    expect(voiceServiceOf('https://api.groq.com/openai/v1', null)).toBe('groq');
+    expect(voiceServiceOf('https://api.openai.com/v1', 'gpt-4o-transcribe')).toBe('other');
+    expect(voiceServiceOf('https://stt.example.com/v1', 'whisper-1')).toBe('other');
+    expect(VOICE_SERVICES.map((s) => [s.label, s.base_url, s.model])).toEqual([
+      ['OpenAI', 'https://api.openai.com/v1', 'whisper-1'],
+      ['Groq', 'https://api.groq.com/openai/v1', 'whisper-large-v3-turbo'],
+    ]);
+  });
+
+  it('свой адрес: пустой или не адрес — подсказка', () => {
+    expect(apiUrlProblem('https://stt.example.com/v1')).toBeNull();
+    expect(apiUrlProblem(' ')).toMatch(/Впишите/);
+    expect(apiUrlProblem('stt.example.com')).toMatch(/Адрес вида/);
   });
 });

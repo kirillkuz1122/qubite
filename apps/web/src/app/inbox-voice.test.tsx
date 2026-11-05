@@ -9,9 +9,9 @@ import {
   type VoiceCapture,
   type VoiceTransport,
 } from '@qubite/sync-client';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { InboxProvider } from './inbox';
-import { useInbox } from './inbox-context';
+import { useInbox, type Recognized } from './inbox-context';
 import { SyncProvider } from './sync';
 
 /**
@@ -47,7 +47,8 @@ class Server implements Transport, VoiceTransport {
     this.voiceCalls.push(capture);
     if (this.offline) throw new TypeError('Failed to fetch');
     if (!this.objects.has(capture.id)) {
-      const body = this.heard ?? 'Голосовая запись';
+      // способ «локально»: сервер берёт текст устройства (D-845)
+      const body = capture.text ?? this.heard ?? 'Голосовая запись';
       this.objects.set(capture.id, {
         id: capture.id,
         object_type: 'inbox.item',
@@ -59,11 +60,14 @@ class Server implements Transport, VoiceTransport {
       });
       this.log.push(capture.id);
     }
-    return this.heard
+    return capture.text || this.heard
       ? { transcribed: true, reason: null }
       : { transcribed: false, reason: 'Нет разрешения на AI-распознавание' };
   }
 }
+
+/** Распознавание на устройстве (способ «локально»): тест сам решает, когда и чем оно кончится. */
+let recognize: (() => Promise<Recognized>) | undefined;
 
 function Probe() {
   const inbox = useInbox();
@@ -72,7 +76,10 @@ function Probe() {
       <button
         type="button"
         onClick={() =>
-          void inbox.voice({ audio_base64: 'bW9jaw==', mime: 'audio/webm', duration_ms: 1500 })
+          void inbox.voice(
+            { audio_base64: 'bW9jaw==', mime: 'audio/webm', duration_ms: 1500 },
+            recognize,
+          )
         }
       >
         сказать
@@ -104,6 +111,10 @@ function view(server: Server) {
     </SyncProvider>
   );
 }
+
+beforeEach(() => {
+  recognize = undefined;
+});
 
 describe('голосовые записи во «Входящих»', () => {
   it('без сети запись ждёт на устройстве и уходит, когда сеть вернулась, с тем же ID', async () => {
@@ -151,5 +162,48 @@ describe('голосовые записи во «Входящих»', () => {
     expect(row).toHaveTextContent('Голосовая запись · голосом');
     expect(row).toHaveTextContent('В архив/Позже');
     expect(row).toHaveTextContent('без текста');
+  });
+
+  it('«локально»: запись ждёт текста Whisper на устройстве и уходит вместе с ним', async () => {
+    const server = new Server();
+    server.heard = null;
+    let finish: (r: Recognized) => void = () => {};
+    recognize = () => new Promise((r) => (finish = r));
+    render(view(server));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'сказать' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('row')).toHaveTextContent('голосом · распознаётся на компьютере…'),
+    );
+    // пока Whisper слушает — на сервер ничего не ушло, даже при появлении сети
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(server.voiceCalls).toHaveLength(0);
+    await act(async () => finish({ text: 'Позвонить маме' }));
+    await waitFor(() => expect(screen.getByTestId('row')).toHaveTextContent('Позвонить маме'));
+    expect(server.voiceCalls).toHaveLength(1);
+    expect(server.voiceCalls[0]).toMatchObject({ text: 'Позвонить маме', mime: 'audio/webm' });
+  });
+
+  it('«локально», а Whisper не ответил — уходит только звук, причина простыми словами', async () => {
+    const server = new Server();
+    server.heard = null;
+    recognize = async () => ({ why: 'Локальный Whisper не ответил' });
+    render(view(server));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'сказать' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('row')).toHaveTextContent(
+        'локальный Whisper не ответил — послушай запись',
+      ),
+    );
+    expect(server.voiceCalls).toHaveLength(1);
+    expect(server.voiceCalls[0]).not.toHaveProperty('text');
+    expect(screen.getByTestId('row')).toHaveTextContent('без текста');
   });
 });

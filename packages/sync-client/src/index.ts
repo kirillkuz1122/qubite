@@ -33,6 +33,8 @@ export { HttpError, csrfFromCookie, httpTransport, type HttpTransportOptions } f
 export {
   VoiceQueue,
   voiceFailure,
+  voiceHeld,
+  type DeviceHeard,
   type QueuedVoice,
   type VoiceCapture,
   type VoiceFailure,

@@ -187,6 +187,26 @@ describe('очередь голосовых записей', () => {
     expect(flush.left).toBe(0);
   });
 
+  it('текст, дошедший пока шла прошлая отправка, уходит вместе со звуком', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    let clock = 1_000_000;
+    await queue.add(capture('a'), clock);
+    await queue.add(capture('b'), clock, 10_000); // ждёт текст до clock + 10 с
+    const send = server.send.bind(server);
+    server.send = async (c) => {
+      const reply = await send(c);
+      if (c.id === 'a') {
+        // пока уходила «a», Whisper дал текст для «b», а срок ожидания старой записи вышел
+        await queue.settle('b', { text: 'Купить хлеб' });
+        clock += 20_000;
+      }
+      return reply;
+    };
+    await queue.flush(() => clock);
+    expect(server.saved.get('b')?.text).toBe('Купить хлеб');
+  });
+
   it('повторный вызов во время отправки не стучится второй раз в ту же неудачу', async () => {
     const server = new VoiceServer();
     server.fail = 'offline';
@@ -198,6 +218,45 @@ describe('очередь голосовых записей', () => {
     await Promise.all([first, second]);
     // «a» — один раз; «b» добавилась во время отправки — её попробовали во втором проходе
     expect(server.calls).toEqual(['a', 'b']);
+  });
+
+  it('текст распознаёт устройство: запись ждёт его и уходит вместе с ним', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    await queue.add(capture('a'), 1000, 90_000);
+    expect((await queue.list())[0]).toMatchObject({ hold_until_ms: 91_000 });
+    // пока распознаётся — не отправляется
+    expect(await queue.flush(() => 2000)).toEqual({ sent: [], left: 1 });
+    expect(server.calls).toEqual([]);
+    expect(await queue.settle('a', { text: '  Купить хлеб ' })).toBe(true);
+    const [held] = await queue.list();
+    expect(held).not.toHaveProperty('hold_until_ms');
+    expect(held).toMatchObject({ text: 'Купить хлеб' });
+    const flush = await queue.flush(() => 3000);
+    expect(flush.sent).toEqual([{ id: 'a', transcribed: true, reason: null, at_ms: 3000 }]);
+    expect(server.saved.get('a')).toEqual(capture('a', { text: 'Купить хлеб' }));
+  });
+
+  it('устройство не распознало — только звук, причина устройства точнее сервера', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    await queue.add(capture('a'), 1000, 90_000);
+    await queue.settle('a', { why: 'Локальный Whisper не ответил' });
+    await queue.flush();
+    expect(server.saved.get('a')).toEqual(capture('a'));
+    expect((await queue.results()).get('a')).toMatchObject({
+      transcribed: false,
+      reason: 'Локальный Whisper не ответил',
+    });
+  });
+
+  it('распознавание оборвалось (вкладку закрыли) — по сроку запись уходит звуком', async () => {
+    const server = new VoiceServer();
+    const queue = await open(server);
+    await queue.add(capture('a'), 1000, 90_000);
+    expect((await queue.flush(() => 91_001)).sent.map((s) => s.id)).toEqual(['a']);
+    // опоздавший текст уже некуда положить
+    expect(await queue.settle('a', { text: 'поздно' })).toBe(false);
   });
 
   it('старые ответы сервера забываются через 30 дней', async () => {

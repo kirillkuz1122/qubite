@@ -12,6 +12,8 @@ export interface VoiceApi extends VoiceState {
   method: VoiceMethod | null;
   /** выбрано «встроенное» и браузер умеет: текст уйдёт вместе со звуком */
   speech: boolean;
+  /** выбран «свой ключ», а ключ не задан: запись сохранится только звуком */
+  noKey: boolean;
   /** включить микрофон и записывать; `onSaved` — запись сохранена (на сервере или устройстве) */
   start(origin: VoiceOrigin, onSaved?: (saved: VoiceSaved) => void): void;
   /** закончить и отправить */

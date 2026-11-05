@@ -41,8 +41,9 @@ function phaseText(v: VoiceApi): string {
 function idleHint(v: VoiceApi): string {
   if (v.method === 'device' && !speechRecognition())
     return 'этот браузер не распознаёт речь сам — сохраним звук, текст можно будет получить потом';
-  if (v.method === 'own_key' || v.method === 'local')
-    return 'выбранный способ распознавания появится в следующем обновлении — пока сохраним звук';
+  if (v.noKey)
+    return 'свой ключ не задан — сохраним только звук; задать его — в «Настройки → Голос»';
+  if (v.method === 'local') return 'текст распознает Whisper на этом компьютере · до 2 минут';
   return 'до 2 минут · без сети запись подождёт на устройстве';
 }
 

@@ -1,6 +1,16 @@
 import { loop } from '@qubite/motion';
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { feelOf } from './feel';
+import { useFlip } from './flip';
+import { Presence } from './Presence';
 import { useSlide } from './Slide';
 import { useSpring } from './useSpring';
 
@@ -12,6 +22,8 @@ export interface ChoiceOption<T extends string> {
   /** вариант виден, но выбрать его пока нельзя; почему — в `note` */
   disabled?: boolean;
   note?: string;
+  /** настройки варианта: появляются прямо под ним, пока он выбран (поля, кнопки) */
+  detail?: ReactNode;
 }
 
 export interface ChoiceProps<T extends string> {
@@ -30,6 +42,8 @@ export interface ChoiceProps<T extends string> {
  * Choice — когда каждому варианту нужна строка пояснения). Подложка выбранного перетекает
  * к новому (useSlide), точка в кружке вырастает пружиной. Недоступные варианты видны
  * полупрозрачными, с причиной. Стрелки ↑↓ выбирают соседний доступный вариант.
+ * У варианта могут быть свои настройки (`detail`): они проявляются под ним (Presence),
+ * а варианты ниже доезжают пружиной (useFlip).
  */
 export function Choice<T extends string>({
   label,
@@ -42,6 +56,10 @@ export function Choice<T extends string>({
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const { node, to, hide } = useSlide(64, 'q-slide q-choice-slide');
   const first = useRef(true);
+  /* настройки варианта появились или ушли — варианты ниже доезжают на новое место */
+  const [moved, setMoved] = useState(0);
+  useFlip(box, moved);
+  const relayout = useCallback(() => setMoved((n) => n + 1), []);
 
   useLayoutEffect(() => {
     const place = (jump: boolean) => {
@@ -51,10 +69,16 @@ export function Choice<T extends string>({
     };
     place(first.current);
     first.current = false;
-    // ширина поменялась — строки переносятся иначе: подложка встаёт на место сразу
     const el = box.current;
     if (!el || typeof ResizeObserver !== 'function') return;
-    const ro = new ResizeObserver(() => place(true));
+    let width = el.offsetWidth;
+    const ro = new ResizeObserver(() => {
+      // ширина поменялась — строки переносятся иначе: подложка встаёт на место сразу;
+      // только высота (раскрылись настройки варианта) — доезжает вместе с вариантом
+      const w = el.offsetWidth;
+      place(w !== width);
+      width = w;
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [value, to, hide]);
@@ -87,28 +111,42 @@ export function Choice<T extends string>({
       {options.map((o) => {
         const on = o.value === value;
         return (
-          <button
-            key={o.value}
-            ref={(el) => {
-              if (el) btns.current.set(o.value, el);
-              else btns.current.delete(o.value);
-            }}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            aria-disabled={o.disabled || undefined}
-            tabIndex={o.value === tabbable ? 0 : -1}
-            className={on ? 'q-choice-opt q-on' : 'q-choice-opt'}
-            onClick={() => pick(o)}
-            onKeyDown={(e) => arrows(e, o.value)}
-          >
-            <Mark on={on} />
-            <span className="q-choice-text">
-              <span className="q-choice-label">{o.label}</span>
-              {o.hint && <small>{o.hint}</small>}
-              {o.note && <small className="q-choice-note">{o.note}</small>}
-            </span>
-          </button>
+          <Fragment key={o.value}>
+            <button
+              data-flip={o.value}
+              ref={(el) => {
+                if (el) btns.current.set(o.value, el);
+                else btns.current.delete(o.value);
+              }}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-disabled={o.disabled || undefined}
+              tabIndex={o.value === tabbable ? 0 : -1}
+              className={on ? 'q-choice-opt q-on' : 'q-choice-opt'}
+              onClick={() => pick(o)}
+              onKeyDown={(e) => arrows(e, o.value)}
+            >
+              <Mark on={on} />
+              <span className="q-choice-text">
+                <span className="q-choice-label">{o.label}</span>
+                {o.hint && <small>{o.hint}</small>}
+                {o.note && <small className="q-choice-note">{o.note}</small>}
+              </span>
+            </button>
+            {o.detail !== undefined && (
+              <Presence
+                show={on && !o.disabled}
+                className="q-choice-detail"
+                flip={`${o.value}:detail`}
+                onLayout={relayout}
+              >
+                <div role="group" aria-label={o.label}>
+                  {o.detail}
+                </div>
+              </Presence>
+            )}
+          </Fragment>
         );
       })}
     </div>

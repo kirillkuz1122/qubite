@@ -147,8 +147,11 @@ export function voiceReason(reason: string | null | undefined): string {
   if (/разрешени/i.test(r)) return 'распознавание голоса не подключено — послушай запись';
   if (/не удалось распознать/i.test(r)) return 'не разобрал слова — послушай запись';
   if (/не передало/i.test(r)) return 'браузер не прислал текст — послушай запись';
-  if (/своим ключом/i.test(r)) return 'свой ключ пока не работает — послушай запись';
-  return `${r.charAt(0).toLowerCase()}${r.slice(1)}`;
+  if (/ключ[^.]*не задан|нет ключа/i.test(r)) return 'свой ключ не задан — послушай запись';
+  if (/своим ключом/i.test(r)) return 'свой ключ не сработал — послушай запись';
+  const said = `${r.charAt(0).toLowerCase()}${r.slice(1)}`;
+  // причины локального Whisper — с устройства, короткие: добавляем, что делать
+  return /whisper/i.test(r) ? `${said} — послушай запись` : said;
 }
 
 /** «0:07 / 2:00» — сколько записано из двух минут. */
@@ -173,10 +176,18 @@ export function takeProblem(take: { ms: number; size: number; mime: string }): s
   return null;
 }
 
-const SOON = 'Появится в следующем обновлении';
+/**
+ * Серверная часть «своего ключа» (`/api/v1/voice/key`, CMD-005c-1, #226) ещё не в `main`:
+ * пока её нет, вариант показан, но выбрать его нельзя — иначе записи остались бы без текста.
+ * Когда сервер появится, достаточно поставить `true`.
+ */
+export const OWN_KEY_READY = false;
 
 /** Четыре способа простыми словами; `canSpeak` — умеет ли этот браузер распознавать сам. */
-export function voiceOptions(canSpeak: boolean): ChoiceOption<VoiceMethod>[] {
+export function voiceOptions(
+  canSpeak: boolean,
+  ownKeyReady: boolean = OWN_KEY_READY,
+): ChoiceOption<VoiceMethod>[] {
   return [
     {
       value: 'cloud',
@@ -186,7 +197,7 @@ export function voiceOptions(canSpeak: boolean): ChoiceOption<VoiceMethod>[] {
     {
       value: 'device',
       label: 'Встроенное в браузер или Android',
-      hint: 'Текст распознаёт сам браузер, пока вы говорите, — бесплатно. Звук тоже сохраняется. В Chrome речь при этом обрабатывает Google.',
+      hint: 'Текст распознаёт сам браузер, пока вы говорите, — бесплатно. На телефоне это распознавание браузера или Android. Звук тоже сохраняется. В Chrome речь при этом обрабатывает Google.',
       ...(canSpeak
         ? {}
         : {
@@ -197,16 +208,67 @@ export function voiceOptions(canSpeak: boolean): ChoiceOption<VoiceMethod>[] {
     {
       value: 'own_key',
       label: 'Свой ключ API',
-      hint: 'Распознавание через ваш собственный ключ сервиса — расход не из бюджета Qubite.',
-      disabled: true,
-      note: SOON,
+      hint: 'Распознаёт OpenAI, Groq или другой сервис по вашему ключу. Платите вы сами — прямо сервису, бюджет Qubite не тратится. Ключ хранится на сервере Qubite зашифрованным.',
+      ...(ownKeyReady ? {} : { disabled: true, note: 'Появится в следующем обновлении' }),
     },
     {
       value: 'local',
-      label: 'Локально на устройстве',
-      hint: 'Речь распознаёт модель прямо на компьютере или телефоне — даже без интернета.',
-      disabled: true,
-      note: SOON,
+      label: 'Локально на компьютере',
+      hint: 'Речь распознаёт программа Whisper на вашем компьютере — бесплатно, звук не уходит сторонним сервисам. Сервер Qubite сам не распознаёт.',
     },
   ];
+}
+
+/** Сервис для своего ключа (CMD-005c): адрес OpenAI-совместимого API и модель распознавания. */
+export type VoiceServiceId = 'openai' | 'groq' | 'other';
+
+export interface VoiceService {
+  id: Exclude<VoiceServiceId, 'other'>;
+  label: string;
+  base_url: string;
+  model: string;
+  /** где человек берёт ключ */
+  keys: string;
+}
+
+export const VOICE_SERVICES: readonly VoiceService[] = [
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    base_url: 'https://api.openai.com/v1',
+    model: 'whisper-1',
+    keys: 'platform.openai.com → API keys',
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    base_url: 'https://api.groq.com/openai/v1',
+    model: 'whisper-large-v3-turbo',
+    keys: 'console.groq.com → API Keys',
+  },
+];
+
+const bareUrl = (url: string) => url.trim().replace(/\/+$/, '').toLowerCase();
+
+/** Какой сервис сохранён на сервере; адрес или модель не из списка — «Другой». */
+export function voiceServiceOf(
+  baseUrl: string | null | undefined,
+  model: string | null | undefined,
+): VoiceServiceId {
+  if (!baseUrl) return 'openai';
+  const found = VOICE_SERVICES.find((s) => s.base_url === bareUrl(baseUrl));
+  return found && (!model || model === found.model) ? found.id : 'other';
+}
+
+/** Что не так с адресом своего сервиса; `null` — можно сохранять (остальное проверит сервер). */
+export function apiUrlProblem(url: string): string | null {
+  const u = url.trim();
+  if (!u) return 'Впишите адрес API сервиса';
+  try {
+    const p = new URL(u);
+    if (p.protocol === 'https:' || p.protocol === 'http:') return null;
+  } catch {
+    /* ниже — общий ответ */
+  }
+  return 'Адрес вида https://api.example.com/v1';
 }

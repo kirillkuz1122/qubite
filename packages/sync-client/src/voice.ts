@@ -29,10 +29,28 @@ export interface VoiceCapture {
 export interface QueuedVoice extends VoiceCapture {
   captured_at_ms: number;
   attempts: number;
+  /**
+   * Текст ещё распознаёт само устройство (способ `local`): до этого времени запись не уходит —
+   * ждёт {@link VoiceQueue.settle}. Позже — уходит только звуком (вкладку закрыли посреди дела).
+   */
+  hold_until_ms?: number;
+  /** почему устройство не дало текста — точнее общего ответа сервера; на сервер не уходит */
+  why?: string;
   /** почему последняя попытка не прошла; нет — просто не было сети */
   error?: string;
   /** сервер отказал насовсем: повтор не поможет, решать человеку */
   rejected?: boolean;
+}
+
+/** Чем кончилось распознавание на устройстве: текст — или почему его нет. */
+export interface DeviceHeard {
+  text?: string;
+  why?: string;
+}
+
+/** Запись ещё ждёт текста от распознавания на устройстве. */
+export function voiceHeld(q: Pick<QueuedVoice, 'hold_until_ms'>, now: number): boolean {
+  return q.hold_until_ms !== undefined && q.hold_until_ms > now;
 }
 
 /** Что сервер ответил на запись. */
@@ -121,14 +139,44 @@ export class VoiceQueue {
     return () => this.listeners.delete(listener);
   }
 
-  /** Сохранить запись на устройстве. Отправка — {@link flush}. */
-  async add(capture: VoiceCapture, now: number = Date.now()): Promise<QueuedVoice> {
+  /**
+   * Сохранить запись на устройстве. Отправка — {@link flush}. `holdMs` — текст ещё распознаёт
+   * устройство: запись ждёт {@link settle}, но не дольше `holdMs`, потом уходит только звуком.
+   */
+  async add(capture: VoiceCapture, now: number = Date.now(), holdMs = 0): Promise<QueuedVoice> {
     const queued: QueuedVoice = { ...capture, captured_at_ms: now, attempts: 0 };
+    if (holdMs > 0) queued.hold_until_ms = now + holdMs;
     const tx = this.db.transaction('queue', 'readwrite');
     tx.objectStore('queue').put(queued);
     await done(tx);
     this.emit();
     return queued;
+  }
+
+  /**
+   * Устройство распознало запись (или не смогло): текст — в запись, ждать больше нечего.
+   * Отправка — {@link flush}. Записи уже нет (ушла по сроку, удалили) — `false`.
+   */
+  async settle(id: string, heard: DeviceHeard): Promise<boolean> {
+    const tx = this.db.transaction('queue', 'readwrite');
+    const store = tx.objectStore('queue');
+    const item = await promisify(store.get(id) as IDBRequest<QueuedVoice | undefined>);
+    if (item) {
+      const next: QueuedVoice = { ...item };
+      delete next.hold_until_ms;
+      const text = heard.text?.trim();
+      if (text) next.text = text;
+      else if (heard.why) next.why = heard.why;
+      store.put(next);
+    }
+    await done(tx);
+    if (item) this.emit();
+    return item !== undefined;
+  }
+
+  private async read(id: string): Promise<QueuedVoice | undefined> {
+    const tx = this.db.transaction('queue');
+    return promisify(tx.objectStore('queue').get(id) as IDBRequest<QueuedVoice | undefined>);
   }
 
   /** Записи на устройстве, свежие сверху. */
@@ -187,16 +235,18 @@ export class VoiceQueue {
     const sent: VoiceResult[] = [];
     let left = 0;
     let stop = false;
-    for (const item of waiting) {
-      if (stop || item.rejected || this.closed || tried.has(item.id)) {
+    for (const snap of waiting) {
+      // снимок очереди мог устареть: пока шла прошлая отправка, запись могли удалить или
+      // дополнить текстом (settle) — берём актуальную
+      const item = await this.read(snap.id);
+      if (!item) continue;
+      // ещё распознаётся на устройстве — уйдёт, когда будет текст (settle позовёт flush)
+      const held = voiceHeld(item, now());
+      if (stop || held || item.rejected || this.closed || tried.has(item.id)) {
         left += 1;
         continue;
       }
       tried.add(item.id);
-      // снимок очереди мог устареть: пока шла прошлая отправка, запись могли удалить
-      const tx0 = this.db.transaction('queue', 'readonly');
-      const alive = await promisify(tx0.objectStore('queue').count(item.id));
-      if (alive === 0) continue;
       try {
         const { id, audio_base64, mime, duration_ms, text, source } = item;
         const reply = await this.transport.send({
@@ -210,7 +260,8 @@ export class VoiceQueue {
         const result: VoiceResult = {
           id,
           transcribed: reply.transcribed,
-          reason: reply.reason ?? null,
+          // устройство знает точнее, почему текста нет (локальный Whisper не ответил и т. п.)
+          reason: reply.transcribed ? (reply.reason ?? null) : (item.why ?? reply.reason ?? null),
           at_ms: now(),
         };
         if (this.closed) return { sent, left: left + 1 };

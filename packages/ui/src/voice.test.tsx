@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Choice } from './Choice';
@@ -165,5 +165,31 @@ describe('выбор варианта', () => {
     fireEvent.keyDown(screen.getByRole('radio', { name: /Встроенное/ }), { key: 'ArrowDown' });
     // «Свой ключ» и «Локально» пропущены — по кругу обратно к облаку
     expect(changed).toHaveBeenLastCalledWith('cloud');
+  });
+
+  it('настройки варианта — прямо под ним и только пока он выбран', () => {
+    function WithDetail() {
+      const [v, setV] = useState<'a' | 'b'>('a');
+      return (
+        <Choice<'a' | 'b'>
+          label="Способ"
+          value={v}
+          onChange={setV}
+          options={[
+            { value: 'a', label: 'Первый' },
+            { value: 'b', label: 'Второй', detail: <input aria-label="Адрес" /> },
+          ]}
+        />
+      );
+    }
+    render(<WithDetail />);
+    expect(screen.queryByRole('group', { name: 'Второй' })).toBeNull();
+    const second = screen.getByRole('radio', { name: /Второй/ });
+    fireEvent.click(second);
+    const group = screen.getByRole('group', { name: 'Второй' });
+    expect(within(group).getByRole('textbox', { name: 'Адрес' })).toBeInTheDocument();
+    // сразу за своим вариантом, внутри группы выбора
+    expect(second.nextElementSibling).toBe(group.parentElement);
+    expect(screen.getByRole('radiogroup', { name: 'Способ' })).toContainElement(group);
   });
 });

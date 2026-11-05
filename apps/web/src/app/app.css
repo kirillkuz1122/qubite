@@ -2559,9 +2559,43 @@ html[data-motion='less'] .rec-dot {
   font-size: 12px;
   color: var(--q-dim);
 }
-.voice-set .q-note {
+.voice-set > .q-note,
+.voice-set-note .q-note {
   margin: 6px;
 }
 .voice-set-note {
   padding-bottom: 2px;
+}
+/* настройки выбранного способа: свой ключ, адрес Whisper (CMD-005c) */
+.voice-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.voice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.voice-small,
+.voice-steps {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--q-mute);
+  overflow-wrap: anywhere;
+}
+.voice-steps {
+  display: grid;
+  gap: 4px;
+  padding-left: 24px;
+}
+.voice-steps code {
+  font: inherit;
+  color: var(--q-ink);
+}
+.voice-word {
+  white-space: nowrap;
 }
