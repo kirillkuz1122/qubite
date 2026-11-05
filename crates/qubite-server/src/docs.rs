@@ -287,7 +287,10 @@ async fn readable_modules(
             .map(|entry| entry.id)
             .collect();
     // Объект calendar.event хранится в calendar, но права общие с Planner.
-    if modules.iter().any(|module| module == qubite_planner::MODULE) {
+    if modules
+        .iter()
+        .any(|module| module == qubite_planner::MODULE)
+    {
         modules.push("calendar".to_owned());
     }
     Ok(modules)
