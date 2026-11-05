@@ -16,6 +16,7 @@ import {
   Companion,
   EdgeScroll,
   DotIcon,
+  Field,
   DotText,
   ICON_NAMES,
   MicButton,
@@ -475,7 +476,18 @@ function Components() {
         onChange={setWay}
         options={[
           { value: 'cloud', label: 'Облако', hint: 'вариант с пояснением простыми словами' },
-          { value: 'device', label: 'На устройстве', hint: 'подложка перетекает к выбранному' },
+          {
+            value: 'device',
+            label: 'На устройстве',
+            hint: 'подложка перетекает к выбранному',
+            detail: (
+              <Field
+                label="Настройки варианта"
+                placeholder="появляются прямо под ним"
+                autoComplete="off"
+              />
+            ),
+          },
           {
             value: 'local',
             label: 'Локально',

@@ -69,6 +69,8 @@ export function VoiceProvider({
     const s = session.current;
     if (!s) return;
     session.current = null;
+    /* адрес Whisper этой записи — тот, что был при её начале */
+    const url = whisper.current;
     dispatch({ type: 'stop' });
     void (async () => {
       try {
@@ -79,7 +81,6 @@ export function VoiceProvider({
           return;
         }
         const audio_base64 = toBase64(new Uint8Array(await take.audio.arrayBuffer()));
-        const url = whisper.current;
         const result = await latest.current.save(
           {
             audio_base64,
