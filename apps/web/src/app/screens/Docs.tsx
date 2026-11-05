@@ -112,7 +112,7 @@ export function DocsScreen() {
   const [creating, setCreating] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const importingNow = useRef(false);
-  const freshImports = useRef(new Set<string>());
+  const [freshImports, setFreshImports] = useState<ReadonlySet<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -210,18 +210,15 @@ export function DocsScreen() {
       const fresh =
         preview &&
         (preview.updated > doc.updated ||
-          // Только что импортированный: снимок с сервера создан до текста, превью ещё пустое.
-          (!doc.preview && freshImports.current.has(doc.id)) ||
+          // Импортированный в этом сеансе: снимок с сервера создан до текста, превью ещё пустое.
+          // Непустое серверное превью побеждает; набор живёт до перезагрузки страницы.
+          (!doc.preview && freshImports.has(doc.id)) ||
           objects.some((object) => object.id === doc.id && object.pending))
           ? { ...doc, preview: preview.preview }
           : doc;
       return { ...fresh, preview: plainPreview(fresh.preview) };
     })
     .sort((a, b) => b.updated - a.updated);
-  useEffect(() => {
-    // Сервер прислал настоящее превью — запасной вариант больше не нужен.
-    for (const doc of local) if (doc.preview) freshImports.current.delete(doc.id);
-  }, [local]);
   const q = query.trim().toLocaleLowerCase('ru');
   const matches = all.filter((doc) =>
     `${doc.title} ${doc.preview}`.toLocaleLowerCase('ru').includes(q),
@@ -359,7 +356,7 @@ export function DocsScreen() {
             await handle.close();
           }
           imported.push(doc.id);
-          freshImports.current.add(doc.id);
+          setFreshImports((current) => new Set(current).add(doc.id));
           onText(doc.id, text);
         } catch (cause) {
           const reason = cause instanceof Error ? cause.message : 'Не удалось загрузить файл.';
