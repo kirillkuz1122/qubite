@@ -176,7 +176,9 @@ async fn audio_requires_login_and_a_voice_attachment() {
     );
     for missing in [text_id, Uuid::now_v7()] {
         assert_eq!(
-            audio_response(&owner, address, missing, None).await.status(),
+            audio_response(&owner, address, missing, None)
+                .await
+                .status(),
             404
         );
     }
