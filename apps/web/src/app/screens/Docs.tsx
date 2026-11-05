@@ -74,6 +74,8 @@ function fromServer(doc: SearchDoc): DocListItem {
   };
 }
 
+const MAX_IMPORT_BYTES = 480 * 1024;
+
 export function DocsScreen() {
   const sync = useSync();
   const navigate = useNavigate();
@@ -323,10 +325,15 @@ export function DocsScreen() {
           const { title, text } = await readMarkdownFile(file);
           // Разбор до создания: ошибка формата не оставит пустой документ.
           const update = markdownToYUpdate(text);
+          // Сервер не примет обновление Yjs больше 512 КиБ (D-751); лимит клиента — с запасом.
+          if (update.byteLength > MAX_IMPORT_BYTES)
+            throw new Error('Документ слишком большой для синхронизации. Разделите файл.');
           const doc = await createDoc(client, title);
           const handle = await store.open(doc.id);
           try {
             Y.applyUpdate(handle.doc, update);
+            // Без этого закрытый документ не отправит текст: сервер ждёт seed (D-753).
+            await handle.markSeeded();
           } finally {
             await handle.close();
           }

@@ -258,6 +258,34 @@ describe('Markdown-файлы без сети', () => {
     expect(await view.client.all()).toEqual([]);
   });
 
+  it('помечает импортированный документ как прошедший seed', async () => {
+    const view = await markdownSetup();
+    const open = view.docs.open.bind(view.docs);
+    const marked = vi.fn();
+    vi.spyOn(view.docs, 'open').mockImplementation(async (id) => {
+      const handle = await open(id);
+      const original = handle.markSeeded.bind(handle);
+      handle.markSeeded = async () => {
+        marked();
+        await original();
+      };
+      return handle;
+    });
+    fireEvent.change(view.input, { target: { files: [new File(['# Один\nтекст'], 'один.md')] } });
+    await view.findByRole('button', { name: 'Скачать .md' });
+    // Закрытый документ иначе не отправит текст: сервер ждёт seed (D-753).
+    expect(marked).toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('отказывает файлу, чьё обновление Yjs не примет сервер', async () => {
+    const view = await markdownSetup();
+    const big = '漢'.repeat(190_000);
+    fireEvent.change(view.input, { target: { files: [new File([big], 'большой.md')] } });
+    await view.findByText(/большой.md:.*слишком большой/);
+    expect(await view.client.all()).toEqual([]);
+  });
+
   it('не даёт скачать документ до загрузки handle', async () => {
     const view = await setup();
     expect(view.getByRole('button', { name: 'Скачать .md' })).toBeDisabled();

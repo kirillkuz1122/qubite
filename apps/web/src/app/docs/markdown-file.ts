@@ -8,7 +8,9 @@ export function fileNameFor(title: string): string {
     })
     .join('')
     .trim();
-  return `${Array.from(clean || 'Документ').slice(0, 80).join('')}.md`;
+  return `${Array.from(clean || 'Документ')
+    .slice(0, 80)
+    .join('')}.md`;
 }
 
 export function downloadMarkdown(title: string, text: string): void {
@@ -52,13 +54,18 @@ export async function readMarkdownFile(file: File): Promise<{ title: string; tex
   let fence: { marker: string; length: number } | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = { marker: marker[0]!, length: marker.length };
-      else if (marker[0] === fence.marker && marker.length >= fence.length) fence = null;
+    if (fence) {
+      // Закрывает только строка из одних маркеров, как в markdown.ts.
+      const closing = /^\s*(`{3,})\s*$/.exec(line)?.[1];
+      if (closing && closing.length >= fence.length) fence = null;
       continue;
     }
-    const heading = !fence && /^#\s+(.+)$/.exec(line);
+    const opening = /^\s*(`{3,})/.exec(line)?.[1];
+    if (opening) {
+      fence = { marker: opening[0]!, length: opening.length };
+      continue;
+    }
+    const heading = /^#\s+(.+)$/.exec(line);
     if (heading && heading[1]!.trim()) {
       lines.splice(i, 1);
       return { title: heading[1]!.trim(), text: lines.join('\n') };

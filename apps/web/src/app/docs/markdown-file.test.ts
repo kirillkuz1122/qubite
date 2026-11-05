@@ -46,6 +46,13 @@ describe('чтение Markdown', () => {
     });
   });
 
+  it('строка с текстом после обратных кавычек не закрывает блок кода', async () => {
+    const source = '```md\n```js\n# в коде\n````\n# Настоящее\nтекст';
+    const file = await readMarkdownFile(new File([source], 'код.md'));
+    expect(file.title).toBe('Настоящее');
+    expect(file.text).toBe('```md\n```js\n# в коде\n````\nтекст');
+  });
+
   it('принимает пустой файл и ровно 200 000 знаков', async () => {
     await expect(readMarkdownFile(file(''))).resolves.toEqual({ title: 'заметка', text: '' });
     await expect(readMarkdownFile(file('я'.repeat(200_000)))).resolves.toHaveProperty(
@@ -74,13 +81,13 @@ it('скачивает точный текст через Blob и освобож
   });
   const revokeObjectURL = vi.fn();
   vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
-  const click = vi
-    .spyOn(HTMLAnchorElement.prototype, 'click')
-    .mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe('Заметка.md');
-      expect(this.href).toBe('blob:markdown');
-      expect(this.isConnected).toBe(true);
-    });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    expect(this.download).toBe('Заметка.md');
+    expect(this.href).toBe('blob:markdown');
+    expect(this.isConnected).toBe(true);
+  });
   downloadMarkdown('Заметка', '# Текст\n- [x] готово');
   expect(click).toHaveBeenCalledOnce();
   const blob = createObjectURL.mock.calls[0]![0];
