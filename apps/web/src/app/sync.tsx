@@ -139,10 +139,7 @@ export function SyncProvider({
           // Включая WebSocket «есть новое»: сначала метаданные, затем Yjs.
           // Это также дошлёт текст документа, созданного без сети.
           if (s.status === 'synced' || s.status === 'conflict' || s.status === 'error') {
-            void documents
-              .syncAll()
-              .then(backlinks.refresh)
-              .catch(() => {});
+            void backlinks.batch(documents.syncAll()).catch(() => {});
           }
         });
         if (live) stop = watchChanges(c, { url: socketUrl() });

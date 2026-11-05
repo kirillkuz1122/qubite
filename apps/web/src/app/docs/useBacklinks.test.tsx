@@ -152,6 +152,7 @@ describe('обратные ссылки: сеть и память сессии',
   });
 
   it('транспорт сообщает об окончании pull/push, ошибка не выдаётся за успех', async () => {
+    vi.useFakeTimers();
     const session = createBacklinksSession('account');
     const changed = vi.fn();
     session.subscribe(changed);
@@ -171,7 +172,10 @@ describe('обратные ссылки: сеть и память сессии',
     };
     const transport = session.transport(source);
     await transport.pull('doc', new Uint8Array());
+    expect(changed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(150);
     expect(changed).toHaveBeenCalledTimes(1);
+    // Самостоятельное сохранение открытого документа обновляет сразу.
     await transport.push('doc', new Uint8Array(), 'text');
     expect(changed).toHaveBeenCalledTimes(2);
     await transport.listVersions('doc', '2026-11-03T20:00:00Z');
@@ -188,6 +192,35 @@ describe('обратные ссылки: сеть и память сессии',
     expect(source.listTrash).toHaveBeenCalledOnce();
     vi.mocked(source.push).mockRejectedValueOnce(new Error('offline'));
     await expect(transport.push('doc', new Uint8Array(), 'text')).rejects.toThrow('offline');
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
+  it('массовый обмен из N документов даёт одно обновление после окончания', async () => {
+    vi.useFakeTimers();
+    const session = createBacklinksSession('account');
+    const changed = vi.fn();
+    session.subscribe(changed);
+    const source = {
+      pull: vi.fn(async () => ({ update: new Uint8Array(), sv: new Uint8Array(), seedMarkdown: null })),
+      push: vi.fn(async () => ({ sv: new Uint8Array() })),
+    } as unknown as DocsTransport;
+    const transport = session.transport(source);
+    await session.batch(
+      (async () => {
+        for (let n = 0; n < 100; n += 1) {
+          await transport.pull(`doc-${n}`, new Uint8Array());
+          if (n % 10 === 0) await transport.push(`doc-${n}`, new Uint8Array(), 'text');
+        }
+      })(),
+    );
+    expect(changed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(149);
+    expect(changed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(changed).toHaveBeenCalledTimes(1);
+    // Сбой массового обмена тоже заканчивается обновлением, а не зависшим флагом.
+    await expect(session.batch(Promise.reject(new Error('offline')))).rejects.toThrow('offline');
+    await transport.push('doc', new Uint8Array(), 'text');
     expect(changed).toHaveBeenCalledTimes(2);
   });
 });

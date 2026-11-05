@@ -2,16 +2,40 @@ import type { DocLinkKind, DocLinkTarget, DocsTransport } from '@qubite/sync-cli
 import { createContext, useContext, useEffect, useState } from 'react';
 
 const EMPTY: DocLinkTarget[] = [];
+const COALESCE_MS = 150;
 
 /** Только память текущей сессии аккаунта; после выхода чужой кэш недоступен. */
 export function createBacklinksSession(scope: string | null) {
   const cache = new Map<string, DocLinkTarget[]>();
   const listeners = new Set<() => void>();
-  const refresh = () => listeners.forEach((listener) => listener());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let bulk = 0;
+  /** Сразу: самостоятельное сохранение открытого документа. */
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    listeners.forEach((listener) => listener());
+  };
+  /** Серия уведомлений массового обмена сливается в один запрос. */
+  const schedule = () => {
+    clearTimeout(timer);
+    timer = setTimeout(refresh, COALESCE_MS);
+  };
   return {
     scope,
     cache,
     refresh,
+    schedule,
+    /** Пока идёт массовый обмен, ответы сервера только откладывают одно обновление. */
+    async batch<T>(work: Promise<T>): Promise<T> {
+      bulk += 1;
+      try {
+        return await work;
+      } finally {
+        bulk -= 1;
+        schedule();
+      }
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {
@@ -29,12 +53,13 @@ export function createBacklinksSession(scope: string | null) {
         listTrash: () => source.listTrash(),
         async pull(...args) {
           const response = await source.pull(...args);
-          refresh();
+          schedule();
           return response;
         },
         async push(...args) {
           const response = await source.push(...args);
-          refresh();
+          if (bulk > 0) schedule();
+          else refresh();
           return response;
         },
       };
