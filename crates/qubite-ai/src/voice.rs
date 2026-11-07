@@ -137,8 +137,9 @@ pub struct Spoken {
     pub mime: String,
 }
 
-/// Адаптер голосового провайдера. Код модулей его не видит: вызвать может
-/// только шлюз после проверки прав и резерва.
+/// Адаптер голосового провайдера. Ключ платформы вызывает только шлюз после
+/// проверки прав и резерва. Личный ключ STT (D-854) сервер вызывает отдельно
+/// после Write inbox, с аудитом и без расходов платформы.
 pub trait VoiceProvider: Send + Sync {
     fn transcribe<'a>(&'a self, call: &'a SttCall) -> BoxFuture<'a, Result<Heard, ProviderError>>;
     fn speak<'a>(&'a self, call: &'a TtsCall) -> BoxFuture<'a, Result<Spoken, ProviderError>>;
