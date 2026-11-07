@@ -859,7 +859,7 @@ pub async fn capture_voice(
             .filter(|text| !text.trim().is_empty())
             .ok_or_else(|| "Устройство не передало распознанный текст".to_owned()),
         VoiceMethod::OwnKey => {
-            Err("Распознавание со своим ключом пока не поддерживается".to_owned())
+            crate::voice_key::transcribe(&state, owner, audio, mime).await
         }
     };
     let (body, transcribed, reason) = match text {
@@ -901,6 +901,23 @@ pub async fn capture_voice(
     .execute(&mut *tx)
     .await
     .map_err(voice_db_error)?;
+    if matches!(method, VoiceMethod::OwnKey) {
+        // D-854: отдельный аудит вместо расходов шлюза, цена платформы — ноль.
+        qubite_objects::audit::record(
+            &mut tx,
+            qubite_objects::NewAuditEntry {
+                actor_id: Some(owner),
+                action: "voice.own_key.transcribe".into(),
+                target_kind: "inbox_item".into(),
+                target_id: Some(id.to_string()),
+                after: Some(json!({ "transcribed": transcribed, "cost_usd": 0 })),
+                request_id: Some(format!("inbox:{id}:transcribe")),
+                ..Default::default()
+            },
+        )
+        .await
+        .map_err(objects_error)?;
+    }
     let item = qubite_inbox::get(&mut tx, owner, id)
         .await
         .map_err(objects_error)?
