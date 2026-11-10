@@ -25,6 +25,7 @@ import { PlatformTab } from './Platform';
 import { ServerTab } from './Server';
 import { WorkTab } from './Work';
 import './console.css';
+import { NotFound } from '../NotFound';
 
 /**
  * Owner Console (ACC-003, OWNER_CONSOLE.md): отдельная комната владельца. Для всех остальных
@@ -44,13 +45,7 @@ export function ConsolePage() {
   }, [head.label, me.data?.is_owner]);
 
   if (me.isPending) return null;
-  if (!me.data?.is_owner)
-    return (
-      <main className="shell">
-        <h1>Такой страницы нет</h1>
-        <a href="/">На главную</a>
-      </main>
-    );
+  if (!me.data?.is_owner) return <NotFound />;
   return (
     <DangerCtx.Provider value={danger.run}>
       <div className="cs">

@@ -47,6 +47,9 @@ const CREW: { kind: CompanionKind; name: string; role: string }[] = [
 export function DesignPage() {
   const { look, palette, set } = useLook();
   const phone = typeof innerWidth === 'number' && innerWidth < 700;
+  useEffect(() => {
+    document.title = 'Дизайн-система · Qubite';
+  }, []);
   return (
     <div className="ds">
       <EdgeScroll />

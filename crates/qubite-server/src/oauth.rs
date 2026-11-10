@@ -94,6 +94,13 @@ fn error_redirect(settings: &AuthSettings, error: &Error, provider: &str) -> Res
             "вход через провайдера отклонён"
         );
     }
+    // Имя провайдера пришло из адреса запроса: в адрес возврата — только буквы и цифры,
+    // чтобы в него нельзя было дописать свои параметры.
+    let provider: String = provider
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .take(20)
+        .collect();
     let mut response = redirect(&format!("/auth?error={}&provider={provider}", error.code()));
     response
         .headers_mut()

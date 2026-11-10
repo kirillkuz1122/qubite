@@ -48,3 +48,6 @@ assets/
 
 # Списки лицензий генерируются scripts/gen-licenses.sh (OPS-008)
 THIRD_PARTY_LICENSES.*.txt
+
+# Журналы очереди Codex на Pi — не в git
+deploy/pi/codex-queue/*.log
