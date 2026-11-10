@@ -95,6 +95,27 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+describe('новый документ', () => {
+  it('сервер ещё не знает только что созданный документ — ошибки «недоступен» нет', async () => {
+    const client = await SyncClient.open({
+      dbName: `docs-new-${crypto.randomUUID()}`,
+      transport: offline,
+    });
+    clients.push(client);
+    // Сервер отвечает «нет такого» раньше, чем документ появляется в списке на устройстве.
+    const fetched = vi.fn(async () => new Response('{}', { status: 404 }));
+    vi.stubGlobal('fetch', fetched);
+    route.path = '/docs';
+    const view = render(<Harness client={client} />);
+    fireEvent.click(await view.findByRole('button', { name: 'Создать первый документ' }));
+    await view.findByRole('textbox', { name: 'Название документа' });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(view.queryByText(/Документ недоступен/)).toBeNull();
+  });
+});
+
 describe('удаление документа', () => {
   it('просит подтверждение; отмена сохраняет документ и возвращает фокус', async () => {
     const view = await setup();

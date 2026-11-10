@@ -580,7 +580,8 @@ function Document({
   const navigate = useNavigate();
   const [handle, setHandle] = useState<DocHandle | null>(null);
   const [status, setStatus] = useState<DocStatus>('pending');
-  const [failure, setFailure] = useState<string | null>(null);
+  const [openFailure, setFailure] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
   const [fallback, setFallback] = useState<DocListItem | null>(null);
   const [generation, setGeneration] = useState(0);
   const [titleError, setTitleError] = useState(false);
@@ -595,6 +596,11 @@ function Document({
   const editorBox = useRef<HTMLDivElement>(null);
   const titleQueue = useRef(Promise.resolve());
   const title = item?.title ?? fallback?.title;
+  // «Сервер такого не знает» — только пока документа нет и на устройстве: только что созданный
+  // документ сервер узнаёт чуть позже, чем он появляется в списке, и ошибкой это не является.
+  const failure =
+    openFailure ??
+    (missing && !item ? 'Документ недоступен. Проверьте сеть или вернитесь к списку.' : null);
   const hasTitle = !!title;
   const titleValue = useRef('');
 
@@ -617,11 +623,12 @@ function Document({
       .then(async (response) => {
         if (!response.ok) throw new Error('missing');
         const doc = (await response.json()) as SearchDoc;
-        if (!abort.signal.aborted) setFallback(fromServer(doc));
+        if (abort.signal.aborted) return;
+        setFallback(fromServer(doc));
+        setMissing(false);
       })
       .catch(() => {
-        if (!abort.signal.aborted)
-          setFailure('Документ недоступен. Проверьте сеть или вернитесь к списку.');
+        if (!abort.signal.aborted) setMissing(true);
       });
     return () => abort.abort();
   }, [id, item, sync.client, generation]);

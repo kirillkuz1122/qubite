@@ -151,7 +151,7 @@ export function PlatformTab({ ownerId }: { ownerId: string }) {
           />
           {lockNote('registration.mode')}
         </div>
-        {toggle('login.enabled', 'Вход', 'Выключен — входит только owner.')}
+        {toggle('login.enabled', 'Вход', 'Если выключить, войти сможет только owner.')}
         <div className="cs-set cs-col">
           <span className="cs-lbl">Способы входа</span>
           <div className="cs-methods">

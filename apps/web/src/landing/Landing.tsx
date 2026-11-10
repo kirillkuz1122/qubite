@@ -291,7 +291,12 @@ function Top() {
 
 /* ---------------------------------------------------------------- первый экран */
 
-const HINT = 'Проведи пальцем по буквам. А потом напиши что-нибудь и нажми Enter.';
+// На телефоне буквы трогают пальцем и отправляют кнопкой; с мышью — курсор и Enter.
+const TOUCH =
+  typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+const HINT = TOUCH
+  ? 'Проведи пальцем по буквам. А потом напиши что-нибудь и отправь.'
+  : 'Проведи курсором по буквам. А потом напиши что-нибудь и нажми Enter.';
 
 function Hero({ ready, width, pal }: SceneProps) {
   const field = useRef<HTMLCanvasElement>(null);

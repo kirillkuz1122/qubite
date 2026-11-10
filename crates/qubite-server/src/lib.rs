@@ -47,7 +47,7 @@ use axum::{
 use qubite_db::Database;
 use serde::Serialize;
 use tokio::sync::Semaphore;
-use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 use utoipa::{OpenApi, ToSchema};
 
 /// Общее состояние, доступное всем обработчикам.
@@ -1087,11 +1087,41 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         ))
         .with_state(state)
         .layer(middleware::map_response(security_headers))
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(30),
-        ))
+        .layer(middleware::from_fn(request_timeout))
         .layer(TraceLayer::new_for_http())
+}
+
+/// Сколько сервер ждёт ответа на обычный запрос.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// Загрузка файла проекта (до 25 МБ) на медленной сети идёт дольше 30 секунд:
+/// с телефона на 1 Мбит/с — больше трёх минут.
+const UPLOAD_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+
+/// Загрузка файла проекта: `POST /api/v1/projects/{id}/files`.
+fn is_file_upload(method: &axum::http::Method, path: &str) -> bool {
+    method == axum::http::Method::POST
+        && path
+            .strip_prefix("/api/v1/projects/")
+            .and_then(|rest| rest.strip_suffix("/files"))
+            .is_some_and(|id| !id.is_empty() && !id.contains('/'))
+}
+
+/// Предел времени на запрос: дольше — ответ 408. Одновременных загрузок файлов
+/// не больше четырёх ([`AppState::project_uploads`]), поэтому долгий предел для них
+/// не даёт занять сервер.
+async fn request_timeout(
+    request: axum::extract::Request,
+    next: middleware::Next,
+) -> axum::response::Response {
+    let limit = if is_file_upload(request.method(), request.uri().path()) {
+        UPLOAD_TIMEOUT
+    } else {
+        REQUEST_TIMEOUT
+    };
+    match tokio::time::timeout(limit, next.run(request)).await {
+        Ok(response) => response,
+        Err(_) => StatusCode::REQUEST_TIMEOUT.into_response(),
+    }
 }
 
 /// Заголовки безопасности на каждый ответ (SEC-001, D-545): браузер не угадывает
@@ -1204,4 +1234,30 @@ pub fn openapi_json() -> String {
     ApiDoc::openapi()
         .to_pretty_json()
         .expect("описание API всегда сериализуется")
+}
+
+#[cfg(test)]
+mod timeout_tests {
+    use super::is_file_upload;
+    use axum::http::Method;
+
+    #[test]
+    fn only_project_file_upload_gets_long_timeout() {
+        let id = "01a1c6d7-412d-73ea-ad99-107b57c9494a";
+        assert!(is_file_upload(
+            &Method::POST,
+            &format!("/api/v1/projects/{id}/files")
+        ));
+        assert!(!is_file_upload(
+            &Method::GET,
+            &format!("/api/v1/projects/{id}/files")
+        ));
+        assert!(!is_file_upload(
+            &Method::POST,
+            &format!("/api/v1/projects/{id}/files/a.txt")
+        ));
+        assert!(!is_file_upload(&Method::POST, "/api/v1/projects//files"));
+        assert!(!is_file_upload(&Method::POST, "/api/v1/projects/a/b/files"));
+        assert!(!is_file_upload(&Method::POST, "/api/v1/inbox/voice"));
+    }
 }

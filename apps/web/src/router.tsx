@@ -25,6 +25,7 @@ import { AccountSyncProvider } from './app/sync';
 import { DesignPage } from './design/DesignPage';
 import { MaintenanceGate } from './platform/Maintenance';
 import { Landing } from './landing/Landing';
+import { NotFound } from './NotFound';
 
 const rootRoute = createRootRoute({
   // техработы (ACC-004): всем, кроме owner, — экран вместо сайта
@@ -33,12 +34,7 @@ const rootRoute = createRootRoute({
       <Outlet />
     </MaintenanceGate>
   ),
-  notFoundComponent: () => (
-    <main className="shell">
-      <h1>Такой страницы нет</h1>
-      <a href="/">На главную</a>
-    </main>
-  ),
+  notFoundComponent: NotFound,
 });
 
 /** Лендинг для гостя (DS-007, по макету landing.html). */
