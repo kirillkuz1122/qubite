@@ -46,6 +46,7 @@
 | [engineering/TEST_STRATEGY.md](engineering/TEST_STRATEGY.md) | Тесты и CI |
 | [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md) | Окружение и команды |
 | [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md) | Raspberry Pi, домены, установщик, бэкапы |
+| [reports/code-review-2026-11-12.md](reports/code-review-2026-11-12.md) | Ревью безопасности, архитектуры, синхронизации и интерфейса: 11 замечаний, воспроизведения и результаты проверок |
 
 ## План и состояние
 
