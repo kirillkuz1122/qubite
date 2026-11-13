@@ -2882,6 +2882,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/voice/key': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['get_key'];
+    put: operations['set_key'];
+    post?: never;
+    delete: operations['delete_key'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/voice/prefs': {
     parameters: {
       query?: never;
@@ -5493,6 +5509,19 @@ export interface components {
       /** @description Почему осталась только запись; null, если текст получен. */
       reason?: string | null;
       transcribed: boolean;
+    };
+    /** @description Только безопасные сведения; без настройки все поля кроме configured — null. */
+    VoiceKey: {
+      base_url?: string | null;
+      configured: boolean;
+      last4?: string | null;
+      model?: string | null;
+    };
+    /** @description Сам ключ никогда не сериализуется и не попадает в Debug. */
+    VoiceKeyInput: {
+      api_key: string;
+      base_url?: string | null;
+      model?: string | null;
     };
     /**
      * @description Где распознавать запись (D-686).
@@ -13397,6 +13426,140 @@ export interface operations {
       };
       /** @description Бот не настроен */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сведения о ключе без самого ключа */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceKey'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  set_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoiceKeyInput'];
+      };
+    };
+    responses: {
+      /** @description Ключ зашифрован и сохранён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceKey'];
+        };
+      };
+      /** @description Неверный ключ, модель или адрес */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Хранение секретов не настроено */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ключ удалён */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
         headers: {
           [name: string]: unknown;
         };

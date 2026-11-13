@@ -33,6 +33,10 @@ pub mod projects;
 pub mod registration;
 pub mod routes;
 pub mod sync;
+pub mod voice_key;
+
+#[cfg(test)]
+extern crate self as qubite_server;
 
 use std::{sync::Arc, time::Duration};
 
@@ -61,6 +65,9 @@ pub struct AppState {
     pub changes: Arc<changes::ChangeHub>,
     /// AI-шлюз — единственная дверь к платным моделям (AI_COST_GUARD).
     pub ai: Arc<qubite_ai::Gateway>,
+    /// Заглушка личного STT существует только в тестовой сборке.
+    #[cfg(test)]
+    pub(crate) own_key_voice: Option<Arc<dyn qubite_ai::VoiceProvider>>,
     /// Вход через Яндекс, VK, Google, Telegram.
     pub oauth: Arc<qubite_oauth::OAuth>,
     /// Каналы напоминаний: push (ключ VAPID) и Telegram (токен бота).
@@ -98,6 +105,8 @@ impl AppState {
             sync: sync::registry(),
             changes: Arc::new(changes::ChangeHub::default()),
             ai: Arc::new(ai),
+            #[cfg(test)]
+            own_key_voice: None,
             oauth: Arc::new(qubite_oauth::OAuth::new(
                 qubite_oauth::OAuthSettings::default(),
             )),
@@ -264,6 +273,9 @@ impl AppState {
         inbox::capture,
         inbox::voice_prefs,
         inbox::set_voice_prefs,
+        voice_key::get_key,
+        voice_key::set_key,
+        voice_key::delete_key,
         inbox::capture_voice,
         inbox::detail,
         inbox::download_audio,
@@ -473,6 +485,8 @@ impl AppState {
         inbox::InboxItemDetail,
         inbox::CaptureRequest,
         inbox::VoicePrefs,
+        voice_key::VoiceKey,
+        voice_key::VoiceKeyInput,
         inbox::VoiceMethod,
         inbox::VoiceCaptureRequest,
         inbox::VoiceCaptureResponse,
@@ -804,6 +818,13 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/voice/prefs",
             get(inbox::voice_prefs).put(inbox::set_voice_prefs),
+        )
+        .route(
+            "/api/v1/voice/key",
+            get(voice_key::get_key)
+                .put(voice_key::set_key)
+                .delete(voice_key::delete_key)
+                .layer(DefaultBodyLimit::max(16 * 1024)),
         )
         .route(
             "/api/v1/inbox/voice",

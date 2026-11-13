@@ -9510,6 +9510,139 @@
         }
       }
     },
+    "/api/v1/voice/key": {
+      "get": {
+        "tags": ["inbox"],
+        "operationId": "get_key",
+        "responses": {
+          "200": {
+            "description": "Сведения о ключе без самого ключа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["inbox"],
+        "operationId": "set_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceKeyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ключ зашифрован и сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный ключ, модель или адрес",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Хранение секретов не настроено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["inbox"],
+        "operationId": "delete_key",
+        "responses": {
+          "204": {
+            "description": "Ключ удалён"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/voice/prefs": {
       "get": {
         "tags": ["inbox"],
@@ -15465,6 +15598,47 @@
             "type": "boolean"
           }
         }
+      },
+      "VoiceKey": {
+        "type": "object",
+        "description": "Только безопасные сведения; без настройки все поля кроме configured — null.",
+        "required": ["configured"],
+        "properties": {
+          "base_url": {
+            "type": ["string", "null"]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "last4": {
+            "type": ["string", "null"]
+          },
+          "model": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "VoiceKeyInput": {
+        "type": "object",
+        "description": "Сам ключ никогда не сериализуется и не попадает в Debug.",
+        "required": ["api_key"],
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "writeOnly": true,
+            "maxLength": 4096,
+            "minLength": 16
+          },
+          "base_url": {
+            "type": ["string", "null"],
+            "maxLength": 2048
+          },
+          "model": {
+            "type": ["string", "null"],
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
       },
       "VoiceMethod": {
         "type": "string",
