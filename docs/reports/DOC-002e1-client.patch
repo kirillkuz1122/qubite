@@ -1,0 +1,1228 @@
+diff --git a/apps/web/src/app/docs/BlockNode.test.ts b/apps/web/src/app/docs/BlockNode.test.ts
+--- a/apps/web/src/app/docs/BlockNode.test.ts
++++ b/apps/web/src/app/docs/BlockNode.test.ts
+@@ -12,6 +12,8 @@
+ import { $createBlockNode, $isBlockNode, $orderedNumber, BLOCK_KINDS } from './BlockNode';
+ import { DOC_NODES, $exportMarkdown, $importMarkdown } from './markdown';
+ import { DocsProvider } from './provider';
++import { renderDocText } from './render';
++import { $appendRecovered, $restoreLost } from './restore';
+ 
+ function editor() {
+   return createEditor({
+@@ -235,3 +237,94 @@
+     },
+   );
+ });
++
++describe('DOC-002e1: фоновый текст и возврат дописок', () => {
++  it('headless-экспорт видит обе офлайн-копии, виды блоков и Markdown', async () => {
++    const a = new Y.Doc();
++    const b = new Y.Doc();
++    const first = bind(a);
++    const second = bind(b);
++    try {
++      first.editor.update(() => {
++        $importMarkdown('# Заголовок\n- [x] Готово\n> Цитата\n```\nкод\n```');
++      }, { discrete: true });
++      Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
++      await settle();
++      first.editor.update(() => {
++        $first().append($createTextNode(' · локально').toggleFormat('bold'));
++      }, { discrete: true });
++      second.editor.update(() => {
++        $getRoot().append($createBlockNode('ul').setIndent(1).append($createTextNode('Другая копия')));
++      }, { discrete: true });
++      Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
++      await settle();
++      const before = Y.encodeStateAsUpdate(a);
++      const markdown = renderDocText(a);
++      expect(markdown).toBe(first.editor.getEditorState().read($exportMarkdown));
++      expect(markdown).toContain('локально');
++      expect(markdown).toContain('Другая копия');
++      expect(markdown).toContain('- [x] Готово');
++      expect(markdown).toContain('```');
++      expect(Y.encodeStateAsUpdate(a)).toEqual(before);
++      expect(renderDocText(a)).toBe(markdown);
++    } finally {
++      first.close();
++      second.close();
++      a.destroy();
++      b.destroy();
++    }
++  });
++
++  it.each([null, 'Перед'])('несколько блоков после %j возвращаются в исходном порядке', (after) => {
++    const e = editor();
++    e.update(() => {
++      $getRoot().append(
++        $createBlockNode().append($createTextNode('Перед')),
++        $createBlockNode().append($createTextNode('После')),
++      );
++      $restoreLost([
++        { text: 'Первая', kind: 'h2', after },
++        { text: 'Вторая', kind: 'quote', after },
++        { text: 'Третья', kind: 'unknown', after },
++      ]);
++    }, { discrete: true });
++    expect(blocks(e).map((node) => node.text)).toEqual(
++      after === null
++        ? ['Первая', 'Вторая', 'Третья', 'Перед', 'После']
++        : ['Перед', 'Первая', 'Вторая', 'Третья', 'После'],
++    );
++    expect(blocks(e).find((node) => node.text === 'Третья')?.kind).toBe('p');
++  });
++
++  it('разные якоря сохраняют положение, отсутствующий якорь вставляет в конец', () => {
++    const e = editor();
++    e.update(() => {
++      $importMarkdown('A\nB\nC');
++      $restoreLost([
++        { text: 'a1', kind: 'p', after: 'A' },
++        { text: 'a2', kind: 'p', after: 'A' },
++        { text: 'b1', kind: 'p', after: 'B' },
++        { text: 'b2', kind: 'p', after: 'B' },
++        { text: 'tail1', kind: 'p', after: 'gone' },
++        { text: 'tail2', kind: 'p', after: 'gone' },
++      ]);
++    }, { discrete: true });
++    expect(blocks(e).map((node) => node.text)).toEqual([
++      'A', 'a1', 'a2', 'B', 'b1', 'b2', 'C', 'tail1', 'tail2',
++    ]);
++  });
++
++  it('запасной Markdown вставляется после существующих блоков с сохранением оформления', () => {
++    const e = editor();
++    e.update(() => {
++      $importMarkdown('Принятый текст\n- первый');
++      $appendRecovered('# Свой вариант\n**важно**');
++    }, { discrete: true });
++    expect(blocks(e).map((node) => node.text)).toEqual([
++      'Принятый текст', 'первый', 'Свой вариант', 'важно',
++    ]);
++    const markdown = e.getEditorState().read($exportMarkdown);
++    expect(markdown).toContain('# Свой вариант');
++    expect(markdown).toContain('**важно**');
++  });
++});
+diff --git a/apps/web/src/app/docs/Editor.test.tsx b/apps/web/src/app/docs/Editor.test.tsx
+--- a/apps/web/src/app/docs/Editor.test.tsx
++++ b/apps/web/src/app/docs/Editor.test.tsx
+@@ -1,4 +1,4 @@
+-import { render, waitFor } from '@testing-library/react';
++import { fireEvent, render, waitFor } from '@testing-library/react';
+ import { StrictMode } from 'react';
+ import { describe, expect, it, vi } from 'vitest';
+ import * as Y from 'yjs';
+@@ -10,6 +10,14 @@
+     doc: new Y.Doc(),
+     status: 'pending',
+     seedMarkdown,
++    recovered: null,
++    lost: [],
++    clearRecovered: async () => {},
++    onLost: (callback) => {
++      callback([]);
++      return () => {};
++    },
++    clearLost: async () => {},
+     text: () => '',
+     sync: async () => {},
+     markSeeded: vi.fn(async () => {}),
+@@ -51,3 +59,52 @@
+     doc.doc.destroy();
+   });
+ });
++
++describe('предложения восстановления из хранилища', () => {
++  it.each([true, false])('запасной вариант: вставить=%s', async (insert) => {
++    const doc = {
++      ...handle(null),
++      recovered: '# Свой вариант\nСохранённая дописка',
++      clearRecovered: vi.fn(async () => {}),
++    };
++    const view = render(<DocEditor handle={doc} />);
++    await waitFor(() =>
++      expect(view.getByRole('textbox', { name: 'Текст документа' })).toBeInTheDocument(),
++    );
++    expect(
++      view.getByText('На этом устройстве был свой вариант — вставить в конец?'),
++    ).toBeInTheDocument();
++    fireEvent.click(view.getByRole('button', { name: insert ? 'Вставить' : 'Не надо' }));
++    await waitFor(() => expect(doc.clearRecovered).toHaveBeenCalledOnce());
++    if (insert) expect(doc.text()).toContain('Сохранённая дописка');
++    else expect(doc.text()).not.toContain('Сохранённая дописка');
++    view.unmount();
++    doc.doc.destroy();
++  });
++
++  it('читает найденные хранилищем блоки и возвращает их в порядке текста', async () => {
++    const lost = [
++      { text: 'Первая', kind: 'p', after: null },
++      { text: 'Вторая', kind: 'p', after: null },
++    ];
++    const doc = {
++      ...handle(null),
++      lost,
++      onLost: (callback: (value: typeof lost) => void) => {
++        callback(lost);
++        return () => {};
++      },
++      clearLost: vi.fn(async () => {}),
++    };
++    const view = render(<DocEditor handle={doc} />);
++    await waitFor(() =>
++      expect(view.getByRole('textbox', { name: 'Текст документа' })).toBeInTheDocument(),
++    );
++    fireEvent.click(view.getByRole('button', { name: 'Вернуть' }));
++    await waitFor(() => expect(doc.clearLost).toHaveBeenCalledOnce());
++    expect(doc.text().indexOf('Первая')).toBeGreaterThanOrEqual(0);
++    expect(doc.text().indexOf('Вторая')).toBeGreaterThan(doc.text().indexOf('Первая'));
++    view.unmount();
++    doc.doc.destroy();
++  });
++});
+diff --git a/apps/web/src/app/docs/Editor.tsx b/apps/web/src/app/docs/Editor.tsx
+--- a/apps/web/src/app/docs/Editor.tsx
++++ b/apps/web/src/app/docs/Editor.tsx
+@@ -133,7 +133,7 @@
+       }}
+     >
+       <LexicalCollaboration>
+-        <LostEdits handle={handle} provider={provider} />
++        <LostEdits handle={handle} />
+         <RichTextPlugin
+           contentEditable={<ContentEditable className="docs-text" aria-label="Текст документа" />}
+           ErrorBoundary={LexicalErrorBoundary}
+diff --git a/apps/web/src/app/docs/LostEdits.tsx b/apps/web/src/app/docs/LostEdits.tsx
+--- a/apps/web/src/app/docs/LostEdits.tsx
++++ b/apps/web/src/app/docs/LostEdits.tsx
+@@ -1,66 +1,87 @@
+ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+ import type { DocHandle, LostBlock } from '@qubite/sync-client';
+-import { Button, Note } from '@qubite/ui';
+-import { $createTextNode, $getRoot } from 'lexical';
++import { Button, Note, Presence } from '@qubite/ui';
+ import { useEffect, useState } from 'react';
+-import { $createBlockNode, $isBlockNode, BLOCK_KINDS, type BlockKind } from './BlockNode';
+-import type { DocsProvider } from './provider';
++import { $appendRecovered, $restoreLost } from './restore';
+ 
+-/** «В удалённый блок дописали — вернуть?» (Q-87): вставляет текст новым блоком на прежнее место. */
+-export function LostEdits({ handle, provider }: { handle: DocHandle; provider: DocsProvider }) {
++/** Дописки и запасной Markdown принадлежат хранилищу и переживают закрытие экрана. */
++export function LostEdits({ handle }: { handle: DocHandle }) {
+   const [editor] = useLexicalComposerContext();
+-  const [lost, setLost] = useState<LostBlock[]>([]);
+-  useEffect(() => provider.watchLost((found) => setLost((now) => [...now, ...found])), [provider]);
+-  useEffect(
+-    () =>
+-      handle.onStatus((status) => {
+-        if (status === 'saved') provider.confirm();
+-      }),
+-    [handle, provider],
+-  );
+-  if (lost.length === 0) return null;
++  const [lost, setLost] = useState<LostBlock[]>(handle.lost);
++  const [recovered, setRecovered] = useState(handle.recovered);
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState(false);
++  useEffect(() => handle.onLost(setLost), [handle]);
++  useEffect(() => handle.onStatus(() => setRecovered(handle.recovered)), [handle]);
+ 
+-  const restore = () => {
+-    editor.update(() => {
+-      const root = $getRoot();
+-      for (const item of lost) {
+-        const kind = (BLOCK_KINDS as readonly string[]).includes(item.kind)
+-          ? (item.kind as BlockKind)
+-          : 'p';
+-        const block = $createBlockNode(kind).append($createTextNode(item.text));
+-        const anchor =
+-          item.after === null
+-            ? null
+-            : root
+-                .getChildren()
+-                .filter($isBlockNode)
+-                .findLast((node) => node.getTextContent() === item.after);
+-        const first = root.getFirstChild();
+-        if (anchor) anchor.insertAfter(block);
+-        else if (item.after === null && first) first.insertBefore(block);
+-        else root.append(block);
++  const accept = async (kind: 'lost' | 'recovered', restore: boolean) => {
++    setBusy(true);
++    setError(false);
++    try {
++      if (restore) {
++        editor.update(
++          () => {
++            if (kind === 'lost') $restoreLost(handle.lost);
++            else if (recovered !== null) $appendRecovered(recovered);
++          },
++          { discrete: true },
++        );
+       }
+-    });
+-    setLost([]);
++      // Сначала редактор записал Yjs на устройство, потом убираем предложение.
++      if (kind === 'lost') await handle.clearLost();
++      else await handle.clearRecovered();
++    } catch {
++      setError(true);
++    } finally {
++      setBusy(false);
++    }
+   };
+ 
+   const shown = lost.map((item) => item.text).join(' · ');
+   return (
+-    <div className="docs-lost">
+-      <Note>
+-        <p>
+-          На другом устройстве блок удалили, а здесь в него дописали: «
+-          {shown.length > 120 ? `${shown.slice(0, 120)}…` : shown}». Вернуть?
+-        </p>
+-        <div className="docs-lost-actions">
+-          <Button size="sm" variant="fill" onClick={restore}>
+-            Вернуть
+-          </Button>
+-          <Button size="sm" onClick={() => setLost([])}>
+-            Не надо
+-          </Button>
+-        </div>
+-      </Note>
+-    </div>
++    <>
++      <Presence show={recovered !== null} className="docs-lost">
++        <Note>
++          <p>На этом устройстве был свой вариант — вставить в конец?</p>
++          <div className="docs-lost-actions">
++            <Button
++              size="sm"
++              variant="fill"
++              disabled={busy}
++              onClick={() => void accept('recovered', true)}
++            >
++              Вставить
++            </Button>
++            <Button size="sm" disabled={busy} onClick={() => void accept('recovered', false)}>
++              Не надо
++            </Button>
++          </div>
++        </Note>
++      </Presence>
++      <Presence show={lost.length > 0} className="docs-lost">
++        <Note>
++          <p>
++            На другом устройстве блок удалили, а здесь в него дописали: «
++            {shown.length > 120 ? `${shown.slice(0, 120)}…` : shown}». Вернуть?
++          </p>
++          <div className="docs-lost-actions">
++            <Button
++              size="sm"
++              variant="fill"
++              disabled={busy}
++              onClick={() => void accept('lost', true)}
++            >
++              Вернуть
++            </Button>
++            <Button size="sm" disabled={busy} onClick={() => void accept('lost', false)}>
++              Не надо
++            </Button>
++          </div>
++        </Note>
++      </Presence>
++      <Presence show={error}>
++        <Note tone="bad">Не удалось сохранить выбор на устройстве. Попробуйте ещё раз.</Note>
++      </Presence>
++    </>
+   );
+ }
+diff --git a/apps/web/src/app/docs/README.md b/apps/web/src/app/docs/README.md
+--- a/apps/web/src/app/docs/README.md
++++ b/apps/web/src/app/docs/README.md
+@@ -35,3 +35,10 @@
+ 
+ Проверки, сборки и браузер в сессии на Pi не запускались по прямому указанию
+ владельца. Скриншоты ожидаются из CI в `docs/design/screens/doc-002/`.
++
++Поправки DOC-002e1 к ревью #147: потерянные дописки и запасной Markdown после
++чужого seed хранит `DocStore` в IndexedDB. `LostEdits` читает их через handle;
++провайдер отвечает только за связь редактора и документа. Несколько возвращённых
++блоков сохраняют порядок; запасной Markdown вставляется в конец. Фоновый экспорт
++из `render.ts` читает слитую копию Yjs через headless Lexical и те же правила
++Markdown, что экран. Тесты этих сценариев добавлены без запуска на Pi.
+diff --git a/apps/web/src/app/docs/provider.ts b/apps/web/src/app/docs/provider.ts
+--- a/apps/web/src/app/docs/provider.ts
++++ b/apps/web/src/app/docs/provider.ts
+@@ -1,14 +1,16 @@
+ import type { Provider, ProviderAwareness, UserState } from '@lexical/yjs';
+ import * as Y from 'yjs';
+-import { watchLostEdits, type LostBlock } from '@qubite/sync-client';
+ import type { DocHandle } from '@qubite/sync-client';
+ 
+ /** Императивный API хранилища, которое живёт вне React. */
+ export function attachMarkdownExport(handle: DocHandle, read: () => string): () => void {
++  const background = handle.text;
+   handle.text = read;
+   return () => {
++    // Сначала сохранить последний текст экрана, затем вернуть headless-экспорт.
+     const markdown = read();
+     handle.text = () => markdown;
++    handle.text = background;
+   };
+ }
+ 
+@@ -94,17 +96,6 @@
+     this.unbridge?.();
+   }
+ 
+-  /** Дописанное в удалённый на другом устройстве блок (Q-87, D-757). */
+-  /** Свои правки, которые сервер уже принял: снимок при статусе «Сохранено». */
+-  private confirmed = new Map<number, number>();
+-  confirm() {
+-    this.confirmed = Y.decodeStateVector(Y.encodeStateVector(this.doc));
+-  }
+-
+-  watchLost(callback: (lost: LostBlock[]) => void): () => void {
+-    return watchLostEdits(this.doc, FROM_SOURCE, callback, () => this.confirmed);
+-  }
+-
+   subscribeReady(callback: () => void): () => void {
+     this.readyListeners.add(callback);
+     if (this.ready) callback();
+diff --git a/apps/web/src/app/docs/render.ts b/apps/web/src/app/docs/render.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/docs/render.ts
+@@ -0,0 +1,39 @@
++import { createYjsBinding, syncYjsChangesToLexical } from '@lexical/yjs';
++import { createEditor } from 'lexical';
++import * as Y from 'yjs';
++import { DOC_NODES, $exportMarkdown } from './markdown';
++import { DocsProvider } from './provider';
++
++/** Markdown слитого дерева без экрана. Исходный документ остаётся неизменным. */
++export function renderDocText(source: Y.Doc): string {
++  const doc = new Y.Doc();
++  const editor = createEditor({
++    nodes: DOC_NODES,
++    onError: (error) => {
++      throw error;
++    },
++  });
++  const provider = new DocsProvider(doc);
++  const binding = createYjsBinding({
++    editor,
++    id: 'render',
++    doc,
++    docMap: new Map([['render', doc]]),
++  });
++  const root = binding.root.getSharedType();
++  const changes: Parameters<typeof root.observeDeep>[0] = (events) => {
++    syncYjsChangesToLexical(binding, provider.asProvider(), events, false, () => {});
++  };
++  root.observeDeep(changes);
++  try {
++    // Как при подключении редактора: сначала привязка к пустой копии, затем данные.
++    Y.applyUpdate(doc, Y.encodeStateAsUpdate(source));
++    editor.update(() => {}, { discrete: true });
++    return editor.getEditorState().read($exportMarkdown);
++  } finally {
++    root.unobserveDeep(changes);
++    binding.root.destroy(binding);
++    provider.doc.destroy();
++    doc.destroy();
++  }
++}
+diff --git a/apps/web/src/app/docs/restore.ts b/apps/web/src/app/docs/restore.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/docs/restore.ts
+@@ -0,0 +1,41 @@
++import type { LostBlock } from '@qubite/sync-client';
++import { $createTextNode, $getRoot } from 'lexical';
++import {
++  $createBlockNode,
++  $isBlockNode,
++  BLOCK_KINDS,
++  type BlockKind,
++  type BlockNode,
++} from './BlockNode';
++import { $importMarkdown } from './markdown';
++
++/** Следующий блок с тем же якорем идёт после предыдущего возвращённого. */
++export function $restoreLost(lost: readonly LostBlock[]): void {
++  const root = $getRoot();
++  const original = root.getChildren().filter($isBlockNode);
++  const restored = new Map<string | null, BlockNode>();
++  for (const item of lost) {
++    const kind = (BLOCK_KINDS as readonly string[]).includes(item.kind)
++      ? (item.kind as BlockKind)
++      : 'p';
++    const block = $createBlockNode(kind).append($createTextNode(item.text));
++    const anchor =
++      restored.get(item.after) ??
++      (item.after === null
++        ? undefined
++        : original.findLast((node) => node.getTextContent() === item.after));
++    const first = root.getFirstChild();
++    if (anchor) anchor.insertAfter(block);
++    else if (item.after === null && first) first.insertBefore(block);
++    else root.append(block);
++    restored.set(item.after, block);
++  }
++}
++
++export function $appendRecovered(markdown: string): void {
++  const root = $getRoot();
++  const original = new Set(root.getChildren());
++  $importMarkdown(markdown, true);
++  const added = root.getChildren().filter((node) => !original.has(node));
++  root.append(...added);
++}
+diff --git a/apps/web/src/app/sync.tsx b/apps/web/src/app/sync.tsx
+--- a/apps/web/src/app/sync.tsx
++++ b/apps/web/src/app/sync.tsx
+@@ -24,6 +24,7 @@
+   type SyncApi,
+ } from './sync-context';
+ import { useMe } from '../auth/client';
++import { renderDocText } from './docs/render';
+ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+ 
+ function socketUrl(): string {
+@@ -113,6 +114,7 @@
+     const documents = new DocStore({
+       dbName: `${dbName}-docs`,
+       transport: httpDocsTransport(),
++      renderText: renderDocText,
+     });
+     let alive = true;
+     let stop = () => {};
+diff --git a/packages/sync-client/DOCS.md b/packages/sync-client/DOCS.md
+--- a/packages/sync-client/DOCS.md
++++ b/packages/sync-client/DOCS.md
+@@ -19,7 +19,11 @@
+ ```ts
+ import { DocStore, httpDocsTransport } from '@qubite/sync-client';
+ 
+-const store = new DocStore({ transport: httpDocsTransport() });
++const store = new DocStore({
++  transport: httpDocsTransport(),
++  // Необязательно: сериализация слитого Y.Doc без открытого экрана.
++  renderText: (doc) => markdownFromYDoc(doc),
++});
+ const handle = await store.open(id);
+ // open восстанавливает локальную копию и делает первую попытку обмена.
+ // Недоступный сервер, 404 или отсутствие сети не мешают получить handle.
+@@ -84,10 +88,12 @@
+ правки остаются в очереди. Одни удаления также считаются изменениями, даже
+ если вектор состояния Yjs не изменился.
+ 
+-Локальный Markdown записывается вместе с правкой. Закрытые документы могут
+-отправляться через `syncAll()` без редактора с последним сохранённым текстом.
+-Сериализация нового слитого дерева в Markdown при открытом редакторе — задача
+-его функции `text`; само дерево всегда сливается через Yjs.
++Локальный Markdown записывается вместе с правкой. Опция `renderText(doc)`
++сериализует актуальное слитое дерево при фоновом `syncAll()`. Web использует
++headless Lexical + `@lexical/yjs` из `apps/web/src/app/docs/render.ts`;
++дополнительных зависимостей нет. При открытом экране используется `handle.text`;
++при отключении экрана возвращается фоновая функция. Без `renderText` сохраняется
++прежнее поведение: отправляется последний сохранённый Markdown.
+ 
+ После правки обмен запускается через `debounceMs` (по умолчанию 500 мс).
+ Ошибка не удаляет очередь. Повтор — по `sync()`, `syncAll()` или событию
+@@ -96,9 +102,18 @@
+ 
+ Первый перенос старого Markdown ждёт `markSeeded()`, затем отправляется с
+ `seed: true`. И отметка seed, и текст переживают перезапуск. При 409
+-`seed_taken` устаревшая локальная копия удаляется до вызова `onReset`:
+-повторный `open(id)` получает принятую сервером версию и не удваивает импорт.
+-Другие ошибки 409, 400, 401, 403 и ограничения размера копию не удаляют.
++`seed_taken` сначала делается pull. Вектор первого seed-запроса записывается
++перед отправкой и переживает потерю ответа и перезапуск. Если вектор сервера
++покрывает этот снимок, сервер принял наш seed: снимается отметка seed, затем
++обычный push отправляет более поздние правки без сброса журнала.
++
++Если сервер принял чужой seed, перед сбросом собственный Markdown атомарно
++сохраняется как `handle.recovered: string | null`. Чужой seed до этого решения
++не сливается с локальным вариантом. После `onReset` надо переоткрыть редактор;
++если сброс случился внутри начального `open`, он сам возвращает новый живой
++handle. Запасной вариант переживает закрытие и перезапуск. Экран предлагает
++вставить его в конец; `await handle.clearRecovered()` убирает предложение после
++вставки либо отказа. Остальные ошибки HTTP копию не удаляют.
+ 
+ Тесты находятся в `src/docs.test.ts`: отдельные IndexedDB и Y.Doc в памяти,
+ поддельный HTTP без сети. На Raspberry Pi проверки не запускались по условиям
+@@ -118,14 +133,28 @@
+ запоминает вектор состояния как границу последнего обмена.
+ 
+ - Если пришло удаление живого блока, возвращаются только живые перед удалением
+-  вставки текущего `doc.clientID` после последнего обмена.
++  вставки текущего `doc.clientID` после последнего обмена (режим по умолчанию).
+ - Если пришли новые символы в уже удалённый блок, возвращаются только они.
+ - `cb` вызывается только с непустым списком `{ text, kind, after }`, по порядку
+   блоков. `after` — обычный текст предыдущего **живого** блока после слияния,
+   `null` — вставить в начало. Повторное применение обновления не даёт дублей.
+ 
+-Вставку после согласия человека выполняет экран через Lexical; функции
+-`restoreLost` нет. UI, протокол и `DocStore` этот модуль не меняет.
++`DocStore` подключает наблюдатель сразу после загрузки IndexedDB, до первой
++сетевой транзакции. Он передаёт `() => serverSv` и пятый аргумент `'all'`:
++неотправленными считаются Item **всех** клиентов за последним известным вектором
++сервера, включая прошлые открытия и другие вкладки. Четвёртый аргумент — функция,
++возвращающая `Map<number, number>` подтверждённых часов. Прежний режим наблюдателя
++для текущего clientID сохраняется для самостоятельных вызовов.
++
++Найденные блоки сразу записываются в IndexedDB до записи удалённого обновления.
++Это работает и при `syncAll()` для закрытых документов. `handle.lost: LostBlock[]`
++доступен после `open`; `handle.onLost(cb)` сразу отдаёт текущий список и сообщает
++об изменениях. `await handle.clearLost()` убирает найденное после выбора человека;
++дописки, пришедшие во время записи выбора, остаются для следующего предложения.
++
++Вставку после согласия выполняет экран через Lexical. Несколько блоков с одним
++якорем вставляются после предыдущего восстановленного блока, сохраняя порядок.
++Провайдер редактора больше не отслеживает потери и не подтверждает их по статусу.
+ 
+ Решил так, можно откатить: на время наблюдения фильтр `doc.gcFilter` удерживает
+ удалённые поддеревья только внутри `root`. Обычное стирание символов в живом
+@@ -139,3 +168,11 @@
+ увеличивают память документа и могут остаться в ней до дальнейшей очистки или
+ его закрытия. Реализация использует внутренние `Item` закреплённого Yjs 13.6.33;
+ при обновлении версии нужны тесты совместимости.
++
++## Поправки ревью #147 (DOC-002e1)
++
++Решил так, можно откатить: новые поля (`seedSv`, `recovered`, `lost`) добавляются
++в существующие записи с безопасными значениями по умолчанию; версия IndexedDB
++и формат `/y` сохраняются. Rust не меняется. Тесты без сети добавлены к
++`docs.test.ts`, `docs-lost.test.ts`, `BlockNode.test.ts` и `Editor.test.tsx`.
++На Pi эти тесты и остальные проверки не запускались по указанию владельца.
+diff --git a/packages/sync-client/src/docs-lost.test.ts b/packages/sync-client/src/docs-lost.test.ts
+--- a/packages/sync-client/src/docs-lost.test.ts
++++ b/packages/sync-client/src/docs-lost.test.ts
+@@ -411,3 +411,21 @@
+     expect(filtered.every((item) => item.parent === other)).toBe(true);
+   });
+ });
++
++describe('неотправленное после перезапуска', () => {
++  it('режим all находит Item прежних clientID по вектору сервера', () => {
++    const [server, old] = pair();
++    const known = Y.decodeStateVector(Y.encodeStateVector(server));
++    const original = blockAt(old, 1);
++    original.insert(original.length, ' с прошлого открытия');
++    const reopened = document();
++    receive(reopened, old);
++    const calls: LostBlock[][] = [];
++    watchLostEdits(reopened, serverOrigin, (lost) => calls.push(lost), () => known, 'all');
++    root(server).delete(1, 1);
++    receive(reopened, server);
++    expect(calls).toEqual([[{ text: ' с прошлого открытия', kind: 'text', after: 'Перед' }]]);
++    receive(reopened, server);
++    expect(calls).toHaveLength(1);
++  });
++});
+diff --git a/packages/sync-client/src/docs-lost.ts b/packages/sync-client/src/docs-lost.ts
+--- a/packages/sync-client/src/docs-lost.ts
++++ b/packages/sync-client/src/docs-lost.ts
+@@ -97,6 +97,8 @@
+    * подтверждённым считается всё, что было на момент прошлой транзакции обмена.
+    */
+   confirmed?: () => Map<number, number>,
++  /** all: неотправленные Item всех клиентов, включая прошлые открытия и вкладки. */
++  pendingClients: 'current' | 'all' = 'current',
+ ): () => void {
+   const root = doc.get('root', Y.XmlText);
+   const release = retainRoot(doc, root);
+@@ -108,7 +110,7 @@
+   const beforeTransaction = (transaction: Y.Transaction) => {
+     if (transaction.origin !== origin) return;
+     const before = new Map<Y.XmlText, BeforeBlock>();
+-    const clock = (confirmed?.() ?? exchanged).get(doc.clientID) ?? 0;
++    const known = confirmed?.() ?? exchanged;
+     for (let item = root._start; item; item = item.right) {
+       const block = blockType(item);
+       if (!block) continue;
+@@ -120,7 +122,9 @@
+         pending: item.deleted
+           ? ''
+           : textIn(block, (text) =>
+-              text.id.client === doc.clientID ? stringSince(text, clock) : '',
++              pendingClients === 'all' || text.id.client === doc.clientID
++                ? stringSince(text, known.get(text.id.client) ?? 0)
++                : '',
+             ),
+       });
+     }
+@@ -132,6 +136,7 @@
+     const before = transaction.meta.get(snapshotKey) as Map<Y.XmlText, BeforeBlock> | undefined;
+     transaction.meta.delete(snapshotKey);
+     const lost: LostBlock[] = [];
++    const known = confirmed?.() ?? exchanged;
+     let after: string | null = null;
+     for (let item = root._start; item; item = item.right) {
+       const block = blockType(item);
+@@ -145,7 +150,14 @@
+       const text = previous.deleted
+         ? textIn(
+             block,
+-            (text) => stringSince(text, transaction.beforeState.get(text.id.client) ?? 0),
++            (text) =>
++              stringSince(
++                text,
++                Math.max(
++                  transaction.beforeState.get(text.id.client) ?? 0,
++                  pendingClients === 'all' ? (known.get(text.id.client) ?? 0) : 0,
++                ),
++              ),
+             true,
+           )
+         : previous.pending;
+diff --git a/packages/sync-client/src/docs.test.ts b/packages/sync-client/src/docs.test.ts
+--- a/packages/sync-client/src/docs.test.ts
++++ b/packages/sync-client/src/docs.test.ts
+@@ -13,6 +13,7 @@
+   type DocHandle,
+   type DocsTransport,
+   type DocStatus,
++  type DocStoreOptions,
+ } from './docs';
+ import { HttpError } from './http';
+ import type { ObjectSnapshot, PushRequest } from './protocol';
+@@ -74,13 +75,14 @@
+ 
+ function store(
+   transport: DocsTransport,
+-  options: { indexedDB?: IDBFactory; dbName?: string; debounceMs?: number } = {},
++  options: Omit<DocStoreOptions, 'transport'> = {},
+ ): DocStore {
+   const value = new DocStore({
+     transport,
+     indexedDB: options.indexedDB ?? new IDBFactory(),
+     dbName: options.dbName ?? `docs-test-${++counter}`,
+     debounceMs: options.debounceMs ?? 60_000,
++    ...(options.renderText ? { renderText: options.renderText } : {}),
+   });
+   stores.push(value);
+   return value;
+@@ -644,3 +646,175 @@
+     });
+   });
+ });
++
++describe('DOC-002e1: сохранность локального текста', () => {
++  it.each([false, true])('свой принятый seed сохраняет дописки, перезапуск=%s', async (restart) => {
++    const remote = server();
++    remote.seedMarkdown = 'Старый текст';
++    const options = { indexedDB: new IDBFactory(), dbName: 'accepted-seed' };
++    const device = store(remote, options);
++    let handle = await device.open('page');
++    const text = editor(handle);
++    text.insert(0, 'Старый текст');
++    await handle.markSeeded();
++    remote.loseResponse = true;
++    remote.beforePush = async () => {
++      remote.beforePush = undefined;
++      text.insert(text.length, ' · набрано после отправки');
++    };
++    await handle.sync();
++    expect(handle.status).toBe('offline');
++    expect(remote.text).toBe('Старый текст');
++    expect((await persisted(options.indexedDB, options.dbName)).metadata.seedSv).toBeInstanceOf(
++      Uint8Array,
++    );
++    const reset = vi.fn();
++    handle.onReset(reset);
++    if (restart) {
++      await device.close();
++      handle = await store(remote, options).open('page');
++    } else await handle.sync();
++    expect(reset).not.toHaveBeenCalled();
++    expect(handle.recovered).toBeNull();
++    expect(handle.doc.getText('body').toString()).toBe('Старый текст · набрано после отправки');
++    expect(remote.doc.getText('body').toString()).toBe(handle.doc.getText('body').toString());
++    expect(remote.pushes.at(-1)?.seed).toBeUndefined();
++    expect(handle.status).toBe('saved');
++    expect((await persisted(options.indexedDB, options.dbName)).metadata.seed).toBe(false);
++  });
++
++  it('open после чужого seed возвращает живую копию и сохраняет свой вариант между перезапусками', async () => {
++    const remote = server();
++    remote.seedMarkdown = 'Markdown';
++    const winner = await store(remote).open('page');
++    const options = { indexedDB: new IDBFactory(), dbName: 'foreign-seed' };
++    const device = store(remote, options);
++    const local = await device.open('page');
++    editor(winner).insert(0, 'Принятая версия');
++    editor(local).insert(0, 'Свой вариант');
++    await winner.markSeeded();
++    await local.markSeeded();
++    await device.close();
++    await winner.sync();
++    const reopenedStore = store(remote, options);
++    const reopened = await reopenedStore.open('page');
++    expect(reopened.doc.isDestroyed).toBe(false);
++    expect(reopened.doc.getText('body').toString()).toBe('Принятая версия');
++    expect(reopened.recovered).toBe('Свой вариант');
++    const text = editor(reopened);
++    remote.offline = true;
++    text.insert(text.length, ' · новая правка');
++    await reopenedStore.close();
++    const nextStore = store(remote, options);
++    const next = await nextStore.open('page');
++    expect(next.doc.getText('body').toString()).toBe('Принятая версия · новая правка');
++    expect(next.recovered).toBe('Свой вариант');
++    await next.clearRecovered();
++    await nextStore.close();
++    const final = await store(remote, options).open('page');
++    expect(final.recovered).toBeNull();
++    expect(final.doc.getText('body').toString()).toContain('новая правка');
++  });
++
++  it('без экрана отправляет Markdown слитого дерева через renderText', async () => {
++    const remote = server();
++    remote.doc.getText('body').insert(0, 'Общее');
++    const options = {
++      indexedDB: new IDBFactory(),
++      dbName: 'background-text',
++      renderText: (doc: Y.Doc) => doc.getText('body').toString(),
++    };
++    const device = store(remote, options);
++    const handle = await device.open('page');
++    remote.offline = true;
++    editor(handle).insert(handle.doc.getText('body').length, ' · локальное');
++    await device.close();
++    remote.doc.getText('body').insert(0, 'Чужое · ');
++    remote.offline = false;
++    const background = store(remote, options);
++    await background.syncAll();
++    expect(remote.text).toBe(remote.doc.getText('body').toString());
++    expect(remote.text).toContain('Чужое');
++    expect(remote.text).toContain('локальное');
++    expect((await persisted(options.indexedDB, options.dbName)).metadata.text).toBe(remote.text);
++  });
++
++  function root(doc: Y.Doc) {
++    return doc.get('root', Y.XmlText);
++  }
++  function block(doc: Y.Doc, index: number) {
++    const value: unknown = root(doc).toDelta()[index]?.insert;
++    if (!(value instanceof Y.XmlText)) throw new Error('нет блока');
++    return value;
++  }
++  function add(doc: Y.Doc, text: string) {
++    const value = new Y.XmlText();
++    doc.transact(() => {
++      root(doc).insertEmbed(root(doc).length, value);
++      value.setAttribute('__type', 'qubite-block');
++      value.setAttribute('__kind', 'quote');
++      value.insert(0, text);
++    });
++  }
++
++  it.each(['open', 'syncAll'] as const)('находит дописки прежних клиентов до первого %s и хранит до выбора', async (method) => {
++    const remote = server();
++    add(remote.doc, 'Перед');
++    add(remote.doc, 'Основа');
++    const options = { indexedDB: new IDBFactory(), dbName: `lost-${method}` };
++    const device = store(remote, options);
++    const handle = await device.open('page');
++    const previousClient = handle.doc.clientID;
++    block(handle.doc, 1).insert(block(handle.doc, 1).length, ' · первая');
++    await handle.close();
++    // Ещё одно открытие даёт новый clientID, но предыдущая дописка ещё не отправлена.
++    remote.offline = true;
++    const second = await device.open('page');
++    block(second.doc, 1).insert(block(second.doc, 1).length, ' · вторая');
++    expect(second.doc.clientID).not.toBe(previousClient);
++    await device.close();
++    root(remote.doc).delete(1, 1);
++    remote.offline = false;
++    const background = store(remote, options);
++    if (method === 'syncAll') await background.syncAll();
++    const reopened = await background.open('page');
++    const expected = [{ text: ' · первая · вторая', kind: 'quote', after: 'Перед' }];
++    expect(reopened.lost).toEqual(expected);
++    const changes = vi.fn();
++    const stop = reopened.onLost(changes);
++    expect(changes).toHaveBeenLastCalledWith(expected);
++    await reopened.sync();
++    expect(reopened.lost).toEqual(expected);
++    expect((await persisted(options.indexedDB, options.dbName)).metadata.lost).toEqual(expected);
++    await background.close();
++    const finalStore = store(remote, options);
++    const final = await finalStore.open('page');
++    expect(final.lost).toEqual(expected);
++    const cleared = vi.fn();
++    final.onLost(cleared);
++    await final.clearLost();
++    expect(cleared).toHaveBeenLastCalledWith([]);
++    stop();
++    await finalStore.close();
++    expect((await store(remote, options).open('page')).lost).toEqual([]);
++  });
++
++  it('не предлагает вернуть уже принятый текст и намеренно стёртое', async () => {
++    const remote = server();
++    add(remote.doc, 'Основа');
++    const options = { indexedDB: new IDBFactory(), dbName: 'known-lost' };
++    const device = store(remote, options);
++    const handle = await device.open('page');
++    const value = block(handle.doc, 0);
++    value.insert(value.length, ' · уже отправлено');
++    await handle.sync();
++    remote.offline = true;
++    value.insert(value.length, ' · лишнее');
++    value.delete(value.length - ' · лишнее'.length, ' · лишнее'.length);
++    await device.close();
++    root(remote.doc).delete(0, 1);
++    remote.offline = false;
++    const next = await store(remote, options).open('page');
++    expect(next.lost).toEqual([]);
++  });
++});
+diff --git a/packages/sync-client/src/docs.ts b/packages/sync-client/src/docs.ts
+--- a/packages/sync-client/src/docs.ts
++++ b/packages/sync-client/src/docs.ts
+@@ -1,6 +1,7 @@
+ /** Документы: метаданные через SyncClient, содержимое Yjs — отдельным обменом. */
+ import * as Y from 'yjs';
+ import type { SyncClient } from './client';
++import { watchLostEdits, type LostBlock } from './docs-lost';
+ import { csrfFromCookie, HttpError, type HttpTransportOptions } from './http';
+ import type { ObjectSnapshot } from './protocol';
+ import type { LocalObject } from './store';
+@@ -132,7 +133,12 @@
+   readonly doc: Y.Doc;
+   readonly status: DocStatus;
+   readonly seedMarkdown: string | null;
+-  /** Экран задаёт сериализацию в Markdown. Без экрана используется последний сохранённый текст. */
++  readonly recovered: string | null;
++  readonly lost: LostBlock[];
++  clearRecovered(): Promise<void>;
++  onLost(callback: (lost: LostBlock[]) => void): () => void;
++  clearLost(): Promise<void>;
++  /** Без экрана — renderText, а без него последний сохранённый Markdown. */
+   text: () => string;
+   sync(): Promise<void>;
+   markSeeded(): Promise<void>;
+@@ -147,6 +153,7 @@
+   indexedDB?: IDBFactory;
+   dbName?: string;
+   debounceMs?: number;
++  renderText?: (doc: Y.Doc) => string;
+ }
+ 
+ interface StoredDocument {
+@@ -156,6 +163,10 @@
+   syncedVersion: number;
+   text: string;
+   seed: boolean;
++  /** Вектор первого seed-запроса: переживает потерю ответа и перезапуск. */
++  seedSv: Uint8Array | null;
++  recovered: string | null;
++  lost: LostBlock[];
+   seedMarkdown: string | null;
+   serverSv: Uint8Array | null;
+ }
+@@ -172,6 +183,9 @@
+   syncedVersion: 0,
+   text: '',
+   seed: false,
++  seedSv: null,
++  recovered: null,
++  lost: [],
+   seedMarkdown: null,
+   serverSv: null,
+ });
+@@ -218,7 +232,7 @@
+       tx.objectStore('updates').index('document').getAll(id) as IDBRequest<StoredUpdate[]>,
+     );
+     const [stored, entries] = await Promise.all([record, updates]);
+-    return { record: stored ?? emptyDocument(id), updates: entries };
++    return { record: { ...emptyDocument(id), ...stored }, updates: entries };
+   }
+ 
+   async ids(): Promise<string[]> {
+@@ -234,7 +248,7 @@
+     const updates = tx.objectStore('updates');
+     const request = documents.get(id) as IDBRequest<StoredDocument | undefined>;
+     request.onsuccess = () => {
+-      const record = request.result ?? emptyDocument(id);
++      const record = { ...emptyDocument(id), ...request.result };
+       if (local) {
+         record.version++;
+         record.text = text;
+@@ -259,17 +273,29 @@
+     const store = tx.objectStore('documents');
+     const request = store.get(id) as IDBRequest<StoredDocument | undefined>;
+     request.onsuccess = () => {
+-      const record = request.result ?? emptyDocument(id);
++      const record = { ...emptyDocument(id), ...request.result };
+       change(record);
+       store.put(record);
+     };
+     return finished;
+   }
+ 
+-  async reset(id: string): Promise<void> {
++  async reset(id: string, recovered: string): Promise<void> {
+     const tx = this.db.transaction(['documents', 'updates'], 'readwrite');
+     const finished = transactionDone(tx);
+-    tx.objectStore('documents').delete(id);
++    const documents = tx.objectStore('documents');
++    const request = documents.get(id) as IDBRequest<StoredDocument | undefined>;
++    request.onsuccess = () => {
++      const previous = request.result;
++      const record = emptyDocument(id);
++      // Сброс журнала и спасённый текст — одна транзакция, без окна потери.
++      record.recovered = previous?.recovered ?? null;
++      if (recovered && recovered !== record.recovered) {
++        record.recovered = record.recovered ? `${record.recovered}\n\n${recovered}` : recovered;
++      }
++      record.lost = previous?.lost ?? [];
++      documents.put(record);
++    };
+     const updates = tx.objectStore('updates');
+     const keys = updates.index('document').getAllKeys(id);
+     keys.onsuccess = () => {
+@@ -320,6 +346,7 @@
+         this,
+         this.options.transport,
+         this.options.debounceMs ?? 500,
++        this.options.renderText,
+         () => {
+           if (this.handles.get(id) === opening) this.handles.delete(id);
+         },
+@@ -334,9 +361,11 @@
+ 
+   /** Восстанавливает локальные правки, затем пробует pull; отсутствие сети не мешает открыть. */
+   async open(id: string): Promise<DocHandle> {
+-    const handle = await this.handle(id);
+-    await handle.sync();
+-    return handle;
++    for (;;) {
++      const handle = await this.handle(id);
++      await handle.sync();
++      if (!handle.isClosed) return handle;
++    }
+   }
+ 
+   /** Будит также закрытые документы с неотправленными правками и сохранённым Markdown. */
+@@ -366,6 +395,11 @@
+ class StoredDocHandle implements DocHandle {
+   status: DocStatus;
+   seedMarkdown: string | null;
++  recovered: string | null;
++  lost: LostBlock[];
++  private serverSv: Map<number, number>;
++  private readonly stopLost: () => void;
++  private readonly lostListeners = new Set<(lost: LostBlock[]) => void>();
+   private lastText: string;
+   private textGetter: () => string;
+   private readonly statusListeners = new Set<(status: DocStatus) => void>();
+@@ -387,14 +421,63 @@
+     private readonly origin: DocStore,
+     private readonly transport: DocsTransport,
+     private readonly debounceMs: number,
++    renderText: DocStoreOptions['renderText'],
+     private readonly release: () => void,
+   ) {
+     this.lastText = record.text;
+-    this.textGetter = () => this.lastText;
++    this.textGetter = renderText ? () => renderText(this.doc) : () => this.lastText;
+     this.seedMarkdown = record.seedMarkdown;
++    this.recovered = record.recovered;
++    this.lost = record.lost;
++    this.serverSv = record.serverSv ? Y.decodeStateVector(record.serverSv) : new Map();
++    this.stopLost = watchLostEdits(
++      doc,
++      origin,
++      (found) => {
++        this.lost = [...this.lost, ...found];
++        this.track(this.db.change(this.id, (current) => current.lost.push(...found)));
++        for (const callback of this.lostListeners) callback(this.lost);
++      },
++      () => this.serverSv,
++      'all',
++    );
+     this.status =
+       record.version > record.syncedVersion || record.seedMarkdown !== null ? 'pending' : 'saved';
+     doc.on('update', this.updated);
++  }
++
++  get isClosed(): boolean {
++    return this.closed;
++  }
++
++  onLost(callback: (lost: LostBlock[]) => void): () => void {
++    this.lostListeners.add(callback);
++    callback(this.lost);
++    return () => this.lostListeners.delete(callback);
++  }
++
++  async clearLost(): Promise<void> {
++    const count = this.lost.length;
++    this.track(
++      this.db.change(this.id, (record) => {
++        record.lost.splice(0, count);
++      }),
++    );
++    await this.writes;
++    // Во время записи могло прийти ещё удаление: оно требует отдельного выбора.
++    this.lost = this.lost.slice(count);
++    for (const callback of this.lostListeners) callback(this.lost);
++  }
++
++  async clearRecovered(): Promise<void> {
++    this.track(
++      this.db.change(this.id, (record) => {
++        record.recovered = null;
++      }),
++    );
++    await this.writes;
++    this.recovered = null;
++    this.setStatus(this.status);
+   }
+ 
+   get text(): () => string {
+@@ -462,6 +545,7 @@
+     this.track(
+       this.db.change(this.id, (record) => {
+         record.seed = true;
++        record.seedSv = null;
+         record.version++;
+         record.text = text;
+       }),
+@@ -515,7 +599,15 @@
+       const remote = await this.transport.pull(this.id, Y.encodeStateVector(this.doc));
+       requesting = false;
+       if (this.closed) return;
+-      Y.applyUpdate(this.doc, remote.update, this.origin);
++      await this.writes;
++      const pendingSeed = (await this.db.load(this.id)).record.seed;
++      if (this.closed) return;
++      // Чужой seed пока не вливаем: запасной Markdown должен содержать свой
++      // вариант, а вектор seed-запроса — только отправленные локальные Item.
++      if (!pendingSeed || remote.seedMarkdown !== null) {
++        Y.applyUpdate(this.doc, remote.update, this.origin);
++      }
++      this.serverSv = Y.decodeStateVector(remote.sv);
+       this.seedMarkdown = remote.seedMarkdown;
+       this.track(
+         this.db.change(this.id, (record) => {
+@@ -538,22 +630,67 @@
+         }
+         const text = this.captureText();
+         const update = Y.encodeStateAsUpdate(this.doc, remote.sv);
++        const seedSv = record.seedSv ?? Y.encodeStateVector(this.doc);
+         this.track(
+           this.db.change(this.id, (current) => {
+             if (current.version === record.version) current.text = text;
++            if (record.seed && current.seedSv === null) current.seedSv = seedSv;
+           }),
+         );
+         await this.writes;
+         if (this.closed) return;
+         requesting = true;
+-        const response = await this.transport.push(this.id, update, text, record.seed || undefined);
++        let response: DocsPushResponse;
++        try {
++          response = await this.transport.push(this.id, update, text, record.seed || undefined);
++        } catch (error) {
++          if (
++            !(
++              record.seed &&
++              error instanceof HttpError &&
++              error.status === 409 &&
++              error.code === 'seed_taken'
++            )
++          ) {
++            throw error;
++          }
++          // Ответ первого принятого seed мог потеряться. Сравниваем с первым
++          // отправленным вектором, а не с более поздними локальными дописками.
++          const latest = await this.transport.pull(this.id, Y.encodeStateVector(this.doc));
++          requesting = false;
++          if (this.closed) return;
++          const accepted = Y.decodeStateVector(latest.sv);
++          const ownSeed = [...Y.decodeStateVector(seedSv)].every(
++            ([client, clock]) => (accepted.get(client) ?? 0) >= clock,
++          );
++          if (!ownSeed) {
++            await this.reset();
++            return;
++          }
++          Y.applyUpdate(this.doc, latest.update, this.origin);
++          this.serverSv = accepted;
++          this.seedMarkdown = null;
++          this.track(
++            this.db.change(this.id, (current) => {
++              current.seed = false;
++              current.seedSv = null;
++              current.seedMarkdown = null;
++              current.serverSv = latest.sv;
++            }),
++          );
++          await this.writes;
++          this.again = true;
++          return;
++        }
+         requesting = false;
+         if (this.closed) return;
++        this.serverSv = Y.decodeStateVector(response.sv);
+         this.track(
+           this.db.change(this.id, (current) => {
+             current.serverSv = response.sv;
+             current.syncedVersion = Math.max(current.syncedVersion, record.version);
+             current.seed = false;
++            current.seedSv = null;
+             current.seedMarkdown = null;
+           }),
+         );
+@@ -570,12 +707,6 @@
+       if (this.closed) return;
+       if (this.storageError || this.textError) {
+         this.setStatus('error');
+-      } else if (
+-        error instanceof HttpError &&
+-        error.status === 409 &&
+-        error.code === 'seed_taken'
+-      ) {
+-        await this.reset();
+       } else if (error instanceof HttpError) {
+         this.setStatus(
+           error.status === 404 ? 'pending' : error.status >= 500 ? 'offline' : 'error',
+@@ -588,10 +719,11 @@
+ 
+   private async reset(): Promise<void> {
+     clearTimeout(this.timer);
++    const recovered = this.captureText();
+     this.doc.off('update', this.updated);
+     try {
+       await this.writes;
+-      await this.db.reset(this.id);
++      await this.db.reset(this.id, recovered);
+     } catch {
+       this.doc.on('update', this.updated);
+       this.setStatus('error');
+@@ -599,6 +731,8 @@
+     }
+     this.closed = true;
+     this.release();
++    this.stopLost();
++    this.lostListeners.clear();
+     this.doc.destroy();
+     this.statusListeners.clear();
+     for (const callback of this.resetListeners) callback();
+@@ -611,6 +745,8 @@
+     clearTimeout(this.timer);
+     this.doc.off('update', this.updated);
+     this.release();
++    this.stopLost();
++    this.lostListeners.clear();
+     this.statusListeners.clear();
+     this.resetListeners.clear();
+     this.closing = this.writes.finally(() => {
