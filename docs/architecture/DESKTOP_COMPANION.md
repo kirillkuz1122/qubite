@@ -42,7 +42,7 @@ Qt Quick запускается с `xcb`. Окно без рамки исклю�
 
 [Пакет PySide6 в Arch](https://archlinux.org/packages/extra/x86_64/pyside6/), [флаги Qt](https://doc.qt.io/qt-6/qt.html#WindowType-enum), [документация bspwm](https://github.com/baskerville/bspwm/blob/master/doc/bspwm.1.asciidoc).
 
-Для окончательного облика и облачка нужно свериться с файлом дизайн-системы в Figma. В первой локальной пробе источником цветов служат токены репозитория.
+Для окончательного облика и облачка сверяемся с Figma по ссылке из [дизайн-системы Qubite](../design/DESIGN_SYSTEM.md). В первой локальной пробе источником цветов служат токены репозитория.
 
 ## Этапы с проверяемым результатом
 
