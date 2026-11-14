@@ -33,7 +33,7 @@
 
 | Документ | О чём |
 |---|---|
-| **[design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** | «Поток» + «Игрушечная»: цвета, шрифты, движение, производительность |
+| **[design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** | Дизайн-система v2 «Частицы»: правила §0, цвета, шрифт, состояния, движение, ссылка на макеты в Figma |
 | [design/COMPANIONS.md](design/COMPANIONS.md) | Помощники-питомцы и разбор видео-эталона |
 | [design/REFERENCES.md](design/REFERENCES.md) | Референсы по ощущению и выбор владельца |
 | [design/CLAUDE_DESIGN_PROMPT.md](design/CLAUDE_DESIGN_PROMPT.md) | Промпт для Claude Design: поиск визуального языка |
@@ -47,6 +47,7 @@
 | [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md) | Окружение и команды |
 | [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md) | Raspberry Pi, домены, установщик, бэкапы |
 | [reports/code-review-2026-11-12.md](reports/code-review-2026-11-12.md) | Ревью безопасности, архитектуры, синхронизации и интерфейса: 11 замечаний, воспроизведения и результаты проверок |
+| [reports/design-audit-2026-11-13.md](reports/design-audit-2026-11-13.md) | Проверка дизайна: 23 находки на ПК и телефоне, снимки «до», ссылки на макеты v2 |
 
 ## План и состояние
 
