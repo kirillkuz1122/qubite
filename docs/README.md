@@ -25,6 +25,7 @@
 | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md) | Объекты, связи, таблицы |
 | [architecture/SYNC_AND_HISTORY.md](architecture/SYNC_AND_HISTORY.md) | Офлайн, синхронизация, версии |
 | [architecture/CLIENTS.md](architecture/CLIENTS.md) | Web, Tauri, Android, Ink |
+| [architecture/DESKTOP_COMPANION.md](architecture/DESKTOP_COMPANION.md) | Эксперимент настольного помощника под bspwm, границы и этапы |
 | [architecture/AI_AGENTS_MEMORY_SKILLS.md](architecture/AI_AGENTS_MEMORY_SKILLS.md) | Агенты, память, навыки, помощники |
 | [architecture/PLUGINS_AND_MCP.md](architecture/PLUGINS_AND_MCP.md) | MCP, Context Capsules, плагины |
 | [architecture/decisions/](architecture/decisions/) | ADR — почему выбрано именно так |
