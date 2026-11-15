@@ -665,3 +665,135 @@ async fn english_realtime_over_http() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Неправильные глаголы (ENG-008): набор с прогрессом, ответ из игры и сверка
+/// вписанных форм на сервере; без входа — 401, без агента — 403.
+#[tokio::test]
+async fn english_verbs_over_http() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap();
+    let address = serve(AppState::with_auth(db.clone(), AuthSettings::default())).await;
+    let mut guest = Browser::default();
+    assert_eq!(
+        guest.get(address, "/api/v1/english/verbs").await.status,
+        401
+    );
+    let mut me = Browser::default();
+    assert_eq!(me.login(address, EMAIL, PASSWORD).await.status, 200);
+
+    let set = me.get(address, "/api/v1/english/verbs").await;
+    assert_eq!(set.status, 200, "{:?}", set.body);
+    let verbs = set.body["verbs"].as_array().unwrap();
+    assert!(verbs.len() >= 140);
+    assert_eq!(set.body["counts"]["total"], verbs.len());
+    assert!(set.body["groups"].as_array().unwrap().len() >= 12);
+    let sing = verbs.iter().find(|v| v["id"] == "sing").unwrap();
+    assert_eq!(
+        (&sing["v1"], &sing["v2"], &sing["v3"], &sing["group"]),
+        (
+            &json!("sing"),
+            &json!("sang"),
+            &json!("sung"),
+            &json!("i-a-u")
+        )
+    );
+    assert_eq!(sing["progress"]["new"], true);
+
+    // Вписал формы — сверяет сервер; запасная форма годится.
+    let typed = me
+        .post_json(
+            address,
+            "/api/v1/english/verbs/answer",
+            json!({"verb_id": "learn", "mode": "type", "given": {"v2": "Learned", "v3": "learnt"}}),
+        )
+        .await;
+    assert_eq!(typed.status, 200, "{:?}", typed.body);
+    assert_eq!(typed.body["correct"], true);
+    assert_eq!(typed.body["expected"]["v2"], "learnt");
+    assert_eq!(typed.body["progress"]["interval_days"], 1);
+    assert!(typed.body["game"]["xp"].as_i64().unwrap() >= 2);
+
+    // Ошибка в игре — глагол трудный и ждёт повторения сегодня.
+    let wrong = me
+        .post_json(
+            address,
+            "/api/v1/english/verbs/answer",
+            json!({"verb_id": "sing", "mode": "quiz", "correct": false}),
+        )
+        .await;
+    assert_eq!(wrong.status, 200, "{:?}", wrong.body);
+    assert_eq!(wrong.body["progress"]["hard"], true);
+    let set = me.get(address, "/api/v1/english/verbs").await;
+    assert_eq!(set.body["counts"]["hard"], 1);
+    assert_eq!(set.body["counts"]["started"], 2);
+    let home = me.get(address, "/api/v1/english/home").await;
+    assert_eq!(
+        home.body["review_due"], 1,
+        "трудный глагол — в повторении дня"
+    );
+
+    // Неизвестный глагол или игра — 400, лишнее поле — 422, огромное тело — 413.
+    for body in [
+        json!({"verb_id": "goed", "mode": "quiz", "correct": true}),
+        json!({"verb_id": "go", "mode": "tetris", "correct": true}),
+        json!({"verb_id": "go", "mode": "quiz"}),
+    ] {
+        let bad = me
+            .post_json(address, "/api/v1/english/verbs/answer", body.clone())
+            .await;
+        assert_eq!(bad.status, 400, "{body}: {:?}", bad.body);
+    }
+    let odd = me
+        .post_json(
+            address,
+            "/api/v1/english/verbs/answer",
+            json!({"verb_id": "go", "mode": "quiz", "correct": true, "account_id": "x"}),
+        )
+        .await;
+    assert_eq!(odd.status, 422, "{:?}", odd.body);
+    let huge = me
+        .post_json(
+            address,
+            "/api/v1/english/verbs/answer",
+            json!({"verb_id": "go", "mode": "speak", "said": "go ".repeat(3000)}),
+        )
+        .await;
+    assert_eq!(huge.status, 413, "{:?}", huge.body);
+
+    // Человек без агента — 403 и на чтение, и на ответ.
+    qubite_auth::accounts::create(
+        pool,
+        &Passwords::default(),
+        qubite_auth::accounts::NewAccount {
+            email: "student@qubite.ru",
+            display_name: "",
+            password: "пароль ученика",
+            email_verified: true,
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    let mut other = Browser::default();
+    other
+        .login(address, "student@qubite.ru", "пароль ученика")
+        .await;
+    assert_eq!(
+        other.get(address, "/api/v1/english/verbs").await.status,
+        403
+    );
+    let denied = other
+        .post_json(
+            address,
+            "/api/v1/english/verbs/answer",
+            json!({"verb_id": "go", "mode": "quiz", "correct": true}),
+        )
+        .await;
+    assert_eq!(denied.status, 403, "{:?}", denied.body);
+
+    db.close().await;
+    test_db.drop_db().await;
+}

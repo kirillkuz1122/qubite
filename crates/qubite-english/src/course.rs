@@ -20,6 +20,15 @@ mod files {
     include!(concat!(env!("OUT_DIR"), "/content.rs"));
 }
 
+/// Текст встроенного файла программы (путь от `content/english`).
+pub(crate) fn file_text(path: &str) -> &'static str {
+    files::FILES
+        .iter()
+        .find(|(p, _)| *p == path)
+        .map(|(_, t)| *t)
+        .unwrap_or_else(|| panic!("нет {path} в программе"))
+}
+
 /// Уровень языка.
 #[derive(Debug, Clone, Serialize)]
 pub struct Level {

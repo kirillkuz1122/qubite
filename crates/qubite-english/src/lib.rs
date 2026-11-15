@@ -24,6 +24,7 @@ pub mod notes;
 pub mod realtime;
 pub mod remind;
 pub mod tutor;
+pub mod verbs;
 
 use qubite_ai::{
     AiError, AiRequest, Gateway, ListenRequest, SpeakRequest, Untrusted,
@@ -619,6 +620,7 @@ pub(crate) async fn tutor_request(
         .await?
         .map(|file| file.body.chars().take(3000).collect::<String>());
     let lesson = lessons::current(&mut conn, account).await?;
+    let weak_verbs = verbs::nate_block(&mut conn, account).await?;
     drop(conn);
     let mut data = Vec::new();
     let prompt = match &lesson {
@@ -635,6 +637,9 @@ pub(crate) async fn tutor_request(
     };
     if let Some(body) = notes_body.filter(|b| !b.trim().is_empty()) {
         data.push(Untrusted::new("notes", body));
+    }
+    if let Some(verbs) = weak_verbs {
+        data.push(Untrusted::new("verbs", verbs));
     }
     if !history.is_empty() {
         data.push(Untrusted::new("dialog", dialog(&history)));

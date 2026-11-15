@@ -2158,6 +2158,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/verbs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['english_verbs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/verbs/answer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_verb_answer'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/home': {
     parameters: {
       query?: never;
@@ -4228,6 +4260,29 @@ export interface components {
        */
       heard?: string | null;
       message: string;
+    };
+    /**
+     * @description Ответ на глагол. Что-то одно: `given` (впиши формы — сверяет сервер), `said`
+     *     (скажи вслух — сверяет сервер), `grade` (карточки) или `correct` (остальные игры).
+     */
+    EnglishVerbAnswer: {
+      correct?: boolean | null;
+      given?: components['schemas']['EnglishVerbForms'] | null;
+      /** @description `again`, `good` или `easy`. */
+      grade?: string | null;
+      /** @description `cards`, `match`, `quiz`, `type`, `anagram`, `search`, `speak` или `sprint`. */
+      mode: string;
+      /** @description Распознанная речь: три формы подряд. */
+      said?: string | null;
+      /** @description Глагол из набора, например `go`. */
+      verb_id: string;
+    };
+    /** @description Вписанные формы глагола. */
+    EnglishVerbForms: {
+      /** @description Первая форма — если спрашивали по переводу. */
+      v1?: string | null;
+      v2: string;
+      v3: string;
     };
     /** @description Готов ли голос на сервере. */
     EnglishVoice: {
@@ -11376,6 +11431,77 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['EnglishTurnError'];
+        };
+      };
+    };
+  };
+  english_verbs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Глаголы по группам с прогрессом и счётчики (verbs::Overview) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_verb_answer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishVerbAnswer'];
+      };
+    };
+    responses: {
+      /** @description Верно ли, правильные формы, новое состояние глагола, опыт (verbs::Answered) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого глагола или игры, лишние или слишком длинные поля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };

@@ -35,6 +35,15 @@ export function gaps(text: string): string[] {
   return text.split('___');
 }
 
+/** Ответ на несколько пропусков: все поля заполнены — список слов, иначе рано отправлять. */
+export function gapsReply(values: readonly string[]): string[] | null {
+  const typed = values.map((v) => v.trim());
+  return typed.length > 0 && typed.every(Boolean) ? typed : null;
+}
+
+/** «Урок» неправильных глаголов в повторении (ENG-008): задания — «впиши формы». */
+export const VERBS_LESSON = 'verbs';
+
 /** Как называется вид задания. */
 export function kindLabel(t: Task): string {
   switch (t.type) {

@@ -533,13 +533,15 @@ pub(crate) async fn review_due(
     account: Uuid,
     today: Date,
 ) -> sqlx::Result<i64> {
-    sqlx::query_scalar(
+    let tasks: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM english_review WHERE account_id = $1 AND NOT learned AND due_on <= $2",
     )
     .bind(account)
     .bind(today)
-    .fetch_one(conn)
-    .await
+    .fetch_one(&mut *conn)
+    .await?;
+    // Трудные неправильные глаголы тоже ждут в повторении (до трёх, D-889).
+    Ok(tasks + crate::verbs::review_due(conn, account, today).await?)
 }
 
 /// Что открыто по счётчикам и огоньку — новое записать и вернуть.

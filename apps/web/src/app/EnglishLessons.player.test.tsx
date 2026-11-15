@@ -230,4 +230,28 @@ describe('игрок урока: микрофон и полоса ответа',
     fireEvent.click(screen.getByRole('button', { name: 'Не сейчас' }));
     expect(screen.queryByRole('button', { name: 'Давай' })).not.toBeInTheDocument();
   });
+
+  it('несколько пропусков без вариантов: по полю на пропуск, ответ — список слов', async () => {
+    open({
+      id: 'gaps',
+      type: 'fill',
+      ask_ru: 'Впиши вторую и третью форму: go — идти.',
+      text: 'go – ___ – ___',
+      answers: ['went', 'gone'],
+    });
+    const check = await screen.findByRole('button', { name: 'Проверить' });
+    expect(check).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Пропуск 1'), { target: { value: ' went ' } });
+    expect(check).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Пропуск 2'), { target: { value: 'gone' } });
+    fireEvent.click(check);
+    await waitFor(() =>
+      expect(mocks.sendAnswer).toHaveBeenCalledWith(
+        'run',
+        'gaps',
+        { value: ['went', 'gone'] },
+        null,
+      ),
+    );
+  });
 });
