@@ -13254,8 +13254,11 @@ export interface operations {
   pull: {
     parameters: {
       query?: {
-        /** @description Курсор из прошлого ответа; 0 — с начала. */
-        cursor?: number;
+        /**
+         * @description Курсор из прошлого ответа, как есть; без него или `0` — с начала.
+         *     Старый числовой курсор тоже означает «с начала» (D-893).
+         */
+        cursor?: string;
         /** @description Сколько изменений за раз (1…500, по умолчанию 200). */
         limit?: number | null;
       };

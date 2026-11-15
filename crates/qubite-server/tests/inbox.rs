@@ -79,7 +79,7 @@ async fn offline_batch_arrives_once_even_if_the_reply_is_lost() {
     let changes = pulled.body["changes"].as_array().unwrap();
     assert_eq!(changes.len(), 3);
     assert_eq!(changes[0]["fields"]["status"], "new");
-    let cursor = pulled.body["cursor"].as_i64().unwrap();
+    let cursor = pulled.body["cursor"].as_str().unwrap();
     let nothing = owner
         .get(address, &format!("/api/v1/sync/pull?cursor={cursor}"))
         .await;
@@ -526,6 +526,75 @@ async fn owner_decides_items_command_was_unsure_about() {
             .unwrap()
             .is_empty()
     );
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+/// SYNC-007: доступ к модулю выдали (вернули) позже — устройство со старым
+/// курсором получает и то, что в модуле уже было. Старый числовой курсор
+/// (до SYNC-007) сервер понимает как «с начала».
+#[tokio::test]
+async fn module_granted_later_reaches_a_device_with_an_old_cursor() {
+    let (test_db, db, address) = common::setup(AuthSettings::default()).await;
+    let mut owner = logged_in(address).await;
+    let (account, mut student) = user(&db, address, "student@qubite.ru").await;
+    let grant = |module: &str| format!("/api/owner/accounts/{account}/grants/{module}");
+    let rights = json!({ "read": true, "write": true, "manage": false, "ai": false });
+    for module in ["inbox", "planner"] {
+        let reply = owner
+            .put_json(address, &grant(module), rights.clone())
+            .await;
+        assert_eq!(reply.status, 200, "{:?}", reply.body);
+    }
+
+    let thought = Uuid::now_v7();
+    let task = Uuid::now_v7();
+    let push = json!({ "device_id": Uuid::now_v7(), "ops": [
+        { "op_id": Uuid::now_v7(), "object_id": task, "kind": "create",
+          "object_type": "planner.task", "title": "старое дело", "fields": {} },
+        capture_op(thought, "мысль"),
+    ] });
+    let reply = student.post_json(address, "/api/v1/sync/push", push).await;
+    for result in reply.body["results"].as_array().unwrap() {
+        assert_eq!(result["status"], "applied", "{result}");
+    }
+
+    // Planner отозвали: другое устройство человека видит только Входящие.
+    assert_eq!(owner.delete(address, &grant("planner")).await.status, 204);
+    let pulled = student.get(address, "/api/v1/sync/pull?cursor=0").await;
+    let changes = pulled.body["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 1, "{changes:?}");
+    assert_eq!(changes[0]["id"], thought.to_string());
+    let cursor = pulled.body["cursor"].as_str().unwrap().to_owned();
+
+    // Planner вернули: дело, созданное раньше курсора, приходит; мысль — нет.
+    let reply = owner.put_json(address, &grant("planner"), rights).await;
+    assert_eq!(reply.status, 200, "{:?}", reply.body);
+    let pulled = student
+        .get(address, &format!("/api/v1/sync/pull?cursor={cursor}"))
+        .await;
+    let changes = pulled.body["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 1, "{changes:?}");
+    assert_eq!(changes[0]["id"], task.to_string());
+    let cursor = pulled.body["cursor"].as_str().unwrap().to_owned();
+    let nothing = student
+        .get(address, &format!("/api/v1/sync/pull?cursor={cursor}"))
+        .await;
+    assert!(nothing.body["changes"].as_array().unwrap().is_empty());
+
+    // Устройство со старой версией приложения хранит число.
+    let legacy = student.get(address, "/api/v1/sync/pull?cursor=7").await;
+    assert_eq!(legacy.status, 200, "{:?}", legacy.body);
+    assert_eq!(legacy.body["changes"].as_array().unwrap().len(), 2);
+    assert!(legacy.body["cursor"].as_str().unwrap().starts_with("2."));
+    // Без курсора и с мусором — тоже с начала, а не ошибка.
+    for query in ["", "?cursor=", "?cursor=%D0%B6"] {
+        let reply = student
+            .get(address, &format!("/api/v1/sync/pull{query}"))
+            .await;
+        assert_eq!(reply.status, 200, "{query}: {:?}", reply.body);
+        assert_eq!(reply.body["changes"].as_array().unwrap().len(), 2);
+    }
     db.close().await;
     test_db.drop_db().await;
 }

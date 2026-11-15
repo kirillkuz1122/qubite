@@ -45,6 +45,7 @@
 | **[engineering/AGENT_WORKFLOW.md](engineering/AGENT_WORKFLOW.md)** | Как агент выполняет задачи, Definition of Done |
 | [engineering/TEST_STRATEGY.md](engineering/TEST_STRATEGY.md) | Тесты и CI |
 | [engineering/DEVELOPMENT.md](engineering/DEVELOPMENT.md) | Окружение и команды |
+| [engineering/SYNC_PROTOCOL.md](engineering/SYNC_PROTOCOL.md) | Протокол синхронизации объектов: push, pull, курсор, совместимость |
 | [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md) | Raspberry Pi, домены, установщик, бэкапы |
 | [reports/code-review-2026-11-12.md](reports/code-review-2026-11-12.md) | Ревью безопасности, архитектуры, синхронизации и интерфейса: 11 замечаний, воспроизведения и результаты проверок |
 | [reports/design-audit-2026-11-13.md](reports/design-audit-2026-11-13.md) | Проверка дизайна: 23 находки на ПК и телефоне, снимки «до», ссылки на макеты v2 |

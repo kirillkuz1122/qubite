@@ -6,7 +6,7 @@
  * передают `Authorization: Bearer <access_token>` (функция `token`).
  */
 import type { Transport } from './client';
-import type { PullResponse, PushRequest, PushResponse } from './protocol';
+import type { Cursor, PullResponse, PushRequest, PushResponse } from './protocol';
 
 export interface HttpTransportOptions {
   /** Адрес сервера; пусто — тот же сайт. */
@@ -79,7 +79,10 @@ export function httpTransport(options: HttpTransportOptions = {}): Transport {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(request),
       }),
-    pull: (cursor: number, limit: number) =>
-      call<PullResponse>(`/api/v1/sync/pull?cursor=${cursor}&limit=${limit}`, { method: 'GET' }),
+    pull: (cursor: Cursor, limit: number) =>
+      call<PullResponse>(
+        `/api/v1/sync/pull?cursor=${encodeURIComponent(String(cursor))}&limit=${limit}`,
+        { method: 'GET' },
+      ),
   };
 }
