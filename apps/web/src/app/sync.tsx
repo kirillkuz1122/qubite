@@ -11,11 +11,11 @@ import {
   DocStore,
   SyncClient,
   httpDocsTransport,
-  httpTransport,
   watchChanges,
   type SyncState,
 } from '@qubite/sync-client';
 import {
+  accountTransport,
   LAST_ACCOUNT,
   rememberedAccount,
   SHARED_DB,
@@ -23,6 +23,7 @@ import {
   syncDbName,
   type SyncApi,
 } from './sync-context';
+import { recheckAccount } from '../account';
 import { useMe } from '../auth/client';
 import { extractDocLinks, renderDocText } from './docs/render';
 import { BacklinksContext, createBacklinksSession } from './docs/useBacklinks';
@@ -33,10 +34,13 @@ function socketUrl(): string {
   return `${protocol === 'https:' ? 'wss' : 'ws'}://${host}/api/v1/sync/ws`;
 }
 
-/** Открыть клиент синхронизации браузера. */
-async function openBrowserClient(dbName: string): Promise<SyncClient> {
-  return SyncClient.open({ dbName, transport: httpTransport() });
+/** Открыть клиент синхронизации браузера: запросы подписаны аккаунтом хранилища. */
+async function openBrowserClient(dbName: string, account?: string): Promise<SyncClient> {
+  return SyncClient.open({ dbName, transport: accountTransport(account) });
 }
+
+/** Свой клиент (тесты) или браузерный. Второй аргумент — чьё хранилище. */
+type OpenClient = (dbName: string, account?: string) => Promise<SyncClient>;
 
 /**
  * Хранилище того, кто вошёл. Пока сервер не ответил (или нет сети) — последнего
@@ -48,7 +52,7 @@ export function AccountSyncProvider({
   open,
 }: {
   children: ReactNode;
-  open?: ((dbName: string) => Promise<SyncClient>) | undefined;
+  open?: OpenClient | undefined;
 }) {
   const me = useMe();
   const id = me.data?.id;
@@ -75,7 +79,12 @@ export function AccountSyncProvider({
     setSeen({ account, generation: seen.account ? seen.generation + 1 : seen.generation });
   }
   return (
-    <SyncProvider key={seen.generation} dbName={account && syncDbName(account)} open={open}>
+    <SyncProvider
+      key={seen.generation}
+      dbName={account && syncDbName(account)}
+      account={account}
+      open={open}
+    >
       {children}
     </SyncProvider>
   );
@@ -84,14 +93,17 @@ export function AccountSyncProvider({
 export function SyncProvider({
   children,
   dbName = SHARED_DB,
+  account = null,
   open = openBrowserClient,
   live = true,
 }: {
   children: ReactNode;
   /** Хранилище в браузере; `null` — не открывать (неизвестно, чьё). */
   dbName?: string | null;
+  /** Чьё хранилище: этим аккаунтом подписываются запросы очередей (D-878). */
+  account?: string | null;
   /** Для тестов — свой клиент (поддельный сервер). */
-  open?: ((dbName: string) => Promise<SyncClient>) | undefined;
+  open?: OpenClient | undefined;
   /** Слушать WebSocket и событие `online`. */
   live?: boolean;
 }) {
@@ -115,14 +127,19 @@ export function SyncProvider({
     }
     const documents = new DocStore({
       dbName: `${dbName}-docs`,
-      transport: backlinks.transport(httpDocsTransport()),
+      transport: backlinks.transport(
+        httpDocsTransport({
+          account: account ?? undefined,
+          onAccountMismatch: () => recheckAccount(),
+        }),
+      ),
       renderText: renderDocText,
       extractLinks: extractDocLinks,
     });
     let alive = true;
     let stop = () => {};
     let unsubscribe = () => {};
-    const promise = open(dbName);
+    const promise = open(dbName, account ?? undefined);
     opening.current = promise;
     void promise
       .then((c) => {
@@ -161,8 +178,10 @@ export function SyncProvider({
       setClient(null);
       setDocs(null);
     };
-  }, [dbName, open, live, opened, backlinks]);
+  }, [dbName, account, open, live, opened, backlinks]);
 
+  // Вместе с клиентом: пока хранилище не открыто, подписывать нечего.
+  const owner = client ? account : null;
   const value = useMemo<SyncApi>(
     () => ({
       client,
@@ -170,8 +189,9 @@ export function SyncProvider({
       version,
       state,
       docs,
+      account: owner,
     }),
-    [client, version, state, docs, opened],
+    [client, version, state, docs, opened, owner],
   );
   return (
     <SyncCtx.Provider value={value}>

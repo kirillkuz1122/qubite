@@ -1,6 +1,7 @@
 /** Общий клиент синхронизации для экранов (сам клиент открывает `sync.tsx`). */
 import { httpTransport, SyncClient, type DocStore, type SyncState } from '@qubite/sync-client';
 import { createContext, useContext } from 'react';
+import { LAST_ACCOUNT, recheckAccount } from '../account';
 
 export interface SyncApi {
   /** открытый клиент (до открытия — `null`) */
@@ -12,6 +13,8 @@ export interface SyncApi {
   state: SyncState;
   /** Содержимое документов хранится отдельно, в базе того же аккаунта. */
   docs?: DocStore | null;
+  /** Чьё это хранилище (ID аккаунта): им подписываются запросы очередей (D-878). */
+  account?: string | null;
 }
 
 export const SyncCtx = createContext<SyncApi | null>(null);
@@ -24,8 +27,7 @@ export function useSync(): SyncApi {
 
 /** Общее хранилище до разделения по аккаунтам — удаляется при первом открытии. */
 export const SHARED_DB = 'qubite-sync';
-/** Чьё хранилище открыть без сети (последний вошедший на этом устройстве). */
-export const LAST_ACCOUNT = 'qubite.sync.account';
+export { LAST_ACCOUNT };
 
 /** Имя хранилища аккаунта в браузере. */
 export function syncDbName(account: string): string {
@@ -50,6 +52,14 @@ export function forgetSyncAccount(): void {
 }
 
 /**
+ * Транспорт хранилища аккаунта: каждый запрос называет, чья это очередь. Если в
+ * браузере уже вошёл другой человек, сервер откажет — и вкладка перепроверит, кто вошёл.
+ */
+export function accountTransport(account: string | undefined) {
+  return httpTransport({ account, onAccountMismatch: () => recheckAccount() });
+}
+
+/**
  * «Выйти» (D-284): пока сессия ещё жива — последний раз отправить очередь. Всё на
  * сервере — хранилище аккаунта в браузере удаляется. Осталось неотправленное (нет
  * сети, конфликт) — хранилище остаётся, и при следующем входе того же аккаунта
@@ -58,7 +68,7 @@ export function forgetSyncAccount(): void {
 export async function clearAccountStore(
   account: string,
   open: (dbName: string) => Promise<SyncClient> = (dbName) =>
-    SyncClient.open({ dbName, transport: httpTransport() }),
+    SyncClient.open({ dbName, transport: accountTransport(account) }),
   factory: IDBFactory = indexedDB,
   wait = 5000,
 ): Promise<boolean> {

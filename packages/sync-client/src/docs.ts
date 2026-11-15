@@ -9,7 +9,13 @@ import {
   type DocsVersionsTransport,
   type DocVersion,
 } from './docs-versions';
-import { csrfFromCookie, HttpError, type HttpTransportOptions } from './http';
+import {
+  ACCOUNT_HEADER,
+  ACCOUNT_MISMATCH,
+  csrfFromCookie,
+  HttpError,
+  type HttpTransportOptions,
+} from './http';
 import type { ObjectSnapshot } from './protocol';
 import type { LocalObject } from './store';
 
@@ -109,6 +115,7 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
       const value = csrf();
       if (value) headers.set('x-csrf-token', value);
     }
+    if (options.account) headers.set(ACCOUNT_HEADER, options.account);
     const response = await doFetch(`${base}${path}`, {
       ...init,
       headers,
@@ -124,6 +131,7 @@ export function httpDocsTransport(options: HttpTransportOptions = {}): DocsTrans
       } catch {
         // Например, 502 от прокси без JSON.
       }
+      if (code === ACCOUNT_MISMATCH) options.onAccountMismatch?.();
       throw new HttpError(response.status, code, message);
     }
     if (response.status === 204) return undefined as T;

@@ -138,7 +138,7 @@ async fn revoked_session_stops_working() {
     assert!(laptop.session.is_none());
     let mut replay = Browser {
         session: Some("not-a-token".into()),
-        csrf: None,
+        ..Browser::default()
     };
     assert_eq!(replay.get(address, "/api/auth/me").await.status, 401);
 

@@ -29,7 +29,14 @@ export {
   type InboxSource,
   type InboxView,
 } from './inbox';
-export { HttpError, csrfFromCookie, httpTransport, type HttpTransportOptions } from './http';
+export {
+  ACCOUNT_HEADER,
+  ACCOUNT_MISMATCH,
+  HttpError,
+  csrfFromCookie,
+  httpTransport,
+  type HttpTransportOptions,
+} from './http';
 export {
   VoiceQueue,
   voiceFailure,

@@ -16,7 +16,21 @@ export interface HttpTransportOptions {
   csrf?: () => string | undefined;
   /** Токен устройства для приложений (тогда cookie не используются). */
   token?: () => string | undefined;
+  /**
+   * Чьё это хранилище (ID аккаунта). Уходит заголовком `X-Qubite-Account`: если в
+   * браузере тем временем вошёл другой человек (cookie общие на все вкладки), сервер
+   * отклонит запрос целиком (409 `account_mismatch`), а не применит очередь от его
+   * имени (SYNC-008).
+   */
+  account?: string | undefined;
+  /** Сервер ответил «вошёл другой аккаунт» — пора перепроверить, кто вошёл. */
+  onAccountMismatch?: (() => void) | undefined;
 }
+
+/** Заголовок «от чьего имени сделан запрос». */
+export const ACCOUNT_HEADER = 'x-qubite-account';
+/** Код ответа 409: в браузере вошёл не тот аккаунт, чьё хранилище. */
+export const ACCOUNT_MISMATCH = 'account_mismatch';
 
 /** Ошибка сервера с кодом из ответа (`unauthenticated`, `csrf_failed`…). */
 export class HttpError extends Error {
@@ -52,6 +66,7 @@ export function httpTransport(options: HttpTransportOptions = {}): Transport {
       const value = csrf();
       if (value) headers.set('x-csrf-token', value);
     }
+    if (options.account) headers.set(ACCOUNT_HEADER, options.account);
     const response = await doFetch(`${base}${path}`, {
       ...init,
       headers,
@@ -67,6 +82,7 @@ export function httpTransport(options: HttpTransportOptions = {}): Transport {
       } catch {
         // тело не JSON — оставляем общий текст
       }
+      if (code === ACCOUNT_MISMATCH) options.onAccountMismatch?.();
       throw new HttpError(response.status, code, message);
     }
     return (await response.json()) as T;
