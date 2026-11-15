@@ -14,7 +14,7 @@ import type { VoiceMethod } from './voice-view';
 /**
  * `POST /api/v1/inbox/voice`. Обрыв сети — исключение fetch, отказ сервера — `HttpError`.
  * `account` — чья это очередь записей: запись могла ждать сети, пока в браузере вошёл
- * другой человек, — тогда сервер её не примет (D-878).
+ * другой человек, — тогда сервер её не примет (D-894).
  */
 export function httpVoiceTransport(account?: string | null): VoiceTransport {
   return {

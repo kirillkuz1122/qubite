@@ -80,7 +80,7 @@ async fn allowed<A: qubite_policy::Action>(
 /// отклоняется с причиной `forbidden`; остальные применяются.
 ///
 /// Браузер обязан передать `X-Qubite-Account` — ID аккаунта, чья это
-/// очередь. Вошёл другой аккаунт — 409, ничего не применяется (D-878).
+/// очередь. Вошёл другой аккаунт — 409, ничего не применяется (D-894).
 #[utoipa::path(post, path = "/api/v1/sync/push", tag = "sync",
     request_body(content = Object, description = "PushRequest протокола qubite-sync"),
     responses(
@@ -127,7 +127,7 @@ pub async fn push(
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct PullQuery {
     /// Курсор из прошлого ответа, как есть; без него или `0` — с начала.
-    /// Старый числовой курсор тоже означает «с начала» (D-877).
+    /// Старый числовой курсор тоже означает «с начала» (D-893).
     #[serde(default)]
     cursor: String,
     /// Сколько изменений за раз (1…500, по умолчанию 200).

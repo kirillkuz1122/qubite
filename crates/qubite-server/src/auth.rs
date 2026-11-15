@@ -32,7 +32,7 @@ pub const SESSION_COOKIE: &str = "qubite_session";
 pub const CSRF_COOKIE: &str = "qubite_csrf";
 pub const CSRF_HEADER: &str = "x-csrf-token";
 /// «От чьего имени сделан запрос»: ID аккаунта, который клиент считает своим
-/// (SYNC-008, D-878). Не совпал с сессией — запрос отклоняется целиком.
+/// (SYNC-008, D-894). Не совпал с сессией — запрос отклоняется целиком.
 pub const ACCOUNT_HEADER: &str = "x-qubite-account";
 
 /// Настройки входа на уровне HTTP.
