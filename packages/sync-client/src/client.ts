@@ -12,6 +12,7 @@
  * 4. Затем забираются изменения с сервера после курсора.
  */
 import type {
+  Cursor,
   Fields,
   ObjectSnapshot,
   Operation,
@@ -27,7 +28,7 @@ import { uuidv7 } from './uuid';
 /** Как клиент разговаривает с сервером. В тестах — подделка, в приложении — HTTP. */
 export interface Transport {
   push(request: PushRequest): Promise<PushResponse>;
-  pull(cursor: number, limit: number): Promise<PullResponse>;
+  pull(cursor: Cursor, limit: number): Promise<PullResponse>;
 }
 
 /**
@@ -289,7 +290,7 @@ export class SyncClient {
   }
 
   private async pullAll(): Promise<void> {
-    let cursor = (await this.store.meta<number>('cursor')) ?? 0;
+    let cursor = (await this.store.meta<Cursor>('cursor')) ?? 0;
     for (;;) {
       const page = await this.transport.pull(cursor, PULL_PAGE);
       for (const snapshot of page.changes) await this.mergeSnapshot(snapshot);

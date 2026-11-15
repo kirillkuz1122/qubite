@@ -17,9 +17,15 @@
 //!   модуль на сервере (например, Входящие — CMD-001); тип без модуля-
 //!   обработчика полей через HTTP создать нельзя.
 //!
+//! - курсор `pull` — непрозрачная строка ([`Cursor`]): устройство хранит её и
+//!   возвращает серверу как есть. Внутри — своя позиция на каждый модуль, а
+//!   позиции выдаются в порядке commit (SYNC-007, D-875…D-877).
+//!
 //! Формат JSON закреплён образцами в `fixtures/`: их же проверяет TS-клиент.
 
-use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, fmt};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 /// Сколько операций можно отправить одним пакетом.
@@ -133,12 +139,150 @@ pub struct PushResponse {
     pub results: Vec<OpResult>,
 }
 
+/// Сколько модулей помнит один курсор (защита от мусора в запросе).
+const MAX_CURSOR_MODULES: usize = 64;
+
+/// Курсор синхронизации: до какой позиции ленты устройство уже получило
+/// изменения **каждого модуля**.
+///
+/// Для устройства это непрозрачная строка: сохранить и вернуть как есть.
+/// Формат — `2.<модуль>-<позиция>.<модуль>-<позиция>…`, например
+/// `2.docs-17.inbox-40`; «с начала» — `0`. Только буквы, цифры, `_`, `-` и
+/// `.`, поэтому строку можно подставлять в адрес без кодирования.
+///
+/// Модуля нет в курсоре — он забирается с начала. Так после выдачи доступа
+/// к модулю (или появления нового модуля) приходят и его старые объекты, а
+/// остальные модули продолжают с того же места.
+///
+/// Всё, что не разобралось, и старые числовые курсоры (`cursor=57`, номер
+/// события до SYNC-007) означают «с начала»: устройство один раз забирает
+/// всё заново, зато ничего не пропускает.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Cursor {
+    modules: BTreeMap<String, i64>,
+}
+
+impl Cursor {
+    /// С начала.
+    pub fn start() -> Self {
+        Self::default()
+    }
+
+    /// Разобрать строку из запроса. Ошибок нет: непонятное — «с начала».
+    pub fn parse(text: &str) -> Self {
+        Self::try_parse(text).unwrap_or_default()
+    }
+
+    fn try_parse(text: &str) -> Option<Self> {
+        let mut parts = text.split('.');
+        if parts.next()? != "2" {
+            return None;
+        }
+        let mut modules = BTreeMap::new();
+        for part in parts {
+            let (module, pos) = part.rsplit_once('-')?;
+            let valid_module = !module.is_empty()
+                && module.len() <= 64
+                && module
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+            if !valid_module || pos.is_empty() || !pos.chars().all(|c| c.is_ascii_digit()) {
+                return None;
+            }
+            modules.insert(module.to_owned(), pos.parse().ok()?);
+        }
+        (modules.len() <= MAX_CURSOR_MODULES).then_some(Self { modules })
+    }
+
+    pub fn is_start(&self) -> bool {
+        self.modules.is_empty()
+    }
+
+    /// После какой позиции забирать модуль (0 — с начала).
+    pub fn after(&self, module: &str) -> i64 {
+        self.modules.get(module).copied().unwrap_or(0)
+    }
+
+    /// Модуль получен до позиции `pos` включительно. Назад курсор не идёт.
+    pub fn advance(&mut self, module: &str, pos: i64) {
+        if pos > self.after(module) {
+            self.modules.insert(module.to_owned(), pos);
+        }
+    }
+
+    /// Модули курсора с их позициями.
+    pub fn modules(&self) -> impl Iterator<Item = (&str, i64)> {
+        self.modules
+            .iter()
+            .map(|(module, pos)| (module.as_str(), *pos))
+    }
+
+    /// Самая дальняя позиция (0 — курсор «с начала»).
+    pub fn max_pos(&self) -> i64 {
+        self.modules.values().copied().max().unwrap_or(0)
+    }
+}
+
+impl fmt::Display for Cursor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.modules.is_empty() {
+            return f.write_str("0");
+        }
+        f.write_str("2")?;
+        for (module, pos) in &self.modules {
+            write!(f, ".{module}-{pos}")?;
+        }
+        Ok(())
+    }
+}
+
+/// Старый числовой курсор (номер события): всегда «с начала».
+impl From<i64> for Cursor {
+    fn from(_legacy: i64) -> Self {
+        Self::start()
+    }
+}
+
+impl From<&Cursor> for Cursor {
+    fn from(cursor: &Cursor) -> Self {
+        cursor.clone()
+    }
+}
+
+impl From<&str> for Cursor {
+    fn from(text: &str) -> Self {
+        Self::parse(text)
+    }
+}
+
+impl Serialize for Cursor {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for Cursor {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        /// Строка нового формата или число старого.
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Text(String),
+            Legacy(i64),
+        }
+        Ok(match Raw::deserialize(deserializer)? {
+            Raw::Text(text) => Self::parse(&text),
+            Raw::Legacy(number) => number.into(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullResponse {
     /// Изменённые объекты (по одному снимку на объект, в порядке изменений).
     pub changes: Vec<ObjectSnapshot>,
-    /// Курсор для следующего запроса.
-    pub cursor: i64,
+    /// Курсор для следующего запроса: вернуть серверу как есть.
+    pub cursor: Cursor,
     /// Есть ли ещё изменения — тогда сразу запросить следующую страницу.
     pub has_more: bool,
 }
@@ -297,11 +441,56 @@ mod tests {
     }
 
     fn sample_pull() -> PullResponse {
+        let mut cursor = Cursor::start();
+        cursor.advance("inbox", 42);
+        cursor.advance("docs", 17);
         PullResponse {
             changes: vec![sample_snapshot()],
-            cursor: 42,
+            cursor,
             has_more: false,
         }
+    }
+
+    #[test]
+    fn cursor_round_trips_and_treats_unknown_as_start() {
+        let mut cursor = Cursor::start();
+        assert_eq!(cursor.to_string(), "0");
+        assert!(Cursor::parse("0").is_start());
+        cursor.advance("planner", 40);
+        cursor.advance("docs", 7);
+        cursor.advance("planner", 12); // назад не идёт
+        assert_eq!(cursor.to_string(), "2.docs-7.planner-40");
+        assert_eq!(Cursor::parse("2.docs-7.planner-40"), cursor);
+        assert_eq!(cursor.after("planner"), 40);
+        assert_eq!(cursor.after("inbox"), 0, "модуля нет в курсоре — с начала");
+        assert_eq!(cursor.max_pos(), 40);
+
+        // Старый числовой курсор и мусор — «с начала», а не ошибка.
+        for text in [
+            "57",
+            "",
+            "2.inbox",
+            "2.inbox-",
+            "2.-5",
+            "2.inbox--5",
+            "2.Inbox-5",
+            "2.inbox-5x",
+            "3.inbox-5",
+            "2.inbox-99999999999999999999",
+        ] {
+            assert!(Cursor::parse(text).is_start(), "{text}");
+        }
+        assert!(Cursor::from(57).is_start());
+
+        // В JSON — строка; старое число тоже читается.
+        assert_eq!(
+            serde_json::to_value(&cursor).unwrap(),
+            serde_json::json!("2.docs-7.planner-40")
+        );
+        let parsed: Cursor = serde_json::from_value(serde_json::json!("2.docs-7")).unwrap();
+        assert_eq!(parsed.after("docs"), 7);
+        let legacy: Cursor = serde_json::from_value(serde_json::json!(42)).unwrap();
+        assert!(legacy.is_start());
     }
 
     /// Формат JSON совпадает с образцами, которые проверяет и TS-клиент.

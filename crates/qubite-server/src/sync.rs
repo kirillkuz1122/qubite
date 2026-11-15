@@ -18,7 +18,7 @@ use axum::{
     response::Response,
 };
 use qubite_policy::{Authorized, ModuleId, Read, Write};
-use qubite_sync::{PullResponse, PushRequest, PushResponse};
+use qubite_sync::{Cursor, PullResponse, PushRequest, PushResponse};
 use qubite_sync_server::{Registry, Rules};
 use serde::Deserialize;
 use tokio::sync::broadcast::error::RecvError;
@@ -120,9 +120,10 @@ pub async fn push(
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct PullQuery {
-    /// Курсор из прошлого ответа; 0 — с начала.
+    /// Курсор из прошлого ответа, как есть; без него или `0` — с начала.
+    /// Старый числовой курсор тоже означает «с начала» (D-877).
     #[serde(default)]
-    cursor: i64,
+    cursor: String,
     /// Сколько изменений за раз (1…500, по умолчанию 200).
     limit: Option<i64>,
 }
@@ -148,7 +149,7 @@ pub async fn pull(
     let response = qubite_sync_server::pull_with(
         state.db.pool(),
         session.0.account_id,
-        query.cursor,
+        Cursor::parse(&query.cursor),
         query.limit.unwrap_or(200),
         &rules,
     )

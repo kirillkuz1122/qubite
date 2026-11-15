@@ -7,11 +7,16 @@
 //! для субъекта «не существуют», каждая операция применяется ровно один раз,
 //! поля модуля проверяет сам модуль ([`TypeFields`]).
 
-use std::{collections::HashSet, future::Future, pin::Pin, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+};
 
 use qubite_objects::{Error as ObjError, NewObject, Object, objects};
 use qubite_sync::{
-    InvalidPush, MAX_PULL_LIMIT, ObjectSnapshot, OpKind, OpResult, Operation, PullResponse,
+    Cursor, InvalidPush, MAX_PULL_LIMIT, ObjectSnapshot, OpKind, OpResult, Operation, PullResponse,
     PushRequest, PushResponse, RejectReason,
 };
 use serde_json::Value;
@@ -403,54 +408,110 @@ fn fields_error(error: FieldsError) -> ObjError {
     }
 }
 
-/// Изменения объектов владельца после курсора `cursor` (номер события).
-pub async fn pull(pool: &PgPool, owner: Uuid, cursor: i64, limit: i64) -> Result<PullResponse> {
+/// Изменения объектов владельца после курсора.
+pub async fn pull(
+    pool: &PgPool,
+    owner: Uuid,
+    cursor: impl Into<Cursor>,
+    limit: i64,
+) -> Result<PullResponse> {
     pull_with(pool, owner, cursor, limit, &Rules::default()).await
 }
 
 /// То же с правилами: только модули из `rules.readable`, поля модулей.
+///
+/// Читается лента `sync_feed` (миграция 0049): одна строка на объект с
+/// позицией его последнего изменения. Позиции выдаются в порядке commit,
+/// поэтому всё, что ещё не видно, получит позицию больше любой видимой —
+/// курсор не может «перешагнуть» незаконченную транзакцию.
+///
+/// У каждого модуля своя позиция в курсоре. Модуль, которого в курсоре нет
+/// (только что выдали доступ, появился новый), забирается с начала.
 pub async fn pull_with(
     pool: &PgPool,
     owner: Uuid,
-    cursor: i64,
+    cursor: impl Into<Cursor>,
     limit: i64,
     rules: &Rules,
 ) -> Result<PullResponse> {
     let limit = limit.clamp(1, MAX_PULL_LIMIT);
-    let rows: Vec<(i64, Uuid)> = sqlx::query_as(
-        "SELECT e.seq, e.object_id FROM events e JOIN objects o ON o.id = e.object_id \
-         WHERE e.seq > $1 AND o.owner_id = $2 \
-           AND ($4::text[] IS NULL OR o.module_id = ANY($4)) \
-         ORDER BY e.seq LIMIT $3",
+    let mut cursor: Cursor = cursor.into();
+    let mut conn = pool.acquire().await?;
+
+    // Курсор «из будущего»: позиции, которую лента ещё не выдавала. Так бывает
+    // после восстановления базы из копии. Продолжать с него нельзя — новые
+    // изменения получили бы позиции меньше курсора и потерялись; забираем всё.
+    if !cursor.is_start() {
+        let issued: i64 = sqlx::query_scalar(
+            "SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM sync_feed_pos_seq",
+        )
+        .fetch_one(&mut *conn)
+        .await?;
+        if cursor.max_pos() > issued {
+            cursor = Cursor::start();
+        }
+    }
+
+    let (known, after): (Vec<String>, Vec<i64>) = cursor
+        .modules()
+        .map(|(module, pos)| (module.to_owned(), pos))
+        .unzip();
+    let rows: Vec<(i64, Uuid, String)> = sqlx::query_as(
+        "SELECT f.pos, f.object_id, f.module_id FROM sync_feed f \
+         LEFT JOIN unnest($2::text[], $3::bigint[]) AS seen(module_id, pos) \
+           ON seen.module_id = f.module_id \
+         WHERE f.owner_id = $1 AND f.pos > COALESCE(seen.pos, 0) \
+           AND ($4::text[] IS NULL OR f.module_id = ANY($4)) \
+         ORDER BY f.pos LIMIT $5",
     )
-    .bind(cursor.max(0))
     .bind(owner)
-    .bind(limit)
+    .bind(&known)
+    .bind(&after)
     .bind(rules.readable.as_ref())
-    .fetch_all(pool)
+    .bind(limit)
+    .fetch_all(&mut *conn)
     .await?;
 
     let has_more = i64::try_from(rows.len()).unwrap_or(i64::MAX) == limit;
-    let next_cursor = rows.last().map_or(cursor.max(0), |(seq, _)| *seq);
-    // Один снимок на объект, в порядке последнего изменения.
-    let mut order: Vec<Uuid> = Vec::new();
-    for (_, object_id) in rows.into_iter().rev() {
-        if !order.contains(&object_id) {
-            order.push(object_id);
+    if let Some((last, _, _)) = rows.last() {
+        // Страница отсортирована по позиции: у каждого читаемого модуля всё до
+        // `last` включительно либо в этой странице, либо отсутствует. Модули,
+        // которые сейчас читать нельзя, не трогаем — их догоним после выдачи
+        // доступа с того места, где остановились.
+        let covered: Vec<&str> = match &rules.readable {
+            Some(readable) => readable.iter().map(String::as_str).collect(),
+            None => known
+                .iter()
+                .map(String::as_str)
+                .chain(rows.iter().map(|(_, _, module)| module.as_str()))
+                .collect(),
+        };
+        for module in covered {
+            cursor.advance(module, *last);
         }
     }
-    order.reverse();
 
-    let mut conn = pool.acquire().await?;
-    let mut changes = Vec::with_capacity(order.len());
-    for object_id in order {
-        if let Some(object) = objects::get_any(&mut conn, object_id).await? {
-            changes.push(snapshot_with(&mut conn, &rules.registry, &object).await?);
-        }
+    // Объекты страницы — одним запросом, снимки — в порядке ленты.
+    let ids: Vec<Uuid> = rows.iter().map(|(_, id, _)| *id).collect();
+    let mut objects: HashMap<Uuid, Object> = objects::get_many(&mut conn, &ids)
+        .await?
+        .into_iter()
+        .map(|object| (object.id, object))
+        .collect();
+    let mut changes = Vec::with_capacity(ids.len());
+    for id in ids {
+        // Строка ленты без объекта — объект удалён навсегда: пропускаем.
+        let Some(object) = objects
+            .remove(&id)
+            .filter(|object| object.owner_id == owner)
+        else {
+            continue;
+        };
+        changes.push(snapshot_with(&mut conn, &rules.registry, &object).await?);
     }
     Ok(PullResponse {
         changes,
-        cursor: next_cursor,
+        cursor,
         has_more,
     })
 }

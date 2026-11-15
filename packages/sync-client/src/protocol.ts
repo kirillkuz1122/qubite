@@ -50,9 +50,17 @@ export interface PushResponse {
   results: OpResult[];
 }
 
+/**
+ * Курсор `pull` — непрозрачное значение: сохранить и вернуть серверу как есть.
+ * Сервер отдаёт строку вида `2.docs-17.inbox-42` (своя позиция на каждый
+ * модуль, SYNC-007); `0` — «с начала». Число — курсор старого формата: сервер
+ * примет его и один раз отдаст всё заново.
+ */
+export type Cursor = string | number;
+
 export interface PullResponse {
   changes: ObjectSnapshot[];
-  cursor: number;
+  cursor: Cursor;
   has_more: boolean;
 }
 

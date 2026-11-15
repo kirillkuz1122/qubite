@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use qubite_objects::{NewObject, objects};
-use qubite_sync::{OpKind, OpResult, Operation, PushRequest, RejectReason};
+use qubite_sync::{Cursor, OpKind, OpResult, Operation, PushRequest, RejectReason};
 use qubite_sync_server::{pull, push};
 use qubite_testkit::TestDb;
 use sqlx::{PgPool, postgres::PgListener};
@@ -395,10 +395,10 @@ async fn pull_pages_through_all_changes_exactly_once() {
         .collect();
     push(pool, owner, &batch(ops)).await.unwrap();
 
-    let mut cursor = 0;
+    let mut cursor = Cursor::start();
     let mut titles = Vec::new();
     loop {
-        let page = pull(pool, owner, cursor, 2).await.unwrap();
+        let page = pull(pool, owner, &cursor, 2).await.unwrap();
         titles.extend(page.changes.into_iter().map(|snapshot| snapshot.title));
         cursor = page.cursor;
         if !page.has_more {
