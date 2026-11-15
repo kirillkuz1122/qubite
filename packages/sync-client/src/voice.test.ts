@@ -55,6 +55,32 @@ describe('очередь голосовых записей', () => {
     expect(server.saved.get('b')).not.toHaveProperty('text');
   });
 
+  it('в браузере вошёл другой аккаунт — запись не отклонена и уходит, когда хозяин вернулся (SYNC-008)', async () => {
+    const server = new VoiceServer();
+    let other = true;
+    const transport: VoiceTransport = {
+      send: async (item) => {
+        if (other)
+          throw new HttpError(409, 'account_mismatch', 'В этом браузере уже вошёл другой аккаунт');
+        return server.send(item);
+      },
+    };
+    const queue = await open(transport);
+    await queue.add(capture('a'));
+    expect((await queue.flush()).left).toBe(1);
+    const [waiting] = await queue.list();
+    expect(waiting).toMatchObject({ id: 'a', attempts: 1 });
+    expect(waiting).not.toHaveProperty('rejected');
+    expect(waiting?.error).toBe('вошёл другой аккаунт — отправится после входа');
+    expect(server.saved.size).toBe(0);
+
+    other = false;
+    const flush = await queue.flush();
+    expect(flush.sent.map((s) => s.id)).toEqual(['a']);
+    expect(await queue.list()).toEqual([]);
+    expect(server.saved.has('a')).toBe(true);
+  });
+
   it('без сети запись остаётся на устройстве и уходит потом с тем же ID', async () => {
     const server = new VoiceServer();
     const queue = await open(server);
@@ -286,5 +312,15 @@ describe('что делать с неудачей', () => {
       retry: false,
       message: 'Аудиозапись слишком большая',
     });
+    // «Не тот аккаунт» (SYNC-008) — не отказ насовсем, хотя это 409 и 400.
+    for (const error of [
+      new HttpError(409, 'account_mismatch', 'В этом браузере уже вошёл другой аккаунт'),
+      new HttpError(400, 'account_required', 'Приложение устарело'),
+    ]) {
+      expect(voiceFailure(error)).toEqual({
+        retry: true,
+        message: 'вошёл другой аккаунт — отправится после входа',
+      });
+    }
   });
 });
