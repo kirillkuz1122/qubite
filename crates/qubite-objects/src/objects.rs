@@ -159,6 +159,17 @@ pub async fn get_any(conn: &mut PgConnection, id: Uuid) -> Result<Option<Object>
     .await?)
 }
 
+/// Несколько объектов разом, включая удалённые в корзину. Порядок не задан;
+/// несуществующие ID просто отсутствуют в ответе.
+pub async fn get_many(conn: &mut PgConnection, ids: &[Uuid]) -> Result<Vec<Object>> {
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLUMNS} FROM objects WHERE id = ANY($1)"
+    )))
+    .bind(ids)
+    .fetch_all(conn)
+    .await?)
+}
+
 /// Живые объекты владельца, новые сверху. `object_type = None` — все типы.
 pub async fn list_by_owner(
     conn: &mut PgConnection,

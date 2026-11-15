@@ -179,6 +179,12 @@ describe('HTTP-транспорт', () => {
     expect(calls[0]!.init.credentials).toBe('include');
     expect(calls[1]!.url).toBe('https://q.example/api/v1/sync/pull?cursor=5&limit=100');
     expect(new Headers(calls[1]!.init.headers).has('x-csrf-token')).toBe(false);
+    // Курсор нового формата — строка; в адрес уходит как есть.
+    await browser.pull('2.docs-17.inbox-42', 100);
+    expect(calls[2]!.url).toBe(
+      'https://q.example/api/v1/sync/pull?cursor=2.docs-17.inbox-42&limit=100',
+    );
+    calls.pop();
 
     const app = httpTransport({ fetch, token: () => 'access', csrf: () => 'csrf-1' });
     await app.push({ device_id: 'd', ops: [] });

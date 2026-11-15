@@ -211,6 +211,29 @@ describe('SyncClient', () => {
     expect((await client.list()).map((o) => o.title)).toEqual(['с телефона']);
   });
 
+  it('курсор сервера хранится и возвращается как есть (SYNC-007)', async () => {
+    const asked: unknown[] = [];
+    let next: string | number = '2.docs-17.inbox-42';
+    const transport: Transport = {
+      push: async () => ({ results: [] }),
+      pull: async (cursor) => {
+        asked.push(cursor);
+        return { changes: [], cursor: next, has_more: false };
+      },
+    };
+    const dbName = uuidv7();
+    const first = await SyncClient.open({ dbName, transport });
+    await first.sync();
+    next = '2.docs-20.inbox-42';
+    await first.sync();
+    first.close();
+    // После перезагрузки страницы — тот же курсор из хранилища.
+    const second = await SyncClient.open({ dbName, transport });
+    await second.sync();
+    expect(asked).toEqual([0, '2.docs-17.inbox-42', '2.docs-20.inbox-42']);
+    second.close();
+  });
+
   it('статус сообщается подписчикам', async () => {
     const server = new FakeServer();
     const { client } = await open(server);
@@ -243,6 +266,9 @@ describe('протокол совпадает с Rust (qubite-sync/fixtures)', (
     expect(response.results.map((r) => r.status)).toEqual(['applied', 'conflict', 'rejected']);
 
     const pull = fixture<PullResponse>('pull_response');
+    // Курсор — строка, которую можно подставить в адрес без кодирования.
+    expect(pull.cursor).toBe('2.docs-17.inbox-42');
+    expect(encodeURIComponent(String(pull.cursor))).toBe(pull.cursor);
     expect(Object.keys(pull.changes[0]!).sort()).toEqual(
       ['deleted', 'fields', 'id', 'object_type', 'revision', 'title', 'updated_at_ms'].sort(),
     );
