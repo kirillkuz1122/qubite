@@ -65,6 +65,9 @@ jobs:
         run: pnpm --filter @qubite/web exec playwright install --with-deps firefox chromium
       - name: Браузерные тесты (Firefox и Chromium)
         run: pnpm e2e
+      # Те же экраны под настоящей CSP из deploy/pi/qubite.caddy (SEC-002, DS-013).
+      - name: Сайт под настоящей CSP
+        run: pnpm --filter @qubite/web e2e:csp
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

@@ -35,15 +35,13 @@ describe('адрес Whisper', () => {
   it('что не так с адресом — простыми словами', () => {
     expect(localUrlProblem('http://127.0.0.1:8080', 'https:')).toBeNull();
     expect(localUrlProblem('http://localhost:8080/', 'https:')).toBeNull();
-    expect(localUrlProblem('https://pc.local:8080', 'https:')).toBeNull();
     expect(localUrlProblem('http://192.168.1.5:8080', 'http:')).toBeNull();
     expect(localUrlProblem('', 'https:')).toMatch(/Впишите адрес/);
     expect(localUrlProblem('127.0.0.1:8080', 'https:')).toMatch(/Адрес вида/);
     expect(localUrlProblem('ftp://127.0.0.1', 'https:')).toMatch(/Адрес вида/);
-    // с https-страницы браузер не пустит на http другого компьютера
-    expect(localUrlProblem('http://192.168.1.5:8080', 'https:')).toMatch(
-      /только к этому компьютеру/,
-    );
+    // на сайте (https) политика CSP пускает только к этому компьютеру — так и говорим сразу
+    for (const other of ['http://192.168.1.5:8080', 'https://pc.local:8080', 'http://[::1]:8080'])
+      expect(localUrlProblem(other, 'https:')).toMatch(/только на этом компьютере/);
   });
 });
 

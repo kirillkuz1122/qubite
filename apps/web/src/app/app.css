@@ -2,6 +2,8 @@
    Двигаются только transform и opacity; всё скругление следует за формой точки (--q-round). */
 body {
   overflow-x: hidden;
+  /* слово длиннее строки (ссылка без пробелов) переносится, а не раздвигает экран */
+  overflow-wrap: break-word;
 }
 button {
   font: inherit;
@@ -21,10 +23,12 @@ a {
 .main {
   position: relative;
 }
+/* Под контентом — запас, чтобы строка Command (ПК) и нижняя панель (телефон) не закрывали
+   последние строки: 140 и 104 px (DESIGN_SYSTEM §0.2). */
 .main-in {
   max-width: 760px;
   margin: 0 auto;
-  padding: 0 18px 150px;
+  padding: 0 18px calc(104px + env(safe-area-inset-bottom, 0px));
 }
 .side {
   display: none;
@@ -47,7 +51,7 @@ a {
     margin-left: 248px;
   }
   .main-in {
-    padding: 0 40px 170px;
+    padding: 0 40px 140px;
   }
 }
 .side-logo {
@@ -278,6 +282,11 @@ a {
   font-size: 13.5px;
   color: var(--q-mute);
 }
+/* текст подсказки сжимается и переносит длинное название дела (DS-013) */
+.tip > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .tip .av {
   width: 10px;
   height: 10px;
@@ -330,29 +339,28 @@ a {
   height: 6px;
 }
 .row .time {
-  font-size: 12.5px;
+  flex: none;
+  font-size: 13px;
   color: var(--q-mute);
 }
-.spark {
+/* телефон: срок и проект — одной строкой под названием */
+.row-sub {
   display: flex;
-  gap: 12px;
-  align-items: baseline;
-  padding: 11px 0;
-  border-bottom: 1px dashed var(--q-line);
-  font-size: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
 }
-.spark .q-dot {
-  background: var(--q-yellow);
-  transform: translateY(-1px);
+.row-sub:empty {
+  display: none;
 }
-.spark span:not(.q-dot) {
-  flex: 1;
-}
-.spark small {
+.row-sub .time {
   color: var(--q-dim);
-  font-size: 12px;
 }
-
+.row-sub .time + .meta::before {
+  content: '·';
+  color: var(--q-dim);
+}
 /* ---------- «Входящие» ---------- */
 .chips-row {
   margin: 4px 0 10px;
@@ -380,30 +388,45 @@ a {
   min-width: 0;
 }
 .item .txt {
-  font-size: 14.5px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
 }
 .item .src {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-dim);
+  overflow-wrap: anywhere;
 }
+/* Подсказка Элика: три точки стоят в строке с текстом; действия — всегда отдельной
+   строкой под ней, по левому краю текста мысли (DS-013, проверка дизайна №3 и №4). */
 .item .elik {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
   gap: 8px;
-  margin-top: 10px;
-  font-size: 12.5px;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 20px;
   color: var(--q-mute);
 }
-.item .elik i {
-  width: 6px;
-  height: 6px;
-  border-radius: calc(var(--q-round) * 50%);
-  background: var(--q-yellow);
+.item .elik-say {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
-.item .elik span {
-  margin-right: 4px;
+.item .elik-say .elik-dots {
+  flex: none;
+  height: 20px;
+}
+.item .elik-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.item .elik-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.item .elik-acts:empty {
+  display: none;
 }
 .empty {
   display: grid;

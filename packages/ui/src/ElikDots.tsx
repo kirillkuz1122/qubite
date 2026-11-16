@@ -3,9 +3,9 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useSpring } from './useSpring';
 
 /**
- * Настроение Элика в строке Входящих (CMD-004): `idle` — одна точка, как раньше; `think` — три
- * точки бегут волной (агент обдумывает мысль); `happy` — подпрыгивают (разложил); `ask` — склонил
- * голову (не уверен, спрашивает); `oops` — вздрогнул и осел (откатили — ошибся по-своему).
+ * Настроение Элика в строке Входящих (CMD-004). Точек всегда три, в одну строку с текстом
+ * подсказки (v2, DS-013): `idle` — стоят; `think` — бегут волной (агент обдумывает мысль);
+ * `happy` — подпрыгивают (разложил); `ask` — склонил голову (не уверен, спрашивает); `oops` — вздрогнул и осел (откатили — ошибся по-своему).
  */
 export type ElikMood = 'idle' | 'think' | 'happy' | 'ask' | 'oops';
 
@@ -32,13 +32,13 @@ export function ElikDots({ mood, label }: { mood: ElikMood; label?: string }) {
   const box = useRef<HTMLSpanElement>(null);
   const slots = useRef<(HTMLSpanElement | null)[]>([]);
   const dots = useRef<(HTMLSpanElement | null)[]>([]);
-  /* боковые точки: 0 — спрятаны в среднюю, 1 — рядом */
-  const spread = useSpring(mood === 'idle' ? 0 : 1, 0.8, (p) => {
+  /* боковые точки выезжают из средней один раз — при появлении строки */
+  const spread = useSpring(0, 0.8, (p) => {
     const k = Math.min(1, Math.max(0, p));
     [-1, 1].forEach((side) => {
       const el = slots.current[side + 1];
       if (!el) return;
-      el.style.opacity = k.toFixed(3);
+      el.style.opacity = k === 1 ? '' : k.toFixed(3);
       el.style.transform =
         k === 1 ? '' : `translateX(${((1 - k) * -7 * side).toFixed(2)}px) scale(${k.toFixed(3)})`;
     });
@@ -54,7 +54,7 @@ export function ElikDots({ mood, label }: { mood: ElikMood; label?: string }) {
   useEffect(() => {
     const L = loop();
     spread.emit();
-    L.to(spread, mood === 'idle' ? 0 : 1);
+    L.to(spread, 1);
     L.to(tilt, mood === 'ask' ? -0.22 : 0);
     const timers: ReturnType<typeof setTimeout>[] = [];
     if (mood === 'happy') {

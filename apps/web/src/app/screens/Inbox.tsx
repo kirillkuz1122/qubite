@@ -240,32 +240,41 @@ function Item({
           </Presence>
         )}
         <div className="elik">
-          <ElikDots mood={it.mood ?? 'idle'} />
-          <span>Элик: {it.hint}</span>
-          {(it.answers ?? []).map((a) => (
-            <Button key={`a-${a}`} size="sm" dot={false} onClick={() => onAnswer(it, a)}>
-              {a}
-            </Button>
-          ))}
-          {it.acts.map(([label, to]) => (
-            <Button
-              key={to}
-              size="sm"
-              dot={false}
-              onClick={() => {
-                const r = dot.current?.getBoundingClientRect();
-                if (to !== 'later') loop().to(sp, 0);
-                onAct(it, to, r);
-              }}
-            >
-              {label}
-            </Button>
-          ))}
-          {voice && !voice.bare && audio && (
-            <Button size="sm" dot={false} aria-expanded={listen} onClick={() => setListen(!listen)}>
-              {listen ? 'Скрыть запись' : 'Послушать'}
-            </Button>
-          )}
+          <div className="elik-say">
+            <ElikDots mood={it.mood ?? 'idle'} />
+            <span className="elik-text">Элик: {it.hint}</span>
+          </div>
+          <div className="elik-acts">
+            {(it.answers ?? []).map((a) => (
+              <Button key={`a-${a}`} size="sm" dot={false} onClick={() => onAnswer(it, a)}>
+                {a}
+              </Button>
+            ))}
+            {it.acts.map(([label, to]) => (
+              <Button
+                key={to}
+                size="sm"
+                dot={false}
+                onClick={() => {
+                  const r = dot.current?.getBoundingClientRect();
+                  if (to !== 'later') loop().to(sp, 0);
+                  onAct(it, to, r);
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+            {voice && !voice.bare && audio && (
+              <Button
+                size="sm"
+                dot={false}
+                aria-expanded={listen}
+                onClick={() => setListen(!listen)}
+              >
+                {listen ? 'Скрыть запись' : 'Послушать'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -443,25 +452,29 @@ function FiledRow({
         <div className="txt">{f.thought}</div>
         <div className="src">разложил → {f.label}</div>
         <div className="elik">
-          <ElikDots mood={mood} />
-          <span>Элик: {hint}</span>
-          {!undo && (
-            <Button size="sm" dot={false} disabled={busy} onClick={onRevert}>
-              Откатить
-            </Button>
-          )}
-          {undo &&
-            !undo.conflict &&
-            WHY.map(([label, answer]) => (
-              <Button key={answer} size="sm" dot={false} onClick={() => onWhy(answer)}>
-                {label}
+          <div className="elik-say">
+            <ElikDots mood={mood} />
+            <span className="elik-text">Элик: {hint}</span>
+          </div>
+          <div className="elik-acts">
+            {!undo && (
+              <Button size="sm" dot={false} disabled={busy} onClick={onRevert}>
+                Откатить
               </Button>
-            ))}
-          {undo && (
-            <Button size="sm" dot={false} onClick={() => onWhy(null)}>
-              {undo.conflict ? 'Понятно' : 'Пропустить'}
-            </Button>
-          )}
+            )}
+            {undo &&
+              !undo.conflict &&
+              WHY.map(([label, answer]) => (
+                <Button key={answer} size="sm" dot={false} onClick={() => onWhy(answer)}>
+                  {label}
+                </Button>
+              ))}
+            {undo && (
+              <Button size="sm" dot={false} onClick={() => onWhy(null)}>
+                {undo.conflict ? 'Понятно' : 'Пропустить'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

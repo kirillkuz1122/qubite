@@ -346,6 +346,11 @@
     padding-right: 16px;
     border-right: 1px solid var(--q-line);
   }
+  /* Запас под Command уже даёт оболочка: второй такой же делал пустой документ выше экрана,
+     страница прокручивалась на 36 px и шапка уезжала из-под боковой панели (DS-013). */
+  .docs-editor {
+    padding-bottom: 24px;
+  }
 }
 @media (max-width: 899px) {
   .docs-workspace:not(.docs-open) .docs-reading,
