@@ -123,10 +123,9 @@ describe('возврат потерянных упоминаний', () => {
       const found: LostBlock[][] = [];
       let stopLost = () => {};
       try {
-        e.update(
-          () => $getRoot().append($createBlockNode().append($createTextNode('Основа'))),
-          { discrete: true },
-        );
+        e.update(() => $getRoot().append($createBlockNode().append($createTextNode('Основа'))), {
+          discrete: true,
+        });
         Y.applyUpdate(remote, Y.encodeStateAsUpdate(doc));
         stopLost = watchLostEdits(doc, origin, (lost) => found.push(lost));
         e.update(

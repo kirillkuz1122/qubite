@@ -201,7 +201,11 @@ describe('обратные ссылки: сеть и память сессии',
     const changed = vi.fn();
     session.subscribe(changed);
     const source = {
-      pull: vi.fn(async () => ({ update: new Uint8Array(), sv: new Uint8Array(), seedMarkdown: null })),
+      pull: vi.fn(async () => ({
+        update: new Uint8Array(),
+        sv: new Uint8Array(),
+        seedMarkdown: null,
+      })),
       push: vi.fn(async () => ({ sv: new Uint8Array() })),
     } as unknown as DocsTransport;
     const transport = session.transport(source);
@@ -230,7 +234,11 @@ describe('обратные ссылки: сеть и память сессии',
     const changed = vi.fn();
     session.subscribe(changed);
     const transport = session.transport({
-      pull: vi.fn(async () => ({ update: new Uint8Array(), sv: new Uint8Array(), seedMarkdown: null })),
+      pull: vi.fn(async () => ({
+        update: new Uint8Array(),
+        sv: new Uint8Array(),
+        seedMarkdown: null,
+      })),
     } as unknown as DocsTransport);
     const work = session.batch(
       (async () => {

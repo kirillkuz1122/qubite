@@ -423,7 +423,7 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
         <Button
           key={block.kind}
           size="sm"
-          dot={false}
+          variant="quiet"
           onClick={() => apply(editor, block.kind, false)}
         >
           {block.label}
@@ -445,16 +445,16 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
         aria-label="Формат текста"
         style={{ transform: `translateY(${formatY}px)` }}
       >
-        <Button size="sm" dot={false} onClick={() => format('bold')}>
+        <Button size="sm" variant="quiet" onClick={() => format('bold')}>
           Жирный
         </Button>
-        <Button size="sm" dot={false} onClick={() => format('italic')}>
+        <Button size="sm" variant="quiet" onClick={() => format('italic')}>
           Курсив
         </Button>
-        <Button size="sm" dot={false} onClick={() => format('strikethrough')}>
+        <Button size="sm" variant="quiet" onClick={() => format('strikethrough')}>
           Зачёркнутый
         </Button>
-        <Button size="sm" dot={false} onClick={() => format('code')}>
+        <Button size="sm" variant="quiet" onClick={() => format('code')}>
           Код
         </Button>
       </div>
@@ -495,7 +495,7 @@ function Controls({ handle, provider }: { handle: DocHandle; provider: DocsProvi
               key={block.kind}
             >
               <Button
-                dot={false}
+                variant="quiet"
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={(event) => {
                   setActive(index);

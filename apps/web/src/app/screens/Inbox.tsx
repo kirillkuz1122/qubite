@@ -2,8 +2,8 @@ import { loop } from '@qubite/motion';
 import { createDoc, titleFrom } from '@qubite/sync-client';
 import {
   Button,
-  Companion,
   DotIcon,
+  EmptyState,
   ElikDots,
   Note,
   Presence,
@@ -12,6 +12,7 @@ import {
   useFlip,
   useLeaving,
   useSpring,
+  useToast,
   type CompanionHandle,
   type ElikMood,
 } from '@qubite/ui';
@@ -33,6 +34,7 @@ export function InboxScreen() {
   const inbox = useInbox();
   const planner = usePlanner();
   const shell = useShell();
+  const toast = useToast();
   const { client, version, ready } = useSync();
   const [docError, setDocError] = useState(false);
   const moving = useRef(new Set<string>());
@@ -69,7 +71,10 @@ export function InboxScreen() {
     }
     if (to === 'archive') {
       // голосовая без текста: послушал — разобрано, в архив (не удаляется)
-      setTimeout(() => void inbox.done(it.id), 200);
+      setTimeout(() => {
+        void inbox.done(it.id);
+        toast.show('Запись в архиве.', { undo: () => void inbox.back(it.id) });
+      }, 200);
       return;
     }
     if (to === 'docs') {
@@ -246,7 +251,7 @@ function Item({
           </div>
           <div className="elik-acts">
             {(it.answers ?? []).map((a) => (
-              <Button key={`a-${a}`} size="sm" dot={false} onClick={() => onAnswer(it, a)}>
+              <Button key={`a-${a}`} size="sm" variant="quiet" onClick={() => onAnswer(it, a)}>
                 {a}
               </Button>
             ))}
@@ -254,7 +259,8 @@ function Item({
               <Button
                 key={to}
                 size="sm"
-                dot={false}
+                // одно обычное действие с точкой, остальные тихие (DS v2)
+                variant={to === 'planner' || to === 'archive' ? 'outline' : 'quiet'}
                 onClick={() => {
                   const r = dot.current?.getBoundingClientRect();
                   if (to !== 'later') loop().to(sp, 0);
@@ -267,7 +273,7 @@ function Item({
             {voice && !voice.bare && audio && (
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 aria-expanded={listen}
                 onClick={() => setListen(!listen)}
               >
@@ -288,15 +294,19 @@ function Empty() {
     const t = setTimeout(() => elik.current?.turnAway(true), 900);
     return () => clearTimeout(t);
   }, []);
+  const shell = useShell();
   return (
-    <div className="empty">
-      <Companion ref={elik} kind="elik" pitch={6.5} label="Элик дремлет" />
-      <div>
-        Пусто — всё разобрано.
-        <br />
-        Элик дремлет, пока не появится новая мысль.
-      </div>
-    </div>
+    <EmptyState
+      ref={elik}
+      kind="elik"
+      label="Элик дремлет"
+      title="Пусто — всё разобрано."
+      hint="Элик дремлет, пока не появится новая мысль."
+    >
+      <Button size="sm" onClick={() => shell.write()}>
+        Записать мысль
+      </Button>
+    </EmptyState>
   );
 }
 
@@ -458,19 +468,19 @@ function FiledRow({
           </div>
           <div className="elik-acts">
             {!undo && (
-              <Button size="sm" dot={false} disabled={busy} onClick={onRevert}>
+              <Button size="sm" variant="quiet" disabled={busy} onClick={onRevert}>
                 Откатить
               </Button>
             )}
             {undo &&
               !undo.conflict &&
               WHY.map(([label, answer]) => (
-                <Button key={answer} size="sm" dot={false} onClick={() => onWhy(answer)}>
+                <Button key={answer} size="sm" variant="quiet" onClick={() => onWhy(answer)}>
                   {label}
                 </Button>
               ))}
             {undo && (
-              <Button size="sm" dot={false} onClick={() => onWhy(null)}>
+              <Button size="sm" variant="quiet" onClick={() => onWhy(null)}>
                 {undo.conflict ? 'Понятно' : 'Пропустить'}
               </Button>
             )}

@@ -221,7 +221,7 @@ function Limits({ limits }: { limits: AiLimitItem[] }) {
           </small>
         </span>
         <Button size="sm" onClick={() => setEdit('new')}>
-          + Лимит
+          Новый лимит
         </Button>
       </div>
       {limits.length === 0 ? (
@@ -434,7 +434,9 @@ function LimitForm({
         <Button type="submit" variant="fill" disabled={busy || !value.trim()}>
           Сохранить
         </Button>
-        <Button onClick={onDone}>Отмена</Button>
+        <Button variant="quiet" onClick={onDone}>
+          Отмена
+        </Button>
       </div>
     </form>
   );

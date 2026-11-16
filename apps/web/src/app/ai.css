@@ -1,7 +1,7 @@
 /* AI и бюджеты (AI-003): расход, лимиты, вызовы — общие для Console и Настроек. Только токены. */
 .ai-small {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--q-mute);
 }
@@ -82,7 +82,7 @@
 .ai-axis {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--q-dim);
 }
 .ai-tables {
@@ -152,7 +152,7 @@
   overflow-wrap: anywhere;
 }
 .ai-limit-text small {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-mute);
 }
 .ai-limit-act {

@@ -5,11 +5,11 @@
   padding: 2rem 1rem;
 }
 .shell a {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 [data-state='up'] {
-  color: var(--q-green);
+  color: var(--q-green-ink);
 }
 [data-state='down'] {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }

@@ -96,7 +96,7 @@ export function CalendarEventSheet({
                 Другие параметры
               </Button>
             )}
-            <Button disabled={busy} onClick={onClose}>
+            <Button variant="quiet" disabled={busy} onClick={onClose}>
               Отмена
             </Button>
             {existing && (

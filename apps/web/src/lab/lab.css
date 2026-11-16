@@ -48,10 +48,10 @@
 }
 .lab-state {
   font-size: 13px;
-  color: var(--q-green);
+  color: var(--q-green-ink);
 }
 .lab-state[data-same='false'] {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 .lab-wait {
   color: var(--q-dim);

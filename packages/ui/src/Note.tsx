@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
 export interface NoteProps {
-  /** info — обычное, ok — получилось, bad — ошибка (читалка объявит сразу) */
-  tone?: 'info' | 'ok' | 'bad';
+  /** info — обычное, ok — получилось, warn — внимание, bad — ошибка (читалка объявит сразу) */
+  tone?: 'info' | 'ok' | 'warn' | 'bad';
   children: ReactNode;
   className?: string;
 }

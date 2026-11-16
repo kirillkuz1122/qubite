@@ -289,7 +289,7 @@ export function EnglishRealtime({ data }: { data: EnglishOverview }) {
               </p>
             )}
             {phase === 'speaking' && (
-              <Button size="sm" dot={false} onClick={() => talk.current?.interrupt()}>
+              <Button size="sm" variant="quiet" onClick={() => talk.current?.interrupt()}>
                 Перебить
               </Button>
             )}

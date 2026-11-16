@@ -316,7 +316,7 @@ export function History({
       {wide && (
         <SecHead text="ИСТОРИЯ" label="История">
           {/* Короткая подпись: в колонке 320 px кнопка помещается справа от заголовка (§0.2). */}
-          <Button size="sm" aria-label="Закрыть историю" onClick={close}>
+          <Button variant="quiet" size="sm" aria-label="Закрыть историю" onClick={close}>
             Закрыть
           </Button>
         </SecHead>
@@ -483,6 +483,7 @@ export function History({
               : 'Удалить'}
         </Button>
         <Button
+          variant="quiet"
           disabled={busy}
           onClick={() => {
             setAction(null);

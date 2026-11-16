@@ -256,7 +256,7 @@ function ProjectTaskGroups({
               {view === 'list' && (
                 <Button
                   size="sm"
-                  dot={false}
+                  variant="quiet"
                   aria-expanded={!collapsed[column.status]}
                   onClick={() =>
                     setCollapsed((current) => ({
@@ -332,7 +332,7 @@ function ProjectTaskGroups({
                         <Button
                           key={target.status}
                           size="sm"
-                          dot={false}
+                          variant="quiet"
                           disabled={target.status === task.status}
                           onClick={() => void moveTo(task.id, target.status)}
                         >
@@ -341,7 +341,7 @@ function ProjectTaskGroups({
                       ))}
                       <Button
                         size="sm"
-                        dot={false}
+                        variant="quiet"
                         onClick={() => setTrail(trail === task.id ? null : task.id)}
                       >
                         Лента дела
@@ -459,10 +459,10 @@ export function ProjectBoardSettings({
         <Button size="sm" variant="fill" type="submit" disabled={busy || !valid}>
           Сохранить
         </Button>
-        <Button size="sm" dot={false} disabled={busy} onClick={() => void save(true)}>
+        <Button size="sm" variant="quiet" disabled={busy} onClick={() => void save(true)}>
           Сбросить
         </Button>
-        <Button size="sm" dot={false} disabled={busy} onClick={onClose}>
+        <Button size="sm" variant="quiet" disabled={busy} onClick={onClose}>
           Отмена
         </Button>
       </div>

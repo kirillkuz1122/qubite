@@ -475,7 +475,6 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
         <Button
           className="calendar-new-event"
           variant="fill"
-          dot={false}
           aria-label="Новое событие"
           title="Новое событие"
           disabled={moving}
@@ -489,7 +488,7 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
         <div className="calendar-nav" role="group" aria-label="Выбрать период">
           <Button
             size="sm"
-            dot={false}
+            variant="quiet"
             onClick={() => setAnchor(calendarDay(Date.now(), timeZone))}
           >
             Сегодня

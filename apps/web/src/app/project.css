@@ -47,7 +47,7 @@
 }
 .pp-counts {
   margin: 12px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-mute);
 }
 .pp-tab {
@@ -69,7 +69,7 @@
 }
 .pp-add-hint {
   margin: 6px 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-dim);
 }
 .pp-form {
@@ -103,7 +103,7 @@
   color: var(--q-mute);
 }
 .pp-day-h.late {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 .pp-day ul,
 .pp-feed,
@@ -129,7 +129,7 @@
 .pp-time {
   flex: none;
   width: 76px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -176,7 +176,7 @@
   color: var(--q-mute);
 }
 .pp-file-meta {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-dim);
 }
 .pp-doc {
@@ -205,7 +205,7 @@
 }
 .pp-doc-pre {
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -333,7 +333,7 @@
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   overflow-wrap: anywhere;
 }

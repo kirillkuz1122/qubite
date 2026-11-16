@@ -38,7 +38,7 @@ export function httpLinkSource(doFetch: typeof fetch = globalThis.fetch): LinkSo
 }
 
 export function mentionLabel(link: DocLink | undefined): string {
-  return link?.deleted ? 'Удалено' : (link?.title || '…');
+  return link?.deleted ? 'Удалено' : link?.title || '…';
 }
 
 export function linkHref(target: string, kind: DocLinkKind): string {

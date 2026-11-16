@@ -399,7 +399,7 @@ function SearchGame({ verbs, seed, onDone, onPhase }: GameProps) {
         )}
       </div>
       <div className="eng-row">
-        <Button dot={false} onClick={() => finish(found)}>
+        <Button variant="quiet" onClick={() => finish(found)}>
           Сдаюсь
         </Button>
       </div>

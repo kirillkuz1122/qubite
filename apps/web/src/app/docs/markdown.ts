@@ -7,7 +7,13 @@ import {
   type Transformer,
   type TextMatchTransformer,
 } from '@lexical/markdown';
-import { $createTextNode, $getRoot, $isElementNode, ParagraphNode, type LexicalNode } from 'lexical';
+import {
+  $createTextNode,
+  $getRoot,
+  $isElementNode,
+  ParagraphNode,
+  type LexicalNode,
+} from 'lexical';
 import type { DocLink } from '@qubite/sync-client';
 import { $createMentionNode, $isMentionNode, MentionNode } from './MentionNode';
 import {
@@ -115,7 +121,8 @@ const paragraph: ElementTransformer = {
   },
 };
 
-const MENTION_PATTERN = /\[@((?:\\.|[^\]\\])*)\]\(qubite:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/i;
+const MENTION_PATTERN =
+  /\[@((?:\\.|[^\]\\])*)\]\(qubite:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/i;
 
 function mention(links: readonly DocLink[]): TextMatchTransformer {
   return {

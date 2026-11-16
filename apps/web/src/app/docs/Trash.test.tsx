@@ -42,7 +42,10 @@ describe('корзина документов', () => {
   it('объединяет локальные и сетевые документы без дублей; очередь важнее сервера', async () => {
     const restored = local('restored', false);
     const otherModule = { ...local('task'), object_type: 'planner.task' };
-    const view = setup([local('both'), restored, otherModule], [remote('both'), remote('server'), remote('restored')]);
+    const view = setup(
+      [local('both'), restored, otherModule],
+      [remote('both'), remote('server'), remote('restored')],
+    );
     expect(await view.findByText('Сетевой server')).toBeInTheDocument();
     expect(view.getByText('Локальный both')).toBeInTheDocument();
     expect(view.queryByText('Сетевой both')).toBeNull();
@@ -73,7 +76,9 @@ describe('корзина документов', () => {
   it('показывает пустую корзину и объясняет срок хранения', async () => {
     const view = setup();
     expect(await view.findByText('Корзина пуста')).toBeInTheDocument();
-    expect(view.getByText('Документы остаются в корзине, пока вы их не вернёте')).toBeInTheDocument();
+    expect(
+      view.getByText('Документы остаются в корзине, пока вы их не вернёте'),
+    ).toBeInTheDocument();
   });
 
   it('без сети показывает локальные удаления и позволяет вернуть без запроса', async () => {
@@ -85,8 +90,20 @@ describe('корзина документов', () => {
   });
 
   it('показывает загрузку, затем ошибку с локальными строками и повторяет запрос', async () => {
-    const transport = { listTrash: vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue([remote('server')]) };
-    const props = { objects: [local('here')], loaded: true, online: true, version: 0, transport, onRestore: vi.fn() };
+    const transport = {
+      listTrash: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue([remote('server')]),
+    };
+    const props = {
+      objects: [local('here')],
+      loaded: true,
+      online: true,
+      version: 0,
+      transport,
+      onRestore: vi.fn(),
+    };
     const view = render(<Trash {...props} />);
     expect(view.getByText('Обновляю корзину…')).toBeInTheDocument();
     expect(await view.findByText(/Не удалось загрузить корзину с сервера/)).toBeInTheDocument();
@@ -115,8 +132,22 @@ describe('корзина документов', () => {
 
   it('старый ответ не возвращает в корзину документ, уже восстановленный локально', async () => {
     let resolve!: (docs: DocTrashItem[]) => void;
-    const transport = { listTrash: vi.fn(() => new Promise<DocTrashItem[]>((done) => { resolve = done; })) };
-    const props = { objects: [local('race')], loaded: true, online: true, version: 0, transport, onRestore: vi.fn() };
+    const transport = {
+      listTrash: vi.fn(
+        () =>
+          new Promise<DocTrashItem[]>((done) => {
+            resolve = done;
+          }),
+      ),
+    };
+    const props = {
+      objects: [local('race')],
+      loaded: true,
+      online: true,
+      version: 0,
+      transport,
+      onRestore: vi.fn(),
+    };
     const view = render(<Trash {...props} />);
     await waitFor(() => expect(transport.listTrash).toHaveBeenCalledOnce());
     view.rerender(<Trash {...props} objects={[local('race', false)]} />);

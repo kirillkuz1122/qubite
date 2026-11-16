@@ -1,4 +1,5 @@
-/* Токены «Частиц»: шрифты и две темы. Значения совпадают с tokens.ts (проверяется тестом).
+/* Токены «Частиц»: шрифты и две темы. Цветной ТЕКСТ — токенами --q-*-ink (в светлой теме
+   они темнее и читаются, DS-013); заливки и точки — обычными цветами. Значения совпадают с tokens.ts (проверяется тестом).
    Тема — атрибут data-theme на <html>, форма точки — --q-round (0 — квадрат, 1 — круг). */
 @font-face {
   font-family: 'Qubite Fira';
@@ -72,7 +73,7 @@
   --q-panel-2: #24211d;
   --q-ink: #f3ede3;
   --q-mute: #a59c90;
-  --q-dim: #8a8176;
+  --q-dim: #968d82;
   --q-line: rgba(243, 237, 227, 0.12);
   --q-line-2: rgba(243, 237, 227, 0.26);
   --q-faint: rgba(243, 237, 227, 0.16);
@@ -82,6 +83,12 @@
   --q-green: #90dea5;
   --q-red: #f08b85;
   --q-peach: #ffb98a;
+  --q-orange-ink: #ff9852;
+  --q-sky-ink: #71cfff;
+  --q-yellow-ink: #ffe163;
+  --q-green-ink: #90dea5;
+  --q-red-ink: #f08b85;
+  --q-orange-hover: #ffad74;
   --q-on-accent: #100f0d;
   --q-veil: rgba(0, 0, 0, 0.5);
   --q-shadow: rgba(0, 0, 0, 0.55);
@@ -94,7 +101,7 @@
   --q-panel-2: #ebe4d8;
   --q-ink: #1f1a17;
   --q-mute: #5d5650;
-  --q-dim: #6e665e;
+  --q-dim: #665e56;
   --q-line: rgba(31, 26, 23, 0.12);
   --q-line-2: rgba(31, 26, 23, 0.26);
   --q-faint: rgba(31, 26, 23, 0.16);
@@ -104,6 +111,12 @@
   --q-green: #3fae69;
   --q-red: #c33f38;
   --q-peach: #f39a6b;
+  --q-orange-ink: #9c4a12;
+  --q-sky-ink: #12648f;
+  --q-yellow-ink: #7a5e00;
+  --q-green-ink: #256f41;
+  --q-red-ink: #b0352f;
+  --q-orange-hover: #e9772b;
   --q-on-accent: #1f1a17;
   --q-veil: rgba(243, 238, 229, 0.6);
   --q-shadow: rgba(60, 45, 30, 0.18);

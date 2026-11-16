@@ -27,11 +27,21 @@ interface TrashRow {
 
 /** Локальная очередь важнее сетевого ответа, ещё не увидевшего delete/restore. */
 function mergeTrash(objects: readonly LocalObject[], remote: readonly DocTrashItem[]): TrashRow[] {
-  const local = new Map(objects.filter((object) => object.object_type === DOCS_PAGE).map((object) => [object.id, object]));
+  const local = new Map(
+    objects
+      .filter((object) => object.object_type === DOCS_PAGE)
+      .map((object) => [object.id, object]),
+  );
   const rows = new Map<string, TrashRow>();
   for (const doc of remote) {
     const object = local.get(doc.id);
-    if (object && (object.pending || object.revision > doc.revision || (object.revision === doc.revision && !object.deleted))) continue;
+    if (
+      object &&
+      (object.pending ||
+        object.revision > doc.revision ||
+        (object.revision === doc.revision && !object.deleted))
+    )
+      continue;
     rows.set(doc.id, {
       id: doc.id,
       title: doc.title,
@@ -78,7 +88,9 @@ export function Trash({ objects, loaded, online, version, onRestore, transport: 
         if (alive) setLoading(false);
       }
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [online, version, retry, transport]);
 
   const rows = mergeTrash(objects, remote);
@@ -94,7 +106,9 @@ export function Trash({ objects, loaded, online, version, onRestore, transport: 
       await onRestore(id);
       setRemote((current) => current.filter((doc) => doc.id !== id));
     } catch {
-      setError('Не удалось вернуть документ на устройстве. Если он ещё не загружен, подключитесь к сети и повторите.');
+      setError(
+        'Не удалось вернуть документ на устройстве. Если он ещё не загружен, подключитесь к сети и повторите.',
+      );
     } finally {
       performing.current = false;
       setBusy(null);
@@ -104,30 +118,73 @@ export function Trash({ objects, loaded, online, version, onRestore, transport: 
   return (
     <section className="docs-trash" aria-label="Корзина документов">
       <p className="lead">Документы остаются в корзине, пока вы их не вернёте</p>
-      {!online && <Note>Без сети. Изменения сохраняются на устройстве и отправятся при связи.</Note>}
-      {failed && <Note>Не удалось загрузить корзину с сервера. Показаны документы с этого устройства.
-        <Button size="sm" onClick={() => setRetry((value) => value + 1)}>Повторить загрузку корзины</Button>
-      </Note>}
-      <Presence show={!!error}><Note tone="bad">{error}</Note></Presence>
+      {!online && (
+        <Note>Без сети. Изменения сохраняются на устройстве и отправятся при связи.</Note>
+      )}
+      {failed && (
+        <Note>
+          Не удалось загрузить корзину с сервера. Показаны документы с этого устройства.
+          <Button size="sm" onClick={() => setRetry((value) => value + 1)}>
+            Повторить загрузку корзины
+          </Button>
+        </Note>
+      )}
+      <Presence show={!!error}>
+        <Note tone="bad">{error}</Note>
+      </Presence>
       <Swap view={state} order={['loading', 'error', 'empty', 'rows']}>
-        {state === 'loading' ? <p className="later" role="status">Открываю корзину…</p>
-          : state === 'empty' ? <p className="docs-empty" role="status">Корзина пуста</p>
-          : <ul className="docs-trash-rows">
+        {state === 'loading' ? (
+          <p className="later" role="status">
+            Открываю корзину…
+          </p>
+        ) : state === 'empty' ? (
+          <p className="docs-empty" role="status">
+            Корзина пуста
+          </p>
+        ) : (
+          <ul className="docs-trash-rows">
             {drawn.map(({ item: doc, leaving }) => (
               <li key={doc.id} aria-hidden={leaving || undefined}>
-                <Presence className="docs-trash-row" show={!leaving} onLayout={() => { if (leaving) gone(doc.id); }}>
-                <div className="docs-trash-copy">
-                  <span className="docs-row-title">{doc.title}</span>
-                  <span className="docs-row-preview">{plainPreview(doc.preview) || 'Пустой документ'}</span>
-                  <time dateTime={new Date(doc.deleted).toISOString()}>Удалён {new Date(doc.deleted).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}</time>
-                </div>
-                <Button size="sm" disabled={busy !== null || leaving} aria-label={`Вернуть «${doc.title}»`} onClick={() => void restore(doc.id)}>{busy === doc.id ? 'Возвращаю…' : 'Вернуть'}</Button>
+                <Presence
+                  className="docs-trash-row"
+                  show={!leaving}
+                  onLayout={() => {
+                    if (leaving) gone(doc.id);
+                  }}
+                >
+                  <div className="docs-trash-copy">
+                    <span className="docs-row-title">{doc.title}</span>
+                    <span className="docs-row-preview">
+                      {plainPreview(doc.preview) || 'Пустой документ'}
+                    </span>
+                    <time dateTime={new Date(doc.deleted).toISOString()}>
+                      Удалён{' '}
+                      {new Date(doc.deleted).toLocaleDateString('ru', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </time>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={busy !== null || leaving}
+                    aria-label={`Вернуть «${doc.title}»`}
+                    onClick={() => void restore(doc.id)}
+                  >
+                    {busy === doc.id ? 'Возвращаю…' : 'Вернуть'}
+                  </Button>
                 </Presence>
               </li>
             ))}
-          </ul>}
+          </ul>
+        )}
       </Swap>
-      {loading && rows.length > 0 && <p className="later" role="status">Обновляю корзину…</p>}
+      {loading && rows.length > 0 && (
+        <p className="later" role="status">
+          Обновляю корзину…
+        </p>
+      )}
     </section>
   );
 }

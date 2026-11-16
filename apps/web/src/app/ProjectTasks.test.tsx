@@ -149,7 +149,9 @@ function mount(board: ProjectBoard | null = TWO_COLUMNS, settings = false) {
       },
     };
     return (
-      <ShellCtx.Provider value={{ cheer: vi.fn(), fly: vi.fn(), go: vi.fn(), wide: false }}>
+      <ShellCtx.Provider
+        value={{ cheer: vi.fn(), fly: vi.fn(), go: vi.fn(), write: vi.fn(), wide: false }}
+      >
         <PlannerCtx.Provider value={planner}>
           {settings ? (
             <ProjectBoardSettings project={project} onClose={calls.onClose} />

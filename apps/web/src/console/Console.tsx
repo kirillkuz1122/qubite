@@ -172,7 +172,9 @@ function ConfirmPassword({ onDone }: { onDone(ok: boolean): void }) {
         <Button type="submit" variant="fill" disabled={busy || !password}>
           {busy ? 'Проверяем…' : 'Подтвердить'}
         </Button>
-        <Button onClick={() => onDone(false)}>Отмена</Button>
+        <Button variant="quiet" onClick={() => onDone(false)}>
+          Отмена
+        </Button>
       </div>
       {error === null && busy && <Note>Проверяем пароль…</Note>}
     </form>

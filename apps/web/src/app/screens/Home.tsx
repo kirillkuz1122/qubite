@@ -297,7 +297,7 @@ function HomeFiledRow({
         </Link>
         <div className="elik">
           <time dateTime={f.at}>{ago(f.at, new Date())}</time>
-          <Button size="sm" dot={false} disabled={revert.isPending || leaving} onClick={undo}>
+          <Button size="sm" variant="quiet" disabled={revert.isPending || leaving} onClick={undo}>
             Откатить
           </Button>
         </div>

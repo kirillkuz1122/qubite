@@ -477,7 +477,7 @@ export function DocsScreen() {
                   onClick={() => void create()}
                   disabled={creating || importing || !sync.client}
                 >
-                  + Документ
+                  Новый документ
                 </Button>
                 {importButton}
               </div>
@@ -783,7 +783,7 @@ function Document({
             <Button variant="fill" disabled={deleting} onClick={() => void remove()}>
               {deleting ? 'Удаляю…' : 'Удалить'}
             </Button>
-            <Button disabled={deleting} onClick={() => setConfirmDelete(false)}>
+            <Button variant="quiet" disabled={deleting} onClick={() => setConfirmDelete(false)}>
               Отмена
             </Button>
           </div>

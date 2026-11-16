@@ -133,7 +133,7 @@
   z-index: 5;
   display: flex;
   gap: 18px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-dim);
 }
 .ld-legend span {
@@ -257,7 +257,7 @@
 }
 .ld-steps span {
   margin-left: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-dim);
 }
 
@@ -368,7 +368,7 @@
 .ld-who {
   margin-left: auto;
   align-self: flex-start;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-dim);
   white-space: nowrap;
 }
@@ -398,7 +398,7 @@
   border-radius: calc(var(--q-round) * 18px);
   background: var(--q-panel);
   border: 1px solid var(--q-line);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--q-mute);
   opacity: 0;
   will-change: transform, opacity;
@@ -408,7 +408,7 @@
   margin-bottom: 4px;
   color: var(--q-ink);
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 .ld-card .q-dot {
   display: block;
@@ -506,7 +506,7 @@
     min-height: 44px;
   }
   .ld-lead {
-    font-size: 14.5px;
+    font-size: 15px;
     margin-bottom: 18px;
   }
   .ld-hero .q-command {
@@ -514,7 +514,7 @@
     padding-left: 18px;
   }
   .ld-hint {
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .ld-legend,
   .ld-cue {

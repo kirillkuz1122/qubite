@@ -189,7 +189,7 @@ test('проект как папка: дело, файл, документ, па
     `/api/v1/projects/${qubite}/files/%D0%BF%D0%BB%D0%B0%D0%BD.txt`,
   );
 
-  await page.getByRole('button', { name: '+ Документ' }).click();
+  await page.getByRole('button', { name: 'Новый документ' }).click();
   const form = page.getByRole('form', { name: 'Новый документ' });
   await form.getByLabel('Название').fill('Устройство Qubite');
   await form.getByRole('button', { name: 'Создать' }).click();

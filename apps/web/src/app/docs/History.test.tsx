@@ -203,9 +203,7 @@ describe('история документа', () => {
     expect(view.store.restoreVersion).not.toHaveBeenCalled();
     await waitFor(() => expect(view.queryByRole('dialog')).toBeNull());
     fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
-    fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }),
-    );
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }));
     await waitFor(() =>
       expect(view.store.restoreVersion).toHaveBeenCalledWith(
         'page',
@@ -243,12 +241,8 @@ describe('история документа', () => {
     await waitFor(() => expect(view.queryByRole('dialog')).toBeNull());
     fireEvent.click(view.getByRole('button', { name: /Удалить версию/ }));
     expect(view.transport.deleteVersion).not.toHaveBeenCalled();
-    fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить' }),
-    );
-    await waitFor(() =>
-      expect(view.transport.deleteVersion).toHaveBeenCalledWith('page', 'v1'),
-    );
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить' }));
+    await waitFor(() => expect(view.transport.deleteVersion).toHaveBeenCalledWith('page', 'v1'));
   });
 
   it('без сети не запрашивает историю и запрещает сохранение', () => {
@@ -268,9 +262,7 @@ describe('история документа', () => {
       window.dispatchEvent(new Event('offline'));
     });
     fireEvent.click(view.getByRole('button', { name: 'Восстановить' }));
-    fireEvent.click(
-      within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }),
-    );
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Восстановить' }));
     await waitFor(() => expect(view.store.restoreVersion).toHaveBeenCalledOnce());
   });
 

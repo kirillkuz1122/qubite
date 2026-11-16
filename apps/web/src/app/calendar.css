@@ -50,7 +50,9 @@
   flex: none;
   margin-left: auto;
 }
-.calendar-new-label {
+.calendar-new-label,
+.calendar-new-event .q-dot {
+  /* на телефоне кнопка — один значок «+»; точка и подпись — на ПК */
   display: none;
 }
 .calendar-new-icon,
@@ -132,11 +134,11 @@
   font-size: 12px;
 }
 .calendar .is-today {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 .calendar-all-day {
   border-block: 1px solid var(--q-line);
-  font-size: 11px;
+  font-size: 12px;
 }
 .calendar-all-label {
   padding: 8px 4px 8px 0;
@@ -161,7 +163,7 @@
   background: var(--q-panel);
   color: var(--q-ink);
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: calc(var(--q-round) * 8px);
 }
 /* одна строка с многоточием; полное название — в подписи кнопки */
@@ -549,7 +551,7 @@
     order: 1;
     flex: 1 0 100%;
     flex-wrap: nowrap;
-    font-size: 11px;
+    font-size: 13px;
   }
   .calendar .calendar-new-event {
     order: 0;
@@ -557,10 +559,13 @@
     width: auto;
     margin-left: 0;
     padding-inline: 12px;
-    font-size: 12px;
+    font-size: 13px;
   }
   .calendar-new-label {
     display: inline;
+  }
+  .calendar-new-event .q-dot {
+    display: inline-block;
   }
   .calendar-new-icon {
     display: none;

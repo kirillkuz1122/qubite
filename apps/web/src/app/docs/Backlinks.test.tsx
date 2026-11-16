@@ -87,7 +87,10 @@ describe('Ссылаются сюда', () => {
   it('обычный клик открывает через переход приложения, Ctrl-клик — как ссылка', () => {
     const open = vi.fn();
     const view = render(
-      <BacklinksList backlinks={[{ id: 'doc', type: 'docs.page', title: 'Источник' }]} open={open} />,
+      <BacklinksList
+        backlinks={[{ id: 'doc', type: 'docs.page', title: 'Источник' }]}
+        open={open}
+      />,
     );
     const link = view.getByRole('link');
     fireEvent.click(link, { ctrlKey: true });

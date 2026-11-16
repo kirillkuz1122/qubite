@@ -25,7 +25,7 @@ export function AiSettings() {
   return (
     <>
       <div className="ai-back">
-        <Button size="sm" dot={false} onClick={() => void navigate({ to: '/settings' })}>
+        <Button size="sm" variant="quiet" onClick={() => void navigate({ to: '/settings' })}>
           ← Настройки
         </Button>
       </div>
